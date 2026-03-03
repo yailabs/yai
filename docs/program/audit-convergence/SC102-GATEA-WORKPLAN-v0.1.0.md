@@ -1,9 +1,9 @@
 ---
 id: SC102-GATEA-WORKPLAN-v0.1.0
-status: draft
+status: active
 owner: program-delivery
 effective_date: 2026-02-24
-revision: 1
+revision: 2
 issue:
   - https://github.com/yai-labs/yai/issues/183
   - https://github.com/yai-labs/yai/issues/184
@@ -81,3 +81,27 @@ All conditions must be true:
 - evidence completeness is 100%.
 - Gate A core claims impacted by D1 path are `confirmed`.
 - matrix reflects the same status as claims registry.
+
+## 6) Operational Update (2026-03-03)
+
+Execution spine alignment has been completed across canonical repos to support deterministic execution outcomes (`ok|error|nyi`) and remove drift between law/sdk/cli/runtime surfaces.
+
+Integrated branches:
+- `yai-law`: `feat/law-control-call-v1` (`79da14a`)
+- `yai`: `feat/runtime-control-call-spine-v1` (`bbf11ab`)
+- `yai-sdk`: `feat/sdk-abi-control-call-v1` (`cb82630`)
+- `yai-cli`: `chore/cli-bump-sdk-control-call-v1` (`3ff0df3`)
+
+Verification executed:
+- `yai/mind`: `cargo test --manifest-path mind/Cargo.toml transport::protocol::tests`
+- `yai-sdk`: `make test`
+- `yai-cli`: `make test`
+- `yai-cli` smoke:
+  - `./dist/bin/yai help --all`
+  - `./dist/bin/yai help yai.kernel.ws`
+  - `YAI_ROOT_SOCK=/tmp/yai-root-sock-does-not-exist.sock ./dist/bin/yai kernel ping` (deterministic `server unavailable`, rc `107`)
+
+Current Gate A interpretation:
+- D1 harness evidence remains valid as baseline.
+- Cross-repo execution spine is now in place for deterministic command-path behavior.
+- Closure to GREEN still requires claim-level confirmation updates in claims registry and matrix alignment.

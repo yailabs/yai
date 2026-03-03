@@ -3,7 +3,7 @@ id: EXECUTION-PLAN-AUDIT-CONVERGENCE-v0.1.0
 status: draft
 owner: governance
 effective_date: 2026-02-21
-revision: 1
+revision: 2
 scope: docs-only
 issue:
   - https://github.com/yai-labs/yai/issues/140
@@ -35,6 +35,18 @@ This plan is the operating contract for Program Delivery in `yai`.
 Constraint:
 - Do not rewrite the active phase scope mid-execution.
 - Re-centering applies at phase boundaries and on subsequent phases/MP closure.
+
+## 2.1) Baseline Update (2026-03-03)
+
+Execution spine implementation state:
+- `yai-law`: `feat/law-control-call-v1` (`79da14a`)
+- `yai`: `feat/runtime-control-call-spine-v1` (`bbf11ab`)
+- `yai-sdk`: `feat/sdk-abi-control-call-v1` (`cb82630`)
+- `yai-cli`: `chore/cli-bump-sdk-control-call-v1` (`3ff0df3`)
+
+Operational note:
+- this update enables deterministic command execution semantics required by Gate A paths,
+- claim status remains governed by `infra-grammar.v0.1.json` closure rules.
 
 ## 3) What "GREEN" means for v0.1.0 (non-hype)
 For v0.1.0, GREEN means:

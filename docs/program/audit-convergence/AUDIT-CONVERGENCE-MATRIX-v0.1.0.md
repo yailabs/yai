@@ -2,7 +2,7 @@
 id: AUDIT-CONVERGENCE-MATRIX-v0.1.0
 status: draft
 owner: governance
-updated: 2026-02-21
+updated: 2026-03-03
 registry: docs/50-validation/audits/claims/infra-grammar.v0.1.json
 plan: docs/20-program/audit-convergence/EXECUTION-PLAN-v0.1.0.md
 ---
@@ -65,3 +65,19 @@ Do not report synthetic percentages disconnected from claim status.
   - `DOMAIN_PACK_ID=D1-digital/egress-v1 BASELINE_ID=baseline-deny ./run/run-three.sh`
 - Result: `3/3 PASS` (simulation harness) with indexed evidence per run.
 - Canonical finding: `docs/50-validation/audits/findings/FINDING-001-sc102-d1-harness-runset.md`
+
+## 6) Execution Spine Snapshot (2026-03-03)
+
+Cross-repo deterministic execution spine branches prepared and pushed:
+- `yai-law` `feat/law-control-call-v1` (`79da14a`)
+- `yai` `feat/runtime-control-call-spine-v1` (`bbf11ab`)
+- `yai-sdk` `feat/sdk-abi-control-call-v1` (`cb82630`)
+- `yai-cli` `chore/cli-bump-sdk-control-call-v1` (`3ff0df3`)
+
+Observed runtime semantics for command path:
+- registered command dispatch does not collapse to ad-hoc unknown path
+- deterministic non-success path available (`nyi` / `server unavailable`) with stable machine code mapping
+
+Gate impact:
+- Strengthens Trigger->Decision->Enforcement chain readiness for Gate A.
+- Does not by itself flip claims to `confirmed`; claim registry update remains mandatory closure step.
