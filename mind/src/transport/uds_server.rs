@@ -1,4 +1,8 @@
 use crate::providers::client::{ProviderClient, ProviderRequest, ProviderResponse};
+use crate::transport::protocol::{
+    deterministic_error_reply, ControlCallReplyV1, ControlCallRequestV1, YaiCommand,
+    is_valid_target_plane,
+};
 use anyhow::{anyhow, Result};
 use serde_json::Value;
 use std::io::{Read, Write};
@@ -73,6 +77,63 @@ impl EngineClient {
         let n = stream_mut.read(&mut buffer)?;
 
         Ok(serde_json::from_slice(&buffer[..n])?)
+    }
+
+    pub fn control_call(
+        &self,
+        target_plane: &str,
+        command_id: &str,
+        argv: &[String],
+    ) -> ControlCallReplyV1 {
+        if !is_valid_target_plane(target_plane) {
+            return deterministic_error_reply(
+                command_id,
+                target_plane,
+                "INVALID_TARGET",
+                "INVALID_TARGET_PLANE",
+            );
+        }
+
+        let request = ControlCallRequestV1 {
+            req_type: "yai.control.call.v1".to_string(),
+            target_plane: target_plane.to_string(),
+            command_id: command_id.to_string(),
+            argv: argv.to_vec(),
+        };
+
+        let payload = match serde_json::to_value(&request) {
+            Ok(v) => v,
+            Err(_) => {
+                return deterministic_error_reply(
+                    command_id,
+                    target_plane,
+                    "INTERNAL_ERROR",
+                    "REQUEST_ENCODE_FAILED",
+                );
+            }
+        };
+
+        let raw = match self.send_raw(YaiCommand::ControlCall as u32, &payload) {
+            Ok(v) => v,
+            Err(_) => {
+                return deterministic_error_reply(
+                    command_id,
+                    target_plane,
+                    "INTERNAL_ERROR",
+                    "CONTROL_CALL_TRANSPORT_FAILED",
+                );
+            }
+        };
+
+        match serde_json::from_value::<ControlCallReplyV1>(raw) {
+            Ok(reply) => reply,
+            Err(_) => deterministic_error_reply(
+                command_id,
+                target_plane,
+                "INTERNAL_ERROR",
+                "MALFORMED_CONTROL_REPLY",
+            ),
+        }
     }
 }
 
