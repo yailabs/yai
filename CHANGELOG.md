@@ -16,7 +16,7 @@ and this project adheres to Semantic Versioning.
 
 ### Changed
 
-- kernel: implemented real `yai.kernel.ws` runtime actions (`create|reset|destroy`) on `control.call`, creating/removing workspace layout under `~/.yai/run/<ws_id>/` with manifest generation.
+- kernel: implemented real `yai.kernel.ws` runtime actions (`create|reset|destroy`) on `control.call`, creating/removing workspace layout under `~/.yai/run/{workspace_id}/` with manifest generation.
 - release: align `deps/yai-law` and `deps/yai-cli.ref` to yai-law/yai-cli main heads for strict pin gates.
 - core: make workspace id validation portable in C11 by removing `strnlen` dependency in `root/include/ws_id.h`.
 
