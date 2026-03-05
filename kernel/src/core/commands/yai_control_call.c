@@ -41,8 +41,13 @@ int yai_session_handle_control_call(
         int rc = yai_session_handle_workspace_action(env->ws_id, action);
         if (rc == 0)
         {
-            char reason[96];
-            snprintf(reason, sizeof(reason), "workspace_%s", action);
+            const char *reason = "workspace_updated";
+            if (strcmp(action, "create") == 0)
+                reason = "workspace_created";
+            else if (strcmp(action, "reset") == 0)
+                reason = "workspace_reset";
+            else if (strcmp(action, "destroy") == 0)
+                reason = "workspace_destroyed";
             yai_session_send_exec_reply(client_fd, env, "ok", "OK", reason, command_id, "kernel", NULL);
             return 0;
         }
