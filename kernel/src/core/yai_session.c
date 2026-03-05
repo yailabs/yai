@@ -1,11 +1,10 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "yai_session.h"
-#include "control_transport.h"
+#include "yai_session_internal.h"
 #include "ws_id.h"
 
 #include <transport.h>
-#include <yai_protocol_ids.h>
 #include <protocol.h>
 
 #include <stdlib.h>
@@ -16,8 +15,6 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <unistd.h>
-#include <signal.h>
 
 /* ============================================================
    GLOBAL REGISTRY
@@ -58,6 +55,7 @@ static int ensure_run_tree(const char *home)
 
     return 0;
 }
+
 
 /* ============================================================
    WORKSPACE
@@ -183,31 +181,6 @@ void yai_session_release(yai_session_t *s)
 }
 
 /* ============================================================
-   RESPONSE HELPER
-   ============================================================ */
-
-static void send_binary_response(
-    int fd,
-    const yai_rpc_envelope_t *req,
-    uint32_t command_id,
-    const char *json_payload)
-{
-    yai_rpc_envelope_t resp;
-    memset(&resp, 0, sizeof(resp));
-
-    resp.magic = YAI_FRAME_MAGIC;
-    resp.version = YAI_PROTOCOL_IDS_VERSION;
-    resp.command_id = command_id;
-
-    strncpy(resp.ws_id, req->ws_id, sizeof(resp.ws_id) - 1);
-    strncpy(resp.trace_id, req->trace_id, sizeof(resp.trace_id) - 1);
-
-    resp.payload_len = (uint32_t)strlen(json_payload);
-
-    yai_control_write_frame(fd, &resp, json_payload);
-}
-
-/* ============================================================
    SESSION DISPATCH
    ============================================================ */
 
@@ -222,7 +195,7 @@ void yai_session_dispatch(
         return;
 
     if (env->ws_id[0] == '\0' || strlen(env->ws_id) == 0) {
-        send_binary_response(
+        yai_session_send_binary_response(
             client_fd,
             env,
             env->command_id,
@@ -234,7 +207,7 @@ void yai_session_dispatch(
 
     if (!yai_session_acquire(&s, env->ws_id))
     {
-        send_binary_response(
+        yai_session_send_binary_response(
             client_fd,
             env,
             env->command_id,
@@ -245,19 +218,26 @@ void yai_session_dispatch(
     switch (env->command_id)
     {
     case YAI_CMD_PING:
-        send_binary_response(
+        yai_session_send_binary_response(
             client_fd,
             env,
             YAI_CMD_PING,
             "{\"status\":\"pong\"}");
-        break;
+        goto cleanup;
+
+    case YAI_CMD_CONTROL_CALL:
+        (void)yai_session_handle_control_call(client_fd, env, payload, s);
+        goto cleanup;
 
     default:
-        send_binary_response(
+        yai_session_send_binary_response(
             client_fd,
             env,
             env->command_id,
-            "{\"status\":\"ok\"}");
-        break;
+            "{\"status\":\"nyi\",\"code\":\"NOT_IMPLEMENTED\",\"reason\":\"nyi_deterministic\"}");
+        goto cleanup;
     }
+
+cleanup:
+    yai_session_release(s);
 }

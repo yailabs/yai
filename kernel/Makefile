@@ -42,6 +42,9 @@ KERNEL_SRC := \
 	src/core/project_tree.c \
 	src/core/transport.c \
 	src/core/yai_session.c \
+	src/core/commands/yai_session_utils.c \
+	src/core/commands/yai_session_reply.c \
+	src/core/commands/yai_control_call.c \
 	src/core/rpc_binary.c \
 	src/core/rpc_codec.c \
 	src/bin/workspace_kernel_main.c

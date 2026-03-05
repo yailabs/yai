@@ -31,7 +31,8 @@ INCLUDES := \
 
 ROOT_SRC := \
 	src/yai_root_server.c \
-	src/control_transport.c
+	src/control_transport.c \
+	src/core/commands/root_command_dispatch.c
 
 # Single protocol runtime artifact (Fix #2)
 PROTOCOL_RUNTIME_LIB := ../build/runtime-protocol/libruntime_protocol.a
@@ -48,7 +49,7 @@ build: dirs $(TARGET)
 	@echo "--- [YAI-ROOT] Build Complete ---"
 
 dirs:
-	@mkdir -p $(BUILD_DIR)/src $(BIN_DIR)
+	@mkdir -p $(BUILD_DIR)/src $(BUILD_DIR)/src/core/commands $(BIN_DIR)
 
 $(TARGET): $(OBJS_ROOT) $(PROTOCOL_RUNTIME_LIB)
 	@echo "[LINK] $@"
