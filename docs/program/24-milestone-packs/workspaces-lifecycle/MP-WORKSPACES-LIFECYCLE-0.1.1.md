@@ -1,6 +1,6 @@
 ---
 id: MP-WORKSPACES-LIFECYCLE-0.1.1
-status: draft
+status: in_progress
 runbook: docs/program/23-runbooks/workspaces-lifecycle.md
 phase: "0.1.1 — Workspace create/open guardrails"
 adrs:
@@ -17,7 +17,8 @@ evidence_commands_required:
   - tools/bin/yai-verify
   - tools/bin/yai-suite
 issues:
-  - "N/A: workspace-lifecycle phase sequencing"
+  - "Parent: https://github.com/yai-labs/yai/issues/217"
+  - "Child: https://github.com/yai-labs/yai/issues/220"
 ---
 
 # MP-WORKSPACES-LIFECYCLE-0.1.1
@@ -43,5 +44,9 @@ Closure policy: mandatory `SKIP` is treated as `FAIL`.
 - [ ] Traceability links remain valid.
 
 ## Execution Snapshot
-- Status: `PLANNED`
+- Status: `IN_PROGRESS`
 - Evidence bundle: `docs/program/24-milestone-packs/workspaces-lifecycle/evidence/0.1.1/`
+
+## Traceability
+- Parent issue: `#217`
+- MP issue: `#220`
