@@ -20,7 +20,7 @@ This directory is the primary documentation entrypoint for the YAI platform impl
 
 - Normative contract authority is pinned from `deps/yai-law/`.
 - Operational evidence bundles and field collateral are maintained in `yai-ops`.
-- CLI and SDK operator/control surfaces are maintained in `yai-cli` and `yai-sdk`.
+- CLI and SDK command/control surfaces are maintained in `yai-cli` and `yai-sdk`.
 
 ## Interpretation rule
 

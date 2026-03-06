@@ -348,8 +348,8 @@ The registry is already expanded (200 IDs per group). Workspace lifecycle v2 MUS
 - If runtime handler is missing, response MUST be deterministic (`nyi`/mapped equivalent), never `unknown command`.
 - Help surfaces MUST expose both overview and full catalog views:
   - `yai help` -> overview (compact)
-  - `yai help <group>` -> compact group overview
-  - `yai help <group>:all` -> full group command expansion
+  - `yai help <entrypoint>` -> compact entrypoint overview
+  - `yai help --all` / `yai help --plumbing` -> expanded command surfaces
 
 ### 11.6 Mediation hard rule
 CLI access is always mediated by governance plane:

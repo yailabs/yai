@@ -29,6 +29,7 @@ This repository does not own:
 - Evidence and traceability as first-class artifacts
 - Pinned contract consumption with explicit upgrade discipline
 - Mind surfaces governed as part of platform architecture (scope-dependent in program phases)
+- Workspace-first runtime operations with kernel-owned workspace state
 
 ## Program anchors
 
