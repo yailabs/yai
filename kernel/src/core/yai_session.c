@@ -15,16 +15,14 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <yai_protocol_ids.h>
 
-/* ============================================================
-   GLOBAL REGISTRY
-   ============================================================ */
+/* Global in-process session registry. */
 
 yai_session_t g_session_registry[MAX_SESSIONS] = {0};
 
-/* ============================================================
-   INTERNAL UTIL
-   ============================================================ */
+/* Internal helpers. */
 
 static const char *yai_get_home(void)
 {
@@ -57,9 +55,7 @@ static int ensure_run_tree(const char *home)
 }
 
 
-/* ============================================================
-   WORKSPACE
-   ============================================================ */
+/* Workspace path/state helpers. */
 
 bool yai_ws_validate_id(const char *ws_id)
 {
@@ -69,6 +65,7 @@ bool yai_ws_validate_id(const char *ws_id)
 bool yai_ws_build_paths(yai_workspace_t *ws, const char *ws_id)
 {
     const char *home = yai_get_home();
+    time_t now = time(NULL);
     if (!ws || !home || !yai_ws_validate_id(ws_id))
         return false;
 
@@ -79,26 +76,29 @@ bool yai_ws_build_paths(yai_workspace_t *ws, const char *ws_id)
     snprintf(ws->run_dir, MAX_PATH_LEN,
              "%s/.yai/run/%s", home, ws_id);
 
+    snprintf(ws->root_path, MAX_PATH_LEN,
+             "%s/.yai/workspaces/%s", home, ws_id);
+
     snprintf(ws->lock_file, MAX_PATH_LEN,
              "%s/lock", ws->run_dir);
 
     snprintf(ws->pid_file, MAX_PATH_LEN,
              "%s/kernel.pid", ws->run_dir);
 
-    ws->state = YAI_WS_CREATED;
+    ws->created_at = (long)now;
+    ws->updated_at = (long)now;
+    ws->state = YAI_WS_ACTIVE;
     return true;
 }
 
-/* ============================================================
-   SESSION ACQUIRE
-   ============================================================ */
+/* Session acquire/release lifecycle. */
 
 bool yai_session_acquire(yai_session_t **out, const char *ws_id)
 {
     if (!out || !ws_id)
         return false;
 
-    /* 1️⃣ Already active */
+    /* Fast path: return an already-active session for the workspace. */
 
     for (int i = 0; i < MAX_SESSIONS; i++)
     {
@@ -110,7 +110,7 @@ bool yai_session_acquire(yai_session_t **out, const char *ws_id)
         }
     }
 
-    /* 2️⃣ Allocate new slot */
+    /* Allocate a new slot when no active session is found. */
 
     for (int i = 0; i < MAX_SESSIONS; i++)
     {
@@ -180,9 +180,7 @@ void yai_session_release(yai_session_t *s)
     memset(s, 0, sizeof(*s));
 }
 
-/* ============================================================
-   SESSION DISPATCH
-   ============================================================ */
+/* Session dispatch entrypoint. */
 
 void yai_session_dispatch(
     int client_fd,
@@ -195,11 +193,23 @@ void yai_session_dispatch(
         return;
 
     if (env->ws_id[0] == '\0' || strlen(env->ws_id) == 0) {
-        yai_session_send_binary_response(
-            client_fd,
-            env,
-            env->command_id,
-            "{\"status\":\"error\",\"reason\":\"ws_required\"}");
+        if (env->command_id == YAI_CMD_CONTROL_CALL) {
+            yai_session_send_exec_reply(
+                client_fd,
+                env,
+                "error",
+                "BAD_ARGS",
+                "ws_required",
+                "yai.kernel.unknown",
+                "kernel",
+                NULL);
+        } else {
+            yai_session_send_binary_response(
+                client_fd,
+                env,
+                env->command_id,
+                "{\"status\":\"error\",\"reason\":\"ws_required\"}");
+        }
         return;
     }
 
@@ -207,11 +217,23 @@ void yai_session_dispatch(
 
     if (!yai_session_acquire(&s, env->ws_id))
     {
-        yai_session_send_binary_response(
-            client_fd,
-            env,
-            env->command_id,
-            "{\"status\":\"error\",\"reason\":\"session_denied\"}");
+        if (env->command_id == YAI_CMD_CONTROL_CALL) {
+            yai_session_send_exec_reply(
+                client_fd,
+                env,
+                "error",
+                "RUNTIME_NOT_READY",
+                "session_denied",
+                "yai.kernel.unknown",
+                "kernel",
+                NULL);
+        } else {
+            yai_session_send_binary_response(
+                client_fd,
+                env,
+                env->command_id,
+                "{\"status\":\"error\",\"reason\":\"session_denied\"}");
+        }
         return;
     }
 

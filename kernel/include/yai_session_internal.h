@@ -14,9 +14,13 @@ int yai_session_extract_argv_flag_value(
 
 int yai_session_path_exists(const char *path);
 int yai_session_build_run_path(char *out, size_t out_cap, const char *suffix);
-int yai_session_read_manifest_layout(const char *ws_id, char *layout, size_t layout_cap, long *created_at);
+int yai_session_read_workspace_info(const char *ws_id, yai_workspace_runtime_info_t *out);
 int yai_session_build_workspace_list_json(char *out, size_t out_cap, int *count_out);
-int yai_session_handle_workspace_action(const char *ws_id, const char *action);
+int yai_session_handle_workspace_action(
+    const char *ws_id,
+    const char *action,
+    const char *root_path_opt,
+    yai_workspace_runtime_info_t *info_out);
 
 void yai_session_send_binary_response(
     int fd,

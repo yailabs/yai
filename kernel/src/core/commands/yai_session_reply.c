@@ -7,6 +7,64 @@
 #include <string.h>
 #include <yai_protocol_ids.h>
 
+static int build_exec_reply_v1(
+    char *out,
+    size_t out_cap,
+    const char *status,
+    const char *code,
+    const char *reason,
+    const char *command_id,
+    const char *target_plane,
+    const char *trace_id,
+    const char *data_json)
+{
+    if (!out || out_cap == 0)
+        return -1;
+
+    const char *trace = (trace_id && trace_id[0]) ? trace_id : "";
+    const char *cmd = (command_id && command_id[0]) ? command_id : "yai.kernel.unknown";
+    const char *plane = (target_plane && target_plane[0]) ? target_plane : "kernel";
+    const char *st = (status && status[0]) ? status : "error";
+    const char *cd = (code && code[0]) ? code : "INTERNAL_ERROR";
+    const char *rs = (reason && reason[0]) ? reason : "internal_error";
+    const char *data = (data_json && data_json[0]) ? data_json : NULL;
+
+    int n;
+    if (data)
+    {
+        n = snprintf(
+            out,
+            out_cap,
+            "{\"type\":\"yai.exec.reply.v1\",\"status\":\"%s\",\"code\":\"%s\",\"reason\":\"%s\","
+            "\"command_id\":\"%s\",\"target_plane\":\"%s\",\"trace_id\":\"%s\",\"data\":%s}",
+            st,
+            cd,
+            rs,
+            cmd,
+            plane,
+            trace,
+            data);
+    }
+    else
+    {
+        n = snprintf(
+            out,
+            out_cap,
+            "{\"type\":\"yai.exec.reply.v1\",\"status\":\"%s\",\"code\":\"%s\",\"reason\":\"%s\","
+            "\"command_id\":\"%s\",\"target_plane\":\"%s\",\"trace_id\":\"%s\"}",
+            st,
+            cd,
+            rs,
+            cmd,
+            plane,
+            trace);
+    }
+
+    if (n <= 0 || (size_t)n >= out_cap)
+        return -1;
+    return 0;
+}
+
 void yai_session_send_binary_response(
     int fd,
     const yai_rpc_envelope_t *req,
@@ -41,46 +99,16 @@ void yai_session_send_exec_reply(
     const char *data_json)
 {
     char out[2048];
-    const char *trace = (req && req->trace_id[0]) ? req->trace_id : "";
-    const char *cmd = (command_id && command_id[0]) ? command_id : "yai.kernel.unknown";
-    const char *plane = (target_plane && target_plane[0]) ? target_plane : "kernel";
-    const char *st = (status && status[0]) ? status : "error";
-    const char *cd = (code && code[0]) ? code : "INTERNAL_ERROR";
-    const char *rs = (reason && reason[0]) ? reason : "internal_error";
-    const char *data = (data_json && data_json[0]) ? data_json : NULL;
-
-    int n;
-    if (data)
-    {
-        n = snprintf(
+    if (build_exec_reply_v1(
             out,
             sizeof(out),
-            "{\"type\":\"yai.exec.reply.v1\",\"status\":\"%s\",\"code\":\"%s\",\"reason\":\"%s\","
-            "\"command_id\":\"%s\",\"target_plane\":\"%s\",\"trace_id\":\"%s\",\"data\":%s}",
-            st,
-            cd,
-            rs,
-            cmd,
-            plane,
-            trace,
-            data);
-    }
-    else
-    {
-        n = snprintf(
-            out,
-            sizeof(out),
-            "{\"type\":\"yai.exec.reply.v1\",\"status\":\"%s\",\"code\":\"%s\",\"reason\":\"%s\","
-            "\"command_id\":\"%s\",\"target_plane\":\"%s\",\"trace_id\":\"%s\"}",
-            st,
-            cd,
-            rs,
-            cmd,
-            plane,
-            trace);
-    }
-
-    if (n <= 0 || (size_t)n >= sizeof(out))
+            status,
+            code,
+            reason,
+            command_id,
+            target_plane,
+            req ? req->trace_id : "",
+            data_json) != 0)
     {
         yai_session_send_binary_response(
             fd,

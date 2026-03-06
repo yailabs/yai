@@ -15,6 +15,7 @@ int yai_session_handle_control_call(
     char command_id[128] = {0};
     char action[64] = {0};
     char ws_arg[MAX_WS_ID_LEN] = {0};
+    char root_arg[MAX_PATH_LEN] = {0};
 
     if (yai_session_extract_json_string(payload, "command_id", command_id, sizeof(command_id)) != 0)
     {
@@ -32,18 +33,57 @@ int yai_session_handle_control_call(
 
     if (strcmp(command_id, "yai.kernel.ws") == 0)
     {
+        const char *ws_id = env->ws_id;
+        yai_workspace_runtime_info_t info;
+
         if (yai_session_extract_argv_first(payload, action, sizeof(action)) != 0)
         {
             yai_session_send_exec_reply(client_fd, env, "error", "BAD_ARGS", "bad_args", command_id, "kernel", NULL);
             return 0;
         }
 
-        int rc = yai_session_handle_workspace_action(env->ws_id, action);
+        if (yai_session_extract_argv_flag_value(payload, "--ws-id", "--ws", ws_arg, sizeof(ws_arg)) == 0 && ws_arg[0])
+            ws_id = ws_arg;
+
+        if (!yai_ws_id_is_valid(ws_id))
+        {
+            yai_session_send_exec_reply(client_fd, env, "error", "BAD_ARGS", "bad_ws_id", command_id, "kernel", NULL);
+            return 0;
+        }
+
+        if (yai_session_extract_argv_flag_value(payload, "--root", NULL, root_arg, sizeof(root_arg)) != 0)
+            root_arg[0] = '\0';
+
+        memset(&info, 0, sizeof(info));
+        int rc = yai_session_handle_workspace_action(ws_id, action, root_arg[0] ? root_arg : NULL, &info);
         if (rc == 0)
         {
-            char reason[96];
-            snprintf(reason, sizeof(reason), "workspace_%s", action);
-            yai_session_send_exec_reply(client_fd, env, "ok", "OK", reason, command_id, "kernel", NULL);
+            const char *reason = "workspace_updated";
+            char data[1024];
+            if (strcmp(action, "create") == 0)
+                reason = "workspace_created";
+            else if (strcmp(action, "reset") == 0)
+                reason = "workspace_reset";
+            else if (strcmp(action, "destroy") == 0)
+                reason = "workspace_destroyed";
+
+            if (strcmp(action, "destroy") == 0)
+            {
+                snprintf(data, sizeof(data),
+                         "{\"ws_id\":\"%s\",\"exists\":false,\"state\":\"destroyed\",\"updated_at\":%ld}",
+                         ws_id, info.updated_at);
+            }
+            else
+            {
+                snprintf(data, sizeof(data),
+                         "{\"ws_id\":\"%s\",\"exists\":true,\"state\":\"%s\",\"root_path\":\"%s\",\"created_at\":%ld,\"updated_at\":%ld}",
+                         info.ws_id[0] ? info.ws_id : ws_id,
+                         info.state[0] ? info.state : "active",
+                         info.root_path[0] ? info.root_path : "",
+                         info.created_at,
+                         info.updated_at);
+            }
+            yai_session_send_exec_reply(client_fd, env, "ok", "OK", reason, command_id, "kernel", data);
             return 0;
         }
         if (rc == -2)
@@ -58,6 +98,7 @@ int yai_session_handle_control_call(
     if (strcmp(command_id, "yai.kernel.ws_status") == 0)
     {
         const char *ws_id = env->ws_id;
+        yai_workspace_runtime_info_t info;
         if (yai_session_extract_argv_flag_value(payload, "--ws-id", "--ws", ws_arg, sizeof(ws_arg)) == 0 && ws_arg[0])
             ws_id = ws_arg;
         if (!yai_ws_id_is_valid(ws_id))
@@ -66,19 +107,18 @@ int yai_session_handle_control_call(
             return 0;
         }
 
-        char layout[32] = {0};
-        long created_at = 0;
-        char data[384];
-        if (yai_session_read_manifest_layout(ws_id, layout, sizeof(layout), &created_at) == 0)
+        char data[1024];
+        memset(&info, 0, sizeof(info));
+        if (yai_session_read_workspace_info(ws_id, &info) == 0 && info.exists)
         {
             snprintf(data, sizeof(data),
-                     "{\"ws_id\":\"%s\",\"exists\":true,\"layout\":\"%s\",\"created_at\":%ld}",
-                     ws_id, layout, created_at);
+                     "{\"ws_id\":\"%s\",\"exists\":true,\"state\":\"%s\",\"layout\":\"%s\",\"root_path\":\"%s\",\"created_at\":%ld,\"updated_at\":%ld}",
+                     info.ws_id, info.state, info.layout, info.root_path, info.created_at, info.updated_at);
             yai_session_send_exec_reply(client_fd, env, "ok", "OK", "workspace_status", command_id, "kernel", data);
         }
         else
         {
-            snprintf(data, sizeof(data), "{\"ws_id\":\"%s\",\"exists\":false}", ws_id);
+            snprintf(data, sizeof(data), "{\"ws_id\":\"%s\",\"exists\":false,\"state\":\"missing\"}", ws_id);
             yai_session_send_exec_reply(client_fd, env, "ok", "OK", "workspace_missing", command_id, "kernel", data);
         }
         return 0;

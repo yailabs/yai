@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-// kernel/include/yai_kernel.h  (pulito: niente trailing dot, guard coerente)
+/* Kernel public state and transition declarations. */
 #ifndef YAI_KERNEL_H
 #define YAI_KERNEL_H
 
@@ -8,7 +8,7 @@
 #include <stdbool.h>
 #include <time.h>
 
-// Stati Canonici (legacy / RFC tradotti). In Phase-1 non li tocchiamo.
+/* Canonical runtime states used by kernel execution flow. */
 typedef enum {
     YAI_STATE_CREATED = 0,
     YAI_STATE_PROVISIONED,
@@ -30,7 +30,7 @@ typedef struct {
 } yai_grant_t;
 
 void yai_scan_workspace(const char *path, int depth);
-// Kernel FSM transition (vault->status using yai_state_t)
+/* Kernel FSM transition (vault->status via yai_state_t). */
 int yai_kernel_transition(yai_vault_t *vault, yai_state_t to_state);
 
 #endif

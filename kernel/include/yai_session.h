@@ -21,17 +21,33 @@ typedef uint32_t yai_cap_mask_t;
 typedef enum {
     YAI_WS_CREATED = 0,
     YAI_WS_ACTIVE,
+    YAI_WS_ATTACHED,
+    YAI_WS_SUSPENDED,
+    YAI_WS_DESTROYED,
     YAI_WS_ERROR
 } yai_ws_state_t;
 
 typedef struct {
     char ws_id[MAX_WS_ID_LEN];
     char run_dir[MAX_PATH_LEN];
+    char root_path[MAX_PATH_LEN];
     char control_sock[MAX_PATH_LEN];
     char lock_file[MAX_PATH_LEN];
     char pid_file[MAX_PATH_LEN];
+    long created_at;
+    long updated_at;
     yai_ws_state_t state;
 } yai_workspace_t;
+
+typedef struct {
+    char ws_id[MAX_WS_ID_LEN];
+    int exists;
+    char state[24];
+    char root_path[MAX_PATH_LEN];
+    char layout[32];
+    long created_at;
+    long updated_at;
+} yai_workspace_runtime_info_t;
 
 typedef struct {
     uint32_t session_id;

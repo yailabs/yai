@@ -136,7 +136,8 @@ Quarantine is persisted pending state for an action/run:
 
 Canonical storage contract:
 
-Workspace root: `~/.yai/run/<ws_id>/`
+Runtime workspace metadata root: `~/.yai/run/<ws_id>/`
+Workspace working root (`root_path`): `~/.yai/workspaces/<ws_id>` by default, or explicit `--root`.
 
 Minimum layout (rev2):
 
@@ -151,6 +152,7 @@ Minimum layout (rev2):
 
 Rules:
 - `ws create` MUST create/validate layout + `manifest.json`
+- `manifest.json` MUST persist `ws_id`, `state`, `root_path`, `created_at`, `updated_at`
 - `ws open` MUST validate `manifest.json` and ABI compatibility
 - CLI MUST NOT touch storage directly:
   - `CLI -> Root -> Kernel -> storage`
