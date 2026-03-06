@@ -7,7 +7,7 @@ adrs:
   - docs/program/22-adr/ADR-006-unified-rpc.md
   - docs/program/22-adr/ADR-012-audit-convergence-gates.md
 spec_anchors:
-  - yai-law/registry/commands.v1.json
+  - deps/yai-law/registry/commands.v1.json
 issues:
   - "N/A: command-coverage index"
 ---
@@ -22,8 +22,8 @@ Relation to WS runbook:
 - This track defines coverage work across non-WS groups.
 
 Command coverage sequence:
-- `docs/program/24-milestone-packs/command-coverage/MP-COMMAND-COVERAGE-0.2.1.md` (engine)
-- `docs/program/24-milestone-packs/command-coverage/MP-COMMAND-COVERAGE-0.2.2.md` (memory)
+- `docs/program/24-milestone-packs/command-coverage/MP-COMMAND-COVERAGE-0.2.1.md` (root+kernel+boot status wave)
+- `docs/program/24-milestone-packs/command-coverage/MP-COMMAND-COVERAGE-0.2.2.md` (root+kernel+boot operational wave)
 - `docs/program/24-milestone-packs/command-coverage/MP-COMMAND-COVERAGE-0.2.3.md` (mind)
 - `docs/program/24-milestone-packs/command-coverage/MP-COMMAND-COVERAGE-0.2.4.md` (orch)
 - `docs/program/24-milestone-packs/command-coverage/MP-COMMAND-COVERAGE-0.2.5.md` (substrate)
