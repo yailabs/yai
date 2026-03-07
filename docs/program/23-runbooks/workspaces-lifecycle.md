@@ -84,6 +84,17 @@ Command inventory remains in the dedicated command-map file.
 - Multi-node orchestration and federated cross-workspace operations.
 - Mandatory SC103 (Mind) behavior for SC102 closure.
 
+## 3.1 Operator capability hooks (CLI surface)
+Runtime lifecycle operations are expected to be diagnosable through the operator capability pack:
+
+- `yai doctor runtime`
+- `yai doctor workspace`
+- `yai inspect workspace`
+- `yai verify workspace`
+- `yai verify alignment`
+
+These commands are operator-facing diagnostics/validation overlays and do not replace kernel-owned lifecycle truth.
+
 ## 4) Workspace model (physical and security baseline)
 
 ### 4.0 Workspace Model v2 (operational)
