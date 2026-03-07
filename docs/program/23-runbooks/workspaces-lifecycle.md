@@ -302,3 +302,18 @@ The exhaustive command inventory remains in:
 - data-plane compatibility checks integrated before `OPEN`.
 - isolation/path-jail guarantees verified under negative tests.
 - evidence published and traceability links resolve in audit convergence artifacts.
+
+## Runtime Resolution Authority
+
+Path and binary discovery for CLI/operator flows is owned by the canonical SDK resolver.
+Runtime callers must avoid machine-specific absolute paths and ad-hoc repository-relative fallback lists.
+
+Preferred control order:
+
+1. control endpoint / runtime API
+2. pidfile-driven stop/start orchestration
+3. only documented fallback mechanisms
+
+See:
+- `yai-law/docs/pointers/RUNTIME_RESOLUTION.pointer.md`
+- `yai-sdk/docs/RUNTIME_RESOLUTION_POLICY.md`
