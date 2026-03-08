@@ -1,599 +1,400 @@
----
-id: RB-DATA-PLANE
-title: Data Plane
-status: draft
-owner: runtime
-effective_date: 2026-02-19
-revision: 1
-supersedes: []
-depends_on:
-  - RB-ROOT-HARDENING
-  - RB-WORKSPACES-LIFECYCLE
-  - RB-ENGINE-ATTACH
-adr_refs:
-  - docs/20-program/22-adr/ADR-006-unified-rpc.md
-  - docs/20-program/22-adr/ADR-011-contract-baseline-lock.md
-decisions:
-  - docs/20-program/22-adr/ADR-006-unified-rpc.md
-  - docs/20-program/22-adr/ADR-011-contract-baseline-lock.md
-related:
-  adr: []
-  specs:
-    - deps/yai-law/specs/protocol/include/transport.h
-    - deps/yai-law/specs/protocol/include/auth.h
-  test_plans:
-    - docs/40-qualification/test-plans/hardfail.md
-  tools:
-    - tools/bin/yai-verify
-    - tools/bin/yai-gate
-    - tools/bin/yai-suite
-tags:
-  - runtime
-  - data-plane
----
-
 # RB-DATA-PLANE — Data Plane
 
-## 1) Purpose
-Define and deliver the staged data-plane rollout with deterministic tenant isolation, storage layout, and operational verification.
-
-## 2) Preconditions
-- [ ] Workspace path-jail and centralized `ws_id` validation are already active.
-- [ ] Root/Kernel baseline command path is stable.
-- [ ] Logger pipeline is available for storage/debug traces.
-
-## 3) Inputs
-- Repos/components: `yai`, `yai-cli`, `yai-law`
-- Storage targets: LMDB (authority), DuckDB (events), Redis (STM/context)
-- Validation tooling: `tools/bin/yai-verify`, `tools/bin/yai-gate`
-
-## 4) Procedure
-Use phased execution (`v5.0` to `v5.4`) with closure gates per phase and no cross-phase partial merges.
-
-## 5) Verification
-- Execute per-phase acceptance checks in this document.
-- Capture command outputs, artifacts, and logs for each phase closure.
-
-## 6) Failure Modes
-- Symptom: cross-tenant path leakage or side effects.
-  - Fix: enforce path jail helpers and block merges until tests pass.
-- Symptom: storage schema drifts between code and docs.
-  - Fix: update specs + implementation atomically and rerun gates.
-
-## 7) Rollback
-- Revert only the active phase branch and restore last green storage baseline.
-- Re-run build + verify before reopening the phase.
-
-## 8) References
-- Runbooks: `docs/20-program/23-runbooks/root-hardening.md`, `docs/20-program/23-runbooks/workspaces-lifecycle.md`, `docs/20-program/23-runbooks/engine-attach.md`
-- Test plans: `docs/40-qualification/test-plans/hardfail.md`
-
-## Traceability
-- ADR refs:
-  - `docs/20-program/22-adr/ADR-003-kernel-authority.md`
-  - `docs/20-program/22-adr/ADR-004-engine-execution.md`
-  - `docs/20-program/22-adr/ADR-010-boot-entrypoint.md`
-- MPs (to be filled as phases ship): `docs/20-program/24-milestone-packs/...`
-
-## Appendix — Detailed Operational Series (Legacy Detailed Content)
-
-### YAI Data Plane v5 — Operational Runbook Series
-
-**Branch:** `feat/data-plane-v5`  
-**Dependencies:** v2/v3 (ws_id validation + path jail) + v4 (L2 engine attach) + logger MANDATORY
+> **Status:** Draft | **Revision:** 2 | **Owner:** Runtime | **Effective date:** 2026-03-01  
+> **Supersedes:** RB-DATA-PLANE@rev1
 
 ---
 
-## Strategy: Phased Approach (v5.0 → v5.4)
+## Dependencies & References
 
-Breaking v5 into sub-phases prevents "massive refactor in the dark." Each phase builds on validated traffic from L0/L1/L2.
+**Depends on:**
+- RB-ROOT-HARDENING
+- RB-WORKSPACES-LIFECYCLE
+- RB-ENGINE-ATTACH
 
-**Why after v4:**
-- Need real L0/L1/L2 traffic to validate
-- Path jail must be battle-tested first
-- Logger observability critical for storage debugging
+**ADR refs:**
+- `docs/program/22-adr/ADR-006-unified-rpc.md`
+- `docs/program/22-adr/ADR-011-contract-baseline-lock.md`
+- `docs/program/22-adr/ADR-012-audit-convergence-gates.md`
 
-**Non-negotiable prerequisites:**
-1. ✅ Centralized ws_id validation + path jail active
-2. ✅ Command → authority table closed and tested (arming/role)
-3. ✅ Multi-stream logger operational (otherwise storage debug kills you)
+**Related specs:**
+- `deps/yai-law/specs/protocol/include/transport.h`
+- `deps/yai-law/specs/protocol/include/auth.h`
+- `deps/yai-law/specs/protocol/include/audit.h`
+- `deps/yai-law/specs/engine/schema/engine_cortex.v1.json`
+
+**Runbooks:**
+- `docs/program/23-runbooks/root-hardening.md`
+- `docs/program/23-runbooks/workspaces-lifecycle.md`
+- `docs/program/23-runbooks/engine-attach.md`
+- `docs/program/23-runbooks/mind-redis-stm.md`
+
+**Test plan:** `docs/40-qualification/test-plans/hardfail.md`
+
+**Tools:** `yai-check-pins` · `yai-verify` · `yai-gate` · `yai-suite`
 
 ---
 
-## v5.0: Contracts + Filesystem Layout (Before Writing Any DB)
+## 1. Purpose
 
-**Branch:** `feat/data-plane-v5.0-layout`
+Deliver the staged data-plane rollout for YAI with:
 
-### Objective
-Define ONCE AND FOR ALL where tenant DBs live (always using path jail).
+- **Deterministic tenant isolation** (workspace-scoped storage + strict path jail)
+- **Storage layout contract** (one canonical location per workspace)
+- **Operational verification** with closure gates per phase
+- **Audit-ready evidence capture** (command outputs, logs, artifacts)
 
-### Filesystem Layout Decision
+> **SC102-grade:** no Mind dependency required to ship v5.0–v5.2. v5.3 is optional and **must not** become a runtime hard dependency.
+
+---
+
+## 2. Scope
+
+### In scope
+- Workspace storage layout under `~/.yai/run/<ws_id>/`
+- Kernel authority store (L1) with minimal stable ABI
+- Engine event store (L2) for audit + forensics inputs
+- CLI surface that accesses storage **only through Kernel governance**
+- Per-phase acceptance, rollback discipline, and artifact evidence
+
+### Out of scope
+- SC103 graph causal queries and semantic layers (Mind)
+- High-throughput distributed storage / multi-node clustering
+- Cross-workspace queries (explicitly disallowed)
+
+---
+
+## 3. Preconditions (Non-negotiable)
+
+All MUST be true before starting any v5 phase:
+
+- [ ] Workspace lifecycle is stable and enforced (create / open / close / destroy)  
+  → `docs/program/23-runbooks/workspaces-lifecycle.md`
+- [ ] Centralized `ws_id` validation is active (Root / Kernel side)
+- [ ] Path jail is active and applied to **all** file operations under a workspace
+- [ ] Engine attach is stable and produces real traffic L0 / L1 / L2  
+  → `docs/program/23-runbooks/engine-attach.md`
+- [ ] Multi-stream logger is operational (kernel + engine logs at minimum)
+- [ ] Baseline lock policy is in force for `deps/yai-law` (pins aligned)  
+  → `docs/program/22-adr/ADR-011-contract-baseline-lock.md`
+
+---
+
+## 4. Data Plane Model (L1 / L2 / L3)
+
+| Layer | Component | Responsibilities |
+|-------|-----------|-----------------|
+| **L1** | Kernel | Authority, identity, session, permissions (fast lookup, minimal records) |
+| **L2** | Engine | Event store (append + query for audit / metrics / debug) |
+| **L3** | Mind *(optional, SC103)* | Short-term memory / context cache (Redis STM) |
+
+**Rule:** L3 must never be required to boot/run SC102. If Redis is absent, system must continue in `DEGRADED_READONLY` where applicable — never undefined behavior.
+
+---
+
+## 5. Canonical Filesystem Layout (Workspace Scoped)
+
+Workspace run directory: `~/.yai/run/<ws_id>/`
 
 ```
 ~/.yai/run/<ws_id>/
-├── manifest.json          # DB presence manifest
-├── authority.mdb          # LMDB (L1 Kernel)
-│   ├── data.mdb
+├── manifest.json          # authoritative storage inventory
+├── authority/
+│   ├── data.mdb           # kernel store (LMDB)
 │   └── lock.mdb
-├── events.duckdb          # DuckDB (L2 Engine)
+├── events/
+│   ├── events.duckdb      # engine store
+│   └── export/            # optional (parquet / jsonl)
 ├── engine/
-│   ├── control.sock
+│   ├── control.sock       # runtime control surfaces
 │   └── engine.pid
 └── logs/
     ├── kernel.log
-    └── engine.log
+    ├── engine.log
+    └── root.log           # optional
 ```
 
-### Redis Layout (L3 Mind)
-```
-yai:<ws_id>:stm:*          # Short-term memory keys
-yai:<ws_id>:context:*      # Active context (pinned)
-```
-- Prefix per tenant
-- Aggressive TTL for STM (10-60 minutes)
-- Pinned keys for active context
-- Unix socket local for latency + security
+> **Isolation rule:** no path in the data-plane may escape `~/.yai/run/<ws_id>/` once resolved through path jail.
 
-### DB Manifest
+---
 
-**File:** `~/.yai/run/<ws_id>/manifest.json`
+## 6. Phased Rollout (v5.0 → v5.4)
+
+Phases are **sequential**. Each phase MUST close with acceptance + evidence bundle.  
+No cross-phase partial merges.
+
+### Suggested branch naming
+
+```
+feat/data-plane-v5.0-layout
+feat/data-plane-v5.1-authority-lmdb
+feat/data-plane-v5.2-events-store
+feat/data-plane-v5.3-stm-optional
+feat/data-plane-v5.4-cli-surface
+```
+
+### Artifact locations
+
+- **Milestone packs:** `docs/program/24-milestone-packs/data-plane/MP-DATA-PLANE-v5.x.y.md`
+- **Evidence:** `docs/program/24-milestone-packs/data-plane/evidence/waveX-YYYY-MM-DD/`
+
+### Closure gates (every phase)
+
+At phase closure, capture:
+
+```bash
+tools/bin/yai-check-pins
+tools/bin/yai-verify list
+tools/bin/yai-verify core
+```
+
+Also include: hardfail test plans, command transcripts for create/open + storage checks.  
+Store outputs as evidence artifacts alongside `.exit` codes.
+
+---
+
+## 7. v5.0 — Layout + Manifest (No DB logic)
+
+### Objective
+
+Freeze the workspace storage contract:
+- where things live
+- how isolation is guaranteed
+- how inventory is declared (manifest)
+
+### Expected changes
+
+**Normative spec in yai-law:**
+- `deps/yai-law/specs/runtime/DATA_PLANE.md`
+
+**Workspace layout helpers:**
+- Kernel: `kernel/src/core/project_tree.c` (extend) OR new `kernel/src/core/storage_paths.c`
+- Header: `kernel/include/yai_storage_paths.h` (new)
+
+**`manifest.json` emitted** on `ws create`.
+
+### manifest.json — Minimum contract
+
+Path: `~/.yai/run/<ws_id>/manifest.json`
 
 ```json
 {
   "ws_id": "testws",
-  "created_at": "2026-02-16T10:30:00Z",
-  "owner_role": "operator",
+  "created_at": "2026-03-01T10:30:00Z",
   "storage": {
-    "authority": {
-      "type": "lmdb",
-      "path": "authority.mdb",
-      "version": "0.9.31",
-      "created_at": "2026-02-16T10:30:05Z"
-    },
-    "events": {
-      "type": "duckdb",
-      "path": "events.duckdb",
-      "version": "0.10.0",
-      "created_at": "2026-02-16T10:30:06Z"
-    },
-    "redis_prefix": "yai:testws"
+    "authority": { "type": "lmdb",   "path": "authority/",          "abi": "v1" },
+    "events":    { "type": "duckdb", "path": "events/events.duckdb", "abi": "v1" },
+    "stm":       { "type": "redis",  "prefix": "yai:testws",         "optional": true }
   }
 }
 ```
 
-### Files to create
-
-**A) Spec:** `deps/yai-law/storage/DATA_PLANE.md`
-
-Document the layout, path rules, and isolation guarantees.
-
-**B) Path helpers:** `kernel/src/core/storage_paths.c`
-
-```c
-#include "storage_paths.h"
-#include <limits.h>
-#include <stdio.h>
-#include <string.h>
-
-bool yai_storage_path_authority(char *out, size_t cap, const char *ws_id)
-{
-    const char *home = getenv("HOME");
-    if (!home) return false;
-    
-    int n = snprintf(out, cap, "%s/.yai/run/%s/authority.mdb", home, ws_id);
-    return n > 0 && (size_t)n < cap;
-}
-
-bool yai_storage_path_events(char *out, size_t cap, const char *ws_id)
-{
-    const char *home = getenv("HOME");
-    if (!home) return false;
-    
-    int n = snprintf(out, cap, "%s/.yai/run/%s/events.duckdb", home, ws_id);
-    return n > 0 && (size_t)n < cap;
-}
-
-bool yai_storage_path_manifest(char *out, size_t cap, const char *ws_id)
-{
-    const char *home = getenv("HOME");
-    if (!home) return false;
-    
-    int n = snprintf(out, cap, "%s/.yai/run/%s/manifest.json", home, ws_id);
-    return n > 0 && (size_t)n < cap;
-}
-```
-
 ### Acceptance v5.0
-- [ ] `DATA_PLANE.md` spec committed
-- [ ] Path helpers compile and test
-- [ ] `ws create` generates manifest.json with storage section
-- [ ] All paths validated through path jail
+
+- [ ] `manifest.json` is created on `ws create`
+- [ ] All data-plane paths are built via path-jail helpers
+- [ ] No file operation can escape the workspace run root
+- [ ] Evidence captured: command output + logs
 
 ---
 
-## v5.1: L1 Kernel — LMDB Authority Store (Minimal & Stable)
-
-**Branch:** `feat/data-plane-v5.1-lmdb`
+## 8. v5.1 — L1 Kernel Authority Store (LMDB, minimal ABI)
 
 ### Objective
-Permissions/sessions/capability map in LMDB. NO large data.
 
-### Use case
-- Session → principal mapping
-- Principal → capabilities/permissions
-- Workspace → ownership metadata
-- Authority decisions (fast lookups)
+Implement a minimal, stable authority store used by Kernel for:
+- session → principal
+- principal → role / capabilities
+- workspace → ownership metadata
 
-### Schema Design
+No large payloads. No event analytics. Fast lookup only.
 
-**Key:** `ws_id:entity_type:entity_id`
-- Example: `testws:session:sess_001`
-- Example: `testws:principal:user_alice`
+### Storage placement
 
-**Value:** Binary struct (versioned)
+- **Directory:** `~/.yai/run/<ws_id>/authority/`
+- **LMDB files:** `data.mdb`, `lock.mdb`
+
+### ABI record v1
 
 ```c
-struct yai_authority_record {
-    uint32_t abi_version;  // ALWAYS first (0x00000001)
-    uint64_t created_at;
-    uint32_t permissions;  // bitmask
-    uint8_t  role;         // guest/user/operator/sovereign
-    char     data[240];    // flexible payload
+#define YAI_AUTHORITY_ABI_V1 0x00000001
+
+struct yai_authority_record_v1 {
+    uint32_t abi_version;     // MUST be YAI_AUTHORITY_ABI_V1
+    uint64_t created_at_unix; // seconds
+    uint32_t permissions;     // bitmask
+    uint8_t  role;            // guest / user / operator / sovereign
+    uint8_t  reserved[7];     // alignment / future use
+    uint8_t  payload[224];    // fixed payload for v1
 } __attribute__((packed));
 ```
 
-### LMDB Safety Rules (Critical)
+> **LMDB safety rule:** LMDB returns pointers valid only while the transaction is alive. Kernel MUST copy any record out of `MDB_val` before closing / aborting transactions.
 
-**Zero-copy pitfall:**
-LMDB gives you pointers valid ONLY while transaction is alive.
+### Kernel interfaces
 
-**Safe patterns:**
+**New header:** `kernel/include/yai_storage_lmdb.h`  
+**New impl:** `kernel/src/storage/storage_lmdb.c`
 
-**Pattern A: Read-only txn per request (RECOMMENDED for v5.1)**
-```c
-MDB_txn *txn;
-mdb_txn_begin(env, NULL, MDB_RDONLY, &txn);
+Minimum API:
 
-MDB_val key, val;
-// ... get value ...
-
-struct yai_authority_record rec;
-memcpy(&rec, val.mv_data, sizeof(rec));  // COPY to stack
-
-mdb_txn_abort(txn);  // pointer invalid after this
-
-// Now use 'rec' safely
-```
-
-**Pattern B: Pinned txn (MORE COMPLEX)**
-- Keep txn alive with clear lifetime rules
-- Document ownership explicitly
-- Only if performance demands it
-
-### Files to create/modify
-
-**A) Header:** `kernel/include/storage_lmdb.h`
-
-```c
-#ifndef YAI_STORAGE_LMDB_H
-#define YAI_STORAGE_LMDB_H
-
-#include <lmdb.h>
-#include <stdbool.h>
-#include <stdint.h>
-
-#define YAI_AUTHORITY_ABI_VERSION 0x00000001
-
-struct yai_authority_record {
-    uint32_t abi_version;
-    uint64_t created_at;
-    uint32_t permissions;
-    uint8_t  role;
-    char     data[240];
-} __attribute__((packed));
-
-typedef struct {
-    MDB_env *env;
-    MDB_dbi dbi;
-    char ws_id[36];
-    char db_path[512];
-} yai_lmdb_ctx_t;
-
-/* Open LMDB for workspace (creates if needed) */
-bool yai_lmdb_open(yai_lmdb_ctx_t *ctx, const char *ws_id);
-
-/* Close LMDB */
-void yai_lmdb_close(yai_lmdb_ctx_t *ctx);
-
-/* Write authority record */
-bool yai_lmdb_put(yai_lmdb_ctx_t *ctx, 
-                  const char *key,
-                  const struct yai_authority_record *rec);
-
-/* Read authority record (copies to out) */
-bool yai_lmdb_get(yai_lmdb_ctx_t *ctx,
-                  const char *key,
-                  struct yai_authority_record *out);
-
-/* Delete record */
-bool yai_lmdb_del(yai_lmdb_ctx_t *ctx, const char *key);
-
-#endif
-```
-
-**B) Implementation:** `kernel/src/storage/storage_lmdb.c`
-
-```c
-#include "storage_lmdb.h"
-#include "storage_paths.h"
-#include "logger.h"
-#include <string.h>
-#include <time.h>
-
-bool yai_lmdb_open(yai_lmdb_ctx_t *ctx, const char *ws_id)
-{
-    if (!ctx || !ws_id) return false;
-    
-    memset(ctx, 0, sizeof(*ctx));
-    strncpy(ctx->ws_id, ws_id, sizeof(ctx->ws_id) - 1);
-    
-    if (!yai_storage_path_authority(ctx->db_path, sizeof(ctx->db_path), ws_id)) {
-        yai_log(YAI_LOG_WARN, ws_id, "LMDB path build failed");
-        return false;
-    }
-    
-    int rc = mdb_env_create(&ctx->env);
-    if (rc != 0) {
-        yai_log(YAI_LOG_WARN, ws_id, "LMDB env_create failed: %s", mdb_strerror(rc));
-        return false;
-    }
-    
-    mdb_env_set_mapsize(ctx->env, 10485760);  // 10MB initial
-    mdb_env_set_maxdbs(ctx->env, 4);
-    
-    rc = mdb_env_open(ctx->env, ctx->db_path, MDB_NOSUBDIR, 0600);
-    if (rc != 0) {
-        yai_log(YAI_LOG_WARN, ws_id, "LMDB env_open failed: %s", mdb_strerror(rc));
-        mdb_env_close(ctx->env);
-        return false;
-    }
-    
-    MDB_txn *txn;
-    rc = mdb_txn_begin(ctx->env, NULL, 0, &txn);
-    if (rc != 0) {
-        yai_log(YAI_LOG_WARN, ws_id, "LMDB txn_begin failed: %s", mdb_strerror(rc));
-        mdb_env_close(ctx->env);
-        return false;
-    }
-    
-    rc = mdb_dbi_open(txn, NULL, 0, &ctx->dbi);
-    if (rc != 0) {
-        yai_log(YAI_LOG_WARN, ws_id, "LMDB dbi_open failed: %s", mdb_strerror(rc));
-        mdb_txn_abort(txn);
-        mdb_env_close(ctx->env);
-        return false;
-    }
-    
-    mdb_txn_commit(txn);
-    yai_log(YAI_LOG_INFO, ws_id, "LMDB opened: %s", ctx->db_path);
-    return true;
-}
-
-void yai_lmdb_close(yai_lmdb_ctx_t *ctx)
-{
-    if (!ctx || !ctx->env) return;
-    
-    mdb_dbi_close(ctx->env, ctx->dbi);
-    mdb_env_close(ctx->env);
-    yai_log(YAI_LOG_INFO, ctx->ws_id, "LMDB closed");
-    memset(ctx, 0, sizeof(*ctx));
-}
-
-bool yai_lmdb_put(yai_lmdb_ctx_t *ctx, 
-                  const char *key,
-                  const struct yai_authority_record *rec)
-{
-    if (!ctx || !ctx->env || !key || !rec) return false;
-    
-    MDB_txn *txn;
-    int rc = mdb_txn_begin(ctx->env, NULL, 0, &txn);
-    if (rc != 0) return false;
-    
-    MDB_val k = { .mv_size = strlen(key), .mv_data = (void*)key };
-    MDB_val v = { .mv_size = sizeof(*rec), .mv_data = (void*)rec };
-    
-    rc = mdb_put(txn, ctx->dbi, &k, &v, 0);
-    if (rc != 0) {
-        mdb_txn_abort(txn);
-        return false;
-    }
-    
-    mdb_txn_commit(txn);
-    return true;
-}
-
-bool yai_lmdb_get(yai_lmdb_ctx_t *ctx,
-                  const char *key,
-                  struct yai_authority_record *out)
-{
-    if (!ctx || !ctx->env || !key || !out) return false;
-    
-    MDB_txn *txn;
-    int rc = mdb_txn_begin(ctx->env, NULL, MDB_RDONLY, &txn);
-    if (rc != 0) return false;
-    
-    MDB_val k = { .mv_size = strlen(key), .mv_data = (void*)key };
-    MDB_val v;
-    
-    rc = mdb_get(txn, ctx->dbi, &k, &v);
-    if (rc != 0) {
-        mdb_txn_abort(txn);
-        return false;
-    }
-    
-    // CRITICAL: Copy before txn_abort invalidates pointer
-    memcpy(out, v.mv_data, sizeof(*out));
-    
-    mdb_txn_abort(txn);
-    return true;
-}
-
-bool yai_lmdb_del(yai_lmdb_ctx_t *ctx, const char *key)
-{
-    if (!ctx || !ctx->env || !key) return false;
-    
-    MDB_txn *txn;
-    int rc = mdb_txn_begin(ctx->env, NULL, 0, &txn);
-    if (rc != 0) return false;
-    
-    MDB_val k = { .mv_size = strlen(key), .mv_data = (void*)key };
-    
-    rc = mdb_del(txn, ctx->dbi, &k, NULL);
-    if (rc != 0 && rc != MDB_NOTFOUND) {
-        mdb_txn_abort(txn);
-        return false;
-    }
-    
-    mdb_txn_commit(txn);
-    return true;
-}
-```
-
-### Integration in Kernel
-
-**In `yai_session_acquire()`:**
-```c
-bool yai_session_acquire(yai_session_t **out, const char *ws_id)
-{
-    // ... existing code ...
-    
-    // Open LMDB for this workspace
-    if (!yai_lmdb_open(&session->lmdb_ctx, ws_id)) {
-        yai_log(YAI_LOG_WARN, ws_id, "Failed to open authority store");
-        return false;
-    }
-    
-    *out = session;
-    return true;
-}
-```
+| Function | Description |
+|----------|-------------|
+| `yai_lmdb_open(ws_id)` | Open / create db for workspace |
+| `yai_lmdb_get(key, out)` | Read record |
+| `yai_lmdb_put(key, rec)` | Write record |
+| `yai_lmdb_del(key)` | Delete record |
+| `yai_lmdb_close()` | Close db |
 
 ### Acceptance v5.1
-- [ ] LMDB opens for workspace
-- [ ] Put/get/del operations work
-- [ ] Values copied safely (no dangling pointers)
-- [ ] DB file appears in manifest location
-- [ ] Test with 1000 records (performance baseline)
+
+- [ ] LMDB opens per workspace and creates files in authority dir
+- [ ] get / put / del works on 1K records
+- [ ] No dangling pointer usage (copy-before-close enforced)
+- [ ] Evidence captured: `yai-verify` outputs + log excerpts
 
 ---
 
-## v5.2: L2 Engine — Event/Knowledge Store
-
-**Branch:** `feat/data-plane-v5.2-events`
-
-### Decision Point: DuckDB vs RocksDB
-
-**Choose based on your use case:**
-
-### Option A: DuckDB (RECOMMENDED for v5.2)
-
-**When to use:**
-- Analytical queries, joins, metrics
-- Stress test aggregations
-- Debug/inspection with SQL
-- Event volumes: moderate (10K-1M events/day)
-
-**Pattern:**
-```c
-// Writer thread with batch flush
-void *event_writer_thread(void *arg) {
-    while (running) {
-        // Collect events from ring buffer
-        Event batch[1000];
-        size_t n = ring_buffer_drain(batch, 1000);
-        
-        // Batch insert
-        duckdb_append_events(db, batch, n);
-        
-        // Flush every 1s or 1000 events
-        if (should_flush()) {
-            duckdb_flush(db);
-        }
-    }
-}
-```
-
-### Option B: RocksDB
-
-**When to use:**
-- Very high frequency (100K+ events/sec)
-- Append-only log patterns
-- LSM tree benefits clear
-- Don't need SQL queries
-
-### My Recommendation
-
-**Start with DuckDB** because:
-1. SQL debugging is invaluable during development
-2. Your event volumes likely moderate initially
-3. Can always add RocksDB layer later if needed
-4. DuckDB + Parquet export = great analytics pipeline
-
-### Next Step Decision
-
-**Tell me about your events:**
-- How many events per second expected?
-- What kind of events? (semantic ops, user actions, system metrics)
-- Do you need to query/join them or just append/tail?
-- Do you need real-time analytics or just audit trail?
-
-Based on your answer, I'll write the complete v5.2 runbook with exact file targets and test matrix.
-
----
-
-## v5.3: L3 Mind — Redis Short-Term Memory
-
-**Branch:** `feat/data-plane-v5.3-redis`
-
-*(Runbook will be written after v5.2 decision)*
-
----
-
-## v5.4: Unified Data CLI (Always Through Kernel)
-
-**Branch:** `feat/data-plane-v5.4-cli`
+## 9. v5.2 — L2 Engine Event Store (DuckDB baseline)
 
 ### Objective
-CLI never accesses storage directly. All through Kernel governance.
 
-### Commands
+Introduce an append-first event store usable for:
+- **Audit convergence** (who did what, when, with what decision)
+- **Operational metrics** (deny / quarantine counts, latency)
+- **Debugging** (queryable state snapshots if needed)
+
+### Storage placement
+
+- **Main file:** `~/.yai/run/<ws_id>/events/events.duckdb`
+- **Optional export:** `~/.yai/run/<ws_id>/events/export/*`
+
+### Why DuckDB
+
+- SQL inspection is critical while stabilizing schemas
+- Handles moderate workloads well
+- Easy export to Parquet later
+
+> RocksDB / LSM can be introduced later if throughput demands it.
+
+### Minimal schema v1
+
+**Table `events`** (append-only):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ts_unix_ms` | BIGINT | Timestamp in ms |
+| `trace_id` | TEXT | Trace identifier |
+| `ws_id` | TEXT | Workspace identifier |
+| `plane` | TEXT | `root` / `kernel` / `engine` |
+| `action` | TEXT | Command id or action name |
+| `decision` | TEXT | `allow` / `deny` / `quarantine` |
+| `reason_code` | TEXT | From yai-law |
+| `actor` | TEXT | Principal / session |
+| `payload_json` | TEXT | Compact JSON |
+
+**Minimum indexes:**
+- `events(ts_unix_ms)`
+- `events(trace_id)`
+- `events(action)`
+
+### Writer model (engine)
+
+- One writer thread per workspace OR a shared writer with per-ws queues
+- Batch inserts (e.g., 256–1024 events per transaction)
+- Flush policy: time-based (e.g., 250ms) and size-based
+
+### Acceptance v5.2
+
+- [ ] Engine can append events for a live run
+- [ ] `SELECT COUNT(*)` and `WHERE trace_id=...` works
+- [ ] Storage ops are path-jail safe
+- [ ] Evidence captured: SQL query output + logs
+
+---
+
+## 10. v5.3 — L3 STM (Redis, OPTIONAL)
+
+### Objective
+
+Provide a short-term memory cache for SC103 without becoming an SC102 runtime dependency.
+
+### Rules
+
+- Redis absence MUST NOT break SC102
+- If Redis missing: return `DEGRADED_READONLY` for STM endpoints and continue normally
+
+### Keying
+
+| Category | Pattern | TTL |
+|----------|---------|-----|
+| STM keys | `yai:<ws_id>:stm:*` | 10–60 minutes |
+| Pinned keys | `yai:<ws_id>:context:*` | None (or long TTL) |
+
+### Acceptance v5.3
+
+- [ ] Keys are workspace-prefixed
+- [ ] TTL enforced on STM keys
+- [ ] Absence of Redis yields controlled degraded behavior (no crash)
+
+---
+
+## 11. v5.4 — Unified Data CLI (Kernel-governed)
+
+### Objective
+
+CLI never touches storage directly. All storage access goes through:
+
+```
+CLI → Root → Kernel → (storage) → response
+```
+
+### Initial commands
+
 ```bash
 yai data stats --ws testws
-yai data sessions --ws testws
-yai data events tail --ws testws --limit 100
 yai data authority get --ws testws --key "session:sess_001"
+yai data events tail   --ws testws --limit 100
+yai data events query  --ws testws --sql "SELECT decision, COUNT(*) FROM events GROUP BY 1"
 ```
 
-### Flow
-```
-CLI → Root → Kernel (authority check) → Query storage → Response
-```
+### Acceptance v5.4
 
-*(Full runbook after v5.2/v5.3)*
+- [ ] CLI commands work end-to-end through Kernel governance
+- [ ] Authorization enforced (`DENY_AUTH` for unauthorized role)
+- [ ] Evidence captured: command outputs + logs
 
 ---
 
-## Definition of Done (v5 Complete)
+## 12. Failure Modes (Must fail-closed)
 
-- [ ] v5.0: Layout + manifest operational
-- [ ] v5.1: LMDB authority store working
-- [ ] v5.2: Event store operational (DuckDB or RocksDB)
-- [ ] v5.3: Redis STM integrated
-- [ ] v5.4: Unified CLI commands working
-- [ ] All storage ops through path jail
-- [ ] All storage ops logged
-- [ ] Test matrix passes for each sub-phase
+| Failure | Action |
+|---------|--------|
+| Cross-tenant path leakage or side effects | Block merges, fix path-jail, rerun test plans |
+| Storage schema drift between docs/specs and implementation | Update spec + implementation atomically, rerun gates |
+| Redis unavailable (v5.3) | Must degrade safely, **never** crash SC102 |
 
 ---
 
-**Ready to proceed with v5.2 decision. What are your event characteristics?**
+## 13. Rollback
+
+1. Revert only the active phase branch
+2. Restore last known green data-plane baseline
+3. Rerun build + verify + hardfail tests before reopening the phase
+
+---
+
+## 14. Traceability
+
+**ADR refs:**
+- `docs/program/22-adr/ADR-003-kernel-authority.md`
+- `docs/program/22-adr/ADR-004-engine-execution.md`
+- `docs/program/22-adr/ADR-006-unified-rpc.md`
+- `docs/program/22-adr/ADR-011-contract-baseline-lock.md`
+- `docs/program/22-adr/ADR-012-audit-convergence-gates.md`
+
+**Milestone packs:** `docs/program/24-milestone-packs/data-plane/` — to be created per phase
+
+---
+
+*RB-DATA-PLANE rev2 — 2026-03-01*
