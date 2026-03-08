@@ -15,8 +15,7 @@
 
 ## Resolution order
 
-1. `embedded/law` (primary)
-2. `deps/law` (fallback bridge only, if `YAI_LAW_ENABLE_LEGACY_BRIDGE=1`)
+1. `embedded/law` (primary runtime path)
 
 ## Rule
 

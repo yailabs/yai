@@ -19,8 +19,7 @@
 ## Policy
 
 Embedded is the active runtime path.
-`deps/law` is transitional compatibility only.
-Legacy bridge fallback is disabled by default and must be explicitly enabled.
+Legacy mirror fallback is retired from active runtime and tooling paths.
 
 ## Not primary references
 

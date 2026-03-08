@@ -2,14 +2,13 @@
 
 ## `deps/law`
 
-Status: `bridge`  
-Primary usage: `disabled by default`  
-Role: legacy compatibility fallback only
+Status: `retired`  
+Primary usage: `none`  
+Role: historical mirror removed from active runtime and tooling
 
 Canonical and active paths:
 
 - Canonical source of truth: sibling repo `../law`
 - Runtime-consumed surface: `embedded/law`
 
-`deps/law` must not be treated as primary normative source in active runtime flow.
-Enable bridge fallback only when explicitly required (`YAI_LAW_ENABLE_LEGACY_BRIDGE=1`).
+Do not reintroduce `deps/law` as fallback path.

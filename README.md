@@ -25,7 +25,7 @@
 `yai` now adopts an embedded-law-surface model:
 - canonical normativity remains in `law`
 - runtime-facing export is consumed from `embedded/law`
-- `deps/law` remains only as a legacy transition bridge/fallback (enabled only with `YAI_LAW_ENABLE_LEGACY_BRIDGE=1`)
+- legacy mirror fallback is retired from active runtime and tooling paths
 
 Primary local commands:
 - `tools/bin/yai-law-embed-sync`

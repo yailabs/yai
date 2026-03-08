@@ -12,12 +12,8 @@ if [[ -z "$LAW_ROOT" ]]; then
   CANDIDATE="$ROOT/embedded/law"
   [[ -d "$CANDIDATE" ]] && LAW_ROOT="$CANDIDATE"
 fi
-if [[ -z "$LAW_ROOT" && "${YAI_LAW_ENABLE_LEGACY_BRIDGE:-0}" == "1" && -d "$ROOT/deps/law" ]]; then
-  LAW_ROOT="$ROOT/deps/law"
-  echo "warning: using legacy deps/law bridge for generated checks" >&2
-fi
 if [[ -z "$LAW_ROOT" ]]; then
-  echo "no law source found (expected ../law, embedded/law, or deps/law fallback)" >&2
+  echo "no law source found (expected ../law or embedded/law)" >&2
   exit 2
 fi
 

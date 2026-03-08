@@ -125,23 +125,19 @@ static void add_evidence_contributor(yai_law_effective_stack_t *stack, const cha
   stack->evidence_contributor_count++;
 }
 
-static int read_json_from_surface(const char *embedded_rel, const char *deps_rel, char *out, size_t out_cap) {
-  if (!embedded_rel || !deps_rel || !out || out_cap == 0) return -1;
-  if (yai_law_read_text_file(embedded_rel, out, out_cap) == 0) return 0;
-  return yai_law_read_text_file(deps_rel, out, out_cap);
+static int read_json_from_surface(const char *embedded_rel, char *out, size_t out_cap) {
+  if (!embedded_rel || !out || out_cap == 0) return -1;
+  return yai_law_read_text_file(embedded_rel, out, out_cap);
 }
 
 static void attach_overlays_from_specialization_manifest(const yai_law_discovery_result_t *discovery,
                                                          yai_law_effective_stack_t *stack) {
   char path_embedded[256];
-  char path_legacy[256];
   char json[8192];
   if (!discovery || !stack) return;
   if (yai_law_safe_snprintf(path_embedded, sizeof(path_embedded), "embedded/law/domain-specializations/%s/manifest.json",
                             discovery->specialization_id) != 0) return;
-  if (yai_law_safe_snprintf(path_legacy, sizeof(path_legacy), "deps/law/domain-specializations/%s/manifest.json",
-                            discovery->specialization_id) != 0) return;
-  if (read_json_from_surface(path_embedded, path_legacy, json, sizeof(json)) != 0) return;
+  if (read_json_from_surface(path_embedded, json, sizeof(json)) != 0) return;
 
   if (yai_law_json_contains(json, "\"gdpr-eu\"")) add_regulatory_overlay(stack, "gdpr-eu");
   if (yai_law_json_contains(json, "\"ai-act\"")) add_regulatory_overlay(stack, "ai-act");
@@ -171,7 +167,6 @@ static void attach_overlays_from_matrix(const yai_law_classification_ctx_t *ctx,
   if (yai_law_safe_snprintf(action, sizeof(action), "\"action\":\"%s\"", ctx->action) != 0) return;
 
   if (read_json_from_surface("embedded/law/overlays/regulatory/index/overlay-attachment-matrix.json",
-                             "deps/law/overlays/regulatory/index/overlay-attachment-matrix.json",
                              json, sizeof(json)) == 0 &&
       yai_law_json_contains(json, fam) && yai_law_json_contains(json, spec) && yai_law_json_contains(json, action)) {
     if (yai_law_json_contains(json, "\"overlay\":\"gdpr-eu\"")) add_regulatory_overlay(stack, "gdpr-eu");
@@ -182,7 +177,6 @@ static void attach_overlays_from_matrix(const yai_law_classification_ctx_t *ctx,
   }
 
   if (read_json_from_surface("embedded/law/overlays/sector/index/overlay-attachment-matrix.json",
-                             "deps/law/overlays/sector/index/overlay-attachment-matrix.json",
                              json, sizeof(json)) == 0 &&
       yai_law_json_contains(json, fam) && yai_law_json_contains(json, spec)) {
     if (yai_law_json_contains(json, "\"overlay\":\"sector.finance\"")) add_sector_overlay(stack, "sector.finance");

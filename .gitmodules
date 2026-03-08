@@ -1,3 +1,0 @@
-[submodule "deps/law"]
-	path = deps/law
-	url = https://github.com/yai-labs/law.git

@@ -3,7 +3,6 @@
 - normative authority repo: `law`
 - compatibility mode: `embedded-surface-primary`
 - embedded source path: `embedded/law`
-- legacy fallback path: `deps/law` (transition bridge only; requires `YAI_LAW_ENABLE_LEGACY_BRIDGE=1`)
 - supported embedded law version(s):
   - `0.1.0`
 - tested embedded law version: `0.1.0`
@@ -11,4 +10,4 @@
   - `yai` is the integration/runtime authority.
   - Canonical law remains outside this repository (`law`).
   - Runtime-facing law is consumed from exported embedded surface (`embedded/law/`).
-  - Legacy `deps/law/` remains for compatibility until full runtime consumer cutover and is disabled by default.
+  - Legacy `deps/law/` bridge has been retired from active runtime and tooling paths.

@@ -3,7 +3,7 @@
 # =========================================
 
 ROOT_DIR := $(abspath .)
-LAW_COMPAT_ROOT ?= $(if $(wildcard $(ROOT_DIR)/../law/contracts),$(ROOT_DIR)/../law,$(ROOT_DIR)/deps/law)
+LAW_COMPAT_ROOT ?= $(if $(wildcard $(ROOT_DIR)/../law/contracts),$(ROOT_DIR)/../law,$(ROOT_DIR)/embedded/law)
 
 BUILD_DIR ?= $(ROOT_DIR)/build
 BIN_DIR ?= $(BUILD_DIR)/bin

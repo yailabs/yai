@@ -2,8 +2,7 @@
 set -euo pipefail
 
 # Resolve compatibility material root consumed by tooling.
-# Official runtime flow is embedded-first; deps/law is transitional fallback
-# and must be explicitly enabled.
+# Official runtime flow is embedded-first only.
 
 yai_resolve_law_compat_root() {
   local root="${1:-}"
@@ -15,11 +14,6 @@ yai_resolve_law_compat_root() {
 
   if [[ -n "$root" && -d "$root/embedded/law" ]]; then
     echo "$root/embedded/law"
-    return 0
-  fi
-
-  if [[ "${YAI_LAW_ENABLE_LEGACY_BRIDGE:-0}" == "1" && -n "$root" && -d "$root/deps/law" ]]; then
-    echo "$root/deps/law"
     return 0
   fi
 

@@ -25,14 +25,12 @@ static void map_family_to_domain_id(const char *family_id, char *out, size_t out
 
 static int read_classification_map(char *json, size_t cap) {
   if (!json || cap == 0) return -1;
-  if (yai_law_read_text_file("embedded/law/classification/classification-map.json", json, cap) == 0) return 0;
-  return yai_law_read_text_file("deps/law/classification/classification-map.json", json, cap);
+  return yai_law_read_text_file("embedded/law/classification/classification-map.json", json, cap);
 }
 
 static int read_specializations_index(char *json, size_t cap) {
   if (!json || cap == 0) return -1;
-  if (yai_law_read_text_file("embedded/law/domain-specializations/index/specializations.index.json", json, cap) == 0) return 0;
-  return yai_law_read_text_file("deps/law/domain-specializations/index/specializations.index.json", json, cap);
+  return yai_law_read_text_file("embedded/law/domain-specializations/index/specializations.index.json", json, cap);
 }
 
 static void apply_classification_map_boost(const yai_law_classification_ctx_t *ctx,

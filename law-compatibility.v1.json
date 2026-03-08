@@ -3,7 +3,6 @@
   "compatibility_mode": "embedded-surface-primary",
   "embedded_law_path": "embedded/law",
   "embedded_law_version": "0.1.0",
-  "legacy_fallback_path": "deps/law",
   "supported_embedded_versions": [
     "0.1.0"
   ],
@@ -11,7 +10,6 @@
   "notes": [
     "yai is the integration/runtime authority.",
     "canonical law remains in sibling repository law.",
-    "runtime-facing law is consumed from embedded/law export surface.",
-    "deps/law is transition-only fallback until full runtime consumer cutover."
+    "runtime-facing law is consumed from embedded/law export surface."
   ]
 }

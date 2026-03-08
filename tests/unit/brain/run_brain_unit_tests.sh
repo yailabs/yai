@@ -7,11 +7,8 @@ if [[ -z "$LAW_ROOT" ]]; then
   CANDIDATE="$(cd "$ROOT/.." && pwd)/law"
   [[ -d "$CANDIDATE" ]] && LAW_ROOT="$CANDIDATE"
 fi
-if [[ -z "$LAW_ROOT" && -d "$ROOT/deps/law" ]]; then
-  LAW_ROOT="$ROOT/deps/law"
-fi
 if [[ -z "$LAW_ROOT" ]]; then
-  echo "LAW root not found (expected ../law or deps/law fallback)" >&2
+  echo "LAW root not found (expected ../law)" >&2
   exit 2
 fi
 
