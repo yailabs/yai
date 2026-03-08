@@ -6,12 +6,6 @@ It brings control, execution, and cognition into one governed architecture built
 
 This repository contains the primary implementation of YAI: runtime foundations, execution layers, cognition subsystems, shared protocol and support surfaces, and the program artifacts that govern their evolution.
 
-## Platform position
-
-YAI operates inside a disciplined platform chain:
-
-`yai-law` → `yai-sdk` → `yai-cli` → `yai` → `yai-ops`
-
 Each layer carries constraints forward.  
 Law defines them. Interfaces expose them. YAI implements them. Operations verify them.
 
@@ -34,7 +28,6 @@ It does not own canonical law (`yai-law`) or shared cross-repo governance toolin
 
 ```bash
 make yai
-make yai-core
 make dist
 ```
 
@@ -47,7 +40,6 @@ make verify
 
 Primary runtime entrypoints:
 - `build/bin/yai`
-- `build/bin/yai-core`
 
 Repository topology is authoritative under:
 - `cmd/`

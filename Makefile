@@ -1,5 +1,5 @@
 # =========================================
-# YAI — Unified Root Build Spine (Transition)
+# YAI — Unified Root Build Spine
 # =========================================
 
 ROOT_DIR := $(abspath .)
@@ -24,9 +24,7 @@ LDFLAGS ?=
 LDLIBS ?= -lm
 
 YAI_OBJ := $(OBJ_DIR)/cmd/yai/main.o
-YAI_CORE_OBJ := $(OBJ_DIR)/cmd/yai-core/main.o
 YAI_BIN := $(BIN_DIR)/yai
-YAI_CORE_BIN := $(BIN_DIR)/yai-core
 
 SUPPORT_SRCS := lib/support/ids.c lib/support/logger.c lib/support/errors.c lib/support/strings.c lib/support/paths.c
 PLATFORM_SRCS := lib/platform/os.c lib/platform/fs.c lib/platform/clock.c lib/platform/uds.c
@@ -113,24 +111,22 @@ CORE_LIB := $(LIB_DIR)/libyai_core.a
 EXEC_LIB := $(LIB_DIR)/libyai_exec.a
 BRAIN_LIB := $(LIB_DIR)/libyai_brain.a
 
-LEGACY_BINS := yai-boot yai-root-server yai-kernel yai-engine yai-mind
 SPINE_DIRS := $(BIN_DIR) $(OBJ_DIR) $(LIB_DIR) $(TEST_DIR)
 
 DOXYFILE := Doxyfile
 DOXYGEN ?= doxygen
 DOXY_OUT ?= $(DIST_ROOT)/docs/doxygen
 
-.PHONY: all yai yai-core foundations support platform protocol core exec brain test test-unit test-integration test-e2e test-core test-brain test-protocol clean clean-dist clean-all \
-        build legacy-build build-all dist dist-all bundle verify preflight-release \
-        docs docs-clean docs-verify proof-verify release-guards release-guards-dev \
-        changelog-verify dirs help
+.PHONY: all yai foundations support platform protocol core exec brain \
+        test test-unit test-integration test-e2e test-core test-brain test-protocol \
+        clean clean-dist clean-all build build-all dist dist-all bundle verify \
+        preflight-release docs docs-clean docs-verify proof-verify release-guards \
+        release-guards-dev changelog-verify dirs help legacy-build
 
-all: yai yai-core foundations
-	@echo "[YAI] unified binary spine ready: $(YAI_BIN) $(YAI_CORE_BIN)"
+all: yai foundations
+	@echo "[YAI] unified binary spine ready: $(YAI_BIN)"
 
 yai: $(YAI_BIN)
-
-yai-core: $(YAI_CORE_BIN)
 
 foundations: support platform protocol
 core: $(CORE_LIB)
@@ -138,9 +134,7 @@ exec: $(EXEC_LIB)
 brain: $(BRAIN_LIB)
 
 support: $(SUPPORT_LIB)
-
 platform: $(PLATFORM_LIB)
-
 protocol: $(PROTOCOL_LIB)
 
 test: test-unit test-integration test-e2e
@@ -161,8 +155,8 @@ test-e2e:
 	@tests/e2e/run_entrypoint_e2e.sh
 	@echo "[YAI] e2e suite complete"
 
-test-core: yai-core
-	@./build/bin/yai-core --status
+test-core: yai
+	@./build/bin/yai status
 
 test-brain:
 	@tests/unit/brain/run_brain_unit_tests.sh
@@ -171,11 +165,8 @@ test-protocol:
 	@tests/unit/exec/run_exec_unit_tests.sh
 	@tests/unit/protocol/run_protocol_unit_tests.sh
 
-$(YAI_BIN): $(YAI_OBJ) | dirs
-	$(CC) $(LDFLAGS) $< -o $@ $(LDLIBS)
-
-$(YAI_CORE_BIN): $(YAI_CORE_OBJ) $(CORE_LIB) $(EXEC_LIB) $(BRAIN_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) | dirs
-	$(CC) $(LDFLAGS) $(YAI_CORE_OBJ) -o $@ $(CORE_LIB) $(EXEC_LIB) $(BRAIN_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) $(LDLIBS)
+$(YAI_BIN): $(YAI_OBJ) $(CORE_LIB) $(EXEC_LIB) $(BRAIN_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) | dirs
+	$(CC) $(LDFLAGS) $(YAI_OBJ) -o $@ $(CORE_LIB) $(EXEC_LIB) $(BRAIN_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) $(LDLIBS)
 
 $(SUPPORT_LIB): $(SUPPORT_OBJS) | dirs
 	ar rcs $@ $^
@@ -202,8 +193,8 @@ $(OBJ_DIR)/%.o: %.c | dirs
 dirs:
 	@mkdir -p $(SPINE_DIRS)
 
-build: yai yai-core
-	@echo "--- [YAI] primary entrypoint build complete (yai + yai-core) ---"
+build: yai
+	@echo "--- [YAI] primary entrypoint build complete (yai) ---"
 
 legacy-build:
 	@echo "--- [YAI] legacy-build removed: legacy top-level planes were decommissioned ---"
@@ -214,7 +205,6 @@ build-all: build
 dist: build
 	@mkdir -p $(BIN_DIST)
 	@cp "$(YAI_BIN)" "$(BIN_DIST)/yai"
-	@cp "$(YAI_CORE_BIN)" "$(BIN_DIST)/yai-core"
 	@echo "--- [YAI] dist staged in $(BIN_DIST) ---"
 
 dist-all: dist
@@ -269,10 +259,9 @@ clean-dist:
 clean-all: clean clean-dist
 
 help:
-	@echo "Primary transition targets:"
-	@echo "  all            (yai + yai-core + foundation libs)"
+	@echo "Primary build targets:"
+	@echo "  all            (yai + foundation libs)"
 	@echo "  yai            (build/bin/yai)"
-	@echo "  yai-core       (build/bin/yai-core)"
 	@echo "  foundations    (support/platform/protocol archives)"
 	@echo "  test-unit      (core/protocol/brain unit suites)"
 	@echo "  test-integration (runtime/core-exec/core-brain/workspace)"

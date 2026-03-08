@@ -4,235 +4,273 @@
 #include "transport.h"
 #include "yai_protocol_ids.h"
 
+#include <errno.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <unistd.h>
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <time.h>
-#include <stddef.h>
+#include <unistd.h>
 
-/* ============================================================
-   IO HELPERS (IDENTICI ALLA CLI)
-   ============================================================ */
-
-static int write_all(int fd, const void *buf, size_t n) {
-    const char *p = buf;
+static int write_all(int fd, const void *buf, size_t len)
+{
+    const char *p = (const char *)buf;
     size_t off = 0;
 
-    while (off < n) {
-        ssize_t w = write(fd, p + off, n - off);
-        if (w < 0) {
-            if (errno == EINTR) continue;
+    while (off < len)
+    {
+        ssize_t written = write(fd, p + off, len - off);
+        if (written < 0)
+        {
+            if (errno == EINTR)
+            {
+                continue;
+            }
             return -1;
         }
-        off += (size_t)w;
+        off += (size_t)written;
     }
+
     return 0;
 }
 
-static int read_all(int fd, void *buf, size_t n) {
-    char *p = buf;
+static int read_all(int fd, void *buf, size_t len)
+{
+    char *p = (char *)buf;
     size_t off = 0;
 
-    while (off < n) {
-        ssize_t r = read(fd, p + off, n - off);
-        if (r <= 0) {
-            if (r < 0 && errno == EINTR) continue;
+    while (off < len)
+    {
+        ssize_t read_count = read(fd, p + off, len - off);
+        if (read_count <= 0)
+        {
+            if (read_count < 0 && errno == EINTR)
+            {
+                continue;
+            }
             return -1;
         }
-        off += (size_t)r;
+        off += (size_t)read_count;
     }
+
     return 0;
 }
 
-/* ============================================================
-   TRACE
-   ============================================================ */
+void yai_make_trace_id(char out[36])
+{
+    static uint32_t counter = 0;
 
-void yai_make_trace_id(char out[36]) {
-    static uint32_t ctr = 0;
-    snprintf(out, 36, "tr-%lx-%u", (unsigned long)time(NULL), ctr++);
+    if (!out)
+    {
+        return;
+    }
+
+    snprintf(out, 36, "tr-%lx-%u", (unsigned long)time(NULL), counter++);
 }
-/* ============================================================
-   CONNECT (ROOT AWARE)
-   ============================================================ */
 
-static int build_root_sock_path(char *out, size_t cap)
+static int build_root_socket_path(char *out, size_t cap)
 {
     const char *home = getenv("HOME");
-    if (!home) return -1;
 
-    snprintf(out, cap,
-             "%s/.yai/run/root/control.sock",
-             home);
+    if (!out || cap == 0 || !home || !home[0])
+    {
+        return -1;
+    }
+
+    if (snprintf(out, cap, "%s/.yai/run/root/control.sock", home) >= (int)cap)
+    {
+        return -2;
+    }
 
     return 0;
 }
 
-int yai_rpc_connect(yai_rpc_client_t *c, const char *ws_id)
+int yai_rpc_connect(yai_rpc_client_t *client, const char *ws_id)
 {
-    if (!c)
-        return -1;
-
-    memset(c, 0, sizeof(*c));
-
-    char sock_path[256];
-
-    /* ALWAYS connect to root plane */
-    if (build_root_sock_path(sock_path, sizeof(sock_path)) < 0)
-        return -2;
-
-    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0)
-        return -3;
-
+    char socket_path[256];
     struct sockaddr_un addr;
+    socklen_t addr_len = 0;
+    int fd = -1;
+
+    if (!client)
+    {
+        return -1;
+    }
+
+    memset(client, 0, sizeof(*client));
+
+    if (build_root_socket_path(socket_path, sizeof(socket_path)) != 0)
+    {
+        return -2;
+    }
+
+    fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (fd < 0)
+    {
+        return -3;
+    }
+
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
 
-    strncpy(addr.sun_path,
-            sock_path,
-            sizeof(addr.sun_path) - 1);
+    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+    addr.sun_path[sizeof(addr.sun_path) - 1] = '\0';
 
-    socklen_t len =
-        offsetof(struct sockaddr_un, sun_path) +
-        strlen(addr.sun_path);
+    addr_len = (socklen_t)(offsetof(struct sockaddr_un, sun_path) + strlen(addr.sun_path));
 
-    if (connect(fd, (struct sockaddr *)&addr, len) < 0) {
+    if (connect(fd, (struct sockaddr *)&addr, addr_len) < 0)
+    {
         close(fd);
         return -4;
     }
 
-    c->fd = fd;
+    client->fd = fd;
 
-    /* ws_id MUST be logical, never a path */
-    if (!ws_id || strchr(ws_id, '/'))
+    if (!ws_id || !ws_id[0] || strchr(ws_id, '/'))
+    {
         ws_id = "system";
+    }
 
-    strncpy(c->ws_id,
-            ws_id,
-            sizeof(c->ws_id) - 1);
-
-    c->ws_id[sizeof(c->ws_id) - 1] = '\0';
-
-    c->connected = true;
+    strncpy(client->ws_id, ws_id, sizeof(client->ws_id) - 1);
+    client->ws_id[sizeof(client->ws_id) - 1] = '\0';
+    client->connected = true;
 
     return 0;
 }
 
-/* ============================================================
-   HARD BINARY RPC
-   ============================================================ */
+int yai_rpc_call(yai_rpc_client_t *client,
+                 uint32_t command_id,
+                 const void *payload,
+                 uint32_t payload_len,
+                 void *out_buf,
+                 uint32_t out_cap,
+                 uint32_t *out_len)
+{
+    yai_rpc_envelope_t request;
+    yai_rpc_envelope_t response;
 
-int yai_rpc_call(
-    yai_rpc_client_t *c,
-    uint32_t command_id,
-    const void *payload,
-    uint32_t payload_len,
-    void *out_buf,
-    uint32_t out_cap,
-    uint32_t *out_len
-) {
-    if (!c || !c->connected) return -1;
-
-    if (payload_len > YAI_MAX_PAYLOAD)
-        return -2;
-
-    yai_rpc_envelope_t env;
-    memset(&env, 0, sizeof(env));
-
-    env.magic   = YAI_FRAME_MAGIC;
-    env.version = YAI_PROTOCOL_VERSION;
-    env.command_id  = command_id;
-    env.payload_len = payload_len;
-
-    strncpy(env.ws_id, c->ws_id, sizeof(env.ws_id) - 1);
-    yai_make_trace_id(env.trace_id);
-
-    if (write_all(c->fd, &env, sizeof(env)) != 0)
-        return -3;
-
-    if (payload_len > 0 && payload) {
-        if (write_all(c->fd, payload, payload_len) != 0)
-            return -4;
+    if (!client || !client->connected)
+    {
+        return -1;
     }
 
-    /* --- READ RESPONSE ENVELOPE --- */
+    if (payload_len > YAI_MAX_PAYLOAD)
+    {
+        return -2;
+    }
 
-    yai_rpc_envelope_t resp;
-    if (read_all(c->fd, &resp, sizeof(resp)) != 0)
+    memset(&request, 0, sizeof(request));
+    request.magic = YAI_FRAME_MAGIC;
+    request.version = YAI_PROTOCOL_VERSION;
+    request.command_id = command_id;
+    request.payload_len = payload_len;
+
+    strncpy(request.ws_id, client->ws_id, sizeof(request.ws_id) - 1);
+    request.ws_id[sizeof(request.ws_id) - 1] = '\0';
+    yai_make_trace_id(request.trace_id);
+
+    if (write_all(client->fd, &request, sizeof(request)) != 0)
+    {
+        return -3;
+    }
+
+    if (payload_len > 0 && payload)
+    {
+        if (write_all(client->fd, payload, payload_len) != 0)
+        {
+            return -4;
+        }
+    }
+
+    if (read_all(client->fd, &response, sizeof(response)) != 0)
+    {
         return -5;
+    }
 
-    if (resp.magic != YAI_FRAME_MAGIC)
+    if (response.magic != YAI_FRAME_MAGIC)
+    {
         return -6;
+    }
 
-    if (resp.version != YAI_PROTOCOL_VERSION)
+    if (response.version != YAI_PROTOCOL_VERSION)
+    {
         return -7;
+    }
 
-    if (resp.payload_len > out_cap)
+    if (response.payload_len > out_cap)
+    {
         return -8;
+    }
 
-    if (resp.payload_len > 0 && out_buf) {
-        if (read_all(c->fd, out_buf, resp.payload_len) != 0)
+    if (response.payload_len > 0 && out_buf)
+    {
+        if (read_all(client->fd, out_buf, response.payload_len) != 0)
+        {
             return -9;
+        }
     }
 
     if (out_len)
-        *out_len = resp.payload_len;
-
-    return 0;
-}
-
-/* ============================================================
-   HANDSHAKE (BINARIO VERO)
-   ============================================================ */
-int yai_rpc_handshake(yai_rpc_client_t *c, uint32_t capabilities)
-{
-    if (!c || !c->connected)
-        return -1;
-
-    yai_handshake_req_t hs;
-    memset(&hs, 0, sizeof(hs));
-
-    hs.client_version = YAI_PROTOCOL_VERSION;
-    hs.capabilities_requested = capabilities;
-    strncpy(hs.client_name, "yai-engine", sizeof(hs.client_name) - 1);
-
-    uint8_t resp_buf[64];
-    uint32_t resp_len = 0;
-
-    int rc = yai_rpc_call(
-        c,
-        YAI_CMD_HANDSHAKE,
-        &hs,
-        sizeof(hs),
-        resp_buf,
-        sizeof(resp_buf),
-        &resp_len
-    );
-
-    if (rc != 0)
-        return rc;
-
-    if (resp_len != sizeof(yai_handshake_ack_t))
-        return -2;
-
-    yai_handshake_ack_t *ack = (yai_handshake_ack_t *)resp_buf;
-
-    if (ack->status != YAI_PROTO_STATE_READY)
-        return -3;
-
-    return 0;
-}
-
-
-
-void yai_rpc_close(yai_rpc_client_t *c) {
-    if (c && c->connected) {
-        close(c->fd);
-        c->connected = false;
+    {
+        *out_len = response.payload_len;
     }
+
+    return 0;
+}
+
+int yai_rpc_handshake(yai_rpc_client_t *client, uint32_t capabilities)
+{
+    yai_handshake_req_t request;
+    uint8_t response_buf[64];
+    uint32_t response_len = 0;
+    int rc = 0;
+
+    if (!client || !client->connected)
+    {
+        return -1;
+    }
+
+    memset(&request, 0, sizeof(request));
+    request.client_version = YAI_PROTOCOL_VERSION;
+    request.capabilities_requested = capabilities;
+    strncpy(request.client_name, "yai", sizeof(request.client_name) - 1);
+    request.client_name[sizeof(request.client_name) - 1] = '\0';
+
+    rc = yai_rpc_call(client,
+                      YAI_CMD_HANDSHAKE,
+                      &request,
+                      sizeof(request),
+                      response_buf,
+                      sizeof(response_buf),
+                      &response_len);
+    if (rc != 0)
+    {
+        return rc;
+    }
+
+    if (response_len != sizeof(yai_handshake_ack_t))
+    {
+        return -2;
+    }
+
+    yai_handshake_ack_t *ack = (yai_handshake_ack_t *)response_buf;
+    if (ack->status != YAI_PROTO_STATE_READY)
+    {
+        return -3;
+    }
+
+    return 0;
+}
+
+void yai_rpc_close(yai_rpc_client_t *client)
+{
+    if (!client || !client->connected)
+    {
+        return;
+    }
+
+    close(client->fd);
+    client->connected = false;
 }
