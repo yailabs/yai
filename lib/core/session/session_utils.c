@@ -1316,9 +1316,44 @@ static int yai_workspace_manifest_path(const char *ws_id, char *out, size_t out_
 
 static int yai_workspace_binding_path(char *out, size_t out_cap)
 {
+    const char *scope = getenv("YAI_WS_BIND_SCOPE");
     const char *home = yai_get_home();
+    const char *tty = NULL;
+    char tty_tag[128];
+    size_t j = 0;
+    size_t i = 0;
+
     if (!home || !out || out_cap == 0)
         return -1;
+
+    if (!scope || scope[0] == '\0' || strcmp(scope, "tty") == 0 || strcmp(scope, "terminal") == 0)
+    {
+        tty = ttyname(STDIN_FILENO);
+        if (!tty || !tty[0])
+            tty = ttyname(STDOUT_FILENO);
+        if (!tty || !tty[0])
+            tty = ttyname(STDERR_FILENO);
+
+        if (tty && tty[0])
+        {
+            for (i = 0; tty[i] != '\0' && j + 1 < sizeof(tty_tag); i++)
+            {
+                unsigned char c = (unsigned char)tty[i];
+                if (isalnum(c))
+                    tty_tag[j++] = (char)c;
+                else
+                    tty_tag[j++] = '_';
+            }
+            tty_tag[j] = '\0';
+            if (tty_tag[0] == '\0')
+                snprintf(tty_tag, sizeof(tty_tag), "%s", "unknown_tty");
+
+            if (snprintf(out, out_cap, "%s/.yai/session/by-tty/%s.json", home, tty_tag) <= 0)
+                return -1;
+            return 0;
+        }
+    }
+
     if (snprintf(out, out_cap, "%s/.yai/session/active_workspace.json", home) <= 0)
         return -1;
     return 0;
@@ -1340,6 +1375,20 @@ static int yai_workspace_binding_write(const char *ws_id, const char *ws_alias)
         return -1;
     if (yai_workspace_binding_path(path, sizeof(path)) != 0)
         return -1;
+    {
+        char *slash = strrchr(path, '/');
+        if (slash)
+        {
+            char parent[MAX_PATH_LEN];
+            size_t n = (size_t)(slash - path);
+            if (n >= sizeof(parent))
+                return -1;
+            memcpy(parent, path, n);
+            parent[n] = '\0';
+            if (mkdir_parents(parent, 0755) != 0)
+                return -1;
+        }
+    }
 
     f = fopen(path, "w");
     if (!f)
