@@ -96,3 +96,13 @@ This creates a stable contract for later commands like `ws status`, `ws inspect`
 - Workspace model in `yai` stores and exposes operational context, not normative authorship.
 
 Session semantics and prompt-facing binding contract are detailed in `docs/architecture/workspace-session-binding.md`.
+
+Architecture refoundation extensions (6/8):
+
+- `docs/architecture/workspace-architecture-model.md`
+- `docs/architecture/workspace-root-model.md`
+- `docs/architecture/workspace-lifecycle-model.md`
+- `docs/architecture/workspace-state-model.md`
+- `docs/architecture/workspace-runtime-binding-model.md`
+- `docs/architecture/workspace-shell-binding-model.md`
+- `docs/architecture/workspace-boundary-model.md`

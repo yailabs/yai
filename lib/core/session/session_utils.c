@@ -23,6 +23,79 @@ static const char *yai_get_home(void)
     return (home && home[0]) ? home : NULL;
 }
 
+static void trim_trailing_slashes(char *path);
+
+static int yai_workspace_store_root_path(char *out, size_t out_cap)
+{
+    const char *home = yai_get_home();
+    const char *env_root = getenv("YAI_WORKSPACE_ROOT");
+    if (!out || out_cap == 0 || !home)
+        return -1;
+    if (env_root && env_root[0])
+    {
+        if (snprintf(out, out_cap, "%s", env_root) <= 0)
+            return -1;
+        trim_trailing_slashes(out);
+        return 0;
+    }
+    if (snprintf(out, out_cap, "%s/.yai/workspaces", home) <= 0)
+        return -1;
+    return 0;
+}
+
+static int yai_workspace_runtime_state_root_path(const char *ws_id, char *out, size_t out_cap)
+{
+    char run_dir[MAX_PATH_LEN];
+    if (!ws_id || !out || out_cap == 0)
+        return -1;
+    if (yai_session_build_run_path(run_dir, sizeof(run_dir), ws_id) != 0)
+        return -1;
+    if (snprintf(out, out_cap, "%s", run_dir) <= 0)
+        return -1;
+    return 0;
+}
+
+static int yai_workspace_metadata_root_path(const char *ws_id, char *out, size_t out_cap)
+{
+    /* metadata root currently co-locates with runtime state root by design. */
+    return yai_workspace_runtime_state_root_path(ws_id, out, out_cap);
+}
+
+static int yai_path_is_under(const char *root, const char *path)
+{
+    size_t n;
+    if (!root || !root[0] || !path || !path[0])
+        return 0;
+    n = strlen(root);
+    if (strncmp(root, path, n) != 0)
+        return 0;
+    return path[n] == '\0' || path[n] == '/';
+}
+
+static void yai_workspace_fill_shell_relation(yai_workspace_runtime_info_t *info)
+{
+    char cwd[MAX_PATH_LEN];
+    if (!info)
+        return;
+    info->shell_cwd[0] = '\0';
+    snprintf(info->shell_path_relation, sizeof(info->shell_path_relation), "%s", "unknown");
+    if (!getcwd(cwd, sizeof(cwd)))
+    {
+        snprintf(info->shell_path_relation, sizeof(info->shell_path_relation), "%s", "cwd_unavailable");
+        return;
+    }
+    snprintf(info->shell_cwd, sizeof(info->shell_cwd), "%s", cwd);
+    if (!info->root_path[0])
+    {
+        snprintf(info->shell_path_relation, sizeof(info->shell_path_relation), "%s", "workspace_root_unset");
+        return;
+    }
+    if (yai_path_is_under(info->root_path, cwd))
+        snprintf(info->shell_path_relation, sizeof(info->shell_path_relation), "%s", "inside_workspace_root");
+    else
+        snprintf(info->shell_path_relation, sizeof(info->shell_path_relation), "%s", "outside_workspace_root");
+}
+
 static int mkdir_if_missing(const char *path, mode_t mode)
 {
     struct stat st;
@@ -298,20 +371,31 @@ static int yai_workspace_binding_read(char *ws_id, size_t ws_id_cap, char *ws_al
 static int yai_workspace_resolve_root_path(
     const char *ws_id,
     const char *root_path_opt,
+    char *anchor_mode_out,
+    size_t anchor_mode_cap,
     char *out,
     size_t out_cap)
 {
     char abs_path[MAX_PATH_LEN];
+    char store_root[MAX_PATH_LEN];
     const char *home = yai_get_home();
 
     if (!ws_id || !out || out_cap == 0 || !home)
         return -1;
 
+    if (anchor_mode_out && anchor_mode_cap > 0)
+        anchor_mode_out[0] = '\0';
+
     if (!root_path_opt || !root_path_opt[0])
     {
-        if (snprintf(out, out_cap, "%s/.yai/workspaces/%s", home, ws_id) <= 0)
+        if (yai_workspace_store_root_path(store_root, sizeof(store_root)) != 0)
+            return -1;
+        if (snprintf(out, out_cap, "%s/%s", store_root, ws_id) <= 0)
             return -1;
         trim_trailing_slashes(out);
+        if (anchor_mode_out && anchor_mode_cap > 0)
+            snprintf(anchor_mode_out, anchor_mode_cap, "%s",
+                     getenv("YAI_WORKSPACE_ROOT") ? "managed_custom_root" : "managed_default_root");
         return 0;
     }
 
@@ -322,6 +406,8 @@ static int yai_workspace_resolve_root_path(
     {
         if (snprintf(abs_path, sizeof(abs_path), "%s", root_path_opt) <= 0)
             return -1;
+        if (anchor_mode_out && anchor_mode_cap > 0)
+            snprintf(anchor_mode_out, anchor_mode_cap, "%s", "explicit_absolute");
     }
     else
     {
@@ -330,6 +416,8 @@ static int yai_workspace_resolve_root_path(
             return -1;
         if (snprintf(abs_path, sizeof(abs_path), "%s/%s", cwd, root_path_opt) <= 0)
             return -1;
+        if (anchor_mode_out && anchor_mode_cap > 0)
+            snprintf(anchor_mode_out, anchor_mode_cap, "%s", "explicit_relative");
     }
 
     trim_trailing_slashes(abs_path);
@@ -507,6 +595,20 @@ static int yai_workspace_write_manifest_path(
             "    \"last_attached_at\": %ld,\n"
             "    \"last_updated_at\": %ld\n"
             "  },\n"
+            "  \"root_model\": {\n"
+            "    \"workspace_store_root\": \"%s\",\n"
+            "    \"workspace_root\": \"%s\",\n"
+            "    \"runtime_state_root\": \"%s\",\n"
+            "    \"metadata_root\": \"%s\",\n"
+            "    \"root_anchor_mode\": \"%s\"\n"
+            "  },\n"
+            "  \"boundaries\": {\n"
+            "    \"execution_boundary\": true,\n"
+            "    \"context_boundary\": true,\n"
+            "    \"policy_boundary\": true,\n"
+            "    \"runtime_binding_boundary\": true,\n"
+            "    \"shell_binding_scope\": \"session\"\n"
+            "  },\n"
             "  \"binding\": {\n"
             "    \"session_binding\": \"%s\",\n"
             "    \"runtime_attached\": %s,\n"
@@ -559,6 +661,11 @@ static int yai_workspace_write_manifest_path(
             info->activated_at,
             info->last_attached_at,
             info->updated_at,
+            info->workspace_store_root,
+            info->root_path,
+            info->runtime_state_root,
+            info->metadata_root,
+            info->root_anchor_mode[0] ? info->root_anchor_mode : "managed_default_root",
             info->session_binding,
             info->runtime_attached ? "true" : "false",
             info->control_plane_attached ? "true" : "false",
@@ -607,6 +714,13 @@ int yai_session_read_workspace_info(const char *ws_id, yai_workspace_runtime_inf
     snprintf(out->layout, sizeof(out->layout), "v3");
     snprintf(out->workspace_alias, sizeof(out->workspace_alias), "%s", ws_id);
     snprintf(out->isolation_mode, sizeof(out->isolation_mode), "process");
+    snprintf(out->root_anchor_mode, sizeof(out->root_anchor_mode), "%s", "managed_default_root");
+    if (yai_workspace_store_root_path(out->workspace_store_root, sizeof(out->workspace_store_root)) != 0)
+        out->workspace_store_root[0] = '\0';
+    if (yai_workspace_runtime_state_root_path(ws_id, out->runtime_state_root, sizeof(out->runtime_state_root)) != 0)
+        out->runtime_state_root[0] = '\0';
+    if (yai_workspace_metadata_root_path(ws_id, out->metadata_root, sizeof(out->metadata_root)) != 0)
+        out->metadata_root[0] = '\0';
 
     if (yai_workspace_manifest_path(ws_id, manifest, sizeof(manifest)) != 0)
         return -1;
@@ -623,6 +737,10 @@ int yai_session_read_workspace_info(const char *ws_id, yai_workspace_runtime_inf
     (void)yai_session_extract_json_string(buf, "state", out->state, sizeof(out->state));
     (void)yai_session_extract_json_string(buf, "layout", out->layout, sizeof(out->layout));
     (void)yai_session_extract_json_string(buf, "root_path", out->root_path, sizeof(out->root_path));
+    (void)yai_session_extract_json_string(buf, "workspace_store_root", out->workspace_store_root, sizeof(out->workspace_store_root));
+    (void)yai_session_extract_json_string(buf, "runtime_state_root", out->runtime_state_root, sizeof(out->runtime_state_root));
+    (void)yai_session_extract_json_string(buf, "metadata_root", out->metadata_root, sizeof(out->metadata_root));
+    (void)yai_session_extract_json_string(buf, "root_anchor_mode", out->root_anchor_mode, sizeof(out->root_anchor_mode));
     (void)yai_session_extract_json_string(buf, "workspace_alias", out->workspace_alias, sizeof(out->workspace_alias));
     (void)yai_session_extract_json_string(buf, "session_binding", out->session_binding, sizeof(out->session_binding));
     (void)yai_session_extract_json_string(buf, "declared_control_family", out->declared_control_family, sizeof(out->declared_control_family));
@@ -651,10 +769,10 @@ int yai_session_read_workspace_info(const char *ws_id, yai_workspace_runtime_inf
 
     if (out->root_path[0] == '\0')
     {
-        const char *home = yai_get_home();
-        if (home)
-            snprintf(out->root_path, sizeof(out->root_path), "%s/.yai/workspaces/%s", home, ws_id);
+        if (out->workspace_store_root[0])
+            snprintf(out->root_path, sizeof(out->root_path), "%s/%s", out->workspace_store_root, ws_id);
     }
+    yai_workspace_fill_shell_relation(out);
 
     return 0;
 }
@@ -743,6 +861,7 @@ int yai_session_handle_workspace_action(
     char exec_dir[MAX_PATH_LEN];
     char logs_dir[MAX_PATH_LEN];
     char root_path[MAX_PATH_LEN] = {0};
+    char root_anchor_mode[32] = {0};
     char manifest_path[MAX_PATH_LEN];
     yai_workspace_runtime_info_t info;
     time_t now = time(NULL);
@@ -783,7 +902,12 @@ int yai_session_handle_workspace_action(
     if (strcmp(action, "create") != 0)
         return -2;
 
-    if (yai_workspace_resolve_root_path(ws_id, root_path_opt, root_path, sizeof(root_path)) != 0)
+    if (yai_workspace_resolve_root_path(ws_id,
+                                        root_path_opt,
+                                        root_anchor_mode,
+                                        sizeof(root_anchor_mode),
+                                        root_path,
+                                        sizeof(root_path)) != 0)
         return -1;
 
     if (mkdir_if_missing(yai_dir, 0755) != 0 ||
@@ -802,6 +926,13 @@ int yai_session_handle_workspace_action(
     snprintf(info.state, sizeof(info.state), "%s", "created");
     snprintf(info.layout, sizeof(info.layout), "%s", "v3");
     snprintf(info.root_path, sizeof(info.root_path), "%s", root_path);
+    snprintf(info.root_anchor_mode, sizeof(info.root_anchor_mode), "%s", root_anchor_mode[0] ? root_anchor_mode : "managed_default_root");
+    if (yai_workspace_store_root_path(info.workspace_store_root, sizeof(info.workspace_store_root)) != 0)
+        return -1;
+    if (yai_workspace_runtime_state_root_path(ws_id, info.runtime_state_root, sizeof(info.runtime_state_root)) != 0)
+        return -1;
+    if (yai_workspace_metadata_root_path(ws_id, info.metadata_root, sizeof(info.metadata_root)) != 0)
+        return -1;
     snprintf(info.isolation_mode, sizeof(info.isolation_mode), "%s", "process");
     info.created_at = (long)now;
     info.updated_at = (long)now;
@@ -961,13 +1092,13 @@ int yai_session_build_prompt_context_json(char *out, size_t out_cap)
         {
             n = snprintf(out,
                          out_cap,
-                         "{\"type\":\"yai.workspace.prompt_context.v1\",\"binding_status\":\"no_active\"}");
+                         "{\"type\":\"yai.workspace.prompt_context.v1\",\"binding_status\":\"no_active\",\"binding_scope\":\"session\"}");
         }
         else
         {
             n = snprintf(out,
                          out_cap,
-                         "{\"type\":\"yai.workspace.prompt_context.v1\",\"binding_status\":\"%s\",\"reason\":\"%s\"}",
+                         "{\"type\":\"yai.workspace.prompt_context.v1\",\"binding_status\":\"%s\",\"binding_scope\":\"session\",\"reason\":\"%s\"}",
                          status[0] ? status : "invalid",
                          err[0] ? err : "binding_error");
         }
@@ -979,14 +1110,19 @@ int yai_session_build_prompt_context_json(char *out, size_t out_cap)
                  "{"
                  "\"type\":\"yai.workspace.prompt_context.v1\","
                  "\"binding_status\":\"active\","
+                 "\"binding_scope\":\"session\","
                  "\"workspace_id\":\"%s\","
                  "\"workspace_alias\":\"%s\","
                  "\"state\":\"%s\","
+                 "\"workspace_root\":\"%s\","
+                 "\"root_anchor_mode\":\"%s\","
                  "\"declared\":{\"family\":\"%s\",\"specialization\":\"%s\"}"
                  "}",
                  info.ws_id,
                  info.workspace_alias,
                  info.state,
+                 info.root_path,
+                 info.root_anchor_mode[0] ? info.root_anchor_mode : "managed_default_root",
                  info.declared_control_family,
                  info.declared_specialization);
     return (n > 0 && (size_t)n < out_cap) ? 0 : -1;
@@ -1157,6 +1293,10 @@ int yai_session_build_workspace_status_json(char *out, size_t out_cap)
                  "\"debug_mode\":%s,"
                  "\"declared_context_present\":%s,"
                  "\"effective_context_present\":%s,"
+                 "\"workspace_root\":\"%s\","
+                 "\"workspace_store_root\":\"%s\","
+                 "\"root_anchor_mode\":\"%s\","
+                 "\"shell_path_relation\":\"%s\","
                  "\"reason\":\"%s\""
                  "}",
                  (rc == 0 && strcmp(status, "active") == 0) ? "true" : "false",
@@ -1167,6 +1307,10 @@ int yai_session_build_workspace_status_json(char *out, size_t out_cap)
                  (rc == 0 && info.debug_mode) ? "true" : "false",
                  (rc == 0 && yai_workspace_has_declared_context(&info)) ? "true" : "false",
                  (rc == 0 && yai_workspace_has_effective_context(&info)) ? "true" : "false",
+                 (rc == 0) ? info.root_path : "",
+                 (rc == 0) ? info.workspace_store_root : "",
+                 (rc == 0) ? info.root_anchor_mode : "",
+                 (rc == 0) ? info.shell_path_relation : "unknown",
                  err[0] ? err : "none");
     return (n > 0 && (size_t)n < out_cap) ? 0 : -1;
 }
@@ -1197,6 +1341,8 @@ int yai_session_build_workspace_inspect_json(char *out, size_t out_cap)
                  "\"type\":\"yai.workspace.inspect.v1\","
                  "\"binding_status\":\"active\","
                  "\"identity\":{\"workspace_id\":\"%s\",\"workspace_alias\":\"%s\",\"root_path\":\"%s\",\"state\":\"%s\"},"
+                 "\"root_model\":{\"workspace_store_root\":\"%s\",\"runtime_state_root\":\"%s\",\"metadata_root\":\"%s\",\"root_anchor_mode\":\"%s\"},"
+                 "\"shell\":{\"cwd\":\"%s\",\"cwd_relation\":\"%s\"},"
                  "\"session\":{\"session_binding\":\"%s\",\"runtime_attached\":%s,\"control_plane_attached\":%s,\"isolation_mode\":\"%s\",\"debug_mode\":%s},"
                  "\"normative\":{\"declared\":{\"family\":\"%s\",\"specialization\":\"%s\",\"source\":\"%s\"},"
                  "\"inferred\":{\"family\":\"%s\",\"specialization\":\"%s\",\"confidence\":%.3f},"
@@ -1207,6 +1353,12 @@ int yai_session_build_workspace_inspect_json(char *out, size_t out_cap)
                  info.workspace_alias,
                  info.root_path,
                  info.state,
+                 info.workspace_store_root,
+                 info.runtime_state_root,
+                 info.metadata_root,
+                 info.root_anchor_mode[0] ? info.root_anchor_mode : "managed_default_root",
+                 info.shell_cwd,
+                 info.shell_path_relation[0] ? info.shell_path_relation : "unknown",
                  info.session_binding,
                  info.runtime_attached ? "true" : "false",
                  info.control_plane_attached ? "true" : "false",

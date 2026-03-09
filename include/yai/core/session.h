@@ -44,6 +44,10 @@ typedef struct {
   int exists;
   char state[24];
   char root_path[MAX_PATH_LEN];
+  char workspace_store_root[MAX_PATH_LEN];
+  char runtime_state_root[MAX_PATH_LEN];
+  char metadata_root[MAX_PATH_LEN];
+  char root_anchor_mode[32];
   char layout[32];
   char workspace_alias[64];
   char session_binding[64];
@@ -64,6 +68,8 @@ typedef struct {
   char isolation_mode[24];
   int debug_mode;
   char last_resolution_trace_ref[192];
+  char shell_cwd[MAX_PATH_LEN];
+  char shell_path_relation[24];
   long created_at;
   long activated_at;
   long last_attached_at;

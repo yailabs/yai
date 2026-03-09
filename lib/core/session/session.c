@@ -443,10 +443,24 @@ int yai_session_handle_control_call(
 
             if (snprintf(data,
                          sizeof(data),
-                         "{\"ws_id\":\"%s\",\"state\":\"%s\",\"root_path\":\"%s\"}",
+                         "{"
+                         "\"ws_id\":\"%s\","
+                         "\"workspace_alias\":\"%s\","
+                         "\"state\":\"%s\","
+                         "\"root_path\":\"%s\","
+                         "\"workspace_store_root\":\"%s\","
+                         "\"runtime_state_root\":\"%s\","
+                         "\"metadata_root\":\"%s\","
+                         "\"root_anchor_mode\":\"%s\""
+                         "}",
                          ws_info.ws_id,
+                         ws_info.workspace_alias,
                          ws_info.state,
-                         ws_info.root_path) <= 0)
+                         ws_info.root_path,
+                         ws_info.workspace_store_root,
+                         ws_info.runtime_state_root,
+                         ws_info.metadata_root,
+                         ws_info.root_anchor_mode[0] ? ws_info.root_anchor_mode : "managed_default_root") <= 0)
             {
                 yai_session_send_exec_reply(client_fd,
                                             env,
@@ -477,13 +491,37 @@ int yai_session_handle_control_call(
                                             NULL);
                 return -1;
             }
+            if (yai_session_read_workspace_info(target_ws, &ws_info) == 0 && ws_info.exists)
+            {
+                if (snprintf(data,
+                             sizeof(data),
+                             "{"
+                             "\"binding_status\":\"active\","
+                             "\"workspace_id\":\"%s\","
+                             "\"workspace_alias\":\"%s\","
+                             "\"root_path\":\"%s\","
+                             "\"root_anchor_mode\":\"%s\","
+                             "\"binding_scope\":\"session\""
+                             "}",
+                             target_ws,
+                             ws_info.workspace_alias[0] ? ws_info.workspace_alias : target_ws,
+                             ws_info.root_path,
+                             ws_info.root_anchor_mode[0] ? ws_info.root_anchor_mode : "managed_default_root") <= 0)
+                {
+                    yai_session_send_exec_reply(client_fd, env, "error", "INTERNAL_ERROR", "response_encode_failed", command_id, "runtime", NULL);
+                    return -1;
+                }
+            }
+            else
+            {
             if (snprintf(data,
                          sizeof(data),
-                         "{\"binding_status\":\"active\",\"workspace_id\":\"%s\"}",
+                         "{\"binding_status\":\"active\",\"workspace_id\":\"%s\",\"binding_scope\":\"session\"}",
                          target_ws) <= 0)
             {
                 yai_session_send_exec_reply(client_fd, env, "error", "INTERNAL_ERROR", "response_encode_failed", command_id, "runtime", NULL);
                 return -1;
+            }
             }
             yai_session_send_exec_reply(client_fd, env, "ok", "OK", "workspace_activated", command_id, "runtime", data);
             return 0;
@@ -497,7 +535,7 @@ int yai_session_handle_control_call(
                 yai_session_send_exec_reply(client_fd, env, "error", "INTERNAL_ERROR", "clear_failed", command_id, "runtime", NULL);
                 return -1;
             }
-            yai_session_send_exec_reply(client_fd, env, "ok", "OK", "workspace_cleared", command_id, "runtime", "{\"binding_status\":\"no_active\"}");
+            yai_session_send_exec_reply(client_fd, env, "ok", "OK", "workspace_cleared", command_id, "runtime", "{\"binding_status\":\"no_active\",\"binding_scope\":\"session\"}");
             return 0;
         }
 
@@ -518,6 +556,11 @@ int yai_session_handle_control_call(
                              "\"workspace_alias\":\"%s\","
                              "\"state\":\"%s\","
                              "\"root_path\":\"%s\","
+                             "\"workspace_store_root\":\"%s\","
+                             "\"runtime_state_root\":\"%s\","
+                             "\"metadata_root\":\"%s\","
+                             "\"root_anchor_mode\":\"%s\","
+                             "\"shell_path_relation\":\"%s\","
                              "\"session_binding\":\"%s\","
                              "\"runtime_attached\":%s"
                              "}",
@@ -525,6 +568,11 @@ int yai_session_handle_control_call(
                              ws_info.workspace_alias,
                              ws_info.state,
                              ws_info.root_path,
+                             ws_info.workspace_store_root,
+                             ws_info.runtime_state_root,
+                             ws_info.metadata_root,
+                             ws_info.root_anchor_mode[0] ? ws_info.root_anchor_mode : "managed_default_root",
+                             ws_info.shell_path_relation[0] ? ws_info.shell_path_relation : "unknown",
                              ws_info.session_binding,
                              ws_info.runtime_attached ? "true" : "false") <= 0)
                 {
