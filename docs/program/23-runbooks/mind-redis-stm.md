@@ -37,9 +37,14 @@ tags:
 
 > Historical note: this runbook contains pre-cutover topology references (`root/kernel/engine/mind`).
 > It is not authoritative for current runtime ingress. Canonical flow is `cli -> sdk -> yai` through `~/.yai/run/control.sock`.
+> Data-plane role note (DP-2): this runbook is backend-role specific (`BR-4` transient/hot-cache) and is not the canonical Data Plane model source.
 
 ## 1) Purpose
 Define a tenant-safe, deterministic short-term memory model for Mind using Redis with strict `ws_id` scoping and governed attach workflow.
+
+### DP positioning
+- Redis is valid primary for transient cognition / STM only.
+- Redis is not authoritative primary for authority state, governance lifecycle truth, canonical event/evidence truth, or graph truth persistence.
 
 ## 2) Preconditions
 - [ ] Root/Kernel attach path is stable for Mind clients.
