@@ -1223,6 +1223,38 @@ int yai_session_clear_active_workspace(void)
     return 0;
 }
 
+int yai_session_clear_workspace_runtime_state(char *out_ws_id, size_t out_ws_id_cap)
+{
+    yai_workspace_runtime_info_t info;
+    char status[24];
+    char err[96];
+
+    if (yai_session_resolve_current_workspace(&info, status, sizeof(status), err, sizeof(err)) != 0 ||
+        strcmp(status, "active") != 0)
+        return -1;
+
+    info.inferred_family[0] = '\0';
+    info.inferred_specialization[0] = '\0';
+    info.inferred_confidence = 0.0;
+    info.effective_stack_ref[0] = '\0';
+    info.effective_overlays_ref[0] = '\0';
+    info.last_effect_summary[0] = '\0';
+    info.last_authority_summary[0] = '\0';
+    info.last_evidence_summary[0] = '\0';
+    info.last_resolution_summary[0] = '\0';
+    info.last_resolution_trace_ref[0] = '\0';
+    info.runtime_attached = 0;
+    info.control_plane_attached = 0;
+    info.updated_at = (long)time(NULL);
+
+    if (yai_workspace_write_manifest_ws_id(info.ws_id, &info) != 0)
+        return -1;
+
+    if (out_ws_id && out_ws_id_cap > 0)
+        snprintf(out_ws_id, out_ws_id_cap, "%s", info.ws_id);
+    return 0;
+}
+
 int yai_session_resolve_current_workspace(yai_workspace_runtime_info_t *info_out,
                                           char *status_out,
                                           size_t status_cap,

@@ -146,8 +146,8 @@ assert q["status"] == "ok", q
 assert q["data"]["declared"]["family"] == "economic", q
 assert q["data"]["effective"]["stack_ref"], q
 
-# clear workspace and verify no_active status
-r = call("system", "yai.workspace.clear")
+# unset workspace and verify no_active status
+r = call("system", "yai.workspace.unset")
 assert r["status"] == "ok", r
 s = call("system", "yai.workspace.status")
 assert s["status"] == "ok", s

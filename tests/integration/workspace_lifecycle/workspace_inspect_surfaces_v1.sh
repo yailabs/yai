@@ -163,7 +163,7 @@ assert r["data"]["workspace_id"] == WS
 assert "effective" in r["data"]
 
 # clear + no active
-r = call("system", "yai.workspace.clear")
+r = call("system", "yai.workspace.unset")
 assert r["status"] == "ok"
 r = call("system", "yai.workspace.status")
 assert r["status"] == "ok"

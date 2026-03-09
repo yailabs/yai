@@ -395,7 +395,10 @@ int yai_session_handle_control_call(
         if (strstr(payload, "yai.workspace.create")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.create");
         else if (strstr(payload, "yai.workspace.reset")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.reset");
         else if (strstr(payload, "yai.workspace.destroy")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.destroy");
+        else if (strstr(payload, "yai.workspace.set")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.set");
+        else if (strstr(payload, "yai.workspace.switch")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.switch");
         else if (strstr(payload, "yai.workspace.activate")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.activate");
+        else if (strstr(payload, "yai.workspace.unset")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.unset");
         else if (strstr(payload, "yai.workspace.current")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.current");
         else if (strstr(payload, "yai.workspace.clear")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.clear");
         else if (strstr(payload, "yai.workspace.deactivate")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.deactivate");
@@ -477,7 +480,9 @@ int yai_session_handle_control_call(
             return 0;
         }
 
-        if (strcmp(command_id, "yai.workspace.activate") == 0)
+        if (strcmp(command_id, "yai.workspace.activate") == 0 ||
+            strcmp(command_id, "yai.workspace.set") == 0 ||
+            strcmp(command_id, "yai.workspace.switch") == 0)
         {
             if (yai_session_set_active_workspace(target_ws, err, sizeof(err)) != 0)
             {
@@ -527,7 +532,7 @@ int yai_session_handle_control_call(
             return 0;
         }
 
-        if (strcmp(command_id, "yai.workspace.clear") == 0 ||
+        if (strcmp(command_id, "yai.workspace.unset") == 0 ||
             strcmp(command_id, "yai.workspace.deactivate") == 0)
         {
             if (yai_session_clear_active_workspace() != 0)
@@ -536,6 +541,26 @@ int yai_session_handle_control_call(
                 return -1;
             }
             yai_session_send_exec_reply(client_fd, env, "ok", "OK", "workspace_cleared", command_id, "runtime", "{\"binding_status\":\"no_active\",\"binding_scope\":\"session\"}");
+            return 0;
+        }
+
+        if (strcmp(command_id, "yai.workspace.clear") == 0)
+        {
+            char cleared_ws[MAX_WS_ID_LEN];
+            if (yai_session_clear_workspace_runtime_state(cleared_ws, sizeof(cleared_ws)) != 0)
+            {
+                yai_session_send_exec_reply(client_fd, env, "error", "BAD_ARGS", "workspace_not_active", command_id, "runtime", NULL);
+                return -1;
+            }
+            if (snprintf(data,
+                         sizeof(data),
+                         "{\"workspace_id\":\"%s\",\"runtime_state\":\"cleared\",\"binding_status\":\"active\"}",
+                         cleared_ws[0] ? cleared_ws : target_ws) <= 0)
+            {
+                yai_session_send_exec_reply(client_fd, env, "error", "INTERNAL_ERROR", "response_encode_failed", command_id, "runtime", NULL);
+                return -1;
+            }
+            yai_session_send_exec_reply(client_fd, env, "ok", "OK", "workspace_runtime_state_cleared", command_id, "runtime", data);
             return 0;
         }
 

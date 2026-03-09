@@ -24,6 +24,7 @@ int yai_session_handle_workspace_action(
     yai_workspace_runtime_info_t *info_out);
 int yai_session_set_active_workspace(const char *ws_id, char *err, size_t err_cap);
 int yai_session_clear_active_workspace(void);
+int yai_session_clear_workspace_runtime_state(char *out_ws_id, size_t out_ws_id_cap);
 int yai_session_resolve_current_workspace(yai_workspace_runtime_info_t *info_out,
                                           char *status_out,
                                           size_t status_cap,

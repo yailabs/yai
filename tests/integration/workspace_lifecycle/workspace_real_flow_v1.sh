@@ -145,7 +145,7 @@ assert i["data"]["normative"]["effective"]["effect_summary"] in ("allow", "revie
 assert i["data"]["inspect"]["last_resolution_summary"], i
 
 # 7) clear binding
-r = call("system", "yai.workspace.clear")
+r = call("system", "yai.workspace.unset")
 assert r["status"] == "ok", r
 PY
 

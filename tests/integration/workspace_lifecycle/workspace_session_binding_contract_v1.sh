@@ -6,6 +6,7 @@ YAI="$REPO/build/bin/yai"
 SOCK="${YAI_RUNTIME_INGRESS:-$HOME/.yai/run/control.sock}"
 BIND_FILE="$HOME/.yai/session/active_workspace.json"
 WS_GOOD="ws_bind_good"
+WS_SWITCH="ws_bind_switch"
 WS_STALE="ws_bind_stale"
 
 if [[ ! -x "$YAI" ]]; then
@@ -35,7 +36,7 @@ for _ in $(seq 1 50); do
 done
 [[ -S "$SOCK" ]] || { echo "workspace_session_binding_contract_v1: FAIL (missing ingress socket)"; exit 1; }
 
-python3 - "$SOCK" "$WS_GOOD" "$WS_STALE" <<'PY'
+python3 - "$SOCK" "$WS_GOOD" "$WS_SWITCH" "$WS_STALE" <<'PY'
 import json
 import os
 import socket
@@ -44,7 +45,8 @@ import sys
 
 SOCK = sys.argv[1]
 WS_GOOD = sys.argv[2]
-WS_STALE = sys.argv[3]
+WS_SWITCH = sys.argv[3]
+WS_STALE = sys.argv[4]
 
 YAI_FRAME_MAGIC = 0x59414950
 YAI_PROTOCOL_IDS_VERSION = 1
@@ -130,6 +132,16 @@ assert r["status"] == "ok"
 assert r["data"]["binding_status"] == "active"
 assert r["data"]["workspace_id"] == WS_GOOD
 
+# 4b) switch should simply change active workspace
+r = call(WS_SWITCH, "yai.workspace.create", [WS_SWITCH])
+assert r["status"] == "ok"
+r = call("system", "yai.workspace.switch", [WS_SWITCH])
+assert r["status"] == "ok"
+r = call("system", "yai.workspace.current")
+assert r["status"] == "ok"
+assert r["data"]["binding_status"] == "active"
+assert r["data"]["workspace_id"] == WS_SWITCH
+
 # 5) stale: activate stale id directly by injecting binding file path through command
 # runtime supports activation only for existing workspaces; simulate stale by writing binding to missing ws
 bind_path = os.path.expanduser("~/.yai/session/active_workspace.json")
@@ -162,7 +174,7 @@ assert r["status"] == "ok"
 assert r["data"]["binding_status"] == "invalid"
 
 # 7) clear
-r = call("system", "yai.workspace.clear")
+r = call("system", "yai.workspace.unset")
 assert r["status"] == "ok"
 assert r["data"]["binding_status"] == "no_active"
 
