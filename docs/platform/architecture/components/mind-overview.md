@@ -1,6 +1,6 @@
 ---
 id: ARCH-COMP-MIND-OVERVIEW
-status: active
+status: historical
 effective_date: 2026-02-23
 revision: 1
 owner: mind
@@ -10,6 +10,9 @@ law_refs:
 ---
 
 # Architecture Overview — Mind (L3)
+
+> Historical record: this page documents pre-unified-runtime topology and is
+> not an active architecture source for current runtime ownership.
 
 ## Role
 

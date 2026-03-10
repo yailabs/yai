@@ -7,14 +7,15 @@
 ## In scope
 
 - runtime ingress, lifecycle, dispatch, and enforcement realization
-- internal runtime module composition (`core`, `exec`, `brain`)
+- internal unified runtime composition (`core`, `exec`, `data`, `graph`, `knowledge`)
+- workspace-first runtime binding and active workspace capability attachment
 - runtime consumption/integration of canonical law surfaces
 
 ## Out of scope (this tranche)
 
 - canonical law authorship (owned by `law`)
 - ops official qualification/collateral publishing (owned by `ops`)
-- dataplane/db/query implementation work
+- external consumer API and operator UX ownership (owned by `sdk` and `cli`)
 
 ## Dependency boundary
 
