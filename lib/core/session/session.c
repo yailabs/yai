@@ -3,7 +3,11 @@
 #include <yai/core/session.h>
 #include "yai_session_internal.h"
 #include <yai/api/runtime.h>
+#include <yai/core/enforcement.h>
+#include <yai/core/lifecycle.h>
 #include <yai/core/workspace.h>
+#include <yai/data/binding.h>
+#include <yai/exec/runtime.h>
 #include <yai/law/resolver.h>
 #include <yai/law/policy_effects.h>
 
@@ -359,7 +363,7 @@ void yai_session_dispatch(
             client_fd,
             env,
             env->command_id,
-            "{\"status\":\"nyi\",\"code\":\"NOT_IMPLEMENTED\",\"reason\":\"nyi_deterministic\"}");
+            "{\"status\":\"error\",\"code\":\"UNSUPPORTED_COMMAND\",\"reason\":\"unsupported_command_id\"}");
         goto cleanup;
     }
 
@@ -408,6 +412,7 @@ int yai_session_handle_control_call(
     char evt_id[224];
     char op_summary[192];
     const char *review_state = "unresolved";
+    yai_enforcement_decision_t enforcement_decision;
     int evt_external = 0;
     const char *runtime_ws_id = NULL;
     char runtime_ws_id_buf[MAX_WS_ID_LEN];
@@ -458,6 +463,7 @@ int yai_session_handle_control_call(
         else if (strstr(payload, "yai.workspace.reset")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.reset");
         else if (strstr(payload, "yai.workspace.destroy")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.destroy");
         else if (strstr(payload, "yai.workspace.set")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.set");
+        else if (strstr(payload, "yai.workspace.open")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.open");
         else if (strstr(payload, "yai.workspace.switch")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.switch");
         else if (strstr(payload, "yai.workspace.unset")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.unset");
         else if (strstr(payload, "yai.workspace.current")) snprintf(command_id, sizeof(command_id), "%s", "yai.workspace.current");
@@ -571,6 +577,7 @@ int yai_session_handle_control_call(
         }
 
         if (strcmp(command_id, "yai.workspace.set") == 0 ||
+            strcmp(command_id, "yai.workspace.open") == 0 ||
             strcmp(command_id, "yai.workspace.switch") == 0)
         {
             if (yai_session_set_active_workspace(target_ws, err, sizeof(err)) != 0)
@@ -669,6 +676,14 @@ int yai_session_handle_control_call(
                                                             sizeof(binding_err));
             if (cur == 0 && strcmp(binding_status, "active") == 0)
             {
+                const yai_runtime_capability_state_t *caps = yai_runtime_capabilities_state();
+                int data_ready = yai_data_store_binding_is_ready() != 0;
+                int knowledge_ready = (caps && caps->providers_ready && caps->memory_ready && caps->cognition_ready) ? 1 : 0;
+                int workspace_bound = (caps && caps->workspace_id[0] &&
+                                       strcmp(caps->workspace_id, ws_info.ws_id) == 0 &&
+                                       ws_info.runtime_attached) ? 1 : 0;
+                int graph_ready = (yai_runtime_capabilities_is_ready() && data_ready && workspace_bound) ? 1 : 0;
+                int exec_probe = yai_exec_runtime_probe();
                 if (snprintf(data,
                              sizeof(data),
                              "{"
@@ -684,6 +699,15 @@ int yai_session_handle_control_call(
                              "\"shell_path_relation\":\"%s\","
                              "\"session_binding\":\"%s\","
                              "\"runtime_attached\":%s,"
+                             "\"runtime_capabilities\":{"
+                             "\"runtime\":{\"ready\":%s,\"name\":\"%s\"},"
+                             "\"workspace_binding\":{\"selected\":true,\"bound\":%s,\"workspace_id\":\"%s\"},"
+                             "\"data\":{\"store_binding_ready\":%s,\"root\":\"%s\"},"
+                             "\"graph\":{\"ready\":%s,\"truth_source\":\"persistent\"},"
+                             "\"knowledge\":{\"ready\":%s,\"transient_authoritative\":false},"
+                             "\"exec\":{\"state\":\"%s\",\"ready\":%s},"
+                             "\"recovery\":{\"tracked\":%s,\"state\":\"%s\"}"
+                             "},"
                              "\"execution_mode_requested\":\"%s\","
                              "\"execution_mode_effective\":\"%s\","
                              "\"execution_mode_degraded\":%s"
@@ -699,6 +723,19 @@ int yai_session_handle_control_call(
                              ws_info.shell_path_relation[0] ? ws_info.shell_path_relation : "unknown",
                              ws_info.session_binding,
                              ws_info.runtime_attached ? "true" : "false",
+                             yai_runtime_capabilities_is_ready() ? "true" : "false",
+                             (caps && caps->runtime_name[0]) ? caps->runtime_name : "yai-runtime",
+                             workspace_bound ? "true" : "false",
+                             ws_info.ws_id,
+                             data_ready ? "true" : "false",
+                             yai_data_store_binding_root() ? yai_data_store_binding_root() : "",
+                             graph_ready ? "true" : "false",
+                             knowledge_ready ? "true" : "false",
+                             yai_exec_runtime_state_name((yai_exec_runtime_state_t)exec_probe),
+                             (exec_probe == (int)YAI_EXEC_READY) ? "true" : "false",
+                             ws_info.declared_context_source[0] ? "true" : "false",
+                             (!ws_info.declared_context_source[0]) ? "unknown" :
+                             (strcmp(ws_info.declared_context_source, "restored") == 0 ? "restored" : "fresh"),
                              ws_info.execution_mode_requested[0] ? ws_info.execution_mode_requested : "scoped",
                              ws_info.execution_mode_effective[0] ? ws_info.execution_mode_effective : "scoped",
                              ws_info.execution_mode_degraded ? "true" : "false") <= 0)
@@ -1085,8 +1122,31 @@ int yai_session_handle_control_call(
     }
 
     effect_name = yai_law_effect_name(law_out.decision.final_effect);
+    if (yai_enforcement_finalize_control_call(env,
+                                              runtime_ws_id,
+                                              &law_out,
+                                              yai_runtime_capabilities_state(),
+                                              &enforcement_decision,
+                                              err,
+                                              sizeof(err)) != 0)
+    {
+        yai_session_send_exec_reply(
+            client_fd,
+            env,
+            "error",
+            "INTERNAL_ERROR",
+            (err[0] ? err : "enforcement_finalize_failed"),
+            "yai.runtime.control_call",
+            "runtime",
+            NULL);
+        return -1;
+    }
+    status = enforcement_decision.status;
+    code = enforcement_decision.code;
+    reason = enforcement_decision.reason;
+    review_state = enforcement_decision.review_state;
 
-    (void)yai_session_record_resolution_snapshot(runtime_ws_id, &law_out, err, sizeof(err));
+    (void)yai_session_record_resolution_snapshot(runtime_ws_id, &law_out, &enforcement_decision, err, sizeof(err));
     snprintf(ws_info.inferred_family, sizeof(ws_info.inferred_family), "%s", law_out.decision.family_id);
     snprintf(ws_info.inferred_specialization, sizeof(ws_info.inferred_specialization), "%s", law_out.decision.specialization_id);
     snprintf(ws_info.last_effect_summary, sizeof(ws_info.last_effect_summary), "%s", effect_name);
@@ -1104,10 +1164,6 @@ int yai_session_handle_control_call(
     snprintf(evt_id, sizeof(evt_id), "%s%s",
              law_out.evidence.trace_id[0] ? "evt-" : "none",
              law_out.evidence.trace_id[0] ? law_out.evidence.trace_id : "");
-    if (strcmp(effect_name, "review_required") == 0) review_state = "pending_review";
-    else if (strcmp(effect_name, "quarantine") == 0) review_state = "quarantined";
-    else if (strcmp(effect_name, "deny") == 0) review_state = "blocked";
-    else if (strcmp(effect_name, "allow") == 0) review_state = "clear";
     (void)snprintf(op_summary,
                    sizeof(op_summary),
                    "%s/%s => %s",
@@ -1201,20 +1257,6 @@ int yai_session_handle_control_call(
                      : "artifact distribution not primary");
     }
 
-    if (law_out.decision.final_effect == YAI_LAW_EFFECT_DENY ||
-        law_out.decision.final_effect == YAI_LAW_EFFECT_QUARANTINE)
-    {
-        status = "error";
-        code = "POLICY_BLOCK";
-        reason = effect_name;
-    }
-    else if (law_out.decision.final_effect == YAI_LAW_EFFECT_REVIEW_REQUIRED)
-    {
-        status = "ok";
-        code = "REVIEW_REQUIRED";
-        reason = effect_name;
-    }
-
     if (snprintf(data,
                  sizeof(data),
                  "{"
@@ -1245,6 +1287,12 @@ int yai_session_handle_control_call(
                    "\"unsupported_scopes\":\"%s\","
                    "\"attach_descriptor_ref\":\"%s\","
                    "\"execution_profile_ref\":\"%s\""
+                 "},"
+                 "\"enforcement\":{"
+                   "\"authority_decision\":\"%s\","
+                   "\"authority_constraints\":\"%s\","
+                   "\"authority_constraint_count\":%d,"
+                   "\"runtime_bound\":%s"
                  "},"
                  "\"event_surface\":{"
                    "\"event_id\":\"%s\","
@@ -1306,6 +1354,11 @@ int yai_session_handle_control_call(
                  ws_info.execution_unsupported_scopes[0] ? ws_info.execution_unsupported_scopes : "none",
                  ws_info.attach_descriptor_ref,
                  ws_info.execution_profile_ref,
+                 enforcement_decision.authority_decision == YAI_AUTHORITY_DENY ? "deny" :
+                     enforcement_decision.authority_decision == YAI_AUTHORITY_REVIEW_REQUIRED ? "review_required" : "allow",
+                 enforcement_decision.authority_constraints,
+                 enforcement_decision.authority_constraint_count,
+                 enforcement_decision.runtime_bound ? "true" : "false",
                  evt_id,
                  evt_stage,
                  evt_declared,

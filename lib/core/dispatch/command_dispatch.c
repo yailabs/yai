@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <yai/core/dispatch.h>
+#include <yai/core/authority.h>
 #include <yai/core/session.h>
 #include <yai/core/workspace.h>
 
@@ -117,11 +118,26 @@ int yai_dispatch_frame(
     if (!*handshake_done)
         return send_error_response(client_fd, env, YAI_E_NEED_HANDSHAKE, "need_handshake");
 
-    if (env->role != YAI_ROLE_OPERATOR || !env->arming)
     {
-        if (env->role != YAI_ROLE_OPERATOR)
-            return send_error_response(client_fd, env, YAI_E_ROLE_REQUIRED, "role_required");
-        return send_error_response(client_fd, env, YAI_E_ARMING_REQUIRED, "arming_required");
+        yai_authority_evaluation_t auth_eval;
+        char auth_err[96];
+        if (yai_authority_command_gate(NULL,
+                                       env->command_id,
+                                       env->role,
+                                       env->arming,
+                                       &auth_eval,
+                                       auth_err,
+                                       sizeof(auth_err)) != 0) {
+            return send_error_response(client_fd, env, YAI_E_ROLE_REQUIRED, "authority_gate_failed");
+        }
+        if (auth_eval.decision == YAI_AUTHORITY_DENY) {
+            if (strcmp(auth_eval.reason, "operator_arming_required") == 0) {
+                if (env->role != YAI_ROLE_OPERATOR)
+                    return send_error_response(client_fd, env, YAI_E_ROLE_REQUIRED, "role_required");
+                return send_error_response(client_fd, env, YAI_E_ARMING_REQUIRED, "arming_required");
+            }
+            return send_error_response(client_fd, env, YAI_E_ROLE_REQUIRED, "authority_denied");
+        }
     }
 
     if (payload_len < 0)

@@ -466,6 +466,17 @@ int yai_session_read_workspace_info(const char *ws_id, yai_workspace_runtime_inf
     (void)yai_session_extract_json_bool(buf, "capability_hardened_fs", &out->capability_hardened_fs);
     (void)yai_session_extract_json_bool(buf, "capability_process_isolation", &out->capability_process_isolation);
     (void)yai_session_extract_json_bool(buf, "capability_network_policy", &out->capability_network_policy);
+    {
+        const yai_runtime_capability_state_t *caps = yai_runtime_capabilities_state();
+        if (caps &&
+            yai_runtime_capabilities_is_ready() &&
+            caps->workspace_id[0] &&
+            strcmp(caps->workspace_id, ws_id) == 0)
+        {
+            out->runtime_attached = 1;
+            out->control_plane_attached = 1;
+        }
+    }
 
     if (out->root_path[0] == '\0')
     {
@@ -617,6 +628,7 @@ int yai_session_handle_workspace_action(
     char root_path[MAX_PATH_LEN] = {0};
     char root_anchor_mode[32] = {0};
     char manifest_path[MAX_PATH_LEN];
+    char bind_err[96];
     yai_workspace_runtime_info_t info;
     time_t now = time(NULL);
 
@@ -726,6 +738,18 @@ int yai_session_handle_workspace_action(
     if (yai_workspace_write_containment_surfaces(&info) != 0)
         return -1;
 
+    /* Workspace-first foundation: create performs real capability binding bootstrap. */
+    if (yai_workspace_recover_runtime_capabilities(ws_id, bind_err, sizeof(bind_err)) != 0)
+        return -1;
+
+    info.runtime_attached = 1;
+    info.control_plane_attached = 1;
+    info.last_attached_at = (long)time(NULL);
+    if (yai_workspace_write_manifest_path(manifest_path, &info) != 0)
+        return -1;
+    if (yai_workspace_write_containment_surfaces(&info) != 0)
+        return -1;
+
     if (info_out)
     {
         *info_out = info;
@@ -738,6 +762,7 @@ int yai_session_handle_workspace_action(
 int yai_session_set_active_workspace(const char *ws_id, char *err, size_t err_cap)
 {
     yai_workspace_runtime_info_t info;
+    char bind_err[96];
     const char *why = "ok";
 
     if (err && err_cap > 0)
@@ -760,7 +785,17 @@ int yai_session_set_active_workspace(const char *ws_id, char *err, size_t err_ca
         why = "binding_write_failed";
         goto fail;
     }
+
+    if (yai_workspace_recover_runtime_capabilities(ws_id, bind_err, sizeof(bind_err)) != 0)
+    {
+        why = bind_err[0] ? bind_err : "workspace_capability_binding_failed";
+        goto fail;
+    }
+
     snprintf(info.session_binding, sizeof(info.session_binding), "%s", ws_id);
+    info.runtime_attached = 1;
+    info.control_plane_attached = 1;
+    info.last_attached_at = (long)time(NULL);
     info.activated_at = (long)time(NULL);
     info.updated_at = info.activated_at;
     if (yai_workspace_write_manifest_ws_id(ws_id, &info) != 0)
@@ -908,4 +943,3 @@ int yai_session_resolve_current_workspace(yai_workspace_runtime_info_t *info_out
     snprintf(status_out, status_cap, "%s", "active");
     return 0;
 }
-

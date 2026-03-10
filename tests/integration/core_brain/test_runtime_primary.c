@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <yai/brain/brain.h>
-#include <yai/brain/transport.h>
+#include <yai/knowledge/runtime.h>
+#include <yai/exec/transport.h>
 
 #include <assert.h>
 #include <stdio.h>

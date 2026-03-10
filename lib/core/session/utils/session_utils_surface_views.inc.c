@@ -50,6 +50,7 @@ int yai_session_build_workspace_policy_effective_json(char *out, size_t out_cap)
     char brain_transient_store_ref[MAX_PATH_LEN];
     char read_primary_source[96];
     char read_fallback_reason[256];
+    char runtime_caps[768];
     char op_summary[192];
     const char *review_state;
     int evt_external;
@@ -187,6 +188,13 @@ int yai_session_build_workspace_policy_effective_json(char *out, size_t out_cap)
                                       &fallback_active);
     review_state = yai_workspace_review_state_from_effect(info.last_effect_summary);
     yai_workspace_operational_summary(evt_stage, evt_business, info.last_effect_summary, op_summary, sizeof(op_summary));
+    if (yai_workspace_build_runtime_capabilities_json(&info,
+                                                      "active",
+                                                      runtime_caps,
+                                                      sizeof(runtime_caps)) != 0)
+    {
+        snprintf(runtime_caps, sizeof(runtime_caps), "%s", "{}");
+    }
     n = snprintf(out,
                  out_cap,
                  "{"
@@ -219,7 +227,10 @@ int yai_session_build_workspace_policy_effective_json(char *out, size_t out_cap)
                  "\"event_evidence_sink\":{\"last_event_ref\":\"%s\",\"last_decision_ref\":\"%s\",\"last_evidence_ref\":\"%s\",\"event_store_ref\":\"%s\",\"decision_store_ref\":\"%s\",\"evidence_store_ref\":\"%s\"},"
                  "\"governance_persistence\":{\"last_object_ref\":\"%s\",\"last_lifecycle_ref\":\"%s\",\"last_attachment_ref\":\"%s\",\"object_store_ref\":\"%s\",\"lifecycle_store_ref\":\"%s\",\"attachment_store_ref\":\"%s\"},"
                  "\"authority_artifact_persistence\":{\"last_authority_ref\":\"%s\",\"last_authority_resolution_ref\":\"%s\",\"last_artifact_ref\":\"%s\",\"last_artifact_linkage_ref\":\"%s\",\"authority_store_ref\":\"%s\",\"artifact_store_ref\":\"%s\"},"
+                 "\"graph_persistence\":{\"last_graph_node_ref\":\"%s\",\"last_graph_edge_ref\":\"%s\",\"graph_store_ref\":\"%s\",\"graph_truth_authoritative\":true},"
+                 "\"knowledge_transient_persistence\":{\"last_transient_state_ref\":\"%s\",\"last_transient_working_set_ref\":\"%s\",\"transient_store_ref\":\"%s\",\"transient_authoritative\":false},"
                  "\"brain_persistence\":{\"last_graph_node_ref\":\"%s\",\"last_graph_edge_ref\":\"%s\",\"last_transient_state_ref\":\"%s\",\"last_transient_working_set_ref\":\"%s\",\"graph_store_ref\":\"%s\",\"transient_store_ref\":\"%s\",\"graph_truth_authoritative\":true,\"transient_authoritative\":false},"
+                 "\"runtime_capabilities\":%s,"
                  "\"enforcement_record_set\":{\"last_outcome_ref\":\"%s\",\"last_linkage_ref\":\"%s\",\"materialization_status\":\"%s\",\"missing_fields\":\"%s\",\"outcome_store_ref\":\"%s\",\"linkage_store_ref\":\"%s\"},"
                  "\"read_path\":{\"mode\":\"db_first\",\"primary_source\":\"%s\",\"db_first_ready\":%s,\"fallback_active\":%s,\"fallback_reason\":\"%s\",\"filesystem_primary\":false},"
                  "\"scientific\":{\"experiment_context_summary\":\"%s\",\"parameter_governance_summary\":\"%s\",\"reproducibility_summary\":\"%s\",\"dataset_integrity_summary\":\"%s\",\"publication_control_summary\":\"%s\"},"
@@ -285,10 +296,17 @@ int yai_session_build_workspace_policy_effective_json(char *out, size_t out_cap)
                  artifact_store_ref,
                  brain_graph_node_ref,
                  brain_graph_edge_ref,
+                 brain_graph_store_ref,
+                 brain_transient_state_ref,
+                 brain_transient_working_set_ref,
+                 brain_transient_store_ref,
+                 brain_graph_node_ref,
+                 brain_graph_edge_ref,
                  brain_transient_state_ref,
                  brain_transient_working_set_ref,
                  brain_graph_store_ref,
                  brain_transient_store_ref,
+                 runtime_caps,
                  enforce_last_outcome_ref,
                  enforce_last_linkage_ref,
                  enforce_materialization_status[0] ? enforce_materialization_status : "unknown",
@@ -364,6 +382,7 @@ int yai_session_build_workspace_debug_resolution_json(char *out, size_t out_cap)
     char brain_transient_store_ref[MAX_PATH_LEN];
     char read_primary_source[96];
     char read_fallback_reason[256];
+    char runtime_caps[768];
     char op_summary[192];
     const char *review_state;
     int evt_external;
@@ -503,6 +522,13 @@ int yai_session_build_workspace_debug_resolution_json(char *out, size_t out_cap)
                                       &fallback_active);
     review_state = yai_workspace_review_state_from_effect(info.last_effect_summary);
     yai_workspace_operational_summary(evt_stage, evt_business, info.last_effect_summary, op_summary, sizeof(op_summary));
+    if (yai_workspace_build_runtime_capabilities_json(&info,
+                                                      "active",
+                                                      runtime_caps,
+                                                      sizeof(runtime_caps)) != 0)
+    {
+        snprintf(runtime_caps, sizeof(runtime_caps), "%s", "{}");
+    }
     n = snprintf(out,
                  out_cap,
                  "{"
@@ -532,7 +558,10 @@ int yai_session_build_workspace_debug_resolution_json(char *out, size_t out_cap)
                  "\"event_evidence_sink\":{\"last_event_ref\":\"%s\",\"last_decision_ref\":\"%s\",\"last_evidence_ref\":\"%s\",\"event_store_ref\":\"%s\",\"decision_store_ref\":\"%s\",\"evidence_store_ref\":\"%s\"},"
                  "\"governance_persistence\":{\"last_object_ref\":\"%s\",\"last_lifecycle_ref\":\"%s\",\"last_attachment_ref\":\"%s\",\"object_store_ref\":\"%s\",\"lifecycle_store_ref\":\"%s\",\"attachment_store_ref\":\"%s\"},"
                  "\"authority_artifact_persistence\":{\"last_authority_ref\":\"%s\",\"last_authority_resolution_ref\":\"%s\",\"last_artifact_ref\":\"%s\",\"last_artifact_linkage_ref\":\"%s\",\"authority_store_ref\":\"%s\",\"artifact_store_ref\":\"%s\"},"
+                 "\"graph_persistence\":{\"last_graph_node_ref\":\"%s\",\"last_graph_edge_ref\":\"%s\",\"graph_store_ref\":\"%s\",\"graph_truth_authoritative\":true},"
+                 "\"knowledge_transient_persistence\":{\"last_transient_state_ref\":\"%s\",\"last_transient_working_set_ref\":\"%s\",\"transient_store_ref\":\"%s\",\"transient_authoritative\":false},"
                  "\"brain_persistence\":{\"last_graph_node_ref\":\"%s\",\"last_graph_edge_ref\":\"%s\",\"last_transient_state_ref\":\"%s\",\"last_transient_working_set_ref\":\"%s\",\"graph_store_ref\":\"%s\",\"transient_store_ref\":\"%s\",\"graph_truth_authoritative\":true,\"transient_authoritative\":false},"
+                 "\"runtime_capabilities\":%s,"
                  "\"enforcement_record_set\":{\"last_outcome_ref\":\"%s\",\"last_linkage_ref\":\"%s\",\"materialization_status\":\"%s\",\"missing_fields\":\"%s\",\"outcome_store_ref\":\"%s\",\"linkage_store_ref\":\"%s\"},"
                  "\"read_path\":{\"mode\":\"db_first\",\"primary_source\":\"%s\",\"db_first_ready\":%s,\"fallback_active\":%s,\"fallback_reason\":\"%s\",\"filesystem_primary\":false},"
                  "\"scientific\":{\"experiment_context_summary\":\"%s\",\"parameter_governance_summary\":\"%s\",\"reproducibility_summary\":\"%s\",\"dataset_integrity_summary\":\"%s\",\"publication_control_summary\":\"%s\"},"
@@ -600,10 +629,17 @@ int yai_session_build_workspace_debug_resolution_json(char *out, size_t out_cap)
                  artifact_store_ref,
                  brain_graph_node_ref,
                  brain_graph_edge_ref,
+                 brain_graph_store_ref,
+                 brain_transient_state_ref,
+                 brain_transient_working_set_ref,
+                 brain_transient_store_ref,
+                 brain_graph_node_ref,
+                 brain_graph_edge_ref,
                  brain_transient_state_ref,
                  brain_transient_working_set_ref,
                  brain_graph_store_ref,
                  brain_transient_store_ref,
+                 runtime_caps,
                  enforce_last_outcome_ref,
                  enforce_last_linkage_ref,
                  enforce_materialization_status[0] ? enforce_materialization_status : "unknown",
@@ -636,16 +672,32 @@ static int yai_workspace_graph_paths(const char *ws_id,
                                      size_t index_path_cap)
 {
     char run_dir[MAX_PATH_LEN];
+    char legacy_nodes[MAX_PATH_LEN];
+    char legacy_edges[MAX_PATH_LEN];
+    char legacy_index[MAX_PATH_LEN];
     if (!ws_id || !nodes_log || !edges_log || !index_path)
         return -1;
     if (yai_session_build_run_path(run_dir, sizeof(run_dir), ws_id) != 0)
         return -1;
-    if (snprintf(nodes_log, nodes_log_cap, "%s/brain/graph/persistent-nodes.v1.ndjson", run_dir) <= 0)
+    if (snprintf(nodes_log, nodes_log_cap, "%s/runtime/graph/persistent-nodes.v1.ndjson", run_dir) <= 0)
         return -1;
-    if (snprintf(edges_log, edges_log_cap, "%s/brain/graph/persistent-edges.v1.ndjson", run_dir) <= 0)
+    if (snprintf(edges_log, edges_log_cap, "%s/runtime/graph/persistent-edges.v1.ndjson", run_dir) <= 0)
         return -1;
-    if (snprintf(index_path, index_path_cap, "%s/brain/graph/index.v1.json", run_dir) <= 0)
+    if (snprintf(index_path, index_path_cap, "%s/runtime/graph/index.v1.json", run_dir) <= 0)
         return -1;
+    if (!yai_session_path_exists(index_path))
+    {
+        if (snprintf(legacy_nodes, sizeof(legacy_nodes), "%s/brain/graph/persistent-nodes.v1.ndjson", run_dir) <= 0 ||
+            snprintf(legacy_edges, sizeof(legacy_edges), "%s/brain/graph/persistent-edges.v1.ndjson", run_dir) <= 0 ||
+            snprintf(legacy_index, sizeof(legacy_index), "%s/brain/graph/index.v1.json", run_dir) <= 0)
+            return -1;
+        if (yai_session_path_exists(legacy_index))
+        {
+            (void)snprintf(nodes_log, nodes_log_cap, "%s", legacy_nodes);
+            (void)snprintf(edges_log, edges_log_cap, "%s", legacy_edges);
+            (void)snprintf(index_path, index_path_cap, "%s", legacy_index);
+        }
+    }
     return 0;
 }
 
@@ -693,6 +745,68 @@ static int yai_graph_rows_from_csv(const char *csv,
         }
         tok = strtok_r(NULL, ",", &save);
     }
+    return 0;
+}
+
+static int yai_authority_requirement_coverage_from_csv(const char *csv,
+                                                       const char *authority_decision,
+                                                       char *rows_out,
+                                                       size_t rows_out_cap,
+                                                       int max_rows,
+                                                       int *out_all_covered)
+{
+    char copy[512];
+    char *tok = NULL;
+    char *save = NULL;
+    size_t used = 0;
+    int count = 0;
+    int all_covered = 1;
+    int n;
+    int covered;
+
+    if (!rows_out || rows_out_cap == 0)
+        return -1;
+    rows_out[0] = '\0';
+    if (out_all_covered)
+        *out_all_covered = 0;
+
+    if (!csv || !csv[0])
+        return 0;
+
+    if (strlen(csv) >= sizeof(copy))
+        return -1;
+
+    (void)snprintf(copy, sizeof(copy), "%s", csv);
+    tok = strtok_r(copy, ",", &save);
+    while (tok && count < max_rows)
+    {
+        while (*tok == ' ')
+            tok++;
+        if (*tok)
+        {
+            covered = (authority_decision &&
+                       authority_decision[0] &&
+                       strcmp(authority_decision, "deny") != 0) ? 1 : 0;
+            n = snprintf(rows_out + used,
+                         rows_out_cap - used,
+                         "%s{\"requirement\":\"%s\",\"covered\":%s}",
+                         used ? "," : "",
+                         tok,
+                         covered ? "true" : "false");
+            if (n <= 0 || (size_t)n >= (rows_out_cap - used))
+                return -1;
+            used += (size_t)n;
+            if (!covered)
+                all_covered = 0;
+            count++;
+        }
+        tok = strtok_r(NULL, ",", &save);
+    }
+
+    if (count == 0)
+        all_covered = 0;
+    if (out_all_covered)
+        *out_all_covered = all_covered;
     return 0;
 }
 
@@ -776,6 +890,8 @@ int yai_session_build_workspace_data_query_json(const char *query_family,
     char graph_updated_at[64];
     char graph_node_rows_json[4096];
     char graph_edge_rows_json[4096];
+    char graph_query_summary_json[1024];
+    char graph_query_err[96];
     const char *qf_model;
     long graph_node_count;
     long graph_edge_count;
@@ -907,6 +1023,20 @@ int yai_session_build_workspace_data_query_json(const char *query_family,
         (void)snprintf(graph_node_rows_json, sizeof(graph_node_rows_json), "%s", "");
     if (yai_graph_rows_from_csv(graph_edge_classes, "edge_class", graph_edge_rows_json, sizeof(graph_edge_rows_json), 24) != 0)
         (void)snprintf(graph_edge_rows_json, sizeof(graph_edge_rows_json), "%s", "");
+    graph_query_summary_json[0] = '\0';
+    graph_query_err[0] = '\0';
+    if (yai_graph_query_workspace_summary(info.ws_id,
+                                          graph_query_summary_json,
+                                          sizeof(graph_query_summary_json),
+                                          graph_query_err,
+                                          sizeof(graph_query_err)) != 0)
+    {
+        (void)snprintf(graph_query_summary_json,
+                       sizeof(graph_query_summary_json),
+                       "{\"workspace_id\":\"%s\",\"error\":\"%s\"}",
+                       info.ws_id,
+                       graph_query_err[0] ? graph_query_err : "graph_query_unavailable");
+    }
     qf_model = (strncmp(qf, "graph.", 6) == 0) ? "graph" : qf;
     yai_workspace_db_first_read_model(qf_model,
                                       sink_last_event_ref,
@@ -1048,6 +1178,68 @@ int yai_session_build_workspace_data_query_json(const char *query_family,
 
     if (strcmp(qf, "enforcement") == 0)
     {
+        char enforcement_outcome_tail_json[2048];
+        char enforcement_linkage_tail_json[2048];
+        char enforcement_outcome_latest_json[1024];
+        char enforcement_authority_constraints[256];
+        char enforcement_authority_decision[64];
+        char authority_requirement_coverage_json[1024];
+        int all_requirements_covered = 0;
+        size_t enforcement_outcome_count = 0;
+        size_t enforcement_linkage_count = 0;
+        char enforcement_query_err[96];
+        enforcement_outcome_tail_json[0] = '\0';
+        enforcement_linkage_tail_json[0] = '\0';
+        enforcement_outcome_latest_json[0] = '\0';
+        enforcement_authority_constraints[0] = '\0';
+        enforcement_authority_decision[0] = '\0';
+        authority_requirement_coverage_json[0] = '\0';
+        enforcement_query_err[0] = '\0';
+        (void)yai_data_query_tail_json(info.ws_id,
+                                       "enforcement_outcome",
+                                       3,
+                                       enforcement_outcome_tail_json,
+                                       sizeof(enforcement_outcome_tail_json),
+                                       enforcement_query_err,
+                                       sizeof(enforcement_query_err));
+        (void)yai_data_query_tail_json(info.ws_id,
+                                       "enforcement_linkage",
+                                       3,
+                                       enforcement_linkage_tail_json,
+                                       sizeof(enforcement_linkage_tail_json),
+                                       enforcement_query_err,
+                                       sizeof(enforcement_query_err));
+        (void)yai_data_query_tail_json(info.ws_id,
+                                       "enforcement_outcome",
+                                       1,
+                                       enforcement_outcome_latest_json,
+                                       sizeof(enforcement_outcome_latest_json),
+                                       enforcement_query_err,
+                                       sizeof(enforcement_query_err));
+        (void)yai_data_query_count(info.ws_id, "enforcement_outcome", &enforcement_outcome_count, enforcement_query_err, sizeof(enforcement_query_err));
+        (void)yai_data_query_count(info.ws_id, "enforcement_linkage", &enforcement_linkage_count, enforcement_query_err, sizeof(enforcement_query_err));
+        if (enforcement_outcome_tail_json[0] == '\0') snprintf(enforcement_outcome_tail_json, sizeof(enforcement_outcome_tail_json), "[]");
+        if (enforcement_linkage_tail_json[0] == '\0') snprintf(enforcement_linkage_tail_json, sizeof(enforcement_linkage_tail_json), "[]");
+        if (enforcement_outcome_latest_json[0] == '\0') snprintf(enforcement_outcome_latest_json, sizeof(enforcement_outcome_latest_json), "[]");
+
+        (void)yai_session_extract_json_string(enforcement_outcome_latest_json,
+                                              "authority_constraints",
+                                              enforcement_authority_constraints,
+                                              sizeof(enforcement_authority_constraints));
+        (void)yai_session_extract_json_string(enforcement_outcome_latest_json,
+                                              "authority_decision",
+                                              enforcement_authority_decision,
+                                              sizeof(enforcement_authority_decision));
+        if (yai_authority_requirement_coverage_from_csv(enforcement_authority_constraints,
+                                                        enforcement_authority_decision,
+                                                        authority_requirement_coverage_json,
+                                                        sizeof(authority_requirement_coverage_json),
+                                                        24,
+                                                        &all_requirements_covered) != 0)
+        {
+            authority_requirement_coverage_json[0] = '\0';
+            all_requirements_covered = 0;
+        }
         n = snprintf(out,
                      out_cap,
                      "{"
@@ -1056,6 +1248,8 @@ int yai_session_build_workspace_data_query_json(const char *query_family,
                      "\"result_shape\":\"detail_record\","
                      "\"workspace_id\":\"%s\","
                      "\"record\":{\"outcome_ref\":\"%s\",\"linkage_ref\":\"%s\",\"materialization_status\":\"%s\",\"missing_fields\":\"%s\",\"event_ref\":\"%s\",\"decision_ref\":\"%s\",\"evidence_ref\":\"%s\"},"
+                     "\"records\":{\"enforcement_outcome_count\":%zu,\"enforcement_linkage_count\":%zu,\"latest_enforcement_outcome\":%s,\"latest_enforcement_linkage\":%s},"
+                     "\"authority_requirement_coverage\":{\"all_covered\":%s,\"authority_decision\":\"%s\",\"requirements\":[%s]},"
                      "\"read_path\":{\"mode\":\"db_first\",\"primary_source\":\"%s\",\"db_first_ready\":%s,\"fallback_active\":%s,\"fallback_reason\":\"%s\",\"filesystem_primary\":false},"
                      "\"stores\":{\"outcome_store_ref\":\"%s\",\"linkage_store_ref\":\"%s\"}"
                      "}",
@@ -1067,6 +1261,13 @@ int yai_session_build_workspace_data_query_json(const char *query_family,
                      sink_last_event_ref,
                      sink_last_decision_ref,
                      sink_last_evidence_ref,
+                     enforcement_outcome_count,
+                     enforcement_linkage_count,
+                     enforcement_outcome_tail_json,
+                     enforcement_linkage_tail_json,
+                     all_requirements_covered ? "true" : "false",
+                     enforcement_authority_decision[0] ? enforcement_authority_decision : "unknown",
+                     authority_requirement_coverage_json,
                      read_primary_source,
                      db_first_ready ? "true" : "false",
                      fallback_active ? "true" : "false",
@@ -1078,6 +1279,92 @@ int yai_session_build_workspace_data_query_json(const char *query_family,
 
     if (strcmp(qf, "authority") == 0)
     {
+        char authority_tail_json[2048];
+        char authority_resolution_tail_json[2048];
+        char enforcement_outcome_tail_json[2048];
+        char enforcement_linkage_tail_json[2048];
+        char enforcement_outcome_latest_json[1024];
+        char enforcement_linkage_latest_json[1024];
+        char enforcement_authority_constraints[256];
+        char enforcement_authority_decision[64];
+        int constraint_coverage = 0;
+        size_t authority_count = 0;
+        size_t authority_resolution_count = 0;
+        size_t enforcement_outcome_count = 0;
+        size_t enforcement_linkage_count = 0;
+        char authority_query_err[96];
+        authority_tail_json[0] = '\0';
+        authority_resolution_tail_json[0] = '\0';
+        enforcement_outcome_tail_json[0] = '\0';
+        enforcement_linkage_tail_json[0] = '\0';
+        enforcement_outcome_latest_json[0] = '\0';
+        enforcement_linkage_latest_json[0] = '\0';
+        enforcement_authority_constraints[0] = '\0';
+        enforcement_authority_decision[0] = '\0';
+        authority_query_err[0] = '\0';
+        (void)yai_data_query_tail_json(info.ws_id,
+                                       "authority",
+                                       3,
+                                       authority_tail_json,
+                                       sizeof(authority_tail_json),
+                                       authority_query_err,
+                                       sizeof(authority_query_err));
+        (void)yai_data_query_tail_json(info.ws_id,
+                                       "authority_resolution",
+                                       3,
+                                       authority_resolution_tail_json,
+                                       sizeof(authority_resolution_tail_json),
+                                       authority_query_err,
+                                       sizeof(authority_query_err));
+        (void)yai_data_query_count(info.ws_id, "authority", &authority_count, authority_query_err, sizeof(authority_query_err));
+        (void)yai_data_query_count(info.ws_id, "authority_resolution", &authority_resolution_count, authority_query_err, sizeof(authority_query_err));
+        (void)yai_data_query_count(info.ws_id, "enforcement_outcome", &enforcement_outcome_count, authority_query_err, sizeof(authority_query_err));
+        (void)yai_data_query_count(info.ws_id, "enforcement_linkage", &enforcement_linkage_count, authority_query_err, sizeof(authority_query_err));
+        (void)yai_data_query_tail_json(info.ws_id,
+                                       "enforcement_outcome",
+                                       3,
+                                       enforcement_outcome_tail_json,
+                                       sizeof(enforcement_outcome_tail_json),
+                                       authority_query_err,
+                                       sizeof(authority_query_err));
+        (void)yai_data_query_tail_json(info.ws_id,
+                                       "enforcement_linkage",
+                                       3,
+                                       enforcement_linkage_tail_json,
+                                       sizeof(enforcement_linkage_tail_json),
+                                       authority_query_err,
+                                       sizeof(authority_query_err));
+        (void)yai_data_query_tail_json(info.ws_id,
+                                       "enforcement_outcome",
+                                       1,
+                                       enforcement_outcome_latest_json,
+                                       sizeof(enforcement_outcome_latest_json),
+                                       authority_query_err,
+                                       sizeof(authority_query_err));
+        (void)yai_data_query_tail_json(info.ws_id,
+                                       "enforcement_linkage",
+                                       1,
+                                       enforcement_linkage_latest_json,
+                                       sizeof(enforcement_linkage_latest_json),
+                                       authority_query_err,
+                                       sizeof(authority_query_err));
+        if (authority_tail_json[0] == '\0') snprintf(authority_tail_json, sizeof(authority_tail_json), "[]");
+        if (authority_resolution_tail_json[0] == '\0') snprintf(authority_resolution_tail_json, sizeof(authority_resolution_tail_json), "[]");
+        if (enforcement_outcome_tail_json[0] == '\0') snprintf(enforcement_outcome_tail_json, sizeof(enforcement_outcome_tail_json), "[]");
+        if (enforcement_linkage_tail_json[0] == '\0') snprintf(enforcement_linkage_tail_json, sizeof(enforcement_linkage_tail_json), "[]");
+        if (enforcement_outcome_latest_json[0] == '\0') snprintf(enforcement_outcome_latest_json, sizeof(enforcement_outcome_latest_json), "[]");
+        if (enforcement_linkage_latest_json[0] == '\0') snprintf(enforcement_linkage_latest_json, sizeof(enforcement_linkage_latest_json), "[]");
+        (void)yai_session_extract_json_string(enforcement_outcome_latest_json,
+                                              "authority_constraints",
+                                              enforcement_authority_constraints,
+                                              sizeof(enforcement_authority_constraints));
+        (void)yai_session_extract_json_string(enforcement_outcome_latest_json,
+                                              "authority_decision",
+                                              enforcement_authority_decision,
+                                              sizeof(enforcement_authority_decision));
+        if (enforcement_authority_constraints[0] && enforcement_authority_decision[0]) {
+            constraint_coverage = 1;
+        }
         n = snprintf(out,
                      out_cap,
                      "{"
@@ -1087,6 +1374,9 @@ int yai_session_build_workspace_data_query_json(const char *query_family,
                      "\"workspace_id\":\"%s\","
                      "\"columns\":[\"authority_ref\",\"resolution_ref\",\"authority_summary\",\"governance_refs\"],"
                      "\"rows\":[[\"%s\",\"%s\",\"%s\",\"%s\"]],"
+                     "\"records\":{\"authority_count\":%zu,\"authority_resolution_count\":%zu,\"enforcement_outcome_count\":%zu,\"enforcement_linkage_count\":%zu,"
+                     "\"latest_authority\":%s,\"latest_authority_resolution\":%s,\"latest_enforcement_outcome\":%s,\"latest_enforcement_linkage\":%s},"
+                     "\"correlation\":{\"constraint_coverage\":%s,\"authority_decision\":\"%s\",\"authority_constraints\":\"%s\"},"
                      "\"read_path\":{\"mode\":\"db_first\",\"primary_source\":\"%s\",\"db_first_ready\":%s,\"fallback_active\":%s,\"fallback_reason\":\"%s\",\"filesystem_primary\":false},"
                      "\"stores\":{\"authority_store_ref\":\"%s\"}"
                      "}",
@@ -1095,6 +1385,17 @@ int yai_session_build_workspace_data_query_json(const char *query_family,
                      authority_resolution_ref,
                      info.last_authority_summary,
                      info.policy_attachments_csv,
+                     authority_count,
+                     authority_resolution_count,
+                     enforcement_outcome_count,
+                     enforcement_linkage_count,
+                     authority_tail_json,
+                     authority_resolution_tail_json,
+                     enforcement_outcome_tail_json,
+                     enforcement_linkage_tail_json,
+                     constraint_coverage ? "true" : "false",
+                     enforcement_authority_decision[0] ? enforcement_authority_decision : "unknown",
+                     enforcement_authority_constraints[0] ? enforcement_authority_constraints : "none",
                      read_primary_source,
                      db_first_ready ? "true" : "false",
                      fallback_active ? "true" : "false",
@@ -1141,6 +1442,7 @@ int yai_session_build_workspace_data_query_json(const char *query_family,
                      "\"workspace_id\":\"%s\","
                      "\"summary\":{\"graph_node_count\":%ld,\"graph_edge_count\":%ld,\"updated_at\":\"%s\","
                      "\"last_graph_node_ref\":\"%s\",\"last_graph_edge_ref\":\"%s\",\"graph_truth_authoritative\":true},"
+                     "\"graph_query_summary\":%s,"
                      "\"columns\":[\"edge_class\",\"kind\"],"
                      "\"rows\":[%s],"
                      "\"read_path\":{\"mode\":\"db_first\",\"primary_source\":\"graph_truth_store\",\"db_first_ready\":%s,\"fallback_active\":%s,\"fallback_reason\":\"%s\",\"filesystem_primary\":false},"
@@ -1152,6 +1454,7 @@ int yai_session_build_workspace_data_query_json(const char *query_family,
                      graph_updated_at[0] ? graph_updated_at : "unknown",
                      brain_graph_node_ref,
                      brain_graph_edge_ref,
+                     graph_query_summary_json,
                      graph_edge_rows_json,
                      db_first_ready ? "true" : "false",
                      fallback_active ? "true" : "false",

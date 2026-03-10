@@ -2,6 +2,7 @@
 #define YAI_SESSION_INTERNAL_H
 
 #include <yai/core/session.h>
+#include <yai/core/enforcement.h>
 #include <yai/law/resolver.h>
 
 int yai_session_extract_json_string(const char *json, const char *key, char *out, size_t out_cap);
@@ -69,6 +70,7 @@ int yai_session_workspace_policy_apply_dry_run(const char *object_id,
                                                size_t err_cap);
 int yai_session_record_resolution_snapshot(const char *ws_id,
                                           const yai_law_resolution_output_t *law_out,
+                                          const yai_enforcement_decision_t *enforcement_out,
                                           char *err,
                                           size_t err_cap);
 void yai_session_workspace_event_semantics(const yai_workspace_runtime_info_t *info,

@@ -116,6 +116,88 @@ static int yai_workspace_has_effective_context(const yai_workspace_runtime_info_
     return (info->effective_stack_ref[0] || info->last_effect_summary[0]) ? 1 : 0;
 }
 
+static int yai_workspace_recovery_tracked(const yai_workspace_runtime_info_t *info)
+{
+    if (!info)
+        return 0;
+    return info->declared_context_source[0] ? 1 : 0;
+}
+
+static const char *yai_workspace_recovery_state(const yai_workspace_runtime_info_t *info)
+{
+    if (!info || !info->declared_context_source[0])
+        return "unknown";
+    if (strcmp(info->declared_context_source, "restored") == 0)
+        return "restored";
+    return "fresh";
+}
+
+static int yai_workspace_build_runtime_capabilities_json(const yai_workspace_runtime_info_t *info,
+                                                         const char *binding_status,
+                                                         char *out,
+                                                         size_t out_cap)
+{
+    const yai_runtime_capability_state_t *caps = yai_runtime_capabilities_state();
+    int runtime_ready = yai_runtime_capabilities_is_ready() != 0;
+    int data_ready = yai_data_store_binding_is_ready() != 0;
+    int knowledge_ready = 0;
+    int graph_ready = 0;
+    int workspace_selected = 0;
+    int workspace_bound = 0;
+    int exec_probe = yai_exec_runtime_probe();
+    const char *exec_state = yai_exec_runtime_state_name((yai_exec_runtime_state_t)exec_probe);
+    const char *recovery_state = "unknown";
+    int recovery_tracked = 0;
+    int n;
+
+    if (!out || out_cap == 0)
+        return -1;
+
+    if (caps) {
+        knowledge_ready = (caps->providers_ready && caps->memory_ready && caps->cognition_ready) ? 1 : 0;
+    }
+
+    workspace_selected = (binding_status && strcmp(binding_status, "active") == 0) ? 1 : 0;
+    if (workspace_selected && info) {
+        recovery_tracked = yai_workspace_recovery_tracked(info);
+        recovery_state = yai_workspace_recovery_state(info);
+    }
+
+    if (workspace_selected && info && caps && caps->workspace_id[0] &&
+        strcmp(caps->workspace_id, info->ws_id) == 0 && info->runtime_attached) {
+        workspace_bound = 1;
+    }
+
+    graph_ready = (data_ready && runtime_ready && workspace_bound) ? 1 : 0;
+
+    n = snprintf(out,
+                 out_cap,
+                 "{"
+                 "\"runtime\":{\"ready\":%s,\"name\":\"%s\"},"
+                 "\"workspace_binding\":{\"selected\":%s,\"bound\":%s,\"workspace_id\":\"%s\"},"
+                 "\"data\":{\"store_binding_ready\":%s,\"root\":\"%s\"},"
+                 "\"graph\":{\"ready\":%s,\"truth_source\":\"persistent\"},"
+                 "\"knowledge\":{\"ready\":%s,\"transient_authoritative\":false},"
+                 "\"exec\":{\"state\":\"%s\",\"ready\":%s},"
+                 "\"recovery\":{\"tracked\":%s,\"state\":\"%s\"}"
+                 "}",
+                 runtime_ready ? "true" : "false",
+                 (caps && caps->runtime_name[0]) ? caps->runtime_name : "yai-runtime",
+                 workspace_selected ? "true" : "false",
+                 workspace_bound ? "true" : "false",
+                 (workspace_selected && info) ? info->ws_id : "",
+                 data_ready ? "true" : "false",
+                 yai_data_store_binding_root() ? yai_data_store_binding_root() : "",
+                 graph_ready ? "true" : "false",
+                 knowledge_ready ? "true" : "false",
+                 exec_state ? exec_state : "unknown",
+                 (exec_probe == (int)YAI_EXEC_READY) ? "true" : "false",
+                 recovery_tracked ? "true" : "false",
+                 recovery_state);
+
+    return (n > 0 && (size_t)n < out_cap) ? 0 : -1;
+}
+
 static int yai_embedded_law_path(char *out, size_t out_cap, const char *rel)
 {
     const char *root = getenv("YAI_LAW_EMBED_ROOT");
@@ -245,11 +327,19 @@ int yai_session_build_workspace_status_json(char *out, size_t out_cap)
     yai_workspace_runtime_info_t info;
     char status[24];
     char err[96];
+    char runtime_caps[768];
     int rc;
     int n;
     if (!out || out_cap == 0)
         return -1;
     rc = yai_session_resolve_current_workspace(&info, status, sizeof(status), err, sizeof(err));
+    if (yai_workspace_build_runtime_capabilities_json((rc == 0) ? &info : NULL,
+                                                      status,
+                                                      runtime_caps,
+                                                      sizeof(runtime_caps)) != 0)
+    {
+        snprintf(runtime_caps, sizeof(runtime_caps), "%s", "{}");
+    }
     n = snprintf(out,
                  out_cap,
                  "{"
@@ -278,6 +368,7 @@ int yai_session_build_workspace_status_json(char *out, size_t out_cap)
                  "\"effective_context_present\":%s,"
                  "\"workspace_root\":\"%s\","
                  "\"workspace_store_root\":\"%s\","
+                 "\"runtime_capabilities\":%s,"
                  "\"root_anchor_mode\":\"%s\","
                  "\"shell_path_relation\":\"%s\","
                  "\"reason\":\"%s\""
@@ -305,6 +396,7 @@ int yai_session_build_workspace_status_json(char *out, size_t out_cap)
                  (rc == 0 && yai_workspace_has_effective_context(&info)) ? "true" : "false",
                  (rc == 0) ? info.root_path : "",
                  (rc == 0) ? info.workspace_store_root : "",
+                 runtime_caps,
                  (rc == 0) ? info.root_anchor_mode : "",
                  (rc == 0) ? info.shell_path_relation : "unknown",
                  err[0] ? err : "none");
@@ -363,6 +455,7 @@ int yai_session_build_workspace_inspect_json(char *out, size_t out_cap)
     char brain_transient_store_ref[MAX_PATH_LEN];
     char read_primary_source[96];
     char read_fallback_reason[256];
+    char runtime_caps[768];
     char op_summary[192];
     const char *review_state;
     int evt_external;
@@ -393,6 +486,13 @@ int yai_session_build_workspace_inspect_json(char *out, size_t out_cap)
         (void)snprintf(dig_publication, sizeof(dig_publication), "%s", "not available");
         (void)snprintf(dig_retrieval, sizeof(dig_retrieval), "%s", "not available");
         (void)snprintf(dig_distribution, sizeof(dig_distribution), "%s", "not available");
+        if (yai_workspace_build_runtime_capabilities_json(NULL,
+                                                          status,
+                                                          runtime_caps,
+                                                          sizeof(runtime_caps)) != 0)
+        {
+            snprintf(runtime_caps, sizeof(runtime_caps), "%s", "{}");
+        }
         n = snprintf(out,
                      out_cap,
                      "{"
@@ -414,6 +514,7 @@ int yai_session_build_workspace_inspect_json(char *out, size_t out_cap)
                      "\"governance\":{\"policy_attachments\":\"\",\"policy_attachment_count\":0},"
                      "\"scientific\":{\"experiment_context_summary\":\"%s\",\"parameter_governance_summary\":\"%s\",\"reproducibility_summary\":\"%s\",\"dataset_integrity_summary\":\"%s\",\"publication_control_summary\":\"%s\"},"
                      "\"digital\":{\"outbound_context_summary\":\"%s\",\"sink_target_summary\":\"%s\",\"publication_control_summary\":\"%s\",\"retrieval_control_summary\":\"%s\",\"distribution_control_summary\":\"%s\"},"
+                     "\"runtime_capabilities\":%s,"
                      "\"read_path\":{\"mode\":\"db_first\",\"primary_source\":\"runtime_fallback_only\",\"db_first_ready\":false,\"fallback_active\":true,\"fallback_reason\":\"binding_unavailable\",\"filesystem_primary\":false},"
                      "\"inspect\":{\"last_resolution_summary\":\"\",\"last_resolution_trace_ref\":\"\"},"
                      "\"reason\":\"%s\""
@@ -443,6 +544,7 @@ int yai_session_build_workspace_inspect_json(char *out, size_t out_cap)
                      dig_publication,
                      dig_retrieval,
                      dig_distribution,
+                     runtime_caps,
                      err[0] ? err : "binding_error");
         return (n > 0 && (size_t)n < out_cap) ? 0 : -1;
     }
@@ -568,6 +670,13 @@ int yai_session_build_workspace_inspect_json(char *out, size_t out_cap)
                                       &fallback_active);
     review_state = yai_workspace_review_state_from_effect(info.last_effect_summary);
     yai_workspace_operational_summary(evt_stage, evt_business, info.last_effect_summary, op_summary, sizeof(op_summary));
+    if (yai_workspace_build_runtime_capabilities_json(&info,
+                                                      "active",
+                                                      runtime_caps,
+                                                      sizeof(runtime_caps)) != 0)
+    {
+        snprintf(runtime_caps, sizeof(runtime_caps), "%s", "{}");
+    }
 
     n = snprintf(out,
                  out_cap,
@@ -593,7 +702,10 @@ int yai_session_build_workspace_inspect_json(char *out, size_t out_cap)
                  "\"event_evidence_sink\":{\"last_event_ref\":\"%s\",\"last_decision_ref\":\"%s\",\"last_evidence_ref\":\"%s\",\"event_store_ref\":\"%s\",\"decision_store_ref\":\"%s\",\"evidence_store_ref\":\"%s\"},"
                  "\"governance_persistence\":{\"last_object_ref\":\"%s\",\"last_lifecycle_ref\":\"%s\",\"last_attachment_ref\":\"%s\",\"object_store_ref\":\"%s\",\"lifecycle_store_ref\":\"%s\",\"attachment_store_ref\":\"%s\"},"
                  "\"authority_artifact_persistence\":{\"last_authority_ref\":\"%s\",\"last_authority_resolution_ref\":\"%s\",\"last_artifact_ref\":\"%s\",\"last_artifact_linkage_ref\":\"%s\",\"authority_store_ref\":\"%s\",\"artifact_store_ref\":\"%s\"},"
+                 "\"graph_persistence\":{\"last_graph_node_ref\":\"%s\",\"last_graph_edge_ref\":\"%s\",\"graph_store_ref\":\"%s\",\"graph_truth_authoritative\":true},"
+                 "\"knowledge_transient_persistence\":{\"last_transient_state_ref\":\"%s\",\"last_transient_working_set_ref\":\"%s\",\"transient_store_ref\":\"%s\",\"transient_authoritative\":false},"
                  "\"brain_persistence\":{\"last_graph_node_ref\":\"%s\",\"last_graph_edge_ref\":\"%s\",\"last_transient_state_ref\":\"%s\",\"last_transient_working_set_ref\":\"%s\",\"graph_store_ref\":\"%s\",\"transient_store_ref\":\"%s\",\"graph_truth_authoritative\":true,\"transient_authoritative\":false},"
+                 "\"runtime_capabilities\":%s,"
                  "\"enforcement_record_set\":{\"last_outcome_ref\":\"%s\",\"last_linkage_ref\":\"%s\",\"materialization_status\":\"%s\",\"missing_fields\":\"%s\",\"outcome_store_ref\":\"%s\",\"linkage_store_ref\":\"%s\"},"
                  "\"read_path\":{\"mode\":\"db_first\",\"primary_source\":\"%s\",\"db_first_ready\":%s,\"fallback_active\":%s,\"fallback_reason\":\"%s\",\"filesystem_primary\":false},"
                  "\"inspect\":{\"last_resolution_summary\":\"%s\",\"last_resolution_trace_ref\":\"%s\"}"
@@ -715,10 +827,17 @@ int yai_session_build_workspace_inspect_json(char *out, size_t out_cap)
                  artifact_store_ref,
                  brain_graph_node_ref,
                  brain_graph_edge_ref,
+                 brain_graph_store_ref,
+                 brain_transient_state_ref,
+                 brain_transient_working_set_ref,
+                 brain_transient_store_ref,
+                 brain_graph_node_ref,
+                 brain_graph_edge_ref,
                  brain_transient_state_ref,
                  brain_transient_working_set_ref,
                  brain_graph_store_ref,
                  brain_transient_store_ref,
+                 runtime_caps,
                  enforce_last_outcome_ref,
                  enforce_last_linkage_ref,
                  enforce_materialization_status[0] ? enforce_materialization_status : "unknown",

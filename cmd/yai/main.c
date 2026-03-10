@@ -11,10 +11,9 @@
 
 #include <yai/api/runtime.h>
 #include <yai/api/version.h>
-#include <yai/brain/brain.h>
-#include <yai/brain/cognition.h>
 #include <yai/core/dispatch.h>
 #include <yai/core/lifecycle.h>
+#include <yai/data/binding.h>
 #include <yai/exec/transport_client.h>
 #include <yai/exec/runtime.h>
 
@@ -223,7 +222,7 @@ static void yai_print_help(void)
   puts("  - this binary exposes fallback lifecycle only (up/down)");
   puts("  - canonical ingress: $HOME/.yai/run/control.sock");
   puts("  - client flow: cli -> sdk -> yai ingress");
-  puts("  - core, exec and brain are internal runtime modules");
+  puts("  - core, exec, data, graph and knowledge are internal runtime modules");
 }
 
 static yai_cli_mode_t yai_parse_mode(int argc, char **argv)
@@ -282,14 +281,31 @@ static int yai_run_exec_probe(void)
   return (state >= 0) ? 0 : 1;
 }
 
+static void yai_print_runtime_capability_snapshot(const char *phase)
+{
+  const yai_runtime_capability_state_t *caps = yai_runtime_capabilities_state();
+  int exec_state = yai_exec_runtime_probe();
+  int data_ready = yai_data_store_binding_is_ready() != 0;
+  int knowledge_ready = (caps && caps->providers_ready && caps->memory_ready && caps->cognition_ready) ? 1 : 0;
+  int graph_ready = (yai_runtime_capabilities_is_ready() && data_ready &&
+                     caps && caps->workspace_id[0] && strcmp(caps->workspace_id, "system") != 0) ? 1 : 0;
+
+  printf("yai: [%s] runtime.ready=%s workspace=%s data.ready=%s graph.ready=%s knowledge.ready=%s exec.state=%s\n",
+         phase ? phase : "state",
+         yai_runtime_capabilities_is_ready() ? "true" : "false",
+         (caps && caps->workspace_id[0]) ? caps->workspace_id : "none",
+         data_ready ? "true" : "false",
+         graph_ready ? "true" : "false",
+         knowledge_ready ? "true" : "false",
+         yai_exec_runtime_state_name((yai_exec_runtime_state_t)exec_state));
+}
+
 static int yai_run_runtime(void)
 {
   char socket_path[256] = {0};
   char pidfile_path[256] = {0};
   int pidfile_written = 0;
-  yai_mind_config_t cfg = {
-      .runtime_name = "yai-runtime",
-      .enable_mock_provider = 1};
+  char lifecycle_err[128] = {0};
   int rc = 0;
 
   puts("yai: preparing service...");
@@ -305,6 +321,7 @@ static int yai_run_runtime(void)
   {
     return rc;
   }
+  yai_print_runtime_capability_snapshot("pre-start");
 
   if (yai_runtime_socket_path(socket_path, sizeof(socket_path)) != 0 ||
       yai_runtime_pidfile_path(pidfile_path, sizeof(pidfile_path)) != 0)
@@ -325,13 +342,18 @@ static int yai_run_runtime(void)
     return 1;
   }
 
-  puts("yai: initializing brain module...");
-  rc = yai_mind_init(&cfg);
-  if (rc != YAI_MIND_OK)
+  puts("yai: initializing unified runtime capabilities...");
+  rc = yai_runtime_capabilities_start("system", "yai-runtime", 1, lifecycle_err, sizeof(lifecycle_err));
+  if (rc != 0)
   {
-    fprintf(stderr, "yai: brain init failed (%d)\n", rc);
+    fprintf(stderr,
+            "yai: runtime capability initialization failed (%d)%s%s\n",
+            rc,
+            lifecycle_err[0] ? " - " : "",
+            lifecycle_err);
     return 1;
   }
+  yai_print_runtime_capability_snapshot("post-start");
 
   if (yai_runtime_write_pidfile(pidfile_path) != 0)
   {
@@ -350,9 +372,12 @@ static int yai_run_runtime(void)
     yai_runtime_remove_pidfile(pidfile_path);
   }
 
-  if (yai_mind_shutdown() != YAI_MIND_OK)
+  if (yai_runtime_capabilities_stop(lifecycle_err, sizeof(lifecycle_err)) != 0)
   {
-    fprintf(stderr, "yai: brain shutdown failed\n");
+    fprintf(stderr,
+            "yai: runtime capability shutdown failed%s%s\n",
+            lifecycle_err[0] ? " - " : "",
+            lifecycle_err);
     return 1;
   }
 

@@ -125,6 +125,13 @@ r = call("system", "yai.workspace.current")
 assert r["status"] == "ok"
 assert r["data"]["binding_status"] == "active"
 assert r["data"]["workspace_id"] == WS_GOOD
+assert r["data"]["runtime_attached"] is True
+
+# 3b) workspace-first binding roots should exist for active ws
+ws_root = os.path.expanduser(f"~/.yai/run/data/{WS_GOOD}")
+for rel in ("data", "graph", "knowledge", "transient"):
+    p = os.path.join(ws_root, rel)
+    assert os.path.isdir(p), p
 
 # 4) prompt context should be compact and active
 r = call("system", "yai.workspace.prompt_context")
@@ -135,7 +142,7 @@ assert r["data"]["workspace_id"] == WS_GOOD
 # 4b) switch should simply change active workspace
 r = call(WS_SWITCH, "yai.workspace.create", [WS_SWITCH])
 assert r["status"] == "ok"
-r = call("system", "yai.workspace.switch", [WS_SWITCH])
+r = call("system", "yai.workspace.open", [WS_SWITCH])
 assert r["status"] == "ok"
 r = call("system", "yai.workspace.current")
 assert r["status"] == "ok"

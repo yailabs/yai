@@ -125,6 +125,11 @@ r = call("system", "yai.workspace.status")
 assert r["status"] == "ok"
 assert r["data"]["binding_status"] == "active"
 assert r["data"]["active"] is True
+assert "runtime_capabilities" in r["data"]
+assert "data" in r["data"]["runtime_capabilities"]
+assert "graph" in r["data"]["runtime_capabilities"]
+assert "knowledge" in r["data"]["runtime_capabilities"]
+assert "exec" in r["data"]["runtime_capabilities"]
 assert r["data"]["security_level_declared"] in ("logical", "scoped", "isolated", "sandboxed")
 assert r["data"]["security_level_effective"] in ("logical", "scoped", "isolated", "sandboxed")
 
@@ -134,6 +139,9 @@ assert r["data"]["identity"]["workspace_id"] == WS
 assert "normative" in r["data"]
 assert "security" in r["data"]
 assert "governance" in r["data"]
+assert "runtime_capabilities" in r["data"]
+assert "graph_persistence" in r["data"]
+assert "knowledge_transient_persistence" in r["data"]
 assert r["data"]["security"]["level_declared"] in ("logical", "scoped", "isolated", "sandboxed")
 assert r["data"]["security"]["capabilities"]["sandbox_ready"] is True
 
@@ -142,6 +150,7 @@ r = call("system", "yai.workspace.policy_effective")
 assert r["status"] == "ok"
 assert "policy_attachments" in r["data"]
 assert "policy_attachment_count" in r["data"]
+assert "runtime_capabilities" in r["data"]
 
 # domain set/get valid
 r = call("system", "yai.workspace.domain_set", ["--family", "economic", "--specialization", "payments"])
@@ -174,6 +183,7 @@ r = call("system", "yai.workspace.debug_resolution")
 assert r["status"] == "ok"
 assert r["data"]["workspace_id"] == WS
 assert "effective" in r["data"]
+assert "runtime_capabilities" in r["data"]
 assert r["data"]["security_level_effective"] in ("logical", "scoped", "isolated", "sandboxed")
 
 # clear + no active

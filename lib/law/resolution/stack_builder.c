@@ -131,19 +131,25 @@ static void add_evidence_contributor(yai_law_effective_stack_t *stack, const cha
   stack->evidence_contributor_count++;
 }
 
-static int read_json_from_surface(const char *embedded_rel, char *out, size_t out_cap) {
-  if (!embedded_rel || !out || out_cap == 0) return -1;
-  return yai_law_read_text_file(embedded_rel, out, out_cap);
+static int read_json_from_surface(const yai_law_runtime_t *rt,
+                                  const char *root_rel,
+                                  char *out,
+                                  size_t out_cap) {
+  char path[768];
+  if (!rt || !rt->root[0] || !root_rel || !out || out_cap == 0) return -1;
+  if (yai_law_safe_snprintf(path, sizeof(path), "%s/%s", rt->root, root_rel) != 0) return -1;
+  return yai_law_read_text_file(path, out, out_cap);
 }
 
-static void attach_overlays_from_specialization_manifest(const yai_law_discovery_result_t *discovery,
+static void attach_overlays_from_specialization_manifest(const yai_law_runtime_t *rt,
+                                                         const yai_law_discovery_result_t *discovery,
                                                          yai_law_effective_stack_t *stack) {
-  char path_embedded[256];
+  char rel_path[256];
   char json[8192];
   if (!discovery || !stack) return;
-  if (yai_law_safe_snprintf(path_embedded, sizeof(path_embedded), "embedded/law/domain-specializations/%s/manifest.json",
+  if (yai_law_safe_snprintf(rel_path, sizeof(rel_path), "domain-specializations/%s/manifest.json",
                             discovery->specialization_id) != 0) return;
-  if (read_json_from_surface(path_embedded, json, sizeof(json)) != 0) return;
+  if (read_json_from_surface(rt, rel_path, json, sizeof(json)) != 0) return;
 
   if (yai_law_json_contains(json, "\"gdpr-eu\"")) add_regulatory_overlay(stack, "gdpr-eu");
   if (yai_law_json_contains(json, "\"ai-act\"")) add_regulatory_overlay(stack, "ai-act");
@@ -160,7 +166,8 @@ static void attach_overlays_from_specialization_manifest(const yai_law_discovery
   if (yai_law_json_contains(json, "\"experimental\"")) add_contextual_overlay(stack, "experimental");
 }
 
-static void attach_overlays_from_matrix(const yai_law_classification_ctx_t *ctx,
+static void attach_overlays_from_matrix(const yai_law_runtime_t *rt,
+                                        const yai_law_classification_ctx_t *ctx,
                                         const yai_law_discovery_result_t *discovery,
                                         yai_law_effective_stack_t *stack) {
   char json[12288];
@@ -172,7 +179,8 @@ static void attach_overlays_from_matrix(const yai_law_classification_ctx_t *ctx,
   if (yai_law_safe_snprintf(spec, sizeof(spec), "\"specialization\":\"%s\"", discovery->specialization_id) != 0) return;
   if (yai_law_safe_snprintf(action, sizeof(action), "\"action\":\"%s\"", ctx->action) != 0) return;
 
-  if (read_json_from_surface("embedded/law/overlays/regulatory/index/overlay-attachment-matrix.json",
+  if (read_json_from_surface(rt,
+                             "overlays/regulatory/index/overlay-attachment-matrix.json",
                              json, sizeof(json)) == 0 &&
       yai_law_json_contains(json, fam) && yai_law_json_contains(json, spec) && yai_law_json_contains(json, action)) {
     if (yai_law_json_contains(json, "\"overlay\":\"gdpr-eu\"")) add_regulatory_overlay(stack, "gdpr-eu");
@@ -182,7 +190,8 @@ static void attach_overlays_from_matrix(const yai_law_classification_ctx_t *ctx,
     if (yai_law_json_contains(json, "\"overlay\":\"sector.finance\"")) add_sector_overlay(stack, "sector.finance");
   }
 
-  if (read_json_from_surface("embedded/law/overlays/sector/index/overlay-attachment-matrix.json",
+  if (read_json_from_surface(rt,
+                             "overlays/sector/index/overlay-attachment-matrix.json",
                              json, sizeof(json)) == 0 &&
       yai_law_json_contains(json, fam) && yai_law_json_contains(json, spec)) {
     if (yai_law_json_contains(json, "\"overlay\":\"sector.finance\"")) add_sector_overlay(stack, "sector.finance");
@@ -214,7 +223,7 @@ int yai_law_stack_build(const yai_law_runtime_t *rt,
                         char *rationale,
                         size_t rationale_cap) {
   yai_stack_accumulator_t agg;
-  (void)rt;
+  if (!rt || !rt->root[0]) return -1;
   if (!discovery || !ctx || !stack || !effect) return -1;
 
   memset(stack, 0, sizeof(*stack));
@@ -224,8 +233,8 @@ int yai_law_stack_build(const yai_law_runtime_t *rt,
   (void)yai_law_safe_snprintf(stack->family_id, sizeof(stack->family_id), "%s", discovery->family_id);
   (void)yai_law_safe_snprintf(stack->specialization_id, sizeof(stack->specialization_id), "%s", discovery->specialization_id);
 
-  attach_overlays_from_specialization_manifest(discovery, stack);
-  attach_overlays_from_matrix(ctx, discovery, stack);
+  attach_overlays_from_specialization_manifest(rt, discovery, stack);
+  attach_overlays_from_matrix(rt, ctx, discovery, stack);
 
   add_authority_contributor(stack, "baseline_authority");
   add_evidence_contributor(stack, "resolution_trace");

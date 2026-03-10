@@ -2,5 +2,5 @@
 
 #include <stddef.h>
 
-/* Transitional arena contract currently backed by brain memory arena implementation. */
-#include <yai/brain/memory.h>
+/* Transitional arena contract backed by knowledge memory arena implementation. */
+#include <yai/knowledge/memory.h>

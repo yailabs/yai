@@ -144,7 +144,7 @@ rollup = os.path.join(base, "lifecycle", "rollup.v1.json")
 snapshot = os.path.join(base, "lifecycle", "snapshot.v1.json")
 indexp = os.path.join(base, "lifecycle", "maintenance.index.v1.json")
 archive_events = os.path.join(base, "archive", "events", "runtime-events.v1.ndjson")
-archive_graph_edges = os.path.join(base, "archive", "brain", "graph", "persistent-edges.v1.ndjson")
+archive_graph_edges = os.path.join(base, "archive", "runtime", "graph", "persistent-edges.v1.ndjson")
 
 for path in (rollup, snapshot, indexp, archive_events):
     assert os.path.exists(path), path

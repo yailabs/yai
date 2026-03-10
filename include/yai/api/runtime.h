@@ -1,6 +1,8 @@
 #pragma once
 
 #include <yai/api/status.h>
+#include <yai/data/query.h>
+#include <yai/graph/summary.h>
 
 typedef enum yai_runtime_mode
 {

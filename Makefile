@@ -15,6 +15,7 @@ DIST_ROOT ?= $(ROOT_DIR)/dist
 BIN_DIST ?= $(DIST_ROOT)/bin
 
 CC ?= cc
+PKG_CONFIG ?= pkg-config
 CPPFLAGS ?= -I$(ROOT_DIR) -I$(ROOT_DIR)/include -I$(ROOT_DIR)/include/yai \
             -I$(ROOT_DIR)/lib/third_party/cjson \
             -I$(LAW_COMPAT_ROOT)/contracts/protocol/include \
@@ -23,6 +24,26 @@ CPPFLAGS ?= -I$(ROOT_DIR) -I$(ROOT_DIR)/include -I$(ROOT_DIR)/include/yai \
 CFLAGS ?= -Wall -Wextra -std=c11 -O2
 LDFLAGS ?=
 LDLIBS ?= -lm
+
+LMDB_CFLAGS := $(shell $(PKG_CONFIG) --cflags liblmdb 2>/dev/null)
+LMDB_LIBS := $(shell $(PKG_CONFIG) --libs liblmdb 2>/dev/null)
+HIREDIS_CFLAGS := $(shell $(PKG_CONFIG) --cflags hiredis 2>/dev/null)
+HIREDIS_LIBS := $(shell $(PKG_CONFIG) --libs hiredis 2>/dev/null)
+DUCKDB_CFLAGS := $(if $(wildcard /opt/homebrew/opt/duckdb/include/duckdb.h),-I/opt/homebrew/opt/duckdb/include,)
+DUCKDB_LIBS := $(if $(wildcard /opt/homebrew/opt/duckdb/lib/libduckdb.dylib),-L/opt/homebrew/opt/duckdb/lib -lduckdb,)
+
+ifneq ($(strip $(LMDB_LIBS)),)
+CPPFLAGS += $(LMDB_CFLAGS) -DYAI_HAVE_LMDB=1
+LDLIBS += $(LMDB_LIBS)
+endif
+ifneq ($(strip $(HIREDIS_LIBS)),)
+CPPFLAGS += $(HIREDIS_CFLAGS) -DYAI_HAVE_HIREDIS=1
+LDLIBS += $(HIREDIS_LIBS)
+endif
+ifneq ($(strip $(DUCKDB_LIBS)),)
+CPPFLAGS += $(DUCKDB_CFLAGS) -DYAI_HAVE_DUCKDB=1
+LDLIBS += $(DUCKDB_LIBS)
+endif
 
 YAI_OBJ := $(OBJ_DIR)/cmd/yai/main.o
 YAI_BIN := $(BIN_DIR)/yai
@@ -34,6 +55,7 @@ CORE_SRCS := \
 	lib/core/lifecycle/bootstrap.c \
 	lib/core/lifecycle/preboot.c \
 	lib/core/lifecycle/startup_plan.c \
+	lib/core/lifecycle/runtime_capabilities.c \
 	lib/core/dispatch/control_transport.c \
 	lib/core/dispatch/command_dispatch.c \
 	lib/core/dispatch/attach_flow.c \
@@ -43,6 +65,8 @@ CORE_SRCS := \
 	lib/core/workspace/project_tree.c \
 	lib/core/workspace/workspace_registry.c \
 	lib/core/workspace/workspace_runtime.c \
+	lib/core/workspace/workspace_binding.c \
+	lib/core/workspace/workspace_recovery.c \
 	lib/core/enforcement/enforcement.c \
 	lib/core/authority/authority_registry.c \
 	lib/core/authority/identity.c
@@ -94,62 +118,78 @@ EXEC_SRCS := \
 	lib/exec/gates/storage_gate.c \
 	lib/exec/gates/resource_gate.c \
 	lib/exec/bridge/engine_bridge.c \
+	lib/exec/bridge/client_bridge.c \
 	lib/exec/bridge/transport_client.c \
 	lib/exec/bridge/rpc_router.c \
 	lib/exec/agents/agent_enforcement.c \
+	lib/exec/agents/agents_dispatch.c \
+	lib/exec/agents/agent_code.c \
+	lib/exec/agents/agent_historian.c \
+	lib/exec/agents/agent_knowledge.c \
+	lib/exec/agents/agent_system.c \
+	lib/exec/agents/agent_validator.c \
+	lib/exec/orchestration/planner.c \
+	lib/exec/orchestration/rag_sessions.c \
+	lib/exec/orchestration/rag_context_builder.c \
+	lib/exec/orchestration/rag_prompts.c \
+	lib/exec/orchestration/rag_pipeline.c \
+	lib/exec/transport/brain_transport.c \
+	lib/exec/transport/brain_protocol.c \
+	lib/exec/transport/uds_server.c \
 	lib/third_party/cjson/cJSON.c
-BRAIN_SRCS := \
-	lib/brain/lifecycle/brain_lifecycle.c \
-	lib/brain/cognition/cognition.c \
-	lib/brain/cognition/agents/agents_dispatch.c \
-	lib/brain/cognition/agents/agent_code.c \
-	lib/brain/cognition/agents/agent_historian.c \
-	lib/brain/cognition/agents/agent_knowledge.c \
-	lib/brain/cognition/agents/agent_system.c \
-	lib/brain/cognition/agents/agent_validator.c \
-	lib/brain/cognition/orchestration/planner.c \
-	lib/brain/cognition/orchestration/rag_sessions.c \
-	lib/brain/cognition/orchestration/rag_context_builder.c \
-	lib/brain/cognition/orchestration/rag_prompts.c \
-	lib/brain/cognition/orchestration/rag_pipeline.c \
-	lib/brain/cognition/reasoning/reasoning_roles.c \
-	lib/brain/cognition/reasoning/scoring.c \
-	lib/brain/memory/memory.c \
-	lib/brain/memory/arena_store.c \
-	lib/brain/memory/storage_bridge.c \
-	lib/brain/memory/graph/graph_backend.c \
-	lib/brain/memory/graph/graph_backend_rpc.c \
-	lib/brain/memory/graph/graph_facade.c \
-	lib/brain/memory/graph/graph.c \
-	lib/brain/memory/graph/ids.c \
-	lib/brain/memory/graph/domain_activation.c \
-	lib/brain/memory/graph/domain_authority.c \
-	lib/brain/memory/graph/domain_episodic.c \
-	lib/brain/memory/graph/domain_semantic.c \
-	lib/brain/memory/graph/semantic_db.c \
-	lib/brain/memory/graph/vector_index.c \
-	lib/brain/bridge/providers.c \
-	lib/brain/bridge/provider_registry.c \
-	lib/brain/bridge/client_bridge.c \
-	lib/brain/bridge/mock_provider.c \
-	lib/brain/bridge/embedder_mock.c \
-	lib/brain/transport/brain_transport.c \
-	lib/brain/transport/brain_protocol.c \
-	lib/brain/transport/uds_server.c
+KNOWLEDGE_SRCS := \
+	lib/knowledge/runtime_compat.c \
+	lib/knowledge/cognition/cognition.c \
+	lib/knowledge/cognition/reasoning/reasoning_roles.c \
+	lib/knowledge/cognition/reasoning/scoring.c \
+	lib/knowledge/memory/memory.c \
+	lib/knowledge/memory/arena_store.c \
+	lib/knowledge/memory/storage_bridge.c \
+	lib/knowledge/memory/semantic_db.c \
+	lib/knowledge/memory/vector_index.c \
+	lib/knowledge/providers/providers.c \
+	lib/knowledge/providers/provider_registry.c \
+	lib/knowledge/providers/mock_provider.c \
+	lib/knowledge/providers/embedder_mock.c
+DATA_SRCS := \
+	lib/data/binding/store_binding.c \
+	lib/data/binding/workspace_binding.c \
+	lib/data/store/file_store.c \
+	lib/data/store/duckdb_store.c \
+	lib/data/records/event_records.c \
+	lib/data/query/inspect_query.c \
+	lib/data/lifecycle/retention.c \
+	lib/data/lifecycle/archive.c
+GRAPH_SRCS := \
+	lib/graph/state/graph_backend.c \
+	lib/graph/state/graph_backend_rpc.c \
+	lib/graph/state/graph_facade.c \
+	lib/graph/state/graph.c \
+	lib/graph/state/ids.c \
+	lib/graph/domains/activation.c \
+	lib/graph/domains/authority.c \
+	lib/graph/domains/episodic.c \
+	lib/graph/domains/semantic.c \
+	lib/graph/materialization/from_runtime_records.c \
+	lib/graph/query/workspace_summary.c
 
 SUPPORT_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SUPPORT_SRCS))
 PLATFORM_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PLATFORM_SRCS))
 PROTOCOL_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PROTOCOL_SRCS))
 CORE_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(CORE_SRCS) $(LAW_SRCS))
 EXEC_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(EXEC_SRCS))
-BRAIN_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(BRAIN_SRCS))
+KNOWLEDGE_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(KNOWLEDGE_SRCS))
+DATA_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(DATA_SRCS))
+GRAPH_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(GRAPH_SRCS))
 
 SUPPORT_LIB := $(LIB_DIR)/libyai_support.a
 PLATFORM_LIB := $(LIB_DIR)/libyai_platform.a
 PROTOCOL_LIB := $(LIB_DIR)/libyai_protocol.a
 CORE_LIB := $(LIB_DIR)/libyai_core.a
 EXEC_LIB := $(LIB_DIR)/libyai_exec.a
-BRAIN_LIB := $(LIB_DIR)/libyai_brain.a
+KNOWLEDGE_LIB := $(LIB_DIR)/libyai_knowledge.a
+DATA_LIB := $(LIB_DIR)/libyai_data.a
+GRAPH_LIB := $(LIB_DIR)/libyai_graph.a
 
 SPINE_DIRS := $(BIN_DIR) $(OBJ_DIR) $(LIB_DIR) $(TEST_DIR)
 
@@ -157,7 +197,7 @@ DOXYFILE := Doxyfile
 DOXYGEN ?= doxygen
 DOXY_OUT ?= $(DIST_ROOT)/docs/doxygen
 
-.PHONY: all yai foundations support platform protocol core exec brain \
+.PHONY: all yai foundations support platform protocol core exec knowledge data graph \
         test test-unit test-integration test-e2e test-core test-brain test-protocol test-law \
         test-demo-matrix verify-final-demo-matrix \
         clean clean-dist clean-all build build-all dist dist-all bundle verify \
@@ -173,7 +213,9 @@ yai: $(YAI_BIN)
 foundations: support platform protocol
 core: $(CORE_LIB)
 exec: $(EXEC_LIB)
-brain: $(BRAIN_LIB)
+knowledge: $(KNOWLEDGE_LIB)
+data: $(DATA_LIB)
+graph: $(GRAPH_LIB)
 
 support: $(SUPPORT_LIB)
 platform: $(PLATFORM_LIB)
@@ -228,8 +270,8 @@ test-law:
 	@tests/integration/law_resolution/run_law_resolution_smoke.sh
 	@echo "[YAI] law-native resolution suites complete"
 
-$(YAI_BIN): $(YAI_OBJ) $(CORE_LIB) $(EXEC_LIB) $(BRAIN_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) | dirs
-	$(CC) $(LDFLAGS) $(YAI_OBJ) -o $@ $(CORE_LIB) $(EXEC_LIB) $(BRAIN_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) $(LDLIBS)
+$(YAI_BIN): $(YAI_OBJ) $(CORE_LIB) $(EXEC_LIB) $(KNOWLEDGE_LIB) $(DATA_LIB) $(GRAPH_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) | dirs
+	$(CC) $(LDFLAGS) $(YAI_OBJ) -o $@ $(CORE_LIB) $(EXEC_LIB) $(KNOWLEDGE_LIB) $(DATA_LIB) $(GRAPH_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) $(LDLIBS)
 
 $(SUPPORT_LIB): $(SUPPORT_OBJS) | dirs
 	ar rcs $@ $^
@@ -246,7 +288,13 @@ $(CORE_LIB): $(CORE_OBJS) | dirs
 $(EXEC_LIB): $(EXEC_OBJS) | dirs
 	ar rcs $@ $^
 
-$(BRAIN_LIB): $(BRAIN_OBJS) | dirs
+$(KNOWLEDGE_LIB): $(KNOWLEDGE_OBJS) | dirs
+	ar rcs $@ $^
+
+$(DATA_LIB): $(DATA_OBJS) | dirs
+	ar rcs $@ $^
+
+$(GRAPH_LIB): $(GRAPH_OBJS) | dirs
 	ar rcs $@ $^
 
 $(OBJ_DIR)/%.o: %.c | dirs
@@ -332,8 +380,8 @@ help:
 	@echo "  all            (yai + foundation libs)"
 	@echo "  yai            (build/bin/yai)"
 	@echo "  foundations    (support/platform/protocol archives)"
-	@echo "  test-unit      (core/protocol/brain unit suites)"
-	@echo "  test-integration (runtime/core-exec/core-brain/workspace)"
+	@echo "  test-unit      (core/protocol/knowledge+graph unit suites)"
+	@echo "  test-integration (runtime/core-exec/workspace + legacy core_brain scripts)"
 	@echo "  test-law         (law loader/discovery/resolution + smoke)"
 	@echo "  test-e2e       (entrypoint e2e smoke)"
 	@echo "  test           (full test baseline)"

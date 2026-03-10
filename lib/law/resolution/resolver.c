@@ -50,11 +50,18 @@ int yai_law_resolve_control_call(const char *ws_id,
     if (err && err_cap) (void)yai_law_safe_snprintf(err, err_cap, "%s", "discovery_failed");
     return -1;
   }
+  if (yai_law_domain_merge_apply(&discovery, err, err_cap) != 0) {
+    if (err && err_cap && !err[0]) (void)yai_law_safe_snprintf(err, err_cap, "%s", "domain_merge_failed");
+    return -1;
+  }
 
   if (yai_law_stack_build(&runtime, &discovery, &ctx, &out->decision.stack, &base_effect, rationale, sizeof(rationale)) != 0) {
     if (err && err_cap) (void)yai_law_safe_snprintf(err, err_cap, "%s", "stack_build_failed");
     return -1;
   }
+  (void)yai_law_foundation_merge_apply(&out->decision.stack, &base_effect);
+  (void)yai_law_overlay_merge_apply(&out->decision.stack);
+  (void)yai_law_compliance_merge_apply(&out->decision.stack, &base_effect);
 
   if (yai_law_map_policy_to_effect(base_effect, &final_effect) != 0) {
     if (err && err_cap) (void)yai_law_safe_snprintf(err, err_cap, "%s", "effect_mapping_failed");

@@ -2,8 +2,14 @@
 
 #include <yai/core/session.h>
 #include "yai_session_internal.h"
+#include <yai/core/lifecycle.h>
 #include <yai/core/workspace.h>
-#include <yai/brain/memory.h>
+#include <yai/data/records.h>
+#include <yai/data/binding.h>
+#include <yai/data/query.h>
+#include <yai/exec/runtime.h>
+#include <yai/graph/query.h>
+#include <yai/knowledge/memory.h>
 #include <yai/law/policy_effects.h>
 #include "cJSON.h"
 
@@ -70,6 +76,7 @@ typedef struct {
 
 int yai_session_record_resolution_snapshot(const char *ws_id,
                                           const yai_law_resolution_output_t *law_out,
+                                          const yai_enforcement_decision_t *enforcement_out,
                                           char *err,
                                           size_t err_cap)
 {
@@ -84,12 +91,26 @@ int yai_session_record_resolution_snapshot(const char *ws_id,
     char authority_resolution_ref[192];
     char artifact_last_ref[192];
     char artifact_linkage_ref[192];
+    char canonical_authority_ref[128];
+    char canonical_authority_resolution_ref[128];
+    char canonical_authority_record[1024];
+    char canonical_authority_resolution_record[1280];
+    char canonical_enforcement_outcome_ref[128];
+    char canonical_enforcement_linkage_ref[128];
+    char canonical_enforcement_outcome_record[1536];
+    char canonical_enforcement_linkage_record[1536];
+    char enforce_last_outcome_ref[192];
+    char enforce_last_linkage_ref[192];
+    char enforce_materialization_status[48];
+    char enforce_missing_fields[192];
+    char authority_requirements_csv[256];
+    size_t authority_req_used = 0;
     size_t used = 0;
     int n;
 
     if (err && err_cap > 0)
         err[0] = '\0';
-    if (!ws_id || !law_out)
+    if (!ws_id || !law_out || !enforcement_out)
         return -1;
     if (yai_session_read_workspace_info(ws_id, &info) != 0 || !info.exists)
     {
@@ -98,6 +119,8 @@ int yai_session_record_resolution_snapshot(const char *ws_id,
         return -1;
     }
     if (yai_session_enforce_workspace_scope(ws_id, err, err_cap) != 0)
+        return -1;
+    if (yai_workspace_bind_runtime_capabilities(ws_id, err, err_cap) != 0)
         return -1;
 
     stack = &law_out->decision.stack;
@@ -130,6 +153,30 @@ int yai_session_record_resolution_snapshot(const char *ws_id,
         if (err && err_cap > 0 && err[0] == '\0')
             snprintf(err, err_cap, "%s", "event_evidence_sink_write_failed");
         return -1;
+    }
+    {
+        char canonical_ref[128];
+        char canonical_err[96];
+        char canonical_record[768];
+        (void)snprintf(canonical_record,
+                       sizeof(canonical_record),
+                       "{\"workspace_id\":\"%s\",\"trace_ref\":\"%s\",\"event_ref\":\"%s\",\"decision_ref\":\"%s\",\"evidence_ref\":\"%s\",\"effect\":\"%s\"}",
+                       ws_id,
+                       law_out->evidence.trace_id,
+                       event_ref,
+                       decision_ref,
+                       evidence_ref,
+                       yai_law_effect_name(law_out->decision.final_effect));
+        if (yai_data_records_append_event(ws_id,
+                                          canonical_record,
+                                          canonical_ref,
+                                          sizeof(canonical_ref),
+                                          canonical_err,
+                                          sizeof(canonical_err)) != 0 &&
+            err && err_cap > 0 && err[0] == '\0')
+        {
+            snprintf(err, err_cap, "%s", canonical_err[0] ? canonical_err : "canonical_event_record_append_failed");
+        }
     }
     (void)snprintf(info.last_resolution_trace_ref, sizeof(info.last_resolution_trace_ref), "%s", law_out->evidence.trace_id);
 
@@ -201,6 +248,64 @@ int yai_session_record_resolution_snapshot(const char *ws_id,
                                                   NULL,
                                                   0);
     {
+        int req_i;
+        authority_requirements_csv[0] = '\0';
+        for (req_i = 0; req_i < law_out->decision.authority_requirement_count; req_i++) {
+            int wn;
+            const char *tok = law_out->decision.authority_requirements[req_i];
+            if (!tok || !tok[0]) continue;
+            wn = snprintf(authority_requirements_csv + authority_req_used,
+                          sizeof(authority_requirements_csv) - authority_req_used,
+                          "%s%s",
+                          authority_req_used == 0 ? "" : ",",
+                          tok);
+            if (wn <= 0 || (size_t)wn >= (sizeof(authority_requirements_csv) - authority_req_used)) break;
+            authority_req_used += (size_t)wn;
+        }
+        (void)snprintf(canonical_authority_record,
+                       sizeof(canonical_authority_record),
+                       "{\"workspace_id\":\"%s\",\"trace_ref\":\"%s\",\"decision_ref\":\"%s\","
+                       "\"authority_ref\":\"%s\",\"authority_profile\":\"%s\",\"authority_requirements\":\"%s\",\"governance_refs\":\"%s\"}",
+                       ws_id,
+                       law_out->evidence.trace_id,
+                       decision_ref,
+                       authority_last_ref,
+                       law_out->decision.stack.authority_profile,
+                       authority_requirements_csv,
+                       info.policy_attachments_csv);
+        if (yai_data_records_append_authority(ws_id,
+                                              canonical_authority_record,
+                                              canonical_authority_ref,
+                                              sizeof(canonical_authority_ref),
+                                              err,
+                                              err_cap) != 0) {
+            if (err && err_cap > 0 && err[0] == '\0')
+                snprintf(err, err_cap, "%s", "canonical_authority_record_append_failed");
+        }
+        (void)snprintf(canonical_authority_resolution_record,
+                       sizeof(canonical_authority_resolution_record),
+                       "{\"workspace_id\":\"%s\",\"trace_ref\":\"%s\",\"decision_ref\":\"%s\","
+                       "\"authority_resolution_ref\":\"%s\",\"authority_ref\":\"%s\","
+                       "\"authority_context\":\"%s\",\"effect\":\"%s\",\"review_required\":%s}",
+                       ws_id,
+                       law_out->evidence.trace_id,
+                       decision_ref,
+                       authority_resolution_ref,
+                       authority_last_ref,
+                       law_out->evidence.authority_context,
+                       yai_law_effect_name(law_out->decision.final_effect),
+                       law_out->decision.final_effect == YAI_LAW_EFFECT_REVIEW_REQUIRED ? "true" : "false");
+        if (yai_data_records_append_authority_resolution(ws_id,
+                                                         canonical_authority_resolution_record,
+                                                         canonical_authority_resolution_ref,
+                                                         sizeof(canonical_authority_resolution_ref),
+                                                         err,
+                                                         err_cap) != 0) {
+            if (err && err_cap > 0 && err[0] == '\0')
+                snprintf(err, err_cap, "%s", "canonical_authority_resolution_record_append_failed");
+        }
+    }
+    {
         char enforce_err[96];
         if (yai_workspace_append_enforcement_record_set(ws_id,
                                                         law_out,
@@ -218,6 +323,78 @@ int yai_session_record_resolution_snapshot(const char *ws_id,
             if (err && err_cap > 0)
                 snprintf(err, err_cap, "%s", enforce_err[0] ? enforce_err : "enforcement_record_set_failed");
             return -1;
+        }
+    }
+    yai_workspace_read_enforcement_index(&info,
+                                         enforce_last_outcome_ref,
+                                         sizeof(enforce_last_outcome_ref),
+                                         enforce_last_linkage_ref,
+                                         sizeof(enforce_last_linkage_ref),
+                                         enforce_materialization_status,
+                                         sizeof(enforce_materialization_status),
+                                         enforce_missing_fields,
+                                         sizeof(enforce_missing_fields),
+                                         NULL,
+                                         0,
+                                         NULL,
+                                         0);
+    {
+        (void)snprintf(canonical_enforcement_outcome_record,
+                       sizeof(canonical_enforcement_outcome_record),
+                       "{\"workspace_id\":\"%s\",\"trace_ref\":\"%s\",\"decision_ref\":\"%s\","
+                       "\"outcome_ref\":\"%s\",\"effect\":\"%s\",\"status\":\"%s\",\"code\":\"%s\","
+                       "\"reason\":\"%s\",\"review_state\":\"%s\",\"authority_decision\":\"%s\","
+                       "\"authority_constraints\":\"%s\",\"materialization_status\":\"%s\",\"missing_fields\":\"%s\"}",
+                       ws_id,
+                       law_out->evidence.trace_id,
+                       decision_ref,
+                       enforce_last_outcome_ref,
+                       yai_law_effect_name(law_out->decision.final_effect),
+                       enforcement_out->status,
+                       enforcement_out->code,
+                       enforcement_out->reason,
+                       enforcement_out->review_state,
+                       enforcement_out->authority_decision == YAI_AUTHORITY_DENY ? "deny" :
+                           enforcement_out->authority_decision == YAI_AUTHORITY_REVIEW_REQUIRED ? "review_required" : "allow",
+                       enforcement_out->authority_constraints,
+                       enforce_materialization_status,
+                       enforce_missing_fields);
+        if (yai_data_records_append_enforcement_outcome(ws_id,
+                                                        canonical_enforcement_outcome_record,
+                                                        canonical_enforcement_outcome_ref,
+                                                        sizeof(canonical_enforcement_outcome_ref),
+                                                        err,
+                                                        err_cap) != 0 &&
+            err && err_cap > 0 && err[0] == '\0') {
+            snprintf(err, err_cap, "%s", "canonical_enforcement_outcome_record_append_failed");
+        }
+        (void)snprintf(canonical_enforcement_linkage_record,
+                       sizeof(canonical_enforcement_linkage_record),
+                       "{\"workspace_id\":\"%s\",\"trace_ref\":\"%s\",\"decision_ref\":\"%s\","
+                       "\"linkage_ref\":\"%s\",\"event_ref\":\"%s\",\"evidence_ref\":\"%s\","
+                       "\"authority_ref\":\"%s\",\"authority_resolution_ref\":\"%s\","
+                       "\"artifact_ref\":\"%s\",\"artifact_linkage_ref\":\"%s\","
+                       "\"governance_refs\":\"%s\",\"runtime_bound\":%s}",
+                       ws_id,
+                       law_out->evidence.trace_id,
+                       decision_ref,
+                       enforce_last_linkage_ref,
+                       event_ref,
+                       evidence_ref,
+                       authority_last_ref,
+                       authority_resolution_ref,
+                       artifact_last_ref,
+                       artifact_linkage_ref,
+                       info.policy_attachments_csv,
+                       enforcement_out->runtime_bound ? "true" : "false");
+        if (yai_data_records_append_enforcement_linkage(ws_id,
+                                                        canonical_enforcement_linkage_record,
+                                                        canonical_enforcement_linkage_ref,
+                                                        sizeof(canonical_enforcement_linkage_ref),
+                                                        err,
+                                                        err_cap) != 0 &&
+            err && err_cap > 0 && err[0] == '\0') {
+            snprintf(err, err_cap, "%s", "canonical_enforcement_linkage_record_append_failed");
         }
     }
     {

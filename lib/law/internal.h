@@ -38,8 +38,19 @@ int yai_law_stack_build(const yai_law_runtime_t *rt,
                         char *rationale,
                         size_t rationale_cap);
 
+int yai_law_domain_merge_apply(yai_law_discovery_result_t *discovery,
+                               char *err,
+                               size_t err_cap);
+int yai_law_foundation_merge_apply(yai_law_effective_stack_t *stack,
+                                   yai_law_effect_t *effect);
+int yai_law_compliance_merge_apply(yai_law_effective_stack_t *stack,
+                                   yai_law_effect_t *effect);
+int yai_law_overlay_merge_apply(yai_law_effective_stack_t *stack);
+
 int yai_law_build_trace_json(const yai_law_classification_ctx_t *ctx,
                              const yai_law_discovery_result_t *disc,
                              const yai_law_decision_t *decision,
                              char *out,
                              size_t out_cap);
+
+int yai_law_overlay_loader_validate(const yai_law_runtime_t *rt, char *err, size_t err_cap);

@@ -369,13 +369,13 @@ static int yai_lifecycle_brain_paths(const char *ws_id,
     const char *home = yai_get_home();
     if (!home || !ws_id || !graph_nodes || !graph_edges || !transient_activation || !transient_working_set)
         return -1;
-    if (snprintf(graph_nodes, graph_nodes_cap, "%s/.yai/run/%s/brain/graph/persistent-nodes.v1.ndjson", home, ws_id) <= 0)
+    if (snprintf(graph_nodes, graph_nodes_cap, "%s/.yai/run/%s/runtime/graph/persistent-nodes.v1.ndjson", home, ws_id) <= 0)
         return -1;
-    if (snprintf(graph_edges, graph_edges_cap, "%s/.yai/run/%s/brain/graph/persistent-edges.v1.ndjson", home, ws_id) <= 0)
+    if (snprintf(graph_edges, graph_edges_cap, "%s/.yai/run/%s/runtime/graph/persistent-edges.v1.ndjson", home, ws_id) <= 0)
         return -1;
-    if (snprintf(transient_activation, transient_activation_cap, "%s/.yai/run/%s/brain/transient/activation-state.v1.ndjson", home, ws_id) <= 0)
+    if (snprintf(transient_activation, transient_activation_cap, "%s/.yai/run/%s/runtime/transient/activation-state.v1.ndjson", home, ws_id) <= 0)
         return -1;
-    if (snprintf(transient_working_set, transient_working_set_cap, "%s/.yai/run/%s/brain/transient/working-set.v1.ndjson", home, ws_id) <= 0)
+    if (snprintf(transient_working_set, transient_working_set_cap, "%s/.yai/run/%s/runtime/transient/working-set.v1.ndjson", home, ws_id) <= 0)
         return -1;
     return 0;
 }

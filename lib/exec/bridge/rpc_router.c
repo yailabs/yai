@@ -85,7 +85,11 @@ char* yai_rpc_router_dispatch(
 
         /* ---------------- EMBEDDING ---------------- */
         case YAI_CMD_EMBEDDING_RPC:
-            return json_err("ERR_NOT_IMPLEMENTED");
+            /*
+             * Embedding RPC shares the provider transport gate.
+             * The upstream payload decides whether this is completion or embedding.
+             */
+            return yai_provider_gate_dispatch(env, payload);
 
         /* ---------------- DEFAULT ---------------- */
         default:

@@ -120,7 +120,7 @@ assert r["status"] == "ok", r
 r = call(WS, "yai.workspace.run", ["digital.publish", "sink=external_untrusted", "contract=missing", "artifact=bundle-v1"])
 assert r["status"] in ("ok", "error"), r
 
-base = os.path.join(HOME, ".yai", "run", WS, "brain")
+base = os.path.join(HOME, ".yai", "run", WS, "runtime")
 graph_nodes_log = os.path.join(base, "graph", "persistent-nodes.v1.ndjson")
 graph_edges_log = os.path.join(base, "graph", "persistent-edges.v1.ndjson")
 graph_index = os.path.join(base, "graph", "index.v1.json")
@@ -173,17 +173,17 @@ assert expected_node_classes.issubset(node_classes), node_classes
 assert expected_edge_classes.issubset(edge_classes), edge_classes
 
 for n in nodes[-7:]:
-    assert n["type"] == "yai.brain_graph_node.v1", n
+    assert n["type"] == "yai.graph_node.v1", n
     assert n.get("source_record_ref", "") != "", n
     assert n.get("origin_domain", "") != "", n
 
 for e in edges[-8:]:
-    assert e["type"] == "yai.brain_graph_edge.v1", e
+    assert e["type"] == "yai.graph_edge.v1", e
     assert e.get("decision_ref", "").startswith("dec-"), e
 
 with open(graph_index, "r", encoding="utf-8") as f:
     gidx = json.load(f)
-assert gidx["type"] == "yai.brain.graph.index.v1", gidx
+assert gidx["type"] == "yai.graph.index.v1", gidx
 assert gidx["workspace_id"] == WS, gidx
 assert gidx["graph_truth_authoritative"] is True, gidx
 assert gidx["backend_role"] == "BR-3", gidx

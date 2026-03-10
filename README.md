@@ -4,7 +4,7 @@
 
 ## What this repository is
 
-- runtime host and internal runtime modules (`core`, `exec`, `brain`)
+- runtime host and internal runtime modules (`core`, `exec`, `data`, `graph`, `knowledge`)
 - controlled ingress/dispatch and runtime enforcement realization
 - consumer of canonical law from `law`
 

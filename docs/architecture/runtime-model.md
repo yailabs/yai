@@ -1,6 +1,6 @@
 # Runtime Model
 
-`yai` is the runtime host of the platform and executes the internal modules `core`, `exec`, and `brain`.
+`yai` is the runtime host of the platform and executes the internal modules `core`, `exec`, `data`, `graph`, and `knowledge`.
 
 ## Canonical runtime flow
 
@@ -21,7 +21,11 @@
 
 ## Scope note
 
-Dataplane persistence/query is outside this tranche.
-This runtime model ends at decision/evidence envelope preparation and enforcement handoff.
+This runtime model covers the unified runtime topology target where:
+- `brain` is not a canonical subsystem.
+- execution actors and orchestration are in `exec`.
+- graph truth state is in `graph`.
+- cognition/memory/provider substrate is in `knowledge`.
+- persisted records/query/lifecycle are in `data`.
 
 Workspace model details are defined in `docs/architecture/workspace-model.md`.

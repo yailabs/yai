@@ -95,5 +95,9 @@ int yai_law_load_runtime(yai_law_runtime_t *out, char *err, size_t err_cap) {
 
   if (yai_law_manifest_load(out, err, err_cap) != 0) return -1;
   if (yai_law_compatibility_check(out, err, err_cap) != 0) return -1;
+  if (yai_law_overlay_loader_validate(out, err, err_cap) != 0) {
+    if (err && err_cap && !err[0]) (void)yai_law_safe_snprintf(err, err_cap, "%s", "overlay_index_load_failed");
+    return -1;
+  }
   return 0;
 }

@@ -1,7 +1,9 @@
 #include <yai/core/enforcement.h>
 #include <yai/core/events.h>
+#include <yai/law/policy_effects.h>
 #include <yai/support/logger.h>
 #include <string.h>
+#include <stdio.h>
 
 /* ------------------------------------------------------------
    Internal Helpers
@@ -156,4 +158,118 @@ int yai_validate_envelope_v1(
     }
 
     return YAI_E_OK;
+}
+
+int yai_enforcement_finalize_control_call(const yai_rpc_envelope_t *env,
+                                          const char *workspace_id,
+                                          const yai_law_resolution_output_t *law_out,
+                                          const yai_runtime_capability_state_t *caps,
+                                          yai_enforcement_decision_t *out,
+                                          char *err,
+                                          size_t err_cap)
+{
+    yai_authority_evaluation_t cmd_eval = {0};
+    yai_authority_evaluation_t policy_eval = {0};
+    const char *effect_name;
+    size_t used = 0;
+    int i;
+    if (err && err_cap > 0) err[0] = '\0';
+    if (!env || !workspace_id || !law_out || !out) {
+        if (err && err_cap > 0) snprintf(err, err_cap, "%s", "enforcement_bad_args");
+        return -1;
+    }
+
+    memset(out, 0, sizeof(*out));
+    snprintf(out->status, sizeof(out->status), "%s", "ok");
+    snprintf(out->code, sizeof(out->code), "%s", "OK");
+    snprintf(out->reason, sizeof(out->reason), "%s", "allow");
+    snprintf(out->review_state, sizeof(out->review_state), "%s", "clear");
+    out->authority_constraints[0] = '\0';
+    out->authority_constraint_count = 0;
+    out->authority_decision = YAI_AUTHORITY_ALLOW;
+    out->runtime_bound = 0;
+
+    effect_name = yai_law_effect_name(law_out->decision.final_effect);
+    if (!effect_name || !effect_name[0]) effect_name = "deny";
+
+    for (i = 0; i < law_out->decision.authority_requirement_count; i++) {
+        int n;
+        const char *token = law_out->decision.authority_requirements[i];
+        if (!token || !token[0]) continue;
+        n = snprintf(out->authority_constraints + used,
+                     sizeof(out->authority_constraints) - used,
+                     "%s%s",
+                     used == 0 ? "" : ",",
+                     token);
+        if (n <= 0 || (size_t)n >= (sizeof(out->authority_constraints) - used)) break;
+        used += (size_t)n;
+        out->authority_constraint_count++;
+    }
+
+    if (yai_authority_command_gate(NULL,
+                                   env->command_id,
+                                   env->role,
+                                   env->arming,
+                                   &cmd_eval,
+                                   err,
+                                   err_cap) != 0) {
+        return -1;
+    }
+    if (cmd_eval.decision == YAI_AUTHORITY_DENY) {
+        out->authority_decision = cmd_eval.decision;
+        snprintf(out->status, sizeof(out->status), "%s", "error");
+        snprintf(out->code, sizeof(out->code), "%s", "AUTHORITY_BLOCK");
+        snprintf(out->reason, sizeof(out->reason), "%s", cmd_eval.reason[0] ? cmd_eval.reason : "authority_block");
+        snprintf(out->review_state, sizeof(out->review_state), "%s", "blocked");
+        return 0;
+    }
+
+    if (yai_authority_policy_gate(workspace_id,
+                                  effect_name,
+                                  law_out->decision.stack.authority_profile,
+                                  law_out->evidence.authority_context,
+                                  &policy_eval,
+                                  err,
+                                  err_cap) != 0) {
+        return -1;
+    }
+
+    if (caps && caps->initialized &&
+        workspace_id[0] &&
+        strcmp(workspace_id, "system") != 0 &&
+        caps->workspace_id[0] &&
+        strcmp(caps->workspace_id, workspace_id) != 0) {
+        out->authority_decision = YAI_AUTHORITY_DENY;
+        snprintf(out->status, sizeof(out->status), "%s", "error");
+        snprintf(out->code, sizeof(out->code), "%s", "WORKSPACE_BIND_MISMATCH");
+        snprintf(out->reason, sizeof(out->reason), "%s", "runtime_workspace_mismatch");
+        snprintf(out->review_state, sizeof(out->review_state), "%s", "blocked");
+        return 0;
+    }
+
+    if (caps && caps->initialized && caps->workspace_id[0] && strcmp(caps->workspace_id, "system") != 0) {
+        out->runtime_bound = 1;
+    }
+
+    out->authority_decision = policy_eval.decision;
+    if (policy_eval.decision == YAI_AUTHORITY_DENY) {
+        snprintf(out->status, sizeof(out->status), "%s", "error");
+        snprintf(out->code, sizeof(out->code), "%s", "POLICY_BLOCK");
+        snprintf(out->reason, sizeof(out->reason), "%s", effect_name);
+        snprintf(out->review_state, sizeof(out->review_state), "%s", "blocked");
+        return 0;
+    }
+    if (policy_eval.decision == YAI_AUTHORITY_REVIEW_REQUIRED) {
+        snprintf(out->status, sizeof(out->status), "%s", "ok");
+        snprintf(out->code, sizeof(out->code), "%s", "REVIEW_REQUIRED");
+        snprintf(out->reason, sizeof(out->reason), "%s", effect_name);
+        snprintf(out->review_state, sizeof(out->review_state), "%s", "pending_review");
+        return 0;
+    }
+
+    snprintf(out->status, sizeof(out->status), "%s", "ok");
+    snprintf(out->code, sizeof(out->code), "%s", "OK");
+    snprintf(out->reason, sizeof(out->reason), "%s", effect_name);
+    snprintf(out->review_state, sizeof(out->review_state), "%s", "clear");
+    return 0;
 }

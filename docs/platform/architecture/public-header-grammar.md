@@ -12,7 +12,9 @@ The public grammar is organized by semantic ownership:
 - `include/yai/api/`
 - `include/yai/core/`
 - `include/yai/exec/`
-- `include/yai/brain/`
+- `include/yai/data/`
+- `include/yai/graph/`
+- `include/yai/knowledge/`
 - `include/yai/protocol/`
 - `include/yai/platform/`
 - `include/yai/support/`
@@ -35,9 +37,9 @@ Internal headers must be kept as module-local (`internal.h`, `*_internal.h`, or 
 
 Examples intentionally kept internal in this phase:
 - `kernel/include/yai_session_internal.h`
-- `mind/src/cognition/cognition_internal.h`
-- `mind/src/memory/graph/graph_state_internal.h`
-- `mind/src/memory/graph/graph_backend.h`
+- `lib/knowledge/cognition/cognition_internal.h`
+- `lib/graph/state/graph_state_internal.h`
+- `lib/graph/state/graph_backend.h`
 
 ## Domain placement rules
 ### `api/`
@@ -52,8 +54,14 @@ Authority/workspace/session/dispatch/lifecycle/enforcement/events/vault contract
 ### `exec/`
 Execution-plane gates, engine bridge, transport client, execution runtime concerns.
 
-### `brain/`
-Cognitive runtime contracts: brain lifecycle, cognition, memory, providers, brain transport.
+### `data/`
+Data-plane store/records/query/binding/lifecycle contracts.
+
+### `graph/`
+Graph truth, lineage, materialization and summary contracts.
+
+### `knowledge/`
+Cognition/reasoning/memory/provider contracts.
 
 ### `protocol/`
 Wire/runtime message contracts and codec boundaries.
@@ -93,4 +101,4 @@ This grammar prepares:
 - extraction of `support/platform/protocol` foundations,
 - migration of runtime sovereignty into `core`,
 - migration of execution plane into `exec`,
-- migration of cognition plane into `brain`.
+- migration of cognition plane into `knowledge` and graph truth into `graph`.

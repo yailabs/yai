@@ -162,3 +162,9 @@ void yai_workspace_manifest_defaults(yai_workspace_manifest_v1_t *manifest,
                                      const char *workspace_root);
 void yai_workspace_inspect_from_manifest(const yai_workspace_manifest_v1_t *manifest,
                                          yai_workspace_inspect_v1_t *inspect);
+int yai_workspace_bind_runtime_capabilities(const char *workspace_id,
+                                            char *err,
+                                            size_t err_cap);
+int yai_workspace_recover_runtime_capabilities(const char *workspace_id,
+                                               char *err,
+                                               size_t err_cap);

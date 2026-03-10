@@ -134,7 +134,7 @@ for command_id in ("yai.workspace.inspect", "yai.workspace.policy_effective", "y
     assert bp.get("graph_truth_authoritative") is True, (command_id, bp)
     assert bp.get("transient_authoritative") is False, (command_id, bp)
 
-base = os.path.join(HOME, ".yai", "run", WS, "brain")
+base = os.path.join(HOME, ".yai", "run", WS, "runtime")
 graph_nodes_log = os.path.join(base, "graph", "persistent-nodes.v1.ndjson")
 graph_edges_log = os.path.join(base, "graph", "persistent-edges.v1.ndjson")
 graph_index = os.path.join(base, "graph", "index.v1.json")
@@ -157,7 +157,7 @@ with open(graph_index, "r", encoding="utf-8") as f:
 with open(transient_index, "r", encoding="utf-8") as f:
     tidx = json.load(f)
 
-assert gidx["type"] == "yai.brain.graph.index.v1", gidx
+assert gidx["type"] == "yai.graph.index.v1", gidx
 assert gidx["workspace_id"] == WS, gidx
 assert gidx["graph_truth_authoritative"] is True, gidx
 assert gidx["backend_role"] == "BR-3", gidx
@@ -166,7 +166,7 @@ assert gidx["last_graph_edge_ref"].startswith("bge-"), gidx
 assert gidx["last_decision_ref"].startswith("dec-"), gidx
 assert gidx["last_evidence_ref"].startswith("evd-"), gidx
 
-assert tidx["type"] == "yai.brain.transient.index.v1", tidx
+assert tidx["type"] == "yai.transient.index.v1", tidx
 assert tidx["workspace_id"] == WS, tidx
 assert tidx["authoritative"] is False, tidx
 assert tidx["backend_role"] == "BR-4", tidx
@@ -179,8 +179,8 @@ ge = last_ndjson(graph_edges_log)
 ts = last_ndjson(transient_activation_log)
 ws = last_ndjson(transient_working_set_log)
 
-assert gn["type"] == "yai.brain_graph_node.v1", gn
-assert ge["type"] == "yai.brain_graph_edge.v1", ge
+assert gn["type"] == "yai.graph_node.v1", gn
+assert ge["type"] == "yai.graph_edge.v1", ge
 assert ts["type"] == "yai.transient_cognition_state.v1", ts
 assert ts["authoritative"] is False, ts
 assert ws["type"] == "yai.transient_working_set.v1", ws
