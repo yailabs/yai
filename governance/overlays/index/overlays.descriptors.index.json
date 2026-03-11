@@ -1,0 +1,102 @@
+{
+  "kind": "overlays.descriptors.index",
+  "version": "v1",
+  "entries": [
+    {
+      "overlay_id": "gdpr-eu",
+      "overlay_class": "regulatory",
+      "status": "active",
+      "descriptor_ref": "overlays/descriptors/gdpr-eu.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/regulatory/gdpr-eu/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/regulatory/gdpr-eu"
+    },
+    {
+      "overlay_id": "ai-act",
+      "overlay_class": "regulatory",
+      "status": "active",
+      "descriptor_ref": "overlays/descriptors/ai-act.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/regulatory/ai-act/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/regulatory/ai-act"
+    },
+    {
+      "overlay_id": "retention-governance",
+      "overlay_class": "regulatory",
+      "status": "active",
+      "descriptor_ref": "overlays/descriptors/retention-governance.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/regulatory/retention-governance/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/regulatory/retention-governance"
+    },
+    {
+      "overlay_id": "security-supply-chain",
+      "overlay_class": "regulatory",
+      "status": "active",
+      "descriptor_ref": "overlays/descriptors/security-supply-chain.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/regulatory/security-supply-chain/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/regulatory/security-supply-chain"
+    },
+    {
+      "overlay_id": "sector.finance",
+      "overlay_class": "sector",
+      "status": "active",
+      "descriptor_ref": "overlays/descriptors/sector.finance.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/sector/finance/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/sector/finance"
+    },
+    {
+      "overlay_id": "sector.healthcare",
+      "overlay_class": "sector",
+      "status": "active-seed",
+      "descriptor_ref": "overlays/descriptors/sector.healthcare.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/sector/healthcare/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/sector/healthcare"
+    },
+    {
+      "overlay_id": "sector.public-sector",
+      "overlay_class": "sector",
+      "status": "active-seed",
+      "descriptor_ref": "overlays/descriptors/sector.public-sector.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/sector/public-sector/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/sector/public-sector"
+    },
+    {
+      "overlay_id": "sector.manufacturing",
+      "overlay_class": "sector",
+      "status": "seed",
+      "descriptor_ref": "overlays/descriptors/sector.manufacturing.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/sector/manufacturing/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/sector/manufacturing"
+    },
+    {
+      "overlay_id": "context.organization",
+      "overlay_class": "contextual",
+      "status": "seed",
+      "descriptor_ref": "overlays/descriptors/context.organization.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/contextual/organization/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/contextual/organization"
+    },
+    {
+      "overlay_id": "context.workspace",
+      "overlay_class": "contextual",
+      "status": "seed",
+      "descriptor_ref": "overlays/descriptors/context.workspace.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/contextual/workspace/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/contextual/workspace"
+    },
+    {
+      "overlay_id": "context.session",
+      "overlay_class": "contextual",
+      "status": "seed",
+      "descriptor_ref": "overlays/descriptors/context.session.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/contextual/session/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/contextual/session"
+    },
+    {
+      "overlay_id": "context.experimental",
+      "overlay_class": "contextual",
+      "status": "seed",
+      "descriptor_ref": "overlays/descriptors/context.experimental.descriptor.v1.json",
+      "materialized_manifest_ref": "overlays/materialized/contextual/experimental/manifest.json",
+      "materialized_bundle_ref": "overlays/materialized/contextual/experimental"
+    }
+  ]
+}

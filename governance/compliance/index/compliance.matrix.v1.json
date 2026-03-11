@@ -1,0 +1,46 @@
+{
+  "kind": "compliance.matrix.v1",
+  "version": "v1",
+  "entries": [
+    {
+      "compliance_id": "gdpr-eu",
+      "descriptor_ref": "compliance/descriptors/gdpr-eu.descriptor.v1.json",
+      "attachment_level_count": 8,
+      "policy_ref_count": 7,
+      "mapping_ref_count": 3,
+      "taxonomy_ref_count": 5
+    },
+    {
+      "compliance_id": "ai-act",
+      "descriptor_ref": "compliance/descriptors/ai-act.descriptor.v1.json",
+      "attachment_level_count": 6,
+      "policy_ref_count": 5,
+      "mapping_ref_count": 3,
+      "taxonomy_ref_count": 4
+    },
+    {
+      "compliance_id": "retention-governance",
+      "descriptor_ref": "compliance/descriptors/retention-governance.descriptor.v1.json",
+      "attachment_level_count": 4,
+      "policy_ref_count": 1,
+      "mapping_ref_count": 1,
+      "taxonomy_ref_count": 0
+    },
+    {
+      "compliance_id": "security-supply-chain",
+      "descriptor_ref": "compliance/descriptors/security-supply-chain.descriptor.v1.json",
+      "attachment_level_count": 7,
+      "policy_ref_count": 1,
+      "mapping_ref_count": 1,
+      "taxonomy_ref_count": 0
+    },
+    {
+      "compliance_id": "sector.finance",
+      "descriptor_ref": "compliance/descriptors/sector.finance.descriptor.v1.json",
+      "attachment_level_count": 5,
+      "policy_ref_count": 4,
+      "mapping_ref_count": 0,
+      "taxonomy_ref_count": 0
+    }
+  ]
+}

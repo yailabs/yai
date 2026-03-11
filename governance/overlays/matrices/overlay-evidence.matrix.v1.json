@@ -1,0 +1,114 @@
+{
+  "kind": "overlay_evidence_matrix.v1",
+  "version": "v1",
+  "entries": [
+    {
+      "overlay": "gdpr-eu",
+      "required": [
+        "lawful_basis",
+        "subject_category",
+        "retention_policy_ref"
+      ]
+    },
+    {
+      "overlay": "ai-act",
+      "required": [
+        "model_context",
+        "oversight_actor",
+        "review_trace"
+      ]
+    },
+    {
+      "overlay": "retention-governance",
+      "required": [
+        "retention_policy_ref",
+        "provenance_chain"
+      ]
+    },
+    {
+      "overlay": "security-supply-chain",
+      "required": [
+        "provider_trust_record",
+        "dependency_chain_ref"
+      ]
+    },
+    {
+      "overlay": "sector.finance",
+      "required": [
+        "approval_chain",
+        "counterparty_context",
+        "amount_context",
+        "overlay_hits"
+      ]
+    },
+    {
+      "overlay": "sector.healthcare",
+      "required": [
+        "data_sensitivity_class",
+        "clinical_context",
+        "review_trace"
+      ]
+    },
+    {
+      "overlay": "sector.public-sector",
+      "required": [
+        "justification",
+        "audit_trace",
+        "authority_scope"
+      ]
+    },
+    {
+      "overlay": "sector.finance",
+      "required": [
+        "approval_chain",
+        "amount_context",
+        "counterparty_context",
+        "overlay_hits"
+      ]
+    },
+    {
+      "overlay": "sector.healthcare",
+      "required": [
+        "data_sensitivity_class",
+        "clinical_context",
+        "review_trace"
+      ]
+    },
+    {
+      "overlay": "sector.public-sector",
+      "required": [
+        "justification",
+        "audit_trace",
+        "authority_scope"
+      ]
+    },
+    {
+      "overlay": "context.organization",
+      "required": [
+        "context_scope",
+        "review_trace"
+      ]
+    },
+    {
+      "overlay": "context.workspace",
+      "required": [
+        "context_scope",
+        "review_trace"
+      ]
+    },
+    {
+      "overlay": "context.session",
+      "required": [
+        "context_scope",
+        "review_trace"
+      ]
+    },
+    {
+      "overlay": "context.experimental",
+      "required": [
+        "context_scope",
+        "review_trace"
+      ]
+    }
+  ]
+}

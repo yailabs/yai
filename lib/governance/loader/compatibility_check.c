@@ -46,15 +46,28 @@ int yai_governance_compatibility_check(yai_governance_runtime_t *rt, char *err, 
       yai_governance_require_file(rt, "specializations/templates/specialization.descriptor.template.v1.json", json, sizeof(json)) != 0 ||
       yai_governance_require_file(rt, "specializations/templates/specialization.bundle.template.v1.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "compliance/index/compliance.index.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "compliance/index/compliance.descriptors.index.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "compliance/index/compliance.matrix.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "compliance/schema/compliance-descriptor.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "compliance/schema/compliance-registry-entry.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "compliance/schema/compliance-matrix-entry.v1.schema.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "overlays/regulatory/index/regulatory.index.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "overlays/sector/index/sector.index.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "overlays/contextual/index/contextual.index.json", json, sizeof(json)) != 0) {
-    if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "missing six-layer runtime indexes");
+      yai_governance_require_governance_surface(rt, "overlays/contextual/index/contextual.index.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/index/overlays.descriptors.index.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/index/overlays.matrix.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/schema/overlay-descriptor.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/schema/overlay-registry-entry.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/schema/overlay-matrix-entry.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/matrices/overlay-attachment.matrix.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/matrices/overlay-precedence.matrix.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/matrices/overlay-evidence.matrix.v1.json", json, sizeof(json)) != 0) {
+    if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "missing canonical compliance-overlay descriptor surfaces");
     return -1;
   }
 
   if (yai_governance_require_governance_surface(rt,
-                                         "packs/compliance/gdpr-eu/2026Q1/pack.meta.json",
+                                         "compliance/materialized/packs/compliance/gdpr-eu/2026Q1/pack.meta.json",
                                          json,
                                          sizeof(json)) != 0) {
     if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "missing canonical compliance pack metadata");

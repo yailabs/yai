@@ -1,0 +1,100 @@
+{
+  "kind": "overlay_precedence_matrix.v1",
+  "version": "v1",
+  "precedence": [
+    {
+      "stack": "payments+sector.finance+retention-governance",
+      "order": [
+        "deny",
+        "quarantine",
+        "review_required",
+        "allow"
+      ],
+      "authority_raise": true
+    },
+    {
+      "stack": "remote-publication+gdpr-eu",
+      "order": [
+        "deny",
+        "review_required",
+        "allow"
+      ],
+      "authority_raise": true
+    },
+    {
+      "stack": "parameter-governance+ai-act",
+      "order": [
+        "deny",
+        "review_required",
+        "require_justification",
+        "allow"
+      ],
+      "authority_raise": true
+    },
+    {
+      "stack": "economic.payments + sector.finance",
+      "order": [
+        "deny",
+        "quarantine",
+        "review_required",
+        "allow"
+      ],
+      "authority_raise": true
+    },
+    {
+      "stack": "scientific.dataset-integrity + sector.healthcare",
+      "order": [
+        "deny",
+        "review_required",
+        "allow"
+      ],
+      "authority_raise": true
+    },
+    {
+      "stack": "digital.remote-publication + sector.public-sector",
+      "order": [
+        "deny",
+        "review_required",
+        "require_justification",
+        "allow"
+      ],
+      "authority_raise": true
+    },
+    {
+      "stack": "contextual.organization",
+      "order": [
+        "deny",
+        "review_required",
+        "allow"
+      ],
+      "authority_raise": true
+    },
+    {
+      "stack": "contextual.workspace",
+      "order": [
+        "deny",
+        "review_required",
+        "allow"
+      ],
+      "authority_raise": true
+    },
+    {
+      "stack": "contextual.session",
+      "order": [
+        "deny",
+        "review_required",
+        "allow"
+      ],
+      "authority_raise": false
+    },
+    {
+      "stack": "contextual.experimental",
+      "order": [
+        "deny",
+        "review_required",
+        "allow"
+      ],
+      "authority_raise": false
+    }
+  ]
+}

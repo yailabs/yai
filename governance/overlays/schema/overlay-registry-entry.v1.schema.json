@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yai.governance.overlays.overlay-registry-entry.v1",
+  "title": "Overlay Registry Entry v1",
+  "type": "object",
+  "required": [
+    "overlay_id",
+    "overlay_class",
+    "descriptor_ref",
+    "materialized_manifest_ref",
+    "materialized_bundle_ref",
+    "status"
+  ],
+  "properties": {
+    "overlay_id": { "type": "string", "minLength": 1 },
+    "overlay_class": { "type": "string", "minLength": 1 },
+    "descriptor_ref": { "type": "string", "minLength": 1 },
+    "manifest_ref": { "type": "string" },
+    "materialized_manifest_ref": { "type": "string", "minLength": 1 },
+    "materialized_bundle_ref": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "minLength": 1 }
+  }
+}

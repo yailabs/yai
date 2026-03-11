@@ -1,0 +1,14 @@
+{
+  "kind": "overlay_descriptor.v1",
+  "version": "v1",
+  "overlay_id": "<overlay-id>",
+  "overlay_class": "regulatory",
+  "status": "active",
+  "runtime": {
+    "manifest_ref": "overlays/materialized/<overlay-class>/<overlay-id>/manifest.json",
+    "materialized_bundle_ref": "overlays/materialized/<overlay-class>/<overlay-id>"
+  },
+  "attachment_rules": [],
+  "precedence_rules": [],
+  "evidence_rules": []
+}

@@ -1,0 +1,42 @@
+{
+  "kind": "overlay_descriptor.v1",
+  "version": "v1",
+  "overlay_id": "context.experimental",
+  "overlay_class": "contextual",
+  "status": "seed",
+  "runtime": {
+    "manifest_ref": "overlays/materialized/contextual/experimental/manifest.json",
+    "materialized_bundle_ref": "overlays/materialized/contextual/experimental",
+    "attachment_count": 1,
+    "precedence_count": 0,
+    "evidence_count": 1
+  },
+  "attachment_rules": [
+    {
+      "overlay": "context.experimental",
+      "family": "*",
+      "specialization": "*",
+      "action": "*",
+      "asset": "*",
+      "risk": "*",
+      "scope": "experimental"
+    }
+  ],
+  "precedence_rules": [],
+  "evidence_rules": [
+    {
+      "overlay": "context.experimental",
+      "required": [
+        "context_scope",
+        "review_trace"
+      ]
+    }
+  ],
+  "composition": {
+    "block_refs": []
+  },
+  "source": {
+    "generator": "tools/gen/build_overlay_descriptors.py",
+    "legacy_manifest_ref": "overlays/materialized/contextual/experimental/manifest.json"
+  }
+}

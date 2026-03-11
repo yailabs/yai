@@ -2,9 +2,33 @@
   "kind": "sector.index",
   "version": "v2",
   "overlays": [
-    {"overlay_id": "sector.finance", "status": "active"},
-    {"overlay_id": "sector.healthcare", "status": "active-seed"},
-    {"overlay_id": "sector.public-sector", "status": "active-seed"},
-    {"overlay_id": "sector.manufacturing", "status": "seed"}
+    {
+      "overlay_id": "sector.finance",
+      "status": "active",
+      "manifest_ref": "overlays/materialized/sector/finance/manifest.json",
+      "descriptor_ref": "overlays/descriptors/sector.finance.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/sector/finance"
+    },
+    {
+      "overlay_id": "sector.healthcare",
+      "status": "active-seed",
+      "manifest_ref": "overlays/materialized/sector/healthcare/manifest.json",
+      "descriptor_ref": "overlays/descriptors/sector.healthcare.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/sector/healthcare"
+    },
+    {
+      "overlay_id": "sector.public-sector",
+      "status": "active-seed",
+      "manifest_ref": "overlays/materialized/sector/public-sector/manifest.json",
+      "descriptor_ref": "overlays/descriptors/sector.public-sector.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/sector/public-sector"
+    },
+    {
+      "overlay_id": "sector.manufacturing",
+      "status": "seed",
+      "manifest_ref": "overlays/materialized/sector/manufacturing/manifest.json",
+      "descriptor_ref": "overlays/descriptors/sector.manufacturing.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/sector/manufacturing"
+    }
   ]
 }

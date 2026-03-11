@@ -189,15 +189,17 @@ static void attach_overlays_from_matrix(const yai_governance_runtime_t *rt,
   char fam[96];
   char spec[128];
   char action[96];
+  int loaded = 0;
   if (!ctx || !discovery || !stack) return;
   if (yai_governance_safe_snprintf(fam, sizeof(fam), "\"family\":\"%s\"", discovery->family_id) != 0) return;
   if (yai_governance_safe_snprintf(spec, sizeof(spec), "\"specialization\":\"%s\"", discovery->specialization_id) != 0) return;
   if (yai_governance_safe_snprintf(action, sizeof(action), "\"action\":\"%s\"", ctx->action) != 0) return;
 
   if (read_json_from_surface(rt,
-                             "overlays/regulatory/index/overlay-attachment-matrix.json",
+                             "overlays/matrices/overlay-attachment.matrix.v1.json",
                              json, sizeof(json)) == 0 &&
       yai_governance_json_contains(json, fam) && yai_governance_json_contains(json, spec) && yai_governance_json_contains(json, action)) {
+    loaded = 1;
     if (yai_governance_json_contains(json, "\"overlay\":\"gdpr-eu\"")) add_regulatory_overlay(stack, "gdpr-eu");
     if (yai_governance_json_contains(json, "\"overlay\":\"ai-act\"")) add_regulatory_overlay(stack, "ai-act");
     if (yai_governance_json_contains(json, "\"overlay\":\"retention-governance\"")) add_regulatory_overlay(stack, "retention-governance");
@@ -205,10 +207,7 @@ static void attach_overlays_from_matrix(const yai_governance_runtime_t *rt,
     if (yai_governance_json_contains(json, "\"overlay\":\"sector.finance\"")) add_sector_overlay(stack, "sector.finance");
   }
 
-  if (read_json_from_surface(rt,
-                             "overlays/sector/index/overlay-attachment-matrix.json",
-                             json, sizeof(json)) == 0 &&
-      yai_governance_json_contains(json, fam) && yai_governance_json_contains(json, spec)) {
+  if (loaded && yai_governance_json_contains(json, fam) && yai_governance_json_contains(json, spec)) {
     if (yai_governance_json_contains(json, "\"overlay\":\"sector.finance\"")) add_sector_overlay(stack, "sector.finance");
     if (yai_governance_json_contains(json, "\"overlay\":\"sector.healthcare\"")) add_sector_overlay(stack, "sector.healthcare");
     if (yai_governance_json_contains(json, "\"overlay\":\"sector.public-sector\"")) add_sector_overlay(stack, "sector.public-sector");

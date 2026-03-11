@@ -1,0 +1,122 @@
+{
+  "kind": "compliance_descriptor.v1",
+  "version": "v1",
+  "compliance_id": "sector.finance",
+  "canonical_name": "sector.finance",
+  "display_name": "Finance Sector Overlay",
+  "regime_class": "sector-overlay",
+  "status": "active-planned",
+  "runtime": {
+    "manifest_ref": "compliance/materialized/sector.finance/manifest.json",
+    "materialized_bundle_ref": "compliance/materialized/sector.finance",
+    "attachment_levels": [
+      "family",
+      "domain",
+      "subdomain",
+      "authority",
+      "evidence"
+    ]
+  },
+  "applicability": {
+    "compliance_id": "sector.finance",
+    "families": [
+      "D5",
+      "D1",
+      "D6"
+    ],
+    "domains": [
+      "economic.payments",
+      "economic.transfers",
+      "economic.settlements"
+    ],
+    "subdomains": [
+      "economic.payments.authorization",
+      "economic.transfers.release"
+    ],
+    "actions": [
+      "actuate",
+      "publish"
+    ],
+    "assets": [
+      "financial-instrument",
+      "credential",
+      "artifact"
+    ],
+    "risks": [
+      "financial-fraud",
+      "exfiltration"
+    ],
+    "mode": "sector-gated"
+  },
+  "authority": {
+    "compliance_id": "sector.finance",
+    "authority_scope": [
+      "operator",
+      "controller",
+      "auditor"
+    ],
+    "interaction_mode": "require_authority",
+    "approval_requirements": [
+      "explicit-approval",
+      "fund-impact-review"
+    ],
+    "dual_control": true
+  },
+  "domain_crosswalk": {
+    "compliance_id": "sector.finance",
+    "targets": [
+      {
+        "family_id": "D5",
+        "domain": "economic.payments",
+        "subdomain": "economic.payments.authorization",
+        "action_classes": [
+          "actuate"
+        ],
+        "asset_classes": [
+          "financial-instrument",
+          "credential"
+        ],
+        "risk_classes": [
+          "financial-fraud"
+        ],
+        "constraint_mode": "review",
+        "escalation_mode": "dual-control",
+        "evidence_mode": "financial-audit",
+        "precedence_impact": "authority_upgrade"
+      }
+    ]
+  },
+  "composition": {
+    "policy_refs": [
+      "compliance/materialized/sector.finance/policy/authority-hardening.json",
+      "compliance/materialized/sector.finance/policy/baseline.json",
+      "compliance/materialized/sector.finance/policy/evidence-hardening.json",
+      "compliance/materialized/sector.finance/policy/review-escalation.json"
+    ],
+    "mapping_refs": [],
+    "taxonomy_refs": [],
+    "retention_refs": [],
+    "overlay_refs": []
+  },
+  "profiles": {
+    "effect_profile": [
+      "review",
+      "authority-hardening",
+      "evidence-hardening"
+    ],
+    "evidence_profile": "financial-audit-trace",
+    "authority_interaction": "dual-control",
+    "sector_scope": [
+      "finance"
+    ],
+    "primary_targets": [
+      "D5",
+      "D1",
+      "D6"
+    ]
+  },
+  "source": {
+    "generator": "tools/gen/build_compliance_descriptors.py",
+    "legacy_manifest_ref": "compliance/materialized/sector.finance/manifest.json"
+  }
+}

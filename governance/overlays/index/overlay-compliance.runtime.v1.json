@@ -3,75 +3,122 @@
   "version": "v1",
   "sources": {
     "compliance_index": "compliance/index/compliance.index.json",
-    "regulatory_index": "overlays/regulatory/index/regulatory.index.json",
-    "sector_index": "overlays/sector/index/sector.index.json",
-    "contextual_index": "overlays/contextual/index/contextual.index.json"
+    "compliance_descriptors_index": "compliance/index/compliance.descriptors.index.json",
+    "overlay_descriptors_index": "overlays/index/overlays.descriptors.index.json"
   },
   "overlays": {
     "regulatory": [
       {
         "overlay_id": "gdpr-eu",
+        "overlay_class": "regulatory",
         "status": "active",
-        "manifest_ref": "overlays/regulatory/gdpr-eu/manifest.json"
+        "descriptor_ref": "overlays/descriptors/gdpr-eu.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/regulatory/gdpr-eu/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/regulatory/gdpr-eu",
+        "manifest_ref": "overlays/materialized/regulatory/gdpr-eu/manifest.json"
       },
       {
         "overlay_id": "ai-act",
+        "overlay_class": "regulatory",
         "status": "active",
-        "manifest_ref": "overlays/regulatory/ai-act/manifest.json"
+        "descriptor_ref": "overlays/descriptors/ai-act.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/regulatory/ai-act/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/regulatory/ai-act",
+        "manifest_ref": "overlays/materialized/regulatory/ai-act/manifest.json"
       },
       {
         "overlay_id": "retention-governance",
+        "overlay_class": "regulatory",
         "status": "active",
-        "manifest_ref": "overlays/regulatory/retention-governance/manifest.json"
+        "descriptor_ref": "overlays/descriptors/retention-governance.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/regulatory/retention-governance/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/regulatory/retention-governance",
+        "manifest_ref": "overlays/materialized/regulatory/retention-governance/manifest.json"
       },
       {
         "overlay_id": "security-supply-chain",
+        "overlay_class": "regulatory",
         "status": "active",
-        "manifest_ref": "overlays/regulatory/security-supply-chain/manifest.json"
+        "descriptor_ref": "overlays/descriptors/security-supply-chain.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/regulatory/security-supply-chain/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/regulatory/security-supply-chain",
+        "manifest_ref": "overlays/materialized/regulatory/security-supply-chain/manifest.json"
       }
     ],
     "sector": [
       {
         "overlay_id": "sector.finance",
+        "overlay_class": "sector",
         "status": "active",
-        "manifest_ref": "overlays/sector/finance/manifest.json"
+        "descriptor_ref": "overlays/descriptors/sector.finance.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/sector/finance/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/sector/finance",
+        "manifest_ref": "overlays/materialized/sector/finance/manifest.json"
       },
       {
         "overlay_id": "sector.healthcare",
+        "overlay_class": "sector",
         "status": "active-seed",
-        "manifest_ref": "overlays/sector/healthcare/manifest.json"
+        "descriptor_ref": "overlays/descriptors/sector.healthcare.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/sector/healthcare/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/sector/healthcare",
+        "manifest_ref": "overlays/materialized/sector/healthcare/manifest.json"
       },
       {
         "overlay_id": "sector.public-sector",
+        "overlay_class": "sector",
         "status": "active-seed",
-        "manifest_ref": "overlays/sector/public-sector/manifest.json"
+        "descriptor_ref": "overlays/descriptors/sector.public-sector.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/sector/public-sector/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/sector/public-sector",
+        "manifest_ref": "overlays/materialized/sector/public-sector/manifest.json"
       },
       {
         "overlay_id": "sector.manufacturing",
+        "overlay_class": "sector",
         "status": "seed",
-        "manifest_ref": "overlays/sector/manufacturing/manifest.json"
+        "descriptor_ref": "overlays/descriptors/sector.manufacturing.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/sector/manufacturing/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/sector/manufacturing",
+        "manifest_ref": "overlays/materialized/sector/manufacturing/manifest.json"
       }
     ],
     "contextual": [
       {
         "overlay_id": "context.organization",
-        "manifest_ref": "overlays/contextual/organization/manifest.json",
-        "status": "seed"
+        "overlay_class": "contextual",
+        "status": "seed",
+        "descriptor_ref": "overlays/descriptors/context.organization.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/contextual/organization/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/contextual/organization",
+        "manifest_ref": "overlays/materialized/contextual/organization/manifest.json"
       },
       {
         "overlay_id": "context.workspace",
-        "manifest_ref": "overlays/contextual/workspace/manifest.json",
-        "status": "seed"
+        "overlay_class": "contextual",
+        "status": "seed",
+        "descriptor_ref": "overlays/descriptors/context.workspace.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/contextual/workspace/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/contextual/workspace",
+        "manifest_ref": "overlays/materialized/contextual/workspace/manifest.json"
       },
       {
         "overlay_id": "context.session",
-        "manifest_ref": "overlays/contextual/session/manifest.json",
-        "status": "seed"
+        "overlay_class": "contextual",
+        "status": "seed",
+        "descriptor_ref": "overlays/descriptors/context.session.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/contextual/session/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/contextual/session",
+        "manifest_ref": "overlays/materialized/contextual/session/manifest.json"
       },
       {
         "overlay_id": "context.experimental",
-        "manifest_ref": "overlays/contextual/experimental/manifest.json",
-        "status": "seed"
+        "overlay_class": "contextual",
+        "status": "seed",
+        "descriptor_ref": "overlays/descriptors/context.experimental.descriptor.v1.json",
+        "materialized_manifest_ref": "overlays/materialized/contextual/experimental/manifest.json",
+        "materialized_bundle_ref": "overlays/materialized/contextual/experimental",
+        "manifest_ref": "overlays/materialized/contextual/experimental/manifest.json"
       }
     ]
   },
@@ -110,7 +157,10 @@
         "b2b-saas"
       ],
       "status": "active",
-      "manifest_ref": "compliance/gdpr-eu/manifest.json"
+      "manifest_ref": "compliance/materialized/gdpr-eu/manifest.json",
+      "descriptor_ref": "compliance/descriptors/gdpr-eu.descriptor.v1.json",
+      "materialized_manifest_ref": "compliance/materialized/gdpr-eu/manifest.json",
+      "materialized_bundle_ref": "compliance/materialized/gdpr-eu"
     },
     {
       "compliance_id": "ai-act",
@@ -143,7 +193,10 @@
         "general"
       ],
       "status": "active",
-      "manifest_ref": "compliance/ai-act/manifest.json"
+      "manifest_ref": "compliance/materialized/ai-act/manifest.json",
+      "descriptor_ref": "compliance/descriptors/ai-act.descriptor.v1.json",
+      "materialized_manifest_ref": "compliance/materialized/ai-act/manifest.json",
+      "materialized_bundle_ref": "compliance/materialized/ai-act"
     },
     {
       "compliance_id": "retention-governance",
@@ -170,7 +223,10 @@
         "general"
       ],
       "status": "active",
-      "manifest_ref": "compliance/retention-governance/manifest.json"
+      "manifest_ref": "compliance/materialized/retention-governance/manifest.json",
+      "descriptor_ref": "compliance/descriptors/retention-governance.descriptor.v1.json",
+      "materialized_manifest_ref": "compliance/materialized/retention-governance/manifest.json",
+      "materialized_bundle_ref": "compliance/materialized/retention-governance"
     },
     {
       "compliance_id": "security-supply-chain",
@@ -203,7 +259,10 @@
         "general"
       ],
       "status": "active",
-      "manifest_ref": "compliance/security-supply-chain/manifest.json"
+      "manifest_ref": "compliance/materialized/security-supply-chain/manifest.json",
+      "descriptor_ref": "compliance/descriptors/security-supply-chain.descriptor.v1.json",
+      "materialized_manifest_ref": "compliance/materialized/security-supply-chain/manifest.json",
+      "materialized_bundle_ref": "compliance/materialized/security-supply-chain"
     },
     {
       "compliance_id": "sector.finance",
@@ -233,15 +292,62 @@
         "finance"
       ],
       "status": "active-planned",
-      "manifest_ref": "compliance/sector-overlays/finance/manifest.json"
+      "manifest_ref": "compliance/materialized/sector.finance/manifest.json",
+      "descriptor_ref": "compliance/descriptors/sector.finance.descriptor.v1.json",
+      "materialized_manifest_ref": "compliance/materialized/sector.finance/manifest.json",
+      "materialized_bundle_ref": "compliance/materialized/sector.finance"
+    }
+  ],
+  "compliance_descriptors": [
+    {
+      "compliance_id": "gdpr-eu",
+      "canonical_name": "gdpr-eu",
+      "descriptor_ref": "compliance/descriptors/gdpr-eu.descriptor.v1.json",
+      "materialized_manifest_ref": "compliance/materialized/gdpr-eu/manifest.json",
+      "materialized_bundle_ref": "compliance/materialized/gdpr-eu",
+      "status": "active",
+      "regime_class": "core-compliance"
+    },
+    {
+      "compliance_id": "ai-act",
+      "canonical_name": "ai-act",
+      "descriptor_ref": "compliance/descriptors/ai-act.descriptor.v1.json",
+      "materialized_manifest_ref": "compliance/materialized/ai-act/manifest.json",
+      "materialized_bundle_ref": "compliance/materialized/ai-act",
+      "status": "active",
+      "regime_class": "cross-domain-compliance"
+    },
+    {
+      "compliance_id": "retention-governance",
+      "canonical_name": "retention-governance",
+      "descriptor_ref": "compliance/descriptors/retention-governance.descriptor.v1.json",
+      "materialized_manifest_ref": "compliance/materialized/retention-governance/manifest.json",
+      "materialized_bundle_ref": "compliance/materialized/retention-governance",
+      "status": "active",
+      "regime_class": "retention-overlay"
+    },
+    {
+      "compliance_id": "security-supply-chain",
+      "canonical_name": "security-supply-chain",
+      "descriptor_ref": "compliance/descriptors/security-supply-chain.descriptor.v1.json",
+      "materialized_manifest_ref": "compliance/materialized/security-supply-chain/manifest.json",
+      "materialized_bundle_ref": "compliance/materialized/security-supply-chain",
+      "status": "active",
+      "regime_class": "cross-domain-compliance"
+    },
+    {
+      "compliance_id": "sector.finance",
+      "canonical_name": "sector.finance",
+      "descriptor_ref": "compliance/descriptors/sector.finance.descriptor.v1.json",
+      "materialized_manifest_ref": "compliance/materialized/sector.finance/manifest.json",
+      "materialized_bundle_ref": "compliance/materialized/sector.finance",
+      "status": "active-planned",
+      "regime_class": "sector-overlay"
     }
   ],
   "matrices": {
-    "regulatory_attachment": "overlays/regulatory/index/overlay-attachment-matrix.json",
-    "sector_attachment": "overlays/sector/index/overlay-attachment-matrix.json",
-    "regulatory_precedence": "overlays/regulatory/index/overlay-precedence-matrix.json",
-    "sector_precedence": "overlays/sector/index/overlay-precedence-matrix.json",
-    "regulatory_evidence": "overlays/regulatory/index/overlay-evidence-matrix.json",
-    "sector_evidence": "overlays/sector/index/overlay-evidence-matrix.json"
+    "attachment": "overlays/matrices/overlay-attachment.matrix.v1.json",
+    "precedence": "overlays/matrices/overlay-precedence.matrix.v1.json",
+    "evidence": "overlays/matrices/overlay-evidence.matrix.v1.json"
   }
 }

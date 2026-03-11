@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yai.governance.compliance.compliance-descriptor.v1",
+  "title": "Compliance Descriptor v1",
+  "type": "object",
+  "required": ["kind", "version", "compliance_id", "canonical_name", "status", "runtime"],
+  "properties": {
+    "kind": { "const": "compliance_descriptor.v1" },
+    "version": { "const": "v1" },
+    "compliance_id": { "type": "string", "minLength": 1 },
+    "canonical_name": { "type": "string", "minLength": 1 },
+    "display_name": { "type": "string" },
+    "regime_class": { "type": "string" },
+    "status": { "type": "string", "minLength": 1 },
+    "runtime": {
+      "type": "object",
+      "required": ["manifest_ref", "materialized_bundle_ref"],
+      "properties": {
+        "manifest_ref": { "type": "string", "minLength": 1 },
+        "materialized_bundle_ref": { "type": "string", "minLength": 1 },
+        "attachment_levels": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "applicability": { "type": "object" },
+    "authority": { "type": "object" },
+    "domain_crosswalk": { "type": "object" },
+    "composition": { "type": "object" },
+    "profiles": { "type": "object" },
+    "source": { "type": "object" }
+  }
+}

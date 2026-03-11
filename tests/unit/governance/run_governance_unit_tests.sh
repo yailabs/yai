@@ -16,6 +16,10 @@ python3 "$ROOT/tools/gen/build_specialization_descriptors.py" >/dev/null
 python3 "$ROOT/tools/validate/validate_specialization_descriptors.py"
 python3 "$ROOT/tools/gen/build_domain_model_matrix.py" >/dev/null
 python3 "$ROOT/tools/validate/validate_domain_model_matrix.py"
+python3 "$ROOT/tools/gen/build_compliance_descriptors.py" >/dev/null
+python3 "$ROOT/tools/validate/validate_compliance_descriptors.py"
+python3 "$ROOT/tools/gen/build_overlay_descriptors.py" >/dev/null
+python3 "$ROOT/tools/validate/validate_overlay_descriptors.py"
 python3 "$ROOT/tools/gen/build_overlay_compliance_runtime_view.py" >/dev/null
 python3 "$ROOT/tools/validate/validate_overlay_compliance_runtime_view.py"
 python3 "$ROOT/tools/validate/validate_governance_manifest_spine.py"

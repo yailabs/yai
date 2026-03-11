@@ -4,23 +4,31 @@
   "overlays": [
     {
       "overlay_id": "context.organization",
-      "manifest_ref": "overlays/contextual/organization/manifest.json",
-      "status": "seed"
+      "manifest_ref": "overlays/materialized/contextual/organization/manifest.json",
+      "status": "seed",
+      "descriptor_ref": "overlays/descriptors/context.organization.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/contextual/organization"
     },
     {
       "overlay_id": "context.workspace",
-      "manifest_ref": "overlays/contextual/workspace/manifest.json",
-      "status": "seed"
+      "manifest_ref": "overlays/materialized/contextual/workspace/manifest.json",
+      "status": "seed",
+      "descriptor_ref": "overlays/descriptors/context.workspace.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/contextual/workspace"
     },
     {
       "overlay_id": "context.session",
-      "manifest_ref": "overlays/contextual/session/manifest.json",
-      "status": "seed"
+      "manifest_ref": "overlays/materialized/contextual/session/manifest.json",
+      "status": "seed",
+      "descriptor_ref": "overlays/descriptors/context.session.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/contextual/session"
     },
     {
       "overlay_id": "context.experimental",
-      "manifest_ref": "overlays/contextual/experimental/manifest.json",
-      "status": "seed"
+      "manifest_ref": "overlays/materialized/contextual/experimental/manifest.json",
+      "status": "seed",
+      "descriptor_ref": "overlays/descriptors/context.experimental.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/contextual/experimental"
     }
   ]
 }

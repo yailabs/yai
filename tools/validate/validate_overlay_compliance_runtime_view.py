@@ -25,11 +25,18 @@ for cls in ("regulatory", "sector", "contextual"):
             raise SystemExit(f"overlay manifest not found: {ref}")
 
 for m in view.get("compliance_entries", []):
-    ref = m.get("manifest_ref")
+    ref = m.get("materialized_manifest_ref") or m.get("manifest_ref")
     if not ref:
         raise SystemExit("compliance entry missing manifest_ref")
     if not (GOV / ref).exists():
         raise SystemExit(f"compliance manifest not found: {ref}")
+
+for d in view.get("compliance_descriptors", []):
+    dref = d.get("descriptor_ref")
+    if not dref:
+        raise SystemExit("compliance descriptor entry missing descriptor_ref")
+    if not (GOV / dref).exists():
+        raise SystemExit(f"compliance descriptor not found: {dref}")
 
 known_overlay_ids = set()
 for cls in ("regulatory", "sector"):
@@ -41,7 +48,7 @@ for cls in ("regulatory", "sector"):
 if not known_overlay_ids:
     raise SystemExit("no known overlay ids")
 
-for matrix_key in ("regulatory_precedence", "sector_precedence", "regulatory_evidence", "sector_evidence"):
+for matrix_key in ("precedence", "evidence"):
     rel = view["matrices"][matrix_key]
     txt = (GOV / rel).read_text()
     if not any(oid in txt for oid in known_overlay_ids):

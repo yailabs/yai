@@ -5,10 +5,9 @@ int yai_governance_load_compliance_index(const yai_governance_runtime_t *rt,
                                   size_t out_cap) {
   if (!rt || !out_json || out_cap == 0) return -1;
 
-  if (yai_governance_read_governance_surface_file(rt, "compliance/index/compliance.index.json", out_json, out_cap) == 0) {
+  if (yai_governance_read_governance_surface_file(rt, "compliance/index/compliance.descriptors.index.json", out_json, out_cap) == 0) {
     return 0;
   }
 
-  /* Compatibility fallback for historical runtime payload shape. */
-  return yai_governance_read_governance_surface_file(rt, "overlays/regulatory/index/regulatory.index.json", out_json, out_cap);
+  return yai_governance_read_governance_surface_file(rt, "compliance/index/compliance.index.json", out_json, out_cap);
 }

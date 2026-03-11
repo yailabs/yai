@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yai.governance.compliance.compliance-matrix-entry.v1",
+  "title": "Compliance Matrix Entry v1",
+  "type": "object",
+  "required": ["compliance_id", "descriptor_ref"],
+  "properties": {
+    "compliance_id": { "type": "string", "minLength": 1 },
+    "descriptor_ref": { "type": "string", "minLength": 1 },
+    "attachment_level_count": { "type": "integer", "minimum": 0 },
+    "policy_ref_count": { "type": "integer", "minimum": 0 },
+    "mapping_ref_count": { "type": "integer", "minimum": 0 },
+    "taxonomy_ref_count": { "type": "integer", "minimum": 0 }
+  }
+}

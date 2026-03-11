@@ -13,24 +13,31 @@ int yai_governance_overlay_loader_validate(const yai_governance_runtime_t *rt, c
     return -1;
   }
   if (yai_governance_read_governance_surface_file(rt,
-                                           "overlays/regulatory/index/overlay-attachment-matrix.json",
+                                           "overlays/index/overlays.descriptors.index.json",
                                            buf,
                                            sizeof(buf)) != 0) {
-    if (err && err_cap > 0) (void)yai_governance_safe_snprintf(err, err_cap, "%s", "overlay_regulatory_index_missing");
+    if (err && err_cap > 0) (void)yai_governance_safe_snprintf(err, err_cap, "%s", "overlay_descriptors_missing");
     return -1;
   }
   if (yai_governance_read_governance_surface_file(rt,
-                                           "overlays/sector/index/overlay-attachment-matrix.json",
+                                           "overlays/matrices/overlay-attachment.matrix.v1.json",
                                            buf,
                                            sizeof(buf)) != 0) {
-    if (err && err_cap > 0) (void)yai_governance_safe_snprintf(err, err_cap, "%s", "overlay_sector_index_missing");
+    if (err && err_cap > 0) (void)yai_governance_safe_snprintf(err, err_cap, "%s", "overlay_attachment_matrix_missing");
     return -1;
   }
   if (yai_governance_read_governance_surface_file(rt,
-                                           "overlays/contextual/index/contextual.index.json",
+                                           "overlays/matrices/overlay-precedence.matrix.v1.json",
                                            buf,
                                            sizeof(buf)) != 0) {
-    if (err && err_cap > 0) (void)yai_governance_safe_snprintf(err, err_cap, "%s", "overlay_contextual_index_missing");
+    if (err && err_cap > 0) (void)yai_governance_safe_snprintf(err, err_cap, "%s", "overlay_precedence_matrix_missing");
+    return -1;
+  }
+  if (yai_governance_read_governance_surface_file(rt,
+                                           "overlays/matrices/overlay-evidence.matrix.v1.json",
+                                           buf,
+                                           sizeof(buf)) != 0) {
+    if (err && err_cap > 0) (void)yai_governance_safe_snprintf(err, err_cap, "%s", "overlay_evidence_matrix_missing");
     return -1;
   }
   return 0;

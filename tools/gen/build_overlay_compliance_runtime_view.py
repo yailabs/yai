@@ -5,35 +5,48 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 GOV = ROOT / "governance"
 
-reg_idx = json.loads((GOV / "overlays" / "regulatory" / "index" / "regulatory.index.json").read_text())
-sec_idx = json.loads((GOV / "overlays" / "sector" / "index" / "sector.index.json").read_text())
-ctx_idx = json.loads((GOV / "overlays" / "contextual" / "index" / "contextual.index.json").read_text())
 compliance_idx = json.loads((GOV / "compliance" / "index" / "compliance.index.json").read_text())
+compliance_desc_idx = json.loads((GOV / "compliance" / "index" / "compliance.descriptors.index.json").read_text())
+overlay_desc_idx = json.loads((GOV / "overlays" / "index" / "overlays.descriptors.index.json").read_text())
 
 
-def normalize_overlay_entry(kind: str, entry: dict) -> dict:
+def normalize_overlay_entry(entry: dict) -> dict:
     ov = dict(entry)
     oid = ov.get("overlay_id", "")
-    if not ov.get("manifest_ref") and oid:
-        if kind == "regulatory":
-            ov["manifest_ref"] = f"overlays/regulatory/{oid}/manifest.json"
-        elif kind == "sector":
+    klass = ov.get("overlay_class", "")
+    if not ov.get("manifest_ref"):
+        ov["manifest_ref"] = ov.get("materialized_manifest_ref", "")
+    if not ov.get("materialized_bundle_ref") and oid and klass:
+        if klass == "regulatory":
+            ov["materialized_bundle_ref"] = f"overlays/materialized/regulatory/{oid}"
+        elif klass == "sector":
             name = oid.split("sector.", 1)[1] if oid.startswith("sector.") else oid
-            ov["manifest_ref"] = f"overlays/sector/{name}/manifest.json"
+            ov["materialized_bundle_ref"] = f"overlays/materialized/sector/{name}"
+        elif klass == "contextual":
+            name = oid.split("context.", 1)[1] if oid.startswith("context.") else oid
+            ov["materialized_bundle_ref"] = f"overlays/materialized/contextual/{name}"
     return ov
 
-reg_ovs = [normalize_overlay_entry("regulatory", x) for x in reg_idx.get("overlays", [])]
-sec_ovs = [normalize_overlay_entry("sector", x) for x in sec_idx.get("overlays", [])]
-ctx_ovs = [normalize_overlay_entry("contextual", x) for x in ctx_idx.get("overlays", [])]
+reg_ovs = []
+sec_ovs = []
+ctx_ovs = []
+for raw in overlay_desc_idx.get("entries", []):
+    ov = normalize_overlay_entry(raw)
+    klass = ov.get("overlay_class", "")
+    if klass == "regulatory":
+        reg_ovs.append(ov)
+    elif klass == "sector":
+        sec_ovs.append(ov)
+    elif klass == "contextual":
+        ctx_ovs.append(ov)
 
 out = {
     "kind": "overlay-compliance.runtime.v1",
     "version": "v1",
     "sources": {
         "compliance_index": "compliance/index/compliance.index.json",
-        "regulatory_index": "overlays/regulatory/index/regulatory.index.json",
-        "sector_index": "overlays/sector/index/sector.index.json",
-        "contextual_index": "overlays/contextual/index/contextual.index.json",
+        "compliance_descriptors_index": "compliance/index/compliance.descriptors.index.json",
+        "overlay_descriptors_index": "overlays/index/overlays.descriptors.index.json",
     },
     "overlays": {
         "regulatory": reg_ovs,
@@ -41,13 +54,11 @@ out = {
         "contextual": ctx_ovs,
     },
     "compliance_entries": compliance_idx.get("entries", []),
+    "compliance_descriptors": compliance_desc_idx.get("entries", []),
     "matrices": {
-        "regulatory_attachment": "overlays/regulatory/index/overlay-attachment-matrix.json",
-        "sector_attachment": "overlays/sector/index/overlay-attachment-matrix.json",
-        "regulatory_precedence": "overlays/regulatory/index/overlay-precedence-matrix.json",
-        "sector_precedence": "overlays/sector/index/overlay-precedence-matrix.json",
-        "regulatory_evidence": "overlays/regulatory/index/overlay-evidence-matrix.json",
-        "sector_evidence": "overlays/sector/index/overlay-evidence-matrix.json",
+        "attachment": "overlays/matrices/overlay-attachment.matrix.v1.json",
+        "precedence": "overlays/matrices/overlay-precedence.matrix.v1.json",
+        "evidence": "overlays/matrices/overlay-evidence.matrix.v1.json",
     },
 }
 

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yai.governance.overlays.overlay-descriptor.v1",
+  "title": "Overlay Descriptor v1",
+  "type": "object",
+  "required": ["kind", "version", "overlay_id", "overlay_class", "status", "runtime"],
+  "properties": {
+    "kind": { "const": "overlay_descriptor.v1" },
+    "version": { "const": "v1" },
+    "overlay_id": { "type": "string", "minLength": 1 },
+    "overlay_class": { "type": "string", "enum": ["regulatory", "sector", "contextual"] },
+    "status": { "type": "string", "minLength": 1 },
+    "runtime": {
+      "type": "object",
+      "required": ["manifest_ref", "materialized_bundle_ref"],
+      "properties": {
+        "manifest_ref": { "type": "string", "minLength": 1 },
+        "materialized_bundle_ref": { "type": "string", "minLength": 1 },
+        "attachment_count": { "type": "integer", "minimum": 0 },
+        "precedence_count": { "type": "integer", "minimum": 0 },
+        "evidence_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "attachment_rules": { "type": "array", "items": { "type": "object" } },
+    "precedence_rules": { "type": "array", "items": { "type": "object" } },
+    "evidence_rules": { "type": "array", "items": { "type": "object" } },
+    "composition": { "type": "object" },
+    "source": { "type": "object" }
+  }
+}

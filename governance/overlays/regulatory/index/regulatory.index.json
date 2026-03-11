@@ -2,9 +2,33 @@
   "kind": "regulatory.index",
   "version": "v2",
   "overlays": [
-    {"overlay_id": "gdpr-eu", "status": "active"},
-    {"overlay_id": "ai-act", "status": "active"},
-    {"overlay_id": "retention-governance", "status": "active"},
-    {"overlay_id": "security-supply-chain", "status": "active"}
+    {
+      "overlay_id": "gdpr-eu",
+      "status": "active",
+      "manifest_ref": "overlays/materialized/regulatory/gdpr-eu/manifest.json",
+      "descriptor_ref": "overlays/descriptors/gdpr-eu.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/regulatory/gdpr-eu"
+    },
+    {
+      "overlay_id": "ai-act",
+      "status": "active",
+      "manifest_ref": "overlays/materialized/regulatory/ai-act/manifest.json",
+      "descriptor_ref": "overlays/descriptors/ai-act.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/regulatory/ai-act"
+    },
+    {
+      "overlay_id": "retention-governance",
+      "status": "active",
+      "manifest_ref": "overlays/materialized/regulatory/retention-governance/manifest.json",
+      "descriptor_ref": "overlays/descriptors/retention-governance.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/regulatory/retention-governance"
+    },
+    {
+      "overlay_id": "security-supply-chain",
+      "status": "active",
+      "manifest_ref": "overlays/materialized/regulatory/security-supply-chain/manifest.json",
+      "descriptor_ref": "overlays/descriptors/security-supply-chain.descriptor.v1.json",
+      "materialized_bundle_ref": "overlays/materialized/regulatory/security-supply-chain"
+    }
   ]
 }

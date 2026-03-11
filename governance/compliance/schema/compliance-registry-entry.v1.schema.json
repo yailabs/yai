@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yai.governance.compliance.compliance-registry-entry.v1",
+  "title": "Compliance Registry Entry v1",
+  "type": "object",
+  "required": [
+    "compliance_id",
+    "canonical_name",
+    "descriptor_ref",
+    "materialized_manifest_ref",
+    "materialized_bundle_ref",
+    "status"
+  ],
+  "properties": {
+    "compliance_id": { "type": "string", "minLength": 1 },
+    "canonical_name": { "type": "string", "minLength": 1 },
+    "descriptor_ref": { "type": "string", "minLength": 1 },
+    "manifest_ref": { "type": "string", "minLength": 1 },
+    "materialized_manifest_ref": { "type": "string", "minLength": 1 },
+    "materialized_bundle_ref": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "minLength": 1 },
+    "regime_class": { "type": "string" }
+  }
+}
