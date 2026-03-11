@@ -64,6 +64,12 @@ SW-3 validity lock:
 - stale/expired/revoked delegated state restricts edge mediation/enforcement
   behavior and never expands edge authority.
 
+MF-A1 mesh lock:
+- mesh peer visibility and coordination state can be consumed under workspace
+  binding context;
+- mesh awareness does not change workspace binding sovereignty or owner final
+  authority semantics.
+
 ## Workspace-local vs Runtime-global
 
 Workspace-local:

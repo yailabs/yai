@@ -69,6 +69,8 @@ SW-2 workspace-to-edge policy distribution model is defined in
 `docs/architecture/workspace-to-edge-policy-distribution-model.md`.
 SW-3 delegated validity/expiry/refresh model is defined in
 `docs/architecture/edge-policy-validity-expiry-refresh-model.md`.
+MF-A1 governed sovereign mesh foundation is defined in
+`docs/architecture/governed-sovereign-mesh-model.md`.
 Source-plane entity/contract model is defined in
 `docs/architecture/source-plane-model.md`.
 Owner ingest runtime flow is defined in
@@ -104,3 +106,10 @@ validity lifecycle state (`valid|refresh_required|stale|expired|revoked`) and
 lifecycle timestamps. As delegated material weakens, edge autonomy contracts
 (`full_delegated` -> `restricted_hold_escalate` -> `observe_only` /
 `disabled_by_revoke`); it never expands.
+
+## MF-A1 governed sovereign mesh lock
+
+YAI is mesh-native in topology (discovery + coordination across owner/peer
+nodes) while remaining sovereign in authority. Discovery/visibility/peer
+awareness do not transfer canonical policy truth, final adjudication, or
+workspace sovereignty from owner runtime.

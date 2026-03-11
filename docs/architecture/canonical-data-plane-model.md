@@ -83,6 +83,11 @@ SW-3 delegated validity lifecycle lock:
 - lifecycle deterioration contracts edge autonomy and fallback modes;
 - revoke/expiry handling remains owner-authoritative and non-sovereign edge-side.
 
+MF-A1 mesh foundation lock:
+- mesh discovery and coordination are explicit runtime planes;
+- mesh visibility/awareness do not imply authority or canonical truth transfer;
+- sovereign authority and canonical truth classes remain owner workspace runtime.
+
 ### 3) Control/Data Path Separation
 Mandatory path:
 
