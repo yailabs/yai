@@ -77,6 +77,12 @@ SW-2 workspace-to-edge distribution lock:
 - distributed artifacts enable edge execution scope but never transfer owner
   canonical truth or final authority.
 
+SW-3 delegated validity lifecycle lock:
+- distributed edge material has explicit lifecycle states
+  (`valid|refresh_required|stale|expired|revoked`);
+- lifecycle deterioration contracts edge autonomy and fallback modes;
+- revoke/expiry handling remains owner-authoritative and non-sovereign edge-side.
+
 ### 3) Control/Data Path Separation
 Mandatory path:
 

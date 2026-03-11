@@ -67,6 +67,8 @@ SW-1 workspace authority/truth plane lock is defined in
 `docs/architecture/workspace-authority-and-truth-plane-model.md`.
 SW-2 workspace-to-edge policy distribution model is defined in
 `docs/architecture/workspace-to-edge-policy-distribution-model.md`.
+SW-3 delegated validity/expiry/refresh model is defined in
+`docs/architecture/edge-policy-validity-expiry-refresh-model.md`.
 Source-plane entity/contract model is defined in
 `docs/architecture/source-plane-model.md`.
 Owner ingest runtime flow is defined in
@@ -94,3 +96,11 @@ explicit source-plane artifacts (grant, snapshot, capability envelope, target
 association, delegated scopes). Distribution enables bounded edge behavior but
 does not transfer owner truth, sovereign policy ownership, or final
 adjudication.
+
+## SW-3 validity lifecycle lock
+
+Delegated edge material (grants/snapshots/capability envelopes) carries explicit
+validity lifecycle state (`valid|refresh_required|stale|expired|revoked`) and
+lifecycle timestamps. As delegated material weakens, edge autonomy contracts
+(`full_delegated` -> `restricted_hold_escalate` -> `observe_only` /
+`disabled_by_revoke`); it never expands.

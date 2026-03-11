@@ -65,6 +65,25 @@ static int64_t json_i64(cJSON *root, const char *key, int64_t fallback)
   return fallback;
 }
 
+static int json_bool(cJSON *root, const char *key, int fallback)
+{
+  cJSON *v = NULL;
+  if (!root || !key)
+  {
+    return fallback;
+  }
+  v = cJSON_GetObjectItem(root, key);
+  if (cJSON_IsBool(v))
+  {
+    return cJSON_IsTrue(v) ? 1 : 0;
+  }
+  if (cJSON_IsNumber(v))
+  {
+    return v->valueint ? 1 : 0;
+  }
+  return fallback;
+}
+
 static const char *json_string_or(cJSON *root, const char *key, const char *fallback)
 {
   const char *v = json_string(root, key);
@@ -628,6 +647,11 @@ static int handle_enroll(const char *workspace_id,
   const char *observation_scope = "workspace/default";
   const char *mediation_scope = "none";
   const char *enforcement_scope = "none";
+  int64_t now_epoch = (int64_t)time(NULL);
+  int64_t valid_from_epoch = now_epoch;
+  int64_t refresh_after_epoch = now_epoch + 300;
+  int64_t expires_at_epoch = now_epoch + 1800;
+  const char *validity_state = strcmp(decision, "accepted") == 0 ? "valid" : "pending";
   char trust_artifact_id[128];
   char trust_artifact_token[128];
   char med_json[384];
@@ -766,7 +790,12 @@ static int handle_enroll(const char *workspace_id,
   cJSON_AddStringToObject(grant, "trust_artifact_id", trust_artifact_id);
   cJSON_AddStringToObject(grant, "trust_artifact_token", strcmp(decision, "accepted") == 0 ? trust_artifact_token : "pending");
   cJSON_AddStringToObject(grant, "trust_bootstrap_model", "owner_issued_v1");
-  cJSON_AddNumberToObject(grant, "issued_at_epoch", (double)time(NULL));
+  cJSON_AddStringToObject(grant, "validity_state", validity_state);
+  cJSON_AddNumberToObject(grant, "valid_from_epoch", (double)valid_from_epoch);
+  cJSON_AddNumberToObject(grant, "refresh_after_epoch", (double)refresh_after_epoch);
+  cJSON_AddNumberToObject(grant, "expires_at_epoch", (double)expires_at_epoch);
+  cJSON_AddBoolToObject(grant, "revoked", 0);
+  cJSON_AddNumberToObject(grant, "issued_at_epoch", (double)now_epoch);
 
   cJSON_AddStringToObject(snapshot, "type", "yai.source_policy_snapshot.v1");
   cJSON_AddStringToObject(snapshot, "source_policy_snapshot_id", source_policy_snapshot_id);
@@ -776,7 +805,12 @@ static int handle_enroll(const char *workspace_id,
   cJSON_AddStringToObject(snapshot, "source_enrollment_grant_id", enrollment_grant_id);
   cJSON_AddStringToObject(snapshot, "snapshot_version", snapshot_version);
   cJSON_AddStringToObject(snapshot, "distribution_target_ref", distribution_target_ref);
-  cJSON_AddNumberToObject(snapshot, "issued_at_epoch", (double)time(NULL));
+  cJSON_AddStringToObject(snapshot, "validity_state", validity_state);
+  cJSON_AddNumberToObject(snapshot, "valid_from_epoch", (double)valid_from_epoch);
+  cJSON_AddNumberToObject(snapshot, "refresh_after_epoch", (double)refresh_after_epoch);
+  cJSON_AddNumberToObject(snapshot, "expires_at_epoch", (double)expires_at_epoch);
+  cJSON_AddBoolToObject(snapshot, "revoked", 0);
+  cJSON_AddNumberToObject(snapshot, "issued_at_epoch", (double)now_epoch);
 
   cJSON_AddStringToObject(capability, "type", "yai.source_capability_envelope.v1");
   cJSON_AddStringToObject(capability, "source_capability_envelope_id", source_capability_envelope_id);
@@ -789,7 +823,12 @@ static int handle_enroll(const char *workspace_id,
   cJSON_AddStringToObject(capability, "mediation_scope", mediation_scope);
   cJSON_AddStringToObject(capability, "enforcement_scope", enforcement_scope);
   cJSON_AddStringToObject(capability, "distribution_target_ref", distribution_target_ref);
-  cJSON_AddNumberToObject(capability, "issued_at_epoch", (double)time(NULL));
+  cJSON_AddStringToObject(capability, "validity_state", validity_state);
+  cJSON_AddNumberToObject(capability, "valid_from_epoch", (double)valid_from_epoch);
+  cJSON_AddNumberToObject(capability, "refresh_after_epoch", (double)refresh_after_epoch);
+  cJSON_AddNumberToObject(capability, "expires_at_epoch", (double)expires_at_epoch);
+  cJSON_AddBoolToObject(capability, "revoked", 0);
+  cJSON_AddNumberToObject(capability, "issued_at_epoch", (double)now_epoch);
 
   if (append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_NODE, node, err, sizeof(err)) != 0 ||
       append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_DAEMON_INSTANCE, inst, err, sizeof(err)) != 0 ||
@@ -819,7 +858,7 @@ static int handle_enroll(const char *workspace_id,
 
   if (snprintf(out_json,
                out_cap,
-               "{\"type\":\"yai.source.enroll.reply.v1\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"owner_link_id\":\"%s\",\"source_enrollment_grant_id\":\"%s\",\"source_policy_snapshot_id\":\"%s\",\"source_capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"delegated_observation_scope\":\"%s\",\"delegated_mediation_scope\":\"%s\",\"delegated_enforcement_scope\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"enrollment_decision\":\"%s\",\"ready_for_attach\":%s,\"registered\":%s,\"mediation\":%s}",
+               "{\"type\":\"yai.source.enroll.reply.v1\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"owner_link_id\":\"%s\",\"source_enrollment_grant_id\":\"%s\",\"source_policy_snapshot_id\":\"%s\",\"source_capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"delegated_observation_scope\":\"%s\",\"delegated_mediation_scope\":\"%s\",\"delegated_enforcement_scope\":\"%s\",\"delegated_validity_state\":\"%s\",\"delegated_refresh_state\":\"%s\",\"delegated_revoke_state\":\"%s\",\"grant_valid_from_epoch\":%lld,\"grant_refresh_after_epoch\":%lld,\"grant_expires_at_epoch\":%lld,\"policy_snapshot_issued_at_epoch\":%lld,\"policy_snapshot_refresh_after_epoch\":%lld,\"policy_snapshot_expires_at_epoch\":%lld,\"capability_issued_at_epoch\":%lld,\"capability_refresh_after_epoch\":%lld,\"capability_expires_at_epoch\":%lld,\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"enrollment_decision\":\"%s\",\"ready_for_attach\":%s,\"registered\":%s,\"mediation\":%s}",
                workspace_id,
                node_id,
                daemon_id,
@@ -832,6 +871,18 @@ static int handle_enroll(const char *workspace_id,
                observation_scope,
                mediation_scope,
                enforcement_scope,
+               validity_state,
+               strcmp(validity_state, "valid") == 0 ? "not_required" : "required",
+               "active",
+               (long long)valid_from_epoch,
+               (long long)refresh_after_epoch,
+               (long long)expires_at_epoch,
+               (long long)valid_from_epoch,
+               (long long)refresh_after_epoch,
+               (long long)expires_at_epoch,
+               (long long)valid_from_epoch,
+               (long long)refresh_after_epoch,
+               (long long)expires_at_epoch,
                trust_artifact_id,
                strcmp(decision, "accepted") == 0 ? trust_artifact_token : "pending",
                decision,
@@ -865,6 +916,14 @@ static int handle_attach(const char *workspace_id,
   const char *mediation_mode = json_string_or(payload, "mediation_mode", "none");
   const char *snapshot_version = json_string_or(payload, "policy_snapshot_version", "ws-policy-snapshot-v1");
   const char *source_enrollment_grant_id = json_string_or(payload, "source_enrollment_grant_id", "grant-unset");
+  int64_t now_epoch = (int64_t)time(NULL);
+  int64_t valid_from_epoch = json_i64(payload, "grant_valid_from_epoch", now_epoch);
+  int64_t refresh_after_epoch = json_i64(payload, "grant_refresh_after_epoch", now_epoch + 300);
+  int64_t expires_at_epoch = json_i64(payload, "grant_expires_at_epoch", now_epoch + 1800);
+  int revoked = json_bool(payload, "delegated_revoked", 0);
+  const char *delegated_validity_state = json_string_or(payload, "delegated_validity_state", "valid");
+  const char *delegated_refresh_state = json_string_or(payload, "delegated_refresh_state", "not_required");
+  const char *delegated_revoke_state = revoked ? "revoked" : json_string_or(payload, "delegated_revoke_state", "active");
   const char *owner_workspace_id = json_string(payload, "owner_workspace_id");
   char source_policy_snapshot_id[YAI_SOURCE_POLICY_SNAPSHOT_ID_MAX];
   char source_capability_envelope_id[YAI_SOURCE_CAPABILITY_ENVELOPE_ID_MAX];
@@ -1010,7 +1069,14 @@ static int handle_attach(const char *workspace_id,
   cJSON_AddStringToObject(snapshot, "source_enrollment_grant_id", source_enrollment_grant_id);
   cJSON_AddStringToObject(snapshot, "snapshot_version", snapshot_version);
   cJSON_AddStringToObject(snapshot, "distribution_target_ref", distribution_target_ref);
-  cJSON_AddNumberToObject(snapshot, "issued_at_epoch", (double)time(NULL));
+  cJSON_AddStringToObject(snapshot, "validity_state", delegated_validity_state);
+  cJSON_AddStringToObject(snapshot, "refresh_state", delegated_refresh_state);
+  cJSON_AddStringToObject(snapshot, "revoke_state", delegated_revoke_state);
+  cJSON_AddNumberToObject(snapshot, "valid_from_epoch", (double)valid_from_epoch);
+  cJSON_AddNumberToObject(snapshot, "refresh_after_epoch", (double)refresh_after_epoch);
+  cJSON_AddNumberToObject(snapshot, "expires_at_epoch", (double)expires_at_epoch);
+  cJSON_AddBoolToObject(snapshot, "revoked", revoked ? 1 : 0);
+  cJSON_AddNumberToObject(snapshot, "issued_at_epoch", (double)now_epoch);
 
   cJSON_AddStringToObject(capability, "type", "yai.source_capability_envelope.v1");
   cJSON_AddStringToObject(capability, "source_capability_envelope_id", source_capability_envelope_id);
@@ -1023,7 +1089,14 @@ static int handle_attach(const char *workspace_id,
   cJSON_AddStringToObject(capability, "mediation_scope", mediation_scope);
   cJSON_AddStringToObject(capability, "enforcement_scope", enforcement_scope);
   cJSON_AddStringToObject(capability, "distribution_target_ref", distribution_target_ref);
-  cJSON_AddNumberToObject(capability, "issued_at_epoch", (double)time(NULL));
+  cJSON_AddStringToObject(capability, "validity_state", delegated_validity_state);
+  cJSON_AddStringToObject(capability, "refresh_state", delegated_refresh_state);
+  cJSON_AddStringToObject(capability, "revoke_state", delegated_revoke_state);
+  cJSON_AddNumberToObject(capability, "valid_from_epoch", (double)valid_from_epoch);
+  cJSON_AddNumberToObject(capability, "refresh_after_epoch", (double)refresh_after_epoch);
+  cJSON_AddNumberToObject(capability, "expires_at_epoch", (double)expires_at_epoch);
+  cJSON_AddBoolToObject(capability, "revoked", revoked ? 1 : 0);
+  cJSON_AddNumberToObject(capability, "issued_at_epoch", (double)now_epoch);
 
   if (append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_BINDING, binding, err, sizeof(err)) != 0)
   {
@@ -1223,7 +1296,7 @@ static int handle_attach(const char *workspace_id,
 
   if (snprintf(out_json,
                out_cap,
-               "{\"type\":\"yai.source.attach.reply.v1\",\"workspace_id\":\"%s\",\"owner_workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"source_binding_id\":\"%s\",\"workspace_peer_membership_id\":\"%s\",\"source_policy_snapshot_id\":\"%s\",\"source_capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"delegated_observation_scope\":\"%s\",\"delegated_mediation_scope\":\"%s\",\"delegated_enforcement_scope\":\"%s\",\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"peer_state\":\"%s\",\"attachment_status\":\"attached\",\"mediation\":%s}",
+               "{\"type\":\"yai.source.attach.reply.v1\",\"workspace_id\":\"%s\",\"owner_workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"source_binding_id\":\"%s\",\"workspace_peer_membership_id\":\"%s\",\"source_policy_snapshot_id\":\"%s\",\"source_capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"delegated_observation_scope\":\"%s\",\"delegated_mediation_scope\":\"%s\",\"delegated_enforcement_scope\":\"%s\",\"delegated_validity_state\":\"%s\",\"delegated_refresh_state\":\"%s\",\"delegated_revoke_state\":\"%s\",\"grant_valid_from_epoch\":%lld,\"grant_refresh_after_epoch\":%lld,\"grant_expires_at_epoch\":%lld,\"policy_snapshot_issued_at_epoch\":%lld,\"policy_snapshot_refresh_after_epoch\":%lld,\"policy_snapshot_expires_at_epoch\":%lld,\"capability_issued_at_epoch\":%lld,\"capability_refresh_after_epoch\":%lld,\"capability_expires_at_epoch\":%lld,\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"peer_state\":\"%s\",\"attachment_status\":\"attached\",\"mediation\":%s}",
                workspace_id,
                target_ws,
                source_node_id,
@@ -1236,6 +1309,18 @@ static int handle_attach(const char *workspace_id,
                observation_scope,
                mediation_scope,
                enforcement_scope,
+               delegated_validity_state,
+               delegated_refresh_state,
+               delegated_revoke_state,
+               (long long)valid_from_epoch,
+               (long long)refresh_after_epoch,
+               (long long)expires_at_epoch,
+               (long long)valid_from_epoch,
+               (long long)refresh_after_epoch,
+               (long long)expires_at_epoch,
+               (long long)valid_from_epoch,
+               (long long)refresh_after_epoch,
+               (long long)expires_at_epoch,
                peer_role,
                peer_scope,
                peer_state,
@@ -1510,6 +1595,22 @@ static int handle_status(const char *workspace_id,
   const char *delegated_observation_scope = json_string_or(payload, "delegated_observation_scope", "workspace/default");
   const char *delegated_mediation_scope = json_string_or(payload, "delegated_mediation_scope", "none");
   const char *delegated_enforcement_scope = json_string_or(payload, "delegated_enforcement_scope", "none");
+  int64_t now_epoch = (int64_t)time(NULL);
+  int64_t grant_valid_from_epoch = json_i64(payload, "grant_valid_from_epoch", now_epoch);
+  int64_t grant_refresh_after_epoch = json_i64(payload, "grant_refresh_after_epoch", now_epoch + 300);
+  int64_t grant_expires_at_epoch = json_i64(payload, "grant_expires_at_epoch", now_epoch + 1800);
+  int64_t snapshot_issued_at_epoch = json_i64(payload, "policy_snapshot_issued_at_epoch", now_epoch);
+  int64_t snapshot_refresh_after_epoch = json_i64(payload, "policy_snapshot_refresh_after_epoch", now_epoch + 300);
+  int64_t snapshot_expires_at_epoch = json_i64(payload, "policy_snapshot_expires_at_epoch", now_epoch + 1800);
+  int64_t capability_issued_at_epoch = json_i64(payload, "capability_issued_at_epoch", now_epoch);
+  int64_t capability_refresh_after_epoch = json_i64(payload, "capability_refresh_after_epoch", now_epoch + 300);
+  int64_t capability_expires_at_epoch = json_i64(payload, "capability_expires_at_epoch", now_epoch + 1800);
+  int delegated_revoked = json_bool(payload, "delegated_revoked", 0);
+  const char *delegated_validity_state = json_string_or(payload, "delegated_validity_state", "valid");
+  const char *delegated_refresh_state = json_string_or(payload, "delegated_refresh_state", "not_required");
+  const char *delegated_revoke_state = delegated_revoked ? "revoked" : json_string_or(payload, "delegated_revoke_state", "active");
+  const char *delegated_fallback_mode = json_string_or(payload, "delegated_fallback_mode", "full_delegated");
+  const char *delegated_stale_reason = json_string_or(payload, "delegated_stale_reason", "none");
   int64_t backlog_queued = json_i64(payload, "backlog_queued", -1);
   int64_t backlog_retry_due = json_i64(payload, "backlog_retry_due", -1);
   int64_t backlog_failed = json_i64(payload, "backlog_failed", -1);
@@ -1639,7 +1740,16 @@ static int handle_status(const char *workspace_id,
   cJSON_AddStringToObject(snapshot, "source_enrollment_grant_id", source_enrollment_grant_id);
   cJSON_AddStringToObject(snapshot, "snapshot_version", policy_snapshot_version);
   cJSON_AddStringToObject(snapshot, "distribution_target_ref", distribution_target_ref);
-  cJSON_AddNumberToObject(snapshot, "issued_at_epoch", (double)time(NULL));
+  cJSON_AddStringToObject(snapshot, "validity_state", delegated_validity_state);
+  cJSON_AddStringToObject(snapshot, "refresh_state", delegated_refresh_state);
+  cJSON_AddStringToObject(snapshot, "revoke_state", delegated_revoke_state);
+  cJSON_AddStringToObject(snapshot, "fallback_mode", delegated_fallback_mode);
+  cJSON_AddStringToObject(snapshot, "stale_reason", delegated_stale_reason);
+  cJSON_AddNumberToObject(snapshot, "valid_from_epoch", (double)grant_valid_from_epoch);
+  cJSON_AddNumberToObject(snapshot, "refresh_after_epoch", (double)snapshot_refresh_after_epoch);
+  cJSON_AddNumberToObject(snapshot, "expires_at_epoch", (double)snapshot_expires_at_epoch);
+  cJSON_AddBoolToObject(snapshot, "revoked", delegated_revoked ? 1 : 0);
+  cJSON_AddNumberToObject(snapshot, "issued_at_epoch", (double)snapshot_issued_at_epoch);
 
   cJSON_AddStringToObject(capability, "type", "yai.source_capability_envelope.v1");
   cJSON_AddStringToObject(capability, "source_capability_envelope_id", source_capability_envelope_id);
@@ -1652,7 +1762,16 @@ static int handle_status(const char *workspace_id,
   cJSON_AddStringToObject(capability, "mediation_scope", delegated_mediation_scope);
   cJSON_AddStringToObject(capability, "enforcement_scope", delegated_enforcement_scope);
   cJSON_AddStringToObject(capability, "distribution_target_ref", distribution_target_ref);
-  cJSON_AddNumberToObject(capability, "issued_at_epoch", (double)time(NULL));
+  cJSON_AddStringToObject(capability, "validity_state", delegated_validity_state);
+  cJSON_AddStringToObject(capability, "refresh_state", delegated_refresh_state);
+  cJSON_AddStringToObject(capability, "revoke_state", delegated_revoke_state);
+  cJSON_AddStringToObject(capability, "fallback_mode", delegated_fallback_mode);
+  cJSON_AddStringToObject(capability, "stale_reason", delegated_stale_reason);
+  cJSON_AddNumberToObject(capability, "valid_from_epoch", (double)grant_valid_from_epoch);
+  cJSON_AddNumberToObject(capability, "refresh_after_epoch", (double)capability_refresh_after_epoch);
+  cJSON_AddNumberToObject(capability, "expires_at_epoch", (double)capability_expires_at_epoch);
+  cJSON_AddBoolToObject(capability, "revoked", delegated_revoked ? 1 : 0);
+  cJSON_AddNumberToObject(capability, "issued_at_epoch", (double)capability_issued_at_epoch);
 
   if (append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_DAEMON_INSTANCE, inst, err, sizeof(err)) != 0)
   {
@@ -1729,7 +1848,7 @@ static int handle_status(const char *workspace_id,
 
   if (snprintf(out_json,
                out_cap,
-               "{\"type\":\"yai.source.status.reply.v1\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"source_binding_id\":\"%s\",\"workspace_peer_membership_id\":\"%s\",\"source_policy_snapshot_id\":\"%s\",\"source_capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"delegated_observation_scope\":\"%s\",\"delegated_mediation_scope\":\"%s\",\"delegated_enforcement_scope\":\"%s\",\"health\":\"%s\",\"backlog_queued\":%lld,\"backlog_retry_due\":%lld,\"backlog_failed\":%lld,\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"mediation\":%s}",
+               "{\"type\":\"yai.source.status.reply.v1\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"source_binding_id\":\"%s\",\"workspace_peer_membership_id\":\"%s\",\"source_policy_snapshot_id\":\"%s\",\"source_capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"delegated_observation_scope\":\"%s\",\"delegated_mediation_scope\":\"%s\",\"delegated_enforcement_scope\":\"%s\",\"delegated_validity_state\":\"%s\",\"delegated_refresh_state\":\"%s\",\"delegated_revoke_state\":\"%s\",\"delegated_fallback_mode\":\"%s\",\"delegated_stale_reason\":\"%s\",\"grant_valid_from_epoch\":%lld,\"grant_refresh_after_epoch\":%lld,\"grant_expires_at_epoch\":%lld,\"policy_snapshot_issued_at_epoch\":%lld,\"policy_snapshot_refresh_after_epoch\":%lld,\"policy_snapshot_expires_at_epoch\":%lld,\"capability_issued_at_epoch\":%lld,\"capability_refresh_after_epoch\":%lld,\"capability_expires_at_epoch\":%lld,\"health\":\"%s\",\"backlog_queued\":%lld,\"backlog_retry_due\":%lld,\"backlog_failed\":%lld,\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"mediation\":%s}",
                workspace_id,
                source_node_id,
                daemon_instance_id,
@@ -1742,6 +1861,20 @@ static int handle_status(const char *workspace_id,
                delegated_observation_scope,
                delegated_mediation_scope,
                delegated_enforcement_scope,
+               delegated_validity_state,
+               delegated_refresh_state,
+               delegated_revoke_state,
+               delegated_fallback_mode,
+               delegated_stale_reason,
+               (long long)grant_valid_from_epoch,
+               (long long)grant_refresh_after_epoch,
+               (long long)grant_expires_at_epoch,
+               (long long)snapshot_issued_at_epoch,
+               (long long)snapshot_refresh_after_epoch,
+               (long long)snapshot_expires_at_epoch,
+               (long long)capability_issued_at_epoch,
+               (long long)capability_refresh_after_epoch,
+               (long long)capability_expires_at_epoch,
                health,
                (long long)backlog_queued,
                (long long)backlog_retry_due,

@@ -66,3 +66,8 @@ Material must be target-aware and scope-limited.
 - Distribution does not move policy truth, graph truth, DB truth, or final
   adjudication away from owner runtime.
 - Stale/missing distributed material reduces edge autonomy.
+
+SW-3 lifecycle follow-up:
+
+- `docs/architecture/edge-policy-validity-expiry-refresh-model.md`
+- `docs/program/22-adr/ADR-022-edge-policy-validity-expiry-refresh.md`

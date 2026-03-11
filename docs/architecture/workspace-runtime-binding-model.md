@@ -58,6 +58,12 @@ SW-2 distribution lock:
 - distributed edge material remains delegated execution scope, never workspace
   binding truth ownership.
 
+SW-3 validity lock:
+- delegated material used under workspace binding context is time-bounded and
+  revocable;
+- stale/expired/revoked delegated state restricts edge mediation/enforcement
+  behavior and never expands edge authority.
+
 ## Workspace-local vs Runtime-global
 
 Workspace-local:

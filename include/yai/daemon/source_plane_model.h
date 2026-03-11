@@ -126,6 +126,11 @@ typedef struct yai_source_enrollment_grant {
   char enrollment_decision[YAI_SOURCE_STATUS_MAX];
   char trust_artifact_id[YAI_SOURCE_REF_MAX];
   char trust_artifact_token[YAI_SOURCE_HASH_MAX];
+  char validity_state[YAI_SOURCE_STATUS_MAX];
+  int64_t valid_from_epoch;
+  int64_t refresh_after_epoch;
+  int64_t expires_at_epoch;
+  int revoked;
   int64_t issued_at_epoch;
 } yai_source_enrollment_grant_t;
 
@@ -137,6 +142,11 @@ typedef struct yai_source_policy_snapshot {
   char source_enrollment_grant_id[YAI_SOURCE_ENROLLMENT_GRANT_ID_MAX];
   char snapshot_version[YAI_SOURCE_KIND_MAX];
   char distribution_target_ref[YAI_SOURCE_REF_MAX];
+  char validity_state[YAI_SOURCE_STATUS_MAX];
+  int64_t valid_from_epoch;
+  int64_t refresh_after_epoch;
+  int64_t expires_at_epoch;
+  int revoked;
   int64_t issued_at_epoch;
 } yai_source_policy_snapshot_t;
 
@@ -151,6 +161,11 @@ typedef struct yai_source_capability_envelope {
   char mediation_scope[YAI_SOURCE_REF_MAX];
   char enforcement_scope[YAI_SOURCE_REF_MAX];
   char distribution_target_ref[YAI_SOURCE_REF_MAX];
+  char validity_state[YAI_SOURCE_STATUS_MAX];
+  int64_t valid_from_epoch;
+  int64_t refresh_after_epoch;
+  int64_t expires_at_epoch;
+  int revoked;
   int64_t issued_at_epoch;
 } yai_source_capability_envelope_t;
 

@@ -38,6 +38,18 @@ typedef struct yai_daemon_edge_state {
   char delegated_observation_scope[128];
   char delegated_mediation_scope[128];
   char delegated_enforcement_scope[128];
+  int64_t grant_issued_at_epoch;
+  int64_t grant_refresh_after_epoch;
+  int64_t grant_expires_at_epoch;
+  int64_t snapshot_issued_at_epoch;
+  int64_t snapshot_refresh_after_epoch;
+  int64_t snapshot_expires_at_epoch;
+  int64_t capability_issued_at_epoch;
+  int64_t capability_refresh_after_epoch;
+  int64_t capability_expires_at_epoch;
+  int grant_revoked;
+  int snapshot_revoked;
+  int capability_revoked;
 
   char observation_state[48];
   char mediation_state[48];
@@ -49,6 +61,11 @@ typedef struct yai_daemon_edge_state {
   char retry_pressure_state[32];
   char policy_staleness_state[48];
   char grant_validity_state[48];
+  char delegated_validity_state[48];
+  char delegated_refresh_state[48];
+  char delegated_revoke_state[32];
+  char delegated_fallback_mode[48];
+  char delegated_stale_reason[96];
   char degradation_state[64];
 
   int owner_connected;

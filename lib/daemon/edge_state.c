@@ -58,6 +58,11 @@ int yai_daemon_edge_state_init(yai_daemon_edge_state_t *state,
   (void)copy_string(state->retry_pressure_state, sizeof(state->retry_pressure_state), "low");
   (void)copy_string(state->policy_staleness_state, sizeof(state->policy_staleness_state), "pending");
   (void)copy_string(state->grant_validity_state, sizeof(state->grant_validity_state), "missing_or_pending");
+  (void)copy_string(state->delegated_validity_state, sizeof(state->delegated_validity_state), "missing_or_pending");
+  (void)copy_string(state->delegated_refresh_state, sizeof(state->delegated_refresh_state), "not_required");
+  (void)copy_string(state->delegated_revoke_state, sizeof(state->delegated_revoke_state), "active");
+  (void)copy_string(state->delegated_fallback_mode, sizeof(state->delegated_fallback_mode), "restricted_hold_escalate");
+  (void)copy_string(state->delegated_stale_reason, sizeof(state->delegated_stale_reason), "none");
   (void)copy_string(state->degradation_state, sizeof(state->degradation_state), "initializing");
 
   state->started_at_epoch = now_epoch();
@@ -168,6 +173,18 @@ int yai_daemon_edge_state_refresh_from_local(yai_daemon_edge_state_t *state,
 
   state->owner_connected = local->owner_connected;
   state->last_owner_contact_epoch = local->last_owner_contact_epoch;
+  state->grant_issued_at_epoch = local->grant_issued_at_epoch;
+  state->grant_refresh_after_epoch = local->grant_refresh_after_epoch;
+  state->grant_expires_at_epoch = local->grant_expires_at_epoch;
+  state->snapshot_issued_at_epoch = local->snapshot_issued_at_epoch;
+  state->snapshot_refresh_after_epoch = local->snapshot_refresh_after_epoch;
+  state->snapshot_expires_at_epoch = local->snapshot_expires_at_epoch;
+  state->capability_issued_at_epoch = local->capability_issued_at_epoch;
+  state->capability_refresh_after_epoch = local->capability_refresh_after_epoch;
+  state->capability_expires_at_epoch = local->capability_expires_at_epoch;
+  state->grant_revoked = local->grant_revoked;
+  state->snapshot_revoked = local->snapshot_revoked;
+  state->capability_revoked = local->capability_revoked;
   state->spool_queued = local->spool_queued;
   state->spool_retry_due = local->spool_retry_due;
   state->spool_failed = local->spool_failed;
@@ -181,6 +198,11 @@ int yai_daemon_edge_state_refresh_from_local(yai_daemon_edge_state_t *state,
   (void)copy_string(state->retry_pressure_state, sizeof(state->retry_pressure_state), local->retry_pressure_state);
   (void)copy_string(state->policy_staleness_state, sizeof(state->policy_staleness_state), local->policy_staleness_state);
   (void)copy_string(state->grant_validity_state, sizeof(state->grant_validity_state), local->grant_validity_state);
+  (void)copy_string(state->delegated_validity_state, sizeof(state->delegated_validity_state), local->delegated_validity_state);
+  (void)copy_string(state->delegated_refresh_state, sizeof(state->delegated_refresh_state), local->delegated_refresh_state);
+  (void)copy_string(state->delegated_revoke_state, sizeof(state->delegated_revoke_state), local->delegated_revoke_state);
+  (void)copy_string(state->delegated_fallback_mode, sizeof(state->delegated_fallback_mode), local->delegated_fallback_mode);
+  (void)copy_string(state->delegated_stale_reason, sizeof(state->delegated_stale_reason), local->delegated_stale_reason);
   (void)copy_string(state->degradation_state, sizeof(state->degradation_state), local->degradation_state);
 
   if (!local->owner_connected)
@@ -241,6 +263,23 @@ int yai_daemon_edge_state_json(const yai_daemon_edge_state_t *state,
                "  \"retry_pressure_state\": \"%s\",\n"
                "  \"policy_staleness_state\": \"%s\",\n"
                "  \"grant_validity_state\": \"%s\",\n"
+               "  \"delegated_validity_state\": \"%s\",\n"
+               "  \"delegated_refresh_state\": \"%s\",\n"
+               "  \"delegated_revoke_state\": \"%s\",\n"
+               "  \"delegated_fallback_mode\": \"%s\",\n"
+               "  \"delegated_stale_reason\": \"%s\",\n"
+               "  \"grant_issued_at_epoch\": %lld,\n"
+               "  \"grant_refresh_after_epoch\": %lld,\n"
+               "  \"grant_expires_at_epoch\": %lld,\n"
+               "  \"snapshot_issued_at_epoch\": %lld,\n"
+               "  \"snapshot_refresh_after_epoch\": %lld,\n"
+               "  \"snapshot_expires_at_epoch\": %lld,\n"
+               "  \"capability_issued_at_epoch\": %lld,\n"
+               "  \"capability_refresh_after_epoch\": %lld,\n"
+               "  \"capability_expires_at_epoch\": %lld,\n"
+               "  \"grant_revoked\": %s,\n"
+               "  \"snapshot_revoked\": %s,\n"
+               "  \"capability_revoked\": %s,\n"
                "  \"degradation_state\": \"%s\",\n"
                "  \"owner_connected\": %s,\n"
                "  \"tick_count\": %u,\n"
@@ -281,6 +320,23 @@ int yai_daemon_edge_state_json(const yai_daemon_edge_state_t *state,
                state->retry_pressure_state,
                state->policy_staleness_state,
                state->grant_validity_state,
+               state->delegated_validity_state,
+               state->delegated_refresh_state,
+               state->delegated_revoke_state,
+               state->delegated_fallback_mode,
+               state->delegated_stale_reason,
+               (long long)state->grant_issued_at_epoch,
+               (long long)state->grant_refresh_after_epoch,
+               (long long)state->grant_expires_at_epoch,
+               (long long)state->snapshot_issued_at_epoch,
+               (long long)state->snapshot_refresh_after_epoch,
+               (long long)state->snapshot_expires_at_epoch,
+               (long long)state->capability_issued_at_epoch,
+               (long long)state->capability_refresh_after_epoch,
+               (long long)state->capability_expires_at_epoch,
+               state->grant_revoked ? "true" : "false",
+               state->snapshot_revoked ? "true" : "false",
+               state->capability_revoked ? "true" : "false",
                state->degradation_state,
                state->owner_connected ? "true" : "false",
                state->tick_count,

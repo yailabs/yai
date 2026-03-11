@@ -44,6 +44,24 @@
 
 #define YAI_DAEMON_GRANT_STATE_MISSING_OR_PENDING "missing_or_pending"
 #define YAI_DAEMON_GRANT_STATE_PRESENT_NO_EXPIRY "present_no_expiry_v1"
+#define YAI_DAEMON_GRANT_STATE_VALID "valid"
+#define YAI_DAEMON_GRANT_STATE_REFRESH_REQUIRED "refresh_required"
+#define YAI_DAEMON_GRANT_STATE_STALE "stale"
+#define YAI_DAEMON_GRANT_STATE_EXPIRED "expired"
+#define YAI_DAEMON_GRANT_STATE_REVOKED "revoked"
+
+#define YAI_DAEMON_REFRESH_STATE_NOT_REQUIRED "not_required"
+#define YAI_DAEMON_REFRESH_STATE_REQUIRED "required"
+#define YAI_DAEMON_REFRESH_STATE_PENDING "pending"
+#define YAI_DAEMON_REFRESH_STATE_FAILED "failed"
+
+#define YAI_DAEMON_REVOKE_STATE_ACTIVE "active"
+#define YAI_DAEMON_REVOKE_STATE_REVOKED "revoked"
+
+#define YAI_DAEMON_FALLBACK_FULL "full_delegated"
+#define YAI_DAEMON_FALLBACK_RESTRICTED "restricted_hold_escalate"
+#define YAI_DAEMON_FALLBACK_OBSERVE_ONLY "observe_only"
+#define YAI_DAEMON_FALLBACK_DISABLED "disabled_by_revoke"
 
 #define YAI_DAEMON_MAX_BINDINGS 32
 #define YAI_DAEMON_MAX_OBSERVED 4096
@@ -86,6 +104,18 @@ typedef struct yai_daemon_local_runtime {
   char delegated_observation_scope[128];
   char delegated_mediation_scope[128];
   char delegated_enforcement_scope[128];
+  int64_t grant_issued_at_epoch;
+  int64_t grant_refresh_after_epoch;
+  int64_t grant_expires_at_epoch;
+  int64_t snapshot_issued_at_epoch;
+  int64_t snapshot_refresh_after_epoch;
+  int64_t snapshot_expires_at_epoch;
+  int64_t capability_issued_at_epoch;
+  int64_t capability_refresh_after_epoch;
+  int64_t capability_expires_at_epoch;
+  int grant_revoked;
+  int snapshot_revoked;
+  int capability_revoked;
   char owner_socket[512];
   char health_state[32];
   char queue_dir[512];
@@ -122,6 +152,11 @@ typedef struct yai_daemon_local_runtime {
   char retry_pressure_state[32];
   char policy_staleness_state[48];
   char grant_validity_state[48];
+  char delegated_validity_state[48];
+  char delegated_refresh_state[48];
+  char delegated_revoke_state[32];
+  char delegated_fallback_mode[48];
+  char delegated_stale_reason[96];
   char degradation_state[64];
 } yai_daemon_local_runtime_t;
 

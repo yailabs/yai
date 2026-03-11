@@ -273,6 +273,60 @@ static int json_extract_string(const char *json, const char *key, char *out, siz
   return -1;
 }
 
+static int json_extract_i64(const char *json, const char *key, int64_t *out)
+{
+  cJSON *root = NULL;
+  cJSON *it = NULL;
+  if (!json || !key || !out)
+  {
+    return -1;
+  }
+  root = cJSON_Parse(json);
+  if (!root)
+  {
+    return -1;
+  }
+  it = cJSON_GetObjectItemCaseSensitive(root, key);
+  if (cJSON_IsNumber(it))
+  {
+    *out = (int64_t)it->valuedouble;
+    cJSON_Delete(root);
+    return 0;
+  }
+  cJSON_Delete(root);
+  return -1;
+}
+
+static int json_extract_bool(const char *json, const char *key, int *out)
+{
+  cJSON *root = NULL;
+  cJSON *it = NULL;
+  if (!json || !key || !out)
+  {
+    return -1;
+  }
+  root = cJSON_Parse(json);
+  if (!root)
+  {
+    return -1;
+  }
+  it = cJSON_GetObjectItemCaseSensitive(root, key);
+  if (cJSON_IsBool(it))
+  {
+    *out = cJSON_IsTrue(it) ? 1 : 0;
+    cJSON_Delete(root);
+    return 0;
+  }
+  if (cJSON_IsNumber(it))
+  {
+    *out = it->valueint ? 1 : 0;
+    cJSON_Delete(root);
+    return 0;
+  }
+  cJSON_Delete(root);
+  return -1;
+}
+
 static int ensure_dir(const char *path)
 {
   return yai_daemon_mkdir_recursive(path);
@@ -709,6 +763,11 @@ static int update_operational_states(yai_daemon_local_runtime_t *local)
   const char *retry_pressure = YAI_DAEMON_PRESSURE_LOW;
   const char *policy_staleness = YAI_DAEMON_POLICY_STALENESS_PENDING;
   const char *grant_state = YAI_DAEMON_GRANT_STATE_MISSING_OR_PENDING;
+  const char *delegated_validity = YAI_DAEMON_GRANT_STATE_MISSING_OR_PENDING;
+  const char *delegated_refresh = YAI_DAEMON_REFRESH_STATE_NOT_REQUIRED;
+  const char *delegated_revoke = YAI_DAEMON_REVOKE_STATE_ACTIVE;
+  const char *delegated_fallback = YAI_DAEMON_FALLBACK_RESTRICTED;
+  const char *delegated_stale_reason = "none";
   const char *degradation = "nominal";
 
   if (!local)
@@ -753,6 +812,54 @@ static int update_operational_states(yai_daemon_local_runtime_t *local)
     grant_state = YAI_DAEMON_GRANT_STATE_PRESENT_NO_EXPIRY;
   }
 
+  if (local->grant_revoked || local->snapshot_revoked || local->capability_revoked)
+  {
+    delegated_validity = YAI_DAEMON_GRANT_STATE_REVOKED;
+    delegated_refresh = YAI_DAEMON_REFRESH_STATE_REQUIRED;
+    delegated_revoke = YAI_DAEMON_REVOKE_STATE_REVOKED;
+    delegated_fallback = YAI_DAEMON_FALLBACK_DISABLED;
+    delegated_stale_reason = "owner_revoked";
+    grant_state = YAI_DAEMON_GRANT_STATE_REVOKED;
+  }
+  else if (local->grant_expires_at_epoch > 0 && now >= local->grant_expires_at_epoch)
+  {
+    delegated_validity = YAI_DAEMON_GRANT_STATE_EXPIRED;
+    delegated_refresh = YAI_DAEMON_REFRESH_STATE_REQUIRED;
+    delegated_fallback = YAI_DAEMON_FALLBACK_OBSERVE_ONLY;
+    delegated_stale_reason = "grant_expired";
+    grant_state = YAI_DAEMON_GRANT_STATE_EXPIRED;
+  }
+  else if (local->source_enrollment_grant_id[0] &&
+           local->source_policy_snapshot_id[0] &&
+           local->source_capability_envelope_id[0])
+  {
+    delegated_validity = YAI_DAEMON_GRANT_STATE_VALID;
+    grant_state = YAI_DAEMON_GRANT_STATE_VALID;
+    delegated_fallback = YAI_DAEMON_FALLBACK_FULL;
+
+    if ((local->grant_refresh_after_epoch > 0 && now >= local->grant_refresh_after_epoch) ||
+        (local->snapshot_refresh_after_epoch > 0 && now >= local->snapshot_refresh_after_epoch) ||
+        (local->capability_refresh_after_epoch > 0 && now >= local->capability_refresh_after_epoch))
+    {
+      delegated_validity = YAI_DAEMON_GRANT_STATE_REFRESH_REQUIRED;
+      delegated_refresh = YAI_DAEMON_REFRESH_STATE_REQUIRED;
+      delegated_fallback = YAI_DAEMON_FALLBACK_RESTRICTED;
+      delegated_stale_reason = "refresh_window_reached";
+      grant_state = YAI_DAEMON_GRANT_STATE_REFRESH_REQUIRED;
+    }
+  }
+
+  if (strcmp(freshness, YAI_DAEMON_FRESHNESS_STALE) == 0 &&
+      strcmp(connectivity, YAI_DAEMON_CONNECTIVITY_CONNECTED) != 0 &&
+      strcmp(delegated_validity, YAI_DAEMON_GRANT_STATE_VALID) == 0)
+  {
+    delegated_validity = YAI_DAEMON_GRANT_STATE_STALE;
+    delegated_refresh = YAI_DAEMON_REFRESH_STATE_PENDING;
+    delegated_fallback = YAI_DAEMON_FALLBACK_OBSERVE_ONLY;
+    delegated_stale_reason = "disconnected_stale_material";
+    grant_state = YAI_DAEMON_GRANT_STATE_STALE;
+  }
+
   if (strcmp(connectivity, YAI_DAEMON_CONNECTIVITY_CONNECTED) != 0 && local->spool_queued > 0)
   {
     degradation = "delivery_degraded";
@@ -774,6 +881,19 @@ static int update_operational_states(yai_daemon_local_runtime_t *local)
   {
     degradation = "owner_endpoint_unconfigured";
   }
+  if (strcmp(delegated_validity, YAI_DAEMON_GRANT_STATE_EXPIRED) == 0)
+  {
+    degradation = "delegated_scope_expired";
+  }
+  else if (strcmp(delegated_validity, YAI_DAEMON_GRANT_STATE_REVOKED) == 0)
+  {
+    degradation = "delegated_scope_revoked";
+  }
+  else if (strcmp(delegated_validity, YAI_DAEMON_GRANT_STATE_STALE) == 0 ||
+           strcmp(delegated_validity, YAI_DAEMON_GRANT_STATE_REFRESH_REQUIRED) == 0)
+  {
+    degradation = "delegated_scope_restricted";
+  }
 
   (void)snprintf(local->connectivity_state, sizeof(local->connectivity_state), "%s", connectivity);
   (void)snprintf(local->freshness_state, sizeof(local->freshness_state), "%s", freshness);
@@ -781,6 +901,11 @@ static int update_operational_states(yai_daemon_local_runtime_t *local)
   (void)snprintf(local->retry_pressure_state, sizeof(local->retry_pressure_state), "%s", retry_pressure);
   (void)snprintf(local->policy_staleness_state, sizeof(local->policy_staleness_state), "%s", policy_staleness);
   (void)snprintf(local->grant_validity_state, sizeof(local->grant_validity_state), "%s", grant_state);
+  (void)snprintf(local->delegated_validity_state, sizeof(local->delegated_validity_state), "%s", delegated_validity);
+  (void)snprintf(local->delegated_refresh_state, sizeof(local->delegated_refresh_state), "%s", delegated_refresh);
+  (void)snprintf(local->delegated_revoke_state, sizeof(local->delegated_revoke_state), "%s", delegated_revoke);
+  (void)snprintf(local->delegated_fallback_mode, sizeof(local->delegated_fallback_mode), "%s", delegated_fallback);
+  (void)snprintf(local->delegated_stale_reason, sizeof(local->delegated_stale_reason), "%s", delegated_stale_reason);
   (void)snprintf(local->degradation_state, sizeof(local->degradation_state), "%s", degradation);
 
   return 0;
@@ -877,7 +1002,7 @@ static int scan_binding(yai_daemon_local_runtime_t *local, const yai_daemon_bind
 static int ensure_owner_registered(yai_daemon_local_runtime_t *local, const char *workspace_id)
 {
   char payload[1024];
-  char reply[4096];
+  char reply[8192];
   int rc = 0;
   if (!local || !workspace_id || !workspace_id[0] || !local->owner_socket[0]) return -1;
   if (local->owner_registered) return 0;
@@ -901,6 +1026,21 @@ static int ensure_owner_registered(yai_daemon_local_runtime_t *local, const char
   (void)json_extract_string(reply, "delegated_observation_scope", local->delegated_observation_scope, sizeof(local->delegated_observation_scope));
   (void)json_extract_string(reply, "delegated_mediation_scope", local->delegated_mediation_scope, sizeof(local->delegated_mediation_scope));
   (void)json_extract_string(reply, "delegated_enforcement_scope", local->delegated_enforcement_scope, sizeof(local->delegated_enforcement_scope));
+  (void)json_extract_i64(reply, "grant_valid_from_epoch", &local->grant_issued_at_epoch);
+  (void)json_extract_i64(reply, "grant_refresh_after_epoch", &local->grant_refresh_after_epoch);
+  (void)json_extract_i64(reply, "grant_expires_at_epoch", &local->grant_expires_at_epoch);
+  (void)json_extract_i64(reply, "policy_snapshot_issued_at_epoch", &local->snapshot_issued_at_epoch);
+  (void)json_extract_i64(reply, "policy_snapshot_refresh_after_epoch", &local->snapshot_refresh_after_epoch);
+  (void)json_extract_i64(reply, "policy_snapshot_expires_at_epoch", &local->snapshot_expires_at_epoch);
+  (void)json_extract_i64(reply, "capability_issued_at_epoch", &local->capability_issued_at_epoch);
+  (void)json_extract_i64(reply, "capability_refresh_after_epoch", &local->capability_refresh_after_epoch);
+  (void)json_extract_i64(reply, "capability_expires_at_epoch", &local->capability_expires_at_epoch);
+  (void)json_extract_string(reply, "delegated_validity_state", local->delegated_validity_state, sizeof(local->delegated_validity_state));
+  (void)json_extract_string(reply, "delegated_refresh_state", local->delegated_refresh_state, sizeof(local->delegated_refresh_state));
+  (void)json_extract_string(reply, "delegated_revoke_state", local->delegated_revoke_state, sizeof(local->delegated_revoke_state));
+  local->grant_revoked = (strcmp(local->delegated_revoke_state, YAI_DAEMON_REVOKE_STATE_REVOKED) == 0) ? 1 : 0;
+  local->snapshot_revoked = local->grant_revoked;
+  local->capability_revoked = local->grant_revoked;
   (void)json_extract_string(reply, "owner_trust_artifact_id", local->owner_trust_artifact_id, sizeof(local->owner_trust_artifact_id));
   (void)json_extract_string(reply, "owner_trust_artifact_token", local->owner_trust_artifact_token, sizeof(local->owner_trust_artifact_token));
   if (!local->owner_trust_artifact_token[0] || strcmp(local->owner_trust_artifact_token, "pending") == 0) return -1;
@@ -913,7 +1053,7 @@ static int ensure_owner_registered(yai_daemon_local_runtime_t *local, const char
 static int ensure_binding_attached(yai_daemon_local_runtime_t *local, yai_daemon_binding_rt_t *binding)
 {
   char payload[4096];
-  char reply[4096];
+  char reply[8192];
   int rc = 0;
   if (!local || !binding || !local->owner_socket[0]) return -1;
   if (strcmp(binding->status, YAI_DAEMON_BINDING_STATUS_ACTIVE) == 0) return 0;
@@ -950,6 +1090,21 @@ static int ensure_binding_attached(yai_daemon_local_runtime_t *local, yai_daemon
   (void)json_extract_string(reply, "delegated_observation_scope", local->delegated_observation_scope, sizeof(local->delegated_observation_scope));
   (void)json_extract_string(reply, "delegated_mediation_scope", local->delegated_mediation_scope, sizeof(local->delegated_mediation_scope));
   (void)json_extract_string(reply, "delegated_enforcement_scope", local->delegated_enforcement_scope, sizeof(local->delegated_enforcement_scope));
+  (void)json_extract_i64(reply, "grant_valid_from_epoch", &local->grant_issued_at_epoch);
+  (void)json_extract_i64(reply, "grant_refresh_after_epoch", &local->grant_refresh_after_epoch);
+  (void)json_extract_i64(reply, "grant_expires_at_epoch", &local->grant_expires_at_epoch);
+  (void)json_extract_i64(reply, "policy_snapshot_issued_at_epoch", &local->snapshot_issued_at_epoch);
+  (void)json_extract_i64(reply, "policy_snapshot_refresh_after_epoch", &local->snapshot_refresh_after_epoch);
+  (void)json_extract_i64(reply, "policy_snapshot_expires_at_epoch", &local->snapshot_expires_at_epoch);
+  (void)json_extract_i64(reply, "capability_issued_at_epoch", &local->capability_issued_at_epoch);
+  (void)json_extract_i64(reply, "capability_refresh_after_epoch", &local->capability_refresh_after_epoch);
+  (void)json_extract_i64(reply, "capability_expires_at_epoch", &local->capability_expires_at_epoch);
+  (void)json_extract_string(reply, "delegated_validity_state", local->delegated_validity_state, sizeof(local->delegated_validity_state));
+  (void)json_extract_string(reply, "delegated_refresh_state", local->delegated_refresh_state, sizeof(local->delegated_refresh_state));
+  (void)json_extract_string(reply, "delegated_revoke_state", local->delegated_revoke_state, sizeof(local->delegated_revoke_state));
+  local->grant_revoked = (strcmp(local->delegated_revoke_state, YAI_DAEMON_REVOKE_STATE_REVOKED) == 0) ? 1 : 0;
+  local->snapshot_revoked = local->grant_revoked;
+  local->capability_revoked = local->grant_revoked;
   snprintf(binding->status, sizeof(binding->status), "%s", YAI_DAEMON_BINDING_STATUS_ACTIVE);
   local->owner_connected = 1;
   local->last_owner_contact_epoch = now_epoch();
@@ -1079,8 +1234,8 @@ static int emit_unit(yai_daemon_local_runtime_t *local, const yai_daemon_unit_t 
 
 static int send_status_update(yai_daemon_local_runtime_t *local, const char *workspace_id)
 {
-  char payload[4096];
-  char reply[4096];
+  char payload[8192];
+  char reply[8192];
   int rc = 0;
   if (!local || !workspace_id || !workspace_id[0] || !local->owner_socket[0]) return -1;
   if (ensure_owner_registered(local, workspace_id) != 0) return -1;
@@ -1115,6 +1270,35 @@ static int send_status_update(yai_daemon_local_runtime_t *local, const char *wor
            (local->binding_count > 0 && local->bindings[0].enforcement_scope[0]) ? local->bindings[0].enforcement_scope : YAI_DAEMON_SCOPE_NONE,
            (local->binding_count > 0) ? local->bindings[0].action_point_count : 0,
            (local->binding_count > 0 && local->bindings[0].mediation_mode[0]) ? local->bindings[0].mediation_mode : YAI_DAEMON_MEDIATION_MODE_NONE);
+  if (strlen(payload) > 2U)
+  {
+    size_t base_len = strlen(payload);
+    if (base_len > 1U && payload[base_len - 1U] == '}')
+    {
+      payload[base_len - 1U] = '\0';
+      (void)snprintf(payload + (base_len - 1U),
+                     sizeof(payload) - (base_len - 1U),
+                     ",\"delegated_validity_state\":\"%s\",\"delegated_refresh_state\":\"%s\",\"delegated_revoke_state\":\"%s\",\"delegated_fallback_mode\":\"%s\",\"delegated_stale_reason\":\"%s\",\"grant_valid_from_epoch\":%lld,\"grant_refresh_after_epoch\":%lld,\"grant_expires_at_epoch\":%lld,\"policy_snapshot_issued_at_epoch\":%lld,\"policy_snapshot_refresh_after_epoch\":%lld,\"policy_snapshot_expires_at_epoch\":%lld,\"capability_issued_at_epoch\":%lld,\"capability_refresh_after_epoch\":%lld,\"capability_expires_at_epoch\":%lld,\"delegated_revoked\":%s,\"grant_revoked\":%s,\"snapshot_revoked\":%s,\"capability_revoked\":%s}",
+                     local->delegated_validity_state[0] ? local->delegated_validity_state : YAI_DAEMON_GRANT_STATE_MISSING_OR_PENDING,
+                     local->delegated_refresh_state[0] ? local->delegated_refresh_state : YAI_DAEMON_REFRESH_STATE_NOT_REQUIRED,
+                     local->delegated_revoke_state[0] ? local->delegated_revoke_state : YAI_DAEMON_REVOKE_STATE_ACTIVE,
+                     local->delegated_fallback_mode[0] ? local->delegated_fallback_mode : YAI_DAEMON_FALLBACK_RESTRICTED,
+                     local->delegated_stale_reason[0] ? local->delegated_stale_reason : "none",
+                     (long long)local->grant_issued_at_epoch,
+                     (long long)local->grant_refresh_after_epoch,
+                     (long long)local->grant_expires_at_epoch,
+                     (long long)local->snapshot_issued_at_epoch,
+                     (long long)local->snapshot_refresh_after_epoch,
+                     (long long)local->snapshot_expires_at_epoch,
+                     (long long)local->capability_issued_at_epoch,
+                     (long long)local->capability_refresh_after_epoch,
+                     (long long)local->capability_expires_at_epoch,
+                     local->grant_revoked ? "true" : "false",
+                     local->grant_revoked ? "true" : "false",
+                     local->snapshot_revoked ? "true" : "false",
+                     local->capability_revoked ? "true" : "false");
+    }
+  }
   rc = rpc_control_call(local->owner_socket, workspace_id, payload, reply, sizeof(reply));
   if (rc != 0 || !json_reply_ok(reply)) return -1;
   (void)json_extract_string(reply, "source_policy_snapshot_id", local->source_policy_snapshot_id, sizeof(local->source_policy_snapshot_id));
@@ -1124,6 +1308,23 @@ static int send_status_update(yai_daemon_local_runtime_t *local, const char *wor
   (void)json_extract_string(reply, "delegated_observation_scope", local->delegated_observation_scope, sizeof(local->delegated_observation_scope));
   (void)json_extract_string(reply, "delegated_mediation_scope", local->delegated_mediation_scope, sizeof(local->delegated_mediation_scope));
   (void)json_extract_string(reply, "delegated_enforcement_scope", local->delegated_enforcement_scope, sizeof(local->delegated_enforcement_scope));
+  (void)json_extract_i64(reply, "grant_valid_from_epoch", &local->grant_issued_at_epoch);
+  (void)json_extract_i64(reply, "grant_refresh_after_epoch", &local->grant_refresh_after_epoch);
+  (void)json_extract_i64(reply, "grant_expires_at_epoch", &local->grant_expires_at_epoch);
+  (void)json_extract_i64(reply, "policy_snapshot_issued_at_epoch", &local->snapshot_issued_at_epoch);
+  (void)json_extract_i64(reply, "policy_snapshot_refresh_after_epoch", &local->snapshot_refresh_after_epoch);
+  (void)json_extract_i64(reply, "policy_snapshot_expires_at_epoch", &local->snapshot_expires_at_epoch);
+  (void)json_extract_i64(reply, "capability_issued_at_epoch", &local->capability_issued_at_epoch);
+  (void)json_extract_i64(reply, "capability_refresh_after_epoch", &local->capability_refresh_after_epoch);
+  (void)json_extract_i64(reply, "capability_expires_at_epoch", &local->capability_expires_at_epoch);
+  (void)json_extract_bool(reply, "delegated_revoked", &local->grant_revoked);
+  local->snapshot_revoked = local->grant_revoked;
+  local->capability_revoked = local->grant_revoked;
+  (void)json_extract_string(reply, "delegated_validity_state", local->delegated_validity_state, sizeof(local->delegated_validity_state));
+  (void)json_extract_string(reply, "delegated_refresh_state", local->delegated_refresh_state, sizeof(local->delegated_refresh_state));
+  (void)json_extract_string(reply, "delegated_revoke_state", local->delegated_revoke_state, sizeof(local->delegated_revoke_state));
+  (void)json_extract_string(reply, "delegated_fallback_mode", local->delegated_fallback_mode, sizeof(local->delegated_fallback_mode));
+  (void)json_extract_string(reply, "delegated_stale_reason", local->delegated_stale_reason, sizeof(local->delegated_stale_reason));
   local->owner_connected = 1;
   local->last_owner_contact_epoch = now_epoch();
   return 0;
@@ -1211,6 +1412,7 @@ int yai_daemon_local_runtime_health_json(const yai_daemon_local_runtime_t *local
                "\"spool\":{\"queued\":%u,\"retry_due\":%u,\"delivered\":%u,\"failed\":%u},"
                "\"resilience\":{\"connectivity_state\":\"%s\",\"freshness_state\":\"%s\",\"spool_pressure\":\"%s\",\"retry_pressure\":\"%s\",\"degradation_state\":\"%s\"},"
                "\"policy\":{\"staleness\":\"%s\",\"grant_validity\":\"%s\"},"
+               "\"delegation\":{\"validity_state\":\"%s\",\"refresh_state\":\"%s\",\"revoke_state\":\"%s\",\"fallback_mode\":\"%s\",\"stale_reason\":\"%s\",\"grant_issued_at_epoch\":%lld,\"grant_refresh_after_epoch\":%lld,\"grant_expires_at_epoch\":%lld,\"snapshot_issued_at_epoch\":%lld,\"snapshot_refresh_after_epoch\":%lld,\"snapshot_expires_at_epoch\":%lld,\"capability_issued_at_epoch\":%lld,\"capability_refresh_after_epoch\":%lld,\"capability_expires_at_epoch\":%lld,\"grant_revoked\":%s,\"snapshot_revoked\":%s,\"capability_revoked\":%s},"
                "\"distribution\":{\"policy_snapshot_id\":\"%s\",\"capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"observation_scope\":\"%s\",\"mediation_scope\":\"%s\",\"enforcement_scope\":\"%s\"},"
                "\"scan_discovered\":%u,"
                "\"emit\":{\"attempts\":%u,\"success\":%u,\"failures\":%u},"
@@ -1231,6 +1433,23 @@ int yai_daemon_local_runtime_health_json(const yai_daemon_local_runtime_t *local
                local->degradation_state[0] ? local->degradation_state : "nominal",
                local->policy_staleness_state[0] ? local->policy_staleness_state : YAI_DAEMON_POLICY_STALENESS_PENDING,
                local->grant_validity_state[0] ? local->grant_validity_state : YAI_DAEMON_GRANT_STATE_MISSING_OR_PENDING,
+               local->delegated_validity_state[0] ? local->delegated_validity_state : YAI_DAEMON_GRANT_STATE_MISSING_OR_PENDING,
+               local->delegated_refresh_state[0] ? local->delegated_refresh_state : YAI_DAEMON_REFRESH_STATE_NOT_REQUIRED,
+               local->delegated_revoke_state[0] ? local->delegated_revoke_state : YAI_DAEMON_REVOKE_STATE_ACTIVE,
+               local->delegated_fallback_mode[0] ? local->delegated_fallback_mode : YAI_DAEMON_FALLBACK_RESTRICTED,
+               local->delegated_stale_reason[0] ? local->delegated_stale_reason : "none",
+               (long long)local->grant_issued_at_epoch,
+               (long long)local->grant_refresh_after_epoch,
+               (long long)local->grant_expires_at_epoch,
+               (long long)local->snapshot_issued_at_epoch,
+               (long long)local->snapshot_refresh_after_epoch,
+               (long long)local->snapshot_expires_at_epoch,
+               (long long)local->capability_issued_at_epoch,
+               (long long)local->capability_refresh_after_epoch,
+               (long long)local->capability_expires_at_epoch,
+               local->grant_revoked ? "true" : "false",
+               local->snapshot_revoked ? "true" : "false",
+               local->capability_revoked ? "true" : "false",
                local->source_policy_snapshot_id,
                local->source_capability_envelope_id,
                local->policy_snapshot_version,
@@ -1253,7 +1472,7 @@ int yai_daemon_local_runtime_health_json(const yai_daemon_local_runtime_t *local
 
 static int write_health_file(const yai_daemon_local_runtime_t *local)
 {
-  char payload[2048];
+  char payload[8192];
   if (!local || !g_paths) return -1;
   if (yai_daemon_local_runtime_health_json(local, payload, sizeof(payload)) != 0) return -1;
   return yai_daemon_write_file(g_paths->health_file, payload);
@@ -1261,7 +1480,7 @@ static int write_health_file(const yai_daemon_local_runtime_t *local)
 
 static int write_operational_state_file(const yai_daemon_local_runtime_t *local)
 {
-  char payload[4096];
+  char payload[8192];
   if (!local || !local->operational_state_file[0])
   {
     return -1;
@@ -1278,6 +1497,23 @@ static int write_operational_state_file(const yai_daemon_local_runtime_t *local)
                "\"retry_pressure_state\":\"%s\","
                "\"policy_staleness_state\":\"%s\","
                "\"grant_validity_state\":\"%s\","
+               "\"delegated_validity_state\":\"%s\","
+               "\"delegated_refresh_state\":\"%s\","
+               "\"delegated_revoke_state\":\"%s\","
+               "\"delegated_fallback_mode\":\"%s\","
+               "\"delegated_stale_reason\":\"%s\","
+               "\"grant_issued_at_epoch\":%lld,"
+               "\"grant_refresh_after_epoch\":%lld,"
+               "\"grant_expires_at_epoch\":%lld,"
+               "\"snapshot_issued_at_epoch\":%lld,"
+               "\"snapshot_refresh_after_epoch\":%lld,"
+               "\"snapshot_expires_at_epoch\":%lld,"
+               "\"capability_issued_at_epoch\":%lld,"
+               "\"capability_refresh_after_epoch\":%lld,"
+               "\"capability_expires_at_epoch\":%lld,"
+               "\"grant_revoked\":%s,"
+               "\"snapshot_revoked\":%s,"
+               "\"capability_revoked\":%s,"
                "\"source_policy_snapshot_id\":\"%s\","
                "\"source_capability_envelope_id\":\"%s\","
                "\"policy_snapshot_version\":\"%s\","
@@ -1298,6 +1534,23 @@ static int write_operational_state_file(const yai_daemon_local_runtime_t *local)
                local->retry_pressure_state,
                local->policy_staleness_state,
                local->grant_validity_state,
+               local->delegated_validity_state[0] ? local->delegated_validity_state : YAI_DAEMON_GRANT_STATE_MISSING_OR_PENDING,
+               local->delegated_refresh_state[0] ? local->delegated_refresh_state : YAI_DAEMON_REFRESH_STATE_NOT_REQUIRED,
+               local->delegated_revoke_state[0] ? local->delegated_revoke_state : YAI_DAEMON_REVOKE_STATE_ACTIVE,
+               local->delegated_fallback_mode[0] ? local->delegated_fallback_mode : YAI_DAEMON_FALLBACK_RESTRICTED,
+               local->delegated_stale_reason[0] ? local->delegated_stale_reason : "none",
+               (long long)local->grant_issued_at_epoch,
+               (long long)local->grant_refresh_after_epoch,
+               (long long)local->grant_expires_at_epoch,
+               (long long)local->snapshot_issued_at_epoch,
+               (long long)local->snapshot_refresh_after_epoch,
+               (long long)local->snapshot_expires_at_epoch,
+               (long long)local->capability_issued_at_epoch,
+               (long long)local->capability_refresh_after_epoch,
+               (long long)local->capability_expires_at_epoch,
+               local->grant_revoked ? "true" : "false",
+               local->snapshot_revoked ? "true" : "false",
+               local->capability_revoked ? "true" : "false",
                local->source_policy_snapshot_id,
                local->source_capability_envelope_id,
                local->policy_snapshot_version,
@@ -1348,6 +1601,11 @@ int yai_daemon_local_runtime_init(yai_daemon_local_runtime_t *local,
   snprintf(local->retry_pressure_state, sizeof(local->retry_pressure_state), "%s", YAI_DAEMON_PRESSURE_LOW);
   snprintf(local->policy_staleness_state, sizeof(local->policy_staleness_state), "%s", YAI_DAEMON_POLICY_STALENESS_PENDING);
   snprintf(local->grant_validity_state, sizeof(local->grant_validity_state), "%s", YAI_DAEMON_GRANT_STATE_MISSING_OR_PENDING);
+  snprintf(local->delegated_validity_state, sizeof(local->delegated_validity_state), "%s", YAI_DAEMON_GRANT_STATE_MISSING_OR_PENDING);
+  snprintf(local->delegated_refresh_state, sizeof(local->delegated_refresh_state), "%s", YAI_DAEMON_REFRESH_STATE_NOT_REQUIRED);
+  snprintf(local->delegated_revoke_state, sizeof(local->delegated_revoke_state), "%s", YAI_DAEMON_REVOKE_STATE_ACTIVE);
+  snprintf(local->delegated_fallback_mode, sizeof(local->delegated_fallback_mode), "%s", YAI_DAEMON_FALLBACK_RESTRICTED);
+  snprintf(local->delegated_stale_reason, sizeof(local->delegated_stale_reason), "%s", "none");
   snprintf(local->policy_snapshot_version, sizeof(local->policy_snapshot_version), "%s", "ws-policy-snapshot-v1");
   snprintf(local->delegated_observation_scope, sizeof(local->delegated_observation_scope), "%s", "workspace/default");
   snprintf(local->delegated_mediation_scope, sizeof(local->delegated_mediation_scope), "%s", YAI_DAEMON_SCOPE_NONE);

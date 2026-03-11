@@ -51,7 +51,7 @@ static int write_identity(const yai_daemon_runtime_t *rt)
 
 static int write_edge_runtime_state(const yai_daemon_runtime_t *rt)
 {
-  char payload[4096];
+  char payload[8192];
   if (!rt || !rt->edge_state_file[0])
   {
     return -1;

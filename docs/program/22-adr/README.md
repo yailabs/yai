@@ -37,6 +37,7 @@ An ADR should answer:
 - `ADR-019-edge-binding-and-action-point-model.md`
 - `ADR-020-workspace-authority-and-truth-plane.md`
 - `ADR-021-workspace-to-edge-policy-distribution.md`
+- `ADR-022-edge-policy-validity-expiry-refresh.md`
 
 ## Template policy
 
