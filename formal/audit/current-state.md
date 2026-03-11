@@ -3,10 +3,10 @@
 Date: 2026-03-11
 
 ## Inventory Before Refoundation
-- Primary executable model was `formal/tla/YAI_KERNEL.tla` (monolith).
-- `GOVERNANCE_PRECEDENCE.tla` and `GOVERNANCE_RESOLUTION.tla` were placeholders.
-- `GOVERNANCE_IDS.tla` was generated from vault ABI and mixed with runtime semantics.
-- Config axis was kernel-centric (`YAI_KERNEL*.cfg`).
+- Primary executable model was `formal/tla/yai_runtime_legacy.tla` (monolith).
+- `yai_precedence_legacy.tla` and `yai_resolution_legacy.tla` were placeholders.
+- `yai_ids_legacy.tla` was generated from vault ABI and mixed with runtime semantics.
+- Config axis was kernel-centric (`yai_runtime_legacy*.cfg`).
 - Traceability file referenced split-era paths (`contracts/*`, `brain`, `exec`).
 
 ## Structural Gaps

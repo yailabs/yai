@@ -31,7 +31,7 @@ required = [
     "governance/schema/governance_review_state.v1.schema.json",
     "governance/schema/evidence_index.v1.schema.json",
     "governance/schema/workspace_governance_attachment.v1.schema.json",
-    "governance/schema/retention.policy.v1.json",
+    "governance/schema/retention_policy.v1.schema.json",
     "governance/schema/containment_metrics.v1.schema.json",
     "governance/schema/verification_report.v1.schema.json",
     "governance/ingestion/templates/governance_source.template.v1.json",
@@ -42,7 +42,7 @@ required = [
     "governance/ingestion/review/enterprise.sample.src-sample-digital-outbound.candidate.v1.review.v1.json",
     "foundation/axioms/A-002-authority.md",
     "foundation/invariants/I-003-governance.md",
-    "foundation/boundaries/L1-core.md",
+    "foundation/boundaries/L1-runtime-core.md",
     "formal/models/yai_system.tla",
     "formal/modules/yai_ids.tla",
     "formal/modules/yai_authority.tla",
@@ -98,3 +98,4 @@ python3 "$ROOT/tools/validate/validate_edge_daemon_collapse.py"
 python3 "$ROOT/tools/validate/validate_orchestration_exec_collapse.py"
 python3 "$ROOT/tools/validate/validate_control_family_descriptors.py"
 python3 "$ROOT/tools/validate/validate_specialization_descriptors.py"
+python3 "$ROOT/tools/validate/validate_governance_foundation_formal_naming.py"

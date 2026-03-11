@@ -102,7 +102,7 @@ int yai_governance_compatibility_check(yai_governance_runtime_t *rt, char *err, 
       yai_governance_require_governance_surface(rt, "schema/governance_review_state.v1.schema.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "schema/evidence_index.v1.schema.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "schema/workspace_governance_attachment.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "schema/retention.policy.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "schema/retention_policy.v1.schema.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "schema/containment_metrics.v1.schema.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "schema/verification_report.v1.schema.json", json, sizeof(json)) != 0) {
     if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "missing canonical governance schema");

@@ -25,8 +25,8 @@ It must remain aligned with:
 * `foundation/extensions/compliance/`
 * `foundation/invariants/I-006-external-effect-boundary.md`
 * `foundation/invariants/I-007-compliance-context-required.md`
-* `schema/compliance.context.v1.json`
-* `schema/retention.policy.v1.json`
+* `schema/compliance_context.v1.schema.json`
+* `schema/retention_policy.v1.schema.json`
 * `contracts/compliance/`
 * `contracts/control/` where authority-facing enforcement is relevant
 

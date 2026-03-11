@@ -23,5 +23,5 @@ Semantic descriptions and usage guidance are updated when ontology shifts.
 - `verification_report.v1.schema.json`
 - `workspace_governance_attachment.v1.schema.json`
 - `agent_governance_action.v1.schema.json`
-- `compliance.context.v1.json`
-- `retention.policy.v1.json`
+- `compliance_context.v1.schema.json`
+- `retention_policy.v1.schema.json`

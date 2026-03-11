@@ -38,7 +38,7 @@ def main() -> int:
         schema / "governance_review_state.v1.schema.json",
         schema / "evidence_index.v1.schema.json",
         schema / "workspace_governance_attachment.v1.schema.json",
-        schema / "retention.policy.v1.json",
+        schema / "retention_policy.v1.schema.json",
         schema / "containment_metrics.v1.schema.json",
         schema / "verification_report.v1.schema.json",
     ]

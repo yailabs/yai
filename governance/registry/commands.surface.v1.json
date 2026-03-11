@@ -412,8 +412,8 @@
         "I-003-governance"
       ],
       "law_boundaries": [
-        "L1-core",
-        "L2-exec"
+        "L1-runtime-core",
+        "L2-orchestration"
       ],
       "uses_primitives": [
         "T-003",
@@ -514,8 +514,8 @@
         "I-006-external-effect-boundary"
       ],
       "law_boundaries": [
-        "L1-core",
-        "L2-exec"
+        "L1-runtime-core",
+        "L2-orchestration"
       ],
       "uses_primitives": [
         "T-003",
@@ -594,7 +594,7 @@
         "I-006-external-effect-boundary"
       ],
       "law_boundaries": [
-        "L1-core"
+        "L1-runtime-core"
       ],
       "uses_primitives": [
         "T-003",
@@ -672,7 +672,7 @@
         "I-006-external-effect-boundary"
       ],
       "law_boundaries": [
-        "L1-core"
+        "L1-runtime-core"
       ],
       "uses_primitives": [
         "T-003",
@@ -754,8 +754,8 @@
         "I-003-governance"
       ],
       "law_boundaries": [
-        "L1-core",
-        "L2-exec",
+        "L1-runtime-core",
+        "L2-orchestration",
         "L3-knowledge"
       ],
       "uses_primitives": [
@@ -837,8 +837,8 @@
         "I-003-governance"
       ],
       "law_boundaries": [
-        "L1-core",
-        "L2-exec",
+        "L1-runtime-core",
+        "L2-orchestration",
         "L3-knowledge"
       ],
       "uses_primitives": [
@@ -920,8 +920,8 @@
         "I-003-governance"
       ],
       "law_boundaries": [
-        "L1-core",
-        "L2-exec",
+        "L1-runtime-core",
+        "L2-orchestration",
         "L3-knowledge"
       ],
       "uses_primitives": [
@@ -1007,7 +1007,7 @@
         "I-003-governance"
       ],
       "law_boundaries": [
-        "L1-core"
+        "L1-runtime-core"
       ],
       "uses_primitives": [
         "T-003",
@@ -1088,8 +1088,8 @@
         "I-003-governance"
       ],
       "law_boundaries": [
-        "L1-core",
-        "L2-exec",
+        "L1-runtime-core",
+        "L2-orchestration",
         "L3-knowledge"
       ],
       "uses_primitives": [
@@ -1171,8 +1171,8 @@
         "I-003-governance"
       ],
       "law_boundaries": [
-        "L1-core",
-        "L2-exec",
+        "L1-runtime-core",
+        "L2-orchestration",
         "L3-knowledge"
       ],
       "uses_primitives": [
@@ -1245,8 +1245,8 @@
         "I-006-external-effect-boundary"
       ],
       "law_boundaries": [
-        "L1-core",
-        "L2-exec",
+        "L1-runtime-core",
+        "L2-orchestration",
         "L3-knowledge"
       ],
       "uses_primitives": [
@@ -1372,8 +1372,8 @@
         "I-006-external-effect-boundary"
       ],
       "law_boundaries": [
-        "L1-core",
-        "L2-exec",
+        "L1-runtime-core",
+        "L2-orchestration",
         "L3-knowledge"
       ],
       "uses_primitives": [
@@ -1493,8 +1493,8 @@
         "I-006-external-effect-boundary"
       ],
       "law_boundaries": [
-        "L1-core",
-        "L2-exec",
+        "L1-runtime-core",
+        "L2-orchestration",
         "L3-knowledge"
       ],
       "uses_primitives": [

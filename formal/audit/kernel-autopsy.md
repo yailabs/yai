@@ -1,4 +1,4 @@
-# Kernel Autopsy: `YAI_KERNEL.tla`
+# Kernel Autopsy: `yai_runtime_legacy.tla`
 
 ## Findings
 - Mixed concerns in a single file:
@@ -7,7 +7,7 @@
   - compliance flag gates
   - energy accounting
   - external effect checks
-- Imported `GOVERNANCE_IDS` for vault offsets but with no module decomposition.
+- Imported `yai_ids_legacy` for vault offsets but with no module decomposition.
 - Contained no explicit runtime policy/grant/containment submodels.
 
 ## Why It Is No Longer Canonical
@@ -16,6 +16,6 @@
 - Governance resolution and protocol control semantics require independent modules.
 
 ## Action Taken
-- Kernel monolith moved to `formal/legacy/tla/YAI_KERNEL.tla`.
+- Kernel monolith moved to `formal/legacy/tla/yai_runtime_legacy.tla`.
 - Replaced by decomposed module set under `formal/modules/`.
 - New root model: `formal/models/yai_system.tla`.

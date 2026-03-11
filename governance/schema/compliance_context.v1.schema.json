@@ -1,0 +1,27 @@
+{
+  "version": "v1",
+  "required": [
+    "pack_ref",
+    "purpose_id",
+    "data_class",
+    "retention_policy_id",
+    "legal_basis",
+    "subject_scope",
+    "processor_role",
+    "audit_required"
+  ],
+  "properties": {
+    "pack_ref": { "type": "string" },
+    "purpose_id": { "type": "string" },
+    "data_class": { "type": "string" },
+    "retention_policy_id": { "type": "string" },
+    "legal_basis": { "type": "string" },
+    "subject_scope": {
+      "enum": ["anon", "pseudonymous", "identified"]
+    },
+    "processor_role": {
+      "enum": ["controller", "processor", "joint"]
+    },
+    "audit_required": { "type": "boolean" }
+  }
+}

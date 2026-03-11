@@ -1,9 +1,9 @@
 # Stub Gap Analysis
 
 ## Stub/Placeholder Components Identified
-- `GOVERNANCE_PRECEDENCE.tla`: placeholder only.
-- `GOVERNANCE_RESOLUTION.tla`: placeholder only.
-- `formal/schema/resolution_trace.v1.schema.json`: unconstrained object.
+- `yai_precedence_legacy.tla`: placeholder only.
+- `yai_resolution_legacy.tla`: placeholder only.
+- `formal/schema/formal_resolution_trace.v1.schema.json`: unconstrained object.
 - Traceability references to non-canonical split-era paths.
 
 ## Runtime Gap Side

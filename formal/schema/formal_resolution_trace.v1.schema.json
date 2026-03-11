@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "formal/schema/formal_resolution_trace.v1.schema.json",
+  "title": "Resolution Trace Schema v1 (legacy compatibility)",
+  "type": "object",
+  "properties": {
+    "deprecated": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "additionalProperties": true
+}

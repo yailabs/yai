@@ -1,0 +1,20 @@
+{
+  "version": "v1",
+  "required": [
+    "retention_policy_id",
+    "ttl_seconds",
+    "deletion_mode",
+    "scope",
+    "expiry_anchor"
+  ],
+  "properties": {
+    "retention_policy_id": { "type": "string" },
+    "ttl_seconds": { "type": "integer", "minimum": 0 },
+    "deletion_mode": { "enum": ["tombstone", "hard", "crypto_erase"] },
+    "scope": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "expiry_anchor": { "enum": ["event_ts"] }
+  }
+}

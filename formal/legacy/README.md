@@ -5,12 +5,12 @@ only.
 
 Non-canonical contents:
 
-- `tla/YAI_KERNEL.tla`
-- `tla/GOVERNANCE_IDS.tla`
-- `tla/GOVERNANCE_PRECEDENCE.tla`
-- `tla/GOVERNANCE_RESOLUTION.tla`
-- `configs/YAI_KERNEL*.cfg`
-- `traceability.v1.json`
+- `tla/yai_runtime_legacy.tla`
+- `tla/yai_ids_legacy.tla`
+- `tla/yai_precedence_legacy.tla`
+- `tla/yai_resolution_legacy.tla`
+- `configs/yai_runtime_legacy*.cfg`
+- `formal_legacy_traceability.v1.json`
 
 Canonical formal sources are under `formal/models/`, `formal/modules/`,
 `formal/configs/`, `formal/traceability/`, and `formal/schema/`.

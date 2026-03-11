@@ -19,7 +19,7 @@ connects runtime/tooling consumers to those paths.
 - `governance/schema/governance_review_state.v1.schema.json`
 - `governance/schema/evidence_index.v1.schema.json`
 - `governance/schema/workspace_governance_attachment.v1.schema.json`
-- `governance/schema/retention.policy.v1.json`
+- `governance/schema/retention_policy.v1.schema.json`
 - `governance/schema/containment_metrics.v1.schema.json`
 - `governance/schema/verification_report.v1.schema.json`
 
