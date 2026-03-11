@@ -10,8 +10,9 @@ fi
 typeset -g YAI_PROMPT_LOADED=1
 
 yai_prompt_token_cmd() {
-  if command -v yai-ws-token >/dev/null 2>&1; then
-    command -v yai-ws-token
+  local canonical="$HOME/Developer/YAI/yai/tools/bin/yai-ws-token"
+  if [[ -x "$canonical" ]]; then
+    printf '%s\n' "$canonical"
     return 0
   fi
 
@@ -22,13 +23,17 @@ yai_prompt_token_cmd() {
     printf '%s\n' "$fallback"
     return 0
   fi
+  if command -v yai-ws-token >/dev/null 2>&1; then
+    command -v yai-ws-token
+    return 0
+  fi
   return 1
 }
 
 yai_prompt_segment() {
   local cmd
   cmd="$(yai_prompt_token_cmd)" || return 0
-  "$cmd" 2>/dev/null || true
+  YAI_WS_BIND_SCOPE=tty "$cmd" 2>/dev/null || true
 }
 
 yai_prompt_precmd() {

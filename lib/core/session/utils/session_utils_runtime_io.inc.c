@@ -328,10 +328,10 @@ static int yai_session_ensure_shell_integration(void)
         "function prompt_yai_ws() {\n"
         "  emulate -L zsh\n"
         "  local tok cmd\n"
-        "  cmd=\"${commands[yai-ws-token]}\"\n"
-        "  [[ -n \"$cmd\" ]] || cmd=\"$HOME/Developer/YAI/yai/tools/bin/yai-ws-token\"\n"
+        "  cmd=\"$HOME/Developer/YAI/yai/tools/bin/yai-ws-token\"\n"
+        "  [[ -x \"$cmd\" ]] || cmd=\"${commands[yai-ws-token]}\"\n"
         "  [[ -x \"$cmd\" ]] || return\n"
-        "  tok=\"$($cmd 2>/dev/null)\"\n"
+        "  tok=\"$(YAI_WS_BIND_SCOPE=tty $cmd 2>/dev/null)\"\n"
         "  [[ -n \"$tok\" ]] || return\n"
         "  p10k segment -f 255 -b 35 -t \"$tok\"\n"
         "}\n"
@@ -1035,4 +1035,3 @@ static int yai_workspace_write_manifest_path(
     fclose(f);
     return 0;
 }
-
