@@ -47,6 +47,7 @@ An ADR should answer:
 - `ADR-029-overlay-integration.md`
 - `ADR-030-source-and-edge-query-surfaces.md`
 - `ADR-031-unified-graph-workspace-edge-runtime.md`
+- `ADR-032-ai-grounding-governed-case-state.md`
 
 ## Template policy
 

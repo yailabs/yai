@@ -87,6 +87,8 @@ QG-1 source/edge query surface model is defined in
 `docs/architecture/source-and-edge-query-surfaces-model.md`.
 QG-2 unified graph model is defined in
 `docs/architecture/unified-graph-workspace-edge-model.md`.
+QG-3 AI grounding model is defined in
+`docs/architecture/ai-grounding-governed-case-state-model.md`.
 Source-plane entity/contract model is defined in
 `docs/architecture/source-plane-model.md`.
 Owner ingest runtime flow is defined in
@@ -184,3 +186,9 @@ Owner runtime projects a unified graph that correlates sovereign workspace/case
 anchors with governed distributed state (edge/mesh/delegation/transport/
 ingress/overlay). Graph representation keeps observed/accepted/canonicalized
 adjudication boundaries explicit.
+
+## QG-3 governed AI grounding lock
+
+AI/agent execution context is projected from owner-governed inspect and graph
+surfaces as task-scoped grounded context. Grounded AI remains non-sovereign and
+cannot replace owner final authority/canonical truth.

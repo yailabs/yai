@@ -111,6 +111,11 @@ QG-2 graph lock:
 - graph summaries under workspace binding correlate distributed runtime state
   without changing sovereign owner adjudication.
 
+QG-3 grounding lock:
+- workspace binding context anchors task-scoped governed grounding context;
+- AI context under binding uses owner-side summaries/graph projections with
+  explicit adjudication boundaries and does not imply authority transfer.
+
 ## Workspace-local vs Runtime-global
 
 Workspace-local:

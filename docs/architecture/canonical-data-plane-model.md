@@ -147,6 +147,12 @@ QG-2 unified-graph lock:
   (`observed|accepted|canonicalized|degraded/conflict`);
 - graph unification cannot be interpreted as distributed sovereign consensus.
 
+QG-3 AI-grounding lock:
+- governed grounding contexts are derived from owner-side inspect summaries and
+  unified graph projections, not from unscoped raw runtime exhaust;
+- grounding contexts include provenance/freshness/validity/adjudication markers;
+- AI/agent outputs remain non-sovereign and cannot bypass owner adjudication.
+
 ### 3) Control/Data Path Separation
 Mandatory path:
 
