@@ -1,7 +1,7 @@
-#include <yai/exec/source_plane.h>
-#include <yai/exec/network_gate.h>
-#include <yai/exec/resource_gate.h>
-#include <yai/exec/transport.h>
+#include <yai/orchestration/source_plane.h>
+#include <yai/orchestration/network_gate.h>
+#include <yai/orchestration/resource_gate.h>
+#include <yai/orchestration/transport.h>
 
 #include <stdio.h>
 #include <string.h>

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #pragma once
 
-/* Compatibility command-id surface exported from law authority. */
+/* Compatibility command-id surface exported from governance authority. */
 #include <yai_protocol_ids.h>
 #include <yai/protocol/contracts/source_plane_contract.h>
 

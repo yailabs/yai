@@ -26,7 +26,7 @@ static int alloc_slot(void)
   return -1;
 }
 
-int yai_rag_session_acquire(const yai_session_t *session,
+int yai_rag_session_acquire(const yai_knowledge_session_t *session,
                                  yai_rag_session_state_t **session_out)
 {
   const char *sid;

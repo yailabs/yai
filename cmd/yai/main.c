@@ -13,11 +13,11 @@
 
 #include <yai/api/runtime.h>
 #include <yai/api/version.h>
-#include <yai/core/dispatch.h>
-#include <yai/core/lifecycle.h>
+#include <yai/runtime/dispatch.h>
+#include <yai/runtime/lifecycle.h>
 #include <yai/data/binding.h>
-#include <yai/exec/transport_client.h>
-#include <yai/exec/runtime.h>
+#include <yai/orchestration/transport_client.h>
+#include <yai/orchestration/runtime.h>
 
 typedef enum yai_cli_mode
 {
@@ -349,9 +349,9 @@ static void yai_print_help(void)
   puts("  - this binary hosts the YAI service process");
   puts("  - operator entrypoint is CLI: `yai up|status|down` from repo cli");
   puts("  - this binary exposes fallback lifecycle only (up/down)");
-  puts("  - edge/source companion binary is `yai-daemon` (standalone edge runtime)");
+  puts("  - edge/source companion binary is `yai-edge` (legacy alias: `yai-daemon`)");
   puts("  - topology lock: distributed acquisition / centralized control");
-  puts("  - daemon role: subordinate edge runtime under owner workspace sovereignty");
+  puts("  - edge role: subordinate runtime under owner workspace sovereignty");
   puts("  - local control ingress: $HOME/.yai/run/control.sock");
   puts("  - peer source-plane ingress: $HOME/.yai/run/peer.sock");
   puts("  - secure peering gate: YAI_SECURE_PEERING_REQUIRED=1 requires YAI_SECURE_PEERING_READY=1");

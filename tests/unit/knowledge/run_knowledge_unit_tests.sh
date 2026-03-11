@@ -11,6 +11,7 @@ fi
 OUT_ROOT="$ROOT/build/test/knowledge"
 OBJ_DIR="$OUT_ROOT/obj"
 BIN_DIR="$OUT_ROOT/bin"
+rm -rf "$OBJ_DIR" "$BIN_DIR"
 mkdir -p "$OBJ_DIR" "$BIN_DIR"
 
 BRAIN_SRCS=(
@@ -19,6 +20,7 @@ BRAIN_SRCS=(
   lib/runtime/workspace/workspace_recovery.c
   lib/data/binding/store_binding.c
   lib/data/binding/workspace_binding.c
+  lib/data/query/inspect_query.c
   lib/knowledge/runtime_compat.c
   lib/knowledge/cognition/cognition.c
   lib/agents/dispatch/agents_dispatch.c
@@ -32,6 +34,7 @@ BRAIN_SRCS=(
   lib/orchestration/actions/rag_context_builder.c
   lib/orchestration/actions/rag_prompts.c
   lib/orchestration/execution/rag_pipeline.c
+  lib/orchestration/runtime/grounding_context.c
   lib/knowledge/cognition/reasoning/reasoning_roles.c
   lib/knowledge/cognition/reasoning/scoring.c
   lib/knowledge/memory/memory.c
@@ -42,6 +45,7 @@ BRAIN_SRCS=(
   lib/graph/state/graph_facade.c
   lib/graph/state/graph.c
   lib/graph/state/ids.c
+  lib/graph/materialization/from_runtime_records.c
   lib/knowledge/semantic/semantic_db.c
   lib/knowledge/vector/vector_index.c
   lib/knowledge/cognition/activation.c
@@ -53,16 +57,18 @@ BRAIN_SRCS=(
   lib/providers/embedding/client_embedding.c
   lib/providers/mocks/mock_provider.c
   lib/providers/embedding/embedder_mock.c
-  lib/exec/transport/brain_transport.c
-  lib/exec/transport/brain_protocol.c
-  lib/exec/transport/uds_server.c
+  lib/orchestration/transport/brain_transport.c
+  lib/orchestration/transport/brain_protocol.c
+  lib/orchestration/transport/uds_server.c
+  lib/edge/source_plane_model.c
+  lib/third_party/cjson/cJSON.c
 )
 
 OBJS=()
 for src in "${BRAIN_SRCS[@]}"; do
   obj="$OBJ_DIR/${src%.c}.o"
   mkdir -p "$(dirname "$obj")"
-  cc -Wall -Wextra -std=c11 -O2 -I"$ROOT/include" -I"$ROOT/include/yai" -I"$CONTRACT_ROOT/protocol/include" -c "$ROOT/$src" -o "$obj"
+  cc -Wall -Wextra -std=c11 -O2 -I"$ROOT/include" -I"$ROOT/include/yai" -I"$ROOT/lib/third_party/cjson" -I"$CONTRACT_ROOT/protocol/include" -c "$ROOT/$src" -o "$obj"
   OBJS+=("$obj")
 done
 
@@ -85,7 +91,7 @@ for t in "${UNIT_TESTS[@]}"; do
     continue
   fi
   name="$(basename "${t%.c}")"
-  cc -Wall -Wextra -std=c11 -O2 -I"$ROOT/include" -I"$ROOT/include/yai" "$ROOT/$t" "${OBJS[@]}" -o "$BIN_DIR/$name" -lm
+  cc -Wall -Wextra -std=c11 -O2 -I"$ROOT/include" -I"$ROOT/include/yai" -I"$ROOT/lib/third_party/cjson" "$ROOT/$t" "${OBJS[@]}" -o "$BIN_DIR/$name" -lm
   "$BIN_DIR/$name"
   RAN=1
 done

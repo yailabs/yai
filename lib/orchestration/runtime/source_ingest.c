@@ -7,11 +7,11 @@
 
 #include <yai/runtime/workspace.h>
 #include <yai/data/records.h>
-#include <yai/daemon/source_ids.h>
-#include <yai/daemon/source_plane_model.h>
-#include <yai/exec/source_ingest.h>
-#include <yai/exec/peer_registry.h>
-#include <yai/exec/source_plane.h>
+#include <yai/edge/source_ids.h>
+#include <yai/edge/source_plane_model.h>
+#include <yai/orchestration/source_ingest.h>
+#include <yai/orchestration/peer_registry.h>
+#include <yai/orchestration/source_plane.h>
 #include <yai/graph/materialization.h>
 #include <yai/protocol/contracts/source_plane_contract.h>
 

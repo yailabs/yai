@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-echo "removed: embedded sync surface is no longer supported after B10" >&2
-echo "use governance/ as canonical source of truth" >&2
-exit 2

@@ -11,7 +11,7 @@ from pathlib import Path
 root = Path(sys.argv[1])
 
 required = [
-    "governance/manifests/law.manifest.json",
+    "governance/manifests/governance.manifest.json",
     "governance/manifests/runtime.entrypoints.json",
     "governance/manifests/publish.index.json",
     "governance/manifests/publish.layers.json",
@@ -40,6 +40,12 @@ required = [
     "governance/ingestion/normalized/src.ecohmedia.digital-outbound.normalized.v1.json",
     "governance/ingestion/candidates/enterprise.ecohmedia.src-ecohmedia-digital-outbound.candidate.v1.json",
     "governance/ingestion/review/enterprise.ecohmedia.src-ecohmedia-digital-outbound.candidate.v1.review.v1.json",
+    "foundation/axioms/A-002-authority.md",
+    "foundation/invariants/I-003-governance.md",
+    "foundation/boundaries/L1-core.md",
+    "formal/tla/YAI_KERNEL.tla",
+    "formal/schema/traceability.v1.schema.json",
+    "formal/traceability.v1.json",
 ]
 
 errors = []
@@ -54,11 +60,11 @@ for rel in [r for r in required if r.endswith(".json") and (root / r).exists()]:
     except Exception as exc:
         errors.append(f"invalid json: {rel} ({exc})")
 
-manifest = root / "governance/manifests/law.manifest.json"
+manifest = root / "governance/manifests/governance.manifest.json"
 if manifest.exists():
     payload = json.loads(manifest.read_text(encoding="utf-8"))
     if payload.get("resolution_entrypoints_ref") != "manifests/runtime.entrypoints.json":
-        errors.append("invalid resolution_entrypoints_ref in governance/manifests/law.manifest.json")
+        errors.append("invalid resolution_entrypoints_ref in governance/manifests/governance.manifest.json")
 
 if errors:
     print("governance manifest compatibility: FAIL")
@@ -68,3 +74,10 @@ if errors:
 
 print("governance manifest compatibility: OK")
 PY
+
+python3 "$ROOT/tools/validate/validate_unified_repo_root_framing.py"
+python3 "$ROOT/tools/validate/validate_no_legacy_tooling_references.py"
+python3 "$ROOT/tools/validate/validate_root_topology.py"
+python3 "$ROOT/tools/validate/validate_runtime_core_collapse.py"
+python3 "$ROOT/tools/validate/validate_edge_daemon_collapse.py"
+python3 "$ROOT/tools/validate/validate_orchestration_exec_collapse.py"

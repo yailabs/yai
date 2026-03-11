@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #pragma once
 
-#include <yai/daemon/source_plane_model.h>
+#include <yai/edge/source_plane_model.h>
 
 #define YAI_SOURCE_CONTRACT_TYPE_ENROLL_CALL "yai.source.enroll.call.v1"
 #define YAI_SOURCE_CONTRACT_TYPE_ENROLL_REPLY "yai.source.enroll.reply.v1"

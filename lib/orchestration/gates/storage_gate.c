@@ -5,8 +5,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <yai/exec/storage_gate.h>
-#include <yai/exec/engine_bridge.h>
+#include <yai/orchestration/storage_gate.h>
+#include <yai/orchestration/engine_bridge.h>
 #include "cJSON.h" 
 
 // Registro delle connessioni per il Multi-tenancy (ADR-001)

@@ -5,8 +5,8 @@
 #include "transport.h"
 
 
-#include <yai/exec/storage_gate.h>
-#include <yai/exec/provider_gate.h>
+#include <yai/orchestration/storage_gate.h>
+#include <yai/orchestration/provider_gate.h>
 #include "rpc_router.h"
 
 #include "cJSON.h"

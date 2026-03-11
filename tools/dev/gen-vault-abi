@@ -60,7 +60,7 @@ def render_law_ids(spec: dict, generated: str) -> str:
     lines = [
         "\\* AUTO-GENERATED: vault/vault_abi.json",
         f"\\* Generated: {generated}",
-        "---- MODULE LAW_IDS ----",
+        "---- MODULE GOVERNANCE_IDS ----",
         f"VaultAbiVersion == {spec['version']}",
         f"VaultLayoutBytes == {spec['layout_bytes']}",
         f"VaultHeaderSize == {header['size']}",
@@ -76,10 +76,6 @@ def render_law_ids(spec: dict, generated: str) -> str:
 def pick_default_spec(root: Path) -> Path:
     candidates = [
         root / "governance" / "contracts" / "vault" / "schema" / "vault_abi.json",
-        root.parent / "law" / "contracts" / "vault" / "schema" / "vault_abi.json",
-        root / "embedded" / "law" / "contracts" / "vault" / "schema" / "vault_abi.json",
-        root / "deps" / "law" / "contracts" / "vault" / "schema" / "vault_abi.json",
-        root / "deps" / "law" / "specs" / "vault" / "schema" / "vault_abi.json",
     ]
     for c in candidates:
         if c.exists():
@@ -87,15 +83,19 @@ def pick_default_spec(root: Path) -> Path:
     return candidates[0]
 
 
-def resolve_out_root(out_dir: Path) -> Path:
-    if (out_dir / "governance" / "contracts").exists() or (out_dir / "governance" / "formal").exists():
+def resolve_contract_root(out_dir: Path) -> Path:
+    if (out_dir / "governance" / "contracts").exists():
         return out_dir / "governance"
-    if (out_dir / "contracts").exists() or (out_dir / "formal").exists():
+    if (out_dir / "contracts").exists():
         return out_dir
-    if (out_dir / "law").exists():
-        return out_dir / "law"
-    if (out_dir / "deps" / "law").exists():
-        return out_dir / "deps" / "law"
+    return out_dir / "governance"
+
+
+def resolve_formal_root(out_dir: Path) -> Path:
+    if (out_dir / "formal").exists():
+        return out_dir
+    if (out_dir / "governance" / "formal").exists():
+        return out_dir / "governance"
     return out_dir
 
 
@@ -116,9 +116,10 @@ def main() -> int:
     header_text = render_header(spec, generated)
     law_text = render_law_ids(spec, generated)
 
-    out_root = resolve_out_root(out_dir)
-    header_path = out_root / "contracts" / "vault" / "include" / "yai_vault_abi.h"
-    law_path = out_root / "formal" / "tla" / "LAW_IDS.tla"
+    contracts_root = resolve_contract_root(out_dir)
+    formal_root = resolve_formal_root(out_dir)
+    header_path = contracts_root / "contracts" / "vault" / "include" / "yai_vault_abi.h"
+    law_path = formal_root / "formal" / "tla" / "GOVERNANCE_IDS.tla"
 
     header_path.parent.mkdir(parents=True, exist_ok=True)
     law_path.parent.mkdir(parents=True, exist_ok=True)

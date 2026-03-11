@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-echo "removed: yai-specs-sync is not supported after B10 (embedded shutdown)" >&2
-echo "canonical governance root: $ROOT/governance" >&2
-exit 2

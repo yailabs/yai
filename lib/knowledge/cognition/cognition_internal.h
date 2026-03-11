@@ -25,7 +25,7 @@ int yai_orchestration_plan(const yai_cognition_request_t *request,
                                 size_t steps_cap,
                                 size_t *steps_count_out);
 
-int yai_rag_session_acquire(const yai_session_t *session,
+int yai_rag_session_acquire(const yai_knowledge_session_t *session,
                                  yai_rag_session_state_t **session_out);
 int yai_rag_session_release(yai_rag_session_state_t *session_state);
 

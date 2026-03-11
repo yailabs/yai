@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 GOV_ROOT="$ROOT/governance"
+FORMAL_ROOT="$ROOT/formal"
 
 if [[ ! -d "$GOV_ROOT/contracts" ]]; then
   echo "no contract/schema source found (expected governance/)" >&2
@@ -21,9 +22,9 @@ else
 fi
 
 ACTUAL_HEADER="$GOV_ROOT/contracts/vault/include/yai_vault_abi.h"
-ACTUAL_TLA="$GOV_ROOT/formal/tla/LAW_IDS.tla"
+ACTUAL_TLA="$FORMAL_ROOT/tla/GOVERNANCE_IDS.tla"
 if [[ ! -f "$ACTUAL_HEADER" || ! -f "$ACTUAL_TLA" ]]; then
-  echo "generated targets missing under $GOV_ROOT" >&2
+  echo "generated targets missing under governance/contracts + formal/tla canonical roots" >&2
   exit 2
 fi
 
@@ -33,15 +34,15 @@ cleanup() { rm -rf "$TMP_DIR"; }
 trap cleanup EXIT
 
 if [[ "$GOV_ROOT" == "$ROOT/governance" ]]; then
-  GEN_OUT="$TMP_DIR/governance"
-  mkdir -p "$GEN_OUT/contracts" "$GEN_OUT/formal"
+  GEN_OUT="$TMP_DIR"
+  mkdir -p "$GEN_OUT/governance/contracts" "$GEN_OUT/formal"
   "$GEN" --spec "$SPEC" --out-dir "$GEN_OUT"
   TMP_HEADER="$TMP_DIR/governance/contracts/vault/include/yai_vault_abi.h"
-  TMP_TLA="$TMP_DIR/governance/formal/tla/LAW_IDS.tla"
+  TMP_TLA="$TMP_DIR/formal/tla/GOVERNANCE_IDS.tla"
 else
   "$GEN" --spec "$SPEC" --out-dir "$TMP_DIR"
-  TMP_HEADER="$TMP_DIR/contracts/vault/include/yai_vault_abi.h"
-  TMP_TLA="$TMP_DIR/formal/tla/LAW_IDS.tla"
+  TMP_HEADER="$TMP_DIR/governance/contracts/vault/include/yai_vault_abi.h"
+  TMP_TLA="$TMP_DIR/formal/tla/GOVERNANCE_IDS.tla"
 fi
 
 strip_generated() {
@@ -60,6 +61,6 @@ compare_file() {
 }
 
 compare_file "$ACTUAL_HEADER" "$TMP_HEADER" "yai_vault_abi.h"
-compare_file "$ACTUAL_TLA" "$TMP_TLA" "LAW_IDS.tla"
+compare_file "$ACTUAL_TLA" "$TMP_TLA" "GOVERNANCE_IDS.tla"
 
-echo "ok: generated artifacts match ($GOV_ROOT)"
+echo "ok: generated artifacts match (governance/contracts + formal/tla)"

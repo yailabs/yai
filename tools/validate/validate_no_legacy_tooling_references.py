@@ -13,14 +13,11 @@ FORBIDDEN = [
     "law-embed-sync",
     "law-embed-check",
     "resolve-law-",
+    "yai-law-",
 ]
 
-# Legacy aliases are allowed only as explicit deprecation wrappers.
+# README may mention removed wrappers in historical notes.
 ALLOW_SUBSTR = {
-    "tools/bin/yai-law-sync": ["removed:", "DEPRECATION:"],
-    "tools/bin/yai-specs-sync": ["removed:", "DEPRECATION:"],
-    "tools/bin/yai-law-embed-sync": ["removed:", "DEPRECATION:"],
-    "tools/bin/yai-law-compat-check": ["DEPRECATION:", "yai-governance-compat-check"],
     "tools/bin/README.md": ["removed; hard-fail"],
 }
 

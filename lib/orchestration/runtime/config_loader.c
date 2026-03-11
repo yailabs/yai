@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include <yai/exec/runtime.h>
-#include <yai/exec/provider_gate.h>
+#include <yai/orchestration/runtime.h>
+#include <yai/orchestration/provider_gate.h>
 
 /* Usiamo il nome nudo perché il Makefile ha -I./src/external */
 #include "cJSON.h" 

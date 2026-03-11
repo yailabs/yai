@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <yai/exec/grounding.h>
+#include <yai/orchestration/grounding.h>
 
 #include <yai/data/query.h>
 #include <yai/graph/query.h>

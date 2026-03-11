@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-echo "DEPRECATION: yai-law-compat-check is legacy alias; use yai-governance-compat-check" >&2
-exec "$ROOT/tools/bin/yai-governance-compat-check" "$@"

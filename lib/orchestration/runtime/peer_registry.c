@@ -4,7 +4,7 @@
 #include <string.h>
 #include <time.h>
 
-#include <yai/exec/peer_registry.h>
+#include <yai/orchestration/peer_registry.h>
 
 #define YAI_OWNER_PEER_REGISTRY_MAX 512
 

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include "../../knowledge/cognition/cognition_internal.h"
-#include <yai/exec/grounding.h>
+#include <yai/orchestration/grounding.h>
 
 #include <stdio.h>
 #include <string.h>

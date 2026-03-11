@@ -20,7 +20,7 @@ typedef struct yai_exec_config {
 } yai_exec_config_t;
 
 /* YD-1 boundary lock:
- * - exec mediates owner/daemon source-plane operations
+ * - exec mediates owner/edge source-plane operations
  * - exec is not canonical workspace truth
  * - final truth persists only in owner runtime/data/graph planes
  */

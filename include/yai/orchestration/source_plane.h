@@ -9,7 +9,7 @@ extern "C" {
 /* YD-1 canonical topology lock: distributed acquisition, centralized control. */
 #define YAI_SOURCE_PLANE_TOPOLOGY "distributed-acquisition-centralized-control-v1"
 #define YAI_SOURCE_PLANE_OWNER_RUNTIME "yai"
-#define YAI_SOURCE_PLANE_EDGE_BINARY "yai-daemon"
+#define YAI_SOURCE_PLANE_EDGE_BINARY "yai-edge"
 #define YAI_SOURCE_PLANE_EDGE_ROLE "subordinate-edge-runtime"
 
 /* Returns 1 when owner-runtime centralized control invariant is active. */
@@ -53,7 +53,7 @@ const char *yai_exec_source_plane_route_for_command(const char *command_id);
 
 /*
  * Preflight mediation for source-plane operations.
- * This is the guardrail boundary that keeps source owner/daemon mediation
+ * This is the guardrail boundary that keeps source owner/edge mediation
  * in exec before handing off to owner canonical runtime persistence/truth.
  */
 int yai_exec_source_plane_prepare(const char *command_id,

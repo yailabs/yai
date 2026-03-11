@@ -10,17 +10,13 @@ Behavior:
 - If canonical target is missing, wrapper exits with `2` and prints missing path.
 
 Runtime wrappers kept in this repo:
-- `yai-law-embed-sync` (removed; hard-fail legacy wrapper)
 - `yai-governance-compat-check`
-- `yai-law-compat-check` (deprecated alias)
 - `yai-govern` (governance ingestion/authoring CLI)
 - `yai-govern-ingest-parse`
 - `yai-govern-ingest-normalize`
 - `yai-govern-ingest-build-candidate`
 - `yai-govern-ingest-validate`
 - `yai-govern-ingest-inspect`
-- `yai-law-sync` (removed; hard-fail legacy alias)
-- `yai-specs-sync` (removed; hard-fail legacy alias)
 - `yai-version`
 - `yai-bundle`
 - `yai-changelog-check`
