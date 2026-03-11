@@ -38,6 +38,12 @@ required = [
     "governance/schema/retention.policy.v1.json",
     "governance/schema/containment_metrics.v1.schema.json",
     "governance/schema/verification_report.v1.schema.json",
+    "governance/ingestion/templates/enterprise_governance_source.template.v1.json",
+    "governance/ingestion/sources/src.ecohmedia.digital-outbound.source.v1.json",
+    "governance/ingestion/parsed/src.ecohmedia.digital-outbound.parsed.v1.json",
+    "governance/ingestion/normalized/src.ecohmedia.digital-outbound.normalized.v1.json",
+    "governance/ingestion/candidates/enterprise.ecohmedia.src-ecohmedia-digital-outbound.candidate.v1.json",
+    "governance/ingestion/review/enterprise.ecohmedia.src-ecohmedia-digital-outbound.candidate.v1.review.v1.json",
 ]
 
 errors = []

@@ -83,6 +83,16 @@ int yai_law_compatibility_check(yai_law_runtime_t *rt, char *err, size_t err_cap
     return -1;
   }
 
+  if (yai_law_require_governance_surface(rt, "ingestion/templates/enterprise_governance_source.template.v1.json", json, sizeof(json)) != 0 ||
+      yai_law_require_governance_surface(rt, "ingestion/sources/src.ecohmedia.digital-outbound.source.v1.json", json, sizeof(json)) != 0 ||
+      yai_law_require_governance_surface(rt, "ingestion/parsed/src.ecohmedia.digital-outbound.parsed.v1.json", json, sizeof(json)) != 0 ||
+      yai_law_require_governance_surface(rt, "ingestion/normalized/src.ecohmedia.digital-outbound.normalized.v1.json", json, sizeof(json)) != 0 ||
+      yai_law_require_governance_surface(rt, "ingestion/candidates/enterprise.ecohmedia.src-ecohmedia-digital-outbound.candidate.v1.json", json, sizeof(json)) != 0 ||
+      yai_law_require_governance_surface(rt, "ingestion/review/enterprise.ecohmedia.src-ecohmedia-digital-outbound.candidate.v1.review.v1.json", json, sizeof(json)) != 0) {
+    if (err && err_cap) (void)yai_law_safe_snprintf(err, err_cap, "missing canonical governance ingestion pipeline assets");
+    return -1;
+  }
+
   if (yai_law_require_file(rt, "generated/runtime-resolution-view.json", json, sizeof(json)) != 0) {
     if (err && err_cap) (void)yai_law_safe_snprintf(err, err_cap, "missing generated runtime-resolution-view");
     return -1;

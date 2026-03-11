@@ -1,0 +1,34 @@
+{
+  "kind": "governance_review_state",
+  "schema_version": "v1",
+  "object_id": "enterprise.ecohmedia.src-ecohmedia-digital-outbound.candidate.v1",
+  "lifecycle_state": "withdrawn",
+  "validation_state": "valid",
+  "review_state": "withdrawn",
+  "approval_state": "withdrawn",
+  "approval_conditions": [],
+  "review_notes": [
+    "submit:lifecycle_check"
+  ],
+  "reviewed_by": "validator",
+  "reviewed_at": "2026-03-11T16:19:40+00:00",
+  "approved_by": "validator",
+  "approved_at": "2026-03-11T16:19:40+00:00",
+  "rejected_by": null,
+  "rejected_at": null,
+  "withdrawn_by": "validator",
+  "withdrawn_at": "2026-03-11T16:19:40+00:00",
+  "supersedes_ref": null,
+  "superseded_by_ref": null,
+  "status_reason": "post_check_cleanup",
+  "blockers": [],
+  "warnings": [
+    "unresolved_ambiguities=1",
+    "runtime_consumable_false"
+  ],
+  "next_allowed_actions": [
+    "review.inspect",
+    "review.status"
+  ],
+  "updated_at": "2026-03-11T16:19:51+00:00"
+}

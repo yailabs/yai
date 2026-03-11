@@ -12,6 +12,12 @@ Behavior:
 Runtime wrappers kept in this repo:
 - `yai-law-embed-sync`
 - `yai-law-compat-check`
+- `yai-govern` (governance ingestion/authoring CLI)
+- `yai-govern-ingest-parse`
+- `yai-govern-ingest-normalize`
+- `yai-govern-ingest-build-candidate`
+- `yai-govern-ingest-validate`
+- `yai-govern-ingest-inspect`
 - `law-sync` (legacy alias)
 - `yai-specs-sync` (deprecated alias)
 - `yai-version`

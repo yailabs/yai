@@ -1,0 +1,1190 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import subprocess
+import sys
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Tuple
+
+ROOT = Path(__file__).resolve().parents[2]
+INGESTION = ROOT / "governance" / "ingestion"
+SOURCES_DIR = INGESTION / "sources"
+PARSED_DIR = INGESTION / "parsed"
+NORMALIZED_DIR = INGESTION / "normalized"
+CANDIDATES_DIR = INGESTION / "candidates"
+REVIEW_DIR = INGESTION / "review"
+ENGINE = ROOT / "tools" / "gen" / "deterministic_governance_ingestion.py"
+
+
+@dataclass
+class SourceRecord:
+    path: Path
+    doc: Dict[str, Any]
+
+
+def now_utc() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def read_json(path: Path) -> Dict[str, Any]:
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def write_json(path: Path, payload: Dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=True)
+        f.write("\n")
+
+
+def source_filename(source_id: str) -> str:
+    sid = source_id.replace("/", "_")
+    return f"{sid}.source.v1.json"
+
+
+def safe_id(id_value: str) -> str:
+    return id_value.replace("/", "_")
+
+
+def review_filename(object_id: str) -> str:
+    return f"{safe_id(object_id)}.review.v1.json"
+
+
+def list_sources() -> List[SourceRecord]:
+    selected: Dict[str, SourceRecord] = {}
+    SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+    for p in sorted(SOURCES_DIR.glob("*.json")):
+        try:
+            doc = read_json(p)
+        except Exception:
+            continue
+        if doc.get("kind") != "enterprise_governance_source":
+            continue
+        sid = str(doc.get("source_id", "")).strip()
+        if not sid:
+            continue
+        rec = SourceRecord(path=p, doc=doc)
+        prev = selected.get(sid)
+        if prev is None:
+            selected[sid] = rec
+            continue
+        if p.stat().st_mtime >= prev.path.stat().st_mtime:
+            selected[sid] = rec
+    return [selected[k] for k in sorted(selected.keys())]
+
+
+def find_source_by_id(source_id: str) -> SourceRecord | None:
+    for r in list_sources():
+        if str(r.doc.get("source_id", "")) == source_id:
+            return r
+    return None
+
+
+def list_parsed() -> List[Dict[str, Any]]:
+    PARSED_DIR.mkdir(parents=True, exist_ok=True)
+    rows: List[Dict[str, Any]] = []
+    for p in sorted(PARSED_DIR.glob("*.json")):
+        try:
+            doc = read_json(p)
+        except Exception:
+            continue
+        if doc.get("kind") != "governance_parsed_facts":
+            continue
+        rows.append({"path": p, "doc": doc})
+    return rows
+
+
+def find_parsed_by_source_ref(source_ref: str) -> Dict[str, Any] | None:
+    for row in list_parsed():
+        if str(row["doc"].get("source_ref", "")) == source_ref:
+            return row
+    return None
+
+
+def list_normalized() -> List[Dict[str, Any]]:
+    NORMALIZED_DIR.mkdir(parents=True, exist_ok=True)
+    rows: List[Dict[str, Any]] = []
+    for p in sorted(NORMALIZED_DIR.glob("*.json")):
+        try:
+            doc = read_json(p)
+        except Exception:
+            continue
+        if doc.get("kind") != "enterprise_governance_normalized":
+            continue
+        rows.append({"path": p, "doc": doc})
+    return rows
+
+
+def find_normalized_by_id(normalized_id: str) -> Dict[str, Any] | None:
+    for row in list_normalized():
+        if str(row["doc"].get("normalized_id", "")) == normalized_id:
+            return row
+    return None
+
+
+def find_normalized_by_source(source_id: str) -> Dict[str, Any] | None:
+    for row in list_normalized():
+        srcs = row["doc"].get("source_refs", [])
+        if isinstance(srcs, list) and source_id in srcs:
+            return row
+    return None
+
+
+def list_candidates() -> List[Dict[str, Any]]:
+    CANDIDATES_DIR.mkdir(parents=True, exist_ok=True)
+    rows: List[Dict[str, Any]] = []
+    for p in sorted(CANDIDATES_DIR.glob("*.json")):
+        try:
+            doc = read_json(p)
+        except Exception:
+            continue
+        if doc.get("kind") != "enterprise_custom_governance":
+            continue
+        rows.append({"path": p, "doc": doc})
+    return rows
+
+
+def find_candidate_by_id(candidate_id: str) -> Dict[str, Any] | None:
+    for row in list_candidates():
+        if str(row["doc"].get("id", "")) == candidate_id:
+            return row
+    return None
+
+
+def default_review_state(candidate_doc: Dict[str, Any]) -> Dict[str, Any]:
+    object_id = str(candidate_doc.get("id", "")).strip()
+    validation_state = "valid"
+    if not object_id:
+        object_id = "unknown"
+    return {
+        "kind": "governance_review_state",
+        "schema_version": "v1",
+        "object_id": object_id,
+        "lifecycle_state": "candidate",
+        "validation_state": validation_state,
+        "review_state": str(candidate_doc.get("review_state", "in_review") or "in_review"),
+        "approval_state": "not_approved",
+        "approval_conditions": [],
+        "review_notes": [],
+        "reviewed_by": None,
+        "reviewed_at": None,
+        "approved_by": None,
+        "approved_at": None,
+        "rejected_by": None,
+        "rejected_at": None,
+        "withdrawn_by": None,
+        "withdrawn_at": None,
+        "supersedes_ref": None,
+        "superseded_by_ref": None,
+        "status_reason": "candidate_created",
+        "blockers": [],
+        "warnings": [],
+        "next_allowed_actions": ["review.submit", "review.withdraw", "review.inspect"],
+        "updated_at": now_utc(),
+    }
+
+
+def review_state_path(object_id: str) -> Path:
+    REVIEW_DIR.mkdir(parents=True, exist_ok=True)
+    return REVIEW_DIR / review_filename(object_id)
+
+
+def load_review_state(object_id: str, candidate_doc: Dict[str, Any]) -> Dict[str, Any]:
+    p = review_state_path(object_id)
+    if p.exists():
+        return read_json(p)
+    return default_review_state(candidate_doc)
+
+
+def save_review_state(state_doc: Dict[str, Any]) -> Path:
+    object_id = str(state_doc.get("object_id", "")).strip()
+    if not object_id:
+        raise ValueError("object_id required in review state")
+    p = review_state_path(object_id)
+    write_json(p, state_doc)
+    return p
+
+
+def call_engine(*args: str) -> int:
+    cmd = ["python3", str(ENGINE), *args]
+    return subprocess.call(cmd, cwd=str(ROOT))
+
+
+def print_kv(title: str, rows: List[Tuple[str, str]]) -> None:
+    print(title)
+    print("-" * len(title))
+    for k, v in rows:
+        print(f"  {k:<20} {v}")
+
+
+def collect_import_inputs(paths: Iterable[str]) -> List[Path]:
+    files: List[Path] = []
+    for raw in paths:
+        p = Path(raw).expanduser()
+        if not p.is_absolute():
+            p = (Path.cwd() / p).resolve()
+        if p.is_dir():
+            files.extend(sorted([x for x in p.rglob("*") if x.is_file()]))
+        elif p.is_file():
+            files.append(p)
+    return files
+
+
+def cmd_source_import(args: argparse.Namespace) -> int:
+    files = collect_import_inputs(args.path)
+    accepted = 0
+    rejected = 0
+    warnings: List[str] = []
+    produced_ids: List[str] = []
+    batch_id = datetime.now(timezone.utc).strftime("batch-%Y%m%d-%H%M%S")
+
+    if not files:
+        print("ERR: no files found for import")
+        return 2
+
+    for p in files:
+        suffix = p.suffix.lower()
+        if suffix != ".json":
+            rejected += 1
+            warnings.append(f"{p}: unsupported format ({suffix or 'no_ext'})")
+            continue
+        try:
+            doc = read_json(p)
+        except Exception as exc:
+            rejected += 1
+            warnings.append(f"{p}: invalid json ({exc})")
+            continue
+        if doc.get("kind") != "enterprise_governance_source" or doc.get("schema_version") != "v1":
+            rejected += 1
+            warnings.append(f"{p}: not enterprise_governance_source.v1")
+            continue
+        sid = str(doc.get("source_id", "")).strip()
+        if not sid:
+            rejected += 1
+            warnings.append(f"{p}: missing source_id")
+            continue
+        dst = SOURCES_DIR / source_filename(sid)
+        write_json(dst, doc)
+        accepted += 1
+        produced_ids.append(sid)
+
+    print_kv(
+        "Source import",
+        [
+            ("Batch id", batch_id),
+            ("Files read", str(len(files))),
+            ("Accepted", str(accepted)),
+            ("Rejected", str(rejected)),
+        ],
+    )
+    if produced_ids:
+        print("\nProduced source IDs")
+        for sid in produced_ids:
+            print(f"  - {sid}")
+    if warnings:
+        print("\nWarnings")
+        for w in warnings:
+            print(f"  - {w}")
+    return 0 if accepted > 0 else 3
+
+
+def cmd_source_list(_: argparse.Namespace) -> int:
+    rows = list_sources()
+    print("Sources")
+    print("-------")
+    print(f"{'Source id':<42} {'Format':<20} {'Status':<12} {'Owner':<20}")
+    for r in rows:
+        owner = str(r.doc.get("owner", {}).get("organization_id", "-"))
+        print(
+            f"{str(r.doc.get('source_id','-')):<42} "
+            f"{str(r.doc.get('source_format','-')):<20} "
+            f"{str(r.doc.get('ingestion_status','-')):<12} "
+            f"{owner:<20}"
+        )
+    print(f"\n  Count             {len(rows)}")
+    return 0
+
+
+def cmd_source_inspect(args: argparse.Namespace) -> int:
+    rec = find_source_by_id(args.source_id)
+    if not rec:
+        print(f"ERR: source not found: {args.source_id}", file=sys.stderr)
+        return 3
+    d = rec.doc
+    print_kv(
+        "Source inspect",
+        [
+            ("Source id", str(d.get("source_id", "—"))),
+            ("Source type", str(d.get("source_type", "—"))),
+            ("Title", str(d.get("title", "—"))),
+            ("Owner", str(d.get("owner", {}).get("organization_id", "—"))),
+            ("Declared intent", str(d.get("declared_intent", "—"))),
+            ("Domain targets", ",".join(d.get("domain_targets", []) or ["—"])),
+            ("Specializations", ",".join(d.get("specialization_targets", []) or ["—"])),
+            ("Source format", str(d.get("source_format", "—"))),
+            ("Payload ref", str(d.get("source_payload_ref", "—"))),
+            ("Ingestion status", str(d.get("ingestion_status", "—"))),
+            ("Manifest", str(rec.path.relative_to(ROOT))),
+        ],
+    )
+    return 0
+
+
+def cmd_parse(args: argparse.Namespace) -> int:
+    rec = find_source_by_id(args.source_id)
+    if not rec:
+        print(f"ERR: source not found: {args.source_id}", file=sys.stderr)
+        return 3
+    rc = call_engine("parse", "--source", str(rec.path))
+    if rc != 0:
+        return rc
+    row = find_parsed_by_source_ref(args.source_id)
+    if not row:
+        print("ERR: parsed artifact not found after parse", file=sys.stderr)
+        return 4
+    d = row["doc"]
+    c = d.get("coverage_summary", {})
+    print_kv(
+        "Parse result",
+        [
+            ("Source ref", str(d.get("source_ref", "—"))),
+            ("Parsed facts", str(len(d.get("facts", [])))),
+            ("Unknown types", str(c.get("unknown_fact_types", 0))),
+            ("Invalid items", str(len(d.get("invalid_items", [])))),
+            ("Warnings", str(len(d.get("source_warnings", [])))),
+            ("Parsed file", str(row["path"].relative_to(ROOT))),
+        ],
+    )
+    return 0
+
+
+def cmd_parsed_list(_: argparse.Namespace) -> int:
+    rows = list_parsed()
+    print("Parsed artifacts")
+    print("----------------")
+    print(f"{'Parsed id':<42} {'Facts':<8} {'Unresolved':<10} {'Invalid':<8}")
+    for row in rows:
+        d = row["doc"]
+        print(
+            f"{str(d.get('source_ref','-')):<42} "
+            f"{len(d.get('facts', [])):<8} "
+            f"{len(d.get('unresolved_items', [])):<10} "
+            f"{len(d.get('invalid_items', [])):<8}"
+        )
+    print(f"\n  Count             {len(rows)}")
+    return 0
+
+
+def cmd_parsed_inspect(args: argparse.Namespace) -> int:
+    row = find_parsed_by_source_ref(args.parsed_id)
+    if not row:
+        print(f"ERR: parsed artifact not found: {args.parsed_id}", file=sys.stderr)
+        return 3
+    d = row["doc"]
+    c = d.get("coverage_summary", {})
+    print_kv(
+        "Parsed inspect",
+        [
+            ("Parsed id", str(d.get("source_ref", "—"))),
+            ("Facts", str(len(d.get("facts", [])))),
+            ("Parsed statements", str(c.get("parsed_statements", 0))),
+            ("Unknown fact types", str(c.get("unknown_fact_types", 0))),
+            ("Invalid items", str(len(d.get("invalid_items", [])))),
+            ("Unresolved items", str(len(d.get("unresolved_items", [])))),
+            ("Warnings", str(len(d.get("source_warnings", [])))),
+            ("Artifact", str(row["path"].relative_to(ROOT))),
+        ],
+    )
+    return 0
+
+
+def cmd_normalize(args: argparse.Namespace) -> int:
+    row = find_parsed_by_source_ref(args.parsed_id)
+    if not row:
+        print(f"ERR: parsed artifact not found: {args.parsed_id}", file=sys.stderr)
+        return 3
+    source_ref = str(row["doc"].get("source_ref", ""))
+    rec = find_source_by_id(source_ref)
+    if not rec:
+        print(f"ERR: source not found for parsed artifact: {source_ref}", file=sys.stderr)
+        return 4
+    rc = call_engine("normalize", "--source", str(rec.path))
+    if rc != 0:
+        return rc
+    nrow = find_normalized_by_source(source_ref)
+    if not nrow:
+        print("ERR: normalized artifact not found after normalize", file=sys.stderr)
+        return 5
+    d = nrow["doc"]
+    print_kv(
+        "Normalize result",
+        [
+            ("Normalized id", str(d.get("normalized_id", "—"))),
+            ("Rule candidates", str(len(d.get("rule_candidates", [])))),
+            ("Unresolved", str(len(d.get("unresolved_ambiguities", [])))),
+            ("Conflict hints", str(len(d.get("conflict_hints", [])))),
+            ("Build readiness", str(d.get("build_readiness", "unknown"))),
+            ("Normalized file", str(nrow["path"].relative_to(ROOT))),
+        ],
+    )
+    return 0
+
+
+def cmd_normalized_list(_: argparse.Namespace) -> int:
+    rows = list_normalized()
+    print("Normalized artifacts")
+    print("--------------------")
+    print(f"{'Normalized id':<46} {'Readiness':<20} {'Unresolved':<10} {'Conflicts':<9}")
+    for row in rows:
+        d = row["doc"]
+        print(
+            f"{str(d.get('normalized_id','-')):<46} "
+            f"{str(d.get('build_readiness','-')):<20} "
+            f"{len(d.get('unresolved_ambiguities', [])):<10} "
+            f"{len(d.get('conflict_hints', [])):<9}"
+        )
+    print(f"\n  Count             {len(rows)}")
+    return 0
+
+
+def cmd_normalized_inspect(args: argparse.Namespace) -> int:
+    row = find_normalized_by_id(args.normalized_id)
+    if not row:
+        print(f"ERR: normalized artifact not found: {args.normalized_id}", file=sys.stderr)
+        return 3
+    d = row["doc"]
+    print_kv(
+        "Normalized inspect",
+        [
+            ("Normalized id", str(d.get("normalized_id", "—"))),
+            ("Source refs", ",".join(d.get("source_refs", []) or ["—"])),
+            ("Parsed fact refs", str(len(d.get("parsed_fact_refs", [])))),
+            ("Rule candidates", str(len(d.get("rule_candidates", [])))),
+            ("Authority candidates", str(len(d.get("authority_candidates", [])))),
+            ("Evidence candidates", str(len(d.get("evidence_candidates", [])))),
+            ("Precedence candidates", str(len(d.get("precedence_candidates", [])))),
+            ("Exception candidates", str(len(d.get("exception_candidates", [])))),
+            ("Unresolved ambiguities", str(len(d.get("unresolved_ambiguities", [])))),
+            ("Conflict hints", str(len(d.get("conflict_hints", [])))),
+            ("Build readiness", str(d.get("build_readiness", "unknown"))),
+            ("Artifact", str(row["path"].relative_to(ROOT))),
+        ],
+    )
+    return 0
+
+
+def cmd_build(args: argparse.Namespace) -> int:
+    row = find_normalized_by_id(args.normalized_id)
+    if not row:
+        print(f"ERR: normalized artifact not found: {args.normalized_id}", file=sys.stderr)
+        return 3
+    srcs = row["doc"].get("source_refs", [])
+    if not isinstance(srcs, list) or not srcs:
+        print("ERR: normalized artifact missing source_refs", file=sys.stderr)
+        return 4
+    rec = find_source_by_id(str(srcs[0]))
+    if not rec:
+        print(f"ERR: source not found: {srcs[0]}", file=sys.stderr)
+        return 5
+    rc = call_engine("build-candidate", "--source", str(rec.path))
+    if rc != 0:
+        return rc
+    candidate = None
+    for crow in list_candidates():
+        prov = crow["doc"].get("provenance", {})
+        if str(prov.get("source_ref", "")) == str(rec.path.relative_to(ROOT)):
+            candidate = crow
+            break
+    if not candidate:
+        print("ERR: candidate artifact not found after build", file=sys.stderr)
+        return 6
+    d = candidate["doc"]
+    print_kv(
+        "Build result",
+        [
+            ("Candidate id", str(d.get("id", "—"))),
+            ("Status", str(d.get("status", "—"))),
+            ("Review state", str(d.get("review_state", "—"))),
+            ("Runtime consumable", "yes" if d.get("runtime_consumable") else "no"),
+            ("Artifact", str(candidate["path"].relative_to(ROOT))),
+        ],
+    )
+    return 0
+
+
+def cmd_candidate_list(_: argparse.Namespace) -> int:
+    rows = list_candidates()
+    print("Candidate objects")
+    print("-----------------")
+    print(f"{'Candidate id':<72} {'Review':<12} {'Runtime':<8}")
+    for row in rows:
+        d = row["doc"]
+        print(
+            f"{str(d.get('id','-')):<72} "
+            f"{str(d.get('review_state','-')):<12} "
+            f"{('yes' if d.get('runtime_consumable') else 'no'):<8}"
+        )
+    print(f"\n  Count             {len(rows)}")
+    return 0
+
+
+def cmd_candidate_inspect(args: argparse.Namespace) -> int:
+    row = find_candidate_by_id(args.candidate_id)
+    if not row:
+        print(f"ERR: candidate not found: {args.candidate_id}", file=sys.stderr)
+        return 3
+    d = row["doc"]
+    print_kv(
+        "Candidate inspect",
+        [
+            ("Candidate id", str(d.get("id", "—"))),
+            ("Owner", str(d.get("owner", {}).get("organization_id", "—"))),
+            ("Workspace targets", ",".join(d.get("workspace_targets", []) or ["—"])),
+            ("Domain targets", ",".join(d.get("domain_targets", []) or ["—"])),
+            ("Specializations", ",".join(d.get("specialization_targets", []) or ["—"])),
+            ("Policy refs", str(len(d.get("policy_refs", [])))),
+            ("Authority profile", str(d.get("authority_profile", {}).get("mode", "—"))),
+            ("Evidence profile", str(d.get("evidence_profile", {}).get("mode", "—"))),
+            ("Status", str(d.get("status", "—"))),
+            ("Review state", str(d.get("review_state", "—"))),
+            ("Runtime consumable", "yes" if d.get("runtime_consumable") else "no"),
+            ("Provenance source", str(d.get("provenance", {}).get("source_ref", "—"))),
+            ("Artifact", str(row["path"].relative_to(ROOT))),
+        ],
+    )
+    return 0
+
+
+def cmd_validate(args: argparse.Namespace) -> int:
+    row = find_candidate_by_id(args.candidate_id)
+    if not row:
+        print(f"ERR: candidate not found: {args.candidate_id}", file=sys.stderr)
+        return 3
+    src_ref = str(row["doc"].get("provenance", {}).get("source_ref", "")).strip()
+    if not src_ref:
+        print("ERR: candidate missing provenance source_ref", file=sys.stderr)
+        return 4
+    src_path = ROOT / src_ref
+    if not src_path.exists():
+        print(f"ERR: source manifest not found: {src_ref}", file=sys.stderr)
+        return 5
+    rc = call_engine("validate", "--source", str(src_path))
+    if rc != 0:
+        return rc
+    print_kv(
+        "Validation summary",
+        [
+            ("Candidate id", args.candidate_id),
+            ("Result", "ok"),
+            ("Next action", "review candidate or resolve unresolved ambiguities"),
+        ],
+    )
+    return 0
+
+
+def cmd_diff(args: argparse.Namespace) -> int:
+    left = find_candidate_by_id(args.candidate_id)
+    if not left:
+        print(f"ERR: candidate not found: {args.candidate_id}", file=sys.stderr)
+        return 3
+    right = find_candidate_by_id(args.against)
+    if not right:
+        print(f"ERR: candidate not found: {args.against}", file=sys.stderr)
+        return 3
+    l = left["doc"]
+    r = right["doc"]
+    keys = [
+        "workspace_targets",
+        "domain_targets",
+        "specialization_targets",
+        "policy_refs",
+        "overlay_refs",
+        "authority_profile",
+        "evidence_profile",
+        "review_state",
+        "runtime_consumable",
+        "status",
+    ]
+    print("Candidate diff")
+    print("--------------")
+    print(f"  Left              {args.candidate_id}")
+    print(f"  Right             {args.against}\n")
+    changed = 0
+    for k in keys:
+        if l.get(k) == r.get(k):
+            continue
+        changed += 1
+        print(f"- {k}")
+        print(f"  left:  {json.dumps(l.get(k), ensure_ascii=True)}")
+        print(f"  right: {json.dumps(r.get(k), ensure_ascii=True)}")
+    if changed == 0:
+        print("No differences in tracked governance fields.")
+    return 0
+
+
+ALLOWED_TRANSITIONS: Dict[str, List[str]] = {
+    "candidate": ["validated_candidate", "review_ready", "under_review", "withdrawn"],
+    "validated_candidate": ["review_ready", "under_review", "withdrawn"],
+    "review_ready": ["under_review", "withdrawn"],
+    "under_review": ["approved", "rejected", "withdrawn"],
+    "approved": ["apply_eligible", "superseded", "retired", "withdrawn"],
+    "apply_eligible": ["applied", "superseded", "retired", "withdrawn"],
+    "applied": ["superseded", "retired", "withdrawn"],
+    "rejected": ["withdrawn"],
+    "withdrawn": [],
+    "superseded": [],
+    "retired": [],
+}
+
+
+def review_readiness(candidate_doc: Dict[str, Any], normalized_doc: Dict[str, Any] | None) -> Tuple[List[str], List[str]]:
+    blockers: List[str] = []
+    warnings: List[str] = []
+    workspace_targets = candidate_doc.get("workspace_targets", [])
+    domain_targets = candidate_doc.get("domain_targets", [])
+    policy_refs = candidate_doc.get("policy_refs", [])
+    if not isinstance(workspace_targets, list):
+        workspace_targets = []
+    if not isinstance(domain_targets, list):
+        domain_targets = []
+    if not isinstance(policy_refs, list):
+        policy_refs = []
+    if not workspace_targets and not domain_targets:
+        blockers.append("missing_target_scope")
+    if len(policy_refs) == 0:
+        blockers.append("missing_policy_refs")
+    if not bool(candidate_doc.get("provenance", {}).get("source_ref", "")):
+        blockers.append("missing_provenance_source_ref")
+    if normalized_doc is not None:
+        unresolved = normalized_doc.get("unresolved_ambiguities", [])
+        if isinstance(unresolved, list) and unresolved:
+            warnings.append(f"unresolved_ambiguities={len(unresolved)}")
+        conflicts = normalized_doc.get("conflict_hints", [])
+        if isinstance(conflicts, list) and conflicts:
+            blockers.append(f"conflict_hints={len(conflicts)}")
+        if str(normalized_doc.get("build_readiness", "")) == "blocked":
+            blockers.append("normalized_build_readiness_blocked")
+    if not bool(candidate_doc.get("runtime_consumable", False)):
+        warnings.append("runtime_consumable_false")
+    return blockers, warnings
+
+
+def apply_eligibility(candidate_doc: Dict[str, Any], state_doc: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    blockers: List[str] = []
+    if str(state_doc.get("approval_state", "not_approved")) != "approved":
+        blockers.append("approval_state_not_approved")
+    if str(state_doc.get("lifecycle_state", "")) not in ("approved", "apply_eligible", "applied"):
+        blockers.append("lifecycle_not_approved")
+    if str(candidate_doc.get("status", "")) not in ("approved", "applied", "active"):
+        blockers.append("candidate_status_not_attachable")
+    if str(candidate_doc.get("review_state", "")) != "approved":
+        blockers.append("candidate_review_state_not_approved")
+    if not bool(candidate_doc.get("runtime_consumable", False)):
+        blockers.append("candidate_not_runtime_consumable")
+    return len(blockers) == 0, blockers
+
+
+def allowed_actions_for_state(state_value: str) -> List[str]:
+    nxt = ALLOWED_TRANSITIONS.get(state_value, [])
+    out = ["review.inspect", "review.status"]
+    for target in nxt:
+        if target == "under_review":
+            out.append("review.submit")
+        elif target == "approved":
+            out.append("review.approve")
+        elif target == "rejected":
+            out.append("review.reject")
+        elif target == "withdrawn":
+            out.append("review.withdraw")
+        else:
+            out.append(f"lifecycle.move:{target}")
+    return out
+
+
+def transition_state(current: str, target: str) -> Tuple[bool, str]:
+    allowed = ALLOWED_TRANSITIONS.get(current, [])
+    if target in allowed:
+        return True, ""
+    return False, f"transition_not_allowed:{current}->{target}"
+
+
+def find_normalized_for_candidate(candidate_doc: Dict[str, Any]) -> Dict[str, Any] | None:
+    src_ref = str(candidate_doc.get("provenance", {}).get("source_ref", "")).strip()
+    if not src_ref:
+        return None
+    src_path = ROOT / src_ref
+    if not src_path.exists():
+        return None
+    try:
+        src_doc = read_json(src_path)
+    except Exception:
+        return None
+    sid = str(src_doc.get("source_id", "")).strip()
+    if not sid:
+        return None
+    row = find_normalized_by_source(sid)
+    return row["doc"] if row else None
+
+
+def persist_candidate_review_fields(candidate_row: Dict[str, Any], state_doc: Dict[str, Any]) -> None:
+    d = candidate_row["doc"]
+    lifecycle_state = str(state_doc.get("lifecycle_state", "candidate"))
+    approval_state = str(state_doc.get("approval_state", "not_approved"))
+    if lifecycle_state in ("approved", "apply_eligible", "applied") and approval_state == "approved":
+        d["status"] = "approved" if lifecycle_state != "applied" else "applied"
+        d["review_state"] = "approved"
+        d["runtime_consumable"] = True
+    elif lifecycle_state == "rejected":
+        d["status"] = "rejected"
+        d["review_state"] = "rejected"
+        d["runtime_consumable"] = False
+    elif lifecycle_state == "withdrawn":
+        d["status"] = "withdrawn"
+        d["review_state"] = "withdrawn"
+        d["runtime_consumable"] = False
+    elif lifecycle_state == "superseded":
+        d["status"] = "superseded"
+        d["review_state"] = "superseded"
+        d["runtime_consumable"] = False
+    elif lifecycle_state in ("candidate", "validated_candidate", "review_ready", "under_review"):
+        d["status"] = "candidate"
+        d["review_state"] = "in_review" if lifecycle_state in ("candidate", "validated_candidate", "review_ready", "under_review") else d.get("review_state", "in_review")
+        d["runtime_consumable"] = False
+    write_json(candidate_row["path"], d)
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    ident = args.identifier
+    source = find_source_by_id(ident)
+    parsed = find_parsed_by_source_ref(ident) if source else None
+    normalized = find_normalized_by_source(ident) if source else None
+    candidate = None
+    if source:
+        src_ref = str(source.path.relative_to(ROOT))
+        for crow in list_candidates():
+            if str(crow["doc"].get("provenance", {}).get("source_ref", "")) == src_ref:
+                candidate = crow
+                break
+    else:
+        candidate = find_candidate_by_id(ident)
+        if candidate:
+            src_ref = str(candidate["doc"].get("provenance", {}).get("source_ref", ""))
+            if src_ref and (ROOT / src_ref).exists():
+                sdoc = read_json(ROOT / src_ref)
+                source = SourceRecord(path=ROOT / src_ref, doc=sdoc)
+                parsed = find_parsed_by_source_ref(str(sdoc.get("source_id", "")))
+                normalized = find_normalized_by_source(str(sdoc.get("source_id", "")))
+
+    if not source and not candidate:
+        print(f"ERR: unknown source/candidate id: {ident}", file=sys.stderr)
+        return 3
+
+    stage = "source"
+    if candidate:
+        stage = "candidate"
+    elif normalized:
+        stage = "normalized"
+    elif parsed:
+        stage = "parsed"
+
+    blockers: List[str] = []
+    readiness = "pending"
+    lifecycle = "none"
+    apply_ready = "no"
+    if normalized:
+        unresolved = len(normalized["doc"].get("unresolved_ambiguities", []))
+        conflicts = len(normalized["doc"].get("conflict_hints", []))
+        if unresolved:
+            blockers.append(f"unresolved_ambiguities={unresolved}")
+        if conflicts:
+            blockers.append(f"conflict_hints={conflicts}")
+    if candidate:
+        if not bool(candidate["doc"].get("runtime_consumable", False)):
+            blockers.append("candidate_not_runtime_consumable")
+        readiness = str(candidate["doc"].get("review_state", "in_review"))
+        state = load_review_state(str(candidate["doc"].get("id", "")), candidate["doc"])
+        lifecycle = str(state.get("lifecycle_state", "candidate"))
+        apply_ok, apply_blockers = apply_eligibility(candidate["doc"], state)
+        apply_ready = "yes" if apply_ok else "no"
+        blockers.extend([b for b in apply_blockers if b not in blockers])
+    elif normalized:
+        readiness = str(normalized["doc"].get("build_readiness", "ready_with_review"))
+    elif parsed:
+        readiness = "ready_for_normalize"
+    else:
+        readiness = "ready_for_parse"
+
+    print_kv(
+        "Governance pipeline status",
+        [
+            ("Identifier", ident),
+            ("Current stage", stage),
+            ("Source id", str(source.doc.get("source_id", "—")) if source else "—"),
+            ("Validation state", "ok"),
+            ("Readiness", readiness),
+            ("Lifecycle state", lifecycle),
+            ("Apply eligible", apply_ready),
+            ("Blockers", ", ".join(blockers) if blockers else "none"),
+            ("Next action", "parse/normalize/build/validate"),
+        ],
+    )
+    return 0
+
+
+def cmd_review_status(args: argparse.Namespace) -> int:
+    row = find_candidate_by_id(args.object_id)
+    if not row:
+        print(f"ERR: candidate not found: {args.object_id}", file=sys.stderr)
+        return 3
+    candidate_doc = row["doc"]
+    normalized_doc = find_normalized_for_candidate(candidate_doc)
+    state = load_review_state(args.object_id, candidate_doc)
+    blockers, warnings = review_readiness(candidate_doc, normalized_doc)
+    apply_ok, apply_blockers = apply_eligibility(candidate_doc, state)
+    lifecycle = str(state.get("lifecycle_state", "candidate"))
+    state["blockers"] = blockers
+    state["warnings"] = warnings
+    state["next_allowed_actions"] = allowed_actions_for_state(lifecycle)
+    state["updated_at"] = now_utc()
+    save_review_state(state)
+    print_kv(
+        "Governance review status",
+        [
+            ("Object id", args.object_id),
+            ("Lifecycle state", lifecycle),
+            ("Validation state", str(state.get("validation_state", "unknown"))),
+            ("Review state", str(state.get("review_state", "unknown"))),
+            ("Approval state", str(state.get("approval_state", "not_approved"))),
+            ("Blockers", ", ".join(blockers) if blockers else "none"),
+            ("Warnings", ", ".join(warnings) if warnings else "none"),
+            ("Apply eligible", "yes" if apply_ok else "no"),
+            ("Apply blockers", ", ".join(apply_blockers) if apply_blockers else "none"),
+            ("Next actions", ", ".join(state.get("next_allowed_actions", [])) or "none"),
+        ],
+    )
+    return 0
+
+
+def cmd_review_inspect(args: argparse.Namespace) -> int:
+    row = find_candidate_by_id(args.object_id)
+    if not row:
+        print(f"ERR: candidate not found: {args.object_id}", file=sys.stderr)
+        return 3
+    state = load_review_state(args.object_id, row["doc"])
+    print(json.dumps(state, indent=2, ensure_ascii=True))
+    return 0
+
+
+def cmd_review_submit(args: argparse.Namespace) -> int:
+    row = find_candidate_by_id(args.object_id)
+    if not row:
+        print(f"ERR: candidate not found: {args.object_id}", file=sys.stderr)
+        return 3
+    candidate_doc = row["doc"]
+    normalized_doc = find_normalized_for_candidate(candidate_doc)
+    state = load_review_state(args.object_id, candidate_doc)
+    blockers, warnings = review_readiness(candidate_doc, normalized_doc)
+    if blockers:
+        state["blockers"] = blockers
+        state["warnings"] = warnings
+        state["status_reason"] = "review_readiness_blocked"
+        state["next_allowed_actions"] = ["review.inspect", "review.withdraw"]
+        state["updated_at"] = now_utc()
+        save_review_state(state)
+        print_kv(
+            "Review submit blocked",
+            [
+                ("Object id", args.object_id),
+                ("Blockers", ", ".join(blockers)),
+                ("Warnings", ", ".join(warnings) if warnings else "none"),
+            ],
+        )
+        return 4
+    current = str(state.get("lifecycle_state", "candidate"))
+    target = "under_review"
+    ok, reason = transition_state(current, target)
+    if not ok:
+        print(f"ERR: {reason}", file=sys.stderr)
+        return 5
+    state["lifecycle_state"] = target
+    state["validation_state"] = "valid"
+    state["review_state"] = "under_review"
+    state["approval_state"] = "not_approved"
+    state["reviewed_by"] = args.by
+    state["reviewed_at"] = now_utc()
+    state["review_notes"] = list(state.get("review_notes", [])) + [f"submit:{args.note or 'no-note'}"]
+    state["blockers"] = []
+    state["warnings"] = warnings
+    state["status_reason"] = "submitted_for_review"
+    state["next_allowed_actions"] = allowed_actions_for_state(target)
+    state["updated_at"] = now_utc()
+    save_review_state(state)
+    persist_candidate_review_fields(row, state)
+    print_kv(
+        "Review submitted",
+        [
+            ("Object id", args.object_id),
+            ("Lifecycle state", target),
+            ("Reviewed by", args.by),
+            ("Warnings", ", ".join(warnings) if warnings else "none"),
+        ],
+    )
+    return 0
+
+
+def cmd_review_approve(args: argparse.Namespace) -> int:
+    row = find_candidate_by_id(args.object_id)
+    if not row:
+        print(f"ERR: candidate not found: {args.object_id}", file=sys.stderr)
+        return 3
+    state = load_review_state(args.object_id, row["doc"])
+    current = str(state.get("lifecycle_state", "candidate"))
+    ok, reason = transition_state(current, "approved")
+    if not ok:
+        print(f"ERR: {reason}", file=sys.stderr)
+        return 5
+    state["lifecycle_state"] = "approved"
+    state["review_state"] = "approved"
+    state["approval_state"] = "approved"
+    state["approved_by"] = args.by
+    state["approved_at"] = now_utc()
+    state["approval_conditions"] = args.condition or []
+    state["status_reason"] = "approved"
+    state["next_allowed_actions"] = allowed_actions_for_state("approved")
+    state["updated_at"] = now_utc()
+    if not state["approval_conditions"]:
+        ok_apply, blockers = apply_eligibility(row["doc"], state)
+        if ok_apply:
+            ok2, _ = transition_state("approved", "apply_eligible")
+            if ok2:
+                state["lifecycle_state"] = "apply_eligible"
+                state["status_reason"] = "approved_and_apply_eligible"
+        else:
+            state["blockers"] = blockers
+    else:
+        state["status_reason"] = "approval_with_conditions"
+        state["blockers"] = ["approval_conditions_pending"]
+    save_review_state(state)
+    persist_candidate_review_fields(row, state)
+    print_kv(
+        "Review approved",
+        [
+            ("Object id", args.object_id),
+            ("Lifecycle state", str(state.get("lifecycle_state", "approved"))),
+            ("Approval state", "approved"),
+            ("Approved by", args.by),
+            ("Conditions", ", ".join(args.condition) if args.condition else "none"),
+        ],
+    )
+    return 0
+
+
+def cmd_review_reject(args: argparse.Namespace) -> int:
+    row = find_candidate_by_id(args.object_id)
+    if not row:
+        print(f"ERR: candidate not found: {args.object_id}", file=sys.stderr)
+        return 3
+    state = load_review_state(args.object_id, row["doc"])
+    current = str(state.get("lifecycle_state", "candidate"))
+    ok, reason = transition_state(current, "rejected")
+    if not ok:
+        print(f"ERR: {reason}", file=sys.stderr)
+        return 5
+    state["lifecycle_state"] = "rejected"
+    state["review_state"] = "rejected"
+    state["approval_state"] = "rejected"
+    state["rejected_by"] = args.by
+    state["rejected_at"] = now_utc()
+    state["status_reason"] = args.reason or "rejected_in_review"
+    state["next_allowed_actions"] = allowed_actions_for_state("rejected")
+    state["updated_at"] = now_utc()
+    save_review_state(state)
+    persist_candidate_review_fields(row, state)
+    print_kv(
+        "Review rejected",
+        [
+            ("Object id", args.object_id),
+            ("Lifecycle state", "rejected"),
+            ("Rejected by", args.by),
+            ("Reason", state["status_reason"]),
+        ],
+    )
+    return 0
+
+
+def cmd_review_withdraw(args: argparse.Namespace) -> int:
+    row = find_candidate_by_id(args.object_id)
+    if not row:
+        print(f"ERR: candidate not found: {args.object_id}", file=sys.stderr)
+        return 3
+    state = load_review_state(args.object_id, row["doc"])
+    current = str(state.get("lifecycle_state", "candidate"))
+    ok, reason = transition_state(current, "withdrawn")
+    if not ok:
+        print(f"ERR: {reason}", file=sys.stderr)
+        return 5
+    state["lifecycle_state"] = "withdrawn"
+    state["review_state"] = "withdrawn"
+    state["approval_state"] = "withdrawn"
+    state["withdrawn_by"] = args.by
+    state["withdrawn_at"] = now_utc()
+    state["status_reason"] = args.reason or "withdrawn"
+    state["next_allowed_actions"] = allowed_actions_for_state("withdrawn")
+    state["updated_at"] = now_utc()
+    save_review_state(state)
+    persist_candidate_review_fields(row, state)
+    print_kv(
+        "Review withdrawn",
+        [
+            ("Object id", args.object_id),
+            ("Lifecycle state", "withdrawn"),
+            ("Withdrawn by", args.by),
+            ("Reason", state["status_reason"]),
+        ],
+    )
+    return 0
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="yai-govern",
+        description="Governance parsing and authoring CLI surface (deterministic pipeline)",
+    )
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    source = sub.add_parser("source")
+    source_sub = source.add_subparsers(dest="source_cmd", required=True)
+    s_import = source_sub.add_parser("import")
+    s_import.add_argument("--path", action="append", required=True, help="source file or directory")
+    source_sub.add_parser("list")
+    s_inspect = source_sub.add_parser("inspect")
+    s_inspect.add_argument("source_id")
+
+    parse = sub.add_parser("parse")
+    parse.add_argument("source_id")
+
+    parsed = sub.add_parser("parsed")
+    parsed_sub = parsed.add_subparsers(dest="parsed_cmd", required=True)
+    parsed_sub.add_parser("list")
+    p_inspect = parsed_sub.add_parser("inspect")
+    p_inspect.add_argument("parsed_id")
+
+    normalize = sub.add_parser("normalize")
+    normalize.add_argument("parsed_id")
+
+    normalized = sub.add_parser("normalized")
+    normalized_sub = normalized.add_subparsers(dest="normalized_cmd", required=True)
+    normalized_sub.add_parser("list")
+    n_inspect = normalized_sub.add_parser("inspect")
+    n_inspect.add_argument("normalized_id")
+
+    build = sub.add_parser("build")
+    build.add_argument("normalized_id")
+
+    candidate = sub.add_parser("candidate")
+    candidate_sub = candidate.add_subparsers(dest="candidate_cmd", required=True)
+    candidate_sub.add_parser("list")
+    c_inspect = candidate_sub.add_parser("inspect")
+    c_inspect.add_argument("candidate_id")
+
+    validate = sub.add_parser("validate")
+    validate.add_argument("candidate_id")
+
+    diff = sub.add_parser("diff")
+    diff.add_argument("candidate_id")
+    diff.add_argument("--against", required=True)
+
+    status = sub.add_parser("status")
+    status.add_argument("identifier")
+
+    review = sub.add_parser("review")
+    review_sub = review.add_subparsers(dest="review_cmd", required=True)
+    r_status = review_sub.add_parser("status")
+    r_status.add_argument("object_id")
+    r_inspect = review_sub.add_parser("inspect")
+    r_inspect.add_argument("object_id")
+    r_submit = review_sub.add_parser("submit")
+    r_submit.add_argument("object_id")
+    r_submit.add_argument("--by", default="operator")
+    r_submit.add_argument("--note", default="")
+    r_approve = review_sub.add_parser("approve")
+    r_approve.add_argument("object_id")
+    r_approve.add_argument("--by", default="reviewer")
+    r_approve.add_argument("--condition", action="append")
+    r_reject = review_sub.add_parser("reject")
+    r_reject.add_argument("object_id")
+    r_reject.add_argument("--by", default="reviewer")
+    r_reject.add_argument("--reason", default="")
+    r_withdraw = review_sub.add_parser("withdraw")
+    r_withdraw.add_argument("object_id")
+    r_withdraw.add_argument("--by", default="owner")
+    r_withdraw.add_argument("--reason", default="")
+
+    return p
+
+
+def dispatch(args: argparse.Namespace) -> int:
+    if args.cmd == "source":
+        if args.source_cmd == "import":
+            return cmd_source_import(args)
+        if args.source_cmd == "list":
+            return cmd_source_list(args)
+        if args.source_cmd == "inspect":
+            return cmd_source_inspect(args)
+    if args.cmd == "parse":
+        return cmd_parse(args)
+    if args.cmd == "parsed":
+        if args.parsed_cmd == "list":
+            return cmd_parsed_list(args)
+        if args.parsed_cmd == "inspect":
+            return cmd_parsed_inspect(args)
+    if args.cmd == "normalize":
+        return cmd_normalize(args)
+    if args.cmd == "normalized":
+        if args.normalized_cmd == "list":
+            return cmd_normalized_list(args)
+        if args.normalized_cmd == "inspect":
+            return cmd_normalized_inspect(args)
+    if args.cmd == "build":
+        return cmd_build(args)
+    if args.cmd == "candidate":
+        if args.candidate_cmd == "list":
+            return cmd_candidate_list(args)
+        if args.candidate_cmd == "inspect":
+            return cmd_candidate_inspect(args)
+    if args.cmd == "validate":
+        return cmd_validate(args)
+    if args.cmd == "diff":
+        return cmd_diff(args)
+    if args.cmd == "status":
+        return cmd_status(args)
+    if args.cmd == "review":
+        if args.review_cmd == "status":
+            return cmd_review_status(args)
+        if args.review_cmd == "inspect":
+            return cmd_review_inspect(args)
+        if args.review_cmd == "submit":
+            return cmd_review_submit(args)
+        if args.review_cmd == "approve":
+            return cmd_review_approve(args)
+        if args.review_cmd == "reject":
+            return cmd_review_reject(args)
+        if args.review_cmd == "withdraw":
+            return cmd_review_withdraw(args)
+    return 2
+
+
+def main(argv: List[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    return dispatch(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

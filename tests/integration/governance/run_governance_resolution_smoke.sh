@@ -15,4 +15,6 @@ for t in test_d1_resolution test_d8_resolution test_economic_resolution test_ove
   "$OUT_DIR/$t"
 done
 
+"$ROOT/tests/integration/governance/test_ingestion_pipeline.sh"
+
 echo "governance_resolution_smoke: ok"

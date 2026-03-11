@@ -1,0 +1,139 @@
+{
+  "kind": "enterprise_governance_normalized",
+  "schema_version": "v1",
+  "normalized_id": "norm.src-ecohmedia-digital-outbound",
+  "source_refs": [
+    "src.ecohmedia.digital-outbound"
+  ],
+  "parsed_fact_refs": [
+    "fact-0001",
+    "fact-0002",
+    "fact-0003",
+    "fact-0004",
+    "fact-0005",
+    "fact-0006",
+    "fact-0007",
+    "fact-0008"
+  ],
+  "organization_scope": {
+    "organization_ids": [
+      "ecohmedia"
+    ],
+    "environment_classes": [
+      "production",
+      "staging"
+    ],
+    "session_scope": "workspace-bound"
+  },
+  "workspace_targets": [
+    "ws_digital_outbound_prod",
+    "ws_digital_outbound_stage"
+  ],
+  "domain_targets": [
+    "digital"
+  ],
+  "specialization_targets": [
+    "remote-publication",
+    "artifact-distribution"
+  ],
+  "rule_candidates": [
+    {
+      "source_fact_ref": "fact-0001",
+      "fact_type": "review_required",
+      "action": "publication",
+      "target": "external_sink",
+      "mode": null,
+      "severity": null
+    },
+    {
+      "source_fact_ref": "fact-0002",
+      "fact_type": "sink_restricted",
+      "action": null,
+      "target": "external_untrusted",
+      "mode": null,
+      "severity": "high"
+    },
+    {
+      "source_fact_ref": "fact-0003",
+      "fact_type": "evidence_required",
+      "action": null,
+      "target": null,
+      "mode": null,
+      "severity": null
+    },
+    {
+      "source_fact_ref": "fact-0004",
+      "fact_type": "evidence_required",
+      "action": null,
+      "target": null,
+      "mode": null,
+      "severity": null
+    },
+    {
+      "source_fact_ref": "fact-0005",
+      "fact_type": "contract_required",
+      "action": null,
+      "target": null,
+      "mode": null,
+      "severity": null
+    },
+    {
+      "source_fact_ref": "fact-0006",
+      "fact_type": "authority_escalation",
+      "action": null,
+      "target": null,
+      "mode": null,
+      "severity": null
+    },
+    {
+      "source_fact_ref": "fact-0007",
+      "fact_type": "publication_restriction",
+      "action": null,
+      "target": null,
+      "mode": "deny_without_contract",
+      "severity": null
+    },
+    {
+      "source_fact_ref": "fact-0008",
+      "fact_type": "distribution_restriction",
+      "action": null,
+      "target": null,
+      "mode": "quarantine_untrusted_sink",
+      "severity": null
+    }
+  ],
+  "authority_candidates": [
+    {
+      "source_fact_ref": "fact-0006",
+      "role": "risk_controller",
+      "reason": "escalated_authority"
+    }
+  ],
+  "evidence_candidates": [
+    {
+      "source_fact_ref": "fact-0003",
+      "evidence": "destination_trace",
+      "required": true
+    },
+    {
+      "source_fact_ref": "fact-0004",
+      "evidence": "review_record",
+      "required": true
+    }
+  ],
+  "precedence_candidates": [],
+  "exception_candidates": [],
+  "apply_mode_hints": [
+    "workspace_attach"
+  ],
+  "unresolved_ambiguities": [
+    {
+      "reason": "missing_precedence_hint",
+      "suggested_mode": "specialization+overlays+enterprise-object"
+    }
+  ],
+  "conflict_hints": [],
+  "build_readiness": "ready_with_review",
+  "notes": "Controlled intake grammar source",
+  "generated_at": "2026-03-11T16:19:50+00:00"
+}
