@@ -42,6 +42,9 @@
 #define YAI_SOURCE_RECORD_CLASS_MESH_PEER_AWARENESS "mesh_peer_awareness"
 #define YAI_SOURCE_RECORD_CLASS_MESH_PEER_LEGITIMACY "mesh_peer_legitimacy"
 #define YAI_SOURCE_RECORD_CLASS_MESH_AUTHORITY_SCOPE "mesh_authority_scope"
+#define YAI_SOURCE_RECORD_CLASS_MESH_TRANSPORT_ENDPOINT "mesh_transport_endpoint"
+#define YAI_SOURCE_RECORD_CLASS_MESH_TRANSPORT_PATH_STATE "mesh_transport_path_state"
+#define YAI_SOURCE_RECORD_CLASS_MESH_TRANSPORT_CHANNEL_STATE "mesh_transport_channel_state"
 
 typedef enum yai_source_contract_operation {
   YAI_SOURCE_CONTRACT_INVALID = 0,
@@ -291,6 +294,44 @@ typedef struct yai_source_mesh_authority_scope {
   char revoke_state[YAI_SOURCE_STATUS_MAX];
   int64_t refreshed_at_epoch;
 } yai_source_mesh_authority_scope_t;
+
+typedef struct yai_source_mesh_transport_endpoint {
+  char mesh_transport_endpoint_id[YAI_SOURCE_REF_MAX];
+  char mesh_id[YAI_SOURCE_REF_MAX];
+  char mesh_node_id[YAI_SOURCE_NODE_ID_MAX];
+  char owner_workspace_id[YAI_SOURCE_WORKSPACE_ID_MAX];
+  char endpoint_role[YAI_SOURCE_KIND_MAX];
+  char endpoint_ref[YAI_SOURCE_REF_MAX];
+  char endpoint_state[YAI_SOURCE_STATUS_MAX];
+  char overlay_identity_ref[YAI_SOURCE_REF_MAX];
+  int64_t observed_at_epoch;
+} yai_source_mesh_transport_endpoint_t;
+
+typedef struct yai_source_mesh_transport_path_state {
+  char mesh_transport_path_state_id[YAI_SOURCE_REF_MAX];
+  char mesh_id[YAI_SOURCE_REF_MAX];
+  char owner_workspace_id[YAI_SOURCE_WORKSPACE_ID_MAX];
+  char source_mesh_node_id[YAI_SOURCE_NODE_ID_MAX];
+  char target_mesh_node_id[YAI_SOURCE_NODE_ID_MAX];
+  char reachability_state[YAI_SOURCE_STATUS_MAX];
+  char ingress_readiness[YAI_SOURCE_STATUS_MAX];
+  char path_freshness[YAI_SOURCE_STATUS_MAX];
+  char degradation_state[YAI_SOURCE_STATUS_MAX];
+  char reconnect_state[YAI_SOURCE_STATUS_MAX];
+  int64_t refreshed_at_epoch;
+} yai_source_mesh_transport_path_state_t;
+
+typedef struct yai_source_mesh_transport_channel_state {
+  char mesh_transport_channel_state_id[YAI_SOURCE_REF_MAX];
+  char mesh_id[YAI_SOURCE_REF_MAX];
+  char source_mesh_node_id[YAI_SOURCE_NODE_ID_MAX];
+  char target_mesh_node_id[YAI_SOURCE_NODE_ID_MAX];
+  char secure_channel_state[YAI_SOURCE_STATUS_MAX];
+  char channel_health[YAI_SOURCE_STATUS_MAX];
+  char channel_kind[YAI_SOURCE_KIND_MAX];
+  char reconnect_required[YAI_SOURCE_STATUS_MAX];
+  int64_t updated_at_epoch;
+} yai_source_mesh_transport_channel_state_t;
 
 const char *yai_source_contract_operation_name(yai_source_contract_operation_t op);
 int yai_source_record_class_is_known(const char *record_class);

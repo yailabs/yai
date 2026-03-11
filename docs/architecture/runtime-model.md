@@ -77,6 +77,8 @@ MF-2 mesh coordination foundation is defined in
 `docs/architecture/mesh-coordination-foundation-model.md`.
 MF-3 sovereign mesh authority foundation is defined in
 `docs/architecture/sovereign-mesh-authority-foundation-model.md`.
+MT-1 secure overlay transport plane is defined in
+`docs/architecture/secure-overlay-transport-plane-model.md`.
 Source-plane entity/contract model is defined in
 `docs/architecture/source-plane-model.md`.
 Owner ingest runtime flow is defined in
@@ -141,3 +143,10 @@ Sovereign authority within mesh context remains owner-anchored. Enrollment
 finalization, trust bootstrap, legitimacy recognition, authority scope
 limitation, and final adjudication do not migrate to peer visibility or
 coordination planes.
+
+## MT-1 secure overlay transport lock
+
+Secure remote connectivity is a dedicated transport plane. Private overlay
+reachability and endpoint visibility enable owner/peer communication, but do
+not imply enrollment completion, trust legitimacy, delegated authority, or
+canonical truth transfer.

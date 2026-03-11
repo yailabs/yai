@@ -44,5 +44,8 @@ int yai_source_record_class_is_known(const char *record_class)
          strcmp(record_class, YAI_SOURCE_RECORD_CLASS_MESH_COORDINATION_MEMBERSHIP) == 0 ||
          strcmp(record_class, YAI_SOURCE_RECORD_CLASS_MESH_PEER_AWARENESS) == 0 ||
          strcmp(record_class, YAI_SOURCE_RECORD_CLASS_MESH_PEER_LEGITIMACY) == 0 ||
-         strcmp(record_class, YAI_SOURCE_RECORD_CLASS_MESH_AUTHORITY_SCOPE) == 0;
+         strcmp(record_class, YAI_SOURCE_RECORD_CLASS_MESH_AUTHORITY_SCOPE) == 0 ||
+         strcmp(record_class, YAI_SOURCE_RECORD_CLASS_MESH_TRANSPORT_ENDPOINT) == 0 ||
+         strcmp(record_class, YAI_SOURCE_RECORD_CLASS_MESH_TRANSPORT_PATH_STATE) == 0 ||
+         strcmp(record_class, YAI_SOURCE_RECORD_CLASS_MESH_TRANSPORT_CHANNEL_STATE) == 0;
 }

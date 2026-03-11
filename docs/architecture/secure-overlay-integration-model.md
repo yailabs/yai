@@ -9,6 +9,9 @@ Effective date: 2026-03-11
 Operationalize secure peering for non-local owner/peer operation by treating a
 private secure overlay as the canonical transport baseline.
 
+This NP-4 slice is now anchored by MT-1 transport-plane architecture:
+`docs/architecture/secure-overlay-transport-plane-model.md`.
+
 NP-4 does not build a VPN product inside YAI. It defines how YAI is deployed on
 an existing secure overlay so owner/peer source-plane traffic is customer-grade
 outside trusted LAN.
@@ -93,6 +96,7 @@ Not responsible for:
 - secure transport baseline is explicit and deployable
 - owner/peer reachability model is practical outside LAN
 - protocol/transport/trust/governance boundaries are explicit
+- connectivity is modeled as transport-state, not sovereign authority
 
 ### Non-claims in NP-4
 

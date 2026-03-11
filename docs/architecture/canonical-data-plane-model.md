@@ -109,6 +109,14 @@ MF-3 sovereign authority lock:
 - final authority and canonical adjudication remain owner workspace runtime
   classes.
 
+MT-1 secure transport lock:
+- remote overlay transport state is a first-class operational data-plane input
+  (`endpoint availability`, `reachability`, `path freshness`, `degradation`,
+  `reconnect required`);
+- transport classes do not imply trust/enrollment/authority classes and cannot
+  promote canonical truth ownership;
+- secure connectivity enables delivery paths, not sovereign decision transfer.
+
 ### 3) Control/Data Path Separation
 Mandatory path:
 

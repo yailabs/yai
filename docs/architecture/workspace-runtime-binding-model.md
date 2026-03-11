@@ -88,6 +88,12 @@ MF-3 authority lock:
 - legitimacy or authority-scope contraction states (suspended/revoked) are
   sovereign boundary inputs, not peer-owned authority decisions.
 
+MT-1 transport lock:
+- workspace binding context can resolve transport endpoint targets and inspect
+  remote path state;
+- transport reachability under binding context does not imply enrollment/trust
+  completion or authority elevation.
+
 ## Workspace-local vs Runtime-global
 
 Workspace-local:

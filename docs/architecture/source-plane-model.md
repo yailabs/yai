@@ -214,9 +214,24 @@ Runtime data-plane record classes introduced by YD-3:
 - `source_ingest_outcome`
 - `source_policy_snapshot`
 - `source_capability_envelope`
+- `mesh_node`
+- `mesh_discovery_advertisement`
+- `mesh_bootstrap_descriptor`
+- `mesh_coordination_membership`
+- `mesh_peer_awareness`
+- `mesh_peer_legitimacy`
+- `mesh_authority_scope`
+- `mesh_transport_endpoint`
+- `mesh_transport_path_state`
+- `mesh_transport_channel_state`
 
 These are appendable through `yai_data_records_*` hooks and visible in summary
 counts.
+
+MF/MT extension note:
+- mesh and transport record classes are coordination/authority/transport-plane
+  operational classes;
+- they do not redefine owner-side canonical truth authority.
 
 ## ID model
 
