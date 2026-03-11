@@ -23,7 +23,7 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$TMP_HOME"
-HOME="$TMP_HOME" YAI_RUNTIME_INGRESS="$SOCK" (cd "$REPO" && "$YAI" >/tmp/yai_workspace_shell_auto_runtime.log 2>&1) &
+(cd "$REPO" && HOME="$TMP_HOME" YAI_RUNTIME_INGRESS="$SOCK" YAI_SHELL_INTEGRATION_MODE=managed "$YAI" >/tmp/yai_workspace_shell_auto_runtime.log 2>&1) &
 RUNTIME_PID=$!
 
 for _ in $(seq 1 50); do
@@ -32,7 +32,7 @@ for _ in $(seq 1 50); do
 done
 [[ -S "$SOCK" ]] || { echo "workspace_shell_integration_auto_v1: FAIL (missing ingress socket)"; exit 1; }
 
-HOME="$TMP_HOME" YAI_RUNTIME_INGRESS="$SOCK" python3 - "$SOCK" "$WS1" "$WS2" <<'PY'
+HOME="$TMP_HOME" YAI_RUNTIME_INGRESS="$SOCK" YAI_SHELL_INTEGRATION_MODE=managed python3 - "$SOCK" "$WS1" "$WS2" <<'PY'
 import json
 import pathlib
 import socket

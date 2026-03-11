@@ -317,6 +317,7 @@ static int yai_replace_managed_block(const char *path, const char *begin, const 
 
 static int yai_session_ensure_shell_integration(void)
 {
+    const char *mode = getenv("YAI_SHELL_INTEGRATION_MODE");
     const char *home = yai_get_home();
     char config_dir[MAX_PATH_LEN];
     char yai_cfg_dir[MAX_PATH_LEN];
@@ -357,6 +358,11 @@ static int yai_session_ensure_shell_integration(void)
         "  source \"$HOME/.config/yai/shell/yai-prompt.zsh\"\n"
         "fi\n"
         YAI_MANAGED_END "\n";
+
+    /* Default behavior: never mutate user shell config.
+     * Opt-in managed mode can be enabled explicitly for controlled environments. */
+    if (!mode || strcmp(mode, "managed") != 0)
+        return 0;
 
     if (!home || !home[0])
         return -1;

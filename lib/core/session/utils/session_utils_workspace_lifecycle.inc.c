@@ -1046,7 +1046,8 @@ int yai_session_set_active_workspace(const char *ws_id, char *err, size_t err_ca
     }
 
     /* Best-effort shell integration bootstrap.
-     * Keep activation successful even if user shell files are read-only/missing. */
+     * Default mode is no-op; managed mode is explicit opt-in via
+     * YAI_SHELL_INTEGRATION_MODE=managed. */
     (void)yai_session_ensure_shell_integration();
 
     return 0;

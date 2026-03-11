@@ -68,3 +68,8 @@ These are lightweight session/context primitives, not full user-facing CLI workf
 Runtime reads current workspace binding before context export operations and reports status explicitly (`active|no_active|stale|invalid`).
 
 This allows downstream inspect/prompt UX to be deterministic and debuggable.
+
+## Shell integration boundary
+
+- Workspace activation/binding does not mutate user shell configuration by default.
+- Managed shell file bootstrap is explicit opt-in only (`YAI_SHELL_INTEGRATION_MODE=managed`).

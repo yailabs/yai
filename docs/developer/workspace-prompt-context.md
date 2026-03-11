@@ -77,6 +77,12 @@ yai_prompt_enable
 yai_prompt_disable
 ```
 
+Runtime policy:
+
+- default runtime behavior does **not** modify user shell files (`~/.zshrc`, prompt themes, etc.).
+- managed shell bootstrap is available only via explicit opt-in:
+  `YAI_SHELL_INTEGRATION_MODE=managed`.
+
 bash:
 
 ```sh
