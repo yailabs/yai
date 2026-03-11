@@ -149,6 +149,18 @@ ORCHESTRATION_SRCS := \
 	lib/orchestration/actions/rag_context_builder.c \
 	lib/orchestration/actions/rag_prompts.c \
 	lib/orchestration/execution/rag_pipeline.c
+MESH_SRCS := \
+	lib/mesh/identity/identity.c \
+	lib/mesh/peer_registry/peer_registry.c \
+	lib/mesh/membership/membership.c \
+	lib/mesh/discovery/discovery.c \
+	lib/mesh/awareness/awareness.c \
+	lib/mesh/coordination/coordination.c \
+	lib/mesh/transport/transport_state.c \
+	lib/mesh/replay/replay_state.c \
+	lib/mesh/conflict/conflict_state.c \
+	lib/mesh/containment/containment_state.c \
+	lib/mesh/enrollment/enrollment_state.c
 PROVIDERS_SRCS := \
 	lib/providers/registry/providers.c \
 	lib/providers/registry/provider_registry.c \
@@ -214,6 +226,7 @@ PLATFORM_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PLATFORM_SRCS))
 PROTOCOL_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PROTOCOL_SRCS))
 CORE_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(CORE_SRCS) $(GOVERNANCE_SRCS))
 ORCHESTRATION_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(ORCHESTRATION_RUNTIME_SRCS) $(ORCHESTRATION_SRCS))
+MESH_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(MESH_SRCS))
 PROVIDERS_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PROVIDERS_SRCS))
 KNOWLEDGE_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(KNOWLEDGE_SRCS))
 DATA_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(DATA_SRCS))
@@ -225,6 +238,7 @@ PLATFORM_LIB := $(LIB_DIR)/libyai_platform.a
 PROTOCOL_LIB := $(LIB_DIR)/libyai_protocol.a
 CORE_LIB := $(LIB_DIR)/libyai_core.a
 ORCHESTRATION_LIB := $(LIB_DIR)/libyai_orchestration.a
+MESH_LIB := $(LIB_DIR)/libyai_mesh.a
 PROVIDERS_LIB := $(LIB_DIR)/libyai_providers.a
 KNOWLEDGE_LIB := $(LIB_DIR)/libyai_knowledge.a
 DATA_LIB := $(LIB_DIR)/libyai_data.a
@@ -237,8 +251,8 @@ DOXYFILE := Doxyfile
 DOXYGEN ?= doxygen
 DOXY_OUT ?= $(DIST_ROOT)/docs/doxygen
 
-.PHONY: all yai yai-edge yai-daemon foundations support platform protocol core orchestration exec providers knowledge data graph edge daemon yd1-baseline \
-        test test-unit test-integration test-e2e test-core test-knowledge test-orchestration test-protocol test-governance \
+.PHONY: all yai yai-edge yai-daemon foundations support platform protocol core orchestration exec mesh providers knowledge data graph edge daemon yd1-baseline \
+        test test-unit test-integration test-e2e test-core test-knowledge test-orchestration test-protocol test-governance test-providers test-edge test-mesh \
         test-demo-matrix verify-final-demo-matrix \
         clean clean-dist clean-all build build-all dist dist-all bundle verify \
         preflight-release docs docs-clean docs-verify proof-verify release-guards \
@@ -253,12 +267,13 @@ yai-edge: $(YAI_EDGE_BIN)
 yai-daemon: yai-edge
 	@cp "$(YAI_EDGE_BIN)" "$(YAI_DAEMON_ALIAS_BIN)"
 
-foundations: support platform protocol providers
+foundations: support platform protocol mesh providers
 core: $(CORE_LIB)
 orchestration: $(ORCHESTRATION_LIB)
 exec: orchestration
 	@echo "[YAI] exec target is legacy alias; use 'make orchestration'"
 providers: $(PROVIDERS_LIB)
+mesh: $(MESH_LIB)
 knowledge: $(KNOWLEDGE_LIB)
 data: $(DATA_LIB)
 graph: $(GRAPH_LIB)
@@ -273,13 +288,15 @@ protocol: $(PROTOCOL_LIB)
 test: test-unit test-integration test-e2e
 	@echo "[YAI] unified test baseline complete"
 
-test-unit: test-core test-orchestration test-protocol test-knowledge test-governance
+test-unit: test-core test-orchestration test-protocol test-knowledge test-governance test-providers test-edge test-mesh
 	@echo "[YAI] unit suites complete"
 
 test-integration:
 	@tests/integration/runtime/run_runtime_exec_smoke.sh
 	@tests/integration/orchestration/run_orchestration_smoke.sh
 	@tests/integration/orchestration/run_orchestration_c_tests.sh
+	@tests/integration/edge/run_edge_smoke.sh
+	@tests/integration/mesh/run_mesh_smoke.sh
 	@tests/integration/workspace/workspace_runtime_contract_v1.sh
 	@tests/integration/workspace/workspace_session_binding_contract_v1.sh
 	@tests/integration/workspace/workspace_inspect_surfaces_v1.sh
@@ -324,6 +341,15 @@ test-governance:
 	@tests/integration/governance/run_governance_resolution_smoke.sh
 	@echo "[YAI] governance-native resolution suites complete"
 
+test-providers:
+	@tests/unit/providers/run_providers_unit_tests.sh
+
+test-edge:
+	@tests/unit/edge/run_edge_unit_tests.sh
+
+test-mesh:
+	@tests/unit/mesh/run_mesh_unit_tests.sh
+
 $(YAI_BIN): $(YAI_OBJ) $(CORE_LIB) $(ORCHESTRATION_LIB) $(KNOWLEDGE_LIB) $(PROVIDERS_LIB) $(DATA_LIB) $(GRAPH_LIB) $(EDGE_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) | dirs
 	$(CC) $(LDFLAGS) $(YAI_OBJ) -o $@ $(CORE_LIB) $(ORCHESTRATION_LIB) $(KNOWLEDGE_LIB) $(PROVIDERS_LIB) $(DATA_LIB) $(GRAPH_LIB) $(EDGE_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) $(LDLIBS)
 
@@ -343,6 +369,9 @@ $(CORE_LIB): $(CORE_OBJS) | dirs
 	ar rcs $@ $^
 
 $(ORCHESTRATION_LIB): $(ORCHESTRATION_OBJS) | dirs
+	ar rcs $@ $^
+
+$(MESH_LIB): $(MESH_OBJS) | dirs
 	ar rcs $@ $^
 
 $(PROVIDERS_LIB): $(PROVIDERS_OBJS) | dirs

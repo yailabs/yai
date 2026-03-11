@@ -1,18 +1,18 @@
 # Mesh Public Headers
 
-Public mesh topology surface for discovery, membership, coordination, peer
-registry, and transport-awareness contracts.
+Canonical mesh topology headers expose real minimal surfaces for:
 
-Canonical mesh headers:
+- identity
+- peer registry
+- membership
+- discovery
+- awareness
+- coordination
+- transport-awareness state
+- replay/conflict/containment/enrollment state
 
-- `discovery.h`
-- `enrollment.h`
-- `identity.h`
-- `peer_registry.h`
-- `membership.h`
-- `coordination.h`
-- `awareness.h`
-- `transport.h`
-- `containment.h`
-- `conflict.h`
-- `replay.h`
+Boundary rules:
+
+- `mesh/` models distributed topology and coordination state
+- wire contracts remain under `protocol/`
+- edge-local acquisition behavior remains under `edge/`

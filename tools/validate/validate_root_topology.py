@@ -40,6 +40,21 @@ FORBIDDEN_ROOT_FILES = {
 
 REQUIRED_FOUNDATION_SUBDIRS = {"axioms", "invariants", "boundaries", "extensions", "terminology"}
 REQUIRED_FORMAL_SUBDIRS = {"tla", "schema", "configs"}
+REQUIRED_MESH_IMPL_FILES = {
+    "lib/mesh/identity/identity.c",
+    "lib/mesh/peer_registry/peer_registry.c",
+    "lib/mesh/membership/membership.c",
+    "lib/mesh/discovery/discovery.c",
+    "lib/mesh/awareness/awareness.c",
+    "lib/mesh/coordination/coordination.c",
+}
+REQUIRED_EDGE_IMPL_FILES = {
+    "lib/edge/lifecycle.c",
+    "lib/edge/edge_binding.c",
+    "lib/edge/action_point.c",
+    "lib/edge/edge_state.c",
+    "lib/edge/runtime.c",
+}
 
 
 IGNORED_ROOT = {
@@ -88,6 +103,12 @@ def main() -> int:
     for name in sorted(REQUIRED_FORMAL_SUBDIRS):
         if not (repo / "formal" / name).exists():
             errors.append(f"formal/ missing required subdir: {name}")
+    for rel in sorted(REQUIRED_MESH_IMPL_FILES):
+        if not (repo / rel).exists():
+            errors.append(f"mesh realization missing critical file: {rel}")
+    for rel in sorted(REQUIRED_EDGE_IMPL_FILES):
+        if not (repo / rel).exists():
+            errors.append(f"edge realization missing critical file: {rel}")
 
     if errors:
         print("root_topology: FAIL")
