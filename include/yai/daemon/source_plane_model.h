@@ -9,6 +9,7 @@
 #define YAI_SOURCE_ASSET_ID_MAX 128
 #define YAI_SOURCE_ACQUISITION_EVENT_ID_MAX 128
 #define YAI_SOURCE_EVIDENCE_CANDIDATE_ID_MAX 128
+#define YAI_SOURCE_ACTION_POINT_ID_MAX 128
 #define YAI_SOURCE_OWNER_LINK_ID_MAX 96
 #define YAI_SOURCE_ENROLLMENT_GRANT_ID_MAX 128
 #define YAI_SOURCE_WORKSPACE_PEER_MEMBERSHIP_ID_MAX 128
@@ -25,6 +26,7 @@
 #define YAI_SOURCE_RECORD_CLASS_ASSET "source_asset"
 #define YAI_SOURCE_RECORD_CLASS_ACQUISITION_EVENT "source_acquisition_event"
 #define YAI_SOURCE_RECORD_CLASS_EVIDENCE_CANDIDATE "source_evidence_candidate"
+#define YAI_SOURCE_RECORD_CLASS_ACTION_POINT "source_action_point"
 #define YAI_SOURCE_RECORD_CLASS_OWNER_LINK "source_owner_link"
 #define YAI_SOURCE_RECORD_CLASS_ENROLLMENT_GRANT "source_enrollment_grant"
 #define YAI_SOURCE_RECORD_CLASS_WORKSPACE_PEER_MEMBERSHIP "workspace_peer_membership"
@@ -91,6 +93,18 @@ typedef struct yai_source_evidence_candidate {
   char derived_metadata_ref[YAI_SOURCE_REF_MAX];
   char owner_resolution_status[YAI_SOURCE_STATUS_MAX];
 } yai_source_evidence_candidate_t;
+
+typedef struct yai_source_action_point {
+  char source_action_point_id[YAI_SOURCE_ACTION_POINT_ID_MAX];
+  char source_node_id[YAI_SOURCE_NODE_ID_MAX];
+  char source_binding_id[YAI_SOURCE_BINDING_ID_MAX];
+  char action_kind[YAI_SOURCE_KIND_MAX];
+  char action_ref[YAI_SOURCE_REF_MAX];
+  char mediation_scope[YAI_SOURCE_REF_MAX];
+  char enforcement_scope[YAI_SOURCE_REF_MAX];
+  char controllability_state[YAI_SOURCE_STATUS_MAX];
+  int64_t updated_at_epoch;
+} yai_source_action_point_t;
 
 typedef struct yai_source_owner_link {
   char source_owner_link_id[YAI_SOURCE_OWNER_LINK_ID_MAX];

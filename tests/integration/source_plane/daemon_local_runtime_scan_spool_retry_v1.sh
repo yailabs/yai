@@ -4,7 +4,7 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 YAI="$REPO/build/bin/yai"
 YAI_DAEMON="$REPO/build/bin/yai-daemon"
-SOCK="/tmp/yai-yd5-owner-$$.sock"
+SOCK="${TMPDIR:-/tmp}/yai-yd5-owner-$$.sock"
 
 if [[ ! -x "$YAI" || ! -x "$YAI_DAEMON" ]]; then
   make -C "$REPO" yai yai-daemon >/dev/null

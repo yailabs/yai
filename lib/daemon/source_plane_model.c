@@ -31,6 +31,7 @@ int yai_source_record_class_is_known(const char *record_class)
          strcmp(record_class, YAI_SOURCE_RECORD_CLASS_ASSET) == 0 ||
          strcmp(record_class, YAI_SOURCE_RECORD_CLASS_ACQUISITION_EVENT) == 0 ||
          strcmp(record_class, YAI_SOURCE_RECORD_CLASS_EVIDENCE_CANDIDATE) == 0 ||
+         strcmp(record_class, YAI_SOURCE_RECORD_CLASS_ACTION_POINT) == 0 ||
          strcmp(record_class, YAI_SOURCE_RECORD_CLASS_OWNER_LINK) == 0 ||
          strcmp(record_class, YAI_SOURCE_RECORD_CLASS_ENROLLMENT_GRANT) == 0 ||
          strcmp(record_class, YAI_SOURCE_RECORD_CLASS_WORKSPACE_PEER_MEMBERSHIP) == 0 ||

@@ -38,7 +38,34 @@
       "disallowed_subsystem_targets": [
         "brain",
         "mind"
-      ]
+      ],
+      "source_plane_operations": [
+        "enroll",
+        "attach",
+        "emit",
+        "status"
+      ],
+      "source_attachment_governance_ref": "manifests/governance-attachability.constraints.v1.json#constraints.source_attachment_governance",
+      "source_plane_truth_model": {
+        "owner_runtime_truth": "canonical",
+        "source_plane_role": "subordinate-edge-runtime",
+        "source_evidence_semantics": "candidate-before-owner-resolution",
+        "delegation_authority_model": "owner-issued-scope-limited-revocable",
+        "delegation_non_sovereign": true,
+        "edge_enforcement_model": "delegated-owner-scoped",
+        "edge_enforcement_non_sovereign": true,
+        "edge_enforcement_hold_escalation": "supported_by_contract"
+      },
+      "secure_peering_plane": {
+        "required_for_non_local_networks": true,
+        "recommended_model": "private_overlay_wireguard_or_equivalent",
+        "owner_remote_peer_ingress_required": true,
+        "application_protocol_role": "application-layer-only",
+        "transport_security_role": "separate-secure-peering-layer"
+      },
+      "global_to_edge_policy_hierarchy_ref": "manifests/governance-attachability.constraints.v1.json#constraints.global_to_edge_policy_hierarchy",
+      "delegated_edge_enforcement_ref": "manifests/governance-attachability.constraints.v1.json#constraints.delegated_edge_enforcement",
+      "edge_binding_action_point_model_ref": "manifests/governance-attachability.constraints.v1.json#constraints.edge_binding_action_point_model"
     }
   ],
   "runtime_contract": {

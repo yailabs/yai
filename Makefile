@@ -183,6 +183,8 @@ DAEMON_SRCS := \
 	lib/daemon/runtime.c \
 	lib/daemon/edge_state.c \
 	lib/daemon/edge_services.c \
+	lib/daemon/edge_binding.c \
+	lib/daemon/action_point.c \
 	lib/daemon/local_runtime.c \
 	lib/daemon/lifecycle.c \
 	lib/daemon/internal.c \

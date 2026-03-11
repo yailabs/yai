@@ -21,6 +21,8 @@
 #include <yai_protocol_ids.h>
 
 #include <yai/daemon/local_runtime.h>
+#include <yai/daemon/edge_binding.h>
+#include <yai/daemon/action_point.h>
 #include <yai/daemon/source_ids.h>
 #include <yai/daemon/source_plane_model.h>
 #include <yai/daemon/runtime.h>
@@ -456,6 +458,12 @@ static int load_bindings_manifest(yai_daemon_local_runtime_t *local)
     cJSON *sc = NULL;
     cJSON *at = NULL;
     cJSON *en = NULL;
+    cJSON *bk = NULL;
+    cJSON *obs = NULL;
+    cJSON *med = NULL;
+    cJSON *ens = NULL;
+    cJSON *mm = NULL;
+    cJSON *aps = NULL;
     yai_daemon_binding_rt_t *b = NULL;
     if (local->binding_count >= YAI_DAEMON_MAX_BINDINGS) break;
     ws = cJSON_GetObjectItemCaseSensitive(it, "workspace_id");
@@ -472,12 +480,128 @@ static int load_bindings_manifest(yai_daemon_local_runtime_t *local)
     } else {
       (void)yai_source_id_binding(b->binding_id, sizeof(b->binding_id), local->source_node_id, b->workspace_id);
     }
-    sc = cJSON_GetObjectItemCaseSensitive(it, "scope");
-    snprintf(b->scope, sizeof(b->scope), "%s",
-             (cJSON_IsString(sc) && sc->valuestring && sc->valuestring[0]) ? sc->valuestring : "workspace");
+    sc = cJSON_GetObjectItemCaseSensitive(it, "binding_scope");
+    if (!cJSON_IsString(sc) || !sc->valuestring || !sc->valuestring[0])
+    {
+      sc = cJSON_GetObjectItemCaseSensitive(it, "scope");
+    }
+    snprintf(b->binding_scope, sizeof(b->binding_scope), "%s",
+             yai_daemon_scope_normalize((cJSON_IsString(sc) && sc->valuestring) ? sc->valuestring : NULL,
+                                        YAI_DAEMON_SCOPE_WORKSPACE));
     at = cJSON_GetObjectItemCaseSensitive(it, "asset_type");
     snprintf(b->asset_type, sizeof(b->asset_type), "%s",
              (cJSON_IsString(at) && at->valuestring && at->valuestring[0]) ? at->valuestring : "file");
+    bk = cJSON_GetObjectItemCaseSensitive(it, "binding_kind");
+    snprintf(b->binding_kind, sizeof(b->binding_kind), "%s",
+             yai_daemon_binding_kind_normalize((cJSON_IsString(bk) && bk->valuestring) ? bk->valuestring : NULL));
+    obs = cJSON_GetObjectItemCaseSensitive(it, "observation_scope");
+    snprintf(b->observation_scope, sizeof(b->observation_scope), "%s",
+             yai_daemon_scope_normalize((cJSON_IsString(obs) && obs->valuestring) ? obs->valuestring : NULL,
+                                        b->binding_scope));
+    med = cJSON_GetObjectItemCaseSensitive(it, "mediation_scope");
+    ens = cJSON_GetObjectItemCaseSensitive(it, "enforcement_scope");
+    mm = cJSON_GetObjectItemCaseSensitive(it, "mediation_mode");
+    if (yai_daemon_binding_is_mediable(b->binding_kind))
+    {
+      snprintf(b->mediation_scope, sizeof(b->mediation_scope), "%s",
+               yai_daemon_scope_normalize((cJSON_IsString(med) && med->valuestring) ? med->valuestring : NULL,
+                                          b->binding_scope));
+      snprintf(b->enforcement_scope, sizeof(b->enforcement_scope), "%s",
+               yai_daemon_scope_normalize((cJSON_IsString(ens) && ens->valuestring) ? ens->valuestring : NULL,
+                                          b->mediation_scope));
+      snprintf(b->mediation_mode, sizeof(b->mediation_mode), "%s",
+               yai_daemon_mediation_mode_normalize((cJSON_IsString(mm) && mm->valuestring) ? mm->valuestring : NULL,
+                                                   YAI_DAEMON_MEDIATION_MODE_HOLD_ESCALATE));
+    }
+    else
+    {
+      snprintf(b->mediation_scope, sizeof(b->mediation_scope), "%s", YAI_DAEMON_SCOPE_NONE);
+      snprintf(b->enforcement_scope, sizeof(b->enforcement_scope), "%s", YAI_DAEMON_SCOPE_NONE);
+      snprintf(b->mediation_mode, sizeof(b->mediation_mode), "%s", YAI_DAEMON_MEDIATION_MODE_NONE);
+    }
+    aps = cJSON_GetObjectItemCaseSensitive(it, "action_points");
+    b->action_point_count = cJSON_IsArray(aps) ? cJSON_GetArraySize(aps) : 0;
+    if (b->action_point_count < 0)
+    {
+      b->action_point_count = 0;
+    }
+    if (b->action_point_count > YAI_DAEMON_MAX_ACTION_POINTS_PER_BINDING)
+    {
+      b->action_point_count = YAI_DAEMON_MAX_ACTION_POINTS_PER_BINDING;
+    }
+    if (b->action_point_count > 0)
+    {
+      int ap_i = 0;
+      snprintf(b->action_points_ref, sizeof(b->action_points_ref), "action-points://%s", b->binding_id);
+      for (ap_i = 0; ap_i < b->action_point_count; ++ap_i)
+      {
+        cJSON *ap = cJSON_GetArrayItem(aps, ap_i);
+        cJSON *ap_ref = NULL;
+        cJSON *ap_kind = NULL;
+        cJSON *ap_mediation_scope = NULL;
+        cJSON *ap_enforcement_scope = NULL;
+        yai_daemon_action_point_descriptor_t *dst = &b->action_points[ap_i];
+        memset(dst, 0, sizeof(*dst));
+        if (!ap || !cJSON_IsObject(ap))
+        {
+          (void)snprintf(dst->action_ref, sizeof(dst->action_ref), "action://binding/%s/%d", b->binding_id, ap_i);
+          (void)snprintf(dst->action_kind, sizeof(dst->action_kind), "unknown");
+        }
+        else
+        {
+          ap_ref = cJSON_GetObjectItemCaseSensitive(ap, "action_ref");
+          ap_kind = cJSON_GetObjectItemCaseSensitive(ap, "action_kind");
+          ap_mediation_scope = cJSON_GetObjectItemCaseSensitive(ap, "mediation_scope");
+          ap_enforcement_scope = cJSON_GetObjectItemCaseSensitive(ap, "enforcement_scope");
+          (void)snprintf(dst->action_ref,
+                         sizeof(dst->action_ref),
+                         "%s",
+                         (cJSON_IsString(ap_ref) && ap_ref->valuestring && ap_ref->valuestring[0]) ? ap_ref->valuestring : "action://unknown");
+          (void)snprintf(dst->action_kind,
+                         sizeof(dst->action_kind),
+                         "%s",
+                         (cJSON_IsString(ap_kind) && ap_kind->valuestring && ap_kind->valuestring[0]) ? ap_kind->valuestring : "unknown");
+          (void)snprintf(dst->mediation_scope,
+                         sizeof(dst->mediation_scope),
+                         "%s",
+                         yai_daemon_scope_normalize((cJSON_IsString(ap_mediation_scope) && ap_mediation_scope->valuestring)
+                                                        ? ap_mediation_scope->valuestring
+                                                        : NULL,
+                                                    b->mediation_scope));
+          (void)snprintf(dst->enforcement_scope,
+                         sizeof(dst->enforcement_scope),
+                         "%s",
+                         yai_daemon_scope_normalize((cJSON_IsString(ap_enforcement_scope) && ap_enforcement_scope->valuestring)
+                                                        ? ap_enforcement_scope->valuestring
+                                                        : NULL,
+                                                    b->enforcement_scope));
+        }
+        if (dst->mediation_scope[0] == '\0')
+        {
+          (void)snprintf(dst->mediation_scope, sizeof(dst->mediation_scope), "%s", b->mediation_scope);
+        }
+        if (dst->enforcement_scope[0] == '\0')
+        {
+          (void)snprintf(dst->enforcement_scope, sizeof(dst->enforcement_scope), "%s", b->enforcement_scope);
+        }
+        (void)snprintf(dst->controllability_state,
+                       sizeof(dst->controllability_state),
+                       "%s",
+                       yai_daemon_binding_is_mediable(b->binding_kind) ? "delegated_candidate" : "observe_only");
+        dst->updated_at_epoch = now_epoch();
+        if (yai_daemon_action_point_id(dst->action_point_id,
+                                       sizeof(dst->action_point_id),
+                                       b->binding_id,
+                                       dst->action_ref) != 0)
+        {
+          (void)snprintf(dst->action_point_id, sizeof(dst->action_point_id), "sap-fallback-%d", ap_i);
+        }
+      }
+    }
+    else
+    {
+      b->action_points_ref[0] = '\0';
+    }
     en = cJSON_GetObjectItemCaseSensitive(it, "enabled");
     b->enabled = cJSON_IsBool(en) ? cJSON_IsTrue(en) : 1;
     snprintf(b->status, sizeof(b->status), "%s", b->enabled ? YAI_DAEMON_BINDING_STATUS_CONFIGURED : YAI_DAEMON_BINDING_STATUS_INVALID);
@@ -506,6 +630,36 @@ static int write_bindings_state(const yai_daemon_local_runtime_t *local)
     cJSON_AddStringToObject(o, "binding_id", local->bindings[i].binding_id);
     cJSON_AddStringToObject(o, "workspace_id", local->bindings[i].workspace_id);
     cJSON_AddStringToObject(o, "root_path", local->bindings[i].root_path);
+    cJSON_AddStringToObject(o, "binding_kind", local->bindings[i].binding_kind);
+    cJSON_AddStringToObject(o, "binding_scope", local->bindings[i].binding_scope);
+    cJSON_AddStringToObject(o, "observation_scope", local->bindings[i].observation_scope);
+    cJSON_AddStringToObject(o, "mediation_scope", local->bindings[i].mediation_scope);
+    cJSON_AddStringToObject(o, "enforcement_scope", local->bindings[i].enforcement_scope);
+    cJSON_AddStringToObject(o, "mediation_mode", local->bindings[i].mediation_mode);
+    cJSON_AddNumberToObject(o, "action_point_count", local->bindings[i].action_point_count);
+    cJSON_AddStringToObject(o, "action_points_ref", local->bindings[i].action_points_ref);
+    if (local->bindings[i].action_point_count > 0)
+    {
+      cJSON *aps = cJSON_AddArrayToObject(o, "action_points");
+      int ap_i = 0;
+      for (ap_i = 0; aps && ap_i < local->bindings[i].action_point_count; ++ap_i)
+      {
+        const yai_daemon_action_point_descriptor_t *ap = &local->bindings[i].action_points[ap_i];
+        cJSON *ap_obj = cJSON_CreateObject();
+        if (!ap_obj)
+        {
+          continue;
+        }
+        cJSON_AddStringToObject(ap_obj, "source_action_point_id", ap->action_point_id);
+        cJSON_AddStringToObject(ap_obj, "action_kind", ap->action_kind);
+        cJSON_AddStringToObject(ap_obj, "action_ref", ap->action_ref);
+        cJSON_AddStringToObject(ap_obj, "mediation_scope", ap->mediation_scope);
+        cJSON_AddStringToObject(ap_obj, "enforcement_scope", ap->enforcement_scope);
+        cJSON_AddStringToObject(ap_obj, "controllability_state", ap->controllability_state);
+        cJSON_AddNumberToObject(ap_obj, "updated_at_epoch", (double)ap->updated_at_epoch);
+        cJSON_AddItemToArray(aps, ap_obj);
+      }
+    }
     cJSON_AddStringToObject(o, "status", local->bindings[i].status);
     cJSON_AddBoolToObject(o, "enabled", local->bindings[i].enabled ? 1 : 0);
     cJSON_AddItemToArray(arr, o);
@@ -760,7 +914,7 @@ static int ensure_binding_attached(yai_daemon_local_runtime_t *local, yai_daemon
 
   snprintf(payload,
            sizeof(payload),
-           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.attach\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"binding_scope\":\"%s\"}",
+           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.attach\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"binding_scope\":\"%s\",\"binding_kind\":\"%s\",\"observation_scope\":\"%s\",\"mediation_scope\":\"%s\",\"enforcement_scope\":\"%s\",\"action_point_count\":%d,\"mediation_mode\":\"%s\"}",
            binding->workspace_id,
            local->source_node_id,
            local->daemon_instance_id,
@@ -770,7 +924,13 @@ static int ensure_binding_attached(yai_daemon_local_runtime_t *local, yai_daemon
            "workspace/default",
            "coverage://workspace/default",
            "distinct",
-           binding->scope[0] ? binding->scope : "workspace");
+           binding->binding_scope[0] ? binding->binding_scope : "workspace",
+           binding->binding_kind[0] ? binding->binding_kind : YAI_DAEMON_BINDING_KIND_OBSERVATIONAL,
+           binding->observation_scope[0] ? binding->observation_scope : "workspace/default",
+           binding->mediation_scope[0] ? binding->mediation_scope : YAI_DAEMON_SCOPE_NONE,
+           binding->enforcement_scope[0] ? binding->enforcement_scope : YAI_DAEMON_SCOPE_NONE,
+           binding->action_point_count,
+           binding->mediation_mode[0] ? binding->mediation_mode : YAI_DAEMON_MEDIATION_MODE_NONE);
   rc = rpc_control_call(local->owner_socket, binding->workspace_id, payload, reply, sizeof(reply));
   if (rc != 0 || !json_reply_ok(reply)) return -1;
   (void)json_extract_string(reply, "source_binding_id", binding->binding_id, sizeof(binding->binding_id));
@@ -910,7 +1070,7 @@ static int send_status_update(yai_daemon_local_runtime_t *local, const char *wor
   if (ensure_owner_registered(local, workspace_id) != 0) return -1;
   snprintf(payload,
            sizeof(payload),
-           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.status\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"source_binding_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"backlog_queued\":%u,\"backlog_retry_due\":%u,\"backlog_failed\":%u,\"health\":\"%s\"}",
+           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.status\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"source_binding_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"backlog_queued\":%u,\"backlog_retry_due\":%u,\"backlog_failed\":%u,\"health\":\"%s\",\"binding_kind\":\"%s\",\"observation_scope\":\"%s\",\"mediation_scope\":\"%s\",\"enforcement_scope\":\"%s\",\"action_point_count\":%d,\"mediation_mode\":\"%s\"}",
            workspace_id,
            local->source_node_id,
            (local->binding_count > 0 && local->bindings[0].binding_id[0]) ? local->bindings[0].binding_id : "binding-unset",
@@ -924,7 +1084,13 @@ static int send_status_update(yai_daemon_local_runtime_t *local, const char *wor
            local->spool_queued,
            local->spool_retry_due,
            local->spool_failed,
-           local->health_state[0] ? local->health_state : YAI_DAEMON_HEALTH_READY);
+           local->health_state[0] ? local->health_state : YAI_DAEMON_HEALTH_READY,
+           (local->binding_count > 0 && local->bindings[0].binding_kind[0]) ? local->bindings[0].binding_kind : YAI_DAEMON_BINDING_KIND_OBSERVATIONAL,
+           (local->binding_count > 0 && local->bindings[0].observation_scope[0]) ? local->bindings[0].observation_scope : "workspace/default",
+           (local->binding_count > 0 && local->bindings[0].mediation_scope[0]) ? local->bindings[0].mediation_scope : YAI_DAEMON_SCOPE_NONE,
+           (local->binding_count > 0 && local->bindings[0].enforcement_scope[0]) ? local->bindings[0].enforcement_scope : YAI_DAEMON_SCOPE_NONE,
+           (local->binding_count > 0) ? local->bindings[0].action_point_count : 0,
+           (local->binding_count > 0 && local->bindings[0].mediation_mode[0]) ? local->bindings[0].mediation_mode : YAI_DAEMON_MEDIATION_MODE_NONE);
   rc = rpc_control_call(local->owner_socket, workspace_id, payload, reply, sizeof(reply));
   if (rc != 0 || !json_reply_ok(reply)) return -1;
   local->owner_connected = 1;

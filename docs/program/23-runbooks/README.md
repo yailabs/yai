@@ -42,6 +42,7 @@ A good runbook must be deterministic:
 - `docs/program/23-runbooks/data-lifecycle-retention-and-tiering.md`
 - `docs/program/23-runbooks/unified-runtime-topology-refoundation.md`
 - `docs/program/23-runbooks/operations.md`
+- `docs/program/23-runbooks/edge-binding-and-action-points-baseline.md`
 
 These runbooks are expected to reflect:
 - unified runtime ownership (`core`, `exec`, `data`, `graph`, `knowledge`),

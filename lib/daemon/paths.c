@@ -70,7 +70,6 @@ int yai_daemon_paths_ensure(const yai_daemon_paths_t *paths)
   {
     return -1;
   }
-
   if (yai_daemon_mkdir_recursive(paths->home) != 0 ||
       yai_daemon_mkdir_recursive(paths->config_dir) != 0 ||
       yai_daemon_mkdir_recursive(paths->state_dir) != 0 ||

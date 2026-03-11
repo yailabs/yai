@@ -79,6 +79,10 @@ static void apply_kv(yai_daemon_config_t *cfg, const char *key, const char *valu
   {
     return;
   }
+  if (!value[0])
+  {
+    return;
+  }
 
   if (strcmp(key, "home") == 0)
   {
@@ -148,6 +152,9 @@ int yai_daemon_config_defaults(yai_daemon_config_t *cfg)
 int yai_daemon_config_apply_env(yai_daemon_config_t *cfg)
 {
   const char *raw = NULL;
+  int home_overridden = 0;
+  int config_overridden = 0;
+  int manifest_overridden = 0;
   if (!cfg)
   {
     return -1;
@@ -157,11 +164,13 @@ int yai_daemon_config_apply_env(yai_daemon_config_t *cfg)
   if (raw && raw[0])
   {
     (void)yai_daemon_config_set_string(cfg->home, sizeof(cfg->home), raw);
+    home_overridden = 1;
   }
   raw = getenv("YAI_DAEMON_CONFIG");
   if (raw && raw[0])
   {
     (void)yai_daemon_config_set_string(cfg->config_path, sizeof(cfg->config_path), raw);
+    config_overridden = 1;
   }
   raw = getenv("YAI_DAEMON_OWNER_REF");
   if (raw && raw[0])
@@ -187,6 +196,7 @@ int yai_daemon_config_apply_env(yai_daemon_config_t *cfg)
   if (raw && raw[0])
   {
     (void)yai_daemon_config_set_string(cfg->bindings_manifest, sizeof(cfg->bindings_manifest), raw);
+    manifest_overridden = 1;
   }
   raw = getenv("YAI_DAEMON_TICK_MS");
   if (raw && raw[0])
@@ -199,11 +209,11 @@ int yai_daemon_config_apply_env(yai_daemon_config_t *cfg)
     (void)yai_daemon_config_parse_int(raw, &cfg->max_ticks);
   }
 
-  if (cfg->home[0] && cfg->config_path[0] == '\0')
+  if (cfg->home[0] && (cfg->config_path[0] == '\0' || (home_overridden && !config_overridden)))
   {
     (void)snprintf(cfg->config_path, sizeof(cfg->config_path), "%s/config/daemon.env", cfg->home);
   }
-  if (cfg->home[0] && cfg->bindings_manifest[0] == '\0')
+  if (cfg->home[0] && (cfg->bindings_manifest[0] == '\0' || (home_overridden && !manifest_overridden)))
   {
     (void)snprintf(cfg->bindings_manifest,
                    sizeof(cfg->bindings_manifest),

@@ -349,6 +349,71 @@
       "data_family_owner": "data"
     },
     {
+      "id": "enterprise.default.workspace.source-attachment-governance",
+      "kind": "enterprise_custom_governance_object",
+      "name": "Default Workspace Source Attachment Governance",
+      "status": "approved",
+      "review_state": "approved",
+      "scope_targets": {
+        "organization_ids": [
+          "default-org"
+        ],
+        "workspace_ids": [
+          "ws_ops_review",
+          "ws_science_review"
+        ],
+        "environment_classes": [
+          "shared",
+          "review"
+        ],
+        "session_scope": "workspace-bound"
+      },
+      "domain_targets": [
+        "digital",
+        "scientific"
+      ],
+      "family_targets": [
+        "digital",
+        "scientific"
+      ],
+      "specialization_targets": [
+        "remote-retrieval",
+        "parameter-governance"
+      ],
+      "attachment_modes": [
+        "workspace_attach",
+        "runtime_entrypoint"
+      ],
+      "source_ref": "manifests/enterprise-custom-governance/examples/enterprise.default.workspace.source-attachment-governance.v1.json",
+      "manifest_ref": "manifests/enterprise-custom-governance/examples/enterprise.default.workspace.source-attachment-governance.v1.json",
+      "compatibility_ref": "manifests/compatibility.matrix.json",
+      "precedence_class": "specialization+contextual-overlays+customer-pack+enterprise-object",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [
+        "domain-specializations/digital/remote-retrieval/policy-pack.json",
+        "manifests/runtime.entrypoints.json#default-runtime"
+      ],
+      "conflicts_with": [
+        "enterprise.default.workspace.research-sandbox"
+      ],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
       "id": "enterprise.ecohmedia.digital-outbound.review-gate",
       "kind": "enterprise_custom_governance_object",
       "name": "EcohMedia Digital Outbound Review Gate",

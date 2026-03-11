@@ -752,6 +752,11 @@ static int handle_attach(const char *workspace_id,
   const char *source_node_id = json_string(payload, "source_node_id");
   const char *binding_scope = json_string(payload, "binding_scope");
   const char *constraints_ref = json_string(payload, "constraints_ref");
+  const char *binding_kind = json_string_or(payload, "binding_kind", "observational");
+  const char *observation_scope = json_string_or(payload, "observation_scope", "workspace/default");
+  const char *mediation_scope = json_string_or(payload, "mediation_scope", "none");
+  const char *enforcement_scope = json_string_or(payload, "enforcement_scope", "none");
+  const char *mediation_mode = json_string_or(payload, "mediation_mode", "none");
   const char *owner_workspace_id = json_string(payload, "owner_workspace_id");
   char source_binding_id[YAI_SOURCE_BINDING_ID_MAX];
   char workspace_peer_membership_id[YAI_SOURCE_WORKSPACE_PEER_MEMBERSHIP_ID_MAX];
@@ -818,6 +823,13 @@ static int handle_attach(const char *workspace_id,
   cJSON_AddStringToObject(binding, "source_node_id", source_node_id);
   cJSON_AddStringToObject(binding, "owner_workspace_id", target_ws);
   cJSON_AddStringToObject(binding, "binding_scope", binding_scope);
+  cJSON_AddStringToObject(binding, "binding_kind", binding_kind);
+  cJSON_AddStringToObject(binding, "observation_scope", observation_scope);
+  cJSON_AddStringToObject(binding, "mediation_scope", mediation_scope);
+  cJSON_AddStringToObject(binding, "enforcement_scope", enforcement_scope);
+  cJSON_AddStringToObject(binding, "mediation_mode", mediation_mode);
+  cJSON_AddNumberToObject(binding, "action_point_count", (double)json_i64(payload, "action_point_count", 0));
+  cJSON_AddStringToObject(binding, "action_points_ref", json_string_or(payload, "action_points_ref", "unset"));
   cJSON_AddStringToObject(binding, "attachment_status", "attached");
   cJSON_AddStringToObject(binding, "constraints_ref", constraints_ref);
 
@@ -861,6 +873,125 @@ static int handle_attach(const char *workspace_id,
     cJSON_Delete(membership);
     (void)set_reason(reason, reason_cap, err[0] ? err : "workspace_peer_membership_persistence_failed");
     return -4;
+  }
+  {
+    int action_point_count = (int)json_i64(payload, "action_point_count", 0);
+    cJSON *aps = cJSON_GetObjectItem(payload, "action_points");
+    if (aps && cJSON_IsArray(aps))
+    {
+      int ap_n = cJSON_GetArraySize(aps);
+      int ap_i = 0;
+      for (ap_i = 0; ap_i < ap_n; ++ap_i)
+      {
+        cJSON *ap = cJSON_GetArrayItem(aps, ap_i);
+        cJSON *ap_record = NULL;
+        const char *action_ref = NULL;
+        const char *action_kind = NULL;
+        const char *ap_mediation_scope = NULL;
+        const char *ap_enforcement_scope = NULL;
+        const char *controllability_state = NULL;
+        char source_action_point_id[YAI_SOURCE_ACTION_POINT_ID_MAX];
+        if (!ap || !cJSON_IsObject(ap))
+        {
+          continue;
+        }
+        action_ref = json_string(ap, "action_ref");
+        action_kind = json_string_or(ap, "action_kind", "unknown");
+        ap_mediation_scope = json_string_or(ap, "mediation_scope", mediation_scope);
+        ap_enforcement_scope = json_string_or(ap, "enforcement_scope", enforcement_scope);
+        controllability_state = json_string_or(ap, "controllability_state", "delegated_candidate");
+        if (!action_ref || !action_ref[0])
+        {
+          continue;
+        }
+        if (yai_source_id_action_point(source_action_point_id,
+                                       sizeof(source_action_point_id),
+                                       source_binding_id,
+                                       action_ref) != 0)
+        {
+          continue;
+        }
+        ap_record = cJSON_CreateObject();
+        if (!ap_record)
+        {
+          continue;
+        }
+        cJSON_AddStringToObject(ap_record, "type", "yai.source_action_point.v1");
+        cJSON_AddStringToObject(ap_record, "source_action_point_id", source_action_point_id);
+        cJSON_AddStringToObject(ap_record, "source_node_id", source_node_id);
+        cJSON_AddStringToObject(ap_record, "source_binding_id", source_binding_id);
+        cJSON_AddStringToObject(ap_record, "action_kind", action_kind);
+        cJSON_AddStringToObject(ap_record, "action_ref", action_ref);
+        cJSON_AddStringToObject(ap_record, "mediation_scope", ap_mediation_scope);
+        cJSON_AddStringToObject(ap_record, "enforcement_scope", ap_enforcement_scope);
+        cJSON_AddStringToObject(ap_record, "controllability_state", controllability_state);
+        cJSON_AddNumberToObject(ap_record, "updated_at_epoch", (double)time(NULL));
+        if (append_source_record(workspace_id,
+                                 YAI_SOURCE_RECORD_CLASS_ACTION_POINT,
+                                 ap_record,
+                                 err,
+                                 sizeof(err)) != 0)
+        {
+          cJSON_Delete(ap_record);
+          cJSON_Delete(binding);
+          cJSON_Delete(membership);
+          (void)set_reason(reason, reason_cap, err[0] ? err : "source_attach_action_point_persistence_failed");
+          return -4;
+        }
+        cJSON_Delete(ap_record);
+      }
+    }
+    else if (action_point_count > 0)
+    {
+      int ap_i = 0;
+      const char *action_points_ref = json_string_or(payload, "action_points_ref", "action-points://unset");
+      int capped = action_point_count > 16 ? 16 : action_point_count;
+      for (ap_i = 0; ap_i < capped; ++ap_i)
+      {
+        cJSON *ap_record = NULL;
+        char action_ref[256];
+        char source_action_point_id[YAI_SOURCE_ACTION_POINT_ID_MAX];
+        if (snprintf(action_ref, sizeof(action_ref), "%s/%d", action_points_ref, ap_i) >= (int)sizeof(action_ref))
+        {
+          continue;
+        }
+        if (yai_source_id_action_point(source_action_point_id,
+                                       sizeof(source_action_point_id),
+                                       source_binding_id,
+                                       action_ref) != 0)
+        {
+          continue;
+        }
+        ap_record = cJSON_CreateObject();
+        if (!ap_record)
+        {
+          continue;
+        }
+        cJSON_AddStringToObject(ap_record, "type", "yai.source_action_point.v1");
+        cJSON_AddStringToObject(ap_record, "source_action_point_id", source_action_point_id);
+        cJSON_AddStringToObject(ap_record, "source_node_id", source_node_id);
+        cJSON_AddStringToObject(ap_record, "source_binding_id", source_binding_id);
+        cJSON_AddStringToObject(ap_record, "action_kind", "unknown");
+        cJSON_AddStringToObject(ap_record, "action_ref", action_ref);
+        cJSON_AddStringToObject(ap_record, "mediation_scope", mediation_scope);
+        cJSON_AddStringToObject(ap_record, "enforcement_scope", enforcement_scope);
+        cJSON_AddStringToObject(ap_record, "controllability_state", "delegated_candidate");
+        cJSON_AddNumberToObject(ap_record, "updated_at_epoch", (double)time(NULL));
+        if (append_source_record(workspace_id,
+                                 YAI_SOURCE_RECORD_CLASS_ACTION_POINT,
+                                 ap_record,
+                                 err,
+                                 sizeof(err)) != 0)
+        {
+          cJSON_Delete(ap_record);
+          cJSON_Delete(binding);
+          cJSON_Delete(membership);
+          (void)set_reason(reason, reason_cap, err[0] ? err : "source_attach_action_point_persistence_failed");
+          return -4;
+        }
+        cJSON_Delete(ap_record);
+      }
+    }
   }
   cJSON_Delete(binding);
   cJSON_Delete(membership);

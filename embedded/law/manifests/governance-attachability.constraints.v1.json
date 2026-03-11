@@ -148,6 +148,149 @@
       "enterprise_custom_governance_object": true,
       "specialization_policy_pack": true,
       "template_object": false
+    },
+    "source_attachment_governance": {
+      "governable_entities": [
+        "source_node",
+        "source_binding",
+        "source_action_point",
+        "source_asset",
+        "source_acquisition_event",
+        "source_evidence_candidate"
+      ],
+      "attachment_decisions": [
+        "allow",
+        "review",
+        "deny"
+      ],
+      "source_trust_levels": [
+        "trusted",
+        "review_required",
+        "restricted"
+      ],
+      "minimum_provenance_fields": [
+        "source_node_id",
+        "source_binding_id",
+        "source_asset_id",
+        "acquisition_event_id",
+        "observed_at"
+      ],
+      "required_evidence_expectations": [
+        "source_owner_link",
+        "source_provenance_bundle",
+        "acquisition_event_chain"
+      ],
+      "workspace_binding_required": true,
+      "notes": "Distributed source attachment is governed before owner-side canonicalization.",
+      "delegation_model": {
+        "edge_role": "subordinate_edge_runtime",
+        "policy_origin": "owner_workspace_global_policy_plane",
+        "owner_issued_only": true,
+        "scope_limited": true,
+        "revocable": true,
+        "snapshot_non_sovereign": true,
+        "grant_non_sovereign": true,
+        "capability_envelope_non_sovereign": true,
+        "stale_state_policy": "reduce_local_autonomy",
+        "delegated_enforcement_non_sovereign": true,
+        "owner_final_authority_required": true
+      }
+    },
+    "secure_peering_assumptions": {
+      "non_local_source_attachment_requires_secure_peering": true,
+      "accepted_peering_models": [
+        "private_overlay_wireguard_or_equivalent"
+      ],
+      "disallowed_model_examples": [
+        "public_unprotected_owner_socket"
+      ],
+      "note": "Attachment governance does not waive transport security requirements."
+    },
+    "global_to_edge_policy_hierarchy": {
+      "workspace_global_policy_plane": {
+        "authority": "sovereign_owner_runtime",
+        "truth_classes": [
+          "policy_truth",
+          "graph_truth",
+          "conflict_truth",
+          "canonical_state_truth"
+        ]
+      },
+      "delegated_edge_policy_plane": {
+        "authority": "owner_issued_delegation_only",
+        "artifacts": [
+          "policy_snapshot",
+          "grant",
+          "capability_envelope"
+        ],
+        "non_sovereign": true
+      },
+      "edge_execution_observation_plane": {
+        "authority": "subordinate_runtime_execution_only",
+        "allowed_baseline": [
+          "observation",
+          "action_mediation",
+          "delegated_enforcement",
+          "spool_retry_health"
+        ]
+      },
+      "precedence_rules": {
+        "global_overrides_delegated": true,
+        "delegated_cannot_expand_scope": true,
+        "ambiguity_falls_back_to_owner": true,
+        "stale_or_missing_delegation_reduces_autonomy": true
+      }
+    },
+    "delegated_edge_enforcement": {
+      "enforcement_modes": [
+        "observe_only",
+        "post_event_local_enforcement",
+        "preventive_local_enforcement",
+        "escalated_enforcement"
+      ],
+      "local_outcomes": [
+        "observe_only",
+        "allow",
+        "block",
+        "hold",
+        "execute",
+        "escalate",
+        "defer",
+        "deny_due_to_missing_scope",
+        "deny_due_to_expired_grant"
+      ],
+      "authority_rule": "delegated_execution_not_sovereign_adjudication",
+      "requires_valid_owner_scope": true,
+      "allows_hold_and_escalation": true,
+      "stale_or_missing_grant_behavior": {
+        "autonomy_change": "reduce_only",
+        "fallback_modes": [
+          "observe_only",
+          "hold",
+          "escalate"
+        ],
+        "must_not_expand_local_authority": true
+      }
+    },
+    "edge_binding_action_point_model": {
+      "binding_kinds": [
+        "observational",
+        "mediable"
+      ],
+      "scope_model": [
+        "binding_scope",
+        "observation_scope",
+        "mediation_scope",
+        "enforcement_scope"
+      ],
+      "action_point_entity": "source_action_point",
+      "controllability_states": [
+        "observe_only",
+        "delegated_candidate",
+        "delegated_active",
+        "escalation_required"
+      ],
+      "non_sovereign_rule": "binding_and_action_point_control_is_delegated_not_sovereign"
     }
   },
   "topology_target": "unified-runtime-v1",

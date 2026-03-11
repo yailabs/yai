@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include <yai/daemon/config.h>
+#include <yai/daemon/action_point.h>
 #include <yai/daemon/paths.h>
 
 #define YAI_DAEMON_BINDING_STATUS_CONFIGURED "configured"
@@ -46,13 +47,22 @@
 
 #define YAI_DAEMON_MAX_BINDINGS 32
 #define YAI_DAEMON_MAX_OBSERVED 4096
+#define YAI_DAEMON_MAX_ACTION_POINTS_PER_BINDING 16
 
 typedef struct yai_daemon_binding_rt {
   char binding_id[96];
   char workspace_id[64];
   char root_path[512];
   char asset_type[64];
-  char scope[64];
+  char binding_scope[64];
+  char binding_kind[32];
+  char observation_scope[128];
+  char mediation_scope[128];
+  char enforcement_scope[128];
+  char mediation_mode[32];
+  char action_points_ref[256];
+  int action_point_count;
+  yai_daemon_action_point_descriptor_t action_points[YAI_DAEMON_MAX_ACTION_POINTS_PER_BINDING];
   char status[32];
   int enabled;
 } yai_daemon_binding_rt_t;

@@ -112,6 +112,14 @@ int yai_source_id_evidence_candidate(char *out,
   return make_id(out, out_cap, "sc", source_acquisition_event_id, candidate_type);
 }
 
+int yai_source_id_action_point(char *out,
+                               size_t out_cap,
+                               const char *source_binding_id,
+                               const char *action_ref)
+{
+  return make_id(out, out_cap, "sap", source_binding_id, action_ref);
+}
+
 int yai_source_id_owner_link(char *out, size_t out_cap, const char *source_node_id, const char *owner_ref)
 {
   return make_id(out, out_cap, "sl", source_node_id, owner_ref);

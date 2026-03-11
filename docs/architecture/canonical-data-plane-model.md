@@ -90,7 +90,8 @@ Source-plane extension (YD-3 baseline):
 - source records are canonical runtime classes (`source_node`,
   `source_daemon_instance`, `source_binding`, `source_asset`,
   `source_acquisition_event`, `source_evidence_candidate`,
-  `source_owner_link`) and stay owner-side persisted truth.
+  `source_action_point`, `source_owner_link`) and stay owner-side persisted
+  truth.
 
 ## Cross-Repo Responsibility Baseline
 

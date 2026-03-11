@@ -41,6 +41,11 @@ RF-0.4 observation lock:
 - daemon can emit runtime/process observation state under owner binding context;
 - observation visibility does not imply local action authority.
 
+ER-3 edge binding/action-point lock:
+- edge bindings are typed (`observational` vs `mediable`);
+- binding, observation, mediation and enforcement scopes are explicit and distinct;
+- action points are first-class source-plane entities, not implicit event side effects.
+
 ## Workspace-local vs Runtime-global
 
 Workspace-local:

@@ -143,7 +143,55 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["brain", "mind"]
+        "enum": [
+          "brain",
+          "mind"
+        ]
+      }
+    },
+    "source_attachment_governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_node_id": {
+          "type": "string",
+          "minLength": 3
+        },
+        "source_binding_id": {
+          "type": "string",
+          "minLength": 3
+        },
+        "trust_level": {
+          "type": "string",
+          "enum": [
+            "trusted",
+            "review_required",
+            "restricted"
+          ]
+        },
+        "provenance_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "missing"
+          ]
+        },
+        "attachment_decision": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "review",
+            "deny"
+          ]
+        },
+        "evidence_expectation": {
+          "type": "string",
+          "enum": [
+            "baseline",
+            "heightened"
+          ]
+        }
       }
     }
   }

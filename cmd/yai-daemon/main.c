@@ -152,6 +152,7 @@ int main(int argc, char **argv)
   }
 
   (void)yai_daemon_config_apply_file(&cfg, cfg.config_path);
+  (void)yai_daemon_config_apply_env(&cfg);
   /* Re-apply CLI args so explicit flags override file values deterministically. */
   rc = parse_args(argc, argv, &cfg);
   if (rc != 0)

@@ -40,10 +40,12 @@ int yai_daemon_lifecycle_should_stop(void)
 int yai_daemon_lifecycle_run_foreground(yai_daemon_runtime_t *rt)
 {
   struct timespec req;
+  int max_ticks = 0;
   if (!rt)
   {
     return -1;
   }
+  max_ticks = rt->config.max_ticks;
 
   req.tv_sec = rt->config.tick_ms / 1000U;
   req.tv_nsec = (long)(rt->config.tick_ms % 1000U) * 1000000L;
@@ -54,7 +56,7 @@ int yai_daemon_lifecycle_run_foreground(yai_daemon_runtime_t *rt)
     {
       return -2;
     }
-    if (rt->config.max_ticks > 0 && (int)rt->tick_count >= rt->config.max_ticks)
+    if (max_ticks > 0 && (int)rt->tick_count >= max_ticks)
     {
       return 0;
     }

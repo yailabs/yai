@@ -34,6 +34,7 @@ An ADR should answer:
 - `ADR-016-global-to-edge-policy-hierarchy-lock.md`
 - `ADR-017-delegated-edge-enforcement-model.md`
 - `ADR-018-process-and-asset-runtime-observation-model.md`
+- `ADR-019-edge-binding-and-action-point-model.md`
 
 ## Template policy
 

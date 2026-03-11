@@ -4,14 +4,14 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 YAI="$REPO/build/bin/yai"
 TMP_HOME="$(mktemp -d "${TMPDIR:-/tmp}/yai_source_ingest_v1.XXXXXX")"
-SOCK="/tmp/yai-source-ingest-v1.sock"
+SOCK="$TMP_HOME/.yai/run/source-ingest-v1.sock"
 WS_ROOT="$TMP_HOME/.yai/run/data"
 
 if [[ ! -x "$YAI" ]]; then
   make -C "$REPO" yai >/dev/null
 fi
 
-mkdir -p "$TMP_HOME/.yai"
+mkdir -p "$TMP_HOME/.yai/run"
 HOME="$TMP_HOME" YAI_RUNTIME_INGRESS="$SOCK" "$YAI" down >/dev/null 2>&1 || true
 rm -f "$SOCK" >/dev/null 2>&1 || true
 
