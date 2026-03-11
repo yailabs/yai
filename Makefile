@@ -121,18 +121,18 @@ GOVERNANCE_SRCS := \
 	lib/governance/debug/dump_effective_stack.c \
 	lib/governance/debug/dump_discovery_result.c
 ORCHESTRATION_RUNTIME_SRCS := \
-	lib/orchestration/runtime/exec_runtime.c \
+	lib/orchestration/runtime/runtime_control.c \
 	lib/orchestration/runtime/config_loader.c \
 	lib/orchestration/runtime/runtime_model.c \
 	lib/orchestration/runtime/grounding_context.c \
 	lib/orchestration/runtime/source_plane_contract.c \
 	lib/orchestration/runtime/peer_registry.c \
-	lib/orchestration/runtime/source_ingest.c \
-	lib/orchestration/gates/provider_gate.c \
-	lib/orchestration/gates/network_gate.c \
-	lib/orchestration/gates/storage_gate.c \
-	lib/orchestration/gates/resource_gate.c \
-	lib/orchestration/bridge/engine_bridge.c \
+	lib/orchestration/runtime/ingestion.c \
+	lib/orchestration/gates/provider_policy.c \
+	lib/orchestration/gates/network_policy.c \
+	lib/orchestration/gates/storage_policy.c \
+	lib/orchestration/gates/resource_policy.c \
+	lib/orchestration/bridge/runtime_bridge.c \
 	lib/orchestration/bridge/transport_client.c \
 	lib/orchestration/bridge/rpc_router.c \
 	lib/agents/safety/agent_enforcement.c \
@@ -142,8 +142,8 @@ ORCHESTRATION_RUNTIME_SRCS := \
 	lib/agents/roles/agent_knowledge.c \
 	lib/agents/roles/agent_system.c \
 	lib/agents/roles/agent_validator.c \
-	lib/orchestration/transport/brain_transport.c \
-	lib/orchestration/transport/brain_protocol.c \
+	lib/orchestration/transport/transport_runtime.c \
+	lib/orchestration/transport/transport_protocol.c \
 	lib/orchestration/transport/uds_server.c \
 	lib/third_party/cjson/cJSON.c
 ORCHESTRATION_SRCS := \
@@ -165,7 +165,7 @@ MESH_SRCS := \
 	lib/mesh/containment/containment_state.c \
 	lib/mesh/enrollment/enrollment_state.c
 PROVIDERS_SRCS := \
-	lib/providers/registry/providers.c \
+	lib/providers/registry/catalog.c \
 	lib/providers/registry/provider_registry.c \
 	lib/providers/policy/provider_policy.c \
 	lib/providers/selection/provider_selection.c \
@@ -213,15 +213,15 @@ EDGE_SRCS := \
 	lib/edge/config.c \
 	lib/edge/paths.c \
 	lib/edge/runtime.c \
-	lib/edge/edge_state.c \
-	lib/edge/edge_services.c \
-	lib/edge/edge_binding.c \
-	lib/edge/action_point.c \
-	lib/edge/local_runtime.c \
+	lib/edge/state.c \
+	lib/edge/services.c \
+	lib/edge/binding.c \
+	lib/edge/actions.c \
+	lib/edge/local.c \
 	lib/edge/lifecycle.c \
 	lib/edge/internal.c \
-	lib/edge/source_plane_model.c \
-	lib/edge/source_ids.c \
+	lib/edge/source_plane.c \
+	lib/edge/ids.c \
 	lib/third_party/cjson/cJSON.c
 
 SUPPORT_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SUPPORT_SRCS))

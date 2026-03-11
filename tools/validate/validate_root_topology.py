@@ -59,9 +59,9 @@ REQUIRED_MESH_IMPL_FILES = {
 }
 REQUIRED_EDGE_IMPL_FILES = {
     "lib/edge/lifecycle.c",
-    "lib/edge/edge_binding.c",
-    "lib/edge/action_point.c",
-    "lib/edge/edge_state.c",
+    "lib/edge/binding.c",
+    "lib/edge/actions.c",
+    "lib/edge/state.c",
     "lib/edge/runtime.c",
 }
 REQUIRED_RUNTIME_IMPL_FILES = {

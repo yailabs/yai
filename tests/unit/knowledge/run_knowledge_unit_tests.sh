@@ -54,7 +54,7 @@ BRAIN_SRCS=(
   lib/knowledge/cognition/activation.c
   lib/knowledge/memory/authority.c
   lib/knowledge/episodic/episodic.c
-  lib/providers/registry/providers.c
+  lib/providers/registry/catalog.c
   lib/providers/registry/provider_registry.c
   lib/providers/policy/provider_policy.c
   lib/providers/selection/provider_selection.c
@@ -62,10 +62,10 @@ BRAIN_SRCS=(
   lib/providers/embedding/client_embedding.c
   lib/providers/mocks/mock_provider.c
   lib/providers/embedding/embedder_mock.c
-  lib/orchestration/transport/brain_transport.c
-  lib/orchestration/transport/brain_protocol.c
+  lib/orchestration/transport/transport_runtime.c
+  lib/orchestration/transport/transport_protocol.c
   lib/orchestration/transport/uds_server.c
-  lib/edge/source_plane_model.c
+  lib/edge/source_plane.c
   lib/third_party/cjson/cJSON.c
 )
 
