@@ -12,7 +12,7 @@
 
 static void print_help(void)
 {
-  puts("yai-daemon - subordinate edge runtime daemon (YD-2 baseline)");
+  puts("yai-daemon - subordinate edge runtime daemon (ER-1 baseline)");
   printf("version: %s\n", YAI_VERSION_STRING);
   puts("");
   puts("usage: yai-daemon [options]");
@@ -32,6 +32,7 @@ static void print_help(void)
   puts("");
   puts("guardrails:");
   puts("  - yai-daemon is subordinate to owner workspace sovereignty");
+  puts("  - explicit lifecycle: bootstrap -> config -> identity -> scope -> runtime");
   puts("  - local action mediation/enforcement is delegated and owner-scoped");
   puts("  - local outcomes baseline: observe_only|allow|block|hold|execute|escalate");
   puts("  - no final authority/policy/graph/conflict truth locally");

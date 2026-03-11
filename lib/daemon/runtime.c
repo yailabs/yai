@@ -49,6 +49,20 @@ static int write_identity(const yai_daemon_runtime_t *rt)
   return yai_daemon_write_file(rt->paths.instance_file, payload);
 }
 
+static int write_edge_runtime_state(const yai_daemon_runtime_t *rt)
+{
+  char payload[4096];
+  if (!rt || !rt->edge_state_file[0])
+  {
+    return -1;
+  }
+  if (yai_daemon_edge_state_json(&rt->edge_state, payload, sizeof(payload)) != 0)
+  {
+    return -1;
+  }
+  return yai_daemon_write_file(rt->edge_state_file, payload);
+}
+
 static int write_pid(const yai_daemon_runtime_t *rt)
 {
   char payload[64];
@@ -96,10 +110,29 @@ int yai_daemon_runtime_init(yai_daemon_runtime_t *rt, const yai_daemon_config_t 
   {
     return -5;
   }
+  if (snprintf(rt->edge_state_file,
+               sizeof(rt->edge_state_file),
+               "%s/edge-runtime-state.v1.json",
+               rt->paths.state_dir) >= (int)sizeof(rt->edge_state_file))
+  {
+    return -6;
+  }
+  if (yai_daemon_edge_state_init(&rt->edge_state, &rt->config, &rt->paths, rt->instance_id) != 0)
+  {
+    return -7;
+  }
+  (void)yai_daemon_edge_state_set_phase(&rt->edge_state, YAI_DAEMON_EDGE_PHASE_CONFIG_LOAD);
+  (void)yai_daemon_edge_state_set_phase(&rt->edge_state, YAI_DAEMON_EDGE_PHASE_IDENTITY_INIT);
+  (void)yai_daemon_edge_state_set_phase(&rt->edge_state, YAI_DAEMON_EDGE_PHASE_SCOPE_INIT);
+  if (yai_daemon_edge_services_init(&rt->services) != 0)
+  {
+    return -8;
+  }
+
   rt->local = (yai_daemon_local_runtime_t *)calloc(1, sizeof(*rt->local));
   if (!rt->local)
   {
-    return -6;
+    return -9;
   }
   if (yai_daemon_local_runtime_init(rt->local,
                                     &rt->config,
@@ -109,7 +142,16 @@ int yai_daemon_runtime_init(yai_daemon_runtime_t *rt, const yai_daemon_config_t 
   {
     free(rt->local);
     rt->local = NULL;
-    return -7;
+    return -10;
+  }
+
+  if (yai_daemon_edge_state_refresh_from_local(&rt->edge_state, rt->local, 0U) != 0)
+  {
+    return -11;
+  }
+  if (write_edge_runtime_state(rt) != 0)
+  {
+    return -12;
   }
 
   yai_daemon_logf(rt,
@@ -142,10 +184,22 @@ int yai_daemon_runtime_start(yai_daemon_runtime_t *rt)
   {
     return -2;
   }
-  if (!rt->local || yai_daemon_local_runtime_start(rt->local) != 0)
+  (void)yai_daemon_edge_state_set_phase(&rt->edge_state, YAI_DAEMON_EDGE_PHASE_RUNTIME_START);
+  (void)yai_daemon_edge_state_set_runtime_status(&rt->edge_state, "starting");
+
+  if (yai_daemon_edge_services_start(&rt->services) != 0)
   {
     return -3;
   }
+  if (!rt->local || yai_daemon_local_runtime_start(rt->local) != 0)
+  {
+    return -4;
+  }
+
+  (void)yai_daemon_edge_state_refresh_from_local(&rt->edge_state, rt->local, rt->tick_count);
+  (void)yai_daemon_edge_state_set_phase(&rt->edge_state, YAI_DAEMON_EDGE_PHASE_OBSERVATION_LOOP);
+  (void)yai_daemon_edge_state_set_runtime_status(&rt->edge_state, "running");
+  (void)write_edge_runtime_state(rt);
 
   rt->running = 1;
   return 0;
@@ -159,13 +213,25 @@ int yai_daemon_runtime_tick(yai_daemon_runtime_t *rt)
   }
 
   rt->tick_count += 1;
-  if (!rt->local || yai_daemon_local_runtime_tick(rt->local, rt->tick_count) != 0)
+  if (yai_daemon_edge_services_tick(&rt->services) != 0)
   {
     return -2;
   }
+  if (!rt->local || yai_daemon_local_runtime_tick(rt->local, rt->tick_count) != 0)
+  {
+    return -3;
+  }
+  (void)yai_daemon_edge_state_refresh_from_local(&rt->edge_state, rt->local, rt->tick_count);
+  (void)write_edge_runtime_state(rt);
   if ((rt->tick_count % 5U) == 0U)
   {
-    yai_daemon_logf(rt, "debug", "heartbeat tick=%u", rt->tick_count);
+    yai_daemon_logf(rt,
+                    "debug",
+                    "heartbeat tick=%u phase=%s health=%s owner_connected=%d",
+                    rt->tick_count,
+                    rt->edge_state.phase,
+                    rt->edge_state.health_state,
+                    rt->edge_state.owner_connected);
   }
   return 0;
 }
@@ -176,12 +242,18 @@ int yai_daemon_runtime_shutdown(yai_daemon_runtime_t *rt)
   {
     return -1;
   }
+  (void)yai_daemon_edge_state_set_phase(&rt->edge_state, YAI_DAEMON_EDGE_PHASE_SHUTDOWN);
+  (void)yai_daemon_edge_state_set_runtime_status(&rt->edge_state, "stopping");
   if (rt->local)
   {
     (void)yai_daemon_local_runtime_stop(rt->local);
     free(rt->local);
     rt->local = NULL;
   }
+  (void)yai_daemon_edge_services_stop(&rt->services);
+  (void)yai_daemon_edge_state_set_phase(&rt->edge_state, YAI_DAEMON_EDGE_PHASE_STOPPED);
+  (void)yai_daemon_edge_state_set_runtime_status(&rt->edge_state, "stopped");
+  (void)write_edge_runtime_state(rt);
   rt->running = 0;
   yai_daemon_logf(rt, "info", "shutdown complete ticks=%u", rt->tick_count);
   return 0;

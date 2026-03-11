@@ -71,6 +71,25 @@ Runtime state files:
 - `state/health.v1.json` (v2 payload with health+spool counters)
 - `state/bindings.v1.json`
 - `state/observed-assets.v1.tsv`
+- `state/edge-runtime-state.v1.json` (ER-1 lifecycle + edge state baseline)
+
+## ER-1 Lifecycle Baseline
+
+`yai-daemon` lifecycle is explicit:
+
+- bootstrap
+- config_load
+- identity_init
+- delegated_scope_init
+- runtime_start
+- observation_loop
+- degraded/disconnected (conditional)
+- shutdown
+- stopped
+
+ER-1 also introduces explicit edge service surfaces as runtime modules:
+observation, state, delegated_policy, mediation, spool_retry, health,
+owner_link.
 
 ## Binding/Unit/Health States
 

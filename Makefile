@@ -181,6 +181,8 @@ DAEMON_SRCS := \
 	lib/daemon/config.c \
 	lib/daemon/paths.c \
 	lib/daemon/runtime.c \
+	lib/daemon/edge_state.c \
+	lib/daemon/edge_services.c \
 	lib/daemon/local_runtime.c \
 	lib/daemon/lifecycle.c \
 	lib/daemon/internal.c \

@@ -1,14 +1,19 @@
 #pragma once
 
 #include <yai/daemon/config.h>
+#include <yai/daemon/edge_services.h>
+#include <yai/daemon/edge_state.h>
 #include <yai/daemon/local_runtime.h>
 #include <yai/daemon/paths.h>
 
 typedef struct yai_daemon_runtime {
   yai_daemon_config_t config;
   yai_daemon_paths_t paths;
+  yai_daemon_edge_state_t edge_state;
+  yai_daemon_edge_services_t services;
   yai_daemon_local_runtime_t *local;
   char instance_id[96];
+  char edge_state_file[512];
   int running;
   unsigned int tick_count;
 } yai_daemon_runtime_t;
