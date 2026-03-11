@@ -82,6 +82,12 @@ MF-2 coordination lock:
 - coordination metadata (coverage/overlap/freshness/backlog/order/replay) is
   operational context and does not alter owner authority boundaries.
 
+MF-3 authority lock:
+- workspace binding context remains the owner-side anchor for enrollment/trust
+  legitimacy interpretation;
+- legitimacy or authority-scope contraction states (suspended/revoked) are
+  sovereign boundary inputs, not peer-owned authority decisions.
+
 ## Workspace-local vs Runtime-global
 
 Workspace-local:

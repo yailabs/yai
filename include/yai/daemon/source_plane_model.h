@@ -40,6 +40,8 @@
 #define YAI_SOURCE_RECORD_CLASS_MESH_BOOTSTRAP_DESCRIPTOR "mesh_bootstrap_descriptor"
 #define YAI_SOURCE_RECORD_CLASS_MESH_COORDINATION_MEMBERSHIP "mesh_coordination_membership"
 #define YAI_SOURCE_RECORD_CLASS_MESH_PEER_AWARENESS "mesh_peer_awareness"
+#define YAI_SOURCE_RECORD_CLASS_MESH_PEER_LEGITIMACY "mesh_peer_legitimacy"
+#define YAI_SOURCE_RECORD_CLASS_MESH_AUTHORITY_SCOPE "mesh_authority_scope"
 
 typedef enum yai_source_contract_operation {
   YAI_SOURCE_CONTRACT_INVALID = 0,
@@ -265,6 +267,30 @@ typedef struct yai_source_mesh_peer_awareness {
   char coordination_hint_ref[YAI_SOURCE_REF_MAX];
   int64_t observed_at_epoch;
 } yai_source_mesh_peer_awareness_t;
+
+typedef struct yai_source_mesh_peer_legitimacy {
+  char mesh_peer_legitimacy_id[YAI_SOURCE_REF_MAX];
+  char owner_workspace_id[YAI_SOURCE_WORKSPACE_ID_MAX];
+  char mesh_id[YAI_SOURCE_REF_MAX];
+  char mesh_node_id[YAI_SOURCE_NODE_ID_MAX];
+  char enrollment_state[YAI_SOURCE_STATUS_MAX];
+  char trust_state[YAI_SOURCE_STATUS_MAX];
+  char legitimacy_state[YAI_SOURCE_STATUS_MAX];
+  char legitimacy_reason[YAI_SOURCE_REF_MAX];
+  int64_t evaluated_at_epoch;
+} yai_source_mesh_peer_legitimacy_t;
+
+typedef struct yai_source_mesh_authority_scope {
+  char mesh_authority_scope_id[YAI_SOURCE_REF_MAX];
+  char owner_workspace_id[YAI_SOURCE_WORKSPACE_ID_MAX];
+  char mesh_id[YAI_SOURCE_REF_MAX];
+  char mesh_node_id[YAI_SOURCE_NODE_ID_MAX];
+  char authority_scope_ref[YAI_SOURCE_REF_MAX];
+  char scope_state[YAI_SOURCE_STATUS_MAX];
+  char suspension_state[YAI_SOURCE_STATUS_MAX];
+  char revoke_state[YAI_SOURCE_STATUS_MAX];
+  int64_t refreshed_at_epoch;
+} yai_source_mesh_authority_scope_t;
 
 const char *yai_source_contract_operation_name(yai_source_contract_operation_t op);
 int yai_source_record_class_is_known(const char *record_class);

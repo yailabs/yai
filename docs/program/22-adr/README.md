@@ -41,6 +41,7 @@ An ADR should answer:
 - `ADR-023-governed-sovereign-mesh-foundation.md`
 - `ADR-024-mesh-discovery-foundation.md`
 - `ADR-025-mesh-coordination-foundation.md`
+- `ADR-026-sovereign-mesh-authority-foundation.md`
 
 ## Template policy
 

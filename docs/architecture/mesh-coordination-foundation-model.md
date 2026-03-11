@@ -131,3 +131,7 @@ MF-2 provides baseline for:
 - MT-2 remote ingress coordination coupling
 - QG read/graph coordination surfaces
 - QW scale/replay/overlap distributed qualification
+
+MF-3 authority follow-up:
+
+- `docs/architecture/sovereign-mesh-authority-foundation-model.md`

@@ -102,6 +102,13 @@ MF-2 coordination data-plane lock:
   owner adjudication;
 - coordination metadata is owner-anchored and not a sovereign truth transfer.
 
+MF-3 sovereign authority lock:
+- legitimacy/enrollment/trust states are canonical authority-plane classes;
+- authority scope/suspension/revocation markers constrain participation without
+  flattening sovereign authority;
+- final authority and canonical adjudication remain owner workspace runtime
+  classes.
+
 ### 3) Control/Data Path Separation
 Mandatory path:
 

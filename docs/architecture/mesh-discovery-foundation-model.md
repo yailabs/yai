@@ -112,3 +112,7 @@ MF-1 provides baseline for:
 - MF-3 trust/authority lock in mesh context
 - MT transport/ingress integration
 - distributed qualification waves
+
+MF-3 authority follow-up:
+
+- `docs/architecture/sovereign-mesh-authority-foundation-model.md`

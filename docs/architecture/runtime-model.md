@@ -75,6 +75,8 @@ MF-1 mesh discovery foundation is defined in
 `docs/architecture/mesh-discovery-foundation-model.md`.
 MF-2 mesh coordination foundation is defined in
 `docs/architecture/mesh-coordination-foundation-model.md`.
+MF-3 sovereign mesh authority foundation is defined in
+`docs/architecture/sovereign-mesh-authority-foundation-model.md`.
 Source-plane entity/contract model is defined in
 `docs/architecture/source-plane-model.md`.
 Owner ingest runtime flow is defined in
@@ -132,3 +134,10 @@ owner-anchored registry state, awareness metadata, and distributed
 coverage/overlap/order/replay coordination signals. Coordination improves
 distributed operation but does not transfer final authority or canonical truth
 from owner runtime.
+
+## MF-3 sovereign mesh authority lock
+
+Sovereign authority within mesh context remains owner-anchored. Enrollment
+finalization, trust bootstrap, legitimacy recognition, authority scope
+limitation, and final adjudication do not migrate to peer visibility or
+coordination planes.
