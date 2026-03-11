@@ -158,6 +158,39 @@ Minimum fields:
 - `overlap_state`
 - `updated_at_epoch`
 
+### 10) `source_policy_snapshot`
+
+Owner-issued delegated policy material distributed to a specific edge target.
+
+Minimum fields:
+
+- `source_policy_snapshot_id`
+- `source_node_id`
+- `daemon_instance_id`
+- `owner_workspace_id`
+- `source_enrollment_grant_id`
+- `snapshot_version`
+- `distribution_target_ref`
+- `issued_at_epoch`
+
+### 11) `source_capability_envelope`
+
+Owner-issued delegated capability envelope for binding-scoped edge operation.
+
+Minimum fields:
+
+- `source_capability_envelope_id`
+- `source_node_id`
+- `daemon_instance_id`
+- `source_binding_id`
+- `owner_workspace_id`
+- `source_enrollment_grant_id`
+- `observation_scope`
+- `mediation_scope`
+- `enforcement_scope`
+- `distribution_target_ref`
+- `issued_at_epoch`
+
 ## Distinctions (non-negotiable)
 
 - `source_node` != `source_daemon_instance`
@@ -179,6 +212,8 @@ Runtime data-plane record classes introduced by YD-3:
 - `source_enrollment_grant`
 - `workspace_peer_membership`
 - `source_ingest_outcome`
+- `source_policy_snapshot`
+- `source_capability_envelope`
 
 These are appendable through `yai_data_records_*` hooks and visible in summary
 counts.
@@ -196,6 +231,8 @@ YD-3 introduces dedicated source ID helpers:
 - `sl-*` source owner link IDs
 - `sg-*` source enrollment grant IDs
 - `spm-*` workspace peer membership IDs
+- `sps-*` source policy snapshot IDs
+- `sce-*` source capability envelope IDs
 
 IDs are deterministic enough for local consistency and are shaped for future
 cross-plane traceability.
@@ -219,6 +256,12 @@ Model-level call/reply contract type IDs are reserved for each operation:
 Enrollment reply now includes owner-issued trust bootstrap fields
 (`owner_trust_artifact_id`, `owner_trust_artifact_token`) for subsequent
 attach/emit/status operations.
+
+SW-2 distribution baseline:
+- owner replies include delegated distribution material references
+  (`source_policy_snapshot_id`, `source_capability_envelope_id`,
+  `distribution_target_ref`, delegated scopes);
+- attach/status flows carry and refresh target-aware delegated scope material.
 
 ## RF-0.4 Observation Lock
 

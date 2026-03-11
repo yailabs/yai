@@ -36,6 +36,7 @@ An ADR should answer:
 - `ADR-018-process-and-asset-runtime-observation-model.md`
 - `ADR-019-edge-binding-and-action-point-model.md`
 - `ADR-020-workspace-authority-and-truth-plane.md`
+- `ADR-021-workspace-to-edge-policy-distribution.md`
 
 ## Template policy
 

@@ -44,6 +44,10 @@ int yai_daemon_edge_state_init(yai_daemon_edge_state_t *state,
   (void)copy_string(state->owner_scope_state, sizeof(state->owner_scope_state), "owner_scoped_subordinate");
   (void)copy_string(state->delegated_policy_state, sizeof(state->delegated_policy_state), "pending");
   (void)copy_string(state->grants_state, sizeof(state->grants_state), "pending");
+  (void)copy_string(state->policy_snapshot_version, sizeof(state->policy_snapshot_version), "ws-policy-snapshot-v1");
+  (void)copy_string(state->delegated_observation_scope, sizeof(state->delegated_observation_scope), "workspace/default");
+  (void)copy_string(state->delegated_mediation_scope, sizeof(state->delegated_mediation_scope), "none");
+  (void)copy_string(state->delegated_enforcement_scope, sizeof(state->delegated_enforcement_scope), "none");
   (void)copy_string(state->observation_state, sizeof(state->observation_state), "placeholder_ready");
   (void)copy_string(state->mediation_state, sizeof(state->mediation_state), "placeholder_ready");
   (void)copy_string(state->spool_retry_state, sizeof(state->spool_retry_state), "placeholder_ready");
@@ -112,6 +116,48 @@ int yai_daemon_edge_state_refresh_from_local(yai_daemon_edge_state_t *state,
   {
     (void)copy_string(state->grants_state, sizeof(state->grants_state), "present");
   }
+  if (local->source_policy_snapshot_id[0])
+  {
+    (void)copy_string(state->source_policy_snapshot_id,
+                      sizeof(state->source_policy_snapshot_id),
+                      local->source_policy_snapshot_id);
+  }
+  if (local->source_capability_envelope_id[0])
+  {
+    (void)copy_string(state->source_capability_envelope_id,
+                      sizeof(state->source_capability_envelope_id),
+                      local->source_capability_envelope_id);
+  }
+  if (local->policy_snapshot_version[0])
+  {
+    (void)copy_string(state->policy_snapshot_version,
+                      sizeof(state->policy_snapshot_version),
+                      local->policy_snapshot_version);
+  }
+  if (local->distribution_target_ref[0])
+  {
+    (void)copy_string(state->distribution_target_ref,
+                      sizeof(state->distribution_target_ref),
+                      local->distribution_target_ref);
+  }
+  if (local->delegated_observation_scope[0])
+  {
+    (void)copy_string(state->delegated_observation_scope,
+                      sizeof(state->delegated_observation_scope),
+                      local->delegated_observation_scope);
+  }
+  if (local->delegated_mediation_scope[0])
+  {
+    (void)copy_string(state->delegated_mediation_scope,
+                      sizeof(state->delegated_mediation_scope),
+                      local->delegated_mediation_scope);
+  }
+  if (local->delegated_enforcement_scope[0])
+  {
+    (void)copy_string(state->delegated_enforcement_scope,
+                      sizeof(state->delegated_enforcement_scope),
+                      local->delegated_enforcement_scope);
+  }
   if (local->owner_trust_artifact_token[0] &&
       strcmp(local->owner_trust_artifact_token, "pending") != 0)
   {
@@ -178,6 +224,13 @@ int yai_daemon_edge_state_json(const yai_daemon_edge_state_t *state,
                "  \"owner_scope_state\": \"%s\",\n"
                "  \"delegated_policy_state\": \"%s\",\n"
                "  \"grants_state\": \"%s\",\n"
+               "  \"source_policy_snapshot_id\": \"%s\",\n"
+               "  \"source_capability_envelope_id\": \"%s\",\n"
+               "  \"policy_snapshot_version\": \"%s\",\n"
+               "  \"distribution_target_ref\": \"%s\",\n"
+               "  \"delegated_observation_scope\": \"%s\",\n"
+               "  \"delegated_mediation_scope\": \"%s\",\n"
+               "  \"delegated_enforcement_scope\": \"%s\",\n"
                "  \"observation_state\": \"%s\",\n"
                "  \"mediation_state\": \"%s\",\n"
                "  \"spool_retry_state\": \"%s\",\n"
@@ -211,6 +264,13 @@ int yai_daemon_edge_state_json(const yai_daemon_edge_state_t *state,
                state->owner_scope_state,
                state->delegated_policy_state,
                state->grants_state,
+               state->source_policy_snapshot_id,
+               state->source_capability_envelope_id,
+               state->policy_snapshot_version,
+               state->distribution_target_ref,
+               state->delegated_observation_scope,
+               state->delegated_mediation_scope,
+               state->delegated_enforcement_scope,
                state->observation_state,
                state->mediation_state,
                state->spool_retry_state,

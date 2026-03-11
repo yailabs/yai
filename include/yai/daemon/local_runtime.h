@@ -79,6 +79,13 @@ typedef struct yai_daemon_local_runtime {
   char source_enrollment_grant_id[128];
   char owner_trust_artifact_id[128];
   char owner_trust_artifact_token[128];
+  char source_policy_snapshot_id[128];
+  char source_capability_envelope_id[128];
+  char policy_snapshot_version[64];
+  char distribution_target_ref[256];
+  char delegated_observation_scope[128];
+  char delegated_mediation_scope[128];
+  char delegated_enforcement_scope[128];
   char owner_socket[512];
   char health_state[32];
   char queue_dir[512];

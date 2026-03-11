@@ -363,6 +363,111 @@ int yai_graph_materialize_source_record(const char *workspace_id,
     if (out_node_ref && out_node_ref_cap > 0) snprintf(out_node_ref, out_node_ref_cap, "bgn-%s-%s", YAI_GRAPH_SOURCE_OWNER_LINK_CLASS, a_slug);
     if (out_edge_ref && out_edge_ref_cap > 0) snprintf(out_edge_ref, out_edge_ref_cap, "bge-attached-to-%s", src_slug);
   }
+  else if (strcmp(record_class, YAI_SOURCE_RECORD_CLASS_POLICY_SNAPSHOT) == 0)
+  {
+    const char *source_policy_snapshot_id = json_string(root, "source_policy_snapshot_id");
+    const char *daemon_instance_id = json_string(root, "daemon_instance_id");
+    const char *distribution_target_ref = json_string(root, "distribution_target_ref");
+    yai_graph_slug(source_policy_snapshot_id, a_slug, sizeof(a_slug));
+    yai_graph_slug(source_node_id, src_slug, sizeof(src_slug));
+    yai_graph_slug(daemon_instance_id, b_slug, sizeof(b_slug));
+    (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_POLICY_SNAPSHOT_CLASS,
+                                     a_slug,
+                                     source_policy_snapshot_id ? source_policy_snapshot_id : "source_policy_snapshot_unset",
+                                     &candidate_node);
+    (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_NODE_CLASS,
+                                     src_slug,
+                                     source_node_id ? source_node_id : "source_node_unset",
+                                     &src_node);
+    (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_DAEMON_INSTANCE_CLASS,
+                                     b_slug,
+                                     daemon_instance_id ? daemon_instance_id : "source_daemon_instance_unset",
+                                     &event_node);
+    (void)yai_mind_graph_edge_create(candidate_node, src_node, "snapshot_for_node", 1.0f, &rel_edge);
+    (void)yai_mind_graph_edge_create(candidate_node, event_node, "snapshot_for_daemon", 1.0f, &rel_edge);
+    (void)yai_mind_graph_edge_create(candidate_node, ws_node, "distributed_by_workspace", 1.0f, &rel_edge);
+    if (distribution_target_ref && distribution_target_ref[0])
+    {
+      yai_graph_slug(distribution_target_ref, c_slug, sizeof(c_slug));
+      (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_SCOPE_CLASS,
+                                       c_slug,
+                                       distribution_target_ref,
+                                       &scope_node);
+      (void)yai_mind_graph_edge_create(candidate_node, scope_node, "distribution_target", 1.0f, &rel_edge);
+      if (slot) { slot->source_node_count += 1; slot->source_edge_count += 1; }
+    }
+    if (slot) { slot->source_node_count += 4; slot->source_edge_count += 3; }
+    if (out_node_ref && out_node_ref_cap > 0) snprintf(out_node_ref, out_node_ref_cap, "bgn-%s-%s", YAI_GRAPH_SOURCE_POLICY_SNAPSHOT_CLASS, a_slug);
+    if (out_edge_ref && out_edge_ref_cap > 0) snprintf(out_edge_ref, out_edge_ref_cap, "bge-distributed-by-workspace-%s", a_slug);
+  }
+  else if (strcmp(record_class, YAI_SOURCE_RECORD_CLASS_CAPABILITY_ENVELOPE) == 0)
+  {
+    const char *source_capability_envelope_id = json_string(root, "source_capability_envelope_id");
+    const char *daemon_instance_id = json_string(root, "daemon_instance_id");
+    const char *distribution_target_ref = json_string(root, "distribution_target_ref");
+    const char *observation_scope = json_string(root, "observation_scope");
+    const char *mediation_scope = json_string(root, "mediation_scope");
+    const char *enforcement_scope = json_string(root, "enforcement_scope");
+    yai_graph_slug(source_capability_envelope_id, a_slug, sizeof(a_slug));
+    yai_graph_slug(source_node_id, src_slug, sizeof(src_slug));
+    yai_graph_slug(source_binding_id, b_slug, sizeof(b_slug));
+    (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_CAPABILITY_ENVELOPE_CLASS,
+                                     a_slug,
+                                     source_capability_envelope_id ? source_capability_envelope_id : "source_capability_envelope_unset",
+                                     &candidate_node);
+    (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_NODE_CLASS,
+                                     src_slug,
+                                     source_node_id ? source_node_id : "source_node_unset",
+                                     &src_node);
+    (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_BINDING_CLASS,
+                                     b_slug,
+                                     source_binding_id ? source_binding_id : "source_binding_unset",
+                                     &binding_node);
+    (void)yai_mind_graph_edge_create(candidate_node, src_node, "envelope_for_node", 1.0f, &rel_edge);
+    (void)yai_mind_graph_edge_create(candidate_node, binding_node, "envelope_for_binding", 1.0f, &rel_edge);
+    (void)yai_mind_graph_edge_create(candidate_node, ws_node, "distributed_by_workspace", 1.0f, &rel_edge);
+    if (daemon_instance_id && daemon_instance_id[0])
+    {
+      yai_graph_slug(daemon_instance_id, c_slug, sizeof(c_slug));
+      (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_DAEMON_INSTANCE_CLASS,
+                                       c_slug,
+                                       daemon_instance_id,
+                                       &event_node);
+      (void)yai_mind_graph_edge_create(candidate_node, event_node, "envelope_for_daemon", 1.0f, &rel_edge);
+      if (slot) { slot->source_node_count += 1; slot->source_edge_count += 1; }
+    }
+    if (distribution_target_ref && distribution_target_ref[0])
+    {
+      yai_graph_slug(distribution_target_ref, c_slug, sizeof(c_slug));
+      (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_SCOPE_CLASS, c_slug, distribution_target_ref, &scope_node);
+      (void)yai_mind_graph_edge_create(candidate_node, scope_node, "distribution_target", 1.0f, &rel_edge);
+      if (slot) { slot->source_node_count += 1; slot->source_edge_count += 1; }
+    }
+    if (observation_scope && observation_scope[0])
+    {
+      yai_graph_slug(observation_scope, c_slug, sizeof(c_slug));
+      (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_SCOPE_CLASS, c_slug, observation_scope, &scope_node);
+      (void)yai_mind_graph_edge_create(candidate_node, scope_node, "delegated_observation_scope", 1.0f, &rel_edge);
+      if (slot) { slot->source_node_count += 1; slot->source_edge_count += 1; }
+    }
+    if (mediation_scope && mediation_scope[0])
+    {
+      yai_graph_slug(mediation_scope, c_slug, sizeof(c_slug));
+      (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_SCOPE_CLASS, c_slug, mediation_scope, &scope_node);
+      (void)yai_mind_graph_edge_create(candidate_node, scope_node, "delegated_mediation_scope", 1.0f, &rel_edge);
+      if (slot) { slot->source_node_count += 1; slot->source_edge_count += 1; }
+    }
+    if (enforcement_scope && enforcement_scope[0])
+    {
+      yai_graph_slug(enforcement_scope, c_slug, sizeof(c_slug));
+      (void)yai_mind_graph_node_create(YAI_GRAPH_SOURCE_SCOPE_CLASS, c_slug, enforcement_scope, &scope_node);
+      (void)yai_mind_graph_edge_create(candidate_node, scope_node, "delegated_enforcement_scope", 1.0f, &rel_edge);
+      if (slot) { slot->source_node_count += 1; slot->source_edge_count += 1; }
+    }
+    if (slot) { slot->source_node_count += 4; slot->source_edge_count += 3; }
+    if (out_node_ref && out_node_ref_cap > 0) snprintf(out_node_ref, out_node_ref_cap, "bgn-%s-%s", YAI_GRAPH_SOURCE_CAPABILITY_ENVELOPE_CLASS, a_slug);
+    if (out_edge_ref && out_edge_ref_cap > 0) snprintf(out_edge_ref, out_edge_ref_cap, "bge-envelope-for-binding-%s", a_slug);
+  }
   else if (strcmp(record_class, YAI_SOURCE_RECORD_CLASS_WORKSPACE_PEER_MEMBERSHIP) == 0)
   {
     const char *membership_id = json_string(root, "workspace_peer_membership_id");

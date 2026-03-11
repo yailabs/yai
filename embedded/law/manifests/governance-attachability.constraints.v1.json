@@ -311,6 +311,38 @@
       ],
       "edge_non_truth_rule": "edge_state_snapshot_spool_and_local_outcomes_never_become_autonomous_truth",
       "canonicalization_boundary": "owner_runtime_acceptance_required"
+    },
+    "workspace_to_edge_policy_distribution": {
+      "distribution_model": "owner_to_subordinate_edge_runtime",
+      "distributed_materials": [
+        "policy_snapshot",
+        "grant",
+        "capability_envelope",
+        "target_association",
+        "delegated_observation_scope",
+        "delegated_mediation_scope",
+        "delegated_enforcement_scope"
+      ],
+      "targeting_rules": {
+        "workspace_aware": true,
+        "source_node_aware": true,
+        "daemon_instance_aware": true,
+        "source_binding_aware": true,
+        "action_point_scope_aware": true
+      },
+      "distribution_non_sovereign_rule": "distribution_provides_operating_material_not_truth_or_authority_transfer",
+      "refresh_model_baseline": {
+        "supports_issue": true,
+        "supports_update": true,
+        "supports_replace": true,
+        "supports_refresh": true,
+        "supports_staleness_detection": true
+      },
+      "degraded_mode_rules": {
+        "stale_distribution_reduces_autonomy": true,
+        "missing_distribution_reduces_autonomy": true,
+        "owner_final_authority_required": true
+      }
     }
   },
   "topology_target": "unified-runtime-v1",

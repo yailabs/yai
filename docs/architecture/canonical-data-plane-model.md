@@ -71,6 +71,12 @@ SW-1 workspace truth lock:
 - edge-local observations/outcomes/spool/snapshots remain non-canonical
   operational contributors until owner acceptance/canonicalization.
 
+SW-2 workspace-to-edge distribution lock:
+- owner distributes delegated operational artifacts (`policy_snapshot`,
+  `grant`, `capability_envelope`) as target-aware data-plane records;
+- distributed artifacts enable edge execution scope but never transfer owner
+  canonical truth or final authority.
+
 ### 3) Control/Data Path Separation
 Mandatory path:
 

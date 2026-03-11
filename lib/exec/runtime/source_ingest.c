@@ -531,6 +531,43 @@ static int make_ingest_outcome_id(char *out, size_t out_cap)
   return 0;
 }
 
+static int make_distribution_target_ref(char *out,
+                                        size_t out_cap,
+                                        const char *workspace_id,
+                                        const char *source_node_id,
+                                        const char *daemon_instance_id,
+                                        const char *source_binding_id)
+{
+  if (!out || out_cap == 0 || !workspace_id || !source_node_id || !daemon_instance_id)
+  {
+    return -1;
+  }
+  if (source_binding_id && source_binding_id[0])
+  {
+    if (snprintf(out,
+                 out_cap,
+                 "workspace:%s/node:%s/daemon:%s/binding:%s",
+                 workspace_id,
+                 source_node_id,
+                 daemon_instance_id,
+                 source_binding_id) >= (int)out_cap)
+    {
+      return -1;
+    }
+    return 0;
+  }
+  if (snprintf(out,
+               out_cap,
+               "workspace:%s/node:%s/daemon:%s",
+               workspace_id,
+               source_node_id,
+               daemon_instance_id) >= (int)out_cap)
+  {
+    return -1;
+  }
+  return 0;
+}
+
 static void mediation_json(const yai_source_plane_mediation_state_t *med,
                            char *out,
                            size_t out_cap)
@@ -584,6 +621,13 @@ static int handle_enroll(const char *workspace_id,
   char daemon_id[YAI_SOURCE_DAEMON_INSTANCE_ID_MAX];
   char owner_link_id[YAI_SOURCE_OWNER_LINK_ID_MAX];
   char enrollment_grant_id[YAI_SOURCE_ENROLLMENT_GRANT_ID_MAX];
+  char source_policy_snapshot_id[YAI_SOURCE_POLICY_SNAPSHOT_ID_MAX];
+  char source_capability_envelope_id[YAI_SOURCE_CAPABILITY_ENVELOPE_ID_MAX];
+  char distribution_target_ref[YAI_SOURCE_REF_MAX];
+  const char *snapshot_version = "ws-policy-snapshot-v1";
+  const char *observation_scope = "workspace/default";
+  const char *mediation_scope = "none";
+  const char *enforcement_scope = "none";
   char trust_artifact_id[128];
   char trust_artifact_token[128];
   char med_json[384];
@@ -591,6 +635,8 @@ static int handle_enroll(const char *workspace_id,
   cJSON *inst = NULL;
   cJSON *link = NULL;
   cJSON *grant = NULL;
+  cJSON *snapshot = NULL;
+  cJSON *capability = NULL;
   char err[160];
 
   if (!workspace_id || !yai_ws_id_is_valid(workspace_id) || !payload || !out_json || out_cap == 0)
@@ -638,6 +684,26 @@ static int handle_enroll(const char *workspace_id,
     (void)set_reason(reason, reason_cap, "source_enrollment_grant_id_generation_failed");
     return -4;
   }
+  if (yai_source_id_policy_snapshot(source_policy_snapshot_id, sizeof(source_policy_snapshot_id), node_id, daemon_id, workspace_id) != 0)
+  {
+    (void)set_reason(reason, reason_cap, "source_policy_snapshot_id_generation_failed");
+    return -4;
+  }
+  if (yai_source_id_capability_envelope(source_capability_envelope_id, sizeof(source_capability_envelope_id), "enroll-baseline", node_id, workspace_id) != 0)
+  {
+    (void)set_reason(reason, reason_cap, "source_capability_envelope_id_generation_failed");
+    return -4;
+  }
+  if (make_distribution_target_ref(distribution_target_ref,
+                                   sizeof(distribution_target_ref),
+                                   workspace_id,
+                                   node_id,
+                                   daemon_id,
+                                   NULL) != 0)
+  {
+    (void)set_reason(reason, reason_cap, "source_distribution_target_encode_failed");
+    return -4;
+  }
   if (snprintf(trust_artifact_id, sizeof(trust_artifact_id), "owner-grant:%s", enrollment_grant_id) >= (int)sizeof(trust_artifact_id))
   {
     (void)set_reason(reason, reason_cap, "source_enrollment_artifact_id_encode_failed");
@@ -653,12 +719,16 @@ static int handle_enroll(const char *workspace_id,
   inst = cJSON_CreateObject();
   link = cJSON_CreateObject();
   grant = cJSON_CreateObject();
-  if (!node || !inst || !link || !grant)
+  snapshot = cJSON_CreateObject();
+  capability = cJSON_CreateObject();
+  if (!node || !inst || !link || !grant || !snapshot || !capability)
   {
     cJSON_Delete(node);
     cJSON_Delete(inst);
     cJSON_Delete(link);
     cJSON_Delete(grant);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
     (void)set_reason(reason, reason_cap, "source_enroll_allocation_failed");
     return -4;
   }
@@ -698,15 +768,42 @@ static int handle_enroll(const char *workspace_id,
   cJSON_AddStringToObject(grant, "trust_bootstrap_model", "owner_issued_v1");
   cJSON_AddNumberToObject(grant, "issued_at_epoch", (double)time(NULL));
 
+  cJSON_AddStringToObject(snapshot, "type", "yai.source_policy_snapshot.v1");
+  cJSON_AddStringToObject(snapshot, "source_policy_snapshot_id", source_policy_snapshot_id);
+  cJSON_AddStringToObject(snapshot, "source_node_id", node_id);
+  cJSON_AddStringToObject(snapshot, "daemon_instance_id", daemon_id);
+  cJSON_AddStringToObject(snapshot, "owner_workspace_id", workspace_id);
+  cJSON_AddStringToObject(snapshot, "source_enrollment_grant_id", enrollment_grant_id);
+  cJSON_AddStringToObject(snapshot, "snapshot_version", snapshot_version);
+  cJSON_AddStringToObject(snapshot, "distribution_target_ref", distribution_target_ref);
+  cJSON_AddNumberToObject(snapshot, "issued_at_epoch", (double)time(NULL));
+
+  cJSON_AddStringToObject(capability, "type", "yai.source_capability_envelope.v1");
+  cJSON_AddStringToObject(capability, "source_capability_envelope_id", source_capability_envelope_id);
+  cJSON_AddStringToObject(capability, "source_node_id", node_id);
+  cJSON_AddStringToObject(capability, "daemon_instance_id", daemon_id);
+  cJSON_AddStringToObject(capability, "source_binding_id", "enroll-baseline");
+  cJSON_AddStringToObject(capability, "owner_workspace_id", workspace_id);
+  cJSON_AddStringToObject(capability, "source_enrollment_grant_id", enrollment_grant_id);
+  cJSON_AddStringToObject(capability, "observation_scope", observation_scope);
+  cJSON_AddStringToObject(capability, "mediation_scope", mediation_scope);
+  cJSON_AddStringToObject(capability, "enforcement_scope", enforcement_scope);
+  cJSON_AddStringToObject(capability, "distribution_target_ref", distribution_target_ref);
+  cJSON_AddNumberToObject(capability, "issued_at_epoch", (double)time(NULL));
+
   if (append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_NODE, node, err, sizeof(err)) != 0 ||
       append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_DAEMON_INSTANCE, inst, err, sizeof(err)) != 0 ||
       append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_OWNER_LINK, link, err, sizeof(err)) != 0 ||
-      append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_ENROLLMENT_GRANT, grant, err, sizeof(err)) != 0)
+      append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_ENROLLMENT_GRANT, grant, err, sizeof(err)) != 0 ||
+      append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_POLICY_SNAPSHOT, snapshot, err, sizeof(err)) != 0 ||
+      append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_CAPABILITY_ENVELOPE, capability, err, sizeof(err)) != 0)
   {
     cJSON_Delete(node);
     cJSON_Delete(inst);
     cJSON_Delete(link);
     cJSON_Delete(grant);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
     (void)set_reason(reason, reason_cap, err[0] ? err : "source_enroll_persistence_failed");
     return -4;
   }
@@ -715,17 +812,26 @@ static int handle_enroll(const char *workspace_id,
   cJSON_Delete(inst);
   cJSON_Delete(link);
   cJSON_Delete(grant);
+  cJSON_Delete(snapshot);
+  cJSON_Delete(capability);
 
   mediation_json(med, med_json, sizeof(med_json));
 
   if (snprintf(out_json,
                out_cap,
-               "{\"type\":\"yai.source.enroll.reply.v1\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"owner_link_id\":\"%s\",\"source_enrollment_grant_id\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"enrollment_decision\":\"%s\",\"ready_for_attach\":%s,\"registered\":%s,\"mediation\":%s}",
+               "{\"type\":\"yai.source.enroll.reply.v1\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"owner_link_id\":\"%s\",\"source_enrollment_grant_id\":\"%s\",\"source_policy_snapshot_id\":\"%s\",\"source_capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"delegated_observation_scope\":\"%s\",\"delegated_mediation_scope\":\"%s\",\"delegated_enforcement_scope\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"enrollment_decision\":\"%s\",\"ready_for_attach\":%s,\"registered\":%s,\"mediation\":%s}",
                workspace_id,
                node_id,
                daemon_id,
                owner_link_id,
                enrollment_grant_id,
+               source_policy_snapshot_id,
+               source_capability_envelope_id,
+               snapshot_version,
+               distribution_target_ref,
+               observation_scope,
+               mediation_scope,
+               enforcement_scope,
                trust_artifact_id,
                strcmp(decision, "accepted") == 0 ? trust_artifact_token : "pending",
                decision,
@@ -757,7 +863,12 @@ static int handle_attach(const char *workspace_id,
   const char *mediation_scope = json_string_or(payload, "mediation_scope", "none");
   const char *enforcement_scope = json_string_or(payload, "enforcement_scope", "none");
   const char *mediation_mode = json_string_or(payload, "mediation_mode", "none");
+  const char *snapshot_version = json_string_or(payload, "policy_snapshot_version", "ws-policy-snapshot-v1");
+  const char *source_enrollment_grant_id = json_string_or(payload, "source_enrollment_grant_id", "grant-unset");
   const char *owner_workspace_id = json_string(payload, "owner_workspace_id");
+  char source_policy_snapshot_id[YAI_SOURCE_POLICY_SNAPSHOT_ID_MAX];
+  char source_capability_envelope_id[YAI_SOURCE_CAPABILITY_ENVELOPE_ID_MAX];
+  char distribution_target_ref[YAI_SOURCE_REF_MAX];
   char source_binding_id[YAI_SOURCE_BINDING_ID_MAX];
   char workspace_peer_membership_id[YAI_SOURCE_WORKSPACE_PEER_MEMBERSHIP_ID_MAX];
   const char *peer_role = json_string_or(payload, "peer_role", "general");
@@ -769,6 +880,8 @@ static int handle_attach(const char *workspace_id,
   char med_json[384];
   cJSON *binding = NULL;
   cJSON *membership = NULL;
+  cJSON *snapshot = NULL;
+  cJSON *capability = NULL;
   char err[160];
   const char *target_ws = owner_workspace_id && owner_workspace_id[0] ? owner_workspace_id : workspace_id;
   yai_owner_peer_registry_entry_t reg;
@@ -811,6 +924,34 @@ static int handle_attach(const char *workspace_id,
     (void)set_reason(reason, reason_cap, "workspace_peer_membership_id_generation_failed");
     return -4;
   }
+  if (yai_source_id_policy_snapshot(source_policy_snapshot_id,
+                                    sizeof(source_policy_snapshot_id),
+                                    source_node_id,
+                                    daemon_instance_id,
+                                    target_ws) != 0)
+  {
+    (void)set_reason(reason, reason_cap, "source_policy_snapshot_id_generation_failed");
+    return -4;
+  }
+  if (yai_source_id_capability_envelope(source_capability_envelope_id,
+                                        sizeof(source_capability_envelope_id),
+                                        source_binding_id,
+                                        source_node_id,
+                                        target_ws) != 0)
+  {
+    (void)set_reason(reason, reason_cap, "source_capability_envelope_id_generation_failed");
+    return -4;
+  }
+  if (make_distribution_target_ref(distribution_target_ref,
+                                   sizeof(distribution_target_ref),
+                                   target_ws,
+                                   source_node_id,
+                                   daemon_instance_id,
+                                   source_binding_id) != 0)
+  {
+    (void)set_reason(reason, reason_cap, "source_distribution_target_encode_failed");
+    return -4;
+  }
 
   binding = cJSON_CreateObject();
   if (!binding)
@@ -834,9 +975,14 @@ static int handle_attach(const char *workspace_id,
   cJSON_AddStringToObject(binding, "constraints_ref", constraints_ref);
 
   membership = cJSON_CreateObject();
-  if (!membership)
+  snapshot = cJSON_CreateObject();
+  capability = cJSON_CreateObject();
+  if (!membership || !snapshot || !capability)
   {
     cJSON_Delete(binding);
+    cJSON_Delete(membership);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
     (void)set_reason(reason, reason_cap, "workspace_peer_membership_allocation_failed");
     return -4;
   }
@@ -856,10 +1002,35 @@ static int handle_attach(const char *workspace_id,
   cJSON_AddStringToObject(membership, "overlap_state", overlap_state);
   cJSON_AddNumberToObject(membership, "updated_at_epoch", (double)time(NULL));
 
+  cJSON_AddStringToObject(snapshot, "type", "yai.source_policy_snapshot.v1");
+  cJSON_AddStringToObject(snapshot, "source_policy_snapshot_id", source_policy_snapshot_id);
+  cJSON_AddStringToObject(snapshot, "source_node_id", source_node_id);
+  cJSON_AddStringToObject(snapshot, "daemon_instance_id", daemon_instance_id);
+  cJSON_AddStringToObject(snapshot, "owner_workspace_id", target_ws);
+  cJSON_AddStringToObject(snapshot, "source_enrollment_grant_id", source_enrollment_grant_id);
+  cJSON_AddStringToObject(snapshot, "snapshot_version", snapshot_version);
+  cJSON_AddStringToObject(snapshot, "distribution_target_ref", distribution_target_ref);
+  cJSON_AddNumberToObject(snapshot, "issued_at_epoch", (double)time(NULL));
+
+  cJSON_AddStringToObject(capability, "type", "yai.source_capability_envelope.v1");
+  cJSON_AddStringToObject(capability, "source_capability_envelope_id", source_capability_envelope_id);
+  cJSON_AddStringToObject(capability, "source_node_id", source_node_id);
+  cJSON_AddStringToObject(capability, "daemon_instance_id", daemon_instance_id);
+  cJSON_AddStringToObject(capability, "source_binding_id", source_binding_id);
+  cJSON_AddStringToObject(capability, "owner_workspace_id", target_ws);
+  cJSON_AddStringToObject(capability, "source_enrollment_grant_id", source_enrollment_grant_id);
+  cJSON_AddStringToObject(capability, "observation_scope", observation_scope);
+  cJSON_AddStringToObject(capability, "mediation_scope", mediation_scope);
+  cJSON_AddStringToObject(capability, "enforcement_scope", enforcement_scope);
+  cJSON_AddStringToObject(capability, "distribution_target_ref", distribution_target_ref);
+  cJSON_AddNumberToObject(capability, "issued_at_epoch", (double)time(NULL));
+
   if (append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_BINDING, binding, err, sizeof(err)) != 0)
   {
     cJSON_Delete(binding);
     cJSON_Delete(membership);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
     (void)set_reason(reason, reason_cap, err[0] ? err : "source_attach_persistence_failed");
     return -4;
   }
@@ -871,7 +1042,35 @@ static int handle_attach(const char *workspace_id,
   {
     cJSON_Delete(binding);
     cJSON_Delete(membership);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
     (void)set_reason(reason, reason_cap, err[0] ? err : "workspace_peer_membership_persistence_failed");
+    return -4;
+  }
+  if (append_source_record(workspace_id,
+                           YAI_SOURCE_RECORD_CLASS_POLICY_SNAPSHOT,
+                           snapshot,
+                           err,
+                           sizeof(err)) != 0)
+  {
+    cJSON_Delete(binding);
+    cJSON_Delete(membership);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
+    (void)set_reason(reason, reason_cap, err[0] ? err : "source_attach_policy_snapshot_persistence_failed");
+    return -4;
+  }
+  if (append_source_record(workspace_id,
+                           YAI_SOURCE_RECORD_CLASS_CAPABILITY_ENVELOPE,
+                           capability,
+                           err,
+                           sizeof(err)) != 0)
+  {
+    cJSON_Delete(binding);
+    cJSON_Delete(membership);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
+    (void)set_reason(reason, reason_cap, err[0] ? err : "source_attach_capability_envelope_persistence_failed");
     return -4;
   }
   {
@@ -935,6 +1134,8 @@ static int handle_attach(const char *workspace_id,
           cJSON_Delete(ap_record);
           cJSON_Delete(binding);
           cJSON_Delete(membership);
+          cJSON_Delete(snapshot);
+          cJSON_Delete(capability);
           (void)set_reason(reason, reason_cap, err[0] ? err : "source_attach_action_point_persistence_failed");
           return -4;
         }
@@ -986,6 +1187,8 @@ static int handle_attach(const char *workspace_id,
           cJSON_Delete(ap_record);
           cJSON_Delete(binding);
           cJSON_Delete(membership);
+          cJSON_Delete(snapshot);
+          cJSON_Delete(capability);
           (void)set_reason(reason, reason_cap, err[0] ? err : "source_attach_action_point_persistence_failed");
           return -4;
         }
@@ -995,6 +1198,8 @@ static int handle_attach(const char *workspace_id,
   }
   cJSON_Delete(binding);
   cJSON_Delete(membership);
+  cJSON_Delete(snapshot);
+  cJSON_Delete(capability);
 
   memset(&reg, 0, sizeof(reg));
   (void)snprintf(reg.workspace_id, sizeof(reg.workspace_id), "%s", target_ws);
@@ -1018,12 +1223,19 @@ static int handle_attach(const char *workspace_id,
 
   if (snprintf(out_json,
                out_cap,
-               "{\"type\":\"yai.source.attach.reply.v1\",\"workspace_id\":\"%s\",\"owner_workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"source_binding_id\":\"%s\",\"workspace_peer_membership_id\":\"%s\",\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"peer_state\":\"%s\",\"attachment_status\":\"attached\",\"mediation\":%s}",
+               "{\"type\":\"yai.source.attach.reply.v1\",\"workspace_id\":\"%s\",\"owner_workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"source_binding_id\":\"%s\",\"workspace_peer_membership_id\":\"%s\",\"source_policy_snapshot_id\":\"%s\",\"source_capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"delegated_observation_scope\":\"%s\",\"delegated_mediation_scope\":\"%s\",\"delegated_enforcement_scope\":\"%s\",\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"peer_state\":\"%s\",\"attachment_status\":\"attached\",\"mediation\":%s}",
                workspace_id,
                target_ws,
                source_node_id,
                source_binding_id,
                workspace_peer_membership_id,
+               source_policy_snapshot_id,
+               source_capability_envelope_id,
+               snapshot_version,
+               distribution_target_ref,
+               observation_scope,
+               mediation_scope,
+               enforcement_scope,
                peer_role,
                peer_scope,
                peer_state,
@@ -1291,13 +1503,25 @@ static int handle_status(const char *workspace_id,
   const char *peer_scope = json_string_or(payload, "peer_scope", "workspace/default");
   const char *coverage_ref = json_string_or(payload, "coverage_ref", "coverage://workspace/default");
   const char *overlap_state = json_string_or(payload, "overlap_state", "unknown");
+  const char *source_enrollment_grant_id = json_string_or(payload, "source_enrollment_grant_id", "grant-unset");
+  const char *source_policy_snapshot_id_in = json_string(payload, "source_policy_snapshot_id");
+  const char *source_capability_envelope_id_in = json_string(payload, "source_capability_envelope_id");
+  const char *policy_snapshot_version = json_string_or(payload, "policy_snapshot_version", "ws-policy-snapshot-v1");
+  const char *delegated_observation_scope = json_string_or(payload, "delegated_observation_scope", "workspace/default");
+  const char *delegated_mediation_scope = json_string_or(payload, "delegated_mediation_scope", "none");
+  const char *delegated_enforcement_scope = json_string_or(payload, "delegated_enforcement_scope", "none");
   int64_t backlog_queued = json_i64(payload, "backlog_queued", -1);
   int64_t backlog_retry_due = json_i64(payload, "backlog_retry_due", -1);
   int64_t backlog_failed = json_i64(payload, "backlog_failed", -1);
+  char source_policy_snapshot_id[YAI_SOURCE_POLICY_SNAPSHOT_ID_MAX];
+  char source_capability_envelope_id[YAI_SOURCE_CAPABILITY_ENVELOPE_ID_MAX];
+  char distribution_target_ref[YAI_SOURCE_REF_MAX];
   char workspace_peer_membership_id[YAI_SOURCE_WORKSPACE_PEER_MEMBERSHIP_ID_MAX];
   char med_json[384];
   cJSON *inst = NULL;
   cJSON *membership = NULL;
+  cJSON *snapshot = NULL;
+  cJSON *capability = NULL;
   yai_owner_peer_registry_entry_t reg;
   char err[160];
 
@@ -1330,13 +1554,56 @@ static int handle_status(const char *workspace_id,
     (void)set_reason(reason, reason_cap, "workspace_peer_membership_id_generation_failed");
     return -4;
   }
+  if (source_policy_snapshot_id_in && source_policy_snapshot_id_in[0])
+  {
+    (void)snprintf(source_policy_snapshot_id, sizeof(source_policy_snapshot_id), "%s", source_policy_snapshot_id_in);
+  }
+  else if (yai_source_id_policy_snapshot(source_policy_snapshot_id,
+                                         sizeof(source_policy_snapshot_id),
+                                         source_node_id,
+                                         daemon_instance_id,
+                                         workspace_id) != 0)
+  {
+    (void)set_reason(reason, reason_cap, "source_policy_snapshot_id_generation_failed");
+    return -4;
+  }
+  if (source_capability_envelope_id_in && source_capability_envelope_id_in[0])
+  {
+    (void)snprintf(source_capability_envelope_id,
+                   sizeof(source_capability_envelope_id),
+                   "%s",
+                   source_capability_envelope_id_in);
+  }
+  else if (yai_source_id_capability_envelope(source_capability_envelope_id,
+                                             sizeof(source_capability_envelope_id),
+                                             source_binding_id,
+                                             source_node_id,
+                                             workspace_id) != 0)
+  {
+    (void)set_reason(reason, reason_cap, "source_capability_envelope_id_generation_failed");
+    return -4;
+  }
+  if (make_distribution_target_ref(distribution_target_ref,
+                                   sizeof(distribution_target_ref),
+                                   workspace_id,
+                                   source_node_id,
+                                   daemon_instance_id,
+                                   source_binding_id) != 0)
+  {
+    (void)set_reason(reason, reason_cap, "source_distribution_target_encode_failed");
+    return -4;
+  }
 
   inst = cJSON_CreateObject();
   membership = cJSON_CreateObject();
-  if (!inst || !membership)
+  snapshot = cJSON_CreateObject();
+  capability = cJSON_CreateObject();
+  if (!inst || !membership || !snapshot || !capability)
   {
     cJSON_Delete(inst);
     cJSON_Delete(membership);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
     (void)set_reason(reason, reason_cap, "source_status_allocation_failed");
     return -4;
   }
@@ -1364,10 +1631,35 @@ static int handle_status(const char *workspace_id,
   cJSON_AddStringToObject(membership, "overlap_state", overlap_state);
   cJSON_AddNumberToObject(membership, "updated_at_epoch", (double)time(NULL));
 
+  cJSON_AddStringToObject(snapshot, "type", "yai.source_policy_snapshot.v1");
+  cJSON_AddStringToObject(snapshot, "source_policy_snapshot_id", source_policy_snapshot_id);
+  cJSON_AddStringToObject(snapshot, "source_node_id", source_node_id);
+  cJSON_AddStringToObject(snapshot, "daemon_instance_id", daemon_instance_id);
+  cJSON_AddStringToObject(snapshot, "owner_workspace_id", workspace_id);
+  cJSON_AddStringToObject(snapshot, "source_enrollment_grant_id", source_enrollment_grant_id);
+  cJSON_AddStringToObject(snapshot, "snapshot_version", policy_snapshot_version);
+  cJSON_AddStringToObject(snapshot, "distribution_target_ref", distribution_target_ref);
+  cJSON_AddNumberToObject(snapshot, "issued_at_epoch", (double)time(NULL));
+
+  cJSON_AddStringToObject(capability, "type", "yai.source_capability_envelope.v1");
+  cJSON_AddStringToObject(capability, "source_capability_envelope_id", source_capability_envelope_id);
+  cJSON_AddStringToObject(capability, "source_node_id", source_node_id);
+  cJSON_AddStringToObject(capability, "daemon_instance_id", daemon_instance_id);
+  cJSON_AddStringToObject(capability, "source_binding_id", source_binding_id);
+  cJSON_AddStringToObject(capability, "owner_workspace_id", workspace_id);
+  cJSON_AddStringToObject(capability, "source_enrollment_grant_id", source_enrollment_grant_id);
+  cJSON_AddStringToObject(capability, "observation_scope", delegated_observation_scope);
+  cJSON_AddStringToObject(capability, "mediation_scope", delegated_mediation_scope);
+  cJSON_AddStringToObject(capability, "enforcement_scope", delegated_enforcement_scope);
+  cJSON_AddStringToObject(capability, "distribution_target_ref", distribution_target_ref);
+  cJSON_AddNumberToObject(capability, "issued_at_epoch", (double)time(NULL));
+
   if (append_source_record(workspace_id, YAI_SOURCE_RECORD_CLASS_DAEMON_INSTANCE, inst, err, sizeof(err)) != 0)
   {
     cJSON_Delete(inst);
     cJSON_Delete(membership);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
     (void)set_reason(reason, reason_cap, err[0] ? err : "source_status_persistence_failed");
     return -4;
   }
@@ -1379,11 +1671,41 @@ static int handle_status(const char *workspace_id,
   {
     cJSON_Delete(inst);
     cJSON_Delete(membership);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
     (void)set_reason(reason, reason_cap, err[0] ? err : "workspace_peer_membership_persistence_failed");
+    return -4;
+  }
+  if (append_source_record(workspace_id,
+                           YAI_SOURCE_RECORD_CLASS_POLICY_SNAPSHOT,
+                           snapshot,
+                           err,
+                           sizeof(err)) != 0)
+  {
+    cJSON_Delete(inst);
+    cJSON_Delete(membership);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
+    (void)set_reason(reason, reason_cap, err[0] ? err : "source_status_policy_snapshot_persistence_failed");
+    return -4;
+  }
+  if (append_source_record(workspace_id,
+                           YAI_SOURCE_RECORD_CLASS_CAPABILITY_ENVELOPE,
+                           capability,
+                           err,
+                           sizeof(err)) != 0)
+  {
+    cJSON_Delete(inst);
+    cJSON_Delete(membership);
+    cJSON_Delete(snapshot);
+    cJSON_Delete(capability);
+    (void)set_reason(reason, reason_cap, err[0] ? err : "source_status_capability_envelope_persistence_failed");
     return -4;
   }
   cJSON_Delete(inst);
   cJSON_Delete(membership);
+  cJSON_Delete(snapshot);
+  cJSON_Delete(capability);
 
   memset(&reg, 0, sizeof(reg));
   (void)snprintf(reg.workspace_id, sizeof(reg.workspace_id), "%s", workspace_id);
@@ -1407,12 +1729,19 @@ static int handle_status(const char *workspace_id,
 
   if (snprintf(out_json,
                out_cap,
-               "{\"type\":\"yai.source.status.reply.v1\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"source_binding_id\":\"%s\",\"workspace_peer_membership_id\":\"%s\",\"health\":\"%s\",\"backlog_queued\":%lld,\"backlog_retry_due\":%lld,\"backlog_failed\":%lld,\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"mediation\":%s}",
+               "{\"type\":\"yai.source.status.reply.v1\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"source_binding_id\":\"%s\",\"workspace_peer_membership_id\":\"%s\",\"source_policy_snapshot_id\":\"%s\",\"source_capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"delegated_observation_scope\":\"%s\",\"delegated_mediation_scope\":\"%s\",\"delegated_enforcement_scope\":\"%s\",\"health\":\"%s\",\"backlog_queued\":%lld,\"backlog_retry_due\":%lld,\"backlog_failed\":%lld,\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"mediation\":%s}",
                workspace_id,
                source_node_id,
                daemon_instance_id,
                source_binding_id,
                workspace_peer_membership_id,
+               source_policy_snapshot_id,
+               source_capability_envelope_id,
+               policy_snapshot_version,
+               distribution_target_ref,
+               delegated_observation_scope,
+               delegated_mediation_scope,
+               delegated_enforcement_scope,
                health,
                (long long)backlog_queued,
                (long long)backlog_retry_due,

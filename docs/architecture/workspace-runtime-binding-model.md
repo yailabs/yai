@@ -52,6 +52,12 @@ SW-1 authority/truth lock:
 - edge-local binding/context caches are operational inputs only and cannot become
   final authority or canonical state.
 
+SW-2 distribution lock:
+- workspace binding context is the anchor for owner-to-edge policy snapshot and
+  capability envelope targeting;
+- distributed edge material remains delegated execution scope, never workspace
+  binding truth ownership.
+
 ## Workspace-local vs Runtime-global
 
 Workspace-local:

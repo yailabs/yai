@@ -133,6 +133,42 @@ int yai_source_id_enrollment_grant(char *out,
   return make_id(out, out_cap, "sg", source_node_id, daemon_instance_id);
 }
 
+int yai_source_id_policy_snapshot(char *out,
+                                  size_t out_cap,
+                                  const char *source_node_id,
+                                  const char *daemon_instance_id,
+                                  const char *workspace_id)
+{
+  char join[224];
+  if (!source_node_id || !daemon_instance_id || !workspace_id)
+  {
+    return -1;
+  }
+  if (snprintf(join, sizeof(join), "%s:%s", daemon_instance_id, workspace_id) >= (int)sizeof(join))
+  {
+    return -1;
+  }
+  return make_id(out, out_cap, "sps", source_node_id, join);
+}
+
+int yai_source_id_capability_envelope(char *out,
+                                      size_t out_cap,
+                                      const char *source_binding_id,
+                                      const char *source_node_id,
+                                      const char *workspace_id)
+{
+  char join[224];
+  if (!source_binding_id || !source_node_id || !workspace_id)
+  {
+    return -1;
+  }
+  if (snprintf(join, sizeof(join), "%s:%s", source_node_id, workspace_id) >= (int)sizeof(join))
+  {
+    return -1;
+  }
+  return make_id(out, out_cap, "sce", source_binding_id, join);
+}
+
 int yai_source_id_workspace_peer_membership(char *out,
                                             size_t out_cap,
                                             const char *workspace_id,

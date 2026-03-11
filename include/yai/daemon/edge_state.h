@@ -31,6 +31,13 @@ typedef struct yai_daemon_edge_state {
   char owner_scope_state[48];
   char delegated_policy_state[48];
   char grants_state[48];
+  char source_policy_snapshot_id[128];
+  char source_capability_envelope_id[128];
+  char policy_snapshot_version[64];
+  char distribution_target_ref[256];
+  char delegated_observation_scope[128];
+  char delegated_mediation_scope[128];
+  char delegated_enforcement_scope[128];
 
   char observation_state[48];
   char mediation_state[48];

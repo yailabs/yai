@@ -64,6 +64,8 @@ Record classes written in YD-4 baseline:
 - `source_evidence_candidate`
 - `source_owner_link`
 - `source_enrollment_grant`
+- `source_policy_snapshot`
+- `source_capability_envelope`
 - `workspace_peer_membership`
 
 ## Validation baseline
@@ -75,6 +77,9 @@ Record classes written in YD-4 baseline:
 - emit payload must include at least one supported source record item
 - attach/status can carry peer orchestration metadata
   (`peer_role`, `peer_scope`, backlog counters, `coverage_ref`, `overlap_state`)
+- enroll/attach/status carry owner-to-edge distribution metadata
+  (`source_policy_snapshot_id`, `source_capability_envelope_id`,
+  `distribution_target_ref`, delegated scopes)
 
 ## Reply baseline
 

@@ -23,6 +23,8 @@ YD-6 extends read surfaces for:
 - `source_owner_link`
 - `workspace_peer_membership`
 - `source_ingest_outcome`
+- `source_policy_snapshot`
+- `source_capability_envelope`
 
 Read model is owner-side only. `yai-daemon` does not host canonical graph truth.
 
@@ -67,6 +69,8 @@ Nodes:
 - `source_evidence_candidate`
 - `workspace_peer_membership`
 - `source_ingest_outcome`
+- `source_policy_snapshot`
+- `source_capability_envelope`
 - `source_scope`
 - owner workspace anchor
 
@@ -88,6 +92,16 @@ Edges:
 - `overlap_on_scope` (`source_node -> source_scope`, overlap-signaled only)
 - `ingest_outcome_for_node` (`source_ingest_outcome -> source_node`)
 - `ingest_outcome_for_binding` (`source_ingest_outcome -> source_binding`)
+- `distributed_by_workspace` (`source_policy_snapshot|source_capability_envelope -> owner_workspace`)
+- `distribution_target` (`source_policy_snapshot|source_capability_envelope -> source_scope`)
+- `snapshot_for_node` (`source_policy_snapshot -> source_node`)
+- `snapshot_for_daemon` (`source_policy_snapshot -> source_daemon_instance`)
+- `envelope_for_node` (`source_capability_envelope -> source_node`)
+- `envelope_for_binding` (`source_capability_envelope -> source_binding`)
+- `envelope_for_daemon` (`source_capability_envelope -> source_daemon_instance`)
+- `delegated_observation_scope` (`source_capability_envelope -> source_scope`)
+- `delegated_mediation_scope` (`source_capability_envelope -> source_scope`)
+- `delegated_enforcement_scope` (`source_capability_envelope -> source_scope`)
 
 ## Semantics guardrails
 
@@ -121,3 +135,4 @@ The test validates persistence -> query -> graph chain:
 - `docs/architecture/source-owner-ingest-model.md`
 - `docs/architecture/daemon-local-runtime-model.md`
 - `docs/architecture/owner-peer-registry-and-coordination-model.md`
+- `docs/architecture/workspace-to-edge-policy-distribution-model.md`

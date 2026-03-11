@@ -738,11 +738,11 @@ static int update_operational_states(yai_daemon_local_runtime_t *local)
                                   YAI_DAEMON_RETRY_PRESSURE_MEDIUM,
                                   YAI_DAEMON_RETRY_PRESSURE_HIGH);
 
-  if (local->owner_registered && local->owner_connected)
+  if (local->owner_registered && local->owner_connected && local->source_policy_snapshot_id[0])
   {
     policy_staleness = YAI_DAEMON_POLICY_STALENESS_FRESH_OR_UNKNOWN;
   }
-  else if (local->owner_registered)
+  else if (local->owner_registered && local->source_policy_snapshot_id[0])
   {
     policy_staleness = YAI_DAEMON_POLICY_STALENESS_REFRESH_PENDING;
   }
@@ -894,6 +894,13 @@ static int ensure_owner_registered(yai_daemon_local_runtime_t *local, const char
   (void)json_extract_string(reply, "daemon_instance_id", local->daemon_instance_id, sizeof(local->daemon_instance_id));
   (void)json_extract_string(reply, "owner_link_id", local->owner_link_id, sizeof(local->owner_link_id));
   (void)json_extract_string(reply, "source_enrollment_grant_id", local->source_enrollment_grant_id, sizeof(local->source_enrollment_grant_id));
+  (void)json_extract_string(reply, "source_policy_snapshot_id", local->source_policy_snapshot_id, sizeof(local->source_policy_snapshot_id));
+  (void)json_extract_string(reply, "source_capability_envelope_id", local->source_capability_envelope_id, sizeof(local->source_capability_envelope_id));
+  (void)json_extract_string(reply, "policy_snapshot_version", local->policy_snapshot_version, sizeof(local->policy_snapshot_version));
+  (void)json_extract_string(reply, "distribution_target_ref", local->distribution_target_ref, sizeof(local->distribution_target_ref));
+  (void)json_extract_string(reply, "delegated_observation_scope", local->delegated_observation_scope, sizeof(local->delegated_observation_scope));
+  (void)json_extract_string(reply, "delegated_mediation_scope", local->delegated_mediation_scope, sizeof(local->delegated_mediation_scope));
+  (void)json_extract_string(reply, "delegated_enforcement_scope", local->delegated_enforcement_scope, sizeof(local->delegated_enforcement_scope));
   (void)json_extract_string(reply, "owner_trust_artifact_id", local->owner_trust_artifact_id, sizeof(local->owner_trust_artifact_id));
   (void)json_extract_string(reply, "owner_trust_artifact_token", local->owner_trust_artifact_token, sizeof(local->owner_trust_artifact_token));
   if (!local->owner_trust_artifact_token[0] || strcmp(local->owner_trust_artifact_token, "pending") == 0) return -1;
@@ -905,7 +912,7 @@ static int ensure_owner_registered(yai_daemon_local_runtime_t *local, const char
 
 static int ensure_binding_attached(yai_daemon_local_runtime_t *local, yai_daemon_binding_rt_t *binding)
 {
-  char payload[1024];
+  char payload[4096];
   char reply[4096];
   int rc = 0;
   if (!local || !binding || !local->owner_socket[0]) return -1;
@@ -914,10 +921,12 @@ static int ensure_binding_attached(yai_daemon_local_runtime_t *local, yai_daemon
 
   snprintf(payload,
            sizeof(payload),
-           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.attach\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"binding_scope\":\"%s\",\"binding_kind\":\"%s\",\"observation_scope\":\"%s\",\"mediation_scope\":\"%s\",\"enforcement_scope\":\"%s\",\"action_point_count\":%d,\"mediation_mode\":\"%s\"}",
+           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.attach\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"source_enrollment_grant_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"binding_scope\":\"%s\",\"binding_kind\":\"%s\",\"observation_scope\":\"%s\",\"mediation_scope\":\"%s\",\"enforcement_scope\":\"%s\",\"action_point_count\":%d,\"mediation_mode\":\"%s\"}",
            binding->workspace_id,
            local->source_node_id,
            local->daemon_instance_id,
+           local->source_enrollment_grant_id,
+           local->policy_snapshot_version[0] ? local->policy_snapshot_version : "ws-policy-snapshot-v1",
            local->owner_trust_artifact_id,
            local->owner_trust_artifact_token,
            "general",
@@ -934,6 +943,13 @@ static int ensure_binding_attached(yai_daemon_local_runtime_t *local, yai_daemon
   rc = rpc_control_call(local->owner_socket, binding->workspace_id, payload, reply, sizeof(reply));
   if (rc != 0 || !json_reply_ok(reply)) return -1;
   (void)json_extract_string(reply, "source_binding_id", binding->binding_id, sizeof(binding->binding_id));
+  (void)json_extract_string(reply, "source_policy_snapshot_id", local->source_policy_snapshot_id, sizeof(local->source_policy_snapshot_id));
+  (void)json_extract_string(reply, "source_capability_envelope_id", local->source_capability_envelope_id, sizeof(local->source_capability_envelope_id));
+  (void)json_extract_string(reply, "policy_snapshot_version", local->policy_snapshot_version, sizeof(local->policy_snapshot_version));
+  (void)json_extract_string(reply, "distribution_target_ref", local->distribution_target_ref, sizeof(local->distribution_target_ref));
+  (void)json_extract_string(reply, "delegated_observation_scope", local->delegated_observation_scope, sizeof(local->delegated_observation_scope));
+  (void)json_extract_string(reply, "delegated_mediation_scope", local->delegated_mediation_scope, sizeof(local->delegated_mediation_scope));
+  (void)json_extract_string(reply, "delegated_enforcement_scope", local->delegated_enforcement_scope, sizeof(local->delegated_enforcement_scope));
   snprintf(binding->status, sizeof(binding->status), "%s", YAI_DAEMON_BINDING_STATUS_ACTIVE);
   local->owner_connected = 1;
   local->last_owner_contact_epoch = now_epoch();
@@ -1063,18 +1079,26 @@ static int emit_unit(yai_daemon_local_runtime_t *local, const yai_daemon_unit_t 
 
 static int send_status_update(yai_daemon_local_runtime_t *local, const char *workspace_id)
 {
-  char payload[1024];
+  char payload[4096];
   char reply[4096];
   int rc = 0;
   if (!local || !workspace_id || !workspace_id[0] || !local->owner_socket[0]) return -1;
   if (ensure_owner_registered(local, workspace_id) != 0) return -1;
   snprintf(payload,
            sizeof(payload),
-           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.status\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"source_binding_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"backlog_queued\":%u,\"backlog_retry_due\":%u,\"backlog_failed\":%u,\"health\":\"%s\",\"binding_kind\":\"%s\",\"observation_scope\":\"%s\",\"mediation_scope\":\"%s\",\"enforcement_scope\":\"%s\",\"action_point_count\":%d,\"mediation_mode\":\"%s\"}",
+           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.status\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"source_binding_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"source_enrollment_grant_id\":\"%s\",\"source_policy_snapshot_id\":\"%s\",\"source_capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"delegated_observation_scope\":\"%s\",\"delegated_mediation_scope\":\"%s\",\"delegated_enforcement_scope\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"peer_role\":\"%s\",\"peer_scope\":\"%s\",\"coverage_ref\":\"%s\",\"overlap_state\":\"%s\",\"backlog_queued\":%u,\"backlog_retry_due\":%u,\"backlog_failed\":%u,\"health\":\"%s\",\"binding_kind\":\"%s\",\"observation_scope\":\"%s\",\"mediation_scope\":\"%s\",\"enforcement_scope\":\"%s\",\"action_point_count\":%d,\"mediation_mode\":\"%s\"}",
            workspace_id,
            local->source_node_id,
            (local->binding_count > 0 && local->bindings[0].binding_id[0]) ? local->bindings[0].binding_id : "binding-unset",
            local->daemon_instance_id,
+           local->source_enrollment_grant_id,
+           local->source_policy_snapshot_id,
+           local->source_capability_envelope_id,
+           local->policy_snapshot_version[0] ? local->policy_snapshot_version : "ws-policy-snapshot-v1",
+           local->distribution_target_ref,
+           local->delegated_observation_scope[0] ? local->delegated_observation_scope : "workspace/default",
+           local->delegated_mediation_scope[0] ? local->delegated_mediation_scope : YAI_DAEMON_SCOPE_NONE,
+           local->delegated_enforcement_scope[0] ? local->delegated_enforcement_scope : YAI_DAEMON_SCOPE_NONE,
            local->owner_trust_artifact_id,
            local->owner_trust_artifact_token,
            "general",
@@ -1093,6 +1117,13 @@ static int send_status_update(yai_daemon_local_runtime_t *local, const char *wor
            (local->binding_count > 0 && local->bindings[0].mediation_mode[0]) ? local->bindings[0].mediation_mode : YAI_DAEMON_MEDIATION_MODE_NONE);
   rc = rpc_control_call(local->owner_socket, workspace_id, payload, reply, sizeof(reply));
   if (rc != 0 || !json_reply_ok(reply)) return -1;
+  (void)json_extract_string(reply, "source_policy_snapshot_id", local->source_policy_snapshot_id, sizeof(local->source_policy_snapshot_id));
+  (void)json_extract_string(reply, "source_capability_envelope_id", local->source_capability_envelope_id, sizeof(local->source_capability_envelope_id));
+  (void)json_extract_string(reply, "policy_snapshot_version", local->policy_snapshot_version, sizeof(local->policy_snapshot_version));
+  (void)json_extract_string(reply, "distribution_target_ref", local->distribution_target_ref, sizeof(local->distribution_target_ref));
+  (void)json_extract_string(reply, "delegated_observation_scope", local->delegated_observation_scope, sizeof(local->delegated_observation_scope));
+  (void)json_extract_string(reply, "delegated_mediation_scope", local->delegated_mediation_scope, sizeof(local->delegated_mediation_scope));
+  (void)json_extract_string(reply, "delegated_enforcement_scope", local->delegated_enforcement_scope, sizeof(local->delegated_enforcement_scope));
   local->owner_connected = 1;
   local->last_owner_contact_epoch = now_epoch();
   return 0;
@@ -1180,6 +1211,7 @@ int yai_daemon_local_runtime_health_json(const yai_daemon_local_runtime_t *local
                "\"spool\":{\"queued\":%u,\"retry_due\":%u,\"delivered\":%u,\"failed\":%u},"
                "\"resilience\":{\"connectivity_state\":\"%s\",\"freshness_state\":\"%s\",\"spool_pressure\":\"%s\",\"retry_pressure\":\"%s\",\"degradation_state\":\"%s\"},"
                "\"policy\":{\"staleness\":\"%s\",\"grant_validity\":\"%s\"},"
+               "\"distribution\":{\"policy_snapshot_id\":\"%s\",\"capability_envelope_id\":\"%s\",\"policy_snapshot_version\":\"%s\",\"distribution_target_ref\":\"%s\",\"observation_scope\":\"%s\",\"mediation_scope\":\"%s\",\"enforcement_scope\":\"%s\"},"
                "\"scan_discovered\":%u,"
                "\"emit\":{\"attempts\":%u,\"success\":%u,\"failures\":%u},"
                "\"owner\":{\"connected\":%s,\"registered\":%s,\"last_contact_epoch\":%lld},"
@@ -1199,6 +1231,13 @@ int yai_daemon_local_runtime_health_json(const yai_daemon_local_runtime_t *local
                local->degradation_state[0] ? local->degradation_state : "nominal",
                local->policy_staleness_state[0] ? local->policy_staleness_state : YAI_DAEMON_POLICY_STALENESS_PENDING,
                local->grant_validity_state[0] ? local->grant_validity_state : YAI_DAEMON_GRANT_STATE_MISSING_OR_PENDING,
+               local->source_policy_snapshot_id,
+               local->source_capability_envelope_id,
+               local->policy_snapshot_version,
+               local->distribution_target_ref,
+               local->delegated_observation_scope,
+               local->delegated_mediation_scope,
+               local->delegated_enforcement_scope,
                local->scan_discovered,
                local->emit_attempts,
                local->emit_success,
@@ -1239,6 +1278,13 @@ static int write_operational_state_file(const yai_daemon_local_runtime_t *local)
                "\"retry_pressure_state\":\"%s\","
                "\"policy_staleness_state\":\"%s\","
                "\"grant_validity_state\":\"%s\","
+               "\"source_policy_snapshot_id\":\"%s\","
+               "\"source_capability_envelope_id\":\"%s\","
+               "\"policy_snapshot_version\":\"%s\","
+               "\"distribution_target_ref\":\"%s\","
+               "\"delegated_observation_scope\":\"%s\","
+               "\"delegated_mediation_scope\":\"%s\","
+               "\"delegated_enforcement_scope\":\"%s\","
                "\"degradation_state\":\"%s\","
                "\"spool\":{\"queued\":%u,\"retry_due\":%u,\"failed\":%u},"
                "\"owner\":{\"connected\":%s,\"registered\":%s},"
@@ -1252,6 +1298,13 @@ static int write_operational_state_file(const yai_daemon_local_runtime_t *local)
                local->retry_pressure_state,
                local->policy_staleness_state,
                local->grant_validity_state,
+               local->source_policy_snapshot_id,
+               local->source_capability_envelope_id,
+               local->policy_snapshot_version,
+               local->distribution_target_ref,
+               local->delegated_observation_scope,
+               local->delegated_mediation_scope,
+               local->delegated_enforcement_scope,
                local->degradation_state,
                local->spool_queued,
                local->spool_retry_due,
@@ -1295,6 +1348,10 @@ int yai_daemon_local_runtime_init(yai_daemon_local_runtime_t *local,
   snprintf(local->retry_pressure_state, sizeof(local->retry_pressure_state), "%s", YAI_DAEMON_PRESSURE_LOW);
   snprintf(local->policy_staleness_state, sizeof(local->policy_staleness_state), "%s", YAI_DAEMON_POLICY_STALENESS_PENDING);
   snprintf(local->grant_validity_state, sizeof(local->grant_validity_state), "%s", YAI_DAEMON_GRANT_STATE_MISSING_OR_PENDING);
+  snprintf(local->policy_snapshot_version, sizeof(local->policy_snapshot_version), "%s", "ws-policy-snapshot-v1");
+  snprintf(local->delegated_observation_scope, sizeof(local->delegated_observation_scope), "%s", "workspace/default");
+  snprintf(local->delegated_mediation_scope, sizeof(local->delegated_mediation_scope), "%s", YAI_DAEMON_SCOPE_NONE);
+  snprintf(local->delegated_enforcement_scope, sizeof(local->delegated_enforcement_scope), "%s", YAI_DAEMON_SCOPE_NONE);
   snprintf(local->degradation_state, sizeof(local->degradation_state), "%s", "initializing");
   local->runtime_started_epoch = now_epoch();
   (void)load_observed_index(local);

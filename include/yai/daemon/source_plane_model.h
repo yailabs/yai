@@ -12,6 +12,8 @@
 #define YAI_SOURCE_ACTION_POINT_ID_MAX 128
 #define YAI_SOURCE_OWNER_LINK_ID_MAX 96
 #define YAI_SOURCE_ENROLLMENT_GRANT_ID_MAX 128
+#define YAI_SOURCE_POLICY_SNAPSHOT_ID_MAX 128
+#define YAI_SOURCE_CAPABILITY_ENVELOPE_ID_MAX 128
 #define YAI_SOURCE_WORKSPACE_PEER_MEMBERSHIP_ID_MAX 128
 #define YAI_SOURCE_WORKSPACE_ID_MAX 64
 #define YAI_SOURCE_LABEL_MAX 128
@@ -29,6 +31,8 @@
 #define YAI_SOURCE_RECORD_CLASS_ACTION_POINT "source_action_point"
 #define YAI_SOURCE_RECORD_CLASS_OWNER_LINK "source_owner_link"
 #define YAI_SOURCE_RECORD_CLASS_ENROLLMENT_GRANT "source_enrollment_grant"
+#define YAI_SOURCE_RECORD_CLASS_POLICY_SNAPSHOT "source_policy_snapshot"
+#define YAI_SOURCE_RECORD_CLASS_CAPABILITY_ENVELOPE "source_capability_envelope"
 #define YAI_SOURCE_RECORD_CLASS_WORKSPACE_PEER_MEMBERSHIP "workspace_peer_membership"
 #define YAI_SOURCE_RECORD_CLASS_INGEST_OUTCOME "source_ingest_outcome"
 
@@ -124,6 +128,31 @@ typedef struct yai_source_enrollment_grant {
   char trust_artifact_token[YAI_SOURCE_HASH_MAX];
   int64_t issued_at_epoch;
 } yai_source_enrollment_grant_t;
+
+typedef struct yai_source_policy_snapshot {
+  char source_policy_snapshot_id[YAI_SOURCE_POLICY_SNAPSHOT_ID_MAX];
+  char source_node_id[YAI_SOURCE_NODE_ID_MAX];
+  char daemon_instance_id[YAI_SOURCE_DAEMON_INSTANCE_ID_MAX];
+  char owner_workspace_id[YAI_SOURCE_WORKSPACE_ID_MAX];
+  char source_enrollment_grant_id[YAI_SOURCE_ENROLLMENT_GRANT_ID_MAX];
+  char snapshot_version[YAI_SOURCE_KIND_MAX];
+  char distribution_target_ref[YAI_SOURCE_REF_MAX];
+  int64_t issued_at_epoch;
+} yai_source_policy_snapshot_t;
+
+typedef struct yai_source_capability_envelope {
+  char source_capability_envelope_id[YAI_SOURCE_CAPABILITY_ENVELOPE_ID_MAX];
+  char source_node_id[YAI_SOURCE_NODE_ID_MAX];
+  char daemon_instance_id[YAI_SOURCE_DAEMON_INSTANCE_ID_MAX];
+  char source_binding_id[YAI_SOURCE_BINDING_ID_MAX];
+  char owner_workspace_id[YAI_SOURCE_WORKSPACE_ID_MAX];
+  char source_enrollment_grant_id[YAI_SOURCE_ENROLLMENT_GRANT_ID_MAX];
+  char observation_scope[YAI_SOURCE_REF_MAX];
+  char mediation_scope[YAI_SOURCE_REF_MAX];
+  char enforcement_scope[YAI_SOURCE_REF_MAX];
+  char distribution_target_ref[YAI_SOURCE_REF_MAX];
+  int64_t issued_at_epoch;
+} yai_source_capability_envelope_t;
 
 typedef struct yai_source_workspace_peer_membership {
   char workspace_peer_membership_id[YAI_SOURCE_WORKSPACE_PEER_MEMBERSHIP_ID_MAX];

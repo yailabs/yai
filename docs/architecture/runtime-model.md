@@ -65,6 +65,8 @@ ER-3 edge binding/action-point model is defined in
 `docs/architecture/edge-binding-and-action-point-model.md`.
 SW-1 workspace authority/truth plane lock is defined in
 `docs/architecture/workspace-authority-and-truth-plane-model.md`.
+SW-2 workspace-to-edge policy distribution model is defined in
+`docs/architecture/workspace-to-edge-policy-distribution-model.md`.
 Source-plane entity/contract model is defined in
 `docs/architecture/source-plane-model.md`.
 Owner ingest runtime flow is defined in
@@ -84,3 +86,11 @@ Secure overlay operationalization (NP-4):
   non-local owner/peer operation.
 - owner/peer bootstrap sequence is defined in
   `docs/program/23-runbooks/owner-peer-overlay-bootstrap.md`.
+
+## SW-2 distribution lock
+
+Owner runtime distributes delegated operating material to edge runtimes as
+explicit source-plane artifacts (grant, snapshot, capability envelope, target
+association, delegated scopes). Distribution enables bounded edge behavior but
+does not transfer owner truth, sovereign policy ownership, or final
+adjudication.
