@@ -100,6 +100,12 @@ MT-2 ingress lock:
   workspace context;
 - ingress acceptance under workspace binding does not imply canonical truth.
 
+QG-1 query lock:
+- workspace binding context scopes query/inspect surfaces for source, edge,
+  mesh, delegated scope, and transport families;
+- inspect summaries under workspace binding are governed visibility, not final
+  authority resolution.
+
 ## Workspace-local vs Runtime-global
 
 Workspace-local:

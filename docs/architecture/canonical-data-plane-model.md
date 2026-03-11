@@ -133,6 +133,13 @@ MT-3 overlay integration lock:
 - overlay-aware targeting improves remote operability without relocating owner
   canonical truth or final authority.
 
+QG-1 query-surface lock:
+- source/edge/mesh/delegation/transport/ingress/overlay classes are queryable as
+  first-class owner-side inspect families;
+- query summaries are normalized operational visibility planes, not final
+  canonical adjudication planes;
+- summary-oriented read models are required alongside low-level tails/signals.
+
 ### 3) Control/Data Path Separation
 Mandatory path:
 

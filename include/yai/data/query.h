@@ -13,6 +13,11 @@ int yai_data_query_summary_json(const char *workspace_id,
                                 size_t out_cap,
                                 char *err,
                                 size_t err_cap);
+int yai_data_query_operational_summary_json(const char *workspace_id,
+                                            char *out_json,
+                                            size_t out_cap,
+                                            char *err,
+                                            size_t err_cap);
 int yai_data_query_tail_json(const char *workspace_id,
                              const char *record_class,
                              size_t limit,

@@ -45,6 +45,7 @@ An ADR should answer:
 - `ADR-027-secure-overlay-transport-plane.md`
 - `ADR-028-owner-remote-peer-ingress.md`
 - `ADR-029-overlay-integration.md`
+- `ADR-030-source-and-edge-query-surfaces.md`
 
 ## Template policy
 

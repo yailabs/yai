@@ -83,6 +83,8 @@ MT-2 owner remote peer ingress model is defined in
 `docs/architecture/owner-remote-peer-ingress-model.md`.
 MT-3 overlay integration model is defined in
 `docs/architecture/overlay-integration-model.md`.
+QG-1 source/edge query surface model is defined in
+`docs/architecture/source-and-edge-query-surfaces-model.md`.
 Source-plane entity/contract model is defined in
 `docs/architecture/source-plane-model.md`.
 Owner ingest runtime flow is defined in
@@ -167,3 +169,9 @@ Private secure overlay is integrated as native distributed deployment substrate
 for owner/peer runtime targeting and path-state visibility. Overlay identity
 and reachability remain transport concerns and never replace enrollment, trust,
 delegated scope, ingress governance, or workspace sovereignty.
+
+## QG-1 source/edge query lock
+
+Owner runtime exposes governed inspect/query surfaces for source, edge, mesh,
+delegated scope, ingress, transport, and overlay state. Structured inspect
+visibility is distinct from raw signals and from final canonical truth.

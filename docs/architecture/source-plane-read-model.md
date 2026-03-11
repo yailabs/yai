@@ -25,6 +25,22 @@ YD-6 extends read surfaces for:
 - `source_ingest_outcome`
 - `source_policy_snapshot`
 - `source_capability_envelope`
+- `mesh_node`
+- `mesh_discovery_advertisement`
+- `mesh_bootstrap_descriptor`
+- `mesh_coordination_membership`
+- `mesh_peer_awareness`
+- `mesh_peer_legitimacy`
+- `mesh_authority_scope`
+- `mesh_transport_endpoint`
+- `mesh_transport_path_state`
+- `mesh_transport_channel_state`
+- `mesh_owner_remote_ingress`
+- `mesh_owner_remote_ingress_session`
+- `mesh_owner_remote_ingress_decision`
+- `mesh_overlay_presence`
+- `mesh_overlay_target_association`
+- `mesh_overlay_path_mutation`
 
 Read model is owner-side only. `yai-daemon` does not host canonical graph truth.
 
@@ -48,6 +64,14 @@ OP-3 extends peer-aware read surfaces with:
 
 These expose per-peer inspect rows and workspace coverage/overlap baseline
 without introducing conflict resolution yet.
+
+QG-1 extends source/edge query surfaces with normalized inspect families for:
+
+- delegated validity/readiness state
+- ingress decision/readiness state
+- transport/overlay path and mutation state
+- mesh legitimacy/authority-scope state
+- runtime summary-oriented operational views
 
 Existing graph workspace summary now includes source-plane counters:
 
@@ -136,3 +160,4 @@ The test validates persistence -> query -> graph chain:
 - `docs/architecture/daemon-local-runtime-model.md`
 - `docs/architecture/owner-peer-registry-and-coordination-model.md`
 - `docs/architecture/workspace-to-edge-policy-distribution-model.md`
+- `docs/architecture/source-and-edge-query-surfaces-model.md`
