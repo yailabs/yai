@@ -10,6 +10,8 @@ GOVERNANCE_SRCS=$(find "$ROOT/lib/governance" -type f -name '*.c' | sort)
 CFLAGS='-Wall -Wextra -std=c11 -O2'
 INCLUDES="-I$ROOT/include -I$ROOT/include/yai"
 
+python3 "$ROOT/tools/gen/build_control_family_descriptors.py" >/dev/null
+python3 "$ROOT/tools/validate/validate_control_family_descriptors.py"
 python3 "$ROOT/tools/gen/build_domain_model_matrix.py" >/dev/null
 python3 "$ROOT/tools/validate/validate_domain_model_matrix.py"
 python3 "$ROOT/tools/gen/build_overlay_compliance_runtime_view.py" >/dev/null
@@ -26,6 +28,7 @@ for t in \
   test_contract_surface \
   test_contracts_schema_loader \
   test_domain_loader \
+  test_control_family_descriptor_loader \
   test_compliance_loader \
   test_discovery \
   test_family_specialization_routing \
