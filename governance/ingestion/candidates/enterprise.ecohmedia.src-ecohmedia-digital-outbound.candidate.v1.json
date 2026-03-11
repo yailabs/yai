@@ -114,7 +114,7 @@
     "created_by": "tools/gen/deterministic_governance_ingestion.py",
     "updated_by": "tools/gen/deterministic_governance_ingestion.py",
     "normalized_ref": "governance/ingestion/normalized/src.ecohmedia.digital-outbound.normalized.v1.json",
-    "generated_at": "2026-03-11T18:33:08+00:00"
+    "generated_at": "2026-03-11T18:39:24+00:00"
   },
   "notes": "candidate built from deterministic ingestion; unresolved=1 conflicts=0"
 }
