@@ -55,19 +55,19 @@ This runbook is normative for RF-2..RF-8. RF-2 must be executable as a mechanica
 │   │   ├── cognition.h
 │   │   ├── episodic.h
 │   │   ├── memory.h
-│   │   ├── providers.h
+│   │   ├── catalog.h
 │   │   └── semantic.h
 │   ├── exec/
 │   │   ├── agents.h
 │   │   ├── orchestration.h
-│   │   ├── agent_contract.h
-│   │   ├── engine_bridge.h
-│   │   ├── engine_cortex.h
-│   │   ├── network_gate.h
-│   │   ├── provider_gate.h
-│   │   ├── resource_gate.h
+│   │   ├── agent_binding.h
+│   │   ├── runtime_bridge.h
+│   │   ├── runtime_model.h
+│   │   ├── network_policy.h
+│   │   ├── provider_policy.h
+│   │   ├── resource_policy.h
 │   │   ├── runtime.h
-│   │   ├── storage_gate.h
+│   │   ├── storage_policy.h
 │   │   └── transport_client.h
 │   ├── law/
 │   ├── platform/

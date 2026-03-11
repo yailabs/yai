@@ -28,7 +28,7 @@ ad-hoc persistence shortcut.
 
 Runtime anchors:
 
-- `include/yai/exec/source_ingest.h`
+- `include/yai/orchestration/ingestion.h`
 - `lib/exec/runtime/source_ingest.c`
 - `lib/core/session/session.c` (control-call routing into exec bridge)
 
