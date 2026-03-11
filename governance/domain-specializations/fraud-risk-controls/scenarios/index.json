@@ -1,0 +1,10 @@
+{
+  "kind": "scenario_classes",
+  "version": "v1",
+  "specialization_id": "fraud-risk-controls",
+  "scenario_classes": [
+    "fraud-risk-controls.default",
+    "fraud-risk-controls.high_impact",
+    "fraud-risk-controls.overlay_finance"
+  ]
+}

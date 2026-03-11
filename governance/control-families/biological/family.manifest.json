@@ -1,0 +1,34 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v1",
+  "family_id": "D3",
+  "internal_id": "D3",
+  "canonical_name": "biological",
+  "display_name": "Biological",
+  "status": "active-bridge",
+  "legacy_seed_ref": "transitional/domain-family-seed/D3-biological",
+  "canonical_domains": [
+    {
+      "domain_key": "chain-of-custody",
+      "canonical_name": "biological.chain-of-custody",
+      "display_name": "Chain of Custody",
+      "status": "seed"
+    },
+    {
+      "domain_key": "sample-handling",
+      "canonical_name": "biological.sample-handling",
+      "display_name": "Sample Handling Control",
+      "status": "seed"
+    },
+    {
+      "domain_key": "bio-risk-gating",
+      "canonical_name": "biological.bio-risk-gating",
+      "display_name": "Bio Risk Gating",
+      "status": "seed"
+    }
+  ],
+  "notes": [
+    "bridge-5of10",
+    "legacy-seed-preserved"
+  ]
+}

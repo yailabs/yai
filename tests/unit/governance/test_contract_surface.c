@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include <yai/law/loader.h>
 
@@ -20,6 +21,12 @@ int main(void) {
   }
   if (rt.entrypoint.resolution_order_ref[0] == '\0' || rt.entrypoint.compatibility_ref[0] == '\0') {
     fprintf(stderr, "contract_surface: missing entrypoint contract refs\n");
+    return 1;
+  }
+  if (strncmp(rt.entrypoint.law_manifest_ref, "governance/manifests/", 21) != 0 ||
+      strncmp(rt.entrypoint.resolution_order_ref, "governance/manifests/", 21) != 0 ||
+      strncmp(rt.entrypoint.compatibility_ref, "governance/manifests/", 21) != 0) {
+    fprintf(stderr, "contract_surface: manifest refs are not canonical governance paths\n");
     return 1;
   }
   if (rt.compatibility.profile[0] == '\0') {

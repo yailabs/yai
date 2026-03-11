@@ -1,0 +1,1 @@
+{"kind":"overlay_policy","version":"v1","overlay_id":"gdpr-eu","default_effect":"review_required","policy_mode":"fail_closed_when_lawful_basis_missing"}

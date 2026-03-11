@@ -1,0 +1,7 @@
+{
+  "kind": "specialization_policy_precedence",
+  "version": "v1",
+  "specialization_id": "fraud-risk-controls",
+  "order": ["deny", "quarantine", "review_required", "allow"],
+  "escalation_on_conflict": true
+}

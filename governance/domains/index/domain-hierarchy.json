@@ -1,0 +1,303 @@
+{
+  "kind": "domain-hierarchy",
+  "version": "v2",
+  "root_families": [
+    {
+      "family_id": "D1",
+      "canonical_name": "digital",
+      "display_name": "Digital",
+      "canonical_domains": [
+        {
+          "domain_key": "network-egress",
+          "canonical_name": "digital.network-egress",
+          "display_name": "Network Egress Control",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "remote-publication",
+          "canonical_name": "digital.remote-publication",
+          "display_name": "Remote Publication Control",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "external-commentary",
+          "canonical_name": "digital.external-commentary",
+          "display_name": "External Commentary Control",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "artifact-distribution",
+          "canonical_name": "digital.artifact-distribution",
+          "display_name": "Artifact Distribution Control",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "remote-retrieval",
+          "canonical_name": "digital.remote-retrieval",
+          "display_name": "Remote Retrieval Control",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "digital-sink-control",
+          "canonical_name": "digital.digital-sink-control",
+          "display_name": "Digital Sink Control",
+          "status": "active-planned"
+        }
+      ]
+    },
+    {
+      "family_id": "D2",
+      "canonical_name": "physical",
+      "display_name": "Physical",
+      "canonical_domains": [
+        {
+          "domain_key": "actuation-governance",
+          "canonical_name": "physical.actuation-governance",
+          "display_name": "Actuation Governance",
+          "status": "seed"
+        },
+        {
+          "domain_key": "device-integrity",
+          "canonical_name": "physical.device-integrity",
+          "display_name": "Device Integrity Control",
+          "status": "seed"
+        },
+        {
+          "domain_key": "safety-window-control",
+          "canonical_name": "physical.safety-window-control",
+          "display_name": "Safety Window Control",
+          "status": "seed"
+        }
+      ]
+    },
+    {
+      "family_id": "D3",
+      "canonical_name": "biological",
+      "display_name": "Biological",
+      "canonical_domains": [
+        {
+          "domain_key": "chain-of-custody",
+          "canonical_name": "biological.chain-of-custody",
+          "display_name": "Chain of Custody",
+          "status": "seed"
+        },
+        {
+          "domain_key": "sample-handling",
+          "canonical_name": "biological.sample-handling",
+          "display_name": "Sample Handling Control",
+          "status": "seed"
+        },
+        {
+          "domain_key": "bio-risk-gating",
+          "canonical_name": "biological.bio-risk-gating",
+          "display_name": "Bio Risk Gating",
+          "status": "seed"
+        }
+      ]
+    },
+    {
+      "family_id": "D4",
+      "canonical_name": "social-institutional",
+      "display_name": "Social-Institutional",
+      "canonical_domains": [
+        {
+          "domain_key": "procedural-authorization",
+          "canonical_name": "social-institutional.procedural-authorization",
+          "display_name": "Procedural Authorization",
+          "status": "seed"
+        },
+        {
+          "domain_key": "policy-adherence",
+          "canonical_name": "social-institutional.policy-adherence",
+          "display_name": "Policy Adherence Control",
+          "status": "seed"
+        },
+        {
+          "domain_key": "institutional-escalation",
+          "canonical_name": "social-institutional.institutional-escalation",
+          "display_name": "Institutional Escalation",
+          "status": "seed"
+        }
+      ]
+    },
+    {
+      "family_id": "D5",
+      "canonical_name": "economic",
+      "display_name": "Economic",
+      "canonical_domains": [
+        {
+          "domain_key": "payments",
+          "canonical_name": "economic.payments",
+          "display_name": "Payments Governance",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "transfers",
+          "canonical_name": "economic.transfers",
+          "display_name": "Transfer Governance",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "settlements",
+          "canonical_name": "economic.settlements",
+          "display_name": "Settlement Integrity",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "treasury",
+          "canonical_name": "economic.treasury",
+          "display_name": "Treasury Control",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "invoicing",
+          "canonical_name": "economic.invoicing",
+          "display_name": "Invoicing Governance",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "accounting-integrity",
+          "canonical_name": "economic.accounting-integrity",
+          "display_name": "Accounting Integrity",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "pricing-and-quoting",
+          "canonical_name": "economic.pricing-and-quoting",
+          "display_name": "Pricing and Quoting Control",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "credit-exposure",
+          "canonical_name": "economic.credit-exposure",
+          "display_name": "Credit Exposure Control",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "fraud-risk-controls",
+          "canonical_name": "economic.fraud-risk-controls",
+          "display_name": "Fraud Risk Controls",
+          "status": "active-planned"
+        }
+      ]
+    },
+    {
+      "family_id": "D6",
+      "canonical_name": "operational",
+      "display_name": "Operational",
+      "canonical_domains": [
+        {
+          "domain_key": "incident-response",
+          "canonical_name": "operational.incident-response",
+          "display_name": "Incident Response",
+          "status": "seed"
+        },
+        {
+          "domain_key": "change-control",
+          "canonical_name": "operational.change-control",
+          "display_name": "Change Control",
+          "status": "seed"
+        },
+        {
+          "domain_key": "runbook-execution",
+          "canonical_name": "operational.runbook-execution",
+          "display_name": "Runbook Execution Governance",
+          "status": "seed"
+        }
+      ]
+    },
+    {
+      "family_id": "D7",
+      "canonical_name": "cognitive-cultural",
+      "display_name": "Cognitive-Cultural",
+      "canonical_domains": [
+        {
+          "domain_key": "publication-enforcement",
+          "canonical_name": "cognitive-cultural.publication-enforcement",
+          "display_name": "Publication Enforcement",
+          "status": "seed"
+        },
+        {
+          "domain_key": "interpretation-integrity",
+          "canonical_name": "cognitive-cultural.interpretation-integrity",
+          "display_name": "Interpretation Integrity",
+          "status": "seed"
+        },
+        {
+          "domain_key": "cognitive-safety",
+          "canonical_name": "cognitive-cultural.cognitive-safety",
+          "display_name": "Cognitive Safety Controls",
+          "status": "seed"
+        }
+      ]
+    },
+    {
+      "family_id": "D8",
+      "canonical_name": "scientific",
+      "display_name": "Scientific",
+      "canonical_domains": [
+        {
+          "domain_key": "experiment-configuration",
+          "canonical_name": "scientific.experiment-configuration",
+          "display_name": "Experiment Configuration Governance",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "parameter-governance",
+          "canonical_name": "scientific.parameter-governance",
+          "display_name": "Parameter Governance",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "reproducibility-control",
+          "canonical_name": "scientific.reproducibility-control",
+          "display_name": "Reproducibility Control",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "black-box-evaluation",
+          "canonical_name": "scientific.black-box-evaluation",
+          "display_name": "Black-box Evaluation Control",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "dataset-integrity",
+          "canonical_name": "scientific.dataset-integrity",
+          "display_name": "Dataset Integrity",
+          "status": "active-planned"
+        },
+        {
+          "domain_key": "result-publication-control",
+          "canonical_name": "scientific.result-publication-control",
+          "display_name": "Result Publication Control",
+          "status": "active-planned"
+        }
+      ]
+    },
+    {
+      "family_id": "D9",
+      "canonical_name": "environmental-climatological",
+      "display_name": "Environmental-Climatological",
+      "canonical_domains": [
+        {
+          "domain_key": "telemetry-integrity",
+          "canonical_name": "environmental-climatological.telemetry-integrity",
+          "display_name": "Telemetry Integrity",
+          "status": "seed"
+        },
+        {
+          "domain_key": "climate-risk-monitoring",
+          "canonical_name": "environmental-climatological.climate-risk-monitoring",
+          "display_name": "Climate Risk Monitoring",
+          "status": "seed"
+        },
+        {
+          "domain_key": "environmental-reporting",
+          "canonical_name": "environmental-climatological.environmental-reporting",
+          "display_name": "Environmental Reporting Control",
+          "status": "seed"
+        }
+      ]
+    }
+  ]
+}

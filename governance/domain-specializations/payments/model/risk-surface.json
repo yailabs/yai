@@ -1,0 +1,11 @@
+{
+  "kind": "specialization_risk_surface",
+  "version": "v1",
+  "specialization_id": "payments",
+  "risks": [
+    "financial-fraud",
+    "unauthorized-value-movement",
+    "approval-chain-bypass",
+    "accounting-integrity-loss"
+  ]
+}

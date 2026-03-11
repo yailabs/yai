@@ -1,0 +1,25 @@
+{
+  "kind": "organization_overlay_template",
+  "version": "v1",
+  "overlay_id": "org.<org-id>.governance",
+  "target_scope": "organization",
+  "organization_id": "<org-id>",
+  "family_targets": [
+    "digital"
+  ],
+  "specialization_targets": [
+    "network-egress",
+    "remote-publication"
+  ],
+  "policy_deltas": {
+    "external_effect_minimum": "review_required",
+    "authority_escalation_scope": "controller",
+    "explicit_approval_required": true
+  },
+  "evidence_deltas": {
+    "requires_decision_record": true,
+    "requires_destination_trace": true,
+    "requires_review_trace": true
+  },
+  "status": "template"
+}

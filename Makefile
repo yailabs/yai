@@ -81,6 +81,7 @@ GOVERNANCE_SRCS := \
 	lib/governance/policy_effects.c \
 	lib/governance/loader/law_loader.c \
 	lib/governance/loader/manifest_loader.c \
+	lib/governance/loader/domain_model_matrix.c \
 	lib/governance/loader/domain_loader.c \
 	lib/governance/loader/compliance_loader.c \
 	lib/governance/loader/overlay_loader.c \

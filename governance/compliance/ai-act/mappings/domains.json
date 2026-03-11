@@ -1,0 +1,21 @@
+{
+  "id": "domains",
+  "version": "v2",
+  "map": [
+    {
+      "family_id": "D8",
+      "domain": "scientific.black-box-evaluation",
+      "mode": "high-risk-review"
+    },
+    {
+      "family_id": "D8",
+      "domain": "scientific.result-publication-control",
+      "mode": "human-oversight"
+    },
+    {
+      "family_id": "D1",
+      "domain": "digital.external-commentary",
+      "mode": "restricted"
+    }
+  ]
+}

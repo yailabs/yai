@@ -1,0 +1,15 @@
+{
+  "kind": "specialization_evidence_obligations",
+  "version": "v1",
+  "specialization_id": "transfers",
+  "required_fields": [
+    "trace_id",
+    "decision_id",
+    "authority_scope",
+    "approval_chain",
+    "rule_hits",
+    "amount_context",
+    "counterparty_context"
+  ],
+  "retention_hint": "extended"
+}

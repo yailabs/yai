@@ -1,0 +1,10 @@
+{
+  "kind": "scenario_classes",
+  "version": "v1",
+  "specialization_id": "transfers",
+  "scenario_classes": [
+    "transfers.default",
+    "transfers.high_impact",
+    "transfers.overlay_finance"
+  ]
+}

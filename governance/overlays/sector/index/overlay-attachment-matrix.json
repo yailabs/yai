@@ -1,0 +1,10 @@
+{
+  "kind": "sector_overlay_attachment_matrix",
+  "version": "v1",
+  "entries": [
+    {"overlay":"sector.finance","family":"economic","specialization":"payments","action":"authorize","asset":"financial-instrument","risk":"financial-fraud"},
+    {"overlay":"sector.finance","family":"economic","specialization":"settlements","action":"settle","asset":"ledger-entry","risk":"settlement-mismatch"},
+    {"overlay":"sector.healthcare","family":"scientific","specialization":"dataset-integrity","action":"retrieve","asset":"dataset","risk":"privacy-breach"},
+    {"overlay":"sector.public-sector","family":"social-institutional","specialization":"remote-publication","action":"publish","asset":"artifact","risk":"provenance-loss"}
+  ]
+}

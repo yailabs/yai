@@ -1,0 +1,1 @@
+{"kind":"specialization_seed_evidence","version":"v1","specialization_id":"invoicing","required":["trace_id","decision_id","authority_scope","rule_hits"]}

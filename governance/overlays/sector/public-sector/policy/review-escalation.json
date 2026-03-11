@@ -1,0 +1,1 @@
+{"kind":"sector_overlay_policy","version":"v1","overlay_id":"sector.public-sector","rules":[{"rule_id":"public-sector-explicit-justification","when":["public_impact_operation"],"effect":"require_justification"},{"rule_id":"public-sector-audit-escalation","when":["high_visibility_action"],"effect":"review_required"}]}

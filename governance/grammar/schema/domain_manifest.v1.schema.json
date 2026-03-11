@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "law/grammar/schema/domain_manifest.v1",
+  "title": "domain_manifest.v1",
+  "description": "Domain manifest",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "domain_id": {
+      "type": "string"
+    },
+    "domain_name": {
+      "type": "string"
+    },
+    "family": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "experimental",
+        "deprecated"
+      ]
+    },
+    "discovery_ref": {
+      "type": "string"
+    },
+    "model_ref": {
+      "type": "string"
+    },
+    "policy_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence_ref": {
+      "type": "string"
+    },
+    "compliance_links": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "domain_id",
+    "domain_name",
+    "family",
+    "status"
+  ],
+  "additionalProperties": true
+}

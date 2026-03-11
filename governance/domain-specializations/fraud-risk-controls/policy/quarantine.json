@@ -1,0 +1,8 @@
+{
+  "kind": "specialization_policy_hold",
+  "version": "v1",
+  "specialization_id": "fraud-risk-controls",
+  "rules": [
+    {"rule_id": "fraud-risk-controls-hold-suspicious-pattern", "when": ["fraud_signal_detected"], "effect": "quarantine"}
+  ]
+}

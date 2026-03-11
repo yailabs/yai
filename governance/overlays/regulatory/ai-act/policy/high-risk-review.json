@@ -1,0 +1,1 @@
+{"kind":"overlay_policy_rule_set","version":"v1","overlay_id":"ai-act","rules":[{"rule_id":"ai-act-high-risk-review","when":["high_risk_context"],"effect":"review_required"}]}

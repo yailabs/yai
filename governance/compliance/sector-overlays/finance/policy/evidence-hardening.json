@@ -1,0 +1,10 @@
+{
+  "kind": "overlay_policy",
+  "version": "v1",
+  "id": "sector.finance.evidence-hardening",
+  "requires": [
+    "financial_trace",
+    "approval_trace",
+    "retention_policy_ref"
+  ]
+}

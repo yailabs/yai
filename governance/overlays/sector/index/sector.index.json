@@ -1,0 +1,10 @@
+{
+  "kind": "sector.index",
+  "version": "v2",
+  "overlays": [
+    {"overlay_id": "sector.finance", "status": "active"},
+    {"overlay_id": "sector.healthcare", "status": "active-seed"},
+    {"overlay_id": "sector.public-sector", "status": "active-seed"},
+    {"overlay_id": "sector.manufacturing", "status": "seed"}
+  ]
+}

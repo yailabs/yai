@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "law/grammar/schema/domain_catalog_entry.v1",
+  "title": "domain_catalog_entry.v1",
+  "description": "Domain catalog entry",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "domain_id": {
+      "type": "string"
+    },
+    "manifest_ref": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "domain_id",
+    "manifest_ref"
+  ],
+  "additionalProperties": true
+}

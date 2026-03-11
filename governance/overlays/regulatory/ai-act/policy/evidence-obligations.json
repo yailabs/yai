@@ -1,0 +1,1 @@
+{"kind":"overlay_evidence_obligations","version":"v1","overlay_id":"ai-act","required_fields":["model_context","risk_class","oversight_actor","review_trace","rationale"]}

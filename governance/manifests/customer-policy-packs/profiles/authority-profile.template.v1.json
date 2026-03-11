@@ -1,0 +1,9 @@
+{
+  "kind": "customer_authority_profile_template",
+  "version": "v1",
+  "default_scope": "operator",
+  "escalation_scope": "controller",
+  "review_required_for_external_effect": true,
+  "explicit_approval_required": true,
+  "self_approval_forbidden": true
+}

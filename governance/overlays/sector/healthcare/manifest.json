@@ -1,0 +1,1 @@
+{"kind":"sector_overlay_manifest","version":"v2","overlay_id":"sector.healthcare","status":"active-seed","applies_to":{"families":["scientific","digital","social-institutional"],"specializations":["dataset-integrity","result-publication-control","remote-publication"]},"effect_profile":{"review_burden":"high","evidence_burden":"hardened"}}

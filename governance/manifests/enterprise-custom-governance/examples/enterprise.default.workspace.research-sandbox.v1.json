@@ -1,0 +1,78 @@
+{
+  "kind": "enterprise_custom_governance",
+  "schema_version": "v1",
+  "id": "enterprise.default.workspace.research-sandbox",
+  "name": "Default Workspace Research Sandbox Governance",
+  "version": "2026.03",
+  "owner": {
+    "organization_id": "default-org",
+    "owner_team": "research-ops",
+    "approver_role": "workspace-governance-owner"
+  },
+  "organization_scope": {
+    "organization_ids": ["default-org"],
+    "environment_classes": ["shared", "review"],
+    "session_scope": "workspace-bound"
+  },
+  "workspace_targets": [
+    "ws_research_lab",
+    "ws_science_review"
+  ],
+  "domain_targets": ["scientific", "digital"],
+  "specialization_targets": [
+    "parameter-governance",
+    "result-publication-control",
+    "remote-publication"
+  ],
+  "source_inputs": {
+    "customer_policy_pack_refs": [
+      "manifests/customer-policy-packs/examples/customer.default.org-workspace-contextual-review.v1.json"
+    ],
+    "compliance_refs": [
+      "compliance/ai-act/manifest.json"
+    ],
+    "overlay_refs": [
+      "overlays/contextual/workspace/manifest.json",
+      "overlays/contextual/session/manifest.json"
+    ]
+  },
+  "policy_refs": [
+    "domain-specializations/scientific/parameter-governance/policy-pack.json",
+    "domain-specializations/scientific/result-publication-control/policy-pack.json",
+    "domain-specializations/digital/remote-publication/policy-pack.json"
+  ],
+  "overlay_refs": {
+    "regulatory": ["ai-act"],
+    "sector": [],
+    "contextual": ["workspace", "session"]
+  },
+  "authority_profile": {
+    "default_scope": "reviewer",
+    "publication_requires_supervisor": true,
+    "parameter_lock_override_requires_dual_control": true
+  },
+  "evidence_profile": {
+    "requires_decision_record": true,
+    "requires_parameter_lock_trace": true,
+    "requires_reproducibility_proofpack": true,
+    "requires_publication_review_record": true
+  },
+  "precedence_mode": "specialization+contextual-overlays+customer-pack+enterprise-object",
+  "status": "candidate",
+  "review_state": "in_review",
+  "compatibility": {
+    "law_range": ">=0.1.0",
+    "runtime_targets": ["yai"],
+    "export_profiles": ["runtime-consumer.v4"]
+  },
+  "apply_modes": ["workspace_attach"],
+  "runtime_consumable": false,
+  "runtime_entrypoint_refs": ["manifests/runtime.entrypoints.json#default-runtime"],
+  "provenance": {
+    "source_type": "workspace-authoring",
+    "source_ref": "docs/authoring/examples/customer-workspace-authoring-walkthrough.md",
+    "created_by": "research-ops",
+    "updated_by": "research-ops"
+  },
+  "notes": "Workspace-scoped candidate object under review, intentionally not runtime-consumable until approval."
+}

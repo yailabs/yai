@@ -1,0 +1,22 @@
+{
+  "kind": "mapping",
+  "version": "v2",
+  "id": "domains",
+  "map": [
+    {
+      "family_id": "D1",
+      "domain": "digital.remote-publication",
+      "mode": "restrict"
+    },
+    {
+      "family_id": "D1",
+      "domain": "digital.remote-retrieval",
+      "mode": "review"
+    },
+    {
+      "family_id": "D8",
+      "domain": "scientific.dataset-integrity",
+      "mode": "review"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "kind": "action-taxonomy",
+  "version": "v2",
+  "actions": [
+    {
+      "action": "egress",
+      "primary_families": [
+        "D1",
+        "D5"
+      ],
+      "example_domains": [
+        "digital.network-egress",
+        "economic.transfers"
+      ]
+    },
+    {
+      "action": "publish",
+      "primary_families": [
+        "D1",
+        "D8"
+      ],
+      "example_domains": [
+        "digital.remote-publication",
+        "scientific.result-publication-control"
+      ]
+    },
+    {
+      "action": "retrieve",
+      "primary_families": [
+        "D1",
+        "D8"
+      ],
+      "example_domains": [
+        "digital.remote-retrieval",
+        "scientific.dataset-integrity"
+      ]
+    },
+    {
+      "action": "transform",
+      "primary_families": [
+        "D8",
+        "D5"
+      ],
+      "example_domains": [
+        "scientific.experiment-configuration",
+        "economic.accounting-integrity"
+      ]
+    },
+    {
+      "action": "infer",
+      "primary_families": [
+        "D8",
+        "D7"
+      ],
+      "example_domains": [
+        "scientific.black-box-evaluation",
+        "cognitive-cultural.interpretation-integrity"
+      ]
+    },
+    {
+      "action": "actuate",
+      "primary_families": [
+        "D2",
+        "D6"
+      ],
+      "example_domains": [
+        "physical.actuation-governance",
+        "operational.incident-response"
+      ]
+    }
+  ]
+}

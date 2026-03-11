@@ -1,0 +1,1 @@
+{"kind":"sector_overlay_policy","version":"v1","overlay_id":"sector.finance","rules":[{"rule_id":"finance-review-high-impact","when":["high_impact_operation"],"effect":"review_required"},{"rule_id":"finance-escalate-cross-border","when":["cross_border_counterparty"],"effect":"require_justification"}]}

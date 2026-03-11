@@ -1,0 +1,1 @@
+{"kind":"overlay_domain_mapping","version":"v1","overlay_id":"retention-governance","targets":[{"family":"economic","specializations":["payments","transfers","settlements","accounting-integrity"]},{"family":"digital","specializations":["network-egress","remote-publication"]},{"family":"scientific","specializations":["reproducibility-control","result-publication-control"]}]}

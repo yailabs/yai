@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "law/grammar/schema/resolution_trace.v1",
+  "title": "resolution_trace.v1",
+  "description": "Resolution trace",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "trace_id": {
+      "type": "string"
+    },
+    "inputs": {
+      "type": "object"
+    },
+    "matched_domain": {
+      "type": "string"
+    },
+    "matched_compliance": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rules_applied": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rules_skipped": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "precedence_decisions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "final_effect": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "trace_id",
+    "inputs",
+    "final_effect"
+  ],
+  "additionalProperties": true
+}

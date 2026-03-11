@@ -1,0 +1,8 @@
+{
+  "kind": "specialization_policy_hold",
+  "version": "v1",
+  "specialization_id": "settlements",
+  "rules": [
+    {"rule_id": "settlements-hold-suspicious-pattern", "when": ["fraud_signal_detected"], "effect": "quarantine"}
+  ]
+}

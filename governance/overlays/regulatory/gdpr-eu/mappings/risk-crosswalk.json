@@ -1,0 +1,10 @@
+{
+  "kind": "overlay_risk_crosswalk",
+  "version": "v1",
+  "overlay_id": "gdpr-eu",
+  "risk_controls": [
+    {"risk": "privacy-breach", "impact": "deny_or_review", "authority_raise": true},
+    {"risk": "exfiltration", "impact": "review", "authority_raise": true},
+    {"risk": "provenance-loss", "impact": "evidence_hardening", "authority_raise": false}
+  ]
+}

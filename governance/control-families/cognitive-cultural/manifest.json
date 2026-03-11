@@ -1,0 +1,23 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v2",
+  "family_id": "D7",
+  "internal_id": "D7",
+  "canonical_name": "cognitive-cultural",
+  "display_name": "Cognitive-Cultural",
+  "slug": "cognitive-cultural",
+  "status": "active",
+  "classification_ref": "classification/classification-map.json",
+  "specializations_ref": "domain-specializations/index/specializations.index.json",
+  "overlay_refs": {
+    "regulatory": "overlays/regulatory/index/regulatory.index.json",
+    "sector": "overlays/sector/index/sector.index.json",
+    "contextual": "overlays/contextual/index/contextual.index.json"
+  },
+  "legacy_seed_ref": "transitional/domain-family-seed/D7-cognitive-cultural",
+  "specializations": [
+    "publication-enforcement",
+    "interpretation-integrity",
+    "cognitive-safety"
+  ]
+}

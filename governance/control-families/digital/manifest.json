@@ -1,0 +1,36 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v3",
+  "family_id": "D1",
+  "internal_id": "D1",
+  "canonical_name": "digital",
+  "display_name": "Digital",
+  "slug": "digital",
+  "status": "active",
+  "classification_ref": "classification/classification-map.json",
+  "specializations_ref": "domain-specializations/index/specializations.index.json",
+  "overlay_refs": {
+    "regulatory": "overlays/regulatory/index/regulatory.index.json",
+    "sector": "overlays/sector/index/sector.index.json",
+    "contextual": "overlays/contextual/index/contextual.index.json"
+  },
+  "authority_profile": {
+    "default_required_scope": "operator",
+    "review_on_external_publish": true,
+    "escalate_on_sensitive_data": true
+  },
+  "evidence_profile": {
+    "requires_destination_context": true,
+    "requires_policy_match_trace": true,
+    "retention_hint": "standard"
+  },
+  "legacy_seed_ref": "transitional/domain-family-seed/D1-digital",
+  "specializations": [
+    "network-egress",
+    "remote-publication",
+    "external-commentary",
+    "artifact-distribution",
+    "remote-retrieval",
+    "digital-sink-control"
+  ]
+}

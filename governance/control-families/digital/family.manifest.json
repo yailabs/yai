@@ -1,0 +1,52 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v1",
+  "family_id": "D1",
+  "internal_id": "D1",
+  "canonical_name": "digital",
+  "display_name": "Digital",
+  "status": "active-bridge",
+  "legacy_seed_ref": "transitional/domain-family-seed/D1-digital",
+  "canonical_domains": [
+    {
+      "domain_key": "network-egress",
+      "canonical_name": "digital.network-egress",
+      "display_name": "Network Egress Control",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "remote-publication",
+      "canonical_name": "digital.remote-publication",
+      "display_name": "Remote Publication Control",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "external-commentary",
+      "canonical_name": "digital.external-commentary",
+      "display_name": "External Commentary Control",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "artifact-distribution",
+      "canonical_name": "digital.artifact-distribution",
+      "display_name": "Artifact Distribution Control",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "remote-retrieval",
+      "canonical_name": "digital.remote-retrieval",
+      "display_name": "Remote Retrieval Control",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "digital-sink-control",
+      "canonical_name": "digital.digital-sink-control",
+      "display_name": "Digital Sink Control",
+      "status": "active-planned"
+    }
+  ],
+  "notes": [
+    "bridge-5of10",
+    "legacy-seed-preserved"
+  ]
+}

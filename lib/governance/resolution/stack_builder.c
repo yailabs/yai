@@ -135,20 +135,35 @@ static int read_json_from_surface(const yai_law_runtime_t *rt,
                                   const char *root_rel,
                                   char *out,
                                   size_t out_cap) {
-  char path[768];
-  if (!rt || !rt->root[0] || !root_rel || !out || out_cap == 0) return -1;
-  if (yai_law_safe_snprintf(path, sizeof(path), "%s/%s", rt->root, root_rel) != 0) return -1;
-  return yai_law_read_text_file(path, out, out_cap);
+  if (!root_rel || !out || out_cap == 0) return -1;
+  return yai_law_read_governance_surface_file(rt, root_rel, out, out_cap);
 }
 
 static void attach_overlays_from_specialization_manifest(const yai_law_runtime_t *rt,
                                                          const yai_law_discovery_result_t *discovery,
                                                          yai_law_effective_stack_t *stack) {
   char rel_path[256];
+  char manifest_ref[256];
   char json[8192];
   if (!discovery || !stack) return;
-  if (yai_law_safe_snprintf(rel_path, sizeof(rel_path), "domain-specializations/%s/manifest.json",
-                            discovery->specialization_id) != 0) return;
+  manifest_ref[0] = '\0';
+  if (yai_law_domain_model_lookup(discovery->specialization_id,
+                                  NULL,
+                                  0,
+                                  NULL,
+                                  0,
+                                  NULL,
+                                  0,
+                                  manifest_ref,
+                                  sizeof(manifest_ref),
+                                  NULL,
+                                  0) == 0 &&
+      manifest_ref[0] != '\0') {
+    if (yai_law_safe_snprintf(rel_path, sizeof(rel_path), "%s", manifest_ref) != 0) return;
+  } else {
+    if (yai_law_safe_snprintf(rel_path, sizeof(rel_path), "domain-specializations/%s/manifest.json",
+                              discovery->specialization_id) != 0) return;
+  }
   if (read_json_from_surface(rt, rel_path, json, sizeof(json)) != 0) return;
 
   if (yai_law_json_contains(json, "\"gdpr-eu\"")) add_regulatory_overlay(stack, "gdpr-eu");

@@ -1,0 +1,174 @@
+{
+  "kind": "scenario-classes",
+  "version": "v1",
+  "classes": [
+    {
+      "scenario_class": "sc.digital.network-egress.baseline",
+      "specialization": "digital.network-egress"
+    },
+    {
+      "scenario_class": "sc.digital.network-egress.stress",
+      "specialization": "digital.network-egress"
+    },
+    {
+      "scenario_class": "sc.digital.remote-publication.baseline",
+      "specialization": "digital.remote-publication"
+    },
+    {
+      "scenario_class": "sc.digital.remote-publication.stress",
+      "specialization": "digital.remote-publication"
+    },
+    {
+      "scenario_class": "sc.digital.external-commentary.baseline",
+      "specialization": "digital.external-commentary"
+    },
+    {
+      "scenario_class": "sc.digital.external-commentary.stress",
+      "specialization": "digital.external-commentary"
+    },
+    {
+      "scenario_class": "sc.digital.artifact-distribution.baseline",
+      "specialization": "digital.artifact-distribution"
+    },
+    {
+      "scenario_class": "sc.digital.artifact-distribution.stress",
+      "specialization": "digital.artifact-distribution"
+    },
+    {
+      "scenario_class": "sc.digital.remote-retrieval.baseline",
+      "specialization": "digital.remote-retrieval"
+    },
+    {
+      "scenario_class": "sc.digital.remote-retrieval.stress",
+      "specialization": "digital.remote-retrieval"
+    },
+    {
+      "scenario_class": "sc.digital.digital-sink-control.baseline",
+      "specialization": "digital.digital-sink-control"
+    },
+    {
+      "scenario_class": "sc.digital.digital-sink-control.stress",
+      "specialization": "digital.digital-sink-control"
+    },
+    {
+      "scenario_class": "sc.economic.payments.baseline",
+      "specialization": "economic.payments"
+    },
+    {
+      "scenario_class": "sc.economic.payments.stress",
+      "specialization": "economic.payments"
+    },
+    {
+      "scenario_class": "sc.economic.transfers.baseline",
+      "specialization": "economic.transfers"
+    },
+    {
+      "scenario_class": "sc.economic.transfers.stress",
+      "specialization": "economic.transfers"
+    },
+    {
+      "scenario_class": "sc.economic.settlements.baseline",
+      "specialization": "economic.settlements"
+    },
+    {
+      "scenario_class": "sc.economic.settlements.stress",
+      "specialization": "economic.settlements"
+    },
+    {
+      "scenario_class": "sc.economic.treasury.baseline",
+      "specialization": "economic.treasury"
+    },
+    {
+      "scenario_class": "sc.economic.treasury.stress",
+      "specialization": "economic.treasury"
+    },
+    {
+      "scenario_class": "sc.economic.invoicing.baseline",
+      "specialization": "economic.invoicing"
+    },
+    {
+      "scenario_class": "sc.economic.invoicing.stress",
+      "specialization": "economic.invoicing"
+    },
+    {
+      "scenario_class": "sc.economic.accounting-integrity.baseline",
+      "specialization": "economic.accounting-integrity"
+    },
+    {
+      "scenario_class": "sc.economic.accounting-integrity.stress",
+      "specialization": "economic.accounting-integrity"
+    },
+    {
+      "scenario_class": "sc.economic.pricing-and-quoting.baseline",
+      "specialization": "economic.pricing-and-quoting"
+    },
+    {
+      "scenario_class": "sc.economic.pricing-and-quoting.stress",
+      "specialization": "economic.pricing-and-quoting"
+    },
+    {
+      "scenario_class": "sc.economic.credit-exposure.baseline",
+      "specialization": "economic.credit-exposure"
+    },
+    {
+      "scenario_class": "sc.economic.credit-exposure.stress",
+      "specialization": "economic.credit-exposure"
+    },
+    {
+      "scenario_class": "sc.economic.fraud-risk-controls.baseline",
+      "specialization": "economic.fraud-risk-controls"
+    },
+    {
+      "scenario_class": "sc.economic.fraud-risk-controls.stress",
+      "specialization": "economic.fraud-risk-controls"
+    },
+    {
+      "scenario_class": "sc.scientific.experiment-configuration.baseline",
+      "specialization": "scientific.experiment-configuration"
+    },
+    {
+      "scenario_class": "sc.scientific.experiment-configuration.stress",
+      "specialization": "scientific.experiment-configuration"
+    },
+    {
+      "scenario_class": "sc.scientific.parameter-governance.baseline",
+      "specialization": "scientific.parameter-governance"
+    },
+    {
+      "scenario_class": "sc.scientific.parameter-governance.stress",
+      "specialization": "scientific.parameter-governance"
+    },
+    {
+      "scenario_class": "sc.scientific.reproducibility-control.baseline",
+      "specialization": "scientific.reproducibility-control"
+    },
+    {
+      "scenario_class": "sc.scientific.reproducibility-control.stress",
+      "specialization": "scientific.reproducibility-control"
+    },
+    {
+      "scenario_class": "sc.scientific.black-box-evaluation.baseline",
+      "specialization": "scientific.black-box-evaluation"
+    },
+    {
+      "scenario_class": "sc.scientific.black-box-evaluation.stress",
+      "specialization": "scientific.black-box-evaluation"
+    },
+    {
+      "scenario_class": "sc.scientific.dataset-integrity.baseline",
+      "specialization": "scientific.dataset-integrity"
+    },
+    {
+      "scenario_class": "sc.scientific.dataset-integrity.stress",
+      "specialization": "scientific.dataset-integrity"
+    },
+    {
+      "scenario_class": "sc.scientific.result-publication-control.baseline",
+      "specialization": "scientific.result-publication-control"
+    },
+    {
+      "scenario_class": "sc.scientific.result-publication-control.stress",
+      "specialization": "scientific.result-publication-control"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "kind": "asset-taxonomy",
+  "version": "v2",
+  "assets": [
+    {
+      "asset": "data",
+      "primary_families": [
+        "D1",
+        "D8",
+        "D9"
+      ]
+    },
+    {
+      "asset": "credential",
+      "primary_families": [
+        "D1",
+        "D5"
+      ]
+    },
+    {
+      "asset": "model",
+      "primary_families": [
+        "D8",
+        "D7"
+      ]
+    },
+    {
+      "asset": "artifact",
+      "primary_families": [
+        "D1",
+        "D8",
+        "D5"
+      ]
+    },
+    {
+      "asset": "infrastructure",
+      "primary_families": [
+        "D1",
+        "D2",
+        "D6"
+      ]
+    },
+    {
+      "asset": "financial-instrument",
+      "primary_families": [
+        "D5"
+      ]
+    },
+    {
+      "asset": "experiment-config",
+      "primary_families": [
+        "D8"
+      ]
+    }
+  ]
+}

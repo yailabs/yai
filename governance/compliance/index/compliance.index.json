@@ -1,0 +1,165 @@
+{
+  "kind": "compliance.index",
+  "version": "v2",
+  "entries": [
+    {
+      "compliance_id": "gdpr-eu",
+      "canonical_name": "gdpr-eu",
+      "display_name": "GDPR (EU)",
+      "layer_type": "core-compliance",
+      "attachment_levels": [
+        "family",
+        "domain",
+        "subdomain",
+        "action",
+        "asset",
+        "risk",
+        "authority",
+        "evidence"
+      ],
+      "primary_targets": [
+        "D1",
+        "D8"
+      ],
+      "effect_profile": [
+        "restrict",
+        "review",
+        "evidence-hardening",
+        "retention-hardening"
+      ],
+      "authority_interaction": "review-escalation",
+      "evidence_profile": "regulatory-personal-data",
+      "sector_scope": [
+        "general",
+        "healthcare",
+        "hr",
+        "b2b-saas"
+      ],
+      "status": "active",
+      "manifest_ref": "compliance/gdpr-eu/manifest.json"
+    },
+    {
+      "compliance_id": "ai-act",
+      "canonical_name": "ai-act",
+      "display_name": "EU AI Act",
+      "layer_type": "cross-domain-compliance",
+      "attachment_levels": [
+        "family",
+        "domain",
+        "action",
+        "risk",
+        "authority",
+        "evidence"
+      ],
+      "primary_targets": [
+        "D8",
+        "D1",
+        "D7",
+        "D4"
+      ],
+      "effect_profile": [
+        "review",
+        "deny",
+        "human-oversight",
+        "evidence-hardening"
+      ],
+      "authority_interaction": "require-authority",
+      "evidence_profile": "ai-risk-trace",
+      "sector_scope": [
+        "general"
+      ],
+      "status": "active",
+      "manifest_ref": "compliance/ai-act/manifest.json"
+    },
+    {
+      "compliance_id": "retention-governance",
+      "canonical_name": "retention-governance",
+      "display_name": "Retention Governance",
+      "layer_type": "retention-overlay",
+      "attachment_levels": [
+        "family",
+        "domain",
+        "asset",
+        "evidence"
+      ],
+      "primary_targets": [
+        "*"
+      ],
+      "effect_profile": [
+        "retention-only",
+        "provenance-hardening",
+        "evidence-hardening"
+      ],
+      "authority_interaction": "evidence-escalation",
+      "evidence_profile": "retention-provenance",
+      "sector_scope": [
+        "general"
+      ],
+      "status": "active",
+      "manifest_ref": "compliance/retention-governance/manifest.json"
+    },
+    {
+      "compliance_id": "security-supply-chain",
+      "canonical_name": "security-supply-chain",
+      "display_name": "Security Supply Chain",
+      "layer_type": "cross-domain-compliance",
+      "attachment_levels": [
+        "family",
+        "domain",
+        "action",
+        "asset",
+        "risk",
+        "authority",
+        "evidence"
+      ],
+      "primary_targets": [
+        "D1",
+        "D6",
+        "D8"
+      ],
+      "effect_profile": [
+        "restrict",
+        "review",
+        "deny",
+        "evidence-hardening"
+      ],
+      "authority_interaction": "deny-override",
+      "evidence_profile": "provenance-chain",
+      "sector_scope": [
+        "general"
+      ],
+      "status": "active",
+      "manifest_ref": "compliance/security-supply-chain/manifest.json"
+    },
+    {
+      "compliance_id": "sector.finance",
+      "canonical_name": "sector.finance",
+      "display_name": "Finance Sector Overlay",
+      "layer_type": "sector-overlay",
+      "attachment_levels": [
+        "family",
+        "domain",
+        "subdomain",
+        "authority",
+        "evidence"
+      ],
+      "primary_targets": [
+        "D5",
+        "D1",
+        "D6"
+      ],
+      "effect_profile": [
+        "review",
+        "authority-hardening",
+        "evidence-hardening"
+      ],
+      "authority_interaction": "dual-control",
+      "evidence_profile": "financial-audit-trace",
+      "sector_scope": [
+        "finance"
+      ],
+      "status": "active-planned",
+      "manifest_ref": "compliance/sector-overlays/finance/manifest.json"
+    }
+  ]
+}

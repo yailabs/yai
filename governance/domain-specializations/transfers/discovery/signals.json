@@ -1,0 +1,12 @@
+{
+  "kind": "discovery_signals",
+  "version": "v1",
+  "specialization_id": "transfers",
+  "signals": [
+    {"signal_type": "action", "value": "transfers", "weight": 0.9},
+    {"signal_type": "resource", "value": "ledger-entry", "weight": 0.7},
+    {"signal_type": "resource", "value": "counterparty", "weight": 0.6},
+    {"signal_type": "workspace-context", "value": "regulated-sector", "weight": 0.5},
+    {"signal_type": "authority-context", "value": "approval-required", "weight": 0.8}
+  ]
+}

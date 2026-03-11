@@ -1,0 +1,23 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v2",
+  "family_id": "D9",
+  "internal_id": "D9",
+  "canonical_name": "environmental-climatological",
+  "display_name": "Environmental-Climatological",
+  "slug": "environmental-climatological",
+  "status": "active",
+  "classification_ref": "classification/classification-map.json",
+  "specializations_ref": "domain-specializations/index/specializations.index.json",
+  "overlay_refs": {
+    "regulatory": "overlays/regulatory/index/regulatory.index.json",
+    "sector": "overlays/sector/index/sector.index.json",
+    "contextual": "overlays/contextual/index/contextual.index.json"
+  },
+  "legacy_seed_ref": "transitional/domain-family-seed/D9-environmental-climatological",
+  "specializations": [
+    "telemetry-integrity",
+    "climate-risk-monitoring",
+    "environmental-reporting"
+  ]
+}

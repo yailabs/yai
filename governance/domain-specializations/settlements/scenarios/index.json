@@ -1,0 +1,10 @@
+{
+  "kind": "scenario_classes",
+  "version": "v1",
+  "specialization_id": "settlements",
+  "scenario_classes": [
+    "settlements.default",
+    "settlements.high_impact",
+    "settlements.overlay_finance"
+  ]
+}

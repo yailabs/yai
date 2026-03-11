@@ -1,0 +1,190 @@
+{
+  "kind": "domain-families",
+  "version": "v3",
+  "model": "root-family",
+  "families": [
+    {
+      "family_id": "D1",
+      "internal_id": "D1",
+      "legacy_id": "D1-digital",
+      "canonical_name": "digital",
+      "display_name": "Digital",
+      "slug": "digital",
+      "status": "active",
+      "description": "Digital interaction surfaces and external digital effect boundaries.",
+      "canonical_domains": [
+        "network-egress",
+        "remote-publication",
+        "external-commentary",
+        "artifact-distribution",
+        "remote-retrieval",
+        "digital-sink-control"
+      ],
+      "notes": [
+        "root-family",
+        "internal-id-stable"
+      ]
+    },
+    {
+      "family_id": "D2",
+      "internal_id": "D2",
+      "legacy_id": "D2-physical",
+      "canonical_name": "physical",
+      "display_name": "Physical",
+      "slug": "physical",
+      "status": "active",
+      "description": "Physical-world actuation and safety-critical command contexts.",
+      "canonical_domains": [
+        "actuation-governance",
+        "device-integrity",
+        "safety-window-control"
+      ],
+      "notes": [
+        "root-family",
+        "internal-id-stable"
+      ]
+    },
+    {
+      "family_id": "D3",
+      "internal_id": "D3",
+      "legacy_id": "D3-biological",
+      "canonical_name": "biological",
+      "display_name": "Biological",
+      "slug": "biological",
+      "status": "active",
+      "description": "Biological and chain-of-custody sensitive contexts.",
+      "canonical_domains": [
+        "chain-of-custody",
+        "sample-handling",
+        "bio-risk-gating"
+      ],
+      "notes": [
+        "root-family",
+        "internal-id-stable"
+      ]
+    },
+    {
+      "family_id": "D4",
+      "internal_id": "D4",
+      "legacy_id": "D4-social-institutional",
+      "canonical_name": "social-institutional",
+      "display_name": "Social-Institutional",
+      "slug": "social-institutional",
+      "status": "active",
+      "description": "Institutional process and governance interaction contexts.",
+      "canonical_domains": [
+        "procedural-authorization",
+        "policy-adherence",
+        "institutional-escalation"
+      ],
+      "notes": [
+        "root-family",
+        "internal-id-stable"
+      ]
+    },
+    {
+      "family_id": "D5",
+      "internal_id": "D5",
+      "legacy_id": "D5-economic",
+      "canonical_name": "economic",
+      "display_name": "Economic",
+      "slug": "economic",
+      "status": "active",
+      "description": "Economic and transaction authorization contexts.",
+      "canonical_domains": [
+        "payments",
+        "transfers",
+        "settlements",
+        "treasury",
+        "invoicing",
+        "accounting-integrity",
+        "pricing-and-quoting",
+        "credit-exposure",
+        "fraud-risk-controls"
+      ],
+      "notes": [
+        "root-family",
+        "internal-id-stable"
+      ]
+    },
+    {
+      "family_id": "D6",
+      "internal_id": "D6",
+      "legacy_id": "D6-operational",
+      "canonical_name": "operational",
+      "display_name": "Operational",
+      "slug": "operational",
+      "status": "active",
+      "description": "Operational response and runbook-linked control contexts.",
+      "canonical_domains": [
+        "incident-response",
+        "change-control",
+        "runbook-execution"
+      ],
+      "notes": [
+        "root-family",
+        "internal-id-stable"
+      ]
+    },
+    {
+      "family_id": "D7",
+      "internal_id": "D7",
+      "legacy_id": "D7-cognitive-cultural",
+      "canonical_name": "cognitive-cultural",
+      "display_name": "Cognitive-Cultural",
+      "slug": "cognitive-cultural",
+      "status": "active",
+      "description": "Cognitive and publication-mediated contexts.",
+      "canonical_domains": [
+        "publication-enforcement",
+        "interpretation-integrity",
+        "cognitive-safety"
+      ],
+      "notes": [
+        "root-family",
+        "internal-id-stable"
+      ]
+    },
+    {
+      "family_id": "D8",
+      "internal_id": "D8",
+      "legacy_id": "D8-scientific",
+      "canonical_name": "scientific",
+      "display_name": "Scientific",
+      "slug": "scientific",
+      "status": "active",
+      "description": "Scientific reproducibility and experiment control contexts.",
+      "canonical_domains": [
+        "experiment-configuration",
+        "parameter-governance",
+        "reproducibility-control",
+        "black-box-evaluation",
+        "dataset-integrity",
+        "result-publication-control"
+      ],
+      "notes": [
+        "root-family",
+        "internal-id-stable"
+      ]
+    },
+    {
+      "family_id": "D9",
+      "internal_id": "D9",
+      "legacy_id": "D9-environmental-climatological",
+      "canonical_name": "environmental-climatological",
+      "display_name": "Environmental-Climatological",
+      "slug": "environmental-climatological",
+      "status": "active",
+      "description": "Environmental telemetry and climate integrity contexts.",
+      "canonical_domains": [
+        "telemetry-integrity",
+        "climate-risk-monitoring",
+        "environmental-reporting"
+      ],
+      "notes": [
+        "root-family",
+        "internal-id-stable"
+      ]
+    }
+  ]
+}

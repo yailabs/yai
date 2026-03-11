@@ -1,0 +1,52 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v1",
+  "family_id": "D8",
+  "internal_id": "D8",
+  "canonical_name": "scientific",
+  "display_name": "Scientific",
+  "status": "active-bridge",
+  "legacy_seed_ref": "transitional/domain-family-seed/D8-scientific",
+  "canonical_domains": [
+    {
+      "domain_key": "experiment-configuration",
+      "canonical_name": "scientific.experiment-configuration",
+      "display_name": "Experiment Configuration Governance",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "parameter-governance",
+      "canonical_name": "scientific.parameter-governance",
+      "display_name": "Parameter Governance",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "reproducibility-control",
+      "canonical_name": "scientific.reproducibility-control",
+      "display_name": "Reproducibility Control",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "black-box-evaluation",
+      "canonical_name": "scientific.black-box-evaluation",
+      "display_name": "Black-box Evaluation Control",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "dataset-integrity",
+      "canonical_name": "scientific.dataset-integrity",
+      "display_name": "Dataset Integrity",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "result-publication-control",
+      "canonical_name": "scientific.result-publication-control",
+      "display_name": "Result Publication Control",
+      "status": "active-planned"
+    }
+  ],
+  "notes": [
+    "bridge-5of10",
+    "legacy-seed-preserved"
+  ]
+}

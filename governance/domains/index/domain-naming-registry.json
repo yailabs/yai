@@ -1,0 +1,69 @@
+{
+  "kind": "domain-naming-registry",
+  "version": "v1",
+  "entries": [
+    {
+      "internal_id": "D1",
+      "legacy_label": "D1-digital",
+      "canonical_name": "digital",
+      "display_name": "Digital",
+      "slug": "digital"
+    },
+    {
+      "internal_id": "D2",
+      "legacy_label": "D2-physical",
+      "canonical_name": "physical",
+      "display_name": "Physical",
+      "slug": "physical"
+    },
+    {
+      "internal_id": "D3",
+      "legacy_label": "D3-biological",
+      "canonical_name": "biological",
+      "display_name": "Biological",
+      "slug": "biological"
+    },
+    {
+      "internal_id": "D4",
+      "legacy_label": "D4-social-institutional",
+      "canonical_name": "social-institutional",
+      "display_name": "Social-Institutional",
+      "slug": "social-institutional"
+    },
+    {
+      "internal_id": "D5",
+      "legacy_label": "D5-economic",
+      "canonical_name": "economic",
+      "display_name": "Economic",
+      "slug": "economic"
+    },
+    {
+      "internal_id": "D6",
+      "legacy_label": "D6-operational",
+      "canonical_name": "operational",
+      "display_name": "Operational",
+      "slug": "operational"
+    },
+    {
+      "internal_id": "D7",
+      "legacy_label": "D7-cognitive-cultural",
+      "canonical_name": "cognitive-cultural",
+      "display_name": "Cognitive-Cultural",
+      "slug": "cognitive-cultural"
+    },
+    {
+      "internal_id": "D8",
+      "legacy_label": "D8-scientific",
+      "canonical_name": "scientific",
+      "display_name": "Scientific",
+      "slug": "scientific"
+    },
+    {
+      "internal_id": "D9",
+      "legacy_label": "D9-environmental-climatological",
+      "canonical_name": "environmental-climatological",
+      "display_name": "Environmental-Climatological",
+      "slug": "environmental-climatological"
+    }
+  ]
+}

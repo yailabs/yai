@@ -1,0 +1,10 @@
+{
+  "version": "v1",
+  "default": {
+    "retention_policy_id": "default",
+    "ttl_seconds": 2592000,
+    "deletion_mode": "tombstone",
+    "scope": ["semantic", "graph"],
+    "expiry_anchor": "event_ts"
+  }
+}

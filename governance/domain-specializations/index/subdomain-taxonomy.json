@@ -1,0 +1,489 @@
+{
+  "kind": "subdomain-taxonomy",
+  "version": "v1",
+  "entries": [
+    {
+      "subdomain_id": "digital.network-egress.default",
+      "specialization": "digital.network-egress",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "digital.network-egress.high-risk",
+      "specialization": "digital.network-egress",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "digital.remote-publication.default",
+      "specialization": "digital.remote-publication",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "digital.remote-publication.high-risk",
+      "specialization": "digital.remote-publication",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "digital.external-commentary.default",
+      "specialization": "digital.external-commentary",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "digital.external-commentary.high-risk",
+      "specialization": "digital.external-commentary",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "digital.artifact-distribution.default",
+      "specialization": "digital.artifact-distribution",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "digital.artifact-distribution.high-risk",
+      "specialization": "digital.artifact-distribution",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "digital.remote-retrieval.default",
+      "specialization": "digital.remote-retrieval",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "digital.remote-retrieval.high-risk",
+      "specialization": "digital.remote-retrieval",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "digital.digital-sink-control.default",
+      "specialization": "digital.digital-sink-control",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "digital.digital-sink-control.high-risk",
+      "specialization": "digital.digital-sink-control",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "economic.payments.default",
+      "specialization": "economic.payments",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "economic.payments.high-risk",
+      "specialization": "economic.payments",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "economic.transfers.default",
+      "specialization": "economic.transfers",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "economic.transfers.high-risk",
+      "specialization": "economic.transfers",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "economic.settlements.default",
+      "specialization": "economic.settlements",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "economic.settlements.high-risk",
+      "specialization": "economic.settlements",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "economic.treasury.default",
+      "specialization": "economic.treasury",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "economic.treasury.high-risk",
+      "specialization": "economic.treasury",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "economic.invoicing.default",
+      "specialization": "economic.invoicing",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "economic.invoicing.high-risk",
+      "specialization": "economic.invoicing",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "economic.accounting-integrity.default",
+      "specialization": "economic.accounting-integrity",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "economic.accounting-integrity.high-risk",
+      "specialization": "economic.accounting-integrity",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "economic.pricing-and-quoting.default",
+      "specialization": "economic.pricing-and-quoting",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "economic.pricing-and-quoting.high-risk",
+      "specialization": "economic.pricing-and-quoting",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "economic.credit-exposure.default",
+      "specialization": "economic.credit-exposure",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "economic.credit-exposure.high-risk",
+      "specialization": "economic.credit-exposure",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "economic.fraud-risk-controls.default",
+      "specialization": "economic.fraud-risk-controls",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "economic.fraud-risk-controls.high-risk",
+      "specialization": "economic.fraud-risk-controls",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.experiment-configuration.default",
+      "specialization": "scientific.experiment-configuration",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.experiment-configuration.high-risk",
+      "specialization": "scientific.experiment-configuration",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.parameter-governance.default",
+      "specialization": "scientific.parameter-governance",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.parameter-governance.high-risk",
+      "specialization": "scientific.parameter-governance",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.reproducibility-control.default",
+      "specialization": "scientific.reproducibility-control",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.reproducibility-control.high-risk",
+      "specialization": "scientific.reproducibility-control",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.black-box-evaluation.default",
+      "specialization": "scientific.black-box-evaluation",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.black-box-evaluation.high-risk",
+      "specialization": "scientific.black-box-evaluation",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.dataset-integrity.default",
+      "specialization": "scientific.dataset-integrity",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.dataset-integrity.high-risk",
+      "specialization": "scientific.dataset-integrity",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.result-publication-control.default",
+      "specialization": "scientific.result-publication-control",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ]
+    },
+    {
+      "subdomain_id": "scientific.result-publication-control.high-risk",
+      "specialization": "scientific.result-publication-control",
+      "status": "seed",
+      "inherits_from": [
+        "classification",
+        "family-policy",
+        "specialization-policy"
+      ],
+      "tags": [
+        "high-risk"
+      ]
+    }
+  ]
+}

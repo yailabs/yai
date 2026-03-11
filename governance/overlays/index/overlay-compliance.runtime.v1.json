@@ -1,0 +1,247 @@
+{
+  "kind": "overlay-compliance.runtime.v1",
+  "version": "v1",
+  "sources": {
+    "compliance_index": "compliance/index/compliance.index.json",
+    "regulatory_index": "overlays/regulatory/index/regulatory.index.json",
+    "sector_index": "overlays/sector/index/sector.index.json",
+    "contextual_index": "overlays/contextual/index/contextual.index.json"
+  },
+  "overlays": {
+    "regulatory": [
+      {
+        "overlay_id": "gdpr-eu",
+        "status": "active",
+        "manifest_ref": "overlays/regulatory/gdpr-eu/manifest.json"
+      },
+      {
+        "overlay_id": "ai-act",
+        "status": "active",
+        "manifest_ref": "overlays/regulatory/ai-act/manifest.json"
+      },
+      {
+        "overlay_id": "retention-governance",
+        "status": "active",
+        "manifest_ref": "overlays/regulatory/retention-governance/manifest.json"
+      },
+      {
+        "overlay_id": "security-supply-chain",
+        "status": "active",
+        "manifest_ref": "overlays/regulatory/security-supply-chain/manifest.json"
+      }
+    ],
+    "sector": [
+      {
+        "overlay_id": "sector.finance",
+        "status": "active",
+        "manifest_ref": "overlays/sector/finance/manifest.json"
+      },
+      {
+        "overlay_id": "sector.healthcare",
+        "status": "active-seed",
+        "manifest_ref": "overlays/sector/healthcare/manifest.json"
+      },
+      {
+        "overlay_id": "sector.public-sector",
+        "status": "active-seed",
+        "manifest_ref": "overlays/sector/public-sector/manifest.json"
+      },
+      {
+        "overlay_id": "sector.manufacturing",
+        "status": "seed",
+        "manifest_ref": "overlays/sector/manufacturing/manifest.json"
+      }
+    ],
+    "contextual": [
+      {
+        "overlay_id": "context.organization",
+        "manifest_ref": "overlays/contextual/organization/manifest.json",
+        "status": "seed"
+      },
+      {
+        "overlay_id": "context.workspace",
+        "manifest_ref": "overlays/contextual/workspace/manifest.json",
+        "status": "seed"
+      },
+      {
+        "overlay_id": "context.session",
+        "manifest_ref": "overlays/contextual/session/manifest.json",
+        "status": "seed"
+      },
+      {
+        "overlay_id": "context.experimental",
+        "manifest_ref": "overlays/contextual/experimental/manifest.json",
+        "status": "seed"
+      }
+    ]
+  },
+  "compliance_entries": [
+    {
+      "compliance_id": "gdpr-eu",
+      "canonical_name": "gdpr-eu",
+      "display_name": "GDPR (EU)",
+      "layer_type": "core-compliance",
+      "attachment_levels": [
+        "family",
+        "domain",
+        "subdomain",
+        "action",
+        "asset",
+        "risk",
+        "authority",
+        "evidence"
+      ],
+      "primary_targets": [
+        "D1",
+        "D8"
+      ],
+      "effect_profile": [
+        "restrict",
+        "review",
+        "evidence-hardening",
+        "retention-hardening"
+      ],
+      "authority_interaction": "review-escalation",
+      "evidence_profile": "regulatory-personal-data",
+      "sector_scope": [
+        "general",
+        "healthcare",
+        "hr",
+        "b2b-saas"
+      ],
+      "status": "active",
+      "manifest_ref": "compliance/gdpr-eu/manifest.json"
+    },
+    {
+      "compliance_id": "ai-act",
+      "canonical_name": "ai-act",
+      "display_name": "EU AI Act",
+      "layer_type": "cross-domain-compliance",
+      "attachment_levels": [
+        "family",
+        "domain",
+        "action",
+        "risk",
+        "authority",
+        "evidence"
+      ],
+      "primary_targets": [
+        "D8",
+        "D1",
+        "D7",
+        "D4"
+      ],
+      "effect_profile": [
+        "review",
+        "deny",
+        "human-oversight",
+        "evidence-hardening"
+      ],
+      "authority_interaction": "require-authority",
+      "evidence_profile": "ai-risk-trace",
+      "sector_scope": [
+        "general"
+      ],
+      "status": "active",
+      "manifest_ref": "compliance/ai-act/manifest.json"
+    },
+    {
+      "compliance_id": "retention-governance",
+      "canonical_name": "retention-governance",
+      "display_name": "Retention Governance",
+      "layer_type": "retention-overlay",
+      "attachment_levels": [
+        "family",
+        "domain",
+        "asset",
+        "evidence"
+      ],
+      "primary_targets": [
+        "*"
+      ],
+      "effect_profile": [
+        "retention-only",
+        "provenance-hardening",
+        "evidence-hardening"
+      ],
+      "authority_interaction": "evidence-escalation",
+      "evidence_profile": "retention-provenance",
+      "sector_scope": [
+        "general"
+      ],
+      "status": "active",
+      "manifest_ref": "compliance/retention-governance/manifest.json"
+    },
+    {
+      "compliance_id": "security-supply-chain",
+      "canonical_name": "security-supply-chain",
+      "display_name": "Security Supply Chain",
+      "layer_type": "cross-domain-compliance",
+      "attachment_levels": [
+        "family",
+        "domain",
+        "action",
+        "asset",
+        "risk",
+        "authority",
+        "evidence"
+      ],
+      "primary_targets": [
+        "D1",
+        "D6",
+        "D8"
+      ],
+      "effect_profile": [
+        "restrict",
+        "review",
+        "deny",
+        "evidence-hardening"
+      ],
+      "authority_interaction": "deny-override",
+      "evidence_profile": "provenance-chain",
+      "sector_scope": [
+        "general"
+      ],
+      "status": "active",
+      "manifest_ref": "compliance/security-supply-chain/manifest.json"
+    },
+    {
+      "compliance_id": "sector.finance",
+      "canonical_name": "sector.finance",
+      "display_name": "Finance Sector Overlay",
+      "layer_type": "sector-overlay",
+      "attachment_levels": [
+        "family",
+        "domain",
+        "subdomain",
+        "authority",
+        "evidence"
+      ],
+      "primary_targets": [
+        "D5",
+        "D1",
+        "D6"
+      ],
+      "effect_profile": [
+        "review",
+        "authority-hardening",
+        "evidence-hardening"
+      ],
+      "authority_interaction": "dual-control",
+      "evidence_profile": "financial-audit-trace",
+      "sector_scope": [
+        "finance"
+      ],
+      "status": "active-planned",
+      "manifest_ref": "compliance/sector-overlays/finance/manifest.json"
+    }
+  ],
+  "matrices": {
+    "regulatory_attachment": "overlays/regulatory/index/overlay-attachment-matrix.json",
+    "sector_attachment": "overlays/sector/index/overlay-attachment-matrix.json",
+    "regulatory_precedence": "overlays/regulatory/index/overlay-precedence-matrix.json",
+    "sector_precedence": "overlays/sector/index/overlay-precedence-matrix.json",
+    "regulatory_evidence": "overlays/regulatory/index/overlay-evidence-matrix.json",
+    "sector_evidence": "overlays/sector/index/overlay-evidence-matrix.json"
+  }
+}

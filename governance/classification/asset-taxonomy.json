@@ -1,0 +1,15 @@
+{
+  "kind": "asset-taxonomy",
+  "version": "v2",
+  "assets": [
+    {"asset": "data", "primary_families": ["digital", "scientific", "environmental-climatological"]},
+    {"asset": "credential", "primary_families": ["digital", "economic"]},
+    {"asset": "artifact", "primary_families": ["digital", "scientific", "economic"]},
+    {"asset": "financial-instrument", "primary_families": ["economic"]},
+    {"asset": "ledger-entry", "primary_families": ["economic"]},
+    {"asset": "counterparty-profile", "primary_families": ["economic"]},
+    {"asset": "approval-record", "primary_families": ["economic", "social-institutional"]},
+    {"asset": "experiment-config", "primary_families": ["scientific"]},
+    {"asset": "model", "primary_families": ["scientific", "cognitive-cultural"]}
+  ]
+}

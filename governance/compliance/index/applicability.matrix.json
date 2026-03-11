@@ -1,0 +1,155 @@
+{
+  "kind": "applicability.matrix",
+  "version": "v2",
+  "rules": [
+    {
+      "compliance_id": "gdpr-eu",
+      "families": [
+        "D1",
+        "D8"
+      ],
+      "domains": [
+        "digital.remote-publication",
+        "digital.remote-retrieval",
+        "scientific.dataset-integrity"
+      ],
+      "subdomains": [
+        "digital.remote-publication.personal-data",
+        "scientific.dataset-integrity.personal-data"
+      ],
+      "actions": [
+        "retrieve",
+        "publish",
+        "egress"
+      ],
+      "assets": [
+        "data",
+        "credential",
+        "artifact"
+      ],
+      "risks": [
+        "privacy-breach",
+        "exfiltration"
+      ],
+      "mode": "conditional"
+    },
+    {
+      "compliance_id": "ai-act",
+      "families": [
+        "D8",
+        "D1",
+        "D7",
+        "D4"
+      ],
+      "domains": [
+        "scientific.black-box-evaluation",
+        "scientific.result-publication-control",
+        "digital.external-commentary"
+      ],
+      "subdomains": [
+        "scientific.black-box-evaluation.high-risk"
+      ],
+      "actions": [
+        "infer",
+        "publish",
+        "transform"
+      ],
+      "assets": [
+        "model",
+        "artifact"
+      ],
+      "risks": [
+        "unsafe-autonomy",
+        "provenance-loss"
+      ],
+      "mode": "conditional"
+    },
+    {
+      "compliance_id": "retention-governance",
+      "families": [
+        "*"
+      ],
+      "domains": [
+        "*"
+      ],
+      "subdomains": [
+        "*"
+      ],
+      "actions": [
+        "publish",
+        "retrieve"
+      ],
+      "assets": [
+        "data",
+        "artifact"
+      ],
+      "risks": [
+        "provenance-loss",
+        "privacy-breach"
+      ],
+      "mode": "always-on"
+    },
+    {
+      "compliance_id": "security-supply-chain",
+      "families": [
+        "D1",
+        "D6",
+        "D8"
+      ],
+      "domains": [
+        "digital.artifact-distribution",
+        "operational.change-control",
+        "scientific.result-publication-control"
+      ],
+      "subdomains": [
+        "digital.artifact-distribution.signed-only"
+      ],
+      "actions": [
+        "publish",
+        "retrieve",
+        "transform"
+      ],
+      "assets": [
+        "artifact",
+        "infrastructure",
+        "model"
+      ],
+      "risks": [
+        "provenance-loss",
+        "unauthorized-actuation"
+      ],
+      "mode": "always-on"
+    },
+    {
+      "compliance_id": "sector.finance",
+      "families": [
+        "D5",
+        "D1",
+        "D6"
+      ],
+      "domains": [
+        "economic.payments",
+        "economic.transfers",
+        "economic.settlements"
+      ],
+      "subdomains": [
+        "economic.payments.authorization",
+        "economic.transfers.release"
+      ],
+      "actions": [
+        "actuate",
+        "publish"
+      ],
+      "assets": [
+        "financial-instrument",
+        "credential",
+        "artifact"
+      ],
+      "risks": [
+        "financial-fraud",
+        "exfiltration"
+      ],
+      "mode": "sector-gated"
+    }
+  ]
+}

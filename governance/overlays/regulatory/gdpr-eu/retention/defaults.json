@@ -1,0 +1,1 @@
+{"kind":"overlay_retention_defaults","version":"v1","overlay_id":"gdpr-eu","defaults":{"personal_data":"extended","sensitive_personal_data":"strict_extended"}}

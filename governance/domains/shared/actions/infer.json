@@ -1,0 +1,6 @@
+{
+  "kind": "domain_action_set",
+  "version": "v1",
+  "id": "infer",
+  "description": "Shared action primitive: infer"
+}

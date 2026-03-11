@@ -1,0 +1,1 @@
+{"kind":"overlay_policy_rule_set","version":"v1","overlay_id":"gdpr-eu","rules":[{"rule_id":"gdpr-subject-rights-impact","when":["subject_rights_impacting_action"],"effect":"review_required"}]}

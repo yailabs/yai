@@ -36,6 +36,38 @@ int yai_law_read_text_file(const char *path, char *out, size_t out_cap) {
   return 0;
 }
 
+int yai_law_read_governance_surface_file(const yai_law_runtime_t *rt,
+                                         const char *rel_path,
+                                         char *out,
+                                         size_t out_cap) {
+  char path[768];
+  const char *canonical_only = getenv("YAI_GOVERNANCE_CANONICAL_ONLY");
+  if (!rel_path || !out || out_cap < 2) return -1;
+
+  /* Canonical-first lookup. */
+  if (yai_law_safe_snprintf(path, sizeof(path), "governance/%s", rel_path) == 0 &&
+      yai_law_read_text_file(path, out, out_cap) == 0) {
+    return 0;
+  }
+
+  if (canonical_only && strcmp(canonical_only, "1") == 0) {
+    return -1;
+  }
+
+  if (rt && rt->root[0] &&
+      yai_law_safe_snprintf(path, sizeof(path), "%s/%s", rt->root, rel_path) == 0 &&
+      yai_law_read_text_file(path, out, out_cap) == 0) {
+    return 0;
+  }
+
+  if (yai_law_safe_snprintf(path, sizeof(path), "embedded/law/%s", rel_path) == 0 &&
+      yai_law_read_text_file(path, out, out_cap) == 0) {
+    return 0;
+  }
+
+  return -1;
+}
+
 int yai_law_json_extract_string(const char *json, const char *key, char *out, size_t out_cap) {
   char needle[128];
   const char *p;

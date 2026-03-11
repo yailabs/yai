@@ -1,0 +1,1 @@
+{"kind":"sector_overlay_authority","version":"v1","overlay_id":"sector.finance","rules":[{"rule_id":"finance-dual-control","when":["payments","transfers","settlements"],"required_scope":"auditor","dual_control":true}]}

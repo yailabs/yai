@@ -1,0 +1,92 @@
+{
+  "kind": "enterprise_custom_governance",
+  "schema_version": "v1",
+  "id": "enterprise.<org>.<scope>.<intent>",
+  "name": "Enterprise Custom Governance Template",
+  "version": "YYYY.MM",
+  "owner": {
+    "organization_id": "<org-id>",
+    "owner_team": "<owner-team>",
+    "approver_role": "<approver-role>"
+  },
+  "organization_scope": {
+    "organization_ids": [
+      "<org-id>"
+    ],
+    "environment_classes": [
+      "staging"
+    ],
+    "session_scope": "workspace-bound"
+  },
+  "workspace_targets": [
+    "<workspace-id>"
+  ],
+  "domain_targets": [
+    "digital"
+  ],
+  "specialization_targets": [
+    "remote-publication"
+  ],
+  "source_inputs": {
+    "customer_policy_pack_refs": [],
+    "compliance_refs": [],
+    "overlay_refs": [],
+    "specialization_policy_refs": []
+  },
+  "policy_refs": [],
+  "overlay_refs": {
+    "regulatory": [],
+    "sector": [],
+    "contextual": []
+  },
+  "authority_profile": {},
+  "evidence_profile": {},
+  "precedence_mode": "specialization+overlays+enterprise-object",
+  "status": "template",
+  "review_state": "draft",
+  "compatibility": {
+    "law_range": ">=0.1.0",
+    "runtime_targets": [
+      "yai"
+    ],
+    "export_profiles": [
+      "runtime-consumer.v4"
+    ]
+  },
+  "apply_modes": [
+    "workspace_attach"
+  ],
+  "runtime_consumable": false,
+  "runtime_entrypoint_refs": [
+    "manifests/runtime.entrypoints.json#default-runtime"
+  ],
+  "provenance": {
+    "source_type": "template",
+    "source_ref": "manifests/enterprise-custom-governance/templates/enterprise-custom-governance.template.v1.json"
+  },
+  "notes": "Authoring template. Not attachable until status/review_state and runtime_consumable are promoted.",
+  "source_attachment_governance": {
+    "governable_entities": [
+      "source_node",
+      "source_binding",
+      "source_asset",
+      "source_acquisition_event"
+    ],
+    "trust_levels": [
+      "trusted",
+      "review_required",
+      "restricted"
+    ],
+    "default_trust_level": "review_required",
+    "provenance_requirements": [
+      "source_node_identity",
+      "source_binding_scope",
+      "acquisition_timestamp"
+    ],
+    "attachment_decisions": {
+      "trusted": "allow",
+      "review_required": "review",
+      "restricted": "deny"
+    }
+  }
+}

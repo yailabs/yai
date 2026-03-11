@@ -1,0 +1,1 @@
+{"kind":"overlay_authority_crosswalk","version":"v1","overlay_id":"ai-act","rules":[{"trigger":"high_risk_context","required_scope":"controller","human_oversight":true},{"trigger":"prohibited_use_pattern","required_scope":"auditor","enforcement":"deny"}]}

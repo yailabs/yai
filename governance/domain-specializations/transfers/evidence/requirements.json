@@ -1,0 +1,21 @@
+{
+  "kind": "specialization_evidence_requirements",
+  "version": "v1",
+  "specialization_id": "transfers",
+  "required_fields": [
+    "trace_id",
+    "decision_id",
+    "family",
+    "specialization",
+    "authority_scope",
+    "approval_chain",
+    "rule_hits",
+    "overlay_hits",
+    "rationale"
+  ],
+  "additive_layers": [
+    "regulatory",
+    "sector.finance",
+    "contextual"
+  ]
+}

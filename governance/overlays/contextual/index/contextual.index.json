@@ -1,0 +1,26 @@
+{
+  "kind": "contextual.index",
+  "version": "v1",
+  "overlays": [
+    {
+      "overlay_id": "context.organization",
+      "manifest_ref": "overlays/contextual/organization/manifest.json",
+      "status": "seed"
+    },
+    {
+      "overlay_id": "context.workspace",
+      "manifest_ref": "overlays/contextual/workspace/manifest.json",
+      "status": "seed"
+    },
+    {
+      "overlay_id": "context.session",
+      "manifest_ref": "overlays/contextual/session/manifest.json",
+      "status": "seed"
+    },
+    {
+      "overlay_id": "context.experimental",
+      "manifest_ref": "overlays/contextual/experimental/manifest.json",
+      "status": "seed"
+    }
+  ]
+}

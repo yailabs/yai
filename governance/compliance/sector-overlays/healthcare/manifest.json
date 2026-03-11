@@ -1,0 +1,14 @@
+{
+  "kind": "compliance_overlay",
+  "version": "v2",
+  "overlay_id": "sector.healthcare",
+  "base_compliance_id": "gdpr-eu",
+  "sector": "healthcare",
+  "layer_type": "sector-overlay",
+  "attachment_levels": [
+    "family",
+    "domain",
+    "authority",
+    "evidence"
+  ]
+}

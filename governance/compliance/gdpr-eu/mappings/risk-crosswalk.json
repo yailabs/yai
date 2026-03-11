@@ -1,0 +1,19 @@
+{
+  "kind": "mapping",
+  "version": "v2",
+  "id": "risk-crosswalk",
+  "map": [
+    {
+      "risk": "privacy-breach",
+      "impact": "deny_or_review"
+    },
+    {
+      "risk": "exfiltration",
+      "impact": "quarantine_or_deny"
+    },
+    {
+      "risk": "provenance-loss",
+      "impact": "review"
+    }
+  ]
+}

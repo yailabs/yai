@@ -1,0 +1,7 @@
+{
+  "kind": "specialization_policy_baseline",
+  "version": "v1",
+  "specialization_id": "settlements",
+  "default_effect": "review_required",
+  "policy_mode": "fail_closed"
+}

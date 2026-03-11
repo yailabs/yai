@@ -1,0 +1,25 @@
+{
+  "kind": "domain_policy_rule",
+  "version": "v2",
+  "rule_id": "ai-act.high-risk-review",
+  "status": "active",
+  "scope": "cross-domain",
+  "conditions": [
+    {
+      "context_flags": [
+        "high_risk_system"
+      ]
+    }
+  ],
+  "effect": "review_required",
+  "priority": 900,
+  "exceptions": [],
+  "evidence_requirements": [
+    {
+      "evidence_type": "resolution_trace"
+    },
+    {
+      "evidence_type": "review_trace"
+    }
+  ]
+}

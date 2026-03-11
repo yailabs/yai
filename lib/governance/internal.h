@@ -54,3 +54,29 @@ int yai_law_build_trace_json(const yai_law_classification_ctx_t *ctx,
                              size_t out_cap);
 
 int yai_law_overlay_loader_validate(const yai_law_runtime_t *rt, char *err, size_t err_cap);
+int yai_law_read_domain_model_matrix(char *out_json, size_t out_cap);
+int yai_law_read_governance_surface_file(const yai_law_runtime_t *rt,
+                                         const char *rel_path,
+                                         char *out,
+                                         size_t out_cap);
+int yai_law_domain_model_lookup(const char *lookup_id,
+                                char *kind,
+                                size_t kind_cap,
+                                char *family,
+                                size_t family_cap,
+                                char *domain_id,
+                                size_t domain_cap,
+                                char *manifest_ref,
+                                size_t manifest_cap,
+                                char *default_specialization,
+                                size_t default_spec_cap);
+int yai_law_domain_model_runtime_families(char out[][64], int max_out, int *out_count);
+int yai_law_domain_model_family_resolution(const char *family,
+                                           char *domain_id,
+                                           size_t domain_cap,
+                                           char *default_specialization,
+                                           size_t default_spec_cap,
+                                           char candidates[][96],
+                                           int max_candidates,
+                                           int *out_candidate_count);
+int yai_law_domain_model_specialization_exists(const char *family, const char *specialization_id);

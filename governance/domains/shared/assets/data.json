@@ -1,0 +1,6 @@
+{
+  "kind": "domain_asset_set",
+  "version": "v1",
+  "id": "data",
+  "description": "Shared asset primitive: data"
+}

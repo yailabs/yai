@@ -1,0 +1,1 @@
+{"kind":"overlay_policy_rule_set","version":"v1","overlay_id":"gdpr-eu","rules":[{"rule_id":"gdpr-minimization-review","when":["excessive_data_fields"],"effect":"review_required"}]}

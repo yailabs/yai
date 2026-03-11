@@ -1,0 +1,17 @@
+{
+  "kind": "sector_overlay_manifest",
+  "version": "v3",
+  "overlay_id": "sector.finance",
+  "status": "active",
+  "applies_to": {
+    "families": ["economic", "digital", "scientific"],
+    "specializations": ["payments", "transfers", "settlements", "treasury", "accounting-integrity", "fraud-risk-controls"]
+  },
+  "effect_profile": {
+    "review_burden": "high",
+    "authority_burden": "dual-control-on-high-impact",
+    "evidence_burden": "hardened",
+    "retention_burden": "extended",
+    "provenance_burden": "strict"
+  }
+}

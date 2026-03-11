@@ -1,0 +1,16 @@
+{
+  "id": "authority-crosswalk",
+  "version": "v2",
+  "map": [
+    {
+      "risk_level": "high",
+      "required_scope": "controller",
+      "oversight": "human"
+    },
+    {
+      "risk_level": "prohibited",
+      "required_scope": "auditor",
+      "oversight": "deny"
+    }
+  ]
+}

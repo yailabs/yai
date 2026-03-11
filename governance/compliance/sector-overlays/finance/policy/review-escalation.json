@@ -1,0 +1,9 @@
+{
+  "kind": "overlay_policy",
+  "version": "v1",
+  "id": "sector.finance.review-escalation",
+  "requires": [
+    "explicit_approval",
+    "dual_control"
+  ]
+}

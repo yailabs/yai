@@ -1,0 +1,13 @@
+{
+  "kind": "compliance-resolution-order",
+  "version": "v1",
+  "always_on": [
+    "retention-governance",
+    "security-supply-chain"
+  ],
+  "order": [
+    "global-compliance",
+    "domain-linked-compliance",
+    "sector-overlays"
+  ]
+}

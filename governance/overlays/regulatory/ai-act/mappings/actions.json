@@ -1,0 +1,1 @@
+{"kind":"overlay_action_mapping","version":"v1","overlay_id":"ai-act","action_rules":[{"action":"infer","constraint_mode":"review","trigger":"high_risk_context"},{"action":"parameter-modify","constraint_mode":"review","trigger":"model_behavior_change"},{"action":"publish","constraint_mode":"review","trigger":"ai_generated_output"}]}

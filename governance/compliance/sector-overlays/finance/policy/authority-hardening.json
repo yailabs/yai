@@ -1,0 +1,9 @@
+{
+  "kind": "overlay_policy",
+  "version": "v1",
+  "id": "sector.finance.authority-hardening",
+  "requires_scope": [
+    "controller"
+  ],
+  "dual_control": true
+}

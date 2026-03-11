@@ -1,0 +1,8 @@
+{
+  "kind": "specialization_policy_hold",
+  "version": "v1",
+  "specialization_id": "payments",
+  "rules": [
+    {"rule_id": "payments-hold-suspicious-pattern", "when": ["fraud_signal_detected"], "effect": "quarantine"}
+  ]
+}

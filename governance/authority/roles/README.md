@@ -1,3 +1,6 @@
-# Governance Authority Roles
+# Authority Roles
 
-Role definitions for owner/runtime/governance authority boundaries.
+This directory defines authority actors and their governance responsibilities.
+
+Roles are authoritative only when interpreted together with scope and decision
+boundaries.

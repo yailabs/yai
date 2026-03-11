@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "law/grammar/schema/governance_parsed_facts.v1",
+  "title": "governance_parsed_facts.v1",
+  "type": "object",
+  "properties": {
+    "kind": {"const": "governance_parsed_facts"},
+    "schema_version": {"type": "string", "pattern": "^v[0-9]+$"},
+    "source_ref": {"type": "string"},
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fact_id": {"type": "string"},
+          "fact_type": {"type": "string"},
+          "source_ref": {"type": "string"},
+          "confidence": {"type": "number"},
+          "scope_hint": {"type": "string"},
+          "target_hint": {"type": "string"},
+          "raw_statement_ref": {"type": "string"},
+          "status": {"type": "string"},
+          "notes": {"type": "string"}
+        },
+        "required": ["fact_id", "fact_type", "source_ref", "status"],
+        "additionalProperties": true
+      }
+    },
+    "unresolved_items": {"type": "array", "items": {"type": "object"}},
+    "invalid_items": {"type": "array", "items": {"type": "object"}},
+    "source_warnings": {"type": "array", "items": {"type": "string"}},
+    "coverage_summary": {"type": "object", "additionalProperties": true}
+  },
+  "required": ["kind", "schema_version", "source_ref", "facts", "coverage_summary"],
+  "additionalProperties": true
+}

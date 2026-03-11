@@ -1,0 +1,35 @@
+{
+  "v": 1,
+  "artifacts": [
+    {
+      "role": "bundle_manifest",
+      "schema_ref": "schema/bundle_manifest.v1.schema.json",
+      "description": "Bundle manifest (ingress of truth): bundle_id, timestamps, and hashed artifact inventory."
+    },
+    {
+      "role": "verification_report",
+      "schema_ref": "schema/verification_report.v1.schema.json",
+      "description": "Offline verification output (PASS/FAIL) with findings and exit_code."
+    },
+    {
+      "role": "decision_record",
+      "schema_ref": "schema/decision_record.v1.schema.json",
+      "description": "Decision record line (JSONL): event -> policy+authority evaluation -> outcome+reason_code (+ optional effect)."
+    },
+    {
+      "role": "policy",
+      "schema_ref": "schema/policy.v1.schema.json",
+      "description": "Policy material bound to baseline+contract_ref, hashed for reproducibility."
+    },
+    {
+      "role": "containment_metrics",
+      "schema_ref": "schema/containment_metrics.v1.schema.json",
+      "description": "Aggregated containment metrics for a run/wave (typed values with units)."
+    },
+    {
+      "role": "evidence_index",
+      "schema_ref": "schema/evidence_index.v1.schema.json",
+      "description": "Evidence inventory: role->path->sha256 (+ optional size/content_type) for verification."
+    }
+  ]
+}

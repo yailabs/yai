@@ -1,0 +1,18 @@
+{
+  "id": "actions",
+  "version": "v2",
+  "map": [
+    {
+      "action": "infer",
+      "effect": "review_required"
+    },
+    {
+      "action": "publish",
+      "effect": "require_justification"
+    },
+    {
+      "action": "transform",
+      "effect": "review_required"
+    }
+  ]
+}

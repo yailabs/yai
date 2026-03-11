@@ -3,17 +3,12 @@
 int yai_law_load_compliance_index(const yai_law_runtime_t *rt,
                                   char *out_json,
                                   size_t out_cap) {
-  char path[512];
   if (!rt || !out_json || out_cap == 0) return -1;
 
-  if (yai_law_safe_snprintf(path, sizeof(path), "%s/overlays/regulatory/index/regulatory.index.json", rt->root) == 0 &&
-      yai_law_read_text_file(path, out_json, out_cap) == 0) {
+  if (yai_law_read_governance_surface_file(rt, "compliance/index/compliance.index.json", out_json, out_cap) == 0) {
     return 0;
   }
 
-  /* Compatibility fallback for non-primary legacy payload shape (disabled in primary runtime path). */
-  if (yai_law_safe_snprintf(path, sizeof(path), "%s/compliance/index/compliance.index.json", rt->root) != 0) {
-    return -1;
-  }
-  return yai_law_read_text_file(path, out_json, out_cap);
+  /* Compatibility fallback for historical runtime payload shape. */
+  return yai_law_read_governance_surface_file(rt, "overlays/regulatory/index/regulatory.index.json", out_json, out_cap);
 }

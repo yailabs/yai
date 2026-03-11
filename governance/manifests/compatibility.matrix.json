@@ -1,0 +1,19 @@
+{
+  "kind": "compatibility.matrix",
+  "version": "v2",
+  "law_version": "0.1.0",
+  "runtime_targets": [
+    {
+      "id": "yai",
+      "range": ">=0.1.0"
+    }
+  ],
+  "schema_set": "v1",
+  "breakage_flags": [],
+  "model": "six-layer-canonical-root",
+  "bridge": {
+    "active": false,
+    "legacy_seed_root": "transitional/domain-family-seed",
+    "mode": "opt-in-compat-only"
+  }
+}

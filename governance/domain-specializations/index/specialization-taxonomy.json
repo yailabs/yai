@@ -1,0 +1,153 @@
+{
+  "kind": "specialization-taxonomy",
+  "version": "v1",
+  "entries": [
+    {
+      "specialization_id": "network-egress",
+      "canonical_name": "digital.network-egress",
+      "family": "digital",
+      "manifest_ref": "domain-specializations/network-egress/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "remote-publication",
+      "canonical_name": "digital.remote-publication",
+      "family": "digital",
+      "manifest_ref": "domain-specializations/remote-publication/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "external-commentary",
+      "canonical_name": "digital.external-commentary",
+      "family": "digital",
+      "manifest_ref": "domain-specializations/external-commentary/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "artifact-distribution",
+      "canonical_name": "digital.artifact-distribution",
+      "family": "digital",
+      "manifest_ref": "domain-specializations/artifact-distribution/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "remote-retrieval",
+      "canonical_name": "digital.remote-retrieval",
+      "family": "digital",
+      "manifest_ref": "domain-specializations/remote-retrieval/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "digital-sink-control",
+      "canonical_name": "digital.digital-sink-control",
+      "family": "digital",
+      "manifest_ref": "domain-specializations/digital-sink-control/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "payments",
+      "canonical_name": "economic.payments",
+      "family": "economic",
+      "manifest_ref": "domain-specializations/payments/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "transfers",
+      "canonical_name": "economic.transfers",
+      "family": "economic",
+      "manifest_ref": "domain-specializations/transfers/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "settlements",
+      "canonical_name": "economic.settlements",
+      "family": "economic",
+      "manifest_ref": "domain-specializations/settlements/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "treasury",
+      "canonical_name": "economic.treasury",
+      "family": "economic",
+      "manifest_ref": "domain-specializations/treasury/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "invoicing",
+      "canonical_name": "economic.invoicing",
+      "family": "economic",
+      "manifest_ref": "domain-specializations/invoicing/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "accounting-integrity",
+      "canonical_name": "economic.accounting-integrity",
+      "family": "economic",
+      "manifest_ref": "domain-specializations/accounting-integrity/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "pricing-and-quoting",
+      "canonical_name": "economic.pricing-and-quoting",
+      "family": "economic",
+      "manifest_ref": "domain-specializations/pricing-and-quoting/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "credit-exposure",
+      "canonical_name": "economic.credit-exposure",
+      "family": "economic",
+      "manifest_ref": "domain-specializations/credit-exposure/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "fraud-risk-controls",
+      "canonical_name": "economic.fraud-risk-controls",
+      "family": "economic",
+      "manifest_ref": "domain-specializations/fraud-risk-controls/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "experiment-configuration",
+      "canonical_name": "scientific.experiment-configuration",
+      "family": "scientific",
+      "manifest_ref": "domain-specializations/experiment-configuration/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "parameter-governance",
+      "canonical_name": "scientific.parameter-governance",
+      "family": "scientific",
+      "manifest_ref": "domain-specializations/parameter-governance/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "reproducibility-control",
+      "canonical_name": "scientific.reproducibility-control",
+      "family": "scientific",
+      "manifest_ref": "domain-specializations/reproducibility-control/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "black-box-evaluation",
+      "canonical_name": "scientific.black-box-evaluation",
+      "family": "scientific",
+      "manifest_ref": "domain-specializations/black-box-evaluation/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "dataset-integrity",
+      "canonical_name": "scientific.dataset-integrity",
+      "family": "scientific",
+      "manifest_ref": "domain-specializations/dataset-integrity/manifest.json",
+      "status": "active-planned"
+    },
+    {
+      "specialization_id": "result-publication-control",
+      "canonical_name": "scientific.result-publication-control",
+      "family": "scientific",
+      "manifest_ref": "domain-specializations/result-publication-control/manifest.json",
+      "status": "active-planned"
+    }
+  ]
+}

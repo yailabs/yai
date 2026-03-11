@@ -1,0 +1,11 @@
+{
+  "kind": "overlay_action_mapping",
+  "version": "v1",
+  "overlay_id": "gdpr-eu",
+  "action_rules": [
+    {"action": "publish", "constraint_mode": "review", "trigger": "contains_personal_data"},
+    {"action": "egress", "constraint_mode": "review", "trigger": "cross_border_context"},
+    {"action": "retrieve", "constraint_mode": "restrict", "trigger": "sensitive_subject_category"},
+    {"action": "authorize", "constraint_mode": "review", "trigger": "payment_personal_data_link"}
+  ]
+}

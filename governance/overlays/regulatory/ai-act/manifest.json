@@ -1,0 +1,22 @@
+{
+  "kind": "regulatory_overlay_manifest",
+  "version": "v2",
+  "overlay_id": "ai-act",
+  "canonical_name": "regulatory.ai-act",
+  "status": "active",
+  "attachment_levels": ["family", "specialization", "action", "risk", "authority"],
+  "target_families": ["scientific", "digital", "cognitive-cultural", "social-institutional"],
+  "effect_profile": {
+    "high_risk_review": true,
+    "human_oversight_required": true,
+    "prohibited_use_deny": true
+  },
+  "authority_impact": {
+    "required_scope": "controller",
+    "escalation_on_high_risk": true
+  },
+  "evidence_profile": {
+    "requires_model_context": true,
+    "requires_oversight_trace": true
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "kind": "specialization_policy_deny",
+  "version": "v1",
+  "specialization_id": "payments",
+  "rules": [
+    {"rule_id": "payments-deny-no-contract", "when": ["missing_contract"], "effect": "deny"},
+    {"rule_id": "payments-deny-self-approval", "when": ["self_approval"], "effect": "deny"}
+  ]
+}

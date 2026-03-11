@@ -1,0 +1,12 @@
+{
+  "kind": "specialization_action_model",
+  "version": "v1",
+  "specialization_id": "fraud-risk-controls",
+  "actions": [
+    "authorize",
+    "release",
+    "hold",
+    "amend",
+    "cancel"
+  ]
+}

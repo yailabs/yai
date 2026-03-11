@@ -1,0 +1,9 @@
+{
+  "kind": "specialization_policy_deny",
+  "version": "v1",
+  "specialization_id": "fraud-risk-controls",
+  "rules": [
+    {"rule_id": "fraud-risk-controls-deny-no-contract", "when": ["missing_contract"], "effect": "deny"},
+    {"rule_id": "fraud-risk-controls-deny-self-approval", "when": ["self_approval"], "effect": "deny"}
+  ]
+}

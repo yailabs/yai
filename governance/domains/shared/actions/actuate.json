@@ -1,0 +1,6 @@
+{
+  "kind": "domain_action_set",
+  "version": "v1",
+  "id": "actuate",
+  "description": "Shared action primitive: actuate"
+}

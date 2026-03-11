@@ -1,0 +1,9 @@
+{
+  "kind": "sector_overlay_precedence_matrix",
+  "version": "v1",
+  "precedence": [
+    {"stack":"economic.payments + sector.finance","order":["deny","quarantine","review_required","allow"],"authority_raise":true},
+    {"stack":"scientific.dataset-integrity + sector.healthcare","order":["deny","review_required","allow"],"authority_raise":true},
+    {"stack":"digital.remote-publication + sector.public-sector","order":["deny","review_required","require_justification","allow"],"authority_raise":true}
+  ]
+}

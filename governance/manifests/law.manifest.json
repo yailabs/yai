@@ -1,0 +1,29 @@
+{
+  "kind": "law.manifest",
+  "version": "v1",
+  "law_version": "0.1.0",
+  "compatibility": "manifests/compatibility.matrix.json",
+  "foundation_refs": [
+    "foundation/axioms",
+    "foundation/invariants",
+    "foundation/boundaries"
+  ],
+  "domain_index_ref": "domain-specializations/index/specializations.index.json",
+  "compliance_index_ref": "overlays/regulatory/index/regulatory.index.json",
+  "customer_policy_pack_index_ref": "manifests/customer-policy-packs.index.json",
+  "governance_attachability_constraints_ref": "manifests/governance-attachability.constraints.v1.json",
+  "resolution_entrypoints_ref": "manifests/runtime.entrypoints.json",
+  "export_targets": [
+    "runtime-embedded",
+    "docs-reference",
+    "audit-reference"
+  ],
+  "classification_index_ref": "classification/classification-map.json",
+  "control_family_index_ref": "control-families/index/families.index.json",
+  "domain_specialization_index_ref": "domain-specializations/index/specializations.index.json",
+  "overlay_indexes": {
+    "regulatory": "overlays/regulatory/index/regulatory.index.json",
+    "sector": "overlays/sector/index/sector.index.json",
+    "contextual": "overlays/contextual/index/contextual.index.json"
+  }
+}

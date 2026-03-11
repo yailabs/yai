@@ -1,0 +1,34 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v1",
+  "family_id": "D6",
+  "internal_id": "D6",
+  "canonical_name": "operational",
+  "display_name": "Operational",
+  "status": "active-bridge",
+  "legacy_seed_ref": "transitional/domain-family-seed/D6-operational",
+  "canonical_domains": [
+    {
+      "domain_key": "incident-response",
+      "canonical_name": "operational.incident-response",
+      "display_name": "Incident Response",
+      "status": "seed"
+    },
+    {
+      "domain_key": "change-control",
+      "canonical_name": "operational.change-control",
+      "display_name": "Change Control",
+      "status": "seed"
+    },
+    {
+      "domain_key": "runbook-execution",
+      "canonical_name": "operational.runbook-execution",
+      "display_name": "Runbook Execution Governance",
+      "status": "seed"
+    }
+  ],
+  "notes": [
+    "bridge-5of10",
+    "legacy-seed-preserved"
+  ]
+}

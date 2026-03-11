@@ -1,0 +1,131 @@
+{
+  "kind": "domain-crosswalk",
+  "version": "v3",
+  "entries": [
+    {
+      "compliance_id": "gdpr-eu",
+      "targets": [
+        {
+          "family_id": "D1",
+          "domain": "digital.remote-publication",
+          "subdomain": "digital.remote-publication.personal-data",
+          "action_classes": [
+            "publish",
+            "egress"
+          ],
+          "asset_classes": [
+            "data",
+            "credential"
+          ],
+          "risk_classes": [
+            "privacy-breach",
+            "exfiltration"
+          ],
+          "constraint_mode": "review",
+          "escalation_mode": "authority-check",
+          "evidence_mode": "regulatory-extended",
+          "precedence_impact": "adds_review"
+        }
+      ]
+    },
+    {
+      "compliance_id": "ai-act",
+      "targets": [
+        {
+          "family_id": "D8",
+          "domain": "scientific.black-box-evaluation",
+          "subdomain": "scientific.black-box-evaluation.high-risk",
+          "action_classes": [
+            "infer",
+            "publish"
+          ],
+          "asset_classes": [
+            "model",
+            "artifact"
+          ],
+          "risk_classes": [
+            "unsafe-autonomy"
+          ],
+          "constraint_mode": "review",
+          "escalation_mode": "human-oversight",
+          "evidence_mode": "ai-act-trace",
+          "precedence_impact": "overrides_weak_allow"
+        }
+      ]
+    },
+    {
+      "compliance_id": "retention-governance",
+      "targets": [
+        {
+          "family_id": "*",
+          "domain": "*",
+          "subdomain": "*",
+          "action_classes": [
+            "publish",
+            "retrieve"
+          ],
+          "asset_classes": [
+            "data",
+            "artifact"
+          ],
+          "risk_classes": [
+            "provenance-loss"
+          ],
+          "constraint_mode": "retention-only",
+          "escalation_mode": "none",
+          "evidence_mode": "retention-provenance",
+          "precedence_impact": "evidence_upgrade"
+        }
+      ]
+    },
+    {
+      "compliance_id": "security-supply-chain",
+      "targets": [
+        {
+          "family_id": "D1",
+          "domain": "digital.artifact-distribution",
+          "subdomain": "digital.artifact-distribution.signed-only",
+          "action_classes": [
+            "publish",
+            "retrieve"
+          ],
+          "asset_classes": [
+            "artifact",
+            "infrastructure"
+          ],
+          "risk_classes": [
+            "provenance-loss"
+          ],
+          "constraint_mode": "restrict",
+          "escalation_mode": "security-review",
+          "evidence_mode": "provenance-chain",
+          "precedence_impact": "overrides_weak_allow"
+        }
+      ]
+    },
+    {
+      "compliance_id": "sector.finance",
+      "targets": [
+        {
+          "family_id": "D5",
+          "domain": "economic.payments",
+          "subdomain": "economic.payments.authorization",
+          "action_classes": [
+            "actuate"
+          ],
+          "asset_classes": [
+            "financial-instrument",
+            "credential"
+          ],
+          "risk_classes": [
+            "financial-fraud"
+          ],
+          "constraint_mode": "review",
+          "escalation_mode": "dual-control",
+          "evidence_mode": "financial-audit",
+          "precedence_impact": "authority_upgrade"
+        }
+      ]
+    }
+  ]
+}

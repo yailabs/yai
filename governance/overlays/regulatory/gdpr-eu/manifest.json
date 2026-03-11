@@ -1,0 +1,31 @@
+{
+  "kind": "regulatory_overlay_manifest",
+  "version": "v2",
+  "overlay_id": "gdpr-eu",
+  "canonical_name": "regulatory.gdpr-eu",
+  "status": "active",
+  "attachment_levels": ["family", "specialization", "action", "asset", "risk", "authority"],
+  "target_families": ["digital", "economic", "social-institutional", "scientific"],
+  "target_specializations": [
+    "network-egress",
+    "remote-publication",
+    "payments",
+    "transfers",
+    "result-publication-control"
+  ],
+  "effect_profile": {
+    "review_on_personal_data_publish": true,
+    "deny_on_missing_lawful_basis": true,
+    "cross_border_review": true,
+    "retention_hardening": true
+  },
+  "authority_impact": {
+    "escalate_on_sensitive_processing": true,
+    "required_scope": "controller"
+  },
+  "evidence_profile": {
+    "requires_lawful_basis_trace": true,
+    "requires_subject_rights_impact": true,
+    "retention_hint": "extended"
+  }
+}

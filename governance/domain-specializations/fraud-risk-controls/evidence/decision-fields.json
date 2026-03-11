@@ -1,0 +1,13 @@
+{
+  "kind": "specialization_decision_fields",
+  "version": "v1",
+  "specialization_id": "fraud-risk-controls",
+  "fields": [
+    "final_effect",
+    "reason_codes",
+    "authority_requirement",
+    "review_required",
+    "retention_required",
+    "provenance_required"
+  ]
+}

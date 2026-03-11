@@ -1,3 +1,6 @@
-# Governance Authority Scopes
+# Authority Scopes
 
-Scope boundaries and delegation envelope definitions for governed operation.
+This directory defines authority scope levels and delegation boundaries.
+
+Scope assignment must be compatible with compliance constraints and decision
+escalation rules.

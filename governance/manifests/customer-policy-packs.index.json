@@ -1,0 +1,17 @@
+{
+  "kind": "customer-policy-packs.index",
+  "version": "v1",
+  "schema_ref": "grammar/schema/customer_policy_pack.v1.schema.json",
+  "packs": [
+    {
+      "pack_id": "customer.ecohmedia.digital-outbound.gdpr-retention",
+      "manifest_ref": "manifests/customer-policy-packs/examples/customer.ecohmedia.digital-outbound.gdpr-retention.v1.json",
+      "status": "active"
+    },
+    {
+      "pack_id": "customer.default.org-workspace-contextual-review",
+      "manifest_ref": "manifests/customer-policy-packs/examples/customer.default.org-workspace-contextual-review.v1.json",
+      "status": "active"
+    }
+  ]
+}

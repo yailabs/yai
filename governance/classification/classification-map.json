@@ -1,0 +1,49 @@
+{
+  "kind": "classification-map",
+  "version": "v2",
+  "maps": [
+    {
+      "family_id": "D5",
+      "family": "economic",
+      "lead_vertical": true,
+      "primary_actions": ["authorize", "settle", "hold", "publish"],
+      "primary_assets": ["financial-instrument", "ledger-entry", "counterparty-profile", "approval-record"],
+      "primary_risks": ["financial-fraud", "unauthorized-value-movement", "settlement-mismatch", "approval-chain-bypass"],
+      "signal_classes": ["provider", "protocol", "resource", "operation-class", "workspace-context", "authority-context"],
+      "specialization_refs": [
+        "economic.payments",
+        "economic.transfers",
+        "economic.settlements",
+        "economic.fraud-risk-controls"
+      ]
+    },
+    {
+      "family_id": "D1",
+      "family": "digital",
+      "control_pillar": true,
+      "primary_actions": ["egress", "publish", "retrieve", "hold"],
+      "primary_assets": ["data", "credential", "artifact"],
+      "primary_risks": ["exfiltration", "privacy-breach", "approval-chain-bypass"],
+      "signal_classes": ["provider", "protocol", "resource", "workspace-context", "authority-context"],
+      "specialization_refs": [
+        "digital.network-egress",
+        "digital.remote-publication",
+        "digital.external-commentary"
+      ]
+    },
+    {
+      "family_id": "D8",
+      "family": "scientific",
+      "control_pillar": true,
+      "primary_actions": ["experiment-run", "parameter-modify", "publish", "retrieve"],
+      "primary_assets": ["experiment-config", "dataset", "artifact", "model"],
+      "primary_risks": ["reproducibility-break", "provenance-loss", "unsafe-autonomy"],
+      "signal_classes": ["provider", "protocol", "resource", "operation-class", "workspace-context", "authority-context"],
+      "specialization_refs": [
+        "scientific.parameter-governance",
+        "scientific.reproducibility-control",
+        "scientific.black-box-evaluation"
+      ]
+    }
+  ]
+}

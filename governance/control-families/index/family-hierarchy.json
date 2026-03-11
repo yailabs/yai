@@ -1,0 +1,99 @@
+{
+  "kind": "family-hierarchy",
+  "version": "v1",
+  "entries": [
+    {
+      "family_id": "D1",
+      "canonical_name": "digital",
+      "specializations": [
+        "network-egress",
+        "remote-publication",
+        "external-commentary",
+        "artifact-distribution",
+        "remote-retrieval",
+        "digital-sink-control"
+      ]
+    },
+    {
+      "family_id": "D2",
+      "canonical_name": "physical",
+      "specializations": [
+        "actuation-governance",
+        "device-integrity",
+        "safety-window-control"
+      ]
+    },
+    {
+      "family_id": "D3",
+      "canonical_name": "biological",
+      "specializations": [
+        "chain-of-custody",
+        "sample-handling",
+        "bio-risk-gating"
+      ]
+    },
+    {
+      "family_id": "D4",
+      "canonical_name": "social-institutional",
+      "specializations": [
+        "procedural-authorization",
+        "policy-adherence",
+        "institutional-escalation"
+      ]
+    },
+    {
+      "family_id": "D5",
+      "canonical_name": "economic",
+      "specializations": [
+        "payments",
+        "transfers",
+        "settlements",
+        "treasury",
+        "invoicing",
+        "accounting-integrity",
+        "pricing-and-quoting",
+        "credit-exposure",
+        "fraud-risk-controls"
+      ]
+    },
+    {
+      "family_id": "D6",
+      "canonical_name": "operational",
+      "specializations": [
+        "incident-response",
+        "change-control",
+        "runbook-execution"
+      ]
+    },
+    {
+      "family_id": "D7",
+      "canonical_name": "cognitive-cultural",
+      "specializations": [
+        "publication-enforcement",
+        "interpretation-integrity",
+        "cognitive-safety"
+      ]
+    },
+    {
+      "family_id": "D8",
+      "canonical_name": "scientific",
+      "specializations": [
+        "experiment-configuration",
+        "parameter-governance",
+        "reproducibility-control",
+        "black-box-evaluation",
+        "dataset-integrity",
+        "result-publication-control"
+      ]
+    },
+    {
+      "family_id": "D9",
+      "canonical_name": "environmental-climatological",
+      "specializations": [
+        "telemetry-integrity",
+        "climate-risk-monitoring",
+        "environmental-reporting"
+      ]
+    }
+  ]
+}

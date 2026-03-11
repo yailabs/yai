@@ -1,0 +1,19 @@
+{
+  "kind": "evidence_requirement",
+  "version": "v2",
+  "evidence_type": "ai-act-audit",
+  "required_fields": [
+    "trace_id",
+    "decision_id",
+    "risk_level",
+    "oversight_actor",
+    "model_identifier",
+    "authority_scope"
+  ],
+  "severity": "high",
+  "retention_hint": "regulatory",
+  "trace_links": [
+    "resolution_trace",
+    "review_trace"
+  ]
+}

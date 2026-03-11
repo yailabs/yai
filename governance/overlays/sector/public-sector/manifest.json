@@ -1,0 +1,1 @@
+{"kind":"sector_overlay_manifest","version":"v2","overlay_id":"sector.public-sector","status":"active-seed","applies_to":{"families":["social-institutional","digital","economic"],"specializations":["remote-publication","payments","accounting-integrity"]},"effect_profile":{"review_burden":"high","authority_burden":"strict","justification_burden":"mandatory"}}

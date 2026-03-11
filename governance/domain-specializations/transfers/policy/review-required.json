@@ -1,0 +1,9 @@
+{
+  "kind": "specialization_policy_review",
+  "version": "v1",
+  "specialization_id": "transfers",
+  "rules": [
+    {"rule_id": "transfers-review-high-impact", "when": ["high_impact_operation"], "effect": "review_required"},
+    {"rule_id": "transfers-review-finance-overlay", "when": ["overlay:sector.finance"], "effect": "review_required"}
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v1",
+  "family_id": "D7",
+  "internal_id": "D7",
+  "canonical_name": "cognitive-cultural",
+  "display_name": "Cognitive-Cultural",
+  "status": "active-bridge",
+  "legacy_seed_ref": "transitional/domain-family-seed/D7-cognitive-cultural",
+  "canonical_domains": [
+    {
+      "domain_key": "publication-enforcement",
+      "canonical_name": "cognitive-cultural.publication-enforcement",
+      "display_name": "Publication Enforcement",
+      "status": "seed"
+    },
+    {
+      "domain_key": "interpretation-integrity",
+      "canonical_name": "cognitive-cultural.interpretation-integrity",
+      "display_name": "Interpretation Integrity",
+      "status": "seed"
+    },
+    {
+      "domain_key": "cognitive-safety",
+      "canonical_name": "cognitive-cultural.cognitive-safety",
+      "display_name": "Cognitive Safety Controls",
+      "status": "seed"
+    }
+  ],
+  "notes": [
+    "bridge-5of10",
+    "legacy-seed-preserved"
+  ]
+}

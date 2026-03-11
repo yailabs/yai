@@ -1,0 +1,1 @@
+{"kind":"overlay_domain_mapping","version":"v1","overlay_id":"security-supply-chain","targets":[{"family":"digital","specializations":["artifact-distribution","remote-publication","network-egress"]},{"family":"scientific","specializations":["black-box-evaluation","experiment-configuration"]},{"family":"economic","specializations":["payments","transfers"]}]}

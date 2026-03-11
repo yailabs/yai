@@ -1,0 +1,1 @@
+{"kind":"sector_overlay_retention","version":"v1","overlay_id":"sector.finance","rules":[{"rule_id":"finance-retention-extended","when":["financial_artifact"],"retention":"extended"}]}

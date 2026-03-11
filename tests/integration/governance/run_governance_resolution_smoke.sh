@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 OUT_DIR="$ROOT/build/test/integration_governance_resolution"
 mkdir -p "$OUT_DIR"
+export YAI_GOVERNANCE_CANONICAL_ONLY=1
 
 LAW_SRCS=$(find "$ROOT/lib/governance" -type f -name '*.c' | sort)
 CFLAGS='-Wall -Wextra -std=c11 -O2'

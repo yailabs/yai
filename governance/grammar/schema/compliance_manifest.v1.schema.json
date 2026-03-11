@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "law/grammar/schema/compliance_manifest.v1",
+  "title": "compliance_manifest.v1",
+  "description": "Compliance manifest",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "compliance_id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "applies_to_domains": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mapping_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "overlay_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "compliance_id",
+    "name"
+  ],
+  "additionalProperties": true
+}

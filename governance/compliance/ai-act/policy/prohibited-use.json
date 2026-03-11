@@ -1,0 +1,23 @@
+{
+  "kind": "domain_policy_rule",
+  "version": "v1",
+  "rule_id": "ai-act.prohibited-use",
+  "status": "active",
+  "scope": "global",
+  "conditions": [
+    {
+      "action": "infer",
+      "context_flags": [
+        "prohibited_practice"
+      ]
+    }
+  ],
+  "effect": "deny",
+  "priority": 1000,
+  "exceptions": [],
+  "evidence_requirements": [
+    {
+      "evidence_type": "decision_record"
+    }
+  ]
+}

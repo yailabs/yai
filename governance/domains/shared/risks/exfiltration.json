@@ -1,0 +1,6 @@
+{
+  "kind": "domain_risk_surface",
+  "version": "v1",
+  "id": "exfiltration",
+  "description": "Shared risk primitive: exfiltration"
+}

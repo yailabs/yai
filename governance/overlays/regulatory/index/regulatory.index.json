@@ -1,0 +1,10 @@
+{
+  "kind": "regulatory.index",
+  "version": "v2",
+  "overlays": [
+    {"overlay_id": "gdpr-eu", "status": "active"},
+    {"overlay_id": "ai-act", "status": "active"},
+    {"overlay_id": "retention-governance", "status": "active"},
+    {"overlay_id": "security-supply-chain", "status": "active"}
+  ]
+}

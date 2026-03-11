@@ -1,0 +1,72 @@
+{
+  "kind": "authority-crosswalk",
+  "version": "v3",
+  "entries": [
+    {
+      "compliance_id": "gdpr-eu",
+      "authority_scope": [
+        "operator",
+        "auditor"
+      ],
+      "interaction_mode": "review_escalation",
+      "approval_requirements": [
+        "explicit-purpose",
+        "legal-basis"
+      ],
+      "dual_control": false
+    },
+    {
+      "compliance_id": "ai-act",
+      "authority_scope": [
+        "operator",
+        "controller",
+        "auditor"
+      ],
+      "interaction_mode": "require_authority",
+      "approval_requirements": [
+        "human-oversight",
+        "risk-classification"
+      ],
+      "dual_control": false
+    },
+    {
+      "compliance_id": "security-supply-chain",
+      "authority_scope": [
+        "operator",
+        "system-runtime"
+      ],
+      "interaction_mode": "deny_override",
+      "approval_requirements": [
+        "provenance-verification"
+      ],
+      "dual_control": false
+    },
+    {
+      "compliance_id": "retention-governance",
+      "authority_scope": [
+        "operator",
+        "auditor",
+        "automation-agent"
+      ],
+      "interaction_mode": "evidence_escalation",
+      "approval_requirements": [
+        "retention-policy-ref"
+      ],
+      "dual_control": false
+    },
+    {
+      "compliance_id": "sector.finance",
+      "authority_scope": [
+        "operator",
+        "controller",
+        "auditor"
+      ],
+      "interaction_mode": "require_authority",
+      "approval_requirements": [
+        "explicit-approval",
+        "fund-impact-review"
+      ],
+      "dual_control": true
+    }
+  ]
+}

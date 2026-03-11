@@ -2,79 +2,64 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-source "$ROOT/tools/dev/resolve-law-embed.sh"
+source "$ROOT/tools/dev/resolve-law-embed.sh" || true
 
 EMBED_ROOT="$(yai_resolve_law_embed_root "$ROOT" || true)"
-if [[ -z "$EMBED_ROOT" ]]; then
-  echo "embedded law root not found (expected: $ROOT/embedded/law)" >&2
-  exit 2
-fi
 
-python3 - "$ROOT" "$EMBED_ROOT" <<'PY'
+python3 - "$ROOT" "${EMBED_ROOT:-}" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-embed = Path(sys.argv[2])
+embed = Path(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2] else None
 
 required = [
-    "VERSION",
-    "COMPATIBILITY.json",
-    "law.manifest.json",
-    "runtime.entrypoints.json",
-    "classification/classification-map.json",
-    "control-families/index/families.index.json",
-    "domain-specializations/index/specializations.index.json",
-    "overlays/regulatory/index/regulatory.index.json",
-    "overlays/sector/index/sector.index.json",
-    "overlays/contextual/index/contextual.index.json",
-    "manifests/publish.index.json",
-    "manifests/publish.layers.json",
-    "manifests/compatibility.matrix.json",
-    "manifests/domain-resolution-order.json",
-    "manifests/compliance-resolution-order.json",
-    "manifests/embedded-export.manifest.json",
-    "generated/domains.index.json",
-    "generated/compliance.index.json",
-    "generated/runtime-resolution-view.json",
-    "generated/export.summary.json",
-    "generated/compatibility.summary.json",
+    "governance/manifests/law.manifest.json",
+    "governance/manifests/runtime.entrypoints.json",
+    "governance/manifests/publish.index.json",
+    "governance/manifests/publish.layers.json",
+    "governance/manifests/compatibility.matrix.json",
+    "governance/manifests/domain-resolution-order.json",
+    "governance/manifests/compliance-resolution-order.json",
+    "governance/manifests/governance-attachability.constraints.v1.json",
+    "governance/manifests/customer-policy-packs.index.json",
+    "governance/manifests/enterprise-custom-governance.index.json",
 ]
 
 errors = []
 for rel in required:
-    p = embed / rel
+    p = root / rel
     if not p.exists():
         errors.append(f"missing: {rel}")
 
-for rel in [r for r in required if r.endswith(".json") and (embed / r).exists()]:
+for rel in [r for r in required if r.endswith(".json") and (root / r).exists()]:
     try:
-        json.loads((embed / rel).read_text())
+        json.loads((root / rel).read_text(encoding="utf-8"))
     except Exception as exc:
         errors.append(f"invalid json: {rel} ({exc})")
 
-# Transitional seed consistency check
-bridge = embed / "transitional" / "domain-family-seed"
-if bridge.exists():
-    for d in ["D1-digital", "D8-scientific"]:
-        if not (bridge / d / "manifest.json").exists():
-            errors.append(f"missing bridge seed domain: {d}")
+manifest = root / "governance/manifests/law.manifest.json"
+if manifest.exists():
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    if payload.get("resolution_entrypoints_ref") != "manifests/runtime.entrypoints.json":
+        errors.append("invalid resolution_entrypoints_ref in governance/manifests/law.manifest.json")
 
-compat_file = root / "law-compatibility.v1.json"
-if compat_file.exists() and (embed / "VERSION").exists():
-    compat = json.loads(compat_file.read_text())
-    embed_version = (embed / "VERSION").read_text().strip()
-    expected = compat.get("embedded_law_version")
-    if expected and expected != embed_version:
-        errors.append(f"embedded version mismatch: expected {expected} got {embed_version}")
+# Optional embedded bridge compatibility check.
+if embed and embed.exists():
+    for rel in ["manifests/publish.index.json", "manifests/publish.layers.json"]:
+        if not (embed / rel).exists():
+            errors.append(f"embedded bridge missing: {rel}")
 
 if errors:
-    print("embedded law compatibility: FAIL")
+    print("governance manifest compatibility: FAIL")
     for e in errors:
         print(" -", e)
     raise SystemExit(1)
 
-print("embedded law compatibility: OK")
-print(f"embedded root: {embed}")
+print("governance manifest compatibility: OK")
+if embed and embed.exists():
+    print(f"embedded bridge present: {embed}")
+else:
+    print("embedded bridge absent: allowed")
 PY

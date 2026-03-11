@@ -1,0 +1,10 @@
+{
+  "kind": "overlay_domain_mapping",
+  "version": "v1",
+  "overlay_id": "gdpr-eu",
+  "targets": [
+    {"family": "digital", "specializations": ["network-egress", "remote-publication", "remote-retrieval"]},
+    {"family": "economic", "specializations": ["payments", "transfers", "settlements"]},
+    {"family": "scientific", "specializations": ["dataset-integrity", "result-publication-control"]}
+  ]
+}

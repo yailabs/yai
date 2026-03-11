@@ -1,0 +1,35 @@
+{
+  "kind": "compliance_manifest",
+  "version": "v2",
+  "compliance_id": "ai-act",
+  "name": "EU AI Act",
+  "layer_type": "cross-domain-compliance",
+  "attachment_levels": [
+    "family",
+    "domain",
+    "action",
+    "risk",
+    "authority",
+    "evidence"
+  ],
+  "applies_to_domains": [
+    "D1-digital",
+    "D8-scientific",
+    "D7-cognitive-cultural",
+    "D4-social-institutional"
+  ],
+  "policy_refs": [
+    "compliance/ai-act/policy/prohibited-use.json",
+    "compliance/ai-act/policy/high-risk-review.json",
+    "compliance/ai-act/policy/human-oversight.json",
+    "compliance/ai-act/policy/evidence-obligations.json"
+  ],
+  "mapping_refs": [
+    "compliance/ai-act/mappings/domains.json",
+    "compliance/ai-act/mappings/actions.json",
+    "compliance/ai-act/mappings/authority-crosswalk.json"
+  ],
+  "overlay_refs": [],
+  "authority_profile": "require-authority",
+  "evidence_profile": "ai-risk-trace"
+}

@@ -1,0 +1,1 @@
+{"kind":"overlay_evidence_obligations","version":"v1","overlay_id":"gdpr-eu","required_fields":["lawful_basis","data_class","subject_category","cross_border_flag","retention_policy_ref","review_trace"]}

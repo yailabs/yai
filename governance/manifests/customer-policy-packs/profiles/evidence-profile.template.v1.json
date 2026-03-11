@@ -1,0 +1,10 @@
+{
+  "kind": "customer_evidence_profile_template",
+  "version": "v1",
+  "requires_resolution_trace": true,
+  "requires_decision_record": true,
+  "requires_review_trace_for_external_effect": true,
+  "requires_destination_trace": true,
+  "requires_approval_chain": true,
+  "retention_hint": "enhanced"
+}

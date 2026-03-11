@@ -1,0 +1,2602 @@
+{
+  "v": 1,
+  "generated_from": "yai_primitives_v2_osgrade.csv (normalized) + runtime_plane_extension.v2 + ontology_realign.core_exec_data_graph_knowledge",
+  "rules": {
+    "cli_alias_format": "<group>-<name>",
+    "cli_canonical_id_format": "yai.<group>.<name>",
+    "notes": [
+      "Primitives define stable capability surfaces and deterministic bindings.",
+      "Primary runtime ontology is core/exec/data/graph/knowledge; legacy boot/ingress labels are compatibility aliases only."
+    ]
+  },
+  "primitives": [
+    {
+      "id": "CLI-001",
+      "layer": 0,
+      "family": "CLI",
+      "domain": "Lifecycle",
+      "name": "Lifecycle",
+      "definition": "Stack lifecycle operations exposed to operators.",
+      "ops": [
+        "up",
+        "restart",
+        "down"
+      ],
+      "depends_on": [
+        "R-001",
+        "R-002",
+        "R-003",
+        "R-004",
+        "R-005"
+      ],
+      "determinism": "bounded (depends on runtime)",
+      "failure_modes": [
+        "E_LIFECYCLE_START_FAIL",
+        "E_LIFECYCLE_STOP_FAIL"
+      ],
+      "cli": {
+        "canonical_id": "yai.lifecycle.up",
+        "group": "lifecycle",
+        "name": "up",
+        "alias": "lifecycle-up",
+        "related": [
+          "yai.lifecycle.restart",
+          "yai.lifecycle.down"
+        ]
+      },
+      "runtime_family_owner": "core",
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "CLI-002",
+      "layer": 0,
+      "family": "CLI",
+      "domain": "Inspect",
+      "name": "Inspect",
+      "definition": "Read-only diagnostics and streams.",
+      "ops": [
+        "status",
+        "logs",
+        "monitor",
+        "events"
+      ],
+      "depends_on": [
+        "S-016",
+        "S-026"
+      ],
+      "determinism": "bounded (depends on runtime)",
+      "failure_modes": [
+        "E_INSPECT_UNAVAILABLE"
+      ],
+      "cli": {
+        "canonical_id": "yai.inspect.status",
+        "group": "inspect",
+        "name": "status",
+        "alias": "inspect-status",
+        "related": [
+          "yai.inspect.logs",
+          "yai.inspect.monitor",
+          "yai.inspect.events"
+        ]
+      },
+      "runtime_family_owner": "core",
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "CLI-003",
+      "layer": 0,
+      "family": "CLI",
+      "domain": "Verify",
+      "name": "Verify",
+      "definition": "Verification and test gates.",
+      "ops": [
+        "verify",
+        "test"
+      ],
+      "depends_on": [
+        "T-015",
+        "S-008"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_VERIFY_FAIL"
+      ],
+      "cli": {
+        "canonical_id": "yai.verify.verify",
+        "group": "verify",
+        "name": "verify",
+        "alias": "verify-verify",
+        "related": [
+          "yai.verify.test"
+        ]
+      },
+      "runtime_family_owner": "core",
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "CLI-004",
+      "layer": 0,
+      "family": "CLI",
+      "domain": "Control",
+      "name": "Control Plane",
+      "definition": "Control-plane entrypoints aligned to core/exec/data/graph/knowledge; legacy ingress/boot labels are compatibility aliases.",
+      "ops": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "depends_on": [
+        "R-001",
+        "R-002",
+        "R-003",
+        "R-004",
+        "R-005"
+      ],
+      "determinism": "bounded (depends on runtime)",
+      "failure_modes": [
+        "E_CONTROL_UNAVAILABLE"
+      ],
+      "cli": {
+        "canonical_id": "yai.control.ingress",
+        "group": "control",
+        "name": "ingress",
+        "alias": "control-ingress",
+        "related": [
+          "yai.control.core",
+          "yai.control.exec",
+          "yai.control.data",
+          "yai.control.graph",
+          "yai.control.knowledge",
+          "yai.control.boot"
+        ]
+      },
+      "runtime_family_owner": "core",
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "O-001",
+      "layer": 2,
+      "family": "Orchestration",
+      "domain": "Distribution",
+      "name": "Pack",
+      "definition": "Installable/versioned domain pack unit (policy+trials+contracts).",
+      "ops": [
+        "install",
+        "pin",
+        "list",
+        "resolve"
+      ],
+      "depends_on": [
+        "S-006",
+        "S-018",
+        "T-004",
+        "T-006"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_PACK_NOT_FOUND",
+        "E_PACK_CONFLICT"
+      ],
+      "cli": {
+        "canonical_id": "yai.orch.pack",
+        "group": "orch",
+        "name": "pack",
+        "alias": "orch-pack"
+      },
+      "runtime_family_owner": "exec",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "O-002",
+      "layer": 2,
+      "family": "Orchestration",
+      "domain": "Test unit",
+      "name": "Trial",
+      "definition": "Executable qualification unit: input \u2192 Run + records + metrics.",
+      "ops": [
+        "run",
+        "describe",
+        "list",
+        "replay"
+      ],
+      "depends_on": [
+        "T-012",
+        "S-029",
+        "S-034"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_TRIAL_FAIL",
+        "E_TRIAL_UNSUPPORTED"
+      ],
+      "cli": {
+        "canonical_id": "yai.orch.trial",
+        "group": "orch",
+        "name": "trial",
+        "alias": "orch-trial"
+      },
+      "runtime_family_owner": "exec",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "O-003",
+      "layer": 2,
+      "family": "Orchestration",
+      "domain": "Plan",
+      "name": "Plan",
+      "definition": "Declarative wave plan executable deterministically.",
+      "ops": [
+        "render",
+        "lock",
+        "execute",
+        "diff"
+      ],
+      "depends_on": [
+        "S-015",
+        "S-034"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_PLAN_INVALID"
+      ],
+      "cli": {
+        "canonical_id": "yai.orch.plan",
+        "group": "orch",
+        "name": "plan",
+        "alias": "orch-plan"
+      },
+      "runtime_family_owner": "exec",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "O-004",
+      "layer": 2,
+      "family": "Orchestration",
+      "domain": "Exec",
+      "name": "Runner",
+      "definition": "Executes Trial/Plan, emits canonical records, applies validate fail-fast.",
+      "ops": [
+        "execute",
+        "emit",
+        "checkpoint",
+        "abort"
+      ],
+      "depends_on": [
+        "S-042",
+        "S-008"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_RUNNER_INTERNAL"
+      ],
+      "cli": {
+        "canonical_id": "yai.orch.runner",
+        "group": "orch",
+        "name": "runner",
+        "alias": "orch-runner"
+      },
+      "runtime_family_owner": "exec",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "O-005",
+      "layer": 2,
+      "family": "Orchestration",
+      "domain": "Output",
+      "name": "Emitter",
+      "definition": "Materializes records/artifacts and links refs/hashes deterministically.",
+      "ops": [
+        "emit-event",
+        "emit-decision",
+        "emit-effect",
+        "emit-metrics",
+        "flush"
+      ],
+      "depends_on": [
+        "S-010",
+        "S-004",
+        "S-005",
+        "S-013"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_EMIT_IO",
+        "E_EMIT_SCHEMA"
+      ],
+      "cli": {
+        "canonical_id": "yai.orch.emit",
+        "group": "orch",
+        "name": "emit",
+        "alias": "orch-emit"
+      },
+      "runtime_family_owner": "exec",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "O-006",
+      "layer": 2,
+      "family": "Orchestration",
+      "domain": "Bundles",
+      "name": "Bundle Assemble",
+      "definition": "Assemble bundle payloads and manifests for governed delivery.",
+      "ops": [
+        "compose",
+        "validate",
+        "emit"
+      ],
+      "depends_on": [
+        "S-005",
+        "S-011",
+        "T-012"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_BUNDLE_COMPOSE",
+        "E_BUNDLE_VALIDATE"
+      ],
+      "cli": {
+        "canonical_id": "yai.bundle.bundle",
+        "group": "bundle",
+        "name": "bundle",
+        "alias": "bundle-bundle"
+      },
+      "runtime_family_owner": "exec",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "O-007",
+      "layer": 2,
+      "family": "Orchestration",
+      "domain": "Verification",
+      "name": "Verification Run",
+      "definition": "Execute deterministic verification workflow and emit evidence pointers.",
+      "ops": [
+        "run",
+        "report",
+        "seal"
+      ],
+      "depends_on": [
+        "T-012",
+        "S-014",
+        "S-017"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_VERIFY_FAIL",
+        "E_VERIFY_INCOMPLETE"
+      ],
+      "cli": {
+        "canonical_id": "yai.verify.verify",
+        "group": "verify",
+        "name": "verify",
+        "alias": "verify-verify"
+      },
+      "runtime_family_owner": "exec",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "O-009",
+      "layer": 2,
+      "family": "Orchestration",
+      "domain": "Automation",
+      "name": "Job",
+      "definition": "Scheduled execution with stable status and logs.",
+      "ops": [
+        "schedule",
+        "run",
+        "status",
+        "cancel"
+      ],
+      "depends_on": [
+        "S-026",
+        "S-016"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_JOB_FAIL"
+      ],
+      "cli": {
+        "canonical_id": "yai.orch.job",
+        "group": "orch",
+        "name": "job",
+        "alias": "orch-job"
+      },
+      "runtime_family_owner": "exec",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "O-010",
+      "layer": 2,
+      "family": "Orchestration",
+      "domain": "Reporting",
+      "name": "Report",
+      "definition": "Human+machine output derived from verified artifacts (index, findings).",
+      "ops": [
+        "build",
+        "render",
+        "export"
+      ],
+      "depends_on": [
+        "S-013"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_REPORT_FAIL"
+      ],
+      "cli": {
+        "canonical_id": "yai.orch.report",
+        "group": "orch",
+        "name": "report",
+        "alias": "orch-report"
+      },
+      "runtime_family_owner": "exec",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "R-001",
+      "layer": 1,
+      "family": "Runtime",
+      "domain": "Plane",
+      "name": "Boot Plane",
+      "definition": "Boot bring-up and boot-time verification surface.",
+      "ops": [
+        "start",
+        "status",
+        "logs",
+        "verify",
+        "stop"
+      ],
+      "depends_on": [
+        "S-016",
+        "S-026",
+        "S-017"
+      ],
+      "determinism": "bounded (depends on environment)",
+      "failure_modes": [
+        "E_BOOT_NOT_FOUND",
+        "E_BOOT_START_FAIL",
+        "E_BOOT_VERIFY_FAIL"
+      ],
+      "cli": {
+        "canonical_id": "yai.control.boot",
+        "group": "control",
+        "name": "boot",
+        "alias": "control-boot",
+        "related": [
+          "yai.lifecycle.up",
+          "yai.inspect.logs",
+          "yai.inspect.status"
+        ]
+      },
+      "runtime_family_owner": "core",
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "R-002",
+      "layer": 1,
+      "family": "Runtime",
+      "domain": "Plane",
+      "name": "Ingress Plane",
+      "definition": "Control-plane entrypoint for handshake, session coordination and routing.",
+      "ops": [
+        "ping",
+        "handshake",
+        "status",
+        "routes",
+        "session-list"
+      ],
+      "depends_on": [
+        "T-003",
+        "S-016",
+        "S-026"
+      ],
+      "determinism": "bounded (depends on runtime)",
+      "failure_modes": [
+        "E_INGRESS_UNAVAILABLE",
+        "E_INGRESS_HANDSHAKE_FAIL",
+        "E_INGRESS_PROTOCOL_MISMATCH"
+      ],
+      "cli": {
+        "canonical_id": "yai.control.ingress",
+        "group": "control",
+        "name": "ingress",
+        "alias": "control-ingress",
+        "related": [
+          "yai.inspect.status"
+        ]
+      },
+      "runtime_family_owner": "core",
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "R-003",
+      "layer": 1,
+      "family": "Runtime",
+      "domain": "Plane",
+      "name": "Core Plane",
+      "definition": "Core authority surface: workspace lifecycle and core-bound operations.",
+      "ops": [
+        "ping",
+        "ws.create",
+        "ws.destroy",
+        "ws.reset",
+        "status"
+      ],
+      "depends_on": [
+        "R-002",
+        "T-003",
+        "S-026"
+      ],
+      "determinism": "bounded (depends on runtime)",
+      "failure_modes": [
+        "E_CORE_UNAVAILABLE",
+        "E_CORE_DENIED",
+        "E_WS_INVALID",
+        "E_WS_CONFLICT"
+      ],
+      "cli": {
+        "canonical_id": "yai.control.core",
+        "group": "control",
+        "name": "core",
+        "alias": "control-core",
+        "related": [
+          "yai.inspect.status"
+        ]
+      },
+      "runtime_family_owner": "core",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "R-004",
+      "layer": 2,
+      "family": "Runtime",
+      "domain": "Plane",
+      "name": "Exec Plane",
+      "definition": "Exec execution surface: exec status and execution-adjacent control.",
+      "ops": [
+        "ping",
+        "status",
+        "metrics",
+        "jobs"
+      ],
+      "depends_on": [
+        "R-002",
+        "S-012",
+        "S-026"
+      ],
+      "determinism": "bounded (depends on runtime)",
+      "failure_modes": [
+        "E_EXEC_UNAVAILABLE",
+        "E_EXEC_PROTOCOL_MISMATCH"
+      ],
+      "cli": {
+        "canonical_id": "yai.control.exec",
+        "group": "control",
+        "name": "exec",
+        "alias": "control-exec",
+        "related": [
+          "yai.inspect.status",
+          "yai.inspect.monitor"
+        ]
+      },
+      "runtime_family_owner": "exec",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "R-005",
+      "layer": 3,
+      "family": "Runtime",
+      "domain": "Plane",
+      "name": "Knowledge Plane",
+      "definition": "Knowledge support surface: memory/cognition/provider-adjacent control endpoints.",
+      "ops": [
+        "ping",
+        "status",
+        "graph",
+        "embed",
+        "sessions"
+      ],
+      "depends_on": [
+        "R-002",
+        "S-006",
+        "S-012"
+      ],
+      "determinism": "bounded (depends on runtime)",
+      "failure_modes": [
+        "E_KNOWLEDGE_UNAVAILABLE",
+        "E_KNOWLEDGE_PROVIDER_MISSING"
+      ],
+      "cli": {
+        "canonical_id": "yai.control.knowledge",
+        "group": "control",
+        "name": "knowledge",
+        "alias": "control-knowledge",
+        "related": [
+          "yai.memory.graph",
+          "yai.memory.embed"
+        ]
+      },
+      "runtime_family_owner": "knowledge",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "R-006",
+      "layer": 2,
+      "family": "Runtime",
+      "domain": "Plane",
+      "name": "Data Plane",
+      "definition": "Data-plane governance surface for records/stores/query and lifecycle controls.",
+      "ops": [
+        "ping",
+        "status",
+        "records",
+        "query",
+        "retention",
+        "archive"
+      ],
+      "depends_on": [
+        "R-002",
+        "S-004",
+        "S-005",
+        "S-029"
+      ],
+      "determinism": "bounded (depends on runtime)",
+      "failure_modes": [
+        "E_DATA_UNAVAILABLE",
+        "E_DATA_STORE_UNBOUND"
+      ],
+      "cli": {
+        "canonical_id": "yai.control.data",
+        "group": "control",
+        "name": "data",
+        "alias": "control-data",
+        "related": [
+          "yai.inspect.status",
+          "yai.inspect.events"
+        ]
+      },
+      "runtime_family_owner": "data",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "R-007",
+      "layer": 2,
+      "family": "Runtime",
+      "domain": "Plane",
+      "name": "Graph Plane",
+      "definition": "Graph-plane governance surface for relational truth/materialization/lineage summaries.",
+      "ops": [
+        "ping",
+        "status",
+        "materialize",
+        "summary",
+        "lineage"
+      ],
+      "depends_on": [
+        "R-002",
+        "S-016",
+        "S-034"
+      ],
+      "determinism": "bounded (depends on runtime)",
+      "failure_modes": [
+        "E_GRAPH_UNAVAILABLE",
+        "E_GRAPH_BACKEND_UNBOUND"
+      ],
+      "cli": {
+        "canonical_id": "yai.control.graph",
+        "group": "control",
+        "name": "graph",
+        "alias": "control-graph",
+        "related": [
+          "yai.memory.graph",
+          "yai.inspect.status"
+        ]
+      },
+      "runtime_family_owner": "graph",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-001",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Naming",
+      "name": "Namespace",
+      "definition": "Canonical namespace for types/resources; stabilizes ABI and prevents collisions.",
+      "ops": [
+        "declare",
+        "list",
+        "resolve",
+        "validate"
+      ],
+      "depends_on": [
+        "S-010"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_NS_UNKNOWN",
+        "E_NS_CONFLICT"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.ns",
+        "group": "substrate",
+        "name": "ns",
+        "alias": "substrate-ns"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-002",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Addressing",
+      "name": "Ref",
+      "definition": "Canonical reference to a resource/artifact (URI-like) deterministically resolvable.",
+      "ops": [
+        "parse",
+        "format",
+        "resolve",
+        "dereference"
+      ],
+      "depends_on": [
+        "S-001",
+        "S-006"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_REF_PARSE",
+        "E_REF_NOT_FOUND"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.ref",
+        "group": "substrate",
+        "name": "ref",
+        "alias": "substrate-ref"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-003",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Crypto",
+      "name": "Key",
+      "definition": "Identity/key for signing or attestation (v1 may be fingerprint-only).",
+      "ops": [
+        "gen",
+        "load",
+        "fingerprint",
+        "sign",
+        "verify"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic (given key)",
+      "failure_modes": [
+        "E_KEY_MISSING",
+        "E_SIG_INVALID"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.key",
+        "group": "substrate",
+        "name": "key",
+        "alias": "substrate-key"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-004",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Integrity",
+      "name": "Hash",
+      "definition": "Content identity (content-address) for immutability, sealing, deduplication.",
+      "ops": [
+        "compute",
+        "verify",
+        "compare",
+        "treehash"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_HASH_MISMATCH"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.hash",
+        "group": "substrate",
+        "name": "hash",
+        "alias": "substrate-hash"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-005",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Object Model",
+      "name": "Artifact",
+      "definition": "Materialized object with role/ref/hash; minimum unit of proof.",
+      "ops": [
+        "add",
+        "inspect",
+        "link",
+        "verify",
+        "gc-mark"
+      ],
+      "depends_on": [
+        "S-002",
+        "S-004",
+        "S-006"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_ARTIFACT_ROLE_UNKNOWN",
+        "E_ARTIFACT_MISSING"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.artifact",
+        "group": "substrate",
+        "name": "artifact",
+        "alias": "substrate-artifact"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-006",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Storage",
+      "name": "Store",
+      "definition": "Local store for artifacts indexed by ref/hash.",
+      "ops": [
+        "put",
+        "get",
+        "list",
+        "exists",
+        "gc"
+      ],
+      "depends_on": [
+        "S-004",
+        "S-023"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_STORE_IO",
+        "E_STORE_CORRUPT"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.store",
+        "group": "substrate",
+        "name": "store",
+        "alias": "substrate-store"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-007",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Contracts",
+      "name": "Schema",
+      "definition": "Versioned shape contract (JSON Schema) for normative artifacts.",
+      "ops": [
+        "register",
+        "show",
+        "check",
+        "upgrade-map"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_SCHEMA_UNKNOWN",
+        "E_SCHEMA_INVALID"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.schema",
+        "group": "substrate",
+        "name": "schema",
+        "alias": "substrate-schema"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-008",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Correctness",
+      "name": "Validate",
+      "definition": "Deterministic validation: schema + cross-file consistency; fail-fast.",
+      "ops": [
+        "validate-schema",
+        "validate-set",
+        "emit-report"
+      ],
+      "depends_on": [
+        "S-007",
+        "S-013",
+        "S-014"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_VALIDATE_FAIL",
+        "E_VALIDATE_INTERNAL"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.validate",
+        "group": "substrate",
+        "name": "validate",
+        "alias": "substrate-validate"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-009",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Time",
+      "name": "Clock",
+      "definition": "Timestamp rules and normalization for stable ordering.",
+      "ops": [
+        "stamp",
+        "normalize",
+        "compare",
+        "bound"
+      ],
+      "depends_on": [],
+      "determinism": "bounded (depends on clock)",
+      "failure_modes": [
+        "E_TIME_SKEW"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.clock",
+        "group": "substrate",
+        "name": "clock",
+        "alias": "substrate-clock"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-010",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Logging",
+      "name": "Record",
+      "definition": "Append-only record stream (json/jsonl) with canonical header.",
+      "ops": [
+        "append",
+        "read",
+        "scan",
+        "filter"
+      ],
+      "depends_on": [
+        "S-004",
+        "S-009"
+      ],
+      "determinism": "deterministic (given inputs)",
+      "failure_modes": [
+        "E_RECORD_PARSE",
+        "E_RECORD_SCHEMA"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.record",
+        "group": "substrate",
+        "name": "record",
+        "alias": "substrate-record"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-011",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Sequencing",
+      "name": "Timeline",
+      "definition": "Ordered record sequence with continuity invariants.",
+      "ops": [
+        "build",
+        "link",
+        "check",
+        "summarize"
+      ],
+      "depends_on": [
+        "S-010",
+        "S-004"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_TIMELINE_GAP",
+        "E_TIMELINE_FORK"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.timeline",
+        "group": "substrate",
+        "name": "timeline",
+        "alias": "substrate-timeline"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-012",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Metrics",
+      "name": "Metric",
+      "definition": "Typed measurement (value+unit+window) aggregable and comparable.",
+      "ops": [
+        "emit",
+        "aggregate",
+        "rollup",
+        "diff"
+      ],
+      "depends_on": [
+        "S-010"
+      ],
+      "determinism": "deterministic (given inputs)",
+      "failure_modes": [
+        "E_METRIC_UNIT",
+        "E_METRIC_SCHEMA"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.metrics",
+        "group": "substrate",
+        "name": "metrics",
+        "alias": "substrate-metrics"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-013",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Inventory",
+      "name": "Index",
+      "definition": "Machine-readable inventory of artifacts (role\u2192path/hash/ref).",
+      "ops": [
+        "build",
+        "update",
+        "verify",
+        "materialize"
+      ],
+      "depends_on": [
+        "S-005",
+        "S-004"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_INDEX_MISSING",
+        "E_INDEX_HASH_MISMATCH"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.index",
+        "group": "substrate",
+        "name": "index",
+        "alias": "substrate-index"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-014",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Packaging",
+      "name": "Manifest",
+      "definition": "Ingress document describing a collection and its hashes (bundle/wave/run).",
+      "ops": [
+        "compose",
+        "seal",
+        "verify",
+        "diff"
+      ],
+      "depends_on": [
+        "S-013",
+        "S-004"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_MANIFEST_SCHEMA",
+        "E_MANIFEST_HASH_MISMATCH"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.manifest",
+        "group": "substrate",
+        "name": "manifest",
+        "alias": "substrate-manifest"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-015",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Selection",
+      "name": "Selector",
+      "definition": "Deterministic rules to select runs/evidence for publication sets.",
+      "ops": [
+        "select",
+        "explain",
+        "replay",
+        "lock"
+      ],
+      "depends_on": [
+        "S-010",
+        "S-013"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_SELECTOR_INVALID",
+        "E_SELECTOR_EMPTY"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.select",
+        "group": "substrate",
+        "name": "select",
+        "alias": "substrate-select"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-016",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "IO",
+      "name": "Channel",
+      "definition": "Controlled emission channels (stdout/stderr/log/eventbus) with stable formats.",
+      "ops": [
+        "open",
+        "write",
+        "tail",
+        "export"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_CHANNEL_IO"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.channel",
+        "group": "substrate",
+        "name": "channel",
+        "alias": "substrate-channel"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-017",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Environment",
+      "name": "Fingerprint",
+      "definition": "Environment fingerprint (OS/toolchain/deps) for audit and comparability.",
+      "ops": [
+        "capture",
+        "hash",
+        "diff",
+        "assert"
+      ],
+      "depends_on": [
+        "S-004"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_ENV_INCOMPLETE"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.env",
+        "group": "substrate",
+        "name": "env",
+        "alias": "substrate-env"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-018",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Compatibility",
+      "name": "Versioning",
+      "definition": "Compatibility rules and migrations; prevents silent breakage.",
+      "ops": [
+        "classify",
+        "check",
+        "negotiate",
+        "deprecate"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_COMPAT_BREAK"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.compat",
+        "group": "substrate",
+        "name": "compat",
+        "alias": "substrate-compat"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-019",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Filesystem",
+      "name": "Path",
+      "definition": "Canonical path normalization within a declared ingress (anti-traversal).",
+      "ops": [
+        "normalize",
+        "join",
+        "relativize",
+        "assert-ingress"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_PATH_TRAVERSAL",
+        "E_PATH_INVALID"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.fs",
+        "group": "substrate",
+        "name": "fs",
+        "alias": "substrate-fs"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-020",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Filesystem",
+      "name": "File",
+      "definition": "Controlled file IO with stable stat semantics.",
+      "ops": [
+        "open",
+        "read",
+        "write",
+        "stat",
+        "close"
+      ],
+      "depends_on": [
+        "S-019"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_FILE_NOT_FOUND",
+        "E_FILE_IO"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.fs",
+        "group": "substrate",
+        "name": "fs",
+        "alias": "substrate-fs"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-021",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Filesystem",
+      "name": "Dir",
+      "definition": "Directory operations with deterministic ordering for walk/treehash.",
+      "ops": [
+        "list",
+        "walk",
+        "mkdir",
+        "rmdir"
+      ],
+      "depends_on": [
+        "S-019",
+        "S-020"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_DIR_IO"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.fs",
+        "group": "substrate",
+        "name": "fs",
+        "alias": "substrate-fs"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-022",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Streams",
+      "name": "Stream",
+      "definition": "Byte/record stream with stable framing (pipe-like).",
+      "ops": [
+        "open",
+        "push",
+        "pull",
+        "flush",
+        "close"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_STREAM_BROKEN"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.stream",
+        "group": "substrate",
+        "name": "stream",
+        "alias": "substrate-stream"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-023",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Concurrency",
+      "name": "Lock",
+      "definition": "Deterministic mutual exclusion for build/verify critical resources.",
+      "ops": [
+        "acquire",
+        "release",
+        "try",
+        "assert-held"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_LOCK_TIMEOUT",
+        "E_LOCK_HELD"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.lock",
+        "group": "substrate",
+        "name": "lock",
+        "alias": "substrate-lock"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-024",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Transactions",
+      "name": "Txn",
+      "definition": "Atomic update unit for manifest/index/store changes.",
+      "ops": [
+        "begin",
+        "stage",
+        "commit",
+        "rollback"
+      ],
+      "depends_on": [
+        "S-023",
+        "S-006"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_TXN_ABORT",
+        "E_TXN_CONFLICT"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.txn",
+        "group": "substrate",
+        "name": "txn",
+        "alias": "substrate-txn"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-025",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Errors",
+      "name": "Error",
+      "definition": "Standard error type (code/class/message/context) for UX and CI.",
+      "ops": [
+        "raise",
+        "wrap",
+        "classify",
+        "render"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "(meta)"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.error",
+        "group": "substrate",
+        "name": "error",
+        "alias": "substrate-error"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-026",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Status",
+      "name": "Status",
+      "definition": "Operational status model (pending/running/done/failed) persistable.",
+      "ops": [
+        "set",
+        "get",
+        "wait",
+        "summarize"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_STATUS_STALE"
+      ],
+      "cli": {
+        "canonical_id": "yai.inspect.status",
+        "group": "inspect",
+        "name": "status",
+        "alias": "inspect-status",
+        "related": [
+          "yai.inspect.logs",
+          "yai.inspect.events",
+          "yai.inspect.monitor"
+        ]
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-027",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Resources",
+      "name": "Resource",
+      "definition": "Resource descriptor (CPU/RAM/disk/net) with units and limits.",
+      "ops": [
+        "measure",
+        "allocate",
+        "release",
+        "cap"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_RESOURCE_UNAVAILABLE"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.resource",
+        "group": "substrate",
+        "name": "resource",
+        "alias": "substrate-resource"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-028",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Limits",
+      "name": "Quota",
+      "definition": "Quantitative constraint (size/time/count) enforceable and verifiable.",
+      "ops": [
+        "set",
+        "enforce",
+        "report",
+        "diff"
+      ],
+      "depends_on": [
+        "S-027"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_QUOTA_EXCEEDED"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.quota",
+        "group": "substrate",
+        "name": "quota",
+        "alias": "substrate-quota"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-029",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Sandbox",
+      "name": "Sandbox",
+      "definition": "Execution boundary (fs/net/proc) inspectable and enforceable.",
+      "ops": [
+        "create",
+        "enter",
+        "enforce",
+        "inspect"
+      ],
+      "depends_on": [
+        "S-028"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_SANDBOX_BYPASS",
+        "E_SANDBOX_CONFIG"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.sandbox",
+        "group": "substrate",
+        "name": "sandbox",
+        "alias": "substrate-sandbox"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-030",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Capabilities",
+      "name": "Capability",
+      "definition": "Runtime feature/permission (can-do) distinct from authority/policy (should-do).",
+      "ops": [
+        "declare",
+        "assert",
+        "list",
+        "deny"
+      ],
+      "depends_on": [
+        "S-029"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_CAP_MISSING",
+        "E_CAP_DENIED"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.cap",
+        "group": "substrate",
+        "name": "cap",
+        "alias": "substrate-cap"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-031",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Networking",
+      "name": "Endpoint",
+      "definition": "Canonical endpoint (proto/host/port) for matching policy and logging.",
+      "ops": [
+        "parse",
+        "normalize",
+        "match",
+        "render"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_ENDPOINT_PARSE"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.net",
+        "group": "substrate",
+        "name": "net",
+        "alias": "substrate-net"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-032",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Networking",
+      "name": "Route",
+      "definition": "Routing/logging rule surface for traffic (debug/audit).",
+      "ops": [
+        "add",
+        "remove",
+        "list",
+        "evaluate"
+      ],
+      "depends_on": [
+        "S-031"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_ROUTE_INVALID"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.net",
+        "group": "substrate",
+        "name": "net",
+        "alias": "substrate-net"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-033",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Serialization",
+      "name": "Codec",
+      "definition": "Declared/versioned codec (json/jsonl/cbor\u2026) with stable identifiers.",
+      "ops": [
+        "encode",
+        "decode",
+        "sniff",
+        "assert"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_CODEC_UNSUPPORTED"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.codec",
+        "group": "substrate",
+        "name": "codec",
+        "alias": "substrate-codec"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-034",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Determinism",
+      "name": "Seed",
+      "definition": "Deterministic seed for run/replay; makes choices reproducible.",
+      "ops": [
+        "set",
+        "get",
+        "derive",
+        "record"
+      ],
+      "depends_on": [],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_SEED_MISSING"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.seed",
+        "group": "substrate",
+        "name": "seed",
+        "alias": "substrate-seed"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-035",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Provenance",
+      "name": "Provenance",
+      "definition": "Lineage graph for artifacts (inputs\u2192outputs) traceable and queryable.",
+      "ops": [
+        "record",
+        "link",
+        "query",
+        "render"
+      ],
+      "depends_on": [
+        "S-002",
+        "S-010",
+        "S-005"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_PROV_BROKEN"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.prov",
+        "group": "substrate",
+        "name": "prov",
+        "alias": "substrate-prov"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-041",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Journaling",
+      "name": "Journal",
+      "definition": "Append-only journal for critical operations (txn/sealing) for audit.",
+      "ops": [
+        "append",
+        "rotate",
+        "verify",
+        "export"
+      ],
+      "depends_on": [
+        "S-010"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_JOURNAL_CORRUPT"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.journal",
+        "group": "substrate",
+        "name": "journal",
+        "alias": "substrate-journal"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-042",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Checkpointing",
+      "name": "Checkpoint",
+      "definition": "Restorable checkpoint for long executions (runner).",
+      "ops": [
+        "create",
+        "restore",
+        "list",
+        "prune"
+      ],
+      "depends_on": [
+        "S-006",
+        "S-023"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_CHECKPOINT_INVALID"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.checkpoint",
+        "group": "substrate",
+        "name": "checkpoint",
+        "alias": "substrate-checkpoint"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-043",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Diff/Patch",
+      "name": "Diff",
+      "definition": "Deterministic diff between two artifacts/trees/manifests.",
+      "ops": [
+        "diff",
+        "summarize",
+        "classify"
+      ],
+      "depends_on": [
+        "S-004",
+        "S-013"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_DIFF_FAIL"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.diff",
+        "group": "substrate",
+        "name": "diff",
+        "alias": "substrate-diff"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "S-044",
+      "layer": 0,
+      "family": "Substrate",
+      "domain": "Diff/Patch",
+      "name": "Patch",
+      "definition": "Controlled patch application with audit trail.",
+      "ops": [
+        "apply",
+        "verify",
+        "rollback"
+      ],
+      "depends_on": [
+        "S-024",
+        "S-041"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_PATCH_CONFLICT"
+      ],
+      "cli": {
+        "canonical_id": "yai.substrate.patch",
+        "group": "substrate",
+        "name": "patch",
+        "alias": "substrate-patch"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-001",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Input",
+      "name": "Event",
+      "definition": "Recorded occurrence entering governance evaluation; append-only.",
+      "ops": [
+        "emit",
+        "classify",
+        "link",
+        "ingest"
+      ],
+      "depends_on": [
+        "S-010",
+        "S-009",
+        "S-002"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_EVENT_SCHEMA"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.event",
+        "group": "governance",
+        "name": "event",
+        "alias": "governance-event"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-002",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Actor",
+      "name": "Identity",
+      "definition": "Stable identity for actor/component/workload attribution.",
+      "ops": [
+        "bind",
+        "resolve",
+        "attest",
+        "alias"
+      ],
+      "depends_on": [
+        "S-002",
+        "S-003"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_IDENTITY_UNKNOWN"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.identity",
+        "group": "governance",
+        "name": "identity",
+        "alias": "governance-identity"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-003",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Permission",
+      "name": "Authority",
+      "definition": "Explicit right (scope+constraints) to attempt an Effect.",
+      "ops": [
+        "request",
+        "evaluate",
+        "grant-deny",
+        "audit"
+      ],
+      "depends_on": [
+        "T-021",
+        "S-002"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_AUTHZ_DENIED",
+        "E_AUTHZ_UNKNOWN"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.authority",
+        "group": "governance",
+        "name": "authority",
+        "alias": "governance-authority"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-004",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Law",
+      "name": "Contract",
+      "definition": "Versioned rule (constraints + required evidence) referenceable by id.",
+      "ops": [
+        "define",
+        "reference",
+        "test",
+        "deprecate"
+      ],
+      "depends_on": [
+        "S-001",
+        "S-007"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_CONTRACT_UNKNOWN",
+        "E_CONTRACT_INVALID"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.contract",
+        "group": "governance",
+        "name": "contract",
+        "alias": "governance-contract"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-005",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Profile",
+      "name": "Baseline",
+      "definition": "Immutable operational profile derived from Contract (default behavior).",
+      "ops": [
+        "select",
+        "pin",
+        "hash",
+        "audit"
+      ],
+      "depends_on": [
+        "T-004",
+        "S-004"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_BASELINE_UNKNOWN"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.baseline",
+        "group": "governance",
+        "name": "baseline",
+        "alias": "governance-baseline"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-006",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Enforcement",
+      "name": "Policy",
+      "definition": "Concrete machine-readable rules applied in evaluation (material+hash).",
+      "ops": [
+        "load",
+        "hash",
+        "evaluate",
+        "pin"
+      ],
+      "depends_on": [
+        "T-004",
+        "T-005",
+        "S-004",
+        "S-007"
+      ],
+      "determinism": "deterministic (in deterministic mode)",
+      "failure_modes": [
+        "E_POLICY_SCHEMA",
+        "E_POLICY_EVAL"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.policy",
+        "group": "governance",
+        "name": "policy",
+        "alias": "governance-policy"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-007",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Judgment",
+      "name": "Decision",
+      "definition": "Formal evaluation result for an Event under Policy+Authority.",
+      "ops": [
+        "make",
+        "record",
+        "link",
+        "explain"
+      ],
+      "depends_on": [
+        "T-001",
+        "T-006",
+        "T-003",
+        "S-010"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_DECISION_SCHEMA",
+        "E_DECISION_MISSING_POLICY_HASH"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.decision",
+        "group": "governance",
+        "name": "decision",
+        "alias": "governance-decision"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-009",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Explanation",
+      "name": "ReasonCode",
+      "definition": "Stable explanation code for outcomes; semantics must not drift.",
+      "ops": [
+        "assign",
+        "catalog",
+        "aggregate"
+      ],
+      "depends_on": [
+        "S-001"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_REASON_UNKNOWN"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.reason",
+        "group": "governance",
+        "name": "reason",
+        "alias": "governance-reason"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-010",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Boundary",
+      "name": "Effect",
+      "definition": "Cross-boundary action/state change (attempted/applied) measurable.",
+      "ops": [
+        "attempt",
+        "apply",
+        "measure",
+        "record"
+      ],
+      "depends_on": [
+        "T-007",
+        "S-010"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_EFFECT_UNMEASURABLE",
+        "E_EFFECT_APPLIED_WITHOUT_DECISION"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.effect",
+        "group": "governance",
+        "name": "effect",
+        "alias": "governance-effect"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-011",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Proof",
+      "name": "Evidence",
+      "definition": "Curated artifact set proving claims without rerun; hashed and indexed.",
+      "ops": [
+        "collect",
+        "curate",
+        "hash",
+        "index"
+      ],
+      "depends_on": [
+        "S-005",
+        "S-013",
+        "S-004"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_EVIDENCE_INCOMPLETE"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.evidence",
+        "group": "governance",
+        "name": "evidence",
+        "alias": "governance-evidence"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-012",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Execution",
+      "name": "Run",
+      "definition": "Single execution emitting records and artifacts; addressable unit.",
+      "ops": [
+        "start",
+        "end",
+        "emit",
+        "validate"
+      ],
+      "depends_on": [
+        "S-010",
+        "S-013",
+        "S-014",
+        "S-017"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_RUN_INCOMPLETE",
+        "E_RUN_SCHEMA_FAIL"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.run",
+        "group": "governance",
+        "name": "run",
+        "alias": "governance-run"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-013",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Campaign",
+      "name": "Wave",
+      "definition": "Orchestrated set of Runs under scenario; produces publish set.",
+      "ops": [
+        "plan",
+        "execute",
+        "select",
+        "summarize"
+      ],
+      "depends_on": [
+        "T-012",
+        "S-015"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_WAVE_PARTIAL"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.wave",
+        "group": "governance",
+        "name": "wave",
+        "alias": "governance-wave"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-014",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Publication",
+      "name": "Bundle",
+      "definition": "Portable package of policy+runs+evidence with sealed manifest.",
+      "ops": [
+        "build",
+        "seal",
+        "export",
+        "import"
+      ],
+      "depends_on": [
+        "S-014",
+        "S-013",
+        "S-006",
+        "S-004"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_BUNDLE_INCOMPLETE",
+        "E_BUNDLE_HASH_MISMATCH"
+      ],
+      "cli": {
+        "canonical_id": "yai.bundle.bundle",
+        "group": "bundle",
+        "name": "bundle",
+        "alias": "bundle-bundle"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-015",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Audit",
+      "name": "Verification",
+      "definition": "Deterministic offline verification (schema+hash+invariants) PASS/FAIL.",
+      "ops": [
+        "verify",
+        "report",
+        "exitcode"
+      ],
+      "depends_on": [
+        "S-008",
+        "S-014",
+        "T-019"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_VERIFY_FAIL"
+      ],
+      "cli": {
+        "canonical_id": "yai.verify.verify",
+        "group": "verify",
+        "name": "verify",
+        "alias": "verify-verify",
+        "related": [
+          "yai.verify.test"
+        ]
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-016",
+      "layer": 1,
+      "family": "Control",
+      "domain": "Governance",
+      "name": "Claim Registry",
+      "definition": "Claim registry resolution for governance assertions and review.",
+      "ops": [
+        "resolve",
+        "list",
+        "bind"
+      ],
+      "depends_on": [
+        "S-007",
+        "S-014"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_CLAIM_UNKNOWN",
+        "E_CLAIM_BIND"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.claim",
+        "group": "governance",
+        "name": "claim",
+        "alias": "governance-claim"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-017",
+      "layer": 1,
+      "family": "Control",
+      "domain": "Governance",
+      "name": "Assertion Exec",
+      "definition": "Evaluate governance assertions with deterministic reason codes.",
+      "ops": [
+        "assert",
+        "explain",
+        "diff"
+      ],
+      "depends_on": [
+        "T-016",
+        "S-014"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_ASSERT_FAIL",
+        "E_ASSERT_INVALID"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.assert",
+        "group": "governance",
+        "name": "assert",
+        "alias": "governance-assert"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-018",
+      "layer": 1,
+      "family": "Control",
+      "domain": "Governance",
+      "name": "Control Set",
+      "definition": "Resolve and apply governance control sets for runtime decisions.",
+      "ops": [
+        "resolve",
+        "apply",
+        "audit"
+      ],
+      "depends_on": [
+        "T-016",
+        "S-013"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_CONTROLSET_MISSING",
+        "E_CONTROLSET_INVALID"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.controls",
+        "group": "governance",
+        "name": "controls",
+        "alias": "governance-controls"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-019",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Invariants",
+      "name": "Invariant",
+      "definition": "Always-true rule checked over timelines/records; produces findings.",
+      "ops": [
+        "list",
+        "check",
+        "explain"
+      ],
+      "depends_on": [
+        "S-011",
+        "S-008"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_INVARIANT_VIOLATION"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.invariant",
+        "group": "governance",
+        "name": "invariant",
+        "alias": "governance-invariant"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-020",
+      "layer": 1,
+      "family": "Control",
+      "domain": "Governance",
+      "name": "Exception Handling",
+      "definition": "Governed exception request and reconciliation lifecycle.",
+      "ops": [
+        "request",
+        "review",
+        "close"
+      ],
+      "depends_on": [
+        "T-016",
+        "S-017"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_EXCEPTION_DENIED",
+        "E_EXCEPTION_INVALID"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.exception",
+        "group": "governance",
+        "name": "exception",
+        "alias": "governance-exception"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-021",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Scope",
+      "name": "Scope",
+      "definition": "Applicability perimeter (resources/actions) for policy/authority/claims.",
+      "ops": [
+        "define",
+        "match",
+        "serialize"
+      ],
+      "depends_on": [
+        "S-001",
+        "S-002"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_SCOPE_INVALID"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.scope",
+        "group": "governance",
+        "name": "scope",
+        "alias": "governance-scope"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-022",
+      "layer": 1,
+      "family": "Control",
+      "domain": "Reporting",
+      "name": "Report Emit",
+      "definition": "Deterministic report emission and artifact linking.",
+      "ops": [
+        "build",
+        "emit",
+        "publish"
+      ],
+      "depends_on": [
+        "S-005",
+        "S-011",
+        "S-017"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_REPORT_EMIT",
+        "E_REPORT_SCHEMA"
+      ],
+      "cli": {
+        "canonical_id": "yai.orch.report",
+        "group": "orch",
+        "name": "report",
+        "alias": "orch-report"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    },
+    {
+      "id": "T-023",
+      "layer": 1,
+      "family": "Governance",
+      "domain": "Disclosure",
+      "name": "Disclosure",
+      "definition": "Auditable declaration of redactions/omissions and motivations.",
+      "ops": [
+        "declare",
+        "prove-nonleak",
+        "verify"
+      ],
+      "depends_on": [
+        "T-011"
+      ],
+      "determinism": "deterministic",
+      "failure_modes": [
+        "E_DISCLOSURE_MISSING"
+      ],
+      "cli": {
+        "canonical_id": "yai.governance.disclosure",
+        "group": "governance",
+        "name": "disclosure",
+        "alias": "governance-disclosure"
+      },
+      "runtime_family_owner": "support",
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1"
+    }
+  ]
+}

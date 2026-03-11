@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "governance/domains/index/domain-model.matrix.v1.schema.json",
+  "title": "domain-model.matrix.v1",
+  "type": "object",
+  "required": ["kind", "version", "runtime_families", "family_resolution", "entries"],
+  "properties": {
+    "kind": {"const": "domain-model.matrix.v1"},
+    "version": {"const": "v1"},
+    "model": {"type": "string"},
+    "runtime_families": {
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1
+    },
+    "family_resolution": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["family", "domain_id", "default_specialization", "manifest_ref", "specialization_candidates"],
+        "properties": {
+          "family": {"type": "string"},
+          "domain_id": {"type": "string"},
+          "default_specialization": {"type": "string"},
+          "manifest_ref": {"type": "string"},
+          "specialization_candidates": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["lookup_id", "kind", "family", "domain_id", "manifest_ref"],
+        "properties": {
+          "lookup_id": {"type": "string"},
+          "kind": {"enum": ["family", "domain", "specialization"]},
+          "family": {"type": "string"},
+          "domain_id": {"type": "string"},
+          "manifest_ref": {"type": "string"},
+          "default_specialization": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

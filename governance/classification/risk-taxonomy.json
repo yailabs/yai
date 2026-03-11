@@ -1,0 +1,15 @@
+{
+  "kind": "risk-taxonomy",
+  "version": "v2",
+  "risks": [
+    {"risk": "exfiltration", "primary_families": ["digital", "economic"]},
+    {"risk": "privacy-breach", "primary_families": ["digital", "social-institutional", "scientific"]},
+    {"risk": "provenance-loss", "primary_families": ["scientific", "economic", "environmental-climatological"]},
+    {"risk": "financial-fraud", "primary_families": ["economic"]},
+    {"risk": "unauthorized-value-movement", "primary_families": ["economic"]},
+    {"risk": "settlement-mismatch", "primary_families": ["economic"]},
+    {"risk": "approval-chain-bypass", "primary_families": ["economic", "digital"]},
+    {"risk": "reproducibility-break", "primary_families": ["scientific"]},
+    {"risk": "unsafe-autonomy", "primary_families": ["scientific", "cognitive-cultural"]}
+  ]
+}

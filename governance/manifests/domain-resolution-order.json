@@ -1,0 +1,10 @@
+{
+  "kind": "domain-resolution-order",
+  "version": "v1",
+  "order": [
+    "foundation",
+    "domain-family",
+    "domain-specific",
+    "domain-policy-precedence"
+  ]
+}

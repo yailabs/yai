@@ -1,0 +1,464 @@
+{
+  "kind": "governance-attachability-constraints",
+  "version": "v2",
+  "binding_model": "workspace-first",
+  "constraints": {
+    "allowed_by_kind": {
+      "compliance_module": [
+        "stack",
+        "policy-composition"
+      ],
+      "overlay": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "customer_policy_pack": [
+        "workspace-attach",
+        "runtime-entrypoint"
+      ],
+      "enterprise_custom_governance_object": [
+        "workspace_attach",
+        "organization_default",
+        "runtime_entrypoint"
+      ],
+      "specialization_policy_pack": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "template_object": [
+        "none"
+      ]
+    },
+    "runtime_consumable_by_kind": {
+      "compliance_module": true,
+      "overlay": true,
+      "customer_policy_pack": true,
+      "enterprise_custom_governance_object": true,
+      "specialization_policy_pack": true,
+      "template_object": false
+    },
+    "cli_discoverable_by_kind": {
+      "compliance_module": true,
+      "overlay": true,
+      "customer_policy_pack": true,
+      "enterprise_custom_governance_object": true,
+      "specialization_policy_pack": true,
+      "template_object": false
+    },
+    "precedence_classes": {
+      "compliance_module": [
+        "compliance-layer"
+      ],
+      "overlay": [
+        "overlay-regulatory",
+        "overlay-sector",
+        "overlay-contextual"
+      ],
+      "customer_policy_pack": [
+        "specialization+compliance+overlays+customer-pack",
+        "specialization+contextual-overlays+customer-pack"
+      ],
+      "enterprise_custom_governance_object": [
+        "specialization+compliance+overlays+customer-pack+enterprise-object",
+        "specialization+contextual-overlays+customer-pack+enterprise-object"
+      ],
+      "specialization_policy_pack": [
+        "specialization-baseline"
+      ],
+      "template_object": [
+        "non-operational-template"
+      ]
+    },
+    "workspace_apply_states": [
+      "candidate_only",
+      "approved_not_attached",
+      "attached_inactive",
+      "attached_active",
+      "attach_rejected",
+      "detached",
+      "superseded"
+    ],
+    "workspace_compatibility_results": [
+      "eligible",
+      "eligible_with_warnings",
+      "ineligible",
+      "dry_run_passed",
+      "dry_run_failed",
+      "conflict_blocking"
+    ],
+    "disallowed_subsystem_targets": [
+      "brain",
+      "mind"
+    ],
+    "canonical_attachment_modes": [
+      "stack",
+      "policy-composition",
+      "overlay-stack",
+      "workspace-attach",
+      "runtime-entrypoint",
+      "domain-set",
+      "policy-resolution-anchor",
+      "organization-default",
+      "none"
+    ],
+    "attachment_mode_aliases": {
+      "workspace_attach": "workspace-attach",
+      "runtime_entrypoint": "runtime-entrypoint",
+      "organization_default": "organization-default"
+    },
+    "runtime_family_targets_by_kind": {
+      "compliance_module": [
+        "core",
+        "data"
+      ],
+      "overlay": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "customer_policy_pack": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "enterprise_custom_governance_object": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "specialization_policy_pack": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "template_object": [
+        "law"
+      ]
+    },
+    "workspace_binding_required_by_kind": {
+      "compliance_module": false,
+      "overlay": false,
+      "customer_policy_pack": true,
+      "enterprise_custom_governance_object": true,
+      "specialization_policy_pack": true,
+      "template_object": false
+    },
+    "source_attachment_governance": {
+      "governable_entities": [
+        "source_node",
+        "source_binding",
+        "source_action_point",
+        "source_asset",
+        "source_acquisition_event",
+        "source_evidence_candidate"
+      ],
+      "attachment_decisions": [
+        "allow",
+        "review",
+        "deny"
+      ],
+      "source_trust_levels": [
+        "trusted",
+        "review_required",
+        "restricted"
+      ],
+      "minimum_provenance_fields": [
+        "source_node_id",
+        "source_binding_id",
+        "source_asset_id",
+        "acquisition_event_id",
+        "observed_at"
+      ],
+      "required_evidence_expectations": [
+        "source_owner_link",
+        "source_provenance_bundle",
+        "acquisition_event_chain"
+      ],
+      "workspace_binding_required": true,
+      "notes": "Distributed source attachment is governed before owner-side canonicalization.",
+      "delegation_model": {
+        "edge_role": "subordinate_edge_runtime",
+        "policy_origin": "owner_workspace_global_policy_plane",
+        "owner_issued_only": true,
+        "scope_limited": true,
+        "revocable": true,
+        "snapshot_non_sovereign": true,
+        "grant_non_sovereign": true,
+        "capability_envelope_non_sovereign": true,
+        "stale_state_policy": "reduce_local_autonomy",
+        "delegated_enforcement_non_sovereign": true,
+        "owner_final_authority_required": true
+      }
+    },
+    "secure_peering_assumptions": {
+      "non_local_source_attachment_requires_secure_peering": true,
+      "accepted_peering_models": [
+        "private_overlay_wireguard_or_equivalent"
+      ],
+      "disallowed_model_examples": [
+        "public_unprotected_owner_socket"
+      ],
+      "note": "Attachment governance does not waive transport security requirements."
+    },
+    "global_to_edge_policy_hierarchy": {
+      "workspace_global_policy_plane": {
+        "authority": "sovereign_owner_runtime",
+        "truth_classes": [
+          "policy_truth",
+          "graph_truth",
+          "conflict_truth",
+          "canonical_state_truth"
+        ]
+      },
+      "delegated_edge_policy_plane": {
+        "authority": "owner_issued_delegation_only",
+        "artifacts": [
+          "policy_snapshot",
+          "grant",
+          "capability_envelope"
+        ],
+        "non_sovereign": true
+      },
+      "edge_execution_observation_plane": {
+        "authority": "subordinate_runtime_execution_only",
+        "allowed_baseline": [
+          "observation",
+          "action_mediation",
+          "delegated_enforcement",
+          "spool_retry_health"
+        ]
+      },
+      "precedence_rules": {
+        "global_overrides_delegated": true,
+        "delegated_cannot_expand_scope": true,
+        "ambiguity_falls_back_to_owner": true,
+        "stale_or_missing_delegation_reduces_autonomy": true
+      }
+    },
+    "delegated_edge_enforcement": {
+      "enforcement_modes": [
+        "observe_only",
+        "post_event_local_enforcement",
+        "preventive_local_enforcement",
+        "escalated_enforcement"
+      ],
+      "local_outcomes": [
+        "observe_only",
+        "allow",
+        "block",
+        "hold",
+        "execute",
+        "escalate",
+        "defer",
+        "deny_due_to_missing_scope",
+        "deny_due_to_expired_grant"
+      ],
+      "authority_rule": "delegated_execution_not_sovereign_adjudication",
+      "requires_valid_owner_scope": true,
+      "allows_hold_and_escalation": true,
+      "stale_or_missing_grant_behavior": {
+        "autonomy_change": "reduce_only",
+        "fallback_modes": [
+          "observe_only",
+          "hold",
+          "escalate"
+        ],
+        "must_not_expand_local_authority": true
+      }
+    },
+    "edge_binding_action_point_model": {
+      "binding_kinds": [
+        "observational",
+        "mediable"
+      ],
+      "scope_model": [
+        "binding_scope",
+        "observation_scope",
+        "mediation_scope",
+        "enforcement_scope"
+      ],
+      "action_point_entity": "source_action_point",
+      "controllability_states": [
+        "observe_only",
+        "delegated_candidate",
+        "delegated_active",
+        "escalation_required"
+      ],
+      "non_sovereign_rule": "binding_and_action_point_control_is_delegated_not_sovereign"
+    },
+    "workspace_authority_truth_plane": {
+      "workspace_owner_runtime_role": "sovereign_authority_and_canonical_truth_plane",
+      "owner_canonical_truth_classes": [
+        "global_policy_truth",
+        "graph_truth",
+        "database_truth",
+        "canonical_case_state",
+        "final_conflict_resolution",
+        "canonical_provenance_binding"
+      ],
+      "final_adjudication": "owner_side_only",
+      "edge_contribution_classes": [
+        "governed_observation",
+        "local_outcome",
+        "evidence_candidate",
+        "operational_runtime_state"
+      ],
+      "edge_non_truth_rule": "edge_state_snapshot_spool_and_local_outcomes_never_become_autonomous_truth",
+      "canonicalization_boundary": "owner_runtime_acceptance_required"
+    },
+    "workspace_to_edge_policy_distribution": {
+      "distribution_model": "owner_to_subordinate_edge_runtime",
+      "distributed_materials": [
+        "policy_snapshot",
+        "grant",
+        "capability_envelope",
+        "target_association",
+        "delegated_observation_scope",
+        "delegated_mediation_scope",
+        "delegated_enforcement_scope"
+      ],
+      "targeting_rules": {
+        "workspace_aware": true,
+        "source_node_aware": true,
+        "daemon_instance_aware": true,
+        "source_binding_aware": true,
+        "action_point_scope_aware": true
+      },
+      "distribution_non_sovereign_rule": "distribution_provides_operating_material_not_truth_or_authority_transfer",
+      "refresh_model_baseline": {
+        "supports_issue": true,
+        "supports_update": true,
+        "supports_replace": true,
+        "supports_refresh": true,
+        "supports_staleness_detection": true
+      },
+      "degraded_mode_rules": {
+        "stale_distribution_reduces_autonomy": true,
+        "missing_distribution_reduces_autonomy": true,
+        "owner_final_authority_required": true
+      }
+    },
+    "edge_policy_validity_lifecycle": {
+      "delegated_materials": [
+        "policy_snapshot",
+        "grant",
+        "capability_envelope"
+      ],
+      "states": [
+        "valid",
+        "refresh_required",
+        "stale",
+        "expired",
+        "revoked"
+      ],
+      "state_distinctions": {
+        "freshness": "material recency versus owner-side expected state",
+        "validity": "authorizative usability under owner-issued scope",
+        "expiry": "temporal end of delegated usability window",
+        "revocation": "owner-side explicit removal of delegated scope"
+      },
+      "refresh_model": {
+        "supports_refresh": true,
+        "supports_revalidation": true,
+        "supports_replacement": true,
+        "supports_revocation_propagation": true
+      },
+      "autonomy_contraction_rule": "as_validity_weakens_local_autonomy_must_reduce_never_expand",
+      "fallback_behaviors": [
+        "observe_only",
+        "hold",
+        "escalate"
+      ],
+      "disconnected_mode_guardrail": "disconnected_operation_must_remain_scope_and_validity_bounded"
+    },
+    "mesh_sovereign_authority_boundaries": {
+      "mesh_planes": [
+        "discovery",
+        "coordination",
+        "sovereign_authority"
+      ],
+      "normative_distinctions": {
+        "discoverable_not_enrolled": true,
+        "visible_not_trusted": true,
+        "membership_not_sovereign_authority": true,
+        "coordination_not_final_adjudication": true
+      },
+      "peer_legitimacy_model": {
+        "states": [
+          "discovered",
+          "candidate",
+          "enrolled",
+          "trusted_scoped",
+          "suspended",
+          "revoked"
+        ],
+        "owner_anchored": true
+      },
+      "authority_rule": "mesh_topology_is_distributed_but_sovereign_authority_remains_owner_side"
+    },
+    "owner_remote_peer_ingress_governance": {
+      "ingress_boundary_model": "owner_governed_remote_peer_ingress",
+      "ingress_states": [
+        "ready",
+        "degraded",
+        "restricted",
+        "unavailable",
+        "refresh_pending"
+      ],
+      "acceptance_classes": [
+        "observation_event_contribution",
+        "evidence_contribution",
+        "mediation_outcome_contribution",
+        "runtime_state_contribution",
+        "spool_replay_contribution"
+      ],
+      "acceptance_rule": "transport_reachability_enables_presentation_ingress_governance_decides_acceptance",
+      "rejection_or_restriction_conditions": [
+        "peer_not_legitimate",
+        "scope_invalid_or_missing",
+        "grant_expired_or_revoked",
+        "policy_refresh_required",
+        "restricted_ingress_mode"
+      ],
+      "canonicalization_boundary": "ingress_acceptance_is_not_automatic_canonical_truth"
+    },
+    "ai_grounding_governance": {
+      "grounding_substrate": "owner_side_governed_case_state",
+      "context_layers": [
+        "raw_input_material",
+        "inspect_query_surfaces",
+        "unified_governed_graph",
+        "task_scoped_grounding_context"
+      ],
+      "required_context_properties": [
+        "policy_aware",
+        "provenance_aware",
+        "freshness_aware",
+        "authority_aware",
+        "conflict_aware",
+        "degradation_aware"
+      ],
+      "non_sovereign_rule": "grounded_ai_supports_reasoning_not_final_authority_or_canonical_truth",
+      "adjudication_rule": "owner_side_final_adjudication_required",
+      "audit_rule": "ai_outputs_must_remain_traceable_to_governed_context"
+    }
+  },
+  "topology_target": "unified-runtime-v1",
+  "canonical_runtime_families": [
+    "core",
+    "exec",
+    "data",
+    "graph",
+    "knowledge",
+    "law",
+    "platform",
+    "protocol",
+    "support"
+  ]
+}

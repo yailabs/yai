@@ -1,0 +1,1 @@
+{"kind":"overlay_policy","version":"v1","overlay_id":"security-supply-chain","default_effect":"review_required","rules":[{"rule_id":"ssc-review-untrusted-provider","when":["provider_trust:low"],"effect":"review_required"},{"rule_id":"ssc-quarantine-unknown-dependency","when":["dependency_chain:unknown"],"effect":"quarantine"}]}

@@ -10,6 +10,27 @@ Scope:
 - overlays, compliance layers, manifests, contracts, schemas
 - governance ingestion and formal artifacts
 
+Authority vs Foundation:
+
+- `authority/`: operational governance (roles, scopes, decisions, publication,
+  deprecation, compatibility, status)
+- `foundation/`: normative system basis (axioms, invariants, boundaries,
+  extensions, terminology)
+
+Semantic spine:
+
+- `grammar/`: governance language rules, semantics, and grammar schemas
+- `registry/`: canonical primitives, governable objects, commands, ids, and
+  registry schemas
+- `domains/index/domain-model.matrix.v1.json`: index-driven family/domain/
+  specialization resolution model used by governance runtime loading
+
+Compliance and overlays:
+
+- `compliance/`: normative compliance modules and applicability metadata
+- `overlays/`: regulatory/sector/contextual overlay descriptors + matrices
+- `packs/`: versioned/materialized governance bundles
+
 Migration policy:
 
 - `governance/` is the final destination for governance content that currently
@@ -26,3 +47,4 @@ Roadmap anchor:
 Reference:
 
 - `docs/architecture/repository/governance-placeholder-spine-a6.md`
+- `transitional/legacy-maps/b1-governance-content-import-map.md`

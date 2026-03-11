@@ -1,0 +1,1 @@
+{"kind":"regulatory_overlay_manifest","version":"v2","overlay_id":"retention-governance","status":"active","attachment_levels":["asset","evidence","family","specialization"],"effect_profile":{"retention_hardening":true,"provenance_hardening":true},"evidence_profile":{"requires_retention_policy_ref":true,"requires_provenance_chain":true}}

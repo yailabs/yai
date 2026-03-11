@@ -1,0 +1,70 @@
+{
+  "kind": "families.index",
+  "version": "v1",
+  "families": [
+    {
+      "family_id": "D1",
+      "canonical_name": "digital",
+      "manifest_ref": "control-families/digital/manifest.json",
+      "status": "active-wave-1-pillar",
+      "maturity": "structured"
+    },
+    {
+      "family_id": "D2",
+      "canonical_name": "physical",
+      "manifest_ref": "control-families/physical/manifest.json",
+      "status": "active",
+      "maturity": "seed"
+    },
+    {
+      "family_id": "D3",
+      "canonical_name": "biological",
+      "manifest_ref": "control-families/biological/manifest.json",
+      "status": "active",
+      "maturity": "seed"
+    },
+    {
+      "family_id": "D4",
+      "canonical_name": "social-institutional",
+      "manifest_ref": "control-families/social-institutional/manifest.json",
+      "status": "active",
+      "maturity": "seed"
+    },
+    {
+      "family_id": "D5",
+      "canonical_name": "economic",
+      "manifest_ref": "control-families/economic/manifest.json",
+      "status": "active-wave-1",
+      "maturity": "dense",
+      "lead_vertical": "true"
+    },
+    {
+      "family_id": "D6",
+      "canonical_name": "operational",
+      "manifest_ref": "control-families/operational/manifest.json",
+      "status": "active",
+      "maturity": "seed"
+    },
+    {
+      "family_id": "D7",
+      "canonical_name": "cognitive-cultural",
+      "manifest_ref": "control-families/cognitive-cultural/manifest.json",
+      "status": "active",
+      "maturity": "seed"
+    },
+    {
+      "family_id": "D8",
+      "canonical_name": "scientific",
+      "manifest_ref": "control-families/scientific/manifest.json",
+      "status": "active-wave-1-pillar",
+      "maturity": "structured"
+    },
+    {
+      "family_id": "D9",
+      "canonical_name": "environmental-climatological",
+      "manifest_ref": "control-families/environmental-climatological/manifest.json",
+      "status": "active",
+      "maturity": "seed"
+    }
+  ]
+}

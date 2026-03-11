@@ -1,0 +1,1 @@
+{"kind":"overlay_retention_overrides","version":"v1","overlay_id":"gdpr-eu","overrides":[{"asset_class":"financial-instrument","retention":"extended"},{"asset_class":"dataset","retention":"strict_extended"}]}

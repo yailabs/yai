@@ -1,0 +1,42 @@
+{
+  "kind": "discovery-matrix",
+  "version": "v1",
+  "rows": [
+    {
+      "domain_id": "D1-digital",
+      "signals_ref": "domains/D1-digital/discovery/signals.json"
+    },
+    {
+      "domain_id": "D2-physical",
+      "signals_ref": "domains/D2-physical/discovery/signals.json"
+    },
+    {
+      "domain_id": "D3-biological",
+      "signals_ref": "domains/D3-biological/discovery/signals.json"
+    },
+    {
+      "domain_id": "D4-social-institutional",
+      "signals_ref": "domains/D4-social-institutional/discovery/signals.json"
+    },
+    {
+      "domain_id": "D5-economic",
+      "signals_ref": "domains/D5-economic/discovery/signals.json"
+    },
+    {
+      "domain_id": "D6-operational",
+      "signals_ref": "domains/D6-operational/discovery/signals.json"
+    },
+    {
+      "domain_id": "D7-cognitive-cultural",
+      "signals_ref": "domains/D7-cognitive-cultural/discovery/signals.json"
+    },
+    {
+      "domain_id": "D8-scientific",
+      "signals_ref": "domains/D8-scientific/discovery/signals.json"
+    },
+    {
+      "domain_id": "D9-environmental-climatological",
+      "signals_ref": "domains/D9-environmental-climatological/discovery/signals.json"
+    }
+  ]
+}

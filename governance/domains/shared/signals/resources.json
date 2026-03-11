@@ -1,0 +1,6 @@
+{
+  "kind": "discovery_signal",
+  "version": "v1",
+  "id": "resources",
+  "description": "Shared signal primitive: resources"
+}

@@ -1,0 +1,34 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v1",
+  "family_id": "D9",
+  "internal_id": "D9",
+  "canonical_name": "environmental-climatological",
+  "display_name": "Environmental-Climatological",
+  "status": "active-bridge",
+  "legacy_seed_ref": "transitional/domain-family-seed/D9-environmental-climatological",
+  "canonical_domains": [
+    {
+      "domain_key": "telemetry-integrity",
+      "canonical_name": "environmental-climatological.telemetry-integrity",
+      "display_name": "Telemetry Integrity",
+      "status": "seed"
+    },
+    {
+      "domain_key": "climate-risk-monitoring",
+      "canonical_name": "environmental-climatological.climate-risk-monitoring",
+      "display_name": "Climate Risk Monitoring",
+      "status": "seed"
+    },
+    {
+      "domain_key": "environmental-reporting",
+      "canonical_name": "environmental-climatological.environmental-reporting",
+      "display_name": "Environmental Reporting Control",
+      "status": "seed"
+    }
+  ],
+  "notes": [
+    "bridge-5of10",
+    "legacy-seed-preserved"
+  ]
+}

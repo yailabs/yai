@@ -1,0 +1,9 @@
+{
+  "kind": "specialization_policy_review",
+  "version": "v1",
+  "specialization_id": "settlements",
+  "rules": [
+    {"rule_id": "settlements-review-high-impact", "when": ["high_impact_operation"], "effect": "review_required"},
+    {"rule_id": "settlements-review-finance-overlay", "when": ["overlay:sector.finance"], "effect": "review_required"}
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "kind": "domain_specialization_manifest",
+  "version": "v2",
+  "specialization_id": "remote-publication",
+  "canonical_name": "digital.remote-publication",
+  "family_canonical_name": "digital",
+  "status": "active",
+  "subdomain_taxonomy_ref": "domain-specializations/index/subdomain-taxonomy.json",
+  "scenario_classes_ref": "domain-specializations/index/scenario-classes.json",
+  "model": {
+    "actions": ["publish", "release", "export"],
+    "assets": ["publication_payload", "publication_surface", "destination_profile"],
+    "risk_surface": ["uncontrolled_publication", "provenance_loss", "sink_misclassification"]
+  },
+  "overlay_relevance": {
+    "regulatory": ["gdpr-eu", "security-supply-chain", "retention-governance"],
+    "sector": ["sector.finance"],
+    "contextual": ["organization", "workspace", "session"]
+  },
+  "authority_profile": {
+    "default_scope": "operator",
+    "escalate_on_sensitive_data": true,
+    "review_on_external_sink": true,
+    "deny_without_authority_contract": true
+  },
+  "evidence_profile": {
+    "requires_destination_trace": true,
+    "requires_publication_review_record": true,
+    "requires_sink_policy_attestation": true,
+    "retention_hint": "enhanced"
+  }
+}

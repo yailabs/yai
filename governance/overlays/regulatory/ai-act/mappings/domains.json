@@ -1,0 +1,1 @@
+{"kind":"overlay_domain_mapping","version":"v1","overlay_id":"ai-act","targets":[{"family":"scientific","specializations":["parameter-governance","black-box-evaluation","reproducibility-control"]},{"family":"digital","specializations":["remote-publication","external-commentary"]}]}

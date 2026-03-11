@@ -1,0 +1,32 @@
+{
+  "kind": "domain_specialization_manifest",
+  "version": "v2",
+  "specialization_id": "payments",
+  "canonical_name": "economic.payments",
+  "family_canonical_name": "economic",
+  "status": "active",
+  "subdomain_taxonomy_ref": "domain-specializations/index/subdomain-taxonomy.json",
+  "scenario_classes_ref": "domain-specializations/index/scenario-classes.json",
+  "authority_ref": "domain-specializations/payments/authority/model.json",
+  "evidence_ref": "domain-specializations/payments/evidence/requirements.json",
+  "overlay_relevance": {
+    "regulatory": [
+      "gdpr-eu",
+      "retention-governance",
+      "security-supply-chain"
+    ],
+    "sector": [
+      "sector.finance"
+    ],
+    "contextual": [
+      "organization",
+      "workspace",
+      "session"
+    ]
+  },
+  "authority_profile": {
+    "default_scope": "controller",
+    "dual_control": true,
+    "self_approval_forbidden": true
+  }
+}

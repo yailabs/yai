@@ -1,0 +1,29 @@
+{
+  "kind": "workspace_overlay_template",
+  "version": "v1",
+  "overlay_id": "workspace.<workspace-id>.governance",
+  "target_scope": "workspace",
+  "workspace_id": "<workspace-id>",
+  "family_targets": [
+    "digital"
+  ],
+  "specialization_targets": [
+    "network-egress",
+    "remote-publication"
+  ],
+  "policy_deltas": {
+    "effect_default": "review_required",
+    "deny_without_explicit_authority_contract": true,
+    "quarantine_on_unknown_sink": true
+  },
+  "authority_deltas": {
+    "delegated_authority_allowed": false,
+    "dual_control_required_for_external_effect": true
+  },
+  "evidence_deltas": {
+    "requires_approval_chain": true,
+    "requires_sink_policy_attestation": true,
+    "requires_provenance_bundle": true
+  },
+  "status": "template"
+}

@@ -1,0 +1,11 @@
+{
+  "kind": "specialization_asset_model",
+  "version": "v1",
+  "specialization_id": "payments",
+  "assets": [
+    "financial-instrument",
+    "ledger-entry",
+    "counterparty-profile",
+    "approval-record"
+  ]
+}

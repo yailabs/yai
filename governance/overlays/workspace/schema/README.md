@@ -1,0 +1,3 @@
+# workspace schema
+
+Placeholder.

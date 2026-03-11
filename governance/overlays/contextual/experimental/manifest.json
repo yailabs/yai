@@ -1,0 +1,6 @@
+{
+  "kind": "contextual_overlay_manifest",
+  "version": "v1",
+  "overlay_id": "context.experimental",
+  "status": "seed"
+}

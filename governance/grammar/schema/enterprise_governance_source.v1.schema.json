@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "law/grammar/schema/enterprise_governance_source.v1",
+  "title": "enterprise_governance_source.v1",
+  "type": "object",
+  "properties": {
+    "kind": {"const": "enterprise_governance_source"},
+    "schema_version": {"type": "string", "pattern": "^v[0-9]+$"},
+    "source_id": {"type": "string", "minLength": 3},
+    "source_type": {"type": "string", "minLength": 3},
+    "title": {"type": "string", "minLength": 3},
+    "owner": {
+      "type": "object",
+      "properties": {
+        "organization_id": {"type": "string"},
+        "owner_team": {"type": "string"}
+      },
+      "required": ["organization_id"],
+      "additionalProperties": true
+    },
+    "organization_scope": {"type": "object", "additionalProperties": true},
+    "workspace_targets": {"type": "array", "items": {"type": "string"}},
+    "domain_targets": {"type": "array", "items": {"type": "string"}},
+    "specialization_targets": {"type": "array", "items": {"type": "string"}},
+    "declared_intent": {"type": "string"},
+    "source_format": {
+      "type": "string",
+      "enum": ["json_rule_sheet", "yaml_rule_sheet", "markdown_rule_sheet"]
+    },
+    "source_payload_ref": {"type": "string", "minLength": 1},
+    "provenance": {"type": "object", "additionalProperties": true},
+    "ingestion_status": {"type": "string"},
+    "confidence_hint": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+    "notes": {"type": "string"},
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string"}
+  },
+  "required": [
+    "kind",
+    "schema_version",
+    "source_id",
+    "source_type",
+    "title",
+    "owner",
+    "organization_scope",
+    "source_format",
+    "source_payload_ref",
+    "provenance",
+    "ingestion_status"
+  ],
+  "additionalProperties": true
+}

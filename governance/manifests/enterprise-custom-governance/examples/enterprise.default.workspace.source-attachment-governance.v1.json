@@ -1,0 +1,131 @@
+{
+  "kind": "enterprise_custom_governance",
+  "schema_version": "v1",
+  "id": "enterprise.default.workspace.source-attachment-governance",
+  "name": "Default Workspace Source Attachment Governance",
+  "version": "2026.03",
+  "owner": {
+    "organization_id": "default-org",
+    "owner_team": "governance-ops",
+    "approver_role": "workspace-governance-owner"
+  },
+  "organization_scope": {
+    "organization_ids": [
+      "default-org"
+    ],
+    "environment_classes": [
+      "shared",
+      "review"
+    ],
+    "session_scope": "workspace-bound"
+  },
+  "workspace_targets": [
+    "ws_ops_review",
+    "ws_science_review"
+  ],
+  "domain_targets": [
+    "digital",
+    "scientific"
+  ],
+  "specialization_targets": [
+    "remote-retrieval",
+    "parameter-governance"
+  ],
+  "source_inputs": {
+    "customer_policy_pack_refs": [
+      "manifests/customer-policy-packs/examples/customer.default.org-workspace-contextual-review.v1.json"
+    ],
+    "compliance_refs": [
+      "compliance/security-supply-chain/manifest.json"
+    ],
+    "overlay_refs": [
+      "overlays/contextual/workspace/manifest.json",
+      "overlays/contextual/session/manifest.json"
+    ],
+    "specialization_policy_refs": [
+      "domain-specializations/digital/remote-retrieval/policy-pack.json"
+    ]
+  },
+  "policy_refs": [
+    "domain-specializations/digital/remote-retrieval/policy-pack.json"
+  ],
+  "overlay_refs": {
+    "regulatory": [
+      "security-supply-chain"
+    ],
+    "sector": [],
+    "contextual": [
+      "workspace",
+      "session"
+    ]
+  },
+  "authority_profile": {
+    "default_scope": "controller",
+    "requires_attachment_review_for_low_trust_sources": true
+  },
+  "evidence_profile": {
+    "requires_decision_record": true,
+    "requires_source_binding_trace": true,
+    "requires_source_provenance_bundle": true,
+    "requires_acquisition_event_chain": true
+  },
+  "source_attachment_governance": {
+    "governable_entities": [
+      "source_node",
+      "source_binding",
+      "source_asset",
+      "source_acquisition_event",
+      "source_evidence_candidate"
+    ],
+    "trust_levels": [
+      "trusted",
+      "review_required",
+      "restricted"
+    ],
+    "default_trust_level": "review_required",
+    "provenance_requirements": [
+      "source_node_identity",
+      "source_binding_scope",
+      "asset_locator",
+      "acquisition_timestamp",
+      "idempotency_marker"
+    ],
+    "attachment_decisions": {
+      "trusted": "allow",
+      "review_required": "review",
+      "restricted": "deny"
+    },
+    "required_evidence": [
+      "source_owner_link",
+      "acquisition_event",
+      "source_provenance_bundle"
+    ]
+  },
+  "precedence_mode": "specialization+contextual-overlays+customer-pack+enterprise-object",
+  "status": "approved",
+  "review_state": "approved",
+  "compatibility": {
+    "law_range": ">=0.1.0",
+    "runtime_targets": [
+      "yai"
+    ],
+    "export_profiles": [
+      "runtime-consumer.v4"
+    ]
+  },
+  "apply_modes": [
+    "workspace_attach",
+    "runtime_entrypoint"
+  ],
+  "runtime_consumable": true,
+  "runtime_entrypoint_refs": [
+    "manifests/runtime.entrypoints.json#default-runtime"
+  ],
+  "provenance": {
+    "source_type": "workspace-authoring",
+    "source_ref": "docs/source-attachment-governance-model.md",
+    "created_by": "governance-ops",
+    "updated_by": "governance-ops"
+  },
+  "notes": "Baseline source-plane governance slice: attachability, trust, and provenance expectations for distributed acquisition."
+}

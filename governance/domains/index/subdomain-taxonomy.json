@@ -1,0 +1,1372 @@
+{
+  "kind": "subdomain-taxonomy",
+  "version": "v1",
+  "entries": [
+    {
+      "family_id": "D1",
+      "canonical_domain": "digital.network-egress",
+      "subdomains": [
+        {
+          "subdomain_id": "D1.network-egress.governance",
+          "canonical_name": "digital.network-egress.governance",
+          "display_name": "Network Egress Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.digital.network-egress.baseline",
+            "sc.digital.network-egress.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D1.network-egress.exceptions",
+          "canonical_name": "digital.network-egress.exceptions",
+          "display_name": "Network Egress Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.digital.network-egress.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D1",
+      "canonical_domain": "digital.remote-publication",
+      "subdomains": [
+        {
+          "subdomain_id": "D1.remote-publication.governance",
+          "canonical_name": "digital.remote-publication.governance",
+          "display_name": "Remote Publication Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.digital.remote-publication.baseline",
+            "sc.digital.remote-publication.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D1.remote-publication.exceptions",
+          "canonical_name": "digital.remote-publication.exceptions",
+          "display_name": "Remote Publication Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.digital.remote-publication.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D1",
+      "canonical_domain": "digital.external-commentary",
+      "subdomains": [
+        {
+          "subdomain_id": "D1.external-commentary.governance",
+          "canonical_name": "digital.external-commentary.governance",
+          "display_name": "External Commentary Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.digital.external-commentary.baseline",
+            "sc.digital.external-commentary.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D1.external-commentary.exceptions",
+          "canonical_name": "digital.external-commentary.exceptions",
+          "display_name": "External Commentary Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.digital.external-commentary.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D1",
+      "canonical_domain": "digital.artifact-distribution",
+      "subdomains": [
+        {
+          "subdomain_id": "D1.artifact-distribution.governance",
+          "canonical_name": "digital.artifact-distribution.governance",
+          "display_name": "Artifact Distribution Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.digital.artifact-distribution.baseline",
+            "sc.digital.artifact-distribution.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D1.artifact-distribution.exceptions",
+          "canonical_name": "digital.artifact-distribution.exceptions",
+          "display_name": "Artifact Distribution Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.digital.artifact-distribution.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D1",
+      "canonical_domain": "digital.remote-retrieval",
+      "subdomains": [
+        {
+          "subdomain_id": "D1.remote-retrieval.governance",
+          "canonical_name": "digital.remote-retrieval.governance",
+          "display_name": "Remote Retrieval Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.digital.remote-retrieval.baseline",
+            "sc.digital.remote-retrieval.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D1.remote-retrieval.exceptions",
+          "canonical_name": "digital.remote-retrieval.exceptions",
+          "display_name": "Remote Retrieval Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.digital.remote-retrieval.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D1",
+      "canonical_domain": "digital.digital-sink-control",
+      "subdomains": [
+        {
+          "subdomain_id": "D1.digital-sink-control.governance",
+          "canonical_name": "digital.digital-sink-control.governance",
+          "display_name": "Digital Sink Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.digital.digital-sink-control.baseline",
+            "sc.digital.digital-sink-control.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D1.digital-sink-control.exceptions",
+          "canonical_name": "digital.digital-sink-control.exceptions",
+          "display_name": "Digital Sink Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.digital.digital-sink-control.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D2",
+      "canonical_domain": "physical.actuation-governance",
+      "subdomains": [
+        {
+          "subdomain_id": "D2.actuation-governance.governance",
+          "canonical_name": "physical.actuation-governance.governance",
+          "display_name": "Actuation Governance Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.physical.actuation-governance.baseline",
+            "sc.physical.actuation-governance.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D2.actuation-governance.exceptions",
+          "canonical_name": "physical.actuation-governance.exceptions",
+          "display_name": "Actuation Governance Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.physical.actuation-governance.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D2",
+      "canonical_domain": "physical.device-integrity",
+      "subdomains": [
+        {
+          "subdomain_id": "D2.device-integrity.governance",
+          "canonical_name": "physical.device-integrity.governance",
+          "display_name": "Device Integrity Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.physical.device-integrity.baseline",
+            "sc.physical.device-integrity.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D2.device-integrity.exceptions",
+          "canonical_name": "physical.device-integrity.exceptions",
+          "display_name": "Device Integrity Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.physical.device-integrity.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D2",
+      "canonical_domain": "physical.safety-window-control",
+      "subdomains": [
+        {
+          "subdomain_id": "D2.safety-window-control.governance",
+          "canonical_name": "physical.safety-window-control.governance",
+          "display_name": "Safety Window Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.physical.safety-window-control.baseline",
+            "sc.physical.safety-window-control.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D2.safety-window-control.exceptions",
+          "canonical_name": "physical.safety-window-control.exceptions",
+          "display_name": "Safety Window Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.physical.safety-window-control.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D3",
+      "canonical_domain": "biological.chain-of-custody",
+      "subdomains": [
+        {
+          "subdomain_id": "D3.chain-of-custody.governance",
+          "canonical_name": "biological.chain-of-custody.governance",
+          "display_name": "Chain of Custody Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.biological.chain-of-custody.baseline",
+            "sc.biological.chain-of-custody.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D3.chain-of-custody.exceptions",
+          "canonical_name": "biological.chain-of-custody.exceptions",
+          "display_name": "Chain of Custody Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.biological.chain-of-custody.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D3",
+      "canonical_domain": "biological.sample-handling",
+      "subdomains": [
+        {
+          "subdomain_id": "D3.sample-handling.governance",
+          "canonical_name": "biological.sample-handling.governance",
+          "display_name": "Sample Handling Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.biological.sample-handling.baseline",
+            "sc.biological.sample-handling.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D3.sample-handling.exceptions",
+          "canonical_name": "biological.sample-handling.exceptions",
+          "display_name": "Sample Handling Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.biological.sample-handling.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D3",
+      "canonical_domain": "biological.bio-risk-gating",
+      "subdomains": [
+        {
+          "subdomain_id": "D3.bio-risk-gating.governance",
+          "canonical_name": "biological.bio-risk-gating.governance",
+          "display_name": "Bio Risk Gating Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.biological.bio-risk-gating.baseline",
+            "sc.biological.bio-risk-gating.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D3.bio-risk-gating.exceptions",
+          "canonical_name": "biological.bio-risk-gating.exceptions",
+          "display_name": "Bio Risk Gating Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.biological.bio-risk-gating.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D4",
+      "canonical_domain": "social-institutional.procedural-authorization",
+      "subdomains": [
+        {
+          "subdomain_id": "D4.procedural-authorization.governance",
+          "canonical_name": "social-institutional.procedural-authorization.governance",
+          "display_name": "Procedural Authorization Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.social-institutional.procedural-authorization.baseline",
+            "sc.social-institutional.procedural-authorization.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D4.procedural-authorization.exceptions",
+          "canonical_name": "social-institutional.procedural-authorization.exceptions",
+          "display_name": "Procedural Authorization Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.social-institutional.procedural-authorization.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D4",
+      "canonical_domain": "social-institutional.policy-adherence",
+      "subdomains": [
+        {
+          "subdomain_id": "D4.policy-adherence.governance",
+          "canonical_name": "social-institutional.policy-adherence.governance",
+          "display_name": "Policy Adherence Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.social-institutional.policy-adherence.baseline",
+            "sc.social-institutional.policy-adherence.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D4.policy-adherence.exceptions",
+          "canonical_name": "social-institutional.policy-adherence.exceptions",
+          "display_name": "Policy Adherence Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.social-institutional.policy-adherence.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D4",
+      "canonical_domain": "social-institutional.institutional-escalation",
+      "subdomains": [
+        {
+          "subdomain_id": "D4.institutional-escalation.governance",
+          "canonical_name": "social-institutional.institutional-escalation.governance",
+          "display_name": "Institutional Escalation Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.social-institutional.institutional-escalation.baseline",
+            "sc.social-institutional.institutional-escalation.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D4.institutional-escalation.exceptions",
+          "canonical_name": "social-institutional.institutional-escalation.exceptions",
+          "display_name": "Institutional Escalation Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.social-institutional.institutional-escalation.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D5",
+      "canonical_domain": "economic.payments",
+      "subdomains": [
+        {
+          "subdomain_id": "D5.payments.governance",
+          "canonical_name": "economic.payments.governance",
+          "display_name": "Payments Governance Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.economic.payments.baseline",
+            "sc.economic.payments.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D5.payments.exceptions",
+          "canonical_name": "economic.payments.exceptions",
+          "display_name": "Payments Governance Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.economic.payments.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D5",
+      "canonical_domain": "economic.transfers",
+      "subdomains": [
+        {
+          "subdomain_id": "D5.transfers.governance",
+          "canonical_name": "economic.transfers.governance",
+          "display_name": "Transfer Governance Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.economic.transfers.baseline",
+            "sc.economic.transfers.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D5.transfers.exceptions",
+          "canonical_name": "economic.transfers.exceptions",
+          "display_name": "Transfer Governance Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.economic.transfers.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D5",
+      "canonical_domain": "economic.settlements",
+      "subdomains": [
+        {
+          "subdomain_id": "D5.settlements.governance",
+          "canonical_name": "economic.settlements.governance",
+          "display_name": "Settlement Integrity Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.economic.settlements.baseline",
+            "sc.economic.settlements.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D5.settlements.exceptions",
+          "canonical_name": "economic.settlements.exceptions",
+          "display_name": "Settlement Integrity Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.economic.settlements.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D5",
+      "canonical_domain": "economic.treasury",
+      "subdomains": [
+        {
+          "subdomain_id": "D5.treasury.governance",
+          "canonical_name": "economic.treasury.governance",
+          "display_name": "Treasury Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.economic.treasury.baseline",
+            "sc.economic.treasury.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D5.treasury.exceptions",
+          "canonical_name": "economic.treasury.exceptions",
+          "display_name": "Treasury Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.economic.treasury.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D5",
+      "canonical_domain": "economic.invoicing",
+      "subdomains": [
+        {
+          "subdomain_id": "D5.invoicing.governance",
+          "canonical_name": "economic.invoicing.governance",
+          "display_name": "Invoicing Governance Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.economic.invoicing.baseline",
+            "sc.economic.invoicing.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D5.invoicing.exceptions",
+          "canonical_name": "economic.invoicing.exceptions",
+          "display_name": "Invoicing Governance Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.economic.invoicing.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D5",
+      "canonical_domain": "economic.accounting-integrity",
+      "subdomains": [
+        {
+          "subdomain_id": "D5.accounting-integrity.governance",
+          "canonical_name": "economic.accounting-integrity.governance",
+          "display_name": "Accounting Integrity Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.economic.accounting-integrity.baseline",
+            "sc.economic.accounting-integrity.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D5.accounting-integrity.exceptions",
+          "canonical_name": "economic.accounting-integrity.exceptions",
+          "display_name": "Accounting Integrity Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.economic.accounting-integrity.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D5",
+      "canonical_domain": "economic.pricing-and-quoting",
+      "subdomains": [
+        {
+          "subdomain_id": "D5.pricing-and-quoting.governance",
+          "canonical_name": "economic.pricing-and-quoting.governance",
+          "display_name": "Pricing and Quoting Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.economic.pricing-and-quoting.baseline",
+            "sc.economic.pricing-and-quoting.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D5.pricing-and-quoting.exceptions",
+          "canonical_name": "economic.pricing-and-quoting.exceptions",
+          "display_name": "Pricing and Quoting Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.economic.pricing-and-quoting.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D5",
+      "canonical_domain": "economic.credit-exposure",
+      "subdomains": [
+        {
+          "subdomain_id": "D5.credit-exposure.governance",
+          "canonical_name": "economic.credit-exposure.governance",
+          "display_name": "Credit Exposure Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.economic.credit-exposure.baseline",
+            "sc.economic.credit-exposure.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D5.credit-exposure.exceptions",
+          "canonical_name": "economic.credit-exposure.exceptions",
+          "display_name": "Credit Exposure Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.economic.credit-exposure.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D5",
+      "canonical_domain": "economic.fraud-risk-controls",
+      "subdomains": [
+        {
+          "subdomain_id": "D5.fraud-risk-controls.governance",
+          "canonical_name": "economic.fraud-risk-controls.governance",
+          "display_name": "Fraud Risk Controls Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.economic.fraud-risk-controls.baseline",
+            "sc.economic.fraud-risk-controls.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D5.fraud-risk-controls.exceptions",
+          "canonical_name": "economic.fraud-risk-controls.exceptions",
+          "display_name": "Fraud Risk Controls Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.economic.fraud-risk-controls.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D6",
+      "canonical_domain": "operational.incident-response",
+      "subdomains": [
+        {
+          "subdomain_id": "D6.incident-response.governance",
+          "canonical_name": "operational.incident-response.governance",
+          "display_name": "Incident Response Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.operational.incident-response.baseline",
+            "sc.operational.incident-response.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D6.incident-response.exceptions",
+          "canonical_name": "operational.incident-response.exceptions",
+          "display_name": "Incident Response Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.operational.incident-response.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D6",
+      "canonical_domain": "operational.change-control",
+      "subdomains": [
+        {
+          "subdomain_id": "D6.change-control.governance",
+          "canonical_name": "operational.change-control.governance",
+          "display_name": "Change Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.operational.change-control.baseline",
+            "sc.operational.change-control.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D6.change-control.exceptions",
+          "canonical_name": "operational.change-control.exceptions",
+          "display_name": "Change Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.operational.change-control.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D6",
+      "canonical_domain": "operational.runbook-execution",
+      "subdomains": [
+        {
+          "subdomain_id": "D6.runbook-execution.governance",
+          "canonical_name": "operational.runbook-execution.governance",
+          "display_name": "Runbook Execution Governance Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.operational.runbook-execution.baseline",
+            "sc.operational.runbook-execution.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D6.runbook-execution.exceptions",
+          "canonical_name": "operational.runbook-execution.exceptions",
+          "display_name": "Runbook Execution Governance Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.operational.runbook-execution.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D7",
+      "canonical_domain": "cognitive-cultural.publication-enforcement",
+      "subdomains": [
+        {
+          "subdomain_id": "D7.publication-enforcement.governance",
+          "canonical_name": "cognitive-cultural.publication-enforcement.governance",
+          "display_name": "Publication Enforcement Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.cognitive-cultural.publication-enforcement.baseline",
+            "sc.cognitive-cultural.publication-enforcement.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D7.publication-enforcement.exceptions",
+          "canonical_name": "cognitive-cultural.publication-enforcement.exceptions",
+          "display_name": "Publication Enforcement Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.cognitive-cultural.publication-enforcement.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D7",
+      "canonical_domain": "cognitive-cultural.interpretation-integrity",
+      "subdomains": [
+        {
+          "subdomain_id": "D7.interpretation-integrity.governance",
+          "canonical_name": "cognitive-cultural.interpretation-integrity.governance",
+          "display_name": "Interpretation Integrity Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.cognitive-cultural.interpretation-integrity.baseline",
+            "sc.cognitive-cultural.interpretation-integrity.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D7.interpretation-integrity.exceptions",
+          "canonical_name": "cognitive-cultural.interpretation-integrity.exceptions",
+          "display_name": "Interpretation Integrity Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.cognitive-cultural.interpretation-integrity.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D7",
+      "canonical_domain": "cognitive-cultural.cognitive-safety",
+      "subdomains": [
+        {
+          "subdomain_id": "D7.cognitive-safety.governance",
+          "canonical_name": "cognitive-cultural.cognitive-safety.governance",
+          "display_name": "Cognitive Safety Controls Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.cognitive-cultural.cognitive-safety.baseline",
+            "sc.cognitive-cultural.cognitive-safety.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D7.cognitive-safety.exceptions",
+          "canonical_name": "cognitive-cultural.cognitive-safety.exceptions",
+          "display_name": "Cognitive Safety Controls Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.cognitive-cultural.cognitive-safety.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D8",
+      "canonical_domain": "scientific.experiment-configuration",
+      "subdomains": [
+        {
+          "subdomain_id": "D8.experiment-configuration.governance",
+          "canonical_name": "scientific.experiment-configuration.governance",
+          "display_name": "Experiment Configuration Governance Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.scientific.experiment-configuration.baseline",
+            "sc.scientific.experiment-configuration.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D8.experiment-configuration.exceptions",
+          "canonical_name": "scientific.experiment-configuration.exceptions",
+          "display_name": "Experiment Configuration Governance Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.scientific.experiment-configuration.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D8",
+      "canonical_domain": "scientific.parameter-governance",
+      "subdomains": [
+        {
+          "subdomain_id": "D8.parameter-governance.governance",
+          "canonical_name": "scientific.parameter-governance.governance",
+          "display_name": "Parameter Governance Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.scientific.parameter-governance.baseline",
+            "sc.scientific.parameter-governance.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D8.parameter-governance.exceptions",
+          "canonical_name": "scientific.parameter-governance.exceptions",
+          "display_name": "Parameter Governance Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.scientific.parameter-governance.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D8",
+      "canonical_domain": "scientific.reproducibility-control",
+      "subdomains": [
+        {
+          "subdomain_id": "D8.reproducibility-control.governance",
+          "canonical_name": "scientific.reproducibility-control.governance",
+          "display_name": "Reproducibility Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.scientific.reproducibility-control.baseline",
+            "sc.scientific.reproducibility-control.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D8.reproducibility-control.exceptions",
+          "canonical_name": "scientific.reproducibility-control.exceptions",
+          "display_name": "Reproducibility Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.scientific.reproducibility-control.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D8",
+      "canonical_domain": "scientific.black-box-evaluation",
+      "subdomains": [
+        {
+          "subdomain_id": "D8.black-box-evaluation.governance",
+          "canonical_name": "scientific.black-box-evaluation.governance",
+          "display_name": "Black-box Evaluation Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.scientific.black-box-evaluation.baseline",
+            "sc.scientific.black-box-evaluation.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D8.black-box-evaluation.exceptions",
+          "canonical_name": "scientific.black-box-evaluation.exceptions",
+          "display_name": "Black-box Evaluation Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.scientific.black-box-evaluation.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D8",
+      "canonical_domain": "scientific.dataset-integrity",
+      "subdomains": [
+        {
+          "subdomain_id": "D8.dataset-integrity.governance",
+          "canonical_name": "scientific.dataset-integrity.governance",
+          "display_name": "Dataset Integrity Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.scientific.dataset-integrity.baseline",
+            "sc.scientific.dataset-integrity.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D8.dataset-integrity.exceptions",
+          "canonical_name": "scientific.dataset-integrity.exceptions",
+          "display_name": "Dataset Integrity Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.scientific.dataset-integrity.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D8",
+      "canonical_domain": "scientific.result-publication-control",
+      "subdomains": [
+        {
+          "subdomain_id": "D8.result-publication-control.governance",
+          "canonical_name": "scientific.result-publication-control.governance",
+          "display_name": "Result Publication Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.scientific.result-publication-control.baseline",
+            "sc.scientific.result-publication-control.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D8.result-publication-control.exceptions",
+          "canonical_name": "scientific.result-publication-control.exceptions",
+          "display_name": "Result Publication Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.scientific.result-publication-control.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D9",
+      "canonical_domain": "environmental-climatological.telemetry-integrity",
+      "subdomains": [
+        {
+          "subdomain_id": "D9.telemetry-integrity.governance",
+          "canonical_name": "environmental-climatological.telemetry-integrity.governance",
+          "display_name": "Telemetry Integrity Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.environmental-climatological.telemetry-integrity.baseline",
+            "sc.environmental-climatological.telemetry-integrity.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D9.telemetry-integrity.exceptions",
+          "canonical_name": "environmental-climatological.telemetry-integrity.exceptions",
+          "display_name": "Telemetry Integrity Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.environmental-climatological.telemetry-integrity.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D9",
+      "canonical_domain": "environmental-climatological.climate-risk-monitoring",
+      "subdomains": [
+        {
+          "subdomain_id": "D9.climate-risk-monitoring.governance",
+          "canonical_name": "environmental-climatological.climate-risk-monitoring.governance",
+          "display_name": "Climate Risk Monitoring Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.environmental-climatological.climate-risk-monitoring.baseline",
+            "sc.environmental-climatological.climate-risk-monitoring.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D9.climate-risk-monitoring.exceptions",
+          "canonical_name": "environmental-climatological.climate-risk-monitoring.exceptions",
+          "display_name": "Climate Risk Monitoring Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.environmental-climatological.climate-risk-monitoring.exceptions"
+          ]
+        }
+      ]
+    },
+    {
+      "family_id": "D9",
+      "canonical_domain": "environmental-climatological.environmental-reporting",
+      "subdomains": [
+        {
+          "subdomain_id": "D9.environmental-reporting.governance",
+          "canonical_name": "environmental-climatological.environmental-reporting.governance",
+          "display_name": "Environmental Reporting Control Governance",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "assets",
+            "risks",
+            "evidence-obligations"
+          ],
+          "scenario_classes": [
+            "sc.environmental-climatological.environmental-reporting.baseline",
+            "sc.environmental-climatological.environmental-reporting.stress"
+          ]
+        },
+        {
+          "subdomain_id": "D9.environmental-reporting.exceptions",
+          "canonical_name": "environmental-climatological.environmental-reporting.exceptions",
+          "display_name": "Environmental Reporting Control Exceptions",
+          "status": "seed",
+          "inherits_from": [
+            "actions",
+            "risks"
+          ],
+          "scenario_classes": [
+            "sc.environmental-climatological.environmental-reporting.exceptions"
+          ]
+        }
+      ]
+    }
+  ],
+  "bridge_status": "seed-taxonomy-over-parked-families"
+}

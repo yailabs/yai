@@ -1,0 +1,12 @@
+{
+  "kind": "signal-taxonomy",
+  "version": "v2",
+  "signals": [
+    {"signal": "provider", "examples": ["github", "s3", "otel", "payment-gateway", "core-ledger", "experiment-runner"]},
+    {"signal": "protocol", "examples": ["http", "grpc", "queue", "file", "provider-sdk"]},
+    {"signal": "resource", "examples": ["dataset", "artifact", "financial-instrument", "ledger-entry", "approval-record"]},
+    {"signal": "operation-class", "examples": ["payment-initiation", "transfer-authorization", "settlement-finalization", "parameter-lock"]},
+    {"signal": "workspace-context", "examples": ["production", "regulated-sector", "finance-strict", "scientific-high-risk"]},
+    {"signal": "authority-context", "examples": ["operator", "controller", "auditor", "dual-control"]}
+  ]
+}

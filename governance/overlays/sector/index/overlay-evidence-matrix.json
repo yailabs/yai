@@ -1,0 +1,9 @@
+{
+  "kind": "sector_overlay_evidence_matrix",
+  "version": "v1",
+  "entries": [
+    {"overlay":"sector.finance","required":["approval_chain","amount_context","counterparty_context","overlay_hits"]},
+    {"overlay":"sector.healthcare","required":["data_sensitivity_class","clinical_context","review_trace"]},
+    {"overlay":"sector.public-sector","required":["justification","audit_trace","authority_scope"]}
+  ]
+}

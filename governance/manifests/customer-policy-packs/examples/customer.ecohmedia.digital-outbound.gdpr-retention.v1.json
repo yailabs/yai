@@ -1,0 +1,96 @@
+{
+  "kind": "customer_policy_pack",
+  "schema_version": "v1",
+  "id": "customer.ecohmedia.digital-outbound.gdpr-retention",
+  "name": "EcohMedia Digital Outbound Regulatory Pack",
+  "version": "2026.03",
+  "scope_targets": {
+    "organization_ids": [
+      "ecohmedia"
+    ],
+    "workspace_ids": [
+      "ws_digital_outbound_prod",
+      "ws_digital_outbound_stage"
+    ],
+    "environment_classes": [
+      "production",
+      "staging"
+    ],
+    "session_scope": "workspace-bound"
+  },
+  "domain_targets": [
+    "digital"
+  ],
+  "family_targets": [
+    "digital"
+  ],
+  "specialization_targets": [
+    "network-egress",
+    "remote-publication",
+    "external-commentary",
+    "artifact-distribution",
+    "remote-retrieval",
+    "digital-sink-control"
+  ],
+  "compliance_attachments": [
+    {
+      "compliance_id": "gdpr-eu",
+      "overlay_ref": "overlays/regulatory/gdpr-eu/manifest.json",
+      "mode": "required"
+    },
+    {
+      "compliance_id": "retention-governance",
+      "overlay_ref": "overlays/regulatory/retention-governance/manifest.json",
+      "mode": "required"
+    },
+    {
+      "compliance_id": "security-supply-chain",
+      "overlay_ref": "overlays/regulatory/security-supply-chain/manifest.json",
+      "mode": "required"
+    }
+  ],
+  "overlay_layers": {
+    "regulatory": [
+      "gdpr-eu",
+      "retention-governance",
+      "security-supply-chain"
+    ],
+    "sector": [
+      "sector.finance"
+    ],
+    "contextual": [
+      "organization",
+      "workspace",
+      "session"
+    ]
+  },
+  "authority_profile": {
+    "default_scope": "controller",
+    "external_effect_requires_explicit_approval": true,
+    "review_required_for_external_commentary": true,
+    "self_approval_forbidden": true
+  },
+  "evidence_profile": {
+    "requires_destination_trace": true,
+    "requires_decision_record": true,
+    "requires_review_record_for_external_effect": true,
+    "requires_retention_attestation": true,
+    "requires_approval_chain": true
+  },
+  "precedence_mode": "specialization+compliance+overlays+customer-pack",
+  "compatibility": {
+    "law_range": ">=0.1.0",
+    "runtime_targets": [
+      "yai"
+    ],
+    "export_profiles": [
+      "runtime-consumer.v4"
+    ]
+  },
+  "runtime_entrypoint_refs": [
+    "manifests/runtime.entrypoints.json#default-runtime"
+  ],
+  "runtime_entrypoint_ref_fallback": "manifests/runtime.entrypoints.json",
+  "export_mode": "runtime-contract",
+  "status": "active"
+}

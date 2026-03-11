@@ -1,0 +1,34 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v1",
+  "family_id": "D2",
+  "internal_id": "D2",
+  "canonical_name": "physical",
+  "display_name": "Physical",
+  "status": "active-bridge",
+  "legacy_seed_ref": "transitional/domain-family-seed/D2-physical",
+  "canonical_domains": [
+    {
+      "domain_key": "actuation-governance",
+      "canonical_name": "physical.actuation-governance",
+      "display_name": "Actuation Governance",
+      "status": "seed"
+    },
+    {
+      "domain_key": "device-integrity",
+      "canonical_name": "physical.device-integrity",
+      "display_name": "Device Integrity Control",
+      "status": "seed"
+    },
+    {
+      "domain_key": "safety-window-control",
+      "canonical_name": "physical.safety-window-control",
+      "display_name": "Safety Window Control",
+      "status": "seed"
+    }
+  ],
+  "notes": [
+    "bridge-5of10",
+    "legacy-seed-preserved"
+  ]
+}

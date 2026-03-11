@@ -1,0 +1,13 @@
+{
+  "kind": "specialization_authority_model",
+  "version": "v1",
+  "specialization_id": "settlements",
+  "default_scope": "auditor",
+  "requires_dual_control": true,
+  "forbid_self_approval": true,
+  "escalation_thresholds": [
+    "high_impact_operation",
+    "cross_border_counterparty",
+    "anomaly_detected"
+  ]
+}

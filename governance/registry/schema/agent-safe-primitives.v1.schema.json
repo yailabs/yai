@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yai.law.agent_safe_primitives.v1",
+  "title": "Agent Safe Primitives Catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "capability_classes", "primitives"],
+  "properties": {
+    "kind": { "type": "string", "const": "agent_safe_primitives_catalog" },
+    "version": { "type": "string", "const": "v1" },
+    "capability_classes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "primitives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "capability_class",
+          "invocation",
+          "requires_human_confirmation",
+          "lifecycle_guard",
+          "allowed_for_agent",
+          "no_skip_boundary"
+        ],
+        "properties": {
+          "id": { "type": "string", "minLength": 3 },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "read_only",
+              "proposal",
+              "validation",
+              "controlled_transition",
+              "operational_apply",
+              "forbidden_direct"
+            ]
+          },
+          "capability_class": { "type": "string", "minLength": 3 },
+          "invocation": { "type": "string", "minLength": 3 },
+          "requires_human_confirmation": { "type": "boolean" },
+          "lifecycle_guard": { "type": "string", "minLength": 3 },
+          "allowed_for_agent": { "type": "boolean" },
+          "no_skip_boundary": { "type": "string", "minLength": 3 },
+          "notes": { "type": "string" },
+          "runtime_family_owner": {
+            "type": "string",
+            "enum": ["core", "exec", "data", "graph", "knowledge", "law", "support"]
+          },
+          "runtime_binding_model": {
+            "type": "string",
+            "enum": ["workspace-first", "global-baseline", "authoring-only"]
+          },
+          "workspace_binding_required": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

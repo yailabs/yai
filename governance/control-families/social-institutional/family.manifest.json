@@ -1,0 +1,34 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v1",
+  "family_id": "D4",
+  "internal_id": "D4",
+  "canonical_name": "social-institutional",
+  "display_name": "Social-Institutional",
+  "status": "active-bridge",
+  "legacy_seed_ref": "transitional/domain-family-seed/D4-social-institutional",
+  "canonical_domains": [
+    {
+      "domain_key": "procedural-authorization",
+      "canonical_name": "social-institutional.procedural-authorization",
+      "display_name": "Procedural Authorization",
+      "status": "seed"
+    },
+    {
+      "domain_key": "policy-adherence",
+      "canonical_name": "social-institutional.policy-adherence",
+      "display_name": "Policy Adherence Control",
+      "status": "seed"
+    },
+    {
+      "domain_key": "institutional-escalation",
+      "canonical_name": "social-institutional.institutional-escalation",
+      "display_name": "Institutional Escalation",
+      "status": "seed"
+    }
+  ],
+  "notes": [
+    "bridge-5of10",
+    "legacy-seed-preserved"
+  ]
+}

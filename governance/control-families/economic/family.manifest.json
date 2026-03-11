@@ -1,0 +1,70 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v1",
+  "family_id": "D5",
+  "internal_id": "D5",
+  "canonical_name": "economic",
+  "display_name": "Economic",
+  "status": "active-bridge",
+  "legacy_seed_ref": "transitional/domain-family-seed/D5-economic",
+  "canonical_domains": [
+    {
+      "domain_key": "payments",
+      "canonical_name": "economic.payments",
+      "display_name": "Payments Governance",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "transfers",
+      "canonical_name": "economic.transfers",
+      "display_name": "Transfer Governance",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "settlements",
+      "canonical_name": "economic.settlements",
+      "display_name": "Settlement Integrity",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "treasury",
+      "canonical_name": "economic.treasury",
+      "display_name": "Treasury Control",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "invoicing",
+      "canonical_name": "economic.invoicing",
+      "display_name": "Invoicing Governance",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "accounting-integrity",
+      "canonical_name": "economic.accounting-integrity",
+      "display_name": "Accounting Integrity",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "pricing-and-quoting",
+      "canonical_name": "economic.pricing-and-quoting",
+      "display_name": "Pricing and Quoting Control",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "credit-exposure",
+      "canonical_name": "economic.credit-exposure",
+      "display_name": "Credit Exposure Control",
+      "status": "active-planned"
+    },
+    {
+      "domain_key": "fraud-risk-controls",
+      "canonical_name": "economic.fraud-risk-controls",
+      "display_name": "Fraud Risk Controls",
+      "status": "active-planned"
+    }
+  ],
+  "notes": [
+    "bridge-5of10",
+    "legacy-seed-preserved"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "kind": "domain_policy_rule",
+  "version": "v1",
+  "rule_id": "gdpr-eu.cross-border-review",
+  "status": "active",
+  "scope": "global",
+  "conditions": [
+    {
+      "asset": "data"
+    }
+  ],
+  "effect": "review_required",
+  "priority": 900,
+  "exceptions": [],
+  "evidence_requirements": [
+    {
+      "evidence_type": "decision_record"
+    }
+  ]
+}

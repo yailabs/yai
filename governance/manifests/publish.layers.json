@@ -1,0 +1,30 @@
+{
+  "kind": "publish.layers",
+  "version": "v1",
+  "runtime_surface": {
+    "classification": "classification/",
+    "control_families": "control-families/",
+    "domain_specializations": "domain-specializations/",
+    "overlays": {
+      "regulatory": "overlays/regulatory/",
+      "sector": "overlays/sector/",
+      "contextual": "overlays/contextual/"
+    },
+    "manifests": "manifests/"
+  },
+  "bridge": {
+    "legacy_enabled": false,
+    "legacy_root": "transitional/domain-family-seed/",
+    "mode": "opt-in-compat-only"
+  },
+  "non_runtime_sections": [
+    "docs/",
+    "authority/",
+    "foundation/",
+    "formal/",
+    "tools/",
+    "contracts/",
+    "registry/",
+    "archive_tmp/"
+  ]
+}

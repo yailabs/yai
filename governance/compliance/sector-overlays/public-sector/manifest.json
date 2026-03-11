@@ -1,0 +1,14 @@
+{
+  "kind": "compliance_overlay",
+  "version": "v2",
+  "overlay_id": "sector.public-sector",
+  "base_compliance_id": "ai-act",
+  "sector": "public-sector",
+  "layer_type": "sector-overlay",
+  "attachment_levels": [
+    "family",
+    "domain",
+    "authority",
+    "evidence"
+  ]
+}

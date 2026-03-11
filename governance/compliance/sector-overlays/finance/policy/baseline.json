@@ -1,0 +1,6 @@
+{
+  "kind": "overlay_policy",
+  "version": "v1",
+  "id": "sector.finance.baseline",
+  "effect": "review_required"
+}

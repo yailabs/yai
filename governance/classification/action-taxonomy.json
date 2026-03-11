@@ -1,0 +1,14 @@
+{
+  "kind": "action-taxonomy",
+  "version": "v2",
+  "actions": [
+    {"action": "egress", "aliases": ["connect", "send"], "primary_families": ["digital", "economic"], "example_specializations": ["digital.network-egress", "economic.transfers"]},
+    {"action": "publish", "aliases": ["post", "release"], "primary_families": ["digital", "scientific"], "example_specializations": ["digital.remote-publication", "scientific.result-publication-control"]},
+    {"action": "retrieve", "aliases": ["fetch", "read"], "primary_families": ["digital", "scientific"], "example_specializations": ["digital.remote-retrieval", "scientific.dataset-integrity"]},
+    {"action": "authorize", "aliases": ["approve", "arm"], "primary_families": ["economic"], "example_specializations": ["economic.payments", "economic.transfers"]},
+    {"action": "settle", "aliases": ["finalize", "reconcile"], "primary_families": ["economic"], "example_specializations": ["economic.settlements"]},
+    {"action": "hold", "aliases": ["freeze", "quarantine"], "primary_families": ["economic", "digital"], "example_specializations": ["economic.fraud-risk-controls", "digital.digital-sink-control"]},
+    {"action": "parameter-modify", "aliases": ["set-params", "mutate-config"], "primary_families": ["scientific"], "example_specializations": ["scientific.parameter-governance"]},
+    {"action": "experiment-run", "aliases": ["pipeline.run"], "primary_families": ["scientific"], "example_specializations": ["scientific.experiment-configuration"]}
+  ]
+}

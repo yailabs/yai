@@ -1,0 +1,55 @@
+{
+  "kind": "risk-taxonomy",
+  "version": "v2",
+  "risks": [
+    {
+      "risk": "exfiltration",
+      "primary_families": [
+        "D1",
+        "D5"
+      ]
+    },
+    {
+      "risk": "privacy-breach",
+      "primary_families": [
+        "D1",
+        "D4",
+        "D8"
+      ]
+    },
+    {
+      "risk": "provenance-loss",
+      "primary_families": [
+        "D8",
+        "D9",
+        "D5"
+      ]
+    },
+    {
+      "risk": "unauthorized-actuation",
+      "primary_families": [
+        "D2",
+        "D6"
+      ]
+    },
+    {
+      "risk": "unsafe-autonomy",
+      "primary_families": [
+        "D7",
+        "D8"
+      ]
+    },
+    {
+      "risk": "financial-fraud",
+      "primary_families": [
+        "D5"
+      ]
+    },
+    {
+      "risk": "reproducibility-break",
+      "primary_families": [
+        "D8"
+      ]
+    }
+  ]
+}

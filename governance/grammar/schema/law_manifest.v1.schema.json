@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "law/grammar/schema/law_manifest.v1",
+  "title": "law_manifest.v1",
+  "description": "Root law manifest",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "law_version": {
+      "type": "string"
+    },
+    "compatibility": {
+      "type": "string"
+    },
+    "foundation_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "domain_index_ref": {
+      "type": "string"
+    },
+    "compliance_index_ref": {
+      "type": "string"
+    },
+    "resolution_entrypoints_ref": {
+      "type": "string"
+    },
+    "export_targets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "law_version",
+    "domain_index_ref",
+    "compliance_index_ref"
+  ],
+  "additionalProperties": true
+}

@@ -1,0 +1,6 @@
+{
+  "kind": "discovery_signal",
+  "version": "v1",
+  "id": "command-patterns",
+  "description": "Shared signal primitive: command-patterns"
+}
