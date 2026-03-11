@@ -1,20 +1,14 @@
 # Runtime Public Headers
 
-Public runtime authority/workspace/lifecycle/session/enforcement boundary
-surface for the unified system.
+Public runtime nucleus headers for:
 
-Canonical runtime headers:
+- authority, dispatch, enforcement, lifecycle, session, workspace
+- runtime-side policy, grants, containment
+- event taxonomy and vault runtime state
 
-- `authority.h`
-- `enforcement.h`
-- `workspace.h`
-- `session.h`
-- `dispatch.h`
-- `lifecycle.h`
-- `policy.h`
-- `grants.h`
-- `containment.h`
-- `events.h`
-- `vault.h`
+Boundary notes:
 
-Canonical runtime namespace is `include/yai/runtime/`.
+- governance resolves policy content; runtime applies policy state
+- orchestration governs flow control; runtime owns executable core state
+- vault wire ABI and protocol contracts stay under `protocol/`; `runtime/vault.h`
+  is the runtime-side state/use surface

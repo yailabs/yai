@@ -1,3 +1,9 @@
 # Runtime Grants Domain
 
-Runtime-side delegated grant scope, validity, and grant-state handling surfaces.
+`lib/runtime/grants/` tracks runtime grant state and validity.
+
+Responsibilities:
+
+- grant upsert/refresh lifecycle
+- validity/expiry/revocation runtime-side state
+- scope checks for runtime containment and enforcement consumers

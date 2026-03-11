@@ -6,6 +6,9 @@
 #include <yai/knowledge/cognition.h>
 #include <yai/knowledge/memory.h>
 #include <yai/providers/providers.h>
+#include <yai/runtime/policy.h>
+#include <yai/runtime/grants.h>
+#include <yai/runtime/containment.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -93,6 +96,74 @@ int yai_runtime_capabilities_start(const char *workspace_id,
     return -1;
   }
   g_runtime_caps.cognition_ready = 1;
+
+  rc = yai_runtime_policy_start(g_runtime_caps.workspace_id, err, err_cap);
+  if (rc != 0) {
+    (void)yai_knowledge_cognition_stop();
+    (void)yai_knowledge_memory_stop();
+    (void)yai_knowledge_providers_stop();
+    (void)yai_exec_transport_stop();
+    clear_caps();
+    if (err && err_cap > 0) snprintf(err, err_cap, "runtime_policy_init_failed:%d", rc);
+    return -1;
+  }
+  rc = yai_runtime_policy_apply_effective("runtime/bootstrap-policy", 1u, 0, "runtime_caps_bootstrap");
+  if (rc != 0) {
+    (void)yai_runtime_policy_stop();
+    (void)yai_knowledge_cognition_stop();
+    (void)yai_knowledge_memory_stop();
+    (void)yai_knowledge_providers_stop();
+    (void)yai_exec_transport_stop();
+    clear_caps();
+    if (err && err_cap > 0) snprintf(err, err_cap, "runtime_policy_apply_failed:%d", rc);
+    return -1;
+  }
+  g_runtime_caps.policy_ready = 1;
+
+  rc = yai_runtime_grants_start(g_runtime_caps.workspace_id, err, err_cap);
+  if (rc != 0) {
+    (void)yai_runtime_policy_stop();
+    (void)yai_knowledge_cognition_stop();
+    (void)yai_knowledge_memory_stop();
+    (void)yai_knowledge_providers_stop();
+    (void)yai_exec_transport_stop();
+    clear_caps();
+    if (err && err_cap > 0) snprintf(err, err_cap, "runtime_grants_init_failed:%d", rc);
+    return -1;
+  }
+  rc = yai_runtime_grants_upsert("runtime-bootstrap-grant",
+                                 "workspace/*",
+                                 0,
+                                 0,
+                                 0,
+                                 0);
+  if (rc != 0 || yai_runtime_grants_refresh(0) != 0) {
+    (void)yai_runtime_grants_stop();
+    (void)yai_runtime_policy_stop();
+    (void)yai_knowledge_cognition_stop();
+    (void)yai_knowledge_memory_stop();
+    (void)yai_knowledge_providers_stop();
+    (void)yai_exec_transport_stop();
+    clear_caps();
+    if (err && err_cap > 0) snprintf(err, err_cap, "runtime_grants_apply_failed:%d", rc);
+    return -1;
+  }
+  g_runtime_caps.grants_ready = 1;
+
+  rc = yai_runtime_containment_start(g_runtime_caps.workspace_id, err, err_cap);
+  if (rc != 0 || yai_runtime_containment_evaluate("runtime_caps_bootstrap", 0) != 0) {
+    (void)yai_runtime_grants_stop();
+    (void)yai_runtime_policy_stop();
+    (void)yai_knowledge_cognition_stop();
+    (void)yai_knowledge_memory_stop();
+    (void)yai_knowledge_providers_stop();
+    (void)yai_exec_transport_stop();
+    clear_caps();
+    if (err && err_cap > 0) snprintf(err, err_cap, "runtime_containment_init_failed:%d", rc);
+    return -1;
+  }
+  g_runtime_caps.containment_ready = 1;
+
   g_runtime_caps.initialized = 1;
   return 0;
 }
@@ -104,6 +175,15 @@ int yai_runtime_capabilities_stop(char *err, size_t err_cap)
 
   (void)yai_knowledge_cognition_stop();
   g_runtime_caps.cognition_ready = 0;
+
+  (void)yai_runtime_containment_stop();
+  g_runtime_caps.containment_ready = 0;
+
+  (void)yai_runtime_grants_stop();
+  g_runtime_caps.grants_ready = 0;
+
+  (void)yai_runtime_policy_stop();
+  g_runtime_caps.policy_ready = 0;
 
   (void)yai_knowledge_memory_stop();
   g_runtime_caps.memory_ready = 0;

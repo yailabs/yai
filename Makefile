@@ -74,6 +74,9 @@ CORE_SRCS := \
 	lib/runtime/workspace/workspace_runtime.c \
 	lib/runtime/workspace/workspace_binding.c \
 	lib/runtime/workspace/workspace_recovery.c \
+	lib/runtime/policy/policy_state.c \
+	lib/runtime/grants/grants_state.c \
+	lib/runtime/containment/containment_state.c \
 	lib/runtime/enforcement/enforcement.c \
 	lib/runtime/authority/authority_registry.c \
 	lib/runtime/authority/identity.c
@@ -252,7 +255,7 @@ DOXYGEN ?= doxygen
 DOXY_OUT ?= $(DIST_ROOT)/docs/doxygen
 
 .PHONY: all yai yai-edge yai-daemon foundations support platform protocol core orchestration exec mesh providers knowledge data graph edge daemon yd1-baseline \
-        test test-unit test-integration test-e2e test-core test-knowledge test-orchestration test-protocol test-governance test-providers test-edge test-mesh \
+        test test-unit test-integration test-e2e test-core test-runtime test-knowledge test-orchestration test-protocol test-governance test-providers test-edge test-mesh \
         test-demo-matrix verify-final-demo-matrix \
         clean clean-dist clean-all build build-all dist dist-all bundle verify \
         preflight-release docs docs-clean docs-verify proof-verify release-guards \
@@ -288,13 +291,14 @@ protocol: $(PROTOCOL_LIB)
 test: test-unit test-integration test-e2e
 	@echo "[YAI] unified test baseline complete"
 
-test-unit: test-core test-orchestration test-protocol test-knowledge test-governance test-providers test-edge test-mesh
+test-unit: test-core test-runtime test-orchestration test-protocol test-knowledge test-governance test-providers test-edge test-mesh
 	@echo "[YAI] unit suites complete"
 
 test-integration:
 	@tests/integration/runtime/run_runtime_exec_smoke.sh
 	@tests/integration/orchestration/run_orchestration_smoke.sh
 	@tests/integration/orchestration/run_orchestration_c_tests.sh
+	@tests/integration/runtime/run_runtime_state_smoke.sh
 	@tests/integration/edge/run_edge_smoke.sh
 	@tests/integration/mesh/run_mesh_smoke.sh
 	@tests/integration/workspace/workspace_runtime_contract_v1.sh
@@ -326,6 +330,9 @@ test-e2e:
 
 test-core: yai
 	@./build/bin/yai --help >/dev/null
+
+test-runtime:
+	@tests/unit/runtime/run_runtime_unit_tests.sh
 
 test-knowledge:
 	@tests/unit/knowledge/run_knowledge_unit_tests.sh

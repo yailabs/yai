@@ -1,21 +1,22 @@
 # Runtime Implementation Domain (Canonical)
 
-`lib/runtime/` is the canonical governed runtime core domain of the unified
-YAI system.
+`lib/runtime/` is the canonical governed runtime core of YAI.
 
-Canonical runtime subdomains:
+Implemented runtime subdomains:
 
 - `authority/`
-- `enforcement/`
-- `workspace/`
-- `session/`
 - `dispatch/`
+- `enforcement/`
 - `lifecycle/`
+- `session/`
+- `workspace/`
 - `policy/`
 - `grants/`
 - `containment/`
 - `internal/`
 
-Transitional compatibility note:
+Boundary rules:
 
-- legacy `lib/core/` paths were refactored into `lib/runtime/` in A8.
+- `governance/` resolves policy content; `runtime/` applies runtime state
+- `orchestration/` controls operational flow; `runtime/` executes and stores
+  runtime core state

@@ -55,6 +55,11 @@ REQUIRED_EDGE_IMPL_FILES = {
     "lib/edge/edge_state.c",
     "lib/edge/runtime.c",
 }
+REQUIRED_RUNTIME_IMPL_FILES = {
+    "lib/runtime/policy/policy_state.c",
+    "lib/runtime/grants/grants_state.c",
+    "lib/runtime/containment/containment_state.c",
+}
 
 
 IGNORED_ROOT = {
@@ -109,6 +114,9 @@ def main() -> int:
     for rel in sorted(REQUIRED_EDGE_IMPL_FILES):
         if not (repo / rel).exists():
             errors.append(f"edge realization missing critical file: {rel}")
+    for rel in sorted(REQUIRED_RUNTIME_IMPL_FILES):
+        if not (repo / rel).exists():
+            errors.append(f"runtime realization missing critical file: {rel}")
 
     if errors:
         print("root_topology: FAIL")

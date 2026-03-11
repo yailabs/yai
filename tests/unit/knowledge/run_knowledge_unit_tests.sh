@@ -18,6 +18,9 @@ BRAIN_SRCS=(
   lib/runtime/lifecycle/runtime_capabilities.c
   lib/runtime/workspace/workspace_binding.c
   lib/runtime/workspace/workspace_recovery.c
+  lib/runtime/policy/policy_state.c
+  lib/runtime/grants/grants_state.c
+  lib/runtime/containment/containment_state.c
   lib/data/binding/store_binding.c
   lib/data/binding/workspace_binding.c
   lib/data/query/inspect_query.c

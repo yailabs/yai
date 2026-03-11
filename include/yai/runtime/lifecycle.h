@@ -12,6 +12,9 @@ typedef struct yai_runtime_capability_state {
   int providers_ready;
   int memory_ready;
   int cognition_ready;
+  int policy_ready;
+  int grants_ready;
+  int containment_ready;
   char workspace_id[64];
   char runtime_name[64];
   int enable_mock_provider;
