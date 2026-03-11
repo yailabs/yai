@@ -16,12 +16,16 @@ typedef enum yai_runtime_mode
 
 /* Canonical runtime ingress socket relative to $HOME. */
 #define YAI_RUNTIME_INGRESS_SOCKET_REL ".yai/run/control.sock"
+/* Canonical peer ingress socket relative to $HOME. */
+#define YAI_RUNTIME_PEER_INGRESS_SOCKET_REL ".yai/run/peer.sock"
 
 /* Canonical runtime pidfile relative to $HOME. */
 #define YAI_RUNTIME_PIDFILE_REL ".yai/run/runtime.pid"
 
 /* Optional absolute override for runtime ingress resolution. */
 #define YAI_RUNTIME_INGRESS_ENV "YAI_RUNTIME_INGRESS"
+/* Optional absolute override for peer ingress resolution. */
+#define YAI_RUNTIME_PEER_INGRESS_ENV "YAI_RUNTIME_PEER_INGRESS"
 
 /* Optional absolute override for runtime pidfile resolution. */
 #define YAI_RUNTIME_PIDFILE_ENV "YAI_RUNTIME_PIDFILE"

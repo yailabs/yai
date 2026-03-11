@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <signal.h>
+#include <sys/select.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -50,6 +51,11 @@ static int yai_runtime_path_from_rel(const char *rel, char *out, size_t out_cap)
 static int yai_runtime_socket_path(char *out, size_t out_cap)
 {
   return yai_runtime_ingress_path(out, (uint32_t)out_cap);
+}
+
+static int yai_runtime_peer_socket_path(char *out, size_t out_cap)
+{
+  return yai_runtime_peer_ingress_path(out, (uint32_t)out_cap);
 }
 
 static int yai_runtime_pidfile_path(char *out, size_t out_cap)
@@ -174,63 +180,121 @@ static int yai_install_signal_handlers(void)
   return 0;
 }
 
-static int yai_runtime_serve_loop(const char *socket_path)
+static int yai_runtime_drain_client(int client_fd, yai_runtime_ingress_kind_t ingress_kind)
 {
-  int listener_fd = yai_control_listen_at(socket_path);
-  if (listener_fd < 0)
+  int handshake_done = 0;
+  while (!g_runtime_stop)
   {
-    fprintf(stderr, "yai: failed to open ingress socket (%s)\n", socket_path);
+    yai_rpc_envelope_t env;
+    char payload[YAI_MAX_PAYLOAD];
+    ssize_t payload_len = yai_control_read_frame(client_fd, &env, payload, sizeof(payload));
+    if (payload_len < 0)
+    {
+      break;
+    }
+    if (payload_len >= 0)
+    {
+      size_t term = (size_t)payload_len < sizeof(payload) ? (size_t)payload_len : (sizeof(payload) - 1);
+      payload[term] = '\0';
+    }
+    if (yai_dispatch_frame(client_fd, &env, payload, payload_len, &handshake_done, ingress_kind) != 0)
+    {
+      break;
+    }
+  }
+  return 0;
+}
+
+static int yai_runtime_serve_loop(const char *control_socket_path, const char *peer_socket_path)
+{
+  int control_listener_fd = yai_control_listen_at(control_socket_path);
+  int peer_listener_fd = -1;
+  if (control_listener_fd < 0)
+  {
+    fprintf(stderr, "yai: failed to open control ingress socket (%s)\n", control_socket_path);
     fprintf(stderr, "yai: hint: set %s to a writable UDS path (e.g. /tmp/yai-control.sock)\n",
             YAI_RUNTIME_INGRESS_ENV);
     return 1;
   }
+  peer_listener_fd = yai_control_listen_at(peer_socket_path);
+  if (peer_listener_fd < 0)
+  {
+    fprintf(stderr, "yai: failed to open peer ingress socket (%s)\n", peer_socket_path);
+    fprintf(stderr, "yai: hint: set %s to a writable UDS path (e.g. /tmp/yai-peer.sock)\n",
+            YAI_RUNTIME_PEER_INGRESS_ENV);
+    close(control_listener_fd);
+    (void)unlink(control_socket_path);
+    return 1;
+  }
 
-  printf("yai: service ingress listening on %s\n", socket_path);
+  printf("yai: control ingress listening on %s\n", control_socket_path);
+  printf("yai: peer ingress listening on %s\n", peer_socket_path);
   puts("yai: service is live; press Ctrl+C to stop");
 
   while (!g_runtime_stop)
   {
-    int client_fd = accept(listener_fd, NULL, NULL);
-    if (client_fd < 0)
+    fd_set rfds;
+    int max_fd = control_listener_fd > peer_listener_fd ? control_listener_fd : peer_listener_fd;
+    int ready = 0;
+    FD_ZERO(&rfds);
+    FD_SET(control_listener_fd, &rfds);
+    FD_SET(peer_listener_fd, &rfds);
+    ready = select(max_fd + 1, &rfds, NULL, NULL, NULL);
+    if (ready < 0)
     {
       if (errno == EINTR)
       {
         continue;
       }
-      perror("yai: accept failed");
-      close(listener_fd);
-      unlink(socket_path);
+      perror("yai: select failed");
+      close(control_listener_fd);
+      close(peer_listener_fd);
+      unlink(control_socket_path);
+      unlink(peer_socket_path);
       return 1;
     }
 
+    if (FD_ISSET(control_listener_fd, &rfds))
     {
-      int handshake_done = 0;
-      while (!g_runtime_stop)
+      int client_fd = accept(control_listener_fd, NULL, NULL);
+      if (client_fd < 0)
       {
-        yai_rpc_envelope_t env;
-        char payload[YAI_MAX_PAYLOAD];
-        ssize_t payload_len = yai_control_read_frame(client_fd, &env, payload, sizeof(payload));
-        if (payload_len < 0)
+        if (errno == EINTR)
         {
-          break;
+          continue;
         }
-        if (payload_len >= 0)
-        {
-          size_t term = (size_t)payload_len < sizeof(payload) ? (size_t)payload_len : (sizeof(payload) - 1);
-          payload[term] = '\0';
-        }
-        if (yai_dispatch_frame(client_fd, &env, payload, payload_len, &handshake_done) != 0)
-        {
-          break;
-        }
+        perror("yai: control accept failed");
+      }
+      else
+      {
+        (void)yai_runtime_drain_client(client_fd, YAI_RUNTIME_INGRESS_CONTROL);
+        close(client_fd);
       }
     }
 
-    close(client_fd);
+    if (FD_ISSET(peer_listener_fd, &rfds))
+    {
+      int client_fd = accept(peer_listener_fd, NULL, NULL);
+      if (client_fd < 0)
+      {
+        if (errno == EINTR)
+        {
+          continue;
+        }
+        perror("yai: peer accept failed");
+      }
+      else
+      {
+        (void)yai_runtime_drain_client(client_fd, YAI_RUNTIME_INGRESS_PEER);
+        close(client_fd);
+      }
+    }
   }
 
-  close(listener_fd);
-  unlink(socket_path);
+  close(control_listener_fd);
+  close(peer_listener_fd);
+  unlink(control_socket_path);
+  unlink(peer_socket_path);
   puts("yai: service stopped");
   return 0;
 }
@@ -250,7 +314,8 @@ static void yai_print_help(void)
   puts("  - operator entrypoint is CLI: `yai up|status|down` from repo cli");
   puts("  - this binary exposes fallback lifecycle only (up/down)");
   puts("  - edge acquisition companion binary is `yai-daemon` (YD-2 skeleton)");
-  puts("  - canonical ingress: $HOME/.yai/run/control.sock");
+  puts("  - local control ingress: $HOME/.yai/run/control.sock");
+  puts("  - peer source-plane ingress: $HOME/.yai/run/peer.sock");
   puts("  - client flow: cli -> sdk -> yai ingress");
   puts("  - core, exec, data, graph and knowledge are internal runtime modules");
 }
@@ -333,6 +398,7 @@ static void yai_print_runtime_capability_snapshot(const char *phase)
 static int yai_run_runtime(void)
 {
   char socket_path[256] = {0};
+  char peer_socket_path[256] = {0};
   char pidfile_path[256] = {0};
   int pidfile_written = 0;
   char lifecycle_err[128] = {0};
@@ -354,6 +420,7 @@ static int yai_run_runtime(void)
   yai_print_runtime_capability_snapshot("pre-start");
 
   if (yai_runtime_socket_path(socket_path, sizeof(socket_path)) != 0 ||
+      yai_runtime_peer_socket_path(peer_socket_path, sizeof(peer_socket_path)) != 0 ||
       yai_runtime_pidfile_path(pidfile_path, sizeof(pidfile_path)) != 0)
   {
     fprintf(stderr, "yai: failed to resolve runtime paths\n");
@@ -394,7 +461,7 @@ static int yai_run_runtime(void)
     pidfile_written = 1;
   }
 
-  rc = yai_runtime_serve_loop(socket_path);
+  rc = yai_runtime_serve_loop(socket_path, peer_socket_path);
 
   if (pidfile_written)
   {
@@ -417,6 +484,7 @@ static int yai_run_down(void)
 {
   char pidfile_path[256] = {0};
   char socket_path[256] = {0};
+  char peer_socket_path[256] = {0};
   pid_t pid = 0;
   int stopped = 0;
 
@@ -432,6 +500,10 @@ static int yai_run_down(void)
   if (yai_runtime_socket_path(socket_path, sizeof(socket_path)) == 0)
   {
     (void)unlink(socket_path);
+  }
+  if (yai_runtime_peer_socket_path(peer_socket_path, sizeof(peer_socket_path)) == 0)
+  {
+    (void)unlink(peer_socket_path);
   }
   yai_runtime_remove_pidfile(pidfile_path);
 

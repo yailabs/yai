@@ -71,13 +71,44 @@ static int is_valid_role(uint16_t role)
            role == YAI_ROLE_SYSTEM;
 }
 
+static int extract_control_command_id(const char *payload, char *out, size_t out_cap)
+{
+    const char *needle = "\"command_id\":\"";
+    const char *p = NULL;
+    const char *q = NULL;
+    size_t n = 0;
+    if (!payload || !out || out_cap == 0)
+        return -1;
+    out[0] = '\0';
+    p = strstr(payload, needle);
+    if (!p)
+        return -1;
+    p += strlen(needle);
+    q = strchr(p, '"');
+    if (!q || q <= p)
+        return -1;
+    n = (size_t)(q - p);
+    if (n + 1 > out_cap)
+        n = out_cap - 1;
+    memcpy(out, p, n);
+    out[n] = '\0';
+    return out[0] ? 0 : -1;
+}
+
+static int is_source_plane_command_id(const char *command_id)
+{
+    return command_id && strncmp(command_id, "yai.source.", 11) == 0;
+}
+
 int yai_dispatch_frame(
     int client_fd,
     const yai_rpc_envelope_t *env,
     const char *payload,
     ssize_t payload_len,
-    int *handshake_done)
+    int *handshake_done,
+    yai_runtime_ingress_kind_t ingress_kind)
 {
+    char control_command_id[96];
     if (!env || !handshake_done)
         return -1;
 
@@ -117,6 +148,17 @@ int yai_dispatch_frame(
 
     if (!*handshake_done)
         return send_error_response(client_fd, env, YAI_E_NEED_HANDSHAKE, "need_handshake");
+
+    /* NP-2: peer ingress is source-plane scoped and not a generic remote runtime control plane. */
+    if (ingress_kind == YAI_RUNTIME_INGRESS_PEER)
+    {
+        if (env->command_id != YAI_CMD_CONTROL_CALL)
+            return send_error_response(client_fd, env, YAI_E_ROLE_REQUIRED, "peer_ingress_source_plane_only");
+        if (extract_control_command_id(payload, control_command_id, sizeof(control_command_id)) != 0)
+            return send_error_response(client_fd, env, YAI_E_BAD_WS_ID, "peer_ingress_missing_command_id");
+        if (!is_source_plane_command_id(control_command_id))
+            return send_error_response(client_fd, env, YAI_E_ROLE_REQUIRED, "peer_ingress_source_command_required");
+    }
 
     {
         yai_authority_evaluation_t auth_eval;

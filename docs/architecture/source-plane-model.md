@@ -113,6 +113,22 @@ Minimum fields:
 - registration status
 - registration timestamp
 
+### 8) `source_enrollment_grant`
+
+Owner-issued bootstrap artifact that records enrollment decision and v1 trust
+token used by peer operations after enrollment.
+
+Minimum fields:
+
+- `source_enrollment_grant_id`
+- `source_node_id`
+- `daemon_instance_id`
+- `owner_ref`
+- `enrollment_decision`
+- `trust_artifact_id`
+- `trust_artifact_token`
+- `issued_at_epoch`
+
 ## Distinctions (non-negotiable)
 
 - `source_node` != `source_daemon_instance`
@@ -131,6 +147,7 @@ Runtime data-plane record classes introduced by YD-3:
 - `source_acquisition_event`
 - `source_evidence_candidate`
 - `source_owner_link`
+- `source_enrollment_grant`
 
 These are appendable through `yai_data_records_*` hooks and visible in summary
 counts.
@@ -146,6 +163,7 @@ YD-3 introduces dedicated source ID helpers:
 - `se-*` source acquisition event IDs
 - `sc-*` source evidence candidate IDs
 - `sl-*` source owner link IDs
+- `sg-*` source enrollment grant IDs
 
 IDs are deterministic enough for local consistency and are shaped for future
 cross-plane traceability.
@@ -165,6 +183,10 @@ Model-level call/reply contract type IDs are reserved for each operation:
 - `yai.source.attach.call.v1` / `yai.source.attach.reply.v1`
 - `yai.source.emit.call.v1` / `yai.source.emit.reply.v1`
 - `yai.source.status.call.v1` / `yai.source.status.reply.v1`
+
+Enrollment reply now includes owner-issued trust bootstrap fields
+(`owner_trust_artifact_id`, `owner_trust_artifact_token`) for subsequent
+attach/emit/status operations.
 
 These define operation intent and shape anchors for YD-4/YD-5 transport and
 owner-ingest work.

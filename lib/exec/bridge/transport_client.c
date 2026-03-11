@@ -103,6 +103,39 @@ int yai_runtime_ingress_path(char *out, uint32_t out_cap)
     return 0;
 }
 
+int yai_runtime_peer_ingress_path(char *out, uint32_t out_cap)
+{
+    size_t cap = (size_t)out_cap;
+    const char *home = getenv("HOME");
+    const char *override = getenv(YAI_RUNTIME_PEER_INGRESS_ENV);
+
+    if (!out || cap == 0)
+    {
+        return -1;
+    }
+
+    if (override && override[0])
+    {
+        if (snprintf(out, cap, "%s", override) >= (int)cap)
+        {
+            return -2;
+        }
+        return 0;
+    }
+
+    if (!home || !home[0])
+    {
+        return -3;
+    }
+
+    if (snprintf(out, cap, "%s/%s", home, YAI_RUNTIME_PEER_INGRESS_SOCKET_REL) >= (int)cap)
+    {
+        return -4;
+    }
+
+    return 0;
+}
+
 int yai_rpc_connect_at_ingress(yai_rpc_client_t *client, const char *ws_id, const char *socket_path)
 {
     struct sockaddr_un addr;

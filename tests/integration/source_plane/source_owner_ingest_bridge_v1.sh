@@ -149,8 +149,12 @@ expect_ok(enroll, "source.enroll")
 expect_exec_mediation(enroll, "source.enroll")
 node_id = enroll.get("data", {}).get("source_node_id")
 daemon_id = enroll.get("data", {}).get("daemon_instance_id")
+trust_artifact_id = enroll.get("data", {}).get("owner_trust_artifact_id")
+trust_artifact_token = enroll.get("data", {}).get("owner_trust_artifact_token")
 if not node_id or not daemon_id:
   raise RuntimeError(f"source.enroll missing ids: {enroll}")
+if not trust_artifact_id or not trust_artifact_token:
+  raise RuntimeError(f"source.enroll missing trust bootstrap artifact: {enroll}")
 
 attach = call(ws, {
   "type":"yai.control.call.v1",
@@ -158,6 +162,8 @@ attach = call(ws, {
   "target_plane":"runtime",
   "workspace_id": ws,
   "source_node_id": node_id,
+  "owner_trust_artifact_id": trust_artifact_id,
+  "owner_trust_artifact_token": trust_artifact_token,
   "binding_scope":"workspace"
 }, "attach")
 expect_ok(attach, "source.attach")
@@ -173,6 +179,8 @@ emit = call(ws, {
   "workspace_id": ws,
   "source_node_id": node_id,
   "source_binding_id": binding_id,
+  "owner_trust_artifact_id": trust_artifact_id,
+  "owner_trust_artifact_token": trust_artifact_token,
   "idempotency_key":"yd4-emit-001",
   "source_assets":[
     {"type":"yai.source_asset.v1","source_asset_id":"sa-yd4-a","source_binding_id":binding_id,"locator":"file:///tmp/a.txt","asset_type":"file","provenance_fingerprint":"sha256:aaa","observation_state":"observed"}
@@ -197,6 +205,8 @@ status = call(ws, {
   "workspace_id": ws,
   "source_node_id": node_id,
   "daemon_instance_id": daemon_id,
+  "owner_trust_artifact_id": trust_artifact_id,
+  "owner_trust_artifact_token": trust_artifact_token,
   "health":"ready"
 }, "status")
 expect_ok(status, "source.status")
@@ -210,7 +220,7 @@ bad_emit = call(ws, {
   "source_node_id": node_id,
   "source_binding_id": binding_id
 }, "emit-bad")
-expect_error(bad_emit, "BAD_ARGS", "source_emit_empty_payload", "source.emit bad payload")
+expect_error(bad_emit, "INVALID_STATE", "source_emit_trust_bootstrap_required", "source.emit trust bootstrap guard")
 
 PY
 

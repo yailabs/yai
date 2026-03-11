@@ -592,6 +592,10 @@ static int ensure_owner_registered(yai_daemon_local_runtime_t *local, const char
   (void)json_extract_string(reply, "source_node_id", local->source_node_id, sizeof(local->source_node_id));
   (void)json_extract_string(reply, "daemon_instance_id", local->daemon_instance_id, sizeof(local->daemon_instance_id));
   (void)json_extract_string(reply, "owner_link_id", local->owner_link_id, sizeof(local->owner_link_id));
+  (void)json_extract_string(reply, "source_enrollment_grant_id", local->source_enrollment_grant_id, sizeof(local->source_enrollment_grant_id));
+  (void)json_extract_string(reply, "owner_trust_artifact_id", local->owner_trust_artifact_id, sizeof(local->owner_trust_artifact_id));
+  (void)json_extract_string(reply, "owner_trust_artifact_token", local->owner_trust_artifact_token, sizeof(local->owner_trust_artifact_token));
+  if (!local->owner_trust_artifact_token[0] || strcmp(local->owner_trust_artifact_token, "pending") == 0) return -1;
   local->owner_registered = 1;
   local->owner_connected = 1;
   local->last_owner_contact_epoch = now_epoch();
@@ -609,9 +613,11 @@ static int ensure_binding_attached(yai_daemon_local_runtime_t *local, yai_daemon
 
   snprintf(payload,
            sizeof(payload),
-           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.attach\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"binding_scope\":\"%s\"}",
+           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.attach\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"binding_scope\":\"%s\"}",
            binding->workspace_id,
            local->source_node_id,
+           local->owner_trust_artifact_id,
+           local->owner_trust_artifact_token,
            binding->scope[0] ? binding->scope : "workspace");
   rc = rpc_control_call(local->owner_socket, binding->workspace_id, payload, reply, sizeof(reply));
   if (rc != 0 || !json_reply_ok(reply)) return -1;
@@ -709,13 +715,15 @@ static int emit_unit(yai_daemon_local_runtime_t *local, const yai_daemon_unit_t 
   if (compact_id(source_candidate_id, sizeof(source_candidate_id), "sc", source_event_id, "file_observation") != 0) return -1;
   snprintf(payload,
            sizeof(payload),
-           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.emit\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"source_binding_id\":\"%s\",\"idempotency_key\":\"%s\","
+           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.emit\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"source_binding_id\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"idempotency_key\":\"%s\","
            "\"source_assets\":[{\"type\":\"yai.source_asset.v1\",\"source_asset_id\":\"%s\",\"source_binding_id\":\"%s\",\"locator\":\"%s\",\"asset_type\":\"%s\",\"provenance_fingerprint\":\"%s\",\"observation_state\":\"observed\"}],"
            "\"source_acquisition_events\":[{\"type\":\"yai.source_acquisition_event.v1\",\"source_acquisition_event_id\":\"%s\",\"source_node_id\":\"%s\",\"source_binding_id\":\"%s\",\"source_asset_id\":\"%s\",\"event_type\":\"discovered\",\"observed_at_epoch\":%lld,\"idempotency_key\":\"%s\",\"delivery_status\":\"queued\"}],"
            "\"source_evidence_candidates\":[{\"type\":\"yai.source_evidence_candidate.v1\",\"source_evidence_candidate_id\":\"%s\",\"source_acquisition_event_id\":\"%s\",\"candidate_type\":\"file_observation\",\"derived_metadata_ref\":\"meta://daemon/%s\",\"owner_resolution_status\":\"pending\"}]}",
            unit->workspace_id,
            local->source_node_id,
            unit->source_binding_id,
+           local->owner_trust_artifact_id,
+           local->owner_trust_artifact_token,
            unit->idempotency_key,
            source_asset_id,
            unit->source_binding_id,
@@ -748,10 +756,12 @@ static int send_status_update(yai_daemon_local_runtime_t *local, const char *wor
   if (ensure_owner_registered(local, workspace_id) != 0) return -1;
   snprintf(payload,
            sizeof(payload),
-           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.status\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"health\":\"%s\"}",
+           "{\"type\":\"yai.control.call.v1\",\"command_id\":\"yai.source.status\",\"target_plane\":\"runtime\",\"workspace_id\":\"%s\",\"source_node_id\":\"%s\",\"daemon_instance_id\":\"%s\",\"owner_trust_artifact_id\":\"%s\",\"owner_trust_artifact_token\":\"%s\",\"health\":\"%s\"}",
            workspace_id,
            local->source_node_id,
            local->daemon_instance_id,
+           local->owner_trust_artifact_id,
+           local->owner_trust_artifact_token,
            local->health_state[0] ? local->health_state : YAI_DAEMON_HEALTH_READY);
   rc = rpc_control_call(local->owner_socket, workspace_id, payload, reply, sizeof(reply));
   if (rc != 0 || !json_reply_ok(reply)) return -1;

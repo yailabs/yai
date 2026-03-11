@@ -15,3 +15,7 @@ int yai_source_id_evidence_candidate(char *out,
                                      const char *source_acquisition_event_id,
                                      const char *candidate_type);
 int yai_source_id_owner_link(char *out, size_t out_cap, const char *source_node_id, const char *owner_ref);
+int yai_source_id_enrollment_grant(char *out,
+                                   size_t out_cap,
+                                   const char *source_node_id,
+                                   const char *daemon_instance_id);

@@ -116,3 +116,11 @@ int yai_source_id_owner_link(char *out, size_t out_cap, const char *source_node_
 {
   return make_id(out, out_cap, "sl", source_node_id, owner_ref);
 }
+
+int yai_source_id_enrollment_grant(char *out,
+                                   size_t out_cap,
+                                   const char *source_node_id,
+                                   const char *daemon_instance_id)
+{
+  return make_id(out, out_cap, "sg", source_node_id, daemon_instance_id);
+}

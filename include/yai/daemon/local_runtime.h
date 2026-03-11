@@ -46,6 +46,9 @@ typedef struct yai_daemon_local_runtime {
   char source_node_id[96];
   char daemon_instance_id[96];
   char owner_link_id[96];
+  char source_enrollment_grant_id[128];
+  char owner_trust_artifact_id[128];
+  char owner_trust_artifact_token[128];
   char owner_socket[512];
   char health_state[32];
   char queue_dir[512];

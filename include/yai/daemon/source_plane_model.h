@@ -10,6 +10,7 @@
 #define YAI_SOURCE_ACQUISITION_EVENT_ID_MAX 128
 #define YAI_SOURCE_EVIDENCE_CANDIDATE_ID_MAX 128
 #define YAI_SOURCE_OWNER_LINK_ID_MAX 96
+#define YAI_SOURCE_ENROLLMENT_GRANT_ID_MAX 128
 #define YAI_SOURCE_WORKSPACE_ID_MAX 64
 #define YAI_SOURCE_LABEL_MAX 128
 #define YAI_SOURCE_REF_MAX 256
@@ -24,6 +25,7 @@
 #define YAI_SOURCE_RECORD_CLASS_ACQUISITION_EVENT "source_acquisition_event"
 #define YAI_SOURCE_RECORD_CLASS_EVIDENCE_CANDIDATE "source_evidence_candidate"
 #define YAI_SOURCE_RECORD_CLASS_OWNER_LINK "source_owner_link"
+#define YAI_SOURCE_RECORD_CLASS_ENROLLMENT_GRANT "source_enrollment_grant"
 
 typedef enum yai_source_contract_operation {
   YAI_SOURCE_CONTRACT_INVALID = 0,
@@ -94,6 +96,17 @@ typedef struct yai_source_owner_link {
   char registration_status[YAI_SOURCE_STATUS_MAX];
   int64_t registered_at_epoch;
 } yai_source_owner_link_t;
+
+typedef struct yai_source_enrollment_grant {
+  char source_enrollment_grant_id[YAI_SOURCE_ENROLLMENT_GRANT_ID_MAX];
+  char source_node_id[YAI_SOURCE_NODE_ID_MAX];
+  char daemon_instance_id[YAI_SOURCE_DAEMON_INSTANCE_ID_MAX];
+  char owner_ref[YAI_SOURCE_REF_MAX];
+  char enrollment_decision[YAI_SOURCE_STATUS_MAX];
+  char trust_artifact_id[YAI_SOURCE_REF_MAX];
+  char trust_artifact_token[YAI_SOURCE_HASH_MAX];
+  int64_t issued_at_epoch;
+} yai_source_enrollment_grant_t;
 
 const char *yai_source_contract_operation_name(yai_source_contract_operation_t op);
 int yai_source_record_class_is_known(const char *record_class);

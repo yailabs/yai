@@ -14,7 +14,7 @@ while preserving centralized control and owner-side canonical persistence.
 ## Canonical flow
 
 1. `yai-daemon` emits a control-call payload with source operation intent.
-2. Owner runtime receives request through canonical control ingress.
+2. Owner runtime receives request through control ingress or peer ingress.
 3. Session dispatch resolves command intent (`yai.source.enroll|attach|emit|status`).
 4. Dispatch hands operation to `exec` source-ingest bridge.
 5. `exec` validates shape and routes to operation-specific handler.
@@ -63,12 +63,14 @@ Record classes written in YD-4 baseline:
 - `source_acquisition_event`
 - `source_evidence_candidate`
 - `source_owner_link`
+- `source_enrollment_grant`
 
 ## Validation baseline
 
 - workspace target must be valid and present on owner runtime
 - operation intent must be known
 - required source identifiers must be present per operation
+- `attach`, `emit`, and `status` require owner-issued trust artifact token
 - emit payload must include at least one supported source record item
 
 ## Reply baseline

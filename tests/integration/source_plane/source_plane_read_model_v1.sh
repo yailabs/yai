@@ -3,25 +3,29 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 YAI="$REPO/build/bin/yai"
-SOCK="$HOME/.yai/run/control.sock"
+TMP_HOME="$(mktemp -d "${TMPDIR:-/tmp}/yai_source_read_model.XXXXXX")"
+SOCK="$TMP_HOME/.yai/run/control.sock"
 
 if [[ ! -x "$YAI" ]]; then
   make -C "$REPO" yai >/dev/null
 fi
 
-env -u YAI_RUNTIME_INGRESS "$YAI" down >/dev/null 2>&1 || true
+mkdir -p "$TMP_HOME/.yai/run"
+HOME="$TMP_HOME" YAI_RUNTIME_INGRESS="$SOCK" "$YAI" down >/dev/null 2>&1 || true
 rm -f "$SOCK" >/dev/null 2>&1 || true
 
 RUNTIME_PID=""
 cleanup() {
+  HOME="$TMP_HOME" YAI_RUNTIME_INGRESS="$SOCK" "$YAI" down >/dev/null 2>&1 || true
   if [[ -n "$RUNTIME_PID" ]] && kill -0 "$RUNTIME_PID" 2>/dev/null; then
     kill "$RUNTIME_PID" >/dev/null 2>&1 || true
     wait "$RUNTIME_PID" >/dev/null 2>&1 || true
   fi
+  rm -rf "$TMP_HOME"
 }
 trap cleanup EXIT
 
-(cd "$REPO" && env -u YAI_RUNTIME_INGRESS "$YAI" >/tmp/yai_source_plane_read_model.log 2>&1) &
+(cd "$REPO" && HOME="$TMP_HOME" YAI_RUNTIME_INGRESS="$SOCK" "$YAI" >/tmp/yai_source_plane_read_model.log 2>&1) &
 RUNTIME_PID=$!
 
 for _ in $(seq 1 50); do
@@ -30,7 +34,7 @@ for _ in $(seq 1 50); do
 done
 [[ -S "$SOCK" ]] || { echo "source_plane_read_model_v1: FAIL (missing ingress socket)"; exit 1; }
 
-python3 - <<'PY'
+HOME="$TMP_HOME" YAI_RUNTIME_INGRESS="$SOCK" python3 - <<'PY'
 import json
 import os
 import socket
@@ -109,8 +113,12 @@ enroll = call(ws, {
 expect_ok(enroll, "source.enroll")
 node_id = enroll.get("data", {}).get("source_node_id")
 daemon_id = enroll.get("data", {}).get("daemon_instance_id")
+trust_artifact_id = enroll.get("data", {}).get("owner_trust_artifact_id")
+trust_artifact_token = enroll.get("data", {}).get("owner_trust_artifact_token")
 if not node_id or not daemon_id:
     raise RuntimeError(f"enroll ids missing: {enroll}")
+if not trust_artifact_id or not trust_artifact_token:
+    raise RuntimeError(f"enroll trust bootstrap missing: {enroll}")
 
 attach = call(ws, {
   "type":"yai.control.call.v1",
@@ -118,6 +126,8 @@ attach = call(ws, {
   "target_plane":"runtime",
   "workspace_id": ws,
   "source_node_id": node_id,
+  "owner_trust_artifact_id": trust_artifact_id,
+  "owner_trust_artifact_token": trust_artifact_token,
   "binding_scope":"workspace"
 }, "attach")
 expect_ok(attach, "source.attach")
@@ -132,6 +142,8 @@ emit = call(ws, {
   "workspace_id": ws,
   "source_node_id": node_id,
   "source_binding_id": binding_id,
+  "owner_trust_artifact_id": trust_artifact_id,
+  "owner_trust_artifact_token": trust_artifact_token,
   "idempotency_key":"yd6-emit-001",
   "source_assets":[
     {"type":"yai.source_asset.v1","source_asset_id":"sa-yd6-a","source_binding_id":binding_id,"locator":"file:///tmp/yd6-a.txt","asset_type":"file","provenance_fingerprint":"sha256:yd6a","observation_state":"observed"}
@@ -152,6 +164,8 @@ status = call(ws, {
   "workspace_id": ws,
   "source_node_id": node_id,
   "daemon_instance_id": daemon_id,
+  "owner_trust_artifact_id": trust_artifact_id,
+  "owner_trust_artifact_token": trust_artifact_token,
   "health":"ready"
 }, "status")
 expect_ok(status, "source.status")
