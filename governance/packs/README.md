@@ -16,4 +16,4 @@ Primary policy semantics remain in:
 - `overlays/`
 - `classification/`
 - `families/`
-- `domain-specializations/`
+- `specializations/`

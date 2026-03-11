@@ -117,147 +117,147 @@
       "kind": "specialization",
       "family": "economic",
       "domain_id": "D5-economic",
-      "manifest_ref": "domain-specializations/materialized/payments/manifest.json"
+      "manifest_ref": "specializations/materialized/payments/manifest.json"
     },
     {
       "lookup_id": "transfers",
       "kind": "specialization",
       "family": "economic",
       "domain_id": "D5-economic",
-      "manifest_ref": "domain-specializations/materialized/transfers/manifest.json"
+      "manifest_ref": "specializations/materialized/transfers/manifest.json"
     },
     {
       "lookup_id": "settlements",
       "kind": "specialization",
       "family": "economic",
       "domain_id": "D5-economic",
-      "manifest_ref": "domain-specializations/materialized/settlements/manifest.json"
+      "manifest_ref": "specializations/materialized/settlements/manifest.json"
     },
     {
       "lookup_id": "treasury",
       "kind": "specialization",
       "family": "economic",
       "domain_id": "D5-economic",
-      "manifest_ref": "domain-specializations/materialized/treasury/manifest.json"
+      "manifest_ref": "specializations/materialized/treasury/manifest.json"
     },
     {
       "lookup_id": "invoicing",
       "kind": "specialization",
       "family": "economic",
       "domain_id": "D5-economic",
-      "manifest_ref": "domain-specializations/materialized/invoicing/manifest.json"
+      "manifest_ref": "specializations/materialized/invoicing/manifest.json"
     },
     {
       "lookup_id": "accounting-integrity",
       "kind": "specialization",
       "family": "economic",
       "domain_id": "D5-economic",
-      "manifest_ref": "domain-specializations/materialized/accounting-integrity/manifest.json"
+      "manifest_ref": "specializations/materialized/accounting-integrity/manifest.json"
     },
     {
       "lookup_id": "pricing-and-quoting",
       "kind": "specialization",
       "family": "economic",
       "domain_id": "D5-economic",
-      "manifest_ref": "domain-specializations/materialized/pricing-and-quoting/manifest.json"
+      "manifest_ref": "specializations/materialized/pricing-and-quoting/manifest.json"
     },
     {
       "lookup_id": "credit-exposure",
       "kind": "specialization",
       "family": "economic",
       "domain_id": "D5-economic",
-      "manifest_ref": "domain-specializations/materialized/credit-exposure/manifest.json"
+      "manifest_ref": "specializations/materialized/credit-exposure/manifest.json"
     },
     {
       "lookup_id": "fraud-risk-controls",
       "kind": "specialization",
       "family": "economic",
       "domain_id": "D5-economic",
-      "manifest_ref": "domain-specializations/materialized/fraud-risk-controls/manifest.json"
+      "manifest_ref": "specializations/materialized/fraud-risk-controls/manifest.json"
     },
     {
       "lookup_id": "network-egress",
       "kind": "specialization",
       "family": "digital",
       "domain_id": "D1-digital",
-      "manifest_ref": "domain-specializations/materialized/network-egress/manifest.json"
+      "manifest_ref": "specializations/materialized/network-egress/manifest.json"
     },
     {
       "lookup_id": "remote-publication",
       "kind": "specialization",
       "family": "digital",
       "domain_id": "D1-digital",
-      "manifest_ref": "domain-specializations/materialized/remote-publication/manifest.json"
+      "manifest_ref": "specializations/materialized/remote-publication/manifest.json"
     },
     {
       "lookup_id": "external-commentary",
       "kind": "specialization",
       "family": "digital",
       "domain_id": "D1-digital",
-      "manifest_ref": "domain-specializations/materialized/external-commentary/manifest.json"
+      "manifest_ref": "specializations/materialized/external-commentary/manifest.json"
     },
     {
       "lookup_id": "artifact-distribution",
       "kind": "specialization",
       "family": "digital",
       "domain_id": "D1-digital",
-      "manifest_ref": "domain-specializations/materialized/artifact-distribution/manifest.json"
+      "manifest_ref": "specializations/materialized/artifact-distribution/manifest.json"
     },
     {
       "lookup_id": "remote-retrieval",
       "kind": "specialization",
       "family": "digital",
       "domain_id": "D1-digital",
-      "manifest_ref": "domain-specializations/materialized/remote-retrieval/manifest.json"
+      "manifest_ref": "specializations/materialized/remote-retrieval/manifest.json"
     },
     {
       "lookup_id": "digital-sink-control",
       "kind": "specialization",
       "family": "digital",
       "domain_id": "D1-digital",
-      "manifest_ref": "domain-specializations/materialized/digital-sink-control/manifest.json"
+      "manifest_ref": "specializations/materialized/digital-sink-control/manifest.json"
     },
     {
       "lookup_id": "experiment-configuration",
       "kind": "specialization",
       "family": "scientific",
       "domain_id": "D8-scientific",
-      "manifest_ref": "domain-specializations/materialized/experiment-configuration/manifest.json"
+      "manifest_ref": "specializations/materialized/experiment-configuration/manifest.json"
     },
     {
       "lookup_id": "parameter-governance",
       "kind": "specialization",
       "family": "scientific",
       "domain_id": "D8-scientific",
-      "manifest_ref": "domain-specializations/materialized/parameter-governance/manifest.json"
+      "manifest_ref": "specializations/materialized/parameter-governance/manifest.json"
     },
     {
       "lookup_id": "reproducibility-control",
       "kind": "specialization",
       "family": "scientific",
       "domain_id": "D8-scientific",
-      "manifest_ref": "domain-specializations/materialized/reproducibility-control/manifest.json"
+      "manifest_ref": "specializations/materialized/reproducibility-control/manifest.json"
     },
     {
       "lookup_id": "black-box-evaluation",
       "kind": "specialization",
       "family": "scientific",
       "domain_id": "D8-scientific",
-      "manifest_ref": "domain-specializations/materialized/black-box-evaluation/manifest.json"
+      "manifest_ref": "specializations/materialized/black-box-evaluation/manifest.json"
     },
     {
       "lookup_id": "dataset-integrity",
       "kind": "specialization",
       "family": "scientific",
       "domain_id": "D8-scientific",
-      "manifest_ref": "domain-specializations/materialized/dataset-integrity/manifest.json"
+      "manifest_ref": "specializations/materialized/dataset-integrity/manifest.json"
     },
     {
       "lookup_id": "result-publication-control",
       "kind": "specialization",
       "family": "scientific",
       "domain_id": "D8-scientific",
-      "manifest_ref": "domain-specializations/materialized/result-publication-control/manifest.json"
+      "manifest_ref": "specializations/materialized/result-publication-control/manifest.json"
     }
   ]
 }

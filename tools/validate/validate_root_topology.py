@@ -29,7 +29,7 @@ FORBIDDEN_ROOT_NAMES = {
     "ingestion",
     "vectors",
     "families",
-    "domain-specializations",
+    "specializations",
     "classification",
 }
 

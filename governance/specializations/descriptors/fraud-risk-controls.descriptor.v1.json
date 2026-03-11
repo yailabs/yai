@@ -1,0 +1,58 @@
+{
+  "kind": "specialization_descriptor.v1",
+  "version": "v1",
+  "specialization_id": "fraud-risk-controls",
+  "canonical_name": "economic.fraud-risk-controls",
+  "family": "economic",
+  "specialization_class": "general",
+  "status": "active",
+  "review_state": "managed",
+  "verticalization_wave": "wave-1",
+  "runtime": {
+    "manifest_ref": "specializations/materialized/fraud-risk-controls/manifest.json",
+    "bundle_ref": "specializations/materialized/fraud-risk-controls",
+    "scenario_classes": [
+      "sc.economic.fraud-risk-controls.baseline",
+      "sc.economic.fraud-risk-controls.stress"
+    ]
+  },
+  "composition": {
+    "model_refs": [
+      "specializations/materialized/fraud-risk-controls/model/actions.json",
+      "specializations/materialized/fraud-risk-controls/model/assets.json",
+      "specializations/materialized/fraud-risk-controls/model/evidence-obligations.json",
+      "specializations/materialized/fraud-risk-controls/model/risk-surface.json"
+    ],
+    "policy_refs": [
+      "specializations/materialized/fraud-risk-controls/policy/baseline.json",
+      "specializations/materialized/fraud-risk-controls/policy/deny.json",
+      "specializations/materialized/fraud-risk-controls/policy/exceptions.json",
+      "specializations/materialized/fraud-risk-controls/policy/precedence.json",
+      "specializations/materialized/fraud-risk-controls/policy/quarantine.json",
+      "specializations/materialized/fraud-risk-controls/policy/review-required.json"
+    ],
+    "evidence_refs": [
+      "specializations/materialized/fraud-risk-controls/evidence/decision-fields.json",
+      "specializations/materialized/fraud-risk-controls/evidence/requirements.json"
+    ],
+    "authority_refs": [
+      "specializations/materialized/fraud-risk-controls/authority/model.json"
+    ],
+    "discovery_refs": [
+      "specializations/materialized/fraud-risk-controls/discovery/signals.json"
+    ],
+    "scenario_refs": [
+      "specializations/materialized/fraud-risk-controls/scenarios/index.json"
+    ]
+  },
+  "taxonomy": {
+    "risk_ref": "classification/risk.taxonomy.json",
+    "action_ref": "classification/action.taxonomy.json",
+    "asset_ref": "classification/asset.taxonomy.json",
+    "signal_ref": "classification/signal.taxonomy.json"
+  },
+  "source": {
+    "generator": "tools/gen/build_specialization_descriptors.py",
+    "materialized_bundle_ref": "specializations/materialized/fraud-risk-controls"
+  }
+}

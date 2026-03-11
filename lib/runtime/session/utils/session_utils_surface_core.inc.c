@@ -277,7 +277,7 @@ static int yai_governance_resolve_specialization_family(const char *specializati
     if (!specialization || !specialization[0] || !family_out || family_cap == 0)
         return -1;
     family_out[0] = '\0';
-    if (yai_governance_root_path(path, sizeof(path), "domain-specializations/index/specializations.index.json") != 0)
+    if (yai_governance_root_path(path, sizeof(path), "specializations/index/specializations.index.json") != 0)
         return -1;
     if (yai_read_text(path, json, sizeof(json)) != 0)
         return -1;

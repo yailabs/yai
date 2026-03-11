@@ -1,0 +1,58 @@
+{
+  "kind": "specialization_descriptor.v1",
+  "version": "v1",
+  "specialization_id": "transfers",
+  "canonical_name": "economic.transfers",
+  "family": "economic",
+  "specialization_class": "general",
+  "status": "active",
+  "review_state": "managed",
+  "verticalization_wave": "wave-1",
+  "runtime": {
+    "manifest_ref": "specializations/materialized/transfers/manifest.json",
+    "bundle_ref": "specializations/materialized/transfers",
+    "scenario_classes": [
+      "sc.economic.transfers.baseline",
+      "sc.economic.transfers.stress"
+    ]
+  },
+  "composition": {
+    "model_refs": [
+      "specializations/materialized/transfers/model/actions.json",
+      "specializations/materialized/transfers/model/assets.json",
+      "specializations/materialized/transfers/model/evidence-obligations.json",
+      "specializations/materialized/transfers/model/risk-surface.json"
+    ],
+    "policy_refs": [
+      "specializations/materialized/transfers/policy/baseline.json",
+      "specializations/materialized/transfers/policy/deny.json",
+      "specializations/materialized/transfers/policy/exceptions.json",
+      "specializations/materialized/transfers/policy/precedence.json",
+      "specializations/materialized/transfers/policy/quarantine.json",
+      "specializations/materialized/transfers/policy/review-required.json"
+    ],
+    "evidence_refs": [
+      "specializations/materialized/transfers/evidence/decision-fields.json",
+      "specializations/materialized/transfers/evidence/requirements.json"
+    ],
+    "authority_refs": [
+      "specializations/materialized/transfers/authority/model.json"
+    ],
+    "discovery_refs": [
+      "specializations/materialized/transfers/discovery/signals.json"
+    ],
+    "scenario_refs": [
+      "specializations/materialized/transfers/scenarios/index.json"
+    ]
+  },
+  "taxonomy": {
+    "risk_ref": "classification/risk.taxonomy.json",
+    "action_ref": "classification/action.taxonomy.json",
+    "asset_ref": "classification/asset.taxonomy.json",
+    "signal_ref": "classification/signal.taxonomy.json"
+  },
+  "source": {
+    "generator": "tools/gen/build_specialization_descriptors.py",
+    "materialized_bundle_ref": "specializations/materialized/transfers"
+  }
+}

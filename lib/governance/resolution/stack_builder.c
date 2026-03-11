@@ -161,7 +161,7 @@ static void attach_overlays_from_specialization_manifest(const yai_governance_ru
       manifest_ref[0] != '\0') {
     if (yai_governance_safe_snprintf(rel_path, sizeof(rel_path), "%s", manifest_ref) != 0) return;
   } else {
-    if (yai_governance_safe_snprintf(rel_path, sizeof(rel_path), "domain-specializations/%s/manifest.json",
+    if (yai_governance_safe_snprintf(rel_path, sizeof(rel_path), "specializations/%s/manifest.json",
                               discovery->specialization_id) != 0) return;
   }
   if (read_json_from_surface(rt, rel_path, json, sizeof(json)) != 0) return;

@@ -8,7 +8,7 @@
     "foundation/invariants",
     "foundation/boundaries"
   ],
-  "domain_index_ref": "domain-specializations/index/specializations.index.json",
+  "domain_index_ref": "specializations/index/specializations.index.json",
   "compliance_index_ref": "overlays/regulatory/index/regulatory.index.json",
   "customer_policy_pack_index_ref": "manifests/customer-policy-packs.index.json",
   "governance_attachability_constraints_ref": "manifests/governance-attachability.constraints.v1.json",
@@ -22,9 +22,9 @@
   "control_family_index_ref": "families/index/families.index.json",
   "control_family_descriptors_ref": "families/index/families.descriptors.index.json",
   "control_family_matrix_ref": "families/index/family.matrix.v1.json",
-  "domain_specialization_index_ref": "domain-specializations/index/specializations.index.json",
-  "domain_specialization_descriptors_ref": "domain-specializations/index/specializations.descriptors.index.json",
-  "domain_specialization_matrix_ref": "domain-specializations/index/specialization.matrix.v1.json",
+  "domain_specialization_index_ref": "specializations/index/specializations.index.json",
+  "domain_specialization_descriptors_ref": "specializations/index/specializations.descriptors.index.json",
+  "domain_specialization_matrix_ref": "specializations/index/specialization.matrix.v1.json",
   "overlay_indexes": {
     "regulatory": "overlays/regulatory/index/regulatory.index.json",
     "sector": "overlays/sector/index/sector.index.json",

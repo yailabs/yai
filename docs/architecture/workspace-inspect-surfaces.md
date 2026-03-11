@@ -66,7 +66,7 @@ Declared context handling:
 
 Validation in `set` is against embedded canonical indices:
 - `embedded/law/control-families/index/families.index.json`
-- `embedded/law/domain-specializations/index/specializations.index.json`
+- `embedded/law/specializations/index/specializations.index.json`
 
 `set` fails for:
 - unknown family

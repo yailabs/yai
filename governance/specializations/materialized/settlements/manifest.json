@@ -1,0 +1,32 @@
+{
+  "kind": "domain_specialization_manifest",
+  "version": "v2",
+  "specialization_id": "settlements",
+  "canonical_name": "economic.settlements",
+  "family_canonical_name": "economic",
+  "status": "active",
+  "subdomain_taxonomy_ref": "specializations/index/subdomain-taxonomy.json",
+  "scenario_classes_ref": "specializations/index/scenario-classes.json",
+  "authority_ref": "specializations/settlements/authority/model.json",
+  "evidence_ref": "specializations/settlements/evidence/requirements.json",
+  "overlay_relevance": {
+    "regulatory": [
+      "gdpr-eu",
+      "retention-governance",
+      "security-supply-chain"
+    ],
+    "sector": [
+      "sector.finance"
+    ],
+    "contextual": [
+      "organization",
+      "workspace",
+      "session"
+    ]
+  },
+  "authority_profile": {
+    "default_scope": "auditor",
+    "dual_control": true,
+    "self_approval_forbidden": true
+  }
+}

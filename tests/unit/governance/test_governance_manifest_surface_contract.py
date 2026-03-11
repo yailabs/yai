@@ -28,7 +28,7 @@ def main() -> int:
     required = [
         runtime_surface.get("classification"),
         runtime_surface.get("families"),
-        runtime_surface.get("domain_specializations"),
+        runtime_surface.get("specializations"),
         runtime_surface.get("manifests"),
         runtime_surface.get("overlays", {}).get("regulatory"),
         runtime_surface.get("overlays", {}).get("sector"),

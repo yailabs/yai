@@ -43,8 +43,8 @@
     ]
   },
   "policy_refs": [
-    "domain-specializations/digital/remote-publication/policy-pack.json",
-    "domain-specializations/digital/artifact-distribution/policy-pack.json"
+    "specializations/digital/remote-publication/policy-pack.json",
+    "specializations/digital/artifact-distribution/policy-pack.json"
   ],
   "overlay_refs": {
     "regulatory": ["gdpr-eu", "retention-governance", "security-supply-chain"],

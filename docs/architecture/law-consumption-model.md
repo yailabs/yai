@@ -10,7 +10,7 @@
 `yai` consumes embedded payloads by layer:
 - `classification/`
 - `control-families/`
-- `domain-specializations/`
+- `specializations/`
 - `overlays/regulatory/`
 - `overlays/sector/`
 - `overlays/contextual/`

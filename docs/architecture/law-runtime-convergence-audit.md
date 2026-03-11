@@ -22,7 +22,7 @@ Overall: convergence is real and operational, with remaining debt mostly in runt
 |---|---|---|
 | `law/classification` | active canonical | Primary layer-1 taxonomy payload |
 | `law/control-families` | active canonical | Primary family routing corpus |
-| `law/domain-specializations` | active canonical | Primary specialization corpus |
+| `law/specializations` | active canonical | Primary specialization corpus |
 | `law/overlays/regulatory` | active canonical | Primary regulatory overlay corpus |
 | `law/overlays/sector` | active canonical | Primary sector overlay corpus |
 | `law/overlays/contextual` | active canonical | Primary contextual overlay corpus |
@@ -102,7 +102,7 @@ Status: **clear and testable**, with one key caveat: discovery/resolution logic 
 
 - Domain manifest loader now searches in this order:
   - `control-families/`
-  - `domain-specializations/`
+  - `specializations/`
   - `domains/` (legacy)
   - `transitional/domain-family-seed/` (bridge)
 - File: `lib/law/loader/domain_loader.c`

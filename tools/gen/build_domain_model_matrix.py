@@ -8,7 +8,7 @@ GOV = ROOT / "governance"
 classification_map = json.loads((GOV / "classification" / "classification-map.json").read_text())
 domains_index = json.loads((GOV / "domains" / "index" / "domains.index.json").read_text())
 families_index = json.loads((GOV / "families" / "index" / "families.descriptors.index.json").read_text())
-spec_index = json.loads((GOV / "domain-specializations" / "index" / "specializations.index.json").read_text())
+spec_index = json.loads((GOV / "specializations" / "index" / "specializations.index.json").read_text())
 
 family_to_domain = {}
 for d in domains_index.get("domains", []):

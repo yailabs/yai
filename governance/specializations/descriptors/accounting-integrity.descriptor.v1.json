@@ -1,0 +1,43 @@
+{
+  "kind": "specialization_descriptor.v1",
+  "version": "v1",
+  "specialization_id": "accounting-integrity",
+  "canonical_name": "economic.accounting-integrity",
+  "family": "economic",
+  "specialization_class": "general",
+  "status": "active-seed",
+  "review_state": "managed",
+  "verticalization_wave": "wave-1-seed",
+  "runtime": {
+    "manifest_ref": "specializations/materialized/accounting-integrity/manifest.json",
+    "bundle_ref": "specializations/materialized/accounting-integrity",
+    "scenario_classes": [
+      "sc.economic.accounting-integrity.baseline",
+      "sc.economic.accounting-integrity.stress"
+    ]
+  },
+  "composition": {
+    "model_refs": [
+      "specializations/materialized/accounting-integrity/model/seed.json"
+    ],
+    "policy_refs": [
+      "specializations/materialized/accounting-integrity/policy/seed.json"
+    ],
+    "evidence_refs": [
+      "specializations/materialized/accounting-integrity/evidence/seed.json"
+    ],
+    "authority_refs": [],
+    "discovery_refs": [],
+    "scenario_refs": []
+  },
+  "taxonomy": {
+    "risk_ref": "classification/risk.taxonomy.json",
+    "action_ref": "classification/action.taxonomy.json",
+    "asset_ref": "classification/asset.taxonomy.json",
+    "signal_ref": "classification/signal.taxonomy.json"
+  },
+  "source": {
+    "generator": "tools/gen/build_specialization_descriptors.py",
+    "materialized_bundle_ref": "specializations/materialized/accounting-integrity"
+  }
+}

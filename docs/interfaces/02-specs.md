@@ -5,7 +5,7 @@ Canonical destinations:
 - `governance/manifests/*`
 - `governance/classification/*`
 - `governance/control-families/*`
-- `governance/domain-specializations/*`
+- `governance/specializations/*`
 - `governance/overlays/*`
 
 Generated views are derived artifacts and not normative sources.

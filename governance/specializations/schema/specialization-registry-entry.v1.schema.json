@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yai.governance.specializations.specialization-registry-entry.v1",
+  "title": "Specialization Registry Entry v1",
+  "type": "object",
+  "required": [
+    "specialization_id",
+    "canonical_name",
+    "family",
+    "descriptor_ref",
+    "materialized_manifest_ref",
+    "materialized_bundle_ref",
+    "status"
+  ],
+  "properties": {
+    "specialization_id": { "type": "string", "minLength": 1 },
+    "canonical_name": { "type": "string", "minLength": 1 },
+    "family": { "type": "string", "minLength": 1 },
+    "manifest_ref": { "type": "string", "minLength": 1 },
+    "descriptor_ref": { "type": "string", "minLength": 1 },
+    "materialized_manifest_ref": { "type": "string", "minLength": 1 },
+    "materialized_bundle_ref": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "minLength": 1 },
+    "verticalization_wave": { "type": "string" }
+  }
+}

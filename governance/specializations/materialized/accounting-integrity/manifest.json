@@ -1,0 +1,21 @@
+{
+  "kind": "domain_specialization_manifest",
+  "version": "v1",
+  "specialization_id": "accounting-integrity",
+  "canonical_name": "economic.accounting-integrity",
+  "family_canonical_name": "economic",
+  "status": "active-planned",
+  "subdomain_taxonomy_ref": "specializations/index/subdomain-taxonomy.json",
+  "scenario_classes_ref": "specializations/index/scenario-classes.json",
+  "overlay_relevance": {
+    "regulatory": [
+      "overlays/regulatory/index/regulatory.index.json"
+    ],
+    "sector": [
+      "overlays/sector/index/sector.index.json"
+    ],
+    "contextual": [
+      "overlays/contextual/index/contextual.index.json"
+    ]
+  }
+}

@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = ROOT / "governance" / "domain-specializations"
+SPEC = ROOT / "governance" / "specializations"
 IDX = SPEC / "index"
 DESCRIPTORS = SPEC / "descriptors"
 MATERIALIZED = SPEC / "materialized"
@@ -39,9 +39,9 @@ for e in spec_index.get("specializations", []):
     status = e.get("status", "active")
     wave = e.get("verticalization_wave", "")
 
-    bundle_ref = f"domain-specializations/materialized/{sid}"
+    bundle_ref = f"specializations/materialized/{sid}"
     manifest_ref = f"{bundle_ref}/manifest.json"
-    bundle_dir = ROOT / "governance" / "domain-specializations" / "materialized" / sid
+    bundle_dir = ROOT / "governance" / "specializations" / "materialized" / sid
     manifest = {}
     mp = bundle_dir / "manifest.json"
     if mp.exists():
@@ -56,7 +56,7 @@ for e in spec_index.get("specializations", []):
             out.append(f"{bundle_ref}/{subdir}/{p.name}")
         return out
 
-    descriptor_ref = f"domain-specializations/descriptors/{sid}.descriptor.v1.json"
+    descriptor_ref = f"specializations/descriptors/{sid}.descriptor.v1.json"
     descriptor = {
         "kind": "specialization_descriptor.v1",
         "version": "v1",
@@ -135,8 +135,8 @@ SPECIALIZATIONS_INDEX.write_text(json.dumps(spec_index, indent=2) + "\n", encodi
 for e in taxonomy.get("entries", []):
     sid = e.get("specialization_id")
     if sid:
-        e["manifest_ref"] = f"domain-specializations/materialized/{sid}/manifest.json"
-        e["descriptor_ref"] = f"domain-specializations/descriptors/{sid}.descriptor.v1.json"
+        e["manifest_ref"] = f"specializations/materialized/{sid}/manifest.json"
+        e["descriptor_ref"] = f"specializations/descriptors/{sid}.descriptor.v1.json"
 TAXONOMY.write_text(json.dumps(taxonomy, indent=2) + "\n", encoding="utf-8")
 
 spec_desc_index = {

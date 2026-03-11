@@ -328,9 +328,9 @@
       "experimental": true,
       "deprecated": false,
       "dependencies": [
-        "domain-specializations/digital/remote-publication/policy-pack.json",
-        "domain-specializations/scientific/parameter-governance/policy-pack.json",
-        "domain-specializations/scientific/result-publication-control/policy-pack.json",
+        "specializations/digital/remote-publication/policy-pack.json",
+        "specializations/scientific/parameter-governance/policy-pack.json",
+        "specializations/scientific/result-publication-control/policy-pack.json",
         "manifests/runtime.entrypoints.json#default-runtime"
       ],
       "conflicts_with": [],
@@ -393,7 +393,7 @@
       "experimental": false,
       "deprecated": false,
       "dependencies": [
-        "domain-specializations/digital/remote-retrieval/policy-pack.json",
+        "specializations/digital/remote-retrieval/policy-pack.json",
         "manifests/runtime.entrypoints.json#default-runtime"
       ],
       "conflicts_with": [
@@ -458,8 +458,8 @@
       "experimental": false,
       "deprecated": false,
       "dependencies": [
-        "domain-specializations/digital/artifact-distribution/policy-pack.json",
-        "domain-specializations/digital/remote-publication/policy-pack.json",
+        "specializations/digital/artifact-distribution/policy-pack.json",
+        "specializations/digital/remote-publication/policy-pack.json",
         "manifests/runtime.entrypoints.json#default-runtime"
       ],
       "conflicts_with": [],
@@ -1004,8 +1004,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/accounting-integrity/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/accounting-integrity/manifest.json",
+      "source_ref": "specializations/materialized/accounting-integrity/manifest.json",
+      "manifest_ref": "specializations/materialized/accounting-integrity/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1047,8 +1047,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/artifact-distribution/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/artifact-distribution/manifest.json",
+      "source_ref": "specializations/materialized/artifact-distribution/manifest.json",
+      "manifest_ref": "specializations/materialized/artifact-distribution/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1090,8 +1090,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/black-box-evaluation/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/black-box-evaluation/manifest.json",
+      "source_ref": "specializations/materialized/black-box-evaluation/manifest.json",
+      "manifest_ref": "specializations/materialized/black-box-evaluation/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1133,8 +1133,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/credit-exposure/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/credit-exposure/manifest.json",
+      "source_ref": "specializations/materialized/credit-exposure/manifest.json",
+      "manifest_ref": "specializations/materialized/credit-exposure/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1176,8 +1176,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/dataset-integrity/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/dataset-integrity/manifest.json",
+      "source_ref": "specializations/materialized/dataset-integrity/manifest.json",
+      "manifest_ref": "specializations/materialized/dataset-integrity/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1219,8 +1219,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/digital-sink-control/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/digital-sink-control/manifest.json",
+      "source_ref": "specializations/materialized/digital-sink-control/manifest.json",
+      "manifest_ref": "specializations/materialized/digital-sink-control/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1262,8 +1262,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/experiment-configuration/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/experiment-configuration/manifest.json",
+      "source_ref": "specializations/materialized/experiment-configuration/manifest.json",
+      "manifest_ref": "specializations/materialized/experiment-configuration/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1305,8 +1305,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/external-commentary/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/external-commentary/manifest.json",
+      "source_ref": "specializations/materialized/external-commentary/manifest.json",
+      "manifest_ref": "specializations/materialized/external-commentary/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1348,8 +1348,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/fraud-risk-controls/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/fraud-risk-controls/manifest.json",
+      "source_ref": "specializations/materialized/fraud-risk-controls/manifest.json",
+      "manifest_ref": "specializations/materialized/fraud-risk-controls/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1391,8 +1391,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/invoicing/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/invoicing/manifest.json",
+      "source_ref": "specializations/materialized/invoicing/manifest.json",
+      "manifest_ref": "specializations/materialized/invoicing/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1434,8 +1434,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/network-egress/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/network-egress/manifest.json",
+      "source_ref": "specializations/materialized/network-egress/manifest.json",
+      "manifest_ref": "specializations/materialized/network-egress/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1477,8 +1477,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/parameter-governance/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/parameter-governance/manifest.json",
+      "source_ref": "specializations/materialized/parameter-governance/manifest.json",
+      "manifest_ref": "specializations/materialized/parameter-governance/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1520,8 +1520,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/payments/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/payments/manifest.json",
+      "source_ref": "specializations/materialized/payments/manifest.json",
+      "manifest_ref": "specializations/materialized/payments/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1563,8 +1563,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/pricing-and-quoting/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/pricing-and-quoting/manifest.json",
+      "source_ref": "specializations/materialized/pricing-and-quoting/manifest.json",
+      "manifest_ref": "specializations/materialized/pricing-and-quoting/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1606,8 +1606,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/remote-publication/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/remote-publication/manifest.json",
+      "source_ref": "specializations/materialized/remote-publication/manifest.json",
+      "manifest_ref": "specializations/materialized/remote-publication/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1649,8 +1649,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/remote-retrieval/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/remote-retrieval/manifest.json",
+      "source_ref": "specializations/materialized/remote-retrieval/manifest.json",
+      "manifest_ref": "specializations/materialized/remote-retrieval/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1692,8 +1692,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/reproducibility-control/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/reproducibility-control/manifest.json",
+      "source_ref": "specializations/materialized/reproducibility-control/manifest.json",
+      "manifest_ref": "specializations/materialized/reproducibility-control/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1735,8 +1735,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/result-publication-control/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/result-publication-control/manifest.json",
+      "source_ref": "specializations/materialized/result-publication-control/manifest.json",
+      "manifest_ref": "specializations/materialized/result-publication-control/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1778,8 +1778,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/settlements/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/settlements/manifest.json",
+      "source_ref": "specializations/materialized/settlements/manifest.json",
+      "manifest_ref": "specializations/materialized/settlements/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1821,8 +1821,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/transfers/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/transfers/manifest.json",
+      "source_ref": "specializations/materialized/transfers/manifest.json",
+      "manifest_ref": "specializations/materialized/transfers/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,
@@ -1864,8 +1864,8 @@
         "domain-set",
         "policy-resolution-anchor"
       ],
-      "source_ref": "domain-specializations/materialized/treasury/manifest.json",
-      "manifest_ref": "domain-specializations/materialized/treasury/manifest.json",
+      "source_ref": "specializations/materialized/treasury/manifest.json",
+      "manifest_ref": "specializations/materialized/treasury/manifest.json",
       "compatibility_ref": "manifests/compatibility.matrix.json",
       "precedence_class": "specialization-baseline",
       "runtime_consumable": true,

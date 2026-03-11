@@ -4,15 +4,15 @@
   "runtime_surface": {
     "classification": "classification/",
     "families": "families/",
-    "domain_specializations": "domain-specializations/index/",
+    "specializations": "specializations/index/",
     "overlays": {
       "regulatory": "overlays/regulatory/",
       "sector": "overlays/sector/",
       "contextual": "overlays/contextual/"
     },
     "manifests": "manifests/",
-    "domain_specializations_descriptors": "domain-specializations/descriptors/",
-    "domain_specializations_materialized": "domain-specializations/materialized/"
+    "specializations_descriptors": "specializations/descriptors/",
+    "specializations_materialized": "specializations/materialized/"
   },
   "bridge": {
     "legacy_enabled": false,

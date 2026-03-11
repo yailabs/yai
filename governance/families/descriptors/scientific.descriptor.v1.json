@@ -10,7 +10,7 @@
   "status": "active-wave-1-pillar",
   "maturity": "structured",
   "classification_ref": "classification/classification-map.json",
-  "specializations_ref": "domain-specializations/index/specializations.index.json",
+  "specializations_ref": "specializations/index/specializations.index.json",
   "materialized_manifest_ref": "families/materialized/scientific.manifest.json",
   "hierarchy": {
     "parent": "",

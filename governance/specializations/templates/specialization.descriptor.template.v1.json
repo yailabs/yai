@@ -1,0 +1,30 @@
+{
+  "kind": "specialization_descriptor.v1",
+  "version": "v1",
+  "specialization_id": "<specialization-id>",
+  "canonical_name": "<family>.<specialization-id>",
+  "family": "<family>",
+  "specialization_class": "general",
+  "status": "active",
+  "review_state": "managed",
+  "verticalization_wave": "wave-x",
+  "runtime": {
+    "manifest_ref": "specializations/materialized/<specialization-id>/manifest.json",
+    "bundle_ref": "specializations/materialized/<specialization-id>",
+    "scenario_classes": []
+  },
+  "composition": {
+    "model_refs": [],
+    "policy_refs": [],
+    "evidence_refs": [],
+    "authority_refs": [],
+    "discovery_refs": [],
+    "scenario_refs": []
+  },
+  "taxonomy": {
+    "risk_ref": "classification/risk.taxonomy.json",
+    "action_ref": "classification/action.taxonomy.json",
+    "asset_ref": "classification/asset.taxonomy.json",
+    "signal_ref": "classification/signal.taxonomy.json"
+  }
+}

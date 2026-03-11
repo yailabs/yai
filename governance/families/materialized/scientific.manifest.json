@@ -8,7 +8,7 @@
   "slug": "scientific",
   "status": "active",
   "classification_ref": "classification/classification-map.json",
-  "specializations_ref": "domain-specializations/index/specializations.index.json",
+  "specializations_ref": "specializations/index/specializations.index.json",
   "overlay_refs": {
     "regulatory": "overlays/regulatory/index/regulatory.index.json",
     "sector": "overlays/sector/index/sector.index.json",

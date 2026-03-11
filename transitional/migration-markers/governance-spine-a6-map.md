@@ -13,7 +13,7 @@ Top-level destination blocks:
 - `classification/`
 - `domains/`
 - `families/`
-- `domain-specializations/`
+- `specializations/`
 - `compliance/`
 - `overlays/`
 - `manifests/`

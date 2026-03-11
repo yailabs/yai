@@ -37,9 +37,9 @@
     ]
   },
   "policy_refs": [
-    "domain-specializations/scientific/parameter-governance/policy-pack.json",
-    "domain-specializations/scientific/result-publication-control/policy-pack.json",
-    "domain-specializations/digital/remote-publication/policy-pack.json"
+    "specializations/scientific/parameter-governance/policy-pack.json",
+    "specializations/scientific/result-publication-control/policy-pack.json",
+    "specializations/digital/remote-publication/policy-pack.json"
   ],
   "overlay_refs": {
     "regulatory": ["ai-act"],

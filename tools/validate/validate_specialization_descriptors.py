@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = ROOT / "governance" / "domain-specializations"
+SPEC = ROOT / "governance" / "specializations"
 IDX = SPEC / "index"
 
 spec_idx = json.loads((IDX / "specializations.index.json").read_text(encoding="utf-8"))

@@ -14,7 +14,7 @@ before Block B content absorption.
 - `classification/`
 - `domains/`
 - `control-families/`
-- `domain-specializations/`
+- `specializations/`
 - `compliance/`
 - `overlays/`
 - `manifests/`

@@ -136,7 +136,7 @@ int yai_governance_load_specialization_descriptor(const yai_governance_runtime_t
   }
 
   if (yai_governance_read_governance_surface_file(rt,
-                                           "domain-specializations/index/specializations.descriptors.index.json",
+                                           "specializations/index/specializations.descriptors.index.json",
                                            index_json,
                                            sizeof(index_json)) != 0) {
     return -1;
@@ -200,7 +200,7 @@ int yai_governance_load_domain_manifest(const yai_governance_runtime_t *rt,
   }
 
   /* Compatibility fallback: canonical materialized specializations + domains. */
-  if (yai_governance_safe_snprintf(path, sizeof(path), "%s/domain-specializations/materialized/%s/manifest.json", rt->root, domain_id) != 0) {
+  if (yai_governance_safe_snprintf(path, sizeof(path), "%s/specializations/materialized/%s/manifest.json", rt->root, domain_id) != 0) {
     return -1;
   }
   rc = yai_governance_read_text_file(path, out_json, out_cap);

@@ -8,7 +8,7 @@
       "includes": [
         "classification",
         "families",
-        "domain-specializations",
+        "specializations",
         "overlays/regulatory",
         "overlays/sector",
         "overlays/contextual",

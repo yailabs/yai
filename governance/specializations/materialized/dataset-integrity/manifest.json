@@ -1,0 +1,64 @@
+{
+  "kind": "domain_specialization_manifest",
+  "version": "v2",
+  "specialization_id": "dataset-integrity",
+  "canonical_name": "scientific.dataset-integrity",
+  "family_canonical_name": "scientific",
+  "status": "active",
+  "subdomain_taxonomy_ref": "specializations/index/subdomain-taxonomy.json",
+  "scenario_classes_ref": "specializations/index/scenario-classes.json",
+  "overlay_relevance": {
+    "regulatory": [
+      "ai-act",
+      "gdpr-eu",
+      "retention-governance",
+      "security-supply-chain"
+    ],
+    "sector": [
+      "sector.healthcare",
+      "sector.finance"
+    ],
+    "contextual": [
+      "organization",
+      "workspace",
+      "session"
+    ]
+  },
+  "authority_profile": {
+    "default_scope": "controller",
+    "human_oversight_required": true
+  },
+  "evidence_profile": {
+    "requires_parameter_trace": true,
+    "retention_hint": "extended"
+  },
+  "scientific_semantics": {
+    "experiment_intent": "dataset_verification",
+    "governed_assets": [
+      "dataset",
+      "dataset-lineage",
+      "integrity-attestation"
+    ],
+    "risk_surface": [
+      "dataset-corruption",
+      "tampered-input",
+      "cross-workspace-dataset-leak"
+    ]
+  },
+  "dataset_policy": {
+    "requires_dataset_reference": true,
+    "requires_integrity_attestation": true,
+    "requires_lineage_pointer": true
+  },
+  "policy_baseline": {
+    "effect_default": "review_required",
+    "effect_on_missing_dataset_reference": "deny",
+    "effect_on_attestation_gap": "quarantine"
+  },
+  "evidence_obligations": [
+    "resolution_trace",
+    "decision_record",
+    "dataset_integrity_attestation_required",
+    "provenance_required"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "kind": "specialization_descriptor.v1",
+  "version": "v1",
+  "specialization_id": "credit-exposure",
+  "canonical_name": "economic.credit-exposure",
+  "family": "economic",
+  "specialization_class": "general",
+  "status": "active-seed",
+  "review_state": "managed",
+  "verticalization_wave": "wave-1-seed",
+  "runtime": {
+    "manifest_ref": "specializations/materialized/credit-exposure/manifest.json",
+    "bundle_ref": "specializations/materialized/credit-exposure",
+    "scenario_classes": [
+      "sc.economic.credit-exposure.baseline",
+      "sc.economic.credit-exposure.stress"
+    ]
+  },
+  "composition": {
+    "model_refs": [
+      "specializations/materialized/credit-exposure/model/seed.json"
+    ],
+    "policy_refs": [
+      "specializations/materialized/credit-exposure/policy/seed.json"
+    ],
+    "evidence_refs": [
+      "specializations/materialized/credit-exposure/evidence/seed.json"
+    ],
+    "authority_refs": [],
+    "discovery_refs": [],
+    "scenario_refs": []
+  },
+  "taxonomy": {
+    "risk_ref": "classification/risk.taxonomy.json",
+    "action_ref": "classification/action.taxonomy.json",
+    "asset_ref": "classification/asset.taxonomy.json",
+    "signal_ref": "classification/signal.taxonomy.json"
+  },
+  "source": {
+    "generator": "tools/gen/build_specialization_descriptors.py",
+    "materialized_bundle_ref": "specializations/materialized/credit-exposure"
+  }
+}

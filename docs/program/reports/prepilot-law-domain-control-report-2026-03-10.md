@@ -31,7 +31,7 @@ Fonte: `embedded/law/control-families/index/families.index.json`
 - D9 `environmental-climatological` (status: `active`, maturity: `seed`)
 
 ### 2.2 Domain specializations (indice e maturity)
-Fonte: `embedded/law/domain-specializations/index/specializations.index.json`
+Fonte: `embedded/law/specializations/index/specializations.index.json`
 
 Conteggi correnti:
 - digital: 6
@@ -260,15 +260,15 @@ Checklist pass/fail minima per ogni caso:
 
 ## 10) Allegato: file law chiave da cui partire (per chatbot)
 - `embedded/law/control-families/index/families.index.json`
-- `embedded/law/domain-specializations/index/specializations.index.json`
+- `embedded/law/specializations/index/specializations.index.json`
 - `embedded/law/runtime.entrypoints.json`
 - `embedded/law/overlays/regulatory/index/regulatory.index.json`
 - `embedded/law/overlays/sector/index/sector.index.json`
 - `embedded/law/overlays/contextual/index/contextual.index.json`
-- `embedded/law/domain-specializations/payments/*`
-- `embedded/law/domain-specializations/transfers/*`
-- `embedded/law/domain-specializations/settlements/*`
-- `embedded/law/domain-specializations/fraud-risk-controls/*`
-- `embedded/law/domain-specializations/network-egress/*`
-- `embedded/law/domain-specializations/parameter-governance/*`
-- `embedded/law/domain-specializations/dataset-integrity/*`
+- `embedded/law/specializations/payments/*`
+- `embedded/law/specializations/transfers/*`
+- `embedded/law/specializations/settlements/*`
+- `embedded/law/specializations/fraud-risk-controls/*`
+- `embedded/law/specializations/network-egress/*`
+- `embedded/law/specializations/parameter-governance/*`
+- `embedded/law/specializations/dataset-integrity/*`

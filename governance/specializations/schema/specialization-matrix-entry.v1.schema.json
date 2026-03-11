@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yai.governance.specializations.specialization-matrix-entry.v1",
+  "title": "Specialization Matrix Entry v1",
+  "type": "object",
+  "required": [
+    "specialization_id",
+    "family",
+    "descriptor_ref",
+    "policy_count",
+    "evidence_count"
+  ],
+  "properties": {
+    "specialization_id": { "type": "string", "minLength": 1 },
+    "family": { "type": "string", "minLength": 1 },
+    "descriptor_ref": { "type": "string", "minLength": 1 },
+    "policy_count": { "type": "integer", "minimum": 0 },
+    "evidence_count": { "type": "integer", "minimum": 0 },
+    "authority_count": { "type": "integer", "minimum": 0 },
+    "discovery_count": { "type": "integer", "minimum": 0 },
+    "scenario_class_count": { "type": "integer", "minimum": 0 }
+  }
+}

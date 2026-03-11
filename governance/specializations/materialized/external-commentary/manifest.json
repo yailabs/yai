@@ -1,0 +1,31 @@
+{
+  "kind": "domain_specialization_manifest",
+  "version": "v2",
+  "specialization_id": "external-commentary",
+  "canonical_name": "digital.external-commentary",
+  "family_canonical_name": "digital",
+  "status": "active",
+  "subdomain_taxonomy_ref": "specializations/index/subdomain-taxonomy.json",
+  "scenario_classes_ref": "specializations/index/scenario-classes.json",
+  "model": {
+    "actions": ["comment", "reply", "statement"],
+    "assets": ["comment_payload", "external_thread", "sink_profile"],
+    "risk_surface": ["unreviewed_disclosure", "context_loss", "brand_or_policy_mismatch"]
+  },
+  "overlay_relevance": {
+    "regulatory": ["gdpr-eu", "security-supply-chain", "retention-governance"],
+    "sector": ["sector.finance"],
+    "contextual": ["organization", "workspace", "session"]
+  },
+  "authority_profile": {
+    "default_scope": "operator",
+    "escalate_on_sensitive_data": true,
+    "mandatory_human_review": true,
+    "deny_without_authority_contract": true
+  },
+  "evidence_profile": {
+    "requires_destination_trace": true,
+    "requires_commentary_review_record": true,
+    "retention_hint": "standard"
+  }
+}

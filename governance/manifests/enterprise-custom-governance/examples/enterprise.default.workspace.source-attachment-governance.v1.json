@@ -43,11 +43,11 @@
       "overlays/contextual/session/manifest.json"
     ],
     "specialization_policy_refs": [
-      "domain-specializations/digital/remote-retrieval/policy-pack.json"
+      "specializations/digital/remote-retrieval/policy-pack.json"
     ]
   },
   "policy_refs": [
-    "domain-specializations/digital/remote-retrieval/policy-pack.json"
+    "specializations/digital/remote-retrieval/policy-pack.json"
   ],
   "overlay_refs": {
     "regulatory": [

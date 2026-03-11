@@ -50,7 +50,7 @@ for f in families_index.get("families", []):
         "status": f.get("status", manifest.get("status", "active")),
         "maturity": f.get("maturity", "seed"),
         "classification_ref": manifest.get("classification_ref", "classification/classification-map.json"),
-        "specializations_ref": manifest.get("specializations_ref", "domain-specializations/index/specializations.index.json"),
+        "specializations_ref": manifest.get("specializations_ref", "specializations/index/specializations.index.json"),
         "materialized_manifest_ref": f.get("materialized_manifest_ref") or f.get("manifest_ref") or f"families/materialized/{canonical}.manifest.json",
         "hierarchy": {
             "parent": hierarchy_entry.get("parent", ""),

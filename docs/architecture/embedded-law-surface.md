@@ -5,7 +5,7 @@
 ## Contains
 
 - runtime manifests (`law.manifest.json`, `runtime.entrypoints.json`, publish/compat manifests)
-- six-layer JSON payload (`classification`, `control-families`, `domain-specializations`, `overlays/*`)
+- six-layer JSON payload (`classification`, `control-families`, `specializations`, `overlays/*`)
 - generated runtime views (`generated/*`)
 - optional transitional seed only when explicit compatibility export is enabled
 

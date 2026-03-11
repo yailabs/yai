@@ -2,7 +2,7 @@
   "kind": "governance_parsed_facts",
   "schema_version": "v1",
   "source_ref": "src.ecohmedia.digital-outbound",
-  "generated_at": "2026-03-11T18:39:24+00:00",
+  "generated_at": "2026-03-11T18:44:07+00:00",
   "facts": [
     {
       "fact_id": "fact-0001",
