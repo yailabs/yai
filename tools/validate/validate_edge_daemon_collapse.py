@@ -46,6 +46,13 @@ def main() -> int:
     if (repo / "cmd" / "yai-daemon").exists():
         errors.append("forbidden canonical entrypoint domain present: cmd/yai-daemon")
 
+    # C13/C16 guardrail: canonical edge subdomains must not be placeholder-empty.
+    edge_root = repo / "lib" / "edge"
+    if edge_root.exists():
+        for d in edge_root.iterdir():
+            if d.is_dir() and not any(d.iterdir()):
+                errors.append(f"empty edge placeholder directory not allowed: {d.relative_to(repo).as_posix()}")
+
     for rel in SCAN_ROOTS:
         root = repo / rel
         if not root.exists():
