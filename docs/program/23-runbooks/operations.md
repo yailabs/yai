@@ -73,3 +73,12 @@ Define the operational control loop for running, validating, and recovering the 
 ## Traceability
 - ADR refs (ops-only runbook): none mandatory.
 - MPs (filled as phases ship): `docs/program/24-milestone-packs/...`
+
+## 9) Secure Peering Baseline
+
+- LAN/trusted-only deployments can validate source-plane behavior but are not Internet-grade.
+- Customer-grade remote owner/peer operation requires secure peering baseline per
+  `docs/program/23-runbooks/secure-peering-deployment-baseline.md`.
+- Do not treat protocol success over unsecured remote exposure as acceptance evidence.
+- NP-4 operational bootstrap is defined in
+  `docs/program/23-runbooks/owner-peer-overlay-bootstrap.md`.

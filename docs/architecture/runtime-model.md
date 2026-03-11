@@ -43,3 +43,14 @@ Daemon local runtime behavior is defined in
 `docs/architecture/daemon-local-runtime-model.md`.
 Source-plane query/graph read surfaces are defined in
 `docs/architecture/source-plane-read-model.md`.
+
+Secure peering baseline (NP-1):
+- local runtime control ingress and remote peer ingress are distinct concerns.
+- binary protocol semantics remain application-level and ride over secure peering transport.
+- recommended non-local deployment path is private overlay peering (WireGuard/equivalent).
+
+Secure overlay operationalization (NP-4):
+- private overlay integration is the canonical deployment model for customer-grade
+  non-local owner/peer operation.
+- owner/peer bootstrap sequence is defined in
+  `docs/program/23-runbooks/owner-peer-overlay-bootstrap.md`.
