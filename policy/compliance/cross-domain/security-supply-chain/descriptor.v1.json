@@ -1,0 +1,45 @@
+{
+  "kind": "overlay_descriptor.v1",
+  "version": "v1",
+  "overlay_id": "security-supply-chain",
+  "overlay_class": "regulatory",
+  "status": "active",
+  "runtime": {
+    "manifest_ref": "regulatory/security-supply-chain/manifest.v1.json",
+    "materialized_bundle_ref": "regulatory/security-supply-chain",
+    "attachment_count": 1,
+    "precedence_count": 0,
+    "evidence_count": 1
+  },
+  "attachment_rules": [
+    {
+      "overlay": "security-supply-chain",
+      "family": "digital",
+      "specialization": "artifact-distribution",
+      "action": "publish",
+      "asset": "artifact",
+      "risk": "provenance-loss"
+    }
+  ],
+  "precedence_rules": [],
+  "evidence_rules": [
+    {
+      "overlay": "security-supply-chain",
+      "required": [
+        "provider_trust_record",
+        "dependency_chain_ref"
+      ]
+    }
+  ],
+  "composition": {
+    "block_refs": [
+      "regulatory/security-supply-chain/policy/baseline.v1.json",
+      "regulatory/security-supply-chain/mappings/domains.v1.json",
+      "regulatory/security-supply-chain/model/taxonomy/provider-trust-levels.v1.json"
+    ]
+  },
+  "source": {
+    "generator": "tools/gen/build_overlay_descriptors.py",
+    "legacy_manifest_ref": "regulatory/security-supply-chain/manifest.v1.json"
+  }
+}

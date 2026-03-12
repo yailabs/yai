@@ -94,18 +94,18 @@ def build_entry(overlay_class: str, overlay_id: str, status: str, manifest_ref: 
     if overlay_class == "regulatory":
         name = overlay_id
         b = MATERIALIZED / "regulatory" / name
-        bundle_ref = f"overlays/materialized/regulatory/{name}"
+        bundle_ref = f"policy/overlays/materialized/regulatory/{name}"
     elif overlay_class == "sector":
         name = overlay_id.split("sector.", 1)[1] if overlay_id.startswith("sector.") else overlay_id
         b = MATERIALIZED / "sector" / name
-        bundle_ref = f"overlays/materialized/sector/{name}"
+        bundle_ref = f"policy/overlays/materialized/sector/{name}"
     else:
         name = overlay_id.split("context.", 1)[1] if overlay_id.startswith("context.") else overlay_id
         b = MATERIALIZED / "contextual" / name
-        bundle_ref = f"overlays/materialized/contextual/{name}"
+        bundle_ref = f"policy/overlays/materialized/contextual/{name}"
 
     mref = f"{bundle_ref}/manifest.json"
-    dref = f"overlays/descriptors/{overlay_id}.descriptor.v1.json"
+    dref = f"policy/overlays/descriptors/{overlay_id}.descriptor.v1.json"
 
     att = [x for x in all_attach if x.get("overlay") == overlay_id]
     ev = [x for x in all_ev if x.get("overlay") == overlay_id]
@@ -155,7 +155,7 @@ for e in reg_idx.get("overlays", []):
     oid = e.get("overlay_id", "")
     if not oid:
         continue
-    mr = e.get("manifest_ref") or f"overlays/materialized/regulatory/{oid}/manifest.json"
+    mr = e.get("manifest_ref") or f"policy/overlays/materialized/regulatory/{oid}/manifest.json"
     de = build_entry("regulatory", oid, e.get("status", "active"), mr)
     desc_entries.append(de)
     ne = dict(e)
@@ -171,7 +171,7 @@ for e in sec_idx.get("overlays", []):
     if not oid:
         continue
     name = oid.split("sector.", 1)[1] if oid.startswith("sector.") else oid
-    mr = e.get("manifest_ref") or f"overlays/materialized/sector/{name}/manifest.json"
+    mr = e.get("manifest_ref") or f"policy/overlays/materialized/sector/{name}/manifest.json"
     de = build_entry("sector", oid, e.get("status", "active"), mr)
     desc_entries.append(de)
     ne = dict(e)
@@ -187,7 +187,7 @@ for e in ctx_idx.get("overlays", []):
     if not oid:
         continue
     name = oid.split("context.", 1)[1] if oid.startswith("context.") else oid
-    mr = e.get("manifest_ref") or f"overlays/materialized/contextual/{name}/manifest.json"
+    mr = e.get("manifest_ref") or f"policy/overlays/materialized/contextual/{name}/manifest.json"
     de = build_entry("contextual", oid, e.get("status", "active"), mr)
     desc_entries.append(de)
     ne = dict(e)

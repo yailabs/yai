@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yai-governance:model/schema/decision_record.v1.schema.json",
+  "title": "YAI Decision Record v1 (JSONL line)",
+  "type": "object",
+  "required": [
+    "v",
+    "decision_id",
+    "ts",
+    "run_id",
+    "event",
+    "policy",
+    "authority",
+    "outcome",
+    "reason_code"
+  ],
+  "properties": {
+    "v": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "decision_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ts": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "wave_id": {
+      "type": "string"
+    },
+    "event": {
+      "type": "object",
+      "required": [
+        "event_type"
+      ],
+      "properties": {
+        "event_id": {
+          "type": "string"
+        },
+        "event_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject_ref": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "policy_hash"
+      ],
+      "properties": {
+        "policy_id": {
+          "type": "string"
+        },
+        "policy_hash": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "baseline_id": {
+          "type": "string"
+        },
+        "baseline_version": {
+          "type": [
+            "string",
+            "integer"
+          ]
+        },
+        "contract_ref": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "authority_id"
+      ],
+      "properties": {
+        "authority_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity_id": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "deny",
+        "error"
+      ]
+    },
+    "reason_code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "effect": {
+      "type": "object",
+      "properties": {
+        "effect_type": {
+          "type": "string"
+        },
+        "target_ref": {
+          "type": "string"
+        },
+        "attempted": {
+          "type": "boolean"
+        },
+        "applied": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true,
+  "description": "Decision record for governed runtime decisions under core authority; compatible with exec/knowledge outcomes."
+}

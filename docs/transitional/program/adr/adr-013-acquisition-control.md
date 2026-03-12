@@ -35,7 +35,7 @@ YAI adopts this v1 topology model:
 `yai` remains canonical owner/runtime source of truth for:
 
 - workspace lifecycle and binding
-- authority/evidence/enforcement final outcomes
+- policy/authority/evidence/enforcement final outcomes
 - canonical persistence and graph truth
 
 `yai-daemon` is a subordinate edge runtime and is explicitly not an owner
@@ -69,7 +69,7 @@ routing handoff, and acquisition gating).
 ## Non-goals
 
 - Runtime federation or peer-owner mesh.
-- Edge-local final authority/evidence/enforcement decisions.
+- Edge-local final policy/authority/evidence/enforcement decisions.
 - Edge-local canonical graph/workspace truth.
 - Network security hardening design (WireGuard/VPN) in this tranche.
 

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <yai/governance/loader.h>
+#include <yai/policy/governance/loader.h>
 
 int main(void) {
   yai_governance_runtime_t rt;
@@ -23,9 +23,9 @@ int main(void) {
     fprintf(stderr, "contract_surface: missing entrypoint contract refs\n");
     return 1;
   }
-  if (strncmp(rt.entrypoint.governance_manifest_ref, "specs/manifests/", 16) != 0 ||
-      strncmp(rt.entrypoint.resolution_order_ref, "specs/manifests/", 16) != 0 ||
-      strncmp(rt.entrypoint.compatibility_ref, "specs/manifests/", 16) != 0) {
+  if (strncmp(rt.entrypoint.governance_manifest_ref, "model/manifests/", 16) != 0 ||
+      strncmp(rt.entrypoint.resolution_order_ref, "model/manifests/", 16) != 0 ||
+      strncmp(rt.entrypoint.compatibility_ref, "model/manifests/", 16) != 0) {
     fprintf(stderr, "contract_surface: manifest refs are not canonical governance paths\n");
     return 1;
   }

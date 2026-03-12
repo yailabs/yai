@@ -10,7 +10,7 @@
 
 - synthetic fixtures for tests
 - small demo data with clear provenance and licensing
-- schemas/manifests describing external datasets
+- model/schema/manifests describing external datasets
 
 ## Forbidden in-repo data
 

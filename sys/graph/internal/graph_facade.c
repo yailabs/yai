@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <yai/knowledge/memory.h>
+#include <yai/cognition/memory.h>
 #include <yai/graph/internal/backend.h>
 
 static int ensure_backend(void)

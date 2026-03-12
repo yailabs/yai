@@ -31,7 +31,7 @@ MT-1 locks secure overlay transport as a distinct architectural plane:
 
 - separate from mesh discovery,
 - separate from mesh coordination,
-- separate from sovereign authority/truth.
+- separate from sovereign policy/authority/truth.
 
 ## Transport plane responsibilities
 
@@ -136,7 +136,7 @@ Transport behavior must remain consistent with edge subordination:
 ### `yai-sdk`
 
 - expose remote endpoint/transport path descriptors as first-class surfaces
-- keep transport errors distinct from authority/policy errors
+- keep transport errors distinct from policy/authority/policy errors
 
 ### `yai-cli`
 

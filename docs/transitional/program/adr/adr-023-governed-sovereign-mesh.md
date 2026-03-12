@@ -48,7 +48,7 @@ Boundary lock:
 ## Consequences
 
 - MF-1 can implement discovery without redefining authority.
-- MF-2 can implement peer registry/coordination as non-sovereign runtime plane.
+- MF-2 can implement peer model/registry/coordination as non-sovereign runtime plane.
 - MF-3 can implement trust and authority mechanics with explicit guardrails.
 - MT waves can integrate transport overlays without conflating network reachability
   with authority.

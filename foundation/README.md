@@ -26,9 +26,9 @@ They are migration aliases only.
 All downstream normative surfaces must conform to this foundation:
 - `runtime/`
 - `contracts/`
-- `registry/`
-- `schema/`
-- `formal/`
+- `model/registry/`
+- `model/schema/`
+- `control/assurance/`
 - `packs/`
 
 If downstream artifacts conflict with `foundation/*`, foundation prevails unless an explicit compatibility/deprecation rule exists.

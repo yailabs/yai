@@ -6,11 +6,11 @@ This policy defines compatibility guarantees for the unified single-repository Y
 
 Compatibility is governance-driven from canonical in-repo roots:
 
-- protocol contracts/schema: `lib/protocol/contracts/schema/`
-- protocol headers/ABI: `include/yai/protocol/contracts/`
-- schemas: `governance/schema/`
-- manifests: `governance/manifests/`
-- registry/grammar: `governance/registry/`, `governance/grammar/`
+- protocol contracts/schema: `lib/control/contracts/model/schema/`
+- protocol headers/ABI: `include/yai/control/contracts/`
+- schemas: `governance/model/schema/`
+- manifests: `governance/model/manifests/`
+- model/registry/grammar: `governance/model/registry/`, `governance/grammar/`
 
 External split-repo compatibility assumptions are sunset.
 
@@ -18,7 +18,7 @@ External split-repo compatibility assumptions are sunset.
 
 | YAI line | Contract baseline | Guarantee |
 |---|---|---|
-| `v1.0.x` | canonical `governance/` | contract/schema/manifest conformance is mandatory |
+| `v1.0.x` | canonical `governance/` | contract/model/schema/manifest conformance is mandatory |
 
 If implementation and governance artifacts diverge, implementation is defective.
 

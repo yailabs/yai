@@ -11,7 +11,7 @@ Behavior:
 
 Runtime wrappers kept in this repo:
 - `yai-governance-compat-check`
-- `yai-govern` (governance ingestion/authoring CLI)
+- `yai-govern` (governance control/ingestion/authoring CLI)
 - `yai-govern-ingest-parse`
 - `yai-govern-ingest-normalize`
 - `yai-govern-ingest-build-candidate`

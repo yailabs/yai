@@ -1,40 +1,17 @@
 # Foundation
 
-YAI is a governed OS-substrate system where authority is explicit, execution is deterministic,
-and externally relevant effects are traceable.
+YAI is a governed OS-substrate system where authority is explicit, execution is deterministic, and externally relevant effects are traceable.
 
-This repository is the single canonical system root.
+## Layer Model
 
-## Layer model
+- **L0 Foundation/Contracts**: `foundation/`, `policy/authority/`, `policy/compliance/`, `control/ingestion/`, `model/manifests/`, `model/ontology/`, `policy/overlays/`, `policy/`, `model/registry/`, `model/schema/`, `model/taxonomy/`, `control/assurance/`
+- **L1 Kernel Privileged Core**: `kernel/`
+- **L2 System Services**: `sys/`
+- **L3 User Surfaces**: `user/`, `sdk/`, `desktop/`
 
-- **L0 Foundation/Contracts**: `foundation/`, `specs/`, `formal/`
-- **L1 Kernel Privileged Core**: `kernel/` (ABI, state/lifecycle, admission, containment, grants roots)
-- **L2 System Services**: `sys/` (orchestration, daemon, policy, governance, graph, data, network, observability)
-- **L3 User Surfaces**: `user/` (CLI, shells, libs, tools, examples)
+## Canonical Topology
 
-## Non-negotiable principles
-
-- **Single source of truth**: code, specs, tests, tooling, and docs converge in one repo
-- **No silent side effects**: effectful transitions require explicit command/policy path
-- **Auditability**: decisions and evidence are reconstructible from persistent records
-- **Bounded authority**: each layer has explicit ownership and non-bypassable boundaries
-- **Spec-first implementation**: contracts are normative and implementation follows
-
-## Canonical topology
-
-- `boot/`
-- `kernel/`
-- `sys/`
-- `user/`
-- `runtime/` (`compatibility/`, `shims/`, `migration/` transitional only)
-- `protocol/`
-- `data/`
-- `specs/`
-- `formal/`
-- `foundation/`
-- `tests/`
-- `tools/`
-- `docs/` (`transitional/` currently authoritative for historical docs)
+`boot/`, `kernel/`, `sys/`, `sdk/`, `desktop/`, `user/`, `runtime/`, `protocol/`, `data/`, `policy/authority/`, `policy/compliance/`, `control/ingestion/`, `model/manifests/`, `model/ontology/`, `policy/overlays/`, `policy/`, `model/registry/`, `model/schema/`, `model/taxonomy/`, `foundation/`, `control/assurance/`, `tests/`, `tools/`, `docs/`.
 
 ## License
 

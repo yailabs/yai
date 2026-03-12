@@ -65,7 +65,7 @@ BRAIN_SRCS=(
   lib/orchestration/transport/transport_runtime.c
   lib/orchestration/transport/transport_protocol.c
   lib/orchestration/transport/uds_server.c
-  lib/protocol/control/source_plane.c
+  lib/control/protocol/control/source_plane.c
   lib/third_party/cjson/cJSON.c
 )
 

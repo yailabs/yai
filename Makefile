@@ -20,9 +20,9 @@ PKG_CONFIG ?= pkg-config
 CPPFLAGS ?= -I$(ROOT_DIR) -I$(ROOT_DIR)/include -I$(ROOT_DIR)/kernel/include \
             -I$(ROOT_DIR)/third_party/cjson \
             -I$(PROTOCOL_CONTRACT_ROOT)
-CPPFLAGS += -I$(ROOT_DIR)/user/cli/include \
-            -I$(ROOT_DIR)/user/libs/libyai/include \
-            -I$(ROOT_DIR)/user/libs/libyai/third_party/cjson
+CPPFLAGS += -I$(ROOT_DIR)/user/include \
+            -I$(ROOT_DIR)/sdk/c/libyai/include \
+            -I$(ROOT_DIR)/sdk/c/libyai/third_party/cjson
 CFLAGS ?= -Wall -Wextra -std=c11 -O2
 LDFLAGS ?=
 LDLIBS ?= -lm
@@ -47,12 +47,14 @@ CPPFLAGS += $(DUCKDB_CFLAGS) -DYAI_HAVE_DUCKDB=1
 LDLIBS += $(DUCKDB_LIBS)
 endif
 
-YAI_CLI_MAIN_OBJ := $(OBJ_DIR)/user/cli/yai/main.o
-YAI_CTL_MAIN_OBJ := $(OBJ_DIR)/user/cli/yai-ctl/main.o
+YAI_CLI_MAIN_OBJ := $(OBJ_DIR)/user/bin/yai/main.o
+YAI_CTL_MAIN_OBJ := $(OBJ_DIR)/user/bin/yai-ctl/main.o
+YAI_SH_MAIN_OBJ := $(OBJ_DIR)/user/bin/yai-sh/main.o
 YAI_BIN := $(BIN_DIR)/yai
 YAI_CTL_BIN := $(BIN_DIR)/yai-ctl
-YAI_DAEMON_OBJ := $(OBJ_DIR)/sys/daemon/yai-daemon-manager/main.o
-YAI_DAEMON_MANAGER_BIN := $(BIN_DIR)/yai-daemon-manager
+YAI_SH_BIN := $(BIN_DIR)/yai-sh
+YAI_DAEMON_OBJ := $(OBJ_DIR)/sys/daemon/yai-daemond/main.o
+YAI_DAEMOND_BIN := $(BIN_DIR)/yai-daemond
 YAI_DAEMON_BIN := $(BIN_DIR)/yai-daemon
 YAI_CONTAINERD_OBJ := $(OBJ_DIR)/sys/container/yai-containerd/main.o
 YAI_CONTAINERD_BIN := $(BIN_DIR)/yai-containerd
@@ -218,18 +220,18 @@ PROVIDERS_SRCS := \
 	sys/network/providers/mocks/mock_provider.c \
 	sys/network/providers/embedding/embedder_mock.c
 KNOWLEDGE_SRCS := \
-	sys/orchestration/internal/knowledge/core/runtime_compat.c \
-	sys/orchestration/internal/knowledge/core/cognition/cognition.c \
-	sys/orchestration/internal/knowledge/core/cognition/activation.c \
-	sys/orchestration/internal/knowledge/core/cognition/reasoning/reasoning_roles.c \
-	sys/orchestration/internal/knowledge/core/cognition/reasoning/scoring.c \
-	sys/orchestration/internal/knowledge/core/memory/memory.c \
-	sys/orchestration/internal/knowledge/core/memory/authority.c \
-	sys/orchestration/internal/knowledge/core/memory/arena_store.c \
-	sys/orchestration/internal/knowledge/core/memory/storage_bridge.c \
-	sys/orchestration/internal/knowledge/core/episodic/episodic.c \
-	sys/orchestration/internal/knowledge/core/semantic/semantic_db.c \
-	sys/orchestration/internal/knowledge/core/vector/vector_index.c
+	sys/orchestration/internal/cognition/core/runtime_compat.c \
+	sys/orchestration/internal/cognition/core/cognition/cognition.c \
+	sys/orchestration/internal/cognition/core/cognition/activation.c \
+	sys/orchestration/internal/cognition/core/cognition/reasoning/reasoning_roles.c \
+	sys/orchestration/internal/cognition/core/cognition/reasoning/scoring.c \
+	sys/orchestration/internal/cognition/core/memory/memory.c \
+	sys/orchestration/internal/cognition/core/memory/authority.c \
+	sys/orchestration/internal/cognition/core/memory/arena_store.c \
+	sys/orchestration/internal/cognition/core/memory/storage_bridge.c \
+	sys/orchestration/internal/cognition/core/episodic/episodic.c \
+	sys/orchestration/internal/cognition/core/semantic/semantic_db.c \
+	sys/orchestration/internal/cognition/core/vector/vector_index.c
 DATA_SRCS := \
 	sys/data/internal/store_binding.c \
 	sys/data/internal/scope_binding.c \
@@ -256,19 +258,19 @@ GRAPH_SRCS := \
 	sys/graph/lineage/lineage_summary.c \
 	third_party/cjson/cJSON.c
 DAEMON_SRCS := \
-	sys/daemon/yai-daemon-manager/runtime/runtime_config.c \
-	sys/daemon/yai-daemon-manager/runtime/runtime_paths.c \
-	sys/daemon/yai-daemon-manager/runtime/runtime_services.c \
-	sys/daemon/yai-daemon-manager/runtime/runtime_state.c \
-	sys/daemon/yai-daemon-manager/runtime/runtime_source_ids.c \
-	sys/daemon/yai-daemon-manager/config.c \
-	sys/daemon/yai-daemon-manager/daemon_runtime.c \
+	sys/daemon/yai-daemond/runtime/runtime_config.c \
+	sys/daemon/yai-daemond/runtime/runtime_paths.c \
+	sys/daemon/yai-daemond/runtime/runtime_services.c \
+	sys/daemon/yai-daemond/runtime/runtime_state.c \
+	sys/daemon/yai-daemond/runtime/runtime_source_ids.c \
+	sys/daemon/yai-daemond/config.c \
+	sys/daemon/yai-daemond/daemon_runtime.c \
 	sys/daemon/replay/process.c \
-	sys/daemon/yai-daemon-manager/bootstrap.c \
+	sys/daemon/yai-daemond/bootstrap.c \
 	sys/daemon/bindings/runtime_binding.c \
 	sys/daemon/bindings/network_binding.c \
 	sys/daemon/bindings/actions.c \
-	sys/daemon/yai-daemon-manager/lifecycle.c \
+	sys/daemon/yai-daemond/lifecycle.c \
 	sys/daemon/mediation/mediation.c \
 	sys/daemon/health/observation.c \
 	sys/daemon/internal/internal.c \
@@ -297,48 +299,51 @@ CONTAINER_SRCS := \
 	sys/container/runtime/state.c \
 	sys/container/rootfs/tree.c
 USER_CLI_SRCS := \
-	user/cli/core/app.c \
-	user/cli/core/control_call.c \
-	user/cli/core/errors.c \
-	user/cli/core/fmt.c \
-	user/cli/core/lifecycle.c \
-	user/cli/help/help.c \
-	user/cli/parse/parse.c \
-	user/cli/render/display_map.c \
-	user/cli/render/render.c \
-	user/cli/render/render_reply.c \
-	user/cli/render/style_map.c \
-	user/cli/term/color.c \
-	user/cli/term/keys.c \
-	user/cli/term/pager.c \
-	user/cli/term/screen.c \
-	user/cli/term/term.c \
-	user/cli/watch/watch.c \
-	user/cli/watch/watch_model.c \
-	user/cli/watch/watch_target.c \
-	user/cli/watch/watch_ui.c
+	user/shell/core/app.c \
+	user/shell/core/control_call.c \
+	user/shell/core/errors.c \
+	user/shell/core/fmt.c \
+	user/shell/core/lifecycle.c \
+	user/shell/help/help.c \
+	user/shell/session/session.c \
+	user/shell/builtins/builtins.c \
+	user/shell/prompt/prompt.c \
+	user/shell/parse/parse.c \
+	user/shell/render/display_map.c \
+	user/shell/render/render.c \
+	user/shell/render/render_reply.c \
+	user/shell/render/style_map.c \
+	user/shell/term/color.c \
+	user/shell/term/keys.c \
+	user/shell/term/pager.c \
+	user/shell/term/screen.c \
+	user/shell/term/term.c \
+	user/shell/watch/watch.c \
+	user/shell/watch/watch_model.c \
+	user/shell/watch/watch_target.c \
+	user/shell/watch/watch_ui.c
 USER_LIBYAI_SRCS := \
-	user/libs/libyai/catalog/catalog.c \
-	user/libs/libyai/client/client.c \
-	user/libs/libyai/models/runtime_models.c \
-	user/libs/libyai/platform/context.c \
-	user/libs/libyai/platform/log.c \
-	user/libs/libyai/platform/paths.c \
-	user/libs/libyai/platform/transport.c \
-	user/libs/libyai/protocol/reply_map.c \
-	user/libs/libyai/registry/registry.c \
-	user/libs/libyai/registry/registry_cache.c \
-	user/libs/libyai/registry/registry_help.c \
-	user/libs/libyai/registry/registry_load.c \
-	user/libs/libyai/registry/registry_paths.c \
-	user/libs/libyai/registry/registry_query.c \
-	user/libs/libyai/registry/registry_validate.c \
-	user/libs/libyai/reply/reply_builder.c \
-	user/libs/libyai/reply/reply_json.c \
-	user/libs/libyai/rpc/rpc_client.c \
-	user/libs/libyai/source/source.c \
-	user/libs/libyai/sdk_public.c \
-	user/libs/libyai/third_party/cjson/cJSON.c
+	sdk/c/libyai/catalog/catalog.c \
+	sdk/c/libyai/client/client.c \
+	sdk/c/libyai/models/runtime_models.c \
+	sdk/c/libyai/platform/context.c \
+	sdk/c/libyai/platform/log.c \
+	sdk/c/libyai/platform/paths.c \
+	sdk/c/libyai/platform/transport.c \
+	sdk/c/libyai/protocol/reply_map.c \
+	sdk/c/libyai/registry/registry.c \
+	sdk/c/libyai/registry/registry_cache.c \
+	sdk/c/libyai/registry/registry_help.c \
+	sdk/c/libyai/registry/registry_load.c \
+	sdk/c/libyai/registry/registry_paths.c \
+	sdk/c/libyai/registry/registry_query.c \
+	sdk/c/libyai/registry/registry_validate.c \
+	sdk/c/libyai/reply/reply_builder.c \
+	sdk/c/libyai/reply/reply_json.c \
+	sdk/c/libyai/rpc/rpc_client.c \
+	sdk/c/libyai/source/source.c \
+	sdk/c/libyai/sdk_public.c \
+	sdk/c/libyai/third_party/cjson/cJSON.c
 SUPPORT_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SUPPORT_SRCS))
 PLATFORM_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PLATFORM_SRCS))
 PROTOCOL_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PROTOCOL_SRCS))
@@ -374,7 +379,7 @@ DOXYFILE := docs/transitional/root-meta/Doxyfile
 DOXYGEN ?= doxygen
 DOXY_OUT ?= $(DIST_ROOT)/docs/doxygen
 
-.PHONY: all yai yai-ctl yai-daemon-manager yai-daemon yai-containerd yai-graphd yai-datad yai-netd yai-orchestratord yai-policyd yai-governanced yai-metricsd yai-auditd yai-supervisord yai-edge foundations support platform protocol core orchestration exec network mesh providers knowledge data graph edge daemon container yd1-baseline kernel-check kernel-smoke \
+.PHONY: all yai yai-ctl yai-sh yai-daemond yai-daemon yai-containerd yai-graphd yai-datad yai-netd yai-orchestratord yai-policyd yai-governanced yai-metricsd yai-auditd yai-supervisord yai-edge foundations support platform protocol core orchestration exec network mesh providers knowledge data graph edge daemon container yd1-baseline kernel-check kernel-smoke \
         test test-unit test-integration test-e2e test-core test-runtime test-knowledge test-orchestration test-protocol test-governance test-providers test-daemon test-edge test-mesh test-sys-container \
         test-demo-matrix verify-final-demo-matrix \
         clean clean-dist clean-all build build-all dist dist-all bundle verify \
@@ -382,14 +387,15 @@ DOXY_OUT ?= $(DIST_ROOT)/docs/doxygen
         release-guards-dev changelog-verify b13-convergence-check dirs help \
         governance-sync governance-check
 
-all: yai yai-ctl yai-daemon-manager yai-daemon yai-containerd yai-graphd yai-datad yai-netd yai-orchestratord yai-policyd yai-governanced yai-metricsd yai-auditd yai-supervisord foundations
-	@echo "[YAI] unified binary spine ready: $(YAI_BIN) + $(YAI_CTL_BIN) + $(YAI_DAEMON_MANAGER_BIN) + $(YAI_DAEMON_BIN) + $(YAI_CONTAINERD_BIN) + $(YAI_GRAPHD_BIN) + $(YAI_DATAD_BIN) + $(YAI_NETD_BIN) + $(YAI_ORCHESTRATORD_BIN) + $(YAI_POLICYD_BIN) + $(YAI_GOVERNANCED_BIN) + $(YAI_METRICSD_BIN) + $(YAI_AUDITD_BIN) + $(YAI_SUPERVISORD_BIN)"
+all: yai yai-ctl yai-sh yai-daemond yai-daemon yai-containerd yai-graphd yai-datad yai-netd yai-orchestratord yai-policyd yai-governanced yai-metricsd yai-auditd yai-supervisord foundations
+	@echo "[YAI] unified binary spine ready: $(YAI_BIN) + $(YAI_CTL_BIN) + $(YAI_SH_BIN) + $(YAI_DAEMOND_BIN) + $(YAI_DAEMON_BIN) + $(YAI_CONTAINERD_BIN) + $(YAI_GRAPHD_BIN) + $(YAI_DATAD_BIN) + $(YAI_NETD_BIN) + $(YAI_ORCHESTRATORD_BIN) + $(YAI_POLICYD_BIN) + $(YAI_GOVERNANCED_BIN) + $(YAI_METRICSD_BIN) + $(YAI_AUDITD_BIN) + $(YAI_SUPERVISORD_BIN)"
 
 yai: $(YAI_BIN)
 yai-ctl: $(YAI_CTL_BIN)
-yai-daemon-manager: $(YAI_DAEMON_MANAGER_BIN)
-yai-daemon: yai-daemon-manager
-	@cp "$(YAI_DAEMON_MANAGER_BIN)" "$(YAI_DAEMON_BIN)"
+yai-sh: $(YAI_SH_BIN)
+yai-daemond: $(YAI_DAEMOND_BIN)
+yai-daemon: yai-daemond
+	@cp "$(YAI_DAEMOND_BIN)" "$(YAI_DAEMON_BIN)"
 yai-containerd: $(YAI_CONTAINERD_BIN)
 yai-graphd: $(YAI_GRAPHD_BIN)
 yai-datad: $(YAI_DATAD_BIN)
@@ -498,7 +504,10 @@ $(YAI_BIN): $(YAI_CLI_MAIN_OBJ) $(USER_CLI_OBJS) $(USER_LIBYAI) $(CORE_LIB) $(OR
 $(YAI_CTL_BIN): $(YAI_CTL_MAIN_OBJ) | dirs
 	$(CC) $(LDFLAGS) $(YAI_CTL_MAIN_OBJ) -o $@ $(LDLIBS)
 
-$(YAI_DAEMON_MANAGER_BIN): $(YAI_DAEMON_OBJ) $(DAEMON_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) | dirs
+$(YAI_SH_BIN): $(YAI_SH_MAIN_OBJ) $(USER_CLI_OBJS) $(USER_LIBYAI) $(CORE_LIB) $(ORCHESTRATION_LIB) $(KNOWLEDGE_LIB) $(PROVIDERS_LIB) $(DATA_LIB) $(GRAPH_LIB) $(NETWORK_LIB) $(DAEMON_LIB) $(CONTAINER_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) | dirs
+	$(CC) $(LDFLAGS) $(YAI_SH_MAIN_OBJ) $(USER_CLI_OBJS) -o $@ $(USER_LIBYAI) $(CORE_LIB) $(ORCHESTRATION_LIB) $(KNOWLEDGE_LIB) $(PROVIDERS_LIB) $(DATA_LIB) $(GRAPH_LIB) $(NETWORK_LIB) $(DAEMON_LIB) $(CONTAINER_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) $(LDLIBS)
+
+$(YAI_DAEMOND_BIN): $(YAI_DAEMON_OBJ) $(DAEMON_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) | dirs
 	$(CC) $(LDFLAGS) $(YAI_DAEMON_OBJ) -o $@ $(DAEMON_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(LDLIBS)
 
 $(YAI_CONTAINERD_BIN): $(YAI_CONTAINERD_OBJ) $(CONTAINER_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) | dirs
@@ -577,7 +586,7 @@ $(OBJ_DIR)/%.o: %.c | dirs
 dirs:
 	@mkdir -p $(SPINE_DIRS)
 
-build: yai yai-ctl yai-daemon yai-containerd yai-graphd yai-datad yai-netd yai-orchestratord yai-policyd yai-governanced yai-metricsd yai-auditd yai-supervisord
+build: yai yai-ctl yai-sh yai-daemon yai-containerd yai-graphd yai-datad yai-netd yai-orchestratord yai-policyd yai-governanced yai-metricsd yai-auditd yai-supervisord
 	@echo "--- [YAI] primary service entrypoints build complete ---"
 
 yd1-baseline: yai yai-daemon yai-containerd
@@ -596,7 +605,7 @@ dist: build
 	@mkdir -p $(BIN_DIST)
 	@cp "$(YAI_BIN)" "$(BIN_DIST)/yai"
 	@if [ -f "$(YAI_CTL_BIN)" ]; then cp "$(YAI_CTL_BIN)" "$(BIN_DIST)/yai-ctl"; fi
-	@if [ -f "$(YAI_DAEMON_MANAGER_BIN)" ]; then cp "$(YAI_DAEMON_MANAGER_BIN)" "$(BIN_DIST)/yai-daemon-manager"; fi
+	@if [ -f "$(YAI_DAEMOND_BIN)" ]; then cp "$(YAI_DAEMOND_BIN)" "$(BIN_DIST)/yai-daemond"; fi
 	@if [ -f "$(YAI_DAEMON_BIN)" ]; then cp "$(YAI_DAEMON_BIN)" "$(BIN_DIST)/yai-daemon"; cp "$(YAI_DAEMON_BIN)" "$(BIN_DIST)/yai-edge"; fi
 	@if [ -f "$(YAI_CONTAINERD_BIN)" ]; then cp "$(YAI_CONTAINERD_BIN)" "$(BIN_DIST)/yai-containerd"; fi
 	@if [ -f "$(YAI_GRAPHD_BIN)" ]; then cp "$(YAI_GRAPHD_BIN)" "$(BIN_DIST)/yai-graphd"; fi
@@ -672,11 +681,12 @@ clean-all: clean clean-dist
 
 help:
 	@echo "Primary build targets:"
-	@echo "  all            (yai + yai-daemon-manager + yai-daemon alias + foundation libs)"
+	@echo "  all            (yai + yai-daemond + yai-daemon alias + foundation libs)"
 	@echo "  yai            (build/bin/yai)"
-	@echo "  yai-ctl        (build/bin/yai-ctl userland cli control alias)"
-	@echo "  yai-daemon-manager (build/bin/yai-daemon-manager canonical daemon manager)"
-	@echo "  yai-daemon     (compat alias of build/bin/yai-daemon-manager)"
+	@echo "  yai-ctl        (build/bin/yai-ctl userland shell control alias)"
+	@echo "  yai-sh         (build/bin/yai-sh canonical interactive shell entrypoint)"
+	@echo "  yai-daemond (build/bin/yai-daemond canonical daemon manager)"
+	@echo "  yai-daemon     (compat alias of build/bin/yai-daemond)"
 	@echo "  yai-containerd (build/bin/yai-containerd container manager runtime)"
 	@echo "  yai-edge       (legacy alias of build/bin/yai-daemon)"
 	@echo "  yd1-baseline   (build anchors + YD-1 architecture refs)"

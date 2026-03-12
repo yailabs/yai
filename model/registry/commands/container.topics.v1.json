@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "topics": [
+    {
+      "entrypoint": "container",
+      "topics": [
+        {
+          "topic": "core",
+          "ops": [
+            "container",
+            "container_apply",
+            "container_attach",
+            "container_create",
+            "container_deny",
+            "container_destroy",
+            "container_detach",
+            "container_enforce",
+            "container_freeze",
+            "container_guard",
+            "container_list",
+            "container_permit",
+            "container_ping",
+            "container_reconcile",
+            "container_reset",
+            "container_restore",
+            "container_snapshot",
+            "container_status",
+            "container_thaw",
+            "container_trace",
+            "container_validate"
+          ]
+        }
+      ]
+    }
+  ]
+}

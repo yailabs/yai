@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <yai/knowledge/memory.h>
+#include <yai/cognition/memory.h>
 
 int yai_node_id_is_valid(yai_node_id_t node_id)
 {

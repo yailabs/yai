@@ -16,7 +16,7 @@ It hosts system services that run above `kernel/` primitives and below `user/` i
 - `init/`: system bootstrap and shutdown orchestration (`yai-init`, `yai-shutdown`).
 - `supervisor/`: admission, registry, lifecycle and recovery control (`yai-supervisord`).
 - `container/`: contained domain manager and runtime surfaces (`yai-containerd`).
-- `daemon/`: daemon lifecycle and bindings management (`yai-daemon-manager`).
+- `daemon/`: daemon lifecycle and bindings management (`yai-daemond`).
 - `orchestration/`: workflow planning, scheduling and execution coordination (`yai-orchestratord`).
 - `policy/`: policy engine, grants overlays, enforcement and review (`yai-policyd`).
 - `governance/`: authority, escalation, decisions and publication (`yai-governanced`).

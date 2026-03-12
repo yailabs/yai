@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-#include <yai/governance/authority.h>
-#include <yai/governance/escalation.h>
-#include <yai/governance/decisions.h>
-#include <yai/governance/publication.h>
+#include <yai/policy/governance/authority.h>
+#include <yai/policy/governance/escalation.h>
+#include <yai/policy/governance/decisions.h>
+#include <yai/policy/governance/publication.h>
 
 #include <stdio.h>
 

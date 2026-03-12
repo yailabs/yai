@@ -1,0 +1,36 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v3",
+  "family_id": "D8",
+  "internal_id": "D8",
+  "canonical_name": "scientific",
+  "display_name": "Scientific",
+  "slug": "scientific",
+  "status": "active",
+  "classification_ref": "model/taxonomy/maps/classification-map.v1.json",
+  "specializations_ref": "specializations/indexes/specializations.index.json",
+  "overlay_refs": {
+    "regulatory": "packages/regulatory/indexes/regulatory.index.json",
+    "sector": "packages/sector/indexes/sector.index.json",
+    "contextual": "packages/contextual/indexes/contextual.index.json"
+  },
+  "authority_profile": {
+    "default_required_scope": "controller",
+    "human_oversight_required_on_high_risk": true,
+    "escalation_on_unlocked_parameters": true
+  },
+  "evidence_profile": {
+    "requires_parameter_trace": true,
+    "requires_reproducibility_context": true,
+    "retention_hint": "extended"
+  },
+  "legacy_seed_ref": "transitional/domain-family-seed/D8-scientific",
+  "specializations": [
+    "experiment-configuration",
+    "parameter-governance",
+    "reproducibility-control",
+    "black-box-evaluation",
+    "dataset-integrity",
+    "result-publication-control"
+  ]
+}

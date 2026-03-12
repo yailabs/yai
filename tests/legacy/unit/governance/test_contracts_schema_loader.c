@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <yai/governance/loader.h>
+#include <yai/policy/governance/loader.h>
 
 static int read_file(const char *path, char *out, size_t cap) {
   FILE *f = NULL;
@@ -29,7 +29,7 @@ int main(void) {
     return 1;
   }
 
-  if (read_file("specs/protocol/control/control_plane.v1.json", json, sizeof(json)) != 0) {
+  if (read_file("control/contracts/control/control-plane.v1.json", json, sizeof(json)) != 0) {
     fprintf(stderr, "contracts_schema_loader: missing control plane contract\n");
     return 1;
   }
@@ -38,7 +38,7 @@ int main(void) {
     return 1;
   }
 
-  if (read_file("specs/providers/schemas/providers.v1.json", json, sizeof(json)) != 0) {
+  if (read_file("model/registry/providers/providers.v1.json", json, sizeof(json)) != 0) {
     fprintf(stderr, "contracts_schema_loader: missing providers contract\n");
     return 1;
   }
@@ -47,7 +47,7 @@ int main(void) {
     return 1;
   }
 
-  if (yai_governance_read_surface_json(&rt, "schema/workspace_governance_attachment.v1.schema.json", json, sizeof(json)) != 0) {
+  if (yai_governance_read_surface_json(&rt, "model/schema/governance/workspace-attachment.v1.schema.json", json, sizeof(json)) != 0) {
     fprintf(stderr, "contracts_schema_loader: missing workspace attachment schema\n");
     return 1;
   }
@@ -56,7 +56,7 @@ int main(void) {
     return 1;
   }
 
-  if (yai_governance_read_surface_json(&rt, "schema/governance_review_state.v1.schema.json", json, sizeof(json)) != 0) {
+  if (yai_governance_read_surface_json(&rt, "model/schema/governance/review-state.v1.schema.json", json, sizeof(json)) != 0) {
     fprintf(stderr, "contracts_schema_loader: missing review state schema\n");
     return 1;
   }

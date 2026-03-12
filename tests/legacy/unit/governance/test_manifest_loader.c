@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <yai/governance/loader.h>
+#include <yai/policy/governance/loader.h>
 
 int main(void) {
   yai_governance_runtime_t rt;
@@ -16,8 +16,8 @@ int main(void) {
     fprintf(stderr, "manifest_loader: invalid runtime payload\n");
     return 1;
   }
-  if (strncmp(rt.runtime_view.domain_resolution_ref, "specs/manifests/", 16) != 0 ||
-      strncmp(rt.runtime_view.compliance_resolution_ref, "specs/manifests/", 16) != 0) {
+  if (strncmp(rt.runtime_view.domain_resolution_ref, "model/manifests/", 16) != 0 ||
+      strncmp(rt.runtime_view.compliance_resolution_ref, "model/manifests/", 16) != 0) {
     fprintf(stderr, "manifest_loader: runtime resolution refs are not canonical governance paths\n");
     return 1;
   }

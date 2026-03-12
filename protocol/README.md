@@ -1,8 +1,7 @@
-# protocol
+# Protocol
 
-Canonical root for protocol contract families.
+Protocol subsystem root.
 
-- control/
-- transport/
-- source-plane/
-- vault/
+- `control/contracts/`: machine-readable protocol contracts
+- `protocol/lib/`: protocol implementation code
+- `protocol/control`, `protocol/transport`, `protocol/source-plane`, `protocol/vault`: protocol surfaces

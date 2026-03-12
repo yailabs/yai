@@ -1,0 +1,14 @@
+{
+  "kind": "specialization.bundle.template.v1",
+  "version": "v1",
+  "bundle_layout": {
+    "manifest": "manifest.v1.json",
+    "model": "model/*.json",
+    "policy": "policy/*.json",
+    "evidence": "evidence/*.json",
+    "authority": "policy/authority/*.json",
+    "discovery": "discovery/*.json",
+    "scenarios": "scenarios/*.json"
+  },
+  "note": "Materialized bundle is derived support surface, not primary semantic source."
+}

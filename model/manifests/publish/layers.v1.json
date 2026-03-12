@@ -1,0 +1,21 @@
+{
+  "kind": "publish.layers",
+  "version": "v1",
+  "runtime_surface": {
+    "ontology": "model/ontology/",
+    "protocol": "protocol/",
+    "registry": "model/registry/",
+    "manifests": "model/manifests/",
+    "compliance": "policy/compliance/",
+    "overlays": "policy/overlays/"
+  },
+  "bridge": {
+    "legacy_enabled": false,
+    "mode": "opt-in-compat-only"
+  },
+  "non_runtime_sections": [
+    "policy/authority/",
+    "model/schema/",
+    "control/ingestion/"
+  ]
+}

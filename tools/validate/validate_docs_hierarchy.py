@@ -40,7 +40,7 @@ REQUIRED_READMES = [
     "docs/runbooks/operations/README.md",
     "docs/guides/developer/README.md",
     "docs/architecture/foundation/README.md",
-    "docs/architecture/formal/README.md",
+    "docs/architecture/control/assurance/README.md",
     "docs/architecture/runtime/README.md",
     "docs/architecture/orchestration/README.md",
     "docs/architecture/edge/README.md",

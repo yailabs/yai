@@ -1,0 +1,7 @@
+{
+  "version": "v1",
+  "kind": "yai.policy.review.index",
+  "vectors": [
+    "policy/review/vectors/audit-vectors.v1.json"
+  ]
+}

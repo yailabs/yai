@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "governance/grammar/model/schema/overlay_scope.v1",
+  "title": "overlay_scope.v1",
+  "description": "Overlay scope descriptor",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "scope_id": {
+      "type": "string"
+    },
+    "scope_type": {
+      "type": "string"
+    },
+    "target": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "scope_id",
+    "scope_type"
+  ],
+  "additionalProperties": true
+}

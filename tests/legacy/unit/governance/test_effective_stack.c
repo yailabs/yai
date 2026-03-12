@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include <yai/governance/resolver.h>
+#include <yai/policy/governance/resolver.h>
 
 int main(void) {
   yai_governance_resolution_output_t out;

@@ -2,8 +2,8 @@
 
 #include <yai/orchestration/transport.h>
 
-#include <yai/knowledge/cognition.h>
-#include <yai/knowledge/memory.h>
+#include <yai/cognition/cognition.h>
+#include <yai/cognition/memory.h>
 #include <yai/network/providers/catalog.h>
 
 #include <stdio.h>

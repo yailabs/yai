@@ -1,0 +1,58 @@
+{
+  "kind": "specialization_descriptor.v1",
+  "version": "v1",
+  "specialization_id": "payments",
+  "canonical_name": "economic.payments",
+  "family": "economic",
+  "specialization_class": "general",
+  "status": "active",
+  "review_state": "managed",
+  "verticalization_wave": "wave-1",
+  "runtime": {
+    "manifest_ref": "specializations/model/manifests/payments/manifest.v1.json",
+    "bundle_ref": "specializations/model/manifests/payments",
+    "scenario_classes": [
+      "sc.economic.payments.baseline",
+      "sc.economic.payments.stress"
+    ]
+  },
+  "composition": {
+    "model_refs": [
+      "specializations/model/manifests/payments/model/actions.v1.json",
+      "specializations/model/manifests/payments/model/assets.v1.json",
+      "specializations/model/manifests/payments/model/evidence-obligations.v1.json",
+      "specializations/model/manifests/payments/model/risk-surface.v1.json"
+    ],
+    "policy_refs": [
+      "specializations/model/manifests/payments/policy/baseline.v1.json",
+      "specializations/model/manifests/payments/policy/deny.v1.json",
+      "specializations/model/manifests/payments/policy/exceptions.v1.json",
+      "specializations/model/manifests/payments/policy/precedence.v1.json",
+      "specializations/model/manifests/payments/policy/quarantine.v1.json",
+      "specializations/model/manifests/payments/policy/review-required.v1.json"
+    ],
+    "evidence_refs": [
+      "specializations/model/manifests/payments/evidence/decision-fields.v1.json",
+      "specializations/model/manifests/payments/evidence/requirements.v1.json"
+    ],
+    "authority_refs": [
+      "specializations/model/manifests/payments/policy/authority/model.v1.json"
+    ],
+    "discovery_refs": [
+      "specializations/model/manifests/payments/discovery/signals.v1.json"
+    ],
+    "scenario_refs": [
+      "specializations/model/manifests/payments/scenarios/index.v1.json"
+    ]
+  },
+  "taxonomy": {
+    "risk_ref": "model/taxonomy/risks/risk-taxonomy.v1.json",
+    "action_ref": "model/taxonomy/actions/action-taxonomy.v1.json",
+    "asset_ref": "model/taxonomy/assets/asset-taxonomy.v1.json",
+    "signal_ref": "model/taxonomy/signals/signal-taxonomy.v1.json"
+  },
+  "source": {
+    "generator": "tools/gen/build_specialization_descriptors.py",
+    "materialized_bundle_ref": "specializations/model/manifests/payments"
+  }
+}

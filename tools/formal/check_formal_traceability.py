@@ -6,11 +6,11 @@ import json
 from pathlib import Path
 
 REQUIRED = [
-    "formal/models/yai_system.tla",
-    "formal/traceability/model.map.json",
-    "formal/traceability/invariant-linkage.json",
-    "formal/traceability/enforcement-linkage.json",
-    "formal/schema/formal_traceability_map.v1.schema.json",
+    "control/assurance/models/yai_system.tla",
+    "control/assurance/traceability/model.map.json",
+    "control/assurance/traceability/invariant-linkage.json",
+    "control/assurance/traceability/enforcement-linkage.json",
+    "control/assurance/model/schema/formal_traceability_map.v1.schema.json",
 ]
 
 
@@ -28,9 +28,9 @@ def main() -> int:
             errors.append(f"missing required formal file: {rel}")
 
     for rel in [
-        "formal/traceability/model.map.json",
-        "formal/traceability/invariant-linkage.json",
-        "formal/traceability/enforcement-linkage.json",
+        "control/assurance/traceability/model.map.json",
+        "control/assurance/traceability/invariant-linkage.json",
+        "control/assurance/traceability/enforcement-linkage.json",
     ]:
         p = root / rel
         if p.exists():

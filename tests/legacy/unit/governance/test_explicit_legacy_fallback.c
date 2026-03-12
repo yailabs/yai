@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <yai/governance/loader.h>
+#include <yai/policy/governance/loader.h>
 
 int main(void) {
   yai_governance_runtime_t rt;

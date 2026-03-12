@@ -1,0 +1,10 @@
+{
+  "version": "v1",
+  "kind": "yai.policy.pack.index",
+  "sources": [
+    "policy/compliance/",
+    "model/manifests/",
+    "model/ontology/",
+    "policy/overlays/"
+  ]
+}

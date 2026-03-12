@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <yai/governance/loader.h>
+#include <yai/policy/governance/loader.h>
 
 int main(void) {
   yai_governance_runtime_t rt;

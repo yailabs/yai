@@ -10,19 +10,19 @@ depends_on: [docs/architecture/data/architecture.md]
 # Schemas Reference
 
 # Purpose
-Provide schema/spec lookup surfaces used by governance and runtime integration.
+Provide model/schema/spec lookup surfaces used by governance and runtime integration.
 
 # Scope
 Covers governance manifests, formal schema inputs, and public header contracts.
 
 # Relationships
 - `governance/`
-- `formal/`
+- `control/assurance/`
 - `include/yai/`
 - `lib/governance/`
 
 # Canonical Role
-Canonical schema/spec reference entrypoint.
+Canonical model/schema/spec reference entrypoint.
 
 # Main Body
 - Use `specs.md` for canonical schema surface mapping.

@@ -11,8 +11,8 @@
 #include <yai/orchestration/internal/peer_registry_bridge.h>
 #include <yai/graph/materialization.h>
 #include <yai/graph/query.h>
-#include <yai/knowledge/memory.h>
-#include <yai/governance/policy_effects.h>
+#include <yai/cognition/memory.h>
+#include <yai/policy/governance/policy_effects.h>
 #include "cJSON.h"
 
 #include <dirent.h>

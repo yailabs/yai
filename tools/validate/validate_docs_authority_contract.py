@@ -25,7 +25,7 @@ CANONICAL_OWNERS = {
     "knowledge-architecture": "docs/architecture/knowledge/architecture.md",
     "orchestration-architecture": "docs/architecture/orchestration/architecture.md",
     "protocol-reference": "docs/reference/protocol/README.md",
-    "schemas-reference": "docs/reference/schemas/README.md",
+    "schemas-reference": "docs/reference/model/schema/README.md",
     "commands-reference": "docs/reference/commands/README.md",
     "operations-procedure": "docs/runbooks/operations/operations.md",
     "qualification-procedure": "docs/runbooks/qualification/qualification.md",

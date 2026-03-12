@@ -86,7 +86,7 @@ body:
     attributes:
       label: Governance/Specs references (if relevant)
       placeholder: |
-        governance/specs/protocol/include/transport.h
+        governance/protocol/include/transport.h
         governance/contracts/invariants/I-002-determinism.md
     validations:
       required: false

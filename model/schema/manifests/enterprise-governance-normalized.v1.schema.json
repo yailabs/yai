@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "governance/grammar/model/schema/enterprise_governance_normalized.v1",
+  "title": "enterprise_governance_normalized.v1",
+  "type": "object",
+  "properties": {
+    "kind": {"const": "enterprise_governance_normalized"},
+    "schema_version": {"type": "string", "pattern": "^v[0-9]+$"},
+    "normalized_id": {"type": "string"},
+    "source_refs": {"type": "array", "items": {"type": "string"}},
+    "parsed_fact_refs": {"type": "array", "items": {"type": "string"}},
+    "organization_scope": {"type": "object", "additionalProperties": true},
+    "workspace_targets": {"type": "array", "items": {"type": "string"}},
+    "domain_targets": {"type": "array", "items": {"type": "string"}},
+    "specialization_targets": {"type": "array", "items": {"type": "string"}},
+    "rule_candidates": {"type": "array", "items": {"type": "object"}},
+    "authority_candidates": {"type": "array", "items": {"type": "object"}},
+    "evidence_candidates": {"type": "array", "items": {"type": "object"}},
+    "precedence_candidates": {"type": "array", "items": {"type": "object"}},
+    "exception_candidates": {"type": "array", "items": {"type": "object"}},
+    "apply_mode_hints": {"type": "array", "items": {"type": "string"}},
+    "unresolved_ambiguities": {"type": "array", "items": {"type": "object"}},
+    "conflict_hints": {"type": "array", "items": {"type": "object"}},
+    "build_readiness": {"type": "string"},
+    "notes": {"type": "string"}
+  },
+  "required": [
+    "kind", "schema_version", "normalized_id", "source_refs", "parsed_fact_refs",
+    "organization_scope", "rule_candidates", "build_readiness"
+  ],
+  "additionalProperties": true
+}

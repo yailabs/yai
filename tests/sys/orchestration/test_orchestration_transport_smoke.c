@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include <yai/knowledge/runtime.h>
+#include <yai/cognition/runtime.h>
 #include <yai/orchestration/transport.h>
 
 int main(void)

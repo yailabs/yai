@@ -77,6 +77,6 @@ Normative decisions are governed by primary ontology terms.
 
 ## Canonical registry references
 
-- `registry/primitives.v1.json`
-- `registry/commands.v1.json`
-- `registry/artifacts.v1.json`
+- `model/registry/primitives.v1.json`
+- `model/registry/commands.v1.json`
+- `model/registry/artifacts.v1.json`

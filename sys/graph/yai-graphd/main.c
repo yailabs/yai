@@ -6,7 +6,7 @@
 #include <yai/api/version.h>
 #include <yai/graph/lineage.h>
 #include <yai/graph/query.h>
-#include <yai/knowledge/memory.h>
+#include <yai/cognition/memory.h>
 
 static void print_help(void)
 {

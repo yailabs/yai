@@ -50,7 +50,7 @@ Canonical topology remains:
 `core` remains canonical for:
 
 - workspace truth and binding semantics
-- authority/enforcement final decisions
+- policy/authority/enforcement final decisions
 - canonical persistence and DB-first read surfaces
 - owner graph truth materialization
 
@@ -91,7 +91,7 @@ This path is validated by integration test:
 
 - `exec` must mediate `yai.source.*` operations; do not bypass into ad-hoc core
   handlers.
-- source-plane gates do not decide authority/evidence final truth.
+- source-plane gates do not decide policy/authority/evidence final truth.
 - daemon-originated payloads do not become canonical truth outside owner runtime
   persistence/materialization.
 

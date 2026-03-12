@@ -1,4 +1,4 @@
-#include <yai/governance/policy_effects.h>
+#include <yai/policy/governance/policy_effects.h>
 
 const char *yai_governance_effect_name(yai_governance_effect_t effect) {
   switch (effect) {

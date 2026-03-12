@@ -22,7 +22,7 @@ Covers transport headers, contracts, and runtime transport implementation.
 Lookup reference for transport contracts.
 
 # Main Body
-Transport contracts are defined in `include/yai/protocol/transport_contract.h` and related transport headers. Runtime transport behavior lives under `lib/protocol/transport/`.
+Transport contracts are defined in `include/yai/protocol/transport_contract.h` and related transport headers. Runtime transport behavior lives under `lib/control/protocol/transport/`.
 
 # Related Docs
 - `docs/architecture/protocol/transport.md`

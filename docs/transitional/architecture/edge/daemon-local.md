@@ -25,7 +25,7 @@ Authoritative architecture source for its scope.
 ## Scope
 
 `yai-daemon` is a subordinate edge runtime. In v1 it is intentionally
-non-sovereign: no workspace truth, no policy truth, no final authority/
+non-sovereign: no workspace truth, no policy truth, no final policy/authority/
 enforcement/conflict truth, no local graph truth.
 
 ## Runtime Planes

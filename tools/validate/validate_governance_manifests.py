@@ -32,9 +32,9 @@ def main() -> int:
     publish_index = _must_json(mroot / "publish.index.json")
     publish_layers = _must_json(mroot / "publish.layers.json")
 
-    if governance_manifest.get("resolution_entrypoints_ref") != "manifests/runtime.entrypoints.json":
+    if governance_manifest.get("resolution_entrypoints_ref") != "model/manifests/runtime.entrypoints.json":
         raise SystemExit("governance_manifests: governance.manifest.json invalid resolution_entrypoints_ref")
-    if governance_manifest.get("compatibility") != "manifests/compatibility.matrix.json":
+    if governance_manifest.get("compatibility") != "model/manifests/compatibility.matrix.json":
         raise SystemExit("governance_manifests: governance.manifest.json invalid compatibility ref")
 
     entries = runtime_entrypoints.get("entrypoints", [])
@@ -49,7 +49,7 @@ def main() -> int:
         "compliance_resolution_order_ref",
         "compatibility_ref",
     ]:
-        if not str(first.get(key, "")).startswith("manifests/"):
+        if not str(first.get(key, "")).startswith("model/manifests/"):
             raise SystemExit(f"governance_manifests: entrypoint missing manifests ref for {key}")
 
     runtime_target = None
@@ -63,7 +63,7 @@ def main() -> int:
         raise SystemExit("governance_manifests: runtime-governance target must include manifests")
 
     runtime_surface = publish_layers.get("runtime_surface", {})
-    if runtime_surface.get("manifests") != "manifests/":
+    if runtime_surface.get("manifests") != "model/manifests/":
         raise SystemExit("governance_manifests: publish.layers.json runtime_surface.manifests mismatch")
 
     print("governance_manifests: ok")

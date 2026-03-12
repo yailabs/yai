@@ -1,0 +1,33 @@
+{
+  "kind": "governance.manifest",
+  "version": "v1",
+  "governance_version": "0.1.0",
+  "compatibility": "indexes/compatibility/matrix.v1.json",
+  "foundation_refs": [
+    "foundation/axioms",
+    "foundation/invariants",
+    "foundation/boundaries"
+  ],
+  "domain_index_ref": "model/ontology/specializations/indexes/catalog-index.v1.json",
+  "compliance_index_ref": "indexes/policy/compliance/index.v1.json",
+  "customer_policy_pack_index_ref": "model/manifests/customers/customer-policy-packs.index.v1.json",
+  "governance_attachability_constraints_ref": "model/manifests/runtime/attachability-constraints.v1.json",
+  "resolution_entrypoints_ref": "indexes/runtime/entrypoints.v1.json",
+  "export_targets": [
+    "runtime-governance",
+    "docs-reference",
+    "audit-reference"
+  ],
+  "classification_index_ref": "model/taxonomy/maps/classification-map.v1.json",
+  "control_family_index_ref": "model/ontology/families/indexes/catalog-index.v1.json",
+  "control_family_descriptors_ref": "model/ontology/families/indexes/descriptors-index.v1.json",
+  "control_family_matrix_ref": "model/ontology/families/indexes/matrix-index.v1.json",
+  "domain_specialization_index_ref": "model/ontology/specializations/indexes/catalog-index.v1.json",
+  "domain_specialization_descriptors_ref": "model/ontology/specializations/indexes/descriptors-index.v1.json",
+  "domain_specialization_matrix_ref": "model/ontology/specializations/indexes/matrix-index.v1.json",
+  "overlay_indexes": {
+    "regulatory": "indexes/packages/regulatory/index.v1.json",
+    "sector": "indexes/packages/sector/index.v1.json",
+    "contextual": "indexes/packages/contextual/index.v1.json"
+  }
+}

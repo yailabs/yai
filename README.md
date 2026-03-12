@@ -2,37 +2,19 @@
 
 `yai` is the single canonical repository of the unified YAI system.
 
-## Canonical roots
+## Canonical Roots
 
 - boot/kernel substrate: `boot/`, `kernel/`
 - system services: `sys/`
-- user layer: `user/`
-- transitional compatibility: `runtime/compatibility/`
-- protocol and data roots: `protocol/`, `data/`
-- semantic contracts: `specs/`
-- platform formal/foundation: `formal/`, `foundation/`
-- docs authority: `docs/`
-- verification/tooling: `tests/`, `tools/`
+- sdk surface: `sdk/`
+- desktop surface: `desktop/`
+- user operator layer: `user/`
+- transitional runtime layer: `runtime/`
+- protocol/data roots: `protocol/`, `data/`
+- governance contract roots: `policy/authority/`, `policy/compliance/`, `control/ingestion/`, `model/manifests/`, `model/ontology/`, `policy/overlays/`, `policy/`, `model/registry/`, `model/schema/`, `model/taxonomy/`
+- control/assurance/foundation: `control/assurance/`, `foundation/`
+- docs/tooling/tests: `docs/`, `tools/`, `tests/`
 
-Legacy build surfaces (`cmd/`, `include/`, `lib/`) are no longer root-level owners.
-Residual implementation and headers are drained under `runtime/compatibility/`.
+## Governance Model
 
-## Repository status
-
-- split-repository topology is sunset
-- the former separate governance repository is no longer an operational prerequisite for build/test/release in this repository
-- embedded and transitional legacy surfaces are removed from active root topology
-
-## Governance model
-
-Governance contracts are authored under `specs/` and consumed by runtime/tooling from canonical
-spec and schema paths.
-
-## Start here
-
-- `docs/README.md`
-- `specs/README.md`
-- `FOUNDATION.md`
-- `GOVERNANCE.md`
-- `VERSIONING.md`
-- `docs/transitional/root-meta/COMPATIBILITY.md`
+Governance contracts are authored in canonical law/policy/model/registry/schema roots and consumed by runtime services and tooling from those same roots.

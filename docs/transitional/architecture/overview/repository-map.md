@@ -23,7 +23,7 @@ Primary architecture-to-repo alignment map.
 # Main Body
 ## Alignment
 - `foundation/` docs -> repo `foundation/`
-- `formal/` docs -> repo `formal/`
+- `control/assurance/` docs -> repo `control/assurance/`
 - architecture runtime domains -> repo `include/yai/**`, `lib/**`, `cmd/**`
 - operational validation -> repo `tests/**`
 

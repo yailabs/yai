@@ -38,7 +38,7 @@ A change is breaking when it affects required consumer/operator behavior, includ
 
 - protocol/control semantics
 - workspace/runtime contract behavior
-- governance contract/schema/manifest interpretation
+- governance contract/model/schema/manifest interpretation
 - output formats consumed by canonical tooling
 
 Breaking changes require:

@@ -22,19 +22,19 @@ need_dir() {
 need_dir "$GOVERNANCE_ROOT"
 need_dir "$CLI_ROOT"
 need_dir "$SDK_ROOT"
-need_file "$YAI_ROOT/user/cli/parse/parse.c"
-need_file "$GOVERNANCE_ROOT/registry/commands.v1.json"
-need_file "$CLI_ROOT/user/cli/help/help.c"
-need_file "$SDK_ROOT/user/libs/libyai/include/yai/sdk/public.h"
+need_file "$YAI_ROOT/user/shell/parse/parse.c"
+need_file "$GOVERNANCE_ROOT/model/registry/commands.v1.json"
+need_file "$CLI_ROOT/user/shell/help/help.c"
+need_file "$SDK_ROOT/sdk/c/libyai/include/yai/sdk/sdk.h"
 
 # 1) Runtime command-id substrate exists for canonical families.
 rg -n "yai\\.workspace\\.graph\\.(summary|workspace|governance|decision|evidence|authority|artifact|lineage|recent)" \
-  "$YAI_ROOT/user/cli/parse/parse.c" >/dev/null
+  "$YAI_ROOT/user/shell/parse/parse.c" >/dev/null
 rg -n "yai\\.workspace\\.(query|events\\.tail|status|inspect|domain_get|domain_set|policy_effective|policy_attach|policy_activate|policy_detach|policy_dry_run|debug_resolution|open|create|set|switch|unset|clear|reset|destroy)" \
-  "$YAI_ROOT/user/cli/parse/parse.c" >/dev/null
+  "$YAI_ROOT/user/shell/parse/parse.c" >/dev/null
 
 # 2) Governance registry has canonical ws topics/families.
-python3 - "$GOVERNANCE_ROOT/registry/commands.v1.json" <<'PY'
+python3 - "$GOVERNANCE_ROOT/model/registry/commands.v1.json" <<'PY'
 import json, sys
 from collections import defaultdict
 p = sys.argv[1]
@@ -80,8 +80,8 @@ YAI_SDK_COMPAT_REGISTRY_DIR="$GOVERNANCE_ROOT" "$CLI_ROOT/build/bin/yai" help ws
 rg -n "summary|workspace|governance|decision|evidence|authority|artifact|lineage|recent" "$TMP/help_ws_graph.txt" >/dev/null
 
 # 4) SDK public surface exports typed family headers/helpers.
-rg -n "yai/sdk/(db|policy|recovery|debug)\\.h" "$SDK_ROOT/user/libs/libyai/include/yai/sdk/public.h" >/dev/null
+rg -n "yai/sdk/(db|policy|recovery|debug)\\.h" "$SDK_ROOT/sdk/c/libyai/include/yai/sdk/sdk.h" >/dev/null
 rg -n "yai_sdk_ws_(graph_|db_|data_|knowledge_|policy_|domain_|recovery_|debug_resolution)" \
-  "$SDK_ROOT/user/libs/libyai/include/yai/sdk" >/dev/null
+  "$SDK_ROOT/sdk/c/libyai/include/yai/sdk" >/dev/null
 
 echo "workspace_verticalization_closeout: ok"

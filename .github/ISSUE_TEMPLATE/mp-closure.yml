@@ -47,7 +47,7 @@ body:
     id: pr_links
     attributes:
       label: PR links
-      description: One PR per line (core/docs/specs/cli as needed).
+      description: One PR per line (core/docs/cli as needed).
       placeholder: |
         https://github.com/yai-labs/yai/pull/126
         https://github.com/yai-labs/cli/pull/99

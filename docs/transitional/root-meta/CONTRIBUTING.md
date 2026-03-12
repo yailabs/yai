@@ -90,7 +90,7 @@ If a check fails, fix it or document the failure with rationale in the PR eviden
 
 ## Contract-Impacting Changes (Spec-First)
 
-If your change affects any contract-facing surface (protocol/control/graph/vault/providers/compliance):
+If your change affects any contract-facing surface (control/protocol/control/graph/vault/providers/compliance):
 
 1. Update the contract in `governance` first (or via a tandem PR).
 2. Provide versioning/compatibility rationale for the contract change.
@@ -114,7 +114,7 @@ See `DATA.md`.
 
 ## Security-Sensitive Changes
 
-If a change touches authority/enforcement, control plane surfaces, workspace isolation, or provider gates/external effects — treat it as security-relevant. Provide explicit evidence and keep the change tightly scoped.
+If a change touches policy/authority/enforcement, control plane surfaces, workspace isolation, or provider gates/external effects — treat it as security-relevant. Provide explicit evidence and keep the change tightly scoped.
 
 For reporting vulnerabilities, follow `SECURITY.md`.
 

@@ -53,5 +53,5 @@ Baseline fallback modes:
 ## Non-goals
 
 - Full enterprise policy orchestration/fleet rollout.
-- Any transfer of sovereign authority/truth to edge runtime.
+- Any transfer of sovereign policy/authority/truth to edge runtime.
 - Peer-to-peer delegated authority propagation.

@@ -22,7 +22,7 @@ LEGACY_IMPL_PATHS = [
     "lib/orchestration/gates/storage_gate.c",
     "lib/orchestration/transport/brain_protocol.c",
     "lib/orchestration/transport/brain_transport.c",
-    "lib/providers/registry/providers.c",
+    "lib/providers/model/registry/providers.c",
 ]
 
 LEGACY_PATH_TOKENS = [
@@ -42,7 +42,7 @@ LEGACY_PATH_TOKENS = [
     "lib/orchestration/gates/storage_gate.c",
     "lib/orchestration/transport/brain_protocol.c",
     "lib/orchestration/transport/brain_transport.c",
-    "lib/providers/registry/providers.c",
+    "lib/providers/model/registry/providers.c",
 ]
 
 

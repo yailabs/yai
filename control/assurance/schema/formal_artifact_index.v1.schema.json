@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "control/assurance/model/schema/formal_artifact_index.v1.schema.json",
+  "title": "Formal Artifact Index v1",
+  "type": "object",
+  "required": ["version", "models", "artifact_roots"],
+  "properties": {
+    "version": {"type": "integer", "const": 1},
+    "generated_by": {"type": "string"},
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "root_module", "configs"],
+        "properties": {
+          "id": {"type": "string"},
+          "root_module": {"type": "string"},
+          "configs": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "artifact_roots": {
+      "type": "object",
+      "required": ["states", "reports"],
+      "properties": {
+        "states": {"type": "string"},
+        "reports": {"type": "string"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

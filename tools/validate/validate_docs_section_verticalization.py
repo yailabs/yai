@@ -25,7 +25,7 @@ REQUIRED_DIRS = [
 
 REQUIRED_READMES = [
     "docs/architecture/foundation/README.md",
-    "docs/architecture/formal/README.md",
+    "docs/architecture/control/assurance/README.md",
     "docs/architecture/runtime/README.md",
     "docs/architecture/orchestration/README.md",
     "docs/architecture/edge/README.md",
@@ -38,7 +38,7 @@ REQUIRED_READMES = [
     "docs/guides/developer/operational-guides/README.md",
     "docs/reference/commands/README.md",
     "docs/reference/protocol/README.md",
-    "docs/reference/schemas/README.md",
+    "docs/reference/model/schema/README.md",
     "docs/reference/README.md",
 ]
 

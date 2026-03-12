@@ -1,4 +1,4 @@
-#include <yai/governance/resolver.h>
+#include <yai/policy/governance/resolver.h>
 
 #include "../internal.h"
 

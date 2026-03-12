@@ -3,7 +3,7 @@
 
 #include <yai/container/session_control.h>
 #include <yai/policy/enforcement.h>
-#include <yai/governance/resolver.h>
+#include <yai/policy/governance/resolver.h>
 
 int yai_session_extract_json_string(const char *json, const char *key, char *out, size_t out_cap);
 int yai_session_extract_argv_first(const char *json, char *out, size_t out_cap);

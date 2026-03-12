@@ -1,0 +1,1272 @@
+{
+  "version": "1.0",
+  "binary": "yai",
+  "commands": [
+    {
+      "id": "yai.boot.health_status",
+      "name": "health_status",
+      "group": "boot",
+      "summary": "boot status operation on health with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "profile",
+          "flag": "--profile",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "timeout_ms",
+          "flag": "--timeout-ms",
+          "type": "int",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "read_files",
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "boot",
+      "op": "health_status",
+      "domain": "runtime",
+      "layer": "docs",
+      "canonical_path": "run boot health_status",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "boot health_status",
+        "boot-health_status"
+      ],
+      "command_path_tokens": [
+        "run",
+        "boot",
+        "health_status"
+      ]
+    },
+    {
+      "id": "yai.boot.node_status",
+      "name": "node_status",
+      "group": "boot",
+      "summary": "boot status operation on node with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "profile",
+          "flag": "--profile",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "timeout_ms",
+          "flag": "--timeout-ms",
+          "type": "int",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "read_files",
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "boot",
+      "op": "node_status",
+      "domain": "runtime",
+      "layer": "docs",
+      "canonical_path": "run boot node_status",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "boot node_status",
+        "boot-node_status"
+      ],
+      "command_path_tokens": [
+        "run",
+        "boot",
+        "node_status"
+      ]
+    },
+    {
+      "id": "yai.boot.runtime_status",
+      "name": "runtime_status",
+      "group": "boot",
+      "summary": "boot status operation on runtime with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "profile",
+          "flag": "--profile",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "timeout_ms",
+          "flag": "--timeout-ms",
+          "type": "int",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "read_files",
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "boot",
+      "op": "runtime_status",
+      "domain": "runtime",
+      "layer": "docs",
+      "canonical_path": "run boot runtime_status",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "boot runtime_status",
+        "boot-runtime_status"
+      ],
+      "command_path_tokens": [
+        "run",
+        "boot",
+        "runtime_status"
+      ]
+    },
+    {
+      "id": "yai.boot.service_status",
+      "name": "service_status",
+      "group": "boot",
+      "summary": "boot status operation on service with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "profile",
+          "flag": "--profile",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "timeout_ms",
+          "flag": "--timeout-ms",
+          "type": "int",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "read_files",
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "boot",
+      "op": "service_status",
+      "domain": "runtime",
+      "layer": "docs",
+      "canonical_path": "run boot service_status",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "boot service_status",
+        "boot-service_status"
+      ],
+      "command_path_tokens": [
+        "run",
+        "boot",
+        "service_status"
+      ]
+    },
+    {
+      "id": "yai.boot.status",
+      "name": "status",
+      "group": "boot",
+      "summary": "Boot plane status (local readiness + artifacts)",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "json",
+          "flag": "--json",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "text",
+        "json"
+      ],
+      "side_effects": [
+        "read_files"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-002",
+        "S-017"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "boot",
+      "op": "status",
+      "domain": "runtime",
+      "layer": "docs",
+      "canonical_path": "run boot status",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "boot status",
+        "boot-status"
+      ],
+      "command_path_tokens": [
+        "run",
+        "boot",
+        "status"
+      ]
+    },
+    {
+      "id": "yai.core.ping",
+      "name": "ping",
+      "group": "core",
+      "summary": "Ping core plane via ingress (control RPC)",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "timeout_ms",
+          "flag": "--timeout-ms",
+          "type": "int",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "role",
+          "flag": "--role",
+          "type": "enum",
+          "values": [
+            "operator",
+            "system"
+          ],
+          "required": false
+        }
+      ],
+      "outputs": [
+        "text",
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "L1",
+        "L2"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-016",
+        "S-002"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "core",
+      "op": "ping",
+      "domain": "runtime",
+      "layer": "exec",
+      "canonical_path": "run core ping",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "core ping",
+        "core-ping"
+      ],
+      "command_path_tokens": [
+        "run",
+        "core",
+        "ping"
+      ]
+    },
+    {
+      "id": "yai.ingress.authority_status",
+      "name": "authority_status",
+      "group": "ingress",
+      "summary": "ingress status operation on authority with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "role",
+          "flag": "--role",
+          "type": "enum",
+          "values": [
+            "operator",
+            "system"
+          ],
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration",
+        "L3-cognition"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-016",
+        "S-002"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "ingress",
+      "op": "authority_status",
+      "domain": "runtime",
+      "layer": "cognition",
+      "canonical_path": "run ingress authority_status",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "ingress authority_status",
+        "ingress-authority_status"
+      ],
+      "command_path_tokens": [
+        "run",
+        "ingress",
+        "authority_status"
+      ]
+    },
+    {
+      "id": "yai.ingress.envelope_validate",
+      "name": "envelope_validate",
+      "group": "ingress",
+      "summary": "ingress validate operation on envelope with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "role",
+          "flag": "--role",
+          "type": "enum",
+          "values": [
+            "operator",
+            "system"
+          ],
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration",
+        "L3-cognition"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-016",
+        "S-002"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "ingress",
+      "op": "envelope_validate",
+      "domain": "runtime",
+      "layer": "cognition",
+      "canonical_path": "run ingress envelope_validate",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "ingress envelope_validate",
+        "ingress-envelope_validate"
+      ],
+      "command_path_tokens": [
+        "run",
+        "ingress",
+        "envelope_validate"
+      ]
+    },
+    {
+      "id": "yai.ingress.handshake_status",
+      "name": "handshake_status",
+      "group": "ingress",
+      "summary": "ingress status operation on handshake with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "role",
+          "flag": "--role",
+          "type": "enum",
+          "values": [
+            "operator",
+            "system"
+          ],
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration",
+        "L3-cognition"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-016",
+        "S-002"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "ingress",
+      "op": "handshake_status",
+      "domain": "runtime",
+      "layer": "cognition",
+      "canonical_path": "run ingress handshake_status",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "ingress handshake_status",
+        "ingress-handshake_status"
+      ],
+      "command_path_tokens": [
+        "run",
+        "ingress",
+        "handshake_status"
+      ]
+    },
+    {
+      "id": "yai.ingress.ping",
+      "name": "ping",
+      "group": "ingress",
+      "summary": "Ping ingress plane (transport + handshake)",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "timeout_ms",
+          "flag": "--timeout-ms",
+          "type": "int",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "role",
+          "flag": "--role",
+          "type": "enum",
+          "values": [
+            "operator",
+            "system"
+          ],
+          "required": false
+        }
+      ],
+      "outputs": [
+        "text",
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-016",
+        "S-002"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "ingress",
+      "op": "ping",
+      "domain": "runtime",
+      "layer": "core",
+      "canonical_path": "run ingress ping",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "ingress ping",
+        "ingress-ping"
+      ],
+      "command_path_tokens": [
+        "run",
+        "ingress",
+        "ping"
+      ]
+    },
+    {
+      "id": "yai.ingress.router_status",
+      "name": "router_status",
+      "group": "ingress",
+      "summary": "ingress status operation on router with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "role",
+          "flag": "--role",
+          "type": "enum",
+          "values": [
+            "operator",
+            "system"
+          ],
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration",
+        "L3-cognition"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-016",
+        "S-002"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "ingress",
+      "op": "router_status",
+      "domain": "runtime",
+      "layer": "cognition",
+      "canonical_path": "run ingress router_status",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "ingress router_status",
+        "ingress-router_status"
+      ],
+      "command_path_tokens": [
+        "run",
+        "ingress",
+        "router_status"
+      ]
+    },
+    {
+      "id": "yai.ingress.session_status",
+      "name": "session_status",
+      "group": "ingress",
+      "summary": "ingress status operation on session with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "role",
+          "flag": "--role",
+          "type": "enum",
+          "values": [
+            "operator",
+            "system"
+          ],
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration",
+        "L3-cognition"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-016",
+        "S-002"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "ingress",
+      "op": "session_status",
+      "domain": "runtime",
+      "layer": "cognition",
+      "canonical_path": "run ingress session_status",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "ingress session_status",
+        "ingress-session_status"
+      ],
+      "command_path_tokens": [
+        "run",
+        "ingress",
+        "session_status"
+      ]
+    },
+    {
+      "id": "yai.lifecycle.down",
+      "name": "down",
+      "group": "lifecycle",
+      "summary": "Stop stack and cleanup runtime artifacts",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "force",
+          "flag": "--force",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "text",
+        "json"
+      ],
+      "side_effects": [
+        "signal_processes",
+        "remove_session",
+        "remove_socket",
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-006",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration",
+        "L3-cognition"
+      ],
+      "uses_primitives": [
+        "O-004",
+        "S-016",
+        "S-023",
+        "S-026",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "lifecycle",
+      "op": "down",
+      "domain": "runtime",
+      "layer": "cognition",
+      "canonical_path": "run lifecycle down",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "lifecycle down",
+        "lifecycle-down"
+      ],
+      "command_path_tokens": [
+        "run",
+        "lifecycle",
+        "down"
+      ]
+    },
+    {
+      "id": "yai.lifecycle.restart",
+      "name": "restart",
+      "group": "lifecycle",
+      "summary": "Restart stack for a container",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "build",
+          "flag": "--build",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "ai",
+          "flag": "--ai",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "no_exec",
+          "flag": "--no-exec",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "no_knowledge",
+          "flag": "--no-cognition",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "detach",
+          "flag": "--detach",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "monitor",
+          "flag": "--monitor",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "timeout_ms",
+          "flag": "--timeout-ms",
+          "type": "int",
+          "required": false
+        },
+        {
+          "name": "force",
+          "flag": "--force",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "text",
+        "json"
+      ],
+      "side_effects": [
+        "signal_processes",
+        "spawn_processes",
+        "write_session",
+        "write_logs",
+        "create_socket",
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-006",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration",
+        "L3-cognition"
+      ],
+      "uses_primitives": [
+        "O-004",
+        "O-005",
+        "S-016",
+        "S-023",
+        "S-026",
+        "S-029",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "lifecycle",
+      "op": "restart",
+      "domain": "runtime",
+      "layer": "cognition",
+      "canonical_path": "run lifecycle restart",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "lifecycle restart",
+        "lifecycle-restart"
+      ],
+      "command_path_tokens": [
+        "run",
+        "lifecycle",
+        "restart"
+      ]
+    },
+    {
+      "id": "yai.lifecycle.up",
+      "name": "up",
+      "group": "lifecycle",
+      "summary": "Start stack: boot + exec + cognition",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "build",
+          "flag": "--build",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "ai",
+          "flag": "--ai",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "no_exec",
+          "flag": "--no-exec",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "no_knowledge",
+          "flag": "--no-cognition",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "detach",
+          "flag": "--detach",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "monitor",
+          "flag": "--monitor",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "timeout_ms",
+          "flag": "--timeout-ms",
+          "type": "int",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "text",
+        "json"
+      ],
+      "side_effects": [
+        "spawn_processes",
+        "write_session",
+        "write_logs",
+        "create_socket",
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-006",
+        "L1",
+        "L2",
+        "L3"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration",
+        "L3-cognition"
+      ],
+      "uses_primitives": [
+        "O-004",
+        "O-005",
+        "S-016",
+        "S-023",
+        "S-026",
+        "S-029",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "run",
+      "topic": "lifecycle",
+      "op": "up",
+      "domain": "runtime",
+      "layer": "cognition",
+      "canonical_path": "run lifecycle up",
+      "help_order": 2,
+      "hidden": false,
+      "aliases": [
+        "lifecycle up",
+        "lifecycle-up"
+      ],
+      "command_path_tokens": [
+        "run",
+        "lifecycle",
+        "up"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v2",
+  "family_id": "D3",
+  "internal_id": "D3",
+  "canonical_name": "biological",
+  "display_name": "Biological",
+  "slug": "biological",
+  "status": "active",
+  "classification_ref": "model/taxonomy/maps/classification-map.v1.json",
+  "specializations_ref": "specializations/indexes/specializations.index.json",
+  "overlay_refs": {
+    "regulatory": "packages/regulatory/indexes/regulatory.index.json",
+    "sector": "packages/sector/indexes/sector.index.json",
+    "contextual": "packages/contextual/indexes/contextual.index.json"
+  },
+  "legacy_seed_ref": "transitional/domain-family-seed/D3-biological",
+  "specializations": [
+    "chain-of-custody",
+    "sample-handling",
+    "bio-risk-gating"
+  ]
+}

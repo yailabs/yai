@@ -48,7 +48,7 @@ REQUIRED_FORMAL_SUBDIRS = {
 }
 REQUIRED_MESH_IMPL_FILES = {
     "lib/mesh/identity/identity.c",
-    "lib/mesh/peer_registry/peer_registry.c",
+    "lib/mesh/peer_model/registry/peer_registry.c",
     "lib/mesh/membership/membership.c",
     "lib/mesh/discovery/discovery.c",
     "lib/mesh/awareness/awareness.c",
@@ -113,7 +113,7 @@ def main() -> int:
             errors.append(f"foundation/ missing required subdir: {name}")
     for name in sorted(REQUIRED_FORMAL_SUBDIRS):
         if not (repo / "formal" / name).exists():
-            errors.append(f"formal/ missing required subdir: {name}")
+            errors.append(f"control/assurance/ missing required subdir: {name}")
     for rel in sorted(REQUIRED_MESH_IMPL_FILES):
         if not (repo / rel).exists():
             errors.append(f"mesh realization missing critical file: {rel}")

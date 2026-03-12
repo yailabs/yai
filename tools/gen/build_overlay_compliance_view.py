@@ -18,13 +18,13 @@ def normalize_overlay_entry(entry: dict) -> dict:
         ov["manifest_ref"] = ov.get("materialized_manifest_ref", "")
     if not ov.get("materialized_bundle_ref") and oid and klass:
         if klass == "regulatory":
-            ov["materialized_bundle_ref"] = f"overlays/materialized/regulatory/{oid}"
+            ov["materialized_bundle_ref"] = f"policy/overlays/materialized/regulatory/{oid}"
         elif klass == "sector":
             name = oid.split("sector.", 1)[1] if oid.startswith("sector.") else oid
-            ov["materialized_bundle_ref"] = f"overlays/materialized/sector/{name}"
+            ov["materialized_bundle_ref"] = f"policy/overlays/materialized/sector/{name}"
         elif klass == "contextual":
             name = oid.split("context.", 1)[1] if oid.startswith("context.") else oid
-            ov["materialized_bundle_ref"] = f"overlays/materialized/contextual/{name}"
+            ov["materialized_bundle_ref"] = f"policy/overlays/materialized/contextual/{name}"
     return ov
 
 reg_ovs = []
@@ -44,9 +44,9 @@ out = {
     "kind": "overlay-compliance.runtime.v1",
     "version": "v1",
     "sources": {
-        "compliance_index": "compliance/index/compliance.index.json",
-        "compliance_descriptors_index": "compliance/index/compliance.descriptors.index.json",
-        "overlay_descriptors_index": "overlays/index/overlays.descriptors.index.json",
+        "compliance_index": "policy/compliance/index/compliance.index.json",
+        "compliance_descriptors_index": "policy/compliance/index/compliance.descriptors.index.json",
+        "overlay_descriptors_index": "policy/overlays/index/overlays.descriptors.index.json",
     },
     "overlays": {
         "regulatory": reg_ovs,
@@ -56,9 +56,9 @@ out = {
     "compliance_entries": compliance_idx.get("entries", []),
     "compliance_descriptors": compliance_desc_idx.get("entries", []),
     "matrices": {
-        "attachment": "overlays/matrices/overlay-attachment.matrix.v1.json",
-        "precedence": "overlays/matrices/overlay-precedence.matrix.v1.json",
-        "evidence": "overlays/matrices/overlay-evidence.matrix.v1.json",
+        "attachment": "policy/overlays/matrices/overlay-attachment.matrix.v1.json",
+        "precedence": "policy/overlays/matrices/overlay-precedence.matrix.v1.json",
+        "evidence": "policy/overlays/matrices/overlay-evidence.matrix.v1.json",
     },
 }
 

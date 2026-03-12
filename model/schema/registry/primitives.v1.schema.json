@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yai-governance:model/schema/registry/primitives.v1.schema.json",
+  "title": "YAI Governance Primitives Registry v1 (English)",
+  "type": "object",
+  "required": [
+    "v",
+    "primitives"
+  ],
+  "properties": {
+    "v": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated_from": {
+      "type": "string"
+    },
+    "primitives": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "layer",
+          "family",
+          "domain",
+          "name",
+          "definition",
+          "ops"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(?:[STO]-\\d{3}|R-\\d{3}|CLI-\\d{3})$"
+          },
+          "layer": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "family": {
+            "type": "string",
+            "minLength": 1
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "definition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "ops": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?:[STO]-\\d{3}|R-\\d{3}|CLI-\\d{3})$"
+            }
+          },
+          "produces": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "consumes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "determinism": {
+            "type": "string"
+          },
+          "security_posture": {
+            "type": "string"
+          },
+          "failure_modes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cli_namespace": {
+            "type": "string"
+          },
+          "runtime_family_owner": {
+            "type": "string",
+            "enum": ["core", "exec", "data", "graph", "knowledge", "governance", "platform", "protocol", "support"]
+          },
+          "runtime_binding_model": {
+            "type": "string",
+            "enum": ["workspace-first", "global-baseline", "authoring-only"]
+          },
+          "topology_target": {
+            "type": "string",
+            "enum": ["unified-runtime-v1"]
+          },
+          "notes": {
+            "type": "string"
+          },
+          "cli": {
+            "type": "object",
+            "properties": {
+              "canonical_id": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "alias": {
+                "type": "string"
+              },
+              "related": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

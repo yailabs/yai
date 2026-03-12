@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "governance/grammar/model/schema/discovery_profile.v1",
+  "title": "discovery_profile.v1",
+  "description": "Domain discovery profile",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "domain_id": {
+      "type": "string"
+    },
+    "signals": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "provider_matches": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "protocol_matches": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "resource_matches": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "command_matches": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fallback_rules": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "domain_id",
+    "signals"
+  ],
+  "additionalProperties": true
+}

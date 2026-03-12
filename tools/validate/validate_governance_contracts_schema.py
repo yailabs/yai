@@ -80,7 +80,7 @@ def main() -> int:
         "compliance_resolution_order_ref",
         "compatibility_ref",
     ]:
-        if not str(first.get(key, "")).startswith("manifests/"):
+        if not str(first.get(key, "")).startswith("model/manifests/"):
             raise SystemExit(f"governance_contracts_schema: runtime entrypoint invalid {key}")
 
     if "constraints" not in attachability or "allowed_by_kind" not in attachability["constraints"]:

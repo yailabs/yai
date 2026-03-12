@@ -10,4 +10,4 @@ Canonical subdomains:
 - `transport/`
 - `internal/`
 
-Non-code schemas live under `specs/`.
+Non-code protocol contracts live under `control/contracts/`.

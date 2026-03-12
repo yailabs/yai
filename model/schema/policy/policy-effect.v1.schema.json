@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "governance/grammar/model/schema/policy_effect.v1",
+  "title": "policy_effect.v1",
+  "description": "Policy effect",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "effect": {
+      "type": "string",
+      "enum": [
+        "allow",
+        "deny",
+        "quarantine",
+        "review_required",
+        "degrade",
+        "require_justification"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "effect"
+  ],
+  "additionalProperties": true
+}

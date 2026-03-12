@@ -1,0 +1,293 @@
+{
+  "v": 1,
+  "generated_at": "2026-02-19",
+  "repo_version": "0.1.0",
+  "invariants": [
+    {
+      "id": "I-001-traceability",
+      "title": "Traceability",
+      "contracts": [
+        "foundation/invariants/I-001-traceability.md"
+      ],
+      "spec_artifacts": [
+        "contracts/protocol/include/protocol.h",
+        "contracts/protocol/include/transport.h",
+        "contracts/protocol/include/errors.h",
+        "REGISTRY.md"
+      ],
+      "vectors": [
+        "vectors/audit_vectors.json",
+        "vectors/transport_vectors.json"
+      ],
+      "formal": [
+        {
+          "module": "control/assurance/legacy/tla/yai_runtime_legacy.tla",
+          "config": "control/assurance/legacy/configs/yai_runtime_legacy.quick.cfg",
+          "properties": [
+            "TypeInvariant"
+          ]
+        }
+      ],
+      "bindings": [
+        "contracts/protocol/BINDING.md",
+        "contracts/cli/BINDING.md"
+      ],
+      "coverage": {
+        "docs": true,
+        "tests": true,
+        "formal": true
+      },
+      "ontology_scopes": [
+        "runtime-core",
+        "orchestration",
+        "agents"
+      ]
+    },
+    {
+      "id": "I-002-determinism",
+      "title": "Determinism and Reproducibility",
+      "contracts": [
+        "foundation/invariants/I-002-determinism.md"
+      ],
+      "spec_artifacts": [
+        "contracts/protocol/runtime/include/rpc_runtime.h",
+        "contracts/protocol/include/session.h",
+        "contracts/vault/include/yai_vault_abi.h"
+      ],
+      "vectors": [
+        "vectors/transport_vectors.json",
+        "vectors/audit_vectors.json"
+      ],
+      "formal": [
+        {
+          "module": "control/assurance/legacy/tla/yai_runtime_legacy.tla",
+          "config": "control/assurance/legacy/configs/yai_runtime_legacy.quick.cfg",
+          "properties": [
+            "TypeInvariant",
+            "EnergySafe"
+          ]
+        }
+      ],
+      "bindings": [
+        "contracts/protocol/BINDING.md",
+        "contracts/vault/BINDING.md",
+        "runtime/brain/graph/BINDING.md"
+      ],
+      "coverage": {
+        "docs": true,
+        "tests": true,
+        "formal": true
+      },
+      "ontology_scopes": [
+        "runtime-core",
+        "orchestration",
+        "agents"
+      ]
+    },
+    {
+      "id": "I-003-governance",
+      "title": "Governance",
+      "contracts": [
+        "foundation/invariants/I-003-governance.md"
+      ],
+      "spec_artifacts": [
+        "contracts/control/model/schema/authority.json",
+        "contracts/control/model/schema/control_plane.v1.json",
+        "contracts/protocol/include/roles.h"
+      ],
+      "vectors": [
+        "vectors/auth_vectors.json",
+        "vectors/audit_vectors.json"
+      ],
+      "formal": [
+        {
+          "module": "control/assurance/legacy/tla/yai_runtime_legacy.tla",
+          "config": "control/assurance/legacy/configs/yai_runtime_legacy.quick.cfg",
+          "properties": [
+            "AuthorityRequired"
+          ]
+        }
+      ],
+      "bindings": [
+        "contracts/control/BINDING.md",
+        "contracts/protocol/BINDING.md"
+      ],
+      "coverage": {
+        "docs": true,
+        "tests": true,
+        "formal": true
+      },
+      "ontology_scopes": [
+        "runtime-core"
+      ]
+    },
+    {
+      "id": "I-004-cognitive-reconfiguration",
+      "title": "Governable Cognitive Reconfiguration",
+      "contracts": [
+        "foundation/invariants/I-004-cognitive-reconfiguration.md"
+      ],
+      "spec_artifacts": [
+        "contracts/protocol/include/session.h",
+        "contracts/control/model/schema/control_plane.v1.json"
+      ],
+      "vectors": [
+        "vectors/audit_vectors.json"
+      ],
+      "formal": [
+        {
+          "module": "control/assurance/legacy/tla/yai_runtime_legacy.tla",
+          "config": "control/assurance/legacy/configs/yai_runtime_legacy.quick.cfg",
+          "properties": [
+            "CognitiveIntegrity"
+          ]
+        }
+      ],
+      "bindings": [
+        "contracts/control/BINDING.md"
+      ],
+      "coverage": {
+        "docs": true,
+        "tests": true,
+        "formal": true
+      },
+      "ontology_scopes": [
+        "runtime-core",
+        "agents"
+      ]
+    },
+    {
+      "id": "I-005-abstract-cost-accountability",
+      "title": "Abstract Cost Accountability",
+      "contracts": [
+        "foundation/invariants/I-005-abstract-cost-accountability.md"
+      ],
+      "spec_artifacts": [
+        "runtime/exec/model/schema/engine_cortex.v1.json",
+        "contracts/protocol/runtime/include/rpc_runtime.h",
+        "runtime/brain/graph/model/schema/graph.v1.json"
+      ],
+      "vectors": [
+        "vectors/audit_vectors.json"
+      ],
+      "formal": [
+        {
+          "module": "control/assurance/legacy/tla/yai_runtime_legacy.tla",
+          "config": "control/assurance/legacy/configs/yai_runtime_legacy.quick.cfg",
+          "properties": [
+            "EnergySafe"
+          ]
+        }
+      ],
+      "bindings": [
+        "runtime/brain/graph/BINDING.md",
+        "contracts/protocol/BINDING.md"
+      ],
+      "coverage": {
+        "docs": true,
+        "tests": true,
+        "formal": true
+      },
+      "ontology_scopes": [
+        "orchestration",
+        "agents"
+      ]
+    },
+    {
+      "id": "I-006-external-effect-boundary",
+      "title": "External Effect Boundary",
+      "contracts": [
+        "foundation/invariants/I-006-external-effect-boundary.md"
+      ],
+      "spec_artifacts": [
+        "contracts/control/model/schema/authority.json",
+        "model/schema/compliance_context.v1.schema.json",
+        "contracts/protocol/include/auth.h"
+      ],
+      "vectors": [
+        "vectors/auth_vectors.json",
+        "vectors/audit_vectors.json"
+      ],
+      "formal": [
+        {
+          "module": "control/assurance/legacy/tla/yai_runtime_legacy.tla",
+          "config": "control/assurance/legacy/configs/yai_runtime_legacy.quick.cfg",
+          "properties": [
+            "ExternalEffectGuard"
+          ]
+        }
+      ],
+      "bindings": [
+        "contracts/control/BINDING.md",
+        "contracts/policy/compliance/README.md"
+      ],
+      "coverage": {
+        "docs": true,
+        "tests": true,
+        "formal": true
+      },
+      "ontology_scopes": [
+        "runtime-core",
+        "orchestration"
+      ]
+    },
+    {
+      "id": "I-007-compliance-context-required",
+      "title": "Compliance Context Required",
+      "contracts": [
+        "foundation/invariants/I-007-compliance-context-required.md"
+      ],
+      "spec_artifacts": [
+        "model/schema/compliance_context.v1.schema.json",
+        "contracts/control/model/schema/control_plane.v1.json",
+        "contracts/control/model/schema/authority.json"
+      ],
+      "vectors": [
+        "vectors/audit_vectors.json"
+      ],
+      "formal": [
+        {
+          "module": "control/assurance/legacy/tla/yai_runtime_legacy.tla",
+          "config": "control/assurance/legacy/configs/yai_runtime_legacy.quick.cfg",
+          "properties": [
+            "[](external_effect => compliance_context_valid)"
+          ]
+        }
+      ],
+      "bindings": [
+        "contracts/policy/compliance/README.md",
+        "contracts/control/BINDING.md"
+      ],
+      "coverage": {
+        "docs": true,
+        "tests": true,
+        "formal": true
+      },
+      "ontology_scopes": [
+        "runtime-core",
+        "orchestration",
+        "agents"
+      ]
+    }
+  ],
+  "runtime_ontology": {
+    "primary": [
+      "runtime-core",
+      "orchestration",
+      "agents"
+    ],
+    "cross_cutting": [
+      "protocol",
+      "platform",
+      "support"
+    ],
+    "historical_aliases": {
+      "runtime-core": "core(alias)",
+      "orchestration": "exec(alias)",
+      "agents": "brain(alias)",
+      "ingress": "core.dispatch(alias)",
+      "boot": "core.lifecycle(alias)"
+    },
+    "artifact_naming_policy": "staged-transition"
+  }
+}

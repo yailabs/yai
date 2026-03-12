@@ -1,6 +1,6 @@
 #pragma once
 
-#include <yai/knowledge/cognition.h>
+#include <yai/cognition/cognition.h>
 
 #ifdef __cplusplus
 extern "C" {

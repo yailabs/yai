@@ -1,7 +1,7 @@
 # D18 Execution Closeout
 
 ## Executed Structural Cutovers
-- Applied D18 taxonomy/entry-surface/program compression/freeze contracts as repository mutations (not planning artifacts).
+- Applied D18 model/taxonomy/entry-surface/program compression/freeze contracts as repository mutations (not planning artifacts).
 - Renamed ADR/RFC corpus to final grammar (`adr-###-*`, `rfc-###-*`) and repaired cross-doc/tool references.
 - Removed `docs/program/milestone-packs/` from live root and moved historical corpus to `docs/program/archive/milestone-packs/`.
 - Hardened live `docs/program/` shape to: `README`, `adr`, `rfc`, `policies`, `templates`, `reports`, `archive`.

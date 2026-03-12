@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <yai/knowledge/memory.h>
+#include <yai/cognition/memory.h>
 #include <yai/graph/internal/state_reset.h>
 
 void yai_graph_state_reset(void)

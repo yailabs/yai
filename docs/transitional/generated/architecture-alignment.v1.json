@@ -25,7 +25,7 @@
       ],
       "l0_refs": [
         "../governance/contracts/boundaries/L2-engine.md",
-        "../governance/specs/protocol/include/protocol.h"
+        "../governance/protocol/include/protocol.h"
       ],
       "mp_refs": [
         "docs/20-program/24-milestone-packs/root-hardening/MP-ROOT-HARDENING-0.1.5.md"
@@ -46,7 +46,7 @@
       ],
       "l0_refs": [
         "../governance/contracts/boundaries/L1-kernel.md",
-        "../governance/specs/protocol/include/session.h"
+        "../governance/protocol/include/session.h"
       ],
       "mp_refs": [
         "docs/20-program/24-milestone-packs/root-hardening/MP-ROOT-HARDENING-0.1.2.md",
@@ -126,8 +126,8 @@
         "docs/20-program/22-adr/ADR-002-root-entrypoint.md"
       ],
       "l0_refs": [
-        "../governance/specs/protocol/include/auth.h",
-        "../governance/specs/protocol/include/transport.h"
+        "../governance/protocol/include/auth.h",
+        "../governance/protocol/include/transport.h"
       ],
       "mp_refs": [
         "docs/20-program/24-milestone-packs/root-hardening/MP-ROOT-HARDENING-0.1.0.md",
@@ -146,7 +146,7 @@
       ],
       "l0_refs": [
         "../governance/contracts/boundaries/L0-vault.md",
-        "../governance/specs/vault/include/yai_vault_abi.h"
+        "../governance/vault/include/yai_vault_abi.h"
       ],
       "mp_refs": [
         "docs/20-program/24-milestone-packs/root-hardening/MP-ROOT-HARDENING-0.1.0.md"
@@ -186,7 +186,7 @@
       "is_planned_marker": false,
       "l0_refs": [
         "../governance/contracts/boundaries/L2-engine.md",
-        "../governance/specs/protocol/include/protocol.h"
+        "../governance/protocol/include/protocol.h"
       ],
       "mp_refs": [
         "docs/20-program/24-milestone-packs/root-hardening/MP-ROOT-HARDENING-0.1.5.md"
@@ -207,7 +207,7 @@
       "is_planned_marker": false,
       "l0_refs": [
         "../governance/contracts/boundaries/L1-kernel.md",
-        "../governance/specs/protocol/include/session.h"
+        "../governance/protocol/include/session.h"
       ],
       "mp_refs": [
         "docs/20-program/24-milestone-packs/root-hardening/MP-ROOT-HARDENING-0.1.2.md",
@@ -287,8 +287,8 @@
       "component": "Root",
       "is_planned_marker": false,
       "l0_refs": [
-        "../governance/specs/protocol/include/auth.h",
-        "../governance/specs/protocol/include/transport.h"
+        "../governance/protocol/include/auth.h",
+        "../governance/protocol/include/transport.h"
       ],
       "mp_refs": [
         "docs/20-program/24-milestone-packs/root-hardening/MP-ROOT-HARDENING-0.1.0.md",
@@ -307,7 +307,7 @@
       "is_planned_marker": false,
       "l0_refs": [
         "../governance/contracts/boundaries/L0-vault.md",
-        "../governance/specs/vault/include/yai_vault_abi.h"
+        "../governance/vault/include/yai_vault_abi.h"
       ],
       "mp_refs": [
         "docs/20-program/24-milestone-packs/root-hardening/MP-ROOT-HARDENING-0.1.0.md"

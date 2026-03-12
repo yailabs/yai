@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <yai/knowledge/runtime.h>
+#include <yai/cognition/runtime.h>
 #include <yai/orchestration/transport.h>
 
 #include <assert.h>

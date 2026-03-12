@@ -132,7 +132,7 @@ static int yai_governance_governable_object_lookup(const char *object_id, yai_go
     yai_governable_meta_defaults(meta);
     if (!object_id || !object_id[0]) return 0;
     if (meta) snprintf(meta->id, sizeof(meta->id), "%s", object_id);
-    if (yai_governance_root_path(path, sizeof(path), "registry/governable-objects.v1.json") != 0)
+    if (yai_governance_root_path(path, sizeof(path), "model/registry/governable-objects.v1.json") != 0)
         return 0;
     if (yai_read_text(path, json, sizeof(json)) != 0)
         return 0;
@@ -419,7 +419,7 @@ static void yai_workspace_build_scientific_summaries(const yai_workspace_runtime
         (void)snprintf(publication_control,
                        publication_cap,
                        "%s",
-                       strcmp(effect, "deny") == 0 ? "publication blocked pending authority/repro checks" :
+                       strcmp(effect, "deny") == 0 ? "publication blocked pending policy/authority/repro checks" :
                        strcmp(effect, "quarantine") == 0 ? "publication quarantined pending review" :
                        strcmp(effect, "review_required") == 0 ? "publication requires final review" :
                        "publication path allowed with evidence obligations");
@@ -483,7 +483,7 @@ static void yai_workspace_build_digital_summaries(const yai_workspace_runtime_in
         (void)snprintf(publication_control,
                        publication_cap,
                        "%s",
-                       strcmp(effect, "deny") == 0 ? "publication denied pending authority/sink checks" :
+                       strcmp(effect, "deny") == 0 ? "publication denied pending policy/authority/sink checks" :
                        strcmp(effect, "quarantine") == 0 ? "publication quarantined pending sink review" :
                        strcmp(effect, "review_required") == 0 ? "publication requires review record" :
                        "publication path allowed with destination trace");

@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "governance/grammar/model/schema/overlay_policy.v1",
+  "title": "overlay_policy.v1",
+  "description": "Session/workspace/organization overlay policy",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "overlay_id": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "session",
+        "workspace",
+        "organization",
+        "experimental"
+      ]
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "overlay_id",
+    "scope",
+    "rules"
+  ],
+  "additionalProperties": true
+}

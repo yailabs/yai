@@ -11,8 +11,8 @@ Canonical implementation slices include:
 - `mapping/`
 - `resolution/`
 - `policy_effects*`
-- `compliance/`
-- `overlays/`
+- `policy/compliance/`
+- `policy/overlays/`
 - `authority_model/`
 - `internal/`
 

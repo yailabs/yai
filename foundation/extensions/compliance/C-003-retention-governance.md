@@ -24,5 +24,5 @@ For any retained record that is not tombstoned:
 
 ## Binding
 
-- Spec: `compliance/retention_policy.v1.schema.json`
-- Pack defaults: `packs/compliance/gdpr-eu/2026Q1/retention.defaults.json`
+- Spec: `policy/compliance/retention_policy.v1.schema.json`
+- Pack defaults: `packs/policy/compliance/gdpr-eu/2026Q1/retention.defaults.json`

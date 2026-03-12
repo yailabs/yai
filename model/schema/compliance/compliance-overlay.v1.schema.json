@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "governance/grammar/model/schema/compliance_overlay.v1",
+  "title": "compliance_overlay.v1",
+  "description": "Compliance overlay",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "overlay_id": {
+      "type": "string"
+    },
+    "base_compliance_id": {
+      "type": "string"
+    },
+    "sector": {
+      "type": "string"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "overlay_id",
+    "base_compliance_id"
+  ],
+  "additionalProperties": true
+}

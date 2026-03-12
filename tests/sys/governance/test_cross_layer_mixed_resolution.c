@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <yai/governance/policy_effects.h>
-#include <yai/governance/resolver.h>
+#include <yai/policy/governance/policy_effects.h>
+#include <yai/policy/governance/resolver.h>
 
 static int has_req(char reqs[][64], int n, const char *id) {
   for (int i = 0; i < n; ++i) {

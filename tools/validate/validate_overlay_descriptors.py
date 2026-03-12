@@ -47,6 +47,6 @@ for rel in [
     "matrices/overlay-precedence.matrix.v1.json",
 ]:
     if not (OV / rel).exists():
-        raise SystemExit(f"missing canonical overlay matrix: overlays/{rel}")
+        raise SystemExit(f"missing canonical overlay matrix: policy/overlays/{rel}")
 
 print("overlay_descriptors: ok")

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "../../../knowledge/core/cognition/cognition_internal.h"
+#include "../../../cognition/core/cognition/cognition_internal.h"
 #include <yai/network/providers/catalog.h>
 
 #include <stdio.h>

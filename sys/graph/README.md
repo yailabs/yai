@@ -11,7 +11,7 @@ sys/graph/ is the canonical L2 graph plane.
 - materialization/: graph projection/materialization flows
 - query/: graph query surfaces
 - lineage/: lineage reconstruction/exposure surfaces
-- summary/: summary facets for activation/authority/episodic/semantic views
+- summary/: summary facets for activation/policy/authority/episodic/semantic views
 - internal/: backend, counters, and graph state internals
 - include/yai/graph/: canonical public headers
 

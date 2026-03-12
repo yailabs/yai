@@ -18,7 +18,7 @@ Covers discovery, enrollment, membership, coordination, and transport alignment.
 - `include/yai/mesh/`
 - `lib/mesh/`
 - `include/yai/protocol/transport/`
-- `lib/protocol/transport/`
+- `lib/control/protocol/transport/`
 
 # Canonical Role
 Authoritative architecture source for mesh behavior.

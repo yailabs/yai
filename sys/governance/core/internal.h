@@ -2,10 +2,10 @@
 
 #include <stddef.h>
 
-#include <yai/governance/classifier.h>
-#include <yai/governance/decision_map.h>
-#include <yai/governance/discovery.h>
-#include <yai/governance/loader.h>
+#include <yai/policy/governance/classifier.h>
+#include <yai/policy/governance/decision_map.h>
+#include <yai/policy/governance/discovery.h>
+#include <yai/policy/governance/loader.h>
 
 int yai_governance_read_text_file(const char *path, char *out, size_t out_cap);
 int yai_governance_json_extract_string(const char *json, const char *key, char *out, size_t out_cap);

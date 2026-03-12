@@ -6,7 +6,7 @@
 
 #include <yai/kernel/authority.h>
 #include <yai/supervisor/lifecycle.h>
-#include <yai/governance/resolver.h>
+#include <yai/policy/governance/resolver.h>
 #include <yai/protocol/rpc/runtime.h>
 
 typedef struct yai_hardened_config {

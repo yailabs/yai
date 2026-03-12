@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "governance/grammar/model/schema/domain_policy_pack.v1",
+  "title": "domain_policy_pack.v1",
+  "description": "Domain policy pack",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "pack_id": {
+      "type": "string"
+    },
+    "domain_id": {
+      "type": "string"
+    },
+    "pack_type": {
+      "type": "string"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "precedence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "default_effect": {
+      "type": "string"
+    },
+    "compatible_compliance": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "pack_id",
+    "domain_id",
+    "rules",
+    "default_effect"
+  ],
+  "additionalProperties": true
+}

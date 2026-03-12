@@ -40,16 +40,16 @@ def main() -> int:
         if not (root / "governance" / rel).exists():
             raise SystemExit(f"governance_manifest_surface_contract: missing runtime surface path: governance/{rel}")
 
-    if governance_manifest.get("resolution_entrypoints_ref") != "manifests/runtime.entrypoints.json":
+    if governance_manifest.get("resolution_entrypoints_ref") != "model/manifests/runtime.entrypoints.json":
         raise SystemExit("governance_manifest_surface_contract: invalid governance manifest resolution_entrypoints_ref")
 
     entries = runtime_entrypoints.get("entrypoints", [])
     if not entries:
         raise SystemExit("governance_manifest_surface_contract: no runtime entrypoints")
     first = entries[0]
-    if first.get("governance_manifest_ref") != "manifests/governance.manifest.json":
+    if first.get("governance_manifest_ref") != "model/manifests/governance.manifest.json":
         raise SystemExit("governance_manifest_surface_contract: invalid entrypoint governance_manifest_ref")
-    if first.get("resolution_order_ref") != "manifests/domain-resolution-order.json":
+    if first.get("resolution_order_ref") != "model/manifests/domain-resolution-order.json":
         raise SystemExit("governance_manifest_surface_contract: invalid entrypoint resolution_order_ref")
 
     print("governance_manifest_surface_contract: ok")

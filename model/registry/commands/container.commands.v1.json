@@ -1,0 +1,4826 @@
+{
+  "version": "1.0",
+  "binary": "yai",
+  "defaults": {
+    "container_flag": "--container",
+    "container_default_source": "config"
+  },
+  "exit_codes": {
+    "0": "success",
+    "1": "generic_failure",
+    "2": "invalid_arguments_or_contract_violation",
+    "3": "dependency_missing",
+    "4": "runtime_not_ready"
+  },
+  "commands": [
+    {
+      "id": "yai.core.container",
+      "name": "container",
+      "group": "core",
+      "summary": "Container lifecycle via core (create/destroy/reset)",
+      "args": [
+        {
+          "name": "action",
+          "pos": 1,
+          "type": "enum",
+          "values": [
+            "create",
+            "destroy",
+            "reset"
+          ],
+          "required": true
+        },
+        {
+          "name": "container_id",
+          "pos": 2,
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "timeout_ms",
+          "flag": "--timeout-ms",
+          "type": "int",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "role",
+          "flag": "--role",
+          "type": "enum",
+          "values": [
+            "operator",
+            "system"
+          ],
+          "required": false
+        }
+      ],
+      "outputs": [
+        "text",
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session",
+        "remove_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1",
+        "L2"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-006",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container",
+      "domain": "container",
+      "layer": "exec",
+      "canonical_path": "container core container",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container",
+        "core-container"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container"
+      ]
+    },
+    {
+      "id": "yai.core.container_apply",
+      "name": "container_apply",
+      "group": "core",
+      "summary": "core apply operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_apply",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_apply",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_apply",
+        "core-container_apply"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_apply"
+      ]
+    },
+    {
+      "id": "yai.core.container_attach",
+      "name": "container_attach",
+      "group": "core",
+      "summary": "core attach operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_attach",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_attach",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_attach",
+        "core-container_attach"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_attach"
+      ]
+    },
+    {
+      "id": "yai.core.container_create",
+      "name": "container_create",
+      "group": "core",
+      "summary": "core create operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_create",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_create",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_create",
+        "core-container_create"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_create"
+      ]
+    },
+    {
+      "id": "yai.core.container_deny",
+      "name": "container_deny",
+      "group": "core",
+      "summary": "core deny operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_deny",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_deny",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_deny",
+        "core-container_deny"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_deny"
+      ]
+    },
+    {
+      "id": "yai.core.container_destroy",
+      "name": "container_destroy",
+      "group": "core",
+      "summary": "core destroy operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_destroy",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_destroy",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_destroy",
+        "core-container_destroy"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_destroy"
+      ]
+    },
+    {
+      "id": "yai.core.container_detach",
+      "name": "container_detach",
+      "group": "core",
+      "summary": "core detach operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_detach",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_detach",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_detach",
+        "core-container_detach"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_detach"
+      ]
+    },
+    {
+      "id": "yai.core.container_enforce",
+      "name": "container_enforce",
+      "group": "core",
+      "summary": "core enforce operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_enforce",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_enforce",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_enforce",
+        "core-container_enforce"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_enforce"
+      ]
+    },
+    {
+      "id": "yai.core.container_freeze",
+      "name": "container_freeze",
+      "group": "core",
+      "summary": "core freeze operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_freeze",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_freeze",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_freeze",
+        "core-container_freeze"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_freeze"
+      ]
+    },
+    {
+      "id": "yai.core.container_guard",
+      "name": "container_guard",
+      "group": "core",
+      "summary": "core guard operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_guard",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_guard",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_guard",
+        "core-container_guard"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_guard"
+      ]
+    },
+    {
+      "id": "yai.core.container_list",
+      "name": "container_list",
+      "group": "core",
+      "summary": "core list operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_list",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_list",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_list",
+        "core-container_list"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_list"
+      ]
+    },
+    {
+      "id": "yai.core.container_permit",
+      "name": "container_permit",
+      "group": "core",
+      "summary": "core permit operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_permit",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_permit",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_permit",
+        "core-container_permit"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_permit"
+      ]
+    },
+    {
+      "id": "yai.core.container_ping",
+      "name": "container_ping",
+      "group": "core",
+      "summary": "core ping operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_ping",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_ping",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_ping",
+        "core-container_ping"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_ping"
+      ]
+    },
+    {
+      "id": "yai.core.container_reconcile",
+      "name": "container_reconcile",
+      "group": "core",
+      "summary": "core reconcile operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_reconcile",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_reconcile",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_reconcile",
+        "core-container_reconcile"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_reconcile"
+      ]
+    },
+    {
+      "id": "yai.core.container_reset",
+      "name": "container_reset",
+      "group": "core",
+      "summary": "core reset operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_reset",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_reset",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_reset",
+        "core-container_reset"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_reset"
+      ]
+    },
+    {
+      "id": "yai.core.container_restore",
+      "name": "container_restore",
+      "group": "core",
+      "summary": "core restore operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_restore",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_restore",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_restore",
+        "core-container_restore"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_restore"
+      ]
+    },
+    {
+      "id": "yai.core.container_snapshot",
+      "name": "container_snapshot",
+      "group": "core",
+      "summary": "core snapshot operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_snapshot",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_snapshot",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_snapshot",
+        "core-container_snapshot"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_snapshot"
+      ]
+    },
+    {
+      "id": "yai.core.container_status",
+      "name": "container_status",
+      "group": "core",
+      "summary": "core status operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_status",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_status",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_status",
+        "core-container_status"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_status"
+      ]
+    },
+    {
+      "id": "yai.core.container_thaw",
+      "name": "container_thaw",
+      "group": "core",
+      "summary": "core thaw operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_thaw",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_thaw",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_thaw",
+        "core-container_thaw"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_thaw"
+      ]
+    },
+    {
+      "id": "yai.core.container_trace",
+      "name": "container_trace",
+      "group": "core",
+      "summary": "core trace operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_trace",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_trace",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_trace",
+        "core-container_trace"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_trace"
+      ]
+    },
+    {
+      "id": "yai.core.container_validate",
+      "name": "container_validate",
+      "group": "core",
+      "summary": "core validate operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "plumbing",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_validate",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_validate",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_validate",
+        "core-container_validate"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_validate"
+      ]
+    },
+    {
+      "id": "yai.container.clear",
+      "name": "clear",
+      "group": "container",
+      "summary": "clear active container runtime state",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "clear",
+      "domain": "container",
+      "canonical_path": "container clear",
+      "help_order": 9,
+      "aliases": [
+        "container clear",
+        "container clear"
+      ],
+      "command_path_tokens": [
+        "container",
+        "clear"
+      ]
+    },
+    {
+      "id": "yai.container.create",
+      "name": "create",
+      "group": "container",
+      "summary": "create container runtime state",
+      "args": [
+        {
+          "name": "container_id",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "root",
+          "flag": "--root",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "containment_level",
+          "flag": "--containment-level",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "create",
+      "domain": "container",
+      "canonical_path": "container create",
+      "help_order": 1,
+      "aliases": [
+        "container create",
+        "container create"
+      ],
+      "command_path_tokens": [
+        "container",
+        "create"
+      ]
+    },
+    {
+      "id": "yai.container.current",
+      "name": "current",
+      "group": "container",
+      "summary": "show active container and runtime binding context",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "current",
+      "domain": "container",
+      "canonical_path": "container current",
+      "help_order": 5,
+      "aliases": [
+        "container current",
+        "container current"
+      ],
+      "command_path_tokens": [
+        "container",
+        "current"
+      ]
+    },
+    {
+      "id": "yai.container.data_artifacts",
+      "name": "data_artifacts",
+      "group": "container",
+      "summary": "container data artifacts read surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "data",
+      "op": "artifacts",
+      "domain": "runtime",
+      "canonical_path": "container data artifacts",
+      "help_order": 54,
+      "aliases": [
+        "container data artifacts",
+        "yai.container.data.artifacts"
+      ],
+      "command_path_tokens": [
+        "container",
+        "data",
+        "artifacts"
+      ],
+      "runtime_command_id": "yai.container.data.artifacts"
+    },
+    {
+      "id": "yai.container.data_authority",
+      "name": "data_authority",
+      "group": "container",
+      "summary": "container data authority read surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "data",
+      "op": "authority",
+      "domain": "runtime",
+      "canonical_path": "container data authority",
+      "help_order": 53,
+      "aliases": [
+        "container data authority",
+        "yai.container.data.authority"
+      ],
+      "command_path_tokens": [
+        "container",
+        "data",
+        "authority"
+      ],
+      "runtime_command_id": "yai.container.data.authority"
+    },
+    {
+      "id": "yai.container.data_enforcement",
+      "name": "data_enforcement",
+      "group": "container",
+      "summary": "container data enforcement read surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "data",
+      "op": "enforcement",
+      "domain": "runtime",
+      "canonical_path": "container data enforcement",
+      "help_order": 55,
+      "aliases": [
+        "container data enforcement",
+        "yai.container.data.enforcement"
+      ],
+      "command_path_tokens": [
+        "container",
+        "data",
+        "enforcement"
+      ],
+      "runtime_command_id": "yai.container.data.enforcement"
+    },
+    {
+      "id": "yai.container.data_events",
+      "name": "data_events",
+      "group": "container",
+      "summary": "container data events read surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "data",
+      "op": "events",
+      "domain": "runtime",
+      "canonical_path": "container data events",
+      "help_order": 50,
+      "aliases": [
+        "container data events",
+        "yai.container.data.events"
+      ],
+      "command_path_tokens": [
+        "container",
+        "data",
+        "events"
+      ],
+      "runtime_command_id": "yai.container.data.events"
+    },
+    {
+      "id": "yai.container.data_evidence",
+      "name": "data_evidence",
+      "group": "container",
+      "summary": "container data evidence read surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "data",
+      "op": "evidence",
+      "domain": "runtime",
+      "canonical_path": "container data evidence",
+      "help_order": 51,
+      "aliases": [
+        "container data evidence",
+        "yai.container.data.evidence"
+      ],
+      "command_path_tokens": [
+        "container",
+        "data",
+        "evidence"
+      ],
+      "runtime_command_id": "yai.container.data.evidence"
+    },
+    {
+      "id": "yai.container.data_governance",
+      "name": "data_governance",
+      "group": "container",
+      "summary": "container data governance read surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "data",
+      "op": "governance",
+      "domain": "runtime",
+      "canonical_path": "container data governance",
+      "help_order": 52,
+      "aliases": [
+        "container data governance",
+        "yai.container.data.governance"
+      ],
+      "command_path_tokens": [
+        "container",
+        "data",
+        "governance"
+      ],
+      "runtime_command_id": "yai.container.data.governance"
+    },
+    {
+      "id": "yai.container.db_bindings",
+      "name": "db_bindings",
+      "group": "container",
+      "summary": "container db bindings view",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "family",
+          "flag": "--family",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "db",
+      "op": "bindings",
+      "domain": "runtime",
+      "canonical_path": "container db bindings",
+      "help_order": 41,
+      "aliases": [
+        "container db bindings",
+        "yai.container.db.bindings"
+      ],
+      "command_path_tokens": [
+        "container",
+        "db",
+        "bindings"
+      ],
+      "runtime_command_id": "yai.container.db.bindings"
+    },
+    {
+      "id": "yai.container.db_classes",
+      "name": "db_classes",
+      "group": "container",
+      "summary": "container db classes view",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "family",
+          "flag": "--family",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "db",
+      "op": "classes",
+      "domain": "runtime",
+      "canonical_path": "container db classes",
+      "help_order": 43,
+      "aliases": [
+        "container db classes",
+        "yai.container.db.classes"
+      ],
+      "command_path_tokens": [
+        "container",
+        "db",
+        "classes"
+      ],
+      "runtime_command_id": "yai.container.db.classes"
+    },
+    {
+      "id": "yai.container.db_count",
+      "name": "db_count",
+      "group": "container",
+      "summary": "container db count view",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "family",
+          "flag": "--family",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "db",
+      "op": "count",
+      "domain": "runtime",
+      "canonical_path": "container db count",
+      "help_order": 44,
+      "aliases": [
+        "container db count",
+        "yai.container.db.count"
+      ],
+      "command_path_tokens": [
+        "container",
+        "db",
+        "count"
+      ],
+      "runtime_command_id": "yai.container.db.count"
+    },
+    {
+      "id": "yai.container.db_status",
+      "name": "db_status",
+      "group": "container",
+      "summary": "container db status view",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "family",
+          "flag": "--family",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "db",
+      "op": "status",
+      "domain": "runtime",
+      "canonical_path": "container db status",
+      "help_order": 40,
+      "aliases": [
+        "container db status",
+        "yai.container.db.status"
+      ],
+      "command_path_tokens": [
+        "container",
+        "db",
+        "status"
+      ],
+      "runtime_command_id": "yai.container.db.status"
+    },
+    {
+      "id": "yai.container.db_stores",
+      "name": "db_stores",
+      "group": "container",
+      "summary": "container db stores view",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "family",
+          "flag": "--family",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "db",
+      "op": "stores",
+      "domain": "runtime",
+      "canonical_path": "container db stores",
+      "help_order": 42,
+      "aliases": [
+        "container db stores",
+        "yai.container.db.stores"
+      ],
+      "command_path_tokens": [
+        "container",
+        "db",
+        "stores"
+      ],
+      "runtime_command_id": "yai.container.db.stores"
+    },
+    {
+      "id": "yai.container.db_tail",
+      "name": "db_tail",
+      "group": "container",
+      "summary": "container db tail view",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "family",
+          "flag": "--family",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "db",
+      "op": "tail",
+      "domain": "runtime",
+      "canonical_path": "container db tail",
+      "help_order": 45,
+      "aliases": [
+        "container db tail",
+        "yai.container.db.tail"
+      ],
+      "command_path_tokens": [
+        "container",
+        "db",
+        "tail"
+      ],
+      "runtime_command_id": "yai.container.db.tail"
+    },
+    {
+      "id": "yai.container.debug_resolution",
+      "name": "debug_resolution",
+      "group": "container",
+      "summary": "show container resolution debug summary",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "debug",
+      "op": "resolution",
+      "domain": "runtime",
+      "canonical_path": "container debug resolution",
+      "help_order": 100,
+      "aliases": [
+        "container debug resolution",
+        "container debug_resolution",
+        "yai.container.debug.resolution"
+      ],
+      "command_path_tokens": [
+        "container",
+        "debug",
+        "resolution"
+      ]
+    },
+    {
+      "id": "yai.container.destroy",
+      "name": "destroy",
+      "group": "container",
+      "summary": "destroy container runtime state",
+      "args": [
+        {
+          "name": "container_id",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "destroy",
+      "domain": "container",
+      "canonical_path": "container destroy",
+      "help_order": 11,
+      "aliases": [
+        "container destroy",
+        "container destroy"
+      ],
+      "command_path_tokens": [
+        "container",
+        "destroy"
+      ]
+    },
+    {
+      "id": "yai.container.domain_get",
+      "name": "domain_get",
+      "group": "container",
+      "summary": "show declared/inferred/effective container domain context",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "domain",
+      "op": "get",
+      "domain": "container",
+      "canonical_path": "container domain get",
+      "help_order": 80,
+      "aliases": [
+        "container domain get",
+        "container domain_get",
+        "yai.container.domain.get"
+      ],
+      "command_path_tokens": [
+        "container",
+        "domain",
+        "get"
+      ]
+    },
+    {
+      "id": "yai.container.domain_set",
+      "name": "domain_set",
+      "group": "container",
+      "summary": "set declared container domain context",
+      "args": [
+        {
+          "name": "family",
+          "flag": "--family",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "specialization",
+          "flag": "--specialization",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "domain",
+      "op": "set",
+      "domain": "container",
+      "canonical_path": "container domain set",
+      "help_order": 81,
+      "aliases": [
+        "container domain set",
+        "container domain_set",
+        "yai.container.domain.set"
+      ],
+      "command_path_tokens": [
+        "container",
+        "domain",
+        "set"
+      ]
+    },
+    {
+      "id": "yai.container.graph_artifact",
+      "name": "graph_artifact",
+      "group": "container",
+      "summary": "read container graph artifact surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "graph",
+      "op": "artifact",
+      "domain": "runtime",
+      "canonical_path": "container graph artifact",
+      "help_order": 36,
+      "aliases": [
+        "container graph artifact",
+        "container graph artifact",
+        "yai.container.graph.artifact"
+      ],
+      "command_path_tokens": [
+        "container",
+        "graph",
+        "artifact"
+      ],
+      "runtime_command_id": "yai.container.graph.artifact"
+    },
+    {
+      "id": "yai.container.graph_authority",
+      "name": "graph_authority",
+      "group": "container",
+      "summary": "read container graph authority surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "graph",
+      "op": "authority",
+      "domain": "runtime",
+      "canonical_path": "container graph authority",
+      "help_order": 35,
+      "aliases": [
+        "container graph authority",
+        "container graph authority",
+        "yai.container.graph.authority"
+      ],
+      "command_path_tokens": [
+        "container",
+        "graph",
+        "authority"
+      ],
+      "runtime_command_id": "yai.container.graph.authority"
+    },
+    {
+      "id": "yai.container.graph_decision",
+      "name": "graph_decision",
+      "group": "container",
+      "summary": "read container graph decision surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "graph",
+      "op": "decision",
+      "domain": "runtime",
+      "canonical_path": "container graph decision",
+      "help_order": 33,
+      "aliases": [
+        "container graph decision",
+        "container graph decision",
+        "yai.container.graph.decision"
+      ],
+      "command_path_tokens": [
+        "container",
+        "graph",
+        "decision"
+      ],
+      "runtime_command_id": "yai.container.graph.decision"
+    },
+    {
+      "id": "yai.container.graph_evidence",
+      "name": "graph_evidence",
+      "group": "container",
+      "summary": "read container graph evidence surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "graph",
+      "op": "evidence",
+      "domain": "runtime",
+      "canonical_path": "container graph evidence",
+      "help_order": 34,
+      "aliases": [
+        "container graph evidence",
+        "container graph evidence",
+        "yai.container.graph.evidence"
+      ],
+      "command_path_tokens": [
+        "container",
+        "graph",
+        "evidence"
+      ],
+      "runtime_command_id": "yai.container.graph.evidence"
+    },
+    {
+      "id": "yai.container.graph_governance",
+      "name": "graph_governance",
+      "group": "container",
+      "summary": "read container graph governance surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "graph",
+      "op": "governance",
+      "domain": "runtime",
+      "canonical_path": "container graph governance",
+      "help_order": 32,
+      "aliases": [
+        "container graph governance",
+        "container graph governance",
+        "yai.container.graph.governance"
+      ],
+      "command_path_tokens": [
+        "container",
+        "graph",
+        "governance"
+      ],
+      "runtime_command_id": "yai.container.graph.governance"
+    },
+    {
+      "id": "yai.container.graph_lineage",
+      "name": "graph_lineage",
+      "group": "container",
+      "summary": "read container graph lineage surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "graph",
+      "op": "lineage",
+      "domain": "runtime",
+      "canonical_path": "container graph lineage",
+      "help_order": 37,
+      "aliases": [
+        "container graph lineage",
+        "container graph lineage",
+        "yai.container.graph.lineage"
+      ],
+      "command_path_tokens": [
+        "container",
+        "graph",
+        "lineage"
+      ],
+      "runtime_command_id": "yai.container.graph.lineage"
+    },
+    {
+      "id": "yai.container.graph_recent",
+      "name": "graph_recent",
+      "group": "container",
+      "summary": "read container graph recent surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "graph",
+      "op": "recent",
+      "domain": "runtime",
+      "canonical_path": "container graph recent",
+      "help_order": 38,
+      "aliases": [
+        "container graph recent",
+        "container graph recent",
+        "yai.container.graph.recent"
+      ],
+      "command_path_tokens": [
+        "container",
+        "graph",
+        "recent"
+      ],
+      "runtime_command_id": "yai.container.graph.recent"
+    },
+    {
+      "id": "yai.container.graph_summary",
+      "name": "graph_summary",
+      "group": "container",
+      "summary": "read container graph summary surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "graph",
+      "op": "summary",
+      "domain": "runtime",
+      "canonical_path": "container graph summary",
+      "help_order": 30,
+      "aliases": [
+        "container graph summary",
+        "container graph summary",
+        "yai.container.graph.summary"
+      ],
+      "command_path_tokens": [
+        "container",
+        "graph",
+        "summary"
+      ],
+      "runtime_command_id": "yai.container.graph.summary"
+    },
+    {
+      "id": "yai.container.graph_container",
+      "name": "graph_container",
+      "group": "container",
+      "summary": "read container graph container surface",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "graph",
+      "op": "container",
+      "domain": "runtime",
+      "canonical_path": "container graph container",
+      "help_order": 31,
+      "aliases": [
+        "container graph container",
+        "container graph container",
+        "yai.container.graph.container"
+      ],
+      "command_path_tokens": [
+        "container",
+        "graph",
+        "container"
+      ],
+      "runtime_command_id": "yai.container.graph.container"
+    },
+    {
+      "id": "yai.container.inspect",
+      "name": "inspect",
+      "group": "container",
+      "summary": "show expanded container runtime snapshot",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "inspect",
+      "domain": "container",
+      "canonical_path": "container inspect",
+      "help_order": 7,
+      "aliases": [
+        "container inspect",
+        "container inspect"
+      ],
+      "command_path_tokens": [
+        "container",
+        "inspect"
+      ]
+    },
+    {
+      "id": "yai.container.knowledge_context",
+      "name": "knowledge_context",
+      "group": "container",
+      "summary": "container cognition context view",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "cognition",
+      "op": "context",
+      "domain": "runtime",
+      "canonical_path": "container cognition context",
+      "help_order": 64,
+      "aliases": [
+        "container cognition context",
+        "yai.container.cognition.context"
+      ],
+      "command_path_tokens": [
+        "container",
+        "cognition",
+        "context"
+      ],
+      "runtime_command_id": "yai.container.cognition.context"
+    },
+    {
+      "id": "yai.container.knowledge_memory",
+      "name": "knowledge_memory",
+      "group": "container",
+      "summary": "container cognition memory view",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "cognition",
+      "op": "memory",
+      "domain": "runtime",
+      "canonical_path": "container cognition memory",
+      "help_order": 62,
+      "aliases": [
+        "container cognition memory",
+        "yai.container.cognition.memory"
+      ],
+      "command_path_tokens": [
+        "container",
+        "cognition",
+        "memory"
+      ],
+      "runtime_command_id": "yai.container.cognition.memory"
+    },
+    {
+      "id": "yai.container.knowledge_providers",
+      "name": "knowledge_providers",
+      "group": "container",
+      "summary": "container cognition providers view",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "cognition",
+      "op": "providers",
+      "domain": "runtime",
+      "canonical_path": "container cognition providers",
+      "help_order": 63,
+      "aliases": [
+        "container cognition providers",
+        "yai.container.cognition.providers"
+      ],
+      "command_path_tokens": [
+        "container",
+        "cognition",
+        "providers"
+      ],
+      "runtime_command_id": "yai.container.cognition.providers"
+    },
+    {
+      "id": "yai.container.knowledge_status",
+      "name": "knowledge_status",
+      "group": "container",
+      "summary": "container cognition status view",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "cognition",
+      "op": "status",
+      "domain": "runtime",
+      "canonical_path": "container cognition status",
+      "help_order": 60,
+      "aliases": [
+        "container cognition status",
+        "yai.container.cognition.status"
+      ],
+      "command_path_tokens": [
+        "container",
+        "cognition",
+        "status"
+      ],
+      "runtime_command_id": "yai.container.cognition.status"
+    },
+    {
+      "id": "yai.container.knowledge_transient",
+      "name": "knowledge_transient",
+      "group": "container",
+      "summary": "container cognition transient view",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "cognition",
+      "op": "transient",
+      "domain": "runtime",
+      "canonical_path": "container cognition transient",
+      "help_order": 61,
+      "aliases": [
+        "container cognition transient",
+        "yai.container.cognition.transient"
+      ],
+      "command_path_tokens": [
+        "container",
+        "cognition",
+        "transient"
+      ],
+      "runtime_command_id": "yai.container.cognition.transient"
+    },
+    {
+      "id": "yai.container.open",
+      "name": "open",
+      "group": "container",
+      "summary": "open and bind existing container runtime state",
+      "args": [
+        {
+          "name": "container_id",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "open",
+      "domain": "container",
+      "canonical_path": "container open",
+      "help_order": 2,
+      "aliases": [
+        "container open",
+        "container open"
+      ],
+      "command_path_tokens": [
+        "container",
+        "open"
+      ]
+    },
+    {
+      "id": "yai.container.policy_activate",
+      "name": "policy_activate",
+      "group": "container",
+      "summary": "activate attached governable policy object in active container",
+      "args": [
+        {
+          "name": "object_id",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "policy",
+      "op": "activate",
+      "domain": "policy",
+      "canonical_path": "container policy activate",
+      "help_order": 72,
+      "aliases": [
+        "container policy activate",
+        "container policy_activate"
+      ],
+      "command_path_tokens": [
+        "container",
+        "policy",
+        "activate"
+      ]
+    },
+    {
+      "id": "yai.container.policy_attach",
+      "name": "policy_attach",
+      "group": "container",
+      "summary": "attach governable policy object to active container",
+      "args": [
+        {
+          "name": "object_id",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "policy",
+      "op": "attach",
+      "domain": "policy",
+      "canonical_path": "container policy attach",
+      "help_order": 70,
+      "aliases": [
+        "container policy attach",
+        "container policy_attach",
+        "yai.container.policy.attach"
+      ],
+      "command_path_tokens": [
+        "container",
+        "policy",
+        "attach"
+      ]
+    },
+    {
+      "id": "yai.container.policy_detach",
+      "name": "policy_detach",
+      "group": "container",
+      "summary": "detach governable policy object from active container",
+      "args": [
+        {
+          "name": "object_id",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "policy",
+      "op": "detach",
+      "domain": "policy",
+      "canonical_path": "container policy detach",
+      "help_order": 71,
+      "aliases": [
+        "container policy detach",
+        "container policy_detach",
+        "yai.container.policy.detach"
+      ],
+      "command_path_tokens": [
+        "container",
+        "policy",
+        "detach"
+      ]
+    },
+    {
+      "id": "yai.container.policy_dry_run",
+      "name": "policy_dry_run",
+      "group": "container",
+      "summary": "preview policy attach compatibility/effect without apply",
+      "args": [
+        {
+          "name": "object_id",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "policy",
+      "op": "dry-run",
+      "domain": "policy",
+      "canonical_path": "container policy dry-run",
+      "help_order": 73,
+      "aliases": [
+        "container policy dry-run",
+        "container policy_dry_run"
+      ],
+      "command_path_tokens": [
+        "container",
+        "policy",
+        "dry-run"
+      ]
+    },
+    {
+      "id": "yai.container.policy_effective",
+      "name": "policy_effective",
+      "group": "container",
+      "summary": "show effective container policy stack summary",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "policy",
+      "op": "effective",
+      "domain": "policy",
+      "canonical_path": "container policy effective",
+      "help_order": 74,
+      "aliases": [
+        "container policy effective",
+        "container policy_effective",
+        "yai.container.policy.effective"
+      ],
+      "command_path_tokens": [
+        "container",
+        "policy",
+        "effective"
+      ]
+    },
+    {
+      "id": "yai.container.query",
+      "name": "query",
+      "group": "container",
+      "summary": "generic container query fallback by family",
+      "args": [
+        {
+          "name": "family",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "flag": "--limit",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "ancillary",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "query",
+      "op": "family",
+      "domain": "runtime",
+      "canonical_path": "container query <family>",
+      "help_order": 110,
+      "aliases": [
+        "container query",
+        "container query"
+      ],
+      "command_path_tokens": [
+        "container",
+        "query"
+      ]
+    },
+    {
+      "id": "yai.container.recovery_load",
+      "name": "recovery_load",
+      "group": "container",
+      "summary": "load container recovery state into active runtime context",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "recovery",
+      "op": "load",
+      "domain": "runtime",
+      "canonical_path": "container recovery load",
+      "help_order": 91,
+      "aliases": [
+        "container recovery load",
+        "yai.container.recovery.load"
+      ],
+      "command_path_tokens": [
+        "container",
+        "recovery",
+        "load"
+      ],
+      "runtime_command_id": "yai.container.recovery.load"
+    },
+    {
+      "id": "yai.container.recovery_reopen",
+      "name": "recovery_reopen",
+      "group": "container",
+      "summary": "reopen container and restore runtime binding context",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "recovery",
+      "op": "reopen",
+      "domain": "runtime",
+      "canonical_path": "container recovery reopen",
+      "help_order": 92,
+      "aliases": [
+        "container recovery reopen",
+        "container open",
+        "yai.container.recovery.reopen"
+      ],
+      "command_path_tokens": [
+        "container",
+        "recovery",
+        "reopen"
+      ],
+      "runtime_command_id": "yai.container.recovery.reopen"
+    },
+    {
+      "id": "yai.container.recovery_status",
+      "name": "recovery_status",
+      "group": "container",
+      "summary": "show container recovery tracking state",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "planned",
+      "entrypoint": "container",
+      "topic": "recovery",
+      "op": "status",
+      "domain": "runtime",
+      "canonical_path": "container recovery status",
+      "help_order": 90,
+      "aliases": [
+        "container recovery status",
+        "yai.container.recovery.status"
+      ],
+      "command_path_tokens": [
+        "container",
+        "recovery",
+        "status"
+      ],
+      "runtime_command_id": "yai.container.recovery.status"
+    },
+    {
+      "id": "yai.container.reset",
+      "name": "reset",
+      "group": "container",
+      "summary": "reset container runtime state",
+      "args": [
+        {
+          "name": "container_id",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "reset",
+      "domain": "container",
+      "canonical_path": "container reset",
+      "help_order": 10,
+      "aliases": [
+        "container reset",
+        "container reset"
+      ],
+      "command_path_tokens": [
+        "container",
+        "reset"
+      ]
+    },
+    {
+      "id": "yai.container.run",
+      "name": "run",
+      "group": "container",
+      "summary": "run container action in active bound context",
+      "args": [
+        {
+          "name": "action",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "run",
+      "domain": "runtime",
+      "canonical_path": "container run",
+      "help_order": 12,
+      "aliases": [
+        "container run",
+        "container run"
+      ],
+      "command_path_tokens": [
+        "container",
+        "run"
+      ]
+    },
+    {
+      "id": "yai.container.set",
+      "name": "set",
+      "group": "container",
+      "summary": "set active container binding",
+      "args": [
+        {
+          "name": "container_id",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "set",
+      "domain": "container",
+      "canonical_path": "container set",
+      "help_order": 3,
+      "aliases": [
+        "container set",
+        "container set"
+      ],
+      "command_path_tokens": [
+        "container",
+        "set"
+      ]
+    },
+    {
+      "id": "yai.container.status",
+      "name": "status",
+      "group": "container",
+      "summary": "show container binding/runtime status summary",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "status",
+      "domain": "container",
+      "canonical_path": "container status",
+      "help_order": 6,
+      "aliases": [
+        "container status",
+        "container status"
+      ],
+      "command_path_tokens": [
+        "container",
+        "status"
+      ]
+    },
+    {
+      "id": "yai.container.switch",
+      "name": "switch",
+      "group": "container",
+      "summary": "switch active container binding (alias of set)",
+      "args": [
+        {
+          "name": "container_id",
+          "pos": 1,
+          "type": "string",
+          "required": true
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "switch",
+      "domain": "container",
+      "canonical_path": "container switch",
+      "help_order": 4,
+      "aliases": [
+        "container switch",
+        "container switch",
+        "container set"
+      ],
+      "command_path_tokens": [
+        "container",
+        "switch"
+      ]
+    },
+    {
+      "id": "yai.container.unset",
+      "name": "unset",
+      "group": "container",
+      "summary": "remove active container binding",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "outputs": [
+        "json",
+        "text"
+      ],
+      "side_effects": [
+        "rpc_call"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "Lx"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism"
+      ],
+      "law_boundaries": [
+        "Lx-docs"
+      ],
+      "uses_primitives": [
+        "S-016",
+        "S-017",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "layer": "docs",
+      "hidden": false,
+      "surface": "surface",
+      "stability": "experimental",
+      "entrypoint": "container",
+      "topic": "general",
+      "op": "unset",
+      "domain": "container",
+      "canonical_path": "container unset",
+      "help_order": 8,
+      "aliases": [
+        "container unset",
+        "container unset"
+      ],
+      "command_path_tokens": [
+        "container",
+        "unset"
+      ]
+    }
+  ]
+}

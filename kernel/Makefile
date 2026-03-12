@@ -16,13 +16,13 @@ KERNEL_CORE_SRCS := \
 	lifecycle/readiness.c \
 	lifecycle/transitions.c \
 	state/kernel_state.c \
-	registry/kernel_registry.c \
-	registry/container_registry.c \
-	registry/session_registry.c \
-	registry/capability_registry.c \
-	registry/containment_registry.c \
-	registry/trace_registry.c \
-	registry/grants_registry.c \
+	model/registry/kernel_registry.c \
+	model/registry/container_registry.c \
+	model/registry/session_registry.c \
+	model/registry/capability_registry.c \
+	model/registry/containment_registry.c \
+	model/registry/trace_registry.c \
+	model/registry/grants_registry.c \
 	policy/capabilities.c \
 	policy/policy_hooks.c \
 	grants/grant_state.c \

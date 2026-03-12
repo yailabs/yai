@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-#include <yai/governance/escalation.h>
+#include <yai/policy/governance/escalation.h>
 
 #include <stdio.h>
 

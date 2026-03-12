@@ -43,7 +43,7 @@ Each dataset version directory (e.g., `data/datasets/<name>/<version>/`) must in
   - known limitations and any filtering/redaction steps
 - a `manifest.json` (or equivalent) listing:
   - files included
-  - expected schema/columns (if applicable)
+  - expected model/schema/columns (if applicable)
   - checksums where useful for integrity
 
 Opaque binaries are discouraged. If a binary is required (e.g., an `.xlsx` used as a compatibility fixture), it must be:

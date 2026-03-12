@@ -20,7 +20,7 @@ This policy governs dependency and compatibility relations across:
 - `pinning`: structural repository dependency (submodule/vendor lock or equivalent hard bind).
 - `baseline-lock`: controlled integration lock used by integration repo to guarantee reproducible behavior.
 - `compatibility declaration`: explicit statement of supported governance/cli surface versions without structural dependency.
-- `generated/exported artifact consumption`: consumption of snapshots/manifests/exports produced by another repo, without structural pinning.
+- `generated/exported artifact consumption`: consumption of snapshots/model/manifests/exports produced by another repo, without structural pinning.
 
 ## Allowed structural relations
 

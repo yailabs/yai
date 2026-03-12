@@ -26,7 +26,7 @@ Canonical architecture source-of-truth for subsystem boundaries and platform mod
 2. `overview/subsystem-map.md`
 3. `overview/repository-map.md`
 4. `foundation/`
-5. `formal/`
+5. `control/assurance/`
 6. `runtime/`
 7. `orchestration/`
 8. `edge/`
@@ -43,7 +43,7 @@ Canonical architecture source-of-truth for subsystem boundaries and platform mod
 
 # Relationships
 - `foundation/`
-- `formal/`
+- `control/assurance/`
 - `include/yai/`
 - `lib/`
 - `cmd/`

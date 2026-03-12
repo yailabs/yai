@@ -196,7 +196,7 @@ static void attach_overlays_from_matrix(const yai_governance_runtime_t *rt,
   if (yai_governance_safe_snprintf(action, sizeof(action), "\"action\":\"%s\"", ctx->action) != 0) return;
 
   if (read_json_from_surface(rt,
-                             "overlays/matrices/overlay-attachment.matrix.v1.json",
+                             "policy/overlays/matrices/overlay-attachment.matrix.v1.json",
                              json, sizeof(json)) == 0 &&
       yai_governance_json_contains(json, fam) && yai_governance_json_contains(json, spec) && yai_governance_json_contains(json, action)) {
     loaded = 1;

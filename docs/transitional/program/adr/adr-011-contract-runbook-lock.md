@@ -35,7 +35,7 @@ Controls:
 
 1. CI parity checks between pinned specs contract and CLI/runtime behavior
 2. Mandatory gates fail on missing capability (no pass-on-skip)
-3. Formal/core verify updates are required when contract deltas affect authority/envelope invariants
+3. Formal/core verify updates are required when contract deltas affect policy/authority/envelope invariants
 4. Cross-repo pins remain explicit and auditable
 
 ## Rationale

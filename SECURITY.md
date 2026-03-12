@@ -4,7 +4,7 @@
 
 This policy applies to the **`yai` runtime implementation repository** (Boot/Root/Kernel/Engine/Mind workspace integration, tooling, and release artifacts).
 
-Normative contract behavior (protocol/control/graph/vault/compliance) is defined in **`governance` (canonical) and `governance/runtime-package` (runtime contract surface)**. Contract issues may be triaged here but the source-of-truth fix may live in `governance`.
+Normative contract behavior (control/protocol/control/graph/vault/compliance) is defined in **`governance` (canonical) and `governance/runtime-package` (runtime contract surface)**. Contract issues may be triaged here but the source-of-truth fix may live in `governance`.
 
 ## Reporting a Vulnerability
 

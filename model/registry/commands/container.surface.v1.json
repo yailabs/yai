@@ -1,0 +1,266 @@
+{
+  "version": "1.0",
+  "binary": "yai",
+  "commands": [
+    {
+      "id": "yai.core.container",
+      "name": "container",
+      "group": "core",
+      "summary": "Container lifecycle via core (create/destroy/reset)",
+      "args": [
+        {
+          "name": "action",
+          "pos": 1,
+          "type": "enum",
+          "values": [
+            "create",
+            "destroy",
+            "reset"
+          ],
+          "required": true
+        },
+        {
+          "name": "container_id",
+          "pos": 2,
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "timeout_ms",
+          "flag": "--timeout-ms",
+          "type": "int",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "role",
+          "flag": "--role",
+          "type": "enum",
+          "values": [
+            "operator",
+            "system"
+          ],
+          "required": false
+        }
+      ],
+      "outputs": [
+        "text",
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session",
+        "remove_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1",
+        "L2"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-006",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container",
+      "domain": "container",
+      "layer": "exec",
+      "canonical_path": "container core container",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container",
+        "core-container"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container"
+      ]
+    },
+    {
+      "id": "yai.core.container_list",
+      "name": "container_list",
+      "group": "core",
+      "summary": "core list operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_list",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_list",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_list",
+        "core-container_list"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_list"
+      ]
+    },
+    {
+      "id": "yai.core.container_status",
+      "name": "container_status",
+      "group": "core",
+      "summary": "core status operation on container with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "container",
+          "flag": "--container",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "container",
+      "topic": "core",
+      "op": "container_status",
+      "domain": "container",
+      "layer": "core",
+      "canonical_path": "container core container_status",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core container_status",
+        "core-container_status"
+      ],
+      "command_path_tokens": [
+        "container",
+        "core",
+        "container_status"
+      ]
+    }
+  ]
+}

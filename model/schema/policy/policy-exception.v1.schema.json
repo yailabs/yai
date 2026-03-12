@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "governance/grammar/model/schema/policy_exception.v1",
+  "title": "policy_exception.v1",
+  "description": "Policy exception",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "exception_id": {
+      "type": "string"
+    },
+    "applies_to": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "authority_required": {
+      "type": "string"
+    },
+    "expiry": {
+      "type": "string"
+    },
+    "evidence_obligation": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "exception_id",
+    "applies_to",
+    "authority_required"
+  ],
+  "additionalProperties": true
+}

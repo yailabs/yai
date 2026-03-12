@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #pragma once
 
-#include <yai/knowledge/types.h>
+#include <yai/cognition/types.h>
 
 /* Source-plane graph reference prefixes reserved by YD-3 model. */
 #define YAI_GRAPH_REF_SOURCE_NODE_PREFIX "gsn"

@@ -1,0 +1,2096 @@
+{
+  "kind": "governable_objects_registry",
+  "version": "v1",
+  "generated_by": "tools/gen/build_governable_objects_index.py",
+  "objects": [
+    {
+      "id": "compliance.ai-act",
+      "kind": "compliance_module",
+      "name": "EU AI Act",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [
+        "digital",
+        "scientific"
+      ],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/regulatory/ai-act/manifest.v1.json",
+      "manifest_ref": "packages/regulatory/ai-act/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "compliance-layer",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "none",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "compliance.gdpr-eu",
+      "kind": "compliance_module",
+      "name": "GDPR EU",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [
+        "digital",
+        "scientific"
+      ],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/regulatory/gdpr-eu/manifest.v1.json",
+      "manifest_ref": "packages/regulatory/gdpr-eu/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "compliance-layer",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "none",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "compliance.retention-governance",
+      "kind": "compliance_module",
+      "name": "Retention Governance",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/cross-domain/retention-governance/manifest.v1.json",
+      "manifest_ref": "packages/cross-domain/retention-governance/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "compliance-layer",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "none",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "compliance.security-supply-chain",
+      "kind": "compliance_module",
+      "name": "Security Supply Chain",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [
+        "digital",
+        "operational",
+        "scientific"
+      ],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/cross-domain/security-supply-chain/manifest.v1.json",
+      "manifest_ref": "packages/cross-domain/security-supply-chain/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "compliance-layer",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "none",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "customer.default.org-workspace-contextual-review",
+      "kind": "customer_policy_pack",
+      "name": "Organization and Workspace Contextual Review Pack",
+      "status": "active",
+      "scope_targets": {
+        "organization_ids": [
+          "default-org"
+        ],
+        "workspace_ids": [
+          "ws_ops_review",
+          "ws_science_review"
+        ],
+        "environment_classes": [
+          "shared",
+          "review"
+        ],
+        "session_scope": "workspace-bound"
+      },
+      "domain_targets": [
+        "digital",
+        "scientific"
+      ],
+      "family_targets": [
+        "digital",
+        "scientific"
+      ],
+      "specialization_targets": [
+        "network-egress",
+        "remote-publication",
+        "parameter-governance",
+        "result-publication-control"
+      ],
+      "attachment_modes": [
+        "workspace-attach",
+        "runtime-entrypoint"
+      ],
+      "source_ref": "packages/customer/policy-pack/examples/customer.default.org-workspace-contextual-review.v1.json",
+      "manifest_ref": "packages/customer/policy-pack/examples/customer.default.org-workspace-contextual-review.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization+contextual-overlays+customer-pack",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [
+        "indexes/runtime/entrypoints.v1.json#default-runtime"
+      ],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "customer.ecohmedia.digital-outbound.gdpr-retention",
+      "kind": "customer_policy_pack",
+      "name": "EcohMedia Digital Outbound Regulatory Pack",
+      "status": "active",
+      "scope_targets": {
+        "organization_ids": [
+          "ecohmedia"
+        ],
+        "workspace_ids": [
+          "ws_digital_outbound_prod",
+          "ws_digital_outbound_stage"
+        ],
+        "environment_classes": [
+          "production",
+          "staging"
+        ],
+        "session_scope": "workspace-bound"
+      },
+      "domain_targets": [
+        "digital"
+      ],
+      "family_targets": [
+        "digital"
+      ],
+      "specialization_targets": [
+        "network-egress",
+        "remote-publication",
+        "external-commentary",
+        "artifact-distribution",
+        "remote-retrieval",
+        "digital-sink-control"
+      ],
+      "attachment_modes": [
+        "workspace-attach",
+        "runtime-entrypoint"
+      ],
+      "source_ref": "packages/customer/policy-pack/examples/customer.ecohmedia.digital-outbound.gdpr-retention.v1.json",
+      "manifest_ref": "packages/customer/policy-pack/examples/customer.ecohmedia.digital-outbound.gdpr-retention.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization+compliance+overlays+customer-pack",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [
+        "indexes/runtime/entrypoints.v1.json#default-runtime"
+      ],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "enterprise.default.workspace.research-sandbox",
+      "kind": "enterprise_custom_governance_object",
+      "name": "Default Workspace Research Sandbox Governance",
+      "status": "candidate",
+      "review_state": "in_review",
+      "scope_targets": {
+        "organization_ids": [
+          "default-org"
+        ],
+        "workspace_ids": [
+          "ws_research_lab",
+          "ws_science_review"
+        ],
+        "environment_classes": [
+          "shared",
+          "review"
+        ],
+        "session_scope": "workspace-bound"
+      },
+      "domain_targets": [
+        "scientific",
+        "digital"
+      ],
+      "family_targets": [
+        "scientific",
+        "digital"
+      ],
+      "specialization_targets": [
+        "parameter-governance",
+        "result-publication-control",
+        "remote-publication"
+      ],
+      "attachment_modes": [
+        "workspace_attach"
+      ],
+      "source_ref": "packages/enterprise/custom-governance/examples/enterprise.default.workspace.research-sandbox.v1.json",
+      "manifest_ref": "packages/enterprise/custom-governance/examples/enterprise.default.workspace.research-sandbox.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization+contextual-overlays+customer-pack+enterprise-object",
+      "runtime_consumable": false,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [
+        "specializations/digital/remote-publication/policy-pack.json",
+        "specializations/scientific/parameter-governance/policy-pack.json",
+        "specializations/scientific/result-publication-control/policy-pack.json",
+        "indexes/runtime/entrypoints.v1.json#default-runtime"
+      ],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "enterprise.default.workspace.source-attachment-governance",
+      "kind": "enterprise_custom_governance_object",
+      "name": "Default Workspace Source Attachment Governance",
+      "status": "approved",
+      "review_state": "approved",
+      "scope_targets": {
+        "organization_ids": [
+          "default-org"
+        ],
+        "workspace_ids": [
+          "ws_ops_review",
+          "ws_science_review"
+        ],
+        "environment_classes": [
+          "shared",
+          "review"
+        ],
+        "session_scope": "workspace-bound"
+      },
+      "domain_targets": [
+        "digital",
+        "scientific"
+      ],
+      "family_targets": [
+        "digital",
+        "scientific"
+      ],
+      "specialization_targets": [
+        "remote-retrieval",
+        "parameter-governance"
+      ],
+      "attachment_modes": [
+        "workspace_attach",
+        "runtime_entrypoint"
+      ],
+      "source_ref": "packages/enterprise/custom-governance/examples/enterprise.default.workspace.source-attachment-governance.v1.json",
+      "manifest_ref": "packages/enterprise/custom-governance/examples/enterprise.default.workspace.source-attachment-governance.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization+contextual-overlays+customer-pack+enterprise-object",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [
+        "specializations/digital/remote-retrieval/policy-pack.json",
+        "indexes/runtime/entrypoints.v1.json#default-runtime"
+      ],
+      "conflicts_with": [
+        "enterprise.default.workspace.research-sandbox"
+      ],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "enterprise.ecohmedia.digital-outbound.review-gate",
+      "kind": "enterprise_custom_governance_object",
+      "name": "EcohMedia Digital Outbound Review Gate",
+      "status": "approved",
+      "review_state": "approved",
+      "scope_targets": {
+        "organization_ids": [
+          "ecohmedia"
+        ],
+        "workspace_ids": [
+          "ws_digital_outbound_prod",
+          "ws_digital_outbound_stage"
+        ],
+        "environment_classes": [
+          "production",
+          "staging"
+        ],
+        "session_scope": "workspace-bound"
+      },
+      "domain_targets": [
+        "digital"
+      ],
+      "family_targets": [
+        "digital"
+      ],
+      "specialization_targets": [
+        "remote-publication",
+        "artifact-distribution",
+        "digital-sink-control",
+        "network-egress"
+      ],
+      "attachment_modes": [
+        "workspace_attach",
+        "runtime_entrypoint"
+      ],
+      "source_ref": "packages/enterprise/custom-governance/examples/enterprise.ecohmedia.digital-outbound.review-gate.v1.json",
+      "manifest_ref": "packages/enterprise/custom-governance/examples/enterprise.ecohmedia.digital-outbound.review-gate.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization+compliance+overlays+customer-pack+enterprise-object",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [
+        "specializations/digital/artifact-distribution/policy-pack.json",
+        "specializations/digital/remote-publication/policy-pack.json",
+        "indexes/runtime/entrypoints.v1.json#default-runtime"
+      ],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.ai-act",
+      "kind": "overlay",
+      "name": "regulatory.ai-act",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "cognitive-cultural",
+        "digital",
+        "scientific",
+        "social-institutional"
+      ],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/regulatory/ai-act/manifest.v1.json",
+      "manifest_ref": "packages/regulatory/ai-act/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-regulatory",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.context.experimental",
+      "kind": "overlay",
+      "name": "context.experimental",
+      "status": "seed",
+      "scope_targets": {
+        "session_scope": "experimental"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/contextual/experimental/manifest.v1.json",
+      "manifest_ref": "packages/contextual/experimental/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-contextual",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.context.organization",
+      "kind": "overlay",
+      "name": "context.organization",
+      "status": "seed",
+      "scope_targets": {
+        "session_scope": "organization"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/contextual/organization/manifest.v1.json",
+      "manifest_ref": "packages/contextual/organization/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-contextual",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.context.session",
+      "kind": "overlay",
+      "name": "context.session",
+      "status": "seed",
+      "scope_targets": {
+        "session_scope": "session"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/contextual/session/manifest.v1.json",
+      "manifest_ref": "packages/contextual/session/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-contextual",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.context.workspace",
+      "kind": "overlay",
+      "name": "context.workspace",
+      "status": "seed",
+      "scope_targets": {
+        "session_scope": "workspace"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/contextual/workspace/manifest.v1.json",
+      "manifest_ref": "packages/contextual/workspace/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-contextual",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.gdpr-eu",
+      "kind": "overlay",
+      "name": "regulatory.gdpr-eu",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "digital",
+        "economic",
+        "scientific",
+        "social-institutional"
+      ],
+      "specialization_targets": [
+        "network-egress",
+        "payments",
+        "remote-publication",
+        "result-publication-control",
+        "transfers"
+      ],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/regulatory/gdpr-eu/manifest.v1.json",
+      "manifest_ref": "packages/regulatory/gdpr-eu/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-regulatory",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.retention-governance",
+      "kind": "overlay",
+      "name": "retention-governance",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/regulatory/retention-governance/manifest.v1.json",
+      "manifest_ref": "packages/regulatory/retention-governance/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-regulatory",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.sector.finance",
+      "kind": "overlay",
+      "name": "sector.finance",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "digital",
+        "economic",
+        "scientific"
+      ],
+      "specialization_targets": [
+        "accounting-integrity",
+        "fraud-risk-controls",
+        "payments",
+        "settlements",
+        "transfers",
+        "treasury"
+      ],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/sector/finance/manifest.v1.json",
+      "manifest_ref": "packages/sector/finance/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-sector",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [
+        "overlay.sector.healthcare",
+        "overlay.sector.manufacturing",
+        "overlay.sector.public-sector"
+      ],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.sector.healthcare",
+      "kind": "overlay",
+      "name": "sector.healthcare",
+      "status": "active-seed",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "digital",
+        "scientific",
+        "social-institutional"
+      ],
+      "specialization_targets": [
+        "dataset-integrity",
+        "remote-publication",
+        "result-publication-control"
+      ],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/sector/healthcare/manifest.v1.json",
+      "manifest_ref": "packages/sector/healthcare/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-sector",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [
+        "overlay.sector.finance",
+        "overlay.sector.manufacturing",
+        "overlay.sector.public-sector"
+      ],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.sector.manufacturing",
+      "kind": "overlay",
+      "name": "sector.manufacturing",
+      "status": "active-planned",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/sector/manufacturing/manifest.v1.json",
+      "manifest_ref": "packages/sector/manufacturing/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-sector",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [
+        "overlay.sector.finance",
+        "overlay.sector.healthcare",
+        "overlay.sector.public-sector"
+      ],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.sector.public-sector",
+      "kind": "overlay",
+      "name": "sector.public-sector",
+      "status": "active-seed",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "digital",
+        "economic",
+        "social-institutional"
+      ],
+      "specialization_targets": [
+        "accounting-integrity",
+        "payments",
+        "remote-publication"
+      ],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/sector/public-sector/manifest.v1.json",
+      "manifest_ref": "packages/sector/public-sector/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-sector",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [
+        "overlay.sector.finance",
+        "overlay.sector.healthcare",
+        "overlay.sector.manufacturing"
+      ],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "overlay.security-supply-chain",
+      "kind": "overlay",
+      "name": "security-supply-chain",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "global-or-scoped"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "digital",
+        "economic",
+        "operational",
+        "scientific"
+      ],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "overlay-stack",
+        "policy-composition"
+      ],
+      "source_ref": "packages/regulatory/security-supply-chain/manifest.v1.json",
+      "manifest_ref": "packages/regulatory/security-supply-chain/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "overlay-regulatory",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "data",
+        "graph"
+      ],
+      "runtime_binding_model": "global-baseline",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.accounting-integrity",
+      "kind": "specialization_policy_pack",
+      "name": "economic.accounting-integrity",
+      "status": "active-seed",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "economic"
+      ],
+      "specialization_targets": [
+        "accounting-integrity"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/accounting-integrity/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/accounting-integrity/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.artifact-distribution",
+      "kind": "specialization_policy_pack",
+      "name": "digital.artifact-distribution",
+      "status": "active-planned",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "digital"
+      ],
+      "specialization_targets": [
+        "artifact-distribution"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/artifact-distribution/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/artifact-distribution/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.black-box-evaluation",
+      "kind": "specialization_policy_pack",
+      "name": "scientific.black-box-evaluation",
+      "status": "active-planned",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "scientific"
+      ],
+      "specialization_targets": [
+        "black-box-evaluation"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/black-box-evaluation/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/black-box-evaluation/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.credit-exposure",
+      "kind": "specialization_policy_pack",
+      "name": "economic.credit-exposure",
+      "status": "active-seed",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "economic"
+      ],
+      "specialization_targets": [
+        "credit-exposure"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/credit-exposure/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/credit-exposure/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.dataset-integrity",
+      "kind": "specialization_policy_pack",
+      "name": "scientific.dataset-integrity",
+      "status": "active-planned",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "scientific"
+      ],
+      "specialization_targets": [
+        "dataset-integrity"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/dataset-integrity/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/dataset-integrity/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.digital-sink-control",
+      "kind": "specialization_policy_pack",
+      "name": "digital.digital-sink-control",
+      "status": "active-planned",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "digital"
+      ],
+      "specialization_targets": [
+        "digital-sink-control"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/digital-sink-control/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/digital-sink-control/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.experiment-configuration",
+      "kind": "specialization_policy_pack",
+      "name": "scientific.experiment-configuration",
+      "status": "active-planned",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "scientific"
+      ],
+      "specialization_targets": [
+        "experiment-configuration"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/experiment-configuration/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/experiment-configuration/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.external-commentary",
+      "kind": "specialization_policy_pack",
+      "name": "digital.external-commentary",
+      "status": "active-planned",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "digital"
+      ],
+      "specialization_targets": [
+        "external-commentary"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/external-commentary/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/external-commentary/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.fraud-risk-controls",
+      "kind": "specialization_policy_pack",
+      "name": "economic.fraud-risk-controls",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "economic"
+      ],
+      "specialization_targets": [
+        "fraud-risk-controls"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/fraud-risk-controls/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/fraud-risk-controls/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.invoicing",
+      "kind": "specialization_policy_pack",
+      "name": "economic.invoicing",
+      "status": "draft-seed",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "economic"
+      ],
+      "specialization_targets": [
+        "invoicing"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/invoicing/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/invoicing/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.network-egress",
+      "kind": "specialization_policy_pack",
+      "name": "digital.network-egress",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "digital"
+      ],
+      "specialization_targets": [
+        "network-egress"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/network-egress/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/network-egress/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.parameter-governance",
+      "kind": "specialization_policy_pack",
+      "name": "scientific.parameter-governance",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "scientific"
+      ],
+      "specialization_targets": [
+        "parameter-governance"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/parameter-governance/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/parameter-governance/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.payments",
+      "kind": "specialization_policy_pack",
+      "name": "economic.payments",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "economic"
+      ],
+      "specialization_targets": [
+        "payments"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/payments/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/payments/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.pricing-and-quoting",
+      "kind": "specialization_policy_pack",
+      "name": "economic.pricing-and-quoting",
+      "status": "draft-seed",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "economic"
+      ],
+      "specialization_targets": [
+        "pricing-and-quoting"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/pricing-and-quoting/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/pricing-and-quoting/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.remote-publication",
+      "kind": "specialization_policy_pack",
+      "name": "digital.remote-publication",
+      "status": "active-planned",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "digital"
+      ],
+      "specialization_targets": [
+        "remote-publication"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/remote-publication/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/remote-publication/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.remote-retrieval",
+      "kind": "specialization_policy_pack",
+      "name": "digital.remote-retrieval",
+      "status": "active-planned",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "digital"
+      ],
+      "specialization_targets": [
+        "remote-retrieval"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/remote-retrieval/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/remote-retrieval/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.reproducibility-control",
+      "kind": "specialization_policy_pack",
+      "name": "scientific.reproducibility-control",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "scientific"
+      ],
+      "specialization_targets": [
+        "reproducibility-control"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/reproducibility-control/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/reproducibility-control/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.result-publication-control",
+      "kind": "specialization_policy_pack",
+      "name": "scientific.result-publication-control",
+      "status": "active-planned",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "scientific"
+      ],
+      "specialization_targets": [
+        "result-publication-control"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/result-publication-control/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/result-publication-control/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.settlements",
+      "kind": "specialization_policy_pack",
+      "name": "economic.settlements",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "economic"
+      ],
+      "specialization_targets": [
+        "settlements"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/settlements/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/settlements/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.transfers",
+      "kind": "specialization_policy_pack",
+      "name": "economic.transfers",
+      "status": "active",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "economic"
+      ],
+      "specialization_targets": [
+        "transfers"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/transfers/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/transfers/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": false,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "specialization.treasury",
+      "kind": "specialization_policy_pack",
+      "name": "economic.treasury",
+      "status": "active-seed",
+      "scope_targets": {
+        "session_scope": "domain-resolution"
+      },
+      "domain_targets": [],
+      "family_targets": [
+        "economic"
+      ],
+      "specialization_targets": [
+        "treasury"
+      ],
+      "attachment_modes": [
+        "domain-set",
+        "policy-resolution-anchor"
+      ],
+      "source_ref": "model/manifests/specializations/treasury/manifest.v1.json",
+      "manifest_ref": "model/manifests/specializations/treasury/manifest.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "specialization-baseline",
+      "runtime_consumable": true,
+      "cli_discoverable": true,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "runtime_binding_model": "workspace-first",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "exec",
+      "knowledge_support_family": "knowledge",
+      "graph_family_owner": "graph",
+      "data_family_owner": "data"
+    },
+    {
+      "id": "template.manifests.customer-policy-packs.profiles.authority-profile.template.v1.json",
+      "kind": "template_object",
+      "name": "authority-profile.template.v1",
+      "status": "template",
+      "scope_targets": {
+        "session_scope": "authoring-only"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "none"
+      ],
+      "source_ref": "packages/customer/policy-pack/templates/authority-profile.template.v1.json",
+      "manifest_ref": "packages/customer/policy-pack/templates/authority-profile.template.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "non-operational-template",
+      "runtime_consumable": false,
+      "cli_discoverable": false,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "governance"
+      ],
+      "runtime_binding_model": "authoring-only",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "none",
+      "data_family_owner": "none"
+    },
+    {
+      "id": "template.manifests.customer-policy-packs.profiles.evidence-profile.template.v1.json",
+      "kind": "template_object",
+      "name": "evidence-profile.template.v1",
+      "status": "template",
+      "scope_targets": {
+        "session_scope": "authoring-only"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "none"
+      ],
+      "source_ref": "packages/customer/policy-pack/templates/evidence-profile.template.v1.json",
+      "manifest_ref": "packages/customer/policy-pack/templates/evidence-profile.template.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "non-operational-template",
+      "runtime_consumable": false,
+      "cli_discoverable": false,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "governance"
+      ],
+      "runtime_binding_model": "authoring-only",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "none",
+      "data_family_owner": "none"
+    },
+    {
+      "id": "template.manifests.customer-policy-packs.templates.customer-policy-pack.template.v1.json",
+      "kind": "template_object",
+      "name": "customer-policy-pack.template.v1",
+      "status": "template",
+      "scope_targets": {
+        "session_scope": "authoring-only"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "none"
+      ],
+      "source_ref": "packages/customer/policy-pack/templates/customer-policy-pack.template.v1.json",
+      "manifest_ref": "packages/customer/policy-pack/templates/customer-policy-pack.template.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "non-operational-template",
+      "runtime_consumable": false,
+      "cli_discoverable": false,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "governance"
+      ],
+      "runtime_binding_model": "authoring-only",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "none",
+      "data_family_owner": "none"
+    },
+    {
+      "id": "template.manifests.enterprise-custom-governance.templates.enterprise-custom-governance.template.v1.json",
+      "kind": "template_object",
+      "name": "enterprise-custom-governance.template.v1",
+      "status": "template",
+      "scope_targets": {
+        "session_scope": "authoring-only"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "none"
+      ],
+      "source_ref": "packages/enterprise/custom-governance/templates/enterprise-custom-governance.template.v1.json",
+      "manifest_ref": "packages/enterprise/custom-governance/templates/enterprise-custom-governance.template.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "non-operational-template",
+      "runtime_consumable": false,
+      "cli_discoverable": false,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "governance"
+      ],
+      "runtime_binding_model": "authoring-only",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "none",
+      "data_family_owner": "none"
+    },
+    {
+      "id": "template.overlays.organization.templates.organization-overlay.template.v1.json",
+      "kind": "template_object",
+      "name": "organization-overlay.template.v1",
+      "status": "template",
+      "scope_targets": {
+        "session_scope": "authoring-only"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "none"
+      ],
+      "source_ref": "policy/overlays/organization/templates/organization-overlay.template.v1.json",
+      "manifest_ref": "policy/overlays/organization/templates/organization-overlay.template.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "non-operational-template",
+      "runtime_consumable": false,
+      "cli_discoverable": false,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "governance"
+      ],
+      "runtime_binding_model": "authoring-only",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "none",
+      "data_family_owner": "none"
+    },
+    {
+      "id": "template.overlays.workspace.templates.workspace-overlay.template.v1.json",
+      "kind": "template_object",
+      "name": "workspace-overlay.template.v1",
+      "status": "template",
+      "scope_targets": {
+        "session_scope": "authoring-only"
+      },
+      "domain_targets": [],
+      "family_targets": [],
+      "specialization_targets": [],
+      "attachment_modes": [
+        "none"
+      ],
+      "source_ref": "policy/overlays/workspace/templates/workspace-overlay.template.v1.json",
+      "manifest_ref": "policy/overlays/workspace/templates/workspace-overlay.template.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "precedence_class": "non-operational-template",
+      "runtime_consumable": false,
+      "cli_discoverable": false,
+      "experimental": true,
+      "deprecated": false,
+      "dependencies": [],
+      "conflicts_with": [],
+      "runtime_family_targets": [
+        "governance"
+      ],
+      "runtime_binding_model": "authoring-only",
+      "topology_target": "unified-runtime-v1",
+      "execution_family_owner": "core",
+      "knowledge_support_family": "none",
+      "graph_family_owner": "none",
+      "data_family_owner": "none"
+    }
+  ]
+}

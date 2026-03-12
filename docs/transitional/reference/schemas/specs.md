@@ -3,16 +3,16 @@ role: reference
 status: active
 audience: developer
 owner_domain: reference
-depends_on: [docs/reference/schemas/README.md]
+depends_on: [docs/reference/model/schema/README.md]
 ---
 
 # Specs
 
 ## Canonical Surfaces
-- Governance manifests: `governance/manifests/`
+- Governance manifests: `governance/model/manifests/`
 - Governance classification: `governance/classification/`
-- Governance overlays: `governance/overlays/`
-- Formal models/contracts: `formal/`
+- Governance overlays: `governance/policy/overlays/`
+- Formal models/contracts: `control/assurance/`
 - Public headers used by consumers: `include/yai/`
 
 ## Rules

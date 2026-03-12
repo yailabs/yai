@@ -57,7 +57,7 @@ Adopt one canonical RPC surface and enforce CLI-to-spec alignment through explic
 
 ## Traceability
 
-- Spec anchors (if any): `../governance/contracts/protocol/include/transport.h`, `../governance/contracts/protocol/include/protocol.h`, `../governance/contracts/protocol/runtime/include/rpc_runtime.h`, `../governance/registry/commands.v1.json`
+- Spec anchors (if any): `../governance/contracts/protocol/include/transport.h`, `../governance/contracts/protocol/include/protocol.h`, `../governance/contracts/protocol/runtime/include/rpc_runtime.h`, `../governance/model/registry/commands.v1.json`
 - Targets ADR: `docs/program/adr/adr-006-unified-rpc.md`, `docs/program/adr/adr-011-contract-runbook-lock.md`
 - Downstream runbook: `docs/archive/legacy/program/milestone-packs/runtime-baselines/operations-foundation/mp-runtime-000-root-hardening.md`
 - Downstream MP: `docs/archive/legacy/program/milestone-packs/root-hardening/mp-runtime-000-root-hardening-v0-1-5.md`

@@ -33,7 +33,7 @@ Topology class:
 
 - owns lifecycle and control-plane authority
 - owns workspace truth and runtime binding truth
-- owns final authority/evidence/enforcement decisions
+- owns final policy/authority/evidence/enforcement decisions
 - owns canonical persistence and graph truth
 
 ### `yai-daemon` (subordinate edge runtime)
@@ -44,7 +44,7 @@ Topology class:
   owner-issued scope/grants allow it
 - can spool/buffer transient acquisition payloads and handle retry/reconnect
 - does not own workspace truth
-- does not own final authority/evidence/enforcement
+- does not own final policy/authority/evidence/enforcement
 - does not own canonical graph truth
 - does not own policy truth or conflict-resolution truth
 

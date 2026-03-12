@@ -1,4 +1,4 @@
-#include <yai/governance/discovery.h>
+#include <yai/policy/governance/discovery.h>
 
 #include "../internal.h"
 
@@ -40,8 +40,8 @@ static void map_family_to_domain_id(const char *family_id, char *out, size_t out
 
 static int read_classification_map(char *json, size_t cap) {
   if (!json || cap == 0) return -1;
-  if (yai_governance_read_text_file("specs/classification/maps/classification-map.v1.json", json, cap) == 0) return 0;
-  if (yai_governance_read_governance_surface_file(NULL, "classification/maps/classification-map.v1.json", json, cap) == 0) return 0;
+  if (yai_governance_read_text_file("model/taxonomy/maps/classification-map.v1.json", json, cap) == 0) return 0;
+  if (yai_governance_read_governance_surface_file(NULL, "model/taxonomy/maps/classification-map.v1.json", json, cap) == 0) return 0;
   return -1;
 }
 

@@ -3,8 +3,8 @@
 
 #include <stddef.h>
 
-#include <yai/knowledge/errors.h>
-#include <yai/knowledge/types.h>
+#include <yai/cognition/errors.h>
+#include <yai/cognition/types.h>
 
 #ifdef __cplusplus
 extern "C" {

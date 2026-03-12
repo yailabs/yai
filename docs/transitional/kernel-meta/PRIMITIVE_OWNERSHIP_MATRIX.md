@@ -53,7 +53,7 @@ The following are explicitly forbidden from kernel ownership:
 - `include/yai/runtime/lifecycle.h` (kernel lifecycle core only)
 - `include/yai/runtime/session.h` (privileged admission/session core only)
 - `include/yai/runtime/vault.h`
-- `lib/runtime/authority/*`
+- `lib/runtime/policy/authority/*`
 - `lib/runtime/containment/*`
 - `lib/runtime/dispatch/*` (low-level control transport + command dispatch hooks only)
 - `lib/runtime/enforcement/*` (kernel enforcement substrate only)
@@ -108,13 +108,13 @@ The following are explicitly forbidden from kernel ownership:
 - low-level error/types/message base feeding syscall/ABI contracts:
   - `include/yai/protocol/control/errors.h`
   - `include/yai/protocol/message_types.h`
-  - `lib/protocol/control/message_types.c` (only if used as kernel ABI serialization boundary)
+  - `lib/control/protocol/control/message_types.c` (only if used as kernel ABI serialization boundary)
 
 #### C.2 Protocol userspace/system ownership (`SYS_OWNER`)
 
 - control-plane rich contracts and source-plane logic:
   - `include/yai/protocol/control/{auth.h,roles.h,session.h,source_plane.h,control_plane.h,audit.h,ids.h}`
-  - `lib/protocol/control/source_plane.c`
+  - `lib/control/protocol/control/source_plane.c`
 - rpc/transport runtime contracts and codecs:
   - `include/yai/protocol/rpc/*`
   - `include/yai/protocol/transport/*`
@@ -136,4 +136,4 @@ The following are explicitly forbidden from kernel ownership:
 
 ## Next Step
 
-K-3: instantiate kernel tree ownership stubs (headers + source placeholders) and start first controlled migrations for authority/containment/process/security primitives.
+K-3: instantiate kernel tree ownership stubs (headers + source placeholders) and start first controlled migrations for policy/authority/containment/process/security primitives.

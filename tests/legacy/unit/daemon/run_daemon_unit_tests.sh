@@ -10,7 +10,7 @@ cc -Wall -Wextra -std=c11 -O2 \
   "$ROOT/tests/legacy/unit/daemon/test_daemon_minimal.c" \
   "$ROOT/sys/daemon/bindings/actions.c" \
   "$ROOT/sys/daemon/bindings/runtime_binding.c" \
-  "$ROOT/sys/daemon/yai-daemon-manager/runtime/runtime_services.c" \
+  "$ROOT/sys/daemon/yai-daemond/runtime/runtime_services.c" \
   -o "$OUT_DIR/daemon_unit_tests"
 
 "$OUT_DIR/daemon_unit_tests"

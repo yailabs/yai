@@ -1,0 +1,263 @@
+{
+  "kind": "domain-model.matrix.v1",
+  "version": "v1",
+  "model": "schema-first,index-driven",
+  "runtime_families": [
+    "economic",
+    "digital",
+    "scientific"
+  ],
+  "family_resolution": [
+    {
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "default_specialization": "payments",
+      "family_descriptor_ref": "families/descriptors/economic.descriptor.v1.json",
+      "manifest_ref": "model/manifests/families/economic.manifest.v1.json",
+      "specialization_candidates": [
+        "payments",
+        "transfers",
+        "settlements",
+        "treasury",
+        "invoicing",
+        "accounting-integrity",
+        "pricing-and-quoting",
+        "credit-exposure",
+        "fraud-risk-controls"
+      ]
+    },
+    {
+      "family": "digital",
+      "domain_id": "D1-digital",
+      "default_specialization": "network-egress",
+      "family_descriptor_ref": "families/descriptors/digital.descriptor.v1.json",
+      "manifest_ref": "model/manifests/families/digital.manifest.v1.json",
+      "specialization_candidates": [
+        "network-egress",
+        "remote-publication",
+        "external-commentary",
+        "artifact-distribution",
+        "remote-retrieval",
+        "digital-sink-control"
+      ]
+    },
+    {
+      "family": "scientific",
+      "domain_id": "D8-scientific",
+      "default_specialization": "parameter-governance",
+      "family_descriptor_ref": "families/descriptors/scientific.descriptor.v1.json",
+      "manifest_ref": "model/manifests/families/scientific.manifest.v1.json",
+      "specialization_candidates": [
+        "experiment-configuration",
+        "parameter-governance",
+        "reproducibility-control",
+        "black-box-evaluation",
+        "dataset-integrity",
+        "result-publication-control"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "lookup_id": "economic",
+      "kind": "family",
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "family_descriptor_ref": "families/descriptors/economic.descriptor.v1.json",
+      "manifest_ref": "model/manifests/families/economic.manifest.v1.json",
+      "default_specialization": "payments"
+    },
+    {
+      "lookup_id": "D5-economic",
+      "kind": "domain",
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "family_descriptor_ref": "families/descriptors/economic.descriptor.v1.json",
+      "manifest_ref": "model/manifests/families/economic.manifest.v1.json",
+      "default_specialization": "payments"
+    },
+    {
+      "lookup_id": "digital",
+      "kind": "family",
+      "family": "digital",
+      "domain_id": "D1-digital",
+      "family_descriptor_ref": "families/descriptors/digital.descriptor.v1.json",
+      "manifest_ref": "model/manifests/families/digital.manifest.v1.json",
+      "default_specialization": "network-egress"
+    },
+    {
+      "lookup_id": "D1-digital",
+      "kind": "domain",
+      "family": "digital",
+      "domain_id": "D1-digital",
+      "family_descriptor_ref": "families/descriptors/digital.descriptor.v1.json",
+      "manifest_ref": "model/manifests/families/digital.manifest.v1.json",
+      "default_specialization": "network-egress"
+    },
+    {
+      "lookup_id": "scientific",
+      "kind": "family",
+      "family": "scientific",
+      "domain_id": "D8-scientific",
+      "family_descriptor_ref": "families/descriptors/scientific.descriptor.v1.json",
+      "manifest_ref": "model/manifests/families/scientific.manifest.v1.json",
+      "default_specialization": "parameter-governance"
+    },
+    {
+      "lookup_id": "D8-scientific",
+      "kind": "domain",
+      "family": "scientific",
+      "domain_id": "D8-scientific",
+      "family_descriptor_ref": "families/descriptors/scientific.descriptor.v1.json",
+      "manifest_ref": "model/manifests/families/scientific.manifest.v1.json",
+      "default_specialization": "parameter-governance"
+    },
+    {
+      "lookup_id": "payments",
+      "kind": "specialization",
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "manifest_ref": "specializations/model/manifests/payments/manifest.v1.json"
+    },
+    {
+      "lookup_id": "transfers",
+      "kind": "specialization",
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "manifest_ref": "specializations/model/manifests/transfers/manifest.v1.json"
+    },
+    {
+      "lookup_id": "settlements",
+      "kind": "specialization",
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "manifest_ref": "specializations/model/manifests/settlements/manifest.v1.json"
+    },
+    {
+      "lookup_id": "treasury",
+      "kind": "specialization",
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "manifest_ref": "specializations/model/manifests/treasury/manifest.v1.json"
+    },
+    {
+      "lookup_id": "invoicing",
+      "kind": "specialization",
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "manifest_ref": "specializations/model/manifests/invoicing/manifest.v1.json"
+    },
+    {
+      "lookup_id": "accounting-integrity",
+      "kind": "specialization",
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "manifest_ref": "specializations/model/manifests/accounting-integrity/manifest.v1.json"
+    },
+    {
+      "lookup_id": "pricing-and-quoting",
+      "kind": "specialization",
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "manifest_ref": "specializations/model/manifests/pricing-and-quoting/manifest.v1.json"
+    },
+    {
+      "lookup_id": "credit-exposure",
+      "kind": "specialization",
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "manifest_ref": "specializations/model/manifests/credit-exposure/manifest.v1.json"
+    },
+    {
+      "lookup_id": "fraud-risk-controls",
+      "kind": "specialization",
+      "family": "economic",
+      "domain_id": "D5-economic",
+      "manifest_ref": "specializations/model/manifests/fraud-risk-controls/manifest.v1.json"
+    },
+    {
+      "lookup_id": "network-egress",
+      "kind": "specialization",
+      "family": "digital",
+      "domain_id": "D1-digital",
+      "manifest_ref": "specializations/model/manifests/network-egress/manifest.v1.json"
+    },
+    {
+      "lookup_id": "remote-publication",
+      "kind": "specialization",
+      "family": "digital",
+      "domain_id": "D1-digital",
+      "manifest_ref": "specializations/model/manifests/remote-publication/manifest.v1.json"
+    },
+    {
+      "lookup_id": "external-commentary",
+      "kind": "specialization",
+      "family": "digital",
+      "domain_id": "D1-digital",
+      "manifest_ref": "specializations/model/manifests/external-commentary/manifest.v1.json"
+    },
+    {
+      "lookup_id": "artifact-distribution",
+      "kind": "specialization",
+      "family": "digital",
+      "domain_id": "D1-digital",
+      "manifest_ref": "specializations/model/manifests/artifact-distribution/manifest.v1.json"
+    },
+    {
+      "lookup_id": "remote-retrieval",
+      "kind": "specialization",
+      "family": "digital",
+      "domain_id": "D1-digital",
+      "manifest_ref": "specializations/model/manifests/remote-retrieval/manifest.v1.json"
+    },
+    {
+      "lookup_id": "digital-sink-control",
+      "kind": "specialization",
+      "family": "digital",
+      "domain_id": "D1-digital",
+      "manifest_ref": "specializations/model/manifests/digital-sink-control/manifest.v1.json"
+    },
+    {
+      "lookup_id": "experiment-configuration",
+      "kind": "specialization",
+      "family": "scientific",
+      "domain_id": "D8-scientific",
+      "manifest_ref": "specializations/model/manifests/experiment-configuration/manifest.v1.json"
+    },
+    {
+      "lookup_id": "parameter-governance",
+      "kind": "specialization",
+      "family": "scientific",
+      "domain_id": "D8-scientific",
+      "manifest_ref": "specializations/model/manifests/parameter-governance/manifest.v1.json"
+    },
+    {
+      "lookup_id": "reproducibility-control",
+      "kind": "specialization",
+      "family": "scientific",
+      "domain_id": "D8-scientific",
+      "manifest_ref": "specializations/model/manifests/reproducibility-control/manifest.v1.json"
+    },
+    {
+      "lookup_id": "black-box-evaluation",
+      "kind": "specialization",
+      "family": "scientific",
+      "domain_id": "D8-scientific",
+      "manifest_ref": "specializations/model/manifests/black-box-evaluation/manifest.v1.json"
+    },
+    {
+      "lookup_id": "dataset-integrity",
+      "kind": "specialization",
+      "family": "scientific",
+      "domain_id": "D8-scientific",
+      "manifest_ref": "specializations/model/manifests/dataset-integrity/manifest.v1.json"
+    },
+    {
+      "lookup_id": "result-publication-control",
+      "kind": "specialization",
+      "family": "scientific",
+      "domain_id": "D8-scientific",
+      "manifest_ref": "specializations/model/manifests/result-publication-control/manifest.v1.json"
+    }
+  ]
+}

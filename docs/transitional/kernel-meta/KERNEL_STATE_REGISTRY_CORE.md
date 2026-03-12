@@ -10,13 +10,13 @@
 
 ## Privileged registries
 
-- `kernel_registry` (`kernel/registry/kernel_registry.c`)
-- `container_registry` (`kernel/registry/container_registry.c`)
-- `session_registry` (`kernel/registry/session_registry.c`)
-- `capability_registry` (`kernel/registry/capability_registry.c`)
-- `containment_registry` (`kernel/registry/containment_registry.c`)
-- `trace_registry` (`kernel/registry/trace_registry.c`)
-- `grants_registry` (`kernel/registry/grants_registry.c`)
+- `kernel_registry` (`kernel/model/registry/kernel_registry.c`)
+- `container_registry` (`kernel/model/registry/container_registry.c`)
+- `session_registry` (`kernel/model/registry/session_registry.c`)
+- `capability_registry` (`kernel/model/registry/capability_registry.c`)
+- `containment_registry` (`kernel/model/registry/containment_registry.c`)
+- `trace_registry` (`kernel/model/registry/trace_registry.c`)
+- `grants_registry` (`kernel/model/registry/grants_registry.c`)
 
 ## Ownership discipline
 

@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-#include <yai/governance/authority.h>
+#include <yai/policy/governance/authority.h>
 
 #include <stdio.h>
 

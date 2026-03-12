@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "governance/grammar/model/schema/discovery_signal.v1",
+  "title": "discovery_signal.v1",
+  "description": "Discovery signal",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "signal_type": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string"
+    },
+    "match_mode": {
+      "type": "string",
+      "enum": [
+        "exact",
+        "prefix",
+        "regex",
+        "contains"
+      ]
+    },
+    "value": {
+      "type": [
+        "string",
+        "number",
+        "boolean"
+      ]
+    },
+    "weight": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "version",
+    "signal_type",
+    "source",
+    "match_mode",
+    "value"
+  ],
+  "additionalProperties": true
+}

@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <yai/governance/classifier.h>
-#include <yai/governance/discovery.h>
+#include <yai/policy/governance/classifier.h>
+#include <yai/policy/governance/discovery.h>
 
 int main(void) {
   yai_governance_classification_ctx_t ctx;

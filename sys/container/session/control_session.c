@@ -9,8 +9,8 @@
 #include <yai/data/binding.h>
 #include <yai/orchestration/runtime.h>
 #include <yai/orchestration/ingestion.h>
-#include <yai/governance/resolver.h>
-#include <yai/governance/policy_effects.h>
+#include <yai/policy/governance/resolver.h>
+#include <yai/policy/governance/policy_effects.h>
 
 #include <yai/protocol/transport/transport.h>
 #include <yai/protocol/rpc/contract.h>
@@ -1338,7 +1338,7 @@ int yai_session_handle_control_call(
                  "%s",
                  strcmp(law_out.decision.specialization_id, "result-publication-control") == 0
                      ? (law_out.decision.final_effect == YAI_GOVERNANCE_EFFECT_DENY
-                            ? "publication blocked pending authority/repro checks"
+                            ? "publication blocked pending policy/authority/repro checks"
                             : law_out.decision.final_effect == YAI_GOVERNANCE_EFFECT_QUARANTINE
                                   ? "publication quarantined pending review"
                                   : "publication control active")
@@ -1371,7 +1371,7 @@ int yai_session_handle_control_call(
                  "%s",
                  strcmp(law_out.decision.specialization_id, "remote-publication") == 0
                      ? (law_out.decision.final_effect == YAI_GOVERNANCE_EFFECT_DENY
-                            ? "publication denied pending authority/sink checks"
+                            ? "publication denied pending policy/authority/sink checks"
                             : law_out.decision.final_effect == YAI_GOVERNANCE_EFFECT_QUARANTINE
                                   ? "publication quarantined pending sink review"
                                   : "publication requires review record")

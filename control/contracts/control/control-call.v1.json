@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yai-governance:control/protocol/control/control_call.v1.json",
+  "title": "YAI Control Call v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request",
+    "response"
+  ],
+  "properties": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "target_plane",
+        "command_id",
+        "argv"
+      ],
+      "properties": {
+        "type": {
+          "const": "yai.control.call.v1"
+        },
+        "target_plane": {
+          "type": "string",
+          "enum": [
+            "core",
+            "exec",
+            "knowledge",
+            "ingress",
+            "brain",
+            "mind"
+          ]
+        },
+        "command_id": {
+          "type": "string",
+          "pattern": "^yai\\.[a-z0-9_\\-]+\\.[a-z0-9_\\-]+$"
+        },
+        "argv": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "flags": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dry_run": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "status",
+        "code",
+        "reason",
+        "command_id",
+        "target_plane"
+      ],
+      "properties": {
+        "type": {
+          "const": "yai.exec.reply.v1"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "error",
+            "nyi"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "OK",
+            "BAD_ARGS",
+            "NOT_IMPLEMENTED",
+            "UNAUTHORIZED",
+            "INVALID_TARGET",
+            "RUNTIME_NOT_READY",
+            "SERVER_UNAVAILABLE",
+            "PROTOCOL_ERROR",
+            "INTERNAL_ERROR"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "command_id": {
+          "type": "string",
+          "pattern": "^yai\\.[a-z0-9_\\-]+\\.[a-z0-9_\\-]+$"
+        },
+        "target_plane": {
+          "type": "string",
+          "enum": [
+            "core",
+            "exec",
+            "knowledge",
+            "ingress",
+            "brain",
+            "mind"
+          ]
+        },
+        "detail": {
+          "oneOf": [
+            {
+              "type": "string",
+              "maxLength": 512
+            },
+            {
+              "type": "object",
+              "additionalProperties": true
+            }
+          ]
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "evidence_index_path": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "decision_record_path": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        }
+      }
+    }
+  }
+}

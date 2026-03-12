@@ -17,7 +17,7 @@ the canonical runtime views consumed by other L2 and user-plane services.
 - `runtime_surface.c`: externally consumable service/runtime surfaces
 - `grants_view.c`: scoped grants posture view for the domain
 - `policy_view.c`: scoped policy posture view for the domain
-- `registry/`: runtime registry of live container domain instances
+- `model/registry/`: runtime registry of live container domain instances
 - `internal/`: internal model helpers and non-public implementation details
 
 ## Ownership boundary

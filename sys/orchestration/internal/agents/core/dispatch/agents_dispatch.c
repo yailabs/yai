@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include "../../../knowledge/core/cognition/cognition_internal.h"
+#include "../../../cognition/core/cognition/cognition_internal.h"
 
 int yai_agent_code_handle(const yai_agent_frame_t *frame,
                                yai_cognition_response_t *response_out);

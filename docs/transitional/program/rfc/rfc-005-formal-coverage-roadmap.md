@@ -57,15 +57,15 @@ Define a prioritized formal roadmap that starts from protocol/control criticalit
 
 ## Traceability
 
-- Spec anchors (if any): `../governance/formal/spec_map.md`, `../governance/formal/tla/YAI_KERNEL.tla`, `../governance/formal/bindings/BINDING_PROTOCOL.md`, `../governance/formal/bindings/BINDING_CLI.md`
+- Spec anchors (if any): `../governance/control/assurance/spec_map.md`, `../governance/control/assurance/tla/YAI_KERNEL.tla`, `../governance/control/assurance/bindings/BINDING_PROTOCOL.md`, `../governance/control/assurance/bindings/BINDING_CLI.md`
 - Targets ADR: `docs/program/adr/adr-006-unified-rpc.md`, `docs/program/adr/adr-011-contract-runbook-lock.md`
 - Downstream runbook: `docs/archive/legacy/program/milestone-packs/runtime-baselines/operations-foundation/mp-runtime-000-root-hardening.md`
 - Downstream MP: `docs/archive/legacy/program/milestone-packs/root-hardening/mp-runtime-000-root-hardening-v0-1-5.md`
 
 ## References
 - `docs/program/spine.md`
-- `../governance/formal/spec_map.md`
-- `../governance/formal/traceability.v1.json`
+- `../governance/control/assurance/spec_map.md`
+- `../governance/control/assurance/traceability.v1.json`
 
 # Related Docs
 - `docs/program/rfc/README.md`

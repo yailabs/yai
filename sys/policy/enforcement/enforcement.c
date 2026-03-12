@@ -1,6 +1,6 @@
 #include <yai/policy/enforcement.h>
 #include <yai/policy/events.h>
-#include <yai/governance/policy_effects.h>
+#include <yai/policy/governance/policy_effects.h>
 #include <yai/support/logger.h>
 #include <string.h>
 #include <stdio.h>

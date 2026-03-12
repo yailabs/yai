@@ -32,14 +32,14 @@ for e in comp_index.get("entries", []):
     if not mat_dir.exists():
         # Legacy sector IDs: sector.finance -> materialized/sector.finance
         mat_dir = MATERIALIZED / cid.replace("/", ".")
-    manifest_ref = f"compliance/materialized/{mat_dir.name}/manifest.json"
-    descriptor_ref = f"compliance/descriptors/{cid}.descriptor.v1.json"
+    manifest_ref = f"policy/compliance/materialized/{mat_dir.name}/manifest.json"
+    descriptor_ref = f"policy/compliance/descriptors/{cid}.descriptor.v1.json"
 
     def refs(subdir: str):
         d = mat_dir / subdir
         if not d.exists() or not d.is_dir():
             return []
-        return [f"compliance/materialized/{mat_dir.name}/{subdir}/{p.name}" for p in sorted(d.glob("*.json"))]
+        return [f"policy/compliance/materialized/{mat_dir.name}/{subdir}/{p.name}" for p in sorted(d.glob("*.json"))]
 
     descriptor = {
         "kind": "compliance_descriptor.v1",
@@ -51,7 +51,7 @@ for e in comp_index.get("entries", []):
         "status": e.get("status", "active"),
         "runtime": {
             "manifest_ref": manifest_ref,
-            "materialized_bundle_ref": f"compliance/materialized/{mat_dir.name}",
+            "materialized_bundle_ref": f"policy/compliance/materialized/{mat_dir.name}",
             "attachment_levels": e.get("attachment_levels", []),
         },
         "applicability": app_map.get(cid, {}),
@@ -85,7 +85,7 @@ for e in comp_index.get("entries", []):
             "canonical_name": descriptor["canonical_name"],
             "descriptor_ref": descriptor_ref,
             "materialized_manifest_ref": manifest_ref,
-            "materialized_bundle_ref": f"compliance/materialized/{mat_dir.name}",
+            "materialized_bundle_ref": f"policy/compliance/materialized/{mat_dir.name}",
             "status": descriptor["status"],
             "regime_class": descriptor["regime_class"],
         }
@@ -105,7 +105,7 @@ for e in comp_index.get("entries", []):
     ue["manifest_ref"] = manifest_ref
     ue["descriptor_ref"] = descriptor_ref
     ue["materialized_manifest_ref"] = manifest_ref
-    ue["materialized_bundle_ref"] = f"compliance/materialized/{mat_dir.name}"
+    ue["materialized_bundle_ref"] = f"policy/compliance/materialized/{mat_dir.name}"
     updated.append(ue)
 
 comp_index["entries"] = updated

@@ -57,7 +57,7 @@ Define a formal baseline-lock policy with explicit pin responsibilities for `yai
 
 ## Traceability
 
-- Spec anchors (if any): `../governance/formal/traceability.v1.json`, `../governance/formal/spec_map.md`, `../governance/foundation/invariants/I-001-traceability.md`, `../governance/foundation/invariants/I-007-compliance-context-required.md`
+- Spec anchors (if any): `../governance/control/assurance/traceability.v1.json`, `../governance/control/assurance/spec_map.md`, `../governance/foundation/invariants/I-001-traceability.md`, `../governance/foundation/invariants/I-007-compliance-context-required.md`
 - Targets ADR: `docs/program/adr/adr-011-contract-runbook-lock.md`
 - Downstream runbook: `docs/archive/legacy/program/milestone-packs/runtime-baselines/operations-foundation/mp-runtime-000-root-hardening.md`
 - Downstream MP: `docs/archive/legacy/program/milestone-packs/root-hardening/mp-runtime-000-root-hardening-v0-1-5.md`

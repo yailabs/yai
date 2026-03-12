@@ -1,0 +1,37 @@
+{
+  "kind": "specialization_descriptor.v1",
+  "version": "v1",
+  "specialization_id": "result-publication-control",
+  "canonical_name": "scientific.result-publication-control",
+  "family": "scientific",
+  "specialization_class": "general",
+  "status": "active-planned",
+  "review_state": "managed",
+  "verticalization_wave": "",
+  "runtime": {
+    "manifest_ref": "specializations/model/manifests/result-publication-control/manifest.v1.json",
+    "bundle_ref": "specializations/model/manifests/result-publication-control",
+    "scenario_classes": [
+      "sc.scientific.result-publication-control.baseline",
+      "sc.scientific.result-publication-control.stress"
+    ]
+  },
+  "composition": {
+    "model_refs": [],
+    "policy_refs": [],
+    "evidence_refs": [],
+    "authority_refs": [],
+    "discovery_refs": [],
+    "scenario_refs": []
+  },
+  "taxonomy": {
+    "risk_ref": "model/taxonomy/risks/risk-taxonomy.v1.json",
+    "action_ref": "model/taxonomy/actions/action-taxonomy.v1.json",
+    "asset_ref": "model/taxonomy/assets/asset-taxonomy.v1.json",
+    "signal_ref": "model/taxonomy/signals/signal-taxonomy.v1.json"
+  },
+  "source": {
+    "generator": "tools/gen/build_specialization_descriptors.py",
+    "materialized_bundle_ref": "specializations/model/manifests/result-publication-control"
+  }
+}

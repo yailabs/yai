@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "root_model": "control/assurance/models/yai_system.tla",
+  "module_map": {
+    "yai_ids": ["foundation/terminology", "protocol/contracts", "runtime/vault"],
+    "yai_authority": ["runtime/authority", "runtime/enforcement", "governance/authority"],
+    "yai_resolution": ["governance/resolution", "governance/manifests"],
+    "yai_runtime_state": ["runtime/lifecycle", "runtime/session"],
+    "yai_workspace_state": ["runtime/workspace", "data/binding"],
+    "yai_policy_application": ["runtime/policy", "governance/policy_effects"],
+    "yai_grants": ["runtime/grants", "runtime/containment", "edge"],
+    "yai_containment": ["runtime/containment", "runtime/enforcement"],
+    "yai_protocol_control": ["protocol/rpc", "runtime/enforcement"],
+    "yai_enforcement": ["runtime/enforcement"],
+    "yai_review_escalation": ["runtime/enforcement", "governance/review"],
+    "yai_traceability": ["control/assurance/traceability", "foundation/invariants"]
+  }
+}

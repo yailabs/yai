@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <yai/governance/resolver.h>
-#include <yai/governance/policy_effects.h>
+#include <yai/policy/governance/resolver.h>
+#include <yai/policy/governance/policy_effects.h>
 
 int main(void) {
   yai_governance_resolution_output_t out;

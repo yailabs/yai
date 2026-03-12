@@ -1,0 +1,7 @@
+{
+  "version": "v1",
+  "kind": "yai.policy.runtime.index",
+  "composition_root": "policy/composition/",
+  "registry_root": "model/registry/commands/",
+  "schema_root": "model/schema/policy/"
+}

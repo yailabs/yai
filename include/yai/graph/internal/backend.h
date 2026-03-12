@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #pragma once
 
-#include <yai/knowledge/memory.h>
+#include <yai/cognition/memory.h>
 
 typedef struct yai_graph_backend_ops {
   int (*node_create)(const char *domain,

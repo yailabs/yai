@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "governance/grammar/model/schema/customer_policy_pack.v1",
+  "title": "customer_policy_pack.v1",
+  "description": "Canonical customer/workspace policy pack manifest",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "const": "customer_policy_pack"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^v[0-9]+$"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 3
+    },
+    "name": {
+      "type": "string",
+      "minLength": 3
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope_targets": {
+      "type": "object",
+      "properties": {
+        "organization_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "workspace_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "environment_classes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "session_scope": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "workspace_ids"
+      ],
+      "additionalProperties": true
+    },
+    "domain_targets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "family_targets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "specialization_targets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "compliance_attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "compliance_id": {
+            "type": "string"
+          },
+          "overlay_ref": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "compliance_id"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "overlay_layers": {
+      "type": "object",
+      "properties": {
+        "regulatory": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sector": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contextual": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "authority_profile": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "evidence_profile": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "precedence_mode": {
+      "type": "string"
+    },
+    "compatibility": {
+      "type": "object",
+      "properties": {
+        "governance_range": {
+          "type": "string"
+        },
+        "runtime_targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "export_profiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "governance_range",
+        "runtime_targets"
+      ],
+      "additionalProperties": true
+    },
+    "runtime_entrypoint_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "export_mode": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "kind",
+    "schema_version",
+    "id",
+    "name",
+    "version",
+    "scope_targets",
+    "domain_targets",
+    "compliance_attachments",
+    "overlay_layers",
+    "authority_profile",
+    "evidence_profile",
+    "precedence_mode",
+    "compatibility",
+    "runtime_entrypoint_refs",
+    "export_mode",
+    "status"
+  ],
+  "additionalProperties": true
+}

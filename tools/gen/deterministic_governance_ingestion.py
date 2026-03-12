@@ -498,7 +498,7 @@ def _build_candidate(source_path: Path, normalized_path: Path | None, out: Path 
         },
         "policy_refs": sorted(
             {
-                f"ingestion/fact/{rc.get('fact_type')}"
+                f"control/ingestion/fact/{rc.get('fact_type')}"
                 for rc in normalized.get("rule_candidates", [])
                 if rc.get("fact_type")
             }
@@ -530,7 +530,7 @@ def _build_candidate(source_path: Path, normalized_path: Path | None, out: Path 
         "topology_target": "unified-runtime-v1",
         "disallowed_subsystem_targets": ["brain", "mind"],
         "runtime_consumable": runtime_consumable,
-        "runtime_entrypoint_refs": ["manifests/runtime.entrypoints.json#default-runtime"],
+        "runtime_entrypoint_refs": ["model/manifests/runtime.entrypoints.json#default-runtime"],
         "provenance": {
             "source_type": "deterministic_ingestion",
             "source_ref": _repo_rel(source_path_abs),

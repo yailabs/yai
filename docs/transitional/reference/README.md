@@ -23,7 +23,7 @@ Command, protocol, and schema reference surfaces.
 ## Navigation Order
 1. `commands/`
 2. `protocol/`
-3. `schemas/`
+3. `model/schema/`
 
 ## Extension Rules
 - Keep reference docs short and contract-centric.
@@ -34,7 +34,7 @@ Command, protocol, and schema reference surfaces.
 - `include/yai/`
 - `lib/protocol/`
 - `governance/`
-- `formal/`
+- `control/assurance/`
 
 # Canonical Role
 Canonical lookup index for technical consumers.
@@ -45,4 +45,4 @@ Use section family READMEs to enter concrete reference contracts.
 # Related Docs
 - `commands/README.md`
 - `protocol/README.md`
-- `schemas/README.md`
+- `model/schema/README.md`

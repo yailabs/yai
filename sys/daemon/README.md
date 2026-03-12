@@ -4,7 +4,7 @@ sys/daemon/ is the canonical L2 daemon plane.
 
 ## Canonical service
 
-- yai-daemon-manager/: executable daemon manager entrypoint (`yai-daemon-manager`)
+- yai-daemond/: executable daemon manager entrypoint (`yai-daemond`)
 
 ## Canonical module layout
 
