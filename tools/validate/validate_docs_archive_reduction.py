@@ -47,7 +47,7 @@ def main() -> int:
     errors: list[str] = []
 
     for fam in MP_FAMILIES:
-        d = ROOT / "docs/program/milestone-packs" / fam
+        d = ROOT / "docs/program/archive/milestone-packs" / fam
         if not d.is_dir():
             errors.append(f"missing milestone-pack family dir: {d.relative_to(ROOT)}")
             continue

@@ -30,14 +30,18 @@ FORBIDDEN_ARCH_DIRS = [
     DOCS / "architecture" / "formal-foundation",
 ]
 
-ADR_RE = re.compile(r"adr-[a-z0-9]+-\d{3}-[a-z0-9-]+\.md$")
-RFC_RE = re.compile(r"rfc-[a-z0-9]+-\d{3}-[a-z0-9-]+\.md$")
+ADR_RE = re.compile(r"adr-\d{3}-[a-z0-9-]+\.md$")
+RFC_RE = re.compile(r"rfc-\d{3}-[a-z0-9-]+\.md$")
 MP_RE = re.compile(r"mp-[a-z0-9]+-\d{3}-[a-z0-9-]+(?:-v\d+-\d+-\d+)?\.md$")
 
 
 def is_live_doc(path: Path) -> bool:
     rel = path.relative_to(DOCS)
-    return rel.parts[0] != "archive"
+    if rel.parts[0] == "archive":
+        return False
+    if rel.parts[0] == "program" and len(rel.parts) > 1 and rel.parts[1] == "archive":
+        return False
+    return True
 
 
 def main() -> int:

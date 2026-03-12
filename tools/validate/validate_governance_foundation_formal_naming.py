@@ -24,8 +24,8 @@ REQUIRED_CANONICAL = [
     "formal/legacy/configs/yai_runtime_legacy.quick.cfg",
     "formal/legacy/configs/yai_runtime_legacy.deep.cfg",
     "formal/legacy/formal_legacy_traceability.v1.json",
-    "governance/schema/compliance_context.v1.schema.json",
-    "governance/schema/retention_policy.v1.schema.json",
+    "foundation/schema/compliance_context.v1.schema.json",
+    "foundation/schema/retention_policy.v1.schema.json",
     "formal/schema/formal_traceability.v1.schema.json",
     "formal/schema/formal_resolution_trace.v1.schema.json",
 ]
@@ -42,8 +42,8 @@ FORBIDDEN_PATHS = [
     "formal/legacy/configs/YAI_KERNEL.quick.cfg",
     "formal/legacy/configs/YAI_KERNEL.deep.cfg",
     "formal/legacy/traceability.v1.json",
-    "governance/schema/compliance.context.v1.json",
-    "governance/schema/retention.policy.v1.json",
+    "foundation/schema/compliance.context.v1.json",
+    "foundation/schema/retention.policy.v1.json",
     "formal/schema/traceability.v1.schema.json",
     "formal/schema/resolution_trace.v1.schema.json",
 ]

@@ -102,11 +102,11 @@ def main() -> int:
 
     # C2 semantic boundary guardrails.
     if (repo / "governance" / "foundation").exists():
-        errors.append("forbidden governance duplicate present: governance/foundation")
+        errors.append("forbidden governance duplicate present: foundation/foundation")
     if (repo / "governance" / "formal").exists():
-        errors.append("forbidden governance duplicate present: governance/formal")
+        errors.append("forbidden governance duplicate present: foundation/formal")
     if (repo / "governance" / "contracts").exists():
-        errors.append("forbidden secondary protocol root present: governance/contracts")
+        errors.append("forbidden secondary protocol root present: foundation/contracts")
 
     for name in sorted(REQUIRED_FOUNDATION_SUBDIRS):
         if not (repo / "foundation" / name).exists():

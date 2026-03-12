@@ -5,7 +5,7 @@ from pathlib import Path
 
 FORBIDDEN = [
     "runtime-embedded",
-    "governance/contracts",
+    "foundation/contracts",
 ]
 
 # README may mention removed wrappers in historical notes.

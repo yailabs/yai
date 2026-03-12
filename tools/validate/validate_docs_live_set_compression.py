@@ -10,7 +10,6 @@ REQUIRED_ARTIFACTS = [
     "docs/archive/migration/c17.8-live-set-compression-audit.md",
     "docs/archive/migration/c17.8-canonical-live-set-map.md",
     "docs/archive/migration/c17.8-final-archive-and-eviction-plan.md",
-    "docs/README_LIVE_SET.md",
 ]
 
 REPORT_WHITELIST = {
@@ -29,15 +28,18 @@ def main() -> int:
         if not (ROOT / rel).is_file():
             errors.append(f"missing required C17.8 artifact: {rel}")
 
-    # milestone-packs is index-only live.
+    root_readme = ROOT / "docs/README.md"
+    if root_readme.is_file():
+        txt = root_readme.read_text(encoding="utf-8", errors="ignore")
+        if "## Canonical Documentation Surface" not in txt:
+            errors.append("missing canonical surface section in docs/README.md")
+    else:
+        errors.append("missing docs/README.md")
+
+    # milestone-packs must not exist as primary live root in docs/program.
     mp_root = ROOT / "docs/program/milestone-packs"
     if mp_root.exists():
-        for p in mp_root.rglob("*"):
-            if not p.is_file():
-                continue
-            rel = p.relative_to(ROOT).as_posix()
-            if rel != "docs/program/milestone-packs/README.md":
-                errors.append(f"non-index live milestone doc present: {rel}")
+        errors.append("forbidden live program root family still present: docs/program/milestone-packs")
 
     # reports whitelist.
     rep_root = ROOT / "docs/program/reports"
@@ -54,7 +56,7 @@ def main() -> int:
             continue
         for p in base.rglob("*.md"):
             rel = p.relative_to(ROOT).as_posix()
-            if rel.startswith("docs/archive/"):
+            if rel.startswith("docs/archive/") or rel.startswith("docs/program/archive/"):
                 continue
             name = p.name.lower()
             for token in FORBIDDEN_TOKENS:

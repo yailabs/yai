@@ -6,68 +6,126 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 REQUIRED_DIRS = [
-    "docs/architecture/runtime/core",
-    "docs/architecture/runtime/resolution",
-    "docs/architecture/runtime/enforcement",
-    "docs/architecture/runtime/data-sinks",
-    "docs/architecture/protocol/control-plane",
-    "docs/architecture/protocol/transport",
-    "docs/architecture/protocol/source-plane",
-    "docs/architecture/distributed-runtime/topology",
-    "docs/architecture/distributed-runtime/peering",
-    "docs/architecture/distributed-runtime/policy",
+    "docs/architecture/foundation",
+    "docs/architecture/formal",
+    "docs/architecture/runtime",
+    "docs/architecture/orchestration",
+    "docs/architecture/edge",
+    "docs/architecture/protocol",
+    "docs/architecture/data",
+    "docs/architecture/graph",
+    "docs/architecture/knowledge",
+    "docs/architecture/mesh",
+    "docs/architecture/workspace",
     "docs/guides/developer/operational-guides",
-    "docs/program/milestone-packs/runtime-baselines/workspace",
-    "docs/program/milestone-packs/runtime-baselines/distributed-runtime",
-    "docs/program/milestone-packs/runtime-baselines/data-runtime",
-    "docs/program/milestone-packs/runtime-baselines/governance-runtime",
-    "docs/program/milestone-packs/runtime-baselines/operations-foundation",
-    "docs/reference/protocol/cli",
+    "docs/reference/commands",
+    "docs/reference/protocol",
+    "docs/reference/schemas",
+]
+
+REQUIRED_READMES = [
+    "docs/architecture/foundation/README.md",
+    "docs/architecture/formal/README.md",
+    "docs/architecture/runtime/README.md",
+    "docs/architecture/orchestration/README.md",
+    "docs/architecture/edge/README.md",
+    "docs/architecture/protocol/README.md",
+    "docs/architecture/data/README.md",
+    "docs/architecture/graph/README.md",
+    "docs/architecture/knowledge/README.md",
+    "docs/architecture/mesh/README.md",
+    "docs/architecture/workspace/README.md",
+    "docs/guides/developer/operational-guides/README.md",
+    "docs/reference/commands/README.md",
+    "docs/reference/protocol/README.md",
+    "docs/reference/schemas/README.md",
+    "docs/reference/README.md",
+]
+
+FORBIDDEN_DIRS = [
+    "docs/reference/cli",
+    "docs/reference/protocol/contracts",
     "docs/reference/protocol/control",
     "docs/reference/protocol/protocol",
     "docs/reference/protocol/providers",
     "docs/reference/protocol/vault",
     "docs/reference/protocol/compliance",
-]
-
-REQUIRED_READMES = [
-    "docs/architecture/runtime/README.md",
-    "docs/architecture/runtime/core/README.md",
-    "docs/architecture/runtime/resolution/README.md",
-    "docs/architecture/runtime/enforcement/README.md",
-    "docs/architecture/runtime/data-sinks/README.md",
-    "docs/architecture/protocol/README.md",
-    "docs/architecture/protocol/control-plane/README.md",
-    "docs/architecture/protocol/transport/README.md",
-    "docs/architecture/protocol/source-plane/README.md",
-    "docs/architecture/distributed-runtime/README.md",
-    "docs/architecture/distributed-runtime/topology/README.md",
-    "docs/architecture/distributed-runtime/peering/README.md",
-    "docs/architecture/distributed-runtime/policy/README.md",
-    "docs/guides/developer/operational-guides/README.md",
-    "docs/archive/legacy/program/milestone-packs/runtime-baselines/workspace/README.md",
-    "docs/archive/legacy/program/milestone-packs/runtime-baselines/distributed-runtime/README.md",
-    "docs/archive/legacy/program/milestone-packs/runtime-baselines/data-runtime/README.md",
-    "docs/archive/legacy/program/milestone-packs/runtime-baselines/governance-runtime/README.md",
-    "docs/archive/legacy/program/milestone-packs/runtime-baselines/operations-foundation/README.md",
-]
-
-FORBIDDEN_DIRS = [
-    "docs/reference/protocol/contracts/cli",
-    "docs/reference/protocol/contracts/control",
-    "docs/reference/protocol/contracts/protocol",
-    "docs/reference/protocol/contracts/providers",
-    "docs/reference/protocol/contracts/vault",
-    "docs/reference/protocol/contracts/compliance",
+    "docs/reference/protocol/cli",
     "docs/runbooks/operations/developer-runbooks",
 ]
 
 ROOT_MD_ALLOWLIST = {
-    "docs/architecture/runtime": {"README.md", "runtime-architecture.md"},
-    "docs/architecture/protocol": {"README.md"},
-    "docs/architecture/distributed-runtime": {"README.md", "distributed-runtime-architecture.md"},
+    "docs/architecture/runtime": {
+        "README.md",
+        "architecture.md",
+        "enforcement.md",
+        "data-sinks.md",
+        "resolution.md",
+    },
+    "docs/architecture/protocol": {
+        "README.md",
+        "acquisition-plane.md",
+        "source-plane.md",
+        "transport.md",
+    },
+    "docs/architecture/mesh": {
+        "README.md",
+        "architecture.md",
+        "topology.md",
+    },
+    "docs/architecture/edge": {
+        "README.md",
+        "daemon-local.md",
+        "policy-enforcement.md",
+    },
+    "docs/architecture/data": {
+        "README.md",
+        "architecture.md",
+    },
+    "docs/architecture/graph": {
+        "README.md",
+        "architecture.md",
+    },
+    "docs/architecture/knowledge": {
+        "README.md",
+        "architecture.md",
+    },
+    "docs/architecture/foundation": {
+        "README.md",
+        "architecture.md",
+    },
+    "docs/architecture/formal": {
+        "README.md",
+        "architecture.md",
+    },
+    "docs/architecture/orchestration": {
+        "README.md",
+        "architecture.md",
+    },
+    "docs/architecture/workspace": {
+        "README.md",
+        "architecture.md",
+        "boundaries.md",
+        "lifecycle.md",
+        "security.md",
+        "distribution.md",
+    },
     "docs/guides/developer": {"README.md"},
-    "docs/program/milestone-packs/runtime-baselines": {"README.md"},
+    "docs/reference/commands": {
+        "README.md",
+        "surface.md",
+        "taxonomy.md",
+        "behavior.md",
+    },
+    "docs/reference/protocol": {
+        "README.md",
+        "surface.md",
+        "message-types.md",
+        "transport.md",
+        "rpc.md",
+        "binary.md",
+    },
+    "docs/reference/schemas": {"README.md", "specs.md"},
 }
 
 
