@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include <yai/protocol/contracts/message_types.h>
-#include <yai/protocol/contracts/transport_contract.h>
+#include <yai/protocol/contracts/transport.h>
 
 /* Initial binary framing contract placeholder; to be consolidated in protocol refoundation wave. */
 typedef struct yai_rpc_binary_frame {

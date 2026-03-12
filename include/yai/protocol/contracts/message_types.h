@@ -2,8 +2,8 @@
 #pragma once
 
 /* Canonical command-id surface exported from protocol spine. */
-#include <yai/protocol/contracts/yai_protocol_ids.h>
-#include <yai/protocol/contracts/source_plane_contract.h>
+#include <yai/protocol/contracts/ids.h>
+#include <yai/protocol/contracts/source_plane.h>
 
 /* Source-plane transport intents (YD-4 baseline). */
 #define YAI_MSG_SOURCE_ENROLL "SOURCE_ENROLL"

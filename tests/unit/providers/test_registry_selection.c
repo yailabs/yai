@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
-#include <yai/providers/catalog.h>
+#include <yai/network/providers/catalog.h>
 
 #include <assert.h>
 #include <string.h>

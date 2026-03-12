@@ -13,5 +13,5 @@ Canonical subdomains:
 Boundary rules:
 
 - Protocol transport defines wire/runtime exchange assumptions.
-- Mesh transport (`lib/mesh/transport/`) defines topology/reachability awareness.
+- Mesh transport (`lib/network/transport/`) defines topology/reachability awareness.
 - Control plane and source plane contracts live under `protocol/contracts/`.

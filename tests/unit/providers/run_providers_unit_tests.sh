@@ -8,9 +8,9 @@ mkdir -p "$OUT_DIR"
 cc -Wall -Wextra -std=c11 -O2 \
   -I"$ROOT/include" -I"$ROOT/include/yai" \
   "$ROOT/tests/unit/providers/test_registry_selection.c" \
-  "$ROOT/lib/providers/registry/provider_registry.c" \
-  "$ROOT/lib/providers/policy/provider_policy.c" \
-  "$ROOT/lib/providers/selection/provider_selection.c" \
+  "$ROOT/lib/network/providers/registry.c" \
+  "$ROOT/lib/network/providers/policy.c" \
+  "$ROOT/lib/network/providers/selection.c" \
   -o "$OUT_DIR/providers_unit_tests"
 
 "$OUT_DIR/providers_unit_tests"

@@ -8,17 +8,17 @@ mkdir -p "$OUT_DIR"
 cc -Wall -Wextra -std=c11 -O2 \
   -I"$ROOT/include" -I"$ROOT/include/yai" \
   "$ROOT/tests/unit/mesh/test_mesh_minimal.c" \
-  "$ROOT/lib/mesh/identity/identity.c" \
-  "$ROOT/lib/mesh/peer_registry/peer_registry.c" \
-  "$ROOT/lib/mesh/membership/membership.c" \
-  "$ROOT/lib/mesh/discovery/discovery.c" \
-  "$ROOT/lib/mesh/awareness/awareness.c" \
-  "$ROOT/lib/mesh/coordination/coordination.c" \
-  "$ROOT/lib/mesh/transport/transport_state.c" \
-  "$ROOT/lib/mesh/replay/replay_state.c" \
-  "$ROOT/lib/mesh/conflict/conflict_state.c" \
-  "$ROOT/lib/mesh/containment/containment_state.c" \
-  "$ROOT/lib/mesh/enrollment/enrollment_state.c" \
+  "$ROOT/lib/network/identity/identity.c" \
+  "$ROOT/lib/network/discovery/peer_registry.c" \
+  "$ROOT/lib/network/discovery/membership.c" \
+  "$ROOT/lib/network/discovery/discovery.c" \
+  "$ROOT/lib/network/topologies/sovereign_overlay/awareness.c" \
+  "$ROOT/lib/network/topologies/sovereign_overlay/coordination.c" \
+  "$ROOT/lib/network/transport/session.c" \
+  "$ROOT/lib/network/transport/replay.c" \
+  "$ROOT/lib/network/topologies/sovereign_overlay/conflict.c" \
+  "$ROOT/lib/network/overlay/containment.c" \
+  "$ROOT/lib/network/identity/enrollment.c" \
   -o "$OUT_DIR/mesh_unit_tests"
 
 "$OUT_DIR/mesh_unit_tests"

@@ -1,4 +1,4 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #pragma once
 
-#include <yai/protocol/contracts/transport_contract.h>
+#include <yai/protocol/contracts/transport.h>

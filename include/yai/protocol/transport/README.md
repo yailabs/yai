@@ -2,4 +2,4 @@
 
 Protocol-level transport contracts.
 
-Distinct from mesh transport awareness in `include/yai/mesh/transport.h`.
+Distinct from mesh transport awareness in `include/yai/network/transport.h`.

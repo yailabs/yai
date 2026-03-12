@@ -9,7 +9,7 @@ extern "C" {
 /* YD-1 canonical topology lock: distributed acquisition, centralized control. */
 #define YAI_SOURCE_PLANE_TOPOLOGY "distributed-acquisition-centralized-control-v1"
 #define YAI_SOURCE_PLANE_OWNER_RUNTIME "yai"
-#define YAI_SOURCE_PLANE_EDGE_BINARY "yai-edge"
+#define YAI_SOURCE_PLANE_EDGE_BINARY "yai-daemon"
 #define YAI_SOURCE_PLANE_EDGE_ROLE "subordinate-edge-runtime"
 
 /* Returns 1 when owner-runtime centralized control invariant is active. */

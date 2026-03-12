@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <yai/protocol/contracts/yai_vault_abi.h>
+#include <yai/protocol/contracts/vault_abi.h>
 #include <yai/protocol/contracts/message_types.h>
 
 #ifdef __cplusplus

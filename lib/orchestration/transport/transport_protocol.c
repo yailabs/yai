@@ -4,7 +4,7 @@
 
 #include <yai/knowledge/cognition.h>
 #include <yai/knowledge/memory.h>
-#include <yai/providers/catalog.h>
+#include <yai/network/providers/catalog.h>
 
 #include <stdio.h>
 #include <string.h>

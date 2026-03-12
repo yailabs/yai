@@ -1,8 +1,8 @@
 #include <yai/orchestration/transport_client.h>
 #include <yai/api/runtime.h>
 
-#include "protocol.h"
-#include "yai_protocol_ids.h"
+#include <yai/protocol/contracts/rpc.h>
+#include <yai/protocol/contracts/ids.h>
 
 #include <errno.h>
 #include <stddef.h>

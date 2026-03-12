@@ -1,11 +1,11 @@
 # Protocol Public Headers
 
-Canonical public protocol surfaces for RPC semantics, binary framing, exchange
-contracts, and transport assumptions.
+Canonical protocol surface for contracts, RPC, transport, binary framing, and JSON schemas.
 
-Canonical subdomains:
+Subdomains:
 
-- `rpc/`
-- `binary/`
-- `contracts/`
-- `transport/`
+- contracts/
+- rpc/
+- binary/
+- transport/
+- schema/

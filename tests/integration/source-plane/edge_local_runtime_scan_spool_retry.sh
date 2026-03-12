@@ -3,12 +3,12 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 YAI="$REPO/build/bin/yai"
-YAI_EDGE="$REPO/build/bin/yai-edge"
+YAI_EDGE="$REPO/build/bin/yai-daemon"
 TMP_BASE="${YAI_TMPDIR:-/tmp}"
 SOCK="$TMP_BASE/yai-yd5-owner-$$.sock"
 
 if [[ ! -x "$YAI" || ! -x "$YAI_EDGE" ]]; then
-  make -C "$REPO" yai yai-edge >/dev/null
+  make -C "$REPO" yai yai-daemon >/dev/null
 fi
 
 OWNER_HOME="$(mktemp -d "$TMP_BASE/yai_yd5_owner.XXXXXX")"
@@ -60,7 +60,7 @@ rm -f "$SOCK" >/dev/null 2>&1 || true
 YAI_EDGE_HOME="$EDGE_HOME" \
 YAI_EDGE_OWNER_REF="unix://$SOCK" \
 YAI_EDGE_SOURCE_LABEL="yd5-node-a" \
-YAI_EDGE_BINDINGS_MANIFEST="$MANIFEST" \
+YAI_DAEMON_BINDINGS_MANIFEST="$MANIFEST" \
 "$YAI_EDGE" --tick-ms 120 --max-ticks 8 >/tmp/yai_yd5_edge_phase1.log 2>&1 || true
 
 Q1="$(find "$EDGE_HOME/spool/queue" -type f 2>/dev/null || true)"
@@ -155,7 +155,7 @@ PY
 YAI_EDGE_HOME="$EDGE_HOME" \
 YAI_EDGE_OWNER_REF="unix://$SOCK" \
 YAI_EDGE_SOURCE_LABEL="yd5-node-a" \
-YAI_EDGE_BINDINGS_MANIFEST="$MANIFEST" \
+YAI_DAEMON_BINDINGS_MANIFEST="$MANIFEST" \
 "$YAI_EDGE" --tick-ms 120 --max-ticks 18 >/tmp/yai_yd5_edge_phase2.log 2>&1
 
 D2="$(find "$EDGE_HOME/spool/delivered" -type f 2>/dev/null || true)"

@@ -1,4 +1,3 @@
-# Protocol Contracts Subdomain
+# Protocol Contracts Implementation
 
-Control-plane and source-plane contract shapes, message IDs, and compatibility
-assumptions for exchange surfaces.
+Implementation units for protocol contract helpers.

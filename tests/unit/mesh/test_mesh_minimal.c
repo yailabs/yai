@@ -4,17 +4,17 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <yai/mesh/identity.h>
-#include <yai/mesh/peer_registry.h>
-#include <yai/mesh/membership.h>
-#include <yai/mesh/discovery.h>
-#include <yai/mesh/awareness.h>
-#include <yai/mesh/coordination.h>
-#include <yai/mesh/transport.h>
-#include <yai/mesh/replay.h>
-#include <yai/mesh/conflict.h>
-#include <yai/mesh/containment.h>
-#include <yai/mesh/enrollment.h>
+#include <yai/network/identity/identity.h>
+#include <yai/network/discovery/peer_registry.h>
+#include <yai/network/discovery/membership.h>
+#include <yai/network/discovery/discovery.h>
+#include <yai/network/topologies/sovereign_overlay/awareness.h>
+#include <yai/network/topologies/sovereign_overlay/coordination.h>
+#include <yai/network/transport/session.h>
+#include <yai/network/transport/replay.h>
+#include <yai/network/topologies/sovereign_overlay/conflict.h>
+#include <yai/network/overlay/containment.h>
+#include <yai/network/identity/enrollment.h>
 
 int main(void)
 {

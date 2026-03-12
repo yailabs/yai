@@ -3,9 +3,9 @@
 #include <assert.h>
 #include <string.h>
 
-#include <yai/edge/actions.h>
-#include <yai/edge/binding.h>
-#include <yai/edge/services.h>
+#include <yai/runtime/daemon/actions.h>
+#include <yai/runtime/daemon/binding.h>
+#include <yai/runtime/daemon/services.h>
 
 static void test_action_point_id(void)
 {
@@ -16,8 +16,8 @@ static void test_action_point_id(void)
 
 static void test_binding_normalization(void)
 {
-  assert(strcmp(yai_edge_binding_kind_normalize(NULL), YAI_EDGE_BINDING_KIND_OBSERVATIONAL) == 0);
-  assert(strcmp(yai_edge_binding_kind_normalize("mediable"), YAI_EDGE_BINDING_KIND_MEDIABLE) == 0);
+  assert(strcmp(yai_edge_binding_kind_normalize(NULL), YAI_DAEMON_BINDING_KIND_OBSERVATIONAL) == 0);
+  assert(strcmp(yai_edge_binding_kind_normalize("mediable"), YAI_DAEMON_BINDING_KIND_MEDIABLE) == 0);
   assert(yai_edge_binding_is_mediable("mediable") == 1);
   assert(yai_edge_binding_is_mediable("observational") == 0);
   assert(strcmp(yai_edge_mediation_mode_normalize("allow_block_hold", NULL),

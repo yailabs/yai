@@ -6,7 +6,7 @@ if [[ -z "${YAI_QUAL_ROOT:-}" ]]; then
 fi
 
 YAI_BIN="${YAI_BIN:-$YAI_QUAL_ROOT/build/bin/yai}"
-YAI_EDGE_BIN="${YAI_EDGE_BIN:-$YAI_QUAL_ROOT/build/bin/yai-edge}"
+YAI_DAEMON_BIN="${YAI_DAEMON_BIN:-$YAI_QUAL_ROOT/build/bin/yai-daemon}"
 YAI_QUAL_TMP_ROOT="${YAI_QUAL_TMP_ROOT:-${TMPDIR:-/tmp}/yai-qualification}"
 mkdir -p "$YAI_QUAL_TMP_ROOT"
 
@@ -17,7 +17,7 @@ yai_qual_log() {
 yai_qual_require_bins() {
   local need=()
   [[ -x "$YAI_BIN" ]] || need+=(yai)
-  [[ -x "$YAI_EDGE_BIN" ]] || need+=(yai-edge)
+  [[ -x "$YAI_DAEMON_BIN" ]] || need+=(yai-daemon)
   if (( ${#need[@]} > 0 )); then
     yai_qual_log "building missing binaries: ${need[*]}"
     make -C "$YAI_QUAL_ROOT" "${need[@]}" >/dev/null

@@ -5,7 +5,7 @@
 #include <yai/runtime/dispatch.h>
 #include <yai/protocol/contracts/message_types.h>
 #include <yai/protocol/rpc/codec.h>
-#include <yai/protocol/contracts/transport_contract.h>
+#include <yai/protocol/contracts/transport.h>
 
 /*
  * Writes a protocol-level error frame with JSON payload.

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <yai/protocol/contracts/transport_contract.h>
+#include <yai/protocol/contracts/transport.h>
 
 typedef struct yai_provider_config {
   char id[32];

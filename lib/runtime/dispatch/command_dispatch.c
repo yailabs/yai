@@ -7,9 +7,9 @@
 #include <yai/runtime/workspace.h>
 
 #include <yai/protocol/contracts/errors.h>
-#include <yai/protocol/contracts/protocol.h>
+#include <yai/protocol/contracts/rpc.h>
 #include <yai/protocol/contracts/roles.h>
-#include <yai/protocol/contracts/yai_protocol_ids.h>
+#include <yai/protocol/contracts/ids.h>
 
 #include <errno.h>
 #include <stdio.h>
