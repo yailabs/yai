@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-CONTRACT_ROOT="${YAI_PROTOCOL_CONTRACT_ROOT:-$ROOT/include/yai/protocol/contracts}"
+CONTRACT_ROOT="${YAI_PROTOCOL_CONTRACT_ROOT:-$ROOT/include/yai/protocol}"
 if [[ ! -d "$CONTRACT_ROOT" ]]; then
-  echo "contract root not found (expected include/yai/protocol/contracts)" >&2
+  echo "contract root not found (expected include/yai/protocol)" >&2
   exit 2
 fi
 
@@ -65,7 +65,7 @@ BRAIN_SRCS=(
   lib/orchestration/transport/transport_runtime.c
   lib/orchestration/transport/transport_protocol.c
   lib/orchestration/transport/uds_server.c
-  lib/protocol/contracts/source_plane.c
+  lib/protocol/control/source_plane.c
   lib/third_party/cjson/cJSON.c
 )
 

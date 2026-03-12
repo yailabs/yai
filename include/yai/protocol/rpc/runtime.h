@@ -2,4 +2,4 @@
 #pragma once
 
 /* Canonical runtime RPC surface exported from protocol contracts. */
-#include <yai/protocol/contracts/rpc.h>
+#include <yai/protocol/rpc/contract.h>

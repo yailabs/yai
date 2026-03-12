@@ -3,7 +3,7 @@
 # =========================================
 
 ROOT_DIR := $(abspath .)
-PROTOCOL_CONTRACT_ROOT ?= $(ROOT_DIR)/include/yai/protocol/contracts
+PROTOCOL_CONTRACT_ROOT ?= $(ROOT_DIR)/include/yai/protocol
 GOVERNANCE_COMPAT_ROOT ?= $(ROOT_DIR)/governance
 
 BUILD_DIR ?= $(ROOT_DIR)/build
@@ -56,8 +56,8 @@ PROTOCOL_SRCS := \
 	lib/protocol/rpc/runtime.c \
 	lib/protocol/rpc/codec.c \
 	lib/protocol/binary/rpc_binary.c \
-	lib/protocol/contracts/source_plane.c \
-	lib/protocol/contracts/message_types.c
+	lib/protocol/control/source_plane.c \
+	lib/protocol/control/message_types.c
 CORE_SRCS := \
 	lib/runtime/lifecycle/bootstrap.c \
 	lib/runtime/lifecycle/preboot.c \

@@ -17,7 +17,7 @@ int yai_governance_compatibility_check(yai_governance_runtime_t *rt, char *err, 
 
   if (!rt) return -1;
 
-  if (yai_governance_require_governance_surface(rt, "manifests/compatibility.matrix.json", json, sizeof(json)) != 0) {
+  if (yai_governance_require_governance_surface(rt, "manifests/indexes/compatibility.matrix.json", json, sizeof(json)) != 0) {
     if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "missing canonical compatibility matrix");
     return -1;
   }
@@ -45,20 +45,20 @@ int yai_governance_compatibility_check(yai_governance_runtime_t *rt, char *err, 
       yai_governance_require_file(rt, "specializations/schema/specialization-matrix-entry.v1.schema.json", json, sizeof(json)) != 0 ||
       yai_governance_require_file(rt, "specializations/templates/specialization.descriptor.template.v1.json", json, sizeof(json)) != 0 ||
       yai_governance_require_file(rt, "specializations/templates/specialization.bundle.template.v1.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "compliance/index/compliance.index.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "compliance/index/compliance.descriptors.index.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "compliance/index/compliance.matrix.v1.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "compliance/schema/compliance-descriptor.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "compliance/schema/compliance-registry-entry.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "compliance/schema/compliance-matrix-entry.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "compliance/indexes/compliance.index.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "compliance/indexes/compliance.descriptors.index.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "compliance/indexes/compliance.matrix.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "compliance/schemas/compliance-descriptor.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "compliance/schemas/compliance-registry-entry.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "compliance/schemas/compliance-matrix-entry.v1.schema.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "overlays/regulatory/index/regulatory.index.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "overlays/sector/index/sector.index.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "overlays/contextual/index/contextual.index.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "overlays/index/overlays.descriptors.index.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "overlays/index/overlays.matrix.v1.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "overlays/schema/overlay-descriptor.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "overlays/schema/overlay-registry-entry.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "overlays/schema/overlay-matrix-entry.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/indexes/overlays.descriptors.index.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/indexes/overlays.matrix.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/schemas/overlay-descriptor.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/schemas/overlay-registry-entry.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "overlays/schemas/overlay-matrix-entry.v1.schema.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "overlays/matrices/overlay-attachment.matrix.v1.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "overlays/matrices/overlay-precedence.matrix.v1.json", json, sizeof(json)) != 0 ||
       yai_governance_require_governance_surface(rt, "overlays/matrices/overlay-evidence.matrix.v1.json", json, sizeof(json)) != 0) {
@@ -74,37 +74,37 @@ int yai_governance_compatibility_check(yai_governance_runtime_t *rt, char *err, 
     return -1;
   }
 
-  if (yai_governance_require_governance_surface(rt, "manifests/governance.manifest.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "manifests/runtime.entrypoints.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "manifests/publish.index.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "manifests/publish.layers.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "manifests/compatibility.matrix.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "manifests/domain-resolution-order.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "manifests/compliance-resolution-order.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "manifests/governance-attachability.constraints.v1.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "manifests/customer-policy-packs.index.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "manifests/enterprise-custom-governance.index.json", json, sizeof(json)) != 0) {
+  if (yai_governance_require_governance_surface(rt, "manifests/runtime/governance.manifest.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "manifests/runtime/runtime.entrypoints.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "manifests/publish/publish.index.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "manifests/publish/publish.layers.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "manifests/indexes/compatibility.matrix.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "manifests/indexes/domain-resolution-order.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "manifests/indexes/compliance-resolution-order.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "manifests/indexes/governance-attachability.constraints.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "manifests/customers/customer-policy-packs.index.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "manifests/enterprise/enterprise-custom-governance.index.v1.json", json, sizeof(json)) != 0) {
     if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "missing canonical governance manifest spine");
     return -1;
   }
 
-  if (yai_governance_require_file(rt, "../include/yai/protocol/schema/control/control_plane.v1.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_file(rt, "../include/yai/protocol/schema/control/control_call.v1.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_file(rt, "../include/yai/protocol/schema/control/exec_reply.v1.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_file(rt, "../include/yai/protocol/schema/providers/providers.v1.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_file(rt, "../include/yai/protocol/schema/vault/vault_abi.v1.json", json, sizeof(json)) != 0) {
+  if (yai_governance_require_file(rt, "../specs/protocol/control/control_plane.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_file(rt, "../specs/protocol/control/control_call.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_file(rt, "../specs/protocol/control/exec_reply.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_file(rt, "../specs/providers/schemas/providers.v1.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_file(rt, "../specs/protocol/vault/vault_abi.v1.json", json, sizeof(json)) != 0) {
     if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "missing canonical protocol contracts");
     return -1;
   }
 
-  if (yai_governance_require_governance_surface(rt, "schema/policy.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "schema/decision_record.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "schema/governance_review_state.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "schema/evidence_index.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "schema/workspace_governance_attachment.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "schema/retention_policy.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "schema/containment_metrics.v1.schema.json", json, sizeof(json)) != 0 ||
-      yai_governance_require_governance_surface(rt, "schema/verification_report.v1.schema.json", json, sizeof(json)) != 0) {
+  if (yai_governance_require_governance_surface(rt, "schema/policy/policy.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "schema/decision/decision_record.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "schema/governance/governance_review_state.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "schema/evidence/evidence_index.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "schema/governance/workspace_governance_attachment.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "schema/runtime/retention_policy.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "schema/runtime/containment_metrics.v1.schema.json", json, sizeof(json)) != 0 ||
+      yai_governance_require_governance_surface(rt, "schema/evidence/verification_report.v1.schema.json", json, sizeof(json)) != 0) {
     if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "missing canonical governance schema");
     return -1;
   }
@@ -119,7 +119,7 @@ int yai_governance_compatibility_check(yai_governance_runtime_t *rt, char *err, 
     return -1;
   }
 
-  if (yai_governance_require_governance_surface(rt, "overlays/index/overlay-compliance.runtime.v1.json", json, sizeof(json)) != 0) {
+  if (yai_governance_require_governance_surface(rt, "overlays/indexes/overlay-compliance.runtime.v1.json", json, sizeof(json)) != 0) {
     if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "missing canonical overlay-compliance runtime view");
     return -1;
   }

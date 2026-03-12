@@ -16,8 +16,8 @@ int main(void) {
     fprintf(stderr, "manifest_loader: invalid runtime payload\n");
     return 1;
   }
-  if (strncmp(rt.runtime_view.domain_resolution_ref, "governance/manifests/", 21) != 0 ||
-      strncmp(rt.runtime_view.compliance_resolution_ref, "governance/manifests/", 21) != 0) {
+  if (strncmp(rt.runtime_view.domain_resolution_ref, "specs/manifests/", 16) != 0 ||
+      strncmp(rt.runtime_view.compliance_resolution_ref, "specs/manifests/", 16) != 0) {
     fprintf(stderr, "manifest_loader: runtime resolution refs are not canonical governance paths\n");
     return 1;
   }

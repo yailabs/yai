@@ -29,7 +29,7 @@ int main(void) {
     return 1;
   }
 
-  if (read_file("include/yai/protocol/schema/control/control_plane.v1.json", json, sizeof(json)) != 0) {
+  if (read_file("specs/protocol/control/control_plane.v1.json", json, sizeof(json)) != 0) {
     fprintf(stderr, "contracts_schema_loader: missing control plane contract\n");
     return 1;
   }
@@ -38,7 +38,7 @@ int main(void) {
     return 1;
   }
 
-  if (read_file("include/yai/protocol/schema/providers/providers.v1.json", json, sizeof(json)) != 0) {
+  if (read_file("specs/providers/schemas/providers.v1.json", json, sizeof(json)) != 0) {
     fprintf(stderr, "contracts_schema_loader: missing providers contract\n");
     return 1;
   }

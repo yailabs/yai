@@ -12,8 +12,8 @@
 #include <yai/governance/resolver.h>
 #include <yai/governance/policy_effects.h>
 
-#include <yai/protocol/contracts/transport.h>
-#include <yai/protocol/contracts/rpc.h>
+#include <yai/protocol/transport/transport.h>
+#include <yai/protocol/rpc/contract.h>
 
 #include <stdlib.h>
 #include <fcntl.h>
@@ -24,7 +24,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <yai/protocol/contracts/ids.h>
+#include <yai/protocol/control/ids.h>
 
 /* Global in-process session registry. */
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <yai/protocol/contracts/transport.h>
+#include <yai/protocol/transport/transport.h>
 #include <yai/network/providers/registry.h>
 
 #ifdef __cplusplus

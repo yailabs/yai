@@ -47,7 +47,7 @@ int yai_governance_read_governance_surface_file(const yai_governance_runtime_t *
   if (!rel_path || !out || out_cap < 2) return -1;
 
   /* Canonical-first lookup. */
-  if (yai_governance_safe_snprintf(path, sizeof(path), "governance/%s", rel_path) == 0 &&
+  if (yai_governance_safe_snprintf(path, sizeof(path), "specs/%s", rel_path) == 0 &&
       yai_governance_read_text_file(path, out, out_cap) == 0) {
     return 0;
   }
@@ -103,7 +103,7 @@ static int yai_governance_resolve_root(char *out, size_t out_cap) {
   const char *env = getenv("YAI_GOVERNANCE_LEGACY_ROOT");
   const char *allow_legacy = getenv("YAI_GOVERNANCE_ALLOW_LEGACY");
   int legacy_enabled = (allow_legacy && strcmp(allow_legacy, "1") == 0) ? 1 : 0;
-  const char *canonical_candidates[] = {"governance", "../yai/governance", "../../yai/governance"};
+  const char *canonical_candidates[] = {"specs", "../yai/specs", "../../yai/specs", "governance", "../yai/governance", "../../yai/governance"};
   size_t i;
   if (gov_env && gov_env[0] && yai_governance_path_exists(gov_env)) {
     return yai_governance_safe_snprintf(out, out_cap, "%s", gov_env);
@@ -131,7 +131,7 @@ int yai_governance_load_runtime(yai_governance_runtime_t *out, char *err, size_t
     if (err && err_cap) {
       (void)yai_governance_safe_snprintf(err,
                                   err_cap,
-                                  "governance root not found (set YAI_GOVERNANCE_ROOT or enable explicit legacy fallback)");
+                                  "specs/governance root not found (set YAI_GOVERNANCE_ROOT or enable explicit legacy fallback)");
     }
     return -1;
   }

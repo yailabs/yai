@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <yai/protocol/contracts/transport.h>
+#include <yai/protocol/transport/transport.h>
 
 typedef struct yai_rpc_client {
   int fd;

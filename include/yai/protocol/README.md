@@ -1,11 +1,10 @@
 # Protocol Public Headers
 
-Canonical protocol surface for contracts, RPC, transport, binary framing, and JSON schemas.
+Canonical protocol code surface:
 
-Subdomains:
+- `control/` for protocol control-plane contracts and ids
+- `rpc/` for RPC contract/runtime/codec headers
+- `transport/` for transport envelope headers
+- `binary/` for binary framing headers
 
-- contracts/
-- rpc/
-- binary/
-- transport/
-- schema/
+JSON schemas are canonicalized under `specs/` and are not hosted under protocol code paths.

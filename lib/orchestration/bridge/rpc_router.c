@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 
-#include <yai/protocol/contracts/ids.h>
+#include <yai/protocol/control/ids.h>
 
 #include <yai/orchestration/transport.h>
 

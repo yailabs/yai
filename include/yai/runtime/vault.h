@@ -5,8 +5,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <yai/protocol/contracts/vault_abi.h>
-#include <yai/protocol/contracts/message_types.h>
+#include <yai/protocol/control/vault_abi.h>
+#include <yai/protocol/message_types.h>
 
 #ifdef __cplusplus
 extern "C" {

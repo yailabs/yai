@@ -6,8 +6,8 @@
 static int read_domain_model_matrix(char *json, size_t cap) {
   const char *env_file = getenv("YAI_GOVERNANCE_DOMAIN_MODEL");
   const char *candidates[] = {
-    "governance/domains/index/domain-model.matrix.v1.json",
-    "../yai/governance/domains/index/domain-model.matrix.v1.json"
+    "specs/domains/indexes/domain-model.matrix.v1.json",
+    "../yai/specs/domains/indexes/domain-model.matrix.v1.json"
   };
   size_t i;
 

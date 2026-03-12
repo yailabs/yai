@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include <yai/protocol/rpc/runtime.h>
-#include <yai/protocol/contracts/message_types.h>
+#include <yai/protocol/message_types.h>
 #include <string.h>
 #include <stdio.h>
 

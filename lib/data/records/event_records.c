@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 
 #include <yai/data/records.h>
-#include <yai/protocol/contracts/source_plane.h>
+#include <yai/protocol/control/source_plane.h>
 #include <stdio.h>
 
 static int append_record(const char *workspace_id,

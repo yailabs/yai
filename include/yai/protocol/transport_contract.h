@@ -1,4 +1,4 @@
 #pragma once
 
-/* Transitional shim. Canonical header lives under protocol/contracts/. */
-#include <yai/protocol/contracts/transport.h>
+/* Transitional shim. Canonical header lives under protocol/transport/. */
+#include <yai/protocol/transport/transport.h>

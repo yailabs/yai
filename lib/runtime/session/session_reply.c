@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <yai/protocol/contracts/ids.h>
+#include <yai/protocol/control/ids.h>
 
 static int build_exec_reply_v1(
     char *out,
