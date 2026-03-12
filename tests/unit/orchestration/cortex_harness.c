@@ -1,4 +1,4 @@
-#include <yai/orchestration/runtime_model.h>
+#include <yai/orchestration/internal/orchestration_model.h>
 #include <stdio.h>
 #include <string.h>
 

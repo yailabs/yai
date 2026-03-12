@@ -1,4 +1,4 @@
 #pragma once
 
-/* Transitional shim. Canonical header lives under protocol/contracts/. */
-#include <yai/protocol/contracts/source_plane_contract.h>
+/* Transitional shim. Canonical header lives under protocol/control/. */
+#include <yai/protocol/control/source_plane.h>

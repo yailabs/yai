@@ -1,0 +1,16 @@
+{
+  "kind": "ontology.index",
+  "version": "v1",
+  "indexes": [
+    "indexes/domain-family.crosswalk.v1.json",
+    "indexes/specialization-family.crosswalk.v1.json",
+    "indexes/specialization-domain.crosswalk.v1.json"
+  ],
+  "roots": [
+    "taxonomy/",
+    "domains/",
+    "families/",
+    "specializations/",
+    "schemas/"
+  ]
+}

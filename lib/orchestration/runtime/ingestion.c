@@ -7,13 +7,13 @@
 
 #include <yai/runtime/workspace.h>
 #include <yai/data/records.h>
-#include <yai/edge/ids.h>
-#include <yai/edge/source_plane.h>
+#include <yai/runtime/local/source_ids.h>
+#include <yai/protocol/control/source_plane.h>
 #include <yai/orchestration/ingestion.h>
-#include <yai/orchestration/peer_registry.h>
-#include <yai/orchestration/source_plane.h>
+#include <yai/orchestration/internal/peer_registry_bridge.h>
+#include <yai/orchestration/network_bridge.h>
 #include <yai/graph/materialization.h>
-#include <yai/protocol/contracts/source_plane_contract.h>
+#include <yai/protocol/control/source_plane.h>
 
 #include "cJSON.h"
 

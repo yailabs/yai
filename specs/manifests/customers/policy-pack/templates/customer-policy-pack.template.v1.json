@@ -1,0 +1,67 @@
+{
+  "kind": "customer_policy_pack",
+  "schema_version": "v1",
+  "id": "customer.<org-id>.<workspace-or-scope>.pack",
+  "name": "Customer Workspace Governance Pack",
+  "version": "YYYY.MM",
+  "scope_targets": {
+    "organization_ids": [
+      "<org-id>"
+    ],
+    "workspace_ids": [
+      "<workspace-id>"
+    ],
+    "environment_classes": [
+      "production"
+    ],
+    "session_scope": "workspace-bound"
+  },
+  "domain_targets": [
+    "digital"
+  ],
+  "family_targets": [
+    "digital"
+  ],
+  "specialization_targets": [
+    "network-egress",
+    "remote-publication"
+  ],
+  "compliance_attachments": [
+    {
+      "compliance_id": "gdpr-eu",
+      "overlay_ref": "packages/regulatory/gdpr-eu/manifest.v1.json",
+      "mode": "required"
+    }
+  ],
+  "overlay_layers": {
+    "regulatory": [
+      "gdpr-eu"
+    ],
+    "sector": [],
+    "contextual": [
+      "organization",
+      "workspace"
+    ]
+  },
+  "authority_profile": {
+    "profile_ref": "packages/customer/policy-pack/templates/authority-profile.template.v1.json"
+  },
+  "evidence_profile": {
+    "profile_ref": "packages/customer/policy-pack/templates/evidence-profile.template.v1.json"
+  },
+  "precedence_mode": "specialization+compliance+overlays+customer-pack",
+  "compatibility": {
+    "governance_range": ">=0.1.0",
+    "runtime_targets": [
+      "yai"
+    ],
+    "export_profiles": [
+      "runtime-consumer.v4"
+    ]
+  },
+  "runtime_entrypoint_refs": [
+    "indexes/runtime/entrypoints.v1.json#default-runtime"
+  ],
+  "export_mode": "runtime-contract",
+  "status": "template"
+}

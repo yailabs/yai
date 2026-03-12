@@ -1,0 +1,72 @@
+{
+  "kind": "control_family_descriptor.v1",
+  "version": "v1",
+  "family_id": "D1",
+  "canonical_name": "digital",
+  "display_name": "Digital",
+  "slug": "digital",
+  "internal_id": "D1",
+  "legacy_label": "D1-digital",
+  "status": "active-wave-1-pillar",
+  "maturity": "structured",
+  "classification_ref": "taxonomy/maps/classification-map.v1.json",
+  "specializations_ref": "ontology/specializations/indexes/catalog-index.v1.json",
+  "materialized_manifest_ref": "ontology/families/manifests/digital.manifest.v1.json",
+  "hierarchy": {
+    "parent": "",
+    "specializations": [
+      "network-egress",
+      "remote-publication",
+      "external-commentary",
+      "artifact-distribution",
+      "remote-retrieval",
+      "digital-sink-control"
+    ]
+  },
+  "resolution": {
+    "default_specialization": "network-egress",
+    "overlay_refs": {
+      "regulatory": "indexes/packages/regulatory/index.v1.json",
+      "sector": "indexes/packages/sector/index.v1.json",
+      "contextual": "packages/contextual/index/contextual.index.json"
+    },
+    "authority_profile": {
+      "default_required_scope": "operator",
+      "review_on_external_publish": true,
+      "escalate_on_sensitive_data": true
+    },
+    "evidence_profile": {
+      "requires_destination_context": true,
+      "requires_policy_match_trace": true,
+      "retention_hint": "standard"
+    }
+  },
+  "applicability": {
+    "domains": [
+      "digital"
+    ],
+    "risk_focus": [],
+    "lead_vertical": false
+  },
+  "hooks": {
+    "policy_composition": {
+      "specializations": [
+        "network-egress",
+        "remote-publication",
+        "external-commentary",
+        "artifact-distribution",
+        "remote-retrieval",
+        "digital-sink-control"
+      ],
+      "legacy_seed_ref": "transitional/domain-family-seed/D1-digital"
+    },
+    "evidence": {
+      "requires_policy_match_trace": true,
+      "retention_hint": "standard"
+    }
+  },
+  "source": {
+    "materialized_manifest_ref": "ontology/families/manifests/digital.manifest.v1.json",
+    "generator": "tools/gen/build_control_family_descriptors.py"
+  }
+}

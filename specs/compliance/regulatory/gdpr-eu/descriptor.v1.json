@@ -1,0 +1,73 @@
+{
+  "kind": "overlay_descriptor.v1",
+  "version": "v1",
+  "overlay_id": "gdpr-eu",
+  "overlay_class": "regulatory",
+  "status": "active",
+  "runtime": {
+    "manifest_ref": "regulatory/gdpr-eu/manifest.v1.json",
+    "materialized_bundle_ref": "regulatory/gdpr-eu",
+    "attachment_count": 2,
+    "precedence_count": 1,
+    "evidence_count": 1
+  },
+  "attachment_rules": [
+    {
+      "overlay": "gdpr-eu",
+      "family": "digital",
+      "specialization": "remote-publication",
+      "action": "publish",
+      "asset": "data",
+      "risk": "privacy-breach"
+    },
+    {
+      "overlay": "gdpr-eu",
+      "family": "economic",
+      "specialization": "payments",
+      "action": "authorize",
+      "asset": "financial-instrument",
+      "risk": "privacy-breach"
+    }
+  ],
+  "precedence_rules": [
+    {
+      "stack": "remote-publication+gdpr-eu",
+      "order": [
+        "deny",
+        "review_required",
+        "allow"
+      ],
+      "authority_raise": true
+    }
+  ],
+  "evidence_rules": [
+    {
+      "overlay": "gdpr-eu",
+      "required": [
+        "lawful_basis",
+        "subject_category",
+        "retention_policy_ref"
+      ]
+    }
+  ],
+  "composition": {
+    "block_refs": [
+      "regulatory/gdpr-eu/policy/baseline.v1.json",
+      "regulatory/gdpr-eu/policy/cross-border-review.v1.json",
+      "regulatory/gdpr-eu/policy/evidence-obligations.v1.json",
+      "regulatory/gdpr-eu/policy/lawful-basis-required.v1.json",
+      "regulatory/gdpr-eu/policy/minimization.v1.json",
+      "regulatory/gdpr-eu/policy/retention-controls.v1.json",
+      "regulatory/gdpr-eu/policy/subject-rights-impact.v1.json",
+      "regulatory/gdpr-eu/mappings/actions.v1.json",
+      "regulatory/gdpr-eu/mappings/domains.v1.json",
+      "regulatory/gdpr-eu/mappings/risk.crosswalk.v1.json",
+      "regulatory/gdpr-eu/retention/class-overrides.v1.json",
+      "regulatory/gdpr-eu/retention/defaults.v1.json"
+    ]
+  },
+  "source": {
+    "generator": "tools/gen/build_overlay_descriptors.py",
+    "legacy_manifest_ref": "regulatory/gdpr-eu/manifest.v1.json"
+  }
+}

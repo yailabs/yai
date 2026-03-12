@@ -1,0 +1,42 @@
+{
+  "kind": "overlay_descriptor.v1",
+  "version": "v1",
+  "overlay_id": "context.organization",
+  "overlay_class": "contextual",
+  "status": "seed",
+  "runtime": {
+    "manifest_ref": "contextual/organization/manifest.v1.json",
+    "materialized_bundle_ref": "contextual/organization",
+    "attachment_count": 1,
+    "precedence_count": 0,
+    "evidence_count": 1
+  },
+  "attachment_rules": [
+    {
+      "overlay": "context.organization",
+      "family": "*",
+      "specialization": "*",
+      "action": "*",
+      "asset": "*",
+      "risk": "*",
+      "scope": "organization"
+    }
+  ],
+  "precedence_rules": [],
+  "evidence_rules": [
+    {
+      "overlay": "context.organization",
+      "required": [
+        "context_scope",
+        "review_trace"
+      ]
+    }
+  ],
+  "composition": {
+    "block_refs": []
+  },
+  "source": {
+    "generator": "tools/gen/build_overlay_descriptors.py",
+    "legacy_manifest_ref": "contextual/organization/manifest.v1.json"
+  }
+}

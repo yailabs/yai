@@ -1,6 +1,6 @@
 #include "internal.h"
-#include <yai/protocol/contracts/errors.h>
-#include <yai/protocol/contracts/roles.h>
+#include <yai/protocol/control/errors.h>
+#include <yai/protocol/control/roles.h>
 
 #include <stdio.h>
 #include <string.h>

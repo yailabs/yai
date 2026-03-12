@@ -1,0 +1,43 @@
+{
+  "kind": "specialization_descriptor.v1",
+  "version": "v1",
+  "specialization_id": "treasury",
+  "canonical_name": "economic.treasury",
+  "family": "economic",
+  "specialization_class": "general",
+  "status": "active-seed",
+  "review_state": "managed",
+  "verticalization_wave": "wave-1-seed",
+  "runtime": {
+    "manifest_ref": "specializations/manifests/treasury/manifest.v1.json",
+    "bundle_ref": "specializations/manifests/treasury",
+    "scenario_classes": [
+      "sc.economic.treasury.baseline",
+      "sc.economic.treasury.stress"
+    ]
+  },
+  "composition": {
+    "model_refs": [
+      "specializations/manifests/treasury/model/minimal.v1.json"
+    ],
+    "policy_refs": [
+      "specializations/manifests/treasury/policy/minimal.v1.json"
+    ],
+    "evidence_refs": [
+      "specializations/manifests/treasury/evidence/minimal.v1.json"
+    ],
+    "authority_refs": [],
+    "discovery_refs": [],
+    "scenario_refs": []
+  },
+  "taxonomy": {
+    "risk_ref": "taxonomy/risks/risk-taxonomy.v1.json",
+    "action_ref": "taxonomy/actions/action-taxonomy.v1.json",
+    "asset_ref": "taxonomy/assets/asset-taxonomy.v1.json",
+    "signal_ref": "taxonomy/signals/signal-taxonomy.v1.json"
+  },
+  "source": {
+    "generator": "tools/gen/build_specialization_descriptors.py",
+    "materialized_bundle_ref": "specializations/manifests/treasury"
+  }
+}

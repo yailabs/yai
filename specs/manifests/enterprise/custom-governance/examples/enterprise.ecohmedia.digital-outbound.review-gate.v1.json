@@ -1,0 +1,85 @@
+{
+  "kind": "enterprise_custom_governance",
+  "schema_version": "v1",
+  "id": "enterprise.ecohmedia.digital-outbound.review-gate",
+  "name": "EcohMedia Digital Outbound Review Gate",
+  "version": "2026.03",
+  "owner": {
+    "organization_id": "ecohmedia",
+    "owner_team": "governance-platform",
+    "approver_role": "risk-controller"
+  },
+  "organization_scope": {
+    "organization_ids": ["ecohmedia"],
+    "environment_classes": ["production", "staging"],
+    "session_scope": "workspace-bound"
+  },
+  "workspace_targets": [
+    "ws_digital_outbound_prod",
+    "ws_digital_outbound_stage"
+  ],
+  "domain_targets": ["digital"],
+  "specialization_targets": [
+    "remote-publication",
+    "artifact-distribution",
+    "digital-sink-control",
+    "network-egress"
+  ],
+  "source_inputs": {
+    "customer_policy_pack_refs": [
+      "packages/customer/policy-pack/examples/customer.ecohmedia.digital-outbound.gdpr-retention.v1.json"
+    ],
+    "compliance_refs": [
+      "packages/regulatory/gdpr-eu/manifest.v1.json",
+      "packages/cross-domain/retention-governance/manifest.v1.json",
+      "packages/cross-domain/security-supply-chain/manifest.v1.json"
+    ],
+    "overlay_refs": [
+      "packages/regulatory/gdpr-eu/manifest.v1.json",
+      "packages/regulatory/retention-governance/manifest.v1.json",
+      "packages/sector/finance/manifest.v1.json",
+      "packages/contextual/organization/manifest.v1.json",
+      "packages/contextual/workspace/manifest.v1.json"
+    ]
+  },
+  "policy_refs": [
+    "specializations/digital/remote-publication/policy-pack.json",
+    "specializations/digital/artifact-distribution/policy-pack.json"
+  ],
+  "overlay_refs": {
+    "regulatory": ["gdpr-eu", "retention-governance", "security-supply-chain"],
+    "sector": ["sector.finance"],
+    "contextual": ["organization", "workspace"]
+  },
+  "authority_profile": {
+    "default_scope": "controller",
+    "requires_explicit_approval_for_external_effect": true,
+    "requires_dual_control_for_distribution": true,
+    "self_approval_forbidden": true
+  },
+  "evidence_profile": {
+    "requires_decision_record": true,
+    "requires_destination_trace": true,
+    "requires_review_record_for_external_effect": true,
+    "requires_retention_attestation": true,
+    "requires_approval_chain": true
+  },
+  "precedence_mode": "specialization+compliance+overlays+customer-pack+enterprise-object",
+  "status": "approved",
+  "review_state": "approved",
+  "compatibility": {
+    "governance_range": ">=0.1.0",
+    "runtime_targets": ["yai"],
+    "export_profiles": ["runtime-consumer.v4"]
+  },
+  "apply_modes": ["workspace_attach", "runtime_entrypoint"],
+  "runtime_consumable": true,
+  "runtime_entrypoint_refs": ["indexes/runtime/entrypoints.v1.json#default-runtime"],
+  "provenance": {
+    "source_type": "human-authored",
+    "source_ref": "docs/authoring/examples/customer-workspace-authoring-walkthrough.md",
+    "created_by": "governance-team",
+    "updated_by": "governance-team"
+  },
+  "notes": "Organization-scoped object for digital outbound publication/distribution hardening with explicit review and evidence burden."
+}

@@ -2,6 +2,6 @@
 #pragma once
 
 /* Transitional compatibility shim.
- * Canonical provider surface lives under include/yai/providers/.
+ * Canonical provider surface lives under include/yai/network/providers/.
  */
-#include <yai/providers/catalog.h>
+#include <yai/network/providers/catalog.h>

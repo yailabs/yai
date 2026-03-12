@@ -1,3 +1,0 @@
-# retention-governance taxonomy
-
-Placeholder.

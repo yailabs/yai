@@ -8,7 +8,7 @@
 #include <yai/data/binding.h>
 #include <yai/data/query.h>
 #include <yai/orchestration/runtime.h>
-#include <yai/orchestration/peer_registry.h>
+#include <yai/orchestration/internal/peer_registry_bridge.h>
 #include <yai/graph/materialization.h>
 #include <yai/graph/query.h>
 #include <yai/knowledge/memory.h>

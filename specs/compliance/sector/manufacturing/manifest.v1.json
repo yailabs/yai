@@ -1,0 +1,7 @@
+{
+  "kind": "sector_overlay_manifest",
+  "version": "v1",
+  "overlay_id": "sector.manufacturing",
+  "source_ref": "packages/sector/manufacturing/manifest.v1.json",
+  "status": "active-planned"
+}

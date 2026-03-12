@@ -1,3 +1,0 @@
-# healthcare policy
-
-Placeholder.

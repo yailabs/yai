@@ -1,0 +1,64 @@
+{
+  "kind": "overlay_descriptor.v1",
+  "version": "v1",
+  "overlay_id": "sector.public-sector",
+  "overlay_class": "sector",
+  "status": "active-seed",
+  "runtime": {
+    "manifest_ref": "sector/public-sector/manifest.v1.json",
+    "materialized_bundle_ref": "sector/public-sector",
+    "attachment_count": 1,
+    "precedence_count": 1,
+    "evidence_count": 2
+  },
+  "attachment_rules": [
+    {
+      "overlay": "sector.public-sector",
+      "family": "social-institutional",
+      "specialization": "remote-publication",
+      "action": "publish",
+      "asset": "artifact",
+      "risk": "provenance-loss"
+    }
+  ],
+  "precedence_rules": [
+    {
+      "stack": "digital.remote-publication + sector.public-sector",
+      "order": [
+        "deny",
+        "review_required",
+        "require_justification",
+        "allow"
+      ],
+      "authority_raise": true
+    }
+  ],
+  "evidence_rules": [
+    {
+      "overlay": "sector.public-sector",
+      "required": [
+        "justification",
+        "audit_trace",
+        "authority_scope"
+      ]
+    },
+    {
+      "overlay": "sector.public-sector",
+      "required": [
+        "justification",
+        "audit_trace",
+        "authority_scope"
+      ]
+    }
+  ],
+  "composition": {
+    "block_refs": [
+      "sector/public-sector/policy/baseline.v1.json",
+      "sector/public-sector/policy/review-escalation.v1.json"
+    ]
+  },
+  "source": {
+    "generator": "tools/gen/build_overlay_descriptors.py",
+    "legacy_manifest_ref": "sector/public-sector/manifest.v1.json"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "kind": "publish.index",
+  "version": "v1",
+  "targets": [
+    {
+      "target": "runtime-spec-surface",
+      "profile": "runtime-consumer.v1",
+      "includes": [
+        "ontology",
+        "compliance",
+        "overlays",
+        "protocol",
+        "registries",
+        "manifests"
+      ],
+      "generated": [
+        "generated/runtime-resolution-view.v1.json",
+        "generated/specs-summary.v1.json"
+      ],
+      "excludes": [
+        "**/*.md",
+        "archive/**"
+      ]
+    },
+    {
+      "target": "schema-validation",
+      "includes": [
+        "schemas"
+      ]
+    }
+  ]
+}

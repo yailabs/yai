@@ -1,0 +1,100 @@
+{
+  "kind": "runtime.entrypoints",
+  "version": "v4",
+  "entrypoints": [
+    {
+      "entrypoint_id": "default-runtime",
+      "governance_manifest_ref": "indexes/runtime/manifest.v1.json",
+      "classification_ref": "taxonomy/maps/classification-map.v1.json",
+      "families_ref": "ontology/families/indexes/catalog-index.v1.json",
+      "families_descriptors_ref": "ontology/families/indexes/descriptors-index.v1.json",
+      "family_matrix_ref": "ontology/families/indexes/matrix-index.v1.json",
+      "specializations_ref": "ontology/specializations/indexes/catalog-index.v1.json",
+      "specializations_descriptors_ref": "ontology/specializations/indexes/descriptors-index.v1.json",
+      "specialization_matrix_ref": "ontology/specializations/indexes/matrix-index.v1.json",
+      "domains_ref": "ontology/domains/indexes/catalog-index.v1.json",
+      "compliance_ref": "indexes/compliance/index.v1.json",
+      "customer_policy_pack_index_ref": "manifests/customers/customer-policy-packs.index.v1.json",
+      "governance_attachability_constraints_ref": "manifests/runtime/attachability-constraints.v1.json",
+      "resolution_order_ref": "indexes/domain/ordering.v1.json",
+      "compliance_resolution_order_ref": "indexes/compliance/ordering.v1.json",
+      "compatibility_ref": "indexes/compatibility/matrix.v1.json",
+      "overlays_ref": {
+        "regulatory": "indexes/packages/regulatory/index.v1.json",
+        "sector": "indexes/packages/sector/index.v1.json",
+        "contextual": "indexes/packages/contextual/index.v1.json"
+      },
+      "legacy_bridge": {
+        "seed_root": "transitional/domain-family-seed/",
+        "enabled": false,
+        "mode": "opt-in-compat-only"
+      },
+      "entry_surface_model": "unified-runtime-family-gated",
+      "attachability_model": "workspace-bound-governance-attachability",
+      "workspace_binding_required": true,
+      "runtime_family_targets": [
+        "core",
+        "exec",
+        "data",
+        "graph",
+        "knowledge"
+      ],
+      "disallowed_subsystem_targets": [
+        "brain",
+        "mind"
+      ],
+      "source_plane_operations": [
+        "enroll",
+        "attach",
+        "emit",
+        "status"
+      ],
+      "source_attachment_governance_ref": "manifests/runtime/attachability-constraints.v1.json#constraints.source_attachment_governance",
+      "source_plane_truth_model": {
+        "owner_runtime_truth": "canonical",
+        "source_plane_role": "subordinate-edge-runtime",
+        "source_evidence_semantics": "candidate-before-owner-resolution",
+        "delegation_authority_model": "owner-issued-scope-limited-revocable",
+        "delegation_non_sovereign": true,
+        "edge_enforcement_model": "delegated-owner-scoped",
+        "edge_enforcement_non_sovereign": true,
+        "edge_enforcement_hold_escalation": "supported_by_contract"
+      },
+      "secure_peering_plane": {
+        "required_for_non_local_networks": true,
+        "recommended_model": "private_overlay_wireguard_or_equivalent",
+        "owner_remote_peer_ingress_required": true,
+        "application_protocol_role": "application-layer-only",
+        "transport_security_role": "separate-secure-peering-layer"
+      },
+      "global_to_edge_policy_hierarchy_ref": "manifests/runtime/attachability-constraints.v1.json#constraints.global_to_edge_policy_hierarchy",
+      "delegated_edge_enforcement_ref": "manifests/runtime/attachability-constraints.v1.json#constraints.delegated_edge_enforcement",
+      "edge_binding_action_point_model_ref": "manifests/runtime/attachability-constraints.v1.json#constraints.edge_binding_action_point_model",
+      "workspace_authority_truth_plane_ref": "manifests/runtime/attachability-constraints.v1.json#constraints.workspace_authority_truth_plane",
+      "workspace_to_edge_policy_distribution_ref": "manifests/runtime/attachability-constraints.v1.json#constraints.workspace_to_edge_policy_distribution",
+      "edge_policy_validity_lifecycle_ref": "manifests/runtime/attachability-constraints.v1.json#constraints.edge_policy_validity_lifecycle",
+      "mesh_sovereign_authority_boundaries_ref": "manifests/runtime/attachability-constraints.v1.json#constraints.mesh_sovereign_authority_boundaries",
+      "owner_remote_peer_ingress_governance_ref": "manifests/runtime/attachability-constraints.v1.json#constraints.owner_remote_peer_ingress_governance",
+      "ai_grounding_governance_ref": "manifests/runtime/attachability-constraints.v1.json#constraints.ai_grounding_governance"
+    }
+  ],
+  "runtime_contract": {
+    "topology_target": "unified-runtime-v1",
+    "binding_model": "workspace-first",
+    "canonical_runtime_families": [
+      "core",
+      "exec",
+      "data",
+      "graph",
+      "knowledge",
+      "governance",
+      "platform",
+      "protocol",
+      "support"
+    ],
+    "legacy_subsystem_aliases": {
+      "brain": "deprecated-non-canonical",
+      "mind": "deprecated-non-canonical"
+    }
+  }
+}

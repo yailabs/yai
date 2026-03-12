@@ -1,0 +1,66 @@
+{
+  "kind": "overlays.matrix.v1",
+  "version": "v1",
+  "entries": [
+    {
+      "overlay_id": "gdpr-eu",
+      "overlay_class": "regulatory",
+      "descriptor_ref": "regulatory/gdpr-eu/descriptor.v1.json"
+    },
+    {
+      "overlay_id": "ai-act",
+      "overlay_class": "regulatory",
+      "descriptor_ref": "regulatory/ai-act/descriptor.v1.json"
+    },
+    {
+      "overlay_id": "retention-governance",
+      "overlay_class": "regulatory",
+      "descriptor_ref": "regulatory/retention-governance/descriptor.v1.json"
+    },
+    {
+      "overlay_id": "security-supply-chain",
+      "overlay_class": "regulatory",
+      "descriptor_ref": "regulatory/security-supply-chain/descriptor.v1.json"
+    },
+    {
+      "overlay_id": "sector.finance",
+      "overlay_class": "sector",
+      "descriptor_ref": "sector/finance/descriptor.v1.json"
+    },
+    {
+      "overlay_id": "sector.healthcare",
+      "overlay_class": "sector",
+      "descriptor_ref": "sector/healthcare/descriptor.v1.json"
+    },
+    {
+      "overlay_id": "sector.public-sector",
+      "overlay_class": "sector",
+      "descriptor_ref": "sector/public-sector/descriptor.v1.json"
+    },
+    {
+      "overlay_id": "sector.manufacturing",
+      "overlay_class": "sector",
+      "descriptor_ref": "sector/manufacturing/descriptor.v1.json"
+    },
+    {
+      "overlay_id": "context.organization",
+      "overlay_class": "contextual",
+      "descriptor_ref": "contextual/organization/descriptor.v1.json"
+    },
+    {
+      "overlay_id": "context.workspace",
+      "overlay_class": "contextual",
+      "descriptor_ref": "contextual/workspace/descriptor.v1.json"
+    },
+    {
+      "overlay_id": "context.session",
+      "overlay_class": "contextual",
+      "descriptor_ref": "contextual/session/descriptor.v1.json"
+    },
+    {
+      "overlay_id": "context.experimental",
+      "overlay_class": "contextual",
+      "descriptor_ref": "contextual/experimental/descriptor.v1.json"
+    }
+  ]
+}

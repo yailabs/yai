@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "topics": [
+    {
+      "entrypoint": "ws",
+      "topics": [
+        {
+          "topic": "core",
+          "ops": [
+            "ws",
+            "ws_apply",
+            "ws_attach",
+            "ws_create",
+            "ws_deny",
+            "ws_destroy",
+            "ws_detach",
+            "ws_enforce",
+            "ws_freeze",
+            "ws_guard",
+            "ws_list",
+            "ws_permit",
+            "ws_ping",
+            "ws_reconcile",
+            "ws_reset",
+            "ws_restore",
+            "ws_snapshot",
+            "ws_status",
+            "ws_thaw",
+            "ws_trace",
+            "ws_validate"
+          ]
+        }
+      ]
+    }
+  ]
+}

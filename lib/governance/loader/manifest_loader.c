@@ -9,15 +9,15 @@ static int yai_governance_read_manifest_surface(const yai_governance_runtime_t *
                                          size_t out_cap) {
   char rel[256];
   if (!name || !out || out_cap == 0) return -1;
-  if (yai_governance_safe_snprintf(rel, sizeof(rel), "manifests/%s", name) != 0) return -1;
+  if (yai_governance_safe_snprintf(rel, sizeof(rel), "%s", name) != 0) return -1;
   return yai_governance_read_governance_surface_file(rt, rel, out, out_cap);
 }
 
 static void yai_governance_canonicalize_governance_ref(char *ref, size_t ref_cap) {
   char tmp[512];
   if (!ref || ref_cap == 0 || ref[0] == '\0') return;
-  if (strncmp(ref, "governance/", 11) == 0) return;
-  if (yai_governance_safe_snprintf(tmp, sizeof(tmp), "governance/%s", ref) != 0) return;
+  if (strncmp(ref, "specs/", 11) == 0) return;
+  if (yai_governance_safe_snprintf(tmp, sizeof(tmp), "specs/%s", ref) != 0) return;
   (void)yai_governance_safe_snprintf(ref, ref_cap, "%s", tmp);
 }
 
@@ -26,8 +26,8 @@ int yai_governance_manifest_load(yai_governance_runtime_t *rt, char *err, size_t
 
   if (!rt) return -1;
 
-  if (yai_governance_read_manifest_surface(rt, "governance.manifest.json", json, sizeof(json)) != 0) {
-    if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "cannot read governance/manifests/governance.manifest.json");
+  if (yai_governance_read_manifest_surface(rt, "manifests/runtime/governance.manifest.v1.json", json, sizeof(json)) != 0) {
+    if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "cannot read specs/manifests/runtime/governance.manifest.v1.json");
     return -1;
   }
 
@@ -40,8 +40,8 @@ int yai_governance_manifest_load(yai_governance_runtime_t *rt, char *err, size_t
   yai_governance_canonicalize_governance_ref(rt->manifest.resolution_entrypoints_ref,
                                       sizeof(rt->manifest.resolution_entrypoints_ref));
 
-  if (yai_governance_read_manifest_surface(rt, "runtime.entrypoints.json", json, sizeof(json)) != 0) {
-    if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "cannot read governance/manifests/runtime.entrypoints.json");
+  if (yai_governance_read_manifest_surface(rt, "manifests/runtime/runtime.entrypoints.v1.json", json, sizeof(json)) != 0) {
+    if (err && err_cap) (void)yai_governance_safe_snprintf(err, err_cap, "cannot read specs/manifests/runtime/runtime.entrypoints.v1.json");
     return -1;
   }
 
@@ -64,11 +64,11 @@ int yai_governance_manifest_load(yai_governance_runtime_t *rt, char *err, size_t
   (void)yai_governance_safe_snprintf(rt->runtime_view.domain_resolution_ref,
                               sizeof(rt->runtime_view.domain_resolution_ref),
                               "%s",
-                              "governance/manifests/domain-resolution-order.json");
+                              "specs/manifests/indexes/domain-resolution-order.json");
   (void)yai_governance_safe_snprintf(rt->runtime_view.compliance_resolution_ref,
                               sizeof(rt->runtime_view.compliance_resolution_ref),
                               "%s",
-                              "governance/manifests/compliance-resolution-order.json");
+                              "specs/manifests/indexes/compliance-resolution-order.json");
 
   return 0;
 }

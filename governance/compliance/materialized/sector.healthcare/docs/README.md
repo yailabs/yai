@@ -1,3 +1,0 @@
-# healthcare docs
-
-Placeholder.

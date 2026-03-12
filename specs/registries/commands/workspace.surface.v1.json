@@ -1,0 +1,266 @@
+{
+  "version": "1.0",
+  "binary": "yai",
+  "commands": [
+    {
+      "id": "yai.core.ws",
+      "name": "ws",
+      "group": "core",
+      "summary": "Workspace lifecycle via core (create/destroy/reset)",
+      "args": [
+        {
+          "name": "action",
+          "pos": 1,
+          "type": "enum",
+          "values": [
+            "create",
+            "destroy",
+            "reset"
+          ],
+          "required": true
+        },
+        {
+          "name": "ws_id",
+          "pos": 2,
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "timeout_ms",
+          "flag": "--timeout-ms",
+          "type": "int",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        },
+        {
+          "name": "role",
+          "flag": "--role",
+          "type": "enum",
+          "values": [
+            "operator",
+            "system"
+          ],
+          "required": false
+        }
+      ],
+      "outputs": [
+        "text",
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session",
+        "remove_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1",
+        "L2"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core",
+        "L2-orchestration"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-006",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "ws",
+      "topic": "core",
+      "op": "ws",
+      "domain": "workspace",
+      "layer": "exec",
+      "canonical_path": "ws core ws",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core ws",
+        "core-ws"
+      ],
+      "command_path_tokens": [
+        "ws",
+        "core",
+        "ws"
+      ]
+    },
+    {
+      "id": "yai.core.ws_list",
+      "name": "ws_list",
+      "group": "core",
+      "summary": "core list operation on ws with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "ws",
+          "flag": "--ws",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "ws",
+      "topic": "core",
+      "op": "ws_list",
+      "domain": "workspace",
+      "layer": "core",
+      "canonical_path": "ws core ws_list",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core ws_list",
+        "core-ws_list"
+      ],
+      "command_path_tokens": [
+        "ws",
+        "core",
+        "ws_list"
+      ]
+    },
+    {
+      "id": "yai.core.ws_status",
+      "name": "ws_status",
+      "group": "core",
+      "summary": "core status operation on ws with deterministic contract and traceable outputs.",
+      "args": [
+        {
+          "name": "ws",
+          "flag": "--ws",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "action",
+          "flag": "--action",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arming",
+          "flag": "--arming",
+          "type": "bool",
+          "required": false,
+          "default": false
+        }
+      ],
+      "outputs": [
+        "json"
+      ],
+      "side_effects": [
+        "rpc_call",
+        "write_session"
+      ],
+      "law_hooks": [
+        "I-001",
+        "I-002",
+        "I-003",
+        "I-006",
+        "L1"
+      ],
+      "law_invariants": [
+        "I-001-traceability",
+        "I-002-determinism",
+        "I-003-governance",
+        "I-006-external-effect-boundary"
+      ],
+      "law_boundaries": [
+        "L1-runtime-core"
+      ],
+      "uses_primitives": [
+        "T-003",
+        "T-007",
+        "S-005",
+        "S-023",
+        "T-012"
+      ],
+      "emits_artifacts": [],
+      "consumes_artifacts": [],
+      "surface": "surface",
+      "stability": "stable",
+      "entrypoint": "ws",
+      "topic": "core",
+      "op": "ws_status",
+      "domain": "workspace",
+      "layer": "core",
+      "canonical_path": "ws core ws_status",
+      "help_order": 1,
+      "hidden": false,
+      "aliases": [
+        "core ws_status",
+        "core-ws_status"
+      ],
+      "command_path_tokens": [
+        "ws",
+        "core",
+        "ws_status"
+      ]
+    }
+  ]
+}

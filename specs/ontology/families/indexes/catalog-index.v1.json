@@ -1,0 +1,88 @@
+{
+  "kind": "families.index",
+  "version": "v1",
+  "families": [
+    {
+      "family_id": "D1",
+      "canonical_name": "digital",
+      "manifest_ref": "ontology/families/manifests/digital.manifest.v1.json",
+      "status": "active-wave-1-pillar",
+      "maturity": "structured",
+      "descriptor_ref": "families/descriptors/digital.descriptor.v1.json",
+      "materialized_manifest_ref": "ontology/families/manifests/digital.manifest.v1.json"
+    },
+    {
+      "family_id": "D2",
+      "canonical_name": "physical",
+      "manifest_ref": "ontology/families/manifests/physical.manifest.v1.json",
+      "status": "active",
+      "maturity": "seed",
+      "descriptor_ref": "families/descriptors/physical.descriptor.v1.json",
+      "materialized_manifest_ref": "ontology/families/manifests/physical.manifest.v1.json"
+    },
+    {
+      "family_id": "D3",
+      "canonical_name": "biological",
+      "manifest_ref": "ontology/families/manifests/biological.manifest.v1.json",
+      "status": "active",
+      "maturity": "seed",
+      "descriptor_ref": "families/descriptors/biological.descriptor.v1.json",
+      "materialized_manifest_ref": "ontology/families/manifests/biological.manifest.v1.json"
+    },
+    {
+      "family_id": "D4",
+      "canonical_name": "social-institutional",
+      "manifest_ref": "ontology/families/manifests/social-institutional.manifest.v1.json",
+      "status": "active",
+      "maturity": "seed",
+      "descriptor_ref": "families/descriptors/social-institutional.descriptor.v1.json",
+      "materialized_manifest_ref": "ontology/families/manifests/social-institutional.manifest.v1.json"
+    },
+    {
+      "family_id": "D5",
+      "canonical_name": "economic",
+      "manifest_ref": "ontology/families/manifests/economic.manifest.v1.json",
+      "status": "active-wave-1",
+      "maturity": "dense",
+      "lead_vertical": "true",
+      "descriptor_ref": "families/descriptors/economic.descriptor.v1.json",
+      "materialized_manifest_ref": "ontology/families/manifests/economic.manifest.v1.json"
+    },
+    {
+      "family_id": "D6",
+      "canonical_name": "operational",
+      "manifest_ref": "ontology/families/manifests/operational.manifest.v1.json",
+      "status": "active",
+      "maturity": "seed",
+      "descriptor_ref": "families/descriptors/operational.descriptor.v1.json",
+      "materialized_manifest_ref": "ontology/families/manifests/operational.manifest.v1.json"
+    },
+    {
+      "family_id": "D7",
+      "canonical_name": "cognitive-cultural",
+      "manifest_ref": "ontology/families/manifests/cognitive-cultural.manifest.v1.json",
+      "status": "active",
+      "maturity": "seed",
+      "descriptor_ref": "families/descriptors/cognitive-cultural.descriptor.v1.json",
+      "materialized_manifest_ref": "ontology/families/manifests/cognitive-cultural.manifest.v1.json"
+    },
+    {
+      "family_id": "D8",
+      "canonical_name": "scientific",
+      "manifest_ref": "ontology/families/manifests/scientific.manifest.v1.json",
+      "status": "active-wave-1-pillar",
+      "maturity": "structured",
+      "descriptor_ref": "families/descriptors/scientific.descriptor.v1.json",
+      "materialized_manifest_ref": "ontology/families/manifests/scientific.manifest.v1.json"
+    },
+    {
+      "family_id": "D9",
+      "canonical_name": "environmental-climatological",
+      "manifest_ref": "ontology/families/manifests/environmental-climatological.manifest.v1.json",
+      "status": "active",
+      "maturity": "seed",
+      "descriptor_ref": "families/descriptors/environmental-climatological.descriptor.v1.json",
+      "materialized_manifest_ref": "ontology/families/manifests/environmental-climatological.manifest.v1.json"
+    }
+  ]
+}

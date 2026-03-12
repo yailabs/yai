@@ -1,0 +1,25 @@
+{
+  "kind": "enterprise-custom-governance.index",
+  "version": "v1",
+  "schema_ref": "schemas/governance/enterprise-custom-governance.v1.schema.json",
+  "objects": [
+    {
+      "object_id": "enterprise.default.workspace.research-sandbox",
+      "manifest_ref": "packages/enterprise/custom-governance/examples/enterprise.default.workspace.research-sandbox.v1.json",
+      "status": "candidate",
+      "review_state": "in_review"
+    },
+    {
+      "object_id": "enterprise.default.workspace.source-attachment-governance",
+      "manifest_ref": "packages/enterprise/custom-governance/examples/enterprise.default.workspace.source-attachment-governance.v1.json",
+      "status": "approved",
+      "review_state": "approved"
+    },
+    {
+      "object_id": "enterprise.ecohmedia.digital-outbound.review-gate",
+      "manifest_ref": "packages/enterprise/custom-governance/examples/enterprise.ecohmedia.digital-outbound.review-gate.v1.json",
+      "status": "approved",
+      "review_state": "approved"
+    }
+  ]
+}

@@ -1,12 +1,12 @@
 #define _POSIX_C_SOURCE 200809L
 
-#include "yai_protocol_ids.h"
+#include <yai/protocol/control/ids.h>
 
-#include "transport.h"
+#include <yai/orchestration/transport.h>
 
 
-#include <yai/orchestration/storage_policy.h>
-#include <yai/orchestration/provider_policy.h>
+#include <yai/orchestration/internal/storage_bridge.h>
+#include <yai/network/providers/policy.h>
 #include "rpc_router.h"
 
 #include "cJSON.h"

@@ -1,3 +1,0 @@
-# public-sector docs
-
-Placeholder.

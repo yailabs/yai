@@ -3,7 +3,7 @@
 # =========================================
 
 ROOT_DIR := $(abspath .)
-PROTOCOL_CONTRACT_ROOT ?= $(ROOT_DIR)/include/yai/protocol/contracts
+PROTOCOL_CONTRACT_ROOT ?= $(ROOT_DIR)/include/yai/protocol
 GOVERNANCE_COMPAT_ROOT ?= $(ROOT_DIR)/governance
 
 BUILD_DIR ?= $(ROOT_DIR)/build
@@ -46,9 +46,9 @@ endif
 
 YAI_OBJ := $(OBJ_DIR)/cmd/yai/main.o
 YAI_BIN := $(BIN_DIR)/yai
-YAI_EDGE_OBJ := $(OBJ_DIR)/cmd/yai-edge/main.o
-YAI_EDGE_BIN := $(BIN_DIR)/yai-edge
-YAI_DAEMON_ALIAS_BIN := $(BIN_DIR)/yai-daemon
+YAI_DAEMON_OBJ := $(OBJ_DIR)/cmd/yai-daemon/main.o
+YAI_DAEMON_BIN := $(BIN_DIR)/yai-daemon
+YAI_EDGE_ALIAS_BIN := $(BIN_DIR)/yai-edge
 
 SUPPORT_SRCS := lib/support/ids.c lib/support/logger.c lib/support/errors.c lib/support/strings.c lib/support/paths.c
 PLATFORM_SRCS := lib/platform/os.c lib/platform/fs.c lib/platform/clock.c lib/platform/uds.c
@@ -56,8 +56,8 @@ PROTOCOL_SRCS := \
 	lib/protocol/rpc/runtime.c \
 	lib/protocol/rpc/codec.c \
 	lib/protocol/binary/rpc_binary.c \
-	lib/protocol/contracts/message_types.c \
-	lib/protocol/contracts/source_plane_contract.c
+	lib/protocol/control/source_plane.c \
+	lib/protocol/control/message_types.c
 CORE_SRCS := \
 	lib/runtime/lifecycle/bootstrap.c \
 	lib/runtime/lifecycle/preboot.c \
@@ -123,15 +123,12 @@ GOVERNANCE_SRCS := \
 ORCHESTRATION_RUNTIME_SRCS := \
 	lib/orchestration/runtime/runtime_control.c \
 	lib/orchestration/runtime/config_loader.c \
-	lib/orchestration/runtime/runtime_model.c \
+	lib/orchestration/internal/orchestration_model.c \
 	lib/orchestration/runtime/grounding_context.c \
-	lib/orchestration/runtime/source_plane_contract.c \
-	lib/orchestration/runtime/peer_registry.c \
+	lib/orchestration/bridge/network_bridge.c \
+	lib/orchestration/runtime/peer_registry_bridge.c \
 	lib/orchestration/runtime/ingestion.c \
-	lib/orchestration/gates/provider_policy.c \
-	lib/orchestration/gates/network_policy.c \
-	lib/orchestration/gates/storage_policy.c \
-	lib/orchestration/gates/resource_policy.c \
+	lib/orchestration/bridge/storage_bridge.c \
 	lib/orchestration/bridge/runtime_bridge.c \
 	lib/orchestration/bridge/transport_client.c \
 	lib/orchestration/bridge/rpc_router.c \
@@ -152,27 +149,34 @@ ORCHESTRATION_SRCS := \
 	lib/orchestration/actions/rag_context_builder.c \
 	lib/orchestration/actions/rag_prompts.c \
 	lib/orchestration/execution/rag_pipeline.c
-MESH_SRCS := \
-	lib/mesh/identity/identity.c \
-	lib/mesh/peer_registry/peer_registry.c \
-	lib/mesh/membership/membership.c \
-	lib/mesh/discovery/discovery.c \
-	lib/mesh/awareness/awareness.c \
-	lib/mesh/coordination/coordination.c \
-	lib/mesh/transport/transport_state.c \
-	lib/mesh/replay/replay_state.c \
-	lib/mesh/conflict/conflict_state.c \
-	lib/mesh/containment/containment_state.c \
-	lib/mesh/enrollment/enrollment_state.c
+NETWORK_SRCS := \
+	lib/network/authority/identity.c \
+	lib/network/topology/topology.c \
+	lib/network/topology/membership.c \
+	lib/network/topology/peer_registry.c \
+	lib/network/authority/trust.c \
+	lib/network/topology/authority_binding.c \
+	lib/network/discovery/discovery.c \
+	lib/network/discovery/enrollment.c \
+	lib/network/routing/coordination.c \
+	lib/network/topologies/mesh/mesh_topology.c \
+	lib/network/topologies/mesh/mesh_peering.c \
+	lib/network/authority/containment_state.c \
+	lib/network/transport/transport_runtime.c \
+	lib/network/transport/transport_client.c \
+	lib/network/transport/overlay_transport.c \
+	lib/network/routing/replay_state.c \
+	lib/network/routing/conflict_state.c \
+	lib/network/topologies/mesh/mesh_policy.c
 PROVIDERS_SRCS := \
-	lib/providers/registry/catalog.c \
-	lib/providers/registry/provider_registry.c \
-	lib/providers/policy/provider_policy.c \
-	lib/providers/selection/provider_selection.c \
-	lib/providers/inference/client_inference.c \
-	lib/providers/embedding/client_embedding.c \
-	lib/providers/mocks/mock_provider.c \
-	lib/providers/embedding/embedder_mock.c
+	lib/network/providers/catalog.c \
+	lib/network/providers/provider_registry.c \
+	lib/network/providers/provider_selection.c \
+	lib/network/providers/provider_policy.c \
+	lib/network/providers/inference/client_inference.c \
+	lib/network/providers/embedding/client_embedding.c \
+	lib/network/providers/mocks/mock_provider.c \
+	lib/network/providers/embedding/embedder_mock.c
 KNOWLEDGE_SRCS := \
 	lib/knowledge/runtime_compat.c \
 	lib/knowledge/cognition/cognition.c \
@@ -209,19 +213,23 @@ GRAPH_SRCS := \
 	lib/graph/domains/semantic.c \
 	lib/graph/materialization/from_runtime_records.c \
 	lib/graph/query/workspace_summary.c
-EDGE_SRCS := \
-	lib/edge/config.c \
-	lib/edge/paths.c \
-	lib/edge/runtime.c \
-	lib/edge/state.c \
-	lib/edge/services.c \
-	lib/edge/binding.c \
-	lib/edge/actions.c \
-	lib/edge/local.c \
-	lib/edge/lifecycle.c \
-	lib/edge/internal.c \
-	lib/edge/source_plane.c \
-	lib/edge/ids.c \
+DAEMON_SRCS := \
+	lib/runtime/local/config.c \
+	lib/runtime/local/paths.c \
+	lib/runtime/local/services.c \
+	lib/runtime/local/state.c \
+	lib/runtime/local/source_ids.c \
+	lib/daemon/config.c \
+	lib/daemon/daemon.c \
+	lib/daemon/process.c \
+	lib/daemon/bootstrap.c \
+	lib/daemon/runtime_binding.c \
+	lib/daemon/network_binding.c \
+	lib/daemon/actions.c \
+	lib/daemon/lifecycle.c \
+	lib/daemon/mediation.c \
+	lib/daemon/observation.c \
+	lib/daemon/internal.c \
 	lib/third_party/cjson/cJSON.c
 
 SUPPORT_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SUPPORT_SRCS))
@@ -229,24 +237,24 @@ PLATFORM_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PLATFORM_SRCS))
 PROTOCOL_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PROTOCOL_SRCS))
 CORE_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(CORE_SRCS) $(GOVERNANCE_SRCS))
 ORCHESTRATION_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(ORCHESTRATION_RUNTIME_SRCS) $(ORCHESTRATION_SRCS))
-MESH_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(MESH_SRCS))
+NETWORK_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(NETWORK_SRCS))
 PROVIDERS_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(PROVIDERS_SRCS))
 KNOWLEDGE_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(KNOWLEDGE_SRCS))
 DATA_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(DATA_SRCS))
 GRAPH_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(GRAPH_SRCS))
-EDGE_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(EDGE_SRCS))
+DAEMON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(DAEMON_SRCS))
 
 SUPPORT_LIB := $(LIB_DIR)/libyai_support.a
 PLATFORM_LIB := $(LIB_DIR)/libyai_platform.a
 PROTOCOL_LIB := $(LIB_DIR)/libyai_protocol.a
 CORE_LIB := $(LIB_DIR)/libyai_core.a
 ORCHESTRATION_LIB := $(LIB_DIR)/libyai_orchestration.a
-MESH_LIB := $(LIB_DIR)/libyai_mesh.a
+NETWORK_LIB := $(LIB_DIR)/libyai_network.a
 PROVIDERS_LIB := $(LIB_DIR)/libyai_providers.a
 KNOWLEDGE_LIB := $(LIB_DIR)/libyai_knowledge.a
 DATA_LIB := $(LIB_DIR)/libyai_data.a
 GRAPH_LIB := $(LIB_DIR)/libyai_graph.a
-EDGE_LIB := $(LIB_DIR)/libyai_edge.a
+DAEMON_LIB := $(LIB_DIR)/libyai_daemon.a
 
 SPINE_DIRS := $(BIN_DIR) $(OBJ_DIR) $(LIB_DIR) $(TEST_DIR)
 
@@ -254,35 +262,37 @@ DOXYFILE := Doxyfile
 DOXYGEN ?= doxygen
 DOXY_OUT ?= $(DIST_ROOT)/docs/doxygen
 
-.PHONY: all yai yai-edge yai-daemon foundations support platform protocol core orchestration exec mesh providers knowledge data graph edge daemon yd1-baseline \
-        test test-unit test-integration test-e2e test-core test-runtime test-knowledge test-orchestration test-protocol test-governance test-providers test-edge test-mesh \
+.PHONY: all yai yai-daemon yai-edge foundations support platform protocol core orchestration exec network mesh providers knowledge data graph edge daemon yd1-baseline \
+        test test-unit test-integration test-e2e test-core test-runtime test-knowledge test-orchestration test-protocol test-governance test-providers test-daemon test-edge test-mesh \
         test-demo-matrix verify-final-demo-matrix \
         clean clean-dist clean-all build build-all dist dist-all bundle verify \
         preflight-release docs docs-clean docs-verify proof-verify release-guards \
         release-guards-dev changelog-verify b13-convergence-check dirs help legacy-build \
         governance-sync governance-check
 
-all: yai yai-edge foundations
-	@echo "[YAI] unified binary spine ready: $(YAI_BIN) + $(YAI_EDGE_BIN)"
+all: yai yai-daemon foundations
+	@echo "[YAI] unified binary spine ready: $(YAI_BIN) + $(YAI_DAEMON_BIN)"
 
 yai: $(YAI_BIN)
-yai-edge: $(YAI_EDGE_BIN)
-yai-daemon: yai-edge
-	@cp "$(YAI_EDGE_BIN)" "$(YAI_DAEMON_ALIAS_BIN)"
+yai-daemon: $(YAI_DAEMON_BIN)
+yai-edge: yai-daemon
+	@cp "$(YAI_DAEMON_BIN)" "$(YAI_EDGE_ALIAS_BIN)"
 
-foundations: support platform protocol mesh providers
+foundations: support platform protocol network providers
 core: $(CORE_LIB)
 orchestration: $(ORCHESTRATION_LIB)
 exec: orchestration
 	@echo "[YAI] exec target is legacy alias; use 'make orchestration'"
 providers: $(PROVIDERS_LIB)
-mesh: $(MESH_LIB)
+network: $(NETWORK_LIB)
+mesh: network
+	@echo "[YAI] mesh target is legacy alias; use 'make network'"
 knowledge: $(KNOWLEDGE_LIB)
 data: $(DATA_LIB)
 graph: $(GRAPH_LIB)
-edge: $(EDGE_LIB)
-daemon: edge
-	@echo "[YAI] daemon target is legacy alias; use 'make edge'"
+daemon: $(DAEMON_LIB)
+edge: daemon
+	@echo "[YAI] edge target is legacy alias; use 'make daemon'"
 
 support: $(SUPPORT_LIB)
 platform: $(PLATFORM_LIB)
@@ -291,7 +301,7 @@ protocol: $(PROTOCOL_LIB)
 test: test-unit test-integration test-e2e
 	@echo "[YAI] unified test baseline complete"
 
-test-unit: test-core test-runtime test-orchestration test-protocol test-knowledge test-governance test-providers test-edge test-mesh
+test-unit: test-core test-runtime test-orchestration test-protocol test-knowledge test-governance test-providers test-daemon test-mesh
 	@echo "[YAI] unit suites complete"
 
 test-integration:
@@ -299,8 +309,8 @@ test-integration:
 	@tests/integration/orchestration/run_orchestration_smoke.sh
 	@tests/integration/orchestration/run_orchestration_c_tests.sh
 	@tests/integration/runtime/run_runtime_state_smoke.sh
-	@tests/integration/edge/run_edge_smoke.sh
-	@tests/integration/mesh/run_mesh_smoke.sh
+	@tests/integration/daemon/run_daemon_smoke.sh
+	@tests/integration/network/mesh/run_mesh_smoke.sh
 	@tests/integration/workspace/workspace_runtime_contract.sh
 	@tests/integration/workspace/workspace_session_binding_contract.sh
 	@tests/integration/workspace/workspace_inspect_surfaces.sh
@@ -312,7 +322,7 @@ test-integration:
 	@tests/integration/workspace/workspace_governed_vertical_slice.sh
 	@tests/integration/workspace/workspace_negative_paths.sh
 	@tests/integration/source-plane/source_owner_ingest_bridge.sh
-	@tests/integration/source-plane/edge_local_runtime_scan_spool_retry.sh
+	@tests/integration/source-plane/daemon_local_runtime_scan_spool_retry.sh
 	@tests/integration/source-plane/source_plane_read_model.sh
 	@tests/integration/runtime/run_runtime_handshake_smoke.sh
 	@echo "[YAI] integration suites complete"
@@ -349,19 +359,22 @@ test-governance:
 	@echo "[YAI] governance-native resolution suites complete"
 
 test-providers:
-	@tests/unit/providers/run_providers_unit_tests.sh
+	@tests/unit/network/providers/run_providers_unit_tests.sh
 
-test-edge:
-	@tests/unit/edge/run_edge_unit_tests.sh
+test-daemon:
+	@tests/unit/daemon/run_daemon_unit_tests.sh
+
+test-edge: test-daemon
+	@echo "[YAI] edge test target is legacy alias; use test-daemon"
 
 test-mesh:
-	@tests/unit/mesh/run_mesh_unit_tests.sh
+	@tests/unit/network/mesh/run_mesh_unit_tests.sh
 
-$(YAI_BIN): $(YAI_OBJ) $(CORE_LIB) $(ORCHESTRATION_LIB) $(KNOWLEDGE_LIB) $(PROVIDERS_LIB) $(DATA_LIB) $(GRAPH_LIB) $(EDGE_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) | dirs
-	$(CC) $(LDFLAGS) $(YAI_OBJ) -o $@ $(CORE_LIB) $(ORCHESTRATION_LIB) $(KNOWLEDGE_LIB) $(PROVIDERS_LIB) $(DATA_LIB) $(GRAPH_LIB) $(EDGE_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) $(LDLIBS)
+$(YAI_BIN): $(YAI_OBJ) $(CORE_LIB) $(ORCHESTRATION_LIB) $(KNOWLEDGE_LIB) $(PROVIDERS_LIB) $(DATA_LIB) $(GRAPH_LIB) $(NETWORK_LIB) $(DAEMON_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) | dirs
+	$(CC) $(LDFLAGS) $(YAI_OBJ) -o $@ $(CORE_LIB) $(ORCHESTRATION_LIB) $(KNOWLEDGE_LIB) $(PROVIDERS_LIB) $(DATA_LIB) $(GRAPH_LIB) $(NETWORK_LIB) $(DAEMON_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(PROTOCOL_LIB) $(LDLIBS)
 
-$(YAI_EDGE_BIN): $(YAI_EDGE_OBJ) $(EDGE_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) | dirs
-	$(CC) $(LDFLAGS) $(YAI_EDGE_OBJ) -o $@ $(EDGE_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(LDLIBS)
+$(YAI_DAEMON_BIN): $(YAI_DAEMON_OBJ) $(DAEMON_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) | dirs
+	$(CC) $(LDFLAGS) $(YAI_DAEMON_OBJ) -o $@ $(DAEMON_LIB) $(SUPPORT_LIB) $(PLATFORM_LIB) $(LDLIBS)
 
 $(SUPPORT_LIB): $(SUPPORT_OBJS) | dirs
 	ar rcs $@ $^
@@ -378,7 +391,7 @@ $(CORE_LIB): $(CORE_OBJS) | dirs
 $(ORCHESTRATION_LIB): $(ORCHESTRATION_OBJS) | dirs
 	ar rcs $@ $^
 
-$(MESH_LIB): $(MESH_OBJS) | dirs
+$(NETWORK_LIB): $(NETWORK_OBJS) | dirs
 	ar rcs $@ $^
 
 $(PROVIDERS_LIB): $(PROVIDERS_OBJS) | dirs
@@ -393,7 +406,7 @@ $(DATA_LIB): $(DATA_OBJS) | dirs
 $(GRAPH_LIB): $(GRAPH_OBJS) | dirs
 	ar rcs $@ $^
 
-$(EDGE_LIB): $(EDGE_OBJS) | dirs
+$(DAEMON_LIB): $(DAEMON_OBJS) | dirs
 	ar rcs $@ $^
 
 $(OBJ_DIR)/%.o: %.c | dirs
@@ -403,13 +416,13 @@ $(OBJ_DIR)/%.o: %.c | dirs
 dirs:
 	@mkdir -p $(SPINE_DIRS)
 
-build: yai yai-edge
-	@echo "--- [YAI] primary entrypoints build complete (yai + yai-edge) ---"
+build: yai yai-daemon
+	@echo "--- [YAI] primary entrypoints build complete (yai + yai-daemon) ---"
 
-yd1-baseline: yai yai-edge
+yd1-baseline: yai yai-daemon
 	@echo "[YD-1] edge architecture refoundation baseline built"
 	@echo "  owner runtime: build/bin/yai"
-	@echo "  edge/source runtime: build/bin/yai-edge"
+	@echo "  daemon runtime: build/bin/yai-daemon"
 	@echo "  refs:"
 	@echo "    docs/architecture/daemon-architecture-refoundation-model.md"
 	@echo "    docs/program/adr/ADR-015-daemon-architecture-refoundation-slice.md"
@@ -418,12 +431,12 @@ legacy-build:
 	@echo "--- [YAI] legacy-build removed: legacy top-level planes were decommissioned ---"
 
 build-all: build
-	@echo "--- [YAI] build-all complete (owner + edge baseline topology) ---"
+	@echo "--- [YAI] build-all complete (owner + daemon baseline topology) ---"
 
 dist: build
 	@mkdir -p $(BIN_DIST)
 	@cp "$(YAI_BIN)" "$(BIN_DIST)/yai"
-	@if [ -f "$(YAI_EDGE_BIN)" ]; then cp "$(YAI_EDGE_BIN)" "$(BIN_DIST)/yai-edge"; cp "$(YAI_EDGE_BIN)" "$(BIN_DIST)/yai-daemon"; fi
+	@if [ -f "$(YAI_DAEMON_BIN)" ]; then cp "$(YAI_DAEMON_BIN)" "$(BIN_DIST)/yai-daemon"; cp "$(YAI_DAEMON_BIN)" "$(BIN_DIST)/yai-edge"; fi
 	@echo "--- [YAI] dist staged in $(BIN_DIST) ---"
 
 dist-all: dist
@@ -488,12 +501,13 @@ clean-all: clean clean-dist
 
 help:
 	@echo "Primary build targets:"
-	@echo "  all            (yai + yai-edge + foundation libs)"
+	@echo "  all            (yai + yai-daemon + foundation libs)"
 	@echo "  yai            (build/bin/yai)"
-	@echo "  yai-edge       (build/bin/yai-edge standalone edge/source runtime)"
-	@echo "  yai-daemon     (legacy alias of build/bin/yai-edge)"
+	@echo "  yai-daemon     (build/bin/yai-daemon standalone daemon runtime)"
+	@echo "  yai-edge       (legacy alias of build/bin/yai-daemon)"
 	@echo "  yd1-baseline   (build anchors + YD-1 architecture refs)"
-	@echo "  daemon         (legacy alias; use edge)"
+	@echo "  daemon         (build daemon runtime archive)"
+	@echo "  edge           (legacy alias; use daemon)"
 	@echo "  orchestration  (build orchestration control archive)"
 	@echo "  exec           (legacy alias; use orchestration)"
 	@echo "  foundations    (support/platform/protocol/providers archives)"

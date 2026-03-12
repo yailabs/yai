@@ -1,0 +1,50 @@
+{
+  "kind": "control_family_manifest",
+  "version": "v3",
+  "family_id": "D5",
+  "internal_id": "D5",
+  "canonical_name": "economic",
+  "display_name": "Economic",
+  "slug": "economic",
+  "status": "active",
+  "classification_ref": "taxonomy/maps/classification-map.v1.json",
+  "specializations_ref": "specializations/indexes/specializations.index.json",
+  "overlay_refs": {
+    "regulatory": "packages/regulatory/indexes/regulatory.index.json",
+    "sector": "packages/sector/indexes/sector.index.json",
+    "contextual": "packages/contextual/indexes/contextual.index.json"
+  },
+  "authority_profile": {
+    "default_required_scope": "controller",
+    "dual_control_thresholds": [
+      "high-value-transfer",
+      "settlement-finalization",
+      "treasury-release"
+    ],
+    "self_approval_forbidden": true
+  },
+  "evidence_profile": {
+    "requires_approval_chain": true,
+    "requires_provenance": true,
+    "requires_rule_hits": true,
+    "retention_hint": "extended"
+  },
+  "risk_focus": [
+    "financial-fraud",
+    "unauthorized-value-movement",
+    "settlement-mismatch",
+    "accounting-integrity-loss"
+  ],
+  "legacy_seed_ref": "transitional/domain-family-seed/D5-economic",
+  "specializations": [
+    "payments",
+    "transfers",
+    "settlements",
+    "treasury",
+    "invoicing",
+    "accounting-integrity",
+    "pricing-and-quoting",
+    "credit-exposure",
+    "fraud-risk-controls"
+  ]
+}

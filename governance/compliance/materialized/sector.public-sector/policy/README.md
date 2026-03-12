@@ -1,3 +1,0 @@
-# public-sector policy
-
-Placeholder.

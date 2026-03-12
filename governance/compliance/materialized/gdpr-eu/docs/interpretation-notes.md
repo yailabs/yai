@@ -1,3 +1,0 @@
-# Interpretation Notes
-
-Placeholder.

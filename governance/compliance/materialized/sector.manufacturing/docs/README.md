@@ -1,3 +1,0 @@
-# manufacturing docs
-
-Placeholder.

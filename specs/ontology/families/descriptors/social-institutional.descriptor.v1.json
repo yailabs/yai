@@ -1,0 +1,58 @@
+{
+  "kind": "control_family_descriptor.v1",
+  "version": "v1",
+  "family_id": "D4",
+  "canonical_name": "social-institutional",
+  "display_name": "Social-Institutional",
+  "slug": "social-institutional",
+  "internal_id": "D4",
+  "legacy_label": "D4-social-institutional",
+  "status": "active",
+  "maturity": "seed",
+  "classification_ref": "taxonomy/maps/classification-map.v1.json",
+  "specializations_ref": "ontology/specializations/indexes/catalog-index.v1.json",
+  "materialized_manifest_ref": "ontology/families/manifests/social-institutional.manifest.v1.json",
+  "hierarchy": {
+    "parent": "",
+    "specializations": [
+      "procedural-authorization",
+      "policy-adherence",
+      "institutional-escalation"
+    ]
+  },
+  "resolution": {
+    "default_specialization": "procedural-authorization",
+    "overlay_refs": {
+      "regulatory": "indexes/packages/regulatory/index.v1.json",
+      "sector": "indexes/packages/sector/index.v1.json",
+      "contextual": "packages/contextual/index/contextual.index.json"
+    },
+    "authority_profile": {},
+    "evidence_profile": {}
+  },
+  "applicability": {
+    "domains": [
+      "social-institutional"
+    ],
+    "risk_focus": [],
+    "lead_vertical": false
+  },
+  "hooks": {
+    "policy_composition": {
+      "specializations": [
+        "procedural-authorization",
+        "policy-adherence",
+        "institutional-escalation"
+      ],
+      "legacy_seed_ref": "transitional/domain-family-seed/D4-social-institutional"
+    },
+    "evidence": {
+      "requires_policy_match_trace": false,
+      "retention_hint": "standard"
+    }
+  },
+  "source": {
+    "materialized_manifest_ref": "ontology/families/manifests/social-institutional.manifest.v1.json",
+    "generator": "tools/gen/build_control_family_descriptors.py"
+  }
+}

@@ -1,9 +1,0 @@
-{
-  "kind": "overlay_precedence_matrix",
-  "version": "v1",
-  "precedence": [
-    {"stack":"payments+sector.finance+retention-governance","order":["deny","quarantine","review_required","allow"],"authority_raise":true},
-    {"stack":"remote-publication+gdpr-eu","order":["deny","review_required","allow"],"authority_raise":true},
-    {"stack":"parameter-governance+ai-act","order":["deny","review_required","require_justification","allow"],"authority_raise":true}
-  ]
-}

@@ -1,0 +1,58 @@
+{
+  "kind": "control_family_descriptor.v1",
+  "version": "v1",
+  "family_id": "D3",
+  "canonical_name": "biological",
+  "display_name": "Biological",
+  "slug": "biological",
+  "internal_id": "D3",
+  "legacy_label": "D3-biological",
+  "status": "active",
+  "maturity": "seed",
+  "classification_ref": "taxonomy/maps/classification-map.v1.json",
+  "specializations_ref": "ontology/specializations/indexes/catalog-index.v1.json",
+  "materialized_manifest_ref": "ontology/families/manifests/biological.manifest.v1.json",
+  "hierarchy": {
+    "parent": "",
+    "specializations": [
+      "chain-of-custody",
+      "sample-handling",
+      "bio-risk-gating"
+    ]
+  },
+  "resolution": {
+    "default_specialization": "chain-of-custody",
+    "overlay_refs": {
+      "regulatory": "indexes/packages/regulatory/index.v1.json",
+      "sector": "indexes/packages/sector/index.v1.json",
+      "contextual": "packages/contextual/index/contextual.index.json"
+    },
+    "authority_profile": {},
+    "evidence_profile": {}
+  },
+  "applicability": {
+    "domains": [
+      "biological"
+    ],
+    "risk_focus": [],
+    "lead_vertical": false
+  },
+  "hooks": {
+    "policy_composition": {
+      "specializations": [
+        "chain-of-custody",
+        "sample-handling",
+        "bio-risk-gating"
+      ],
+      "legacy_seed_ref": "transitional/domain-family-seed/D3-biological"
+    },
+    "evidence": {
+      "requires_policy_match_trace": false,
+      "retention_hint": "standard"
+    }
+  },
+  "source": {
+    "materialized_manifest_ref": "ontology/families/manifests/biological.manifest.v1.json",
+    "generator": "tools/gen/build_control_family_descriptors.py"
+  }
+}

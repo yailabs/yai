@@ -1,0 +1,24 @@
+{
+  "kind": "overlay_descriptor.v1",
+  "version": "v1",
+  "overlay_id": "sector.manufacturing",
+  "overlay_class": "sector",
+  "status": "seed",
+  "runtime": {
+    "manifest_ref": "sector/manufacturing/manifest.v1.json",
+    "materialized_bundle_ref": "sector/manufacturing",
+    "attachment_count": 0,
+    "precedence_count": 0,
+    "evidence_count": 0
+  },
+  "attachment_rules": [],
+  "precedence_rules": [],
+  "evidence_rules": [],
+  "composition": {
+    "block_refs": []
+  },
+  "source": {
+    "generator": "tools/gen/build_overlay_descriptors.py",
+    "legacy_manifest_ref": "sector/manufacturing/manifest.v1.json"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "kind": "control_family_descriptor.v1",
+  "version": "v1",
+  "family_id": "D6",
+  "canonical_name": "operational",
+  "display_name": "Operational",
+  "slug": "operational",
+  "internal_id": "D6",
+  "legacy_label": "D6-operational",
+  "status": "active",
+  "maturity": "seed",
+  "classification_ref": "taxonomy/maps/classification-map.v1.json",
+  "specializations_ref": "ontology/specializations/indexes/catalog-index.v1.json",
+  "materialized_manifest_ref": "ontology/families/manifests/operational.manifest.v1.json",
+  "hierarchy": {
+    "parent": "",
+    "specializations": [
+      "incident-response",
+      "change-control",
+      "runbook-execution"
+    ]
+  },
+  "resolution": {
+    "default_specialization": "incident-response",
+    "overlay_refs": {
+      "regulatory": "indexes/packages/regulatory/index.v1.json",
+      "sector": "indexes/packages/sector/index.v1.json",
+      "contextual": "packages/contextual/index/contextual.index.json"
+    },
+    "authority_profile": {},
+    "evidence_profile": {}
+  },
+  "applicability": {
+    "domains": [
+      "operational"
+    ],
+    "risk_focus": [],
+    "lead_vertical": false
+  },
+  "hooks": {
+    "policy_composition": {
+      "specializations": [
+        "incident-response",
+        "change-control",
+        "runbook-execution"
+      ],
+      "legacy_seed_ref": "transitional/domain-family-seed/D6-operational"
+    },
+    "evidence": {
+      "requires_policy_match_trace": false,
+      "retention_hint": "standard"
+    }
+  },
+  "source": {
+    "materialized_manifest_ref": "ontology/families/manifests/operational.manifest.v1.json",
+    "generator": "tools/gen/build_control_family_descriptors.py"
+  }
+}

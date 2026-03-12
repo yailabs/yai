@@ -1,0 +1,51 @@
+{
+  "kind": "compliance.descriptors.index",
+  "version": "v1",
+  "entries": [
+    {
+      "compliance_id": "gdpr-eu",
+      "canonical_name": "gdpr-eu",
+      "descriptor_ref": "regulatory/gdpr-eu/descriptor.v1.json",
+      "materialized_manifest_ref": "regulatory/gdpr-eu/manifest.v1.json",
+      "materialized_bundle_ref": "regulatory/gdpr-eu",
+      "status": "active",
+      "regime_class": "core-compliance"
+    },
+    {
+      "compliance_id": "ai-act",
+      "canonical_name": "ai-act",
+      "descriptor_ref": "regulatory/ai-act/descriptor.v1.json",
+      "materialized_manifest_ref": "regulatory/ai-act/manifest.v1.json",
+      "materialized_bundle_ref": "regulatory/ai-act",
+      "status": "active",
+      "regime_class": "cross-domain-compliance"
+    },
+    {
+      "compliance_id": "retention-governance",
+      "canonical_name": "retention-governance",
+      "descriptor_ref": "regulatory/retention-governance/descriptor.v1.json",
+      "materialized_manifest_ref": "regulatory/retention-governance/manifest.v1.json",
+      "materialized_bundle_ref": "regulatory/retention-governance",
+      "status": "active",
+      "regime_class": "retention-overlay"
+    },
+    {
+      "compliance_id": "security-supply-chain",
+      "canonical_name": "security-supply-chain",
+      "descriptor_ref": "regulatory/security-supply-chain/descriptor.v1.json",
+      "materialized_manifest_ref": "regulatory/security-supply-chain/manifest.v1.json",
+      "materialized_bundle_ref": "regulatory/security-supply-chain",
+      "status": "active",
+      "regime_class": "cross-domain-compliance"
+    },
+    {
+      "compliance_id": "sector.finance",
+      "canonical_name": "sector.finance",
+      "descriptor_ref": "sector/finance/descriptor.v1.json",
+      "materialized_manifest_ref": "sector/finance/manifest.v1.json",
+      "materialized_bundle_ref": "sector/finance",
+      "status": "active-planned",
+      "regime_class": "sector-overlay"
+    }
+  ]
+}

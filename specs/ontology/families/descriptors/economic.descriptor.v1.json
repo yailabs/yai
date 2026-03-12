@@ -1,0 +1,88 @@
+{
+  "kind": "control_family_descriptor.v1",
+  "version": "v1",
+  "family_id": "D5",
+  "canonical_name": "economic",
+  "display_name": "Economic",
+  "slug": "economic",
+  "internal_id": "D5",
+  "legacy_label": "D5-economic",
+  "status": "active-wave-1",
+  "maturity": "dense",
+  "classification_ref": "taxonomy/maps/classification-map.v1.json",
+  "specializations_ref": "ontology/specializations/indexes/catalog-index.v1.json",
+  "materialized_manifest_ref": "ontology/families/manifests/economic.manifest.v1.json",
+  "hierarchy": {
+    "parent": "",
+    "specializations": [
+      "payments",
+      "transfers",
+      "settlements",
+      "treasury",
+      "invoicing",
+      "accounting-integrity",
+      "pricing-and-quoting",
+      "credit-exposure",
+      "fraud-risk-controls"
+    ]
+  },
+  "resolution": {
+    "default_specialization": "payments",
+    "overlay_refs": {
+      "regulatory": "indexes/packages/regulatory/index.v1.json",
+      "sector": "indexes/packages/sector/index.v1.json",
+      "contextual": "packages/contextual/index/contextual.index.json"
+    },
+    "authority_profile": {
+      "default_required_scope": "controller",
+      "dual_control_thresholds": [
+        "high-value-transfer",
+        "settlement-finalization",
+        "treasury-release"
+      ],
+      "self_approval_forbidden": true
+    },
+    "evidence_profile": {
+      "requires_approval_chain": true,
+      "requires_provenance": true,
+      "requires_rule_hits": true,
+      "retention_hint": "extended"
+    }
+  },
+  "applicability": {
+    "domains": [
+      "economic"
+    ],
+    "risk_focus": [
+      "financial-fraud",
+      "unauthorized-value-movement",
+      "settlement-mismatch",
+      "accounting-integrity-loss"
+    ],
+    "lead_vertical": true
+  },
+  "hooks": {
+    "policy_composition": {
+      "specializations": [
+        "payments",
+        "transfers",
+        "settlements",
+        "treasury",
+        "invoicing",
+        "accounting-integrity",
+        "pricing-and-quoting",
+        "credit-exposure",
+        "fraud-risk-controls"
+      ],
+      "legacy_seed_ref": "transitional/domain-family-seed/D5-economic"
+    },
+    "evidence": {
+      "requires_policy_match_trace": false,
+      "retention_hint": "extended"
+    }
+  },
+  "source": {
+    "materialized_manifest_ref": "ontology/families/manifests/economic.manifest.v1.json",
+    "generator": "tools/gen/build_control_family_descriptors.py"
+  }
+}

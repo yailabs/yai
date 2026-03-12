@@ -6,7 +6,7 @@
 #include <yai/graph/query.h>
 #include <yai/graph/summary.h>
 #include <yai/graph/domains.h>
-#include <yai/edge/source_plane.h>
+#include <yai/protocol/control/source_plane.h>
 
 #include <stdio.h>
 #include <string.h>

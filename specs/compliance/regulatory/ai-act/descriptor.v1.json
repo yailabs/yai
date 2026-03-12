@@ -1,0 +1,62 @@
+{
+  "kind": "overlay_descriptor.v1",
+  "version": "v1",
+  "overlay_id": "ai-act",
+  "overlay_class": "regulatory",
+  "status": "active",
+  "runtime": {
+    "manifest_ref": "regulatory/ai-act/manifest.v1.json",
+    "materialized_bundle_ref": "regulatory/ai-act",
+    "attachment_count": 1,
+    "precedence_count": 1,
+    "evidence_count": 1
+  },
+  "attachment_rules": [
+    {
+      "overlay": "ai-act",
+      "family": "scientific",
+      "specialization": "parameter-governance",
+      "action": "parameter-modify",
+      "asset": "experiment-config",
+      "risk": "unsafe-autonomy"
+    }
+  ],
+  "precedence_rules": [
+    {
+      "stack": "parameter-governance+ai-act",
+      "order": [
+        "deny",
+        "review_required",
+        "require_justification",
+        "allow"
+      ],
+      "authority_raise": true
+    }
+  ],
+  "evidence_rules": [
+    {
+      "overlay": "ai-act",
+      "required": [
+        "model_context",
+        "oversight_actor",
+        "review_trace"
+      ]
+    }
+  ],
+  "composition": {
+    "block_refs": [
+      "regulatory/ai-act/policy/baseline.v1.json",
+      "regulatory/ai-act/policy/evidence-obligations.v1.json",
+      "regulatory/ai-act/policy/high-risk-review.v1.json",
+      "regulatory/ai-act/policy/human-oversight.v1.json",
+      "regulatory/ai-act/policy/prohibited-use.v1.json",
+      "regulatory/ai-act/mappings/actions.v1.json",
+      "regulatory/ai-act/mappings/authority.crosswalk.v1.json",
+      "regulatory/ai-act/mappings/domains.v1.json"
+    ]
+  },
+  "source": {
+    "generator": "tools/gen/build_overlay_descriptors.py",
+    "legacy_manifest_ref": "regulatory/ai-act/manifest.v1.json"
+  }
+}

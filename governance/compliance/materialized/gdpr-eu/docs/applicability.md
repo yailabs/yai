@@ -1,3 +1,0 @@
-# Applicability
-
-Placeholder.

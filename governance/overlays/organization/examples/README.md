@@ -1,3 +1,0 @@
-# organization examples
-
-Placeholder.

@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #include <yai/orchestration/runtime.h>
-#include <yai/orchestration/provider_policy.h>
+#include <yai/network/providers/policy.h>
 
 /* Usiamo il nome nudo perché il Makefile ha -I./src/external */
 #include "cJSON.h" 

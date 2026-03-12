@@ -1,0 +1,20 @@
+{
+  "kind": "compliance_descriptor.v1",
+  "version": "v1",
+  "compliance_id": "<compliance-id>",
+  "canonical_name": "<compliance-id>",
+  "display_name": "<display-name>",
+  "regime_class": "core-compliance",
+  "status": "active",
+  "runtime": {
+    "manifest_ref": "regulatory/<policy-id>/manifest.v1.json",
+    "materialized_bundle_ref": "regulatory/<policy-id>",
+    "attachment_levels": []
+  },
+  "composition": {
+    "policy_refs": [],
+    "mapping_refs": [],
+    "taxonomy_refs": [],
+    "retention_refs": []
+  }
+}

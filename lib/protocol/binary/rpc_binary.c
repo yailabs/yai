@@ -1,5 +1,5 @@
 #include <yai/protocol/binary/rpc_binary.h>
-#include <yai/protocol/contracts/message_types.h>
+#include <yai/protocol/message_types.h>
 
 int yai_rpc_binary_validate_envelope(const yai_rpc_binary_frame_t *frame) {
   if (!frame) {

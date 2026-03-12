@@ -1,0 +1,63 @@
+{
+  "kind": "overlay_descriptor.v1",
+  "version": "v1",
+  "overlay_id": "sector.healthcare",
+  "overlay_class": "sector",
+  "status": "active-seed",
+  "runtime": {
+    "manifest_ref": "sector/healthcare/manifest.v1.json",
+    "materialized_bundle_ref": "sector/healthcare",
+    "attachment_count": 1,
+    "precedence_count": 1,
+    "evidence_count": 2
+  },
+  "attachment_rules": [
+    {
+      "overlay": "sector.healthcare",
+      "family": "scientific",
+      "specialization": "dataset-integrity",
+      "action": "retrieve",
+      "asset": "dataset",
+      "risk": "privacy-breach"
+    }
+  ],
+  "precedence_rules": [
+    {
+      "stack": "scientific.dataset-integrity + sector.healthcare",
+      "order": [
+        "deny",
+        "review_required",
+        "allow"
+      ],
+      "authority_raise": true
+    }
+  ],
+  "evidence_rules": [
+    {
+      "overlay": "sector.healthcare",
+      "required": [
+        "data_sensitivity_class",
+        "clinical_context",
+        "review_trace"
+      ]
+    },
+    {
+      "overlay": "sector.healthcare",
+      "required": [
+        "data_sensitivity_class",
+        "clinical_context",
+        "review_trace"
+      ]
+    }
+  ],
+  "composition": {
+    "block_refs": [
+      "sector/healthcare/policy/baseline.v1.json",
+      "sector/healthcare/policy/evidence-hardening.v1.json"
+    ]
+  },
+  "source": {
+    "generator": "tools/gen/build_overlay_descriptors.py",
+    "legacy_manifest_ref": "sector/healthcare/manifest.v1.json"
+  }
+}

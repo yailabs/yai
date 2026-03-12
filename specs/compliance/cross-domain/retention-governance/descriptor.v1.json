@@ -1,0 +1,56 @@
+{
+  "kind": "overlay_descriptor.v1",
+  "version": "v1",
+  "overlay_id": "retention-governance",
+  "overlay_class": "regulatory",
+  "status": "active",
+  "runtime": {
+    "manifest_ref": "regulatory/retention-governance/manifest.v1.json",
+    "materialized_bundle_ref": "regulatory/retention-governance",
+    "attachment_count": 1,
+    "precedence_count": 1,
+    "evidence_count": 1
+  },
+  "attachment_rules": [
+    {
+      "overlay": "retention-governance",
+      "family": "economic",
+      "specialization": "settlements",
+      "action": "settle",
+      "asset": "ledger-entry",
+      "risk": "provenance-loss"
+    }
+  ],
+  "precedence_rules": [
+    {
+      "stack": "payments+sector.finance+retention-governance",
+      "order": [
+        "deny",
+        "quarantine",
+        "review_required",
+        "allow"
+      ],
+      "authority_raise": true
+    }
+  ],
+  "evidence_rules": [
+    {
+      "overlay": "retention-governance",
+      "required": [
+        "retention_policy_ref",
+        "provenance_chain"
+      ]
+    }
+  ],
+  "composition": {
+    "block_refs": [
+      "regulatory/retention-governance/policy/baseline.v1.json",
+      "regulatory/retention-governance/mappings/domains.v1.json",
+      "regulatory/retention-governance/taxonomy/artifact-classes.v1.json"
+    ]
+  },
+  "source": {
+    "generator": "tools/gen/build_overlay_descriptors.py",
+    "legacy_manifest_ref": "regulatory/retention-governance/manifest.v1.json"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "kind": "specialization_descriptor.v1",
+  "version": "v1",
+  "specialization_id": "settlements",
+  "canonical_name": "economic.settlements",
+  "family": "economic",
+  "specialization_class": "general",
+  "status": "active",
+  "review_state": "managed",
+  "verticalization_wave": "wave-1",
+  "runtime": {
+    "manifest_ref": "specializations/manifests/settlements/manifest.v1.json",
+    "bundle_ref": "specializations/manifests/settlements",
+    "scenario_classes": [
+      "sc.economic.settlements.baseline",
+      "sc.economic.settlements.stress"
+    ]
+  },
+  "composition": {
+    "model_refs": [
+      "specializations/manifests/settlements/model/actions.v1.json",
+      "specializations/manifests/settlements/model/assets.v1.json",
+      "specializations/manifests/settlements/model/evidence-obligations.v1.json",
+      "specializations/manifests/settlements/model/risk-surface.v1.json"
+    ],
+    "policy_refs": [
+      "specializations/manifests/settlements/policy/baseline.v1.json",
+      "specializations/manifests/settlements/policy/deny.v1.json",
+      "specializations/manifests/settlements/policy/exceptions.v1.json",
+      "specializations/manifests/settlements/policy/precedence.v1.json",
+      "specializations/manifests/settlements/policy/quarantine.v1.json",
+      "specializations/manifests/settlements/policy/review-required.v1.json"
+    ],
+    "evidence_refs": [
+      "specializations/manifests/settlements/evidence/decision-fields.v1.json",
+      "specializations/manifests/settlements/evidence/requirements.v1.json"
+    ],
+    "authority_refs": [
+      "specializations/manifests/settlements/authority/model.v1.json"
+    ],
+    "discovery_refs": [
+      "specializations/manifests/settlements/discovery/signals.v1.json"
+    ],
+    "scenario_refs": [
+      "specializations/manifests/settlements/scenarios/index.v1.json"
+    ]
+  },
+  "taxonomy": {
+    "risk_ref": "taxonomy/risks/risk-taxonomy.v1.json",
+    "action_ref": "taxonomy/actions/action-taxonomy.v1.json",
+    "asset_ref": "taxonomy/assets/asset-taxonomy.v1.json",
+    "signal_ref": "taxonomy/signals/signal-taxonomy.v1.json"
+  },
+  "source": {
+    "generator": "tools/gen/build_specialization_descriptors.py",
+    "materialized_bundle_ref": "specializations/manifests/settlements"
+  }
+}

@@ -3,9 +3,9 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 OUT_DIR="$ROOT/build/test/unit_protocol"
-CONTRACT_ROOT="${YAI_PROTOCOL_CONTRACT_ROOT:-$ROOT/include/yai/protocol/contracts}"
+CONTRACT_ROOT="${YAI_PROTOCOL_CONTRACT_ROOT:-$ROOT/include/yai/protocol}"
 if [[ ! -d "$CONTRACT_ROOT" ]]; then
-  echo "contract root not found (expected include/yai/protocol/contracts)" >&2
+  echo "contract root not found (expected include/yai/protocol)" >&2
   exit 2
 fi
 

@@ -1,0 +1,44 @@
+{
+  "kind": "enterprise_governance_source",
+  "schema_version": "v1",
+  "source_id": "src.sample.digital-outbound",
+  "source_type": "operational-rule-sheet",
+  "title": "Sample Digital Outbound Governance Source",
+  "owner": {
+    "organization_id": "sample",
+    "owner_team": "governance-platform"
+  },
+  "organization_scope": {
+    "organization_ids": [
+      "sample"
+    ],
+    "environment_classes": [
+      "production",
+      "staging"
+    ],
+    "session_scope": "workspace-bound"
+  },
+  "workspace_targets": [
+    "ws_digital_outbound_prod",
+    "ws_digital_outbound_stage"
+  ],
+  "domain_targets": [
+    "digital"
+  ],
+  "specialization_targets": [
+    "remote-publication",
+    "artifact-distribution"
+  ],
+  "declared_intent": "govern outbound publication and distribution",
+  "source_format": "markdown_rule_sheet",
+  "source_payload_ref": "ingestion/examples/source-payloads/sample-digital-outbound-rules.md",
+  "provenance": {
+    "source_system": "policy-intake",
+    "source_uri": "sample://governance/digital-outbound-rules"
+  },
+  "ingestion_status": "submitted",
+  "confidence_hint": 0.92,
+  "notes": "Controlled intake grammar source",
+  "created_at": "2026-03-09T00:00:00Z",
+  "updated_at": "2026-03-09T00:00:00Z"
+}

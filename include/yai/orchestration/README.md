@@ -1,27 +1,22 @@
 # Orchestration Public Headers
 
-Public orchestration surface for planning, workflow coordination, scheduling,
-supervision, and execution control.
+Public orchestration surface for planning, workflow coordination, execution,
+grounding, supervision, and runtime/network bridge consumption.
 
-Canonical orchestration headers:
+Canonical headers:
 
+- `orchestration.h`
 - `planner.h`
 - `workflow.h`
-- `actions.h`
-- `supervision.h`
-- `scheduling.h`
 - `execution.h`
+- `grounding.h`
 - `coordination.h`
+- `supervision.h`
+- `actions.h`
 - `runtime.h`
-- `source_plane.h`
-- `ingestion.h`
-- `transport.h`
-- `transport_client.h`
-- `peer_registry.h`
-- `agent_binding.h`
 - `runtime_bridge.h`
-- `runtime_model.h`
-- `network_policy.h`
-- `provider_policy.h`
-- `resource_policy.h`
-- `storage_policy.h`
+- `network_bridge.h`
+- `transport_client.h`
+- `ingestion.h`
+- `agents.h`
+- `agent_binding.h`

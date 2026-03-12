@@ -1,0 +1,111 @@
+{
+  "kind": "specialization-family.crosswalk",
+  "version": "v1",
+  "entries": [
+    {
+      "specialization_id": "network-egress",
+      "family": "digital",
+      "canonical_name": "digital.network-egress"
+    },
+    {
+      "specialization_id": "remote-publication",
+      "family": "digital",
+      "canonical_name": "digital.remote-publication"
+    },
+    {
+      "specialization_id": "external-commentary",
+      "family": "digital",
+      "canonical_name": "digital.external-commentary"
+    },
+    {
+      "specialization_id": "artifact-distribution",
+      "family": "digital",
+      "canonical_name": "digital.artifact-distribution"
+    },
+    {
+      "specialization_id": "remote-retrieval",
+      "family": "digital",
+      "canonical_name": "digital.remote-retrieval"
+    },
+    {
+      "specialization_id": "digital-sink-control",
+      "family": "digital",
+      "canonical_name": "digital.digital-sink-control"
+    },
+    {
+      "specialization_id": "payments",
+      "family": "economic",
+      "canonical_name": "economic.payments"
+    },
+    {
+      "specialization_id": "transfers",
+      "family": "economic",
+      "canonical_name": "economic.transfers"
+    },
+    {
+      "specialization_id": "settlements",
+      "family": "economic",
+      "canonical_name": "economic.settlements"
+    },
+    {
+      "specialization_id": "treasury",
+      "family": "economic",
+      "canonical_name": "economic.treasury"
+    },
+    {
+      "specialization_id": "invoicing",
+      "family": "economic",
+      "canonical_name": "economic.invoicing"
+    },
+    {
+      "specialization_id": "accounting-integrity",
+      "family": "economic",
+      "canonical_name": "economic.accounting-integrity"
+    },
+    {
+      "specialization_id": "pricing-and-quoting",
+      "family": "economic",
+      "canonical_name": "economic.pricing-and-quoting"
+    },
+    {
+      "specialization_id": "credit-exposure",
+      "family": "economic",
+      "canonical_name": "economic.credit-exposure"
+    },
+    {
+      "specialization_id": "fraud-risk-controls",
+      "family": "economic",
+      "canonical_name": "economic.fraud-risk-controls"
+    },
+    {
+      "specialization_id": "experiment-configuration",
+      "family": "scientific",
+      "canonical_name": "scientific.experiment-configuration"
+    },
+    {
+      "specialization_id": "parameter-governance",
+      "family": "scientific",
+      "canonical_name": "scientific.parameter-governance"
+    },
+    {
+      "specialization_id": "reproducibility-control",
+      "family": "scientific",
+      "canonical_name": "scientific.reproducibility-control"
+    },
+    {
+      "specialization_id": "black-box-evaluation",
+      "family": "scientific",
+      "canonical_name": "scientific.black-box-evaluation"
+    },
+    {
+      "specialization_id": "dataset-integrity",
+      "family": "scientific",
+      "canonical_name": "scientific.dataset-integrity"
+    },
+    {
+      "specialization_id": "result-publication-control",
+      "family": "scientific",
+      "canonical_name": "scientific.result-publication-control"
+    }
+  ]
+}

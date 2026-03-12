@@ -6,10 +6,10 @@
 #include <yai/runtime/session.h>
 #include <yai/runtime/workspace.h>
 
-#include <yai/protocol/contracts/errors.h>
-#include <yai/protocol/contracts/protocol.h>
-#include <yai/protocol/contracts/roles.h>
-#include <yai/protocol/contracts/yai_protocol_ids.h>
+#include <yai/protocol/control/errors.h>
+#include <yai/protocol/rpc/contract.h>
+#include <yai/protocol/control/roles.h>
+#include <yai/protocol/control/ids.h>
 
 #include <errno.h>
 #include <stdio.h>

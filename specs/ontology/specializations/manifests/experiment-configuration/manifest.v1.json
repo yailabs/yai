@@ -1,0 +1,70 @@
+{
+  "kind": "domain_specialization_manifest",
+  "version": "v2",
+  "specialization_id": "experiment-configuration",
+  "canonical_name": "scientific.experiment-configuration",
+  "family_canonical_name": "scientific",
+  "status": "active",
+  "subdomain_taxonomy_ref": "specializations/indexes/subdomain-taxonomy.json",
+  "scenario_classes_ref": "specializations/indexes/scenario-classes.json",
+  "overlay_relevance": {
+    "regulatory": [
+      "ai-act",
+      "gdpr-eu",
+      "retention-governance",
+      "security-supply-chain"
+    ],
+    "sector": [
+      "sector.healthcare",
+      "sector.finance"
+    ],
+    "contextual": [
+      "organization",
+      "workspace",
+      "session"
+    ]
+  },
+  "authority_profile": {
+    "default_scope": "controller",
+    "human_oversight_required": true
+  },
+  "evidence_profile": {
+    "requires_parameter_trace": true,
+    "retention_hint": "extended"
+  },
+  "scientific_semantics": {
+    "experiment_intent": "configuration",
+    "governed_assets": [
+      "experiment-config",
+      "parameter-set",
+      "execution-plan"
+    ],
+    "risk_surface": [
+      "misconfiguration",
+      "untracked-parameter-mutation",
+      "lineage-gap"
+    ]
+  },
+  "parameter_policy": {
+    "mutable_parameters": "allowed_with_trace",
+    "locked_parameters": "review_required_for_change",
+    "requires_change_justification": true
+  },
+  "reproducibility_policy": {
+    "requires_seed_or_config_hash": true,
+    "requires_lineage_pointer": true,
+    "publishable_without_proofpack": false
+  },
+  "policy_baseline": {
+    "effect_default": "review_required",
+    "effect_on_missing_lineage": "deny",
+    "effect_on_untracked_mutation": "deny"
+  },
+  "evidence_obligations": [
+    "resolution_trace",
+    "decision_record",
+    "parameter_lock_required",
+    "parameter_diff_trace_required",
+    "reproducibility_proofpack_required"
+  ]
+}

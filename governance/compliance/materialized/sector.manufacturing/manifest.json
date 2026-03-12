@@ -1,8 +1,0 @@
-{
-  "kind": "compliance_overlay",
-  "version": "v1",
-  "overlay_id": "sector.manufacturing",
-  "base_compliance_id": "gdpr-eu",
-  "sector": "manufacturing",
-  "rules": []
-}

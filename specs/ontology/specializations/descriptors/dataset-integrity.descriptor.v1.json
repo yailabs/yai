@@ -1,0 +1,37 @@
+{
+  "kind": "specialization_descriptor.v1",
+  "version": "v1",
+  "specialization_id": "dataset-integrity",
+  "canonical_name": "scientific.dataset-integrity",
+  "family": "scientific",
+  "specialization_class": "general",
+  "status": "active-planned",
+  "review_state": "managed",
+  "verticalization_wave": "",
+  "runtime": {
+    "manifest_ref": "specializations/manifests/dataset-integrity/manifest.v1.json",
+    "bundle_ref": "specializations/manifests/dataset-integrity",
+    "scenario_classes": [
+      "sc.scientific.dataset-integrity.baseline",
+      "sc.scientific.dataset-integrity.stress"
+    ]
+  },
+  "composition": {
+    "model_refs": [],
+    "policy_refs": [],
+    "evidence_refs": [],
+    "authority_refs": [],
+    "discovery_refs": [],
+    "scenario_refs": []
+  },
+  "taxonomy": {
+    "risk_ref": "taxonomy/risks/risk-taxonomy.v1.json",
+    "action_ref": "taxonomy/actions/action-taxonomy.v1.json",
+    "asset_ref": "taxonomy/assets/asset-taxonomy.v1.json",
+    "signal_ref": "taxonomy/signals/signal-taxonomy.v1.json"
+  },
+  "source": {
+    "generator": "tools/gen/build_specialization_descriptors.py",
+    "materialized_bundle_ref": "specializations/manifests/dataset-integrity"
+  }
+}

@@ -5,6 +5,7 @@ Public runtime nucleus headers for:
 - authority, dispatch, enforcement, lifecycle, session, workspace
 - runtime-side policy, grants, containment
 - event taxonomy and vault runtime state
+- local runtime process surfaces under `runtime/local/`
 
 Boundary notes:
 
