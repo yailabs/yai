@@ -48,8 +48,8 @@ void yai_render_reply_human(
 
   if (!(opts && opts->quiet) && opts && opts->show_trace && r->trace.trace_id && r->trace.trace_id[0]) {
     fprintf(out, "trace: %s", r->trace.trace_id);
-    if (r->trace.workspace_id && r->trace.workspace_id[0]) {
-      fprintf(out, "  ws: %s", r->trace.workspace_id);
+    if (r->trace.container_id && r->trace.container_id[0]) {
+      fprintf(out, "  container: %s", r->trace.container_id);
     }
     fputc('\n', out);
   }

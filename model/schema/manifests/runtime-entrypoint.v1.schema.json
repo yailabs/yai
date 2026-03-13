@@ -24,7 +24,7 @@
         },
         "binding_model": {
           "type": "string",
-          "enum": ["workspace-first"]
+          "enum": ["scope-first"]
         },
         "canonical_runtime_families": {
           "type": "array",
@@ -55,7 +55,7 @@
           "compliance_ref",
           "governance_attachability_constraints_ref",
           "runtime_family_targets",
-          "workspace_binding_required",
+          "scope_binding_required",
           "disallowed_subsystem_targets"
         ],
         "properties": {
@@ -77,9 +77,9 @@
           },
           "attachability_model": {
             "type": "string",
-            "enum": ["workspace-bound-governance-attachability"]
+            "enum": ["scope-bound-governance-attachability"]
           },
-          "workspace_binding_required": {"type": "boolean"},
+          "scope_binding_required": {"type": "boolean"},
           "runtime_family_targets": {
             "type": "array",
             "items": {

@@ -8,7 +8,7 @@
     "organization_ids": [
       "ecohmedia"
     ],
-    "workspace_ids": [
+    "scope_ids": [
       "ws_digital_outbound_prod",
       "ws_digital_outbound_stage"
     ],
@@ -16,7 +16,7 @@
       "production",
       "staging"
     ],
-    "session_scope": "workspace-bound"
+    "session_scope": "scope-bound"
   },
   "domain_targets": [
     "digital"
@@ -60,7 +60,7 @@
     ],
     "contextual": [
       "organization",
-      "workspace",
+      "scope",
       "session"
     ]
   },

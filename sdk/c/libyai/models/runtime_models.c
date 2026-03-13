@@ -69,28 +69,33 @@ void yai_sdk_runtime_state_init(yai_sdk_runtime_state_t *out)
 static void parse_container_binding(yai_sdk_runtime_state_t *out, const cJSON *data)
 {
     const cJSON *binding = NULL;
-    const cJSON *ws_id = NULL;
-    const cJSON *ws_alias = NULL;
+    const cJSON *scope_id_json = NULL;
+    const cJSON *scope_alias_json = NULL;
 
     if (!out || !data) {
         return;
     }
 
     binding = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "binding_status");
-    ws_id = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "container_id");
-    if (!cJSON_IsString(ws_id)) {
-        ws_id = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "workspace_id");
+
+    scope_id_json = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "container_id");
+    if (!cJSON_IsString(scope_id_json)) {
+        scope_id_json = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "scope_id");
     }
-    if (!cJSON_IsString(ws_id)) {
-        ws_id = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "ws_id");
-    }
-    ws_alias = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "container_alias");
-    if (!cJSON_IsString(ws_alias)) {
-        ws_alias = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "workspace_alias");
+    if (!cJSON_IsString(scope_id_json)) {
+        scope_id_json = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "workspace_id");
     }
 
-    copy_str(out->container_id, sizeof(out->container_id), ws_id);
-    copy_str(out->container_alias, sizeof(out->container_alias), ws_alias);
+    scope_alias_json = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "container_alias");
+    if (!cJSON_IsString(scope_alias_json)) {
+        scope_alias_json = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "scope_alias");
+    }
+    if (!cJSON_IsString(scope_alias_json)) {
+        scope_alias_json = cJSON_GetObjectItemCaseSensitive((cJSON *)data, "workspace_alias");
+    }
+
+    copy_str(out->container_id, sizeof(out->container_id), scope_id_json);
+    copy_str(out->container_alias, sizeof(out->container_alias), scope_alias_json);
     out->has_active_container = out->container_id[0] ? 1 : 0;
 
     if (cJSON_IsString(binding) && binding->valuestring) {

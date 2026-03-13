@@ -26,7 +26,7 @@
       "runtime_surfaces": ["yai_validate_envelope_v1"]
     },
     {
-      "id": "F-005-workspace-binding",
+      "id": "F-005-scope-binding",
       "modules": ["yai_workspace_state", "yai_runtime_state"],
       "configs": ["yai_system.deep.cfg"],
       "runtime_surfaces": ["runtime_capabilities_bind_workspace"]

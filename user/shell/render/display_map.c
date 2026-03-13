@@ -44,7 +44,7 @@ void yai_display_reason_human(const char *reason, char *out, size_t out_cap)
 
 void yai_display_from_command(const char *command_id, int argc, char **argv, yai_display_label_t *out)
 {
-  const char *ws_id = NULL;
+  const char *container_id = NULL;
   if (!out) return;
   memset(out, 0, sizeof(*out));
   snprintf(out->scope, sizeof(out->scope), "command");
@@ -90,17 +90,17 @@ void yai_display_from_command(const char *command_id, int argc, char **argv, yai
     } else {
       snprintf(out->action, sizeof(out->action), "ws");
     }
-    ws_id = find_flag_value(argc, argv, "--ws-id", "--ws");
-    if (ws_id && ws_id[0]) {
-      snprintf(out->detail, sizeof(out->detail), "ws_id=%s", ws_id);
+    container_id = find_flag_value(argc, argv, "--container-id", "--container");
+    if (container_id && container_id[0]) {
+      snprintf(out->detail, sizeof(out->detail), "container_id=%s", container_id);
     }
     return;
   }
   if (strcmp(command_id, "yai.core.ws_status") == 0) {
     snprintf(out->scope, sizeof(out->scope), "runtime");
     snprintf(out->action, sizeof(out->action), "ws status");
-    ws_id = find_flag_value(argc, argv, "--ws-id", "--ws");
-    if (ws_id && ws_id[0]) snprintf(out->detail, sizeof(out->detail), "ws_id=%s", ws_id);
+    container_id = find_flag_value(argc, argv, "--container-id", "--container");
+    if (container_id && container_id[0]) snprintf(out->detail, sizeof(out->detail), "container_id=%s", container_id);
     return;
   }
   if (strcmp(command_id, "yai.core.ws_list") == 0) {
@@ -174,7 +174,7 @@ void yai_display_from_reply(const yai_sdk_reply_t *reply, yai_display_result_t *
     } else if (strcmp(reply->reason, "specialization_family_mismatch") == 0) {
       snprintf(out->detail, sizeof(out->detail), "Invalid container domain arguments: specialization does not belong to selected family.");
       snprintf(out->hint, sizeof(out->hint), "Set a specialization compatible with the selected family.");
-    } else if (strcmp(reply->reason, "workspace_not_active") == 0) {
+    } else if (strcmp(reply->reason, "container_not_active") == 0) {
       snprintf(out->detail, sizeof(out->detail), "No active container selected for runtime execution.");
       snprintf(out->hint, sizeof(out->hint), "Run: yai ws set <ws-id>");
     } else if (strcmp(reply->reason, "governable_object_not_found") == 0) {
@@ -186,14 +186,14 @@ void yai_display_from_reply(const yai_sdk_reply_t *reply, yai_display_result_t *
     } else if (strcmp(reply->reason, "attachment_limit_reached") == 0) {
       snprintf(out->detail, sizeof(out->detail), "Container attachment limit reached.");
       snprintf(out->hint, sizeof(out->hint), "Detach one object first: yai ws policy detach <object-id>");
-    } else if (strcmp(reply->reason, "workspace_context_missing") == 0 ||
-               strcmp(reply->reason, "workspace_not_active") == 0) {
+    } else if (strcmp(reply->reason, "container_context_missing") == 0 ||
+               strcmp(reply->reason, "container_not_active") == 0) {
       snprintf(out->detail, sizeof(out->detail), "No container is selected for this command.");
       snprintf(out->hint, sizeof(out->hint), "Run: yai ws set <ws-id>");
-    } else if (strcmp(reply->reason, "workspace_context_invalid") == 0) {
+    } else if (strcmp(reply->reason, "container_context_invalid") == 0) {
       snprintf(out->detail, sizeof(out->detail), "Container is selected but binding state is invalid.");
       snprintf(out->hint, sizeof(out->hint), "Run: yai ws status");
-    } else if (starts_with(reply->reason, "workspace_postcondition_")) {
+    } else if (starts_with(reply->reason, "container_postcondition_")) {
       snprintf(out->detail, sizeof(out->detail), "Container binding post-conditions failed: %s", reply->reason);
       snprintf(out->hint, sizeof(out->hint), "Run: yai ws inspect --verbose");
     } else if (strcmp(reply->reason, "source_enroll_missing_label") == 0) {

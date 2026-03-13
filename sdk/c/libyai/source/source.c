@@ -51,7 +51,7 @@ static int int_field(const cJSON *obj, const char *key)
     return 0;
 }
 
-static cJSON *new_control_call(const char *command_id, const char *workspace_id)
+static cJSON *new_control_call(const char *command_id, const char *container_id)
 {
     cJSON *root = cJSON_CreateObject();
     if (!root) {
@@ -60,8 +60,8 @@ static cJSON *new_control_call(const char *command_id, const char *workspace_id)
     cJSON_AddStringToObject(root, "type", YAI_CONTROL_CALL_TYPE);
     cJSON_AddStringToObject(root, "target_plane", YAI_TARGET_PLANE_RUNTIME);
     cJSON_AddStringToObject(root, "command_id", command_id ? command_id : "");
-    if (workspace_id && workspace_id[0]) {
-        cJSON_AddStringToObject(root, "workspace_id", workspace_id);
+    if (container_id && container_id[0]) {
+        cJSON_AddStringToObject(root, "container_id", container_id);
     }
     return root;
 }
@@ -229,10 +229,10 @@ int yai_sdk_source_enroll(
     cJSON *call = NULL;
     int rc;
 
-    if (!client || !req || !out || !req->workspace_id || !req->workspace_id[0]) {
+    if (!client || !req || !out || !req->container_id || !req->container_id[0]) {
         return YAI_SDK_BAD_ARGS;
     }
-    call = new_control_call(YAI_SDK_CMD_SOURCE_ENROLL, req->workspace_id);
+    call = new_control_call(YAI_SDK_CMD_SOURCE_ENROLL, req->container_id);
     if (!call) {
         return YAI_SDK_IO;
     }
@@ -261,17 +261,17 @@ int yai_sdk_source_attach(
     cJSON *call = NULL;
     int rc;
 
-    if (!client || !req || !out || !req->workspace_id || !req->workspace_id[0] ||
+    if (!client || !req || !out || !req->container_id || !req->container_id[0] ||
         !req->source_node_id || !req->source_node_id[0]) {
         return YAI_SDK_BAD_ARGS;
     }
-    call = new_control_call(YAI_SDK_CMD_SOURCE_ATTACH, req->workspace_id);
+    call = new_control_call(YAI_SDK_CMD_SOURCE_ATTACH, req->container_id);
     if (!call) {
         return YAI_SDK_IO;
     }
     cJSON_AddStringToObject(call, "source_node_id", req->source_node_id);
-    if (req->owner_workspace_id && req->owner_workspace_id[0]) {
-        cJSON_AddStringToObject(call, "owner_workspace_id", req->owner_workspace_id);
+    if (req->owner_container_id && req->owner_container_id[0]) {
+        cJSON_AddStringToObject(call, "owner_container_id", req->owner_container_id);
     }
     if (req->binding_scope && req->binding_scope[0]) {
         cJSON_AddStringToObject(call, "binding_scope", req->binding_scope);
@@ -293,12 +293,12 @@ int yai_sdk_source_emit(
     size_t i;
     int rc;
 
-    if (!client || !req || !out || !req->workspace_id || !req->workspace_id[0] ||
+    if (!client || !req || !out || !req->container_id || !req->container_id[0] ||
         !req->source_node_id || !req->source_node_id[0] ||
         !req->source_binding_id || !req->source_binding_id[0]) {
         return YAI_SDK_BAD_ARGS;
     }
-    call = new_control_call(YAI_SDK_CMD_SOURCE_EMIT, req->workspace_id);
+    call = new_control_call(YAI_SDK_CMD_SOURCE_EMIT, req->container_id);
     if (!call) {
         return YAI_SDK_IO;
     }
@@ -395,11 +395,11 @@ int yai_sdk_source_status(
     cJSON *call = NULL;
     int rc;
 
-    if (!client || !req || !out || !req->workspace_id || !req->workspace_id[0] ||
+    if (!client || !req || !out || !req->container_id || !req->container_id[0] ||
         !req->source_node_id || !req->source_node_id[0]) {
         return YAI_SDK_BAD_ARGS;
     }
-    call = new_control_call(YAI_SDK_CMD_SOURCE_STATUS, req->workspace_id);
+    call = new_control_call(YAI_SDK_CMD_SOURCE_STATUS, req->container_id);
     if (!call) {
         return YAI_SDK_IO;
     }
@@ -436,7 +436,7 @@ int yai_sdk_source_enroll_reply_from_sdk(
         return rc;
     }
     yai_sdk_source_enroll_reply_init(out);
-    copy_str(out->workspace_id, sizeof(out->workspace_id), cJSON_GetObjectItemCaseSensitive(data, "workspace_id"));
+    copy_str(out->container_id, sizeof(out->container_id), cJSON_GetObjectItemCaseSensitive(data, "container_id"));
     copy_str(out->source_node_id, sizeof(out->source_node_id), cJSON_GetObjectItemCaseSensitive(data, "source_node_id"));
     copy_str(out->daemon_instance_id, sizeof(out->daemon_instance_id), cJSON_GetObjectItemCaseSensitive(data, "daemon_instance_id"));
     copy_str(out->owner_link_id, sizeof(out->owner_link_id), cJSON_GetObjectItemCaseSensitive(data, "owner_link_id"));
@@ -463,8 +463,8 @@ int yai_sdk_source_attach_reply_from_sdk(
         return rc;
     }
     yai_sdk_source_attach_reply_init(out);
-    copy_str(out->workspace_id, sizeof(out->workspace_id), cJSON_GetObjectItemCaseSensitive(data, "workspace_id"));
-    copy_str(out->owner_workspace_id, sizeof(out->owner_workspace_id), cJSON_GetObjectItemCaseSensitive(data, "owner_workspace_id"));
+    copy_str(out->container_id, sizeof(out->container_id), cJSON_GetObjectItemCaseSensitive(data, "container_id"));
+    copy_str(out->owner_container_id, sizeof(out->owner_container_id), cJSON_GetObjectItemCaseSensitive(data, "owner_container_id"));
     copy_str(out->source_node_id, sizeof(out->source_node_id), cJSON_GetObjectItemCaseSensitive(data, "source_node_id"));
     copy_str(out->source_binding_id, sizeof(out->source_binding_id), cJSON_GetObjectItemCaseSensitive(data, "source_binding_id"));
     copy_str(out->attachment_status, sizeof(out->attachment_status), cJSON_GetObjectItemCaseSensitive(data, "attachment_status"));
@@ -491,7 +491,7 @@ int yai_sdk_source_emit_reply_from_sdk(
         return rc;
     }
     yai_sdk_source_emit_reply_init(out);
-    copy_str(out->workspace_id, sizeof(out->workspace_id), cJSON_GetObjectItemCaseSensitive(data, "workspace_id"));
+    copy_str(out->container_id, sizeof(out->container_id), cJSON_GetObjectItemCaseSensitive(data, "container_id"));
     copy_str(out->source_node_id, sizeof(out->source_node_id), cJSON_GetObjectItemCaseSensitive(data, "source_node_id"));
     copy_str(out->source_binding_id, sizeof(out->source_binding_id), cJSON_GetObjectItemCaseSensitive(data, "source_binding_id"));
     copy_str(out->idempotency_key, sizeof(out->idempotency_key), cJSON_GetObjectItemCaseSensitive(data, "idempotency_key"));
@@ -522,7 +522,7 @@ int yai_sdk_source_status_reply_from_sdk(
         return rc;
     }
     yai_sdk_source_status_reply_init(out);
-    copy_str(out->workspace_id, sizeof(out->workspace_id), cJSON_GetObjectItemCaseSensitive(data, "workspace_id"));
+    copy_str(out->container_id, sizeof(out->container_id), cJSON_GetObjectItemCaseSensitive(data, "container_id"));
     copy_str(out->source_node_id, sizeof(out->source_node_id), cJSON_GetObjectItemCaseSensitive(data, "source_node_id"));
     copy_str(out->daemon_instance_id, sizeof(out->daemon_instance_id), cJSON_GetObjectItemCaseSensitive(data, "daemon_instance_id"));
     copy_str(out->health, sizeof(out->health), cJSON_GetObjectItemCaseSensitive(data, "health"));

@@ -20,7 +20,7 @@
     ],
     "contextual": [
       "organization",
-      "workspace",
+      "scope",
       "session"
     ]
   },
@@ -42,7 +42,7 @@
     "risk_surface": [
       "dataset-corruption",
       "tampered-input",
-      "cross-workspace-dataset-leak"
+      "cross-scope-dataset-leak"
     ]
   },
   "dataset_policy": {

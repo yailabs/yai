@@ -6,7 +6,7 @@ YAI repository.
 ## Mandate
 
 - define who can approve, publish, deprecate, and escalate governance artifacts
-- define authority scope semantics across global/workspace/session/delegated levels
+- define authority scope semantics across global/scope/session/delegated levels
 - define decision boundaries for high-impact or compliance-sensitive changes
 
 ## Authority boundaries

@@ -137,7 +137,7 @@
           "type": "string",
           "maxLength": 128
         },
-        "workspace_id": {
+        "scope_id": {
           "type": "string",
           "maxLength": 128
         },

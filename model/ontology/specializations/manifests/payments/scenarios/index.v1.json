@@ -6,6 +6,6 @@
     "payments.default",
     "payments.high_impact",
     "payments.overlay_finance",
-    "payments.workspace_real_flow_v1"
+    "payments.scope_real_flow_v1"
   ]
 }

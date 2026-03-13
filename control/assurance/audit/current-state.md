@@ -16,6 +16,6 @@ Date: 2026-03-11
 - No formal check entrypoints for quick/deep/enforcement-focused runs.
 
 ## Canonical Target
-- Module-driven formal spine aligned to current runtime/governance/protocol/workspace.
+- Module-driven formal spine aligned to current runtime/governance/protocol/scope.
 - Explicit enforcement linkage artifacts.
 - Kernel framing relegated to `docs/transitional/formal-archive/formal-legacy/` only.

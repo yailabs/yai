@@ -27,5 +27,5 @@ Formal coverage exists for the above classes and is linked through
 
 ## Transitional Note
 
-Any runtime-local/workspace semantics remaining under `runtime/compatibility/`
+Any runtime-local/scope semantics remaining under `runtime/compatibility/`
 are migration artifacts and must not be interpreted as kernel ownership.

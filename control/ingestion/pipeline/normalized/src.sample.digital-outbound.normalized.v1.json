@@ -23,9 +23,9 @@
       "production",
       "staging"
     ],
-    "session_scope": "workspace-bound"
+    "session_scope": "scope-bound"
   },
-  "workspace_targets": [
+  "scope_targets": [
     "ws_digital_outbound_prod",
     "ws_digital_outbound_stage"
   ],
@@ -124,7 +124,7 @@
   "precedence_candidates": [],
   "exception_candidates": [],
   "apply_mode_hints": [
-    "workspace_attach"
+    "scope_attach"
   ],
   "unresolved_ambiguities": [
     {

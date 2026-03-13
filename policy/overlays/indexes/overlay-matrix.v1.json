@@ -48,9 +48,9 @@
       "descriptor_ref": "contextual/organization/descriptor.v1.json"
     },
     {
-      "overlay_id": "context.workspace",
+      "overlay_id": "context.scope",
       "overlay_class": "contextual",
-      "descriptor_ref": "contextual/workspace/descriptor.v1.json"
+      "descriptor_ref": "contextual/scope/descriptor.v1.json"
     },
     {
       "overlay_id": "context.session",

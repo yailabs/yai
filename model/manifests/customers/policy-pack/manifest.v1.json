@@ -9,8 +9,8 @@
       "status": "active"
     },
     {
-      "pack_id": "customer.default.org-workspace-contextual-review",
-      "manifest_ref": "packages/customer/policy-pack/examples/customer.default.org-workspace-contextual-review.v1.json",
+      "pack_id": "customer.default.org-scope-contextual-review",
+      "manifest_ref": "packages/customer/policy-pack/examples/customer.default.org-scope-contextual-review.v1.json",
       "status": "active"
     }
   ]

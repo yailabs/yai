@@ -19,7 +19,7 @@
       "additionalProperties": true
     },
     "organization_scope": {"type": "object", "additionalProperties": true},
-    "workspace_targets": {"type": "array", "items": {"type": "string"}},
+    "scope_targets": {"type": "array", "items": {"type": "string"}},
     "domain_targets": {"type": "array", "items": {"type": "string"}},
     "specialization_targets": {"type": "array", "items": {"type": "string"}},
     "declared_intent": {"type": "string"},

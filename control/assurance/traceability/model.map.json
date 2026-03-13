@@ -6,7 +6,7 @@
     "yai_authority": ["runtime/authority", "runtime/enforcement", "governance/authority"],
     "yai_resolution": ["governance/resolution", "governance/manifests"],
     "yai_runtime_state": ["runtime/lifecycle", "runtime/session"],
-    "yai_workspace_state": ["runtime/workspace", "data/binding"],
+    "yai_workspace_state": ["runtime/scope", "data/binding"],
     "yai_policy_application": ["runtime/policy", "governance/policy_effects"],
     "yai_grants": ["runtime/grants", "runtime/containment", "edge"],
     "yai_containment": ["runtime/containment", "runtime/enforcement"],

@@ -43,7 +43,7 @@ typedef struct yai_porcelain_request_s {
   int watch_interval_ms;
   int watch_count;
   int watch_no_clear;
-  const char* ws_id;
+  const char* container_id;
   const char* role;
   int arming;
   int cmd_argc;

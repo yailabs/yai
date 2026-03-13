@@ -20,7 +20,7 @@
     ],
     "contextual": [
       "organization",
-      "workspace",
+      "scope",
       "session"
     ]
   },

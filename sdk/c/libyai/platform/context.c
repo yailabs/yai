@@ -205,9 +205,9 @@ int yai_sdk_container_describe(const char *container_id, yai_sdk_container_info_
         return YAI_SDK_BAD_ARGS;
 
     memset(out, 0, sizeof(*out));
-    snprintf(out->ws_id, sizeof(out->ws_id), "%s", container_id);
+    snprintf(out->container_id, sizeof(out->container_id), "%s", container_id);
 
-    opts.ws_id = container_id;
+    opts.container_id = container_id;
     opts.arming = 1;
     opts.role = "operator";
     opts.auto_handshake = 1;
@@ -233,7 +233,7 @@ int yai_sdk_container_describe(const char *container_id, yai_sdk_container_info_
         memset(&reply, 0, sizeof(reply));
         if (snprintf(req_json,
                      sizeof(req_json),
-                     "{\"type\":\"yai.control.call.v1\",\"target_plane\":\"runtime\",\"command_id\":\"yai.runtime.ws_status\",\"argv\":[\"--ws-id\",\"%s\"]}",
+                     "{\"type\":\"yai.control.call.v1\",\"target_plane\":\"runtime\",\"command_id\":\"yai.runtime.scope_status\",\"argv\":[\"--scope-id\",\"%s\"]}",
                      container_id) <= 0)
         {
             yai_sdk_client_close(client);

@@ -1,20 +1,20 @@
 {
   "kind": "enterprise_custom_governance",
   "schema_version": "v1",
-  "id": "enterprise.default.workspace.research-sandbox",
+  "id": "enterprise.default.scope.research-sandbox",
   "name": "Default Workspace Research Sandbox Governance",
   "version": "2026.03",
   "owner": {
     "organization_id": "default-org",
     "owner_team": "research-ops",
-    "approver_role": "workspace-governance-owner"
+    "approver_role": "scope-governance-owner"
   },
   "organization_scope": {
     "organization_ids": ["default-org"],
     "environment_classes": ["shared", "review"],
-    "session_scope": "workspace-bound"
+    "session_scope": "scope-bound"
   },
-  "workspace_targets": [
+  "scope_targets": [
     "ws_research_lab",
     "ws_science_review"
   ],
@@ -26,13 +26,13 @@
   ],
   "source_inputs": {
     "customer_policy_pack_refs": [
-      "packages/customer/policy-pack/examples/customer.default.org-workspace-contextual-review.v1.json"
+      "packages/customer/policy-pack/examples/customer.default.org-scope-contextual-review.v1.json"
     ],
     "compliance_refs": [
       "packages/regulatory/ai-act/manifest.v1.json"
     ],
     "overlay_refs": [
-      "packages/contextual/workspace/manifest.v1.json",
+      "packages/contextual/scope/manifest.v1.json",
       "packages/contextual/session/manifest.v1.json"
     ]
   },
@@ -44,7 +44,7 @@
   "overlay_refs": {
     "regulatory": ["ai-act"],
     "sector": [],
-    "contextual": ["workspace", "session"]
+    "contextual": ["scope", "session"]
   },
   "authority_profile": {
     "default_scope": "reviewer",
@@ -65,12 +65,12 @@
     "runtime_targets": ["yai"],
     "export_profiles": ["runtime-consumer.v4"]
   },
-  "apply_modes": ["workspace_attach"],
+  "apply_modes": ["scope_attach"],
   "runtime_consumable": false,
   "runtime_entrypoint_refs": ["indexes/runtime/entrypoints.v1.json#default-runtime"],
   "provenance": {
-    "source_type": "workspace-authoring",
-    "source_ref": "docs/authoring/examples/customer-workspace-authoring-walkthrough.md",
+    "source_type": "scope-authoring",
+    "source_ref": "docs/authoring/examples/customer-scope-authoring-walkthrough.md",
     "created_by": "research-ops",
     "updated_by": "research-ops"
   },

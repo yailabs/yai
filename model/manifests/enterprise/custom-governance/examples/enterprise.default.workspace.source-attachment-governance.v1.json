@@ -1,13 +1,13 @@
 {
   "kind": "enterprise_custom_governance",
   "schema_version": "v1",
-  "id": "enterprise.default.workspace.source-attachment-governance",
+  "id": "enterprise.default.scope.source-attachment-governance",
   "name": "Default Workspace Source Attachment Governance",
   "version": "2026.03",
   "owner": {
     "organization_id": "default-org",
     "owner_team": "governance-ops",
-    "approver_role": "workspace-governance-owner"
+    "approver_role": "scope-governance-owner"
   },
   "organization_scope": {
     "organization_ids": [
@@ -17,9 +17,9 @@
       "shared",
       "review"
     ],
-    "session_scope": "workspace-bound"
+    "session_scope": "scope-bound"
   },
-  "workspace_targets": [
+  "scope_targets": [
     "ws_ops_review",
     "ws_science_review"
   ],
@@ -33,13 +33,13 @@
   ],
   "source_inputs": {
     "customer_policy_pack_refs": [
-      "packages/customer/policy-pack/examples/customer.default.org-workspace-contextual-review.v1.json"
+      "packages/customer/policy-pack/examples/customer.default.org-scope-contextual-review.v1.json"
     ],
     "compliance_refs": [
       "packages/cross-domain/security-supply-chain/manifest.v1.json"
     ],
     "overlay_refs": [
-      "packages/contextual/workspace/manifest.v1.json",
+      "packages/contextual/scope/manifest.v1.json",
       "packages/contextual/session/manifest.v1.json"
     ],
     "specialization_policy_refs": [
@@ -55,7 +55,7 @@
     ],
     "sector": [],
     "contextual": [
-      "workspace",
+      "scope",
       "session"
     ]
   },
@@ -114,7 +114,7 @@
     ]
   },
   "apply_modes": [
-    "workspace_attach",
+    "scope_attach",
     "runtime_entrypoint"
   ],
   "runtime_consumable": true,
@@ -122,7 +122,7 @@
     "indexes/runtime/entrypoints.v1.json#default-runtime"
   ],
   "provenance": {
-    "source_type": "workspace-authoring",
+    "source_type": "scope-authoring",
     "source_ref": "docs/source-attachment-governance-model.md",
     "created_by": "governance-ops",
     "updated_by": "governance-ops"

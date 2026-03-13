@@ -114,7 +114,7 @@ static void sleep_ms(long ms)
 static int runtime_is_up(void)
 {
   yai_sdk_client_t *client = NULL;
-  yai_sdk_client_opts_t opts = {.ws_id = "default", .arming = 1, .role = "operator", .auto_handshake = 0};
+  yai_sdk_client_opts_t opts = {.container_id = "default", .arming = 1, .role = "operator", .auto_handshake = 0};
   int rc = yai_sdk_client_open(&client, &opts);
   if (rc != YAI_SDK_OK) return 0;
   yai_sdk_client_close(client);

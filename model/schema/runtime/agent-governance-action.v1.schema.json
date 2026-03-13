@@ -32,7 +32,7 @@
       ]
     },
     "target_object_id": { "type": "string", "minLength": 3 },
-    "workspace_target": { "type": ["string", "null"] },
+    "scope_target": { "type": ["string", "null"] },
     "proposal_mode": {
       "type": "string",
       "enum": ["assistive", "proposal_only", "request_transition"]
@@ -60,9 +60,9 @@
     },
     "runtime_binding_model": {
       "type": "string",
-      "enum": ["workspace-first"]
+      "enum": ["scope-first"]
     },
-    "workspace_binding_required": { "type": "boolean" },
+    "scope_binding_required": { "type": "boolean" },
     "topology_target": {
       "type": "string",
       "const": "unified-runtime-v1"

@@ -28,9 +28,9 @@ int yai_path_runtime_bin(char *out, size_t cap);
 int yai_path_runtime_ingress_sock(char *out, size_t cap);
 
 /* Workspace paths (tenant plane). */
-int yai_path_ws_sock(const char *ws_id, char *out, size_t cap);
-int yai_path_ws_run_dir(const char *ws_id, char *out, size_t cap);
-int yai_path_ws_db(const char *ws_id, char *out, size_t cap);
+int yai_path_scope_sock(const char *scope_id, char *out, size_t cap);
+int yai_path_scope_run_dir(const char *scope_id, char *out, size_t cap);
+int yai_path_scope_db(const char *scope_id, char *out, size_t cap);
 
 #ifdef __cplusplus
 }

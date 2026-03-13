@@ -12,9 +12,9 @@
   "organization_scope": {
     "organization_ids": ["ecohmedia"],
     "environment_classes": ["production", "staging"],
-    "session_scope": "workspace-bound"
+    "session_scope": "scope-bound"
   },
-  "workspace_targets": [
+  "scope_targets": [
     "ws_digital_outbound_prod",
     "ws_digital_outbound_stage"
   ],
@@ -39,7 +39,7 @@
       "packages/regulatory/retention-governance/manifest.v1.json",
       "packages/sector/finance/manifest.v1.json",
       "packages/contextual/organization/manifest.v1.json",
-      "packages/contextual/workspace/manifest.v1.json"
+      "packages/contextual/scope/manifest.v1.json"
     ]
   },
   "policy_refs": [
@@ -49,7 +49,7 @@
   "overlay_refs": {
     "regulatory": ["gdpr-eu", "retention-governance", "security-supply-chain"],
     "sector": ["sector.finance"],
-    "contextual": ["organization", "workspace"]
+    "contextual": ["organization", "scope"]
   },
   "authority_profile": {
     "default_scope": "controller",
@@ -72,12 +72,12 @@
     "runtime_targets": ["yai"],
     "export_profiles": ["runtime-consumer.v4"]
   },
-  "apply_modes": ["workspace_attach", "runtime_entrypoint"],
+  "apply_modes": ["scope_attach", "runtime_entrypoint"],
   "runtime_consumable": true,
   "runtime_entrypoint_refs": ["indexes/runtime/entrypoints.v1.json#default-runtime"],
   "provenance": {
     "source_type": "human-authored",
-    "source_ref": "docs/authoring/examples/customer-workspace-authoring-walkthrough.md",
+    "source_ref": "docs/authoring/examples/customer-scope-authoring-walkthrough.md",
     "created_by": "governance-team",
     "updated_by": "governance-team"
   },

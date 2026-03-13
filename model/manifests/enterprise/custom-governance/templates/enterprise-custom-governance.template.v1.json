@@ -16,10 +16,10 @@
     "environment_classes": [
       "staging"
     ],
-    "session_scope": "workspace-bound"
+    "session_scope": "scope-bound"
   },
-  "workspace_targets": [
-    "<workspace-id>"
+  "scope_targets": [
+    "<scope-id>"
   ],
   "domain_targets": [
     "digital"
@@ -54,7 +54,7 @@
     ]
   },
   "apply_modes": [
-    "workspace_attach"
+    "scope_attach"
   ],
   "runtime_consumable": false,
   "runtime_entrypoint_refs": [

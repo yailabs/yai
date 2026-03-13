@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "yai.governance.workspace_governance_attachment.v1",
+  "$id": "yai.governance.scope_governance_attachment.v1",
   "title": "Workspace Governance Attachment v1",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "attachment_id",
-    "workspace_id",
+    "scope_id",
     "governance_object_id",
     "attachment_state",
     "activation_state",
@@ -24,7 +24,7 @@
       "type": "string",
       "minLength": 3
     },
-    "workspace_id": {
+    "scope_id": {
       "type": "string",
       "minLength": 1
     },
@@ -118,7 +118,7 @@
     "runtime_binding_model": {
       "type": "string",
       "enum": [
-        "workspace-first"
+        "scope-first"
       ]
     },
     "runtime_family_targets": {

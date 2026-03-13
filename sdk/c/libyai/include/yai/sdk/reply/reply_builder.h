@@ -18,7 +18,7 @@ void yai_reply_set_trace(
     yai_reply_t *r,
     const char *trace_id,
     const char *claim_id,
-    const char *workspace_id);
+    const char *container_id);
 
 void yai_reply_set_meta(
     yai_reply_t *r,

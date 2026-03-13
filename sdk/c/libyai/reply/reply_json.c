@@ -50,7 +50,7 @@ char *yai_reply_to_json(const yai_reply_t *r)
   trace = cJSON_AddObjectToObject(root, "trace");
   cJSON_AddStringToObject(trace, "trace_id", r->trace.trace_id ? r->trace.trace_id : "");
   cJSON_AddStringToObject(trace, "claim_id", r->trace.claim_id ? r->trace.claim_id : "");
-  cJSON_AddStringToObject(trace, "workspace_id", r->trace.workspace_id ? r->trace.workspace_id : "");
+  cJSON_AddStringToObject(trace, "container_id", r->trace.container_id ? r->trace.container_id : "");
   cJSON_AddStringToObject(trace, "law_ref", r->trace.law_ref ? r->trace.law_ref : "");
   cJSON_AddStringToObject(trace, "evidence_ref", r->trace.evidence_ref ? r->trace.evidence_ref : "");
 

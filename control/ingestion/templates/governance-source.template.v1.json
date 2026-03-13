@@ -11,9 +11,9 @@
   "organization_scope": {
     "organization_ids": ["<namespace-id>"],
     "environment_classes": ["staging"],
-    "session_scope": "workspace-bound"
+    "session_scope": "scope-bound"
   },
-  "workspace_targets": ["<workspace-id>"],
+  "scope_targets": ["<scope-id>"],
   "domain_targets": ["digital"],
   "specialization_targets": ["remote-publication"],
   "declared_intent": "govern outbound publication",

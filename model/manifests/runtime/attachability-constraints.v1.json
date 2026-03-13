@@ -1,7 +1,7 @@
 {
   "kind": "governance-attachability-constraints",
   "version": "v2",
-  "binding_model": "workspace-first",
+  "binding_model": "scope-first",
   "constraints": {
     "allowed_by_kind": {
       "compliance_module": [
@@ -13,11 +13,11 @@
         "policy-composition"
       ],
       "customer_policy_pack": [
-        "workspace-attach",
+        "scope-attach",
         "runtime-entrypoint"
       ],
       "enterprise_custom_governance_object": [
-        "workspace_attach",
+        "scope_attach",
         "organization_default",
         "runtime_entrypoint"
       ],
@@ -69,7 +69,7 @@
         "non-operational-template"
       ]
     },
-    "workspace_apply_states": [
+    "scope_apply_states": [
       "candidate_only",
       "approved_not_attached",
       "attached_inactive",
@@ -78,7 +78,7 @@
       "detached",
       "superseded"
     ],
-    "workspace_compatibility_results": [
+    "scope_compatibility_results": [
       "eligible",
       "eligible_with_warnings",
       "ineligible",
@@ -94,7 +94,7 @@
       "stack",
       "policy-composition",
       "overlay-stack",
-      "workspace-attach",
+      "scope-attach",
       "runtime-entrypoint",
       "domain-set",
       "policy-resolution-anchor",
@@ -102,7 +102,7 @@
       "none"
     ],
     "attachment_mode_aliases": {
-      "workspace_attach": "workspace-attach",
+      "scope_attach": "scope-attach",
       "runtime_entrypoint": "runtime-entrypoint",
       "organization_default": "organization-default"
     },
@@ -141,7 +141,7 @@
         "governance"
       ]
     },
-    "workspace_binding_required_by_kind": {
+    "scope_binding_required_by_kind": {
       "compliance_module": false,
       "overlay": false,
       "customer_policy_pack": true,
@@ -180,7 +180,7 @@
         "source_provenance_bundle",
         "acquisition_event_chain"
       ],
-      "workspace_binding_required": true,
+      "scope_binding_required": true,
       "notes": "Distributed source attachment is governed before owner-side canonicalization.",
       "delegation_model": {
         "edge_role": "subordinate_edge_runtime",
@@ -207,7 +207,7 @@
       "note": "Attachment governance does not waive transport security requirements."
     },
     "global_to_edge_policy_hierarchy": {
-      "workspace_global_policy_plane": {
+      "scope_global_policy_plane": {
         "authority": "sovereign_owner_runtime",
         "truth_classes": [
           "policy_truth",
@@ -292,8 +292,8 @@
       ],
       "non_sovereign_rule": "binding_and_action_point_control_is_delegated_not_sovereign"
     },
-    "workspace_authority_truth_plane": {
-      "workspace_owner_runtime_role": "sovereign_authority_and_canonical_truth_plane",
+    "scope_authority_truth_plane": {
+      "scope_owner_runtime_role": "sovereign_authority_and_canonical_truth_plane",
       "owner_canonical_truth_classes": [
         "global_policy_truth",
         "graph_truth",
@@ -312,7 +312,7 @@
       "edge_non_truth_rule": "edge_state_snapshot_spool_and_local_outcomes_never_become_autonomous_truth",
       "canonicalization_boundary": "owner_runtime_acceptance_required"
     },
-    "workspace_to_edge_policy_distribution": {
+    "scope_to_edge_policy_distribution": {
       "distribution_model": "owner_to_subordinate_edge_runtime",
       "distributed_materials": [
         "policy_snapshot",
@@ -324,7 +324,7 @@
         "delegated_enforcement_scope"
       ],
       "targeting_rules": {
-        "workspace_aware": true,
+        "scope_aware": true,
         "source_node_aware": true,
         "daemon_instance_aware": true,
         "source_binding_aware": true,

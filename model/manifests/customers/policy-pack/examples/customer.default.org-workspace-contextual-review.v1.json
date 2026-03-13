@@ -1,14 +1,14 @@
 {
   "kind": "customer_policy_pack",
   "schema_version": "v1",
-  "id": "customer.default.org-workspace-contextual-review",
+  "id": "customer.default.org-scope-contextual-review",
   "name": "Organization and Workspace Contextual Review Pack",
   "version": "2026.03",
   "scope_targets": {
     "organization_ids": [
       "default-org"
     ],
-    "workspace_ids": [
+    "scope_ids": [
       "ws_ops_review",
       "ws_science_review"
     ],
@@ -16,7 +16,7 @@
       "shared",
       "review"
     ],
-    "session_scope": "workspace-bound"
+    "session_scope": "scope-bound"
   },
   "domain_targets": [
     "digital",
@@ -46,7 +46,7 @@
     "sector": [],
     "contextual": [
       "organization",
-      "workspace"
+      "scope"
     ]
   },
   "authority_profile": {

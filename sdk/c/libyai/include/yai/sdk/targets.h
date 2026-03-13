@@ -24,7 +24,7 @@ typedef enum yai_sdk_mesh_plane {
 typedef struct yai_sdk_runtime_target {
     yai_sdk_runtime_target_kind_t target_kind;
     yai_sdk_mesh_plane_t mesh_plane;
-    char workspace_id[64];
+    char container_id[64];
     char owner_id[96];
     char node_id[96];
     char daemon_instance_id[96];

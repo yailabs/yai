@@ -22,7 +22,7 @@
       "integrity.signature"
     ]
   },
-  "workspace_attachment": {
+  "scope_attachment": {
     "path": "~/.yai/run/<ws>/providers.json"
   },
   "states": [

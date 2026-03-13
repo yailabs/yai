@@ -10,7 +10,7 @@
     "source_refs": {"type": "array", "items": {"type": "string"}},
     "parsed_fact_refs": {"type": "array", "items": {"type": "string"}},
     "organization_scope": {"type": "object", "additionalProperties": true},
-    "workspace_targets": {"type": "array", "items": {"type": "string"}},
+    "scope_targets": {"type": "array", "items": {"type": "string"}},
     "domain_targets": {"type": "array", "items": {"type": "string"}},
     "specialization_targets": {"type": "array", "items": {"type": "string"}},
     "rule_candidates": {"type": "array", "items": {"type": "object"}},

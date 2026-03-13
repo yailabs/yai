@@ -190,7 +190,7 @@
         "alias": "orch-pack"
       },
       "runtime_family_owner": "exec",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -223,7 +223,7 @@
         "alias": "orch-trial"
       },
       "runtime_family_owner": "exec",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -254,7 +254,7 @@
         "alias": "orch-plan"
       },
       "runtime_family_owner": "exec",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -285,7 +285,7 @@
         "alias": "orch-runner"
       },
       "runtime_family_owner": "exec",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -320,7 +320,7 @@
         "alias": "orch-emit"
       },
       "runtime_family_owner": "exec",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -352,7 +352,7 @@
         "alias": "bundle-bundle"
       },
       "runtime_family_owner": "exec",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -384,7 +384,7 @@
         "alias": "verify-verify"
       },
       "runtime_family_owner": "exec",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -415,7 +415,7 @@
         "alias": "orch-job"
       },
       "runtime_family_owner": "exec",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -444,7 +444,7 @@
         "alias": "orch-report"
       },
       "runtime_family_owner": "exec",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -531,7 +531,7 @@
       "family": "Runtime",
       "domain": "Plane",
       "name": "Core Plane",
-      "definition": "Core authority surface: workspace lifecycle and core-bound operations.",
+      "definition": "Core authority surface: scope lifecycle and core-bound operations.",
       "ops": [
         "ping",
         "ws.create",
@@ -561,7 +561,7 @@
         ]
       },
       "runtime_family_owner": "core",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -598,7 +598,7 @@
         ]
       },
       "runtime_family_owner": "exec",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -636,7 +636,7 @@
         ]
       },
       "runtime_family_owner": "knowledge",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -676,7 +676,7 @@
         ]
       },
       "runtime_family_owner": "data",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -714,7 +714,7 @@
         ]
       },
       "runtime_family_owner": "graph",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -745,7 +745,7 @@
         "alias": "substrate-ns"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -777,7 +777,7 @@
         "alias": "substrate-ref"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -807,7 +807,7 @@
         "alias": "substrate-key"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -835,7 +835,7 @@
         "alias": "substrate-hash"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -869,7 +869,7 @@
         "alias": "substrate-artifact"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -902,7 +902,7 @@
         "alias": "substrate-store"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -931,7 +931,7 @@
         "alias": "substrate-schema"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -963,7 +963,7 @@
         "alias": "substrate-validate"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -991,7 +991,7 @@
         "alias": "substrate-clock"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1023,7 +1023,7 @@
         "alias": "substrate-record"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1055,7 +1055,7 @@
         "alias": "substrate-timeline"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1086,7 +1086,7 @@
         "alias": "substrate-metrics"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1118,7 +1118,7 @@
         "alias": "substrate-index"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1150,7 +1150,7 @@
         "alias": "substrate-manifest"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1182,7 +1182,7 @@
         "alias": "substrate-select"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1210,7 +1210,7 @@
         "alias": "substrate-channel"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1240,7 +1240,7 @@
         "alias": "substrate-env"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1268,7 +1268,7 @@
         "alias": "substrate-compat"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1297,7 +1297,7 @@
         "alias": "substrate-fs"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1329,7 +1329,7 @@
         "alias": "substrate-fs"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1360,7 +1360,7 @@
         "alias": "substrate-fs"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1389,7 +1389,7 @@
         "alias": "substrate-stream"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1418,7 +1418,7 @@
         "alias": "substrate-lock"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1450,7 +1450,7 @@
         "alias": "substrate-txn"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1478,7 +1478,7 @@
         "alias": "substrate-error"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1511,7 +1511,7 @@
         ]
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1539,7 +1539,7 @@
         "alias": "substrate-resource"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1569,7 +1569,7 @@
         "alias": "substrate-quota"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1600,7 +1600,7 @@
         "alias": "substrate-sandbox"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1631,7 +1631,7 @@
         "alias": "substrate-cap"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1659,7 +1659,7 @@
         "alias": "substrate-net"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1689,7 +1689,7 @@
         "alias": "substrate-net"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1717,7 +1717,7 @@
         "alias": "substrate-codec"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1745,7 +1745,7 @@
         "alias": "substrate-seed"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1777,7 +1777,7 @@
         "alias": "substrate-prov"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1807,7 +1807,7 @@
         "alias": "substrate-journal"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1838,7 +1838,7 @@
         "alias": "substrate-checkpoint"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1868,7 +1868,7 @@
         "alias": "substrate-diff"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1898,7 +1898,7 @@
         "alias": "substrate-patch"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1930,7 +1930,7 @@
         "alias": "governance-event"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1961,7 +1961,7 @@
         "alias": "governance-identity"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -1993,7 +1993,7 @@
         "alias": "governance-authority"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2025,7 +2025,7 @@
         "alias": "governance-contract"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2056,7 +2056,7 @@
         "alias": "governance-baseline"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2090,7 +2090,7 @@
         "alias": "governance-policy"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2124,7 +2124,7 @@
         "alias": "governance-decision"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2153,7 +2153,7 @@
         "alias": "governance-reason"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2185,7 +2185,7 @@
         "alias": "governance-effect"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2217,7 +2217,7 @@
         "alias": "governance-evidence"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2251,7 +2251,7 @@
         "alias": "governance-run"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2282,7 +2282,7 @@
         "alias": "governance-wave"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2316,7 +2316,7 @@
         "alias": "bundle-bundle"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2350,7 +2350,7 @@
         ]
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2381,7 +2381,7 @@
         "alias": "governance-claim"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2412,7 +2412,7 @@
         "alias": "governance-assert"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2443,7 +2443,7 @@
         "alias": "governance-controls"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2473,7 +2473,7 @@
         "alias": "governance-invariant"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2504,7 +2504,7 @@
         "alias": "governance-exception"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2534,7 +2534,7 @@
         "alias": "governance-scope"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2566,7 +2566,7 @@
         "alias": "orch-report"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     },
     {
@@ -2595,7 +2595,7 @@
         "alias": "governance-disclosure"
       },
       "runtime_family_owner": "support",
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1"
     }
   ]

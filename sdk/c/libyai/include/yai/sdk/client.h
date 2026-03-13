@@ -25,8 +25,8 @@ typedef struct yai_sdk_client yai_sdk_client_t;
  * @brief Client open options.
  */
 typedef struct yai_sdk_client_opts {
-    /** Workspace identifier used by default for RPC calls. */
-    const char *ws_id;
+    /** Container identifier used by default for SDK runtime calls. */
+    const char *container_id;
     /** Optional custom runtime ingress UDS path override. */
     const char *uds_path;
     /** Optional typed runtime endpoint target (preferred over raw uds_path when set). */
@@ -65,7 +65,7 @@ int yai_sdk_client_open(yai_sdk_client_t **out, const yai_sdk_client_opts_t *opt
 void yai_sdk_client_close(yai_sdk_client_t *c);
 
 int yai_sdk_client_set_authority(yai_sdk_client_t *c, int arming, const char *role);
-int yai_sdk_client_set_ws(yai_sdk_client_t *c, const char *ws_id);
+int yai_sdk_client_set_container(yai_sdk_client_t *c, const char *container_id);
 int yai_sdk_client_set_correlation_id(yai_sdk_client_t *c, const char *correlation_id);
 int yai_sdk_client_handshake(yai_sdk_client_t *c);
 

@@ -12,7 +12,7 @@
 
 ## Why It Is No Longer Canonical
 - System architecture is no longer kernel-centric.
-- Runtime is split into clear domains (`authority`, `policy`, `grants`, `containment`, `workspace`, `dispatch`).
+- Runtime is split into clear domains (`authority`, `policy`, `grants`, `containment`, `scope`, `dispatch`).
 - Governance resolution and protocol control semantics require independent modules.
 
 ## Action Taken

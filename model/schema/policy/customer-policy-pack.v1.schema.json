@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "governance/grammar/model/schema/customer_policy_pack.v1",
   "title": "customer_policy_pack.v1",
-  "description": "Canonical customer/workspace policy pack manifest",
+  "description": "Canonical customer/scope policy pack manifest",
   "type": "object",
   "properties": {
     "kind": {
@@ -33,7 +33,7 @@
             "type": "string"
           }
         },
-        "workspace_ids": {
+        "scope_ids": {
           "type": "array",
           "items": {
             "type": "string"
@@ -50,7 +50,7 @@
         }
       },
       "required": [
-        "workspace_ids"
+        "scope_ids"
       ],
       "additionalProperties": true
     },

@@ -161,12 +161,12 @@ static int resolve_runtime_binary(const char *env_key, const char *bin_name, cha
   return search_path_for_exec(bin_name, out, cap);
 }
 
-static int is_valid_ws_id(const char *ws_id)
+static int is_valid_scope_id(const char *scope_id)
 {
   const char *p;
-  if (!ws_id || !ws_id[0]) return 0;
-  if (strchr(ws_id, '/') || strstr(ws_id, "..") || ws_id[0] == '~') return 0;
-  for (p = ws_id; *p; p++) {
+  if (!scope_id || !scope_id[0]) return 0;
+  if (strchr(scope_id, '/') || strstr(scope_id, "..") || scope_id[0] == '~') return 0;
+  for (p = scope_id; *p; p++) {
     const char c = *p;
     const int ok =
       (c >= 'a' && c <= 'z') ||
@@ -261,33 +261,33 @@ int yai_path_runtime_ingress_sock(char *out, size_t cap)
   return (n > 0 && (size_t)n < cap) ? 0 : -1;
 }
 
-int yai_path_ws_sock(const char *ws_id, char *out, size_t cap)
+int yai_path_scope_sock(const char *scope_id, char *out, size_t cap)
 {
   char runtime_home[PATH_MAX];
   int n;
-  if (!is_valid_ws_id(ws_id)) return -1;
+  if (!is_valid_scope_id(scope_id)) return -1;
   if (!out || cap < 32) return -1;
   if (yai_path_runtime_home(runtime_home, sizeof(runtime_home)) != 0) return -1;
-  n = snprintf(out, cap, "%s/%s/control.sock", runtime_home, ws_id);
+  n = snprintf(out, cap, "%s/%s/control.sock", runtime_home, scope_id);
   return (n > 0 && (size_t)n < cap) ? 0 : -1;
 }
 
-int yai_path_ws_run_dir(const char *ws_id, char *out, size_t cap)
+int yai_path_scope_run_dir(const char *scope_id, char *out, size_t cap)
 {
   char runtime_home[PATH_MAX];
   int n;
-  if (!is_valid_ws_id(ws_id)) return -1;
+  if (!is_valid_scope_id(scope_id)) return -1;
   if (!out || cap < 32) return -1;
   if (yai_path_runtime_home(runtime_home, sizeof(runtime_home)) != 0) return -1;
-  n = snprintf(out, cap, "%s/%s", runtime_home, ws_id);
+  n = snprintf(out, cap, "%s/%s", runtime_home, scope_id);
   return (n > 0 && (size_t)n < cap) ? 0 : -1;
 }
 
-int yai_path_ws_db(const char *ws_id, char *out, size_t cap)
+int yai_path_scope_db(const char *scope_id, char *out, size_t cap)
 {
-  char ws_dir[PATH_MAX];
+  char scope_dir[PATH_MAX];
   int n;
-  if (yai_path_ws_run_dir(ws_id, ws_dir, sizeof(ws_dir)) != 0) return -1;
-  n = snprintf(out, cap, "%s/semantic.sqlite", ws_dir);
+  if (yai_path_scope_run_dir(scope_id, scope_dir, sizeof(scope_dir)) != 0) return -1;
+  n = snprintf(out, cap, "%s/semantic.sqlite", scope_dir);
   return (n > 0 && (size_t)n < cap) ? 0 : -1;
 }

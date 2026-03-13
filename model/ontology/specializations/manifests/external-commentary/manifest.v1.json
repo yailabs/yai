@@ -15,7 +15,7 @@
   "overlay_relevance": {
     "regulatory": ["gdpr-eu", "security-supply-chain", "retention-governance"],
     "sector": ["sector.finance"],
-    "contextual": ["organization", "workspace", "session"]
+    "contextual": ["organization", "scope", "session"]
   },
   "authority_profile": {
     "default_scope": "operator",

@@ -90,7 +90,7 @@
     "updated_at": { "type": "string", "format": "date-time" },
     "runtime_binding_model": {
       "type": "string",
-      "enum": ["workspace-first"]
+      "enum": ["scope-first"]
     },
     "runtime_family_targets": {
       "type": "array",

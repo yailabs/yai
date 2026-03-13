@@ -91,7 +91,7 @@ static void extract_reply_human_fields(
   cJSON_Delete(doc);
 }
 
-static int is_workspace_command(const yai_sdk_reply_t *out, const yai_render_opts_t *opts)
+static int is_container_command(const yai_sdk_reply_t *out, const yai_render_opts_t *opts)
 {
   const char *cid = NULL;
   if (!out) return 0;
@@ -246,8 +246,12 @@ static void print_runtime_capabilities(FILE *stream, const cJSON *data)
   if (!stream || !caps) return;
 
   runtime_ready_known = json_bool_value_path(caps, "runtime.ready", &runtime_ready);
-  selected_known = json_bool_value_path(caps, "workspace_binding.selected", &selected);
-  bound_known = json_bool_value_path(caps, "workspace_binding.bound", &bound);
+  selected_known =
+    json_bool_value_path(caps, "container_binding.selected", &selected) ||
+    json_bool_value_path(caps, "workspace_binding.selected", &selected);
+  bound_known =
+    json_bool_value_path(caps, "container_binding.bound", &bound) ||
+    json_bool_value_path(caps, "workspace_binding.bound", &bound);
   data_known = json_bool_value_path(caps, "data.store_binding_ready", &data_ready);
   if (!data_known) data_known = json_bool_value_path(caps, "data.ready", &data_ready);
   graph_known = json_bool_value_path(caps, "graph.ready", &graph_ready);
@@ -317,8 +321,8 @@ static void print_operator_runtime_surface(FILE *stream, const yai_sdk_reply_t *
   char bound_buf[16];
   const char *liveness = "unknown";
   const char *readiness = "unknown";
-  const char *workspace_selected = "unknown";
-  const char *workspace_bound = "unknown";
+  const char *container_selected = "unknown";
+  const char *container_bound = "unknown";
   if (!stream || !out) return;
   if (strcmp(out->status, "ok") == 0 && strcmp(out->code, "OK") == 0) {
     liveness = "reachable";
@@ -336,11 +340,11 @@ static void print_operator_runtime_surface(FILE *stream, const yai_sdk_reply_t *
   if (detail_value_copy(out->details, "readiness=", readiness_buf, sizeof(readiness_buf))) {
     readiness = readiness_buf;
   }
-  if (detail_value_copy(out->details, "workspace_selected=", selected_buf, sizeof(selected_buf))) {
-    workspace_selected = selected_buf;
+  if (detail_value_copy(out->details, "container_selected=", selected_buf, sizeof(selected_buf))) {
+    container_selected = selected_buf;
   }
-  if (detail_value_copy(out->details, "workspace_bound=", bound_buf, sizeof(bound_buf))) {
-    workspace_bound = bound_buf;
+  if (detail_value_copy(out->details, "container_bound=", bound_buf, sizeof(bound_buf))) {
+    container_bound = bound_buf;
   }
   print_title(stream, "Runtime status");
   print_section(stream, "Baseline");
@@ -348,8 +352,8 @@ static void print_operator_runtime_surface(FILE *stream, const yai_sdk_reply_t *
   print_kv(stream, "Readiness", readiness);
   print_kv(stream, "Target plane", out->target_plane[0] ? out->target_plane : "runtime");
   print_section(stream, "Container binding");
-  print_kv(stream, "Container selected", workspace_selected);
-  print_kv(stream, "Container bound", workspace_bound);
+  print_kv(stream, "Container selected", container_selected);
+  print_kv(stream, "Container bound", container_bound);
   print_kv(stream, "Hint", "Run: yai ws status");
   print_section(stream, "Capability families");
   print_kv(stream, "Exec", "unknown");
@@ -387,13 +391,13 @@ static void print_ws_current(FILE *stream, const cJSON *data)
   int runtime_attached = 0;
   const cJSON *rt = json_get_path(data, "runtime_attached");
   const char *binding = json_string_path(data, "binding_status", "none");
-  const char *alias = json_string_path(data, "workspace_alias", "");
+  const char *alias = json_string_path(data, "container_alias", "");
   char token[96];
   if (cJSON_IsBool(rt)) runtime_attached = cJSON_IsTrue(rt);
   print_title(stream, "Container current");
   print_section(stream, "Identity");
-  print_kv(stream, "Id", json_string_path(data, "workspace_id", "—"));
-  print_kv(stream, "Alias", json_string_path(data, "workspace_alias", "—"));
+  print_kv(stream, "Id", json_string_path(data, "container_id", "—"));
+  print_kv(stream, "Alias", json_string_path(data, "container_alias", "—"));
   print_kv(stream, "State", json_string_path(data, "state", "—"));
   print_kv(stream, "Root", json_string_path(data, "root_path", "—"));
   print_section(stream, "Session");
@@ -452,7 +456,7 @@ static void print_ws_domain(FILE *stream, const cJSON *data, const char *title)
   if (cJSON_IsNumber(conf)) snprintf(conf_buf, sizeof(conf_buf), "%.2f", conf->valuedouble);
 
   print_title(stream, title);
-  print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
+  print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
   print_section(stream, "Declared");
   print_kv(stream, "Family", json_string_path(data, "declared.family", "unset"));
   print_kv(stream, "Specialization", json_string_path(data, "declared.specialization", "unset"));
@@ -493,8 +497,8 @@ static void print_ws_inspect(FILE *stream, const cJSON *data)
 
   print_title(stream, "Container inspect");
   print_section(stream, "Identity");
-  print_kv(stream, "Id", json_string_path(data, "identity.workspace_id", "—"));
-  print_kv(stream, "Alias", json_string_path(data, "identity.workspace_alias", "—"));
+  print_kv(stream, "Id", json_string_path(data, "identity.container_id", "—"));
+  print_kv(stream, "Alias", json_string_path(data, "identity.container_alias", "—"));
   print_kv(stream, "State", json_string_path(data, "identity.state", "—"));
   print_kv(stream, "Root", json_string_path(data, "identity.root_path", "—"));
   print_section(stream, "Session");
@@ -553,7 +557,7 @@ static void print_ws_policy_effective(FILE *stream, const cJSON *data)
   attach_count_buf[0] = '\0';
   if (cJSON_IsNumber(attach_count)) snprintf(attach_count_buf, sizeof(attach_count_buf), "%d", attach_count->valueint);
   print_title(stream, "Container policy effective");
-  print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
+  print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
   print_section(stream, "Effective stack");
   print_kv(stream, "Family", json_string_path(data, "family_effective", "not resolved"));
   print_kv(stream, "Specialization", json_string_path(data, "specialization_effective", "not resolved"));
@@ -589,7 +593,7 @@ static void print_ws_debug_resolution(FILE *stream, const cJSON *data)
   if (cJSON_IsNumber(conf)) snprintf(conf_buf, sizeof(conf_buf), "%.2f", conf->valuedouble);
 
   print_title(stream, "Container debug resolution");
-  print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
+  print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
   print_section(stream, "Context sources");
   print_kv(stream, "Source", json_string_path(data, "context_source", "unknown"));
   print_kv(stream, "Declared family", json_string_path(data, "declared.family", "unset"));
@@ -626,7 +630,7 @@ static void print_ws_run(FILE *stream, const yai_render_opts_t *opts, const cJSO
   print_title(stream, "Container run");
   print_section(stream, "Execution");
   print_kv(stream, "Action", action);
-  print_kv(stream, "Container", json_string_path(data, "ws_id", "—"));
+  print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
   print_kv(stream, "Family", json_string_path(data, "decision.family_id",
                         json_string_path(data, "resolution_trace.matched_family", "not resolved")));
   print_kv(stream, "Specialization", json_string_path(data, "decision.specialization_id",
@@ -715,7 +719,7 @@ static void print_ws_query_result(FILE *stream, const cJSON *data, const char *t
 
   print_title(stream, title ? title : "Container query");
   print_section(stream, "Query");
-  print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
+  print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
   print_kv(stream, "Family", json_string_path(data, "query_family", "unknown"));
   print_kv(stream, "Shape", json_string_path(data, "result_shape", "unknown"));
 
@@ -777,7 +781,7 @@ static void print_ws_cognition_composed(FILE *stream, const cJSON *data)
   if (!stream || !data) return;
   print_title(stream, "Container cognition");
   print_section(stream, "Context");
-  print_kv(stream, "Container", json_string_path(data, "identity.workspace_id", "—"));
+  print_kv(stream, "Container", json_string_path(data, "identity.container_id", "—"));
   print_kv(stream, "Declared family", json_string_path(data, "context.declared.family", "unset"));
   print_kv(stream, "Declared spec", json_string_path(data, "context.declared.specialization", "unset"));
   print_section(stream, "Cognition");
@@ -813,7 +817,7 @@ static int render_source_data_human(const yai_sdk_reply_t *out, const yai_render
   if (cid && strcmp(cid, "yai.source.enroll") == 0) {
     print_title(stream, "Source enroll");
     print_section(stream, "Identity");
-    print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
+    print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
     print_kv(stream, "Source node", json_string_path(data, "source_node_id", "—"));
     print_kv(stream, "Daemon instance", json_string_path(data, "daemon_instance_id", "—"));
     print_kv(stream, "Owner link", json_string_path(data, "owner_link_id", "—"));
@@ -830,8 +834,8 @@ static int render_source_data_human(const yai_sdk_reply_t *out, const yai_render
   if (cid && strcmp(cid, "yai.source.attach") == 0) {
     print_title(stream, "Source attach");
     print_section(stream, "Binding");
-    print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
-    print_kv(stream, "Owner container", json_string_path(data, "owner_workspace_id", "—"));
+    print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
+    print_kv(stream, "Owner container", json_string_path(data, "owner_container_id", "—"));
     print_kv(stream, "Source node", json_string_path(data, "source_node_id", "—"));
     print_kv(stream, "Source binding", json_string_path(data, "source_binding_id", "—"));
     print_kv(stream, "Attachment", json_string_path(data, "attachment_status", "unknown"));
@@ -851,7 +855,7 @@ static int render_source_data_human(const yai_sdk_reply_t *out, const yai_render
     print_title(stream, strcmp(cid, "yai.source.list") == 0 ? "Source list" :
                         (strcmp(cid, "yai.source.inspect") == 0 ? "Source inspect" : "Source status"));
     print_section(stream, "Identity");
-    print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
+    print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
     print_kv(stream, "Query family", json_string_path(data, "query_family", "source"));
     print_kv(stream, "Result shape", json_string_path(data, "result_shape", "summary"));
 
@@ -913,13 +917,13 @@ static int render_source_data_human(const yai_sdk_reply_t *out, const yai_render
   return 0;
 }
 
-static int render_workspace_data_human(const yai_sdk_reply_t *out, const yai_render_opts_t *opts, FILE *stream)
+static int render_container_data_human(const yai_sdk_reply_t *out, const yai_render_opts_t *opts, FILE *stream)
 {
   cJSON *doc = NULL;
   cJSON *data = NULL;
   const char *cid = NULL;
   const cJSON *binding_status = NULL;
-  const cJSON *workspace_alias = NULL;
+  const cJSON *container_alias = NULL;
   int printed = 0;
   if (!out || !stream || !out->exec_reply_json || !out->exec_reply_json[0]) return 0;
   cid = (opts && opts->command_id && opts->command_id[0]) ? opts->command_id : out->command_id;
@@ -933,11 +937,11 @@ static int render_workspace_data_human(const yai_sdk_reply_t *out, const yai_ren
 
   if (cid && strcmp(cid, "yai.container.prompt_context") == 0) {
     binding_status = cJSON_GetObjectItemCaseSensitive(data, "binding_status");
-    workspace_alias = cJSON_GetObjectItemCaseSensitive(data, "workspace_alias");
+    container_alias = cJSON_GetObjectItemCaseSensitive(data, "container_alias");
     if (cJSON_IsString(binding_status) && binding_status->valuestring &&
         strcmp(binding_status->valuestring, "active") == 0 &&
-        cJSON_IsString(workspace_alias) && workspace_alias->valuestring && workspace_alias->valuestring[0]) {
-      print_prompt_token(stream, workspace_alias->valuestring);
+        cJSON_IsString(container_alias) && container_alias->valuestring && container_alias->valuestring[0]) {
+      print_prompt_token(stream, container_alias->valuestring);
       printed = 1;
     }
     cJSON_Delete(doc);
@@ -953,7 +957,7 @@ static int render_workspace_data_human(const yai_sdk_reply_t *out, const yai_ren
   else if (cid && strcmp(cid, "yai.container.policy_effective") == 0) print_ws_policy_effective(stream, data);
   else if (cid && strcmp(cid, "yai.container.policy_dry_run") == 0) {
     print_title(stream, "Container policy dry-run");
-    print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
+    print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
     print_kv(stream, "Object", json_string_path(data, "object_id", "—"));
     print_kv(stream, "Eligibility", json_string_path(data, "eligibility_result", "unknown"));
     print_kv(stream, "Compatibility", json_string_path(data, "compatibility_result", "unknown"));
@@ -964,7 +968,7 @@ static int render_workspace_data_human(const yai_sdk_reply_t *out, const yai_ren
   }
   else if (cid && strcmp(cid, "yai.container.policy_attach") == 0) {
     print_title(stream, "Container policy attach");
-    print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
+    print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
     print_kv(stream, "Object", json_string_path(data, "object_id", "—"));
     print_kv(stream, "Validity", json_string_path(data, "attachment_valid", "true"));
     print_kv(stream, "Eligibility", json_string_path(data, "eligibility_result", "eligible"));
@@ -976,7 +980,7 @@ static int render_workspace_data_human(const yai_sdk_reply_t *out, const yai_ren
   }
   else if (cid && strcmp(cid, "yai.container.policy_activate") == 0) {
     print_title(stream, "Container policy activate");
-    print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
+    print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
     print_kv(stream, "Object", json_string_path(data, "object_id", "—"));
     print_kv(stream, "State", json_string_path(data, "attachment_state", "attached_active"));
     print_kv(stream, "Activation", json_string_path(data, "activation_state", "active"));
@@ -984,7 +988,7 @@ static int render_workspace_data_human(const yai_sdk_reply_t *out, const yai_ren
   }
   else if (cid && strcmp(cid, "yai.container.policy_detach") == 0) {
     print_title(stream, "Container policy detach");
-    print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
+    print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
     print_kv(stream, "Object", json_string_path(data, "object_id", "—"));
     print_kv(stream, "Validity", json_string_path(data, "attachment_valid", "true"));
     print_kv(stream, "State", json_string_path(data, "attachment_state", "detached"));
@@ -1018,10 +1022,10 @@ static int render_workspace_data_human(const yai_sdk_reply_t *out, const yai_ren
   }
   else if (cid && (strcmp(cid, "yai.container.set") == 0 || strcmp(cid, "yai.container.switch") == 0)) {
     print_title(stream, strcmp(cid, "yai.container.switch") == 0 ? "Container switched" : "Container set");
-    print_kv(stream, "Container", json_string_path(data, "workspace_id", "—"));
+    print_kv(stream, "Container", json_string_path(data, "container_id", "—"));
     print_kv(stream, "Binding", json_string_path(data, "binding_status", "active"));
     print_kv(stream, "Execution", json_string_path(data, "execution_mode_effective", "scoped"));
-    print_kv(stream, "Prompt token", json_string_path(data, "workspace_alias", "none"));
+    print_kv(stream, "Prompt token", json_string_path(data, "container_alias", "none"));
   }
   else if (cid && strcmp(cid, "yai.container.unset") == 0) {
     print_title(stream, "Container unset");
@@ -1049,8 +1053,8 @@ int yai_render_exec_short(const yai_sdk_reply_t *out, int rc, const yai_render_o
   char reply_summary[512];
   char reply_hint_1[256];
   char reply_hint_2[256];
-  int workspace_rendered = 0;
-  int workspace_command = 0;
+  int container_rendered = 0;
+  int container_command = 0;
   int source_command = 0;
   int lifecycle_command = 0;
   int operator_runtime_surface = 0;
@@ -1068,7 +1072,7 @@ int yai_render_exec_short(const yai_sdk_reply_t *out, int rc, const yai_render_o
                              reply_summary, sizeof(reply_summary),
                              reply_hint_1, sizeof(reply_hint_1),
                              reply_hint_2, sizeof(reply_hint_2));
-  workspace_command = is_workspace_command(out, opts);
+  container_command = is_container_command(out, opts);
   source_command = is_source_command(out, opts);
   lifecycle_command = is_lifecycle_command(out);
   operator_runtime_surface = is_operator_runtime_surface_command(out, opts);
@@ -1081,7 +1085,7 @@ int yai_render_exec_short(const yai_sdk_reply_t *out, int rc, const yai_render_o
   else if (strcmp(out->status, "nyi") == 0 || strcmp(out->code, "RUNTIME_NOT_READY") == 0) status_role = YAI_STYLE_WARN;
   else status_role = YAI_STYLE_ERR;
 
-  if (!workspace_command && !source_command && !operator_runtime_surface) {
+  if (!container_command && !source_command && !operator_runtime_surface) {
     print_line(stream, subject, use_color, yai_style_color(YAI_STYLE_EMPH));
   }
   if (lifecycle_command) {
@@ -1111,28 +1115,28 @@ int yai_render_exec_short(const yai_sdk_reply_t *out, int rc, const yai_render_o
     }
     if (effective_detail && effective_detail[0]) print_kv(stream, "Summary", effective_detail);
     if (strcmp(out->command_id, "yai.lifecycle.up") == 0) print_kv(stream, "Next", "yai doctor runtime");
-    workspace_rendered = 1;
-  } else if (workspace_command && (strcmp(out->status, "ok") == 0 || strcmp(out->code, "POLICY_BLOCK") == 0)) {
-    workspace_rendered = render_workspace_data_human(out, opts, stream);
+    container_rendered = 1;
+  } else if (container_command && (strcmp(out->status, "ok") == 0 || strcmp(out->code, "POLICY_BLOCK") == 0)) {
+    container_rendered = render_container_data_human(out, opts, stream);
   } else if (source_command && (strcmp(out->status, "ok") == 0 || strcmp(out->status, "nyi") == 0)) {
-    workspace_rendered = render_source_data_human(out, opts, stream);
+    container_rendered = render_source_data_human(out, opts, stream);
   } else if (operator_runtime_surface) {
     print_operator_runtime_surface(stream, out);
-    workspace_rendered = 1;
+    container_rendered = 1;
   } else {
     print_line(stream, mapped.status_label, use_color, yai_style_color(status_role));
   }
-  if (!workspace_rendered && effective_detail && effective_detail[0]) fprintf(stream, "%s\n", effective_detail);
+  if (!container_rendered && effective_detail && effective_detail[0]) fprintf(stream, "%s\n", effective_detail);
   if (out->trace_id[0] &&
       ((opts && opts->show_trace) || strcmp(out->status, "ok") != 0) &&
-      !((workspace_command || source_command) && workspace_rendered)) {
+      !((container_command || source_command) && container_rendered)) {
     yai_color_print(stream, use_color, yai_style_color(YAI_STYLE_MUTED), "Trace: ");
     fprintf(stream, "%s\n", out->trace_id);
   }
   if (!(opts && opts->quiet) &&
       effective_hint_1 && effective_hint_1[0] &&
       strcmp(out->status, "ok") != 0 &&
-      !((workspace_command || source_command) && workspace_rendered)) {
+      !((container_command || source_command) && container_rendered)) {
     fprintf(stream, "Hint: %s\n", effective_hint_1);
     if (effective_hint_2 && effective_hint_2[0]) fprintf(stream, "Hint: %s\n", effective_hint_2);
   }

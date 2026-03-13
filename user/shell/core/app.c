@@ -121,11 +121,11 @@ static const char *find_arg_value(int argc, const char **argv, const char *flag)
 }
 
 static const char *resolve_source_workspace(
-    const char *effective_ws,
+    const char *effective_container,
     int argc,
     const char **argv)
 {
-  const char *ws = effective_ws;
+  const char *ws = effective_container;
   if (ws && ws[0]) return ws;
   ws = find_arg_value(argc, argv, "--container-id");
   if (ws && ws[0]) return ws;
@@ -167,10 +167,10 @@ static int run_source_command(
     const char *command_id,
     int argc,
     const char **argv,
-    const char *effective_ws,
+    const char *effective_container,
     yai_sdk_reply_t *reply)
 {
-  const char *ws = resolve_source_workspace(effective_ws, argc, argv);
+  const char *ws = resolve_source_workspace(effective_container, argc, argv);
   if (!client || !command_id || !reply) return YAI_SDK_BAD_ARGS;
 
   if (strcmp(command_id, "yai.source.enroll") == 0) {
@@ -181,13 +181,13 @@ static int run_source_command(
       return YAI_SDK_BAD_ARGS;
     }
     if (!ws || !ws[0]) {
-      set_source_reply(reply, command_id, "error", "BAD_ARGS", "workspace_not_active",
+      set_source_reply(reply, command_id, "error", "BAD_ARGS", "container_not_active",
                        "No container selected for source enroll.",
                        "Run: yai ws set <ws-id> or pass --ws-id <ws-id>");
       return YAI_SDK_BAD_ARGS;
     }
     memset(&req, 0, sizeof(req));
-    req.workspace_id = ws;
+    req.container_id = ws;
     req.source_label = argv[0];
     req.owner_ref = find_arg_value(argc, argv, "--owner-ref");
     req.source_node_id = find_arg_value(argc, argv, "--source-node-id");
@@ -203,14 +203,14 @@ static int run_source_command(
       return YAI_SDK_BAD_ARGS;
     }
     if (!ws || !ws[0]) {
-      set_source_reply(reply, command_id, "error", "BAD_ARGS", "workspace_not_active",
+      set_source_reply(reply, command_id, "error", "BAD_ARGS", "container_not_active",
                        "No container selected for source attach.",
                        "Run: yai ws set <ws-id> or pass --ws-id <ws-id>");
       return YAI_SDK_BAD_ARGS;
     }
     memset(&req, 0, sizeof(req));
-    req.workspace_id = ws;
-    req.owner_workspace_id = find_arg_value(argc, argv, "--owner-container-id");
+    req.container_id = ws;
+    req.owner_container_id = find_arg_value(argc, argv, "--owner-container-id");
     req.source_node_id = argv[0];
     req.binding_scope = find_arg_value(argc, argv, "--scope");
     if (!req.binding_scope || !req.binding_scope[0]) req.binding_scope = "container";
@@ -326,25 +326,25 @@ static int operator_runtime_ping(yai_sdk_reply_t *reply, const char *command_id)
   yai_sdk_client_t *client = NULL;
   yai_sdk_reply_t ws_reply = {0};
   yai_sdk_client_opts_t opts = {
-    .ws_id = "default",
+    .container_id = "default",
     .uds_path = NULL,
     .arming = 1,
     .role = "operator",
     .auto_handshake = 1,
   };
-  char ws_id[64] = {0};
+  char container_id[64] = {0};
   char selected_state[16] = "unknown";
   char bound_state[16] = "unknown";
   char details[256];
   int rc = yai_sdk_client_open(&client, &opts);
-  ws_id[0] = '\0';
+  container_id[0] = '\0';
 
   if (rc != 0) {
     snprintf(details, sizeof(details),
-             "liveness=unreachable readiness=unavailable workspace_selected=%s workspace_bound=%s workspace_id=%s",
+             "liveness=unreachable readiness=unavailable container_selected=%s container_bound=%s container_id=%s",
              selected_state,
              bound_state,
-             ws_id[0] ? ws_id : "none");
+             container_id[0] ? container_id : "none");
     operator_reply_set(reply, command_id, "error", "SERVER_UNAVAILABLE", "server_unavailable",
                        "Runtime endpoint is unreachable.",
                        "Start the service with: yai up",
@@ -358,16 +358,16 @@ static int operator_runtime_ping(yai_sdk_reply_t *reply, const char *command_id)
         "{\"type\":\"yai.control.call.v1\",\"target_plane\":\"runtime\",\"command_id\":\"yai.container.current\",\"argv\":[]}";
     if (yai_sdk_client_call_json(client, current_call, &ws_reply) == 0) {
       if (strcmp(ws_reply.status, "ok") == 0 &&
-          strcmp(ws_reply.reason, "workspace_current_resolved") == 0) {
+          strcmp(ws_reply.reason, "container_current_resolved") == 0) {
         snprintf(selected_state, sizeof(selected_state), "%s", "yes");
         snprintf(bound_state, sizeof(bound_state), "%s", "yes");
         if (ws_reply.exec_reply_json && ws_reply.exec_reply_json[0]) {
-          (void)extract_json_string_field(ws_reply.exec_reply_json, "workspace_id", ws_id, sizeof(ws_id));
+          (void)extract_json_string_field(ws_reply.exec_reply_json, "container_id", container_id, sizeof(container_id));
         }
       } else if ((strcmp(ws_reply.status, "ok") == 0 &&
-                  strcmp(ws_reply.reason, "workspace_current_unbound") == 0) ||
+                  strcmp(ws_reply.reason, "container_current_unbound") == 0) ||
                  (strcmp(ws_reply.code, "BAD_ARGS") == 0 &&
-                  strcmp(ws_reply.reason, "workspace_not_active") == 0)) {
+                  strcmp(ws_reply.reason, "container_not_active") == 0)) {
         snprintf(selected_state, sizeof(selected_state), "%s", "no");
         snprintf(bound_state, sizeof(bound_state), "%s", "no");
       } else {
@@ -393,13 +393,13 @@ static int operator_runtime_ping(yai_sdk_reply_t *reply, const char *command_id)
       summary = "Runtime replied with a protocol error.";
     }
     snprintf(details, sizeof(details),
-             "liveness=%s readiness=%s workspace_selected=%s workspace_bound=%s workspace_id=%s",
+             "liveness=%s readiness=%s container_selected=%s container_bound=%s container_id=%s",
              (strcmp(code, "SERVER_UNAVAILABLE") == 0) ? "unreachable" : "reachable",
              (strcmp(code, "RUNTIME_NOT_READY") == 0) ? "not_ready" :
              ((strcmp(code, "SERVER_UNAVAILABLE") == 0) ? "unavailable" : "degraded"),
              selected_state,
              bound_state,
-             ws_id[0] ? ws_id : "none");
+             container_id[0] ? container_id : "none");
     operator_reply_set(reply, command_id, "error", code, reason,
                        summary,
                        (strcmp(code, "RUNTIME_NOT_READY") == 0) ? "Run: yai ws status" : "Start the service with: yai up",
@@ -408,10 +408,10 @@ static int operator_runtime_ping(yai_sdk_reply_t *reply, const char *command_id)
     return 1;
   }
   snprintf(details, sizeof(details),
-           "liveness=reachable readiness=ready workspace_selected=%s workspace_bound=%s workspace_id=%s",
+           "liveness=reachable readiness=ready container_selected=%s container_bound=%s container_id=%s",
            selected_state,
            bound_state,
-           ws_id[0] ? ws_id : "none");
+           container_id[0] ? container_id : "none");
   operator_reply_set(reply, command_id, "ok", "OK", "service_ready",
                      "Service checks passed.",
                      "",
@@ -424,7 +424,7 @@ static int handle_operator_capability(const yai_porcelain_request_t *req, yai_sd
 {
   yai_sdk_container_info_t ws_info = {0};
   yai_sdk_command_catalog_t cat = {0};
-  char ws_id[64] = {0};
+  char container_id[64] = {0};
   char details[512];
   size_t surface_count = 0;
   int rc = 0;
@@ -457,7 +457,7 @@ static int handle_operator_capability(const yai_porcelain_request_t *req, yai_sd
   if (strcmp(req->command_id, "yai.operator.doctor.container") == 0) {
     rc = yai_sdk_context_validate_current_container(&ws_info);
     if (rc == YAI_SDK_BAD_ARGS) {
-      operator_reply_set(reply, req->command_id, "error", "BAD_ARGS", "workspace_context_missing",
+      operator_reply_set(reply, req->command_id, "error", "BAD_ARGS", "container_context_missing",
                          "No container selected.",
                          "Run: yai ws set <ws-id>",
                          "Or pass: --ws-id <ws-id>",
@@ -465,16 +465,16 @@ static int handle_operator_capability(const yai_porcelain_request_t *req, yai_sd
       return 1;
     }
     if (rc != 0 || !ws_info.exists) {
-      operator_reply_set(reply, req->command_id, "error", "BAD_ARGS", "workspace_context_invalid",
+      operator_reply_set(reply, req->command_id, "error", "BAD_ARGS", "container_context_invalid",
                          "Current container binding is invalid.",
                          "Run: yai ws clear",
                          "Run: yai ws set <ws-id>",
                          "");
       return 1;
     }
-    snprintf(details, sizeof(details), "ws_id=%.63s state=%.31s root_path=%.255s",
-             ws_info.ws_id, ws_info.state, ws_info.root_path);
-    operator_reply_set(reply, req->command_id, "ok", "OK", "doctor_workspace_ok",
+    snprintf(details, sizeof(details), "container_id=%.63s state=%.31s root_path=%.255s",
+             ws_info.container_id, ws_info.state, ws_info.root_path);
+    operator_reply_set(reply, req->command_id, "ok", "OK", "doctor_container_ok",
                        "Container checks passed.",
                        "",
                        "",
@@ -552,7 +552,7 @@ static int handle_operator_capability(const yai_porcelain_request_t *req, yai_sd
   }
 
   if (strcmp(req->command_id, "yai.operator.inspect.context") == 0) {
-    rc = yai_sdk_context_get_current_container(ws_id, sizeof(ws_id));
+    rc = yai_sdk_context_get_current_container(container_id, sizeof(container_id));
     if (rc == 1) {
       operator_reply_set(reply, req->command_id, "error", "BAD_ARGS", "context_missing",
                          "No container selected.",
@@ -569,7 +569,7 @@ static int handle_operator_capability(const yai_porcelain_request_t *req, yai_sd
                          "");
       return 1;
     }
-    snprintf(details, sizeof(details), "current_workspace=%s", ws_id);
+    snprintf(details, sizeof(details), "current_container=%s", container_id);
     operator_reply_set(reply, req->command_id, "ok", "OK", "inspect_context_ok",
                        "Container context loaded.",
                        "",
@@ -581,16 +581,16 @@ static int handle_operator_capability(const yai_porcelain_request_t *req, yai_sd
   if (strcmp(req->command_id, "yai.operator.inspect.container") == 0) {
     rc = yai_sdk_context_validate_current_container(&ws_info);
     if (rc != 0 || !ws_info.exists) {
-      operator_reply_set(reply, req->command_id, "error", "BAD_ARGS", "inspect_workspace_failed",
+      operator_reply_set(reply, req->command_id, "error", "BAD_ARGS", "inspect_container_failed",
                          "Container state is not available.",
                          "Run: yai ws current",
                          "Run: yai ws set <ws-id>",
                          "");
       return 1;
     }
-    snprintf(details, sizeof(details), "ws_id=%.63s state=%.31s root_path=%.255s",
-             ws_info.ws_id, ws_info.state, ws_info.root_path);
-    operator_reply_set(reply, req->command_id, "ok", "OK", "inspect_workspace_ok",
+    snprintf(details, sizeof(details), "container_id=%.63s state=%.31s root_path=%.255s",
+             ws_info.container_id, ws_info.state, ws_info.root_path);
+    operator_reply_set(reply, req->command_id, "ok", "OK", "inspect_container_ok",
                        "Container state loaded.",
                        "",
                        "",
@@ -677,16 +677,16 @@ static int handle_operator_capability(const yai_porcelain_request_t *req, yai_sd
   if (strcmp(req->command_id, "yai.operator.verify.container") == 0) {
     rc = yai_sdk_context_validate_current_container(&ws_info);
     if (rc != 0 || !ws_info.exists || !ws_info.root_path[0]) {
-      operator_reply_set(reply, req->command_id, "error", "BAD_ARGS", "verify_workspace_failed",
+      operator_reply_set(reply, req->command_id, "error", "BAD_ARGS", "verify_container_failed",
                          "Container model checks failed.",
                          "Run: yai doctor container",
                          "",
                          "");
       return 1;
     }
-    snprintf(details, sizeof(details), "ws_id=%.63s state=%.31s root_path=%.255s",
-             ws_info.ws_id, ws_info.state, ws_info.root_path);
-    operator_reply_set(reply, req->command_id, "ok", "OK", "verify_workspace_ok",
+    snprintf(details, sizeof(details), "container_id=%.63s state=%.31s root_path=%.255s",
+             ws_info.container_id, ws_info.state, ws_info.root_path);
+    operator_reply_set(reply, req->command_id, "ok", "OK", "verify_container_ok",
                        "Container checks passed.",
                        "",
                        "",
@@ -859,21 +859,21 @@ int yai_porcelain_run(int argc, char **argv)
         char ws_buf[64] = {0};
         const char **argv_eff = (const char **)req.cmd_argv;
         int argc_eff = req.cmd_argc;
-        const char *effective_ws = req.ws_id;
+        const char *effective_container = req.container_id;
         const char *dispatch_command_id = dispatch_runtime_command_id(req.command_id);
-        int force_workspace_context = 0;
+        int force_container_context = 0;
         char *control_call_json = NULL;
 
         if (strcmp(req.command_id, "yai.container.run") == 0) {
-          force_workspace_context = 1;
+          force_container_context = 1;
         }
 
-        if (!force_workspace_context &&
+        if (!force_container_context &&
             command_requires_workspace(req.command_id) &&
-            !effective_ws &&
+            !effective_container &&
             !command_has_ws_flag(req.cmd_argc, req.cmd_argv)) {
           if (yai_sdk_context_resolve_container(NULL, ws_buf, sizeof(ws_buf)) == 0 && ws_buf[0]) {
-            effective_ws = ws_buf;
+            effective_container = ws_buf;
           } else {
             fprintf(stderr, "%s\nBAD ARGS\nNo container selected.\nHint: Run: yai ws set <ws-id>\nHint: Or pass: --ws-id <ws-id>\n",
                     req.command_id ? req.command_id : "command");
@@ -881,14 +881,14 @@ int yai_porcelain_run(int argc, char **argv)
           }
         }
 
-        if (effective_ws && !command_has_ws_flag(req.cmd_argc, req.cmd_argv)) {
+        if (effective_container && !command_has_ws_flag(req.cmd_argc, req.cmd_argv)) {
           if (req.cmd_argc + 2 >= (int)(sizeof(argv_eff_stack) / sizeof(argv_eff_stack[0]))) {
             fprintf(stderr, "command execution\nBAD ARGS\ncommand arguments are too long\n");
             return 20;
           }
           for (int i = 0; i < req.cmd_argc; i++) argv_eff_stack[i] = req.cmd_argv[i];
           argv_eff_stack[req.cmd_argc] = "--ws-id";
-          argv_eff_stack[req.cmd_argc + 1] = effective_ws;
+          argv_eff_stack[req.cmd_argc + 1] = effective_container;
           argv_eff = argv_eff_stack;
           argc_eff = req.cmd_argc + 2;
         }
@@ -923,7 +923,7 @@ int yai_porcelain_run(int argc, char **argv)
           sdk_rc = yai_shell_lifecycle_run(req.command_id, &reply);
         } else {
           yai_sdk_client_opts_t opts = {
-            .ws_id = effective_ws ? effective_ws : "default",
+            .container_id = effective_container ? effective_container : "default",
             .uds_path = NULL,
             .arming = req.arming,
             .role = req.role ? req.role : "operator",
@@ -932,13 +932,13 @@ int yai_porcelain_run(int argc, char **argv)
           yai_sdk_client_t *client = NULL;
           sdk_rc = yai_sdk_client_open(&client, &opts);
           if (sdk_rc == 0) {
-            if (!force_workspace_context &&
+            if (!force_container_context &&
                 (strcmp(dispatch_command_id, "yai.ingress.ping") == 0 ||
                 strcmp(dispatch_command_id, "yai.core.ping") == 0 ||
                 strcmp(dispatch_command_id, "yai.runtime.ping") == 0)) {
               sdk_rc = yai_sdk_client_ping(client, dispatch_command_id, &reply);
             } else if (is_source_command(req.command_id)) {
-              sdk_rc = run_source_command(client, req.command_id, argc_eff, argv_eff, effective_ws, &reply);
+              sdk_rc = run_source_command(client, req.command_id, argc_eff, argv_eff, effective_container, &reply);
             } else {
               sdk_rc = yai_sdk_client_call_json(client, control_call_json, &reply);
             }
@@ -948,7 +948,7 @@ int yai_porcelain_run(int argc, char **argv)
               if (yai_sdk_context_clear_current_container() == 0) {
                 snprintf(reply.status, sizeof(reply.status), "ok");
                 snprintf(reply.code, sizeof(reply.code), "OK");
-                snprintf(reply.reason, sizeof(reply.reason), "workspace_cleared_local");
+                snprintf(reply.reason, sizeof(reply.reason), "container_cleared_local");
                 snprintf(reply.command_id, sizeof(reply.command_id), "%s", req.command_id);
                 snprintf(reply.target_plane, sizeof(reply.target_plane), "%s", "runtime");
               } else {

@@ -1,20 +1,20 @@
 {
   "kind": "customer_policy_pack",
   "schema_version": "v1",
-  "id": "customer.<org-id>.<workspace-or-scope>.pack",
+  "id": "customer.<org-id>.<scope-or-scope>.pack",
   "name": "Customer Workspace Governance Pack",
   "version": "YYYY.MM",
   "scope_targets": {
     "organization_ids": [
       "<org-id>"
     ],
-    "workspace_ids": [
-      "<workspace-id>"
+    "scope_ids": [
+      "<scope-id>"
     ],
     "environment_classes": [
       "production"
     ],
-    "session_scope": "workspace-bound"
+    "session_scope": "scope-bound"
   },
   "domain_targets": [
     "digital"
@@ -40,7 +40,7 @@
     "sector": [],
     "contextual": [
       "organization",
-      "workspace"
+      "scope"
     ]
   },
   "authority_profile": {

@@ -179,8 +179,8 @@ int yai_sdk_client_open(yai_sdk_client_t **out, const yai_sdk_client_opts_t *opt
         return YAI_SDK_IO;
     }
     c->rpc.fd = -1;
-    snprintf(c->ws_id, sizeof(c->ws_id), "%s",
-             (opts && opts->ws_id && opts->ws_id[0]) ? opts->ws_id : "default");
+    snprintf(c->scope_id, sizeof(c->scope_id), "%s",
+             (opts && opts->container_id && opts->container_id[0]) ? opts->container_id : "default");
     snprintf(c->role, sizeof(c->role), "%s",
              (opts && opts->role && opts->role[0]) ? opts->role : "operator");
     snprintf(c->correlation_id, sizeof(c->correlation_id), "%s",
@@ -196,7 +196,7 @@ int yai_sdk_client_open(yai_sdk_client_t **out, const yai_sdk_client_opts_t *opt
         }
     }
 
-    if (yai_rpc_connect_at(&c->rpc, c->ws_id, c->uds_path) != 0) {
+    if (yai_rpc_connect_at(&c->rpc, c->scope_id, c->uds_path) != 0) {
         yai_sdk_log_emit(YAI_SDK_LOG_ERROR, "client", "rpc connect failed");
         free(c);
         return YAI_SDK_SERVER_OFF;
@@ -231,16 +231,16 @@ int yai_sdk_client_set_authority(yai_sdk_client_t *c, int arming, const char *ro
     return YAI_SDK_OK;
 }
 
-int yai_sdk_client_set_ws(yai_sdk_client_t *c, const char *ws_id)
+int yai_sdk_client_set_container(yai_sdk_client_t *c, const char *container_id)
 {
-    if (!c || !ws_id || !ws_id[0]) {
+    if (!c || !container_id || !container_id[0]) {
         return YAI_SDK_BAD_ARGS;
     }
     yai_rpc_close(&c->rpc);
     c->is_open = 0;
     c->handshaken = 0;
-    snprintf(c->ws_id, sizeof(c->ws_id), "%s", ws_id);
-    if (yai_rpc_connect_at(&c->rpc, c->ws_id, c->uds_path) != 0) {
+    snprintf(c->scope_id, sizeof(c->scope_id), "%s", container_id);
+    if (yai_rpc_connect_at(&c->rpc, c->scope_id, c->uds_path) != 0) {
         yai_sdk_log_emit(YAI_SDK_LOG_ERROR, "client", "rpc reconnect failed");
         return YAI_SDK_SERVER_OFF;
     }

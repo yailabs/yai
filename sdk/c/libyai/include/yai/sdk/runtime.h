@@ -15,7 +15,7 @@ extern "C" {
 
 /* Canonical runtime command ids exposed to SDK consumers. */
 #define YAI_SDK_CMD_RUNTIME_PING "yai.runtime.ping"
-#define YAI_SDK_CMD_RUNTIME_WS_STATUS "yai.runtime.ws_status"
+#define YAI_SDK_CMD_RUNTIME_SCOPE_STATUS "yai.runtime.scope_status"
 
 /* Runtime ping over canonical runtime surface. */
 static inline int yai_sdk_runtime_ping(

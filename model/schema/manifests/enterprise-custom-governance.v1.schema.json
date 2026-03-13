@@ -50,7 +50,7 @@
       "required": ["organization_ids"],
       "additionalProperties": true
     },
-    "workspace_targets": {
+    "scope_targets": {
       "type": "array",
       "items": {"type": "string"}
     },
@@ -145,7 +145,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["workspace_attach", "organization_default", "runtime_entrypoint"]
+        "enum": ["scope_attach", "organization_default", "runtime_entrypoint"]
       },
       "minItems": 1
     },
@@ -179,7 +179,7 @@
     "version",
     "owner",
     "organization_scope",
-    "workspace_targets",
+    "scope_targets",
     "domain_targets",
     "source_inputs",
     "policy_refs",

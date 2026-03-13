@@ -6,7 +6,7 @@
 
 struct yai_sdk_client {
     yai_rpc_client_t rpc;
-    char ws_id[128];
+    char scope_id[128];
     char uds_path[512];
     char role[32];
     char correlation_id[64];

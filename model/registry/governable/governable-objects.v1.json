@@ -158,7 +158,7 @@
       "data_family_owner": "data"
     },
     {
-      "id": "customer.default.org-workspace-contextual-review",
+      "id": "customer.default.org-scope-contextual-review",
       "kind": "customer_policy_pack",
       "name": "Organization and Workspace Contextual Review Pack",
       "status": "active",
@@ -166,7 +166,7 @@
         "organization_ids": [
           "default-org"
         ],
-        "workspace_ids": [
+        "scope_ids": [
           "ws_ops_review",
           "ws_science_review"
         ],
@@ -174,7 +174,7 @@
           "shared",
           "review"
         ],
-        "session_scope": "workspace-bound"
+        "session_scope": "scope-bound"
       },
       "domain_targets": [
         "digital",
@@ -191,11 +191,11 @@
         "result-publication-control"
       ],
       "attachment_modes": [
-        "workspace-attach",
+        "scope-attach",
         "runtime-entrypoint"
       ],
-      "source_ref": "packages/customer/policy-pack/examples/customer.default.org-workspace-contextual-review.v1.json",
-      "manifest_ref": "packages/customer/policy-pack/examples/customer.default.org-workspace-contextual-review.v1.json",
+      "source_ref": "packages/customer/policy-pack/examples/customer.default.org-scope-contextual-review.v1.json",
+      "manifest_ref": "packages/customer/policy-pack/examples/customer.default.org-scope-contextual-review.v1.json",
       "compatibility_ref": "indexes/compatibility/matrix.v1.json",
       "precedence_class": "specialization+contextual-overlays+customer-pack",
       "runtime_consumable": true,
@@ -213,7 +213,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -229,7 +229,7 @@
         "organization_ids": [
           "ecohmedia"
         ],
-        "workspace_ids": [
+        "scope_ids": [
           "ws_digital_outbound_prod",
           "ws_digital_outbound_stage"
         ],
@@ -237,7 +237,7 @@
           "production",
           "staging"
         ],
-        "session_scope": "workspace-bound"
+        "session_scope": "scope-bound"
       },
       "domain_targets": [
         "digital"
@@ -254,7 +254,7 @@
         "digital-sink-control"
       ],
       "attachment_modes": [
-        "workspace-attach",
+        "scope-attach",
         "runtime-entrypoint"
       ],
       "source_ref": "packages/customer/policy-pack/examples/customer.ecohmedia.digital-outbound.gdpr-retention.v1.json",
@@ -276,7 +276,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -284,7 +284,7 @@
       "data_family_owner": "data"
     },
     {
-      "id": "enterprise.default.workspace.research-sandbox",
+      "id": "enterprise.default.scope.research-sandbox",
       "kind": "enterprise_custom_governance_object",
       "name": "Default Workspace Research Sandbox Governance",
       "status": "candidate",
@@ -293,7 +293,7 @@
         "organization_ids": [
           "default-org"
         ],
-        "workspace_ids": [
+        "scope_ids": [
           "ws_research_lab",
           "ws_science_review"
         ],
@@ -301,7 +301,7 @@
           "shared",
           "review"
         ],
-        "session_scope": "workspace-bound"
+        "session_scope": "scope-bound"
       },
       "domain_targets": [
         "scientific",
@@ -317,10 +317,10 @@
         "remote-publication"
       ],
       "attachment_modes": [
-        "workspace_attach"
+        "scope_attach"
       ],
-      "source_ref": "packages/enterprise/custom-governance/examples/enterprise.default.workspace.research-sandbox.v1.json",
-      "manifest_ref": "packages/enterprise/custom-governance/examples/enterprise.default.workspace.research-sandbox.v1.json",
+      "source_ref": "packages/enterprise/custom-governance/examples/enterprise.default.scope.research-sandbox.v1.json",
+      "manifest_ref": "packages/enterprise/custom-governance/examples/enterprise.default.scope.research-sandbox.v1.json",
       "compatibility_ref": "indexes/compatibility/matrix.v1.json",
       "precedence_class": "specialization+contextual-overlays+customer-pack+enterprise-object",
       "runtime_consumable": false,
@@ -341,7 +341,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -349,7 +349,7 @@
       "data_family_owner": "data"
     },
     {
-      "id": "enterprise.default.workspace.source-attachment-governance",
+      "id": "enterprise.default.scope.source-attachment-governance",
       "kind": "enterprise_custom_governance_object",
       "name": "Default Workspace Source Attachment Governance",
       "status": "approved",
@@ -358,7 +358,7 @@
         "organization_ids": [
           "default-org"
         ],
-        "workspace_ids": [
+        "scope_ids": [
           "ws_ops_review",
           "ws_science_review"
         ],
@@ -366,7 +366,7 @@
           "shared",
           "review"
         ],
-        "session_scope": "workspace-bound"
+        "session_scope": "scope-bound"
       },
       "domain_targets": [
         "digital",
@@ -381,11 +381,11 @@
         "parameter-governance"
       ],
       "attachment_modes": [
-        "workspace_attach",
+        "scope_attach",
         "runtime_entrypoint"
       ],
-      "source_ref": "packages/enterprise/custom-governance/examples/enterprise.default.workspace.source-attachment-governance.v1.json",
-      "manifest_ref": "packages/enterprise/custom-governance/examples/enterprise.default.workspace.source-attachment-governance.v1.json",
+      "source_ref": "packages/enterprise/custom-governance/examples/enterprise.default.scope.source-attachment-governance.v1.json",
+      "manifest_ref": "packages/enterprise/custom-governance/examples/enterprise.default.scope.source-attachment-governance.v1.json",
       "compatibility_ref": "indexes/compatibility/matrix.v1.json",
       "precedence_class": "specialization+contextual-overlays+customer-pack+enterprise-object",
       "runtime_consumable": true,
@@ -397,7 +397,7 @@
         "indexes/runtime/entrypoints.v1.json#default-runtime"
       ],
       "conflicts_with": [
-        "enterprise.default.workspace.research-sandbox"
+        "enterprise.default.scope.research-sandbox"
       ],
       "runtime_family_targets": [
         "core",
@@ -406,7 +406,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -423,7 +423,7 @@
         "organization_ids": [
           "ecohmedia"
         ],
-        "workspace_ids": [
+        "scope_ids": [
           "ws_digital_outbound_prod",
           "ws_digital_outbound_stage"
         ],
@@ -431,7 +431,7 @@
           "production",
           "staging"
         ],
-        "session_scope": "workspace-bound"
+        "session_scope": "scope-bound"
       },
       "domain_targets": [
         "digital"
@@ -446,7 +446,7 @@
         "network-egress"
       ],
       "attachment_modes": [
-        "workspace_attach",
+        "scope_attach",
         "runtime_entrypoint"
       ],
       "source_ref": "packages/enterprise/custom-governance/examples/enterprise.ecohmedia.digital-outbound.review-gate.v1.json",
@@ -470,7 +470,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -549,7 +549,7 @@
         "data",
         "graph"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "core",
       "knowledge_support_family": "none",
@@ -586,7 +586,7 @@
         "data",
         "graph"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "core",
       "knowledge_support_family": "none",
@@ -623,7 +623,7 @@
         "data",
         "graph"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "core",
       "knowledge_support_family": "none",
@@ -631,12 +631,12 @@
       "data_family_owner": "data"
     },
     {
-      "id": "overlay.context.workspace",
+      "id": "overlay.context.scope",
       "kind": "overlay",
-      "name": "context.workspace",
+      "name": "context.scope",
       "status": "seed",
       "scope_targets": {
-        "session_scope": "workspace"
+        "session_scope": "scope"
       },
       "domain_targets": [],
       "family_targets": [],
@@ -645,8 +645,8 @@
         "overlay-stack",
         "policy-composition"
       ],
-      "source_ref": "packages/contextual/workspace/manifest.v1.json",
-      "manifest_ref": "packages/contextual/workspace/manifest.v1.json",
+      "source_ref": "packages/contextual/scope/manifest.v1.json",
+      "manifest_ref": "packages/contextual/scope/manifest.v1.json",
       "compatibility_ref": "indexes/compatibility/matrix.v1.json",
       "precedence_class": "overlay-contextual",
       "runtime_consumable": true,
@@ -660,7 +660,7 @@
         "data",
         "graph"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "core",
       "knowledge_support_family": "none",
@@ -1021,7 +1021,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1064,7 +1064,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1107,7 +1107,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1150,7 +1150,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1193,7 +1193,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1236,7 +1236,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1279,7 +1279,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1322,7 +1322,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1365,7 +1365,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1408,7 +1408,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1451,7 +1451,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1494,7 +1494,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1537,7 +1537,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1580,7 +1580,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1623,7 +1623,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1666,7 +1666,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1709,7 +1709,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1752,7 +1752,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1795,7 +1795,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1838,7 +1838,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -1881,7 +1881,7 @@
         "graph",
         "knowledge"
       ],
-      "runtime_binding_model": "workspace-first",
+      "runtime_binding_model": "scope-first",
       "topology_target": "unified-runtime-v1",
       "execution_family_owner": "exec",
       "knowledge_support_family": "knowledge",
@@ -2059,9 +2059,9 @@
       "data_family_owner": "none"
     },
     {
-      "id": "template.overlays.workspace.templates.workspace-overlay.template.v1.json",
+      "id": "template.overlays.scope.templates.scope-overlay.template.v1.json",
       "kind": "template_object",
-      "name": "workspace-overlay.template.v1",
+      "name": "scope-overlay.template.v1",
       "status": "template",
       "scope_targets": {
         "session_scope": "authoring-only"
@@ -2072,8 +2072,8 @@
       "attachment_modes": [
         "none"
       ],
-      "source_ref": "policy/overlays/workspace/templates/workspace-overlay.template.v1.json",
-      "manifest_ref": "policy/overlays/workspace/templates/workspace-overlay.template.v1.json",
+      "source_ref": "policy/overlays/scope/templates/scope-overlay.template.v1.json",
+      "manifest_ref": "policy/overlays/scope/templates/scope-overlay.template.v1.json",
       "compatibility_ref": "indexes/compatibility/matrix.v1.json",
       "precedence_class": "non-operational-template",
       "runtime_consumable": false,

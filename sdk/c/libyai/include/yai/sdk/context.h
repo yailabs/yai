@@ -46,7 +46,7 @@ int yai_sdk_context_resolve_container(
     size_t out_cap);
 
 typedef struct yai_sdk_container_info {
-    char ws_id[64];
+    char container_id[64];
     int exists;
     int valid;
     char state[32];

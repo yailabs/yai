@@ -44,7 +44,7 @@ typedef struct yai_sdk_source_distribution_state {
 } yai_sdk_source_distribution_state_t;
 
 typedef struct yai_sdk_source_enroll_request {
-    const char *workspace_id;
+    const char *container_id;
     const char *source_label;
     const char *owner_ref;
     const char *source_node_id;
@@ -52,7 +52,7 @@ typedef struct yai_sdk_source_enroll_request {
 } yai_sdk_source_enroll_request_t;
 
 typedef struct yai_sdk_source_enroll_reply {
-    char workspace_id[64];
+    char container_id[64];
     char source_node_id[96];
     char daemon_instance_id[96];
     char owner_link_id[96];
@@ -62,16 +62,16 @@ typedef struct yai_sdk_source_enroll_reply {
 } yai_sdk_source_enroll_reply_t;
 
 typedef struct yai_sdk_source_attach_request {
-    const char *workspace_id;
-    const char *owner_workspace_id;
+    const char *container_id;
+    const char *owner_container_id;
     const char *source_node_id;
     const char *binding_scope;
     const char *constraints_ref;
 } yai_sdk_source_attach_request_t;
 
 typedef struct yai_sdk_source_attach_reply {
-    char workspace_id[64];
-    char owner_workspace_id[64];
+    char container_id[64];
+    char owner_container_id[64];
     char source_node_id[96];
     char source_binding_id[96];
     char attachment_status[32];
@@ -108,7 +108,7 @@ typedef struct yai_sdk_source_evidence_candidate {
 } yai_sdk_source_evidence_candidate_t;
 
 typedef struct yai_sdk_source_emit_request {
-    const char *workspace_id;
+    const char *container_id;
     const char *source_node_id;
     const char *source_binding_id;
     const char *idempotency_key;
@@ -124,7 +124,7 @@ typedef struct yai_sdk_source_emit_request {
 } yai_sdk_source_emit_request_t;
 
 typedef struct yai_sdk_source_emit_reply {
-    char workspace_id[64];
+    char container_id[64];
     char source_node_id[96];
     char source_binding_id[96];
     char idempotency_key[128];
@@ -135,14 +135,14 @@ typedef struct yai_sdk_source_emit_reply {
 } yai_sdk_source_emit_reply_t;
 
 typedef struct yai_sdk_source_status_request {
-    const char *workspace_id;
+    const char *container_id;
     const char *source_node_id;
     const char *daemon_instance_id;
     const char *health;
 } yai_sdk_source_status_request_t;
 
 typedef struct yai_sdk_source_status_reply {
-    char workspace_id[64];
+    char container_id[64];
     char source_node_id[96];
     char daemon_instance_id[96];
     char health[48];

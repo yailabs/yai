@@ -1,3 +1,3 @@
 # Workspace Authority
 
-Default scope for workspace-bound actions; can be upgraded by compliance layers.
+Default scope for scope-bound actions; can be upgraded by compliance layers.

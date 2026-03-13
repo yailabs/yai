@@ -1,31 +1,31 @@
 {
   "kind": "overlay_descriptor.v1",
   "version": "v1",
-  "overlay_id": "context.workspace",
+  "overlay_id": "context.scope",
   "overlay_class": "contextual",
   "status": "seed",
   "runtime": {
-    "manifest_ref": "contextual/workspace/manifest.v1.json",
-    "materialized_bundle_ref": "contextual/workspace",
+    "manifest_ref": "contextual/scope/manifest.v1.json",
+    "materialized_bundle_ref": "contextual/scope",
     "attachment_count": 1,
     "precedence_count": 0,
     "evidence_count": 1
   },
   "attachment_rules": [
     {
-      "overlay": "context.workspace",
+      "overlay": "context.scope",
       "family": "*",
       "specialization": "*",
       "action": "*",
       "asset": "*",
       "risk": "*",
-      "scope": "workspace"
+      "scope": "scope"
     }
   ],
   "precedence_rules": [],
   "evidence_rules": [
     {
-      "overlay": "context.workspace",
+      "overlay": "context.scope",
       "required": [
         "context_scope",
         "review_trace"
@@ -37,6 +37,6 @@
   },
   "source": {
     "generator": "tools/gen/build_overlay_descriptors.py",
-    "legacy_manifest_ref": "contextual/workspace/manifest.v1.json"
+    "legacy_manifest_ref": "contextual/scope/manifest.v1.json"
   }
 }

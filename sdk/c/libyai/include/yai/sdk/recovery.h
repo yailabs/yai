@@ -13,11 +13,11 @@ extern "C" {
 
 static inline int yai_sdk_container_recovery_reopen_current(yai_sdk_client_t *client, yai_sdk_reply_t *out)
 {
-    char ws_id[64] = {0};
-    if (yai_sdk_container_context_current(ws_id, sizeof(ws_id)) != 0 || !ws_id[0]) {
+    char container_id[64] = {0};
+    if (yai_sdk_container_context_current(container_id, sizeof(container_id)) != 0 || !container_id[0]) {
         return YAI_SDK_BAD_ARGS;
     }
-    return yai_sdk_container_recovery_reopen(client, ws_id, out);
+    return yai_sdk_container_recovery_reopen(client, container_id, out);
 }
 
 #ifdef __cplusplus

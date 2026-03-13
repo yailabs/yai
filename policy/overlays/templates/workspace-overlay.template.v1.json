@@ -1,9 +1,9 @@
 {
-  "kind": "workspace_overlay_template",
+  "kind": "scope_overlay_template",
   "version": "v1",
-  "overlay_id": "workspace.<workspace-id>.governance",
-  "target_scope": "workspace",
-  "workspace_id": "<workspace-id>",
+  "overlay_id": "scope.<scope-id>.governance",
+  "target_scope": "scope",
+  "scope_id": "<scope-id>",
   "family_targets": [
     "digital"
   ],

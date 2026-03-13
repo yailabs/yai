@@ -71,32 +71,32 @@ static int read_all(int fd, void *buf, size_t n)
 
 /* ============================================================
    WS_ID VALIDATION (STRICT, PATH-SAFE)
-   - must fit envelope ws_id field (typically 36 bytes incl NUL)
+   - must fit envelope scope_id field (typically 36 bytes incl NUL)
    - allow: [A-Za-z0-9_-]
    ============================================================ */
 
-static int is_valid_ws_id(const char *ws_id)
+static int is_valid_scope_id(const char *scope_id)
 {
-    if (!ws_id || !ws_id[0])
+    if (!scope_id || !scope_id[0])
         return 0;
 
     /* forbid traversal / separators / shortcuts */
-    if (strchr(ws_id, '/'))
+    if (strchr(scope_id, '/'))
         return 0;
-    if (ws_id[0] == '~')
+    if (scope_id[0] == '~')
         return 0;
-    if (strstr(ws_id, ".."))
+    if (strstr(scope_id, ".."))
         return 0;
 
     /* allow only safe charset; enforce max length */
     size_t n = 0;
-    for (const char *p = ws_id; *p; p++)
+    for (const char *p = scope_id; *p; p++)
     {
         unsigned char c = (unsigned char)*p;
         if (!(isalnum(c) || c == '_' || c == '-'))
             return 0;
         n++;
-        /* envelope ws_id is usually 36 bytes -> 35 chars max */
+        /* envelope scope_id is usually 36 bytes -> 35 chars max */
         if (n > 35)
             return 0;
     }
@@ -133,11 +133,11 @@ static void set_trace_id(yai_rpc_client_t *c, yai_rpc_envelope_t *env)
    CONNECT / CLOSE
    ============================================================ */
 
-int yai_rpc_connect_at(yai_rpc_client_t *c, const char *ws_id, const char *sock_path)
+int yai_rpc_connect_at(yai_rpc_client_t *c, const char *scope_id, const char *sock_path)
 {
     if (!c)
         return -1;
-    if (!is_valid_ws_id(ws_id))
+    if (!is_valid_scope_id(scope_id))
         return -99;
     if (!sock_path || !sock_path[0])
         return -2;
@@ -177,7 +177,7 @@ int yai_rpc_connect_at(yai_rpc_client_t *c, const char *ws_id, const char *sock_
 
     c->fd = fd;
 
-    if (snprintf(c->ws_id, sizeof(c->ws_id), "%s", ws_id) < 0)
+    if (snprintf(c->scope_id, sizeof(c->scope_id), "%s", scope_id) < 0)
     {
         close(fd);
         c->fd = -1;
@@ -192,12 +192,12 @@ int yai_rpc_connect_at(yai_rpc_client_t *c, const char *ws_id, const char *sock_
     return 0;
 }
 
-int yai_rpc_connect(yai_rpc_client_t *c, const char *ws_id)
+int yai_rpc_connect(yai_rpc_client_t *c, const char *scope_id)
 {
     char sock_path[512];
     if (yai_path_runtime_ingress_sock(sock_path, sizeof(sock_path)) != 0)
         return -2;
-    return yai_rpc_connect_at(c, ws_id, sock_path);
+    return yai_rpc_connect_at(c, scope_id, sock_path);
 }
 
 void yai_rpc_close(yai_rpc_client_t *c)
@@ -278,7 +278,7 @@ int yai_rpc_call_raw(
     /* reserved; keep deterministic */
     env.checksum = 0;
 
-    if (snprintf(env.ws_id, sizeof(env.ws_id), "%.*s", (int)sizeof(env.ws_id) - 1, c->ws_id) < 0)
+    if (snprintf(env.ws_id, sizeof(env.ws_id), "%.*s", (int)sizeof(env.ws_id) - 1, c->scope_id) < 0)
         return -11;
     set_trace_id(c, &env);
 

@@ -30,8 +30,8 @@
         "mode": "opt-in-compat-only"
       },
       "entry_surface_model": "unified-runtime-family-gated",
-      "attachability_model": "workspace-bound-governance-attachability",
-      "workspace_binding_required": true,
+      "attachability_model": "scope-bound-governance-attachability",
+      "scope_binding_required": true,
       "runtime_family_targets": [
         "core",
         "exec",
@@ -70,8 +70,8 @@
       "global_to_edge_policy_hierarchy_ref": "model/manifests/runtime/attachability-constraints.v1.json#constraints.global_to_edge_policy_hierarchy",
       "delegated_edge_enforcement_ref": "model/manifests/runtime/attachability-constraints.v1.json#constraints.delegated_edge_enforcement",
       "edge_binding_action_point_model_ref": "model/manifests/runtime/attachability-constraints.v1.json#constraints.edge_binding_action_point_model",
-      "workspace_authority_truth_plane_ref": "model/manifests/runtime/attachability-constraints.v1.json#constraints.workspace_authority_truth_plane",
-      "workspace_to_edge_policy_distribution_ref": "model/manifests/runtime/attachability-constraints.v1.json#constraints.workspace_to_edge_policy_distribution",
+      "scope_authority_truth_plane_ref": "model/manifests/runtime/attachability-constraints.v1.json#constraints.scope_authority_truth_plane",
+      "scope_to_edge_policy_distribution_ref": "model/manifests/runtime/attachability-constraints.v1.json#constraints.scope_to_edge_policy_distribution",
       "edge_policy_validity_lifecycle_ref": "model/manifests/runtime/attachability-constraints.v1.json#constraints.edge_policy_validity_lifecycle",
       "mesh_sovereign_authority_boundaries_ref": "model/manifests/runtime/attachability-constraints.v1.json#constraints.mesh_sovereign_authority_boundaries",
       "owner_remote_peer_ingress_governance_ref": "model/manifests/runtime/attachability-constraints.v1.json#constraints.owner_remote_peer_ingress_governance",
@@ -80,7 +80,7 @@
   ],
   "runtime_contract": {
     "topology_target": "unified-runtime-v1",
-    "binding_model": "workspace-first",
+    "binding_model": "scope-first",
     "canonical_runtime_families": [
       "core",
       "exec",

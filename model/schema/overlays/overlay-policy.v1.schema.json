@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "governance/grammar/model/schema/overlay_policy.v1",
   "title": "overlay_policy.v1",
-  "description": "Session/workspace/organization overlay policy",
+  "description": "Session/scope/organization overlay policy",
   "type": "object",
   "properties": {
     "kind": {
@@ -19,7 +19,7 @@
       "type": "string",
       "enum": [
         "session",
-        "workspace",
+        "scope",
         "organization",
         "experimental"
       ]

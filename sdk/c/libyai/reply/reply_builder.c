@@ -84,15 +84,15 @@ void yai_reply_set_trace(
     yai_reply_t *r,
     const char *trace_id,
     const char *claim_id,
-    const char *workspace_id)
+    const char *container_id)
 {
   if (!r) return;
   if (r->trace.trace_id) free((void *)r->trace.trace_id);
   if (r->trace.claim_id) free((void *)r->trace.claim_id);
-  if (r->trace.workspace_id) free((void *)r->trace.workspace_id);
+  if (r->trace.container_id) free((void *)r->trace.container_id);
   r->trace.trace_id = dup_or_null(trace_id);
   r->trace.claim_id = dup_or_null(claim_id);
-  r->trace.workspace_id = dup_or_null(workspace_id);
+  r->trace.container_id = dup_or_null(container_id);
 }
 
 void yai_reply_set_meta(
@@ -122,7 +122,7 @@ void yai_reply_free(yai_reply_t *r)
 
   free((void *)r->trace.trace_id);
   free((void *)r->trace.claim_id);
-  free((void *)r->trace.workspace_id);
+  free((void *)r->trace.container_id);
   free((void *)r->trace.law_ref);
   free((void *)r->trace.evidence_ref);
 

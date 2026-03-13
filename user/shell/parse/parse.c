@@ -12,7 +12,7 @@
 static void req_zero(yai_porcelain_request_t* r) {
   memset(r, 0, sizeof(*r));
   r->kind = YAI_PORCELAIN_KIND_NONE;
-  r->ws_id = NULL;
+  r->container_id = NULL;
   r->role = "operator";
   r->arming = 1;
   r->color_mode = YAI_COLOR_AUTO;
@@ -446,7 +446,7 @@ int yai_porcelain_parse_argv(int argc, char** argv, yai_porcelain_request_t* req
   req->pager = has_pager_flag(argc, argv);
   req->no_pager = has_no_pager_flag(argc, argv);
   req->interactive = has_interactive_flag(argc, argv);
-  req->ws_id = find_global_value(argc, argv, "--ws");
+  req->container_id = find_global_value(argc, argv, "--ws");
   req->role = find_global_value(argc, argv, "--role");
   if (!req->role || !req->role[0]) req->role = "operator";
   req->arming = find_global_arming(argc, argv, 1);

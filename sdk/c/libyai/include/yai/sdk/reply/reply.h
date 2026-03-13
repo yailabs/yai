@@ -19,7 +19,7 @@ typedef enum {
 typedef struct {
   const char *trace_id;
   const char *claim_id;
-  const char *workspace_id;
+  const char *container_id;
   const char *law_ref;
   const char *evidence_ref;
 } yai_reply_trace_t;

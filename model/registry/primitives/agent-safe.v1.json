@@ -22,8 +22,8 @@
       "no_skip_boundary": "read_only_no_state_change",
       "notes": "Safe inspect of intake source.",
       "runtime_family_owner": "data",
-      "runtime_binding_model": "workspace-first",
-      "workspace_binding_required": true
+      "runtime_binding_model": "scope-first",
+      "scope_binding_required": true
     },
     {
       "id": "gov.parse",
@@ -36,8 +36,8 @@
       "no_skip_boundary": "parse_before_build",
       "notes": "Agent may propose parse but cannot mark approved.",
       "runtime_family_owner": "core",
-      "runtime_binding_model": "workspace-first",
-      "workspace_binding_required": true
+      "runtime_binding_model": "scope-first",
+      "scope_binding_required": true
     },
     {
       "id": "gov.build.candidate",
@@ -50,8 +50,8 @@
       "no_skip_boundary": "candidate_not_operational",
       "notes": "Build never implies approval.",
       "runtime_family_owner": "core",
-      "runtime_binding_model": "workspace-first",
-      "workspace_binding_required": true
+      "runtime_binding_model": "scope-first",
+      "scope_binding_required": true
     },
     {
       "id": "gov.review.submit",
@@ -64,8 +64,8 @@
       "no_skip_boundary": "candidate_to_under_review_only",
       "notes": "Agent can request submission; readiness gates enforced.",
       "runtime_family_owner": "core",
-      "runtime_binding_model": "workspace-first",
-      "workspace_binding_required": true
+      "runtime_binding_model": "scope-first",
+      "scope_binding_required": true
     },
     {
       "id": "gov.review.approve",
@@ -78,11 +78,11 @@
       "no_skip_boundary": "no_direct_candidate_to_approved",
       "notes": "Reserved for human approval authority.",
       "runtime_family_owner": "core",
-      "runtime_binding_model": "workspace-first",
-      "workspace_binding_required": true
+      "runtime_binding_model": "scope-first",
+      "scope_binding_required": true
     },
     {
-      "id": "workspace.policy.dry_run",
+      "id": "scope.policy.dry_run",
       "kind": "validation",
       "capability_class": "validate_only",
       "invocation": "yai ws policy dry-run <object-id>",
@@ -92,11 +92,11 @@
       "no_skip_boundary": "dry_run_before_attach",
       "notes": "Preview-only; no activation.",
       "runtime_family_owner": "core",
-      "runtime_binding_model": "workspace-first",
-      "workspace_binding_required": true
+      "runtime_binding_model": "scope-first",
+      "scope_binding_required": true
     },
     {
-      "id": "workspace.policy.attach",
+      "id": "scope.policy.attach",
       "kind": "operational_apply",
       "capability_class": "request_transition",
       "invocation": "yai ws policy attach <object-id>",
@@ -106,8 +106,8 @@
       "no_skip_boundary": "apply_gated_by_lifecycle",
       "notes": "Runtime blocks enterprise objects not review-approved.",
       "runtime_family_owner": "core",
-      "runtime_binding_model": "workspace-first",
-      "workspace_binding_required": true
+      "runtime_binding_model": "scope-first",
+      "scope_binding_required": true
     },
     {
       "id": "gov.force.approve",
@@ -120,8 +120,8 @@
       "no_skip_boundary": "forbidden_transition",
       "notes": "No direct force-approve bypass exists.",
       "runtime_family_owner": "core",
-      "runtime_binding_model": "workspace-first",
-      "workspace_binding_required": true
+      "runtime_binding_model": "scope-first",
+      "scope_binding_required": true
     }
   ]
 }
