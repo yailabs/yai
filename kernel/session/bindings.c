@@ -1,4 +1,4 @@
-#include <yai/kernel/bindings.h>
+#include <yai/container/bindings.h>
 #include <yai/container/registry.h>
 
 int yai_container_bindings_set(const char *container_id,

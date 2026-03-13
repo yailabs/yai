@@ -1,6 +1,6 @@
 #pragma once
 
-#include <yai/kernel/bindings.h>
+#include <yai/container/bindings.h>
 #include <yai/container/config.h>
 #include <yai/container/grants.h>
 #include <yai/container/identity.h>

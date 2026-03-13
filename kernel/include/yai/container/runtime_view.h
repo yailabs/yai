@@ -1,7 +1,7 @@
 #pragma once
 
 #include <yai/container/identity.h>
-#include <yai/kernel/bindings.h>
+#include <yai/container/bindings.h>
 #include <yai/container/grants.h>
 #include <yai/container/policy.h>
 #include <yai/container/services.h>
