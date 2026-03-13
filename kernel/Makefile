@@ -24,36 +24,37 @@ define find_c
 $(sort $(shell find $(1) -type f -name '*.c' ! -name '*.inc.c' 2>/dev/null))
 endef
 
-KERNEL_SUPPORT_SRCS := $(call find_c,support/core)
+KERNEL_LIBCORE_SRCS := $(call find_c,lib/core)
 KERNEL_HAL_SRCS := $(call find_c,hal/core)
 KERNEL_PROTOCOL_SRCS := $(call find_c,ipc)
 
 KERNEL_SUBSTRATE_SRCS := \
-	$(call find_c,core) \
-	$(call find_c,lifecycle) \
-	$(call find_c,state) \
-	$(call find_c,registry) \
-	$(call find_c,policy) \
-	$(call find_c,grants) \
-	$(call find_c,security) \
-	$(call find_c,session) \
-	$(call find_c,container) \
-	$(call find_c,net) \
-	$(call find_c,proc) \
-	$(call find_c,trace) \
-	$(call find_c,mm) \
-	$(call find_c,fs) \
-     $(call find_c,drivers)
+        $(call find_c,arch) \
+        $(call find_c,core) \
+        $(call find_c,lifecycle) \
+        $(call find_c,state) \
+        $(call find_c,registry) \
+        $(call find_c,policy) \
+        $(call find_c,grants) \
+        $(call find_c,security) \
+        $(call find_c,session) \
+        $(call find_c,container) \
+        $(call find_c,net) \
+        $(call find_c,proc) \
+        $(call find_c,trace) \
+        $(call find_c,mm) \
+        $(call find_c,fs) \
+        $(call find_c,drivers) \
+        $(call find_c,scheduler)
 
 KERNEL_EXCLUDE_SRCS := \
-	net/peering.c \
-	ipc/message_types.c
+        ipc/message_types.c
 
 KERNEL_SRCS := $(filter-out $(KERNEL_EXCLUDE_SRCS), \
-	$(KERNEL_SUPPORT_SRCS) \
-	$(KERNEL_HAL_SRCS) \
-	$(KERNEL_PROTOCOL_SRCS) \
-	$(KERNEL_SUBSTRATE_SRCS))
+        $(KERNEL_LIBCORE_SRCS) \
+        $(KERNEL_HAL_SRCS) \
+        $(KERNEL_PROTOCOL_SRCS) \
+        $(KERNEL_SUBSTRATE_SRCS))
 
 KERNEL_OBJS := $(patsubst %.c,$(KERNEL_OBJ_DIR)/%.o,$(KERNEL_SRCS))
 
@@ -89,6 +90,7 @@ $(KERNEL_SMOKE_OBJ): $(KERNEL_SMOKE_SRC) | dirs
 	$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 $(KERNEL_SMOKE_BIN): $(KERNEL_SMOKE_OBJ) $(KERNEL_LIB) | dirs
+	@mkdir -p $(dir $@)
 	$(CC) $(LDFLAGS) $(KERNEL_SMOKE_OBJ) -o $@ $(KERNEL_LIB) $(LDLIBS)
 
 $(KERNEL_OBJ_DIR)/%.o: %.c | dirs
@@ -111,15 +113,3 @@ help:
 	@echo "  smoke         run kernel smoke if present"
 	@echo "  print-sources print active kernel source set"
 	@echo "  clean         remove kernel build artifacts"
-
-$(KERNEL_SMOKE_OBJ): $(KERNEL_SMOKE_SRC)
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(CPPFLAGS) $(KERNEL_INCLUDES) -c $< -o $@
-
-$(KERNEL_SMOKE_BIN): $(KERNEL_SMOKE_OBJ) $(KERNEL_LIB)
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ $(KERNEL_SMOKE_OBJ) $(KERNEL_LIB) $(LDLIBS)
-
-.PHONY: kernel-smoke smoke
-kernel-smoke: $(KERNEL_SMOKE_BIN)
-smoke: kernel-smoke
