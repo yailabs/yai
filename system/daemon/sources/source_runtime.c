@@ -20,9 +20,9 @@
 #include <yai/ipc/transport.h>
 #include <yai/ipc/ids.h>
 
-#include <yai/daemon/bindings/network_binding.h>
-#include <yai/daemon/bindings/runtime_binding.h>
-#include <yai/daemon/bindings/actions.h>
+#include <yai/daemon/sources/source_runtime.h>
+#include <yai/daemon/sources/mediation_mode.h>
+#include <yai/daemon/sources/action_points.h>
 #include <yai/daemon/runtime/runtime_source_ids.h>
 #include <yai/ipc/source_plane.h>
 #include <yai/daemon/daemon.h>

@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include <yai/daemon/runtime/runtime_config.h>
-#include <yai/daemon/bindings/network_binding.h>
+#include <yai/daemon/sources/source_runtime.h>
 #include <yai/daemon/runtime/runtime_paths.h>
 
 #define YAI_EDGE_EDGE_PHASE_BOOTSTRAP "bootstrap"

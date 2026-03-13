@@ -4,4 +4,4 @@
  * Canonical daemon header lives under system/include/yai/daemon.
  */
 
-#include <yai/daemon/bindings/network_binding.h>
+#include <yai/daemon/sources/source_runtime.h>

@@ -4,4 +4,4 @@
  * Canonical daemon header lives under system/include/yai/daemon.
  */
 
-#include <yai/daemon/health/observation.h>
+#include <yai/daemon/spool/process_replay.h>

@@ -1,6 +1,6 @@
 #include <string.h>
 
-#include <yai/daemon/bindings/runtime_binding.h>
+#include <yai/daemon/sources/mediation_mode.h>
 
 const char *yai_edge_binding_kind_normalize(const char *raw)
 {

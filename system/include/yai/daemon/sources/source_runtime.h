@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #include <yai/daemon/runtime/runtime_config.h>
-#include <yai/daemon/bindings/actions.h>
+#include <yai/daemon/sources/action_points.h>
 #include <yai/daemon/runtime/runtime_paths.h>
 
 #define YAI_DAEMON_BINDING_STATUS_CONFIGURED "configured"

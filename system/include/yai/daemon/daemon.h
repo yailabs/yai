@@ -3,7 +3,7 @@
 #include <yai/daemon/config.h>
 #include <yai/daemon/runtime/runtime_services.h>
 #include <yai/daemon/runtime/runtime_state.h>
-#include <yai/daemon/bindings/network_binding.h>
+#include <yai/daemon/sources/source_runtime.h>
 #include <yai/daemon/runtime/runtime_paths.h>
 
 typedef struct yai_edge_runtime {
