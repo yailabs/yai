@@ -1,0 +1,13 @@
+#pragma once
+
+#ifndef INCLUDE_INPUT_STATE_H
+#define INCLUDE_INPUT_STATE_H
+
+enum yai_input_state {
+    YAI_INPUT_STATE_UNKNOWN = 0,
+    YAI_INPUT_STATE_READY,
+    YAI_INPUT_STATE_DISABLED,
+    YAI_INPUT_STATE_DEGRADED
+};
+
+#endif

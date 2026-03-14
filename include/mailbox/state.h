@@ -1,0 +1,13 @@
+#pragma once
+
+#ifndef INCLUDE_MAILBOX_STATE_H
+#define INCLUDE_MAILBOX_STATE_H
+
+enum yai_mailbox_state {
+    YAI_MAILBOX_STATE_DOWN = 0,
+    YAI_MAILBOX_STATE_READY,
+    YAI_MAILBOX_STATE_BUSY,
+    YAI_MAILBOX_STATE_FAILED
+};
+
+#endif

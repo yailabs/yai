@@ -1,0 +1,14 @@
+#pragma once
+
+#ifndef INCLUDE_SYS_RUNTIME_H
+#define INCLUDE_SYS_RUNTIME_H
+
+enum yai_runtime_state {
+    YAI_RUNTIME_STATE_DOWN = 0,
+    YAI_RUNTIME_STATE_BOOTING,
+    YAI_RUNTIME_STATE_READY,
+    YAI_RUNTIME_STATE_DEGRADED,
+    YAI_RUNTIME_STATE_FAILED
+};
+
+#endif
