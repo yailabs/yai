@@ -1,22 +1,22 @@
-# daemon
+# dmn
 
-sys/daemon/ is the canonical L2 daemon plane.
+`target_fs/sys/dmn/` is the daemon service surface.
 
-## Canonical service
+## Scope
 
-- yai-daemond/: executable daemon manager entrypoint (`yai-daemond`)
+This domain keeps only the daemon process entry shell.
 
-## Canonical module layout
+## What stays here
 
-- bindings/: runtime/network binding logic and action-point modeling
-- mediation/: daemon mediation surfaces
-- replay/: spool/replay process surfaces
-- health/: observation and health surfaces
-- internal/: daemon technical internals
-- include/yai/daemon/: canonical public headers
+- `cmd/daemond/`: canonical daemon entrypoint
+- this README as service-surface documentation
 
-## DR-5 hard-cut status
+## What does not stay here
 
-- active daemon implementation relocated from runtime/compatibility/lib/daemon/
-- compatibility daemon subtree no longer hosts primary implementation
-- no parallel compatibility-centered daemon plane remains active
+Daemon control ticks, health ticks, runtime state, runtime config, source-plane
+integration, replay logic and technical internals belong to `target_fs/krt/dmn/`.
+
+## Boundary
+
+`sys/dmn` exposes the daemon service process.
+`krt/dmn` owns daemon runtime implementation.

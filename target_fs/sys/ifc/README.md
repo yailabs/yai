@@ -1,22 +1,26 @@
-# Protocol
+# ifc
 
-Canonical protocol stack for YAI.
+`target_fs/sys/ifc/` is the canonical interface and protocol-contract surface.
 
 ## Scope
 
-`protocol/` defines the canonical communication surfaces and wire contracts used by the system.
+This domain owns only interface artifacts, protocol contracts and compatibility
+bridges required by system services and runtime components.
 
-## Layout
+## Contains
 
-- `control/` control-plane messages and command/reply contracts
-- `rpc/` RPC envelope, codec, and protocol runtime support
-- `source/` source-plane protocol surfaces
-- `transport/` transport-level protocol surfaces
-- `wire/` low-level wire and ABI-facing protocol artifacts
-- `binary/` binary framing and serialization helpers
+- `abi/`: control-plane ABI contracts
+- `proto/`: protocol-facing headers and control-plane contract surfaces
+- `wire/`: wire-level schema artifacts
+- `legacy/`: narrow compatibility bridge code only
+- `src/`: minimal interface-side helpers tied to protocol identifiers
 
-## Rules
+## Does not contain
 
-- `protocol/` contains protocol surfaces, message definitions, codecs, and wire-level support.
-- System-service implementations do not belong here unless they are strictly protocol-runtime support.
-- Test vectors belong under `tests/protocol/`, not under `protocol/`.
+Runtime engines, service orchestration logic, policy execution, graph/data
+implementation or daemon runtime state do not belong here.
+
+## Boundary
+
+`sys/ifc` defines and exposes contracts.
+`krt/*` and `sys/*/cmd` consume those contracts.

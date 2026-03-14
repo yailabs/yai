@@ -6,7 +6,7 @@
 #include <string.h>
 #include <time.h>
 
-#include <yai/src/source_ids.h>
+#include <yai/ifc/src/source_ids.h>
 
 static unsigned int g_source_seq = 0;
 
