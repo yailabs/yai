@@ -4,21 +4,19 @@
 
 ## Scope
 
-This domain keeps only the system-facing service shell for container management.
+This domain keeps only the canonical container service entry shell.
 
 ## What stays here
 
-- `cmd/containerd/`: canonical service entrypoint for container management
-- `image/`: bootstrap image and packaging notes
-- this README as service-surface documentation
+- `cmd/containerd/`: canonical container entrypoint
+- this README as container surface contract
+
+## Notes
+
+Container image/bootstrap documentation can be folded here when no active
+service-side implementation exists under `sys/con/image/`.
 
 ## What does not stay here
 
-Container runtime logic, policy coupling, session binding, recovery internals,
-mount handling, rootfs projection, state handling and workspace runtime behavior
-belong to `target_fs/krt/con/`.
-
-## Boundary
-
-`sys/con` exposes and documents the service surface.
-`krt/con` owns the actual runtime implementation.
+Container runtime logic, workspace binding, recovery/state, mounts and
+runtime views belong to `target_fs/krt/con/`.

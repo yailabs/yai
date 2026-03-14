@@ -4,22 +4,19 @@
 
 ## Scope
 
-This domain keeps the orchestration entry shell and high-level coordination notes.
+This domain keeps only the orchestration service entry surface.
 
 ## What stays here
 
-- `cmd/orchestratord/`: canonical orchestration service entrypoint
-- `coordination/`: service-surface coordination notes
-- `scheduling/`: service-surface scheduling notes
-- `supervision/`: service-surface supervision notes
-- this README as service-surface documentation
+- `cmd/orchestratord/`: canonical orchestration entrypoint
+- this README as domain surface contract
+
+## Service-facing concerns
+
+The service surface may expose coordination, scheduling and supervision
+capabilities, but their runtime implementation does not live here.
 
 ## What does not stay here
 
-Execution, workflow, planner, cognition, agent internals, bridges, transport and
-runtime control belong to `target_fs/krt/orch/`.
-
-## Boundary
-
-`sys/orch` is the service shell.
-`krt/orch` owns orchestration runtime implementation.
+Execution pipelines, workflow state, agent runtime, cognition glue,
+transport glue and orchestration internals belong to `target_fs/krt/orch/`.
