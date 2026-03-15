@@ -1,3 +1,3 @@
-# include/trace
+# trace
 
-Canonical ownership bucket for trace headers.
+Canonical YAI include root aligned to Linux include/trace.

@@ -1,0 +1,15 @@
+#pragma once
+
+#ifndef INCLUDE_NS_RESULT_H
+#define INCLUDE_NS_RESULT_H
+
+enum yai_ns_result {
+    YAI_NS_RESULT_UNKNOWN = 0,
+    YAI_NS_RESULT_OK,
+    YAI_NS_RESULT_RETRY,
+    YAI_NS_RESULT_DENIED,
+    YAI_NS_RESULT_NOT_FOUND,
+    YAI_NS_RESULT_FAILED
+};
+
+#endif

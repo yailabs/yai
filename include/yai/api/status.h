@@ -1,9 +1,0 @@
-#pragma once
-
-typedef enum yai_status {
-  YAI_STATUS_OK = 0,
-  YAI_STATUS_BAD_ARGS = 20,
-  YAI_STATUS_NOT_IMPLEMENTED = 10,
-  YAI_STATUS_RUNTIME_UNAVAILABLE = 40,
-  YAI_STATUS_INTERNAL_ERROR = 50
-} yai_status_t;

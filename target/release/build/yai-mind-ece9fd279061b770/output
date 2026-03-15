@@ -1,0 +1,3 @@
+cargo:rustc-link-search=native=/home/mothx/COMPUTER_SCIENCE/DEV_CODE/YAI/yai/Kernel/include
+cargo:rustc-link-lib=rt
+cargo:rerun-if-changed=/home/mothx/COMPUTER_SCIENCE/DEV_CODE/YAI/yai/Kernel/include

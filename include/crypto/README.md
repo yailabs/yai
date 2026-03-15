@@ -1,3 +1,3 @@
-# include/crypto
+# crypto
 
-Canonical ownership bucket for crypto headers.
+Canonical YAI include root aligned to Linux include/crypto.
