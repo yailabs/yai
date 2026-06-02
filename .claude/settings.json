@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -)",
+      "mcp__playwright__browser_navigate",
+      "Bash(python3 -c \"import json;print\\('\\\\n'.join\\(json.load\\(open\\('package.json'\\)\\).get\\('scripts',{}\\).keys\\(\\)\\)\\)\")"
+    ]
+  }
+}
