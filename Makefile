@@ -10,7 +10,7 @@
 # Boundary:
 #   This file does not own runtime semantics, legal policy or data-plane truth.
 #
-.PHONY: info check-layout check-docs check-doc-root-canon check-case-runtime-semantics-roadmap check-duckdb-fact-plane check-receipt-decision-projection-facts check-model-behavior-policy-facts check-memory-divergence-carrier-facts check-fact-reports-cli check-fact-plane-freeze check-case-runtime-discovery check-casehandle-capability-boundary check-model-native-actor-roadmap check-spine-consistency check-labs check-lab-runs check-lab-notebooks check-repository-identity check-archive-historical-records check-source-surface-clean check-file-header-standard check-pack-doctrine check-foundation-freeze check-hot-state-doctrine check-hot-state-freeze check-lmdb-record-plane-doctrine check-lmdb-record-plane-freeze check-journal-replay-boundary check-journal-replay-to-lmdb check-replay-idempotency-schema-version check-replay-diagnostics-report check-journal-replay-freeze check-control-carrier-substrate check-operation-dispatch-multiplex check-carrier-contract-v1 check-process-carrier-signal-control check-host-observation-probe check-carrier-coverage-matrix check-non-process-carrier-skeletons check-carrier-outcome-harness check-carrier-receipt-divergence check-retrieval-runner-roadmap check-context-compiler-retrieval-mtp-roadmap check-provider-runtime-lan-target-surface check-data-context-runtime-roadmap check-graph-runtimegraph-doctrine check-graph-relation-write-path check-runtimegraph-working-set check-runtimegraph-rebuild check-runtimegraph-query-causal-path check-operator-review-loop check-cli-review-interaction-surface check-review-loop-test-matrix check-graph-runtimegraph-freeze build-c build-rust build-rust-ffi build install-local uninstall-local doctor-local print-install-paths smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new5 smoke-new6 smoke-new7 smoke-new8 smoke-new9 smoke-new10 smoke-new11 smoke-new12 smoke-new18b smoke-new18c smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33a smoke-spine33b smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine33f smoke-spine33g smoke-spine33h smoke-spine33i smoke-spine33l smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-spine51b smoke check clean
+.PHONY: info check-layout check-docs check-doc-root-canon check-case-runtime-semantics-roadmap check-duckdb-fact-plane check-receipt-decision-projection-facts check-model-behavior-policy-facts check-memory-divergence-carrier-facts check-fact-reports-cli check-fact-plane-freeze check-case-runtime-discovery check-casehandle-capability-boundary check-model-native-actor-roadmap check-spine-consistency check-control-lease-dispatch check-labs check-lab-runs check-lab-notebooks check-repository-identity check-archive-historical-records check-source-surface-clean check-file-header-standard check-pack-doctrine check-foundation-freeze check-hot-state-doctrine check-hot-state-freeze check-lmdb-record-plane-doctrine check-lmdb-record-plane-freeze check-journal-replay-boundary check-journal-replay-to-lmdb check-replay-idempotency-schema-version check-replay-diagnostics-report check-journal-replay-freeze check-control-carrier-substrate check-operation-dispatch-multiplex check-carrier-contract-v1 check-process-carrier-signal-control check-host-observation-probe check-carrier-coverage-matrix check-non-process-carrier-skeletons check-carrier-outcome-harness check-carrier-receipt-divergence check-retrieval-runner-roadmap check-context-compiler-retrieval-mtp-roadmap check-provider-runtime-lan-target-surface check-data-context-runtime-roadmap check-graph-runtimegraph-doctrine check-graph-relation-write-path check-runtimegraph-working-set check-runtimegraph-rebuild check-runtimegraph-query-causal-path check-operator-review-loop check-cli-review-interaction-surface check-review-loop-test-matrix check-graph-runtimegraph-freeze build-c build-rust build-rust-ffi build install-local uninstall-local doctor-local print-install-paths smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new5 smoke-new6 smoke-new7 smoke-new8 smoke-new9 smoke-new10 smoke-new11 smoke-new12 smoke-new18b smoke-new18c smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33a smoke-spine33b smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine33f smoke-spine33g smoke-spine33h smoke-spine33i smoke-spine33l smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-spine51b smoke-core-enforce1 smoke check clean
 .PHONY: net-info build-net-c check-net-c-sources check-net-headers check-net-stream-fixtures check-net-node-fixtures check-net-capability-fixtures check-net-endpoint-fixtures check-net-health-fixtures check-net-lifecycle-fixtures check-net-transport-fixtures check-net-ipc-fixtures check-net-boundary
 .PHONY: check-context-residency-lab lab-context-residency smoke-lab-context-residency smoke-lab-context-residency-case-native smoke-lab-context-residency-matrix
 
@@ -75,6 +75,7 @@ C_SOURCES := \
 	system/effect/carrier_receipt.c \
 	system/effect/carrier_skeleton.c \
 	system/effect/dispatch.c \
+	system/effect/dispatch_admission.c \
 	system/effect/dispatch_lane.c \
 	system/effect/dispatch_multiplex.c \
 	system/effect/dispatch_plan.c \
@@ -148,6 +149,7 @@ SMOKE_CONTROL_CARRIER_SUBSTRATE := $(BUILD_DIR)/test_control_carrier_substrate
 SMOKE_OPERATION_DISPATCH_MULTIPLEX := $(BUILD_DIR)/test_operation_dispatch_multiplex
 SMOKE_CARRIER_CONTRACT_FILESYSTEM := $(BUILD_DIR)/test_carrier_contract_filesystem
 SMOKE_PROCESS_CARRIER := $(BUILD_DIR)/test_process_carrier
+SMOKE_CONTROL_LEASE_DISPATCH := $(BUILD_DIR)/test_control_lease_dispatch
 SMOKE_HOST_OBSERVATION_PROBE := $(BUILD_DIR)/test_host_observation_probe
 SMOKE_CARRIER_COVERAGE_MATRIX := $(BUILD_DIR)/test_carrier_coverage_matrix
 SMOKE_NON_PROCESS_CARRIER_SKELETONS := $(BUILD_DIR)/test_non_process_carrier_skeletons
@@ -319,6 +321,7 @@ check-docs:
 	@./tools/checks/check-net-boundary.sh
 	@./tools/checks/check-context-residency-lab.sh
 	@./tools/checks/check-spine-consistency.sh
+	@./tools/checks/check-control-lease-dispatch.sh
 
 check-doc-root-canon:
 	@./tools/checks/check-doc-root-canon.sh
@@ -355,6 +358,9 @@ check-model-native-actor-roadmap:
 
 check-spine-consistency:
 	@./tools/checks/check-spine-consistency.sh
+
+check-control-lease-dispatch:
+	@./tools/checks/check-control-lease-dispatch.sh
 
 check-labs:
 	@./tools/checks/check-labs-layout.sh
@@ -571,6 +577,10 @@ $(SMOKE_PROCESS_CARRIER): tests/smoke/process-carrier/test_process_carrier.c $(C
 	@mkdir -p "$(dir $@)"
 	$(CC) $(CFLAGS) tests/smoke/process-carrier/test_process_carrier.c $(C_LIBRARY) -o "$@"
 
+$(SMOKE_CONTROL_LEASE_DISPATCH): tests/smoke/control-lease-dispatch/test_control_lease_dispatch.c $(C_LIBRARY)
+	@mkdir -p "$(dir $@)"
+	$(CC) $(CFLAGS) tests/smoke/control-lease-dispatch/test_control_lease_dispatch.c $(C_LIBRARY) -o "$@"
+
 $(SMOKE_HOST_OBSERVATION_PROBE): tests/smoke/host-observation-probe/test_host_observation_probe.c $(C_LIBRARY)
 	@mkdir -p "$(dir $@)"
 	$(CC) $(CFLAGS) tests/smoke/host-observation-probe/test_host_observation_probe.c $(C_LIBRARY) -o "$@"
@@ -607,7 +617,7 @@ $(NET_ENUM_NAMES_TEST): tests/net/test_net_enum_names.c $(C_LIBRARY)
 	@mkdir -p "$(dir $@)"
 	$(CC) $(CFLAGS) tests/net/test_net_enum_names.c $(C_LIBRARY) -o "$@"
 
-build-c: build-rust-ffi $(C_LIBRARY) $(YAID) $(SMOKE_MINIMUM_LOOP) $(SMOKE_PERSISTENT_JOURNAL) $(SMOKE_CONTROL_GATE) $(SMOKE_FILESYSTEM_CARRIER) $(SMOKE_GRAPH_RECONSTRUCTION) $(SMOKE_OPERATIONAL_MEMORY) $(SMOKE_RECONCILE_DIVERGENCE) $(SMOKE_PROJECTION_HARDENING) $(SMOKE_QUERY_BOUNDARY) $(SMOKE_RUST_ENGINE_R1) $(SMOKE_CASE_CONTEXT) $(SMOKE_INTERACTION_THREAD) $(SMOKE_HOT_STATE) $(SMOKE_CONTROL_CARRIER_SUBSTRATE) $(SMOKE_OPERATION_DISPATCH_MULTIPLEX) $(SMOKE_CARRIER_CONTRACT_FILESYSTEM) $(SMOKE_PROCESS_CARRIER) $(SMOKE_HOST_OBSERVATION_PROBE) $(SMOKE_CARRIER_COVERAGE_MATRIX) $(SMOKE_NON_PROCESS_CARRIER_SKELETONS) $(SMOKE_CARRIER_OUTCOME_HARNESS) $(SMOKE_CARRIER_RECEIPT_DIVERGENCE) $(SMOKE_GRAPH_RUNTIMEGRAPH_SCHEMA) $(SMOKE_HOT_STATE_SESSION) $(SMOKE_PROJECTION_FRESHNESS)
+build-c: build-rust-ffi $(C_LIBRARY) $(YAID) $(SMOKE_MINIMUM_LOOP) $(SMOKE_PERSISTENT_JOURNAL) $(SMOKE_CONTROL_GATE) $(SMOKE_FILESYSTEM_CARRIER) $(SMOKE_GRAPH_RECONSTRUCTION) $(SMOKE_OPERATIONAL_MEMORY) $(SMOKE_RECONCILE_DIVERGENCE) $(SMOKE_PROJECTION_HARDENING) $(SMOKE_QUERY_BOUNDARY) $(SMOKE_RUST_ENGINE_R1) $(SMOKE_CASE_CONTEXT) $(SMOKE_INTERACTION_THREAD) $(SMOKE_HOT_STATE) $(SMOKE_CONTROL_CARRIER_SUBSTRATE) $(SMOKE_OPERATION_DISPATCH_MULTIPLEX) $(SMOKE_CARRIER_CONTRACT_FILESYSTEM) $(SMOKE_PROCESS_CARRIER) $(SMOKE_CONTROL_LEASE_DISPATCH) $(SMOKE_HOST_OBSERVATION_PROBE) $(SMOKE_CARRIER_COVERAGE_MATRIX) $(SMOKE_NON_PROCESS_CARRIER_SKELETONS) $(SMOKE_CARRIER_OUTCOME_HARNESS) $(SMOKE_CARRIER_RECEIPT_DIVERGENCE) $(SMOKE_GRAPH_RUNTIMEGRAPH_SCHEMA) $(SMOKE_HOT_STATE_SESSION) $(SMOKE_PROJECTION_FRESHNESS)
 
 build-rust-ffi:
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo build --manifest-path engine/Cargo.toml -p yai-engine
@@ -866,6 +876,9 @@ smoke-spine33d: $(SMOKE_PROCESS_CARRIER) build-rust
 	@$(YAI_BIN) process signal --pid 999999 --signal TERM --dry-run | grep -F -- "carrier_attempted: false" >/dev/null
 	@$(YAI_BIN) process signal --pid 999999 --signal KILL | grep -F -- "reason: unsafe_process_target" >/dev/null
 
+smoke-core-enforce1: $(SMOKE_CONTROL_LEASE_DISPATCH)
+	@$(SMOKE_CONTROL_LEASE_DISPATCH)
+
 smoke-spine33e: $(SMOKE_HOST_OBSERVATION_PROBE) build-rust
 	@$(SMOKE_HOST_OBSERVATION_PROBE)
 	@$(YAI_BIN) observe process --pid $$$$ | grep -F -- "observation_is_enforcement: false" >/dev/null
@@ -955,7 +968,7 @@ smoke-spine33i: $(SMOKE_CARRIER_RECEIPT_DIVERGENCE) build-rust
 smoke-spine33l: build-rust
 	@$(SMOKE_PROVIDER_RUNTIME_SURFACE)
 
-smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new5 smoke-new6 smoke-new7 smoke-new8 smoke-new9 smoke-new10 smoke-new11 smoke-new12 smoke-new18b smoke-new18c smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33a smoke-spine33b smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine33f smoke-spine33g smoke-spine33h smoke-spine33i smoke-spine33l smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-spine51b
+smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new5 smoke-new6 smoke-new7 smoke-new8 smoke-new9 smoke-new10 smoke-new11 smoke-new12 smoke-new18b smoke-new18c smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33a smoke-spine33b smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine33f smoke-spine33g smoke-spine33h smoke-spine33i smoke-spine33l smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-spine51b smoke-core-enforce1
 
 check: check-layout check-docs build smoke
 

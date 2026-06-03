@@ -160,6 +160,10 @@ yai_status_t yai_filesystem_carrier_write(const char *receipt_id,
         return YAI_OK;
     }
 
+    /* CORE.ENFORCE.1: a real dispatcher must pass yai_dispatch_admit (lease +
+     * decision) before invoking this carrier. The carrier independently
+     * re-checks the decision outcome here as defense in depth; a non-allow
+     * decision never executes. */
     if (!(decision->outcome == YAI_DECISION_ALLOW ||
           decision->outcome == YAI_DECISION_ALLOW_WITH_CONSTRAINTS)) {
         receipt->status = YAI_RECEIPT_BLOCKED;

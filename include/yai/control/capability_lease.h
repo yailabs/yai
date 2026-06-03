@@ -30,4 +30,15 @@ yai_status_t yai_capability_lease_init(yai_capability_lease_t *lease,
                                        const yai_subject_ref_t *subject_ref,
                                        const char *operation_family);
 
+/*
+ * Fail-closed execution predicate.
+ *
+ * Returns 1 only when the lease is a minted, non-review lease that grants at
+ * least one concrete action. A NULL lease, a default/not_applicable lease, a
+ * review-bound lease, or a lease whose allowed_actions is empty/"none" returns
+ * 0. A ref, binding or proposal that did not mint a lease therefore cannot
+ * authorize execution.
+ */
+int yai_capability_lease_permits_execution(const yai_capability_lease_t *lease);
+
 #endif

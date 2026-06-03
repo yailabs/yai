@@ -9,17 +9,22 @@ Each wave below is sized to the SPINE implementation rule: small enough to
 implement, validate and manually inspect in one delivery. None of these waves is
 scheduled to run inside CORE.SPINE.C1.
 
-## CORE.ENFORCE.1 — Control Lease Dispatch Verification
+## CORE.ENFORCE.1 — Control Lease Dispatch Verification (delivered, partial)
 
-- Rationale: CapabilityLease is derived and inspectable (SPINE.51B), but it is
-  not proven that a lease is consumed before carrier dispatch rather than only
-  reported. This is the highest-leverage gap for consequence enforcement (CP3).
-- Scope: read system/control and system/effect deeply; add tests that prove
-  dispatch is refused when the lease is absent, expired or out of scope.
-- Non-goals: no new carriers; no policy engine; no lease schema redesign.
-- Files likely touched: system/control/capability_lease.c, system/effect/dispatch.c, system/effect/carrier_contract.c, tests/smoke/.
-- Validation targets: lease-denied dispatch is blocked; `carrier_dispatch_allowed` is derived from the lease, not from a raw ref/binding.
-- Dependency/order notes: first. Unblocks CORE.CARRIER.1/2.
+- Status: delivered (partial). Audit finding: the C carrier path was gated by the
+  control decision only; the CapabilityLease was derived (SPINE.51B) but not
+  consumed before execution, and carriers were reachable only from tests (no
+  runtime dispatch path yet).
+- Delivered: `yai_capability_lease_permits_execution` (fail-closed lease
+  predicate) and `yai_dispatch_admit` (deterministic admission gate requiring a
+  permitting lease AND an allow decision), proven by
+  tests/smoke/control-lease-dispatch/ and guarded by
+  tools/checks/check-control-lease-dispatch.sh.
+- Remaining increment: rewire executable carrier signatures to require the
+  admission token (today they re-check the decision as defense in depth, but do
+  not yet receive the lease/admission directly).
+- Dependency/order notes: admission gate is in place; the carrier-signature
+  rewiring should ride with CORE.CARRIER.1.
 
 ## CORE.CARRIER.1 — Process Carrier Hardening
 

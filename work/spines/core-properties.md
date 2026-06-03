@@ -46,9 +46,9 @@ state.
 ```
 
 - Current enforcement status: implemented_limited
-- Evidence paths: system/control/capability_lease.c, system/control/authority_scope.c, system/effect/resource_scope.c, system/projection/visibility_scope.c (SPINE.51B: subject_lacks_execute_authority, resource_outside_scope)
-- Falsifier test idea: request a capability that exceeds any single scope and assert the lease is denied; assert `refs_are_authority: false` holds (a ref or binding alone never mints permission).
-- Next hardening wave: CORE.ENFORCE.1 (lease consumed before dispatch)
+- Evidence paths: system/control/capability_lease.c (permits_execution), system/effect/dispatch_admission.c (yai_dispatch_admit), tests/smoke/control-lease-dispatch/, system/control/authority_scope.c, system/effect/resource_scope.c, system/projection/visibility_scope.c (SPINE.51B: subject_lacks_execute_authority, resource_outside_scope)
+- Falsifier test idea: request execution with a non-minted lease and an allow decision and assert admission denies (`lease_does_not_permit_execution`); covered by tests/smoke/control-lease-dispatch/.
+- Next hardening wave: CORE.ENFORCE.1 delivered the fail-closed admission gate (lease+decision); rewiring carrier signatures to require the admission token is the next increment.
 
 ## CP4 — No fake execution
 
