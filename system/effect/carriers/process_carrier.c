@@ -182,6 +182,10 @@ yai_status_t yai_process_carrier_signal(yai_process_target_t *target,
         return YAI_OK;
     }
 
+    /* CORE.ENFORCE.1: a real dispatcher must pass yai_dispatch_admit (lease +
+     * decision) before reaching this signal path. The carrier independently
+     * enforces the test-owned/spawned-by-yai safety posture above as defense in
+     * depth; no execution is attempted outside it. */
     receipt->carrier_attempted = 1;
     if (kill(target->pid, posix_signal) != 0) {
         receipt->post_state = observe_pid(target->pid);

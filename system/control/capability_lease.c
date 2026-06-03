@@ -31,3 +31,23 @@ yai_status_t yai_capability_lease_init(yai_capability_lease_t *lease,
     yai_copy_string(lease->visibility_basis, sizeof(lease->visibility_basis), "visibility-scope:derived-v0");
     return YAI_OK;
 }
+
+int yai_capability_lease_permits_execution(const yai_capability_lease_t *lease) {
+    if (lease == 0) {
+        return 0;
+    }
+    /* A review-bound lease never directly authorizes execution. */
+    if (lease->requires_review) {
+        return 0;
+    }
+    /* Only a minted lease grants execution; the default init posture is
+     * "not_applicable" / allowed_actions "none", which fails closed. */
+    if (strcmp(lease->lease_status, "minted") != 0) {
+        return 0;
+    }
+    if (lease->allowed_actions[0] == '\0' ||
+        strcmp(lease->allowed_actions, "none") == 0) {
+        return 0;
+    }
+    return 1;
+}

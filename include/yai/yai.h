@@ -36,6 +36,7 @@
 #include "yai/effect/carrier_receipt.h"
 #include "yai/effect/carrier_skeleton.h"
 #include "yai/effect/dispatch.h"
+#include "yai/effect/dispatch_admission.h"
 #include "yai/effect/dispatch_lane.h"
 #include "yai/effect/dispatch_multiplex.h"
 #include "yai/effect/dispatch_plan.h"

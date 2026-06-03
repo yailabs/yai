@@ -53,7 +53,7 @@ unknown                not yet verified in code
 | authority scope | implemented | system/control/authority_scope.c | deterministic_control | none |
 | visibility scope | implemented | system/projection/visibility_scope.c | deterministic_control | none |
 | resource scope | implemented | system/effect/resource_scope.c | deterministic_control | none |
-| capability lease | implemented_limited | system/control/capability_lease.c | deterministic_control | verify lease is consumed before dispatch, not only inspected — CORE.ENFORCE.1 |
+| capability lease | implemented_limited | system/control/capability_lease.c (permits_execution), system/effect/dispatch_admission.c, tests/smoke/control-lease-dispatch/ | deterministic_control | admission gate (lease+decision, fail-closed) now enforced and tested (CORE.ENFORCE.1); carrier signatures do not yet require the admission token — next increment |
 | filesystem carrier | implemented | system/effect/carriers/filesystem_carrier.c | interposed | none (review-gated write executes) |
 | process carrier | implemented_limited | system/effect/carriers/process_carrier.c | interposed | test-owned signal control, arbitrary PID blocked — harden to a clearer controlled-execution contract — CORE.CARRIER.1 |
 | network/http carrier | skeleton | system/effect/carrier_skeleton.c | skeleton_no_execution | first interposed non-fs/non-process path — CORE.CARRIER.2 |
