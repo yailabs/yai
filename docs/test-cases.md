@@ -21,11 +21,11 @@ The strongest current validation groups are:
 
 | Vertical | Representative tests | What it supports | What it does not support |
 |---|---|---|---|
-| provider prompt | `provider-model-vertical`, `model-behavior-policy-facts` | real OpenAI-compatible fixture invocation, output recording, projection/facts summaries | provider-independent ContextFrame, typed ProviderResult, continuation/KV |
+| provider prompt | `provider-model-vertical`, `model-behavior-policy-facts`, engine canonical-authority tests | real OpenAI-compatible fixture invocation, typed invocation/ProviderResult/interpretation transitions, legacy projection/facts summaries | provider-independent ContextFrame, typed terminal provider failures, continuation/KV |
 | operator review/filesystem | `operator-review-loop`, `review-loop-test-matrix`, `receipt-decision-projection-facts` | hard-coded review decisions and fixture write path | durable PREPARE, general grants/carriers, atomic external effects |
 | direct filesystem bypass | `direct-filesystem-bypass` | current bounded write/read and absence of durable admission/receipt residue | authorized or constitutionally valid effect execution |
-| journal replay/store | `journal-replay-*`, `record-store-*`, `replay-idempotency-schema-version` | JSONL replay, LMDB import/index behavior, compatibility schemas | one atomic canonical ledger/current-state authority |
-| graph | `graph-relation-write-path`, `runtimegraph-*` | relation materialization and causal query behavior | canonical graph truth or typed replacement of summary tokens |
+| journal replay/store | `journal-replay-*`, `record-store-*`, `replay-idempotency-schema-version`, engine canonical-authority tests | JSONL compatibility replay/import, atomic LMDB Transition/CaseState commit, restart, rollback, replay and rebuild | retire remaining legacy mutable record paths after their consumers migrate |
+| graph | `graph-relation-write-path`, `runtimegraph-*`, engine derived-failure tests | typed-transition and decoded-legacy relation materialization, deterministic rebuild and causal query behavior | migrate remaining legacy compatibility inputs; graph stays derived |
 | facts/analytics | `duckdb-fact-plane`, `fact-reports-cli`, policy/carrier/divergence facts tests | rebuildable DuckDB extraction and reports | authoritative operational state |
 
 Lower-level C tests exercise retained control, carrier, observation, store,

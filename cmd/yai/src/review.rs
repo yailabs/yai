@@ -69,24 +69,6 @@ fn persist_control_records(records: &[Record]) -> Result<(), String> {
     Ok(())
 }
 
-fn review_summary_value(summary: &str, key: &str) -> String {
-    let prefix = format!("{key}:");
-    summary
-        .split_whitespace()
-        .find_map(|part| part.strip_prefix(&prefix))
-        .unwrap_or("")
-        .to_string()
-}
-
-fn review_summary_value_or(summary: &str, key: &str, fallback: &str) -> String {
-    let value = review_summary_value(summary, key);
-    if value.is_empty() {
-        fallback.to_string()
-    } else {
-        value
-    }
-}
-
 fn print_review_next_commands(indent: &str, review_id: &str) {
     println!("{indent}next_commands:");
     println!("{indent}  approve: yai control approve {review_id} --reason \"...\"");
@@ -95,65 +77,233 @@ fn print_review_next_commands(indent: &str, review_id: &str) {
     println!("{indent}  quarantine: yai control quarantine {review_id} --reason \"...\"");
 }
 
-fn receipt_status_for_review_status(status: &str) -> &str {
+fn review_status_label(status: &ReviewResolution) -> &'static str {
     match status {
-        "approved" => "executed",
-        "denied" => "blocked",
-        "deferred" => "deferred",
-        "quarantined" => "quarantined",
-        _ => "none",
+        ReviewResolution::PendingOperator => "pending_operator",
+        ReviewResolution::Approved => "approved",
+        ReviewResolution::Denied => "denied",
+        ReviewResolution::Deferred => "deferred",
+        ReviewResolution::Quarantined => "quarantined",
     }
 }
 
-fn review_is_unresolved(status: &str) -> bool {
-    matches!(status, "pending_operator")
+fn receipt_status_for_review_status(status: &ReviewResolution) -> &'static str {
+    match status {
+        ReviewResolution::Approved => "executed",
+        ReviewResolution::Denied => "blocked",
+        ReviewResolution::Deferred => "deferred",
+        ReviewResolution::Quarantined => "quarantined",
+        ReviewResolution::PendingOperator => "none",
+    }
 }
 
-fn load_review_summaries_for_case(case_ref: &str) -> Result<Vec<String>, String> {
+fn review_is_unresolved(status: &ReviewResolution) -> bool {
+    matches!(status, ReviewResolution::PendingOperator)
+}
+
+fn review_is_resolvable(status: &ReviewResolution) -> bool {
+    matches!(
+        status,
+        ReviewResolution::PendingOperator | ReviewResolution::Deferred
+    )
+}
+
+fn legacy_review_from_record(record: &StoredRecordEnvelope) -> Option<ReviewState> {
+    let LegacyDecodeOutcome::Promoted(legacy) = decode_legacy_record(&record.raw_json) else {
+        return None;
+    };
+    if legacy.record_kind != RecordKind::ReviewRequest {
+        return None;
+    }
+    let status = match legacy.compatibility_value("status")? {
+        "pending_operator" => ReviewResolution::PendingOperator,
+        "approved" => ReviewResolution::Approved,
+        "denied" => ReviewResolution::Denied,
+        "deferred" => ReviewResolution::Deferred,
+        "quarantined" => ReviewResolution::Quarantined,
+        _ => return None,
+    };
+    Some(ReviewState {
+        review_id: legacy
+            .compatibility_value("review_id")
+            .unwrap_or(&legacy.record_id)
+            .to_string(),
+        attempt_id: legacy.attempt_id.clone(),
+        requested_by_participant: legacy.subject_ref.clone(),
+        target_participant: legacy
+            .compatibility_value("target_subject")
+            .unwrap_or(REVIEW_TARGET_SUBJECT)
+            .to_string(),
+        reviewer_participant: legacy
+            .compatibility_value("review_authority_subject")
+            .unwrap_or(REVIEWER_SUBJECT)
+            .to_string(),
+        operation_kind: legacy
+            .compatibility_value("operation_kind")
+            .unwrap_or("fs.write")
+            .to_string(),
+        carrier_family: legacy
+            .compatibility_value("carrier_family")
+            .unwrap_or("filesystem")
+            .to_string(),
+        target_display: legacy
+            .compatibility_value("target")
+            .unwrap_or(REVIEW_TARGET_DISPLAY)
+            .to_string(),
+        sandbox_path: legacy
+            .compatibility_value("sandbox_path")
+            .unwrap_or("")
+            .to_string(),
+        target_path: legacy
+            .compatibility_value("target_path")
+            .unwrap_or("")
+            .to_string(),
+        policy_reason: legacy
+            .compatibility_value("policy_reason")
+            .unwrap_or(REVIEW_POLICY_REASON)
+            .to_string(),
+        status,
+        carrier_attempted: legacy.compatibility_value("carrier_attempted") == Some("true"),
+        execution_performed: legacy.compatibility_value("execution_performed") == Some("true"),
+        decision_ref: (!legacy.decision_id.is_empty()).then_some(legacy.decision_id.clone()),
+        receipt_ref: (!legacy.receipt_id.is_empty()).then_some(legacy.receipt_id.clone()),
+    })
+}
+
+fn load_reviews_for_case(case_ref: &str) -> Result<Vec<ReviewState>, String> {
     let status = LmdbRecordStore::status(record_store_path());
     if status.status != RecordStoreStatusKind::Ready {
         return Ok(Vec::new());
     }
     let store = LmdbRecordStore::open(&status.path)?;
+    if let Some(state) = store.get_case_state(case_ref)? {
+        return Ok(state.reviews);
+    }
     let result = store.list_records_by_kind("review_request", usize::MAX)?;
-    let mut items = Vec::new();
-    for record in result.records {
-        if record.case_ref == case_ref {
-            items.push(json_string_or(&record.raw_json, "summary", ""));
+    Ok(result
+        .records
+        .into_iter()
+        .filter(|record| record.case_ref == case_ref)
+        .filter_map(|record| legacy_review_from_record(&record))
+        .collect())
+}
+
+fn first_open_review_for_case(case_ref: &str) -> Result<Option<ReviewState>, String> {
+    Ok(load_reviews_for_case(case_ref)?
+        .into_iter()
+        .find(|review| review_is_unresolved(&review.status)))
+}
+
+fn review_request_state(store: &LmdbRecordStore, review_id: &str) -> Result<ReviewState, String> {
+    if let Some(state) = store.get_case_state(REVIEW_CASE_REF)? {
+        if let Some(review) = state
+            .reviews
+            .into_iter()
+            .find(|review| review.review_id == review_id)
+        {
+            return Ok(review);
         }
     }
-    Ok(items)
-}
-
-fn first_open_review_for_case(case_ref: &str) -> Result<Option<String>, String> {
-    Ok(load_review_summaries_for_case(case_ref)?
-        .into_iter()
-        .find(|summary| review_is_unresolved(&review_summary_value(summary, "status"))))
-}
-
-fn review_request_record(
-    store: &LmdbRecordStore,
-    review_id: &str,
-) -> Result<Option<yai_core_engine::store::lmdb::StoredRecordEnvelope>, String> {
     let record_id = if review_id == REVIEW_ID {
         REVIEW_REQUEST_RECORD_ID.to_string()
     } else {
         format!("rec:{review_id}")
     };
-    store.get_record_by_id(&record_id)
-}
-
-fn control_pending_record(
-    store: &LmdbRecordStore,
-) -> Result<Option<yai_core_engine::store::lmdb::StoredRecordEnvelope>, String> {
-    store.get_record_by_id(REVIEW_PENDING_RECORD_ID)
-}
-
-fn review_request_summary(store: &LmdbRecordStore, review_id: &str) -> Result<String, String> {
-    let Some(record) = review_request_record(store, review_id)? else {
+    let Some(record) = store.get_record_by_id(&record_id)? else {
         return Err(format!("review_not_found: {review_id}"));
     };
-    Ok(json_string_or(&record.raw_json, "summary", ""))
+    legacy_review_from_record(&record).ok_or_else(|| format!("review_not_found: {review_id}"))
+}
+
+fn review_transition_source(participant_id: Option<&str>, source_ref: &str) -> TransitionSource {
+    TransitionSource {
+        component: "yai.review_boundary".to_string(),
+        participant_id: participant_id.map(ToString::to_string),
+        source_ref: Some(source_ref.to_string()),
+    }
+}
+
+fn ensure_review_case_authority(store: &LmdbRecordStore) -> Result<(), String> {
+    let mut state = if let Some(state) = store.get_case_state(REVIEW_CASE_REF)? {
+        state
+    } else {
+        store
+            .commit_transition(PendingTransition::new(
+                "transition:review-case-open",
+                REVIEW_CASE_REF,
+                0,
+                review_transition_source(None, "filesystem-review-loop"),
+                TransitionPayload::CaseOpened {
+                    lifecycle: CaseLifecycle::Open,
+                },
+            ))?
+            .state
+    };
+    for (participant_id, role) in [
+        (REVIEW_REQUESTED_BY, "requesting_participant"),
+        (REVIEW_TARGET_SUBJECT, "filesystem_resource_participant"),
+        (REVIEW_PROMPT_SURFACE_SUBJECT, "prompt_surface"),
+        (REVIEWER_SUBJECT, "operator_reviewer"),
+    ] {
+        if state
+            .participants
+            .iter()
+            .any(|participant| participant.participant_id == participant_id)
+        {
+            continue;
+        }
+        state = store
+            .commit_transition(PendingTransition::new(
+                format!(
+                    "transition:review-participant:{}",
+                    participant_id.replace(':', "-")
+                ),
+                REVIEW_CASE_REF,
+                state.generation,
+                review_transition_source(Some(participant_id), "filesystem-review-loop"),
+                TransitionPayload::ParticipantBound {
+                    participant_id: participant_id.to_string(),
+                    role: role.to_string(),
+                },
+            ))?
+            .state;
+    }
+    if state
+        .reviews
+        .iter()
+        .any(|review| review.review_id == REVIEW_ID)
+    {
+        return Ok(());
+    }
+    let review = ReviewState {
+        review_id: REVIEW_ID.to_string(),
+        attempt_id: REVIEW_ATTEMPT_ID.to_string(),
+        requested_by_participant: REVIEW_REQUESTED_BY.to_string(),
+        target_participant: REVIEW_TARGET_SUBJECT.to_string(),
+        reviewer_participant: REVIEWER_SUBJECT.to_string(),
+        operation_kind: "fs.write".to_string(),
+        carrier_family: "filesystem".to_string(),
+        target_display: REVIEW_TARGET_DISPLAY.to_string(),
+        sandbox_path: review_sandbox_dir().display().to_string(),
+        target_path: reviewed_write_path().display().to_string(),
+        policy_reason: REVIEW_POLICY_REASON.to_string(),
+        status: ReviewResolution::PendingOperator,
+        carrier_attempted: false,
+        execution_performed: false,
+        decision_ref: None,
+        receipt_ref: None,
+    };
+    let mut pending = PendingTransition::new(
+        "transition:review-request:new12-fs-write-review",
+        REVIEW_CASE_REF,
+        state.generation,
+        review_transition_source(Some(REVIEW_REQUESTED_BY), REVIEW_REQUEST_RECORD_ID),
+        TransitionPayload::ReviewRequested { review },
+    );
+    pending.causal_refs.push(REVIEW_ATTEMPT_ID.to_string());
+    pending.summary = Some("Fixed filesystem fixture requires operator review".to_string());
+    store.commit_transition(pending)?;
+    Ok(())
 }
 
 #[cfg(unix)]
@@ -170,6 +320,9 @@ pub(super) fn daemon_filesystem_review_loop(args: &[String]) -> Result<(), Strin
         fs::remove_file(&target)
             .map_err(|error| format!("failed to remove {}: {error}", target.display()))?;
     }
+
+    let canonical_store = LmdbRecordStore::open(record_store_path())?;
+    ensure_review_case_authority(&canonical_store)?;
 
     persist_control_records(&[
         Record::from_parts(
@@ -333,19 +486,10 @@ pub(super) fn control_pending(args: &[String]) -> Result<(), String> {
         print_non_ready_record_store(&status);
         return Ok(());
     }
-    let store = LmdbRecordStore::open(&status.path)?;
-    let result = store.list_records_by_kind("review_request", usize::MAX)?;
-    let mut items = Vec::new();
-    for record in result.records {
-        if record.case_ref != case_ref {
-            continue;
-        }
-        let summary = json_string_or(&record.raw_json, "summary", "");
-        let status = review_summary_value(&summary, "status");
-        if matches!(status.as_str(), "pending_operator" | "deferred") {
-            items.push(summary);
-        }
-    }
+    let items: Vec<_> = load_reviews_for_case(&case_ref)?
+        .into_iter()
+        .filter(|review| review_is_resolvable(&review.status))
+        .collect();
     println!("control_pending:");
     println!("case_ref: {case_ref}");
     println!("items_total: {}", items.len());
@@ -353,44 +497,22 @@ pub(super) fn control_pending(args: &[String]) -> Result<(), String> {
         println!("items: none");
     } else {
         println!("items:");
-        for summary in items {
-            let review_id = review_summary_value(&summary, "review_id");
-            println!("- review_id: {review_id}");
-            println!(
-                "  attempt_id: {}",
-                review_summary_value(&summary, "attempt_id")
-            );
-            println!(
-                "  operation_kind: {}",
-                review_summary_value(&summary, "operation_kind")
-            );
-            println!(
-                "  carrier_family: {}",
-                review_summary_value(&summary, "carrier_family")
-            );
-            println!(
-                "  target: {}",
-                review_summary_value_or(&summary, "target", REVIEW_TARGET_DISPLAY)
-            );
-            println!("  status: {}", review_summary_value(&summary, "status"));
-            println!(
-                "  reason: {}",
-                review_summary_value_or(&summary, "reason", REVIEW_POLICY_REASON)
-            );
-            println!(
-                "  carrier_attempted: {}",
-                review_summary_value(&summary, "carrier_attempted")
-            );
-            println!(
-                "  execution_performed: {}",
-                review_summary_value(&summary, "execution_performed")
-            );
+        for review in items {
+            println!("- review_id: {}", review.review_id);
+            println!("  attempt_id: {}", review.attempt_id);
+            println!("  operation_kind: {}", review.operation_kind);
+            println!("  carrier_family: {}", review.carrier_family);
+            println!("  target: {}", review.target_display);
+            println!("  status: {}", review_status_label(&review.status));
+            println!("  reason: {}", review.policy_reason);
+            println!("  carrier_attempted: {}", review.carrier_attempted);
+            println!("  execution_performed: {}", review.execution_performed);
             println!("  allowed_actions:");
             println!("    - approve");
             println!("    - deny");
             println!("    - defer");
             println!("    - quarantine");
-            print_review_next_commands("  ", &review_id);
+            print_review_next_commands("  ", &review.review_id);
         }
     }
     Ok(())
@@ -407,49 +529,22 @@ pub(super) fn control_show(args: &[String]) -> Result<(), String> {
         return Ok(());
     }
     let store = LmdbRecordStore::open(&status.path)?;
-    let summary = review_request_summary(&store, review_id)?;
+    let review = review_request_state(&store, review_id)?;
     println!("control_review:");
-    println!("review_id: {}", review_summary_value(&summary, "review_id"));
+    println!("review_id: {}", review.review_id);
     println!("case_ref: {REVIEW_CASE_REF}");
-    println!(
-        "attempt_id: {}",
-        review_summary_value(&summary, "attempt_id")
-    );
-    println!(
-        "requested_by_subject: {}",
-        review_summary_value(&summary, "requested_by_subject")
-    );
-    println!("review_authority_subject: {REVIEWER_SUBJECT}");
+    println!("attempt_id: {}", review.attempt_id);
+    println!("requested_by_subject: {}", review.requested_by_participant);
+    println!("review_authority_subject: {}", review.reviewer_participant);
     println!("prompt_surface_subject: {REVIEW_PROMPT_SURFACE_SUBJECT}");
-    println!(
-        "operation_kind: {}",
-        review_summary_value(&summary, "operation_kind")
-    );
-    println!(
-        "carrier_family: {}",
-        review_summary_value(&summary, "carrier_family")
-    );
-    println!(
-        "target: {}",
-        review_summary_value_or(&summary, "target", REVIEW_TARGET_DISPLAY)
-    );
-    println!(
-        "policy_reason: {}",
-        review_summary_value_or(&summary, "policy_reason", REVIEW_POLICY_REASON)
-    );
-    println!("status: {}", review_summary_value(&summary, "status"));
+    println!("operation_kind: {}", review.operation_kind);
+    println!("carrier_family: {}", review.carrier_family);
+    println!("target: {}", review.target_display);
+    println!("policy_reason: {}", review.policy_reason);
+    println!("status: {}", review_status_label(&review.status));
     println!("receipt_required: yes");
-    if let Some(pending) = control_pending_record(&store)? {
-        let pending_summary = json_string_or(&pending.raw_json, "summary", "");
-        println!(
-            "carrier_attempted: {}",
-            review_summary_value(&pending_summary, "carrier_attempted")
-        );
-        println!(
-            "execution_performed: {}",
-            review_summary_value(&pending_summary, "execution_performed")
-        );
-    }
+    println!("carrier_attempted: {}", review.carrier_attempted);
+    println!("execution_performed: {}", review.execution_performed);
     println!("allowed_actions:");
     println!("- approve");
     println!("- deny");
@@ -473,18 +568,21 @@ pub(super) fn control_resolve(args: &[String], action: &str) -> Result<(), Strin
         return Ok(());
     }
     let store = LmdbRecordStore::open(&status.path)?;
-    let summary = review_request_summary(&store, review_id)?;
-    let current_status = review_summary_value(&summary, "status");
-    if !matches!(current_status.as_str(), "pending_operator" | "deferred") {
-        return Err(format!("review_not_resolvable: {current_status}"));
+    let review = review_request_state(&store, review_id)?;
+    if !review_is_resolvable(&review.status) {
+        return Err(format!(
+            "review_not_resolvable: {}",
+            review_status_label(&review.status)
+        ));
     }
-    let resolution_status = match action {
-        "approve" => "approved",
-        "deny" => "denied",
-        "defer" => "deferred",
-        "quarantine" => "quarantined",
+    let resolution = match action {
+        "approve" => ReviewResolution::Approved,
+        "deny" => ReviewResolution::Denied,
+        "defer" => ReviewResolution::Deferred,
+        "quarantine" => ReviewResolution::Quarantined,
         _ => return Err(format!("unsupported_review_action: {action}")),
     };
+    let resolution_status = review_status_label(&resolution);
     let decision = match action {
         "approve" => "allow_with_constraints",
         "deny" => "deny",
@@ -554,8 +652,8 @@ pub(super) fn control_resolve(args: &[String], action: &str) -> Result<(), Strin
     ];
 
     if action == "approve" {
-        let sandbox = review_summary_value(&summary, "sandbox_path");
-        let target = review_summary_value(&summary, "target_path");
+        let sandbox = review.sandbox_path.clone();
+        let target = review.target_path.clone();
         if !path_inside_sandbox(&sandbox, &target) {
             return Err("review target path is outside sandbox".to_string());
         }
@@ -591,6 +689,35 @@ pub(super) fn control_resolve(args: &[String], action: &str) -> Result<(), Strin
         ),
     ));
 
+    let state = store
+        .get_case_state(REVIEW_CASE_REF)?
+        .ok_or_else(|| format!("canonical CaseState missing for {REVIEW_CASE_REF}"))?;
+    let decision_ref = format!("decision:new12-fs-review-{action}");
+    let receipt_ref = format!("receipt:new12-fs-review-{receipt_status}");
+    let mut transition = PendingTransition::new(
+        format!(
+            "transition:review-resolution:{}:{}",
+            action,
+            state.generation + 1
+        ),
+        REVIEW_CASE_REF,
+        state.generation,
+        review_transition_source(Some(REVIEWER_SUBJECT), review_id),
+        TransitionPayload::ReviewResolved {
+            review_id: review_id.to_string(),
+            attempt_id: review.attempt_id.clone(),
+            resolution,
+            reason: safe_reason.clone(),
+            decision_ref,
+            receipt_ref,
+            carrier_attempted,
+            execution_performed,
+        },
+    );
+    transition.causal_refs = vec![review_id.to_string(), review.attempt_id.clone()];
+    transition.summary = Some(format!("Fixture review resolved as {resolution_status}"));
+    store.commit_transition(transition)?;
+
     persist_control_records(&records)?;
     println!("review_resolution:");
     println!("review_id: {review_id}");
@@ -622,42 +749,24 @@ pub(super) fn control_review_interactive(args: &[String]) -> Result<(), String> 
         std::process::exit(2);
     }
 
-    let Some(summary) = first_open_review_for_case(&case_ref)? else {
+    let Some(review) = first_open_review_for_case(&case_ref)? else {
         println!("interactive_review:");
         println!("case_ref: {case_ref}");
         println!("items_total: 0");
         println!("status: no_pending_reviews");
         return Ok(());
     };
-    let review_id = review_summary_value(&summary, "review_id");
+    let review_id = review.review_id.clone();
     println!("PENDING REVIEW");
     println!();
     println!("review_id: {review_id}");
     println!("case: {case_ref}");
-    println!(
-        "operation: {}",
-        review_summary_value_or(&summary, "operation_kind", "fs.write")
-    );
-    println!(
-        "target: {}",
-        review_summary_value_or(&summary, "target", REVIEW_TARGET_DISPLAY)
-    );
-    println!(
-        "carrier: {}",
-        review_summary_value_or(&summary, "carrier_family", "filesystem")
-    );
-    println!(
-        "policy: {}",
-        review_summary_value_or(&summary, "policy_reason", REVIEW_POLICY_REASON)
-    );
-    println!(
-        "carrier_attempted: {}",
-        review_summary_value_or(&summary, "carrier_attempted", "false")
-    );
-    println!(
-        "execution_performed: {}",
-        review_summary_value_or(&summary, "execution_performed", "false")
-    );
+    println!("operation: {}", review.operation_kind);
+    println!("target: {}", review.target_display);
+    println!("carrier: {}", review.carrier_family);
+    println!("policy: {}", review.policy_reason);
+    println!("carrier_attempted: {}", review.carrier_attempted);
+    println!("execution_performed: {}", review.execution_performed);
     println!();
     println!("Actions:");
     println!("  [a] approve");
@@ -731,21 +840,22 @@ pub(super) fn control_watch(args: &[String]) -> Result<(), String> {
     let mut events_seen = 0usize;
     let mut seen = HashSet::new();
     for attempt in 0..2 {
-        for summary in load_review_summaries_for_case(&case_ref)? {
-            let review_id = review_summary_value(&summary, "review_id");
-            let status = review_summary_value(&summary, "status");
+        for review in load_reviews_for_case(&case_ref)? {
+            let review_id = review.review_id.clone();
+            let status = review_status_label(&review.status);
             let event_key = format!("{review_id}:{status}");
             if !seen.insert(event_key) {
                 continue;
             }
-            let operation = review_summary_value_or(&summary, "operation_kind", "fs.write");
-            let target = review_summary_value_or(&summary, "target", REVIEW_TARGET_DISPLAY);
-            if review_is_unresolved(&status) {
-                println!("[control] {status} {review_id} {operation} {target}");
+            if review_is_unresolved(&review.status) {
+                println!(
+                    "[control] {status} {review_id} {} {}",
+                    review.operation_kind, review.target_display
+                );
             } else {
                 println!(
                     "[control] {status} {review_id} receipt:{}",
-                    receipt_status_for_review_status(&status)
+                    receipt_status_for_review_status(&review.status)
                 );
             }
             events_seen += 1;
@@ -784,11 +894,10 @@ pub(super) fn control_wait(args: &[String]) -> Result<(), String> {
         let status = LmdbRecordStore::status(record_store_path());
         if status.status == RecordStoreStatusKind::Ready {
             let store = LmdbRecordStore::open(&status.path)?;
-            if let Some(record) = review_request_record(&store, &review_id)? {
-                let summary = json_string_or(&record.raw_json, "summary", "");
-                let review_status = review_summary_value_or(&summary, "status", "not_found");
+            if let Ok(review) = review_request_state(&store, &review_id) {
+                let review_status = review_status_label(&review.status).to_string();
                 last_status = review_status.clone();
-                if !review_is_unresolved(&review_status) {
+                if !review_is_unresolved(&review.status) {
                     println!("control_wait:");
                     println!("review_id: {review_id}");
                     println!("status: {review_status}");
@@ -796,7 +905,7 @@ pub(super) fn control_wait(args: &[String]) -> Result<(), String> {
                     println!("timeout: false");
                     println!(
                         "receipt_status: {}",
-                        receipt_status_for_review_status(&review_status)
+                        receipt_status_for_review_status(&review.status)
                     );
                     return Ok(());
                 }

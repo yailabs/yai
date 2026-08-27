@@ -1,3 +1,4 @@
+use crate::compatibility::{legacy_summary_is, legacy_summary_value};
 use crate::journal::Journal;
 use crate::record::RecordKind;
 use std::collections::BTreeSet;
@@ -126,23 +127,23 @@ impl ProjectionSummary {
         let memory_candidate_count = memory_records.len();
         let operational_memory_candidate_count = memory_records
             .iter()
-            .filter(|record| record.summary.contains("memory:operational"))
+            .filter(|record| legacy_summary_is(&record.summary, "memory", "operational"))
             .count();
         let decision_memory_candidate_count = memory_records
             .iter()
-            .filter(|record| record.summary.contains("memory:decision"))
+            .filter(|record| legacy_summary_is(&record.summary, "memory", "decision"))
             .count();
         let subject_memory_candidate_count = memory_records
             .iter()
-            .filter(|record| record.summary.contains("memory:subject"))
+            .filter(|record| legacy_summary_is(&record.summary, "memory", "subject"))
             .count();
         let error_memory_candidate_count = memory_records
             .iter()
-            .filter(|record| record.summary.contains("memory:error"))
+            .filter(|record| legacy_summary_is(&record.summary, "memory", "error"))
             .count();
         let recovery_memory_candidate_count = memory_records
             .iter()
-            .filter(|record| record.summary.contains("memory:recovery"))
+            .filter(|record| legacy_summary_is(&record.summary, "memory", "recovery"))
             .count();
         let subject_count = journal
             .records()
@@ -164,11 +165,11 @@ impl ProjectionSummary {
             .count();
         let critical_divergence_count = divergence_records
             .iter()
-            .filter(|record| record.summary.contains("severity:critical"))
+            .filter(|record| legacy_summary_is(&record.summary, "severity", "critical"))
             .count();
         let warning_divergence_count = divergence_records
             .iter()
-            .filter(|record| record.summary.contains("severity:warning"))
+            .filter(|record| legacy_summary_is(&record.summary, "severity", "warning"))
             .count();
         let projection_request_count = journal
             .records()
@@ -183,23 +184,23 @@ impl ProjectionSummary {
         let projection_result_count = projection_result_records.len();
         let operator_projection_count = projection_result_records
             .iter()
-            .filter(|record| record.summary.contains("consumer:operator"))
+            .filter(|record| legacy_summary_is(&record.summary, "consumer", "operator"))
             .count();
         let model_projection_count = projection_result_records
             .iter()
-            .filter(|record| record.summary.contains("consumer:model"))
+            .filter(|record| legacy_summary_is(&record.summary, "consumer", "model"))
             .count();
         let audit_projection_count = projection_result_records
             .iter()
-            .filter(|record| record.summary.contains("consumer:audit"))
+            .filter(|record| legacy_summary_is(&record.summary, "consumer", "audit"))
             .count();
         let limited_projection_count = projection_result_records
             .iter()
             .filter(|record| {
-                record.summary.contains("redaction:summary_only")
-                    || record.summary.contains("redaction:refs_only")
-                    || record.summary.contains("redaction:redacted")
-                    || record.summary.contains("redaction:blocked")
+                matches!(
+                    legacy_summary_value(&record.summary, "redaction").as_deref(),
+                    Some("summary_only" | "refs_only" | "redacted" | "blocked")
+                )
             })
             .count();
         let query_result_count = journal

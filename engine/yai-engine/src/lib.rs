@@ -13,6 +13,7 @@
 //! Status:
 //!   active
 
+pub mod compatibility;
 pub mod graph;
 pub mod journal;
 pub mod memory;
@@ -21,6 +22,7 @@ pub mod query;
 pub mod reconcile;
 pub mod record;
 pub mod store;
+pub mod transition;
 
 #[cfg(test)]
 mod tests {

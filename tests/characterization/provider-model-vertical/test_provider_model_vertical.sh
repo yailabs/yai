@@ -76,5 +76,10 @@ grep -F '"record_kind":"model_interpretation"' "$journal" | grep -F 'authority:n
 grep -F '"record_kind":"participant_view_frame"' "$journal" >/dev/null
 grep -F '"record_kind":"interaction_turn"' "$journal" >/dev/null
 
+canonical_summary="$("$YAI_BIN" store summary)"
+grep -Eq "transitions_total: [1-9][0-9]*" <<<"$canonical_summary"
+grep -Eq "cases_materialized: [1-9][0-9]*" <<<"$canonical_summary"
+
 printf 'provider_model_vertical:real_http_invocation ok\n'
 printf 'provider_model_vertical:durable_continuity_residue ok\n'
+printf 'provider_model_vertical:canonical_transition_authority ok\n'

@@ -69,7 +69,9 @@ fixtures or a disposable sandbox and read [Test cases](test-cases.md) first.
 
 ## Limitations
 
-YAI currently has no production-ready transaction authority, general carrier
-admission boundary, or provider-independent ContextFrame implementation. The
-CLI's journal and LMDB writes can diverge, and its controlled filesystem path
-is fixture-bound. Do not infer production safety from a passing smoke suite.
+YAI now has a typed LMDB Transition/CaseState transaction authority, but no
+general carrier admission boundary or provider-independent ContextFrame
+implementation. Legacy JSONL/record paths remain compatibility surfaces, and
+the controlled filesystem path is fixture-bound and still writes before its
+terminal transition is committed. Do not infer production safety from a
+passing smoke suite.

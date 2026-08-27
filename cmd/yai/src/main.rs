@@ -25,6 +25,10 @@ use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use yai_core_engine::compatibility::{
+    decode_legacy_record, inspect_legacy_jsonl, legacy_summary_has_marker,
+    parse_legacy_summary_fields, LegacyDecodeOutcome,
+};
 use yai_core_engine::graph::GraphSummary;
 use yai_core_engine::journal::{Journal, JournalInspection, JOURNAL_RECORD_SCHEMA};
 use yai_core_engine::memory::MemorySummary;
@@ -38,6 +42,10 @@ use yai_core_engine::store::lmdb::{
     GRAPH_RELATION_STORE_NAME, RECORD_SCHEMA,
 };
 use yai_core_engine::store::Store;
+use yai_core_engine::transition::{
+    CaseLifecycle, InterpretationAuthority, PendingTransition, ReviewResolution, ReviewState,
+    TransitionPayload, TransitionProvenance, TransitionSource,
+};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const ANSI_RESET: &str = "\x1b[0m";
@@ -93,11 +101,14 @@ fn print_info() {
     println!("runtime_layout: YAI_HOME local runtime v0");
     println!("foundation_freeze: filesystem_runtime_layout");
     println!("hot_state: YAI_HOME/run/hot-state.json live cache v0");
-    println!("record_store: YAI_HOME/store/lmdb LMDB lookup plane");
+    println!(
+        "canonical_state: LMDB yai.transition.v1 plus atomically materialized yai.case_state.v1"
+    );
+    println!("legacy_record_store: YAI_HOME/store/lmdb yai.record.v1 compatibility plane");
     println!("effect_paths: fixed reviewed filesystem write plus direct filesystem bypass");
-    println!("provider-runtime: real case-bound OpenAI-compatible HTTP invocation");
-    println!("journal_inspection: file-based JSONL v0");
-    println!("journal_replay: LMDB materialization with schema/cursor/report metadata v0");
+    println!("provider-runtime: real case-bound OpenAI-compatible HTTP invocation with typed invocation/result lineage");
+    println!("journal_inspection: file-based JSONL v0 compatibility input");
+    println!("journal_replay: legacy LMDB compatibility materialization with schema/cursor/report metadata v0");
     println!("graph_relation_write_path: active_minimal");
     println!("runtime_graph: active_minimal per_command_ephemeral rebuildable");
     println!("fact_plane: duckdb bitemporal schema yai.fact.v1");
@@ -146,7 +157,7 @@ fn print_doctor() {
     println!("yai doctor: ok");
     println!("public_semantics: canonical docs plus executable command behavior");
     println!("rust_role: yai operational CLI and data engine");
-    println!("journal_mode: file debug only");
+    println!("journal_mode: legacy compatibility/export only");
     println!("binary_path: {yai_path}");
     println!("yaid_path: {yaid_path}");
     println!("yaid_found: {yaid_found}");
@@ -237,6 +248,8 @@ fn print_usage() {
     println!("       yai store record list --receipt <receipt_ref> [--limit <N>]");
     println!("       yai store tail --journal <path>");
     println!("       yai journal inspect --path <journal.jsonl> [--show-errors]");
+    println!("       yai journal compatibility-inspect --path <journal.jsonl>");
+    println!("       yai journal compatibility-import --path <journal.jsonl> --target <isolated-lmdb> [--dry-run]");
     println!("       yai journal replay --path <journal.jsonl> [--dry-run]");
     println!("       yai journal replay-status --path <journal.jsonl>");
     println!("       yai journal replay-report --path <journal.jsonl>");
@@ -524,12 +537,15 @@ fn print_store_status() {
     println!("record_store_backend: {}", status.backend);
     println!("record_store_status: {}", status.status);
     println!("record_store_path: {}", status.path.display());
-    println!("record_env: record_env");
-    println!("schema: yai.record.v1");
+    println!("canonical_authority: lmdb_transaction_authority_v1");
+    println!("transition_schema: yai.transition.v1");
+    println!("case_state_schema: yai.case_state.v1");
+    println!("legacy_record_schema: yai.record.v1");
     if status.status == "ready" {
-        println!(
-            "indexes: records_by_id,records_by_case,records_by_kind,records_by_subject,records_by_receipt"
-        );
+        println!("canonical_databases: transitions_by_id,case_transition_sequence,case_state");
+        println!("indexes: records_by_id,records_by_case,records_by_kind,records_by_subject,records_by_receipt");
+        println!("legacy_databases: records_by_id,records_by_case,records_by_kind,records_by_subject,records_by_receipt,legacy_compatibility_payloads");
+        println!("derived_databases: graph_relations_by_id,graph_relations_by_case,graph_relations_by_kind");
     }
 }
 
@@ -544,15 +560,25 @@ fn print_store_summary() -> Result<(), String> {
         println!("records_by_kind: 0");
         println!("records_by_subject: 0");
         println!("records_by_receipt: 0");
+        println!("transitions_total: 0");
+        println!("cases_materialized: 0");
+        println!("legacy_compatibility_payloads: 0");
         return Ok(());
     }
     let store = LmdbRecordStore::open(&status.path)?;
     let summary = store.summary()?;
+    let canonical = store.canonical_summary()?;
     println!("records_total: {}", summary.records_total);
     println!("records_by_case: {}", summary.records_by_case);
     println!("records_by_kind: {}", summary.records_by_kind);
     println!("records_by_subject: {}", summary.records_by_subject);
     println!("records_by_receipt: {}", summary.records_by_receipt);
+    println!("transitions_total: {}", canonical.transitions_total);
+    println!("cases_materialized: {}", canonical.cases_materialized);
+    println!(
+        "legacy_compatibility_payloads: {}",
+        canonical.legacy_compatibility_payloads
+    );
     Ok(())
 }
 
@@ -1147,12 +1173,9 @@ mod provider;
 use provider::*;
 
 fn decision_outcome(summary: &str) -> String {
-    for part in summary.split_whitespace() {
-        if let Some(value) = part.strip_prefix("decision:") {
-            return value.trim_matches(',').to_string();
-        }
-    }
-    "unknown".to_string()
+    parse_legacy_summary_fields(summary)
+        .remove("decision")
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 fn decision_inspect(args: &[String]) -> Result<(), String> {
@@ -1421,6 +1444,22 @@ fn main() {
         }
         Some("journal") if args.get(1).map(String::as_str) == Some("inspect") => {
             if let Err(error) = journal_inspect(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("journal")
+            if args.get(1).map(String::as_str) == Some("compatibility-inspect") =>
+        {
+            if let Err(error) = journal_compatibility_inspect(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("journal")
+            if args.get(1).map(String::as_str) == Some("compatibility-import") =>
+        {
+            if let Err(error) = journal_compatibility_import(&args[2..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }

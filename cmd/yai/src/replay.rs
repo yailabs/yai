@@ -66,6 +66,71 @@ pub(super) fn journal_inspect(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+fn print_legacy_corpus_report(
+    path: &Path,
+    report: &yai_core_engine::compatibility::LegacyCorpusReport,
+) {
+    println!("legacy_compatibility:");
+    println!("source_path: {}", path.display());
+    println!("input_authority: compatibility_only");
+    println!("lines_total: {}", report.lines_total);
+    println!("losslessly_promoted: {}", report.losslessly_promoted);
+    println!(
+        "promoted_with_compatibility_metadata: {}",
+        report.promoted_with_metadata
+    );
+    println!("preserved_opaque: {}", report.preserved_opaque);
+    println!("rejected_malformed: {}", report.rejected_malformed);
+    println!("repeated_record_ids: {}", report.repeated_record_ids);
+    println!("canonical_transitions_written: 0");
+}
+
+pub(super) fn journal_compatibility_inspect(args: &[String]) -> Result<(), String> {
+    let path = PathBuf::from(named_arg(args, "--path")?);
+    let contents = fs::read_to_string(&path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let report = inspect_legacy_jsonl(&contents);
+    print_legacy_corpus_report(&path, &report);
+    println!("mode: inspect");
+    Ok(())
+}
+
+pub(super) fn journal_compatibility_import(args: &[String]) -> Result<(), String> {
+    let path = PathBuf::from(named_arg(args, "--path")?);
+    let target = PathBuf::from(named_arg(args, "--target")?);
+    let dry_run = args.iter().any(|argument| argument == "--dry-run");
+    if target == record_store_path() {
+        return Err("compatibility import target must be isolated from the live store".to_string());
+    }
+    let contents = fs::read_to_string(&path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let inspection = inspect_legacy_jsonl(&contents);
+    print_legacy_corpus_report(&path, &inspection);
+    println!("target_path: {}", target.display());
+    if dry_run {
+        println!("mode: dry_run");
+        println!("target_written: no");
+        return Ok(());
+    }
+    let store = LmdbRecordStore::open(&target)?;
+    let report = store.import_legacy_compatibility(&contents, &path.display().to_string())?;
+    let stored_total = store.legacy_compatibility_payload_count()?;
+    println!("mode: import");
+    println!("target_written: yes");
+    println!("payloads_written: {}", report.payloads_written);
+    println!("payloads_duplicate: {}", report.payloads_duplicate);
+    println!("payloads_stored_total: {stored_total}");
+    println!(
+        "validation: {}",
+        if stored_total >= report.payloads_written {
+            "passed"
+        } else {
+            "failed"
+        }
+    );
+    Ok(())
+}
+
 pub(super) fn journal_replay(args: &[String]) -> Result<(), String> {
     let path = PathBuf::from(named_arg(args, "--path")?);
     let dry_run = args.iter().any(|arg| arg == "--dry-run");

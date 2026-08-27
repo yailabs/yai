@@ -777,12 +777,9 @@ fn existing_fact_ids(table: &str, case_ref: &str) -> Result<HashSet<String>, Str
 }
 
 fn summary_token_value(summary: &str, key: &str) -> String {
-    let prefix = format!("{key}:");
-    summary
-        .split_whitespace()
-        .find_map(|part| part.strip_prefix(&prefix))
-        .unwrap_or("")
-        .to_string()
+    parse_legacy_summary_fields(summary)
+        .remove(key)
+        .unwrap_or_default()
 }
 
 fn summary_token_value_or(summary: &str, key: &str, fallback: &str) -> String {
@@ -1168,10 +1165,11 @@ fn source_record_matches_fact_kind(record: &StoredRecordEnvelope, kind: FactExtr
                     | "model_interpretation"
                     | "interaction_turn"
                     | "participant_view_frame"
-            ) || (record.record_kind == "effect_receipt" && summary.contains("model.output"))
+            ) || (record.record_kind == "effect_receipt"
+                && legacy_summary_has_marker(&summary, "model.output"))
                 || (record.record_kind == "subject_state"
-                    && (summary.contains("provider_attachment:")
-                        || summary.contains("case_entry:admitted")))
+                    && (summary_token_value(&summary, "provider_attachment") == "attached"
+                        || summary_token_value(&summary, "case_entry") == "admitted"))
         }
         FactExtractKind::PolicyOutcome => matches!(
             record.record_kind.as_str(),
@@ -1242,7 +1240,9 @@ fn fact_insert_sql(
                 },
             );
             let review_id = summary_token_value(&summary, "review_id");
-            let requires_review = summary.contains("require_review") || !review_id.is_empty();
+            let requires_review = summary_token_value(&summary, "gate_outcome") == "require_review"
+                || summary_token_value(&summary, "decision") == "require_review"
+                || !review_id.is_empty();
             let policy_ref = summary_token_value_or(
                 &summary,
                 "policy_ref",
@@ -1378,12 +1378,13 @@ fn fact_insert_sql(
                 "provider_ref",
                 &summary_token_value(&summary, "provider"),
             );
-            let model_output_fallback =
-                if record.record_kind == "effect_receipt" && summary.contains("model.output") {
-                    source_record_receipt_id(record)
-                } else {
-                    record.record_id.clone()
-                };
+            let model_output_fallback = if record.record_kind == "effect_receipt"
+                && legacy_summary_has_marker(&summary, "model.output")
+            {
+                source_record_receipt_id(record)
+            } else {
+                record.record_id.clone()
+            };
             let model_output_id =
                 summary_token_value_or(&summary, "model_output_id", &model_output_fallback);
             format!(

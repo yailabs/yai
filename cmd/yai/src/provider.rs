@@ -473,9 +473,9 @@ pub(super) fn case_enter(args: &[String]) -> Result<(), String> {
     let projection_available = journal.records().iter().any(|record| {
         record.case_ref == case_ref
             && record.kind == RecordKind::ProjectionResult
-            && record.summary.contains(&format!("consumer:{consumer}"))
-            && record.summary.contains(&format!("kind:{kind}"))
-            && record.summary.contains("redaction:summary_only")
+            && legacy_summary_is(record, "consumer", &consumer)
+            && legacy_summary_is(record, "kind", &kind)
+            && legacy_summary_is(record, "redaction", "summary_only")
     });
     if !projection_available {
         return Err(format!(
@@ -483,16 +483,54 @@ pub(super) fn case_enter(args: &[String]) -> Result<(), String> {
         ));
     }
 
-    let already_admitted = journal.records().iter().any(|record| {
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let mut state = ensure_canonical_case(&store, &journal, &path, &case_ref)?;
+    let already_admitted = state
+        .participants
+        .iter()
+        .find(|participant| participant.participant_id == subject_ref)
+        .map(|participant| {
+            participant
+                .admitted_views
+                .iter()
+                .any(|view| view.consumer == consumer && view.view_kind == kind)
+        })
+        .unwrap_or(false);
+    if !already_admitted {
+        let mut admission = PendingTransition::new(
+            format!(
+                "transition:case-admission:{}:{}:{}:{}",
+                canonical_id_component(&case_ref),
+                canonical_id_component(&subject_ref),
+                canonical_id_component(&consumer),
+                canonical_id_component(&kind)
+            ),
+            &case_ref,
+            state.generation,
+            provider_source(Some(&subject_ref), &path.display().to_string()),
+            TransitionPayload::ParticipantAdmitted {
+                participant_id: subject_ref.clone(),
+                consumer: consumer.clone(),
+                view_kind: kind.clone(),
+            },
+        );
+        admission.summary = Some(format!(
+            "Participant admitted to {consumer}/{kind} view for compatibility command output"
+        ));
+        state = store.commit_transition(admission)?.state;
+        debug_assert!(state.generation > 0);
+    }
+
+    let legacy_already_admitted = journal.records().iter().any(|record| {
         record.case_ref == case_ref
             && record.kind == RecordKind::SubjectState
             && record.subject_ref == subject_ref
-            && record.summary.contains("case_entry:admitted")
-            && record.summary.contains(&format!("consumer:{consumer}"))
-            && record.summary.contains(&format!("kind:{kind}"))
+            && legacy_summary_is(record, "case_entry", "admitted")
+            && legacy_summary_is(record, "consumer", &consumer)
+            && legacy_summary_is(record, "kind", &kind)
     });
 
-    if !already_admitted {
+    if !legacy_already_admitted {
         append_case_entry_record(&path, &journal, &case_ref, &subject_ref, &consumer, &kind)?;
     }
 
@@ -540,6 +578,199 @@ fn append_record_to_journal(path: &PathBuf, record: &Record) -> Result<(), Strin
     file.write_all(record.to_jsonl().as_bytes())
         .map_err(|error| format!("failed to write {}: {error}", path.display()))?;
     Ok(())
+}
+
+fn legacy_summary_value(record: &Record, key: &str) -> Option<String> {
+    parse_legacy_summary_fields(&record.summary).remove(key)
+}
+
+fn legacy_summary_is(record: &Record, key: &str, expected: &str) -> bool {
+    legacy_summary_value(record, key).as_deref() == Some(expected)
+}
+
+fn canonical_id_component(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, ':' | '-' | '_' | '.') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
+fn provider_source(participant_id: Option<&str>, source_ref: &str) -> TransitionSource {
+    TransitionSource {
+        component: "yai.provider_boundary".to_string(),
+        participant_id: participant_id.map(ToString::to_string),
+        source_ref: Some(source_ref.to_string()),
+    }
+}
+
+fn legacy_provenance(
+    path: &Path,
+    record_id: Option<&str>,
+    promotion: &str,
+) -> TransitionProvenance {
+    TransitionProvenance {
+        origin_schema: "yai.store.record.v0".to_string(),
+        origin_ref: path.display().to_string(),
+        legacy_record_id: record_id.map(ToString::to_string),
+        promotion: promotion.to_string(),
+    }
+}
+
+fn ensure_canonical_case(
+    store: &LmdbRecordStore,
+    journal: &Journal,
+    journal_path: &Path,
+    case_id: &str,
+) -> Result<yai_core_engine::transition::CaseState, String> {
+    if let Some(state) = store.get_case_state(case_id)? {
+        return Ok(state);
+    }
+    let mut open = PendingTransition::new(
+        format!("transition:case-open:{}", canonical_id_component(case_id)),
+        case_id,
+        0,
+        provider_source(None, &journal_path.display().to_string()),
+        TransitionPayload::CaseOpened {
+            lifecycle: CaseLifecycle::Open,
+        },
+    );
+    open.provenance.push(legacy_provenance(
+        journal_path,
+        None,
+        "compatibility_bootstrap",
+    ));
+    open.summary = Some("Case opened from readable legacy journal input".to_string());
+    let mut state = store.commit_transition(open)?.state;
+
+    let mut seen = HashSet::new();
+    for record in journal.records().iter().filter(|record| {
+        record.case_ref == case_id
+            && record.kind == RecordKind::SubjectBinding
+            && !record.subject_ref.is_empty()
+            && record.subject_ref != "subject:none"
+    }) {
+        if !seen.insert(record.subject_ref.clone()) {
+            continue;
+        }
+        let mut binding = PendingTransition::new(
+            format!(
+                "transition:participant-bound:{}:{}",
+                canonical_id_component(case_id),
+                canonical_id_component(&record.subject_ref)
+            ),
+            case_id,
+            state.generation,
+            provider_source(Some(&record.subject_ref), &record.id),
+            TransitionPayload::ParticipantBound {
+                participant_id: record.subject_ref.clone(),
+                role: "legacy_subject_binding".to_string(),
+            },
+        );
+        binding.provenance.push(legacy_provenance(
+            journal_path,
+            Some(&record.id),
+            "lossless_structural_promotion",
+        ));
+        state = store.commit_transition(binding)?.state;
+    }
+    Ok(state)
+}
+
+fn promote_provider_compatibility_state(
+    store: &LmdbRecordStore,
+    journal: &Journal,
+    journal_path: &Path,
+    case_id: &str,
+    participant_id: &str,
+) -> Result<yai_core_engine::transition::CaseState, String> {
+    let mut state = ensure_canonical_case(store, journal, journal_path, case_id)?;
+    let participant_bound = state
+        .participants
+        .iter()
+        .any(|participant| participant.participant_id == participant_id);
+    if !participant_bound {
+        return Err(format!(
+            "canonical participant {participant_id} is not bound to {case_id}"
+        ));
+    }
+
+    let admitted = state
+        .participants
+        .iter()
+        .find(|participant| participant.participant_id == participant_id)
+        .map(|participant| !participant.admitted_views.is_empty())
+        .unwrap_or(false);
+    if !admitted {
+        if let Some(record) = journal.records().iter().find(|record| {
+            record.case_ref == case_id
+                && record.kind == RecordKind::SubjectState
+                && record.subject_ref == participant_id
+                && legacy_summary_is(record, "case_entry", "admitted")
+        }) {
+            let consumer =
+                legacy_summary_value(record, "consumer").unwrap_or_else(|| "model".to_string());
+            let view_kind =
+                legacy_summary_value(record, "kind").unwrap_or_else(|| "model_context".to_string());
+            let mut admission = PendingTransition::new(
+                format!("transition:{}", canonical_id_component(&record.id)),
+                case_id,
+                state.generation,
+                provider_source(Some(participant_id), &record.id),
+                TransitionPayload::ParticipantAdmitted {
+                    participant_id: participant_id.to_string(),
+                    consumer,
+                    view_kind,
+                },
+            );
+            admission.provenance.push(legacy_provenance(
+                journal_path,
+                Some(&record.id),
+                "compatibility_summary_promotion",
+            ));
+            state = store.commit_transition(admission)?.state;
+        }
+    }
+
+    if state.provider.is_none() {
+        if let Some(record) = journal.records().iter().find(|record| {
+            record.case_ref == case_id
+                && record.kind == RecordKind::SubjectState
+                && record.subject_ref == participant_id
+                && legacy_summary_is(record, "provider_attachment", "attached")
+        }) {
+            let mut attached = PendingTransition::new(
+                format!("transition:{}", canonical_id_component(&record.id)),
+                case_id,
+                state.generation,
+                provider_source(Some(participant_id), &record.id),
+                TransitionPayload::ProviderAttached {
+                    participant_id: participant_id.to_string(),
+                    provider_kind: legacy_summary_value(record, "provider")
+                        .unwrap_or_else(|| "openai_compatible".to_string()),
+                    base_url: legacy_summary_value(record, "base_url").unwrap_or_default(),
+                    model_id: legacy_summary_value(record, "model").unwrap_or_default(),
+                    credential_ref: format!(
+                        "env:{}",
+                        legacy_summary_value(record, "api_key_env")
+                            .unwrap_or_else(|| "OPENCODE_LLM_API_KEY".to_string())
+                    ),
+                },
+            );
+            attached.provenance.push(legacy_provenance(
+                journal_path,
+                Some(&record.id),
+                "compatibility_summary_promotion",
+            ));
+            state = store.commit_transition(attached)?.state;
+        }
+    }
+    Ok(state)
 }
 
 fn compact_text(value: &str, max_chars: usize) -> String {
@@ -630,28 +861,54 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
     let provider_summary = format!(
         "provider_attachment:attached provider:openai_compatible base_url:{base_url} model:{model} api_key_env:{api_key_env} prompt_surface:vendored_linenoise context:case_projection_graph_memory"
     );
-    let already_attached = journal.records().iter().any(|record| {
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = ensure_canonical_case(&store, &journal, &path, &case_ref)?;
+    let already_attached = state.provider.as_ref().is_some_and(|provider| {
+        provider.participant_id == subject_ref
+            && provider.provider_kind == "openai_compatible"
+            && provider.base_url == base_url
+            && provider.model_id == model
+            && provider.credential_ref == format!("env:{api_key_env}")
+    });
+    let legacy_already_attached = journal.records().iter().any(|record| {
         record.case_ref == case_ref
             && record.kind == RecordKind::SubjectState
             && record.subject_ref == subject_ref
             && record.summary == provider_summary
     });
 
+    let record = Record::from_parts(
+        format!(
+            "provider-attachment:{}:{}",
+            subject_ref.replace(':', "-"),
+            journal.count() + 1
+        ),
+        &case_ref,
+        RecordKind::SubjectState,
+        &subject_ref,
+        "",
+        "",
+        "",
+        provider_summary,
+    );
     if !already_attached {
-        let record = Record::from_parts(
-            format!(
-                "provider-attachment:{}:{}",
-                subject_ref.replace(':', "-"),
-                journal.count() + 1
-            ),
+        let mut attached = PendingTransition::new(
+            format!("transition:{}", canonical_id_component(&record.id)),
             &case_ref,
-            RecordKind::SubjectState,
-            &subject_ref,
-            "",
-            "",
-            "",
-            provider_summary,
+            state.generation,
+            provider_source(Some(&subject_ref), &record.id),
+            TransitionPayload::ProviderAttached {
+                participant_id: subject_ref.clone(),
+                provider_kind: "openai_compatible".to_string(),
+                base_url: base_url.clone(),
+                model_id: model.clone(),
+                credential_ref: format!("env:{api_key_env}"),
+            },
         );
+        attached.summary = Some("OpenAI-compatible provider attachment".to_string());
+        store.commit_transition(attached)?;
+    }
+    if !legacy_already_attached {
         append_record_to_journal(&path, &record)?;
     }
 
@@ -735,18 +992,12 @@ fn transcript_retention_enabled(journal: &Journal, case_ref: &str, subject_ref: 
         record.case_ref == case_ref
             && record.kind == RecordKind::SubjectState
             && record.subject_ref == subject_ref
-            && record.summary.contains("prompt_transcript_retention:")
+            && legacy_summary_value(record, "prompt_transcript_retention").is_some()
     }) {
-        if record
-            .summary
-            .contains("prompt_transcript_retention:enabled")
-        {
-            enabled = true;
-        } else if record
-            .summary
-            .contains("prompt_transcript_retention:disabled")
-        {
-            enabled = false;
+        match legacy_summary_value(record, "prompt_transcript_retention").as_deref() {
+            Some("enabled") => enabled = true,
+            Some("disabled") => enabled = false,
+            _ => {}
         }
     }
     enabled
@@ -761,12 +1012,7 @@ fn transcript_retention_label(enabled: bool) -> &'static str {
 }
 
 fn summary_token(summary: &str, key: &str) -> Option<String> {
-    let prefix = format!("{key}:");
-    summary.split_whitespace().find_map(|part| {
-        part.strip_prefix(&prefix)
-            .map(|value| value.trim_matches(',').to_string())
-            .filter(|value| !value.is_empty())
-    })
+    parse_legacy_summary_fields(summary).remove(key)
 }
 
 fn active_thread_id(journal: &Journal, case_ref: &str) -> Option<String> {
@@ -774,7 +1020,7 @@ fn active_thread_id(journal: &Journal, case_ref: &str) -> Option<String> {
     for record in journal.records().iter().filter(|record| {
         record.case_ref == case_ref && record.kind == RecordKind::InteractionThread
     }) {
-        if record.summary.contains("state:active") {
+        if legacy_summary_is(record, "state", "active") {
             if let Some(thread_id) = summary_token(&record.summary, "thread_id") {
                 active = Some(thread_id);
             }
@@ -784,25 +1030,23 @@ fn active_thread_id(journal: &Journal, case_ref: &str) -> Option<String> {
 }
 
 fn thread_turn_count(journal: &Journal, case_ref: &str, thread_id: &str) -> usize {
-    let needle = format!("thread_id:{thread_id}");
     journal
         .records()
         .iter()
         .filter(|record| {
             record.case_ref == case_ref
                 && record.kind == RecordKind::InteractionTurn
-                && record.summary.contains(&needle)
+                && legacy_summary_is(record, "thread_id", thread_id)
         })
         .count()
 }
 
 fn latest_frame_id(journal: &Journal, case_ref: &str, thread_id: &str) -> Option<String> {
-    let needle = format!("thread_id:{thread_id}");
     let mut frame_id = None;
     for record in journal.records().iter().filter(|record| {
         record.case_ref == case_ref
             && record.kind == RecordKind::ParticipantViewFrame
-            && record.summary.contains(&needle)
+            && legacy_summary_is(record, "thread_id", thread_id)
     }) {
         frame_id = summary_token(&record.summary, "frame_id").or_else(|| Some(record.id.clone()));
     }
@@ -862,7 +1106,6 @@ fn ensure_default_thread(
 
 fn render_thread_context(journal: &Journal, case_ref: &str, thread_id: &str) -> String {
     let mut output = String::new();
-    let needle = format!("thread_id:{thread_id}");
     let mut count = 0usize;
     let _ = writeln!(output, "## Active Interaction Thread");
     let _ = writeln!(output, "interaction_thread: {thread_id}");
@@ -870,7 +1113,7 @@ fn render_thread_context(journal: &Journal, case_ref: &str, thread_id: &str) -> 
     for record in journal.records().iter().filter(|record| {
         record.case_ref == case_ref
             && record.kind == RecordKind::InteractionTurn
-            && record.summary.contains(&needle)
+            && legacy_summary_is(record, "thread_id", thread_id)
     }) {
         count += 1;
         let _ = writeln!(
@@ -930,22 +1173,29 @@ fn prompt_session_from_args(args: &[String]) -> Result<PromptSession, String> {
     }
     let journal = Journal::load_jsonl(&journal_path)
         .map_err(|error| format!("failed to load {}: {error}", journal_path.display()))?;
-    let admitted = journal.records().iter().any(|record| {
-        record.case_ref == case_ref
-            && record.kind == RecordKind::SubjectState
-            && record.subject_ref == subject_ref
-            && record.summary.contains("case_entry:admitted")
-    });
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = promote_provider_compatibility_state(
+        &store,
+        &journal,
+        &journal_path,
+        &case_ref,
+        &subject_ref,
+    )?;
+    let admitted = state
+        .participants
+        .iter()
+        .find(|participant| participant.participant_id == subject_ref)
+        .map(|participant| !participant.admitted_views.is_empty())
+        .unwrap_or(false);
     if !admitted {
         return Err(format!(
             "{subject_ref} has not entered {case_ref}; run `yai case enter` first"
         ));
     }
-    let attached = journal.records().iter().any(|record| {
-        record.case_ref == case_ref
-            && record.kind == RecordKind::SubjectState
-            && record.subject_ref == subject_ref
-            && record.summary.contains("provider_attachment:attached")
+    let attached = state.provider.as_ref().is_some_and(|provider| {
+        provider.participant_id == subject_ref
+            && provider.provider_kind == "openai_compatible"
+            && provider.model_id == model
     });
     if !attached {
         return Err(format!(
@@ -1353,11 +1603,20 @@ fn transcript_text(value: &str, session: &PromptSession) -> String {
         .join(" ")
 }
 
-fn append_model_prompt_attempt(session: &PromptSession, prompt: &str) -> Result<String, String> {
+struct ProviderInvocationRefs {
+    attempt_id: String,
+    invocation_id: String,
+}
+
+fn append_model_prompt_attempt(
+    session: &PromptSession,
+    prompt: &str,
+) -> Result<ProviderInvocationRefs, String> {
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
     let sequence = journal.count() + 1;
     let attempt_id = format!("attempt:model-prompt-{sequence}");
+    let invocation_id = format!("invocation:model-prompt-{sequence}");
     let record = Record::from_parts(
         format!(
             "model-prompt:{}:{sequence}",
@@ -1371,19 +1630,42 @@ fn append_model_prompt_attempt(session: &PromptSession, prompt: &str) -> Result<
         "",
         prompt_attempt_summary(session, prompt),
     );
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = store
+        .get_case_state(&session.case_ref)?
+        .ok_or_else(|| format!("canonical CaseState missing for {}", session.case_ref))?;
+    let mut pending = PendingTransition::new(
+        format!("transition:{}", canonical_id_component(&record.id)),
+        &session.case_ref,
+        state.generation,
+        provider_source(Some(&session.subject_ref), &record.id),
+        TransitionPayload::ProviderInvocationStarted {
+            invocation_id: invocation_id.clone(),
+            participant_id: session.subject_ref.clone(),
+            provider_kind: "openai_compatible".to_string(),
+            model_id: session.provider.model.clone(),
+        },
+    );
+    pending.summary = Some(prompt_attempt_summary(session, prompt));
+    store.commit_transition(pending)?;
     append_record_to_journal(&session.journal_path, &record)?;
-    Ok(attempt_id)
+    Ok(ProviderInvocationRefs {
+        attempt_id,
+        invocation_id,
+    })
 }
 
 fn append_model_output_receipt(
     session: &PromptSession,
     attempt_id: &str,
+    invocation_id: &str,
     output: &str,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
     let sequence = journal.count() + 1;
     let receipt_id = format!("receipt:model-output-{sequence}");
+    let result_id = format!("provider-result:model-output-{sequence}");
     let record = Record::from_parts(
         format!(
             "model-output:{}:{sequence}",
@@ -1397,12 +1679,34 @@ fn append_model_output_receipt(
         &receipt_id,
         model_output_summary(session, output),
     );
-    append_record_to_journal(&session.journal_path, &record)
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = store
+        .get_case_state(&session.case_ref)?
+        .ok_or_else(|| format!("canonical CaseState missing for {}", session.case_ref))?;
+    let mut pending = PendingTransition::new(
+        format!("transition:{}", canonical_id_component(&record.id)),
+        &session.case_ref,
+        state.generation,
+        provider_source(Some(&session.subject_ref), &record.id),
+        TransitionPayload::ProviderResultRecorded {
+            result_id: result_id.clone(),
+            invocation_id: invocation_id.to_string(),
+            provider_kind: "openai_compatible".to_string(),
+            model_id: session.provider.model.clone(),
+            output: output.to_string(),
+        },
+    );
+    pending.causal_refs.push(invocation_id.to_string());
+    pending.summary = Some(model_output_summary(session, output));
+    store.commit_transition(pending)?;
+    append_record_to_journal(&session.journal_path, &record)?;
+    Ok(result_id)
 }
 
 fn append_model_interpretation_record(
     session: &PromptSession,
     attempt_id: &str,
+    result_id: &str,
     output: &str,
 ) -> Result<String, String> {
     let journal = Journal::load_jsonl(&session.journal_path)
@@ -1425,6 +1729,25 @@ fn append_model_interpretation_record(
         "",
         summary.clone(),
     );
+    let interpretation_id = format!("interpretation:{}", canonical_id_component(&record.id));
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = store
+        .get_case_state(&session.case_ref)?
+        .ok_or_else(|| format!("canonical CaseState missing for {}", session.case_ref))?;
+    let mut pending = PendingTransition::new(
+        format!("transition:{}", canonical_id_component(&record.id)),
+        &session.case_ref,
+        state.generation,
+        provider_source(Some(&session.subject_ref), &record.id),
+        TransitionPayload::ModelInterpretationRecorded {
+            interpretation_id,
+            result_id: result_id.to_string(),
+            authority: InterpretationAuthority::NonAuthoritative,
+        },
+    );
+    pending.causal_refs.push(result_id.to_string());
+    pending.summary = Some(summary.clone());
+    store.commit_transition(pending)?;
     append_record_to_journal(&session.journal_path, &record)?;
     Ok(summary)
 }
@@ -1597,7 +1920,7 @@ fn append_memory_proposal(session: &PromptSession, note: Option<&str>) -> Result
         .filter(|record| {
             record.case_ref == session.case_ref
                 && record.kind == RecordKind::Attempt
-                && record.summary.contains("op:model.prompt.submit")
+                && legacy_summary_is(record, "op", "model.prompt.submit")
         })
         .count();
     let model_outputs = journal
@@ -1606,7 +1929,7 @@ fn append_memory_proposal(session: &PromptSession, note: Option<&str>) -> Result
         .filter(|record| {
             record.case_ref == session.case_ref
                 && record.kind == RecordKind::EffectReceipt
-                && record.summary.contains("model.output")
+                && legacy_summary_has_marker(&record.summary, "model.output")
         })
         .count();
     let basis_records = prompt_attempts + model_outputs;
@@ -1680,15 +2003,21 @@ fn run_prompt_once(session: &mut PromptSession, prompt: &str, dry_run: bool) -> 
         println!("refresh_required: true");
     }
     let frame_id = append_participant_view_frame(session)?;
-    let attempt_id = append_model_prompt_attempt(session, prompt)?;
+    let invocation = append_model_prompt_attempt(session, prompt)?;
     let output = provider_chat_completion(&session.provider, &session.participant_view, prompt)?;
     println!();
     print_cli_section(colors, "MODEL", &session.provider.model, ANSI_MAGENTA);
     print_model_output(colors, &output);
     println!();
-    append_model_output_receipt(session, &attempt_id, &output)?;
-    let interpretation_summary = append_model_interpretation_record(session, &attempt_id, &output)?;
-    let turn_id = append_interaction_turn(session, &attempt_id, prompt, &output)?;
+    let result_id = append_model_output_receipt(
+        session,
+        &invocation.attempt_id,
+        &invocation.invocation_id,
+        &output,
+    )?;
+    let interpretation_summary =
+        append_model_interpretation_record(session, &invocation.attempt_id, &result_id, &output)?;
+    let turn_id = append_interaction_turn(session, &invocation.attempt_id, prompt, &output)?;
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
     session.participant_view =

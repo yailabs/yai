@@ -25,9 +25,9 @@ and continuity across sessions/providers. It persists as canonical identity
 and committed transition refs. It may not directly mutate CaseState, own a
 physical resource/secret, or absorb all runtime data.
 
-Current reality: case admission and bindings are spread across JSONL summaries,
-LMDB records, C fixture types, and inspect-only views. Target: one typed
-lifecycle and generation model.
+Current reality: the Rust authority now materializes typed Case lifecycle,
+generation, participant admission, provider lineage, and fixture review state.
+C daemon fixtures and remaining historical views still use legacy records.
 
 ### CaseState — ADOPT
 
@@ -206,9 +206,10 @@ retains that provenance without reclassifying it as a YAI transition.
 
 ## Current aliases and compatibility
 
-Current names such as `EffectReceipt` for model output,
+Current compatibility names such as `EffectReceipt` for model output,
 `ParticipantViewFrame` for a summary-token record, and broad `RecordKind`
-values remain executable reality. The former `CaseHandle` and
+values remain readable output reality. Canonical provider history uses typed
+Invocation, ProviderResult, and ModelInterpretation payloads instead. The former `CaseHandle` and
 `CapabilityLease` views had no product consumer and no longer survive as
 compatibility types. Remaining compatibility requires a named consumer,
 version policy, test, and removal/migration condition.

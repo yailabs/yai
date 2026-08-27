@@ -91,7 +91,8 @@ pub(super) fn graph_schema(args: &[String]) -> Result<(), String> {
     println!();
     println!("graph_persistence:");
     println!("  status: active_minimal");
-    println!("  durable_truth: typed_relations");
+    println!("  role: derived_rebuildable_relations");
+    println!("  durable_truth: canonical_transition_or_legacy_compatibility_input");
     println!("  relation_write_path: active_minimal");
     println!("  graph_store: {GRAPH_RELATION_STORE_NAME}");
     println!("runtime_graph:");
@@ -115,12 +116,12 @@ pub(super) fn graph_runtime_status(args: &[String]) -> Result<(), String> {
     println!("  working_set: per_command_ephemeral");
     println!("  resident_service: planned");
     println!("  source: graph_relations");
-    println!("  durable_truth: graph_persistence");
+    println!("  durable_truth: canonical_transition_or_legacy_compatibility_input");
     println!("  hnsw: future_candidate_index");
     println!("  context_compiler: future_consumer");
     println!("  relation_write_path: active_minimal");
     println!("  graph_store: {GRAPH_RELATION_STORE_NAME}");
-    println!("  graph_persistence: durable_typed_relations");
+    println!("  graph_persistence: derived_rebuildable_relations");
     println!("  implementation_claim: ephemeral_working_set_only");
     Ok(())
 }
@@ -330,7 +331,7 @@ fn graph_rebuild_from_journal(case_ref: &str, path: &Path) -> Result<(), String>
     );
     store.put_replay_metadata(&metadata)?;
 
-    let materialize_report = store.materialize_graph_relations_for_case(case_ref)?;
+    let materialize_report = store.rebuild_graph_relations_for_case(case_ref)?;
     let graph = store.load_runtime_graph_for_case(case_ref)?;
 
     report.records_seen = import_report.records_seen;

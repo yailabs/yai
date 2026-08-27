@@ -217,8 +217,18 @@ admitted, attempted, observed, and indeterminate.
 
 ## Current implementation gap
 
-Current JSONL→LMDB dual writes, write-before-persist review behavior,
-receipt-shaped denial records, direct filesystem bypass, and summary parsers do
-not implement this contract. They remain characterized evidence to migrate,
-not compatibility definitions. See [Architecture](../architecture.md) and the
-[Roadmap](../../ROADMAP.md).
+`yai.transition.v1` now provides immutable typed payloads, per-Case sequence,
+mechanical closure checks, stale-generation rejection, and atomic LMDB append
+plus `yai.case_state.v1` reduction. CaseState rebuild/replay equivalence,
+restart, rollback-before-commit, duplicate identity, derived failure isolation,
+and typed graph rebuild are executable invariants. Provider and fixture review
+paths are the first live consumers.
+
+The implemented payload set is intentionally smaller than this full contract:
+it has no normalized Operation, constitutional Decision/ExecutionGrant,
+Observation/EffectReceipt lifecycle, PREPARE/FINALIZE phase, indeterminate
+reconciliation, or context schema. The review filesystem mutation still occurs
+before its terminal Transition; direct filesystem bypass and receipt-shaped
+legacy exports remain. `yai.store.record.v0` and `yai.record.v1` are explicit
+compatibility input/output, not canonical history. See
+[Architecture](../architecture.md) and the [Roadmap](../../ROADMAP.md).

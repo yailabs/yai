@@ -32,34 +32,44 @@ E05/E07/V11 properties not implemented today are retained as regression
 requirements in the source-refoundation evidence package, not restored as old
 runtime directories.
 
-## Stage 1 — typed transition authority
+## Completed boundary — typed transition authority
 
-The next task is `YAI.SOURCE.REFOUNDATION.2`. It must begin with a compatibility
-corpus and transaction design, then implement the smallest storage vertical
-that stops new target semantics from depending on `Record.summary`.
+`YAI.SOURCE.REFOUNDATION.2` selected the existing LMDB environment after
+testing it against the required transaction semantics. It implemented:
 
-Required boundary:
+- `yai.transition.v1`, with global identity, Case identity, per-Case sequence,
+  source, optional Scope, causal refs, typed payload, provenance, and
+  presentation-only summary;
+- `yai.case_state.v1`, atomically reduced with every ledger append and fully
+  rebuildable from ordered Transitions;
+- deterministic duplicate/stale-generation rejection, rollback-before-commit,
+  restart, replay equivalence, materialization rebuild, persisted-version
+  rejection, and derived failure isolation;
+- typed Case/participant/provider/invocation/result/interpretation and fixed
+  review request/resolution payloads as the minimum current consumer set;
+- typed graph derivation and deterministic graph replacement from canonical
+  transitions, with historical records routed through one compatibility
+  decoder;
+- a corpus covering all 35 Rust and 32 C legacy kinds, drift cases, both old
+  schemas, optional/malformed/unknown input, repeated IDs, and old summary
+  variants;
+- inspect, dry-run, and isolated compatibility import that preserves unknown
+  information opaquely and never creates canonical meaning;
+- live provider and review consumers while retaining old JSONL/record output
+  for compatibility.
 
-- define minimum typed Transition identity, Case generation, chronology,
-  cause, Scope, actor, Decision, Attempt, observations/receipts, and outcome;
-- retain Record as a versioned serialization envelope;
-- select and implement one canonical Committed Transition Ledger with
-  atomically maintained materialized CaseState;
-- define rebuild/checkpoint rules for current state and derived graph, index,
-  memory, and analytics;
-- import existing JSONL/LMDB facts with explicit provenance and compatibility
-  readers, without promoting parsed summaries into target truth;
-- prove linked closure, record completeness, replay equivalence, idempotency,
-  corruption/fallback behavior, and migration failure recovery.
-
-The database technology remains an implementation decision until measured
-against those requirements. Existing durable data must not be silently
-discarded.
+LMDB is now physical storage for both canonical ledger and current
+materialization, but only the Transition ledger is historical authority. The
+old journal/record databases remain compatibility input/output and operator
+evidence, not a second mutable canon.
 
 ## Stage 2 — admission and uncertain external effects
 
-After typed transition authority exists, make each product-reachable carrier
-consume an ExecutionGrant and retire the direct filesystem bypass. Implement:
+The exact next task is `YAI.SOURCE.REFOUNDATION.3`: build one narrow typed
+admission/effect vertical on the new authority. It must make the selected
+product-reachable filesystem carrier consume an ExecutionGrant and then retire
+the direct filesystem bypass only after equivalent behavior and recovery are
+proved. Implement:
 
 - durable `PREPARED` intent before invocation;
 - expected Resource generation/pre-state and stable idempotency identity;
@@ -111,13 +121,15 @@ Token/KV optimization cannot become Case memory.
 ## Explicit non-goals
 
 This roadmap does not introduce Space or Agent as owners, import `yai-dev`,
-clone YVEX, create a directory per concept, or require ContextDelta. Stage 1
-must not opportunistically implement the external-effect protocol or final
-context model before their prerequisites exist.
+clone YVEX, create a directory per concept, or require ContextDelta. Later
+stages must not opportunistically implement the final context model before its
+prerequisites exist.
 
 ## Exit criteria for the next source task
 
-`YAI.SOURCE.REFOUNDATION.2` is complete only when one typed transactional
-transition vertical coexists safely with, or migrates, the characterized
-legacy corpus; replay and materialized-state equivalence are proved; and no
-new target semantic field is recovered by parsing arbitrary summary text.
+`YAI.SOURCE.REFOUNDATION.3` is complete only when one real filesystem path has
+typed Operation/Decision/ExecutionGrant admission, durable PREPARE before the
+carrier boundary, exact Observation/EffectReceipt closure, FINALIZED and
+INDETERMINATE outcomes, restart reconciliation, and replay-equivalent
+CaseState—without making a provider result or external acknowledgement
+authoritative by itself.

@@ -53,7 +53,10 @@ printf "runtime_graph_rebuild:graph_relations ok\n"
 
 second_rebuild="$(YAI_HOME="$YAI_HOME" "$YAI_BIN" graph rebuild --case case:spine43 --from journal --path "$JOURNAL")"
 grep -Eq "records_duplicate: [1-9][0-9]*" <<<"$second_rebuild"
-grep -Eq "relations_duplicate: [1-9][0-9]*" <<<"$second_rebuild"
+grep -Eq "relations_written: [1-9][0-9]*" <<<"$second_rebuild"
+grep -q "relations_duplicate: 0" <<<"$second_rebuild"
+second_summary="$(YAI_HOME="$YAI_HOME" "$YAI_BIN" graph runtime-summary --case case:spine43)"
+[[ "$second_summary" == "$summary" ]]
 printf "runtime_graph_rebuild:idempotent ok\n"
 
 missing_case="$(YAI_HOME="$YAI_HOME" "$YAI_BIN" graph rebuild --case case:missing --from graph-relations)"

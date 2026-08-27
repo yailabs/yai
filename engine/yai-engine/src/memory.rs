@@ -1,3 +1,4 @@
+use crate::compatibility::legacy_summary_value;
 use crate::journal::Journal;
 use crate::record::RecordKind;
 
@@ -30,16 +31,13 @@ impl MemorySummary {
             .filter(|record| record.kind == RecordKind::MemoryCandidate)
         {
             summary.memory_candidates += 1;
-            if record.summary.contains("memory:operational") {
-                summary.operational += 1;
-            } else if record.summary.contains("memory:decision") {
-                summary.decision += 1;
-            } else if record.summary.contains("memory:subject") {
-                summary.subject += 1;
-            } else if record.summary.contains("memory:error") {
-                summary.error += 1;
-            } else if record.summary.contains("memory:recovery") {
-                summary.recovery += 1;
+            match legacy_summary_value(&record.summary, "memory").as_deref() {
+                Some("operational") => summary.operational += 1,
+                Some("decision") => summary.decision += 1,
+                Some("subject") => summary.subject += 1,
+                Some("error") => summary.error += 1,
+                Some("recovery") => summary.recovery += 1,
+                _ => {}
             }
         }
 

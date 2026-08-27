@@ -62,7 +62,7 @@ printf "graph_freeze:schema ok\n"
 
 runtime_status="$(YAI_HOME="$YAI_HOME" "$YAI_BIN" graph runtime-status)"
 require_line "$runtime_status" "working_set: per_command_ephemeral"
-require_line "$runtime_status" "durable_truth: graph_persistence"
+require_line "$runtime_status" "durable_truth: canonical_transition_or_legacy_compatibility_input"
 require_line "$runtime_status" "hnsw: future_candidate_index"
 require_line "$runtime_status" "context_compiler: future_consumer"
 

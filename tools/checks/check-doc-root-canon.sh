@@ -74,9 +74,11 @@ grep -Fq '!= provider continuation / KV identity' docs/reference/context.md ||
   fail 'semantic/token/KV identity distinction missing'
 grep -Fq 'YAI semantic continuity' docs/reference/boundaries.md ||
   fail 'semantic/computational continuity boundary missing'
-grep -Fq 'JSONL history and LMDB records can diverge' docs/architecture.md ||
-  fail 'current state-authority contradiction missing'
-grep -Fq 'write precedes persistence' docs/architecture.md ||
+grep -Fq 'commits ledger and materialization together.' docs/architecture.md ||
+  fail 'current canonical state-authority implementation missing'
+grep -Fq 'Old `journal replay`' docs/architecture.md ||
+  fail 'legacy journal compatibility boundary missing'
+grep -Fq 'writes the file before committing ReviewResolved.' docs/architecture.md ||
   fail 'current external-effect contradiction missing'
 grep -Fq 'Authority: historical evidence and work records only.' work/README.md ||
   fail 'work/ is not explicitly de-authorized'

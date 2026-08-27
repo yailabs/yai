@@ -12,6 +12,7 @@
 //! Status:
 //!   active
 
+use crate::compatibility::legacy_summary_value;
 use crate::journal::Journal;
 use crate::record::{Record, RecordKind};
 
@@ -65,15 +66,16 @@ impl QueryFilter {
             }
         }
         if let Some(memory_id) = &self.memory_id {
-            if record.id != *memory_id && !record.summary.contains(&format!("memory:{memory_id}")) {
+            if record.id != *memory_id
+                && legacy_summary_value(&record.summary, "memory").as_ref() != Some(memory_id)
+            {
                 return false;
             }
         }
         if let Some(projection_id) = &self.projection_id {
             if record.id != *projection_id
-                && !record
-                    .summary
-                    .contains(&format!("projection:{projection_id}"))
+                && legacy_summary_value(&record.summary, "projection").as_ref()
+                    != Some(projection_id)
             {
                 return false;
             }

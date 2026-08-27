@@ -1,3 +1,4 @@
+use crate::compatibility::legacy_summary_value;
 use crate::journal::Journal;
 use crate::record::RecordKind;
 
@@ -23,10 +24,10 @@ impl ReconcileSummary {
         for record in journal.records() {
             if record.kind == RecordKind::Divergence {
                 summary.divergences += 1;
-                if record.summary.contains("severity:critical") {
-                    summary.critical += 1;
-                } else if record.summary.contains("severity:warning") {
-                    summary.warnings += 1;
+                match legacy_summary_value(&record.summary, "severity").as_deref() {
+                    Some("critical") => summary.critical += 1,
+                    Some("warning") => summary.warnings += 1,
+                    _ => {}
                 }
             } else if record.kind == RecordKind::Reconciliation {
                 summary.reconciliations += 1;

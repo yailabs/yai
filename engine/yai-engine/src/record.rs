@@ -53,6 +53,44 @@ pub enum RecordKind {
 }
 
 impl RecordKind {
+    pub const ALL: [Self; 35] = [
+        Self::Case,
+        Self::SubjectBinding,
+        Self::Attempt,
+        Self::Decision,
+        Self::Receipt,
+        Self::Projection,
+        Self::PolicyRule,
+        Self::GateResult,
+        Self::DecisionBasis,
+        Self::Obligation,
+        Self::ReceiptRequirement,
+        Self::CarrierRequest,
+        Self::EffectReceipt,
+        Self::FilesystemReceipt,
+        Self::SubjectState,
+        Self::GraphEdge,
+        Self::Reconstruction,
+        Self::MemoryCandidate,
+        Self::Divergence,
+        Self::Reconciliation,
+        Self::ProjectionRequest,
+        Self::ProjectionResult,
+        Self::QueryResult,
+        Self::ProjectionRule,
+        Self::AuthorityScope,
+        Self::ModelInterpretation,
+        Self::CaseDomain,
+        Self::CaseAttachment,
+        Self::CaseBinding,
+        Self::InteractionThread,
+        Self::InteractionTurn,
+        Self::ParticipantViewFrame,
+        Self::ReviewRequest,
+        Self::ReviewDecision,
+        Self::ControlPending,
+    ];
+
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::Case => "case",

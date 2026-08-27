@@ -1,9 +1,9 @@
 # Current executable architecture
 
 Authority: implementation truth. Source-refoundation baseline:
-`98b6a1f7e5289d53d22897aff2ee19243f6c43cc` (the dedicated documentation
-checkpoint). This document describes the resulting
-`YAI.SOURCE.REFOUNDATION.1` worktree.
+`8839f65d9eb989d0b7bc4f6c94a87e1b5f1e76c0` (the isolated
+`YAI.SOURCE.REFOUNDATION.1` checkpoint). This document describes the resulting
+`YAI.SOURCE.REFOUNDATION.2` worktree.
 
 This document includes current contradictions. It does not claim that the
 [Constitution](constitution.md) is implemented. Target changes and sequencing
@@ -20,7 +20,8 @@ operator
   |     +-- provider/case invocation
   |     +-- controlled review transition family
   |     +-- direct filesystem resource path
-  |     +-- journal replay and LMDB import
+  |     +-- canonical Transition/CaseState authority in LMDB
+  |     +-- legacy journal inspect/import/replay compatibility
   |     +-- LMDB graph materialization/query
   |     +-- DuckDB analytical derivation
   |     +-- yai-engine Rust library
@@ -33,7 +34,7 @@ operator
         +-- restartable hot-state snapshot
 ```
 
-[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is now a 1,801-line command
+[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is a 1,840-line command
 parser, dispatcher, common CLI support surface, and compatibility shell. The
 current domain implementation is grouped by demonstrated boundary in
 [`provider.rs`](../cmd/yai/src/provider.rs),
@@ -62,10 +63,10 @@ mean constitutional, general, or production-ready.
 
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
-| Case-bound provider prompt | `yai case enter` → attach provider → `yai prompt`; a real OpenAI-compatible HTTP fixture proves Attempt, model-output `EffectReceipt`, ModelInterpretation, ParticipantViewFrame, and InteractionTurn durability | provider result is misclassified; endpoint/model authority is split; no typed model-result→Operation seam |
-| Filesystem review fixture | prepare fixed review → approve/deny/defer/quarantine; approval writes a real file and every branch persists current record shapes | fixed identities/path; write precedes persistence; no-effect branches use receipt-shaped records |
-| Journal replay | validate `yai.store.record.v0` → import into LMDB → replay metadata/report | journal and LMDB are not one atomic authority |
-| Graph | LMDB records → durable relations → rebuildable RuntimeGraph → bounded query | relation identities still depend partly on summary-token parsing |
+| Case-bound provider prompt | `yai case enter` → typed participant/provider attachment → typed Invocation and ProviderResult → non-authoritative ModelInterpretation; a real OpenAI-compatible HTTP fixture proves the path while legacy records remain readable | ContextFrame and result→Operation normalization do not exist; render/frame/thread material remains legacy-derived |
+| Filesystem review fixture | typed ReviewRequested/ReviewResolved transitions materialize current review state; approval writes a real file and every branch retains legacy output compatibility | fixed identities/path; the effect still precedes final commit; no PREPARE/INDETERMINATE protocol |
+| Journal compatibility | inspect/dry-run/import `yai.store.record.v0` or `yai.record.v1`, preserving unknowns opaquely in an isolated target; old replay still materializes legacy record indexes | general semantic promotion is deliberately absent; the old record plane remains compatibility data, not authority |
+| Graph | typed canonical transitions and explicitly decoded legacy records → derived relations → rebuildable RuntimeGraph → bounded query | generation/version invalidation remains minimal; legacy-only cases still depend on compatibility translation |
 | Analytical facts | LMDB operational records → DuckDB extraction → reports | four declared families have no extractor; schema/orchestration remains embedded in the command crate |
 
 `yaid` startup, status/info/shutdown, restart, fixture loops, and hot snapshot
@@ -93,60 +94,85 @@ verticals/tests.
 
 ## Current state and schema authority
 
-There is no single global state authority today.
+### Canonical LMDB authority
 
-### JSONL journal
+Rust owns one canonical semantic write path in
+[`transition.rs`](../engine/yai-engine/src/transition.rs) and
+[`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). Its serialized contracts
+are `yai.transition.v1` and `yai.case_state.v1`. One bounded LMDB write
+transaction:
 
-The Rust/C journal envelope remains `yai.store.record.v0`. Rust defines 35
-`RecordKind` values in
-[`record.rs`](../engine/yai-engine/src/record.rs); C defines 32 and cannot parse
-the three Rust review kinds. A record has identity, a small set of references,
-and one free-text `summary`. JSONL preserves append order for paths that write
-it and is the replay source for LMDB import.
+1. validates typed payload closure and global Transition identity;
+2. compares the expected per-Case generation;
+3. appends the immutable Transition by identity and zero-padded Case sequence;
+4. reduces it into CaseState;
+5. commits ledger and materialization together.
 
-### LMDB
+The ledger databases are `transitions_by_id` and
+`case_transition_sequence`; `case_state` is the rebuildable materialization.
+Per-Case sequence, not timestamp, determines reducer order. Duplicate
+Transition IDs and stale generations fail deterministically. Reopening after a
+commit exposes both history and state; an injected failure before commit
+exposes neither. Rebuild verifies:
 
-[`LmdbRecordStore`](../engine/yai-engine/src/store/lmdb.rs) maintains records,
-secondary indexes, replay metadata, and graph relations. One record put is an
-LMDB transaction, but review persistence performs a journal append and a
-separate LMDB transaction for each record. Repeated IDs preserve multiple
-JSONL entries while LMDB exposes the last value. Prompt interactions append to
-their selected journal and need not update LMDB. Divergence is normal workflow
-behavior, not only a crash case.
+```text
+materialized CaseState == replay(ordered canonical Transitions)
+```
+
+The initial reducer deliberately covers only current live fields: Case
+lifecycle/generation, participant bindings/admitted views, one current
+provider/model attachment, latest provider invocation/result/interpretation
+lineage, and fixture review state. It is not a general object bag.
+
+### Legacy compatibility
+
+The C/Rust journal remains readable as `yai.store.record.v0`; LMDB legacy
+record envelopes remain `yai.record.v1`. Rust still defines 35 legacy kinds and
+C 32. [`compatibility.rs`](../engine/yai-engine/src/compatibility.rs) is the
+only summary-token decoder. It classifies input as losslessly structurally
+promoted, promoted with compatibility metadata, preserved opaque, or rejected
+malformed. Unknown future kinds/schemas are retained without invented meaning.
+
+`yai journal compatibility-inspect` and `compatibility-import` support inspect,
+dry-run, and import into an explicitly isolated LMDB target. Compatibility
+payloads never append canonical Transitions or CaseState. Old `journal replay`
+and legacy record indexes survive for operator/data compatibility; they are no
+longer historical authority. Provider and review commands commit canonical
+state first and emit their old JSONL/record shapes afterward for existing
+consumers.
 
 ### Derived/cache stores
 
-- LMDB graph relations are rebuildable indexes from records; RuntimeGraph is
-  per-command and ephemeral.
-- DuckDB facts are rebuildable analytics; eight of twelve declared tables are
-  populated.
-- Rust graph/projection/memory/query/reconcile values are derived.
+- LMDB graph relations are rebuilt from typed Transitions plus the explicit
+  legacy compatibility decoder; graph failure cannot affect canonical commit.
+- RuntimeGraph is per-command and ephemeral.
+- DuckDB facts are rebuildable analytics; historical extraction is routed
+  through compatibility fields.
+- Rust projection/memory/query/reconcile values are derived legacy views.
 - the C hot-state JSON snapshot is a daemon restart cache and is not updated by
   independent Rust mutations.
 
-### Implicit schemas
-
-Current behavior still parses whitespace-delimited `key:value` tokens from
-`Record.summary`. Review state, case/provider admission, graph relations,
-memory categories, fact fields, and rendered frames depend on this. `summary`
-is therefore an implicit schema in executable reality even though the target
-contract restricts it to presentation.
+No canonical reducer, graph relation, provider/review decision, memory
+category, or fact field parses arbitrary `summary` text. Remaining summary
+grammar exists only inside the named legacy compatibility boundary and in
+presentation assertions.
 
 ## Current control and effect behavior
 
 The strongest live control path is the fixed Rust review fixture isolated in
-[`review.rs`](../cmd/yai/src/review.rs). On approval it validates a lexical
-sandbox prefix, writes the file through the current filesystem mechanics, then
-appends dispatch/receipt records to an in-memory vector and persists them. Each
-record is appended to JSONL and separately put into LMDB. A crash after the
-write or during persistence can leave an effect with missing or partial
-knowledge. No prepared grant, idempotency key, expected pre-state,
-`INDETERMINATE` state, or restart reconciliation exists.
+[`review.rs`](../cmd/yai/src/review.rs). ReviewRequested and ReviewResolved are
+typed canonical payloads, and operator reads use CaseState rather than summary
+parsing. On approval the CLI still validates a lexical sandbox prefix and
+writes the file before committing ReviewResolved. A crash after the write but
+before commit can therefore leave an effect with missing canonical knowledge.
+No prepared grant, idempotency key, expected pre-state, `INDETERMINATE` state,
+or restart reconciliation exists.
 
-Deny, defer, and quarantine do not invoke the filesystem, yet currently create
-a `FilesystemReceipt` with a blocked/deferred/quarantined status. The
-Constitution rejects that target meaning while this Architecture preserves the
-fact.
+Deny, defer, and quarantine do not invoke the filesystem. Their typed review
+transition records exactly that no carrier was attempted, but compatibility
+export still creates the historical `FilesystemReceipt` shapes. The
+Constitution rejects that legacy meaning while this Architecture preserves the
+observable compatibility behavior.
 
 [`filesystem.rs`](../cmd/yai/src/filesystem.rs) also owns the direct `carrier
 fs-read/fs-write` mechanics. Its lexical sandbox check is not authorization;
@@ -158,12 +184,20 @@ They are built separately and are not normal product call paths.
 
 ## Current provider and context behavior
 
-[`provider.rs`](../cmd/yai/src/provider.rs) requires case-entry and
-provider-attachment records, selects a summary-derived participant view,
-appends a ParticipantViewFrame, sends a manually framed HTTP/1.x
-`/v1/chat/completions` request, extracts one `content` string, and appends the
-interaction records. Provider output is described as non-authoritative but is
-serialized as `RecordKind::EffectReceipt`.
+[`provider.rs`](../cmd/yai/src/provider.rs) promotes legacy Case/participant
+bindings through the compatibility boundary, then commits typed participant
+admission, provider attachment, Invocation, ProviderResult, and
+ModelInterpretation transitions. ProviderResult carries provider/model/
+invocation identity and returned content; CaseState stores only current lineage
+and output size. The compatibility journal still emits the former
+`EffectReceipt` record so old readers and vertical assertions remain valid.
+
+The invocation path sends a manually framed HTTP/1.x
+`/v1/chat/completions` request and extracts one `content` string. Transport
+endpoint replacement is allowed without changing Case or model identity; the
+current attachment retains endpoint configuration but reducer closure matches
+participant/provider/model. A failed HTTP invocation leaves its typed
+invocation committed and invents no ProviderResult.
 
 There is no formal deadline, streaming/cancellation, TLS, tokenizer, native
 YVEX, or continuation contract. The ParticipantViewFrame is a summary-token
@@ -184,10 +218,10 @@ does not prove KV reuse or an implemented Context Compiler.
 | `cmd/yai/src/main.rs` | parsing, dispatch, common CLI/process initiation and residual compatibility commands | product-reachable command boundary |
 | `cmd/yai/src/provider.rs` | current case admission, projection rendering, HTTP provider invocation and result residue | product-reachable transition family |
 | `cmd/yai/src/review.rs` + `filesystem.rs` | fixed review path and current filesystem resource mechanics | product-reachable effect evidence; constitutionally incomplete |
-| `cmd/yai/src/replay.rs` | journal inspection/import/replay reports | product-reachable state compatibility boundary |
+| `cmd/yai/src/replay.rs` | legacy inspect/dry-run/isolated import and replay reports | product-reachable state compatibility boundary |
 | `cmd/yai/src/graph_runtime.rs` | graph relation materialization, rebuild and query | product-reachable derived owner |
 | `cmd/yai/src/analytics.rs` | DuckDB schemas, extraction and reports | product-reachable derived owner |
-| `engine/yai-engine` | Rust record/journal/LMDB and reusable derived algorithms | product-reachable implementation library |
+| `engine/yai-engine` | canonical Transition/CaseState semantics, LMDB authority, legacy decoder, and reusable derived algorithms | product-reachable semantic/data authority |
 | `cmd/yaid` + selected `system/` sources | daemon IPC, fixture loops, C journal/projection/hot snapshot | product-reachable process/platform boundary |
 | separate C component archive | gates, carriers, process/observation and compatibility mechanics | component characterization; not product capability |
 | tests/labs/history | current proof, research, and historical specification | evidence, never implementation authority |
@@ -203,15 +237,15 @@ from one checkout.
 
 | Constitutional requirement | Current implementation | Gap |
 |---|---|---|
-| one canonical Transition Ledger with transactional CaseState | JSONL history and LMDB records can diverge | typed transactional authority and migration/replay corpus |
+| one canonical Transition Ledger with transactional CaseState | implemented in LMDB for typed payloads; provider and review are live consumers | migrate remaining current workflows; add operational checkpoint/compaction policy |
 | carrier consumes an ExecutionGrant | fixed review path, direct filesystem bypass, C carriers test-only | one general admission boundary and dynamic Binding resolution |
 | PREPARE/EFFECT/FINALIZE with indeterminate recovery | effect precedes non-atomic records; no recovery state | idempotency, expected pre-state, failpoints, reconciliation |
-| distinct ProviderResult, Observation, EffectReceipt | provider text and blocked outcomes use receipt-shaped records; process observations are not persisted | typed result/observation/receipt schema |
-| Case plus materialized CaseState | Case state is summary-derived across journal/LMDB and local views | one lifecycle/generation model |
-| summary is presentation only | control/graph/fact/context paths parse it | versioned semantic fields and historical migration |
+| distinct ProviderResult, Observation, EffectReceipt | ProviderResult is typed; compatibility export still uses receipt-shaped records; process observations are not canonical | typed Observation/EffectReceipt during the effect refoundation |
+| Case plus materialized CaseState | implemented for the minimal live provider/review field set and rebuildable from ledger | extend only with future Transition consumers; migrate daemon fixture state |
+| summary is presentation only | canonical reducers and migrated paths do not parse it; old projection/frame and analytics records use the compatibility decoder | migrate or retire remaining legacy-only producers and views |
 | Projection/Residency/ContextFrame/KV separation | frame/projection identity is encoded in summaries; no residency/KV contract | typed lineage and provider-independent invocation frame |
-| provider replacement preserves semantic continuity | attachment and args/env split invocation authority | normalized Binding and invocation lineage |
-| derived data rebuilds from canonical state | graph/facts mostly rebuild; current authority remains ambiguous | source generation, invalidation and equivalence contracts |
+| provider replacement preserves semantic continuity | Case/participant/provider/model invocation lineage is typed; endpoint replacement is accepted | normalized Binding lifecycle, ContextFrame, and provider replacement proof |
+| derived data rebuilds from canonical state | graph rebuild consumes typed transitions and legacy compatibility; facts remain legacy-derived | generation, invalidation, and full typed analytics inputs |
 
-These gaps are intentionally not repaired here. The
+The remaining gaps are intentional boundaries of this wave. The
 [Roadmap](../ROADMAP.md) owns their implementation sequence.

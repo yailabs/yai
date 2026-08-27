@@ -84,6 +84,11 @@ pending_records="$(YAI_HOME="$APPROVE_HOME" "$YAI_BIN" store record list --kind 
 require_line "$pending_records" "rec:pending:new12-fs-write-review"
 test -s "$APPROVE_HOME/store/control/review.jsonl"
 
+canonical_summary="$(YAI_HOME="$APPROVE_HOME" "$YAI_BIN" store summary)"
+grep -Eq "transitions_total: [1-9][0-9]*" <<<"$canonical_summary"
+grep -Eq "cases_materialized: [1-9][0-9]*" <<<"$canonical_summary"
+printf "review:canonical_transition_authority ok\n"
+
 YAI_HOME="$APPROVE_HOME" "$YAI_BIN" graph materialize --case case:new12-filesystem >/dev/null
 relations="$(YAI_HOME="$APPROVE_HOME" "$YAI_BIN" graph relations --case case:new12-filesystem --limit 200)"
 require_line "$relations" "rec:review:new12-fs-write-review"

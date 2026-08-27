@@ -14,8 +14,15 @@
 //! Status:
 //!   active
 
+use crate::compatibility::{
+    decode_legacy_record, inspect_legacy_jsonl, LegacyDecodeOutcome, LegacyRecord,
+};
 use crate::journal::Journal;
 use crate::record::Record;
+use crate::transition::{
+    replay_case, CaseState, PendingTransition, Transition, TransitionPayload, CASE_STATE_SCHEMA,
+    TRANSITION_SCHEMA,
+};
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
     RwTransaction, Transaction, WriteFlags,
@@ -28,6 +35,8 @@ const MAP_SIZE: usize = 16 * 1024 * 1024;
 pub const RECORD_SCHEMA: &str = "yai.record.v1";
 pub const GRAPH_RELATION_SCHEMA: &str = "yai.graph_relation.v1";
 pub const GRAPH_RELATION_STORE_NAME: &str = "lmdb_graph_relations_v0";
+pub const CANONICAL_AUTHORITY_BACKEND: &str = "lmdb_transaction_authority_v1";
+pub const LEGACY_COMPATIBILITY_SCHEMA: &str = "yai.legacy.compatibility.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RecordStoreStatusKind {
@@ -64,6 +73,13 @@ pub struct RecordStoreSummary {
     pub records_by_receipt: usize,
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct CanonicalAuthoritySummary {
+    pub transitions_total: usize,
+    pub cases_materialized: usize,
+    pub legacy_compatibility_payloads: usize,
+}
+
 pub struct LmdbRecordStore {
     env: Environment,
     records_by_id: Database,
@@ -74,7 +90,29 @@ pub struct LmdbRecordStore {
     graph_relations_by_id: Database,
     graph_relations_by_case: Database,
     graph_relations_by_kind: Database,
+    transitions_by_id: Database,
+    case_transition_sequence: Database,
+    case_state: Database,
+    legacy_compatibility_payloads: Database,
     schema_meta: Database,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CanonicalCommit {
+    pub transition: Transition,
+    pub state: CaseState,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct LegacyCompatibilityImportReport {
+    pub lines_total: usize,
+    pub losslessly_promoted: usize,
+    pub promoted_with_metadata: usize,
+    pub preserved_opaque: usize,
+    pub rejected_malformed: usize,
+    pub repeated_record_ids: usize,
+    pub payloads_written: usize,
+    pub payloads_duplicate: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -221,6 +259,21 @@ impl LmdbRecordStore {
         let graph_relations_by_kind = env
             .create_db(Some("graph_relations_by_kind"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open graph_relations_by_kind: {error}"))?;
+        let transitions_by_id = env
+            .create_db(Some("transitions_by_id"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open transitions_by_id: {error}"))?;
+        let case_transition_sequence = env
+            .create_db(Some("case_transition_sequence"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open case_transition_sequence: {error}"))?;
+        let case_state = env
+            .create_db(Some("case_state"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open case_state: {error}"))?;
+        let legacy_compatibility_payloads = env
+            .create_db(
+                Some("legacy_compatibility_payloads"),
+                DatabaseFlags::empty(),
+            )
+            .map_err(|error| format!("failed to open legacy_compatibility_payloads: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -234,6 +287,10 @@ impl LmdbRecordStore {
             graph_relations_by_id,
             graph_relations_by_case,
             graph_relations_by_kind,
+            transitions_by_id,
+            case_transition_sequence,
+            case_state,
+            legacy_compatibility_payloads,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -270,6 +327,246 @@ impl LmdbRecordStore {
         self.put_record(&mut txn, record, source_ref)?;
         txn.commit()
             .map_err(|error| format!("failed to commit LMDB record write: {error}"))
+    }
+
+    /// Atomically appends one immutable canonical Transition and replaces the
+    /// corresponding rebuildable CaseState materialization.
+    pub fn commit_transition(&self, pending: PendingTransition) -> Result<CanonicalCommit, String> {
+        self.commit_transition_inner(pending, false)
+    }
+
+    fn commit_transition_inner(
+        &self,
+        pending: PendingTransition,
+        inject_failure_before_commit: bool,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start canonical write transaction: {error}"))?;
+        let transition_key = transition_id_key(&pending.transition_id);
+        match txn.get(self.transitions_by_id, &transition_key) {
+            Ok(_) => {
+                return Err(format!(
+                    "duplicate_transition_id: {}",
+                    pending.transition_id
+                ))
+            }
+            Err(Error::NotFound) => {}
+            Err(error) => {
+                return Err(format!(
+                    "failed to check transition identity {}: {error}",
+                    pending.transition_id
+                ));
+            }
+        }
+
+        let current_state = self.get_case_state_txn(&txn, &pending.case_id)?;
+        let actual_generation = current_state
+            .as_ref()
+            .map(|state| state.generation)
+            .unwrap_or(0);
+        if pending.expected_generation != actual_generation {
+            return Err(format!(
+                "stale_case_generation: expected={} actual={actual_generation}",
+                pending.expected_generation
+            ));
+        }
+        let sequence = actual_generation + 1;
+        let transition = Transition {
+            schema: TRANSITION_SCHEMA.to_string(),
+            transition_id: pending.transition_id,
+            case_id: pending.case_id,
+            sequence,
+            committed_at_unix_ms: unix_time_ms() as u64,
+            source: pending.source,
+            scope: pending.scope,
+            causal_refs: pending.causal_refs,
+            payload: pending.payload,
+            provenance: pending.provenance,
+            summary: pending.summary,
+        };
+        transition.validate()?;
+
+        let next_state = if let Some(state) = current_state {
+            state.reduce(&transition)?
+        } else {
+            let crate::transition::TransitionPayload::CaseOpened { lifecycle } =
+                &transition.payload
+            else {
+                return Err("case_history_must_start_with_case_opened".to_string());
+            };
+            CaseState::new(&transition.case_id, lifecycle.clone()).reduce(&transition)?
+        };
+        let transition_json = transition.to_json()?;
+        let state_json = next_state.to_json()?;
+        let sequence_key = case_sequence_key(&transition.case_id, transition.sequence);
+        let state_key = case_state_key(&transition.case_id);
+
+        txn.put(
+            self.transitions_by_id,
+            &transition_key,
+            &transition_json,
+            WriteFlags::NO_OVERWRITE,
+        )
+        .map_err(|error| format!("failed to append canonical Transition: {error}"))?;
+        txn.put(
+            self.case_transition_sequence,
+            &sequence_key,
+            &transition.transition_id,
+            WriteFlags::NO_OVERWRITE,
+        )
+        .map_err(|error| format!("failed to append Case transition sequence: {error}"))?;
+        txn.put(
+            self.case_state,
+            &state_key,
+            &state_json,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to materialize CaseState: {error}"))?;
+
+        if inject_failure_before_commit {
+            return Err("injected_failure_before_canonical_commit".to_string());
+        }
+        txn.commit()
+            .map_err(|error| format!("failed to commit canonical transaction: {error}"))?;
+        Ok(CanonicalCommit {
+            transition,
+            state: next_state,
+        })
+    }
+
+    pub fn get_transition_by_id(&self, transition_id: &str) -> Result<Option<Transition>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start canonical transition read: {error}"))?;
+        self.get_transition_by_id_txn(&txn, transition_id)
+    }
+
+    pub fn list_case_transitions(&self, case_id: &str) -> Result<Vec<Transition>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start Case transition read: {error}"))?;
+        self.list_case_transitions_txn(&txn, case_id)
+    }
+
+    pub fn get_case_state(&self, case_id: &str) -> Result<Option<CaseState>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start CaseState read: {error}"))?;
+        self.get_case_state_txn(&txn, case_id)
+    }
+
+    pub fn replay_case_state(&self, case_id: &str) -> Result<CaseState, String> {
+        let transitions = self.list_case_transitions(case_id)?;
+        replay_case(case_id, &transitions)
+    }
+
+    pub fn verify_case_state(&self, case_id: &str) -> Result<bool, String> {
+        let materialized = self
+            .get_case_state(case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        Ok(materialized == self.replay_case_state(case_id)?)
+    }
+
+    pub fn rebuild_case_state(&self, case_id: &str) -> Result<CaseState, String> {
+        let transitions = self.list_case_transitions(case_id)?;
+        let rebuilt = replay_case(case_id, &transitions)?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start CaseState rebuild: {error}"))?;
+        let actual_sequence = self.last_case_sequence_txn(&txn, case_id)?;
+        if actual_sequence != rebuilt.generation {
+            return Err(format!(
+                "case_history_changed_during_rebuild: expected={} actual={actual_sequence}",
+                rebuilt.generation
+            ));
+        }
+        let state_key = case_state_key(case_id);
+        let state_json = rebuilt.to_json()?;
+        txn.put(
+            self.case_state,
+            &state_key,
+            &state_json,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to replace rebuilt CaseState: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit rebuilt CaseState: {error}"))?;
+        Ok(rebuilt)
+    }
+
+    /// Imports legacy bytes as compatibility evidence only. This never appends
+    /// a canonical Transition and never materializes CaseState.
+    pub fn import_legacy_compatibility(
+        &self,
+        contents: &str,
+        source_ref: &str,
+    ) -> Result<LegacyCompatibilityImportReport, String> {
+        let corpus = inspect_legacy_jsonl(contents);
+        let mut report = LegacyCompatibilityImportReport {
+            lines_total: corpus.lines_total,
+            losslessly_promoted: corpus.losslessly_promoted,
+            promoted_with_metadata: corpus.promoted_with_metadata,
+            preserved_opaque: corpus.preserved_opaque,
+            rejected_malformed: corpus.rejected_malformed,
+            repeated_record_ids: corpus.repeated_record_ids,
+            ..Default::default()
+        };
+        let source_key = relation_id_component(source_ref);
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start legacy compatibility import: {error}"))?;
+        for entry in corpus
+            .entries
+            .iter()
+            .filter(|entry| entry.disposition != "rejected_malformed")
+        {
+            let key = format!("legacy:{source_key}:{:020}", entry.line_number);
+            let value = serde_json::json!({
+                "schema": LEGACY_COMPATIBILITY_SCHEMA,
+                "source_ref": source_ref,
+                "line_number": entry.line_number,
+                "disposition": entry.disposition,
+                "origin_schema": entry.schema,
+                "record_id": entry.record_id,
+                "record_kind": entry.record_kind,
+                "reason": entry.reason,
+                "raw_json": entry.raw_json,
+            })
+            .to_string();
+            match txn.put(
+                self.legacy_compatibility_payloads,
+                &key,
+                &value,
+                WriteFlags::NO_OVERWRITE,
+            ) {
+                Ok(()) => report.payloads_written += 1,
+                Err(Error::KeyExist) => report.payloads_duplicate += 1,
+                Err(error) => {
+                    return Err(format!(
+                        "failed to preserve legacy compatibility line {}: {error}",
+                        entry.line_number
+                    ));
+                }
+            }
+        }
+        txn.commit()
+            .map_err(|error| format!("failed to commit legacy compatibility import: {error}"))?;
+        Ok(report)
+    }
+
+    pub fn legacy_compatibility_payload_count(&self) -> Result<usize, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to read legacy compatibility store: {error}"))?;
+        count_entries(&txn, self.legacy_compatibility_payloads)
     }
 
     pub fn import_journal(&self, journal: &Journal, journal_ref: &str) -> Result<(), String> {
@@ -352,6 +649,18 @@ impl LmdbRecordStore {
         })
     }
 
+    pub fn canonical_summary(&self) -> Result<CanonicalAuthoritySummary, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start canonical summary read: {error}"))?;
+        Ok(CanonicalAuthoritySummary {
+            transitions_total: count_entries(&txn, self.transitions_by_id)?,
+            cases_materialized: count_entries(&txn, self.case_state)?,
+            legacy_compatibility_payloads: count_entries(&txn, self.legacy_compatibility_payloads)?,
+        })
+    }
+
     pub fn get_record_by_id(
         &self,
         record_id: &str,
@@ -419,10 +728,85 @@ impl LmdbRecordStore {
         &self,
         case_ref: &str,
     ) -> Result<GraphMaterializeReport, String> {
+        self.materialize_graph_relations_for_case_inner(case_ref, false)
+    }
+
+    pub fn rebuild_graph_relations_for_case(
+        &self,
+        case_ref: &str,
+    ) -> Result<GraphMaterializeReport, String> {
+        self.clear_graph_relations_for_case(case_ref)?;
+        self.materialize_graph_relations_for_case(case_ref)
+    }
+
+    fn clear_graph_relations_for_case(&self, case_ref: &str) -> Result<usize, String> {
+        let prefix = format!("graph_relation:case:{case_ref}:");
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start graph relation clear: {error}"))?;
+        let mut cursor = txn
+            .open_ro_cursor(self.graph_relations_by_case)
+            .map_err(|error| format!("failed to open graph relation clear cursor: {error}"))?;
+        let mut entries = Vec::new();
+        for (key, value) in cursor.iter() {
+            if !key.starts_with(prefix.as_bytes()) {
+                continue;
+            }
+            let relation_id = std::str::from_utf8(value)
+                .map_err(|error| format!("invalid graph relation identity utf8: {error}"))?;
+            entries.push((key.to_vec(), relation_id.to_string()));
+        }
+        drop(cursor);
+        for (case_key, relation_id) in &entries {
+            let id_key = format!("graph_relation:id:{relation_id}");
+            let relation = match txn.get(self.graph_relations_by_id, &id_key) {
+                Ok(value) => Some(GraphRelation::from_bytes(value)?),
+                Err(Error::NotFound) => None,
+                Err(error) => {
+                    return Err(format!(
+                        "failed to inspect graph relation {relation_id} for clear: {error}"
+                    ));
+                }
+            };
+            txn.del(self.graph_relations_by_case, case_key, None)
+                .map_err(|error| format!("failed to clear graph case index: {error}"))?;
+            match txn.del(self.graph_relations_by_id, &id_key, None) {
+                Ok(()) | Err(Error::NotFound) => {}
+                Err(error) => return Err(format!("failed to clear graph relation: {error}")),
+            }
+            if let Some(relation) = relation {
+                let kind_key = format!(
+                    "graph_relation:kind:{}:{}",
+                    relation.edge_kind, relation.relation_id
+                );
+                match txn.del(self.graph_relations_by_kind, &kind_key, None) {
+                    Ok(()) | Err(Error::NotFound) => {}
+                    Err(error) => {
+                        return Err(format!("failed to clear graph kind index: {error}"));
+                    }
+                }
+            }
+        }
+        txn.commit()
+            .map_err(|error| format!("failed to commit graph relation clear: {error}"))?;
+        Ok(entries.len())
+    }
+
+    fn materialize_graph_relations_for_case_inner(
+        &self,
+        case_ref: &str,
+        inject_failure_before_commit: bool,
+    ) -> Result<GraphMaterializeReport, String> {
+        let source_transitions = self.list_case_transitions(case_ref)?;
         let source_records = self.list_records_by_case(case_ref, usize::MAX)?;
         let created_at_unix_ms = unix_time_ms();
         let mut candidates = Vec::new();
         let mut skipped = 0usize;
+        for transition in &source_transitions {
+            let mut derived = derive_graph_relations_from_transition(transition, &mut skipped);
+            candidates.append(&mut derived);
+        }
         for record in &source_records.records {
             let mut derived = derive_graph_relations(record, created_at_unix_ms, &mut skipped);
             candidates.append(&mut derived);
@@ -444,6 +828,9 @@ impl LmdbRecordStore {
             }
             self.put_graph_relation(&mut txn, &relation)?;
             report.relations_written += 1;
+        }
+        if inject_failure_before_commit {
+            return Err("injected_graph_materialization_failure".to_string());
         }
         txn.commit()
             .map_err(|error| format!("failed to commit LMDB graph relations: {error}"))?;
@@ -518,7 +905,7 @@ impl LmdbRecordStore {
             dirty: false,
             stale: false,
             source: "graph_relations",
-            durable_truth: "graph_persistence",
+            durable_truth: "canonical_transition_or_legacy_compatibility_input",
             nodes,
             edges,
         })
@@ -529,6 +916,24 @@ impl LmdbRecordStore {
             .env
             .begin_rw_txn()
             .map_err(|error| format!("failed to start LMDB schema transaction: {error}"))?;
+        ensure_meta_compatible(
+            &txn,
+            self.schema_meta,
+            "meta:canonical_transition_schema",
+            TRANSITION_SCHEMA,
+        )?;
+        ensure_meta_compatible(
+            &txn,
+            self.schema_meta,
+            "meta:case_state_schema",
+            CASE_STATE_SCHEMA,
+        )?;
+        ensure_meta_compatible(
+            &txn,
+            self.schema_meta,
+            "meta:legacy_compatibility_schema",
+            LEGACY_COMPATIBILITY_SCHEMA,
+        )?;
         txn.put(
             self.schema_meta,
             &"meta:schema",
@@ -552,6 +957,98 @@ impl LmdbRecordStore {
         .map_err(|error| format!("failed to write LMDB graph relation schema meta: {error}"))?;
         txn.commit()
             .map_err(|error| format!("failed to commit LMDB schema meta: {error}"))
+    }
+
+    fn get_transition_by_id_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        transition_id: &str,
+    ) -> Result<Option<Transition>, String> {
+        let key = transition_id_key(transition_id);
+        match txn.get(self.transitions_by_id, &key) {
+            Ok(value) => {
+                let json = std::str::from_utf8(value)
+                    .map_err(|error| format!("invalid canonical Transition utf8: {error}"))?;
+                Transition::from_json(json).map(Some)
+            }
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!(
+                "failed to read canonical Transition {transition_id}: {error}"
+            )),
+        }
+    }
+
+    fn list_case_transitions_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        case_id: &str,
+    ) -> Result<Vec<Transition>, String> {
+        let prefix = case_sequence_prefix(case_id);
+        let mut cursor = txn
+            .open_ro_cursor(self.case_transition_sequence)
+            .map_err(|error| format!("failed to open Case sequence cursor: {error}"))?;
+        let mut identities = Vec::new();
+        for (key, value) in cursor.iter() {
+            if key.starts_with(prefix.as_bytes()) {
+                let transition_id = std::str::from_utf8(value)
+                    .map_err(|error| format!("invalid Case sequence identity utf8: {error}"))?;
+                identities.push((key.to_vec(), transition_id.to_string()));
+            }
+        }
+        drop(cursor);
+        identities.sort_by(|left, right| left.0.cmp(&right.0));
+        let mut transitions = Vec::with_capacity(identities.len());
+        for (_, transition_id) in identities {
+            let transition = self
+                .get_transition_by_id_txn(txn, &transition_id)?
+                .ok_or_else(|| format!("case_sequence_dangling_transition: {transition_id}"))?;
+            transitions.push(transition);
+        }
+        Ok(transitions)
+    }
+
+    fn get_case_state_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        case_id: &str,
+    ) -> Result<Option<CaseState>, String> {
+        let key = case_state_key(case_id);
+        match txn.get(self.case_state, &key) {
+            Ok(value) => {
+                let json = std::str::from_utf8(value)
+                    .map_err(|error| format!("invalid CaseState utf8: {error}"))?;
+                CaseState::from_json(json).map(Some)
+            }
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!("failed to read CaseState {case_id}: {error}")),
+        }
+    }
+
+    fn last_case_sequence_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        case_id: &str,
+    ) -> Result<u64, String> {
+        let transitions = self.list_case_transitions_txn(txn, case_id)?;
+        Ok(transitions
+            .last()
+            .map(|transition| transition.sequence)
+            .unwrap_or(0))
+    }
+
+    #[cfg(test)]
+    fn discard_case_state_for_test(&self, case_id: &str) -> Result<(), String> {
+        let key = case_state_key(case_id);
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start test CaseState deletion: {error}"))?;
+        match txn.del(self.case_state, &key, None) {
+            Ok(()) | Err(Error::NotFound) => {}
+            Err(error) => return Err(format!("failed to delete test CaseState: {error}")),
+        }
+        txn.commit()
+            .map_err(|error| format!("failed to commit test CaseState deletion: {error}"))
     }
 
     fn put_record(
@@ -634,6 +1131,34 @@ impl LmdbRecordStore {
                 relation.relation_id
             )
         })?;
+        txn.put(
+            self.schema_meta,
+            &"meta:canonical_transition_schema",
+            &TRANSITION_SCHEMA,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to write canonical transition schema meta: {error}"))?;
+        txn.put(
+            self.schema_meta,
+            &"meta:case_state_schema",
+            &CASE_STATE_SCHEMA,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to write CaseState schema meta: {error}"))?;
+        txn.put(
+            self.schema_meta,
+            &"meta:canonical_authority_backend",
+            &CANONICAL_AUTHORITY_BACKEND,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to write canonical authority backend meta: {error}"))?;
+        txn.put(
+            self.schema_meta,
+            &"meta:legacy_compatibility_schema",
+            &LEGACY_COMPATIBILITY_SCHEMA,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to write legacy compatibility schema meta: {error}"))?;
         txn.put(
             self.graph_relations_by_case,
             &case_key,
@@ -895,16 +1420,189 @@ impl GraphRelation {
     }
 }
 
+fn derive_graph_relations_from_transition(
+    transition: &Transition,
+    skipped: &mut usize,
+) -> Vec<GraphRelation> {
+    let mut relations = Vec::new();
+    add_transition_relation(
+        &mut relations,
+        skipped,
+        transition,
+        "transition_committed_in_case",
+        "transition",
+        &transition.transition_id,
+        "case",
+        &transition.case_id,
+    );
+    match &transition.payload {
+        TransitionPayload::CaseOpened { .. } => {}
+        TransitionPayload::ParticipantBound { participant_id, .. } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "participant_bound_to_case",
+            "participant",
+            participant_id,
+            "case",
+            &transition.case_id,
+        ),
+        TransitionPayload::ParticipantAdmitted { participant_id, .. } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "participant_admitted_to_case",
+            "participant",
+            participant_id,
+            "case",
+            &transition.case_id,
+        ),
+        TransitionPayload::ProviderAttached {
+            participant_id,
+            model_id,
+            ..
+        } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "participant_uses_model",
+            "participant",
+            participant_id,
+            "model",
+            model_id,
+        ),
+        TransitionPayload::ProviderInvocationStarted {
+            invocation_id,
+            model_id,
+            ..
+        } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "provider_invocation_uses_model",
+            "provider_invocation",
+            invocation_id,
+            "model",
+            model_id,
+        ),
+        TransitionPayload::ProviderResultRecorded {
+            result_id,
+            invocation_id,
+            ..
+        } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "provider_result_closes_invocation",
+            "provider_result",
+            result_id,
+            "provider_invocation",
+            invocation_id,
+        ),
+        TransitionPayload::ModelInterpretationRecorded {
+            interpretation_id,
+            result_id,
+            ..
+        } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "model_interpretation_from_result",
+            "model_interpretation",
+            interpretation_id,
+            "provider_result",
+            result_id,
+        ),
+        TransitionPayload::ReviewRequested { review } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "review_request_for_attempt",
+            "review_request",
+            &review.review_id,
+            "attempt",
+            &review.attempt_id,
+        ),
+        TransitionPayload::ReviewResolved {
+            review_id,
+            decision_ref,
+            receipt_ref,
+            ..
+        } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "review_decision_resolves_request",
+                "decision",
+                decision_ref,
+                "review_request",
+                review_id,
+            );
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "review_resolution_produces_receipt",
+                "review_request",
+                review_id,
+                "receipt",
+                receipt_ref,
+            );
+        }
+    }
+    relations
+}
+
+#[allow(clippy::too_many_arguments)]
+fn add_transition_relation(
+    relations: &mut Vec<GraphRelation>,
+    skipped: &mut usize,
+    transition: &Transition,
+    edge_kind: &str,
+    from_kind: &str,
+    from_ref: &str,
+    to_kind: &str,
+    to_ref: &str,
+) {
+    if from_ref.is_empty() || to_ref.is_empty() {
+        *skipped += 1;
+        return;
+    }
+    relations.push(GraphRelation {
+        relation_id: format!(
+            "edge:{}:{}",
+            edge_kind,
+            relation_id_component(&transition.transition_id)
+        ),
+        case_ref: transition.case_id.clone(),
+        from_ref: from_ref.to_string(),
+        to_ref: to_ref.to_string(),
+        edge_kind: edge_kind.to_string(),
+        from_kind: from_kind.to_string(),
+        to_kind: to_kind.to_string(),
+        source_record_id: transition.transition_id.clone(),
+        source_record_kind: transition.payload.kind().to_string(),
+        confidence: "derived".to_string(),
+        created_at_unix_ms: u128::from(transition.committed_at_unix_ms),
+        provenance: "canonical_transition".to_string(),
+    });
+}
+
 fn derive_graph_relations(
     record: &StoredRecordEnvelope,
     created_at_unix_ms: u128,
     skipped: &mut usize,
 ) -> Vec<GraphRelation> {
     let mut relations = Vec::new();
-    let subject_ref = json_string_field(&record.raw_json, "subject_ref").unwrap_or_default();
-    let attempt_id = json_string_field(&record.raw_json, "attempt_id").unwrap_or_default();
-    let decision_id = json_string_field(&record.raw_json, "decision_id").unwrap_or_default();
-    let receipt_id = json_string_field(&record.raw_json, "receipt_id").unwrap_or_default();
+    let LegacyDecodeOutcome::Promoted(legacy) = decode_legacy_record(&record.raw_json) else {
+        *skipped += 1;
+        return relations;
+    };
+    let subject_ref = legacy.subject_ref.clone();
+    let attempt_id = legacy.attempt_id.clone();
+    let decision_id = legacy.decision_id.clone();
+    let receipt_id = legacy.receipt_id.clone();
 
     add_relation(
         &mut relations,
@@ -915,7 +1613,14 @@ fn derive_graph_relations(
             "record",
             &record.record_id,
             node_kind_for_record(&record.record_kind),
-            &node_ref_for_record(record, &subject_ref, &attempt_id, &decision_id, &receipt_id),
+            &node_ref_for_record(
+                record,
+                &legacy,
+                &subject_ref,
+                &attempt_id,
+                &decision_id,
+                &receipt_id,
+            ),
             created_at_unix_ms,
         ),
     );
@@ -1071,8 +1776,9 @@ fn derive_graph_relations(
     }
 
     if record.record_kind == "review_request" {
-        let summary = json_string_field(&record.raw_json, "summary").unwrap_or_default();
-        let review_ref = summary_token_value_or(&summary, "review_id", &record.record_id);
+        let review_ref = legacy
+            .compatibility_value("review_id")
+            .unwrap_or(&record.record_id);
         add_relation(
             &mut relations,
             skipped,
@@ -1102,8 +1808,7 @@ fn derive_graph_relations(
     }
 
     if record.record_kind == "review_decision" {
-        let summary = json_string_field(&record.raw_json, "summary").unwrap_or_default();
-        let review_ref = summary_token_value_or(&summary, "review_id", "");
+        let review_ref = legacy.compatibility_value("review_id").unwrap_or("");
         add_relation(
             &mut relations,
             skipped,
@@ -1120,8 +1825,9 @@ fn derive_graph_relations(
     }
 
     if record.record_kind == "control_pending" {
-        let summary = json_string_field(&record.raw_json, "summary").unwrap_or_default();
-        let pending_ref = summary_token_value_or(&summary, "pending_id", &record.record_id);
+        let pending_ref = legacy
+            .compatibility_value("pending_id")
+            .unwrap_or(&record.record_id);
         add_relation(
             &mut relations,
             skipped,
@@ -1210,6 +1916,7 @@ fn push_unique_string(values: &mut Vec<String>, value: &str) {
 
 fn node_ref_for_record(
     record: &StoredRecordEnvelope,
+    legacy: &LegacyRecord,
     subject_ref: &str,
     attempt_id: &str,
     decision_id: &str,
@@ -1222,14 +1929,14 @@ fn node_ref_for_record(
         "decision" | "decision_basis" | "gate_result" => {
             fallback_ref(decision_id, &record.record_id)
         }
-        "review_request" => {
-            let summary = json_string_field(&record.raw_json, "summary").unwrap_or_default();
-            summary_token_value_or(&summary, "review_id", &record.record_id)
-        }
-        "control_pending" => {
-            let summary = json_string_field(&record.raw_json, "summary").unwrap_or_default();
-            summary_token_value_or(&summary, "pending_id", &record.record_id)
-        }
+        "review_request" => legacy
+            .compatibility_value("review_id")
+            .unwrap_or(&record.record_id)
+            .to_string(),
+        "control_pending" => legacy
+            .compatibility_value("pending_id")
+            .unwrap_or(&record.record_id)
+            .to_string(),
         "review_decision" => record.record_id.clone(),
         "receipt" | "effect_receipt" | "filesystem_receipt" => {
             fallback_ref(receipt_id, &record.record_id)
@@ -1271,16 +1978,6 @@ fn fallback_ref(preferred: &str, fallback: &str) -> String {
     }
 }
 
-fn summary_token_value_or(summary: &str, key: &str, fallback: &str) -> String {
-    let prefix = format!("{key}:");
-    summary
-        .split_whitespace()
-        .find_map(|part| part.strip_prefix(&prefix))
-        .filter(|value| !value.is_empty())
-        .unwrap_or(fallback)
-        .to_string()
-}
-
 fn has_subject_ref(subject_ref: &str) -> bool {
     !subject_ref.is_empty() && subject_ref != "subject:none"
 }
@@ -1303,6 +2000,39 @@ fn count_entries(txn: &RoTransaction<'_>, db: Database) -> Result<usize, String>
         .open_ro_cursor(db)
         .map_err(|error| format!("failed to open LMDB cursor: {error}"))?;
     Ok(cursor.iter().count())
+}
+
+fn ensure_meta_compatible<T: Transaction>(
+    txn: &T,
+    database: Database,
+    key: &str,
+    expected: &str,
+) -> Result<(), String> {
+    match txn.get(database, &key) {
+        Ok(actual) if actual == expected.as_bytes() => Ok(()),
+        Ok(actual) => Err(format!(
+            "unsupported_persisted_schema: {key} expected={expected} actual={}",
+            String::from_utf8_lossy(actual)
+        )),
+        Err(Error::NotFound) => Ok(()),
+        Err(error) => Err(format!("failed to read persisted schema {key}: {error}")),
+    }
+}
+
+fn transition_id_key(transition_id: &str) -> String {
+    format!("transition:id:{transition_id}")
+}
+
+fn case_sequence_prefix(case_id: &str) -> String {
+    format!("transition:case:{case_id}:")
+}
+
+fn case_sequence_key(case_id: &str, sequence: u64) -> String {
+    format!("{}{:020}", case_sequence_prefix(case_id), sequence)
+}
+
+fn case_state_key(case_id: &str) -> String {
+    format!("case_state:{case_id}")
 }
 
 fn json_string_field(content: &str, key: &str) -> Option<String> {
@@ -1360,6 +2090,10 @@ fn unix_time_ms() -> u128 {
 mod tests {
     use super::*;
     use crate::record::{Record, RecordKind};
+    use crate::transition::{
+        CaseLifecycle, InterpretationAuthority, PendingTransition, ReviewResolution, ReviewState,
+        TransitionPayload, TransitionSource,
+    };
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_store_path(name: &str) -> PathBuf {
@@ -1368,6 +2102,384 @@ mod tests {
             .expect("system time before unix epoch")
             .as_nanos();
         std::env::temp_dir().join(format!("yai-{name}-{}-{now}", std::process::id()))
+    }
+
+    fn pending(
+        id: &str,
+        case_id: &str,
+        generation: u64,
+        payload: TransitionPayload,
+    ) -> PendingTransition {
+        PendingTransition::new(
+            id,
+            case_id,
+            generation,
+            TransitionSource::component("canonical-test"),
+            payload,
+        )
+    }
+
+    #[test]
+    fn canonical_transition_and_case_state_are_atomic_replayable_and_restart_safe() {
+        let path = temp_store_path("canonical-authority");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
+        let opened = store
+            .commit_transition(pending(
+                "transition:open",
+                "case:canonical",
+                0,
+                TransitionPayload::CaseOpened {
+                    lifecycle: CaseLifecycle::Open,
+                },
+            ))
+            .expect("commit Case open");
+        assert_eq!(opened.transition.sequence, 1);
+        assert_eq!(opened.state.generation, 1);
+
+        let bound = store
+            .commit_transition(pending(
+                "transition:bound",
+                "case:canonical",
+                1,
+                TransitionPayload::ParticipantBound {
+                    participant_id: "participant:model".to_string(),
+                    role: "model_participant".to_string(),
+                },
+            ))
+            .expect("commit participant binding");
+        assert_eq!(bound.transition.sequence, 2);
+        assert_eq!(bound.state.generation, 2);
+        assert!(store
+            .verify_case_state("case:canonical")
+            .expect("verify replay"));
+
+        let transitions = store
+            .list_case_transitions("case:canonical")
+            .expect("list canonical transitions");
+        assert_eq!(
+            transitions
+                .iter()
+                .map(|transition| transition.sequence)
+                .collect::<Vec<_>>(),
+            vec![1, 2]
+        );
+        let expected = bound.state;
+        store
+            .discard_case_state_for_test("case:canonical")
+            .expect("discard materialization");
+        assert_eq!(
+            store.get_case_state("case:canonical").expect("state read"),
+            None
+        );
+        assert_eq!(
+            store
+                .rebuild_case_state("case:canonical")
+                .expect("rebuild CaseState"),
+            expected
+        );
+        drop(store);
+
+        let reopened = LmdbRecordStore::open(&path).expect("reopen after restart");
+        assert_eq!(
+            reopened
+                .get_case_state("case:canonical")
+                .expect("restart state"),
+            Some(expected)
+        );
+        assert!(reopened
+            .verify_case_state("case:canonical")
+            .expect("restart replay"));
+        drop(reopened);
+        fs::remove_dir_all(path).expect("remove LMDB test store");
+    }
+
+    #[test]
+    fn canonical_commit_rejects_duplicate_stale_and_partial_writes() {
+        let path = temp_store_path("canonical-failures");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
+        store
+            .commit_transition(pending(
+                "transition:open",
+                "case:failures",
+                0,
+                TransitionPayload::CaseOpened {
+                    lifecycle: CaseLifecycle::Open,
+                },
+            ))
+            .expect("open Case");
+
+        assert!(store
+            .commit_transition(pending(
+                "transition:open",
+                "case:failures",
+                1,
+                TransitionPayload::ParticipantBound {
+                    participant_id: "participant:duplicate".to_string(),
+                    role: "test".to_string(),
+                },
+            ))
+            .unwrap_err()
+            .contains("duplicate_transition_id"));
+        assert!(store
+            .commit_transition(pending(
+                "transition:stale",
+                "case:failures",
+                0,
+                TransitionPayload::ParticipantBound {
+                    participant_id: "participant:stale".to_string(),
+                    role: "test".to_string(),
+                },
+            ))
+            .unwrap_err()
+            .contains("stale_case_generation"));
+
+        let injected = pending(
+            "transition:rollback",
+            "case:failures",
+            1,
+            TransitionPayload::ParticipantBound {
+                participant_id: "participant:rollback".to_string(),
+                role: "test".to_string(),
+            },
+        );
+        assert!(store
+            .commit_transition_inner(injected, true)
+            .unwrap_err()
+            .contains("injected_failure"));
+        assert_eq!(
+            store
+                .get_transition_by_id("transition:rollback")
+                .expect("transition lookup"),
+            None
+        );
+        assert_eq!(
+            store
+                .get_case_state("case:failures")
+                .expect("state lookup")
+                .expect("state present")
+                .generation,
+            1
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove LMDB test store");
+    }
+
+    #[test]
+    fn legacy_compatibility_import_is_isolated_from_canonical_authority() {
+        let path = temp_store_path("legacy-compatibility-import");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
+        let contents = concat!(
+            "{\"schema\":\"yai.store.record.v0\",\"record_id\":\"record:one\",\"case_ref\":\"case:legacy\",\"record_kind\":\"case\",\"summary\":\"\"}\n",
+            "{\"schema\":\"yai.store.record.v0\",\"record_id\":\"record:two\",\"case_ref\":\"case:legacy\",\"record_kind\":\"future_kind\"}\n",
+            "{bad\n"
+        );
+        let first = store
+            .import_legacy_compatibility(contents, "fixture:legacy")
+            .expect("import compatibility corpus");
+        assert_eq!(first.lines_total, 3);
+        assert_eq!(first.losslessly_promoted, 1);
+        assert_eq!(first.preserved_opaque, 1);
+        assert_eq!(first.rejected_malformed, 1);
+        assert_eq!(first.payloads_written, 2);
+        assert_eq!(store.legacy_compatibility_payload_count().unwrap(), 2);
+        assert!(store
+            .list_case_transitions("case:legacy")
+            .unwrap()
+            .is_empty());
+        assert_eq!(store.get_case_state("case:legacy").unwrap(), None);
+
+        let second = store
+            .import_legacy_compatibility(contents, "fixture:legacy")
+            .expect("repeat compatibility import");
+        assert_eq!(second.payloads_written, 0);
+        assert_eq!(second.payloads_duplicate, 2);
+        drop(store);
+        fs::remove_dir_all(path).expect("remove LMDB test store");
+    }
+
+    #[test]
+    fn persisted_future_canonical_schema_is_not_overwritten() {
+        let path = temp_store_path("future-canonical-schema");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
+        let mut txn = store
+            .env
+            .begin_rw_txn()
+            .expect("schema mutation transaction");
+        txn.put(
+            store.schema_meta,
+            &"meta:canonical_transition_schema",
+            &"yai.transition.v99",
+            WriteFlags::empty(),
+        )
+        .expect("write future schema marker");
+        txn.commit().expect("commit future schema marker");
+        drop(store);
+
+        let error = match LmdbRecordStore::open(&path) {
+            Ok(_) => panic!("future persisted schema must not be overwritten"),
+            Err(error) => error,
+        };
+        assert!(error.contains("unsupported_persisted_schema"));
+        fs::remove_dir_all(path).expect("remove LMDB test store");
+    }
+
+    #[test]
+    fn provider_and_review_payloads_reduce_without_summary_semantics() {
+        let path = temp_store_path("typed-reducers");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
+        let case_id = "case:typed";
+        let payloads = vec![
+            TransitionPayload::CaseOpened {
+                lifecycle: CaseLifecycle::Open,
+            },
+            TransitionPayload::ParticipantBound {
+                participant_id: "participant:model".to_string(),
+                role: "model_participant".to_string(),
+            },
+            TransitionPayload::ProviderAttached {
+                participant_id: "participant:model".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                base_url: "http://127.0.0.1:1".to_string(),
+                model_id: "model:test".to_string(),
+                credential_ref: "env:TEST_KEY".to_string(),
+            },
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: "invocation:1".to_string(),
+                participant_id: "participant:model".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:test".to_string(),
+            },
+        ];
+        for (index, payload) in payloads.into_iter().enumerate() {
+            store
+                .commit_transition(pending(
+                    &format!("transition:{}", index + 1),
+                    case_id,
+                    index as u64,
+                    payload,
+                ))
+                .expect("commit typed setup");
+        }
+        let mut result = pending(
+            "transition:result",
+            case_id,
+            4,
+            TransitionPayload::ProviderResultRecorded {
+                result_id: "result:1".to_string(),
+                invocation_id: "invocation:1".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:test".to_string(),
+                output: "typed output".to_string(),
+            },
+        );
+        result.causal_refs = vec!["invocation:1".to_string()];
+        result.summary = Some("invocation:wrong output_chars:999".to_string());
+        store
+            .commit_transition(result)
+            .expect("commit typed result");
+
+        let mut interpretation = pending(
+            "transition:interpretation",
+            case_id,
+            5,
+            TransitionPayload::ModelInterpretationRecorded {
+                interpretation_id: "interpretation:1".to_string(),
+                result_id: "result:1".to_string(),
+                authority: InterpretationAuthority::NonAuthoritative,
+            },
+        );
+        interpretation.causal_refs = vec!["result:1".to_string()];
+        store
+            .commit_transition(interpretation)
+            .expect("commit interpretation");
+
+        let mut review = pending(
+            "transition:review",
+            case_id,
+            6,
+            TransitionPayload::ReviewRequested {
+                review: ReviewState {
+                    review_id: "review:1".to_string(),
+                    attempt_id: "attempt:1".to_string(),
+                    requested_by_participant: "participant:model".to_string(),
+                    target_participant: "participant:filesystem".to_string(),
+                    reviewer_participant: "participant:operator".to_string(),
+                    operation_kind: "fs.write".to_string(),
+                    carrier_family: "filesystem".to_string(),
+                    target_display: "sandbox/output.txt".to_string(),
+                    sandbox_path: "/tmp/sandbox".to_string(),
+                    target_path: "/tmp/sandbox/output.txt".to_string(),
+                    policy_reason: "review_required".to_string(),
+                    status: ReviewResolution::PendingOperator,
+                    carrier_attempted: false,
+                    execution_performed: false,
+                    decision_ref: None,
+                    receipt_ref: None,
+                },
+            },
+        );
+        review.causal_refs = vec!["attempt:1".to_string()];
+        store.commit_transition(review).expect("commit review");
+
+        let mut resolved = pending(
+            "transition:resolved",
+            case_id,
+            7,
+            TransitionPayload::ReviewResolved {
+                review_id: "review:1".to_string(),
+                attempt_id: "attempt:1".to_string(),
+                resolution: ReviewResolution::Denied,
+                reason: "operator denied".to_string(),
+                decision_ref: "decision:1".to_string(),
+                receipt_ref: "receipt:1".to_string(),
+                carrier_attempted: false,
+                execution_performed: false,
+            },
+        );
+        resolved.causal_refs = vec!["review:1".to_string(), "attempt:1".to_string()];
+        let committed = store
+            .commit_transition(resolved)
+            .expect("commit resolution");
+        assert_eq!(committed.state.generation, 8);
+        assert_eq!(
+            committed.state.last_provider_result.unwrap().output_chars,
+            12
+        );
+        assert_eq!(committed.state.reviews[0].status, ReviewResolution::Denied);
+        assert!(store.verify_case_state(case_id).expect("verify replay"));
+        assert!(store
+            .materialize_graph_relations_for_case_inner(case_id, true)
+            .unwrap_err()
+            .contains("injected_graph_materialization_failure"));
+        assert!(store
+            .verify_case_state(case_id)
+            .expect("derived failure cannot affect canonical state"));
+        let graph_report = store
+            .materialize_graph_relations_for_case(case_id)
+            .expect("materialize typed graph");
+        assert!(graph_report.relations_written > 0);
+        let relations = store
+            .list_graph_relations_by_case(case_id, usize::MAX)
+            .expect("typed graph relations");
+        assert!(relations.relations.iter().any(|relation| {
+            relation.edge_kind == "provider_result_closes_invocation"
+                && relation.provenance == "canonical_transition"
+        }));
+        let expected_relation_count = relations.relations_total;
+        let rebuild = store
+            .rebuild_graph_relations_for_case(case_id)
+            .expect("rebuild typed graph from source authority");
+        assert_eq!(rebuild.relations_written, expected_relation_count);
+        assert_eq!(rebuild.relations_duplicate, 0);
+        assert_eq!(
+            store
+                .list_graph_relations_by_case(case_id, usize::MAX)
+                .expect("rebuilt relations")
+                .relations_total,
+            expected_relation_count
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove LMDB test store");
     }
 
     #[test]

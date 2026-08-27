@@ -52,7 +52,7 @@ grep -q "dirty: no" <<<"$empty"
 grep -q "stale: no" <<<"$empty"
 printf "runtime_graph:empty ok\n"
 
-grep -q "durable_truth: graph_persistence" <<<"$load"
+grep -q "durable_truth: canonical_transition_or_legacy_compatibility_input" <<<"$load"
 grep -q "hnsw: future_candidate_index" <<<"$load"
 grep -q "context_compiler: future_consumer" <<<"$load"
 grep -q "resident: false" <<<"$load"
