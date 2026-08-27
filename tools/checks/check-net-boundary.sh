@@ -50,7 +50,6 @@ require_file "proto/net.md"
 
 for area in core registry stream node capability endpoint health lifecycle transport route observe compat; do
   require_dir "net/$area"
-  require_file "net/$area/README.md"
 done
 
 for path in \

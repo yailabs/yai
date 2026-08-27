@@ -1,6 +1,12 @@
 # NET Protocol Vocabulary
 
-Canonical internal vocabulary for NET.
+Authority: compatibility vocabulary for the current versioned NET scaffold.
+It does not override YAI's canonical [semantics](../docs/reference/semantics.md)
+or [execution boundaries](../docs/reference/boundaries.md), and it is not proof
+that a transport/runtime capability exists.
+
+The word “canonical” below is local to a named NET schema/fixture version, not
+to YAI domain ontology.
 
 YAI controls authority.
 NET moves streams.

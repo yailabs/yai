@@ -1,19 +1,15 @@
 #!/bin/sh
-# YAI - repository identity guard
-#
-# Purpose:
-#   Prevent active surfaces from drifting back to old repository names.
-#
-# Scope:
-#   Scans active source and docs roots, excluding historical archives.
-#
-# Non-goals:
-#   Does not edit or rename repositories.
 set -eu
 
+# YAI - repository identity guard
+#
+# Purpose: prevent active source and canonical documentation from drifting back
+# to retired repository identities. Historical evidence is excluded.
+
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
-HITS=/tmp/yai-repository-identity-hit
-rm -f "$HITS"
+HITS=/tmp/yai-repository-identity-hit.$$
+trap 'rm -f "$HITS"' EXIT
+
 OLD_CORE='yai''-core'
 OLD_ENV='ai''-environment'
 OLD_YAI='old''-yai'
@@ -23,52 +19,22 @@ OLD_TITLE_HYPHEN='YAI''-core'
 OLD_TMP='/tmp/yai''-core'
 PATTERN="$OLD_CORE|$OLD_ENV|$OLD_YAI|$OLD_YAI_TEXT|$OLD_TITLE|$OLD_TITLE_HYPHEN|$OLD_TMP"
 
-for path in \
-  README.md \
-  Makefile \
-  cmd \
-  tools \
-  docs/README.md \
-  docs/architecture \
-  docs/index.md \
-  labs \
-  work/spines \
-  work/waves \
-  work/agents \
-  include \
-  system \
-  proto \
-  engine \
-  tests \
-  packaging \
-  examples
-do
+for path in README.md ROADMAP.md Makefile cmd tools docs include system proto engine net tests; do
   if [ -e "$ROOT/$path" ]; then
-    grep -R -n -E \
-      --exclude-dir=.git \
-      --exclude-dir=build \
-      --exclude-dir=target \
-      --exclude-dir=work/archive \
-      --exclude-dir=repo-readiness \
+    grep -R -n -E --exclude-dir=.git --exclude-dir=build --exclude-dir=target \
       "$PATTERN" "$ROOT/$path" >>"$HITS" 2>/dev/null || true
   fi
 done
 
 if [ -s "$HITS" ]; then
   cat "$HITS" >&2
-  printf 'active repository identity still references old names\n' >&2
+  printf 'active repository identity still references retired names\n' >&2
   exit 1
 fi
 
-if ! grep -Fq 'Repository Identity Cutover' "$ROOT/work/spines/yai-spine.md"; then
-  printf 'repository identity cutover missing from roadmap\n' >&2
+grep -Fq 'yai-dev' "$ROOT/docs/index.md" || {
+  printf 'historical yai-dev role missing from documentation authority map\n' >&2
   exit 1
-fi
+}
 
-if ! grep -Fq 'yai-dev' "$ROOT/work/spines/yai-spine.md"; then
-  printf 'yai-dev role missing from roadmap\n' >&2
-  exit 1
-fi
-
-rm -f "$HITS"
 printf 'check-repository-identity: ok\n'

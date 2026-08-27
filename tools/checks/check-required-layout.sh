@@ -27,7 +27,7 @@ require_file() {
   fi
 }
 
-for dir in docs include/yai system system/daemon system/engine_bridge cmd/yai cmd/yaid proto/schemas proto/fixtures tests tools/checks packaging examples vendor; do
+for dir in docs docs/reference include/yai system system/daemon system/engine_bridge cmd/yai cmd/yaid proto/schemas proto/fixtures tests tools/checks vendor; do
   require_dir "$dir"
 done
 

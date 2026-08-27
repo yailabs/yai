@@ -28,4 +28,14 @@ if [ -e "$ROOT/docs/internal/architecture/core-spine/new-core/docs" ]; then
   exit 1
 fi
 
+if [ -d "$ROOT/docs/architecture" ]; then
+  printf 'obsolete multi-owner docs/architecture/ tree still exists\n' >&2
+  exit 1
+fi
+
+if [ ! -d "$ROOT/docs/reference" ]; then
+  printf 'canonical reference directory missing: %s/docs/reference\n' "$ROOT" >&2
+  exit 1
+fi
+
 printf 'check-doc-canonical-location: ok\n'

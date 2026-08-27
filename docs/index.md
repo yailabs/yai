@@ -1,77 +1,80 @@
-# YAI Documentation
+# YAI documentation authority
 
-This is the curated documentation entrypoint for YAI. Start here for stable
-architecture and public technical orientation.
+This page is the canonical navigation and authority map. A document outside
+this map may provide evidence, history, research, or local source navigation;
+it cannot silently change YAI's constitution, current architecture, or roadmap.
 
-YAI is a local control runtime for case-bound AI operation. It gives model,
-provider, tool, operator, and system activity an operational boundary: case,
-subject, attempted operation, control decision, effect or observation, receipt,
-record, projection, and operational memory.
+## Reading order
 
-## Start Here
+1. [Constitution](constitution.md) — what must remain true independent of the
+   current implementation.
+2. [Architecture](architecture.md) — what the frozen executable repository
+   actually implements.
+3. [Roadmap](../ROADMAP.md) — the delta and ordered source-refoundation work.
+4. Reference contracts as needed:
+   [semantics](reference/semantics.md),
+   [state and transitions](reference/state-transitions.md),
+   [context](reference/context.md), and
+   [model/resource boundaries](reference/boundaries.md).
 
-- [Repository README](../README.md): project identity, status, boundaries, and
-  repository layout.
-- [Technical brief](technical-brief.md): five-minute technical explanation.
-- [Quickstart](quickstart.md): minimal local orientation and validation entry.
-- [Test cases](test-cases.md): reproducible validation paths.
-- [Provider boundary](providers.md): provider experiment matrix and boundary
-  posture.
-- [Architecture summary](architecture.md): public architecture overview.
-- [Glossary](glossary.md): short term definitions for first-contact readers.
-- [Legal posture](legal.md): source-available repository posture.
+The root [README](../README.md) is the short public entry. It summarizes but
+does not replace these owners.
 
-## Current Status
+## Authority classes
 
-YAI is an early source-available technical repository. It is public for
-technical evaluation and review, not production use, unless a specific written
-permission or component license says otherwise.
+| Class | Current owner | Governs | Must not claim |
+|---|---|---|---|
+| Constitution | [constitution.md](constitution.md) | stable invariants and rejected owners | that a target invariant is implemented |
+| Architecture | [architecture.md](architecture.md) | source-, test-, and reachability-backed current truth | target behavior as current capability |
+| Reference | [reference/](reference/) | stable concepts and boundary contracts | project schedule or executable status |
+| Roadmap | [ROADMAP.md](../ROADMAP.md) | gaps, sequencing, gates, and unresolved choices | completed behavior before evidence exists |
+| Operations | [quickstart.md](quickstart.md), [test-cases.md](test-cases.md) | executable procedures and validation labels | semantic doctrine |
+| Audit/evidence | `refoundation/audits/`, `labs/`, tests | frozen findings, experiments, and behavior proof | current architectural authority |
+| Migration | `../refoundation/doc-refoundation/` from the YAI repository root, later migration records | a bounded before/after transition | permanent doctrine |
+| Research | explicitly labeled research notes | non-canonical hypotheses, provenance, and promoted design input | runtime truth without implementation evidence |
+| Development instructions | [CONTRIBUTING](../CONTRIBUTING.md), `.agents/AGENTS.md` | contribution and automation rules | product/runtime semantics |
 
-The command and test surfaces are still stabilizing. Repository-specific status
-and license files are authoritative for current posture.
+The [legal posture](legal.md), license, security policy, and notices remain
+authoritative for their own non-architectural subjects.
 
-## Public Docs
+## Canonical semantic owners
 
-- [Technical brief](technical-brief.md)
+- [Semantics](reference/semantics.md) owns names, definitions, aliases,
+  dispositions, and rejected meanings.
+- [State and transitions](reference/state-transitions.md) owns canonical state,
+  transition phases, evidence roles, and external-effect recovery.
+- [Context](reference/context.md) owns Projection, Residency, ContextFrame,
+  ContextDelta posture, rendering, tokenization, and continuity distinctions.
+- [Boundaries](reference/boundaries.md) owns the YAI↔provider/YVEX and
+  YAI↔external-resource contracts.
+
+No source directory is implied by this document split. A source owner still
+requires an independent lifecycle, canonical resource or transition, execution
+boundary, and stable multi-consumer contract.
+
+## Current status
+
+The Architecture baseline is YAI commit
+`db183ae4c56bd16c7e6f31787ee4d90a51496d6d`. The worktree had pre-existing
+research/header/spine/notebook changes when this documentation refoundation
+began; those changes are not treated as frozen executable truth.
+
+The architecture remains pre-refoundation. The Constitution is intentionally
+stronger. The Roadmap is the only document permitted to bridge that gap.
+
+## De-authorized material
+
+`work/spines/`, `work/waves/`, `work/archive/`, module-local historical
+READMEs, old architecture mirrors, and lab narratives no longer own current
+YAI meaning or status. They remain useful when a decision needs provenance or a
+behavior needs characterization. Git history is the default owner of obsolete
+chronology.
+
+The historical `yai-dev` repository is a semantic mine, not a migration tree.
+Valid historical properties are already represented in the canon or Roadmap;
+reading `yai-dev` is not required to discover current YAI.
+
+## Operations
+
 - [Quickstart](quickstart.md)
-- [Test cases](test-cases.md)
-- [Provider boundary](providers.md)
-- [Architecture summary](architecture.md)
-- [Glossary](glossary.md)
-- [Legal posture](legal.md)
-
-## Architecture
-
-- [Architecture index](architecture/README.md)
-- [System](architecture/system.md)
-- [Data runtime](architecture/data-runtime.md)
-- [Control runtime](architecture/control-runtime.md)
-- [Model runtime](architecture/model-runtime.md)
-- [Protocols](architecture/protocols.md)
-- [Decisions](architecture/decisions.md)
-
-## Work And Labs
-
-Operational material is outside `docs/`:
-
-- `labs/` contains experiments, runbooks, notebooks, outputs and reports.
-- `work/` contains spines, waves, inventories, repo-readiness notes, agent notes
-  and archives.
-
-## Legal And Contribution
-
-- [License notice](../LICENSE.md)
-- [Repository notice](../NOTICE.md)
-- [Third-party notices](../THIRD_PARTY_NOTICES.md)
-- [Contributing](../CONTRIBUTING.md)
-- [Security](../SECURITY.md)
-- [Legal summary](legal.md)
-
-YAI is source-available, not open source by default. Technical feedback is
-welcome, but broad external contribution is not open yet unless maintainers
-explicitly scope the change.
-
-## Documentation Canon
-
-`docs/` is curated architecture documentation. It is not the lab root, wave
-archive, inventory root or agent execution folder.
+- [Validation guide](test-cases.md)

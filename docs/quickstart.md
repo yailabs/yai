@@ -1,86 +1,75 @@
-# Quickstart
+# Repository quickstart
 
-This page is a minimal local orientation for technical evaluation. It is not a
-full command reference and does not describe package installation or production
-deployment.
+Authority: current local build and inspection procedure. This is not a
+production deployment guide or a stable CLI compatibility promise.
 
-## Prerequisites / Assumptions
+## Prerequisites
 
-- Work from the repository root.
-- Use the local toolchain expected by the Makefile, including a C compiler,
-  `make`, and the Rust toolchain used by the current command and engine code.
-- Treat the repository as source-available technical evaluation material.
+Work from the repository root with GNU Make, a C toolchain, Cargo/Rust, and the
+native dependencies expected by the Makefile. Commands store mutable runtime
+data under `YAI_HOME` when set, otherwise under the implementation's local
+default; use an isolated temporary path for evaluation.
 
-## Build / Check
-
-Start with the lightweight repository status command:
+## Inspect and validate the repository
 
 ```sh
 make info
+make check-docs
+make check-layout
+make build
 ```
 
-Run the full repository check when you want layout, docs, build, and smoke
-coverage:
+`make check` additionally runs the complete smoke suite. It is broader and
+slower than the orientation path:
 
 ```sh
 make check
 ```
 
-`make check` is intentionally broader than a README quickstart. If it fails,
-read the failing check output before assuming the runtime itself is the issue.
+Build products include the Rust `yai` command, the narrow C `yaid` daemon, and
+component/smoke executables. Building all components does not imply that all C
+library modules are reachable from `yaid`.
 
-## First Repository Checks
+## Use an isolated runtime home
 
-Useful first checks:
-
-```sh
-make info
-make check
-```
-
-For details on what these checks cover, see [Testing](engineering/testing.md).
-
-## Run A First Validation Path
-
-The public validation entrypoint is [Test cases](test-cases.md).
-
-Start with Test 00, repository health:
+After a build, select an empty evaluation directory rather than an existing
+operator store:
 
 ```sh
-make info
-make check
+export YAI_HOME=/tmp/yai-evaluation-home
 ```
 
-Then use Test 01 for no-model runtime inspection when local `yai` and `yaid`
-binaries are built or installed.
-
-## Current Runtime Inspection
-
-The current engineering command surface documents runtime inspection commands
-such as:
+The current command surface can then report local paths and state:
 
 ```sh
-yai doctor
-yai hot status
-yai store status
+build/bin/yai doctor
+build/bin/yai hot status
+build/bin/yai store status
+build/bin/yai store summary
 ```
 
-Those commands may require building or installing the local binaries according
-to the current engineering docs. This quickstart does not duplicate that full
-surface.
+Depending on the build target, the Rust binary may instead be under Cargo's
+target directory or installed by `make install-local`. Use `make
+print-install-paths` to inspect configured install locations.
 
-## Where Command Details Live
+These status commands do not require a provider. Provider commands require an
+explicit endpoint/model and may make real network requests. Filesystem review
+and direct write commands may change local files; use only the repository's
+fixtures or a disposable sandbox and read [Test cases](test-cases.md) first.
 
-- [Command surface](engineering/command-surface.md)
-- [Test cases](test-cases.md)
-- [Filesystem loop lab](labs/filesystem-loop/runbook.md)
-- [Testing](engineering/testing.md)
+## What to read next
 
-## Known Limitations
+- [Executable architecture](architecture.md) explains what the binaries
+  actually implement and where their authority diverges.
+- [Test cases](test-cases.md) maps reproducible tests to the claims they support.
+- [Implementation roadmap](../ROADMAP.md) records gaps; it is not current
+  behavior.
+- `tests/smoke/` is implementation evidence. `labs/` and `work/` are
+  experimental/historical evidence and are not canonical documentation.
 
-- YAI is an early source-available repository for technical evaluation.
-- The command and test surfaces are still stabilizing.
-- Public docs are being separated from older architecture, manual, and
-  engineering material.
-- Provider/backend examples should not be read as tested provider breadth.
-- No package availability or production deployment flow is claimed here.
+## Limitations
+
+YAI currently has no production-ready transaction authority, general carrier
+admission boundary, or provider-independent ContextFrame implementation. The
+CLI's journal and LMDB writes can diverge, and its controlled filesystem path
+is fixture-bound. Do not infer production safety from a passing smoke suite.

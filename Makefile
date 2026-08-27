@@ -11,6 +11,7 @@
 #   This file does not own runtime semantics, legal policy or data-plane truth.
 #
 .PHONY: info check-layout check-docs check-doc-root-canon check-case-runtime-semantics-roadmap check-duckdb-fact-plane check-receipt-decision-projection-facts check-model-behavior-policy-facts check-memory-divergence-carrier-facts check-fact-reports-cli check-fact-plane-freeze check-case-runtime-discovery check-casehandle-capability-boundary check-model-native-actor-roadmap check-labs check-lab-runs check-lab-notebooks check-repository-identity check-archive-historical-records check-source-surface-clean check-file-header-standard check-pack-doctrine check-foundation-freeze check-hot-state-doctrine check-hot-state-freeze check-lmdb-record-plane-doctrine check-lmdb-record-plane-freeze check-journal-replay-boundary check-journal-replay-to-lmdb check-replay-idempotency-schema-version check-replay-diagnostics-report check-journal-replay-freeze check-control-carrier-substrate check-operation-dispatch-multiplex check-carrier-contract-v1 check-process-carrier-signal-control check-host-observation-probe check-carrier-coverage-matrix check-non-process-carrier-skeletons check-carrier-outcome-harness check-carrier-receipt-divergence check-retrieval-runner-roadmap check-context-compiler-retrieval-mtp-roadmap check-provider-runtime-lan-target-surface check-data-context-runtime-roadmap check-graph-runtimegraph-doctrine check-graph-relation-write-path check-runtimegraph-working-set check-runtimegraph-rebuild check-runtimegraph-query-causal-path check-operator-review-loop check-cli-review-interaction-surface check-review-loop-test-matrix check-graph-runtimegraph-freeze build-c build-rust build-rust-ffi build install-local uninstall-local doctor-local print-install-paths smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new5 smoke-new6 smoke-new7 smoke-new8 smoke-new9 smoke-new10 smoke-new11 smoke-new12 smoke-new18b smoke-new18c smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33a smoke-spine33b smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine33f smoke-spine33g smoke-spine33h smoke-spine33i smoke-spine33l smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-spine51b smoke check clean
+.PHONY: check-doc-links
 .PHONY: net-info build-net-c check-net-c-sources check-net-headers check-net-stream-fixtures check-net-node-fixtures check-net-capability-fixtures check-net-endpoint-fixtures check-net-health-fixtures check-net-lifecycle-fixtures check-net-transport-fixtures check-net-ipc-fixtures check-net-boundary
 .PHONY: check-context-residency-lab lab-context-residency smoke-lab-context-residency smoke-lab-context-residency-case-native smoke-lab-context-residency-matrix
 
@@ -191,23 +192,23 @@ SMOKE_PROVIDER_RUNTIME_SURFACE := tests/smoke/provider-runtime-surface/test_prov
 NET_ENUM_NAMES_TEST := $(BUILD_DIR)/test_net_enum_names
 
 info:
-	@printf "yai: local AI operational control core\n"
-	@printf "status: SPINE.51 Fact Plane Freeze\n"
-	@printf "completed: SPINE.20 Local Runtime Layout through SPINE.51 Fact Plane Freeze\n"
-	@printf "next: SPINE.52 Live Projection Frame Schema\n"
-	@printf "target-layout: include/ system/ engine/ cmd/\n"
+	@printf "yai: admitted operational-state transition system (pre-refoundation implementation)\n"
+	@printf "architecture-baseline: db183ae4c56bd16c7e6f31787ee4d90a51496d6d\n"
+	@printf "documentation: docs/index.md\n"
+	@printf "roadmap: ROADMAP.md\n"
+	@printf "source-layout: include/ system/ engine/ cmd/ net/ proto/\n"
 	@printf "runtime-home: YAI_HOME=%s socket=%s\n" "$(YAI_HOME)" "$(YAI_DAEMON_SOCKET)"
 	@printf "hot-state: %s/hot-state.json\n" "$(YAI_RUN_DIR)"
 	@printf "record-store: %s\n" "$(YAI_RECORD_STORE_DIR)"
 	@printf "fact-plane: DuckDB yai.fact.v1 extraction plus compact CLI reports\n"
-	@printf "pack-doctrine: active work/archive/engineering-snapshots/pack-format.md\n"
-	@printf "foundation-freeze: filesystem closed; runtime layout exists; active docs compact; extraction contract active\n"
-	@printf "data-spine-c: transitional keep_temporarily\n"
-	@printf "engine-bridge: active\n"
+	@printf "state-authority-gap: JSONL journal and LMDB may diverge\n"
+	@printf "effect-boundary-gap: fixture review plus direct filesystem bypass\n"
+	@printf "data-spine-c: component-tested compatibility surface\n"
+	@printf "engine-bridge: smoke-only C-to-Rust path\n"
 	@printf "lib: removed\n"
 	@printf "daemon: moved to cmd/yaid + system/daemon\n"
-	@printf "provider-runtime: planned surface active\n"
-	@printf "device-registry: active\n"
+	@printf "provider-runtime: raw OpenAI-compatible HTTP path; no typed continuation\n"
+	@printf "device-registry: persisted planning metadata; not prompt routing authority\n"
 	@printf "crates: removed\n"
 	@printf "ctl: removed\n"
 	@printf "install-local: active PREFIX=%s YAI_HOME=%s\n" "$(PREFIX)" "$(YAI_HOME)"
@@ -267,57 +268,11 @@ check-docs:
 	@./tools/checks/check-doc-root-canon.sh
 	@./tools/checks/check-doc-canonical-location.sh
 	@./tools/checks/check-doc-required-files.sh
-	@./tools/checks/check-doc-no-old-root-language.sh
-	@./tools/checks/check-lab-notebooks.sh
+	@python3 tools/checks/check-doc-links.py
 	@./tools/checks/check-repository-identity.sh
-	@./tools/checks/check-archive-historical-records.sh
-	@./tools/checks/check-pack-doctrine.sh
-	@./tools/checks/check-foundation-freeze.sh
-	@./tools/checks/check-hot-state-doctrine.sh
-	@./tools/checks/check-hot-state-freeze.sh
-	@./tools/checks/check-lmdb-record-plane-doctrine.sh
-	@./tools/checks/check-lmdb-record-plane-freeze.sh
-	@./tools/checks/check-journal-replay-boundary.sh
-	@./tools/checks/check-journal-replay-to-lmdb.sh
-	@./tools/checks/check-replay-idempotency-schema-version.sh
-	@./tools/checks/check-replay-diagnostics-report.sh
-	@./tools/checks/check-journal-replay-freeze.sh
-	@./tools/checks/check-file-header-standard.sh
-	@./tools/checks/check-control-carrier-substrate.sh
-	@./tools/checks/check-operation-dispatch-multiplex.sh
-	@./tools/checks/check-carrier-contract-v1.sh
-	@./tools/checks/check-process-carrier-signal-control.sh
-	@./tools/checks/check-host-observation-probe.sh
-	@./tools/checks/check-carrier-coverage-matrix.sh
-	@./tools/checks/check-non-process-carrier-skeletons.sh
-	@./tools/checks/check-carrier-outcome-harness.sh
-	@./tools/checks/check-carrier-receipt-divergence.sh
-	@./tools/checks/check-retrieval-runner-roadmap.sh
-	@./tools/checks/check-context-compiler-retrieval-mtp-roadmap.sh
-	@./tools/checks/check-provider-runtime-lan-target-surface.sh
-	@./tools/checks/check-data-context-runtime-roadmap.sh
-	@./tools/checks/check-graph-runtimegraph-doctrine.sh
-	@./tools/checks/check-graph-relation-write-path.sh
-	@./tools/checks/check-runtimegraph-working-set.sh
-	@./tools/checks/check-runtimegraph-rebuild.sh
-	@./tools/checks/check-runtimegraph-query-causal-path.sh
-	@./tools/checks/check-operator-review-loop.sh
-	@./tools/checks/check-cli-review-interaction-surface.sh
-	@./tools/checks/check-review-loop-test-matrix.sh
-	@./tools/checks/check-graph-runtimegraph-freeze.sh
-	@./tools/checks/check-case-runtime-semantics-roadmap.sh
-	@./tools/checks/check-duckdb-fact-plane.sh
-	@./tools/checks/check-receipt-decision-projection-facts.sh
-	@./tools/checks/check-model-behavior-policy-facts.sh
-	@./tools/checks/check-memory-divergence-carrier-facts.sh
-	@./tools/checks/check-fact-reports-cli.sh
-	@./tools/checks/check-fact-plane-freeze.sh
-	@./tools/checks/check-case-runtime-discovery.sh
-	@./tools/checks/check-casehandle-capability-boundary.sh
-	@./tools/checks/check-model-native-actor-roadmap.sh
-	@./tools/checks/check-net-c-sources.sh
-	@./tools/checks/check-net-boundary.sh
-	@./tools/checks/check-context-residency-lab.sh
+
+check-doc-links:
+	@python3 tools/checks/check-doc-links.py
 
 check-doc-root-canon:
 	@./tools/checks/check-doc-root-canon.sh

@@ -1,15 +1,10 @@
 #!/bin/sh
-# YAI - source surface cleanliness guard
-#
-# Purpose:
-#   Keep local environment roots and archived placeholders out of active source.
-#
-# Scope:
-#   Checks environment directories, ingest placeholders and transitional banners.
-#
-# Non-goals:
-#   Does not enforce every source file header.
 set -eu
+
+# YAI - source surface documentation cleanliness guard
+#
+# Purpose: keep environment roots and module-per-noun documentation authority
+# out of the active source tree without claiming a future implementation owner.
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 
@@ -22,33 +17,25 @@ done
 
 for dir in system/ingest include/yai/ingest; do
   if [ -e "$ROOT/$dir" ]; then
-    printf 'README-only ingest placeholder root must stay archived: %s\n' "$dir" >&2
+    printf 'README-only ingest placeholder root must stay absent: %s\n' "$dir" >&2
     exit 1
   fi
 done
 
-for dir in system/store system/graph system/index system/memory system/projection system/reconcile; do
-  if [ ! -f "$ROOT/$dir/README.md" ]; then
-    printf 'transitional shim README missing: %s/README.md\n' "$dir" >&2
+for file in system/README.md engine/README.md include/yai/README.md cmd/README.md net/README.md proto/README.md; do
+  if [ ! -f "$ROOT/$file" ]; then
+    printf 'source map missing: %s\n' "$file" >&2
     exit 1
   fi
-  if ! grep -Fq 'Transitional C shim' "$ROOT/$dir/README.md"; then
-    printf 'transitional shim banner missing: %s/README.md\n' "$dir" >&2
-    exit 1
-  fi
-  if ! grep -Fq 'Future ownership: engine/yai-engine' "$ROOT/$dir/README.md"; then
-    printf 'future engine ownership missing: %s/README.md\n' "$dir" >&2
+  if ! grep -Fq 'Authority:' "$ROOT/$file"; then
+    printf 'source map authority missing: %s\n' "$file" >&2
     exit 1
   fi
 done
 
-if ! grep -Fq 'system/ is not a second data engine' "$ROOT/work/spines/source-surface.md"; then
-  printf 'source-surface doctrine missing system/engine boundary\n' >&2
-  exit 1
-fi
-
-if ! grep -Fq 'engine/ is the Rust data spine target' "$ROOT/work/spines/source-surface.md"; then
-  printf 'source-surface doctrine missing Rust engine ownership\n' >&2
+if find "$ROOT/include/yai" "$ROOT/system" "$ROOT/net" -mindepth 2 -name README.md -print -quit | grep -q .; then
+  find "$ROOT/include/yai" "$ROOT/system" "$ROOT/net" -mindepth 2 -name README.md -print >&2
+  printf 'module-per-noun README found below a source map\n' >&2
   exit 1
 fi
 

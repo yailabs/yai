@@ -4,238 +4,143 @@ YAI
 Copyright (c) 2026 Francesco Maiomascio.
 All rights reserved.
 
-This file is part of the source-available YAI repository.
-Use, copying, modification, distribution, and production operation
-are governed by the repository licensing documents, including LICENSE.md and
-docs/legal.md.
-
-Public source access is provided for technical evaluation and review. Commercial
-use, redistribution, hosted use, sublicensing, incorporation into third-party
-products, or production use requires explicit written permission unless another
-file or component license says otherwise.
+This file is part of the source-available YAI repository. Use, copying,
+modification, distribution, and production operation are governed by the
+repository licensing documents, including LICENSE.md and docs/legal.md.
 -->
-
-<div align="center">
-  <img src="work/archive/reference/figures/brand/yai-transp.png" alt="YAI" width="220" />
-
-  <strong>local control runtime for case-bound AI operation</strong>
-  <br />
-  <span>Cases, subjects, policy gates, receipts, records, projections, and operational memory.</span>
-
-  <br />
-
-  ![Runtime](https://img.shields.io/badge/runtime-local-0f766e?style=flat&labelColor=1f2937)
-  ![Core](https://img.shields.io/badge/core-case%2Fcontrol-475569?style=flat&labelColor=1f2937)
-  ![License](https://img.shields.io/badge/license-source--available-374151?style=flat&labelColor=1f2937)
-</div>
 
 # YAI
 
-YAI is a local runtime for binding AI-mediated activity to operational
-cases. It does not run models. It controls the boundary around model, provider,
-tool, operator, and system activity: which case it belongs to, which subjects
-it touches, which policy applies, what was allowed or blocked, what receipt was
-produced, and what record, projection, or memory can be derived from the
-result.
+YAI is an early local runtime for governing admitted transformations of
+canonical operational state. Work persists in a durable `Case`; a transition
+binds typed intent, authority, and observed outcome without making a model,
+provider, cache, graph, or presentation view the owner of truth.
 
-## Status
+That sentence is the constitutional direction, not a claim that the current
+repository already implements it. The current executable is a mixed C/Rust
+prototype with valuable verticals and known authority gaps.
 
-YAI is an early source-available repository. It is public for technical
-evaluation and review, and is not production-ready unless explicitly stated.
+## Read this repository
 
-The command and test surface is still stabilizing. The legal posture is defined
-in [LICENSE.md](LICENSE.md) and [docs/legal.md](docs/legal.md).
+The documentation has three deliberately separate truth classes:
 
-## Why This Exists
+- [Constitution](docs/constitution.md) states invariants that the refounded
+  implementation must satisfy.
+- [Architecture](docs/architecture.md) describes only what this repository
+  currently executes at HEAD.
+- [Roadmap](ROADMAP.md) owns the delta between those two.
 
-Model output can cross into tools, files, services, provider calls, memory,
-workflows, and operator decisions. Once that happens, generation quality is not
-enough.
+The [documentation index](docs/index.md) is the complete authority map.
+[Semantics](docs/reference/semantics.md),
+[state and transitions](docs/reference/state-transitions.md),
+[context](docs/reference/context.md), and
+[model/resource boundaries](docs/reference/boundaries.md) own the stable
+reference contracts.
 
-The runtime needs case binding, policy and control decisions, receipts,
-records, projection, and recovery material. It needs to know which subject or
-provider boundary was touched, what was allowed or blocked, what evidence was
-produced, and what state can safely be derived for future work.
+`work/`, `labs/`, `yai-dev`, and `refoundation/audits/` are evidence and
+history. They are not required to discover the current architecture and do not
+override the canon above.
 
-YAI exists to make that boundary explicit and inspectable on a local machine.
+## Current executable reality
 
-## What YAI Is
+The Rust `yai` CLI is currently the operational center. It performs case and
+provider admission, calls an OpenAI-compatible provider over HTTP, appends
+interaction records, manages LMDB records and graph relations, builds DuckDB
+facts, renders derived views, and implements both a fixture-bound reviewed
+filesystem write and a separate direct write path.
 
-YAI treats work as bounded cases. A case is the operational frame that gives
-subjects, providers, attempted operations, policy decisions, receipts, records,
-projections, and memory a shared context.
+The C `yaid` process supplies Unix-socket status/lifecycle behavior, a
+restartable hot snapshot, and two prepared fixture loops. The C control,
+carrier, process, graph, memory, reconcile, index, observation, and Rust bridge
+families are component-tested or scaffolded but are not general product paths
+through `yaid`.
 
-Subjects and providers are things inside or around a case: files, services,
-repositories, operators, tools, models, processes, provider engines, or
-external systems. Providers participate at a boundary; they do not become
-authority over the case.
+Five current vertical families have executable evidence:
 
-An attempted operation is evaluated through control material: policy gates,
-decisions, obligations, and effect or observation boundaries. The result should
-leave a receipt and durable record.
+1. case-bound invocation of an external/local model provider;
+2. a fixed operator review and filesystem-effect fixture;
+3. JSONL journal validation and replay into LMDB;
+4. graph relation materialization, rebuild, and query;
+5. derived DuckDB fact extraction and reporting for eight populated families.
 
-Projection and memory are derived from operational residue. They are controlled
-views over case state, not substitutes for the records and receipts that
-explain what happened.
+Important limitations remain:
 
-## Design Constraints
+- JSONL history and LMDB current state can diverge and are not one atomic
+  authority.
+- The reviewed filesystem write happens before its result records are
+  persisted; ambiguous crash outcomes are not reconciled.
+- Direct `carrier fs-write` bypasses the review/control path.
+- Provider output is stored as an `EffectReceipt` even though it is a
+  `ProviderResult`, not proof of a YAI resource effect.
+- Domain semantics are widely encoded in free-text `summary key:value` tokens.
+- `ContextFrame`, `ContextDelta`, formal residency, provider continuation, and
+  KV continuation are not implemented contracts.
+- Most live domain behavior is concentrated in
+  `cmd/yai/src/main.rs`; many C noun modules have no normal executable caller.
 
-YAI is built around a few constraints:
+See [Architecture](docs/architecture.md) for the evidence-backed topology and
+[Roadmap](ROADMAP.md) for the implementation sequence.
 
-- The model is not the system boundary; the case is the operational boundary.
-- Model and provider output is candidate material, not authority.
-- Effects need receipts, not only logs.
-- Records are durable operational material, not chat history.
-- Projections and memory are derived from residue, not free text alone.
-- Provider engines remain separate and may be local, remote, custom, or mocked.
-- Enforcement strength depends on the boundary YAI owns, interposes, or
-  observes.
+## Core boundaries
 
-## What YAI Is Not
+- A `Case` owns durable identity and lifecycle. `CaseState` is a materialized
+  consequence of committed transitions, not a mutable Case object.
+- `Scope` is the immutable effective boundary of one transition. It is not a
+  daemon, store, world, or owner.
+- `Space` and runtime-owning `Agent` are rejected from the canonical ontology
+  until their documented falsifiers are met.
+- A model or provider produces non-authoritative material. YAI may invoke a
+  provider, but it does not host or own model execution.
+- Projection, residency, ContextFrame, rendered bytes, tokens, and provider KV
+  state have distinct identities and authority.
+- Graph, index, memory, analytics, hot state, and participant views are derived
+  or cached. They are not canonical history.
+- An external effect requires durable preparation, bounded execution,
+  observation, and finalization. Missing acknowledgement is not proof that no
+  effect occurred.
 
-YAI is not:
+## Build and inspect
 
-- an inference engine
-- a model provider
-- a chatbot framework
-- a generic agent framework
-- a workflow builder
-- a cloud platform
-- a TUI or client application
-- a generic policy engine
-- a generic audit logger
-
-Inference engines and model servers remain external providers. Systems such as
-`llama.cpp`, Ollama, vLLM, MLX, custom servers, or remote APIs may be used
-around a YAI case, but this README does not claim tested support for each
-provider.
-
-## Operational Model
-
-When a model, provider, tool, operator, script, or system attempts work inside
-a case, YAI tries to turn that activity into inspectable operational material:
-
-```text
-input/proposal -> case binding -> subject/provider boundary -> control decision -> effect/observation -> receipt -> record -> projection/memory
-```
-
-- `input/proposal`: candidate material from a model, provider, operator, tool,
-  script, or system.
-- `case binding`: assigns the activity to a bounded operational context.
-- `subject/provider boundary`: identifies what entity or external boundary is
-  involved.
-- `control decision`: allows, blocks, constrains, or attaches obligations.
-- `effect/observation`: executes, imports, observes, calls, reads, writes, or
-  blocks at a boundary.
-- `receipt`: structured evidence of the result.
-- `record`: durable material for reconstruction and inspection.
-- `projection/memory`: controlled views and derived operational memory for
-  future work.
-
-## Current Validation
-
-Repository-level entrypoints:
+From the repository root:
 
 ```sh
 make info
+make check-docs
 make check
 ```
 
-Deeper runtime and lab validation lives in the engineering and lab docs.
-The README is not the full command reference.
+`make check` builds and runs a broad historical smoke inventory as well as the
+current documentation checks. It does not turn component tests, fixtures, or
+named scaffolds into supported product capability. See the
+[quickstart](docs/quickstart.md) and [validation guide](docs/test-cases.md).
 
-Agent-facing ownership rules live in:
-
-```text
-work/archive/engineering-snapshots/file-header-standard.md
-work/agents/agent-operating-appendix.md
-```
-
-The current command surface is documented in
-[work/spines/command-surface.md](work/spines/command-surface.md).
-Treat that document as the current command reference until `docs/commands.md`
-is split out. Failures from unrelated dirty work should be reported, not
-hidden.
-
-## Current Implementation Surface
-
-This repository currently contains:
-
-- `cmd/` contains local binaries such as `yai` and `yaid`.
-- `system/` contains the C daemon, host-boundary, control, carrier, bridge, and
-  transitional shim surface.
-- `engine/` contains the Rust operational data engine being consolidated.
-- `include/` contains public and system ABI headers.
-- `tests/` contains smoke and validation tests.
-- Current command docs cover hot-state and record-store inspection.
-- LMDB record-store commands are manually validated through `yai store status`,
-  `yai store summary` and `yai store record get/list`.
-- Control/carrier substrate posture is inspectable through `yai carrier families`.
-- Some C data-plane paths remain transitional while Rust engine ownership is
-  consolidated.
-
-## Repository Layout
+## Repository map
 
 ```text
-include/    public and system ABI headers
-system/     C system boundary: daemon, host boundary, carriers, control, FFI bridges
-engine/     Rust operational data engine
-cmd/        local binaries: yai and yaid
-proto/      schemas, fixtures, and protocol material
-docs/       architecture, engineering notes, ADRs, legal notes
-tests/      smoke and validation tests
-tools/      checks and developer utilities
-vendor/     vendored support code
-examples/   examples when present
-packaging/  packaging material when present
+cmd/          current yai and yaid entrypoints
+engine/       Rust record/store/graph/derived algorithms
+system/       C daemon behavior and component-tested C implementations
+include/      broad C header surface; external consumers are not yet audited
+proto/        schemas and fixtures, many of them scaffold rather than wire ABI
+tests/        executable characterization and smoke evidence
+labs/         reproducible experiments and frozen run evidence
+work/         de-authorized project history, spines, waves, and discovery notes
+docs/         canonical documentation and explicitly labeled research
+tools/        build, layout, schema, and documentation validation
 ```
 
-The current source boundary is described in
-[work/spines/source-surface.md](work/spines/source-surface.md).
+Directory names do not establish semantic ownership. The next implementation
+refoundation must characterize behavior before moving or deleting source.
 
-## Documentation
+## Project posture
 
-- [Documentation index](docs/index.md)
-- [Technical brief](docs/technical-brief.md)
-- [Quickstart](docs/quickstart.md)
-- [Test cases](docs/test-cases.md)
-- [Provider boundary](docs/providers.md)
-- [Architecture summary](docs/architecture.md)
-- [Glossary](docs/glossary.md)
+YAI is source-available for technical evaluation and is not production-ready
+unless explicitly stated. Provider names in evidence or reference material are
+not a support matrix. YAI is not a model runtime, generic agent framework,
+workflow builder, cloud platform, or generic audit logger.
+
+- [License](LICENSE.md)
 - [Legal posture](docs/legal.md)
-- [Current engineering command surface](work/spines/command-surface.md)
-- [Current engineering source surface](work/spines/source-surface.md)
-- [Testing](work/spines/testing.md)
-- [Filesystem loop lab](labs/filesystem-loop/runbook.md)
-
-Engineering references may still include internal or historical material. The
-public documentation surface is being split into shorter focused pages.
-
-## License And Contributions
-
-YAI is source-available, not open source by default. Source access is for
-technical evaluation and review unless another file or component explicitly
-grants different rights.
-
-- [LICENSE.md](LICENSE.md)
-- [NOTICE.md](NOTICE.md)
-- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [SECURITY.md](SECURITY.md)
-- [docs/legal.md](docs/legal.md)
-
-Technical feedback is welcome. Broad external contribution is not open yet
-unless maintainers explicitly scope the change.
-
-## Current Limitations
-
-- Early source-available repository.
-- Not production-ready unless explicitly stated.
-- Command and test surfaces are still stabilizing.
-- Public docs are being separated from older architecture, manual, and planning
-  material.
-- Provider/backend mentions should not be read as tested provider breadth.
-- Data-plane ownership is still being consolidated between transitional C paths
-  and the Rust engine.
-- Commercial or public launch use still requires legal review and explicit
-  permission under the source-available posture.
+- [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
+- [Notices](NOTICE.md)

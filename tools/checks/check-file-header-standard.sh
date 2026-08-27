@@ -51,16 +51,10 @@ require_phrase "work/agents/agent-operating-appendix.md" "A file is not ready fo
 require_phrase "work/waves/wave-template.md" "File/header impact"
 require_phrase "work/waves/operational-extraction-contract.md" "agent-operating-appendix.md"
 require_phrase "Makefile" "YAI - local build and validation surface"
-require_phrase "engine/README.md" "Rust operational data engine"
-require_phrase "system/README.md" "C host/system implementation"
+require_phrase "engine/README.md" "Authority: local navigation"
+require_phrase "system/README.md" "Authority: local navigation"
 require_phrase "tools/checks/README.md" "Guard scripts should carry a short"
 require_phrase "tests/smoke/README.md" "Smoke tests prove current behavior"
-
-for dir in system/store system/graph system/index system/memory system/projection system/reconcile; do
-  require_file "$dir/README.md"
-  require_phrase "$dir/README.md" "Transitional C shim"
-  require_phrase "$dir/README.md" "Future ownership: engine/yai-engine"
-done
 
 for script in "$ROOT"/tools/checks/*.sh; do
   if ! grep -Fq "YAI -" "$script"; then

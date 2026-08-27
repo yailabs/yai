@@ -1,164 +1,88 @@
-# Test Cases
+# Test and evidence cases
 
-This page is the public entrypoint for YAI validation paths that can be run or
-inspected without reading internal engineering history.
+Authority: current validation entrypoints and the limits of the claims they
+support. Tests prove executable behavior at the frozen repository state; they
+do not promote historical or experimental terminology into architecture.
 
-These test cases document existing validation surfaces. They are not
-benchmarks, provider compatibility claims, or production readiness claims.
+## Validation layers
 
-## Test Status Legend
+| Layer | Entry point | Authority |
+|---|---|---|
+| documentation | `make check-docs` | canonical files, authority shape, and local links |
+| repository layout | `make check-layout` | expected current source/build surface |
+| build | `make build` | current C/Rust sources compile and link |
+| smoke | `make smoke` | bounded component and CLI behaviors |
+| full | `make check` | layout, documentation, build, and smoke aggregation |
 
-- `current`: can be run from the current repository surface.
-- `manual`: requires local setup or a manually prepared runtime.
-- `experimental`: exists, but output or behavior may change.
-- `internal`: primarily maintainer or engineering validation.
-- `planned`: documented target, not a current runnable test.
+## Executable verticals
 
-## Test Case Matrix
+The strongest current validation groups are:
 
-| Test | Status | Requires model | Requires daemon | Manual setup | Primary commands | What it proves |
-|---|---|---:|---:|---:|---|---|
-| `00-repository-health` | current | no | no | no | `make info`, `make check` | Repository status, layout, docs, build, and smoke validation posture. |
-| `01-local-runtime-inspection` | manual | no | optional | yes | `yai doctor`, `yai hot status`, `yai store status`, `yai store summary` | Runtime path, hot-state, store, and local daemon inspection surfaces. |
-| `02-filesystem-loop-lab` | lab | no | yes | yes | filesystem loop lab runbook | Existing daemon-backed filesystem loop, journal, receipts, projection, and hot-state evidence. |
-| `03-model-behavior-lab` | experimental | yes | yes | yes | model-behavior lab artifact | Optional model/provider behavior evidence over a YAI case projection. |
+| Vertical | Representative tests | What it supports | What it does not support |
+|---|---|---|---|
+| provider prompt | `provider-runtime-surface`, `model-behavior-policy-facts` | OpenAI-compatible HTTP path, output recording, projection/facts summaries | provider-independent ContextFrame, typed ProviderResult, continuation/KV |
+| operator review/filesystem | `operator-review-loop`, `review-loop-test-matrix`, `receipt-decision-projection-facts` | hard-coded review decisions and fixture write path | durable PREPARE, general grants/carriers, atomic external effects |
+| journal replay/store | `journal-replay-*`, `record-store-*`, `replay-idempotency-schema-version` | JSONL replay, LMDB import/index behavior, compatibility schemas | one atomic canonical ledger/current-state authority |
+| graph | `graph-relation-write-path`, `runtimegraph-*` | relation materialization and causal query behavior | canonical graph truth or typed replacement of summary tokens |
+| facts/analytics | `duckdb-fact-plane`, `fact-reports-cli`, policy/carrier/divergence facts tests | rebuildable DuckDB extraction and reports | authoritative operational state |
 
-## Test 00 -- Repository Health
+Many lower-level C tests exercise control, carrier, observation, graph, memory,
+and reconciliation components that the product daemon does not generally
+reach. A passing component test is evidence for that component contract, not
+evidence for end-to-end product integration.
 
-Status: current
-
-Purpose:
-Verify that the repository can report its current surface and run the broad
-repository check path.
-
-Commands:
+## Minimal repository validation
 
 ```sh
 make info
+make check-docs
+make check-layout
+```
+
+For a full validation run:
+
+```sh
 make check
 ```
 
-Expected behavior:
+Read the first failing target directly. Do not mask failures caused by a dirty
+worktree, missing native dependency, or absent provider.
 
-- `make info` prints the current repository status and main paths.
-- `make check` runs layout checks, documentation checks, build steps, and smoke
-  tests.
+## Manual local inspection
 
-Failure interpretation:
-
-- A layout or documentation failure usually means the repository surface is out
-  of sync with guard expectations.
-- A build or smoke failure should be read from the failing target before
-  assuming the local runtime is broken.
-- Failures caused by unrelated dirty work should be reported, not hidden.
-
-Deeper reference:
-[tests/cases/00-repository-health](../tests/cases/00-repository-health/README.md).
-
-## Test 01 -- Local Runtime Inspection
-
-Status: manual
-
-Purpose:
-Verify that local runtime, hot-state, store, and daemon inspection surfaces are
-reachable without involving a model.
-
-Commands, after building or installing the local binaries as described by the
-current engineering command surface:
+With built binaries and an isolated `YAI_HOME`:
 
 ```sh
-yai doctor
-yai hot status
-yai store status
-yai store summary
+build/bin/yai doctor
+build/bin/yai hot status
+build/bin/yai store status
+build/bin/yai store summary
 ```
 
-Daemon status, info, loop, and shutdown commands are also part of the current
-engineering command surface when a local `yaid` process and socket are prepared.
+Detailed public test wrappers remain under `tests/cases/`:
 
-Expected behavior:
+- [repository health](../tests/cases/00-repository-health/README.md);
+- [local runtime inspection](../tests/cases/01-local-runtime-inspection/README.md);
+- [filesystem-loop manual evidence](../tests/cases/02-filesystem-loop-manual/README.md);
+- [model-behavior lab evidence](../tests/cases/03-model-behavior-lab/README.md).
 
-- `yai doctor` reports runtime paths and local surface status.
-- `yai hot status` reports whether a hot-state snapshot is active or
-  unavailable.
-- `yai store status` reports record-store backend readiness.
-- `yai store summary` reports aggregate record-store counts when the store is
-  ready, or status information when it is missing or uninitialized.
+The last two point into `labs/`. Labs are reproducible evidence packages, not
+current architecture or operational requirements.
 
-This test does not require a provider, model, API key, or model server.
+## Historical properties requiring future regression tests
 
-Deeper reference:
-[tests/cases/01-local-runtime-inspection](../tests/cases/01-local-runtime-inspection/README.md).
+The next source refoundation must convert valuable historical behavior into
+current specifications before deletion or consolidation. Priority properties
+are E05 transition closure/replay/causal reachability, E07 Case-scoped semantic
+workset/provider rendering, process signal observation, and physical carrier
+enforcement. Their commits and classifications are recorded in the
+documentation-refoundation evidence package; historical tests are not current
+product claims.
 
-## Test 02 -- Filesystem Loop Lab Validation
+## Non-claims
 
-Status: manual
-
-Purpose:
-Use the filesystem-loop lab to inspect a daemon-backed operational
-path with case material, policy material, filesystem receipts, projection, and
-hot-state evidence.
-
-Primary reference:
-[Filesystem loop lab validation](labs/filesystem-loop/runbook.md).
-
-Expected evidence includes:
-
-- daemon status and info responses;
-- a filesystem loop result with journal path, record count, receipt count, and
-  decision/receipt outcomes;
-- hot-state status showing active case/session/context material;
-- projection inspection showing freshness material for a model consumer.
-
-This test should remain manual until its local setup and output expectations are
-split into a smaller public wrapper.
-
-Deeper reference:
-[tests/cases/02-filesystem-loop-manual](../tests/cases/02-filesystem-loop-manual/README.md).
-
-## Test 03 -- Model Behavior Lab
-
-Status: experimental
-
-Purpose:
-Reference the optional model-behavior lab generated through a local provider
-and YAI case projection.
-
-Primary reference:
-[Model behavior lab artifacts](labs/model-behavior/README.md).
-
-This path is not part of the default public validation baseline. It requires
-external provider/model setup, and model output is non-deterministic. Captures
-may differ between runs.
-
-Deeper reference:
-[tests/cases/03-model-behavior-lab](../tests/cases/03-model-behavior-lab/README.md).
-
-## Internal And Smoke Tests
-
-The low-level smoke tests live under `tests/smoke/`. They remain the current
-implementation-level validation owner for many runtime, daemon, hot-state,
-projection, and record-store paths.
-
-Use [work/spines/testing.md](engineering/testing.md) and
-[work/spines/command-surface.md](engineering/command-surface.md) for the
-current deeper engineering view. Those references may still include internal or
-historical material.
-
-## What These Tests Do Not Prove
-
-- They do not prove production readiness.
-- They do not prove provider breadth.
-- They do not prove model quality.
-- They do not make model behavior deterministic.
-- They do not replace legal review for public or commercial launch use.
-- They do not imply that every older engineering command is a stable public
-  interface.
-
-## Deeper References
-
-- [Quickstart](quickstart.md)
-- [Testing doctrine](engineering/testing.md)
-- [Command surface](engineering/command-surface.md)
-- [Filesystem loop lab](labs/filesystem-loop/runbook.md)
-- [Model behavior lab artifacts](labs/model-behavior/README.md)
+These validations do not prove production readiness, provider breadth, model
+quality, deterministic model behavior, crash-safe external effects, or a
+complete constitutional vertical. Facts, graph, projection, hot-state, and
+provider outputs remain subject to the authority limits in
+[Executable architecture](architecture.md).

@@ -1,18 +1,15 @@
-# Engine
+# Engine source map
 
-Status: active implementation surface
-Owner: engine
-Purpose: Rust operational data engine and future durable data-plane owner.
-Not source of truth for: C ABI compatibility or daemon process lifecycle.
+Authority: local navigation for current Rust source only. See
+[`docs/architecture.md`](../docs/architecture.md) for reachability and state
+authority.
 
-`engine/` is the Rust operational data engine and future owner of durable
-data-plane logic.
+- `yai-engine` implements JSONL record/journal handling, LMDB records and graph
+  relations, and derived graph/projection/memory/query/reconcile helpers used
+  by the Rust CLI.
+- `yai-engine-ffi` is currently a marker crate. The product has no verified
+  C→Rust FFI call edge; the C bridge is smoke-test infrastructure.
 
-This root owns the Rust data spine workspace after the NEW.14 move:
-
-```text
-engine/yai-engine
-engine/yai-engine-ffi
-```
-
-NEW.15 moved the command to `cmd/yai` and removed `crates/`.
+The directory name does not make every included object canonical. Current
+journal and LMDB writes can diverge, and graph/index/memory/projection are not
+target historical authority.

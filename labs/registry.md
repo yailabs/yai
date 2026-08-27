@@ -1,8 +1,9 @@
 # Labs Registry
 
-Status: canonical root registry.
+Status: lab-local evidence registry; not architectural authority.
 
-This registry lists the canonical active lab/test surfaces.
+This registry lists the maintained lab/test evidence surfaces. “Canonical” in
+this file means reproducible within `labs/`, not canonical YAI semantics.
 
 Canonical numbering:
 

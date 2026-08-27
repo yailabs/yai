@@ -1,13 +1,14 @@
-# Commands
+# Command source map
 
-Status: active implementation surface  
-Owner: cmd  
-Purpose: Local binaries for operator control and daemon execution.  
-Not source of truth for: core data-plane semantics or public protocol contracts.
+Authority: local navigation for current source only. Product architecture and
+command status are owned by [`docs/architecture.md`](../docs/architecture.md).
 
-`cmd/yai` owns the technical control CLI.
+- `cmd/yai/` is the Rust operator CLI and current operational center. Its
+  `src/main.rs` contains command parsing, orchestration, provider HTTP,
+  filesystem paths, facts, and compatibility behavior.
+- `cmd/yaid/` is the C daemon entrypoint. The linked daemon exposes narrow Unix
+  socket status/info/shutdown and fixture-loop behavior; it does not reach all
+  components in the C archive.
 
-`cmd/yaid` owns the daemon executable entrypoint.
-
-Command output that becomes operator-facing must be reflected in
-`work/spines/command-surface.md` and `work/spines/testing.md`.
+This directory does not define canonical state, protocol, or future source
+ownership.

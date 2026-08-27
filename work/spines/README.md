@@ -1,11 +1,14 @@
-# Spines
+# De-authorized spines
 
-This directory contains active roadmap and command/testing surfaces.
+Authority: historical project-control evidence only.
 
-- `yai-spine.md`: active YAI spine.
-- `current-status.md`: current engineering status.
-- `data-plane.md`: data-plane roadmap.
-- `command-surface.md`: command surface.
-- `testing.md`: validation surface.
-- `source-surface.md`: source layout surface.
+All files in this directory—including `yai-spine.md`, `current-status.md`,
+command/testing/source surfaces, and NET/data spines—are frozen descriptions of
+prior waves. Their “active”, “current”, “canonical”, and “next” labels are
+historical assertions, not present authority.
 
+Use [`docs/architecture.md`](../../docs/architecture.md) for current behavior,
+[`docs/test-cases.md`](../../docs/test-cases.md) for validation, and
+[`ROADMAP.md`](../../ROADMAP.md) for future work. Preserve these files because
+they contain characterization detail and chronology; do not update them to
+govern new implementation.

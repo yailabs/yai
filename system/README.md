@@ -1,27 +1,17 @@
-# System
+# C system source map
 
-Status: active implementation surface  
-Owner: system  
-Purpose: C host/system implementation for ABI, daemon, control, carrier and current smoke paths.  
-Not source of truth for: long-term durable data-plane ownership.
+Authority: local navigation for current C implementation only. The executable
+topology is owned by [`docs/architecture.md`](../docs/architecture.md).
 
-`system/` contains C host/system implementation and transitional shims.
+`system/` implements the C ABI components declared under `include/yai/`:
+base, Case/subject compatibility types, control, effects/carriers,
+observations, records/journal, graph/index/memory/projection/reconciliation,
+hot state, daemon IPC, and a Rust bridge adapter.
 
-Active C implementation roots may own current behavior for base support, cases,
-subjects, operations, control, effects, hot state, daemon IPC and the Rust
-engine bridge.
+Most components are proven by C smoke tests. Normal `yaid` static linking pulls
+the narrow daemon/fixture dependency path, not the complete archive. The Rust
+CLI independently implements the current operational center. These facts make
+the C tree behavior to characterize, not the automatic target topology.
 
-Transitional C data shim roots keep current ABI/smoke paths working:
-
-```text
-system/store
-system/graph
-system/index
-system/memory
-system/projection
-system/reconcile
-```
-
-They are not the long-term owner of record/graph/fact/memory data-plane logic.
-Future durable data-plane ownership belongs under `engine/yai-engine` unless a
-future roadmap wave says otherwise.
+Subdirectory names are compatibility/source organization and carry no
+canonical semantic authority.

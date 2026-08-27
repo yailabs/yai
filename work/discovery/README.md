@@ -1,8 +1,8 @@
-# Discovery Work
+# Discovery evidence
 
-This directory holds operational discovery material. Discovery files map the
-current repository before implementation waves and are not curated architecture
-doctrine.
+Authority: frozen audit/discovery input only.
 
-Discovery waves may inspect `yai-dev` read-only and classify extraction
-candidates, but they must not mutate `yai-dev`.
+Discovery files map source and historical candidates at the time they were
+written. They may support characterization and migration, but do not own
+current architecture, canonical names, or the next implementation task. See
+[`docs/index.md`](../../docs/index.md) for current authority.
