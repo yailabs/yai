@@ -12,6 +12,7 @@ do not promote historical or experimental terminology into architecture.
 | repository layout | `make check-layout` | expected current source/build surface |
 | build | `make build` | current C/Rust sources compile and link |
 | smoke | `make smoke` | bounded component and CLI behaviors |
+| characterization | `make characterization` | selected product verticals plus known bypass behavior |
 | full | `make check` | layout, documentation, build, and smoke aggregation |
 
 ## Executable verticals
@@ -20,14 +21,15 @@ The strongest current validation groups are:
 
 | Vertical | Representative tests | What it supports | What it does not support |
 |---|---|---|---|
-| provider prompt | `provider-runtime-surface`, `model-behavior-policy-facts` | OpenAI-compatible HTTP path, output recording, projection/facts summaries | provider-independent ContextFrame, typed ProviderResult, continuation/KV |
+| provider prompt | `provider-model-vertical`, `model-behavior-policy-facts` | real OpenAI-compatible fixture invocation, output recording, projection/facts summaries | provider-independent ContextFrame, typed ProviderResult, continuation/KV |
 | operator review/filesystem | `operator-review-loop`, `review-loop-test-matrix`, `receipt-decision-projection-facts` | hard-coded review decisions and fixture write path | durable PREPARE, general grants/carriers, atomic external effects |
+| direct filesystem bypass | `direct-filesystem-bypass` | current bounded write/read and absence of durable admission/receipt residue | authorized or constitutionally valid effect execution |
 | journal replay/store | `journal-replay-*`, `record-store-*`, `replay-idempotency-schema-version` | JSONL replay, LMDB import/index behavior, compatibility schemas | one atomic canonical ledger/current-state authority |
 | graph | `graph-relation-write-path`, `runtimegraph-*` | relation materialization and causal query behavior | canonical graph truth or typed replacement of summary tokens |
 | facts/analytics | `duckdb-fact-plane`, `fact-reports-cli`, policy/carrier/divergence facts tests | rebuildable DuckDB extraction and reports | authoritative operational state |
 
-Many lower-level C tests exercise control, carrier, observation, graph, memory,
-and reconciliation components that the product daemon does not generally
+Lower-level C tests exercise retained control, carrier, observation, store,
+projection, and hot-state mechanics that the product daemon does not generally
 reach. A passing component test is evidence for that component contract, not
 evidence for end-to-end product integration.
 
@@ -43,6 +45,7 @@ For a full validation run:
 
 ```sh
 make check
+make characterization
 ```
 
 Read the first failing target directly. Do not mask failures caused by a dirty
@@ -53,10 +56,10 @@ worktree, missing native dependency, or absent provider.
 With built binaries and an isolated `YAI_HOME`:
 
 ```sh
-build/bin/yai doctor
-build/bin/yai hot status
-build/bin/yai store status
-build/bin/yai store summary
+target/debug/yai doctor
+target/debug/yai hot status
+target/debug/yai store status
+target/debug/yai store summary
 ```
 
 Detailed public test wrappers remain under `tests/cases/`:
@@ -71,13 +74,11 @@ current architecture or operational requirements.
 
 ## Historical properties requiring future regression tests
 
-The next source refoundation must convert valuable historical behavior into
-current specifications before deletion or consolidation. Priority properties
-are E05 transition closure/replay/causal reachability, E07 Case-scoped semantic
-workset/provider rendering, process signal observation, and physical carrier
-enforcement. Their commits and classifications are recorded in the
-documentation-refoundation evidence package; historical tests are not current
-product claims.
+E05 transition closure/replay/causal reachability, E07 Case-scoped semantic
+workset/provider rendering, and V11 process observation/effect linkage are
+classified in `refoundation/source-refoundation-1/legacy-property-recovery.tsv`.
+They constrain the next implementation task but remain historical
+specifications where no current product test demonstrates them.
 
 ## Non-claims
 

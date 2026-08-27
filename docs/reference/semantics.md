@@ -117,9 +117,8 @@ not.
 | ExecutionGrant | ADOPT | bounded, expiring, revocable carrier admission consumed exactly by ResourceBoundary |
 | Review | DEFER | optional participant-mediated Decision workflow/outcome; not an owner; allow/deny remain constitutional |
 
-Current `CapabilityLease` aliases ExecutionGrant only where an execution path
-actually consumes it. The existing CLI/C lease views are inspect-only, so they
-are not current grants.
+The former `CapabilityLease` CLI/C views were inspect-only and were removed;
+no current execution path consumes an ExecutionGrant or lease alias.
 
 ## Effects and evidence
 
@@ -208,10 +207,11 @@ retains that provenance without reclassifying it as a YAI transition.
 ## Current aliases and compatibility
 
 Current names such as `EffectReceipt` for model output,
-`ParticipantViewFrame` for a summary-token record, `CaseHandle`,
-`CapabilityLease`, and broad `RecordKind` values remain executable reality.
-They are not target definitions. Compatibility survives only for a named
-consumer, version policy, test, and removal/migration condition.
+`ParticipantViewFrame` for a summary-token record, and broad `RecordKind`
+values remain executable reality. The former `CaseHandle` and
+`CapabilityLease` views had no product consumer and no longer survive as
+compatibility types. Remaining compatibility requires a named consumer,
+version policy, test, and removal/migration condition.
 
 The exhaustive ownership, durability, producer/consumer, aliases, current
 reality, target gap, documentation owner, and confidence fields are retained in

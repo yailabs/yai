@@ -13,10 +13,7 @@
 //! Status:
 //!   active
 
-pub mod ffi;
 pub mod graph;
-pub mod hot;
-pub mod index;
 pub mod journal;
 pub mod memory;
 pub mod projection;
@@ -426,25 +423,5 @@ mod tests {
         assert_eq!(receipts.matched, 2);
         assert_eq!(case_records.matched, 2);
         assert!(!case_records.truncated);
-    }
-
-    #[test]
-    fn rust_engine_ffi_append_and_count() {
-        use std::ffi::CString;
-
-        let line = CString::new("{\"schema\":\"yai.store.record.v0\",\"record_id\":\"record:receipt\",\"case_ref\":\"case:ffi\",\"record_kind\":\"receipt\",\"subject_ref\":\"subject:repo-test\",\"attempt_id\":\"op:ffi\",\"decision_id\":\"decision:ffi\",\"receipt_id\":\"receipt:ffi\",\"summary\":\"receipt:blocked\"}").unwrap();
-        let kind = CString::new("receipt").unwrap();
-
-        unsafe {
-            let engine = crate::ffi::yai_engine_new();
-            assert!(!engine.is_null());
-            assert_eq!(
-                crate::ffi::yai_engine_append_record_json(engine, line.as_ptr()),
-                0
-            );
-            assert_eq!(crate::ffi::yai_engine_record_count(engine), 1);
-            assert_eq!(crate::ffi::yai_engine_count_kind(engine, kind.as_ptr()), 1);
-            crate::ffi::yai_engine_free(engine);
-        }
     }
 }

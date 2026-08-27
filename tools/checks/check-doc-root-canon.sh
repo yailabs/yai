@@ -74,7 +74,7 @@ grep -Fq '!= provider continuation / KV identity' docs/reference/context.md ||
   fail 'semantic/token/KV identity distinction missing'
 grep -Fq 'YAI semantic continuity' docs/reference/boundaries.md ||
   fail 'semantic/computational continuity boundary missing'
-grep -Fq 'JSONL history and LMDB current records can diverge' docs/architecture.md ||
+grep -Fq 'JSONL history and LMDB records can diverge' docs/architecture.md ||
   fail 'current state-authority contradiction missing'
 grep -Fq 'write precedes persistence' docs/architecture.md ||
   fail 'current external-effect contradiction missing'
@@ -83,8 +83,8 @@ grep -Fq 'Authority: historical evidence and work records only.' work/README.md 
 grep -Fq 'Authority: lab-local procedures, inputs, and captured results only.' labs/README.md ||
   fail 'labs/ is not scoped to evidence'
 
-if find include/yai system net -mindepth 2 -name README.md -print -quit | grep -q .; then
-  find include/yai system net -mindepth 2 -name README.md -print >&2
+if find include/yai system -mindepth 2 -name README.md -print -quit | grep -q .; then
+  find include/yai system -mindepth 2 -name README.md -print >&2
   fail 'module-per-noun README authority remains'
 fi
 

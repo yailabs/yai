@@ -1,0 +1,13 @@
+path	class	reachability	property
+tests/characterization/provider-model-vertical/test_provider_model_vertical.sh	product_characterization	product	case admission through real provider invocation and durable provider-result interpretation residue
+tests/characterization/direct-filesystem-bypass/test_direct_filesystem_bypass.sh	product_characterization	product	direct path-bounded filesystem write/read with no admission or durable receipt
+tests/smoke/operator-review-loop/test_operator_review_loop.sh	product_characterization	product_fixture	controlled filesystem approve deny defer and quarantine behavior
+tests/smoke/journal-replay-freeze/test_journal_replay_freeze.sh	product_characterization	product	journal validation replay metadata idempotency and diagnostics
+tests/smoke/graph-runtimegraph-freeze/test_graph_runtimegraph_freeze.sh	product_characterization	product	LMDB relation materialization RuntimeGraph rebuild and bounded query
+tests/smoke/fact-plane-freeze/test_fact_plane_freeze.sh	product_characterization	product	derived DuckDB extraction idempotency and reports
+tests/smoke/daemon-ipc/test_daemon_ipc.sh	product_characterization	product	yaid startup status info and shutdown
+tests/smoke/daemon-core-loop/test_daemon_core_loop.sh	fixture_characterization	product_fixture	yaid fixed minimum and filesystem loops plus hot-state reconstruction
+tests/smoke/filesystem-carrier/test_filesystem_carrier.c	component_characterization	test_only	C filesystem pre-state write post-state hash and receipt mechanics
+tests/smoke/process-carrier/test_process_carrier.c	component_characterization	test_only	C test-owned process observation signal and post-state mechanics
+tests/smoke/host-observation-probe/test_host_observation_probe.c	component_characterization	test_only	C process presence observation and mismatch detection
+refoundation/source-refoundation-1/legacy-property-recovery.tsv	historical_specification	historical_only	E05 E07 and V11 properties retained without copying legacy runtime source

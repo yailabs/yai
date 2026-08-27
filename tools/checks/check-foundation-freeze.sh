@@ -24,7 +24,7 @@ require_file() {
   fi
 }
 
-for dir in include system engine cmd/yai cmd/yaid proto tests docs docs/reference tools vendor work labs; do
+for dir in include system engine cmd/yai cmd/yaid tests docs docs/reference tools vendor work labs; do
   require_dir "$dir"
 done
 

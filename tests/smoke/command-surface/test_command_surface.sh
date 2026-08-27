@@ -40,9 +40,8 @@ require_line "$paths" "run=$YAI_HOME/run"
 require_line "$paths" "socket=$SOCKET"
 printf 'command_surface:install-paths ok\n'
 
-make -C "$ROOT" --no-print-directory check-pack-doctrine >/dev/null
 make -C "$ROOT" --no-print-directory check-foundation-freeze >/dev/null
-printf 'command_surface:doctrine-checks ok\n'
+printf 'command_surface:foundation-check ok\n'
 
 "$YAI_BIN" --version >/dev/null
 info=$("$YAI_BIN" info)

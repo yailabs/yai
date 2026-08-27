@@ -1,3 +1,0 @@
-# adversarial
-
-Adversarial test skeleton.

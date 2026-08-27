@@ -1,8 +1,0 @@
-[package]
-name = "yai-engine-ffi"
-version = "0.0.0-newcore"
-edition = "2021"
-
-[lib]
-name = "yai_core_engine_sys"
-path = "src/lib.rs"

@@ -70,7 +70,3 @@ version = "0.0.0-newcore"
 dependencies = [
  "lmdb",
 ]
-
-[[package]]
-name = "yai-engine-ffi"
-version = "0.0.0-newcore"

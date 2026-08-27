@@ -6,7 +6,7 @@ edition = "2021"
 [lib]
 name = "yai_core_engine"
 path = "src/lib.rs"
-crate-type = ["rlib", "staticlib"]
+crate-type = ["rlib"]
 
 [dependencies]
 lmdb = "0.8"

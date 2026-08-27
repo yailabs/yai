@@ -45,10 +45,10 @@ if [ -n "$bad_rs" ]; then
   exit 1
 fi
 
-bad_c=$(find "$ROOT" -name '*.c' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/system/*" ! -path "$ROOT/net/*/*.c" ! -path "$ROOT/cmd/yaid/*" ! -path "$ROOT/tests/*" ! -path "$ROOT/vendor/*" -print)
+bad_c=$(find "$ROOT" -name '*.c' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/system/*" ! -path "$ROOT/cmd/yaid/*" ! -path "$ROOT/tests/*" ! -path "$ROOT/vendor/*" -print)
 if [ -n "$bad_c" ]; then
   printf '%s\n' "$bad_c" >&2
-  printf 'C files are only allowed under system/, net/<area>/, cmd/yaid/, tests/ or vendor/\n' >&2
+  printf 'C files are only allowed under system/, cmd/yaid/, tests/ or vendor/\n' >&2
   exit 1
 fi
 

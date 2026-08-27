@@ -22,7 +22,7 @@ for dir in system/ingest include/yai/ingest; do
   fi
 done
 
-for file in system/README.md engine/README.md include/yai/README.md cmd/README.md net/README.md proto/README.md; do
+for file in system/README.md engine/README.md include/yai/README.md cmd/README.md; do
   if [ ! -f "$ROOT/$file" ]; then
     printf 'source map missing: %s\n' "$file" >&2
     exit 1
@@ -33,8 +33,8 @@ for file in system/README.md engine/README.md include/yai/README.md cmd/README.m
   fi
 done
 
-if find "$ROOT/include/yai" "$ROOT/system" "$ROOT/net" -mindepth 2 -name README.md -print -quit | grep -q .; then
-  find "$ROOT/include/yai" "$ROOT/system" "$ROOT/net" -mindepth 2 -name README.md -print >&2
+if find "$ROOT/include/yai" "$ROOT/system" -mindepth 2 -name README.md -print -quit | grep -q .; then
+  find "$ROOT/include/yai" "$ROOT/system" -mindepth 2 -name README.md -print >&2
   printf 'module-per-noun README found below a source map\n' >&2
   exit 1
 fi
