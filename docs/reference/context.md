@@ -233,6 +233,14 @@ context, lexical retrieval, and a logical base/delta estimate. It does not
 implement the identities or contracts above, does not use an authoritative
 tokenizer, and does not demonstrate KV continuation.
 
+The controlled filesystem vertical also renders two narrow typed views: an
+initial Case/resource/output-contract view and a post-Decision/effect
+consequence view. The second provider invocation is executable proof that an
+applied consequence or denial comes from typed CaseState/Transition refs, not
+the first ProviderResult. These views are purpose-specific serialization and
+do not yet have independent Projection or ContextFrame identity, Residency,
+general invalidation, or provider-specific render objects.
+
 Historical E07 workset/provider-frame code supports the distinction between a
 qualified semantic workset and provider rendering, but its directory/type
 system is evidence, not target structure. No available file or Git history

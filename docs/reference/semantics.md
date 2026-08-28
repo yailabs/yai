@@ -117,8 +117,9 @@ not.
 | ExecutionGrant | ADOPT | bounded, expiring, revocable carrier admission consumed exactly by ResourceBoundary |
 | Review | DEFER | optional participant-mediated Decision workflow/outcome; not an owner; allow/deny remain constitutional |
 
-The former `CapabilityLease` CLI/C views were inspect-only and were removed;
-no current execution path consumes an ExecutionGrant or lease alias.
+The former `CapabilityLease` CLI/C views were inspect-only and were removed.
+The Rust `filesystem.write` ResourceBoundary now consumes a typed
+ExecutionGrant; no generic lease/capability hierarchy or second carrier exists.
 
 ## Effects and evidence
 
@@ -140,9 +141,9 @@ and provenance. Observation is not authority and is not an EffectReceipt.
 
 EffectReceipt is the immutable carrier-attempt outcome. It owns Grant,
 Operation, Decision, idempotency, actual resource, timing/error, and pre/post
-Observation refs. It can report applied, already applied, no effect, failed, or
-indeterminate. It cannot authorize a later operation. No carrier attempt means
-no EffectReceipt.
+Observation refs. It can report applied, already applied, no effect,
+failed-no-effect, conflict, or indeterminate. It cannot authorize a later
+operation. No carrier attempt means no EffectReceipt.
 
 ### Evidence — COLLAPSE to role/relation
 

@@ -74,7 +74,8 @@ printf '%s\n' "$projection_output" | grep '"status":"ok"' >/dev/null
 printf '%s\n' "$filesystem_output" | grep '"status":"completed"' >/dev/null
 printf '%s\n' "$filesystem_output" | grep '"record_count":28' >/dev/null
 printf '%s\n' "$filesystem_output" | grep '"fs_write_blocked":"blocked"' >/dev/null
-printf '%s\n' "$filesystem_output" | grep '"fs_write_allowed":"executed"' >/dev/null
+printf '%s\n' "$filesystem_output" | grep '"fs_write_allowed":"fixture_no_effect"' >/dev/null
+printf '%s\n' "$filesystem_output" | grep '"decision_outcome":"fixture_descriptor_only"' >/dev/null
 printf '%s\n' "$filesystem_output" | grep '"case_session":"active"' >/dev/null
 printf '%s\n' "$filesystem_output" | grep '"case_world":"loaded"' >/dev/null
 printf '%s\n' "$filesystem_output" | grep '"case_context":"active"' >/dev/null

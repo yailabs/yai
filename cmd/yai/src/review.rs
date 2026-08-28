@@ -530,6 +530,7 @@ pub(super) fn control_show(args: &[String]) -> Result<(), String> {
     }
     let store = LmdbRecordStore::open(&status.path)?;
     let review = review_request_state(&store, review_id)?;
+    drop(store);
     println!("control_review:");
     println!("review_id: {}", review.review_id);
     println!("case_ref: {REVIEW_CASE_REF}");
@@ -651,18 +652,14 @@ pub(super) fn control_resolve(args: &[String], action: &str) -> Result<(), Strin
         ),
     ];
 
-    if action == "approve" {
+    let controlled_effect = if action == "approve" {
         let sandbox = review.sandbox_path.clone();
         let target = review.target_path.clone();
         if !path_inside_sandbox(&sandbox, &target) {
             return Err("review target path is outside sandbox".to_string());
         }
-        if let Some(parent) = Path::new(&target).parent() {
-            fs::create_dir_all(parent)
-                .map_err(|error| format!("failed to create {}: {error}", parent.display()))?;
-        }
-        fs::write(&target, "approved reviewed filesystem write\n")
-            .map_err(|error| format!("failed to write {target}: {error}"))?;
+        let controlled =
+            execute_approved_review_filesystem_write(REVIEW_CASE_REF, &review, &safe_reason)?;
         records.push(Record::from_parts(
             "rec:new12-fs-review-dispatch-approve",
             REVIEW_CASE_REF,
@@ -673,7 +670,10 @@ pub(super) fn control_resolve(args: &[String], action: &str) -> Result<(), Strin
             "",
             "dispatch:filesystem status:dispatched carrier_attempted:true execution_performed:true",
         ));
-    }
+        Some(controlled)
+    } else {
+        None
+    };
 
     records.push(Record::from_parts(
         format!("rec:new12-fs-review-receipt-{action}"),
@@ -689,11 +689,18 @@ pub(super) fn control_resolve(args: &[String], action: &str) -> Result<(), Strin
         ),
     ));
 
+    let store = LmdbRecordStore::open(&status.path)?;
     let state = store
         .get_case_state(REVIEW_CASE_REF)?
         .ok_or_else(|| format!("canonical CaseState missing for {REVIEW_CASE_REF}"))?;
-    let decision_ref = format!("decision:new12-fs-review-{action}");
-    let receipt_ref = format!("receipt:new12-fs-review-{receipt_status}");
+    let decision_ref = controlled_effect
+        .as_ref()
+        .map(|effect| effect.decision_id.clone())
+        .unwrap_or_else(|| format!("decision:new12-fs-review-{action}"));
+    let receipt_ref = controlled_effect
+        .as_ref()
+        .map(|effect| effect.receipt_id.clone())
+        .unwrap_or_else(|| format!("receipt:new12-fs-review-{receipt_status}"));
     let mut transition = PendingTransition::new(
         format!(
             "transition:review-resolution:{}:{}",
@@ -728,6 +735,13 @@ pub(super) fn control_resolve(args: &[String], action: &str) -> Result<(), Strin
     println!("carrier_attempted: {carrier_attempted}");
     println!("execution_performed: {execution_performed}");
     println!("receipt_status: {receipt_status}");
+    if let Some(effect) = controlled_effect {
+        println!("operation_id: {}", effect.operation_id);
+        println!("execution_grant_id: {}", effect.grant_id);
+        println!("effect_id: {}", effect.effect_id);
+        println!("effect_receipt_id: {}", effect.receipt_id);
+        println!("effect_chain: typed_grant_prepare_finalize");
+    }
     if action == "defer" {
         println!("pending_condition: operator_or_policy_followup");
     }

@@ -71,6 +71,8 @@ require_line "$approve" "decision: allow_with_constraints"
 require_line "$approve" "carrier_attempted: true"
 require_line "$approve" "execution_performed: true"
 require_line "$approve" "receipt_status: executed"
+require_line "$approve" "effect_chain: typed_grant_prepare_finalize"
+require_line "$approve" "execution_grant_id: grant:"
 test -f "$APPROVE_HOME/tmp/filesystem-review-loop/sandbox/reviewed-output.txt"
 printf "review:approve executed ok\n"
 

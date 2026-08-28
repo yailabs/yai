@@ -6,9 +6,9 @@ concept or stage does not automatically justify a source subsystem.
 
 ## Objective
 
-Establish one characterized vertical in which an admitted operation changes
-canonical operational state through explicit transition authority, while the
-same Case continues semantically across provider/runtime replacement.
+Preserve the completed controlled-effect authority while replacing legacy
+summary-derived model views with typed Projection/ContextFrame lineage that
+survives provider/runtime replacement.
 
 ## Completed boundary — executable reality convergence
 
@@ -63,33 +63,13 @@ materialization, but only the Transition ledger is historical authority. The
 old journal/record databases remain compatibility input/output and operator
 evidence, not a second mutable canon.
 
-## Stage 2 — admission and uncertain external effects
+## Completed boundary — first constitutional effect vertical
 
-The exact next task is `YAI.SOURCE.REFOUNDATION.3`: build one narrow typed
-admission/effect vertical on the new authority. It must make the selected
-product-reachable filesystem carrier consume an ExecutionGrant and then retire
-the direct filesystem bypass only after equivalent behavior and recovery are
-proved. Implement:
-
-- durable `PREPARED` intent before invocation;
-- expected Resource generation/pre-state and stable idempotency identity;
-- typed Attempt and EffectReceipt outcomes;
-- `FINALIZED` and first-class `INDETERMINATE` states;
-- restart enumeration and reconciliation;
-- explicit denial, failure, no-effect, and internal-only transitions;
-- one reachable carrier boundary shared by CLI/daemon entry paths.
-
-Success requires crash/lost-reply tests. A happy-path write is insufficient.
-The characterized C observation/write mechanics may be reused only after the
-property is assigned to the surviving product resource boundary.
-
-## Stage 3 — first constitutional model-to-effect vertical
-
-Deliver one narrow end-to-end Case path:
+`YAI.SOURCE.REFOUNDATION.3` implemented one narrow end-to-end Case path:
 
 ```text
 qualified CaseState
-→ Projection + provider-independent ContextFrame
+→ bounded controlled-effect projection
 → provider Invocation + typed ProviderResult
 → interpreted OperationCandidate
 → Decision + ExecutionGrant
@@ -98,22 +78,44 @@ qualified CaseState
 → rebuilt next Projection
 ```
 
-Required proofs include denial, provider failure, crash between PREPARE and
-FINALIZE, ambiguous effect reconciliation, replay equivalence, provider
-replacement with the same semantic Case, and loss of provider continuation
-without loss of correctness.
+The provider result remains raw candidate material until an exact
+`filesystem.write` proposal contract is normalized. ALLOW/DENY is deterministic
+and owned by a bound non-model policy participant. Only ALLOW produces an
+integrity-bound, generation-bound, one-time Grant. The Rust carrier requires a
+materialized durable PREPARE, performs real pre/post observation and atomic
+replacement, and finalizes only established outcomes.
 
-## Stage 4 — derived state and context efficiency
+Crash injection now covers after Grant/before PREPARE, after PREPARE/before
+effect, after visible effect/before observation, and after receipt construction/
+before FINALIZE. Explicit restart reconciliation concludes effect observed, no
+effect observed, conflict, or still indeterminate from real state. Duplicate
+reconciliation does not duplicate the semantic effect. The direct Rust write
+command is removed, review approval uses the same carrier, and the C daemon
+filesystem fixture no longer performs or claims an effect.
 
-Only after transition authority is stable:
+The deterministic HTTP vertical performs a required second provider call. Its
+view derives success or denial from typed Transition/CaseState consequence,
+never from the first model's assertion. This proves the first constitutional
+effect path, not a generalized carrier or final context architecture.
 
-- rebuild graph/index/memory/analytics from qualified canonical inputs;
-- implement Projection lineage and invalidation;
-- introduce Residency as a replaceable policy with measured semantic budgets;
-- introduce provider-independent ContextFrame and versioned rendering;
-- add optional ProviderContinuationReference validation;
-- evaluate ContextDelta only when a consumer proves equivalence to a full
-  destination-frame rebuild.
+## Stage 4 — typed projection and semantic continuity
+
+The exact next task is `YAI.SOURCE.REFOUNDATION.4 — Typed Projection and
+ContextFrame Continuity`. It should:
+
+- inventory every live model-view consumer and remove summary-token dependency
+  from the normal provider path;
+- implement typed Projection identity, qualified Case generation lineage, and
+  deterministic invalidation;
+- introduce the smallest provider-independent ContextFrame used by both the
+  ordinary prompt and controlled-effect second turn;
+- split YAI semantic frame construction from provider/model-specific rendering
+  and tokenization;
+- prove provider/model replacement preserves equivalent Case consequence;
+- treat optional continuation/KV references as opaque invalidatable runtime
+  optimization, never Case memory;
+- introduce Residency only if a measured consumer requires an independent
+  decision, and continue to defer ContextDelta unless equivalence is proved.
 
 The context-residency lab is research evidence, not implementation authority.
 Token/KV optimization cannot become Case memory.
@@ -127,9 +129,9 @@ prerequisites exist.
 
 ## Exit criteria for the next source task
 
-`YAI.SOURCE.REFOUNDATION.3` is complete only when one real filesystem path has
-typed Operation/Decision/ExecutionGrant admission, durable PREPARE before the
-carrier boundary, exact Observation/EffectReceipt closure, FINALIZED and
-INDETERMINATE outcomes, restart reconciliation, and replay-equivalent
-CaseState—without making a provider result or external acknowledgement
-authoritative by itself.
+`YAI.SOURCE.REFOUNDATION.4` is complete only when the normal prompt path and
+controlled-effect consequence path consume the same typed, provider-independent
+frame contract; Projection identity and invalidation no longer depend on
+summary parsing; replacing the provider/model or losing continuation changes
+only rendering/performance, not reconstructed Case meaning; and KV/token
+identity is absent from canonical Transition/CaseState.

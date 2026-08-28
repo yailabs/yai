@@ -1608,6 +1608,40 @@ struct ProviderInvocationRefs {
     invocation_id: String,
 }
 
+/// Result of one provider invocation made through the real case/provider
+/// boundary for a controlled effect turn. The raw output remains
+/// non-authoritative candidate material until normalization succeeds.
+pub(super) struct ControlledProviderResult {
+    pub invocation_id: String,
+    pub result_id: String,
+    pub raw_output: String,
+    pub model_id: String,
+}
+
+pub(super) fn invoke_controlled_provider(
+    args: &[String],
+    participant_view: &str,
+    prompt: &str,
+) -> Result<ControlledProviderResult, String> {
+    let session = prompt_session_from_args(args)?;
+    let invocation = append_model_prompt_attempt(&session, prompt)?;
+    let output = provider_chat_completion(&session.provider, participant_view, prompt)?;
+    let result_id = append_model_output_receipt(
+        &session,
+        &invocation.attempt_id,
+        &invocation.invocation_id,
+        &output,
+    )?;
+    append_model_interpretation_record(&session, &invocation.attempt_id, &result_id, &output)?;
+    append_interaction_turn(&session, &invocation.attempt_id, prompt, &output)?;
+    Ok(ControlledProviderResult {
+        invocation_id: invocation.invocation_id,
+        result_id,
+        raw_output: output,
+        model_id: session.provider.model,
+    })
+}
+
 fn append_model_prompt_attempt(
     session: &PromptSession,
     prompt: &str,

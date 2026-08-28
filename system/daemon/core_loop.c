@@ -287,7 +287,6 @@ yai_status_t yai_daemon_run_filesystem_loop(const yai_daemon_ipc_request_t *requ
     char run_dir[256];
     char sandbox_dir[512];
     char read_path[1024];
-    char write_path[1024];
     FILE *file = 0;
     yai_journal_file_t journal_file;
     yai_case_ref_t case_ref;
@@ -321,19 +320,12 @@ yai_status_t yai_daemon_run_filesystem_loop(const yai_daemon_ipc_request_t *requ
     }
     (void)snprintf(sandbox_dir, sizeof(sandbox_dir), "%s/sandbox", run_dir);
     (void)snprintf(read_path, sizeof(read_path), "%s/input.txt", sandbox_dir);
-    (void)snprintf(write_path, sizeof(write_path), "%s/output.txt", sandbox_dir);
     (void)make_dir(sandbox_dir);
     file = fopen(read_path, "w");
     if (file != 0) {
         (void)fputs("new12 filesystem daemon input\n", file);
         (void)fclose(file);
     }
-    file = fopen(write_path, "w");
-    if (file != 0) {
-        (void)fputs("daemon allowed filesystem write\n", file);
-        (void)fclose(file);
-    }
-
     if (status != YAI_OK ||
         yai_case_ref_init(&case_ref,
                           request->case_ref[0] == '\0' ? "case:new12-filesystem" : request->case_ref,
@@ -405,14 +397,14 @@ yai_status_t yai_daemon_run_filesystem_loop(const yai_daemon_ipc_request_t *requ
         append_record(&journal_file, &case_ref, &terminal_subject_ref, YAI_RECORD_AUTHORITY_SCOPE, "rec:new12-fs-authority-scope-terminal", 0, 0, 0, "authority_scope:terminal subject:linenoise-terminal may:display_submit_input no:execution_authority") != YAI_OK ||
         append_record(&journal_file, &case_ref, &policy_subject_ref, YAI_RECORD_GRAPH_EDGE, "rec:new12-fs-policy-edge", 0, 0, 0, "edge:policy_applies_to_subject subjects:filesystem,model,terminal") != YAI_OK ||
         append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_ATTEMPT, "rec:new12-fs-read-attempt", "attempt:new12-fs-read", 0, 0, "op:fs.read path:sandbox/input.txt") != YAI_OK ||
-        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_FILESYSTEM_RECEIPT, "rec:new12-fs-read-receipt", "attempt:new12-fs-read", 0, "receipt:new12-fs-read", "fs:read status:observed sandbox:inside") != YAI_OK ||
+        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_FILESYSTEM_RECEIPT, "rec:new12-fs-read-receipt", "attempt:new12-fs-read", 0, "receipt:new12-fs-read", "fs:read status:observed sandbox:inside carrier_attempted:true execution_performed:true") != YAI_OK ||
         append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_ATTEMPT, "rec:new12-fs-block-attempt", "attempt:new12-fs-block", 0, 0, "op:fs.write mutative path:sandbox/blocked.txt") != YAI_OK ||
         append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_DECISION, "rec:new12-fs-block-decision", "attempt:new12-fs-block", "decision:new12-fs-block", 0, "decision:require_review rule:mutative_operation_requires_review") != YAI_OK ||
-        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_FILESYSTEM_RECEIPT, "rec:new12-fs-block-receipt", "attempt:new12-fs-block", "decision:new12-fs-block", "receipt:new12-fs-block", "fs:write status:blocked sandbox:inside") != YAI_OK ||
-        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_ATTEMPT, "rec:new12-fs-write-attempt", "attempt:new12-fs-write", 0, 0, "op:fs.write path:sandbox/output.txt") != YAI_OK ||
-        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_DECISION, "rec:new12-fs-write-decision", "attempt:new12-fs-write", "decision:new12-fs-write", 0, "decision:allow_with_constraints constraint:sandbox_only") != YAI_OK ||
-        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_FILESYSTEM_RECEIPT, "rec:new12-fs-write-receipt", "attempt:new12-fs-write", "decision:new12-fs-write", "receipt:new12-fs-write", "fs:write status:executed sandbox:inside") != YAI_OK ||
-        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_GRAPH_EDGE, "rec:new12-fs-edge", "attempt:new12-fs-write", "decision:new12-fs-write", "receipt:new12-fs-write", "edge:decision_controls_op edge:receipt_records_effect") != YAI_OK ||
+        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_FILESYSTEM_RECEIPT, "rec:new12-fs-block-receipt", "attempt:new12-fs-block", "decision:new12-fs-block", "receipt:new12-fs-block", "fs:write status:blocked sandbox:inside carrier_attempted:false execution_performed:false") != YAI_OK ||
+        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_ATTEMPT, "rec:new12-fs-write-attempt", "attempt:new12-fs-write", 0, 0, "fixture:fs.write_descriptor path:sandbox/output.txt effect:not_executed") != YAI_OK ||
+        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_DECISION, "rec:new12-fs-write-decision", "attempt:new12-fs-write", "decision:new12-fs-write", 0, "fixture_decision:allow_descriptor_only authority:not_execution_grant") != YAI_OK ||
+        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_FILESYSTEM_RECEIPT, "rec:new12-fs-write-receipt", "attempt:new12-fs-write", "decision:new12-fs-write", "receipt:new12-fs-write", "fixture_receipt status:not_executed no_resource_effect:true carrier_attempted:false execution_performed:false") != YAI_OK ||
+        append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_GRAPH_EDGE, "rec:new12-fs-edge", "attempt:new12-fs-write", "decision:new12-fs-write", "receipt:new12-fs-write", "edge:fixture_decision_links_descriptor edge:fixture_receipt_records_no_effect") != YAI_OK ||
         append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_MEMORY_CANDIDATE, "rec:new12-fs-memory", "attempt:new12-fs-block", "decision:new12-fs-block", "receipt:new12-fs-block", "memory:operational scope:case basis_records:22 basis_receipts:3 basis_edges:1 summary:filesystem write required review before sandbox execution") != YAI_OK ||
         append_record(&journal_file, &case_ref, &model_subject_ref, YAI_RECORD_PROJECTION_REQUEST, "rec:new12-fs-model-projection-request", 0, 0, 0, "request:model_context redaction:summary_only subject:llm-provider") != YAI_OK ||
         append_record(&journal_file, &case_ref, &subject_ref, YAI_RECORD_PROJECTION_RESULT, "rec:new12-fs-projection", 0, 0, 0, "consumer:operator kind:operator_summary redaction:none freshness:fresh source_records:25 source_receipts:3 source_memory:1") != YAI_OK ||
@@ -451,11 +443,11 @@ yai_status_t yai_daemon_run_filesystem_loop(const yai_daemon_ipc_request_t *requ
     response->ok = 1;
     copy_field(response->status, sizeof(response->status), "completed");
     copy_field(response->message, sizeof(response->message), "daemon filesystem loop completed");
-    copy_field(response->decision_outcome, sizeof(response->decision_outcome), "allow_with_constraints");
-    copy_field(response->receipt_status, sizeof(response->receipt_status), "executed");
+    copy_field(response->decision_outcome, sizeof(response->decision_outcome), "fixture_descriptor_only");
+    copy_field(response->receipt_status, sizeof(response->receipt_status), "fixture_no_effect");
     copy_field(response->fs_read, sizeof(response->fs_read), "observed");
     copy_field(response->fs_write_blocked, sizeof(response->fs_write_blocked), "blocked");
-    copy_field(response->fs_write_allowed, sizeof(response->fs_write_allowed), "executed");
+    copy_field(response->fs_write_allowed, sizeof(response->fs_write_allowed), "fixture_no_effect");
     copy_field(response->case_session, sizeof(response->case_session), "active");
     copy_field(response->case_world, sizeof(response->case_world), "loaded");
     copy_field(response->case_context,

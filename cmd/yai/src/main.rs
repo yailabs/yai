@@ -102,10 +102,10 @@ fn print_info() {
     println!("foundation_freeze: filesystem_runtime_layout");
     println!("hot_state: YAI_HOME/run/hot-state.json live cache v0");
     println!(
-        "canonical_state: LMDB yai.transition.v1 plus atomically materialized yai.case_state.v1"
+        "canonical_state: LMDB yai.transition.v2 plus atomically materialized yai.case_state.v2"
     );
     println!("legacy_record_store: YAI_HOME/store/lmdb yai.record.v1 compatibility plane");
-    println!("effect_paths: fixed reviewed filesystem write plus direct filesystem bypass");
+    println!("effect_paths: typed controlled filesystem.write plus characterized legacy paths");
     println!("provider-runtime: real case-bound OpenAI-compatible HTTP invocation with typed invocation/result lineage");
     println!("journal_inspection: file-based JSONL v0 compatibility input");
     println!("journal_replay: legacy LMDB compatibility materialization with schema/cursor/report metadata v0");
@@ -258,6 +258,10 @@ fn print_usage() {
     println!("       yai projection request --journal <path> --consumer <consumer> --kind <kind>");
     println!("       yai case enter --case <case_ref> --subject <subject_ref> [--consumer model] [--kind model_context] [--shell zsh]");
     println!("       yai case attach-provider --case <case_ref> --subject <subject_ref> --base-url <url> --model <model> [--api-key-env <env>] [--shell zsh]");
+    println!("       yai case attach-filesystem --case <case_ref> --attachment <id> --root <existing-dir> --allow-prefix <relative-dir> --policy-owner <participant> [--policy-id <id>] [--max-bytes <N>]");
+    println!("       yai effect filesystem-write --case <case_ref> --subject <provider-participant> --attachment <id> --prompt <text> --base-url <url> --model <model> [--failpoint <name>]");
+    println!("       yai effect reconcile --case <case_ref> [--effect <effect-id>] [--retry]");
+    println!("       yai effect inspect --case <case_ref> --effect <effect-id>");
     println!("       yai prompt [--once <text>] [--dry-run] [--language-mode auto|none] [--case <case_ref>] [--subject <subject_ref>]");
     println!("       yai prompt [--dry-run] [--language-mode auto|none] [--case <case_ref>] [--subject <subject_ref>] < prompt.txt");
     println!("       yai control summary --journal <path>");
@@ -315,7 +319,6 @@ fn print_usage() {
     println!("       yai observe process --pid <pid>");
     println!("       yai observe compare-process --pid <pid> --expected running|stopped");
     println!("       yai carrier fs-read --sandbox <sandbox> --path <path>");
-    println!("       yai carrier fs-write --sandbox <sandbox> --path <path> --content <text>");
 }
 
 fn parse_pid_arg(args: &[String]) -> Result<i32, String> {
@@ -1172,6 +1175,9 @@ use review::*;
 mod provider;
 use provider::*;
 
+mod controlled_effect;
+use controlled_effect::*;
+
 fn decision_outcome(summary: &str) -> String {
     parse_legacy_summary_fields(summary)
         .remove("decision")
@@ -1512,6 +1518,30 @@ fn main() {
                 std::process::exit(2);
             }
         }
+        Some("case") if args.get(1).map(String::as_str) == Some("attach-filesystem") => {
+            if let Err(error) = case_attach_filesystem(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("effect") if args.get(1).map(String::as_str) == Some("filesystem-write") => {
+            if let Err(error) = controlled_filesystem_write(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("effect") if args.get(1).map(String::as_str) == Some("reconcile") => {
+            if let Err(error) = controlled_effect_reconcile(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("effect") if args.get(1).map(String::as_str) == Some("inspect") => {
+            if let Err(error) = controlled_effect_inspect(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
         Some("prompt") => {
             if let Err(error) = prompt_repl(&args[1..]) {
                 eprintln!("{error}");
@@ -1796,12 +1826,6 @@ fn main() {
         }
         Some("carrier") if args.get(1).map(String::as_str) == Some("fs-read") => {
             if let Err(error) = carrier_fs_read(&args[2..]) {
-                eprintln!("{error}");
-                std::process::exit(2);
-            }
-        }
-        Some("carrier") if args.get(1).map(String::as_str) == Some("fs-write") => {
-            if let Err(error) = carrier_fs_write(&args[2..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }

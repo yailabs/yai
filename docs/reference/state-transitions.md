@@ -48,8 +48,8 @@ source material
 
 ```text
 PREPARE
-  atomically commit Operation + Decision + ExecutionGrant
-  + PREPARED Transition + pending CaseState
+  validate committed Operation + Decision + ExecutionGrant
+  → atomically commit PREPARED Transition + pending CaseState
 
 EFFECT
   resolve logical Resource Binding
@@ -142,8 +142,8 @@ scope mismatch, or unresolved resource fails closed before mutation.
 EffectReceipt exists only after a carrier attempt. It binds the Grant,
 Operation, Decision, actual resource, status, idempotency identity, timing/
 error, and pre/post Observation refs. Status is exact and versioned:
-`applied`, `already_applied`, `no_effect`, `failed`, or `indeterminate` are the
-minimum meanings.
+`applied`, `already_applied`, `no_effect`, `failed_no_effect`, `conflict`, or
+`indeterminate` are the minimum meanings.
 
 An applied claim requires adequate post-state evidence. A failed attempt may
 still have partial effect and therefore may be indeterminate. A Receipt cannot
@@ -217,18 +217,27 @@ admitted, attempted, observed, and indeterminate.
 
 ## Current implementation gap
 
-`yai.transition.v1` now provides immutable typed payloads, per-Case sequence,
+`yai.transition.v2` provides immutable typed payloads, per-Case sequence,
 mechanical closure checks, stale-generation rejection, and atomic LMDB append
-plus `yai.case_state.v1` reduction. CaseState rebuild/replay equivalence,
+plus `yai.case_state.v2` reduction. CaseState rebuild/replay equivalence,
 restart, rollback-before-commit, duplicate identity, derived failure isolation,
-and typed graph rebuild are executable invariants. Provider and fixture review
-paths are the first live consumers.
+and typed graph rebuild are executable invariants.
 
-The implemented payload set is intentionally smaller than this full contract:
-it has no normalized Operation, constitutional Decision/ExecutionGrant,
-Observation/EffectReceipt lifecycle, PREPARE/FINALIZE phase, indeterminate
-reconciliation, or context schema. The review filesystem mutation still occurs
-before its terminal Transition; direct filesystem bypass and receipt-shaped
-legacy exports remain. `yai.store.record.v0` and `yai.record.v1` are explicit
-compatibility input/output, not canonical history. See
+The first product effect contract is now implemented for `filesystem.write`.
+It has strict ProviderResult-candidate normalization, typed Operation,
+ALLOW/DENY Decision, one-time generation-bound ExecutionGrant, typed pre/post
+filesystem Observation, durable EffectPrepared, typed EffectReceipt,
+EffectFinalized/EffectIndeterminate/EffectReconciled, stable idempotency, and
+restart reconciliation. Review approval uses the same carrier with an explicit
+compatibility-review Operation origin. A deterministic real-HTTP fixture proves
+the second model turn sees committed observed consequence rather than its
+previous output. The direct write command is removed.
+
+The implementation remains narrower than the full contract: only one local
+filesystem carrier exists; recovery is an explicit per-Case command rather
+than an automatic scheduler; issued-but-never-prepared Grant cleanup is not
+modeled; expiry/revocation and general policy are absent; and the special
+effect view is not a general ContextFrame. Receipt-shaped legacy exports
+remain compatibility material. `yai.store.record.v0` and `yai.record.v1` are
+explicit compatibility input/output, not canonical history. See
 [Architecture](../architecture.md) and the [Roadmap](../../ROADMAP.md).

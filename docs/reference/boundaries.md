@@ -129,17 +129,37 @@ link either to a Decision or Transition; it does not collapse the two roles.
 
 ## Current implementation gap
 
-The Rust review path supports only one fixture-bound filesystem write. Its
-request/resolution state is now typed, but approval writes the file before the
-terminal Transition, has no durable PREPARE state, and retains receipt-shaped
-compatibility rows for non-executed outcomes. The direct `fs-write` command
-bypasses control. C control/carrier components are exercised by smoke tests but
-are not a general product-reachable carrier boundary.
+Rust now implements one product `filesystem.write` ResourceBoundary. A Case
+owns a logical attachment (identity, normalized allowed prefix, size bound,
+policy owner); a separately versioned local LMDB binding maps it to one
+machine-local canonical root. Operations carry only attachment identity plus
+relative path. The carrier consumes the exact materialized prepared Grant,
+canonicalizes the target parent against symlink escape, performs same-directory
+atomic replacement with file and parent sync, and produces typed pre/post
+Observations and EffectReceipt.
 
-The current provider path has typed provider/model Invocation, ProviderResult,
-and non-authoritative interpretation lineage over raw OpenAI-compatible HTTP.
-It still has no ContextFrame, deadline/cancellation, TLS/streaming abstraction,
-runtime ExecutionEvidence, or continuation contract.
+PREPARE, FINALIZE, INDETERMINATE, and RECONCILE are canonical Transition kinds.
+Restart reconciliation compares the actual target with persisted expected
+pre-state and intended post-digest, and never infers no effect from missing
+acknowledgement. The fixed review approval path reuses this boundary with an
+explicit review-origin Operation. The former direct `fs-write` command is
+removed, and the old C daemon fixture no longer mutates `output.txt`. C
+control/carrier components remain characterized test-only mechanics.
+
+This is not a universal carrier layer: there is no carrier registry, process
+carrier migration, generic policy engine, distributed binding, automatic
+multi-Case recovery scheduler, or expiry/revocation service. Local absolute
+bindings are restart-durable but noncanonical and single-machine.
+Confinement currently validates the canonical parent immediately before the
+operation; it does not claim race-resistant `openat`/directory-handle security
+against a concurrently hostile namespace.
+
+The provider path has typed provider/model Invocation, ProviderResult, and
+non-authoritative interpretation lineage over raw OpenAI-compatible HTTP. The
+controlled effect path adds a narrow structured proposal contract and a second
+typed consequence view, but it still has no general ContextFrame,
+deadline/cancellation, TLS/streaming abstraction, runtime ExecutionEvidence,
+or continuation contract.
 
 These limitations are executable truth, not exceptions to the constitutional
 boundary. Their implementation delta is owned by [ROADMAP](../../ROADMAP.md).

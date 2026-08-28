@@ -78,8 +78,10 @@ grep -Fq 'commits ledger and materialization together.' docs/architecture.md ||
   fail 'current canonical state-authority implementation missing'
 grep -Fq 'Old `journal replay`' docs/architecture.md ||
   fail 'legacy journal compatibility boundary missing'
-grep -Fq 'writes the file before committing ReviewResolved.' docs/architecture.md ||
-  fail 'current external-effect contradiction missing'
+grep -Fq 'The direct `carrier fs-write` command and Rust primitive were removed' docs/architecture.md ||
+  fail 'controlled filesystem boundary implementation missing'
+grep -Fq 'only `filesystem.write`' docs/architecture.md ||
+  fail 'first carrier scope limitation missing'
 grep -Fq 'Authority: historical evidence and work records only.' work/README.md ||
   fail 'work/ is not explicitly de-authorized'
 grep -Fq 'Authority: lab-local procedures, inputs, and captured results only.' labs/README.md ||

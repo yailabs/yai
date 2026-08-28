@@ -53,9 +53,10 @@ target directory or installed by `make install-local`. Use `make
 print-install-paths` to inspect configured install locations.
 
 These status commands do not require a provider. Provider commands require an
-explicit endpoint/model and may make real network requests. Filesystem review
-and direct write commands may change local files; use only the repository's
-fixtures or a disposable sandbox and read [Test cases](test-cases.md) first.
+explicit endpoint/model and may make real network requests. Controlled
+`filesystem.write` and approved review commands perform real effects through
+the Grant/PREPARE carrier boundary; use only a disposable bound root and read
+[Test cases](test-cases.md) first. The former direct write command is removed.
 
 ## What to read next
 
@@ -69,9 +70,10 @@ fixtures or a disposable sandbox and read [Test cases](test-cases.md) first.
 
 ## Limitations
 
-YAI now has a typed LMDB Transition/CaseState transaction authority, but no
-general carrier admission boundary or provider-independent ContextFrame
-implementation. Legacy JSONL/record paths remain compatibility surfaces, and
-the controlled filesystem path is fixture-bound and still writes before its
-terminal transition is committed. Do not infer production safety from a
-passing smoke suite.
+YAI has typed LMDB Transition/CaseState authority and one controlled local
+`filesystem.write` vertical: durable PREPARE precedes mutation, and observed
+outcome is finalized or reconciled afterward. It has no general carrier or
+policy system, automatic recovery service, race-resistant hostile-namespace
+confinement, or provider-independent ContextFrame implementation. Legacy
+JSONL/record paths remain compatibility surfaces. Do not infer production
+safety from a passing smoke suite.

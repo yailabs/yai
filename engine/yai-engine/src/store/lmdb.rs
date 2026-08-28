@@ -17,11 +17,12 @@
 use crate::compatibility::{
     decode_legacy_record, inspect_legacy_jsonl, LegacyDecodeOutcome, LegacyRecord,
 };
+use crate::effect::{LocalFilesystemBinding, OperationOrigin, LOCAL_FILESYSTEM_BINDING_SCHEMA};
 use crate::journal::Journal;
 use crate::record::Record;
 use crate::transition::{
     replay_case, CaseState, PendingTransition, Transition, TransitionPayload, CASE_STATE_SCHEMA,
-    TRANSITION_SCHEMA,
+    CASE_STATE_SCHEMA_V1, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1,
 };
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
@@ -94,6 +95,7 @@ pub struct LmdbRecordStore {
     case_transition_sequence: Database,
     case_state: Database,
     legacy_compatibility_payloads: Database,
+    local_resource_bindings: Database,
     schema_meta: Database,
 }
 
@@ -274,6 +276,9 @@ impl LmdbRecordStore {
                 DatabaseFlags::empty(),
             )
             .map_err(|error| format!("failed to open legacy_compatibility_payloads: {error}"))?;
+        let local_resource_bindings = env
+            .create_db(Some("local_resource_bindings"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open local_resource_bindings: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -291,6 +296,7 @@ impl LmdbRecordStore {
             case_transition_sequence,
             case_state,
             legacy_compatibility_payloads,
+            local_resource_bindings,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -458,6 +464,53 @@ impl LmdbRecordStore {
             .begin_ro_txn()
             .map_err(|error| format!("failed to start CaseState read: {error}"))?;
         self.get_case_state_txn(&txn, case_id)
+    }
+
+    /// Persists a machine-local resource binding. This database is required
+    /// for carrier resolution after restart but is not canonical Case history.
+    pub fn put_local_filesystem_binding(
+        &self,
+        binding: &LocalFilesystemBinding,
+    ) -> Result<(), String> {
+        binding.validate()?;
+        let key = local_binding_key(&binding.case_id, &binding.attachment_id);
+        let value = serde_json::to_string(binding)
+            .map_err(|error| format!("local_binding_encode_failed: {error}"))?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start local binding write: {error}"))?;
+        txn.put(
+            self.local_resource_bindings,
+            &key,
+            &value,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to persist local resource binding: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit local resource binding: {error}"))
+    }
+
+    pub fn get_local_filesystem_binding(
+        &self,
+        case_id: &str,
+        attachment_id: &str,
+    ) -> Result<Option<LocalFilesystemBinding>, String> {
+        let key = local_binding_key(case_id, attachment_id);
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start local binding read: {error}"))?;
+        match txn.get(self.local_resource_bindings, &key) {
+            Ok(value) => {
+                let binding: LocalFilesystemBinding = serde_json::from_slice(value)
+                    .map_err(|error| format!("local_binding_decode_failed: {error}"))?;
+                binding.validate()?;
+                Ok(Some(binding))
+            }
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!("failed to read local resource binding: {error}")),
+        }
     }
 
     pub fn replay_case_state(&self, case_id: &str) -> Result<CaseState, String> {
@@ -916,24 +969,49 @@ impl LmdbRecordStore {
             .env
             .begin_rw_txn()
             .map_err(|error| format!("failed to start LMDB schema transaction: {error}"))?;
-        ensure_meta_compatible(
+        ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
+            Some(TRANSITION_SCHEMA_V1),
         )?;
-        ensure_meta_compatible(
+        ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
+            Some(CASE_STATE_SCHEMA_V1),
         )?;
-        ensure_meta_compatible(
+        ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:legacy_compatibility_schema",
             LEGACY_COMPATIBILITY_SCHEMA,
+            None,
         )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:local_filesystem_binding_schema",
+            LOCAL_FILESYSTEM_BINDING_SCHEMA,
+            None,
+        )?;
+        for (key, value) in [
+            ("meta:canonical_transition_schema", TRANSITION_SCHEMA),
+            ("meta:case_state_schema", CASE_STATE_SCHEMA),
+            (
+                "meta:legacy_compatibility_schema",
+                LEGACY_COMPATIBILITY_SCHEMA,
+            ),
+            (
+                "meta:local_filesystem_binding_schema",
+                LOCAL_FILESYSTEM_BINDING_SCHEMA,
+            ),
+        ] {
+            txn.put(self.schema_meta, &key, &value, WriteFlags::empty())
+                .map_err(|error| format!("failed to write persisted schema {key}: {error}"))?;
+        }
         txn.put(
             self.schema_meta,
             &"meta:schema",
@@ -1513,6 +1591,134 @@ fn derive_graph_relations_from_transition(
             "provider_result",
             result_id,
         ),
+        TransitionPayload::ResourceAttached { attachment } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "resource_attached_to_case",
+            "resource_attachment",
+            &attachment.attachment_id,
+            "case",
+            &transition.case_id,
+        ),
+        TransitionPayload::OperationNormalizationFailed {
+            provider_result_id, ..
+        } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "normalization_failure_from_provider_result",
+            "transition",
+            &transition.transition_id,
+            "provider_result",
+            provider_result_id,
+        ),
+        TransitionPayload::OperationRecorded { operation } => {
+            match &operation.origin {
+                OperationOrigin::ProviderResult {
+                    provider_result_id, ..
+                } => add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "operation_from_provider_result",
+                    "operation",
+                    &operation.operation_id,
+                    "provider_result",
+                    provider_result_id,
+                ),
+                OperationOrigin::CompatibilityReview { review_id, .. } => add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "operation_from_review",
+                    "operation",
+                    &operation.operation_id,
+                    "review_request",
+                    review_id,
+                ),
+            }
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "operation_targets_resource",
+                "operation",
+                &operation.operation_id,
+                "resource_attachment",
+                &operation.resource_attachment_id,
+            );
+        }
+        TransitionPayload::DecisionRecorded { decision } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "decision_controls_operation",
+            "decision",
+            &decision.decision_id,
+            "operation",
+            &decision.operation_id,
+        ),
+        TransitionPayload::ExecutionGrantIssued { grant } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "execution_grant_from_decision",
+            "execution_grant",
+            &grant.grant_id,
+            "decision",
+            &grant.decision_id,
+        ),
+        TransitionPayload::EffectPrepared { prepared } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "prepared_effect_consumes_grant",
+            "prepared_effect",
+            &prepared.effect_id,
+            "execution_grant",
+            &prepared.grant_id,
+        ),
+        TransitionPayload::EffectFinalized {
+            effect_id, receipt, ..
+        } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "effect_receipt_closes_prepared_effect",
+            "effect_receipt",
+            &receipt.receipt_id,
+            "prepared_effect",
+            effect_id,
+        ),
+        TransitionPayload::EffectIndeterminate { effect_id, .. } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "indeterminate_transition_tracks_effect",
+            "transition",
+            &transition.transition_id,
+            "prepared_effect",
+            effect_id,
+        ),
+        TransitionPayload::EffectReconciled {
+            effect_id, receipt, ..
+        } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "reconciliation_closes_or_tracks_effect",
+            receipt
+                .as_ref()
+                .map(|_| "effect_receipt")
+                .unwrap_or("transition"),
+            receipt
+                .as_ref()
+                .map(|value| value.receipt_id.as_str())
+                .unwrap_or(&transition.transition_id),
+            "prepared_effect",
+            effect_id,
+        ),
         TransitionPayload::ReviewRequested { review } => add_transition_relation(
             &mut relations,
             skipped,
@@ -1677,21 +1883,44 @@ fn derive_graph_relations(
         record.record_kind.as_str(),
         "receipt" | "effect_receipt" | "filesystem_receipt"
     ) {
-        let effect_ref = if attempt_id.is_empty() {
-            format!("effect:{}", record.record_id)
+        let explicitly_no_effect = legacy.compatibility_value("no_resource_effect") == Some("true")
+            || matches!(
+                legacy.compatibility_value("status"),
+                Some("blocked" | "deferred" | "quarantined" | "not_executed")
+            );
+        let (target_kind, target_ref) = if explicitly_no_effect {
+            (
+                "attempt",
+                if attempt_id.is_empty() {
+                    record.record_id.clone()
+                } else {
+                    attempt_id.clone()
+                },
+            )
         } else {
-            format!("effect:{attempt_id}")
+            (
+                "effect",
+                if attempt_id.is_empty() {
+                    format!("effect:{}", record.record_id)
+                } else {
+                    format!("effect:{attempt_id}")
+                },
+            )
         };
         add_relation(
             &mut relations,
             skipped,
             relation_from_record(
                 record,
-                "receipt_records_effect",
+                if explicitly_no_effect {
+                    "receipt_records_no_effect"
+                } else {
+                    "receipt_records_effect"
+                },
                 "receipt",
                 &receipt_id,
-                "effect",
-                &effect_ref,
+                target_kind,
+                &target_ref,
                 created_at_unix_ms,
             ),
         );
@@ -2002,14 +2231,16 @@ fn count_entries(txn: &RoTransaction<'_>, db: Database) -> Result<usize, String>
     Ok(cursor.iter().count())
 }
 
-fn ensure_meta_compatible<T: Transaction>(
+fn ensure_meta_upgradeable<T: Transaction>(
     txn: &T,
     database: Database,
     key: &str,
     expected: &str,
+    previous: Option<&str>,
 ) -> Result<(), String> {
     match txn.get(database, &key) {
         Ok(actual) if actual == expected.as_bytes() => Ok(()),
+        Ok(actual) if previous.is_some_and(|value| actual == value.as_bytes()) => Ok(()),
         Ok(actual) => Err(format!(
             "unsupported_persisted_schema: {key} expected={expected} actual={}",
             String::from_utf8_lossy(actual)
@@ -2033,6 +2264,16 @@ fn case_sequence_key(case_id: &str, sequence: u64) -> String {
 
 fn case_state_key(case_id: &str) -> String {
     format!("case_state:{case_id}")
+}
+
+fn local_binding_key(case_id: &str, attachment_id: &str) -> String {
+    format!(
+        "local_binding:{}:{}:{}:{}",
+        case_id.len(),
+        case_id,
+        attachment_id.len(),
+        attachment_id
+    )
 }
 
 fn json_string_field(content: &str, key: &str) -> Option<String> {
@@ -2089,10 +2330,18 @@ fn unix_time_ms() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::effect::{
+        build_effect_receipt, classify_reconciliation, decide_filesystem_write,
+        execute_filesystem_write, issue_execution_grant, normalize_filesystem_write_candidate,
+        observe_filesystem, prepare_effect, validate_finalized_effect_chain, CarrierFailpoint,
+        CarrierResult, EffectOutcome, LocalFilesystemBinding, NormalizationContext,
+        ReconciliationConclusion,
+    };
     use crate::record::{Record, RecordKind};
     use crate::transition::{
-        CaseLifecycle, InterpretationAuthority, PendingTransition, ReviewResolution, ReviewState,
-        TransitionPayload, TransitionSource,
+        CaseLifecycle, InterpretationAuthority, PendingTransition, ResourceAttachmentState,
+        ResourceKind, ReviewResolution, ReviewState, TransitionPayload, TransitionScope,
+        TransitionSource,
     };
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -2117,6 +2366,23 @@ mod tests {
             TransitionSource::component("canonical-test"),
             payload,
         )
+    }
+
+    fn commit_typed(
+        store: &LmdbRecordStore,
+        id: &str,
+        case_id: &str,
+        generation: u64,
+        payload: TransitionPayload,
+        scope: Option<TransitionScope>,
+        causal_refs: Vec<String>,
+    ) -> CanonicalCommit {
+        let mut value = pending(id, case_id, generation, payload);
+        value.scope = scope;
+        value.causal_refs = causal_refs;
+        store
+            .commit_transition(value)
+            .expect("commit typed transition")
     }
 
     #[test]
@@ -2262,6 +2528,377 @@ mod tests {
         );
         drop(store);
         fs::remove_dir_all(path).expect("remove LMDB test store");
+    }
+
+    #[test]
+    fn controlled_effect_is_atomic_replayable_and_reconciles_visible_crash() {
+        let path = temp_store_path("controlled-effect");
+        let resource_root = temp_store_path("controlled-effect-resource");
+        fs::create_dir_all(resource_root.join("allowed")).expect("create resource fixture");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
+        let case_id = "case:controlled";
+        let model = "participant:model";
+        let operator = "participant:operator";
+        commit_typed(
+            &store,
+            "transition:open",
+            case_id,
+            0,
+            TransitionPayload::CaseOpened {
+                lifecycle: CaseLifecycle::Open,
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:model",
+            case_id,
+            1,
+            TransitionPayload::ParticipantBound {
+                participant_id: model.to_string(),
+                role: "model_provider".to_string(),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:operator",
+            case_id,
+            2,
+            TransitionPayload::ParticipantBound {
+                participant_id: operator.to_string(),
+                role: "policy_owner".to_string(),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:provider",
+            case_id,
+            3,
+            TransitionPayload::ProviderAttached {
+                participant_id: model.to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                base_url: "http://127.0.0.1:1".to_string(),
+                model_id: "model:test".to_string(),
+                credential_ref: "env:TEST".to_string(),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:invocation",
+            case_id,
+            4,
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: "invocation:1".to_string(),
+                participant_id: model.to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:test".to_string(),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:result",
+            case_id,
+            5,
+            TransitionPayload::ProviderResultRecorded {
+                result_id: "provider-result:1".to_string(),
+                invocation_id: "invocation:1".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:test".to_string(),
+                output: "candidate".to_string(),
+            },
+            None,
+            vec!["invocation:1".to_string()],
+        );
+        let resource = ResourceAttachmentState {
+            attachment_id: "workspace".to_string(),
+            kind: ResourceKind::Filesystem,
+            allowed_write_prefix: "allowed".to_string(),
+            max_write_bytes: 1024,
+            policy_id: "policy:workspace".to_string(),
+            policy_owner_participant_id: operator.to_string(),
+        };
+        commit_typed(
+            &store,
+            "transition:resource",
+            case_id,
+            6,
+            TransitionPayload::ResourceAttached {
+                attachment: resource.clone(),
+            },
+            None,
+            vec![operator.to_string()],
+        );
+        let binding = LocalFilesystemBinding::new(case_id, "workspace", &resource_root)
+            .expect("create local binding");
+        store
+            .put_local_filesystem_binding(&binding)
+            .expect("persist local binding");
+
+        let commit_effect =
+            |store: &LmdbRecordStore,
+             invocation: &str,
+             result_id: &str,
+             path: &str,
+             content: &str,
+             first_generation: u64,
+             suffix: &str,
+             crash_after_visible: bool|
+             -> (crate::effect::PreparedEffect, crate::effect::CarrierResult) {
+                let raw = format!(
+                "{{\"schema\":\"yai.operation_proposal.filesystem_write.v1\",\"operation\":\"filesystem.write\",\"resource\":\"workspace\",\"path\":\"{path}\",\"content\":\"{content}\"}}"
+            );
+                let operation = normalize_filesystem_write_candidate(
+                    &raw,
+                    &NormalizationContext {
+                        case_id,
+                        participant_id: model,
+                        provider_result_id: result_id,
+                        provider_invocation_id: invocation,
+                        case_generation: first_generation,
+                        resource: &resource,
+                    },
+                )
+                .expect("normalize operation");
+                let operation_commit = commit_typed(
+                    store,
+                    &format!("transition:operation:{suffix}"),
+                    case_id,
+                    first_generation,
+                    TransitionPayload::OperationRecorded {
+                        operation: operation.clone(),
+                    },
+                    Some(operation.scope.clone()),
+                    vec![result_id.to_string(), invocation.to_string()],
+                );
+                let decision = decide_filesystem_write(
+                    &operation,
+                    &resource,
+                    operation_commit.state.generation,
+                );
+                assert_eq!(decision.outcome, crate::effect::DecisionOutcome::Allow);
+                let decision_commit = commit_typed(
+                    store,
+                    &format!("transition:decision:{suffix}"),
+                    case_id,
+                    operation_commit.state.generation,
+                    TransitionPayload::DecisionRecorded {
+                        decision: decision.clone(),
+                    },
+                    None,
+                    vec![operation.operation_id.clone()],
+                );
+                let grant =
+                    issue_execution_grant(&operation, &decision, decision_commit.state.generation)
+                        .expect("issue execution grant");
+                let grant_commit = commit_typed(
+                    store,
+                    &format!("transition:grant:{suffix}"),
+                    case_id,
+                    decision_commit.state.generation,
+                    TransitionPayload::ExecutionGrantIssued {
+                        grant: grant.clone(),
+                    },
+                    None,
+                    vec![operation.operation_id.clone(), decision.decision_id.clone()],
+                );
+                let pre = observe_filesystem(
+                    &binding,
+                    &resource,
+                    path,
+                    format!("observation:pre:{suffix}"),
+                );
+                let prepared = prepare_effect(&operation, &decision, &grant, pre)
+                    .expect("prepare controlled effect");
+                let prepared_commit = commit_typed(
+                    store,
+                    &format!("transition:prepare:{suffix}"),
+                    case_id,
+                    grant_commit.state.generation,
+                    TransitionPayload::EffectPrepared {
+                        prepared: prepared.clone(),
+                    },
+                    None,
+                    vec![
+                        operation.operation_id.clone(),
+                        decision.decision_id.clone(),
+                        grant.grant_id.clone(),
+                        prepared.expected_pre_observation.observation_id.clone(),
+                    ],
+                );
+                let result = execute_filesystem_write(
+                    &operation,
+                    &decision,
+                    &grant,
+                    &prepared,
+                    &prepared_commit.state,
+                    &binding,
+                    &resource,
+                    if crash_after_visible {
+                        CarrierFailpoint::CrashAfterVisibleEffect
+                    } else {
+                        CarrierFailpoint::None
+                    },
+                )
+                .expect("execute grant-validated carrier");
+                (prepared, result)
+            };
+
+        let (prepared, result) = commit_effect(
+            &store,
+            "invocation:1",
+            "provider-result:1",
+            "allowed/one.txt",
+            "one",
+            7,
+            "one",
+            false,
+        );
+        assert_eq!(result.outcome, EffectOutcome::Applied);
+        let receipt = build_effect_receipt(&prepared, &result);
+        let finalized = commit_typed(
+            &store,
+            "transition:finalize:one",
+            case_id,
+            11,
+            TransitionPayload::EffectFinalized {
+                effect_id: prepared.effect_id.clone(),
+                post_observation: result.post_observation.clone(),
+                receipt: receipt.clone(),
+            },
+            None,
+            vec![prepared.effect_id.clone(), receipt.receipt_id.clone()],
+        );
+        assert_eq!(
+            finalized.state.effects[0].outcome,
+            Some(EffectOutcome::Applied)
+        );
+        validate_finalized_effect_chain(
+            &store.list_case_transitions(case_id).expect("list chain"),
+            &prepared.effect_id,
+        )
+        .expect("closed effect chain");
+        assert_eq!(
+            fs::read_to_string(resource_root.join("allowed/one.txt")).unwrap(),
+            "one"
+        );
+
+        commit_typed(
+            &store,
+            "transition:invocation:two",
+            case_id,
+            12,
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: "invocation:2".to_string(),
+                participant_id: model.to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:test".to_string(),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:result:two",
+            case_id,
+            13,
+            TransitionPayload::ProviderResultRecorded {
+                result_id: "provider-result:2".to_string(),
+                invocation_id: "invocation:2".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:test".to_string(),
+                output: "candidate two".to_string(),
+            },
+            None,
+            vec!["invocation:2".to_string()],
+        );
+        let (crashed, crash_result) = commit_effect(
+            &store,
+            "invocation:2",
+            "provider-result:2",
+            "allowed/two.txt",
+            "two",
+            14,
+            "two",
+            true,
+        );
+        assert!(crash_result.crash_injected_after_effect);
+        assert_eq!(
+            store
+                .get_case_state(case_id)
+                .expect("state")
+                .expect("present")
+                .effects[1]
+                .status,
+            crate::transition::EffectLifecycle::Prepared
+        );
+        drop(store);
+
+        let reopened = LmdbRecordStore::open(&path).expect("restart after visible effect");
+        let state = reopened.get_case_state(case_id).unwrap().unwrap();
+        let binding = reopened
+            .get_local_filesystem_binding(case_id, "workspace")
+            .unwrap()
+            .expect("binding survives restart");
+        let observed = observe_filesystem(
+            &binding,
+            &resource,
+            "allowed/two.txt",
+            "observation:reconcile:two",
+        );
+        assert_eq!(
+            classify_reconciliation(&crashed, &observed),
+            ReconciliationConclusion::EffectObserved
+        );
+        let reconciliation_result = CarrierResult {
+            outcome: EffectOutcome::AlreadyApplied,
+            post_observation: observed.clone(),
+            carrier_attempted: false,
+            mutation_performed: false,
+            crash_injected_after_effect: false,
+            detail: "restart observed intended post-state".to_string(),
+        };
+        let reconciled_receipt = build_effect_receipt(&crashed, &reconciliation_result);
+        commit_typed(
+            &reopened,
+            "transition:reconcile:two",
+            case_id,
+            state.generation,
+            TransitionPayload::EffectReconciled {
+                effect_id: crashed.effect_id.clone(),
+                conclusion: ReconciliationConclusion::EffectObserved,
+                observation: observed,
+                receipt: Some(reconciled_receipt),
+            },
+            None,
+            vec![crashed.effect_id.clone()],
+        );
+        validate_finalized_effect_chain(
+            &reopened.list_case_transitions(case_id).expect("list chain"),
+            &crashed.effect_id,
+        )
+        .expect("reconciled chain closed");
+        assert!(reopened
+            .verify_case_state(case_id)
+            .expect("replay equivalence"));
+        let expected = reopened.get_case_state(case_id).unwrap().unwrap();
+        reopened.discard_case_state_for_test(case_id).unwrap();
+        assert_eq!(reopened.rebuild_case_state(case_id).unwrap(), expected);
+        let graph = reopened
+            .materialize_graph_relations_for_case(case_id)
+            .expect("derived graph from typed transitions");
+        assert!(graph.relations_written > 0);
+        drop(reopened);
+        fs::remove_dir_all(path).expect("remove LMDB test store");
+        fs::remove_dir_all(resource_root).expect("remove resource fixture");
     }
 
     #[test]
@@ -2590,6 +3227,42 @@ mod tests {
             .raw_json
             .contains("\"source\":{\"plane\":\"journal\""));
 
+        drop(store);
+        fs::remove_dir_all(path).expect("remove LMDB test store");
+    }
+
+    #[test]
+    fn legacy_no_effect_receipt_does_not_derive_a_successful_effect_relation() {
+        let path = temp_store_path("legacy-no-effect-graph");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
+        let receipt = Record::from_parts(
+            "rec:fixture-no-effect",
+            "case:fixture-no-effect",
+            RecordKind::FilesystemReceipt,
+            "subject:fixture",
+            "attempt:fixture-write",
+            "decision:fixture-descriptor",
+            "receipt:fixture-no-effect",
+            "fixture_receipt status:not_executed no_resource_effect:true carrier_attempted:false execution_performed:false",
+        );
+        store
+            .append_record(&receipt, "legacy-fixture-test")
+            .expect("append compatibility receipt");
+        store
+            .materialize_graph_relations_for_case("case:fixture-no-effect")
+            .expect("materialize compatibility graph");
+        let relations = store
+            .list_graph_relations_by_case("case:fixture-no-effect", usize::MAX)
+            .expect("list graph relations");
+        assert!(relations.relations.iter().any(|relation| {
+            relation.source_record_id == "rec:fixture-no-effect"
+                && relation.edge_kind == "receipt_records_no_effect"
+                && relation.to_kind == "attempt"
+        }));
+        assert!(!relations.relations.iter().any(|relation| {
+            relation.source_record_id == "rec:fixture-no-effect"
+                && relation.edge_kind == "receipt_records_effect"
+        }));
         drop(store);
         fs::remove_dir_all(path).expect("remove LMDB test store");
     }

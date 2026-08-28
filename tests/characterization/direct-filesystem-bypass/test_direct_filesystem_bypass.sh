@@ -12,21 +12,20 @@ outside="$test_root/outside.txt"
 runtime_home="$test_root/runtime-home"
 mkdir -p "$sandbox" "$runtime_home"
 
-write_output=$(YAI_HOME="$runtime_home" "$YAI_BIN" carrier fs-write \
-  --sandbox "$sandbox" --path "$target" --content current-bypass)
-printf '%s\n' "$write_output" | grep -F 'status: executed' >/dev/null
-[ "$(sed -n '1p' "$target")" = "current-bypass" ]
+if YAI_HOME="$runtime_home" "$YAI_BIN" carrier fs-write \
+  --sandbox "$sandbox" --path "$target" --content removed-bypass >/dev/null 2>&1; then
+  printf 'removed direct filesystem bypass remains product-reachable\n' >&2
+  exit 1
+fi
+[ ! -e "$target" ]
+
+printf '%s\n' observed >"$target"
 
 read_output=$(YAI_HOME="$runtime_home" "$YAI_BIN" carrier fs-read \
   --sandbox "$sandbox" --path "$target")
 printf '%s\n' "$read_output" | grep -F 'status: observed' >/dev/null
-printf '%s\n' "$read_output" | grep -F 'bytes: 14' >/dev/null
+printf '%s\n' "$read_output" | grep -F 'bytes: 9' >/dev/null
 
-if YAI_HOME="$runtime_home" "$YAI_BIN" carrier fs-write \
-  --sandbox "$sandbox" --path "$outside" --content rejected >/dev/null 2>&1; then
-  printf 'direct filesystem bypass accepted an out-of-sandbox path\n' >&2
-  exit 1
-fi
 [ ! -e "$outside" ]
 
 if find "$runtime_home" -type f -print -quit | grep -q .; then
@@ -34,5 +33,5 @@ if find "$runtime_home" -type f -print -quit | grep -q .; then
   exit 1
 fi
 
-printf 'direct_filesystem_bypass:current_write_read_behavior ok\n'
-printf 'direct_filesystem_bypass:no_admission_or_receipt_residue ok\n'
+printf 'direct_filesystem_bypass:product_command_removed ok\n'
+printf 'filesystem_read_compatibility:observed_only ok\n'

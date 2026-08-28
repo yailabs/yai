@@ -12,7 +12,7 @@ do not promote historical or experimental terminology into architecture.
 | repository layout | `make check-layout` | expected current source/build surface |
 | build | `make build` | current C/Rust sources compile and link |
 | smoke | `make smoke` | bounded component and CLI behaviors |
-| characterization | `make characterization` | selected product verticals plus known bypass behavior |
+| characterization | `make characterization` | selected product verticals plus direct-bypass removal regression |
 | full | `make check` | layout, documentation, build, and smoke aggregation |
 
 ## Executable verticals
@@ -22,8 +22,9 @@ The strongest current validation groups are:
 | Vertical | Representative tests | What it supports | What it does not support |
 |---|---|---|---|
 | provider prompt | `provider-model-vertical`, `model-behavior-policy-facts`, engine canonical-authority tests | real OpenAI-compatible fixture invocation, typed invocation/ProviderResult/interpretation transitions, legacy projection/facts summaries | provider-independent ContextFrame, typed terminal provider failures, continuation/KV |
-| operator review/filesystem | `operator-review-loop`, `review-loop-test-matrix`, `receipt-decision-projection-facts` | hard-coded review decisions and fixture write path | durable PREPARE, general grants/carriers, atomic external effects |
-| direct filesystem bypass | `direct-filesystem-bypass` | current bounded write/read and absence of durable admission/receipt residue | authorized or constitutionally valid effect execution |
+| controlled filesystem effect | `controlled-effect-vertical`, engine controlled-effect/replay tests | real provider candidate → typed Operation/Decision/Grant → durable PREPARE → observed atomic replacement → FINALIZE/RECONCILE → second typed provider view, including crashes and security failures | another carrier, general policy/review, automatic recovery service, final ContextFrame |
+| operator review/filesystem | `operator-review-loop`, `review-loop-test-matrix`, `receipt-decision-projection-facts` | fixed review compatibility branches; approval uses the same typed Grant/PREPARE/carrier/FINALIZE boundary | general review identities/resources or a policy state machine |
+| direct filesystem bypass | `direct-filesystem-bypass` | former write command is unreachable; retained compatibility command is observation-only | a second effect path or bypass authority |
 | journal replay/store | `journal-replay-*`, `record-store-*`, `replay-idempotency-schema-version`, engine canonical-authority tests | JSONL compatibility replay/import, atomic LMDB Transition/CaseState commit, restart, rollback, replay and rebuild | retire remaining legacy mutable record paths after their consumers migrate |
 | graph | `graph-relation-write-path`, `runtimegraph-*`, engine derived-failure tests | typed-transition and decoded-legacy relation materialization, deterministic rebuild and causal query behavior | migrate remaining legacy compatibility inputs; graph stays derived |
 | facts/analytics | `duckdb-fact-plane`, `fact-reports-cli`, policy/carrier/divergence facts tests | rebuildable DuckDB extraction and reports | authoritative operational state |
@@ -74,16 +75,18 @@ current architecture or operational requirements.
 
 ## Historical properties requiring future regression tests
 
-E05 transition closure/replay/causal reachability, E07 Case-scoped semantic
-workset/provider rendering, and V11 process observation/effect linkage are
-classified in `refoundation/source-refoundation-1/legacy-property-recovery.tsv`.
-They constrain the next implementation task but remain historical
-specifications where no current product test demonstrates them.
+E05 closure/replay and linked identity, E07 Case-scoped provider separation,
+and V11 resource attachment plus pre/effect/post lineage are now recovered for
+the controlled filesystem vertical. Their broader retention/process/provider
+properties remain historical specifications where no current product test
+demonstrates them; the recovery mapping lives in
+`refoundation/source-refoundation-3/historical-property-recovery.tsv`.
 
 ## Non-claims
 
 These validations do not prove production readiness, provider breadth, model
-quality, deterministic model behavior, crash-safe external effects, or a
-complete constitutional vertical. Facts, graph, projection, hot-state, and
-provider outputs remain subject to the authority limits in
+quality, deterministic real-model behavior, hostile concurrent namespace
+confinement, or a universal external-effect protocol beyond local
+`filesystem.write`. Facts, graph, projection, hot-state, and provider outputs
+remain subject to the authority limits in
 [Executable architecture](architecture.md).

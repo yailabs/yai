@@ -1,8 +1,8 @@
 //! Filesystem resource mechanics retained by the current Rust command path.
 //!
-//! This module owns the demonstrated lexical sandbox check and direct
-//! filesystem read/write mechanics. It does not provide constitutional
-//! admission, grants, receipts, or crash-safe effect finalization.
+//! This module owns the read-only compatibility inspection path. Product
+//! filesystem writes are owned exclusively by `controlled_effect` and its
+//! typed Grant/PREPARE/carrier/FINALIZE chain.
 
 use super::*;
 
@@ -38,24 +38,5 @@ pub(super) fn carrier_fs_read(args: &[String]) -> Result<(), String> {
     println!("status: observed");
     println!("bytes: {}", bytes.len());
     println!("hash: {}", fnv_hash(&bytes));
-    Ok(())
-}
-
-pub(super) fn carrier_fs_write(args: &[String]) -> Result<(), String> {
-    let sandbox = named_arg(args, "--sandbox")?;
-    let path = named_arg(args, "--path")?;
-    let content = named_arg(args, "--content")?;
-    if !path_inside_sandbox(&sandbox, &path) {
-        return Err("path is outside sandbox".to_string());
-    }
-    let mut file =
-        fs::File::create(&path).map_err(|error| format!("failed to open {path}: {error}"))?;
-    file.write_all(content.as_bytes())
-        .map_err(|error| format!("failed to write {path}: {error}"))?;
-    println!("carrier: filesystem");
-    println!("effect: fs.write");
-    println!("status: executed");
-    println!("bytes: {}", content.len());
-    println!("hash: {}", fnv_hash(content.as_bytes()));
     Ok(())
 }

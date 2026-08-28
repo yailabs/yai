@@ -5,10 +5,17 @@
 //! Provider output and review outcomes are represented as typed payloads; the
 //! optional summary is presentation material and is never read by the reducer.
 
+use crate::effect::{
+    Decision, DecisionOutcome, EffectOutcome, EffectReceipt, ExecutionGrant, FilesystemObservation,
+    NormalizationFailure, Operation, OperationOrigin, PreparedEffect, ReconciliationConclusion,
+    EFFECT_RECEIPT_SCHEMA, OBSERVATION_SCHEMA, PREPARED_EFFECT_SCHEMA,
+};
 use serde::{Deserialize, Serialize};
 
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v1";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v1";
+pub const TRANSITION_SCHEMA_V1: &str = "yai.transition.v1";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v2";
+pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v2";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Transition {
@@ -143,6 +150,43 @@ pub enum TransitionPayload {
         result_id: String,
         authority: InterpretationAuthority,
     },
+    ResourceAttached {
+        attachment: ResourceAttachmentState,
+    },
+    OperationNormalizationFailed {
+        provider_result_id: String,
+        failure: NormalizationFailure,
+    },
+    OperationRecorded {
+        operation: Operation,
+    },
+    DecisionRecorded {
+        decision: Decision,
+    },
+    ExecutionGrantIssued {
+        grant: ExecutionGrant,
+    },
+    EffectPrepared {
+        prepared: PreparedEffect,
+    },
+    EffectFinalized {
+        effect_id: String,
+        post_observation: FilesystemObservation,
+        receipt: EffectReceipt,
+    },
+    EffectIndeterminate {
+        effect_id: String,
+        reason: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        observation: Option<FilesystemObservation>,
+    },
+    EffectReconciled {
+        effect_id: String,
+        conclusion: ReconciliationConclusion,
+        observation: FilesystemObservation,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        receipt: Option<EffectReceipt>,
+    },
     ReviewRequested {
         review: ReviewState,
     },
@@ -168,6 +212,15 @@ impl TransitionPayload {
             Self::ProviderInvocationStarted { .. } => "provider_invocation_started",
             Self::ProviderResultRecorded { .. } => "provider_result_recorded",
             Self::ModelInterpretationRecorded { .. } => "model_interpretation_recorded",
+            Self::ResourceAttached { .. } => "resource_attached",
+            Self::OperationNormalizationFailed { .. } => "operation_normalization_failed",
+            Self::OperationRecorded { .. } => "operation_recorded",
+            Self::DecisionRecorded { .. } => "decision_recorded",
+            Self::ExecutionGrantIssued { .. } => "execution_grant_issued",
+            Self::EffectPrepared { .. } => "effect_prepared",
+            Self::EffectFinalized { .. } => "effect_finalized",
+            Self::EffectIndeterminate { .. } => "effect_indeterminate",
+            Self::EffectReconciled { .. } => "effect_reconciled",
             Self::ReviewRequested { .. } => "review_requested",
             Self::ReviewResolved { .. } => "review_resolved",
         }
@@ -215,6 +268,18 @@ pub struct CaseState {
     pub last_model_interpretation: Option<ModelInterpretationState>,
     #[serde(default)]
     pub reviews: Vec<ReviewState>,
+    #[serde(default)]
+    pub resources: Vec<ResourceAttachmentState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_normalization_failure: Option<NormalizationFailureState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_operation: Option<OperationState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_decision: Option<DecisionState>,
+    #[serde(default)]
+    pub grants: Vec<GrantState>,
+    #[serde(default)]
+    pub effects: Vec<EffectState>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -287,6 +352,101 @@ pub struct ReviewState {
     pub receipt_ref: Option<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResourceKind {
+    Filesystem,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ResourceAttachmentState {
+    pub attachment_id: String,
+    pub kind: ResourceKind,
+    pub allowed_write_prefix: String,
+    pub max_write_bytes: usize,
+    pub policy_id: String,
+    pub policy_owner_participant_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct NormalizationFailureState {
+    pub provider_result_id: String,
+    pub failure: NormalizationFailure,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct OperationState {
+    pub operation_id: String,
+    pub operation_digest: String,
+    pub participant_id: String,
+    pub resource_attachment_id: String,
+    pub relative_path: String,
+    pub intended_content_digest: String,
+    pub origin: OperationOrigin,
+    pub recorded_at_generation: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct DecisionState {
+    pub decision_id: String,
+    pub decision_digest: String,
+    pub operation_id: String,
+    pub operation_digest: String,
+    pub outcome: DecisionOutcome,
+    pub policy_id: String,
+    pub recorded_at_generation: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GrantLifecycle {
+    Issued,
+    Prepared,
+    Finalized,
+    Rejected,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct GrantState {
+    pub grant_id: String,
+    pub integrity_digest: String,
+    pub operation_id: String,
+    pub decision_id: String,
+    pub resource_attachment_id: String,
+    pub idempotency_key: String,
+    pub status: GrantLifecycle,
+    pub issued_at_generation: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EffectLifecycle {
+    Prepared,
+    Finalized,
+    Indeterminate,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct EffectState {
+    pub effect_id: String,
+    pub operation_id: String,
+    pub decision_id: String,
+    pub grant_id: String,
+    pub resource_attachment_id: String,
+    pub relative_path: String,
+    pub intended_content_digest: String,
+    pub pre_observation_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub post_observation_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<EffectOutcome>,
+    pub status: EffectLifecycle,
+    pub prepared_at_generation: u64,
+    pub updated_at_generation: u64,
+}
+
 impl CaseState {
     pub fn new(case_id: impl Into<String>, lifecycle: CaseLifecycle) -> Self {
         Self {
@@ -300,6 +460,12 @@ impl CaseState {
             last_provider_result: None,
             last_model_interpretation: None,
             reviews: Vec::new(),
+            resources: Vec::new(),
+            last_normalization_failure: None,
+            last_operation: None,
+            last_decision: None,
+            grants: Vec::new(),
+            effects: Vec::new(),
         }
     }
 
@@ -430,6 +596,328 @@ impl CaseState {
                     authority: authority.clone(),
                 });
             }
+            TransitionPayload::ResourceAttached { attachment } => {
+                attachment.validate()?;
+                if !next.participants.iter().any(|participant| {
+                    participant.participant_id == attachment.policy_owner_participant_id
+                }) {
+                    return Err("resource_policy_owner_not_bound".to_string());
+                }
+                if next
+                    .resources
+                    .iter()
+                    .any(|resource| resource.attachment_id == attachment.attachment_id)
+                {
+                    return Err("resource_attachment_already_exists".to_string());
+                }
+                next.resources.push(attachment.clone());
+            }
+            TransitionPayload::OperationNormalizationFailed {
+                provider_result_id,
+                failure,
+            } => {
+                let Some(result) = next.last_provider_result.as_ref() else {
+                    return Err("normalization_failure_without_provider_result".to_string());
+                };
+                if result.result_id != *provider_result_id {
+                    return Err("normalization_failure_result_mismatch".to_string());
+                }
+                next.last_normalization_failure = Some(NormalizationFailureState {
+                    provider_result_id: provider_result_id.clone(),
+                    failure: failure.clone(),
+                });
+            }
+            TransitionPayload::OperationRecorded { operation } => {
+                operation.validate()?;
+                if operation.case_id != next.case_id
+                    || operation.expected_case_generation != next.generation
+                {
+                    return Err("operation_case_or_generation_mismatch".to_string());
+                }
+                if !next
+                    .participants
+                    .iter()
+                    .any(|participant| participant.participant_id == operation.participant_id)
+                {
+                    return Err("operation_participant_not_bound".to_string());
+                }
+                if !next
+                    .resources
+                    .iter()
+                    .any(|resource| resource.attachment_id == operation.resource_attachment_id)
+                {
+                    return Err("operation_resource_not_attached".to_string());
+                }
+                match &operation.origin {
+                    OperationOrigin::ProviderResult {
+                        provider_result_id,
+                        provider_invocation_id,
+                    } => {
+                        let Some(result) = next.last_provider_result.as_ref() else {
+                            return Err("operation_without_provider_result".to_string());
+                        };
+                        if result.result_id != *provider_result_id
+                            || result.invocation_id != *provider_invocation_id
+                        {
+                            return Err("operation_provider_lineage_mismatch".to_string());
+                        }
+                    }
+                    OperationOrigin::CompatibilityReview {
+                        review_id,
+                        attempt_id,
+                    } => {
+                        if !next.reviews.iter().any(|review| {
+                            review.review_id == *review_id
+                                && review.attempt_id == *attempt_id
+                                && review.status == ReviewResolution::PendingOperator
+                        }) {
+                            return Err("operation_review_lineage_mismatch".to_string());
+                        }
+                    }
+                }
+                next.last_operation = Some(OperationState {
+                    operation_id: operation.operation_id.clone(),
+                    operation_digest: operation.operation_digest.clone(),
+                    participant_id: operation.participant_id.clone(),
+                    resource_attachment_id: operation.resource_attachment_id.clone(),
+                    relative_path: operation.filesystem_write.relative_path.clone(),
+                    intended_content_digest: operation.filesystem_write.content_digest.clone(),
+                    origin: operation.origin.clone(),
+                    recorded_at_generation: transition.sequence,
+                });
+                next.last_normalization_failure = None;
+            }
+            TransitionPayload::DecisionRecorded { decision } => {
+                decision.validate_integrity()?;
+                let Some(operation) = next.last_operation.as_ref() else {
+                    return Err("decision_without_operation".to_string());
+                };
+                if decision.operation_id != operation.operation_id
+                    || decision.operation_digest != operation.operation_digest
+                    || decision.decided_at_case_generation != next.generation
+                {
+                    return Err("decision_operation_or_generation_mismatch".to_string());
+                }
+                let resource = next
+                    .resources
+                    .iter()
+                    .find(|resource| resource.attachment_id == operation.resource_attachment_id)
+                    .ok_or_else(|| "decision_resource_not_attached".to_string())?;
+                if decision.source.policy_id != resource.policy_id
+                    || decision.source.owner_participant_id != resource.policy_owner_participant_id
+                    || decision.source.owner_participant_id == operation.participant_id
+                {
+                    return Err("decision_source_not_attachment_policy".to_string());
+                }
+                next.last_decision = Some(DecisionState {
+                    decision_id: decision.decision_id.clone(),
+                    decision_digest: decision.decision_digest.clone(),
+                    operation_id: decision.operation_id.clone(),
+                    operation_digest: decision.operation_digest.clone(),
+                    outcome: decision.outcome.clone(),
+                    policy_id: decision.source.policy_id.clone(),
+                    recorded_at_generation: transition.sequence,
+                });
+            }
+            TransitionPayload::ExecutionGrantIssued { grant } => {
+                grant.validate_integrity()?;
+                let Some(operation) = next.last_operation.as_ref() else {
+                    return Err("grant_without_operation".to_string());
+                };
+                let Some(decision) = next.last_decision.as_ref() else {
+                    return Err("grant_without_decision".to_string());
+                };
+                if decision.outcome != DecisionOutcome::Allow
+                    || grant.operation_id != operation.operation_id
+                    || grant.operation_digest != operation.operation_digest
+                    || grant.decision_id != decision.decision_id
+                    || grant.decision_digest != decision.decision_digest
+                    || grant.case_id != next.case_id
+                    || grant.participant_id != operation.participant_id
+                    || grant.resource_attachment_id != operation.resource_attachment_id
+                    || grant.expected_case_generation != next.generation
+                    || next
+                        .grants
+                        .iter()
+                        .any(|existing| existing.grant_id == grant.grant_id)
+                {
+                    return Err("grant_chain_or_generation_mismatch".to_string());
+                }
+                next.grants.push(GrantState {
+                    grant_id: grant.grant_id.clone(),
+                    integrity_digest: grant.integrity_digest.clone(),
+                    operation_id: grant.operation_id.clone(),
+                    decision_id: grant.decision_id.clone(),
+                    resource_attachment_id: grant.resource_attachment_id.clone(),
+                    idempotency_key: grant.idempotency_key.clone(),
+                    status: GrantLifecycle::Issued,
+                    issued_at_generation: transition.sequence,
+                });
+            }
+            TransitionPayload::EffectPrepared { prepared } => {
+                prepared.validate()?;
+                let Some(operation) = next.last_operation.as_ref() else {
+                    return Err("prepare_without_operation".to_string());
+                };
+                let Some(decision) = next.last_decision.as_ref() else {
+                    return Err("prepare_without_decision".to_string());
+                };
+                let grant_index = next
+                    .grants
+                    .iter()
+                    .position(|grant| grant.grant_id == prepared.grant_id)
+                    .ok_or_else(|| "prepare_without_grant".to_string())?;
+                let grant = &next.grants[grant_index];
+                if grant.status != GrantLifecycle::Issued
+                    || grant.issued_at_generation != next.generation
+                    || prepared.operation_id != operation.operation_id
+                    || prepared.decision_id != decision.decision_id
+                    || prepared.resource_attachment_id != operation.resource_attachment_id
+                    || prepared.relative_path != operation.relative_path
+                    || prepared.intended_content_digest != operation.intended_content_digest
+                    || prepared.idempotency_key != grant.idempotency_key
+                    || next.effects.iter().any(|effect| {
+                        effect.effect_id == prepared.effect_id
+                            || effect.grant_id == prepared.grant_id
+                            || effect.operation_id == prepared.operation_id
+                            || effect.pre_observation_id
+                                == prepared.expected_pre_observation.observation_id
+                    })
+                {
+                    return Err("prepare_chain_or_one_time_grant_mismatch".to_string());
+                }
+                next.grants[grant_index].status = GrantLifecycle::Prepared;
+                next.effects.push(EffectState {
+                    effect_id: prepared.effect_id.clone(),
+                    operation_id: prepared.operation_id.clone(),
+                    decision_id: prepared.decision_id.clone(),
+                    grant_id: prepared.grant_id.clone(),
+                    resource_attachment_id: prepared.resource_attachment_id.clone(),
+                    relative_path: prepared.relative_path.clone(),
+                    intended_content_digest: prepared.intended_content_digest.clone(),
+                    pre_observation_id: prepared.expected_pre_observation.observation_id.clone(),
+                    post_observation_id: None,
+                    receipt_id: None,
+                    outcome: None,
+                    status: EffectLifecycle::Prepared,
+                    prepared_at_generation: transition.sequence,
+                    updated_at_generation: transition.sequence,
+                });
+            }
+            TransitionPayload::EffectFinalized {
+                effect_id,
+                post_observation,
+                receipt,
+            } => {
+                validate_finalization(effect_id, post_observation, receipt)?;
+                let effect_index = next
+                    .effects
+                    .iter()
+                    .position(|effect| effect.effect_id == *effect_id)
+                    .ok_or_else(|| "finalize_without_prepared_effect".to_string())?;
+                let effect = &next.effects[effect_index];
+                if !matches!(
+                    effect.status,
+                    EffectLifecycle::Prepared | EffectLifecycle::Indeterminate
+                ) || receipt.operation_id != effect.operation_id
+                    || receipt.decision_id != effect.decision_id
+                    || receipt.grant_id != effect.grant_id
+                    || receipt.resource_attachment_id != effect.resource_attachment_id
+                    || receipt.relative_path != effect.relative_path
+                    || receipt.pre_observation_id != effect.pre_observation_id
+                    || receipt.post_observation_id != post_observation.observation_id
+                {
+                    return Err("finalize_chain_mismatch".to_string());
+                }
+                apply_finalized_effect(
+                    &mut next,
+                    effect_index,
+                    post_observation,
+                    receipt,
+                    transition.sequence,
+                )?;
+            }
+            TransitionPayload::EffectIndeterminate {
+                effect_id,
+                reason,
+                observation,
+            } => {
+                require_value("effect_indeterminate.reason", reason)?;
+                let effect = next
+                    .effects
+                    .iter_mut()
+                    .find(|effect| effect.effect_id == *effect_id)
+                    .ok_or_else(|| "indeterminate_without_prepared_effect".to_string())?;
+                if effect.status == EffectLifecycle::Finalized {
+                    return Err("finalized_effect_cannot_become_indeterminate".to_string());
+                }
+                if let Some(observation) = observation {
+                    observation.validate()?;
+                    if observation.resource_attachment_id != effect.resource_attachment_id
+                        || observation.relative_path != effect.relative_path
+                    {
+                        return Err("indeterminate_observation_target_mismatch".to_string());
+                    }
+                    effect.post_observation_id = Some(observation.observation_id.clone());
+                }
+                effect.status = EffectLifecycle::Indeterminate;
+                effect.outcome = Some(EffectOutcome::Indeterminate);
+                effect.updated_at_generation = transition.sequence;
+            }
+            TransitionPayload::EffectReconciled {
+                effect_id,
+                conclusion,
+                observation,
+                receipt,
+            } => {
+                observation.validate()?;
+                let effect_index = next
+                    .effects
+                    .iter()
+                    .position(|effect| effect.effect_id == *effect_id)
+                    .ok_or_else(|| "reconcile_without_prepared_effect".to_string())?;
+                let effect = &next.effects[effect_index];
+                if effect.status == EffectLifecycle::Finalized
+                    || observation.resource_attachment_id != effect.resource_attachment_id
+                    || observation.relative_path != effect.relative_path
+                {
+                    return Err("reconciliation_target_or_state_mismatch".to_string());
+                }
+                match conclusion {
+                    ReconciliationConclusion::EffectObserved
+                    | ReconciliationConclusion::NoEffectObserved => {
+                        let receipt = receipt.as_ref().ok_or_else(|| {
+                            "conclusive_reconciliation_requires_receipt".to_string()
+                        })?;
+                        validate_finalization(effect_id, observation, receipt)?;
+                        apply_finalized_effect(
+                            &mut next,
+                            effect_index,
+                            observation,
+                            receipt,
+                            transition.sequence,
+                        )?;
+                    }
+                    ReconciliationConclusion::Conflict
+                    | ReconciliationConclusion::StillIndeterminate => {
+                        if receipt.is_some() {
+                            return Err(
+                                "indeterminate_reconciliation_cannot_have_receipt".to_string()
+                            );
+                        }
+                        let effect = &mut next.effects[effect_index];
+                        effect.status = EffectLifecycle::Indeterminate;
+                        effect.outcome =
+                            Some(if *conclusion == ReconciliationConclusion::Conflict {
+                                EffectOutcome::Conflict
+                            } else {
+                                EffectOutcome::Indeterminate
+                            });
+                        effect.post_observation_id = Some(observation.observation_id.clone());
+                        effect.updated_at_generation = transition.sequence;
+                    }
+                }
+            }
             TransitionPayload::ReviewRequested { review } => {
                 if next
                     .reviews
@@ -476,9 +964,11 @@ impl CaseState {
     }
 
     pub fn from_json(value: &str) -> Result<Self, String> {
-        let state: Self = serde_json::from_str(value)
+        let mut state: Self = serde_json::from_str(value)
             .map_err(|error| format!("case_state_decode_failed: {error}"))?;
-        if state.schema != CASE_STATE_SCHEMA {
+        if state.schema == CASE_STATE_SCHEMA_V1 {
+            state.schema = CASE_STATE_SCHEMA.to_string();
+        } else if state.schema != CASE_STATE_SCHEMA {
             return Err(format!("unsupported_case_state_schema: {}", state.schema));
         }
         Ok(state)
@@ -487,8 +977,11 @@ impl CaseState {
 
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != TRANSITION_SCHEMA {
+        if self.schema != TRANSITION_SCHEMA && self.schema != TRANSITION_SCHEMA_V1 {
             return Err(format!("unsupported_transition_schema: {}", self.schema));
+        }
+        if self.schema == TRANSITION_SCHEMA_V1 && self.payload.is_wave3_kind() {
+            return Err("wave3_transition_kind_requires_yai_transition_v2".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -572,6 +1065,94 @@ impl Transition {
                 require_value("result_id", result_id)?;
                 require_causal_ref(&self.causal_refs, result_id, "provider_result")?;
             }
+            TransitionPayload::ResourceAttached { attachment } => {
+                attachment.validate()?;
+                require_causal_ref(
+                    &self.causal_refs,
+                    &attachment.policy_owner_participant_id,
+                    "resource_policy_owner",
+                )?;
+            }
+            TransitionPayload::OperationNormalizationFailed {
+                provider_result_id,
+                failure,
+            } => {
+                require_value("provider_result_id", provider_result_id)?;
+                require_value("normalization_failure.detail", &failure.detail)?;
+                require_causal_ref(&self.causal_refs, provider_result_id, "provider_result")?;
+            }
+            TransitionPayload::OperationRecorded { operation } => {
+                operation.validate()?;
+                if self.scope.as_ref() != Some(&operation.scope) {
+                    return Err("operation_transition_scope_mismatch".to_string());
+                }
+                for origin_ref in operation.origin.causal_refs() {
+                    require_causal_ref(&self.causal_refs, &origin_ref, "operation_origin")?;
+                }
+            }
+            TransitionPayload::DecisionRecorded { decision } => {
+                decision.validate_integrity()?;
+                require_causal_ref(&self.causal_refs, &decision.operation_id, "operation")?;
+            }
+            TransitionPayload::ExecutionGrantIssued { grant } => {
+                grant.validate_integrity()?;
+                require_causal_ref(&self.causal_refs, &grant.operation_id, "operation")?;
+                require_causal_ref(&self.causal_refs, &grant.decision_id, "decision")?;
+            }
+            TransitionPayload::EffectPrepared { prepared } => {
+                prepared.validate()?;
+                require_causal_ref(&self.causal_refs, &prepared.operation_id, "operation")?;
+                require_causal_ref(&self.causal_refs, &prepared.decision_id, "decision")?;
+                require_causal_ref(&self.causal_refs, &prepared.grant_id, "execution_grant")?;
+                require_causal_ref(
+                    &self.causal_refs,
+                    &prepared.expected_pre_observation.observation_id,
+                    "pre_observation",
+                )?;
+            }
+            TransitionPayload::EffectFinalized {
+                effect_id,
+                post_observation,
+                receipt,
+            } => {
+                validate_finalization(effect_id, post_observation, receipt)?;
+                require_causal_ref(&self.causal_refs, effect_id, "prepared_effect")?;
+                require_causal_ref(&self.causal_refs, &receipt.receipt_id, "effect_receipt")?;
+            }
+            TransitionPayload::EffectIndeterminate {
+                effect_id,
+                reason,
+                observation,
+            } => {
+                require_value("effect_id", effect_id)?;
+                require_value("indeterminate_reason", reason)?;
+                if let Some(observation) = observation {
+                    observation.validate()?;
+                }
+                require_causal_ref(&self.causal_refs, effect_id, "prepared_effect")?;
+            }
+            TransitionPayload::EffectReconciled {
+                effect_id,
+                conclusion,
+                observation,
+                receipt,
+            } => {
+                require_value("effect_id", effect_id)?;
+                observation.validate()?;
+                if matches!(
+                    conclusion,
+                    ReconciliationConclusion::EffectObserved
+                        | ReconciliationConclusion::NoEffectObserved
+                ) {
+                    let receipt = receipt
+                        .as_ref()
+                        .ok_or_else(|| "conclusive_reconciliation_requires_receipt".to_string())?;
+                    validate_finalization(effect_id, observation, receipt)?;
+                } else if receipt.is_some() {
+                    return Err("indeterminate_reconciliation_cannot_have_receipt".to_string());
+                }
+                require_causal_ref(&self.causal_refs, effect_id, "prepared_effect")?;
+            }
             TransitionPayload::ReviewRequested { review } => {
                 review.validate()?;
                 require_causal_ref(&self.causal_refs, &review.attempt_id, "review_attempt")?;
@@ -621,6 +1202,164 @@ impl ReviewState {
         require_value("target_path", &self.target_path)?;
         require_value("policy_reason", &self.policy_reason)
     }
+}
+
+impl TransitionPayload {
+    fn is_wave3_kind(&self) -> bool {
+        matches!(
+            self,
+            Self::ResourceAttached { .. }
+                | Self::OperationNormalizationFailed { .. }
+                | Self::OperationRecorded { .. }
+                | Self::DecisionRecorded { .. }
+                | Self::ExecutionGrantIssued { .. }
+                | Self::EffectPrepared { .. }
+                | Self::EffectFinalized { .. }
+                | Self::EffectIndeterminate { .. }
+                | Self::EffectReconciled { .. }
+        )
+    }
+}
+
+impl ResourceAttachmentState {
+    pub fn validate(&self) -> Result<(), String> {
+        require_value("attachment_id", &self.attachment_id)?;
+        require_value("allowed_write_prefix", &self.allowed_write_prefix)?;
+        require_value("policy_id", &self.policy_id)?;
+        require_value(
+            "policy_owner_participant_id",
+            &self.policy_owner_participant_id,
+        )?;
+        if crate::effect::normalize_write_prefix(&self.allowed_write_prefix)?
+            != self.allowed_write_prefix
+            || self.max_write_bytes == 0
+        {
+            return Err("invalid_resource_attachment_contract".to_string());
+        }
+        Ok(())
+    }
+}
+
+impl FilesystemObservation {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.schema != OBSERVATION_SCHEMA {
+            return Err("unsupported_filesystem_observation_schema".to_string());
+        }
+        require_value("observation_id", &self.observation_id)?;
+        require_value(
+            "observation.resource_attachment_id",
+            &self.resource_attachment_id,
+        )?;
+        require_value("observation.relative_path", &self.relative_path)?;
+        if crate::effect::normalize_relative_path(&self.relative_path)? != self.relative_path {
+            return Err("observation_path_not_normalized".to_string());
+        }
+        match self.state {
+            crate::effect::ResourceState::File if self.content_digest.is_none() => {
+                Err("file_observation_requires_digest".to_string())
+            }
+            crate::effect::ResourceState::Unavailable if self.error.is_none() => {
+                Err("unavailable_observation_requires_error".to_string())
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
+impl PreparedEffect {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.schema != PREPARED_EFFECT_SCHEMA {
+            return Err("unsupported_prepared_effect_schema".to_string());
+        }
+        for (field, value) in [
+            ("effect_id", self.effect_id.as_str()),
+            ("operation_id", self.operation_id.as_str()),
+            ("decision_id", self.decision_id.as_str()),
+            ("grant_id", self.grant_id.as_str()),
+            ("case_id", self.case_id.as_str()),
+            ("participant_id", self.participant_id.as_str()),
+            (
+                "resource_attachment_id",
+                self.resource_attachment_id.as_str(),
+            ),
+            ("relative_path", self.relative_path.as_str()),
+            (
+                "intended_content_digest",
+                self.intended_content_digest.as_str(),
+            ),
+            ("idempotency_key", self.idempotency_key.as_str()),
+            ("carrier_backend", self.carrier_backend.as_str()),
+        ] {
+            require_value(field, value)?;
+        }
+        self.expected_pre_observation.validate()?;
+        if self.expected_pre_observation.resource_attachment_id != self.resource_attachment_id
+            || self.expected_pre_observation.relative_path != self.relative_path
+        {
+            return Err("prepared_effect_observation_target_mismatch".to_string());
+        }
+        Ok(())
+    }
+}
+
+fn validate_finalization(
+    effect_id: &str,
+    post_observation: &FilesystemObservation,
+    receipt: &EffectReceipt,
+) -> Result<(), String> {
+    require_value("effect_id", effect_id)?;
+    post_observation.validate()?;
+    if receipt.schema != EFFECT_RECEIPT_SCHEMA
+        || receipt.effect_id != effect_id
+        || receipt.receipt_id.is_empty()
+        || receipt.operation_id.is_empty()
+        || receipt.decision_id.is_empty()
+        || receipt.grant_id.is_empty()
+        || receipt.resource_attachment_id != post_observation.resource_attachment_id
+        || receipt.relative_path != post_observation.relative_path
+        || receipt.post_observation_id != post_observation.observation_id
+        || matches!(
+            receipt.outcome,
+            EffectOutcome::Conflict | EffectOutcome::Indeterminate
+        )
+    {
+        return Err("invalid_effect_finalization_contract".to_string());
+    }
+    Ok(())
+}
+
+fn apply_finalized_effect(
+    state: &mut CaseState,
+    effect_index: usize,
+    post_observation: &FilesystemObservation,
+    receipt: &EffectReceipt,
+    generation: u64,
+) -> Result<(), String> {
+    let intended_digest = state.effects[effect_index].intended_content_digest.clone();
+    if matches!(
+        receipt.outcome,
+        EffectOutcome::Applied | EffectOutcome::AlreadyApplied
+    ) && post_observation.content_digest.as_deref() != Some(intended_digest.as_str())
+    {
+        return Err("successful_receipt_post_digest_mismatch".to_string());
+    }
+    let grant_id = state.effects[effect_index].grant_id.clone();
+    let grant = state
+        .grants
+        .iter_mut()
+        .find(|grant| grant.grant_id == grant_id)
+        .ok_or_else(|| "finalize_grant_not_materialized".to_string())?;
+    if grant.status != GrantLifecycle::Prepared {
+        return Err("finalize_requires_prepared_grant".to_string());
+    }
+    grant.status = GrantLifecycle::Finalized;
+    let effect = &mut state.effects[effect_index];
+    effect.status = EffectLifecycle::Finalized;
+    effect.outcome = Some(receipt.outcome.clone());
+    effect.post_observation_id = Some(post_observation.observation_id.clone());
+    effect.receipt_id = Some(receipt.receipt_id.clone());
+    effect.updated_at_generation = generation;
+    Ok(())
 }
 
 pub fn replay_case(case_id: &str, transitions: &[Transition]) -> Result<CaseState, String> {
@@ -730,7 +1469,7 @@ mod tests {
         .to_json()
         .expect("encode");
         assert!(
-            Transition::from_json(&encoded.replace(TRANSITION_SCHEMA, "yai.transition.v2"))
+            Transition::from_json(&encoded.replace(TRANSITION_SCHEMA, "yai.transition.v3"))
                 .unwrap_err()
                 .contains("unsupported_transition_schema")
         );
