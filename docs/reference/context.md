@@ -93,7 +93,7 @@ Projection is not a prompt, context window, transcript, graph, memory store, or
 permission. It may use all of those as qualified inputs without acquiring their
 authority.
 
-## Residency — PROVISIONAL
+## Residency — ADOPT
 
 Residency is a derived decision about which projected material should remain
 active, be reintroduced, be summarized/compacted, be evicted, be referenced,
@@ -113,19 +113,29 @@ Residency = f(
 ```
 
 Residency owns no memory or history. It has no authority to omit required
-material silently. Its output includes included/evicted/reintroduced refs,
-compaction provenance, reasons, budget/profile version, and invalidation
-posture. It may be recomputed or cached.
+material silently. The implemented `yai.residency_plan.v1` output binds source
+Projection and Case generation, provider/model profile, item and semantic-unit
+budgets, selected size, and one machine-readable disposition/reason per
+candidate item. Its current dispositions are pinned, retained, reintroduced,
+and omitted. It may be recomputed or cached.
 
 Residency is not provider KV residency. YAI may decide that a semantic item
 remains active while a provider rebuilds all tokens/KV, or may change semantic
 residency while a runtime continuation must be invalidated.
 
-No independent Residency object, scheduler, or database exists in the current
-repository. Waves 4–5 implement deterministic bounded selection in qualified
-retrieval and the Projection compiler, but do not reason about prior residency,
-provider cost or semantic reintroduction/eviction. Residency remains a named
-optimization boundary until that additional consumer/lifecycle is implemented.
+The synchronous Case runtime is its first real consumer. The pure planner pins
+mandatory current state, unresolved effects, Decisions and observed
+consequences before optional derived memory or provider claims. It uses direct
+task/resource relevance, retrieval order, recency, previous-frame presence and
+budget pressure; it never uses learned ranking. A prior resident item may be
+retained, a previously absent item reintroduced, or an optional item omitted.
+If mandatory truth alone exceeds the configured limit, planning fails instead
+of rendering a misleading partial state.
+
+ResidencyPlan metadata is retained only in the droppable semantic-context
+artifact database for operator inspection. There is no Residency database,
+scheduler, canonical reducer field, or dependence on provider continuation.
+Deleting all plans changes neither semantic continuity nor replay.
 
 ## ContextFrame — ADOPT
 
@@ -261,7 +271,7 @@ invalidate continuation without invalidating ContextFrame.
 
 ## Current repository reality
 
-Current Rust code implements `yai.projection.v2` and `yai.context_frame.v2` in
+Current Rust code implements `yai.projection.v3` and `yai.context_frame.v3` in
 one pure compiler. Projection binds exact Case generation,
 participant/purpose/admitted view, typed entries, authority posture,
 Transition/Observation/Receipt/derived-memory provenance, deterministic bounds,
@@ -272,7 +282,7 @@ Provider claims remain labeled non-authoritative.
 ContextFrame has independent identity because a Projection can feed multiple
 tasks/output contracts. The Wave-3 `filesystem.write` proposal schema is a
 typed output contract in the frame. The OpenAI-compatible adapter produces a
-separate `yai.rendered_input.v2` identity/digest and wire body. Invocation and
+separate `yai.rendered_input.v3` identity/digest and wire body. Invocation and
 ProviderResult transitions identify their Projection, frame, Case generation,
 render, provider, model and output contract explicitly.
 
@@ -301,9 +311,20 @@ identity after a real controlled effect, restart the provider fixture, and show
 that the next frame contains the current observed consequence plus selected
 operational memory carrying Transition, Observation and Receipt provenance.
 
-The implementation has no Residency object, embedding/vector retrieval,
-learned ranking, semantic compression/promotion, ContextDelta consumer,
-authoritative tokenizer, token IDs, KV integration, or native YVEX protocol.
+`yai.residency_plan.v1` now sits between broad candidate compilation and the
+final Projection used for one invocation. The plan binds current generation,
+participant/purpose, provider/model profile, previous resident refs, explicit
+item/semantic budgets, selected size, dispositions and reasons. The agentless
+Case runtime supplies the previous plan's item identities as derived hints and
+enforces maximum invocations, operations, semantic units and cumulative
+estimated provider input before transport. Provider-reported usage, when
+present, is typed telemetry; the conservative rendered-size estimate is never
+represented as tokenizer truth.
+
+The implementation has no Residency state owner/database, embedding/vector
+retrieval, learned ranking, semantic compression/promotion, ContextDelta
+consumer, authoritative tokenizer, token IDs, KV integration, or native YVEX
+protocol.
 The context-residency lab remains research evidence, not runtime capability.
 
 Historical E07 workset/provider-frame code supports the distinction between a

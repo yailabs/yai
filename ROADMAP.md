@@ -6,9 +6,10 @@ concept or stage does not automatically justify a source subsystem.
 
 ## Objective
 
-Preserve canonical transition/effect/context/memory authority while adding the
-first explicit semantic-residency decision: cost- and context-bounded selection
-without making provider tokens, KV or the residency plan into Case memory.
+Preserve canonical transition/effect/context/memory authority while replacing
+the fixture-bound review seam with a real durable human admission pause/resume
+path. The agentless Case runtime now exists; the next change must let it await
+and consume an operator Decision without hidden process state or a Workflow.
 
 ## Completed boundary — executable reality convergence
 
@@ -153,39 +154,67 @@ evidence, not implementation authority.
 No embedding model, vector database, learned summary, compression hierarchy,
 memory daemon or Agent owner was added.
 
-## Stage 6 — semantic residency planning and cost-bounded context
+## Completed boundary — agentless Case runtime and semantic residency
 
-The exact next task is `YAI.SOURCE.REFOUNDATION.6 — Semantic Residency Planning
-and Cost-Bounded Context Selection`. It should:
+`YAI.SOURCE.REFOUNDATION.6` connected the existing semantic boundaries into a
+disposable synchronous Case runner:
 
-- characterize actual rendered sizes and provider/model context constraints
-  without making tokenizer estimates semantic identity;
-- introduce the smallest pure ResidencyPlan only if it has the independent
-  consumer now demonstrated by mandatory current state plus qualified optional
-  memory competing for an invocation budget;
-- explicitly classify mandatory, retained, reintroduced, omitted and evicted
-  semantic refs with provenance and machine-readable reasons;
-- account for previous frame/residency only as a derived optimization, with
-  complete fresh-frame fallback after provider/KV loss;
-- preserve participant visibility and CaseState/current-observation precedence
-  before any cost/relevance optimization;
-- prove provider/model replacement and long-Case bounded context under different
-  profiles without adding ContextDelta, learned compression or a provider
-  router unless a real consumer establishes them.
+- every iteration reloads canonical CaseState, reconciles unresolved effects,
+  repairs derived memory, retrieves qualified experience, plans residency,
+  compiles a fresh Projection/ContextFrame and invokes the current provider;
+- `yai.residency_plan.v1` classifies mandatory pinned, retained,
+  reintroduced and omitted semantic refs with inspectable reasons under item
+  and semantic-unit limits; it is derived artifact metadata, not Case memory;
+- invocation, operation, semantic-context and cumulative estimated-input
+  budgets stop before extra transport/effect, while optional provider usage is
+  recorded as telemetry rather than tokenizer truth;
+- `case run/resume/status/stop` expose bounded execution-attempt state without
+  creating Agent, Workflow or Orchestrator ownership;
+- canonical ProviderResult, Grant, visible-effect and post-FINALIZE/pre-memory
+  crash points resume from ledger/CaseState, including automatic reconciliation
+  before the next model call;
+- a real-HTTP 26-turn proof performs 24 controlled writes, one DENY/adaptation,
+  provider/model replacement and bounded 12-item context; a separate
+  128-iteration test grows more than 380 Transitions while context stays
+  bounded;
+- `main.rs` is smaller than its Wave-5 baseline because memory command-family
+  behavior moved behind an explicit CLI boundary.
+
+The current runner is synchronous and single-process. Its run checkpoint is
+non-authoritative operator metadata, and the only effect family remains local
+`filesystem.write`.
+
+## Stage 7 — typed human review and durable runtime admission
+
+The exact next task is `YAI.SOURCE.REFOUNDATION.7 — Typed Human Review and
+Durable Runtime Admission`. It should:
+
+- characterize and replace the fixed review fixture with Case-scoped typed
+  review request and operator participant action identities;
+- let a normalized Operation produce an explicit awaiting-review posture
+  without issuing a Grant or spinning provider turns;
+- resume the agentless Case runtime from canonical CaseState after an operator
+  ALLOW/DENY/DEFER action, with no hidden provider/process continuation;
+- mechanically prove only effective ALLOW issues the existing ExecutionGrant
+  and all filesystem effects retain PREPARE/EFFECT/FINALIZE semantics;
+- preserve review denial/defer history in Projection/memory without promoting
+  it to resource truth;
+- remove the last fixture-only review ownership after compatibility evidence is
+  retained, without adding Workflow, generic policy DSL, inbox daemon or Agent.
 
 ## Explicit non-goals
 
 This roadmap does not introduce Space or Agent as owners, import `yai-dev`,
-clone YVEX, create a directory per concept, or require ContextDelta. Later
-stages must not opportunistically implement the final context model before its
-prerequisites exist.
+clone YVEX, create a directory per concept, or require ContextDelta. Stage 7
+does not introduce a generic Workflow, policy language, inbox daemon or second
+carrier while closing the review seam.
 
 ## Exit criteria for the next source task
 
-`YAI.SOURCE.REFOUNDATION.6` is complete only when one explicit, inspectable and
-rebuildable ResidencyPlan can bound mandatory current state plus retrieved
-experience for distinct provider/model profiles; loss of the plan, prior frame,
-continuation or KV rebuilds semantically correct context; omissions never cross
-visibility/authority boundaries or hide unresolved required state; and no token
-estimate, ranking score, memory entry or residency decision becomes canonical
-authority.
+`YAI.SOURCE.REFOUNDATION.7` is complete only when a product Operation can pause
+in typed review state, survive restart/provider loss, accept a real bound
+operator participant action, resume the same Case without duplicate Decision
+or effect, and issue a Grant only for effective ALLOW. The old fixed review
+fixture must be compatibility-only or removed, while every earlier replay,
+residency, memory, provider-replacement and controlled-effect invariant remains
+green.

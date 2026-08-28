@@ -154,8 +154,8 @@ Confinement currently validates the canonical parent immediately before the
 operation; it does not claim race-resistant `openat`/directory-handle security
 against a concurrently hostile namespace.
 
-The provider path now compiles typed `yai.projection.v2` and
-`yai.context_frame.v2`, renders them for raw OpenAI-compatible HTTP, and records
+The provider path now compiles typed `yai.projection.v3` and
+`yai.context_frame.v3`, renders them for raw OpenAI-compatible HTTP, and records
 provider/model/frame/render lineage in `yai.transition.v3` Invocation and
 ProviderResult payloads. The controlled effect and ordinary prompt paths use
 the same compiler. A qualified, participant-filtered `yai.operational_memory.v1`

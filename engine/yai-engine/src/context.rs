@@ -12,9 +12,9 @@ use crate::transition::{
 };
 use serde::{Deserialize, Serialize};
 
-pub const PROJECTION_SCHEMA: &str = "yai.projection.v2";
-pub const CONTEXT_FRAME_SCHEMA: &str = "yai.context_frame.v2";
-pub const RENDERED_INPUT_SCHEMA: &str = "yai.rendered_input.v2";
+pub const PROJECTION_SCHEMA: &str = "yai.projection.v3";
+pub const CONTEXT_FRAME_SCHEMA: &str = "yai.context_frame.v3";
+pub const RENDERED_INPUT_SCHEMA: &str = "yai.rendered_input.v3";
 pub const DEFAULT_MAX_PROJECTION_ITEMS: usize = 48;
 pub const DEFAULT_MAX_PROVIDER_CLAIMS: usize = 6;
 pub const DEFAULT_MAX_INTERACTION_TURNS: usize = 8;
@@ -159,6 +159,12 @@ pub struct ProjectionBounds {
     pub retrieval_selected: usize,
     #[serde(default)]
     pub retrieval_omitted: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub residency_plan_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantic_unit_budget: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selected_semantic_units: Option<usize>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -229,6 +235,13 @@ pub enum InvocationOutputContract {
     NaturalLanguage,
     FilesystemWriteProposal {
         schema: String,
+        attachment_id: String,
+        allowed_write_prefix: String,
+        max_write_bytes: usize,
+    },
+    CaseRuntimeTurn {
+        schema: String,
+        operation_schema: String,
         attachment_id: String,
         allowed_write_prefix: String,
         max_write_bytes: usize,
@@ -308,6 +321,7 @@ pub enum SemanticContextArtifact {
     Projection(Projection),
     ContextFrame(ContextFrame),
     RenderedInputMetadata(RenderedInputMetadata),
+    ResidencyPlan(crate::residency::ResidencyPlan),
 }
 
 impl SemanticContextArtifact {
@@ -316,6 +330,7 @@ impl SemanticContextArtifact {
             Self::Projection(value) => &value.projection_id,
             Self::ContextFrame(value) => &value.frame_id,
             Self::RenderedInputMetadata(value) => &value.rendered_input_id,
+            Self::ResidencyPlan(value) => &value.plan_id,
         }
     }
 
@@ -324,6 +339,7 @@ impl SemanticContextArtifact {
             Self::Projection(value) => Some(&value.case_id),
             Self::ContextFrame(value) => Some(&value.case_id),
             Self::RenderedInputMetadata(_) => None,
+            Self::ResidencyPlan(value) => Some(&value.request.case_id),
         }
     }
 }
@@ -630,29 +646,13 @@ pub fn compile_projection(
         retrieval_candidates: derived.retrieval_candidates,
         retrieval_selected: derived.memory.len(),
         retrieval_omitted: derived.retrieval_omitted,
+        residency_plan_id: None,
+        semantic_unit_budget: None,
+        selected_semantic_units: None,
     };
-    let identity_material = serde_json::to_string(&(
-        PROJECTION_SCHEMA,
-        &state.case_id,
-        state.generation,
-        &request.participant_id,
-        &request.purpose,
-        &request.consumer,
-        &request.view_kind,
-        &entries,
-        bounds.max_items,
-        bounds.selected_items,
-        bounds.omitted_items,
-        bounds.history_transitions_considered,
-        &bounds.retrieval_id,
-        bounds.retrieval_candidates,
-        bounds.retrieval_selected,
-        bounds.retrieval_omitted,
-    ))
-    .map_err(|error| format!("projection_identity_encode_failed: {error}"))?;
-    Ok(Projection {
+    let mut projection = Projection {
         schema: PROJECTION_SCHEMA.to_string(),
-        projection_id: format!("projection:{}", stable_digest(&identity_material)),
+        projection_id: String::new(),
         case_id: state.case_id.clone(),
         case_generation: state.generation,
         participant_id: request.participant_id.clone(),
@@ -663,7 +663,46 @@ pub fn compile_projection(
         },
         entries,
         bounds,
-    })
+    };
+    refresh_projection_identity(&mut projection)?;
+    Ok(projection)
+}
+
+pub fn refresh_projection_identity(projection: &mut Projection) -> Result<(), String> {
+    if projection.schema != PROJECTION_SCHEMA {
+        return Err(format!(
+            "unsupported_projection_schema: {}",
+            projection.schema
+        ));
+    }
+    let identity_material = serde_json::to_string(&(
+        (
+            PROJECTION_SCHEMA,
+            &projection.case_id,
+            projection.case_generation,
+            &projection.participant_id,
+            &projection.purpose,
+            &projection.visibility.consumer,
+            &projection.visibility.view_kind,
+            &projection.entries,
+        ),
+        (
+            projection.bounds.max_items,
+            projection.bounds.selected_items,
+            projection.bounds.omitted_items,
+            projection.bounds.history_transitions_considered,
+            &projection.bounds.retrieval_id,
+            projection.bounds.retrieval_candidates,
+            projection.bounds.retrieval_selected,
+            projection.bounds.retrieval_omitted,
+            &projection.bounds.residency_plan_id,
+            projection.bounds.semantic_unit_budget,
+            projection.bounds.selected_semantic_units,
+        ),
+    ))
+    .map_err(|error| format!("projection_identity_encode_failed: {error}"))?;
+    projection.projection_id = format!("projection:{}", stable_digest(&identity_material));
+    Ok(())
 }
 
 pub fn build_context_frame(
@@ -1333,7 +1372,7 @@ mod tests {
             &DerivedProjectionInput::default(),
         )
         .unwrap();
-        projection.schema = "yai.projection.v3".to_string();
+        projection.schema = "yai.projection.v4".to_string();
         assert_eq!(
             build_context_frame(
                 &projection,
@@ -1341,7 +1380,7 @@ mod tests {
                 InvocationOutputContract::NaturalLanguage,
             )
             .unwrap_err(),
-            "unsupported_projection_schema: yai.projection.v3"
+            "unsupported_projection_schema: yai.projection.v4"
         );
 
         projection.schema = PROJECTION_SCHEMA.to_string();
@@ -1351,7 +1390,7 @@ mod tests {
             InvocationOutputContract::NaturalLanguage,
         )
         .unwrap();
-        frame.schema = "yai.context_frame.v3".to_string();
+        frame.schema = "yai.context_frame.v4".to_string();
         assert_eq!(
             render_openai_compatible(
                 &frame,
@@ -1365,7 +1404,7 @@ mod tests {
                 "none",
             )
             .unwrap_err(),
-            "unsupported_context_frame_schema: yai.context_frame.v3"
+            "unsupported_context_frame_schema: yai.context_frame.v4"
         );
     }
 }

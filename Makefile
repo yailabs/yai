@@ -19,7 +19,7 @@
 .PHONY: smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33
 .PHONY: smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40
 .PHONY: smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47
-.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity characterization smoke check clean
+.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime endurance-agentless-case-runtime characterization smoke check clean
 
 CC ?= cc
 AR ?= ar
@@ -163,10 +163,11 @@ CHARACTERIZATION_PROVIDER_MODEL := tests/characterization/provider-model-vertica
 CHARACTERIZATION_SEMANTIC_CONTINUITY := tests/characterization/provider-semantic-continuity/test_provider_semantic_continuity.sh
 CHARACTERIZATION_DIRECT_FILESYSTEM := tests/characterization/direct-filesystem-bypass/test_direct_filesystem_bypass.sh
 CHARACTERIZATION_CONTROLLED_EFFECT := tests/characterization/controlled-effect-vertical/test_controlled_effect_vertical.sh
+CHARACTERIZATION_AGENTLESS_CASE_RUNTIME := tests/characterization/agentless-case-runtime/test_agentless_case_runtime.sh
 
 info:
 	@printf "yai: admitted operational-state transition system with one controlled filesystem vertical\n"
-	@printf "source-refoundation-5-baseline: 0eaae753062cdc027b6d0ada87dc8ae306a64833\n"
+	@printf "source-refoundation-6-baseline: f148b1f37e62130aeb340220094bab49992290c8\n"
 	@printf "documentation: docs/index.md\n"
 	@printf "roadmap: ROADMAP.md\n"
 	@printf "source-layout: include/ system/ engine/ cmd/\n"
@@ -182,7 +183,8 @@ info:
 	@printf "engine-bridge: removed; no product C-to-Rust call edge\n"
 	@printf "lib: removed\n"
 	@printf "daemon: moved to cmd/yaid + system/daemon\n"
-	@printf "provider-runtime: typed Projection/ContextFrame lineage; opaque optional continuation\n"
+	@printf "provider-runtime: agentless bounded Case loop with typed Projection/ContextFrame lineage\n"
+	@printf "semantic-residency: derived yai.residency_plan.v1; explicit item/context budgets\n"
 	@printf "operational-memory: derived yai.operational_memory.v1 with qualified retrieval and canonical fallback\n"
 	@printf "provider-registry: removed; case-bound invocation remains\n"
 	@printf "crates: removed\n"
@@ -559,16 +561,22 @@ smoke-spine33e: $(SMOKE_HOST_OBSERVATION_PROBE) build-rust
 
 
 
-smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity
+smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime
 
 smoke-semantic-continuity: $(YAID) build-rust
 	@$(CHARACTERIZATION_SEMANTIC_CONTINUITY)
+
+smoke-agentless-case-runtime: $(YAID) build-rust
+	@$(CHARACTERIZATION_AGENTLESS_CASE_RUNTIME)
+
+endurance-agentless-case-runtime: smoke-agentless-case-runtime
 
 characterization: smoke-new4 smoke-new11 smoke-new12 smoke-spine39 smoke-spine44a smoke-spine45 smoke-spine51
 	@$(CHARACTERIZATION_PROVIDER_MODEL)
 	@$(CHARACTERIZATION_SEMANTIC_CONTINUITY)
 	@$(CHARACTERIZATION_DIRECT_FILESYSTEM)
 	@$(CHARACTERIZATION_CONTROLLED_EFFECT)
+	@$(CHARACTERIZATION_AGENTLESS_CASE_RUNTIME)
 
 check: check-layout check-docs build smoke
 

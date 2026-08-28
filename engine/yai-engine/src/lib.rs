@@ -23,6 +23,7 @@ pub mod projection;
 pub mod query;
 pub mod reconcile;
 pub mod record;
+pub mod residency;
 pub mod store;
 pub mod transition;
 

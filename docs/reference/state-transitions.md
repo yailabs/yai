@@ -237,11 +237,15 @@ the second model turn sees committed observed consequence rather than its
 previous output. The direct write command is removed.
 
 The implementation remains narrower than the full contract: only one local
-filesystem carrier exists; recovery is an explicit per-Case command rather
-than an automatic scheduler; issued-but-never-prepared Grant cleanup is not
-modeled; expiry/revocation and general policy are absent. Typed Projection and
-ContextFrame now serve both ordinary prompt and controlled effect, but adaptive
-Residency, tokenizer budgets, ContextDelta and native runtime continuation are
+filesystem carrier exists; issued-but-never-prepared Grant cleanup is not
+modeled; expiry/revocation and general policy are absent. The synchronous
+agentless Case runtime now discovers and reconciles unresolved effects before
+its next provider invocation, but there is no multi-Case background recovery
+service. It reloads canonical CaseState on every iteration and owns only a
+non-authoritative bounded-run checkpoint; completion or budget stop does not
+close the Case. Typed Projection, `yai.residency_plan.v1`, and ContextFrame now
+serve ordinary prompts, controlled effects and repeated runtime turns, but an
+authoritative tokenizer, ContextDelta and native runtime continuation are
 absent. Receipt-shaped legacy exports
 remain compatibility material. `yai.store.record.v0` and `yai.record.v1` are
 explicit compatibility input/output, not canonical history. See

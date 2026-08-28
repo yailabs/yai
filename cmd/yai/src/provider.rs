@@ -1,6 +1,7 @@
 //! Case-scoped projection construction and OpenAI-compatible provider invocation.
 
 use super::*;
+use std::time::Instant;
 
 pub(super) fn projection_summary(args: &[String]) -> Result<(), String> {
     let path = journal_arg(args)?;
@@ -181,6 +182,35 @@ pub(super) fn semantic_context_inspect(args: &[String]) -> Result<(), String> {
             println!("content_digest: {}", metadata.content_digest);
             println!("content_chars: {}", metadata.content_chars);
             println!("full_render_persisted: false");
+        }
+        SemanticContextArtifact::ResidencyPlan(plan) => {
+            println!("artifact_kind: residency_plan");
+            println!("schema: {}", plan.schema);
+            println!("residency_plan_id: {}", plan.plan_id);
+            println!("case_id: {}", plan.request.case_id);
+            println!("case_generation: {}", plan.request.case_generation);
+            println!("participant_id: {}", plan.request.participant_id);
+            println!("purpose: {}", plan.request.purpose.as_str());
+            println!("provider_id: {}", plan.request.provider_id);
+            println!("model_id: {}", plan.request.model_id);
+            println!("max_items: {}", plan.request.max_items);
+            println!("max_semantic_units: {}", plan.request.max_semantic_units);
+            println!("source_items: {}", plan.source_item_count);
+            println!("source_semantic_units: {}", plan.source_semantic_units);
+            println!("selected_items: {}", plan.selected_item_ids.len());
+            println!("selected_semantic_units: {}", plan.selected_semantic_units);
+            println!("omitted_items: {}", plan.omitted_item_count);
+            for decision in plan.decisions {
+                println!(
+                    "item: {} class:{:?} disposition:{:?} units:{} score:{} reasons:{}",
+                    decision.item_id,
+                    decision.class,
+                    decision.disposition,
+                    decision.semantic_units,
+                    decision.score,
+                    decision.reasons.join(",")
+                );
+            }
         }
     }
     Ok(())
@@ -1629,6 +1659,53 @@ fn decode_chunked_body(body: &[u8]) -> Result<Vec<u8>, String> {
 struct ProviderTransportResult {
     output: String,
     continuation_disposition: ContinuationDisposition,
+    usage: ProviderUsageTelemetry,
+}
+
+#[derive(Clone, Debug, Default)]
+pub(super) struct ProviderUsageTelemetry {
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub total_tokens: Option<u64>,
+    pub latency_ms: u64,
+}
+
+fn decode_provider_response(
+    body: &str,
+) -> Result<(String, Option<u64>, Option<u64>, Option<u64>), String> {
+    let value: serde_json::Value = serde_json::from_str(body).map_err(|error| {
+        format!(
+            "provider response was not valid JSON: {error}; {}",
+            compact_text(body, 240)
+        )
+    })?;
+    let output = value
+        .pointer("/choices/0/message/content")
+        .and_then(|value| value.as_str())
+        .ok_or_else(|| {
+            format!(
+                "provider response did not contain message content: {}",
+                compact_text(body, 240)
+            )
+        })?
+        .to_string();
+    let usage = value.get("usage");
+    let input_tokens = usage.and_then(|usage| {
+        usage
+            .get("prompt_tokens")
+            .or_else(|| usage.get("input_tokens"))
+            .and_then(|value| value.as_u64())
+    });
+    let output_tokens = usage.and_then(|usage| {
+        usage
+            .get("completion_tokens")
+            .or_else(|| usage.get("output_tokens"))
+            .and_then(|value| value.as_u64())
+    });
+    let total_tokens = usage
+        .and_then(|usage| usage.get("total_tokens"))
+        .and_then(|value| value.as_u64());
+    Ok((output, input_tokens, output_tokens, total_tokens))
 }
 
 fn provider_http_request(
@@ -1703,6 +1780,7 @@ fn provider_chat_completion(
     config: &ProviderConfig,
     rendered: &RenderedInput,
 ) -> Result<ProviderTransportResult, String> {
+    let started = Instant::now();
     let continuation = config.continuation_ref.as_ref();
     let (success, mut body_text) = provider_http_request(config, rendered, continuation)?;
     let disposition = if success {
@@ -1731,15 +1809,16 @@ fn provider_chat_completion(
             compact_text(&body_text, 240)
         ));
     };
-    let output = extract_json_string_field(&body_text, "content").ok_or_else(|| {
-        format!(
-            "provider response did not contain message content: {}",
-            compact_text(&body_text, 240)
-        )
-    })?;
+    let (output, input_tokens, output_tokens, total_tokens) = decode_provider_response(&body_text)?;
     Ok(ProviderTransportResult {
         output,
         continuation_disposition: disposition,
+        usage: ProviderUsageTelemetry {
+            input_tokens,
+            output_tokens,
+            total_tokens,
+            latency_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
+        },
     })
 }
 
@@ -1770,9 +1849,31 @@ struct ProviderInvocationRefs {
 
 struct SemanticInvocation {
     projection: Projection,
+    residency: ResidencyPlan,
     frame: ContextFrame,
     rendered: RenderedInput,
     output_contract_id: String,
+}
+
+#[derive(Clone, Debug)]
+pub(super) struct RuntimeInvocationOptions {
+    pub max_resident_items: usize,
+    pub max_semantic_units: usize,
+    pub max_estimated_input_units: usize,
+    pub retrieval_limit: usize,
+    pub previous_item_ids: Vec<String>,
+}
+
+impl Default for RuntimeInvocationOptions {
+    fn default() -> Self {
+        Self {
+            max_resident_items: DEFAULT_MAX_RESIDENT_ITEMS,
+            max_semantic_units: DEFAULT_SEMANTIC_UNIT_BUDGET,
+            max_estimated_input_units: DEFAULT_SEMANTIC_UNIT_BUDGET * 2,
+            retrieval_limit: DEFAULT_RETRIEVAL_LIMIT,
+            previous_item_ids: Vec::new(),
+        }
+    }
 }
 
 fn continuation_disposition_label(value: &ContinuationDisposition) -> &'static str {
@@ -1788,15 +1889,22 @@ fn compile_semantic_invocation(
     purpose: ProjectionPurpose,
     task: &str,
     output_contract: InvocationOutputContract,
+    options: &RuntimeInvocationOptions,
 ) -> Result<SemanticInvocation, String> {
     let store = LmdbRecordStore::open(record_store_path())?;
     let state = store
         .get_case_state(&session.case_ref)?
         .ok_or_else(|| format!("canonical CaseState missing for {}", session.case_ref))?;
     let transitions = store.list_case_transitions(&session.case_ref)?;
-    let request = ProjectionRequest::model(&session.subject_ref, purpose);
+    let mut request = ProjectionRequest::model(&session.subject_ref, purpose);
+    // Compile a broad but bounded qualified candidate view first. Residency is
+    // the invocation-specific selector and owns the tighter budget.
+    request.max_items = 256;
+    request.max_provider_claims = 64;
+    request.max_interaction_turns = 64;
     let resource_refs = match &output_contract {
-        InvocationOutputContract::FilesystemWriteProposal { attachment_id, .. } => {
+        InvocationOutputContract::FilesystemWriteProposal { attachment_id, .. }
+        | InvocationOutputContract::CaseRuntimeTurn { attachment_id, .. } => {
             vec![attachment_id.clone()]
         }
         InvocationOutputContract::NaturalLanguage => Vec::new(),
@@ -1841,10 +1949,10 @@ fn compile_semantic_invocation(
                 view_kind: request.view_kind.clone(),
                 purpose: request.purpose.clone(),
                 case_generation: state.generation,
-                resource_refs,
+                resource_refs: resource_refs.clone(),
                 semantic_kinds: Vec::new(),
                 causal_refs: Vec::new(),
-                max_results: DEFAULT_RETRIEVAL_LIMIT,
+                max_results: options.retrieval_limit,
                 include_superseded: false,
             },
         ) {
@@ -1883,28 +1991,56 @@ fn compile_semantic_invocation(
             retrieval_omitted: retrieval.omitted_count,
         })
         .unwrap_or_default();
-    let projection = compile_projection(&state, &transitions, &request, &derived)?;
+    let candidate_projection = compile_projection(&state, &transitions, &request, &derived)?;
     let output_contract_id = output_contract.contract_id();
-    let frame = build_context_frame(&projection, task, output_contract)?;
     let profile = ProviderModelProfile {
         provider_id: session.provider.provider_id.clone(),
         provider_kind: "openai_compatible".to_string(),
         model_id: session.provider.model.clone(),
         structured_output_supported: matches!(
-            frame.output_contract,
+            &output_contract,
             InvocationOutputContract::FilesystemWriteProposal { .. }
+                | InvocationOutputContract::CaseRuntimeTurn { .. }
         ),
         continuation_supported: session.provider.continuation_supported,
     };
+    let residency = plan_residency(
+        &candidate_projection,
+        ResidencyRequest {
+            case_id: candidate_projection.case_id.clone(),
+            case_generation: candidate_projection.case_generation,
+            participant_id: candidate_projection.participant_id.clone(),
+            purpose: candidate_projection.purpose.clone(),
+            provider_id: profile.provider_id.clone(),
+            model_id: profile.model_id.clone(),
+            max_items: options.max_resident_items,
+            max_semantic_units: options.max_semantic_units,
+            resource_refs,
+            previous_item_ids: options.previous_item_ids.clone(),
+        },
+    )?;
+    let projection = apply_residency_plan(&candidate_projection, &residency)?;
+    let frame = build_context_frame(&projection, task, output_contract)?;
     let rendered = render_openai_compatible(&frame, &profile, &session.provider.language_mode)?;
+    let estimated_input_units = rendered.metadata.content_chars.div_ceil(4);
+    if estimated_input_units > options.max_estimated_input_units {
+        return Err(format!(
+            "provider_input_budget_exceeded: estimated_units={estimated_input_units} max_units={}",
+            options.max_estimated_input_units
+        ));
+    }
     store
         .put_semantic_context_artifact(&SemanticContextArtifact::Projection(projection.clone()))?;
     store.put_semantic_context_artifact(&SemanticContextArtifact::ContextFrame(frame.clone()))?;
     store.put_semantic_context_artifact(&SemanticContextArtifact::RenderedInputMetadata(
         rendered.metadata.clone(),
     ))?;
+    store.put_semantic_context_artifact(&SemanticContextArtifact::ResidencyPlan(
+        residency.clone(),
+    ))?;
     Ok(SemanticInvocation {
         projection,
+        residency,
         frame,
         rendered,
         output_contract_id,
@@ -1937,6 +2073,13 @@ pub(super) struct ControlledProviderResult {
     pub model_id: String,
     pub projection_id: String,
     pub context_frame_id: String,
+    pub residency_plan_id: String,
+    pub resident_item_ids: Vec<String>,
+    pub projection_selected_items: usize,
+    pub projection_omitted_items: usize,
+    pub semantic_units: usize,
+    pub estimated_input_units: usize,
+    pub usage: ProviderUsageTelemetry,
 }
 
 pub(super) fn invoke_controlled_provider(
@@ -1945,8 +2088,24 @@ pub(super) fn invoke_controlled_provider(
     task: &str,
     output_contract: InvocationOutputContract,
 ) -> Result<ControlledProviderResult, String> {
+    invoke_runtime_provider(
+        args,
+        purpose,
+        task,
+        output_contract,
+        &RuntimeInvocationOptions::default(),
+    )
+}
+
+pub(super) fn invoke_runtime_provider(
+    args: &[String],
+    purpose: ProjectionPurpose,
+    task: &str,
+    output_contract: InvocationOutputContract,
+    options: &RuntimeInvocationOptions,
+) -> Result<ControlledProviderResult, String> {
     let session = prompt_runtime_from_args(args)?;
-    let semantic = compile_semantic_invocation(&session, purpose, task, output_contract)?;
+    let semantic = compile_semantic_invocation(&session, purpose, task, output_contract, options)?;
     let requested_disposition = if session.provider.continuation_ref.is_some() {
         ContinuationDisposition::Used
     } else {
@@ -1988,6 +2147,13 @@ pub(super) fn invoke_controlled_provider(
         model_id: session.provider.model,
         projection_id: semantic.projection.projection_id,
         context_frame_id: semantic.frame.frame_id,
+        residency_plan_id: semantic.residency.plan_id,
+        resident_item_ids: semantic.residency.selected_item_ids,
+        projection_selected_items: semantic.projection.bounds.selected_items,
+        projection_omitted_items: semantic.projection.bounds.omitted_items,
+        semantic_units: semantic.residency.selected_semantic_units,
+        estimated_input_units: semantic.rendered.metadata.content_chars.div_ceil(4),
+        usage: transport.usage,
     })
 }
 
@@ -2275,6 +2441,7 @@ fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> 
         ProjectionPurpose::Conversation,
         prompt,
         InvocationOutputContract::NaturalLanguage,
+        &RuntimeInvocationOptions::default(),
     )?;
     if dry_run {
         println!("model_prompt: dry_run");
