@@ -119,7 +119,7 @@ printf '%s\n' "$filesystem_transcript_status" | grep 'memory_candidate: derived_
 printf '%s\n' "$filesystem_thread_status" | grep 'interaction_thread: thread:default' >/dev/null
 printf '%s\n' "$filesystem_thread_status" | grep 'journal_role: replay_audit_not_chat_memory' >/dev/null
 printf '%s\n' "$filesystem_thread_new" | grep 'interaction_thread: new active' >/dev/null
-printf '%s\n' "$filesystem_thread_new" | grep 'participant_view: empty thread' >/dev/null
+printf '%s\n' "$filesystem_thread_new" | grep 'semantic_context: new_thread_projection_rebuild_required' >/dev/null
 printf '%s\n' "$filesystem_thread_new" | grep 'journal:audit retained' >/dev/null
 printf '%s\n' "$filesystem_thread_use_default" | grep 'interaction_thread: restored previous' >/dev/null
 printf '%s\n' "$filesystem_thread_use_default" | grep 'thread_id: thread:default' >/dev/null
@@ -132,7 +132,7 @@ printf '%s\n' "$filesystem_prompt_dry_run" | grep 'interaction_thread: thread:de
 printf '%s\n' "$filesystem_prompt_dry_run" | grep 'projection_freshness: fresh' >/dev/null
 printf '%s\n' "$filesystem_prompt_dry_run" | grep 'freshness_policy: usable' >/dev/null
 printf '%s\n' "$filesystem_prompt_dry_run" | grep 'freshness_source: hot_state' >/dev/null
-printf '%s\n' "$filesystem_prompt_dry_run" | grep 'context_source: interaction_thread_plus_projection_frame' >/dev/null
+printf '%s\n' "$filesystem_prompt_dry_run" | grep 'context_source: typed_projection_plus_context_frame' >/dev/null
 printf '%s\n' "$filesystem_prompt_dry_run" | grep 'transcript_retention: full_redacted_case_local' >/dev/null
 printf '%s\n' "$filesystem_prompt_dry_run" | grep 'raw_journal_access: not_provided' >/dev/null
 printf '%s\n' "$filesystem_prompt_dry_run" | grep 'decision_authority: not_provided' >/dev/null

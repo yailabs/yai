@@ -16,6 +16,29 @@ EXPECTED_REQUESTS = 2 if SCENARIO in {"allow", "deny", "carrier_failure"} else 1
 REQUESTS = []
 
 
+def typed_frame(user_content):
+    marker = "YAI typed ContextFrame:\n"
+    if not user_content.startswith(marker):
+        return None
+    try:
+        return json.loads(user_content[len(marker) :])
+    except json.JSONDecodeError:
+        return None
+
+
+def frame_has(frame, posture=None, kind=None, **values):
+    for entry in frame.get("entries", []):
+        if posture is not None and entry.get("posture") != posture:
+            continue
+        value = entry.get("value", {})
+        if kind is not None and value.get("kind") != kind:
+            continue
+        material = value.get("value", {})
+        if all(material.get(key) == expected for key, expected in values.items()):
+            return True
+    return False
+
+
 FIRST_RESPONSES = {
     "allow": {
         "schema": "yai.operation_proposal.filesystem_write.v1",
@@ -81,10 +104,19 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(400)
             return
         user_content = messages[1].get("content", "")
+        frame = typed_frame(user_content)
+        if frame is None or frame.get("schema") != "yai.context_frame.v1":
+            self.send_error(400)
+            return
         REQUESTS.append(user_content)
         turn = len(REQUESTS)
         if turn == 1:
-            if "operation_output_contract" not in user_content:
+            output_contract = frame.get("output_contract", {})
+            if (
+                frame.get("purpose") != "filesystem_write_proposal"
+                or output_contract.get("kind") != "filesystem_write_proposal"
+                or output_contract.get("contract", {}).get("attachment_id") != "workspace"
+            ):
                 self.send_error(400)
                 return
             if SCENARIO == "malformed":
@@ -100,24 +132,37 @@ class Handler(BaseHTTPRequestHandler):
                 )
         else:
             if SCENARIO == "allow":
-                required = [
-                    "real_world_consequence: observed_applied",
-                    "truth_source: committed_transition_plus_observation_not_provider_claim",
-                ]
+                valid = frame_has(
+                    frame,
+                    posture="observed_resource_state",
+                    kind="resource_consequence",
+                    lifecycle="finalized",
+                    outcome="applied",
+                    relative_path="allowed/hello.txt",
+                )
                 content = "fixture observed the committed filesystem consequence"
             elif SCENARIO == "carrier_failure":
-                required = [
-                    "real_world_consequence: observed_failed_no_effect",
-                    "truth_source: committed_transition_plus_observation_not_provider_claim",
-                ]
+                valid = frame_has(
+                    frame,
+                    posture="observed_resource_state",
+                    kind="resource_consequence",
+                    lifecycle="finalized",
+                    outcome="failed_no_effect",
+                )
                 content = "fixture observed the committed carrier failure and no effect"
             else:
-                required = [
-                    "decision: deny",
-                    "real_world_consequence: no_effect_authorized",
-                ]
+                valid = frame_has(
+                    frame,
+                    posture="control_state",
+                    kind="decision_outcome",
+                    outcome="deny",
+                ) and not frame_has(
+                    frame,
+                    posture="observed_resource_state",
+                    kind="resource_consequence",
+                )
                 content = "fixture observed the committed denial and no filesystem effect"
-            if not all(marker in user_content for marker in required):
+            if frame.get("purpose") != "effect_consequence" or not valid:
                 self.send_error(409)
                 return
         body = json.dumps(

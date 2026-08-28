@@ -14,6 +14,7 @@
 //!   active
 
 pub mod compatibility;
+pub mod context;
 pub mod effect;
 pub mod graph;
 pub mod journal;

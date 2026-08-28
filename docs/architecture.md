@@ -1,9 +1,9 @@
 # Current executable architecture
 
 Authority: implementation truth. Source-refoundation baseline:
-`36c93947d589519c75dd5c261fd1d4e2a0fd74d2` (the isolated
-`YAI.SOURCE.REFOUNDATION.2` checkpoint). This document describes the resulting
-`YAI.SOURCE.REFOUNDATION.3` worktree.
+`cda1375ad3f63b2d9a38dbe0f5e7ef5779942a15` (the isolated
+`YAI.SOURCE.REFOUNDATION.3` checkpoint). This document describes the resulting
+`YAI.SOURCE.REFOUNDATION.4` worktree.
 
 This document includes current contradictions. It does not claim that the
 [Constitution](constitution.md) is implemented. Target changes and sequencing
@@ -17,7 +17,7 @@ YAI has two unequal product processes:
 operator
   |
   +-- yai (Rust command/process boundary)
-  |     +-- provider/case invocation
+  |     +-- typed Projection/ContextFrame compilation and provider invocation
   |     +-- controlled filesystem effect transition family
   |     +-- controlled review compatibility on the same carrier
   |     +-- canonical Transition/CaseState authority in LMDB
@@ -34,7 +34,7 @@ operator
         +-- restartable hot-state snapshot
 ```
 
-[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is a 1,864-line command
+[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is a 1,878-line command
 parser, dispatcher, common CLI support surface, and compatibility shell. The
 current domain implementation is grouped by demonstrated boundary in
 [`provider.rs`](../cmd/yai/src/provider.rs),
@@ -64,7 +64,7 @@ mean constitutional, general, or production-ready.
 
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
-| Case-bound provider prompt | `yai case enter` → typed participant/provider attachment → typed Invocation and ProviderResult → non-authoritative ModelInterpretation; a real OpenAI-compatible HTTP fixture proves the path while legacy records remain readable | generalized ContextFrame does not exist; ordinary prompt render/frame/thread material remains legacy-derived |
+| Case-bound provider prompt | admitted participant + typed CaseState/history → `yai.projection.v1` → `yai.context_frame.v1` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, provider/model replacement and continuation-loss fallback | HTTP is local/plain and non-streaming; selection policy is deliberately bounded/simple; no adaptive Residency |
 | Controlled filesystem effect | typed logical attachment + local binding → real HTTP ProviderResult → exact proposal normalization → typed Operation/Decision/ExecutionGrant → durable PREPARE → Rust atomic-replacement carrier → pre/post Observation and EffectReceipt → FINALIZE/RECONCILE → second provider turn | only `filesystem.write`; prefix policy and single-machine binding; no general review/policy/carrier system |
 | Filesystem review fixture | typed ReviewRequested/ReviewResolved remains compatibility-visible; approval is normalized with explicit review origin and uses the same Grant/PREPARE/carrier/FINALIZE path | fixed review identities/path and compatibility records remain; deny/defer/quarantine retain their historical fixture model |
 | Journal compatibility | inspect/dry-run/import `yai.store.record.v0` or `yai.record.v1`, preserving unknowns opaquely in an isolated target; old replay still materializes legacy record indexes | general semantic promotion is deliberately absent; the old record plane remains compatibility data, not authority |
@@ -102,8 +102,10 @@ verticals/tests.
 Rust owns one canonical semantic write path in
 [`transition.rs`](../engine/yai-engine/src/transition.rs) and
 [`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). Its serialized contracts
-are `yai.transition.v2` and `yai.case_state.v2`; readers promote v1 state and
-transitions while rejecting unknown future contracts. One bounded LMDB write
+are `yai.transition.v3` and `yai.case_state.v3`; readers promote v1/v2 state
+and transitions while rejecting unknown future contracts. Version 3 adds
+provider identity, semantic-frame/render lineage and typed interaction turns;
+it does not make derived context canonical. One bounded LMDB write
 transaction:
 
 1. validates typed payload closure and global Transition identity;
@@ -161,7 +163,13 @@ consumers.
 - RuntimeGraph is per-command and ephemeral.
 - DuckDB facts are rebuildable analytics; historical extraction is routed
   through compatibility fields.
-- Rust projection/memory/query/reconcile values are derived legacy views.
+- bounded typed Projection, ContextFrame and rendered-input metadata are stored
+  in the separate `semantic_context_artifacts` LMDB database for inspection;
+  this database is droppable and is never read by replay or CaseState reduction.
+  Full rendered provider input, token sequences, and continuation values are
+  not persisted.
+- Rust `ProjectionSummary`/memory/query/reconcile values remain legacy-derived
+  operator/compatibility views and are not provider input.
 - the C hot-state JSON snapshot is a daemon restart cache and is not updated by
   independent Rust mutations.
 
@@ -249,55 +257,81 @@ They are built separately and are not normal product call paths.
 
 ## Current provider and context behavior
 
-[`provider.rs`](../cmd/yai/src/provider.rs) promotes legacy Case/participant
-bindings through the compatibility boundary, then commits typed participant
-admission, provider attachment, Invocation, ProviderResult, and
-ModelInterpretation transitions. ProviderResult carries provider/model/
-invocation identity and returned content; CaseState stores only current lineage
-and output size. The compatibility journal still emits the former
-`EffectReceipt` record so old readers and vertical assertions remain valid.
+[`context.rs`](../engine/yai-engine/src/context.rs) owns a pure compilation
+boundary from typed CaseState and ordered canonical Transitions to an immutable
+`yai.projection.v1`, then to one task/output-contract-specific
+`yai.context_frame.v1`. Projection identity binds Case generation,
+participant/purpose/admitted view, ordered typed entries, provenance and bounded
+omission state. Provider availability, rendering, tokenization, KV state and
+opaque continuation identity do not participate. Equivalent compilation with
+graph/memory unavailable produces the same required semantic entries and
+identity.
 
-The invocation path sends a manually framed HTTP/1.x
-`/v1/chat/completions` request and extracts one `content` string. Transport
-endpoint replacement is allowed without changing Case or model identity; the
-current attachment retains endpoint configuration but reducer closure matches
-participant/provider/model. A failed HTTP invocation leaves its typed
-invocation committed and invents no ProviderResult.
+The compiler fails before rendering if the participant lacks the exact
+`model/model_context` admission. It includes the participant's own binding,
+current provider/model binding, logical resources, latest Decision, all
+unresolved effects, the four most recent finalized effects, bounded recent
+typed interaction turns/provider claims, and optional provenance-bearing
+derived memory. Provider claims carry an explicit non-authoritative posture;
+finalized resource consequences cite Transition, Observation and EffectReceipt
+refs; indeterminate effects remain unresolved. Selection defaults to 48 items,
+never dumps the complete ledger, reports omitted material, and rejects a budget
+smaller than mandatory current state.
 
-The controlled-effect command supplies a narrow typed participant view and an
-exact operation-proposal output contract through this same real HTTP boundary.
-Its first ProviderResult is normalized only after persistence. After DENY or
-FINALIZE it constructs a second bounded view from typed Decision/Effect
-CaseState and invokes the provider again. The deterministic fixture rejects a
-second request unless it reports `observed_applied` for a proved effect or
-`no_effect_authorized` for a denial. The previous model assertion is never a
-source for that consequence. This is a special-purpose projection, not the
-final ContextFrame/Residency implementation.
+ContextFrame has separate identity because one Projection supports different
+tasks and typed output contracts. It carries provider-independent instructions,
+selected semantic entries and the Wave-3 filesystem proposal contract. It owns
+no CaseState, prompt transcript, token IDs, or runtime cache. The
+OpenAI-compatible render function in
+[`context.rs`](../engine/yai-engine/src/context.rs) combines a frame with the
+minimal provider/model profile and creates a distinct render identity/digest;
+[`provider.rs`](../cmd/yai/src/provider.rs) owns the HTTP transport.
 
-There is no formal deadline, streaming/cancellation, TLS, tokenizer, native
-YVEX, or continuation contract. The ParticipantViewFrame is a summary-token
-record rather than the provider-independent ContextFrame defined by the
-reference. The implementation has no formal Projection identity contract,
-Residency decision, ContextFrame schema, ContextDelta invalidation contract,
-token identity, or KV integration. Loss/replacement of a model runtime does
-not erase the JSONL Case history, but provider replacement is not yet a typed
-or fully tested contract.
+`yai.transition.v3` Invocation and ProviderResult payloads explicitly reference
+provider ID, model ID, Projection, ContextFrame, Case generation, render ID/
+digest and output-contract ID. ProviderResult content remains non-authoritative.
+A typed `InteractionTurnRecorded` transition preserves bounded task lineage;
+the old JSONL `InteractionTurn` remains compatibility output. New invocations
+no longer write or consume `ParticipantViewFrame`; that RecordKind survives
+only as historical input/counting compatibility. The free-form Case-entry
+preview is explicitly labeled compatibility output and never reaches a
+provider.
 
-The context-residency lab estimates logical base/delta token reduction and
-does not prove KV reuse or an implemented Context Compiler.
+An optional `ProviderContinuationReference` is accepted only as an opaque,
+provider-bound, runtime-bound transport optimization. Its value is never put in
+CaseState, canonical Transition history, Projection/Frame identity, or the
+derived artifact store. Only `not_provided`, `used`, or
+`invalidated_and_retried` disposition is recorded in invocation lineage. An
+`invalid_continuation` response triggers one retry of the same complete rendered
+frame without the reference.
+
+Product tests prove that Provider A can propose a real Wave-3 filesystem write,
+Provider B can replace its binding after FINALIZE and observe the resulting
+typed resource consequence without A continuation, and a model ID can change
+under one provider ID without changing Case identity. A separate fixture loses
+continuation state, retries a full frame, restarts on a new endpoint, rebuilds a
+new Projection/Frame from Case state, and preserves typed interaction/result
+continuity. Loss of the derived context-artifact database likewise leaves
+ledger and CaseState unchanged.
+
+There is still no TLS, streaming/cancellation, authoritative token estimator,
+native YVEX/KV protocol, adaptive Residency, semantic compression, or
+ContextDelta consumer. The context-residency lab remains research evidence and
+does not prove KV reuse.
 
 ## Physical ownership after source refoundation
 
 | Surface | Executable role | Classification |
 |---|---|---|
 | `cmd/yai/src/main.rs` | parsing, dispatch, common CLI/process initiation and residual compatibility commands | product-reachable command boundary |
-| `cmd/yai/src/provider.rs` | current case admission, projection rendering, HTTP provider invocation and result residue | product-reachable transition family |
+| `cmd/yai/src/provider.rs` | Case admission/attachment compatibility, HTTP transport and typed invocation/result residue | product-reachable provider boundary |
+| `engine/yai-engine/src/context.rs` | bounded typed Projection compilation, ContextFrame construction, provenance and the OpenAI-compatible render contract | product-reachable derived semantic compiler/render boundary |
 | `cmd/yai/src/controlled_effect.rs` + `engine/yai-engine/src/effect.rs` | controlled proposal/admission/recovery orchestration and the Grant-validating Rust filesystem carrier | product-reachable first constitutional effect family |
 | `cmd/yai/src/review.rs` + `filesystem.rs` | review compatibility on the controlled carrier plus read-only filesystem observation | product-reachable compatibility boundary |
 | `cmd/yai/src/replay.rs` | legacy inspect/dry-run/isolated import and replay reports | product-reachable state compatibility boundary |
 | `cmd/yai/src/graph_runtime.rs` | graph relation materialization, rebuild and query | product-reachable derived owner |
 | `cmd/yai/src/analytics.rs` | DuckDB schemas, extraction and reports | product-reachable derived owner |
-| `engine/yai-engine` | canonical Transition/CaseState semantics, LMDB authority, legacy decoder, and reusable derived algorithms | product-reachable semantic/data authority |
+| `engine/yai-engine` | canonical Transition/CaseState semantics, LMDB authority, typed semantic-context compiler, legacy decoder, and reusable derived algorithms | product-reachable semantic/data authority |
 | `cmd/yaid` + selected `system/` sources | daemon IPC, fixture loops, C journal/projection/hot snapshot | product-reachable process/platform boundary |
 | separate C component archive | gates, carriers, process/observation and compatibility mechanics | component characterization; not product capability |
 | tests/labs/history | current proof, research, and historical specification | evidence, never implementation authority |
@@ -320,8 +354,8 @@ from one checkout.
 | distinct ProviderResult, Observation, EffectReceipt | implemented as separate Rust types and Transition payload roles; compatibility export still has old receipt-shaped rows | migrate process observations or other live resource families when they become product-reachable |
 | Case plus materialized CaseState | implemented and replayable for provider/review/resource/operation/grant/effect refs | extend only for demonstrated future consumers; migrate daemon hot/fixture state only if it becomes canonical input |
 | summary is presentation only | canonical reducers and migrated paths do not parse it; old projection/frame and analytics records use the compatibility decoder | migrate or retire remaining legacy-only producers and views |
-| Projection/Residency/ContextFrame/KV separation | frame/projection identity is encoded in summaries; no residency/KV contract | typed lineage and provider-independent invocation frame |
-| provider replacement preserves semantic continuity | Case/participant/provider/model invocation lineage is typed; effect consequence and second turn come from canonical state, not provider continuation | normalized provider Binding lifecycle, ContextFrame, and explicit replacement proof |
+| Projection/Residency/ContextFrame/KV separation | typed Projection, independent ContextFrame and distinct render identity are implemented; opaque continuation is optional and tokens/KV are absent from canonical state | adaptive Residency remains provisional; no tokenizer-backed budget or ContextDelta consumer |
+| provider replacement preserves semantic continuity | real HTTP Provider A→filesystem FINALIZE→Provider B, same-provider model replacement, continuation invalidation and provider restart are deterministic product tests | generalized routing/economics and native runtime continuation protocols are deliberately absent |
 | derived data rebuilds from canonical state | graph rebuild consumes typed transitions and legacy compatibility; facts remain legacy-derived | generation, invalidation, and full typed analytics inputs |
 
 The remaining gaps are intentional boundaries of this wave. The

@@ -96,6 +96,83 @@ pub(super) fn projection_request(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+pub(super) fn semantic_context_inspect(args: &[String]) -> Result<(), String> {
+    let artifact_id = optional_arg(args, "--id")
+        .or_else(|| optional_arg(args, "--projection"))
+        .or_else(|| optional_arg(args, "--frame"))
+        .ok_or_else(|| "context inspect requires --id, --projection, or --frame".to_string())?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let artifact = store
+        .get_semantic_context_artifact(&artifact_id)?
+        .ok_or_else(|| format!("semantic context artifact not found: {artifact_id}"))?;
+    match artifact {
+        SemanticContextArtifact::Projection(projection) => {
+            println!("artifact_kind: projection");
+            println!("schema: {}", projection.schema);
+            println!("projection_id: {}", projection.projection_id);
+            println!("case_id: {}", projection.case_id);
+            println!("case_generation: {}", projection.case_generation);
+            println!("participant_id: {}", projection.participant_id);
+            println!("purpose: {}", projection.purpose.as_str());
+            println!("visibility_consumer: {}", projection.visibility.consumer);
+            println!("visibility_view_kind: {}", projection.visibility.view_kind);
+            println!("selected_items: {}", projection.bounds.selected_items);
+            println!("omitted_items: {}", projection.bounds.omitted_items);
+            println!("graph_available: {}", projection.bounds.graph_available);
+            println!("memory_available: {}", projection.bounds.memory_available);
+            if let Some(state) = store.get_case_state(&projection.case_id)? {
+                println!(
+                    "stale: {}",
+                    yai_core_engine::context::projection_is_stale(&projection, state.generation)
+                );
+            }
+            for entry in projection.entries {
+                println!(
+                    "entry: {} posture:{:?} value:{:?}",
+                    entry.entry_id, entry.posture, entry.value
+                );
+                for provenance in entry.provenance {
+                    println!(
+                        "provenance: entry={} kind:{:?} source_ref:{}",
+                        entry.entry_id, provenance.kind, provenance.source_ref
+                    );
+                }
+            }
+        }
+        SemanticContextArtifact::ContextFrame(frame) => {
+            println!("artifact_kind: context_frame");
+            println!("schema: {}", frame.schema);
+            println!("frame_id: {}", frame.frame_id);
+            println!("projection_id: {}", frame.projection_id);
+            println!("case_id: {}", frame.case_id);
+            println!("case_generation: {}", frame.case_generation);
+            println!("participant_id: {}", frame.participant_id);
+            println!("purpose: {}", frame.purpose.as_str());
+            println!("task: {}", compact_text(&frame.task, 160));
+            println!(
+                "output_contract_id: {}",
+                frame.output_contract.contract_id()
+            );
+            println!("selected_items: {}", frame.entries.len());
+            if let Some(state) = store.get_case_state(&frame.case_id)? {
+                println!("stale: {}", frame.case_generation != state.generation);
+            }
+        }
+        SemanticContextArtifact::RenderedInputMetadata(metadata) => {
+            println!("artifact_kind: rendered_input_metadata");
+            println!("schema: {}", metadata.schema);
+            println!("rendered_input_id: {}", metadata.rendered_input_id);
+            println!("context_frame_id: {}", metadata.context_frame_id);
+            println!("provider_id: {}", metadata.provider_id);
+            println!("model_id: {}", metadata.model_id);
+            println!("content_digest: {}", metadata.content_digest);
+            println!("content_chars: {}", metadata.content_chars);
+            println!("full_render_persisted: false");
+        }
+    }
+    Ok(())
+}
+
 pub(super) fn control_summary(args: &[String]) -> Result<(), String> {
     let path = journal_arg(args)?;
     let journal = Journal::load_jsonl(&path)
@@ -127,7 +204,7 @@ fn display_field<'a>(value: &'a str, fallback: &'static str) -> &'a str {
     }
 }
 
-fn render_model_context_records(
+fn render_legacy_case_entry_records(
     output: &mut String,
     title: &str,
     journal: &Journal,
@@ -160,7 +237,7 @@ fn render_model_context_records(
     let _ = writeln!(output);
 }
 
-fn render_model_context_view(journal: &Journal, case_ref: Option<&str>) -> String {
+fn render_legacy_case_entry_preview(journal: &Journal, case_ref: Option<&str>) -> String {
     let projection = ProjectionSummary::from_journal("model", &journal);
     let case_ref = case_ref
         .or_else(|| (!projection.case_ref.is_empty()).then_some(projection.case_ref.as_str()));
@@ -170,6 +247,10 @@ fn render_model_context_view(journal: &Journal, case_ref: Option<&str>) -> Strin
     let _ = writeln!(output, "case_world: materialized");
     let _ = writeln!(output, "case_context: active");
     let _ = writeln!(output, "consumer: model");
+    let _ = writeln!(
+        output,
+        "authority: legacy_compatibility_preview_not_provider_input"
+    );
     let _ = writeln!(output, "projection_kind: model_context");
     let _ = writeln!(output, "redaction: summary_only");
     let _ = writeln!(output, "source: case_projection_graph_memory");
@@ -242,7 +323,7 @@ fn render_model_context_view(journal: &Journal, case_ref: Option<&str>) -> Strin
     let _ = writeln!(output, "graph_edges: {}", projection.graph_edge_count);
     let _ = writeln!(output);
 
-    render_model_context_records(
+    render_legacy_case_entry_records(
         &mut output,
         "Case World",
         &journal,
@@ -253,70 +334,70 @@ fn render_model_context_view(journal: &Journal, case_ref: Option<&str>) -> Strin
             RecordKind::CaseBinding,
         ],
     );
-    render_model_context_records(
+    render_legacy_case_entry_records(
         &mut output,
         "Subjects",
         &journal,
         case_ref,
         &[RecordKind::SubjectBinding],
     );
-    render_model_context_records(
+    render_legacy_case_entry_records(
         &mut output,
         "Policy",
         &journal,
         case_ref,
         &[RecordKind::PolicyRule],
     );
-    render_model_context_records(
+    render_legacy_case_entry_records(
         &mut output,
         "Projection Rules",
         &journal,
         case_ref,
         &[RecordKind::ProjectionRule],
     );
-    render_model_context_records(
+    render_legacy_case_entry_records(
         &mut output,
         "Authority Scopes",
         &journal,
         case_ref,
         &[RecordKind::AuthorityScope],
     );
-    render_model_context_records(
+    render_legacy_case_entry_records(
         &mut output,
         "Decisions",
         &journal,
         case_ref,
         &[RecordKind::Decision],
     );
-    render_model_context_records(
+    render_legacy_case_entry_records(
         &mut output,
         "Filesystem Receipts",
         &journal,
         case_ref,
         &[RecordKind::FilesystemReceipt],
     );
-    render_model_context_records(
+    render_legacy_case_entry_records(
         &mut output,
         "Memory",
         &journal,
         case_ref,
         &[RecordKind::MemoryCandidate],
     );
-    render_model_context_records(
+    render_legacy_case_entry_records(
         &mut output,
         "Graph",
         &journal,
         case_ref,
         &[RecordKind::GraphEdge],
     );
-    render_model_context_records(
+    render_legacy_case_entry_records(
         &mut output,
         "Projection Records",
         &journal,
         case_ref,
         &[RecordKind::ProjectionRequest, RecordKind::ProjectionResult],
     );
-    render_model_context_records(
+    render_legacy_case_entry_records(
         &mut output,
         "Model Interpretations",
         &journal,
@@ -352,8 +433,8 @@ fn render_model_context_view(journal: &Journal, case_ref: Option<&str>) -> Strin
     output
 }
 
-fn print_model_context_view(journal: &Journal, case_ref: Option<&str>) {
-    print!("{}", render_model_context_view(journal, case_ref));
+fn print_legacy_case_entry_preview(journal: &Journal, case_ref: Option<&str>) {
+    print!("{}", render_legacy_case_entry_preview(journal, case_ref));
 }
 
 fn append_case_entry_record(
@@ -566,7 +647,7 @@ pub(super) fn case_enter(args: &[String]) -> Result<(), String> {
     println!("filesystem_access: not_provided");
     println!("authority_scope: model interpretation_only");
     println!();
-    print_model_context_view(&journal, Some(&case_ref));
+    print_legacy_case_entry_preview(&journal, Some(&case_ref));
     Ok(())
 }
 
@@ -751,6 +832,8 @@ fn promote_provider_compatibility_state(
                 provider_source(Some(participant_id), &record.id),
                 TransitionPayload::ProviderAttached {
                     participant_id: participant_id.to_string(),
+                    provider_id: legacy_summary_value(record, "provider_id")
+                        .unwrap_or_else(|| "provider:openai-compatible".to_string()),
                     provider_kind: legacy_summary_value(record, "provider")
                         .unwrap_or_else(|| "openai_compatible".to_string()),
                     base_url: legacy_summary_value(record, "base_url").unwrap_or_default(),
@@ -788,6 +871,7 @@ fn compact_text(value: &str, max_chars: usize) -> String {
 fn print_provider_attach_shell(
     case_ref: &str,
     subject_ref: &str,
+    provider_id: &str,
     base_url: &str,
     model: &str,
     api_key_env: &str,
@@ -811,6 +895,10 @@ fn print_provider_attach_shell(
     );
     println!(
         "printf '%s\\n' {}",
+        shell_quote(&format!("provider_id: {provider_id}"))
+    );
+    println!(
+        "printf '%s\\n' {}",
         shell_quote(&format!("provider_base_url: {base_url}"))
     );
     println!(
@@ -824,6 +912,7 @@ fn print_provider_attach_shell(
         shell_quote("authority_scope: model interpretation_only")
     );
     println!("export YAI_PROVIDER_BASE_URL={}", shell_quote(base_url));
+    println!("export YAI_PROVIDER_ID={}", shell_quote(provider_id));
     println!("export YAI_PROVIDER_MODEL={}", shell_quote(model));
     println!(
         "export YAI_PROVIDER_SUBJECT_REF={}",
@@ -841,6 +930,8 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
     let subject_ref = named_arg(args, "--subject")?;
     let base_url = named_arg(args, "--base-url")?;
     let model = named_arg(args, "--model")?;
+    let provider_id = optional_arg(args, "--provider-id")
+        .unwrap_or_else(|| "provider:openai-compatible".to_string());
     let api_key_env =
         optional_arg(args, "--api-key-env").unwrap_or_else(|| "OPENCODE_LLM_API_KEY".to_string());
     let shell = optional_arg(args, "--shell");
@@ -859,12 +950,13 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
     }
 
     let provider_summary = format!(
-        "provider_attachment:attached provider:openai_compatible base_url:{base_url} model:{model} api_key_env:{api_key_env} prompt_surface:vendored_linenoise context:case_projection_graph_memory"
+        "provider_attachment:attached provider_id:{provider_id} provider:openai_compatible base_url:{base_url} model:{model} api_key_env:{api_key_env} prompt_surface:vendored_linenoise context:typed_projection_context_frame"
     );
     let store = LmdbRecordStore::open(record_store_path())?;
     let state = ensure_canonical_case(&store, &journal, &path, &case_ref)?;
     let already_attached = state.provider.as_ref().is_some_and(|provider| {
         provider.participant_id == subject_ref
+            && (provider.provider_id.is_empty() || provider.provider_id == provider_id)
             && provider.provider_kind == "openai_compatible"
             && provider.base_url == base_url
             && provider.model_id == model
@@ -899,6 +991,7 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
             provider_source(Some(&subject_ref), &record.id),
             TransitionPayload::ProviderAttached {
                 participant_id: subject_ref.clone(),
+                provider_id: provider_id.clone(),
                 provider_kind: "openai_compatible".to_string(),
                 base_url: base_url.clone(),
                 model_id: model.clone(),
@@ -924,6 +1017,7 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
         print_provider_attach_shell(
             &case_ref,
             &subject_ref,
+            &provider_id,
             &base_url,
             &model,
             &api_key_env,
@@ -936,6 +1030,7 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
     println!("provider_attachment_status: {status}");
     println!("case_ref: {case_ref}");
     println!("subject_ref: {subject_ref}");
+    println!("provider_id: {provider_id}");
     println!("case_session: active");
     println!("case_context: active");
     println!("authority_scope: model interpretation_only");
@@ -946,19 +1041,22 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
 }
 
 struct ProviderConfig {
+    provider_id: String,
     base_url: String,
     model: String,
     api_key: Option<String>,
     language_mode: String,
+    continuation_supported: bool,
+    continuation_ref: Option<ProviderContinuationReference>,
 }
 
-struct PromptSession {
+struct PromptRuntime {
     journal_path: PathBuf,
     case_ref: String,
     subject_ref: String,
     provider: ProviderConfig,
     active_thread_id: String,
-    participant_view: String,
+    legacy_status_notes: String,
     transcript_enabled: bool,
 }
 
@@ -1041,18 +1139,6 @@ fn thread_turn_count(journal: &Journal, case_ref: &str, thread_id: &str) -> usiz
         .count()
 }
 
-fn latest_frame_id(journal: &Journal, case_ref: &str, thread_id: &str) -> Option<String> {
-    let mut frame_id = None;
-    for record in journal.records().iter().filter(|record| {
-        record.case_ref == case_ref
-            && record.kind == RecordKind::ParticipantViewFrame
-            && legacy_summary_is(record, "thread_id", thread_id)
-    }) {
-        frame_id = summary_token(&record.summary, "frame_id").or_else(|| Some(record.id.clone()));
-    }
-    frame_id
-}
-
 fn append_thread_record(
     journal_path: &PathBuf,
     case_ref: &str,
@@ -1129,14 +1215,7 @@ fn render_thread_context(journal: &Journal, case_ref: &str, thread_id: &str) -> 
     output
 }
 
-fn render_participant_view(journal: &Journal, case_ref: &str, thread_id: &str) -> String {
-    let mut view = render_model_context_view(journal, Some(case_ref));
-    view.push('\n');
-    view.push_str(&render_thread_context(journal, case_ref, thread_id));
-    view
-}
-
-fn prompt_session_from_args(args: &[String]) -> Result<PromptSession, String> {
+fn prompt_runtime_from_args(args: &[String]) -> Result<PromptRuntime, String> {
     let journal_path = case_journal_path(args, "yai prompt")?;
     let case_ref = optional_arg(args, "--case")
         .or_else(|| env_var("YAI_CASE_REF"))
@@ -1159,6 +1238,9 @@ fn prompt_session_from_args(args: &[String]) -> Result<PromptSession, String> {
             "provider model missing; run `yai case attach-provider` or export YAI_PROVIDER_MODEL"
                 .to_string()
         })?;
+    let provider_id = optional_arg(args, "--provider-id")
+        .or_else(|| env_var("YAI_PROVIDER_ID"))
+        .unwrap_or_else(|| "provider:openai-compatible".to_string());
     let api_key_env = optional_arg(args, "--api-key-env")
         .or_else(|| env_var("YAI_PROVIDER_API_KEY_ENV"))
         .unwrap_or_else(|| "OPENCODE_LLM_API_KEY".to_string());
@@ -1171,6 +1253,17 @@ fn prompt_session_from_args(args: &[String]) -> Result<PromptSession, String> {
     if language_mode != "none" && language_mode != "auto" {
         return Err("--language-mode must be auto or none".to_string());
     }
+    let continuation_supported = args.iter().any(|value| value == "--continuation-capable")
+        || env_var("YAI_PROVIDER_CONTINUATION_CAPABLE").as_deref() == Some("1");
+    let continuation_ref = optional_arg(args, "--continuation-ref")
+        .or_else(|| env_var("YAI_PROVIDER_CONTINUATION_REF"))
+        .map(|opaque_reference| ProviderContinuationReference {
+            provider_id: provider_id.clone(),
+            runtime_id: optional_arg(args, "--provider-runtime-id")
+                .or_else(|| env_var("YAI_PROVIDER_RUNTIME_ID"))
+                .unwrap_or_else(|| "runtime:unspecified".to_string()),
+            opaque_reference,
+        });
     let journal = Journal::load_jsonl(&journal_path)
         .map_err(|error| format!("failed to load {}: {error}", journal_path.display()))?;
     let store = LmdbRecordStore::open(record_store_path())?;
@@ -1194,6 +1287,7 @@ fn prompt_session_from_args(args: &[String]) -> Result<PromptSession, String> {
     }
     let attached = state.provider.as_ref().is_some_and(|provider| {
         provider.participant_id == subject_ref
+            && (provider.provider_id.is_empty() || provider.provider_id == provider_id)
             && provider.provider_kind == "openai_compatible"
             && provider.model_id == model
     });
@@ -1207,18 +1301,21 @@ fn prompt_session_from_args(args: &[String]) -> Result<PromptSession, String> {
     let journal = Journal::load_jsonl(&journal_path)
         .map_err(|error| format!("failed to load {}: {error}", journal_path.display()))?;
 
-    Ok(PromptSession {
+    Ok(PromptRuntime {
         journal_path,
         case_ref: case_ref.clone(),
         subject_ref,
         provider: ProviderConfig {
+            provider_id,
             base_url,
             model,
             api_key,
             language_mode,
+            continuation_supported,
+            continuation_ref,
         },
         active_thread_id: active_thread_id.clone(),
-        participant_view: render_participant_view(&journal, &case_ref, &active_thread_id),
+        legacy_status_notes: render_thread_context(&journal, &case_ref, &active_thread_id),
         transcript_enabled,
     })
 }
@@ -1516,23 +1613,40 @@ fn decode_chunked_body(body: &[u8]) -> Result<Vec<u8>, String> {
     Ok(decoded)
 }
 
-fn provider_chat_completion(
+struct ProviderTransportResult {
+    output: String,
+    continuation_disposition: ContinuationDisposition,
+}
+
+fn provider_http_request(
     config: &ProviderConfig,
-    participant_view: &str,
-    prompt: &str,
-) -> Result<String, String> {
+    rendered: &RenderedInput,
+    continuation: Option<&ProviderContinuationReference>,
+) -> Result<(bool, String), String> {
     let url = parse_http_url(&config.base_url)?;
-    let mut system_prompt = "You are the case-bound model provider subject inside YAI. Answer only from the supplied YAI participant view and the operator prompt. Use a natural, direct style: start with the answer, avoid boilerplate openings, and do not begin every response with phrases like `according to the current projection`. Speak in terms of authority granted by the current case projection when authority matters, especially for refusals, missing access, proposed actions or boundary explanations. In those cases, prefer bounded authority language such as `the participant view does not grant authority to...` over absolute physical-capability claims. For ordinary factual answers, cite the visible record refs or record kinds when useful instead of repeating the authority preamble. Format for terminal reading with short paragraphs or compact bullets, and keep technical identifiers unchanged. Your outputs are claims/proposals/model interpretations, not authoritative case state, YAI decisions, policy rules, receipts or filesystem effects. subject:linenoise-terminal is only a display/input surface and never owns execution or decision authority. Any proposed action must become an op_attempt and pass through control/carrier before any effect. Do not claim raw journal, filesystem, shell, environment, API-key or out-of-case memory access unless explicitly provided by the participant view.".to_string();
-    if config.language_mode == "auto" {
-        system_prompt.push_str(" Respond in the same natural language as the operator prompt. Do not translate technical identifiers, record kinds, subject refs, case refs, decision ids, receipt ids, command names or code spans.");
+    if let Some(reference) = continuation {
+        if reference.provider_id != config.provider_id {
+            return Err("provider_continuation_provider_mismatch".to_string());
+        }
+        if !config.continuation_supported {
+            return Err("provider_continuation_not_supported".to_string());
+        }
     }
-    let user_content =
-        format!("YAI participant view:\n{participant_view}\n\nOperator prompt:\n{prompt}");
+    let continuation_field = continuation
+        .map(|reference| {
+            format!(
+                ",\"yai_provider_continuation\":{{\"runtime_id\":\"{}\",\"reference\":\"{}\"}}",
+                json_escape(&reference.runtime_id),
+                json_escape(&reference.opaque_reference)
+            )
+        })
+        .unwrap_or_default();
     let body = format!(
-        "{{\"model\":\"{}\",\"stream\":false,\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}]}}",
+        "{{\"model\":\"{}\",\"stream\":false,\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}]{} }}",
         json_escape(&config.model),
-        json_escape(&system_prompt),
-        json_escape(&user_content)
+        json_escape(&rendered.system_content),
+        json_escape(&rendered.user_content),
+        continuation_field
     );
     let auth = config
         .api_key
@@ -1562,28 +1676,61 @@ fn provider_chat_completion(
         .ok_or_else(|| "invalid HTTP provider response".to_string())?;
     let headers = String::from_utf8_lossy(&response[..split]).to_string();
     let body_bytes = &response[split + 4..];
-    if !headers.starts_with("HTTP/1.1 2") && !headers.starts_with("HTTP/1.0 2") {
-        return Err(format!(
-            "provider returned non-2xx response: {}",
-            compact_text(&String::from_utf8_lossy(body_bytes), 240)
-        ));
-    }
+    let success = headers.starts_with("HTTP/1.1 2") || headers.starts_with("HTTP/1.0 2");
     let lower_headers = headers.to_ascii_lowercase();
     let body_bytes = if lower_headers.contains("transfer-encoding: chunked") {
         decode_chunked_body(body_bytes)?
     } else {
         body_bytes.to_vec()
     };
-    let body_text = String::from_utf8_lossy(&body_bytes).to_string();
-    extract_json_string_field(&body_text, "content").ok_or_else(|| {
+    Ok((success, String::from_utf8_lossy(&body_bytes).to_string()))
+}
+
+fn provider_chat_completion(
+    config: &ProviderConfig,
+    rendered: &RenderedInput,
+) -> Result<ProviderTransportResult, String> {
+    let continuation = config.continuation_ref.as_ref();
+    let (success, mut body_text) = provider_http_request(config, rendered, continuation)?;
+    let disposition = if success {
+        if continuation.is_some() {
+            ContinuationDisposition::Used
+        } else {
+            ContinuationDisposition::NotProvided
+        }
+    } else if continuation.is_some()
+        && body_text
+            .to_ascii_lowercase()
+            .contains("invalid_continuation")
+    {
+        let (retry_success, retry_body) = provider_http_request(config, rendered, None)?;
+        if !retry_success {
+            return Err(format!(
+                "provider continuation retry returned non-2xx response: {}",
+                compact_text(&retry_body, 240)
+            ));
+        }
+        body_text = retry_body;
+        ContinuationDisposition::InvalidatedAndRetried
+    } else {
+        return Err(format!(
+            "provider returned non-2xx response: {}",
+            compact_text(&body_text, 240)
+        ));
+    };
+    let output = extract_json_string_field(&body_text, "content").ok_or_else(|| {
         format!(
             "provider response did not contain message content: {}",
             compact_text(&body_text, 240)
         )
+    })?;
+    Ok(ProviderTransportResult {
+        output,
+        continuation_disposition: disposition,
     })
 }
 
-fn redact_sensitive(value: &str, session: &PromptSession) -> String {
+fn redact_sensitive(value: &str, session: &PromptRuntime) -> String {
     if let Some(api_key) = session
         .provider
         .api_key
@@ -1596,7 +1743,7 @@ fn redact_sensitive(value: &str, session: &PromptSession) -> String {
     }
 }
 
-fn transcript_text(value: &str, session: &PromptSession) -> String {
+fn transcript_text(value: &str, session: &PromptRuntime) -> String {
     redact_sensitive(value, session)
         .split_whitespace()
         .collect::<Vec<_>>()
@@ -1608,6 +1755,85 @@ struct ProviderInvocationRefs {
     invocation_id: String,
 }
 
+struct SemanticInvocation {
+    projection: Projection,
+    frame: ContextFrame,
+    rendered: RenderedInput,
+    output_contract_id: String,
+}
+
+fn continuation_disposition_label(value: &ContinuationDisposition) -> &'static str {
+    match value {
+        ContinuationDisposition::NotProvided => "not_provided",
+        ContinuationDisposition::Used => "used",
+        ContinuationDisposition::InvalidatedAndRetried => "invalidated_and_retried",
+    }
+}
+
+fn compile_semantic_invocation(
+    session: &PromptRuntime,
+    purpose: ProjectionPurpose,
+    task: &str,
+    output_contract: InvocationOutputContract,
+) -> Result<SemanticInvocation, String> {
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = store
+        .get_case_state(&session.case_ref)?
+        .ok_or_else(|| format!("canonical CaseState missing for {}", session.case_ref))?;
+    let transitions = store.list_case_transitions(&session.case_ref)?;
+    let request = ProjectionRequest::model(&session.subject_ref, purpose);
+    let projection = compile_projection(
+        &state,
+        &transitions,
+        &request,
+        &DerivedProjectionInput {
+            graph_available: false,
+            memory_available: false,
+            memory: Vec::new(),
+        },
+    )?;
+    let output_contract_id = output_contract.contract_id();
+    let frame = build_context_frame(&projection, task, output_contract)?;
+    let profile = ProviderModelProfile {
+        provider_id: session.provider.provider_id.clone(),
+        provider_kind: "openai_compatible".to_string(),
+        model_id: session.provider.model.clone(),
+        structured_output_supported: matches!(
+            frame.output_contract,
+            InvocationOutputContract::FilesystemWriteProposal { .. }
+        ),
+        continuation_supported: session.provider.continuation_supported,
+    };
+    let rendered = render_openai_compatible(&frame, &profile, &session.provider.language_mode)?;
+    store
+        .put_semantic_context_artifact(&SemanticContextArtifact::Projection(projection.clone()))?;
+    store.put_semantic_context_artifact(&SemanticContextArtifact::ContextFrame(frame.clone()))?;
+    store.put_semantic_context_artifact(&SemanticContextArtifact::RenderedInputMetadata(
+        rendered.metadata.clone(),
+    ))?;
+    Ok(SemanticInvocation {
+        projection,
+        frame,
+        rendered,
+        output_contract_id,
+    })
+}
+
+fn invocation_lineage(
+    semantic: &SemanticInvocation,
+    disposition: ContinuationDisposition,
+) -> ProviderInvocationLineage {
+    ProviderInvocationLineage {
+        projection_id: semantic.projection.projection_id.clone(),
+        context_frame_id: semantic.frame.frame_id.clone(),
+        case_generation: semantic.projection.case_generation,
+        rendered_input_id: semantic.rendered.metadata.rendered_input_id.clone(),
+        rendered_input_digest: semantic.rendered.metadata.content_digest.clone(),
+        output_contract_id: semantic.output_contract_id.clone(),
+        continuation_disposition: continuation_disposition_label(&disposition).to_string(),
+    }
+}
+
 /// Result of one provider invocation made through the real case/provider
 /// boundary for a controlled effect turn. The raw output remains
 /// non-authoritative candidate material until normalization succeeds.
@@ -1615,36 +1841,68 @@ pub(super) struct ControlledProviderResult {
     pub invocation_id: String,
     pub result_id: String,
     pub raw_output: String,
+    pub provider_id: String,
     pub model_id: String,
+    pub projection_id: String,
+    pub context_frame_id: String,
 }
 
 pub(super) fn invoke_controlled_provider(
     args: &[String],
-    participant_view: &str,
-    prompt: &str,
+    purpose: ProjectionPurpose,
+    task: &str,
+    output_contract: InvocationOutputContract,
 ) -> Result<ControlledProviderResult, String> {
-    let session = prompt_session_from_args(args)?;
-    let invocation = append_model_prompt_attempt(&session, prompt)?;
-    let output = provider_chat_completion(&session.provider, participant_view, prompt)?;
+    let session = prompt_runtime_from_args(args)?;
+    let semantic = compile_semantic_invocation(&session, purpose, task, output_contract)?;
+    let requested_disposition = if session.provider.continuation_ref.is_some() {
+        ContinuationDisposition::Used
+    } else {
+        ContinuationDisposition::NotProvided
+    };
+    let invocation = append_model_prompt_attempt(
+        &session,
+        task,
+        invocation_lineage(&semantic, requested_disposition),
+    )?;
+    let transport = provider_chat_completion(&session.provider, &semantic.rendered)?;
+    let result_lineage = invocation_lineage(&semantic, transport.continuation_disposition.clone());
     let result_id = append_model_output_receipt(
         &session,
         &invocation.attempt_id,
         &invocation.invocation_id,
-        &output,
+        &transport.output,
+        result_lineage,
     )?;
-    append_model_interpretation_record(&session, &invocation.attempt_id, &result_id, &output)?;
-    append_interaction_turn(&session, &invocation.attempt_id, prompt, &output)?;
+    append_model_interpretation_record(
+        &session,
+        &invocation.attempt_id,
+        &result_id,
+        &transport.output,
+    )?;
+    append_interaction_turn(
+        &session,
+        &invocation.attempt_id,
+        &invocation.invocation_id,
+        &result_id,
+        task,
+        &transport.output,
+    )?;
     Ok(ControlledProviderResult {
         invocation_id: invocation.invocation_id,
         result_id,
-        raw_output: output,
+        raw_output: transport.output,
+        provider_id: session.provider.provider_id,
         model_id: session.provider.model,
+        projection_id: semantic.projection.projection_id,
+        context_frame_id: semantic.frame.frame_id,
     })
 }
 
 fn append_model_prompt_attempt(
-    session: &PromptSession,
+    session: &PromptRuntime,
     prompt: &str,
+    semantic_lineage: ProviderInvocationLineage,
 ) -> Result<ProviderInvocationRefs, String> {
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
@@ -1668,6 +1926,12 @@ fn append_model_prompt_attempt(
     let state = store
         .get_case_state(&session.case_ref)?
         .ok_or_else(|| format!("canonical CaseState missing for {}", session.case_ref))?;
+    if semantic_lineage.case_generation != state.generation {
+        return Err(format!(
+            "stale_context_frame: frame_generation={} current_generation={}",
+            semantic_lineage.case_generation, state.generation
+        ));
+    }
     let mut pending = PendingTransition::new(
         format!("transition:{}", canonical_id_component(&record.id)),
         &session.case_ref,
@@ -1676,8 +1940,10 @@ fn append_model_prompt_attempt(
         TransitionPayload::ProviderInvocationStarted {
             invocation_id: invocation_id.clone(),
             participant_id: session.subject_ref.clone(),
+            provider_id: session.provider.provider_id.clone(),
             provider_kind: "openai_compatible".to_string(),
             model_id: session.provider.model.clone(),
+            semantic_lineage: Some(semantic_lineage.clone()),
         },
     );
     pending.summary = Some(prompt_attempt_summary(session, prompt));
@@ -1690,10 +1956,11 @@ fn append_model_prompt_attempt(
 }
 
 fn append_model_output_receipt(
-    session: &PromptSession,
+    session: &PromptRuntime,
     attempt_id: &str,
     invocation_id: &str,
     output: &str,
+    semantic_lineage: ProviderInvocationLineage,
 ) -> Result<String, String> {
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
@@ -1725,8 +1992,10 @@ fn append_model_output_receipt(
         TransitionPayload::ProviderResultRecorded {
             result_id: result_id.clone(),
             invocation_id: invocation_id.to_string(),
+            provider_id: session.provider.provider_id.clone(),
             provider_kind: "openai_compatible".to_string(),
             model_id: session.provider.model.clone(),
+            semantic_lineage: Some(semantic_lineage),
             output: output.to_string(),
         },
     );
@@ -1738,7 +2007,7 @@ fn append_model_output_receipt(
 }
 
 fn append_model_interpretation_record(
-    session: &PromptSession,
+    session: &PromptRuntime,
     attempt_id: &str,
     result_id: &str,
     output: &str,
@@ -1786,71 +2055,11 @@ fn append_model_interpretation_record(
     Ok(summary)
 }
 
-fn append_participant_view_frame(session: &PromptSession) -> Result<String, String> {
-    let journal = Journal::load_jsonl(&session.journal_path)
-        .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
-    let sequence = journal.count() + 1;
-    let previous_frame_id =
-        latest_frame_id(&journal, &session.case_ref, &session.active_thread_id).unwrap_or_default();
-    let frame_id = format!("frame:participant-view-{sequence}");
-    let included_turn_count =
-        thread_turn_count(&journal, &session.case_ref, &session.active_thread_id);
-    let included_memory_count = journal
-        .records()
-        .iter()
-        .filter(|record| {
-            record.case_ref == session.case_ref && record.kind == RecordKind::MemoryCandidate
-        })
-        .count();
-    let included_receipt_count = journal
-        .records()
-        .iter()
-        .filter(|record| {
-            record.case_ref == session.case_ref
-                && matches!(
-                    record.kind,
-                    RecordKind::Receipt | RecordKind::EffectReceipt | RecordKind::FilesystemReceipt
-                )
-        })
-        .count();
-    let projection_id = journal
-        .records()
-        .iter()
-        .rev()
-        .find(|record| {
-            record.case_ref == session.case_ref && record.kind == RecordKind::ProjectionResult
-        })
-        .map(|record| record.id.as_str())
-        .unwrap_or("projection:current");
-    let freshness = projection_freshness_view(&session.case_ref, "model");
-    let summary = format!(
-        "participant_view_frame frame_id:{frame_id} case_ref:{} thread_id:{} projection_id:{projection_id} previous_frame_id:{} delta_since_frame_id:{} included_turn_count:{included_turn_count} included_memory_count:{included_memory_count} included_receipt_count:{included_receipt_count} redaction:summary_only freshness:{} freshness_source:{} stale_reason_at_build:{} freshness_policy:{} source:active_thread_plus_case_projection",
-        session.case_ref,
-        session.active_thread_id,
-        if previous_frame_id.is_empty() { "none" } else { previous_frame_id.as_str() },
-        if previous_frame_id.is_empty() { "none" } else { previous_frame_id.as_str() },
-        freshness.freshness,
-        freshness.source,
-        freshness.stale_reason,
-        freshness.policy
-    );
-    let record = Record::from_parts(
-        &frame_id,
-        &session.case_ref,
-        RecordKind::ParticipantViewFrame,
-        &session.subject_ref,
-        "",
-        "",
-        "",
-        summary,
-    );
-    append_record_to_journal(&session.journal_path, &record)?;
-    Ok(frame_id)
-}
-
 fn append_interaction_turn(
-    session: &PromptSession,
+    session: &PromptRuntime,
     attempt_id: &str,
+    invocation_id: &str,
+    result_id: &str,
     prompt: &str,
     output: &str,
 ) -> Result<String, String> {
@@ -1878,27 +2087,48 @@ fn append_interaction_turn(
         "",
         summary,
     );
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = store
+        .get_case_state(&session.case_ref)?
+        .ok_or_else(|| format!("canonical CaseState missing for {}", session.case_ref))?;
+    let turn_id = format!("turn:{}", canonical_id_component(&record_id));
+    let mut pending = PendingTransition::new(
+        format!("transition:{}", canonical_id_component(&record_id)),
+        &session.case_ref,
+        state.generation,
+        provider_source(Some(&session.subject_ref), &record_id),
+        TransitionPayload::InteractionTurnRecorded {
+            turn_id,
+            thread_id: session.active_thread_id.clone(),
+            participant_id: session.subject_ref.clone(),
+            invocation_id: invocation_id.to_string(),
+            result_id: result_id.to_string(),
+            operator_input: compact_text(prompt, 2048),
+        },
+    );
+    pending.causal_refs = vec![invocation_id.to_string(), result_id.to_string()];
+    store.commit_transition(pending)?;
     append_record_to_journal(&session.journal_path, &record)?;
     Ok(record_id)
 }
 
-fn prompt_attempt_summary(session: &PromptSession, prompt: &str) -> String {
+fn prompt_attempt_summary(session: &PromptRuntime, prompt: &str) -> String {
     if session.transcript_enabled {
         format!(
-            "op:model.prompt.submit prompt_surface:vendored_linenoise context:participant_view_frame thread_id:{} transcript_retention:full_redacted_case_local prompt_text:{}",
+            "op:model.prompt.submit prompt_surface:vendored_linenoise context:typed_context_frame thread_id:{} transcript_retention:full_redacted_case_local prompt_text:{}",
             session.active_thread_id,
             transcript_text(prompt, session)
         )
     } else {
         format!(
-            "op:model.prompt.submit prompt_surface:vendored_linenoise context:participant_view_frame thread_id:{} transcript_retention:preview_only prompt_preview:{}",
+            "op:model.prompt.submit prompt_surface:vendored_linenoise context:typed_context_frame thread_id:{} transcript_retention:preview_only prompt_preview:{}",
             session.active_thread_id,
             compact_text(prompt, 120)
         )
     }
 }
 
-fn model_output_summary(session: &PromptSession, output: &str) -> String {
+fn model_output_summary(session: &PromptRuntime, output: &str) -> String {
     if session.transcript_enabled {
         format!(
             "model.output status:observed provider:openai_compatible model:{} output_chars:{} transcript_retention:full_redacted_case_local output_text:{}",
@@ -1917,7 +2147,7 @@ fn model_output_summary(session: &PromptSession, output: &str) -> String {
 }
 
 fn append_transcript_retention_state(
-    session: &PromptSession,
+    session: &PromptRuntime,
     enabled: bool,
 ) -> Result<String, String> {
     let journal = Journal::load_jsonl(&session.journal_path)
@@ -1945,7 +2175,7 @@ fn append_transcript_retention_state(
     Ok(summary)
 }
 
-fn append_memory_proposal(session: &PromptSession, note: Option<&str>) -> Result<String, String> {
+fn append_memory_proposal(session: &PromptRuntime, note: Option<&str>) -> Result<String, String> {
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
     let prompt_attempts = journal
@@ -1973,7 +2203,7 @@ fn append_memory_proposal(session: &PromptSession, note: Option<&str>) -> Result
         .map(|value| format!(" note:{}", compact_text(value, 120)))
         .unwrap_or_default();
     let summary = format!(
-        "memory:operational scope:case source:prompt_session transcript_retention:{} basis_records:{} basis_prompt_attempts:{} basis_model_outputs:{} summary:prompt session tested case boundary and model/provider residue{}",
+        "memory:operational scope:case source:prompt_runtime transcript_retention:{} basis_records:{} basis_prompt_attempts:{} basis_model_outputs:{} summary:prompt runtime tested case boundary and model/provider residue{}",
         transcript_retention_label(session.transcript_enabled),
         basis_records,
         prompt_attempts,
@@ -1997,16 +2227,24 @@ fn append_memory_proposal(session: &PromptSession, note: Option<&str>) -> Result
     Ok(summary)
 }
 
-fn run_prompt_once(session: &mut PromptSession, prompt: &str, dry_run: bool) -> Result<(), String> {
+fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> Result<(), String> {
     let colors = color_enabled();
     let freshness = projection_freshness_view(&session.case_ref, "model");
+    let semantic = compile_semantic_invocation(
+        session,
+        ProjectionPurpose::Conversation,
+        prompt,
+        InvocationOutputContract::NaturalLanguage,
+    )?;
     if dry_run {
         println!("model_prompt: dry_run");
         println!("case_ref: {}", session.case_ref);
         println!("case_session: active");
         println!("case_context: active");
         println!("interaction_thread: {}", session.active_thread_id);
-        println!("participant_view_frame: would_build");
+        println!("projection_id: {}", semantic.projection.projection_id);
+        println!("context_frame_id: {}", semantic.frame.frame_id);
+        println!("context_frame_schema: {}", semantic.frame.schema);
         println!("projection_freshness: {}", freshness.freshness);
         println!("stale_reason: {}", freshness.stale_reason);
         println!("freshness_policy: {}", freshness.policy);
@@ -2017,7 +2255,7 @@ fn run_prompt_once(session: &mut PromptSession, prompt: &str, dry_run: bool) -> 
         println!("subject_ref: {}", session.subject_ref);
         println!("provider_base_url: {}", session.provider.base_url);
         println!("provider_model: {}", session.provider.model);
-        println!("context_source: interaction_thread_plus_projection_frame");
+        println!("context_source: typed_projection_plus_context_frame");
         println!(
             "transcript_retention: {}",
             transcript_retention_label(session.transcript_enabled)
@@ -2036,9 +2274,18 @@ fn run_prompt_once(session: &mut PromptSession, prompt: &str, dry_run: bool) -> 
         println!("freshness_policy: {}", freshness.policy);
         println!("refresh_required: true");
     }
-    let frame_id = append_participant_view_frame(session)?;
-    let invocation = append_model_prompt_attempt(session, prompt)?;
-    let output = provider_chat_completion(&session.provider, &session.participant_view, prompt)?;
+    let requested_disposition = if session.provider.continuation_ref.is_some() {
+        ContinuationDisposition::Used
+    } else {
+        ContinuationDisposition::NotProvided
+    };
+    let invocation = append_model_prompt_attempt(
+        session,
+        prompt,
+        invocation_lineage(&semantic, requested_disposition),
+    )?;
+    let transport = provider_chat_completion(&session.provider, &semantic.rendered)?;
+    let output = transport.output;
     println!();
     print_cli_section(colors, "MODEL", &session.provider.model, ANSI_MAGENTA);
     print_model_output(colors, &output);
@@ -2048,15 +2295,24 @@ fn run_prompt_once(session: &mut PromptSession, prompt: &str, dry_run: bool) -> 
         &invocation.attempt_id,
         &invocation.invocation_id,
         &output,
+        invocation_lineage(&semantic, transport.continuation_disposition.clone()),
     )?;
     let interpretation_summary =
         append_model_interpretation_record(session, &invocation.attempt_id, &result_id, &output)?;
-    let turn_id = append_interaction_turn(session, &invocation.attempt_id, prompt, &output)?;
-    let journal = Journal::load_jsonl(&session.journal_path)
-        .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
-    session.participant_view =
-        render_participant_view(&journal, &session.case_ref, &session.active_thread_id);
-    println!("participant_view_frame: {frame_id}");
+    let turn_id = append_interaction_turn(
+        session,
+        &invocation.attempt_id,
+        &invocation.invocation_id,
+        &result_id,
+        prompt,
+        &output,
+    )?;
+    println!("projection_id: {}", semantic.projection.projection_id);
+    println!("context_frame_id: {}", semantic.frame.frame_id);
+    println!(
+        "continuation_disposition: {}",
+        continuation_disposition_label(&transport.continuation_disposition)
+    );
     println!("interaction_turn: {turn_id}");
     println!(
         "model_interpretation: {}",
@@ -2065,18 +2321,17 @@ fn run_prompt_once(session: &mut PromptSession, prompt: &str, dry_run: bool) -> 
     Ok(())
 }
 
-fn handle_prompt_command(session: &mut PromptSession, command: &str) -> Result<bool, String> {
+fn handle_prompt_command(session: &mut PromptRuntime, command: &str) -> Result<bool, String> {
     if command == "/refresh" {
         let journal = Journal::load_jsonl(&session.journal_path).map_err(|error| {
             format!("failed to load {}: {error}", session.journal_path.display())
         })?;
-        session.participant_view =
-            render_participant_view(&journal, &session.case_ref, &session.active_thread_id);
+        session.legacy_status_notes =
+            render_thread_context(&journal, &session.case_ref, &session.active_thread_id);
         session.transcript_enabled =
             transcript_retention_enabled(&journal, &session.case_ref, &session.subject_ref);
-        let frame_id = append_participant_view_frame(session)?;
         println!("case_prompt: refreshed");
-        println!("participant_view_frame: {frame_id}");
+        println!("semantic_context: rebuild_on_next_invocation");
         println!("interaction_thread: {}", session.active_thread_id);
         println!(
             "transcript_retention: {}",
@@ -2121,7 +2376,7 @@ fn handle_prompt_command(session: &mut PromptSession, command: &str) -> Result<b
             "thread_turn_count: {}",
             thread_turn_count(&journal, &session.case_ref, &session.active_thread_id)
         );
-        println!("participant_view: active_thread_plus_projection");
+        println!("semantic_context: typed_projection_plus_active_thread_metadata");
         println!("journal_role: replay_audit_not_chat_memory");
         return Ok(true);
     }
@@ -2173,11 +2428,11 @@ fn handle_prompt_command(session: &mut PromptSession, command: &str) -> Result<b
             format!("failed to load {}: {error}", session.journal_path.display())
         })?;
         session.active_thread_id = thread_id.clone();
-        session.participant_view =
-            render_participant_view(&journal, &session.case_ref, &session.active_thread_id);
+        session.legacy_status_notes =
+            render_thread_context(&journal, &session.case_ref, &session.active_thread_id);
         println!("interaction_thread: new active");
         println!("thread_id: {thread_id}");
-        println!("participant_view: empty thread");
+        println!("semantic_context: new_thread_projection_rebuild_required");
         println!("journal:audit retained");
         return Ok(true);
     }
@@ -2199,8 +2454,8 @@ fn handle_prompt_command(session: &mut PromptSession, command: &str) -> Result<b
             format!("failed to load {}: {error}", session.journal_path.display())
         })?;
         session.active_thread_id = thread_id.to_string();
-        session.participant_view =
-            render_participant_view(&journal, &session.case_ref, &session.active_thread_id);
+        session.legacy_status_notes =
+            render_thread_context(&journal, &session.case_ref, &session.active_thread_id);
         println!("interaction_thread: restored previous");
         println!("thread_id: {thread_id}");
         println!(
@@ -2237,8 +2492,8 @@ fn handle_prompt_command(session: &mut PromptSession, command: &str) -> Result<b
         let journal = Journal::load_jsonl(&session.journal_path).map_err(|error| {
             format!("failed to load {}: {error}", session.journal_path.display())
         })?;
-        session.participant_view =
-            render_participant_view(&journal, &session.case_ref, &session.active_thread_id);
+        session.legacy_status_notes =
+            render_thread_context(&journal, &session.case_ref, &session.active_thread_id);
         println!("interaction_thread: archived");
         println!("thread_id: {thread_id}");
         println!("active_thread_id: {}", session.active_thread_id);
@@ -2248,13 +2503,13 @@ fn handle_prompt_command(session: &mut PromptSession, command: &str) -> Result<b
     if command == "/transcript on" {
         let summary = append_transcript_retention_state(session, true)?;
         session.transcript_enabled = true;
-        let _ = writeln!(session.participant_view, "## Prompt Session State");
+        let _ = writeln!(session.legacy_status_notes, "## Prompt Runtime State");
         let _ = writeln!(
-            session.participant_view,
+            session.legacy_status_notes,
             "- kind:subject_state subject_ref:{} summary:{}",
             session.subject_ref, summary
         );
-        let _ = writeln!(session.participant_view);
+        let _ = writeln!(session.legacy_status_notes);
         println!("prompt_transcript_retention: enabled");
         println!("transcript_retention: full_redacted_case_local");
         println!("full_transcript: on_explicit_redacted_case_local");
@@ -2265,13 +2520,13 @@ fn handle_prompt_command(session: &mut PromptSession, command: &str) -> Result<b
     if command == "/transcript off" {
         let summary = append_transcript_retention_state(session, false)?;
         session.transcript_enabled = false;
-        let _ = writeln!(session.participant_view, "## Prompt Session State");
+        let _ = writeln!(session.legacy_status_notes, "## Prompt Runtime State");
         let _ = writeln!(
-            session.participant_view,
+            session.legacy_status_notes,
             "- kind:subject_state subject_ref:{} summary:{}",
             session.subject_ref, summary
         );
-        let _ = writeln!(session.participant_view);
+        let _ = writeln!(session.legacy_status_notes);
         println!("prompt_transcript_retention: disabled");
         println!("transcript_retention: preview_only");
         println!("full_transcript: off");
@@ -2281,13 +2536,13 @@ fn handle_prompt_command(session: &mut PromptSession, command: &str) -> Result<b
     if command == "/memory propose" || command.starts_with("/memory propose ") {
         let note = command.strip_prefix("/memory propose").map(str::trim);
         let summary = append_memory_proposal(session, note)?;
-        let _ = writeln!(session.participant_view, "## Prompt Session Memory");
+        let _ = writeln!(session.legacy_status_notes, "## Prompt Runtime Memory Note");
         let _ = writeln!(
-            session.participant_view,
+            session.legacy_status_notes,
             "- kind:memory_candidate subject_ref:{} summary:{}",
             session.subject_ref, summary
         );
-        let _ = writeln!(session.participant_view);
+        let _ = writeln!(session.legacy_status_notes);
         println!("memory_proposal: accepted");
         println!("record_kind: memory_candidate");
         println!(
@@ -2309,7 +2564,7 @@ fn handle_prompt_command(session: &mut PromptSession, command: &str) -> Result<b
 pub(super) fn prompt_repl(args: &[String]) -> Result<(), String> {
     let dry_run = args.iter().any(|arg| arg == "--dry-run");
     let once = optional_arg(args, "--once");
-    let mut session = prompt_session_from_args(args)?;
+    let mut session = prompt_runtime_from_args(args)?;
     let colors = color_enabled();
     if let Some(prompt) = once {
         if handle_prompt_command(&mut session, prompt.trim())? {
@@ -2344,7 +2599,7 @@ pub(super) fn prompt_repl(args: &[String]) -> Result<(), String> {
     println!("interaction_thread: {}", session.active_thread_id);
     println!("subject_ref: {}", session.subject_ref);
     println!("provider_model: {}", session.provider.model);
-    println!("context_source: interaction_thread_plus_projection_frame");
+    println!("context_source: typed_projection_plus_context_frame");
     println!(
         "transcript_retention: {}",
         transcript_retention_label(session.transcript_enabled)

@@ -217,9 +217,12 @@ admitted, attempted, observed, and indeterminate.
 
 ## Current implementation gap
 
-`yai.transition.v2` provides immutable typed payloads, per-Case sequence,
+`yai.transition.v3` provides immutable typed payloads, per-Case sequence,
 mechanical closure checks, stale-generation rejection, and atomic LMDB append
-plus `yai.case_state.v2` reduction. CaseState rebuild/replay equivalence,
+plus `yai.case_state.v3` reduction. Readers retain v1/v2 compatibility. Version
+3 adds provider identity, Projection/ContextFrame/render/output-contract
+lineage and typed interaction turns without placing derived context in
+CaseState. CaseState rebuild/replay equivalence,
 restart, rollback-before-commit, duplicate identity, derived failure isolation,
 and typed graph rebuild are executable invariants.
 
@@ -236,8 +239,10 @@ previous output. The direct write command is removed.
 The implementation remains narrower than the full contract: only one local
 filesystem carrier exists; recovery is an explicit per-Case command rather
 than an automatic scheduler; issued-but-never-prepared Grant cleanup is not
-modeled; expiry/revocation and general policy are absent; and the special
-effect view is not a general ContextFrame. Receipt-shaped legacy exports
+modeled; expiry/revocation and general policy are absent. Typed Projection and
+ContextFrame now serve both ordinary prompt and controlled effect, but adaptive
+Residency, tokenizer budgets, ContextDelta and native runtime continuation are
+absent. Receipt-shaped legacy exports
 remain compatibility material. `yai.store.record.v0` and `yai.record.v1` are
 explicit compatibility input/output, not canonical history. See
 [Architecture](../architecture.md) and the [Roadmap](../../ROADMAP.md).

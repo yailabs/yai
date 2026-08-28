@@ -189,100 +189,6 @@ fn resource_for_case(
         })
 }
 
-fn first_turn_projection(
-    state: &CaseState,
-    resource: &ResourceAttachmentState,
-    participant_id: &str,
-) -> String {
-    format!(
-        "projection_schema: yai.controlled_effect_view.v1\ncase_id: {}\ncase_generation: {}\nparticipant_id: {}\nresource_attachment: {}\nresource_kind: filesystem\nallowed_write_prefix: {}\nmax_write_bytes: {}\nprovider_authority: candidate_material_only\ndecision_authority: not_provided\nfilesystem_access: not_provided\noperation_output_contract: return exactly one JSON object with schema={}, operation=filesystem.write, resource={}, path=<normalized relative path>, content=<non-empty string>\n",
-        state.case_id,
-        state.generation,
-        participant_id,
-        resource.attachment_id,
-        resource.allowed_write_prefix,
-        resource.max_write_bytes,
-        OPERATION_PROPOSAL_SCHEMA,
-        resource.attachment_id
-    )
-}
-
-fn second_turn_projection(state: &CaseState, operation_id: &str) -> String {
-    let decision = state
-        .last_decision
-        .as_ref()
-        .filter(|decision| decision.operation_id == operation_id);
-    let effect = state
-        .effects
-        .iter()
-        .rev()
-        .find(|effect| effect.operation_id == operation_id);
-    let (decision_outcome, consequence, target, digest, receipt) = match (decision, effect) {
-        (Some(decision), None) if decision.outcome == DecisionOutcome::Deny => (
-            "deny".to_string(),
-            "no_effect_authorized".to_string(),
-            state
-                .last_operation
-                .as_ref()
-                .map(|operation| operation.relative_path.clone())
-                .unwrap_or_else(|| "unknown".to_string()),
-            "none".to_string(),
-            "none".to_string(),
-        ),
-        (Some(decision), Some(effect)) => (
-            format!("{:?}", decision.outcome).to_ascii_lowercase(),
-            match effect.status {
-                EffectLifecycle::Finalized => format!(
-                    "observed_{}",
-                    effect_outcome_label(
-                        effect
-                            .outcome
-                            .as_ref()
-                            .unwrap_or(&EffectOutcome::Indeterminate)
-                    )
-                ),
-                EffectLifecycle::Prepared => "prepared_unresolved".to_string(),
-                EffectLifecycle::Indeterminate => "indeterminate".to_string(),
-            },
-            effect.relative_path.clone(),
-            effect.intended_content_digest.clone(),
-            effect
-                .receipt_id
-                .clone()
-                .unwrap_or_else(|| "none".to_string()),
-        ),
-        _ => (
-            "none".to_string(),
-            "no_committed_consequence".to_string(),
-            "unknown".to_string(),
-            "none".to_string(),
-            "none".to_string(),
-        ),
-    };
-    format!(
-        "projection_schema: yai.controlled_effect_consequence.v1\ncase_id: {}\ncase_generation: {}\noperation_id: {}\ndecision: {}\nreal_world_consequence: {}\nrelative_path: {}\nobserved_or_intended_digest: {}\neffect_receipt: {}\ntruth_source: committed_transition_plus_observation_not_provider_claim\n",
-        state.case_id,
-        state.generation,
-        operation_id,
-        decision_outcome,
-        consequence,
-        target,
-        digest,
-        receipt
-    )
-}
-
-fn effect_outcome_label(outcome: &EffectOutcome) -> &'static str {
-    match outcome {
-        EffectOutcome::Applied => "applied",
-        EffectOutcome::AlreadyApplied => "already_applied",
-        EffectOutcome::NoEffect => "no_effect",
-        EffectOutcome::FailedNoEffect => "failed_no_effect",
-        EffectOutcome::Conflict => "conflict",
-        EffectOutcome::Indeterminate => "indeterminate",
-    }
-}
-
 fn provider_args_for_case(args: &[String], case_id: &str, participant_id: &str) -> Vec<String> {
     let mut result = args.to_vec();
     if optional_arg(&result, "--case").is_none() {
@@ -294,6 +200,73 @@ fn provider_args_for_case(args: &[String], case_id: &str, participant_id: &str) 
         result.push(participant_id.to_string());
     }
     result
+}
+
+fn replace_named_arg(args: &mut Vec<String>, name: &str, value: &str) {
+    if let Some(index) = args.iter().position(|item| item == name) {
+        if index + 1 < args.len() {
+            args[index + 1] = value.to_string();
+            return;
+        }
+    }
+    args.push(name.to_string());
+    args.push(value.to_string());
+}
+
+fn remove_named_arg(args: &mut Vec<String>, name: &str, takes_value: bool) {
+    if let Some(index) = args.iter().position(|item| item == name) {
+        args.remove(index);
+        if takes_value && index < args.len() {
+            args.remove(index);
+        }
+    }
+}
+
+fn second_turn_provider_args(
+    args: &[String],
+    case_id: &str,
+    participant_id: &str,
+) -> Result<Vec<String>, String> {
+    let mut result = provider_args_for_case(args, case_id, participant_id);
+    let second_base_url = optional_arg(args, "--second-base-url");
+    let second_provider_id = optional_arg(args, "--second-provider-id");
+    let second_model = optional_arg(args, "--second-model");
+    if second_base_url.is_none() && second_provider_id.is_none() && second_model.is_none() {
+        return Ok(result);
+    }
+    let base_url = second_base_url
+        .or_else(|| optional_arg(args, "--base-url"))
+        .ok_or_else(|| "second provider requires --second-base-url or --base-url".to_string())?;
+    let provider_id = second_provider_id
+        .or_else(|| optional_arg(args, "--provider-id"))
+        .unwrap_or_else(|| "provider:openai-compatible".to_string());
+    let model = second_model
+        .or_else(|| optional_arg(args, "--model"))
+        .ok_or_else(|| "second provider requires --second-model or --model".to_string())?;
+    let mut attach = vec![
+        "--case".to_string(),
+        case_id.to_string(),
+        "--subject".to_string(),
+        participant_id.to_string(),
+        "--base-url".to_string(),
+        base_url.clone(),
+        "--provider-id".to_string(),
+        provider_id.clone(),
+        "--model".to_string(),
+        model.clone(),
+    ];
+    if let Some(api_key_env) = optional_arg(args, "--api-key-env") {
+        attach.push("--api-key-env".to_string());
+        attach.push(api_key_env);
+    }
+    case_attach_provider(&attach)?;
+    replace_named_arg(&mut result, "--base-url", &base_url);
+    replace_named_arg(&mut result, "--provider-id", &provider_id);
+    replace_named_arg(&mut result, "--model", &model);
+    remove_named_arg(&mut result, "--continuation-ref", true);
+    remove_named_arg(&mut result, "--provider-runtime-id", true);
+    remove_named_arg(&mut result, "--continuation-capable", false);
+    Ok(result)
 }
 
 fn commit_normalization_failure(
@@ -462,11 +435,26 @@ pub(super) fn controlled_filesystem_write(args: &[String]) -> Result<(), String>
         .ok_or_else(|| format!("local binding missing for {case_id}/{attachment_id}"))?;
     drop(store);
     let provider_args = provider_args_for_case(args, &case_id, &participant_id);
-    let first_view = first_turn_projection(&state, &resource, &participant_id);
-    let provider_result = invoke_controlled_provider(&provider_args, &first_view, &prompt)?;
+    let provider_result = invoke_controlled_provider(
+        &provider_args,
+        ProjectionPurpose::FilesystemWriteProposal,
+        &prompt,
+        InvocationOutputContract::FilesystemWriteProposal {
+            schema: OPERATION_PROPOSAL_SCHEMA.to_string(),
+            attachment_id: resource.attachment_id.clone(),
+            allowed_write_prefix: resource.allowed_write_prefix.clone(),
+            max_write_bytes: resource.max_write_bytes,
+        },
+    )?;
     println!("provider_invocation_id: {}", provider_result.invocation_id);
     println!("provider_result_id: {}", provider_result.result_id);
+    println!("provider_id: {}", provider_result.provider_id);
     println!("provider_model: {}", provider_result.model_id);
+    println!("provider_projection_id: {}", provider_result.projection_id);
+    println!(
+        "provider_context_frame_id: {}",
+        provider_result.context_frame_id
+    );
     println!("provider_result_authority: non_authoritative_candidate_material");
 
     let store = LmdbRecordStore::open(record_store_path())?;
@@ -514,12 +502,13 @@ pub(super) fn controlled_filesystem_write(args: &[String]) -> Result<(), String>
         }
     );
     if decision.outcome == DecisionOutcome::Deny {
-        let consequence = second_turn_projection(&state_after_decision, &operation.operation_id);
+        let second_provider_args = second_turn_provider_args(args, &case_id, &participant_id)?;
         drop(store);
         let second = invoke_controlled_provider(
-            &provider_args,
-            &consequence,
+            &second_provider_args,
+            ProjectionPurpose::EffectConsequence,
             "Report the committed controlled filesystem outcome from this view.",
+            InvocationOutputContract::NaturalLanguage,
         )?;
         println!("execution_grant: none");
         println!("external_effect: none");
@@ -592,7 +581,7 @@ pub(super) fn controlled_filesystem_write(args: &[String]) -> Result<(), String>
         eprintln!("prepared_receipt_id: {}", receipt.receipt_id);
         exit_at_failpoint("after_receipt_before_finalize", 87);
     }
-    let finalized = commit_finalize(&store, &prepared, &result)?;
+    commit_finalize(&store, &prepared, &result)?;
     println!("effect_receipt_id: {}", receipt.receipt_id);
     println!("effect_outcome: {:?}", result.outcome);
     println!("effect_state: finalized");
@@ -600,12 +589,13 @@ pub(super) fn controlled_filesystem_write(args: &[String]) -> Result<(), String>
 
     let transitions = store.list_case_transitions(&case_id)?;
     validate_finalized_effect_chain(&transitions, &prepared.effect_id)?;
-    let consequence = second_turn_projection(&finalized, &operation.operation_id);
+    let second_provider_args = second_turn_provider_args(args, &case_id, &participant_id)?;
     drop(store);
     let second = invoke_controlled_provider(
-        &provider_args,
-        &consequence,
+        &second_provider_args,
+        ProjectionPurpose::EffectConsequence,
         "Report the observed controlled filesystem consequence from this view.",
+        InvocationOutputContract::NaturalLanguage,
     )?;
     println!("second_provider_invocation_id: {}", second.invocation_id);
     println!("second_provider_result_id: {}", second.result_id);

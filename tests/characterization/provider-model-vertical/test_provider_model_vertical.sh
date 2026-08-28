@@ -38,6 +38,7 @@ sleep 1
 loop_output=$("$YAI_BIN" daemon run-filesystem-loop --socket "$SOCKET")
 journal=$(sed -n 's/.*"journal_path":"\([^"]*\)".*/\1/p' <<<"$loop_output")
 test -s "$journal"
+frames_before=$(grep -c -F '"record_kind":"participant_view_frame"' "$journal" || true)
 
 YAI_JOURNAL="$journal" "$YAI_BIN" case enter \
   --case case:new12-filesystem --subject subject:llm-provider >/dev/null
@@ -66,15 +67,28 @@ wait "$PROVIDER_PID"
 PROVIDER_PID=""
 
 require_text "$prompt_output" "fixture provider result"
-require_text "$prompt_output" "participant_view_frame: frame:participant-view-"
+require_text "$prompt_output" "projection_id: projection:"
+require_text "$prompt_output" "context_frame_id: context-frame:"
 require_text "$prompt_output" "interaction_turn: interaction-turn:"
 require_text "$prompt_output" "model_interpretation: model_interpretation:observed"
+require_text "$prompt_output" "continuation_disposition: not_provided"
+
+projection_id=$(sed -n 's/^projection_id: //p' <<<"$prompt_output" | tail -1)
+frame_id=$(sed -n 's/^context_frame_id: //p' <<<"$prompt_output" | tail -1)
+projection_inspect=$(YAI_HOME="$YAI_HOME" "$YAI_BIN" context inspect --projection "$projection_id")
+frame_inspect=$(YAI_HOME="$YAI_HOME" "$YAI_BIN" context inspect --frame "$frame_id")
+require_text "$projection_inspect" "schema: yai.projection.v1"
+require_text "$projection_inspect" "participant_id: subject:llm-provider"
+require_text "$projection_inspect" "provenance: entry="
+require_text "$frame_inspect" "schema: yai.context_frame.v1"
+require_text "$frame_inspect" "projection_id: $projection_id"
 
 grep -F '"record_kind":"attempt"' "$journal" | grep -F 'op:model.prompt.submit' >/dev/null
 grep -F '"record_kind":"effect_receipt"' "$journal" | grep -F 'model.output status:observed' >/dev/null
 grep -F '"record_kind":"model_interpretation"' "$journal" | grep -F 'authority:not_authoritative_state' >/dev/null
-grep -F '"record_kind":"participant_view_frame"' "$journal" >/dev/null
 grep -F '"record_kind":"interaction_turn"' "$journal" >/dev/null
+frames_after=$(grep -c -F '"record_kind":"participant_view_frame"' "$journal" || true)
+[[ "$frames_after" == "$frames_before" ]]
 
 canonical_summary="$("$YAI_BIN" store summary)"
 grep -Eq "transitions_total: [1-9][0-9]*" <<<"$canonical_summary"
@@ -83,3 +97,4 @@ grep -Eq "cases_materialized: [1-9][0-9]*" <<<"$canonical_summary"
 printf 'provider_model_vertical:real_http_invocation ok\n'
 printf 'provider_model_vertical:durable_continuity_residue ok\n'
 printf 'provider_model_vertical:canonical_transition_authority ok\n'
+printf 'provider_model_vertical:typed_projection_context_frame ok\n'

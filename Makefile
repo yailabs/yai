@@ -19,7 +19,7 @@
 .PHONY: smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33
 .PHONY: smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40
 .PHONY: smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47
-.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect characterization smoke check clean
+.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity characterization smoke check clean
 
 CC ?= cc
 AR ?= ar
@@ -160,12 +160,13 @@ SMOKE_FACT_PLANE_FREEZE := tests/smoke/fact-plane-freeze/test_fact_plane_freeze.
 SMOKE_DAEMON_IPC := tests/smoke/daemon-ipc/test_daemon_ipc.sh
 SMOKE_DAEMON_CORE_LOOP := tests/smoke/daemon-core-loop/test_daemon_core_loop.sh
 CHARACTERIZATION_PROVIDER_MODEL := tests/characterization/provider-model-vertical/test_provider_model_vertical.sh
+CHARACTERIZATION_SEMANTIC_CONTINUITY := tests/characterization/provider-semantic-continuity/test_provider_semantic_continuity.sh
 CHARACTERIZATION_DIRECT_FILESYSTEM := tests/characterization/direct-filesystem-bypass/test_direct_filesystem_bypass.sh
 CHARACTERIZATION_CONTROLLED_EFFECT := tests/characterization/controlled-effect-vertical/test_controlled_effect_vertical.sh
 
 info:
 	@printf "yai: admitted operational-state transition system with one controlled filesystem vertical\n"
-	@printf "source-refoundation-3-baseline: 36c93947d589519c75dd5c261fd1d4e2a0fd74d2\n"
+	@printf "source-refoundation-4-baseline: cda1375ad3f63b2d9a38dbe0f5e7ef5779942a15\n"
 	@printf "documentation: docs/index.md\n"
 	@printf "roadmap: ROADMAP.md\n"
 	@printf "source-layout: include/ system/ engine/ cmd/\n"
@@ -173,7 +174,7 @@ info:
 	@printf "hot-state: %s/hot-state.json\n" "$(YAI_RUN_DIR)"
 	@printf "record-store: %s\n" "$(YAI_RECORD_STORE_DIR)"
 	@printf "fact-plane: DuckDB yai.fact.v1 extraction plus compact CLI reports\n"
-	@printf "state-authority: LMDB yai.transition.v2 plus atomic yai.case_state.v2; v1 readable\n"
+	@printf "state-authority: LMDB yai.transition.v3 plus atomic yai.case_state.v3; v1/v2 readable\n"
 	@printf "legacy-journal: yai.store.record.v0 compatibility input/export only\n"
 	@printf "effect-boundary: controlled filesystem.write Grant/PREPARE/FINALIZE plus reconciliation\n"
 	@printf "c-product: narrow yaid/store/hot/projection dependency set\n"
@@ -181,7 +182,7 @@ info:
 	@printf "engine-bridge: removed; no product C-to-Rust call edge\n"
 	@printf "lib: removed\n"
 	@printf "daemon: moved to cmd/yaid + system/daemon\n"
-	@printf "provider-runtime: typed invocation/result lineage over OpenAI-compatible HTTP; no continuation\n"
+	@printf "provider-runtime: typed Projection/ContextFrame lineage; opaque optional continuation\n"
 	@printf "provider-registry: removed; case-bound invocation remains\n"
 	@printf "crates: removed\n"
 	@printf "ctl: removed\n"
@@ -557,10 +558,14 @@ smoke-spine33e: $(SMOKE_HOST_OBSERVATION_PROBE) build-rust
 
 
 
-smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect
+smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity
+
+smoke-semantic-continuity: $(YAID) build-rust
+	@$(CHARACTERIZATION_SEMANTIC_CONTINUITY)
 
 characterization: smoke-new4 smoke-new11 smoke-new12 smoke-spine39 smoke-spine44a smoke-spine45 smoke-spine51
 	@$(CHARACTERIZATION_PROVIDER_MODEL)
+	@$(CHARACTERIZATION_SEMANTIC_CONTINUITY)
 	@$(CHARACTERIZATION_DIRECT_FILESYSTEM)
 	@$(CHARACTERIZATION_CONTROLLED_EFFECT)
 

@@ -154,12 +154,20 @@ Confinement currently validates the canonical parent immediately before the
 operation; it does not claim race-resistant `openat`/directory-handle security
 against a concurrently hostile namespace.
 
-The provider path has typed provider/model Invocation, ProviderResult, and
-non-authoritative interpretation lineage over raw OpenAI-compatible HTTP. The
-controlled effect path adds a narrow structured proposal contract and a second
-typed consequence view, but it still has no general ContextFrame,
-deadline/cancellation, TLS/streaming abstraction, runtime ExecutionEvidence,
-or continuation contract.
+The provider path now compiles typed `yai.projection.v1` and
+`yai.context_frame.v1`, renders them for raw OpenAI-compatible HTTP, and records
+provider/model/frame/render lineage in `yai.transition.v3` Invocation and
+ProviderResult payloads. The controlled effect and ordinary prompt paths use
+the same compiler. Deterministic product tests replace provider and model,
+invalidate an opaque continuation, restart the provider endpoint, and rebuild
+current semantics from CaseState/history. The opaque continuation value is
+ephemeral; only its disposition is persisted.
+
+The implementation still has no deadline/cancellation, TLS/streaming
+abstraction, runtime ExecutionEvidence ingestion, native YVEX protocol,
+provider-returned continuation lifecycle, or token/KV contract. The current
+continuation reference is a caller-supplied OpenAI-compatible adapter extension
+used to prove invalidation fallback, not a universal provider feature.
 
 These limitations are executable truth, not exceptions to the constitutional
 boundary. Their implementation delta is owned by [ROADMAP](../../ROADMAP.md).

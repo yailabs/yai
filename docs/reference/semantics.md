@@ -183,8 +183,8 @@ derived. These meanings may not be collapsed into one “memory” store.
 |---|---|---|
 | Retrieval | ADOPT as derived algorithm | finds candidate material from qualified sources; a candidate is not evidence or truth until resolved |
 | Projection | ADOPT | semantically selected, provenance-bearing view of qualified state for a consumer/task; never canonical state |
-| Residency | ADOPT as derived decision | decides what projected material remains active, re-enters, compacts, evicts, references, or is available for an invocation |
-| ContextFrame | ADOPT | provider-independent semantic invocation frame derived from Projection and Residency for one task/output contract |
+| Residency | PROVISIONAL derived decision | names what projected material remains active, re-enters, compacts, evicts, references, or is available; no independent executable owner exists yet |
+| ContextFrame | ADOPT | provider-independent semantic invocation frame derived from Projection plus one task/output contract; a future Residency decision may inform selection without owning it |
 | ContextDelta | DEFER | optional frame-to-frame transport optimization; no current consumer or required constitutional role |
 
 Graph, retrieval, Projection, Residency, and ContextFrame may be implemented by
@@ -208,9 +208,11 @@ retains that provenance without reclassifying it as a YAI transition.
 ## Current aliases and compatibility
 
 Current compatibility names such as `EffectReceipt` for model output,
-`ParticipantViewFrame` for a summary-token record, and broad `RecordKind`
-values remain readable output reality. Canonical provider history uses typed
-Invocation, ProviderResult, and ModelInterpretation payloads instead. The former `CaseHandle` and
+historical `ParticipantViewFrame` summary-token records, and broad `RecordKind`
+values remain readable input/output reality. New provider invocations no longer
+write or consume ParticipantViewFrame. Canonical provider history uses typed
+Invocation, ProviderResult, InteractionTurnRecorded, and ModelInterpretation
+payloads instead. The former `CaseHandle` and
 `CapabilityLease` views had no product consumer and no longer survive as
 compatibility types. Remaining compatibility requires a named consumer,
 version policy, test, and removal/migration condition.

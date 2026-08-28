@@ -17,12 +17,14 @@
 use crate::compatibility::{
     decode_legacy_record, inspect_legacy_jsonl, LegacyDecodeOutcome, LegacyRecord,
 };
+use crate::context::SemanticContextArtifact;
 use crate::effect::{LocalFilesystemBinding, OperationOrigin, LOCAL_FILESYSTEM_BINDING_SCHEMA};
 use crate::journal::Journal;
 use crate::record::Record;
 use crate::transition::{
     replay_case, CaseState, PendingTransition, Transition, TransitionPayload, CASE_STATE_SCHEMA,
-    CASE_STATE_SCHEMA_V1, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1,
+    CASE_STATE_SCHEMA_V1, CASE_STATE_SCHEMA_V2, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1,
+    TRANSITION_SCHEMA_V2,
 };
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
@@ -38,6 +40,7 @@ pub const GRAPH_RELATION_SCHEMA: &str = "yai.graph_relation.v1";
 pub const GRAPH_RELATION_STORE_NAME: &str = "lmdb_graph_relations_v0";
 pub const CANONICAL_AUTHORITY_BACKEND: &str = "lmdb_transaction_authority_v1";
 pub const LEGACY_COMPATIBILITY_SCHEMA: &str = "yai.legacy.compatibility.v1";
+pub const SEMANTIC_CONTEXT_ARTIFACT_SCHEMA: &str = "yai.semantic_context_artifact.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RecordStoreStatusKind {
@@ -96,6 +99,7 @@ pub struct LmdbRecordStore {
     case_state: Database,
     legacy_compatibility_payloads: Database,
     local_resource_bindings: Database,
+    semantic_context_artifacts: Database,
     schema_meta: Database,
 }
 
@@ -233,7 +237,7 @@ impl LmdbRecordStore {
         fs::create_dir_all(path)
             .map_err(|error| format!("failed to create {}: {error}", path.display()))?;
         let env = Environment::new()
-            .set_max_dbs(16)
+            .set_max_dbs(18)
             .set_map_size(MAP_SIZE)
             .open(path)
             .map_err(|error| format!("failed to open LMDB env {}: {error}", path.display()))?;
@@ -279,6 +283,9 @@ impl LmdbRecordStore {
         let local_resource_bindings = env
             .create_db(Some("local_resource_bindings"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open local_resource_bindings: {error}"))?;
+        let semantic_context_artifacts = env
+            .create_db(Some("semantic_context_artifacts"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open semantic_context_artifacts: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -297,6 +304,7 @@ impl LmdbRecordStore {
             case_state,
             legacy_compatibility_payloads,
             local_resource_bindings,
+            semantic_context_artifacts,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -333,6 +341,62 @@ impl LmdbRecordStore {
         self.put_record(&mut txn, record, source_ref)?;
         txn.commit()
             .map_err(|error| format!("failed to commit LMDB record write: {error}"))
+    }
+
+    /// Stores a bounded, rebuildable semantic derivation for inspection and
+    /// invocation lineage. This database is derived and is never consulted by
+    /// canonical replay or CaseState reduction.
+    pub fn put_semantic_context_artifact(
+        &self,
+        artifact: &SemanticContextArtifact,
+    ) -> Result<(), String> {
+        let key = semantic_context_artifact_key(artifact.id());
+        let value = serde_json::to_string(artifact)
+            .map_err(|error| format!("semantic_context_artifact_encode_failed: {error}"))?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start semantic context write: {error}"))?;
+        txn.put(
+            self.semantic_context_artifacts,
+            &key,
+            &value,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to store semantic context artifact: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit semantic context artifact: {error}"))
+    }
+
+    pub fn get_semantic_context_artifact(
+        &self,
+        artifact_id: &str,
+    ) -> Result<Option<SemanticContextArtifact>, String> {
+        let key = semantic_context_artifact_key(artifact_id);
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start semantic context read: {error}"))?;
+        match txn.get(self.semantic_context_artifacts, &key) {
+            Ok(value) => serde_json::from_slice(value)
+                .map(Some)
+                .map_err(|error| format!("semantic_context_artifact_decode_failed: {error}")),
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!("failed to read semantic context artifact: {error}")),
+        }
+    }
+
+    /// Removes only derived Projection/ContextFrame/render metadata. Canonical
+    /// Transition history and CaseState are held in different databases.
+    pub fn clear_semantic_context_artifacts(&self) -> Result<(), String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start semantic context clear: {error}"))?;
+        txn.clear_db(self.semantic_context_artifacts)
+            .map_err(|error| format!("failed to clear semantic context artifacts: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit semantic context clear: {error}"))
     }
 
     /// Atomically appends one immutable canonical Transition and replaces the
@@ -974,28 +1038,35 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
-            Some(TRANSITION_SCHEMA_V1),
+            &[TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V1],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
-            Some(CASE_STATE_SCHEMA_V1),
+            &[CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V1],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:legacy_compatibility_schema",
             LEGACY_COMPATIBILITY_SCHEMA,
-            None,
+            &[],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:local_filesystem_binding_schema",
             LOCAL_FILESYSTEM_BINDING_SCHEMA,
-            None,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:semantic_context_artifact_schema",
+            SEMANTIC_CONTEXT_ARTIFACT_SCHEMA,
+            &[],
         )?;
         for (key, value) in [
             ("meta:canonical_transition_schema", TRANSITION_SCHEMA),
@@ -1007,6 +1078,10 @@ impl LmdbRecordStore {
             (
                 "meta:local_filesystem_binding_schema",
                 LOCAL_FILESYSTEM_BINDING_SCHEMA,
+            ),
+            (
+                "meta:semantic_context_artifact_schema",
+                SEMANTIC_CONTEXT_ARTIFACT_SCHEMA,
             ),
         ] {
             txn.put(self.schema_meta, &key, &value, WriteFlags::empty())
@@ -1577,6 +1652,33 @@ fn derive_graph_relations_from_transition(
             "provider_invocation",
             invocation_id,
         ),
+        TransitionPayload::InteractionTurnRecorded {
+            turn_id,
+            invocation_id,
+            result_id,
+            ..
+        } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "interaction_turn_uses_invocation",
+                "interaction_turn",
+                turn_id,
+                "provider_invocation",
+                invocation_id,
+            );
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "interaction_turn_observes_result",
+                "interaction_turn",
+                turn_id,
+                "provider_result",
+                result_id,
+            );
+        }
         TransitionPayload::ModelInterpretationRecorded {
             interpretation_id,
             result_id,
@@ -2236,11 +2338,11 @@ fn ensure_meta_upgradeable<T: Transaction>(
     database: Database,
     key: &str,
     expected: &str,
-    previous: Option<&str>,
+    previous: &[&str],
 ) -> Result<(), String> {
     match txn.get(database, &key) {
         Ok(actual) if actual == expected.as_bytes() => Ok(()),
-        Ok(actual) if previous.is_some_and(|value| actual == value.as_bytes()) => Ok(()),
+        Ok(actual) if previous.iter().any(|value| actual == value.as_bytes()) => Ok(()),
         Ok(actual) => Err(format!(
             "unsupported_persisted_schema: {key} expected={expected} actual={}",
             String::from_utf8_lossy(actual)
@@ -2264,6 +2366,10 @@ fn case_sequence_key(case_id: &str, sequence: u64) -> String {
 
 fn case_state_key(case_id: &str) -> String {
     format!("case_state:{case_id}")
+}
+
+fn semantic_context_artifact_key(artifact_id: &str) -> String {
+    format!("semantic-context:id:{artifact_id}")
 }
 
 fn local_binding_key(case_id: &str, attachment_id: &str) -> String {
@@ -2330,6 +2436,7 @@ fn unix_time_ms() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::context::{RenderedInputMetadata, SemanticContextArtifact, RENDERED_INPUT_SCHEMA};
     use crate::effect::{
         build_effect_receipt, classify_reconciliation, decide_filesystem_write,
         execute_filesystem_write, issue_execution_grant, normalize_filesystem_write_candidate,
@@ -2339,9 +2446,9 @@ mod tests {
     };
     use crate::record::{Record, RecordKind};
     use crate::transition::{
-        CaseLifecycle, InterpretationAuthority, PendingTransition, ResourceAttachmentState,
-        ResourceKind, ReviewResolution, ReviewState, TransitionPayload, TransitionScope,
-        TransitionSource,
+        CaseLifecycle, InterpretationAuthority, PendingTransition, ProviderInvocationLineage,
+        ResourceAttachmentState, ResourceKind, ReviewResolution, ReviewState, TransitionPayload,
+        TransitionScope, TransitionSource,
     };
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -2366,6 +2473,18 @@ mod tests {
             TransitionSource::component("canonical-test"),
             payload,
         )
+    }
+
+    fn test_provider_lineage(generation: u64) -> ProviderInvocationLineage {
+        ProviderInvocationLineage {
+            projection_id: format!("projection:{generation}"),
+            context_frame_id: format!("context-frame:{generation}"),
+            case_generation: generation,
+            rendered_input_id: format!("rendered-input:{generation}"),
+            rendered_input_digest: format!("digest:{generation}"),
+            output_contract_id: "output-contract:natural-language".to_string(),
+            continuation_disposition: "not_provided".to_string(),
+        }
     }
 
     fn commit_typed(
@@ -2457,6 +2576,61 @@ mod tests {
             .expect("restart replay"));
         drop(reopened);
         fs::remove_dir_all(path).expect("remove LMDB test store");
+    }
+
+    #[test]
+    fn deleting_semantic_context_artifacts_cannot_delete_case_continuity() {
+        let path = temp_store_path("context-artifact-derived");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
+        store
+            .commit_transition(pending(
+                "transition:open",
+                "case:context-artifact",
+                0,
+                TransitionPayload::CaseOpened {
+                    lifecycle: CaseLifecycle::Open,
+                },
+            ))
+            .expect("commit canonical case");
+        let before = store
+            .get_case_state("case:context-artifact")
+            .unwrap()
+            .unwrap();
+        let artifact = SemanticContextArtifact::RenderedInputMetadata(RenderedInputMetadata {
+            schema: RENDERED_INPUT_SCHEMA.to_string(),
+            rendered_input_id: "rendered-input:test".to_string(),
+            context_frame_id: "context-frame:test".to_string(),
+            provider_id: "provider:test".to_string(),
+            model_id: "model:test".to_string(),
+            content_digest: "digest:test".to_string(),
+            content_chars: 42,
+        });
+        store
+            .put_semantic_context_artifact(&artifact)
+            .expect("store derived artifact");
+        assert_eq!(
+            store
+                .get_semantic_context_artifact("rendered-input:test")
+                .unwrap(),
+            Some(artifact)
+        );
+        store
+            .clear_semantic_context_artifacts()
+            .expect("clear derived artifacts");
+        assert_eq!(
+            store
+                .get_semantic_context_artifact("rendered-input:test")
+                .unwrap(),
+            None
+        );
+        assert_eq!(
+            store
+                .get_case_state("case:context-artifact")
+                .unwrap()
+                .unwrap(),
+            before
+        );
+        fs::remove_dir_all(path).expect("remove temp store");
     }
 
     #[test]
@@ -2581,6 +2755,7 @@ mod tests {
             3,
             TransitionPayload::ProviderAttached {
                 participant_id: model.to_string(),
+                provider_id: "provider:test".to_string(),
                 provider_kind: "openai_compatible".to_string(),
                 base_url: "http://127.0.0.1:1".to_string(),
                 model_id: "model:test".to_string(),
@@ -2597,8 +2772,10 @@ mod tests {
             TransitionPayload::ProviderInvocationStarted {
                 invocation_id: "invocation:1".to_string(),
                 participant_id: model.to_string(),
+                provider_id: "provider:test".to_string(),
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:test".to_string(),
+                semantic_lineage: Some(test_provider_lineage(4)),
             },
             None,
             vec![],
@@ -2611,8 +2788,10 @@ mod tests {
             TransitionPayload::ProviderResultRecorded {
                 result_id: "provider-result:1".to_string(),
                 invocation_id: "invocation:1".to_string(),
+                provider_id: "provider:test".to_string(),
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:test".to_string(),
+                semantic_lineage: Some(test_provider_lineage(4)),
                 output: "candidate".to_string(),
             },
             None,
@@ -2799,8 +2978,10 @@ mod tests {
             TransitionPayload::ProviderInvocationStarted {
                 invocation_id: "invocation:2".to_string(),
                 participant_id: model.to_string(),
+                provider_id: "provider:test".to_string(),
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:test".to_string(),
+                semantic_lineage: Some(test_provider_lineage(12)),
             },
             None,
             vec![],
@@ -2813,8 +2994,10 @@ mod tests {
             TransitionPayload::ProviderResultRecorded {
                 result_id: "provider-result:2".to_string(),
                 invocation_id: "invocation:2".to_string(),
+                provider_id: "provider:test".to_string(),
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:test".to_string(),
+                semantic_lineage: Some(test_provider_lineage(12)),
                 output: "candidate two".to_string(),
             },
             None,
@@ -2975,6 +3158,7 @@ mod tests {
             },
             TransitionPayload::ProviderAttached {
                 participant_id: "participant:model".to_string(),
+                provider_id: "provider:test".to_string(),
                 provider_kind: "openai_compatible".to_string(),
                 base_url: "http://127.0.0.1:1".to_string(),
                 model_id: "model:test".to_string(),
@@ -2983,8 +3167,10 @@ mod tests {
             TransitionPayload::ProviderInvocationStarted {
                 invocation_id: "invocation:1".to_string(),
                 participant_id: "participant:model".to_string(),
+                provider_id: "provider:test".to_string(),
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:test".to_string(),
+                semantic_lineage: Some(test_provider_lineage(3)),
             },
         ];
         for (index, payload) in payloads.into_iter().enumerate() {
@@ -3004,8 +3190,10 @@ mod tests {
             TransitionPayload::ProviderResultRecorded {
                 result_id: "result:1".to_string(),
                 invocation_id: "invocation:1".to_string(),
+                provider_id: "provider:test".to_string(),
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:test".to_string(),
+                semantic_lineage: Some(test_provider_lineage(3)),
                 output: "typed output".to_string(),
             },
         );

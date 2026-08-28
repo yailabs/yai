@@ -6,9 +6,9 @@ concept or stage does not automatically justify a source subsystem.
 
 ## Objective
 
-Preserve the completed controlled-effect authority while replacing legacy
-summary-derived model views with typed Projection/ContextFrame lineage that
-survives provider/runtime replacement.
+Preserve canonical transition/effect/context authority while replacing the
+remaining legacy-derived memory/retrieval plane with provenance-bound derived
+knowledge that can improve Projection selection without becoming truth.
 
 ## Completed boundary — executable reality convergence
 
@@ -98,27 +98,56 @@ view derives success or denial from typed Transition/CaseState consequence,
 never from the first model's assertion. This proves the first constitutional
 effect path, not a generalized carrier or final context architecture.
 
-## Stage 4 — typed projection and semantic continuity
+## Completed boundary — typed Projection and semantic continuity
 
-The exact next task is `YAI.SOURCE.REFOUNDATION.4 — Typed Projection and
-ContextFrame Continuity`. It should:
+`YAI.SOURCE.REFOUNDATION.4` implemented one provider-independent semantic
+compiler used by ordinary prompts and controlled effects:
 
-- inventory every live model-view consumer and remove summary-token dependency
-  from the normal provider path;
-- implement typed Projection identity, qualified Case generation lineage, and
-  deterministic invalidation;
-- introduce the smallest provider-independent ContextFrame used by both the
-  ordinary prompt and controlled-effect second turn;
-- split YAI semantic frame construction from provider/model-specific rendering
-  and tokenization;
-- prove provider/model replacement preserves equivalent Case consequence;
-- treat optional continuation/KV references as opaque invalidatable runtime
-  optimization, never Case memory;
-- introduce Residency only if a measured consumer requires an independent
-  decision, and continue to defer ContextDelta unless equivalence is proved.
+- `yai.projection.v1` binds Case generation, admitted participant/purpose,
+  ordered typed entries, authority posture, provenance and bounded omissions;
+- `yai.context_frame.v1` gives one invocation task/output contract identity
+  independent of provider render, token sequence and continuation;
+- `yai.rendered_input.v1` metadata identifies provider/model render and digest
+  without retaining full rendered input;
+- `yai.transition.v3` records provider/model/Projection/Frame/render/output-
+  contract lineage and typed bounded interaction turns;
+- new provider invocations no longer write or consume ParticipantViewFrame;
+- optional opaque continuation is ephemeral and invalidation retries the full
+  frame; its loss cannot change Case history or CaseState;
+- deterministic HTTP proofs replace provider and model after a real filesystem
+  effect, restart provider state, and preserve the observed consequence;
+- participant visibility fails before rendering, indeterminate effects remain
+  unresolved, false provider claims remain claims, and long history produces a
+  bounded frame;
+- the droppable semantic-context artifact store supports inspection but owns no
+  canonical data.
 
-The context-residency lab is research evidence, not implementation authority.
-Token/KV optimization cannot become Case memory.
+Residency remains provisional and ContextDelta deferred because neither has an
+independent current consumer. The context-residency lab remains research
+evidence, not implementation authority.
+
+## Stage 5 — provenance-bound operational memory and qualified retrieval
+
+The exact next task is `YAI.SOURCE.REFOUNDATION.5 — Provenance-Bound Memory and
+Qualified Retrieval`. It should:
+
+- inventory the surviving legacy MemoryCandidate, graph/retrieval and DuckDB
+  extractors and characterize their real consumers;
+- define the smallest typed derived-memory entry with source Transition/
+  Observation/Receipt provenance, Case/participant visibility, freshness and
+  invalidation;
+- migrate useful operational consequence/interaction retrieval away from
+  summary parsing without making provider claims trusted memory;
+- implement deterministic bounded query/selection with canonical-state fallback
+  when graph or memory indexes are absent;
+- connect the existing optional `DerivedMemoryInput` seam to one real,
+  rebuildable producer and prove deleting/rebuilding it preserves CaseState and
+  semantic correctness;
+- remove the last active duplicate memory/projection authority after its
+  behavior is migrated;
+- keep learned compression, adaptive Residency, ContextDelta and analytics as
+  authority out of scope unless a measured consumer supplies an independent
+  lifecycle.
 
 ## Explicit non-goals
 
@@ -129,9 +158,9 @@ prerequisites exist.
 
 ## Exit criteria for the next source task
 
-`YAI.SOURCE.REFOUNDATION.4` is complete only when the normal prompt path and
-controlled-effect consequence path consume the same typed, provider-independent
-frame contract; Projection identity and invalidation no longer depend on
-summary parsing; replacing the provider/model or losing continuation changes
-only rendering/performance, not reconstructed Case meaning; and KV/token
-identity is absent from canonical Transition/CaseState.
+`YAI.SOURCE.REFOUNDATION.5` is complete only when a typed, provenance-bearing,
+rebuildable memory/retrieval result can influence Projection selection; loss of
+every derived index leaves required semantic continuity intact; provider claims
+cannot become operational memory without an admitted transition/consequence;
+participant visibility is preserved through retrieval; and no summary string,
+graph edge, analytics row or memory entry becomes canonical authority.

@@ -13,9 +13,11 @@ use crate::effect::{
 use serde::{Deserialize, Serialize};
 
 pub const TRANSITION_SCHEMA_V1: &str = "yai.transition.v1";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v2";
+pub const TRANSITION_SCHEMA_V2: &str = "yai.transition.v2";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v3";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v2";
+pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v3";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Transition {
@@ -127,6 +129,8 @@ pub enum TransitionPayload {
     },
     ProviderAttached {
         participant_id: String,
+        #[serde(default)]
+        provider_id: String,
         provider_kind: String,
         base_url: String,
         model_id: String,
@@ -135,15 +139,31 @@ pub enum TransitionPayload {
     ProviderInvocationStarted {
         invocation_id: String,
         participant_id: String,
+        #[serde(default)]
+        provider_id: String,
         provider_kind: String,
         model_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        semantic_lineage: Option<ProviderInvocationLineage>,
     },
     ProviderResultRecorded {
         result_id: String,
         invocation_id: String,
+        #[serde(default)]
+        provider_id: String,
         provider_kind: String,
         model_id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        semantic_lineage: Option<ProviderInvocationLineage>,
         output: String,
+    },
+    InteractionTurnRecorded {
+        turn_id: String,
+        thread_id: String,
+        participant_id: String,
+        invocation_id: String,
+        result_id: String,
+        operator_input: String,
     },
     ModelInterpretationRecorded {
         interpretation_id: String,
@@ -211,6 +231,7 @@ impl TransitionPayload {
             Self::ProviderAttached { .. } => "provider_attached",
             Self::ProviderInvocationStarted { .. } => "provider_invocation_started",
             Self::ProviderResultRecorded { .. } => "provider_result_recorded",
+            Self::InteractionTurnRecorded { .. } => "interaction_turn_recorded",
             Self::ModelInterpretationRecorded { .. } => "model_interpretation_recorded",
             Self::ResourceAttached { .. } => "resource_attached",
             Self::OperationNormalizationFailed { .. } => "operation_normalization_failed",
@@ -298,8 +319,21 @@ pub struct AdmittedView {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ProviderInvocationLineage {
+    pub projection_id: String,
+    pub context_frame_id: String,
+    pub case_generation: u64,
+    pub rendered_input_id: String,
+    pub rendered_input_digest: String,
+    pub output_contract_id: String,
+    pub continuation_disposition: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ProviderAttachmentState {
     pub participant_id: String,
+    #[serde(default)]
+    pub provider_id: String,
     pub provider_kind: String,
     pub base_url: String,
     pub model_id: String,
@@ -310,16 +344,24 @@ pub struct ProviderAttachmentState {
 pub struct ProviderInvocationState {
     pub invocation_id: String,
     pub participant_id: String,
+    #[serde(default)]
+    pub provider_id: String,
     pub provider_kind: String,
     pub model_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantic_lineage: Option<ProviderInvocationLineage>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ProviderResultState {
     pub result_id: String,
     pub invocation_id: String,
+    #[serde(default)]
+    pub provider_id: String,
     pub provider_kind: String,
     pub model_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub semantic_lineage: Option<ProviderInvocationLineage>,
     pub output_chars: usize,
 }
 
@@ -513,6 +555,7 @@ impl CaseState {
             }
             TransitionPayload::ProviderAttached {
                 participant_id,
+                provider_id,
                 provider_kind,
                 base_url,
                 model_id,
@@ -527,6 +570,7 @@ impl CaseState {
                 }
                 next.provider = Some(ProviderAttachmentState {
                     participant_id: participant_id.clone(),
+                    provider_id: provider_id.clone(),
                     provider_kind: provider_kind.clone(),
                     base_url: base_url.clone(),
                     model_id: model_id.clone(),
@@ -536,13 +580,18 @@ impl CaseState {
             TransitionPayload::ProviderInvocationStarted {
                 invocation_id,
                 participant_id,
+                provider_id,
                 provider_kind,
                 model_id,
+                semantic_lineage,
             } => {
                 let Some(provider) = next.provider.as_ref() else {
                     return Err("provider_not_attached".to_string());
                 };
                 if provider.participant_id != *participant_id
+                    || (!provider.provider_id.is_empty()
+                        && !provider_id.is_empty()
+                        && provider.provider_id != *provider_id)
                     || provider.provider_kind != *provider_kind
                     || provider.model_id != *model_id
                 {
@@ -551,34 +600,48 @@ impl CaseState {
                 next.last_provider_invocation = Some(ProviderInvocationState {
                     invocation_id: invocation_id.clone(),
                     participant_id: participant_id.clone(),
+                    provider_id: provider_id.clone(),
                     provider_kind: provider_kind.clone(),
                     model_id: model_id.clone(),
+                    semantic_lineage: semantic_lineage.clone(),
                 });
             }
             TransitionPayload::ProviderResultRecorded {
                 result_id,
                 invocation_id,
+                provider_id,
                 provider_kind,
                 model_id,
+                semantic_lineage,
                 output,
             } => {
                 let Some(invocation) = next.last_provider_invocation.as_ref() else {
                     return Err("provider_result_without_invocation".to_string());
                 };
                 if invocation.invocation_id != *invocation_id
+                    || (!invocation.provider_id.is_empty()
+                        && !provider_id.is_empty()
+                        && invocation.provider_id != *provider_id)
                     || invocation.provider_kind != *provider_kind
                     || invocation.model_id != *model_id
+                    || !provider_lineage_matches(
+                        invocation.semantic_lineage.as_ref(),
+                        semantic_lineage.as_ref(),
+                    )
                 {
                     return Err("provider_result_invocation_mismatch".to_string());
                 }
                 next.last_provider_result = Some(ProviderResultState {
                     result_id: result_id.clone(),
                     invocation_id: invocation_id.clone(),
+                    provider_id: provider_id.clone(),
                     provider_kind: provider_kind.clone(),
                     model_id: model_id.clone(),
+                    semantic_lineage: semantic_lineage.clone(),
                     output_chars: output.chars().count(),
                 });
             }
+            TransitionPayload::InteractionTurnRecorded { .. } => {}
             TransitionPayload::ModelInterpretationRecorded {
                 interpretation_id,
                 result_id,
@@ -966,7 +1029,7 @@ impl CaseState {
     pub fn from_json(value: &str) -> Result<Self, String> {
         let mut state: Self = serde_json::from_str(value)
             .map_err(|error| format!("case_state_decode_failed: {error}"))?;
-        if state.schema == CASE_STATE_SCHEMA_V1 {
+        if state.schema == CASE_STATE_SCHEMA_V1 || state.schema == CASE_STATE_SCHEMA_V2 {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
             return Err(format!("unsupported_case_state_schema: {}", state.schema));
@@ -977,11 +1040,17 @@ impl CaseState {
 
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != TRANSITION_SCHEMA && self.schema != TRANSITION_SCHEMA_V1 {
+        if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V2
+            && self.schema != TRANSITION_SCHEMA_V1
+        {
             return Err(format!("unsupported_transition_schema: {}", self.schema));
         }
         if self.schema == TRANSITION_SCHEMA_V1 && self.payload.is_wave3_kind() {
             return Err("wave3_transition_kind_requires_yai_transition_v2".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave4_kind() {
+            return Err("wave4_transition_kind_requires_yai_transition_v3".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -1021,12 +1090,16 @@ impl Transition {
             }
             TransitionPayload::ProviderAttached {
                 participant_id,
+                provider_id,
                 provider_kind,
                 base_url,
                 model_id,
                 credential_ref,
             } => {
                 require_value("participant_id", participant_id)?;
+                if self.schema == TRANSITION_SCHEMA {
+                    require_value("provider_id", provider_id)?;
+                }
                 require_value("provider_kind", provider_kind)?;
                 require_value("base_url", base_url)?;
                 require_value("model_id", model_id)?;
@@ -1035,26 +1108,54 @@ impl Transition {
             TransitionPayload::ProviderInvocationStarted {
                 invocation_id,
                 participant_id,
+                provider_id,
                 provider_kind,
                 model_id,
+                semantic_lineage,
             } => {
                 require_value("invocation_id", invocation_id)?;
                 require_value("participant_id", participant_id)?;
+                if self.schema == TRANSITION_SCHEMA {
+                    require_value("provider_id", provider_id)?;
+                    validate_provider_lineage(semantic_lineage.as_ref())?;
+                }
                 require_value("provider_kind", provider_kind)?;
                 require_value("model_id", model_id)?;
             }
             TransitionPayload::ProviderResultRecorded {
                 result_id,
                 invocation_id,
+                provider_id,
                 provider_kind,
                 model_id,
+                semantic_lineage,
                 ..
             } => {
                 require_value("result_id", result_id)?;
                 require_value("invocation_id", invocation_id)?;
+                if self.schema == TRANSITION_SCHEMA {
+                    require_value("provider_id", provider_id)?;
+                    validate_provider_lineage(semantic_lineage.as_ref())?;
+                }
                 require_value("provider_kind", provider_kind)?;
                 require_value("model_id", model_id)?;
                 require_causal_ref(&self.causal_refs, invocation_id, "provider_invocation")?;
+            }
+            TransitionPayload::InteractionTurnRecorded {
+                turn_id,
+                thread_id,
+                participant_id,
+                invocation_id,
+                result_id,
+                ..
+            } => {
+                require_value("turn_id", turn_id)?;
+                require_value("thread_id", thread_id)?;
+                require_value("participant_id", participant_id)?;
+                require_value("invocation_id", invocation_id)?;
+                require_value("result_id", result_id)?;
+                require_causal_ref(&self.causal_refs, invocation_id, "provider_invocation")?;
+                require_causal_ref(&self.causal_refs, result_id, "provider_result")?;
             }
             TransitionPayload::ModelInterpretationRecorded {
                 interpretation_id,
@@ -1218,6 +1319,41 @@ impl TransitionPayload {
                 | Self::EffectIndeterminate { .. }
                 | Self::EffectReconciled { .. }
         )
+    }
+
+    fn is_wave4_kind(&self) -> bool {
+        matches!(self, Self::InteractionTurnRecorded { .. })
+    }
+}
+
+fn validate_provider_lineage(lineage: Option<&ProviderInvocationLineage>) -> Result<(), String> {
+    let lineage = lineage.ok_or_else(|| "provider_semantic_lineage_required".to_string())?;
+    require_value("projection_id", &lineage.projection_id)?;
+    require_value("context_frame_id", &lineage.context_frame_id)?;
+    require_value("rendered_input_id", &lineage.rendered_input_id)?;
+    require_value("rendered_input_digest", &lineage.rendered_input_digest)?;
+    require_value("output_contract_id", &lineage.output_contract_id)?;
+    require_value(
+        "continuation_disposition",
+        &lineage.continuation_disposition,
+    )
+}
+
+fn provider_lineage_matches(
+    invocation: Option<&ProviderInvocationLineage>,
+    result: Option<&ProviderInvocationLineage>,
+) -> bool {
+    match (invocation, result) {
+        (None, None) => true,
+        (Some(left), Some(right)) => {
+            left.projection_id == right.projection_id
+                && left.context_frame_id == right.context_frame_id
+                && left.case_generation == right.case_generation
+                && left.rendered_input_id == right.rendered_input_id
+                && left.rendered_input_digest == right.rendered_input_digest
+                && left.output_contract_id == right.output_contract_id
+        }
+        _ => false,
     }
 }
 
@@ -1469,7 +1605,7 @@ mod tests {
         .to_json()
         .expect("encode");
         assert!(
-            Transition::from_json(&encoded.replace(TRANSITION_SCHEMA, "yai.transition.v3"))
+            Transition::from_json(&encoded.replace(TRANSITION_SCHEMA, "yai.transition.v4"))
                 .unwrap_err()
                 .contains("unsupported_transition_schema")
         );
@@ -1487,8 +1623,18 @@ mod tests {
             TransitionPayload::ProviderResultRecorded {
                 result_id: "result:1".to_string(),
                 invocation_id: "invocation:1".to_string(),
+                provider_id: "provider:1".to_string(),
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:1".to_string(),
+                semantic_lineage: Some(ProviderInvocationLineage {
+                    projection_id: "projection:1".to_string(),
+                    context_frame_id: "context-frame:1".to_string(),
+                    case_generation: 1,
+                    rendered_input_id: "rendered-input:1".to_string(),
+                    rendered_input_digest: "digest:1".to_string(),
+                    output_contract_id: "output-contract:1".to_string(),
+                    continuation_disposition: "not_provided".to_string(),
+                }),
                 output: "hello".to_string(),
             },
         );

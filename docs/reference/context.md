@@ -64,7 +64,7 @@ Projection is not a prompt, context window, transcript, graph, memory store, or
 permission. It may use all of those as qualified inputs without acquiring their
 authority.
 
-## Residency
+## Residency — PROVISIONAL
 
 Residency is a derived decision about which projected material should remain
 active, be reintroduced, be summarized/compacted, be evicted, be referenced,
@@ -91,6 +91,11 @@ posture. It may be recomputed or cached.
 Residency is not provider KV residency. YAI may decide that a semantic item
 remains active while a provider rebuilds all tokens/KV, or may change semantic
 residency while a runtime continuation must be invalidated.
+
+No independent Residency object, scheduler, or database exists in the current
+repository. Wave 4 implements deterministic bounded selection directly in the
+Projection compiler. Residency remains a named optimization boundary until a
+separate consumer/lifecycle justifies executable identity.
 
 ## ContextFrame — ADOPT
 
@@ -226,20 +231,40 @@ invalidate continuation without invalidating ContextFrame.
 
 ## Current repository reality
 
-Current Rust code renders summary-only participant views from journal records,
-persists a `ParticipantViewFrame` summary-token record, and sends manually
-framed OpenAI-compatible HTTP. The context-residency lab compares full case
-context, lexical retrieval, and a logical base/delta estimate. It does not
-implement the identities or contracts above, does not use an authoritative
-tokenizer, and does not demonstrate KV continuation.
+Current Rust code implements `yai.projection.v1` and `yai.context_frame.v1` in
+one pure compiler. Projection binds exact Case generation,
+participant/purpose/admitted view, typed entries, authority posture,
+Transition/Observation/Receipt provenance, deterministic bounds and explicit
+omission count. It is rebuilt from CaseState and ordered Transitions; graph and
+memory are optional derived inputs. Provider claims are selected only through
+their typed participant Invocation and remain labeled non-authoritative.
 
-The controlled filesystem vertical also renders two narrow typed views: an
-initial Case/resource/output-contract view and a post-Decision/effect
-consequence view. The second provider invocation is executable proof that an
-applied consequence or denial comes from typed CaseState/Transition refs, not
-the first ProviderResult. These views are purpose-specific serialization and
-do not yet have independent Projection or ContextFrame identity, Residency,
-general invalidation, or provider-specific render objects.
+ContextFrame has independent identity because a Projection can feed multiple
+tasks/output contracts. The Wave-3 `filesystem.write` proposal schema is a
+typed output contract in the frame. The OpenAI-compatible adapter produces a
+separate `yai.rendered_input.v1` identity/digest and wire body. Invocation and
+ProviderResult transitions identify their Projection, frame, Case generation,
+render, provider, model and output contract explicitly.
+
+Bounded Projection/ContextFrame values and render metadata are retained in a
+droppable derived LMDB database so `yai context inspect` can show lineage. Full
+rendered input is not retained. Clearing that database is tested not to change
+Transition history or CaseState. New provider invocations neither write nor
+consume legacy `ParticipantViewFrame`; historical records remain readable only
+through compatibility surfaces.
+
+The provider adapter accepts an optional opaque, provider/runtime-bound
+continuation reference in memory for one invocation. It persists only the use/
+invalidation disposition. An invalid-continuation response retries the same
+complete frame without the reference. Product tests replace provider and model
+identity after a real controlled effect, restart the provider fixture, and show
+that the next frame contains the current observed consequence and typed recent
+interaction lineage.
+
+The implementation has no Residency object, semantic compression,
+ContextDelta consumer, authoritative tokenizer, token IDs, KV integration, or
+native YVEX protocol. The context-residency lab remains research evidence, not
+runtime capability.
 
 Historical E07 workset/provider-frame code supports the distinction between a
 qualified semantic workset and provider rendering, but its directory/type
