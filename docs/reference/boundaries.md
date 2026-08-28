@@ -154,14 +154,17 @@ Confinement currently validates the canonical parent immediately before the
 operation; it does not claim race-resistant `openat`/directory-handle security
 against a concurrently hostile namespace.
 
-The provider path now compiles typed `yai.projection.v1` and
-`yai.context_frame.v1`, renders them for raw OpenAI-compatible HTTP, and records
+The provider path now compiles typed `yai.projection.v2` and
+`yai.context_frame.v2`, renders them for raw OpenAI-compatible HTTP, and records
 provider/model/frame/render lineage in `yai.transition.v3` Invocation and
 ProviderResult payloads. The controlled effect and ordinary prompt paths use
-the same compiler. Deterministic product tests replace provider and model,
-invalidate an opaque continuation, restart the provider endpoint, and rebuild
-current semantics from CaseState/history. The opaque continuation value is
-ephemeral; only its disposition is persisted.
+the same compiler. A qualified, participant-filtered `yai.operational_memory.v1`
+input is derived from canonical history and may enrich Projection; it can be
+dropped/rebuilt and is never provider or Case authority. Deterministic product
+tests replace provider and model, invalidate an opaque continuation, restart the
+provider endpoint, and rebuild current semantics and operational experience from
+CaseState/history. The opaque continuation value is ephemeral; only its
+disposition is persisted.
 
 The implementation still has no deadline/cancellation, TLS/streaming
 abstraction, runtime ExecutionEvidence ingestion, native YVEX protocol,

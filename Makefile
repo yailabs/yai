@@ -166,7 +166,7 @@ CHARACTERIZATION_CONTROLLED_EFFECT := tests/characterization/controlled-effect-v
 
 info:
 	@printf "yai: admitted operational-state transition system with one controlled filesystem vertical\n"
-	@printf "source-refoundation-4-baseline: cda1375ad3f63b2d9a38dbe0f5e7ef5779942a15\n"
+	@printf "source-refoundation-5-baseline: 0eaae753062cdc027b6d0ada87dc8ae306a64833\n"
 	@printf "documentation: docs/index.md\n"
 	@printf "roadmap: ROADMAP.md\n"
 	@printf "source-layout: include/ system/ engine/ cmd/\n"
@@ -183,6 +183,7 @@ info:
 	@printf "lib: removed\n"
 	@printf "daemon: moved to cmd/yaid + system/daemon\n"
 	@printf "provider-runtime: typed Projection/ContextFrame lineage; opaque optional continuation\n"
+	@printf "operational-memory: derived yai.operational_memory.v1 with qualified retrieval and canonical fallback\n"
 	@printf "provider-registry: removed; case-bound invocation remains\n"
 	@printf "crates: removed\n"
 	@printf "ctl: removed\n"

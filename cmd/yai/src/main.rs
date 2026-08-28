@@ -37,7 +37,10 @@ use yai_core_engine::context::{
 };
 use yai_core_engine::graph::GraphSummary;
 use yai_core_engine::journal::{Journal, JournalInspection, JOURNAL_RECORD_SCHEMA};
-use yai_core_engine::memory::MemorySummary;
+use yai_core_engine::memory::{
+    derive_operational_memory, retrieve_operational_memory, MemorySummary, OperationalMemoryEntry,
+    OperationalMemoryLifecycle, RetrievalQualification, DEFAULT_RETRIEVAL_LIMIT,
+};
 use yai_core_engine::projection::ProjectionSummary;
 use yai_core_engine::query::{QueryFilter, QueryResult};
 use yai_core_engine::reconcile::ReconcileSummary;
@@ -112,7 +115,8 @@ fn print_info() {
     );
     println!("legacy_record_store: YAI_HOME/store/lmdb yai.record.v1 compatibility plane");
     println!("effect_paths: typed controlled filesystem.write plus characterized legacy paths");
-    println!("semantic_context: typed yai.projection.v1 plus yai.context_frame.v1 derived from CaseState");
+    println!("semantic_context: typed yai.projection.v2 plus yai.context_frame.v2 derived from CaseState and qualified operational memory");
+    println!("operational_memory: yai.operational_memory.v1 derived, provenance-bound, droppable and rebuildable");
     println!("provider-runtime: provider-specific rendering and real OpenAI-compatible HTTP invocation with typed frame lineage");
     println!("journal_inspection: file-based JSONL v0 compatibility input");
     println!("journal_replay: legacy LMDB compatibility materialization with schema/cursor/report metadata v0");
@@ -308,7 +312,15 @@ fn print_usage() {
     println!("       yai facts extract --case <case_ref> --kind receipt|decision|projection|model_behavior|policy_outcome|carrier_outcome|divergence|memory_quality|core|behavior|operational|all");
     println!("       yai facts summary --case <case_ref>");
     println!("       yai facts report --case <case_ref> [--section receipts|decisions|projections|policy|carriers|divergence|memory|model] [--format plain]");
-    println!("       yai memory summary --journal <path>");
+    println!(
+        "       yai memory summary --journal <path>  # legacy MemoryCandidate compatibility only"
+    );
+    println!("       yai memory rebuild --case <case_ref> [--dry-run]");
+    println!("       yai memory clear --case <case_ref>");
+    println!("       yai memory list --case <case_ref> [--include-superseded] [--limit <N>]");
+    println!("       yai memory show <memory_id>");
+    println!("       yai memory provenance <memory_id>");
+    println!("       yai memory retrieve --case <case_ref> --participant <participant_id> --purpose conversation|filesystem_write_proposal|effect_consequence|inspection [--resource <attachment>] [--kind <kind>] [--causal-ref <ref>] [--include-superseded] [--limit <N>]");
     println!("       yai reconcile summary --journal <path>");
     println!("       yai query summary --journal <path>");
     println!("       yai query records --journal <path> [--kind <record_kind>] [--case <case_ref>] [--limit <N>]");
@@ -1257,6 +1269,7 @@ fn memory_summary(args: &[String]) -> Result<(), String> {
         .map_err(|error| format!("failed to load {}: {error}", path.display()))?;
     let summary = MemorySummary::from_journal(&journal);
 
+    println!("authority: legacy_compatibility_only");
     println!("records: {}", summary.records);
     println!("memory_candidates: {}", summary.memory_candidates);
     println!("operational: {}", summary.operational);
@@ -1264,6 +1277,245 @@ fn memory_summary(args: &[String]) -> Result<(), String> {
     println!("subject: {}", summary.subject);
     println!("error: {}", summary.error);
     println!("recovery: {}", summary.recovery);
+    Ok(())
+}
+
+fn parse_memory_purpose(value: &str) -> Result<ProjectionPurpose, String> {
+    match value {
+        "conversation" | "continue_task" => Ok(ProjectionPurpose::Conversation),
+        "filesystem_write_proposal" | "propose_operation" => {
+            Ok(ProjectionPurpose::FilesystemWriteProposal)
+        }
+        "effect_consequence" | "inspect_resource" => Ok(ProjectionPurpose::EffectConsequence),
+        "inspection" => Ok(ProjectionPurpose::Inspection),
+        _ => Err(format!("unsupported memory retrieval purpose: {value}")),
+    }
+}
+
+fn derive_current_operational_memory(
+    store: &LmdbRecordStore,
+    case_id: &str,
+) -> Result<(yai_core_engine::memory::OperationalMemoryBuild, usize), String> {
+    let state = store
+        .get_case_state(case_id)?
+        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let transitions = store.list_case_transitions(case_id)?;
+    let ledger_count = transitions.len();
+    let build = derive_operational_memory(case_id, &transitions)?;
+    if build.manifest.source_generation != state.generation {
+        return Err("operational_memory_case_generation_mismatch".to_string());
+    }
+    Ok((build, ledger_count))
+}
+
+fn memory_rebuild(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let dry_run = args.iter().any(|value| value == "--dry-run");
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let (build, ledger_count) = derive_current_operational_memory(&store, &case_id)?;
+    if !dry_run {
+        store.replace_case_operational_memory(&build)?;
+    }
+    println!(
+        "memory_rebuild: {}",
+        if dry_run { "dry_run" } else { "committed" }
+    );
+    println!("case_id: {case_id}");
+    println!("source_generation: {}", build.manifest.source_generation);
+    println!("source_transitions: {ledger_count}");
+    println!("derived_entries: {}", build.entries.len());
+    println!("derivation_version: {}", build.manifest.derivation_version);
+    println!("canonical_ledger_mutated: no");
+    Ok(())
+}
+
+fn memory_clear(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let transition_count = store.list_case_transitions(&case_id)?.len();
+    store.clear_case_operational_memory(&case_id)?;
+    println!("memory_clear: completed");
+    println!("case_id: {case_id}");
+    println!("derived_entries_remaining: 0");
+    println!("canonical_transitions_remaining: {transition_count}");
+    Ok(())
+}
+
+fn print_operational_memory(entry: &OperationalMemoryEntry) -> Result<(), String> {
+    println!("memory_id: {}", entry.memory_id);
+    println!("schema: {}", entry.schema);
+    println!("case_id: {}", entry.case_id);
+    println!("kind: {}", entry.semantic_kind.as_str());
+    println!("posture: {}", entry.posture.as_str());
+    println!("lifecycle: {}", entry.lifecycle.as_str());
+    println!(
+        "superseded_by: {}",
+        entry.superseded_by.as_deref().unwrap_or("none")
+    );
+    println!("derived_generation: {}", entry.derived_at_generation);
+    println!("description: {}", entry.description);
+    println!("value: {:?}", entry.value);
+    println!(
+        "visible_participants: {}",
+        entry.visibility.participant_ids.join(",")
+    );
+    Ok(())
+}
+
+fn memory_list(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let include_superseded = args.iter().any(|value| value == "--include-superseded");
+    let limit = parse_limit(args)?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let manifest = store.operational_memory_manifest(&case_id)?;
+    let mut entries = store.list_operational_memory(&case_id)?;
+    if !include_superseded {
+        entries.retain(|entry| entry.lifecycle == OperationalMemoryLifecycle::Active);
+    }
+    entries.sort_by(|left, right| {
+        right
+            .provenance
+            .generation_end
+            .cmp(&left.provenance.generation_end)
+            .then_with(|| left.memory_id.cmp(&right.memory_id))
+    });
+    println!("case_id: {case_id}");
+    println!(
+        "source_generation: {}",
+        manifest
+            .as_ref()
+            .map(|value| value.source_generation)
+            .unwrap_or(0)
+    );
+    println!("entries_total: {}", entries.len());
+    println!("limit: {limit}");
+    for entry in entries.into_iter().take(limit) {
+        println!(
+            "entry: {} kind:{} posture:{} lifecycle:{} generation:{} description:{}",
+            entry.memory_id,
+            entry.semantic_kind.as_str(),
+            entry.posture.as_str(),
+            entry.lifecycle.as_str(),
+            entry.provenance.generation_end,
+            entry.description
+        );
+    }
+    Ok(())
+}
+
+fn memory_show(args: &[String]) -> Result<(), String> {
+    let memory_id = args
+        .first()
+        .ok_or_else(|| "memory show requires <memory_id>".to_string())?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let entry = store
+        .get_operational_memory(memory_id)?
+        .ok_or_else(|| format!("operational memory not found: {memory_id}"))?;
+    print_operational_memory(&entry)
+}
+
+fn memory_provenance(args: &[String]) -> Result<(), String> {
+    let memory_id = args
+        .first()
+        .ok_or_else(|| "memory provenance requires <memory_id>".to_string())?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let entry = store
+        .get_operational_memory(memory_id)?
+        .ok_or_else(|| format!("operational memory not found: {memory_id}"))?;
+    let transitions = store.list_case_transitions(&entry.case_id)?;
+    yai_core_engine::memory::validate_memory_provenance(&entry, &transitions)?;
+    println!("memory_id: {}", entry.memory_id);
+    println!("provenance_valid: yes");
+    println!("generation_start: {}", entry.provenance.generation_start);
+    println!("generation_end: {}", entry.provenance.generation_end);
+    println!(
+        "transition_ids: {}",
+        entry.provenance.transition_ids.join(",")
+    );
+    println!(
+        "observation_ids: {}",
+        entry.provenance.observation_ids.join(",")
+    );
+    println!(
+        "effect_receipt_ids: {}",
+        entry.provenance.effect_receipt_ids.join(",")
+    );
+    println!("causal_refs: {}", entry.provenance.causal_refs.join(","));
+    Ok(())
+}
+
+fn memory_retrieve(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let purpose = parse_memory_purpose(&named_arg(args, "--purpose")?)?;
+    let limit = parse_limit(args)?;
+    let resource_refs = optional_arg(args, "--resource").into_iter().collect();
+    let causal_refs = optional_arg(args, "--causal-ref").into_iter().collect();
+    let semantic_kinds = optional_arg(args, "--kind")
+        .map(|value| {
+            value
+                .split(',')
+                .map(|kind| {
+                    yai_core_engine::memory::OperationalMemoryKind::parse(kind)
+                        .ok_or_else(|| format!("unsupported memory kind: {kind}"))
+                })
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .transpose()?
+        .unwrap_or_default();
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = store
+        .get_case_state(&case_id)?
+        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let manifest = store.operational_memory_manifest(&case_id)?;
+    let entries = if manifest
+        .as_ref()
+        .is_some_and(|value| value.is_current(&case_id, state.generation))
+    {
+        store.list_operational_memory(&case_id)?
+    } else {
+        let (build, _) = derive_current_operational_memory(&store, &case_id)?;
+        store.replace_case_operational_memory(&build)?;
+        build.entries
+    };
+    let transition_count_before = store.list_case_transitions(&case_id)?.len();
+    let result = retrieve_operational_memory(
+        &state,
+        &entries,
+        RetrievalQualification {
+            case_id: case_id.clone(),
+            participant_id,
+            consumer: "model".to_string(),
+            view_kind: "model_context".to_string(),
+            purpose,
+            case_generation: state.generation,
+            resource_refs,
+            semantic_kinds,
+            causal_refs,
+            max_results: limit,
+            include_superseded: args.iter().any(|value| value == "--include-superseded"),
+        },
+    )?;
+    let transition_count_after = store.list_case_transitions(&case_id)?.len();
+    println!("retrieval_id: {}", result.retrieval_id);
+    println!("source_memories: {}", result.source_memory_count);
+    println!("qualified: {}", result.qualified_count);
+    println!("selected: {}", result.selected_count);
+    println!("omitted: {}", result.omitted_count);
+    println!("rejections: {:?}", result.rejections);
+    println!(
+        "canonical_ledger_mutated: {}",
+        yes_no(transition_count_before != transition_count_after)
+    );
+    for selected in result.selected {
+        println!(
+            "selected_memory: {} score:{} reasons:{} description:{}",
+            selected.memory.memory_id,
+            selected.score,
+            selected.ranking_reasons.join(","),
+            selected.memory.description
+        );
+    }
     Ok(())
 }
 
@@ -1750,6 +2002,42 @@ fn main() {
         }
         Some("memory") if args.get(1).map(String::as_str) == Some("summary") => {
             if let Err(error) = memory_summary(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("memory") if args.get(1).map(String::as_str) == Some("rebuild") => {
+            if let Err(error) = memory_rebuild(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("memory") if args.get(1).map(String::as_str) == Some("clear") => {
+            if let Err(error) = memory_clear(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("memory") if args.get(1).map(String::as_str) == Some("list") => {
+            if let Err(error) = memory_list(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("memory") if args.get(1).map(String::as_str) == Some("show") => {
+            if let Err(error) = memory_show(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("memory") if args.get(1).map(String::as_str) == Some("provenance") => {
+            if let Err(error) = memory_provenance(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("memory") if args.get(1).map(String::as_str) == Some("retrieve") => {
+            if let Err(error) = memory_retrieve(&args[2..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }

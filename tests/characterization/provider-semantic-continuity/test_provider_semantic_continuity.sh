@@ -109,6 +109,35 @@ require_text "$provider_switch" "second_turn_consequence: observed_reality_from_
 grep -Fq '"provider_id": "provider:b"' "$TEST_DIR/provider-b.log.json"
 grep -Fq '"posture": "observed_resource_state"' "$TEST_DIR/provider-b.log.json"
 
+# Operator proof: derive, inspect provenance/retrieval, drop, rebuild, and
+# recover the same deterministic memory identity without touching the ledger.
+memory_rebuild=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" memory rebuild \
+  --case case:new12-filesystem)
+memory_list=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" memory list \
+  --case case:new12-filesystem --include-superseded --limit 50)
+memory_id=$(sed -n 's/^entry: \([^ ]*\) kind:resource_effect .*/\1/p' <<<"$memory_list" | head -1)
+[[ -n "$memory_id" ]]
+memory_show=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" memory show "$memory_id")
+memory_provenance=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" memory provenance "$memory_id")
+memory_retrieval=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" memory retrieve \
+  --case case:new12-filesystem --participant subject:llm-provider \
+  --purpose effect_consequence --resource workspace --limit 4)
+memory_clear=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" memory clear \
+  --case case:new12-filesystem)
+memory_rebuild_again=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" memory rebuild \
+  --case case:new12-filesystem)
+memory_list_again=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" memory list \
+  --case case:new12-filesystem --include-superseded --limit 50)
+require_text "$memory_rebuild" "canonical_ledger_mutated: no"
+require_text "$memory_show" "posture: finalized_observed_consequence"
+require_text "$memory_provenance" "provenance_valid: yes"
+require_text "$memory_retrieval" "canonical_ledger_mutated: no"
+require_text "$memory_retrieval" "direct_resource_match:+100"
+require_text "$memory_clear" "derived_entries_remaining: 0"
+require_text "$memory_clear" "canonical_transitions_remaining:"
+require_text "$memory_rebuild_again" "canonical_ledger_mutated: no"
+require_text "$memory_list_again" "$memory_id"
+
 # Model replacement under the same logical provider identity.
 start_provider model-switch model-switch
 port_model="$LAST_PROVIDER_PORT"
@@ -162,3 +191,4 @@ second_frame=$(sed -n 's/^context_frame_id: //p' <<<"$restart_output" | tail -1)
 printf 'semantic_continuity:provider_replacement ok\n'
 printf 'semantic_continuity:model_replacement ok\n'
 printf 'semantic_continuity:continuation_loss_and_restart ok\n'
+printf 'semantic_continuity:memory_inspect_drop_rebuild ok\n'

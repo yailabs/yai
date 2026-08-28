@@ -43,6 +43,26 @@ def frame_has(frame, posture=None, kind=None, **values):
     return False
 
 
+def frame_has_observed_memory(frame):
+    for entry in frame.get("entries", []):
+        if entry.get("posture") != "derived_memory":
+            continue
+        value = entry.get("value", {})
+        if value.get("kind") != "derived_memory":
+            continue
+        material = value.get("value", {})
+        if material.get("semantic_kind") != "resource_effect":
+            continue
+        if material.get("memory_posture") != "finalized_observed_consequence":
+            continue
+        provenance_kinds = {item.get("kind") for item in entry.get("provenance", [])}
+        if {"transition", "observation", "effect_receipt", "derived_memory"}.issubset(
+            provenance_kinds
+        ):
+            return True
+    return False
+
+
 def proposal():
     return json.dumps(
         {
@@ -99,6 +119,7 @@ class Handler(BaseHTTPRequestHandler):
                     outcome="applied",
                     relative_path="allowed/provider-switch.txt",
                 )
+                and frame_has_observed_memory(frame)
             )
             content = "Provider B observed the finalized filesystem consequence."
         elif MODE == "model-switch":
@@ -129,6 +150,7 @@ class Handler(BaseHTTPRequestHandler):
                         lifecycle="finalized",
                         outcome="applied",
                     )
+                    and frame_has_observed_memory(frame)
                 )
                 content = "The replacement model observed canonical state."
         elif MODE == "invalid-continuation":

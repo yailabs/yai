@@ -6,9 +6,9 @@ concept or stage does not automatically justify a source subsystem.
 
 ## Objective
 
-Preserve canonical transition/effect/context authority while replacing the
-remaining legacy-derived memory/retrieval plane with provenance-bound derived
-knowledge that can improve Projection selection without becoming truth.
+Preserve canonical transition/effect/context/memory authority while adding the
+first explicit semantic-residency decision: cost- and context-bounded selection
+without making provider tokens, KV or the residency plan into Case memory.
 
 ## Completed boundary — executable reality convergence
 
@@ -126,28 +126,52 @@ Residency remains provisional and ContextDelta deferred because neither has an
 independent current consumer. The context-residency lab remains research
 evidence, not implementation authority.
 
-## Stage 5 — provenance-bound operational memory and qualified retrieval
+## Completed boundary — provenance-bound operational memory and qualified retrieval
 
-The exact next task is `YAI.SOURCE.REFOUNDATION.5 — Provenance-Bound Memory and
-Qualified Retrieval`. It should:
+`YAI.SOURCE.REFOUNDATION.5` implemented one rebuildable experience layer:
 
-- inventory the surviving legacy MemoryCandidate, graph/retrieval and DuckDB
-  extractors and characterize their real consumers;
-- define the smallest typed derived-memory entry with source Transition/
-  Observation/Receipt provenance, Case/participant visibility, freshness and
-  invalidation;
-- migrate useful operational consequence/interaction retrieval away from
-  summary parsing without making provider claims trusted memory;
-- implement deterministic bounded query/selection with canonical-state fallback
-  when graph or memory indexes are absent;
-- connect the existing optional `DerivedMemoryInput` seam to one real,
-  rebuildable producer and prove deleting/rebuilding it preserves CaseState and
-  semantic correctness;
-- remove the last active duplicate memory/projection authority after its
-  behavior is migrated;
-- keep learned compression, adaptive Residency, ContextDelta and analytics as
-  authority out of scope unless a measured consumer supplies an independent
-  lifecycle.
+- `yai.operational_memory.v1` derives resource effects, Decisions, unresolved
+  effects, normalization failures and explicitly non-authoritative provider
+  claims from canonical Transitions;
+- every entry binds deterministic identity, derivation version, generation,
+  typed value, participant visibility and Transition/Observation/Receipt/
+  causal provenance;
+- active/superseded lifecycle prevents stale resource state or unresolved
+  effect residue from outranking a newer terminal consequence;
+- two derived LMDB databases are atomically replaceable per Case but remain
+  outside canonical commit success; drop/rebuild and derivation failure leave
+  ledger and CaseState unchanged;
+- qualified retrieval filters Case, generation, participant/admitted view,
+  lifecycle, semantic kind and resource/causal refs before explainable purpose/
+  posture/recency ranking and a hard result budget;
+- `yai.projection.v2`/`yai.context_frame.v2` consume the typed RetrievalSet with
+  provenance and canonical fallback; Provider A→effect→Provider B/model
+  replacement proves memory is independent of conversation/KV;
+- the active `/memory propose` MemoryCandidate writer is retired; legacy
+  MemorySummary/RecordKind handling is compatibility-only.
+
+No embedding model, vector database, learned summary, compression hierarchy,
+memory daemon or Agent owner was added.
+
+## Stage 6 — semantic residency planning and cost-bounded context
+
+The exact next task is `YAI.SOURCE.REFOUNDATION.6 — Semantic Residency Planning
+and Cost-Bounded Context Selection`. It should:
+
+- characterize actual rendered sizes and provider/model context constraints
+  without making tokenizer estimates semantic identity;
+- introduce the smallest pure ResidencyPlan only if it has the independent
+  consumer now demonstrated by mandatory current state plus qualified optional
+  memory competing for an invocation budget;
+- explicitly classify mandatory, retained, reintroduced, omitted and evicted
+  semantic refs with provenance and machine-readable reasons;
+- account for previous frame/residency only as a derived optimization, with
+  complete fresh-frame fallback after provider/KV loss;
+- preserve participant visibility and CaseState/current-observation precedence
+  before any cost/relevance optimization;
+- prove provider/model replacement and long-Case bounded context under different
+  profiles without adding ContextDelta, learned compression or a provider
+  router unless a real consumer establishes them.
 
 ## Explicit non-goals
 
@@ -158,9 +182,10 @@ prerequisites exist.
 
 ## Exit criteria for the next source task
 
-`YAI.SOURCE.REFOUNDATION.5` is complete only when a typed, provenance-bearing,
-rebuildable memory/retrieval result can influence Projection selection; loss of
-every derived index leaves required semantic continuity intact; provider claims
-cannot become operational memory without an admitted transition/consequence;
-participant visibility is preserved through retrieval; and no summary string,
-graph edge, analytics row or memory entry becomes canonical authority.
+`YAI.SOURCE.REFOUNDATION.6` is complete only when one explicit, inspectable and
+rebuildable ResidencyPlan can bound mandatory current state plus retrieved
+experience for distinct provider/model profiles; loss of the plan, prior frame,
+continuation or KV rebuilds semantically correct context; omissions never cross
+visibility/authority boundaries or hide unresolved required state; and no token
+estimate, ranking score, memory entry or residency decision becomes canonical
+authority.

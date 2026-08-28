@@ -12,9 +12,9 @@ use crate::transition::{
 };
 use serde::{Deserialize, Serialize};
 
-pub const PROJECTION_SCHEMA: &str = "yai.projection.v1";
-pub const CONTEXT_FRAME_SCHEMA: &str = "yai.context_frame.v1";
-pub const RENDERED_INPUT_SCHEMA: &str = "yai.rendered_input.v1";
+pub const PROJECTION_SCHEMA: &str = "yai.projection.v2";
+pub const CONTEXT_FRAME_SCHEMA: &str = "yai.context_frame.v2";
+pub const RENDERED_INPUT_SCHEMA: &str = "yai.rendered_input.v2";
 pub const DEFAULT_MAX_PROJECTION_ITEMS: usize = 48;
 pub const DEFAULT_MAX_PROVIDER_CLAIMS: usize = 6;
 pub const DEFAULT_MAX_INTERACTION_TURNS: usize = 8;
@@ -126,7 +126,12 @@ pub enum ProjectedValue {
     },
     DerivedMemory {
         memory_ref: String,
-        text: String,
+        semantic_kind: String,
+        memory_posture: String,
+        description: String,
+        lifecycle: String,
+        score: i64,
+        ranking_reasons: Vec<String>,
     },
 }
 
@@ -146,6 +151,14 @@ pub struct ProjectionBounds {
     pub history_transitions_considered: usize,
     pub graph_available: bool,
     pub memory_available: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retrieval_id: Option<String>,
+    #[serde(default)]
+    pub retrieval_candidates: usize,
+    #[serde(default)]
+    pub retrieval_selected: usize,
+    #[serde(default)]
+    pub retrieval_omitted: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -189,8 +202,15 @@ impl ProjectionRequest {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct DerivedMemoryInput {
     pub memory_ref: String,
-    pub text: String,
+    pub semantic_kind: String,
+    pub memory_posture: String,
+    pub description: String,
+    pub lifecycle: String,
+    pub score: i64,
+    pub ranking_reasons: Vec<String>,
     pub transition_refs: Vec<String>,
+    pub observation_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -198,6 +218,9 @@ pub struct DerivedProjectionInput {
     pub graph_available: bool,
     pub memory_available: bool,
     pub memory: Vec<DerivedMemoryInput>,
+    pub retrieval_id: Option<String>,
+    pub retrieval_candidates: usize,
+    pub retrieval_omitted: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -539,13 +562,20 @@ pub fn compile_projection(
         }
     }
     optional.reverse();
-    for memory in &derived.memory {
+    // Retrieval is score-descending. Optional selection keeps the tail, so
+    // reverse here to ensure higher-ranked entries survive a Projection budget.
+    for memory in derived.memory.iter().rev() {
         optional.push(ProjectionEntry {
             entry_id: format!("memory:{}", memory.memory_ref),
             posture: AuthorityPosture::DerivedMemory,
             value: ProjectedValue::DerivedMemory {
                 memory_ref: memory.memory_ref.clone(),
-                text: bounded_text(&memory.text, DEFAULT_MAX_CLAIM_CHARS),
+                semantic_kind: memory.semantic_kind.clone(),
+                memory_posture: memory.memory_posture.clone(),
+                description: bounded_text(&memory.description, DEFAULT_MAX_CLAIM_CHARS),
+                lifecycle: memory.lifecycle.clone(),
+                score: memory.score,
+                ranking_reasons: memory.ranking_reasons.clone(),
             },
             provenance: memory
                 .transition_refs
@@ -554,6 +584,24 @@ pub fn compile_projection(
                     kind: ProvenanceKind::Transition,
                     source_ref: source_ref.clone(),
                 })
+                .chain(
+                    memory
+                        .observation_refs
+                        .iter()
+                        .map(|source_ref| SemanticProvenance {
+                            kind: ProvenanceKind::Observation,
+                            source_ref: source_ref.clone(),
+                        }),
+                )
+                .chain(
+                    memory
+                        .receipt_refs
+                        .iter()
+                        .map(|source_ref| SemanticProvenance {
+                            kind: ProvenanceKind::EffectReceipt,
+                            source_ref: source_ref.clone(),
+                        }),
+                )
                 .chain(std::iter::once(SemanticProvenance {
                     kind: ProvenanceKind::DerivedMemory,
                     source_ref: memory.memory_ref.clone(),
@@ -566,7 +614,8 @@ pub fn compile_projection(
     let omitted_items = optional
         .len()
         .saturating_sub(available)
-        .saturating_add(omitted_historical_effects);
+        .saturating_add(omitted_historical_effects)
+        .saturating_add(derived.retrieval_omitted);
     let keep_from = optional.len().saturating_sub(available);
     let mut entries = mandatory;
     entries.extend(optional.into_iter().skip(keep_from));
@@ -577,6 +626,10 @@ pub fn compile_projection(
         history_transitions_considered: transitions.len(),
         graph_available: derived.graph_available,
         memory_available: derived.memory_available,
+        retrieval_id: derived.retrieval_id.clone(),
+        retrieval_candidates: derived.retrieval_candidates,
+        retrieval_selected: derived.memory.len(),
+        retrieval_omitted: derived.retrieval_omitted,
     };
     let identity_material = serde_json::to_string(&(
         PROJECTION_SCHEMA,
@@ -591,6 +644,10 @@ pub fn compile_projection(
         bounds.selected_items,
         bounds.omitted_items,
         bounds.history_transitions_considered,
+        &bounds.retrieval_id,
+        bounds.retrieval_candidates,
+        bounds.retrieval_selected,
+        bounds.retrieval_omitted,
     ))
     .map_err(|error| format!("projection_identity_encode_failed: {error}"))?;
     Ok(Projection {
@@ -626,6 +683,8 @@ pub fn build_context_frame(
     }
     let semantic_instructions = vec![
         "Treat committed and observed entries as operational truth.".to_string(),
+        "Treat derived_memory as provenance-bearing recall, never as independent authority; current operational entries outrank it."
+            .to_string(),
         "Treat provider_claim entries as non-authoritative material.".to_string(),
         "Never infer success or failure for unresolved entries.".to_string(),
     ];
@@ -908,6 +967,7 @@ mod tests {
                 graph_available: true,
                 memory_available: true,
                 memory: Vec::new(),
+                ..DerivedProjectionInput::default()
             },
         )
         .unwrap();
@@ -1186,6 +1246,79 @@ mod tests {
     }
 
     #[test]
+    fn qualified_memory_enters_frame_with_typed_posture_and_full_provenance() {
+        let history = vec![transition(
+            1,
+            TransitionPayload::CaseOpened {
+                lifecycle: CaseLifecycle::Open,
+            },
+        )];
+        let projection = compile_projection(
+            &state(1),
+            &history,
+            &ProjectionRequest::model("participant:model", ProjectionPurpose::Conversation),
+            &DerivedProjectionInput {
+                graph_available: false,
+                memory_available: true,
+                memory: vec![DerivedMemoryInput {
+                    memory_ref: "memory:effect".to_string(),
+                    semantic_kind: "resource_effect".to_string(),
+                    memory_posture: "finalized_observed_consequence".to_string(),
+                    description: "workspace/hello.txt was observed at digest abc".to_string(),
+                    lifecycle: "active".to_string(),
+                    score: 165,
+                    ranking_reasons: vec![
+                        "finalized_observed_consequence:+50".to_string(),
+                        "direct_resource_match:+100".to_string(),
+                    ],
+                    transition_refs: vec!["transition:effect-finalized".to_string()],
+                    observation_refs: vec!["observation:post".to_string()],
+                    receipt_refs: vec!["receipt:effect".to_string()],
+                }],
+                retrieval_id: Some("retrieval:test".to_string()),
+                retrieval_candidates: 5,
+                retrieval_omitted: 4,
+            },
+        )
+        .expect("compile with qualified memory");
+        assert_eq!(
+            projection.bounds.retrieval_id.as_deref(),
+            Some("retrieval:test")
+        );
+        assert_eq!(projection.bounds.retrieval_selected, 1);
+        assert_eq!(projection.bounds.retrieval_omitted, 4);
+        let memory = projection
+            .entries
+            .iter()
+            .find(|entry| entry.entry_id == "memory:memory:effect")
+            .expect("projected memory");
+        assert!(matches!(
+            &memory.value,
+            ProjectedValue::DerivedMemory {
+                semantic_kind,
+                memory_posture,
+                ..
+            } if semantic_kind == "resource_effect"
+                && memory_posture == "finalized_observed_consequence"
+        ));
+        assert!(memory
+            .provenance
+            .iter()
+            .any(|item| item.kind == ProvenanceKind::Observation));
+        assert!(memory
+            .provenance
+            .iter()
+            .any(|item| item.kind == ProvenanceKind::EffectReceipt));
+        let frame = build_context_frame(
+            &projection,
+            "continue from observed consequence",
+            InvocationOutputContract::NaturalLanguage,
+        )
+        .expect("frame carries memory");
+        assert_eq!(frame.entries, projection.entries);
+    }
+
+    #[test]
     fn unknown_projection_and_frame_versions_fail_closed() {
         let history = vec![transition(
             1,
@@ -1200,7 +1333,7 @@ mod tests {
             &DerivedProjectionInput::default(),
         )
         .unwrap();
-        projection.schema = "yai.projection.v2".to_string();
+        projection.schema = "yai.projection.v3".to_string();
         assert_eq!(
             build_context_frame(
                 &projection,
@@ -1208,7 +1341,7 @@ mod tests {
                 InvocationOutputContract::NaturalLanguage,
             )
             .unwrap_err(),
-            "unsupported_projection_schema: yai.projection.v2"
+            "unsupported_projection_schema: yai.projection.v3"
         );
 
         projection.schema = PROJECTION_SCHEMA.to_string();
@@ -1218,7 +1351,7 @@ mod tests {
             InvocationOutputContract::NaturalLanguage,
         )
         .unwrap();
-        frame.schema = "yai.context_frame.v2".to_string();
+        frame.schema = "yai.context_frame.v3".to_string();
         assert_eq!(
             render_openai_compatible(
                 &frame,
@@ -1232,7 +1365,7 @@ mod tests {
                 "none",
             )
             .unwrap_err(),
-            "unsupported_context_frame_schema: yai.context_frame.v2"
+            "unsupported_context_frame_schema: yai.context_frame.v3"
         );
     }
 }

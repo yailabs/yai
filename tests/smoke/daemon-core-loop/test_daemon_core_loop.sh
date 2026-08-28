@@ -123,8 +123,8 @@ printf '%s\n' "$filesystem_thread_new" | grep 'semantic_context: new_thread_proj
 printf '%s\n' "$filesystem_thread_new" | grep 'journal:audit retained' >/dev/null
 printf '%s\n' "$filesystem_thread_use_default" | grep 'interaction_thread: restored previous' >/dev/null
 printf '%s\n' "$filesystem_thread_use_default" | grep 'thread_id: thread:default' >/dev/null
-printf '%s\n' "$filesystem_memory_propose" | grep 'memory_proposal: accepted' >/dev/null
-printf '%s\n' "$filesystem_memory_propose" | grep 'record_kind: memory_candidate' >/dev/null
+printf '%s\n' "$filesystem_memory_propose" | grep 'memory_proposal: retired' >/dev/null
+printf '%s\n' "$filesystem_memory_propose" | grep 'canonical_history_mutated: no' >/dev/null
 printf '%s\n' "$filesystem_prompt_dry_run" | grep 'model_prompt: dry_run' >/dev/null
 printf '%s\n' "$filesystem_prompt_dry_run" | grep 'case_session: active' >/dev/null
 printf '%s\n' "$filesystem_prompt_dry_run" | grep 'case_context: active' >/dev/null
@@ -151,7 +151,7 @@ printf 'case:enter ok\n'
 printf 'case:attach-provider ok\n'
 printf 'case:transcript retention ok\n'
 printf 'case:interaction thread ok\n'
-printf 'case:memory proposal ok\n'
+printf 'case:legacy memory proposal retired ok\n'
 printf 'case:prompt dry-run ok\n'
 printf 'case:context active ok\n'
 printf 'daemon:shutdown ok\n'

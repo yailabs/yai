@@ -120,6 +120,19 @@ pub(super) fn semantic_context_inspect(args: &[String]) -> Result<(), String> {
             println!("omitted_items: {}", projection.bounds.omitted_items);
             println!("graph_available: {}", projection.bounds.graph_available);
             println!("memory_available: {}", projection.bounds.memory_available);
+            println!(
+                "retrieval_id: {}",
+                projection.bounds.retrieval_id.as_deref().unwrap_or("none")
+            );
+            println!(
+                "retrieval_candidates: {}",
+                projection.bounds.retrieval_candidates
+            );
+            println!(
+                "retrieval_selected: {}",
+                projection.bounds.retrieval_selected
+            );
+            println!("retrieval_omitted: {}", projection.bounds.retrieval_omitted);
             if let Some(state) = store.get_case_state(&projection.case_id)? {
                 println!(
                     "stale: {}",
@@ -1782,16 +1795,95 @@ fn compile_semantic_invocation(
         .ok_or_else(|| format!("canonical CaseState missing for {}", session.case_ref))?;
     let transitions = store.list_case_transitions(&session.case_ref)?;
     let request = ProjectionRequest::model(&session.subject_ref, purpose);
-    let projection = compile_projection(
-        &state,
-        &transitions,
-        &request,
-        &DerivedProjectionInput {
-            graph_available: false,
-            memory_available: false,
-            memory: Vec::new(),
+    let resource_refs = match &output_contract {
+        InvocationOutputContract::FilesystemWriteProposal { attachment_id, .. } => {
+            vec![attachment_id.clone()]
+        }
+        InvocationOutputContract::NaturalLanguage => Vec::new(),
+    };
+    let memory_entries = match store.operational_memory_manifest(&session.case_ref) {
+        Ok(Some(manifest)) if manifest.is_current(&session.case_ref, state.generation) => {
+            match store.list_operational_memory(&session.case_ref) {
+                Ok(entries) => Some(entries),
+                Err(error) => {
+                    eprintln!("warning: derived operational memory unavailable: {error}");
+                    None
+                }
+            }
+        }
+        Ok(_) => match derive_operational_memory(&session.case_ref, &transitions) {
+            Ok(build) => {
+                if let Err(error) = store.replace_case_operational_memory(&build) {
+                    eprintln!("warning: derived operational memory was not persisted: {error}");
+                }
+                Some(build.entries)
+            }
+            Err(error) => {
+                eprintln!("warning: operational memory derivation failed; using canonical fallback: {error}");
+                None
+            }
         },
-    )?;
+        Err(error) => {
+            eprintln!(
+                "warning: operational memory store unavailable; using canonical fallback: {error}"
+            );
+            None
+        }
+    };
+    let retrieval = memory_entries.as_ref().and_then(|entries| {
+        match retrieve_operational_memory(
+            &state,
+            entries,
+            RetrievalQualification {
+                case_id: session.case_ref.clone(),
+                participant_id: session.subject_ref.clone(),
+                consumer: request.consumer.clone(),
+                view_kind: request.view_kind.clone(),
+                purpose: request.purpose.clone(),
+                case_generation: state.generation,
+                resource_refs,
+                semantic_kinds: Vec::new(),
+                causal_refs: Vec::new(),
+                max_results: DEFAULT_RETRIEVAL_LIMIT,
+                include_superseded: false,
+            },
+        ) {
+            Ok(retrieval) => Some(retrieval),
+            Err(error) => {
+                eprintln!(
+                    "warning: qualified memory retrieval failed; using canonical fallback: {error}"
+                );
+                None
+            }
+        }
+    });
+    let derived = retrieval
+        .as_ref()
+        .map(|retrieval| DerivedProjectionInput {
+            graph_available: false,
+            memory_available: true,
+            memory: retrieval
+                .selected
+                .iter()
+                .map(|item| yai_core_engine::context::DerivedMemoryInput {
+                    memory_ref: item.memory.memory_id.clone(),
+                    semantic_kind: item.memory.semantic_kind.as_str().to_string(),
+                    memory_posture: item.memory.posture.as_str().to_string(),
+                    description: item.memory.description.clone(),
+                    lifecycle: item.memory.lifecycle.as_str().to_string(),
+                    score: item.score,
+                    ranking_reasons: item.ranking_reasons.clone(),
+                    transition_refs: item.memory.provenance.transition_ids.clone(),
+                    observation_refs: item.memory.provenance.observation_ids.clone(),
+                    receipt_refs: item.memory.provenance.effect_receipt_ids.clone(),
+                })
+                .collect(),
+            retrieval_id: Some(retrieval.retrieval_id.clone()),
+            retrieval_candidates: retrieval.qualified_count,
+            retrieval_omitted: retrieval.omitted_count,
+        })
+        .unwrap_or_default();
+    let projection = compile_projection(&state, &transitions, &request, &derived)?;
     let output_contract_id = output_contract.contract_id();
     let frame = build_context_frame(&projection, task, output_contract)?;
     let profile = ProviderModelProfile {
@@ -2175,58 +2267,6 @@ fn append_transcript_retention_state(
     Ok(summary)
 }
 
-fn append_memory_proposal(session: &PromptRuntime, note: Option<&str>) -> Result<String, String> {
-    let journal = Journal::load_jsonl(&session.journal_path)
-        .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
-    let prompt_attempts = journal
-        .records()
-        .iter()
-        .filter(|record| {
-            record.case_ref == session.case_ref
-                && record.kind == RecordKind::Attempt
-                && legacy_summary_is(record, "op", "model.prompt.submit")
-        })
-        .count();
-    let model_outputs = journal
-        .records()
-        .iter()
-        .filter(|record| {
-            record.case_ref == session.case_ref
-                && record.kind == RecordKind::EffectReceipt
-                && legacy_summary_has_marker(&record.summary, "model.output")
-        })
-        .count();
-    let basis_records = prompt_attempts + model_outputs;
-    let sequence = journal.count() + 1;
-    let note = note
-        .filter(|value| !value.trim().is_empty())
-        .map(|value| format!(" note:{}", compact_text(value, 120)))
-        .unwrap_or_default();
-    let summary = format!(
-        "memory:operational scope:case source:prompt_runtime transcript_retention:{} basis_records:{} basis_prompt_attempts:{} basis_model_outputs:{} summary:prompt runtime tested case boundary and model/provider residue{}",
-        transcript_retention_label(session.transcript_enabled),
-        basis_records,
-        prompt_attempts,
-        model_outputs,
-        note
-    );
-    let record = Record::from_parts(
-        format!(
-            "prompt-memory:{}:{sequence}",
-            session.subject_ref.replace(':', "-")
-        ),
-        &session.case_ref,
-        RecordKind::MemoryCandidate,
-        &session.subject_ref,
-        "",
-        "",
-        "",
-        summary.clone(),
-    );
-    append_record_to_journal(&session.journal_path, &record)?;
-    Ok(summary)
-}
-
 fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> Result<(), String> {
     let colors = color_enabled();
     let freshness = projection_freshness_view(&session.case_ref, "model");
@@ -2534,27 +2574,16 @@ fn handle_prompt_command(session: &mut PromptRuntime, command: &str) -> Result<b
     }
 
     if command == "/memory propose" || command.starts_with("/memory propose ") {
-        let note = command.strip_prefix("/memory propose").map(str::trim);
-        let summary = append_memory_proposal(session, note)?;
-        let _ = writeln!(session.legacy_status_notes, "## Prompt Runtime Memory Note");
-        let _ = writeln!(
-            session.legacy_status_notes,
-            "- kind:memory_candidate subject_ref:{} summary:{}",
-            session.subject_ref, summary
-        );
-        let _ = writeln!(session.legacy_status_notes);
-        println!("memory_proposal: accepted");
-        println!("record_kind: memory_candidate");
-        println!(
-            "transcript_retention: {}",
-            transcript_retention_label(session.transcript_enabled)
-        );
+        println!("memory_proposal: retired");
+        println!("authority: compatibility_only");
+        println!("replacement: canonical Transition-derived operational memory");
+        println!("canonical_history_mutated: no");
         return Ok(true);
     }
 
     if command.starts_with('/') {
         println!("unknown_command: {command}");
-        println!("commands: /thread status /thread new [label] /thread list /thread use <thread_id> /thread archive <thread_id> /refresh /transcript on /transcript off /transcript status /memory propose /exit");
+        println!("commands: /thread status /thread new [label] /thread list /thread use <thread_id> /thread archive <thread_id> /refresh /transcript on /transcript off /transcript status /exit");
         return Ok(true);
     }
 
@@ -2604,7 +2633,7 @@ pub(super) fn prompt_repl(args: &[String]) -> Result<(), String> {
         "transcript_retention: {}",
         transcript_retention_label(session.transcript_enabled)
     );
-    println!("commands: /thread status /thread new [label] /thread list /thread use <thread_id> /thread archive <thread_id> /refresh /transcript on /transcript off /transcript status /memory propose /exit");
+    println!("commands: /thread status /thread new [label] /thread list /thread use <thread_id> /thread archive <thread_id> /refresh /transcript on /transcript off /transcript status /exit");
 
     loop {
         println!();

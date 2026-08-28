@@ -209,10 +209,13 @@ retains that provenance without reclassifying it as a YAI transition.
 
 Current compatibility names such as `EffectReceipt` for model output,
 historical `ParticipantViewFrame` summary-token records, and broad `RecordKind`
-values remain readable input/output reality. New provider invocations no longer
-write or consume ParticipantViewFrame. Canonical provider history uses typed
+values remain readable input/output reality. `MemoryCandidate` is likewise a
+read-only legacy input/category; the former prompt command that appended it is
+retired. New provider invocations no longer write or consume ParticipantViewFrame.
+Canonical provider history uses typed
 Invocation, ProviderResult, InteractionTurnRecorded, and ModelInterpretation
-payloads instead. The former `CaseHandle` and
+payloads; operational experience is `yai.operational_memory.v1` derived from
+those and effect/control Transitions with mandatory provenance. The former `CaseHandle` and
 `CapabilityLease` views had no product consumer and no longer survive as
 compatibility types. Remaining compatibility requires a named consumer,
 version policy, test, and removal/migration condition.

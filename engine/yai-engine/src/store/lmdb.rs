@@ -20,6 +20,10 @@ use crate::compatibility::{
 use crate::context::SemanticContextArtifact;
 use crate::effect::{LocalFilesystemBinding, OperationOrigin, LOCAL_FILESYSTEM_BINDING_SCHEMA};
 use crate::journal::Journal;
+use crate::memory::{
+    OperationalMemoryBuild, OperationalMemoryEntry, OperationalMemoryManifest,
+    OPERATIONAL_MEMORY_DERIVATION, OPERATIONAL_MEMORY_MANIFEST_SCHEMA, OPERATIONAL_MEMORY_SCHEMA,
+};
 use crate::record::Record;
 use crate::transition::{
     replay_case, CaseState, PendingTransition, Transition, TransitionPayload, CASE_STATE_SCHEMA,
@@ -100,6 +104,8 @@ pub struct LmdbRecordStore {
     legacy_compatibility_payloads: Database,
     local_resource_bindings: Database,
     semantic_context_artifacts: Database,
+    operational_memory_by_id: Database,
+    operational_memory_case_index: Database,
     schema_meta: Database,
 }
 
@@ -237,7 +243,7 @@ impl LmdbRecordStore {
         fs::create_dir_all(path)
             .map_err(|error| format!("failed to create {}: {error}", path.display()))?;
         let env = Environment::new()
-            .set_max_dbs(18)
+            .set_max_dbs(20)
             .set_map_size(MAP_SIZE)
             .open(path)
             .map_err(|error| format!("failed to open LMDB env {}: {error}", path.display()))?;
@@ -286,6 +292,15 @@ impl LmdbRecordStore {
         let semantic_context_artifacts = env
             .create_db(Some("semantic_context_artifacts"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open semantic_context_artifacts: {error}"))?;
+        let operational_memory_by_id = env
+            .create_db(Some("operational_memory_by_id"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open operational_memory_by_id: {error}"))?;
+        let operational_memory_case_index = env
+            .create_db(
+                Some("operational_memory_case_index"),
+                DatabaseFlags::empty(),
+            )
+            .map_err(|error| format!("failed to open operational_memory_case_index: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -305,6 +320,8 @@ impl LmdbRecordStore {
             legacy_compatibility_payloads,
             local_resource_bindings,
             semantic_context_artifacts,
+            operational_memory_by_id,
+            operational_memory_case_index,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -397,6 +414,164 @@ impl LmdbRecordStore {
             .map_err(|error| format!("failed to clear semantic context artifacts: {error}"))?;
         txn.commit()
             .map_err(|error| format!("failed to commit semantic context clear: {error}"))
+    }
+
+    /// Atomically replaces one Case's disposable operational-memory
+    /// materialization. This transaction is intentionally separate from the
+    /// canonical Transition + CaseState commit.
+    pub fn replace_case_operational_memory(
+        &self,
+        build: &OperationalMemoryBuild,
+    ) -> Result<(), String> {
+        validate_operational_memory_build(build)?;
+        let manifest_key = operational_memory_case_key(&build.manifest.case_id);
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start operational memory replace: {error}"))?;
+
+        if let Ok(value) = txn.get(self.operational_memory_case_index, &manifest_key) {
+            let previous: OperationalMemoryManifest = serde_json::from_slice(value)
+                .map_err(|error| format!("operational_memory_manifest_decode_failed: {error}"))?;
+            for memory_id in previous.memory_ids {
+                let key = operational_memory_id_key(&memory_id);
+                match txn.del(self.operational_memory_by_id, &key, None) {
+                    Ok(()) | Err(Error::NotFound) => {}
+                    Err(error) => {
+                        return Err(format!(
+                            "failed to remove obsolete memory {memory_id}: {error}"
+                        ))
+                    }
+                }
+            }
+        }
+
+        for entry in &build.entries {
+            let key = operational_memory_id_key(&entry.memory_id);
+            let value = serde_json::to_vec(entry)
+                .map_err(|error| format!("operational_memory_encode_failed: {error}"))?;
+            txn.put(
+                self.operational_memory_by_id,
+                &key,
+                &value,
+                WriteFlags::empty(),
+            )
+            .map_err(|error| format!("failed to store memory {}: {error}", entry.memory_id))?;
+        }
+        let manifest_value = serde_json::to_vec(&build.manifest)
+            .map_err(|error| format!("operational_memory_manifest_encode_failed: {error}"))?;
+        txn.put(
+            self.operational_memory_case_index,
+            &manifest_key,
+            &manifest_value,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to store operational memory manifest: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit operational memory replace: {error}"))
+    }
+
+    pub fn operational_memory_manifest(
+        &self,
+        case_id: &str,
+    ) -> Result<Option<OperationalMemoryManifest>, String> {
+        let key = operational_memory_case_key(case_id);
+        let txn = self.env.begin_ro_txn().map_err(|error| {
+            format!("failed to start operational memory manifest read: {error}")
+        })?;
+        match txn.get(self.operational_memory_case_index, &key) {
+            Ok(value) => serde_json::from_slice(value)
+                .map(Some)
+                .map_err(|error| format!("operational_memory_manifest_decode_failed: {error}")),
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!(
+                "failed to read operational memory manifest: {error}"
+            )),
+        }
+    }
+
+    pub fn get_operational_memory(
+        &self,
+        memory_id: &str,
+    ) -> Result<Option<OperationalMemoryEntry>, String> {
+        let key = operational_memory_id_key(memory_id);
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start operational memory read: {error}"))?;
+        match txn.get(self.operational_memory_by_id, &key) {
+            Ok(value) => serde_json::from_slice(value)
+                .map(Some)
+                .map_err(|error| format!("operational_memory_decode_failed: {error}")),
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!("failed to read operational memory: {error}")),
+        }
+    }
+
+    pub fn list_operational_memory(
+        &self,
+        case_id: &str,
+    ) -> Result<Vec<OperationalMemoryEntry>, String> {
+        let Some(manifest) = self.operational_memory_manifest(case_id)? else {
+            return Ok(Vec::new());
+        };
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start operational memory list: {error}"))?;
+        let mut entries = Vec::with_capacity(manifest.memory_ids.len());
+        for memory_id in manifest.memory_ids {
+            let key = operational_memory_id_key(&memory_id);
+            let value = txn
+                .get(self.operational_memory_by_id, &key)
+                .map_err(|error| {
+                    format!("operational_memory_manifest_dangling: {memory_id}: {error}")
+                })?;
+            let entry = serde_json::from_slice(value)
+                .map_err(|error| format!("operational_memory_decode_failed: {error}"))?;
+            entries.push(entry);
+        }
+        Ok(entries)
+    }
+
+    pub fn clear_case_operational_memory(&self, case_id: &str) -> Result<(), String> {
+        let manifest_key = operational_memory_case_key(case_id);
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start operational memory clear: {error}"))?;
+        if let Ok(value) = txn.get(self.operational_memory_case_index, &manifest_key) {
+            let manifest: OperationalMemoryManifest = serde_json::from_slice(value)
+                .map_err(|error| format!("operational_memory_manifest_decode_failed: {error}"))?;
+            for memory_id in manifest.memory_ids {
+                let key = operational_memory_id_key(&memory_id);
+                match txn.del(self.operational_memory_by_id, &key, None) {
+                    Ok(()) | Err(Error::NotFound) => {}
+                    Err(error) => {
+                        return Err(format!("failed to clear memory {memory_id}: {error}"))
+                    }
+                }
+            }
+        }
+        match txn.del(self.operational_memory_case_index, &manifest_key, None) {
+            Ok(()) | Err(Error::NotFound) => {}
+            Err(error) => return Err(format!("failed to clear memory manifest: {error}")),
+        }
+        txn.commit()
+            .map_err(|error| format!("failed to commit operational memory clear: {error}"))
+    }
+
+    pub fn clear_all_operational_memory(&self) -> Result<(), String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start operational memory drop: {error}"))?;
+        txn.clear_db(self.operational_memory_by_id)
+            .map_err(|error| format!("failed to clear operational memory entries: {error}"))?;
+        txn.clear_db(self.operational_memory_case_index)
+            .map_err(|error| format!("failed to clear operational memory manifests: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit operational memory drop: {error}"))
     }
 
     /// Atomically appends one immutable canonical Transition and replaces the
@@ -1068,6 +1243,27 @@ impl LmdbRecordStore {
             SEMANTIC_CONTEXT_ARTIFACT_SCHEMA,
             &[],
         )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:operational_memory_schema",
+            OPERATIONAL_MEMORY_SCHEMA,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:operational_memory_manifest_schema",
+            OPERATIONAL_MEMORY_MANIFEST_SCHEMA,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:operational_memory_derivation",
+            OPERATIONAL_MEMORY_DERIVATION,
+            &[],
+        )?;
         for (key, value) in [
             ("meta:canonical_transition_schema", TRANSITION_SCHEMA),
             ("meta:case_state_schema", CASE_STATE_SCHEMA),
@@ -1082,6 +1278,15 @@ impl LmdbRecordStore {
             (
                 "meta:semantic_context_artifact_schema",
                 SEMANTIC_CONTEXT_ARTIFACT_SCHEMA,
+            ),
+            ("meta:operational_memory_schema", OPERATIONAL_MEMORY_SCHEMA),
+            (
+                "meta:operational_memory_manifest_schema",
+                OPERATIONAL_MEMORY_MANIFEST_SCHEMA,
+            ),
+            (
+                "meta:operational_memory_derivation",
+                OPERATIONAL_MEMORY_DERIVATION,
             ),
         ] {
             txn.put(self.schema_meta, &key, &value, WriteFlags::empty())
@@ -2372,6 +2577,55 @@ fn semantic_context_artifact_key(artifact_id: &str) -> String {
     format!("semantic-context:id:{artifact_id}")
 }
 
+fn operational_memory_id_key(memory_id: &str) -> String {
+    format!("operational-memory:id:{memory_id}")
+}
+
+fn operational_memory_case_key(case_id: &str) -> String {
+    format!("operational-memory:case:{case_id}")
+}
+
+fn validate_operational_memory_build(build: &OperationalMemoryBuild) -> Result<(), String> {
+    if build.manifest.schema != OPERATIONAL_MEMORY_MANIFEST_SCHEMA {
+        return Err(format!(
+            "unsupported_operational_memory_manifest_schema: {}",
+            build.manifest.schema
+        ));
+    }
+    if build.manifest.derivation_version != OPERATIONAL_MEMORY_DERIVATION {
+        return Err(format!(
+            "unsupported_memory_derivation: {}",
+            build.manifest.derivation_version
+        ));
+    }
+    let manifest_ids = build
+        .manifest
+        .memory_ids
+        .iter()
+        .cloned()
+        .collect::<std::collections::BTreeSet<_>>();
+    let entry_ids = build
+        .entries
+        .iter()
+        .map(|entry| entry.memory_id.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    if manifest_ids.len() != build.manifest.memory_ids.len()
+        || entry_ids.len() != build.entries.len()
+        || manifest_ids != entry_ids
+    {
+        return Err("operational_memory_manifest_entry_mismatch".to_string());
+    }
+    for entry in &build.entries {
+        entry.validate()?;
+        if entry.case_id != build.manifest.case_id
+            || entry.derived_at_generation != build.manifest.source_generation
+        {
+            return Err("operational_memory_build_case_generation_mismatch".to_string());
+        }
+    }
+    Ok(())
+}
+
 fn local_binding_key(case_id: &str, attachment_id: &str) -> String {
     format!(
         "local_binding:{}:{}:{}:{}",
@@ -2444,6 +2698,7 @@ mod tests {
         CarrierResult, EffectOutcome, LocalFilesystemBinding, NormalizationContext,
         ReconciliationConclusion,
     };
+    use crate::memory::{derive_operational_memory, OperationalMemoryKind};
     use crate::record::{Record, RecordKind};
     use crate::transition::{
         CaseLifecycle, InterpretationAuthority, PendingTransition, ProviderInvocationLineage,
@@ -3079,6 +3334,85 @@ mod tests {
             .materialize_graph_relations_for_case(case_id)
             .expect("derived graph from typed transitions");
         assert!(graph.relations_written > 0);
+        let history = reopened
+            .list_case_transitions(case_id)
+            .expect("canonical history for memory");
+        let transition_count = history.len();
+        let memory = derive_operational_memory(case_id, &history).expect("derive memory");
+        assert!(memory.entries.iter().any(|entry| {
+            entry.semantic_kind == OperationalMemoryKind::ResourceEffect
+                && !entry.provenance.effect_receipt_ids.is_empty()
+        }));
+        assert!(memory.entries.iter().any(|entry| {
+            matches!(
+                &entry.value,
+                crate::memory::OperationalMemoryValue::ResourceEffect { effect_id, .. }
+                    if effect_id == &crashed.effect_id
+            ) && entry.lifecycle == crate::memory::OperationalMemoryLifecycle::Active
+        }));
+        assert!(!memory.entries.iter().any(|entry| {
+            matches!(
+                &entry.value,
+                crate::memory::OperationalMemoryValue::UnresolvedEffect { effect_id, .. }
+                    if effect_id == &crashed.effect_id
+            ) && entry.lifecycle == crate::memory::OperationalMemoryLifecycle::Active
+        }));
+        let mut invalid_memory = memory.clone();
+        invalid_memory.manifest.schema = "yai.operational_memory_manifest.future".to_string();
+        assert!(reopened
+            .replace_case_operational_memory(&invalid_memory)
+            .expect_err("invalid derived materialization must fail")
+            .contains("unsupported_operational_memory_manifest_schema"));
+        assert_eq!(
+            reopened
+                .list_case_transitions(case_id)
+                .expect("canonical history survives derived failure")
+                .len(),
+            transition_count
+        );
+        reopened
+            .replace_case_operational_memory(&memory)
+            .expect("store derived memory");
+        reopened
+            .replace_case_operational_memory(&memory)
+            .expect("idempotent replace");
+        assert_eq!(
+            reopened
+                .list_operational_memory(case_id)
+                .expect("list stored memory"),
+            memory.entries
+        );
+        reopened
+            .clear_all_operational_memory()
+            .expect("drop derived store");
+        assert!(reopened
+            .list_operational_memory(case_id)
+            .expect("memory absent")
+            .is_empty());
+        assert_eq!(
+            reopened
+                .list_case_transitions(case_id)
+                .expect("canonical history survives")
+                .len(),
+            transition_count
+        );
+        assert_eq!(
+            reopened
+                .get_case_state(case_id)
+                .expect("CaseState survives"),
+            Some(expected.clone())
+        );
+        let rebuilt = derive_operational_memory(
+            case_id,
+            &reopened
+                .list_case_transitions(case_id)
+                .expect("history rebuild input"),
+        )
+        .expect("rebuild memory");
+        assert_eq!(rebuilt, memory);
+        reopened
+            .replace_case_operational_memory(&rebuilt)
+            .expect("persist rebuilt memory");
         drop(reopened);
         fs::remove_dir_all(path).expect("remove LMDB test store");
         fs::remove_dir_all(resource_root).expect("remove resource fixture");

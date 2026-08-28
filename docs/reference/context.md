@@ -37,6 +37,35 @@ Scope, provenance, disclosure, freshness, and retention posture before they
 can enter a Projection. External retrieval does not become Case history without
 an explicit import transition.
 
+### Operational derived memory
+
+Operational memory is a compact, typed derivation of committed history used to
+improve later semantic selection. It is neither CaseState nor another fact
+authority. A trusted operational entry cites its source Transitions and, where
+applicable, Observation and EffectReceipt identities. Provider-originated
+material may be retained only with an explicit non-authoritative posture.
+
+The executable v1 contract derives five bounded kinds: resource effect,
+Decision, unresolved effect, normalization failure, and provider claim. Each
+entry binds Case, derivation version, generation range, participant visibility,
+typed value, provenance and active/superseded lifecycle. Current CaseState and
+finalized observed consequence outrank derived memory; derived memory outranks
+provider claims only for current-world assertions. This is an anti-confusion
+rule, not a universal epistemic ordering.
+
+The derived store is disposable. Derivation follows canonical commit, may fail
+without affecting Transition/CaseState, and is deterministic for the same
+history/version. Rebuild never appends a Transition. A newer finalized resource
+state supersedes an older current-state entry without deleting history; a
+terminal/reconciled effect supersedes its prepared or indeterminate entry.
+
+Qualified retrieval accepts Case and generation, participant/admitted view,
+purpose, optional resource/kind/causal constraints, supersession posture and a
+hard result budget. It filters authority boundaries before deterministic
+ranking. Its `RetrievalSet` is ephemeral derived output with selected entries,
+scores/reasons, rejection counts and omission counts. Missing memory or graph
+falls back to direct CaseState/canonical selection.
+
 ## Projection
 
 Projection is a semantically selected view of qualified state for an exact
@@ -93,9 +122,10 @@ remains active while a provider rebuilds all tokens/KV, or may change semantic
 residency while a runtime continuation must be invalidated.
 
 No independent Residency object, scheduler, or database exists in the current
-repository. Wave 4 implements deterministic bounded selection directly in the
-Projection compiler. Residency remains a named optimization boundary until a
-separate consumer/lifecycle justifies executable identity.
+repository. Waves 4–5 implement deterministic bounded selection in qualified
+retrieval and the Projection compiler, but do not reason about prior residency,
+provider cost or semantic reintroduction/eviction. Residency remains a named
+optimization boundary until that additional consumer/lifecycle is implemented.
 
 ## ContextFrame — ADOPT
 
@@ -231,18 +261,18 @@ invalidate continuation without invalidating ContextFrame.
 
 ## Current repository reality
 
-Current Rust code implements `yai.projection.v1` and `yai.context_frame.v1` in
+Current Rust code implements `yai.projection.v2` and `yai.context_frame.v2` in
 one pure compiler. Projection binds exact Case generation,
 participant/purpose/admitted view, typed entries, authority posture,
-Transition/Observation/Receipt provenance, deterministic bounds and explicit
-omission count. It is rebuilt from CaseState and ordered Transitions; graph and
-memory are optional derived inputs. Provider claims are selected only through
-their typed participant Invocation and remain labeled non-authoritative.
+Transition/Observation/Receipt/derived-memory provenance, deterministic bounds,
+retrieval identity/counts and explicit omission count. It is rebuilt from
+CaseState and ordered Transitions plus an optional qualified RetrievalSet.
+Provider claims remain labeled non-authoritative.
 
 ContextFrame has independent identity because a Projection can feed multiple
 tasks/output contracts. The Wave-3 `filesystem.write` proposal schema is a
 typed output contract in the frame. The OpenAI-compatible adapter produces a
-separate `yai.rendered_input.v1` identity/digest and wire body. Invocation and
+separate `yai.rendered_input.v2` identity/digest and wire body. Invocation and
 ProviderResult transitions identify their Projection, frame, Case generation,
 render, provider, model and output contract explicitly.
 
@@ -253,18 +283,28 @@ Transition history or CaseState. New provider invocations neither write nor
 consume legacy `ParticipantViewFrame`; historical records remain readable only
 through compatibility surfaces.
 
+`yai.operational_memory.v1` and
+`yai.operational_memory.derivation.v1` are owned by the single Rust
+`memory.rs` algorithm boundary. Two clearly derived LMDB databases hold entries
+and a Case generation manifest. They can be cleared/rebuilt without changing
+CaseState or ledger count. The active provider compiler refreshes stale/missing
+memory, runs Case/participant/purpose-qualified retrieval with an eight-entry
+default, and passes only the selected typed material to Projection. Derivation
+or store failure uses canonical fallback. The former `/memory propose` command
+is retired; historical `MemoryCandidate` remains compatibility input only.
+
 The provider adapter accepts an optional opaque, provider/runtime-bound
 continuation reference in memory for one invocation. It persists only the use/
 invalidation disposition. An invalid-continuation response retries the same
 complete frame without the reference. Product tests replace provider and model
 identity after a real controlled effect, restart the provider fixture, and show
-that the next frame contains the current observed consequence and typed recent
-interaction lineage.
+that the next frame contains the current observed consequence plus selected
+operational memory carrying Transition, Observation and Receipt provenance.
 
-The implementation has no Residency object, semantic compression,
-ContextDelta consumer, authoritative tokenizer, token IDs, KV integration, or
-native YVEX protocol. The context-residency lab remains research evidence, not
-runtime capability.
+The implementation has no Residency object, embedding/vector retrieval,
+learned ranking, semantic compression/promotion, ContextDelta consumer,
+authoritative tokenizer, token IDs, KV integration, or native YVEX protocol.
+The context-residency lab remains research evidence, not runtime capability.
 
 Historical E07 workset/provider-frame code supports the distinction between a
 qualified semantic workset and provider rendering, but its directory/type
