@@ -1,0 +1,5 @@
+state	meaning	authority implication
+unconfigured	Case has zero active PolicyBindings	none; Wave9 does not alter existing runtime behavior
+ready	all exact binding/artifact inputs validate and deterministic materialization succeeds	normative input exists; not permission
+blocked	missing/corrupt/inconsistent inputs or unsafe composition prevents materialization	fail-closed normative posture; no Decision emitted
+catalog_drift	current/superseded/retired/no-current reported per exact binding	diagnostic only until Wave11 validity/revoke semantics

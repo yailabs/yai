@@ -13,6 +13,7 @@
 //! Status:
 //!   active
 
+pub mod case_policy;
 pub mod compatibility;
 pub mod context;
 pub mod effect;

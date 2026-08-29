@@ -1,0 +1,9 @@
+scenario	canonical_transition_effect	derived_effect	proof
+bind exact published	one CasePolicyBound	Ready EffectivePolicy cached	wave9 exact binding test
+drop cache	none	cache absent	drop/rebuild test
+rebuild	none	same EffectivePolicy semantic ID	drop/rebuild test
+source payload absent	none	materializes from retained artifact/IR	version pinning test
+artifact missing	none	Blocked + missing ID	missing artifact test
+injected cache failure	binding remains committed	cache absent then repaired	derived failure test
+CaseState replay	none	exact active binding set reproduced	verify_case_state test
+status query	none	none	characterization transition counts

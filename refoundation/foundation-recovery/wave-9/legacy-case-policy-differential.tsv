@@ -1,0 +1,9 @@
+semantic_property	strongest_legacy_evidence	old_owner	old_lifecycle	old_consumer	current_pre_wave9	wave9_disposition	refounded_owner
+normative qualification	case_control_bridge fail-closed when ready/refs absent	supervisor/control bridge	mutable ready boolean	runtime admission	none	recover as derived unconfigured/ready/blocked	CasePolicy materializer
+policy attachment	policy://case/<id>/default and workspace attach registry	runtime/session registry	attach/activate/detach	workspace runtime	TransitionScope.policy_refs only	rewrite as exact canonical binding	Transition/CaseState
+version pinning	mutable alias/profile path	registry/generated view	moving latest	runtime lookup	none	exact artifact/version/event ref; no latest	CasePolicyBinding
+multiple policy composition	generated law/governance views	resolver forest	mutable view rebuild	control bridge	source-local conflicts only	conservative typed composition	case_policy.rs
+precedence	REQUIRE_JUSTIFICATION mapping only	precedence.c	request-time	resolver	none	DENY and required-review dominance; obligation union	Policy materializer v1
+conflict/missingness	integrity-gap views and missing-ref denial	stated/legald/control	mutable generated views	runtime mediation	source-local blockers	blocking typed diagnostics	NormativeStatus
+replay/restart	latest registry JSON + DuckDB generated view	multiple owners	mutable replacement	inspection/runtime	canonical Case replay exists	binding replay plus derived rebuild	Transition reducer/LMDB
+runtime authority	readiness gate before mediation	supervisor/control	per request	Decision bridge	narrow existing effect path	defer operational integration to Wave10	none in Wave9

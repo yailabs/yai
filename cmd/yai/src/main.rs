@@ -105,33 +105,18 @@ unsafe extern "C" {
 }
 
 fn print_info() {
-    println!("yai: technical YAI control command");
-    println!("status: SPINE.51 Fact Plane Freeze");
-    println!("ownership: Rust operational CLI plus Rust data engine");
-    println!("daemon_ipc: local Unix socket with daemon-backed loop v0");
-    println!("canonical_daemon: yaid");
-    println!("runtime_layout: YAI_HOME local runtime v0");
-    println!("foundation_freeze: filesystem_runtime_layout");
-    println!("hot_state: YAI_HOME/run/hot-state.json live cache v0");
-    println!(
-        "canonical_state: LMDB yai.transition.v4 plus atomically materialized yai.case_state.v4"
-    );
-    println!("legacy_record_store: YAI_HOME/store/lmdb yai.record.v1 compatibility plane");
-    println!("effect_paths: typed filesystem.write with Case-native human review and no product review bypass");
-    println!("semantic_context: typed yai.projection.v4 plus yai.context_frame.v4 derived from CaseState, qualified memory, review posture and ResidencyPlan");
-    println!("operational_memory: yai.operational_memory.v1 derived, provenance-bound, droppable and rebuildable");
-    println!("governance_intake: immutable yai.policy_source_artifact.v2 plus typed yai.policy_ir.v1 and owner-scoped yai.policy_artifact.v2 lifecycle; no Case binding");
-    println!("provider-runtime: provider-specific rendering and real OpenAI-compatible HTTP invocation with typed frame lineage");
-    println!("journal_inspection: file-based JSONL v0 compatibility input");
-    println!("journal_replay: legacy LMDB compatibility materialization with schema/cursor/report metadata v0");
-    println!("graph_relation_write_path: active_minimal");
-    println!("runtime_graph: active_minimal per_command_ephemeral rebuildable");
-    println!("fact_plane: duckdb bitemporal schema yai.fact.v1");
-    println!(
-        "facts_extraction: receipt_decision_projection model_behavior policy_outcome carrier_outcome divergence memory_quality active"
-    );
-    println!("facts_report: compact read-only CLI sections active");
-    println!("control_inspection: journal-derived summary");
+    println!(concat!(
+        "yai: technical YAI control command\n",
+        "status: SPINE.51 Fact Plane Freeze\n",
+        "ownership: Rust operational CLI plus Rust data engine\n",
+        "canonical_state: LMDB yai.transition.v5 plus atomically materialized yai.case_state.v5\n",
+        "effect_paths: typed filesystem.write with Case-native human review and no product review bypass\n",
+        "semantic_context: typed yai.projection.v4 plus yai.context_frame.v4 derived from CaseState, qualified memory, review posture and ResidencyPlan\n",
+        "operational_memory: yai.operational_memory.v1 derived, provenance-bound, droppable and rebuildable\n",
+        "governance_intake: immutable yai.policy_source_artifact.v2 plus typed yai.policy_ir.v1 and owner-scoped yai.policy_artifact.v2 lifecycle\n",
+        "case_governance: exact yai.case_policy_binding.v1 canonical transitions plus rebuildable yai.effective_policy.v1 normative readiness; no authority emission\n",
+        "provider-runtime: provider-specific rendering and real OpenAI-compatible HTTP invocation with typed frame lineage"
+    ));
 }
 
 fn print_doctor() {
@@ -275,6 +260,10 @@ fn print_usage() {
     println!("       yai case enter --case <case_ref> --subject <subject_ref> [--consumer model] [--kind model_context] [--shell zsh]");
     println!("       yai case attach-provider --case <case_ref> --subject <subject_ref> --base-url <url> --model <model> [--provider-id <id>] [--api-key-env <env>] [--shell zsh]");
     println!("       yai case attach-filesystem --case <case_ref> --attachment <id> --root <existing-dir> --allow-prefix <relative-dir> --policy-owner <participant> [--require-review] [--policy-id <id>] [--max-bytes <N>]");
+    println!("       yai case policy bind --case <case_ref> --artifact <id> --expected-generation <N> --as <participant> [--reason <reason>]");
+    println!("       yai case policy replace --case <case_ref> --binding <id> --artifact <id> --expected-generation <N> --as <participant> [--reason <reason>]");
+    println!("       yai case policy unbind --case <case_ref> --binding <id> --expected-generation <N> --as <participant> --reason <reason>");
+    println!("       yai case policy status|rebuild --case <case_ref>");
     println!("       yai case run --case <case_ref> --subject <participant> --attachment <id> --prompt <task> [--max-invocations <N>] [--max-operations <N>] [--max-semantic-units <N>] [--max-estimated-input-units <N>]");
     println!("       yai case resume --case <case_ref> [budget overrides]");
     println!("       yai case status --case <case_ref>");
@@ -1211,6 +1200,9 @@ use case_runtime::*;
 mod policy;
 use policy::policy_command;
 
+mod case_policy;
+use case_policy::case_policy_command;
+
 fn decision_outcome(summary: &str) -> String {
     parse_legacy_summary_fields(summary)
         .remove("decision")
@@ -1546,6 +1538,12 @@ fn main() {
         }
         Some("case") if args.get(1).map(String::as_str) == Some("attach-filesystem") => {
             if let Err(error) = case_attach_filesystem(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("case") if args.get(1).map(String::as_str) == Some("policy") => {
+            if let Err(error) = case_policy_command(&args[2..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }

@@ -144,8 +144,8 @@ fn print_artifact(view: &PolicyArtifactView) {
             event.related_artifact_id.as_deref().unwrap_or("none")
         );
     }
-    println!("case_binding: absent_wave_8");
-    println!("effective_policy: absent_wave_8");
+    println!("case_binding: absent_without_explicit_case_action");
+    println!("effective_policy: absent_without_case_binding");
     println!("decision_or_grant: never_emitted_by_policy_authoring");
 }
 

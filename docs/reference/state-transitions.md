@@ -23,9 +23,9 @@ how it arose. A single database may store both without making them equivalent.
 Shared immutable PolicyArtifacts have an independent canonical governance
 lifecycle because they may exist before and across Cases. Their append-only
 events are not Case Transitions, are never stored under a synthetic system
-Case, and cannot directly create Decision/Grant/effect state. A future Case
-PolicyBinding must reference exact published identities; it must not copy or
-mutate the artifact history.
+Case, and cannot directly create Decision/Grant/effect state. A Case
+PolicyBinding references one exact published identity through canonical Case
+Transitions; it never copies or mutates artifact history.
 
 Graph relations, indexes, memory, analytics, hot state, and participant/model/
 operator views carry source generation and are rebuildable. They may be dropped
@@ -224,12 +224,14 @@ admitted, attempted, observed, and indeterminate.
 
 ## Current implementation gap
 
-`yai.transition.v4` provides immutable typed payloads, per-Case sequence,
+`yai.transition.v5` provides immutable typed payloads, per-Case sequence,
 mechanical closure checks, stale-generation rejection, and atomic LMDB append
-plus `yai.case_state.v4` reduction. Readers retain v1/v2/v3 compatibility.
+plus `yai.case_state.v5` reduction. Readers retain v1-v4 compatibility.
 Version 4 adds Operation-bound ReviewRequest, integrity-bound ReviewAction,
 effective Decision refs and resource review posture without placing derived
-context or runtime admission in CaseState. CaseState rebuild/replay equivalence,
+context or runtime admission in CaseState. Version 5 adds exact PolicyArtifact
+bind/replace/unbind payloads and compact active binding state; EffectivePolicy
+and normative readiness remain derived. CaseState rebuild/replay equivalence,
 restart, rollback-before-commit, duplicate identity, derived failure isolation,
 and typed graph rebuild are executable invariants.
 

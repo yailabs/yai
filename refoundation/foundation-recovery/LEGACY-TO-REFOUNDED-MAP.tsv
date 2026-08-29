@@ -5,6 +5,8 @@ normalized candidates	normalized/*.json	PolicyIr	refounded_proven	deterministic 
 candidate runtime_consumable	candidate JSON/runtime attach registry	PolicyArtifactView.runtime_consumable	refounded_proven	derived only from qualified+published	candidate-time true flag
 review lifecycle	tools/bin/yai-govern	append-only lifecycle events	refounded_proven	immutable artifact/integrity/global order	mutable review/candidate files
 governance registry	governance/registry/governable-objects.v1.json	none	legacy_structure_rejected	immutable direct IDs/list query	registry without demonstrated promotion consumer
-workspace attach	lib/runtime/session/session_utils_*	none	partially_refounded	future exact PolicyBinding	Wave8 premature binding
+workspace attach	case runtime/session aliases + registry refs	yai.case_policy_binding.v1 typed Case transitions	refounded_proven	exact immutable version/event pinning + replay	mutable alias/registry attachment
+normative readiness	case registry boolean + control bridge gate	derived NormativeStatus	refounded_proven	readiness recomputed from exact bindings/artifacts/materializer	free canonical boolean
+generated effective governance	stated/legald DuckDB views; later resolver	EffectivePolicy v1	refounded_proven	deterministic semantic identity/provenance/rebuild	mutable second truth/default authority injection
 authority/evidence profiles	candidate metadata/manifests	typed IR fact subset	partially_refounded	only current coherent semantics retained	unused taxonomy bulk
 embedded law/overlay/compliance forest	governance tree/manifests	none	legacy_structure_rejected	future owner test per consumer	planes and scaffolding

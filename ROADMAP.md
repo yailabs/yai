@@ -261,22 +261,42 @@ the Wave-8 foundation safe for later Case binding without implementing it:
 - the shared LMDB default is now 256 MiB with an explicit 256-source catalog
   contract and fail-closed capacity exhaustion.
 
-Case PolicyBinding, EffectivePolicy, normative readiness, precedence and
-policy-driven authority remain the next recovery delta; H8 emitted none of
-them.
+At that checkpoint H8 emitted no Case policy state. Wave 9 has since added the
+exact binding/materialization boundary described below without adding
+operational authority.
+
+## Completed boundary — Case policy materialization
+
+`YAI.SOURCE.REFOUNDATION.9` recovered the useful legacy fail-closed normative
+qualification property while rejecting mutable profile aliases, generated
+second truths and free readiness booleans. Current YAI now provides:
+
+- canonical `yai.transition.v5` bind/replace/unbind history and compact
+  `yai.case_state.v5` active bindings, each pinned to one exact immutable
+  published PolicyArtifact and bind-time publication event;
+- one active binding per owner-scoped policy lineage, explicit atomic
+  replacement and no automatic adoption of a newer publication;
+- rebuildable `yai.effective_policy.v1` under
+  `yai.policy_materializer.v1`, with deterministic sorted composition and full
+  contributing provenance;
+- conservative DENY-over-ALLOW, required-review dominance, additive evidence
+  obligations, and blocking missing/integrity failures;
+- derived `unconfigured`/`ready`/`blocked` normative readiness and catalog drift
+  reporting that does not yet imply revoke or refresh.
+
+Binding and materialization do not alter the existing operation path and emit
+no Decision, review request, Grant, effect or model/provider call.
 
 ## Foundation Recovery sequence
 
 The local cancellation-first sequence is superseded. The current provisional
 order is:
 
-1. Wave 9: Case PolicyBinding, EffectivePolicy materialization, normative
-   readiness, precedence/conflict/missingness.
-2. Wave 10: policy-driven authority, DecisionBasis, obligations, review
+1. Wave 10: policy-driven authority, DecisionBasis, obligations, review
    eligibility and policy-bound Grant.
-3. Wave 11: validity/expiry/refresh/revoke, policy invalidation, historical
+2. Wave 11: validity/expiry/refresh/revoke, policy invalidation, historical
    policy replay, durable cancellation and Case closure.
-4. Later waves: tenant/security isolation; multi-Case runtime; shared-resource
+3. Later waves: tenant/security isolation; multi-Case runtime; shared-resource
    fencing and a second carrier; provider governance; lifecycle/build/data
    longevity, each gated by fresh direct archaeology.
 
@@ -284,14 +304,14 @@ The sequence may change only when repository evidence establishes a stronger
 dependency. Every wave is incomplete until its isolated commit is pushed and
 `HEAD == origin/master == ls-remote`.
 
-## Stage 9 — Case policy materialization
+## Stage 10 — Policy-driven authority
 
-The exact next task is `YAI.SOURCE.REFOUNDATION.9 — Case PolicyBinding,
-Effective Policy Materialization, and Normative Readiness`. It must recover and
-prove the semantic delta between a published shared PolicyArtifact and the
-immutable version actually bound/materialized for a Case. It must address
-precedence, conflicts and missingness conservatively, but must not yet fold
-authority resolution or policy-bound Grant issuance into the compiler.
+The exact next task is `YAI.SOURCE.REFOUNDATION.10 — Policy-Driven Authority
+Resolution, DecisionBasis, Obligations, Review Eligibility, and Policy-Bound
+ExecutionGrant`. It must freshly re-inspect `yai-dev`, consume the exact
+EffectivePolicy without converting it into authority, and mechanically recover
+the distinctions between applicability, authority eligibility, evidence
+obligations, final Decision, human review and operation-specific Grant.
 
 ## Explicit non-goals
 
@@ -302,10 +322,10 @@ forest, Workflow, supervisor or embedded-law topology.
 
 ## Exit criteria for the next source task
 
-`YAI.SOURCE.REFOUNDATION.9` is complete only when a Case can bind exact
-immutable published artifact identities, rebuild one provenance-bound
-EffectivePolicy materialization, distinguish existence from normative
-readiness, fail closed on conflict/missingness/staleness, and preserve every
-Wave 2–8 invariant. It must begin with a fresh direct `yai-dev` reinspection
-and end with an isolated published commit; do not implement Wave 10 authority
-resolution automatically.
+`YAI.SOURCE.REFOUNDATION.10` is complete only when current typed Operation
+evaluation consumes one exact provenance-bound EffectivePolicy through a typed
+DecisionBasis, obligations and review eligibility remain distinct from
+authority, and only a committed final ALLOW can issue a policy-bound
+operation-specific Grant. It must begin with fresh direct `yai-dev`
+reinspection and end with an isolated published commit; do not implement Wave
+11 validity/revocation/cancellation semantics.

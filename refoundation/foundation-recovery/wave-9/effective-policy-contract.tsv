@@ -1,0 +1,11 @@
+property	contract
+schema	yai.effective_policy.v1
+materializer	yai.policy_materializer.v1
+inputs	Case ID + sorted exact active bindings + integrity-valid immutable PolicyArtifacts/PolicyIr
+identity	deterministic semantic digest; excludes clock/process/cursor/unrelated generation
+rules	operation restriction; review requirement; evidence obligation
+provenance	artifact/source/IR rule/fact/location refs retained on every effective rule
+storage	effective_policy_by_case LMDB DB; derived/droppable/rebuildable
+canonical effect	none
+provider effect	none
+failure	binding remains canonical; readiness blocked/unavailable; later rebuild repairs

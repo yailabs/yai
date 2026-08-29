@@ -1,0 +1,11 @@
+evidence_id	property	product_surface	transcript
+E9-P01	policy ingest/validate/publish	yai policy	EXECUTION-EVIDENCE.md#e9-p01
+E9-P02	exact bind	yai case policy bind	EXECUTION-EVIDENCE.md#e9-p02
+E9-P03	status/readiness	yai case policy status	EXECUTION-EVIDENCE.md#e9-p03
+E9-P04	multi-artifact composition	yai case policy bind/status	EXECUTION-EVIDENCE.md#e9-p04
+E9-P05	ineligible candidate fail-closed	yai case policy bind	EXECUTION-EVIDENCE.md#e9-p05
+E9-P06	version pinning	yai policy publish + case policy status	EXECUTION-EVIDENCE.md#e9-p06
+E9-P07	explicit atomic replace	yai case policy replace	EXECUTION-EVIDENCE.md#e9-p07
+E9-P08	conservative conflict resolution	yai case policy status	EXECUTION-EVIDENCE.md#e9-p08
+E9-P09	pure status/rebuild	yai case policy status/rebuild	EXECUTION-EVIDENCE.md#e9-p09
+E9-P10	no operational authority	yai case policy status	EXECUTION-EVIDENCE.md#e9-p10

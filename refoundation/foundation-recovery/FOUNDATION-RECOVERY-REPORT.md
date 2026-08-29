@@ -24,8 +24,10 @@ later governance/law cutovers, neutral-sample cleanup and final drain residue.
   refounded proven as provider-independent derived systems.
 - Governance source intake and immutable/versioned PolicyArtifact lifecycle:
   refounded proven after H8 lineage/provenance/parser/lifecycle/catalog
-  hardening; reopen for Wave 9 materialization and Wave 12 ownership.
-- Case PolicyBinding, EffectivePolicy and normative readiness: missing, Wave 9.
+  hardening; rechecked during Wave 9 and reopen for Wave 12 ownership.
+- Case PolicyBinding, EffectivePolicy and normative readiness: refounded proven
+  at the exact-version configuration/materialization boundary; reopen for
+  Wave 10 authority and Wave 11 validity/revoke.
 - Policy-driven authority/DecisionBasis/review eligibility/Grant binding:
   missing, Wave 10; human review must be reinspected then.
 - Validity/expiry/revoke, cancellation and Case closure: missing/partial, Wave
@@ -66,3 +68,27 @@ The shared LMDB default increased from 16 MiB to a configurable 256 MiB with a
 tested 256-source/max-payload catalog contract and explicit capacity failure.
 The repository copy of this dossier is now the maintained GitHub-visible copy.
 Policy binding, EffectivePolicy and authority remain absent.
+
+## Wave-9 verdict
+
+Fresh archaeology found that the strongest executable legacy property was the
+fail-closed runtime gate when mutable policy/compliance/overlay refs or a free
+`normative_materialization_ready` boolean were absent. Historical files named
+for Case policy binding were stubs; runtime code generated moving
+`policy://case/<id>/default` aliases, registry JSON and generated DuckDB views.
+Later precedence/conflict owners remained weak or injected defaults. Those
+owners were rejected.
+
+Current YAI instead records exact owner-lineage/version PolicyArtifact bindings
+through `yai.transition.v5` and reconstructs compact active bindings in
+`yai.case_state.v5`. Bind eligibility and the Case append share one LMDB
+transaction. Replacement is explicit/atomic; publishing a newer artifact does
+not mutate old Cases.
+
+`yai.effective_policy.v1` under `yai.policy_materializer.v1` is a deterministic
+provenance-bound derivation. DENY dominates ALLOW, required review dominates
+optional review and evidence obligations union. `unconfigured`, `ready` and
+`blocked` are derived readiness states; catalog drift is diagnostic only.
+Dropping/failing the derived cache cannot erase canonical binding history.
+Wave 9 emits no Decision, Grant, effect or provider invocation. Operational
+policy authority remains Wave 10.

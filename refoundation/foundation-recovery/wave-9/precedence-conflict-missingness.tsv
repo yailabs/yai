@@ -1,0 +1,8 @@
+family	inputs	result	reason/provenance
+operation_restriction	ALLOW + DENY same selector	DENY	deny_dominates_allow_under_yai.policy_materializer.v1; both contributions retained
+review_requirement	false + true same selector	true	review_required_dominates_optional_under_yai.policy_materializer.v1; both retained
+evidence_obligation	multiple obligations	set union	additive obligation semantics; identical contributions merged
+duplicate_lineage	two active bindings same lineage	blocked	canonical invariant violation
+missing_artifact	binding target absent	blocked	exact missing artifact ID reported
+corrupt_or_mismatched_artifact	binding integrity/lineage/version/ref mismatch	blocked	binding and artifact IDs reported
+unknown_collision	cannot represent safely	blocked	no ordering/last-wins fallback

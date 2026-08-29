@@ -69,7 +69,7 @@ require_text "$v1_ingest" "parsed_schema: yai.parsed_policy.v1"
 require_text "$v1_ingest" "policy_ir_schema: yai.policy_ir.v1"
 require_text "$v1_ingest" "lifecycle: candidate"
 require_text "$v1_ingest" "runtime_consumable: false"
-require_text "$v1_ingest" "case_binding: absent_wave_8"
+require_text "$v1_ingest" "case_binding: absent_without_explicit_case_action"
 require_text "$v1_ingest" "decision_or_grant: never_emitted_by_policy_authoring"
 v1_id=$(sed -n 's/^artifact_id: //p' <<<"$v1_ingest" | head -1)
 v1_source=$(sed -n 's/^source_id: //p' <<<"$v1_ingest" | head -1)

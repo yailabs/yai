@@ -5,6 +5,7 @@
 //! Provider output and review outcomes are represented as typed payloads; the
 //! optional summary is presentation material and is never read by the reducer.
 
+use crate::case_policy::CasePolicyBinding;
 use crate::effect::{
     Decision, DecisionOutcome, EffectOutcome, EffectReceipt, ExecutionGrant, FilesystemObservation,
     NormalizationFailure, Operation, OperationOrigin, PreparedEffect, ReconciliationConclusion,
@@ -15,11 +16,13 @@ use serde::{Deserialize, Serialize};
 pub const TRANSITION_SCHEMA_V1: &str = "yai.transition.v1";
 pub const TRANSITION_SCHEMA_V2: &str = "yai.transition.v2";
 pub const TRANSITION_SCHEMA_V3: &str = "yai.transition.v3";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v4";
+pub const TRANSITION_SCHEMA_V4: &str = "yai.transition.v4";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v5";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v4";
+pub const CASE_STATE_SCHEMA_V4: &str = "yai.case_state.v4";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v5";
 pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v1";
 pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v1";
 
@@ -217,6 +220,19 @@ pub enum TransitionPayload {
     ReviewActionRecorded {
         action: ReviewAction,
     },
+    CasePolicyBound {
+        binding: CasePolicyBinding,
+    },
+    CasePolicyReplaced {
+        prior_binding_id: String,
+        binding: CasePolicyBinding,
+    },
+    CasePolicyUnbound {
+        binding_id: String,
+        lineage_id: String,
+        actor_ref: String,
+        reason: String,
+    },
     /// Input compatibility for pre-Wave-7 fixture review history. New writers
     /// use `ReviewActionRecorded` followed by an effective `DecisionRecorded`.
     ReviewResolved {
@@ -253,6 +269,9 @@ impl TransitionPayload {
             Self::EffectReconciled { .. } => "effect_reconciled",
             Self::ReviewRequested { .. } => "review_requested",
             Self::ReviewActionRecorded { .. } => "review_action_recorded",
+            Self::CasePolicyBound { .. } => "case_policy_bound",
+            Self::CasePolicyReplaced { .. } => "case_policy_replaced",
+            Self::CasePolicyUnbound { .. } => "case_policy_unbound",
             Self::ReviewResolved { .. } => "review_resolved",
         }
     }
@@ -394,6 +413,8 @@ pub struct CaseState {
     pub last_model_interpretation: Option<ModelInterpretationState>,
     #[serde(default)]
     pub reviews: Vec<ReviewState>,
+    #[serde(default)]
+    pub policy_bindings: Vec<CasePolicyBinding>,
     #[serde(default)]
     pub resources: Vec<ResourceAttachmentState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -647,6 +668,7 @@ impl CaseState {
             last_provider_result: None,
             last_model_interpretation: None,
             reviews: Vec::new(),
+            policy_bindings: Vec::new(),
             resources: Vec::new(),
             last_normalization_failure: None,
             last_operation: None,
@@ -1151,7 +1173,7 @@ impl CaseState {
                 {
                     return Err("review_already_exists".to_string());
                 }
-                if transition.schema == TRANSITION_SCHEMA {
+                if supports_wave7_contract(&transition.schema) {
                     let operation = next
                         .last_operation
                         .as_ref()
@@ -1215,6 +1237,57 @@ impl CaseState {
                 };
                 review.latest_action_id = Some(action.action_id.clone());
             }
+            TransitionPayload::CasePolicyBound { binding } => {
+                binding.validate_integrity()?;
+                if binding.case_id != next.case_id
+                    || binding.bound_at_case_generation != transition.sequence
+                    || next
+                        .policy_bindings
+                        .iter()
+                        .any(|current| current.lineage_id == binding.lineage_id)
+                {
+                    return Err("case_policy_bind_state_mismatch".to_string());
+                }
+                next.policy_bindings.push(binding.clone());
+                next.policy_bindings
+                    .sort_by(|left, right| left.lineage_id.cmp(&right.lineage_id));
+            }
+            TransitionPayload::CasePolicyReplaced {
+                prior_binding_id,
+                binding,
+            } => {
+                binding.validate_integrity()?;
+                let Some(index) = next
+                    .policy_bindings
+                    .iter()
+                    .position(|current| current.binding_id == *prior_binding_id)
+                else {
+                    return Err("case_policy_replace_prior_binding_not_found".to_string());
+                };
+                let prior = &next.policy_bindings[index];
+                if binding.case_id != next.case_id
+                    || binding.lineage_id != prior.lineage_id
+                    || binding.replaces_binding_id.as_deref() != Some(prior_binding_id)
+                    || binding.bound_at_case_generation != transition.sequence
+                {
+                    return Err("case_policy_replace_state_mismatch".to_string());
+                }
+                next.policy_bindings[index] = binding.clone();
+                next.policy_bindings
+                    .sort_by(|left, right| left.lineage_id.cmp(&right.lineage_id));
+            }
+            TransitionPayload::CasePolicyUnbound {
+                binding_id,
+                lineage_id,
+                ..
+            } => {
+                let Some(index) = next.policy_bindings.iter().position(|current| {
+                    current.binding_id == *binding_id && current.lineage_id == *lineage_id
+                }) else {
+                    return Err("case_policy_unbind_current_binding_not_found".to_string());
+                };
+                next.policy_bindings.remove(index);
+            }
             TransitionPayload::ReviewResolved {
                 review_id,
                 attempt_id,
@@ -1225,8 +1298,8 @@ impl CaseState {
                 execution_performed,
                 ..
             } => {
-                if transition.schema == TRANSITION_SCHEMA {
-                    return Err("legacy_review_resolution_not_writable_in_v4".to_string());
+                if supports_wave7_contract(&transition.schema) {
+                    return Err("legacy_review_resolution_not_writable_in_v4_or_later".to_string());
                 }
                 let Some(review) = next
                     .reviews
@@ -1259,6 +1332,7 @@ impl CaseState {
         if state.schema == CASE_STATE_SCHEMA_V1
             || state.schema == CASE_STATE_SCHEMA_V2
             || state.schema == CASE_STATE_SCHEMA_V3
+            || state.schema == CASE_STATE_SCHEMA_V4
         {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
@@ -1271,6 +1345,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V4
             && self.schema != TRANSITION_SCHEMA_V3
             && self.schema != TRANSITION_SCHEMA_V2
             && self.schema != TRANSITION_SCHEMA_V1
@@ -1287,8 +1362,11 @@ impl Transition {
         {
             return Err("wave4_transition_kind_requires_yai_transition_v3".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave7_kind() {
+        if !supports_wave7_contract(&self.schema) && self.payload.is_wave7_kind() {
             return Err("wave7_transition_kind_requires_yai_transition_v4".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave9_kind() {
+            return Err("wave9_transition_kind_requires_yai_transition_v5".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -1335,7 +1413,7 @@ impl Transition {
                 credential_ref,
             } => {
                 require_value("participant_id", participant_id)?;
-                if self.schema == TRANSITION_SCHEMA {
+                if supports_wave7_contract(&self.schema) {
                     require_value("provider_id", provider_id)?;
                 }
                 require_value("provider_kind", provider_kind)?;
@@ -1353,7 +1431,7 @@ impl Transition {
             } => {
                 require_value("invocation_id", invocation_id)?;
                 require_value("participant_id", participant_id)?;
-                if self.schema == TRANSITION_SCHEMA {
+                if supports_wave7_contract(&self.schema) {
                     require_value("provider_id", provider_id)?;
                     validate_provider_lineage(semantic_lineage.as_ref())?;
                 }
@@ -1371,7 +1449,7 @@ impl Transition {
             } => {
                 require_value("result_id", result_id)?;
                 require_value("invocation_id", invocation_id)?;
-                if self.schema == TRANSITION_SCHEMA {
+                if supports_wave7_contract(&self.schema) {
                     require_value("provider_id", provider_id)?;
                     validate_provider_lineage(semantic_lineage.as_ref())?;
                 }
@@ -1494,7 +1572,7 @@ impl Transition {
             }
             TransitionPayload::ReviewRequested { review } => {
                 review.validate_for_schema(&self.schema)?;
-                if self.schema == TRANSITION_SCHEMA {
+                if supports_wave7_contract(&self.schema) {
                     require_causal_ref(
                         &self.causal_refs,
                         &review.operation_id,
@@ -1513,6 +1591,52 @@ impl Transition {
                 action.validate_integrity()?;
                 require_causal_ref(&self.causal_refs, &action.review_id, "review_request")?;
                 require_causal_ref(&self.causal_refs, &action.operation_id, "review_operation")?;
+            }
+            TransitionPayload::CasePolicyBound { binding } => {
+                binding.validate_integrity()?;
+                if binding.case_id != self.case_id
+                    || binding.bound_at_case_generation != self.sequence
+                {
+                    return Err("case_policy_binding_transition_mismatch".to_string());
+                }
+                require_causal_ref(&self.causal_refs, &binding.artifact_id, "policy_artifact")?;
+                require_causal_ref(
+                    &self.causal_refs,
+                    &binding.publication_event_id,
+                    "policy_publication_event",
+                )?;
+            }
+            TransitionPayload::CasePolicyReplaced {
+                prior_binding_id,
+                binding,
+            } => {
+                require_value("prior_binding_id", prior_binding_id)?;
+                binding.validate_integrity()?;
+                if binding.case_id != self.case_id
+                    || binding.bound_at_case_generation != self.sequence
+                    || binding.replaces_binding_id.as_deref() != Some(prior_binding_id)
+                {
+                    return Err("case_policy_replacement_transition_mismatch".to_string());
+                }
+                require_causal_ref(&self.causal_refs, prior_binding_id, "prior_policy_binding")?;
+                require_causal_ref(&self.causal_refs, &binding.artifact_id, "policy_artifact")?;
+                require_causal_ref(
+                    &self.causal_refs,
+                    &binding.publication_event_id,
+                    "policy_publication_event",
+                )?;
+            }
+            TransitionPayload::CasePolicyUnbound {
+                binding_id,
+                lineage_id,
+                actor_ref,
+                reason,
+            } => {
+                require_value("binding_id", binding_id)?;
+                require_value("lineage_id", lineage_id)?;
+                require_value("actor_ref", actor_ref)?;
+                require_value("reason", reason)?;
+                require_causal_ref(&self.causal_refs, binding_id, "policy_binding")?;
             }
             TransitionPayload::ReviewResolved {
                 review_id,
@@ -1549,7 +1673,7 @@ impl ReviewState {
     fn validate_for_schema(&self, transition_schema: &str) -> Result<(), String> {
         require_value("review_id", &self.review_id)?;
         require_value("policy_reason", &self.policy_reason)?;
-        if transition_schema == TRANSITION_SCHEMA {
+        if supports_wave7_contract(transition_schema) {
             if self.schema != REVIEW_REQUEST_SCHEMA
                 || self.status != ReviewResolution::Pending
                 || self.created_at_generation == 0
@@ -1663,6 +1787,19 @@ impl TransitionPayload {
     fn is_wave7_kind(&self) -> bool {
         matches!(self, Self::ReviewActionRecorded { .. })
     }
+
+    fn is_wave9_kind(&self) -> bool {
+        matches!(
+            self,
+            Self::CasePolicyBound { .. }
+                | Self::CasePolicyReplaced { .. }
+                | Self::CasePolicyUnbound { .. }
+        )
+    }
+}
+
+fn supports_wave7_contract(schema: &str) -> bool {
+    matches!(schema, TRANSITION_SCHEMA | TRANSITION_SCHEMA_V4)
 }
 
 fn validate_provider_lineage(lineage: Option<&ProviderInvocationLineage>) -> Result<(), String> {

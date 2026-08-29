@@ -1,0 +1,10 @@
+field_or_action	contract	authority	failure
+schema	yai.case_policy_binding.v1	binding validation	unknown/tampered fails closed
+lineage	owner_ref + policy_key	PolicyArtifact lineage	cross-lineage replace rejected
+artifact	one exact artifact_id + declared version	immutable governance catalog	missing/ineligible rejected
+integrity	source digest + IR digest + binding digest	artifact/binding content	mismatch rejected
+publication evidence	exact Published event ID and sequence at bind time	immutable lifecycle event	missing/mismatch rejected
+bind	one current binding per lineage	Case Transition v5	duplicate exact is no-op; other version requires replace
+replace	one atomic prior→next Transition	Case Transition v5	wrong prior/stale generation rejected
+unbind	one exact current binding removed	Case Transition v5	unknown binding rejected
+actor	claimed local provenance only	neither ownership nor authority	no authentication claim

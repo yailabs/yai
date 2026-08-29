@@ -111,12 +111,14 @@ verticals/tests.
 Rust owns one canonical semantic write path in
 [`transition.rs`](../engine/yai-engine/src/transition.rs) and
 [`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). Its serialized contracts
-are `yai.transition.v4` and `yai.case_state.v4`; readers retain v1/v2/v3 state
+are `yai.transition.v5` and `yai.case_state.v5`; readers retain v1-v4 state
 and transition compatibility while rejecting unknown future contracts.
 Version 3 added provider identity, semantic-frame/render lineage and typed
 interaction turns. Version 4 adds Operation-bound ReviewRequest,
 integrity-bound ReviewAction, effective Decision refs and resource review
-posture. It does not make derived context canonical. One bounded LMDB write
+posture. Version 5 adds exact Case PolicyBinding bind/replace/unbind payloads
+and their compact current CaseState materialization. It does not make derived
+EffectivePolicy or context canonical. One bounded LMDB write
 transaction:
 
 1. validates typed payload closure and global Transition identity;
@@ -334,10 +336,25 @@ then cannot be claimed. There is no product source-deletion lifecycle. Global
 source retention/privacy policy remains open.
 
 No policy authoring operation appends a Case Transition, invokes a provider or
-carrier, creates a Decision/Grant, or modifies filesystem resources. Case
-PolicyBinding, EffectivePolicy, normative readiness, precedence and policy-
-driven authority begin in later recovery waves. See the canonical
-[governance reference](reference/governance.md).
+carrier, creates a Decision/Grant, or modifies filesystem resources.
+
+Wave 9 adds the distinct Case-native boundary in
+[`case_policy.rs`](../engine/yai-engine/src/case_policy.rs). One atomic catalog+
+Case transaction verifies an exact currently published artifact and appends a
+typed bind or replacement Transition; unbind is also canonical. CaseState keeps
+only compact exact binding refs. A published newer version never moves an
+existing Case automatically.
+
+`yai.effective_policy.v1` is derived from current bindings plus the exact
+immutable artifacts under `yai.policy_materializer.v1`. Inputs are sorted;
+DENY dominates ALLOW, required review dominates optional review, evidence
+obligations union, and provenance from every contribution survives. Its cache
+is droppable; readiness (`unconfigured`, `ready`, `blocked`) is recomputed from
+canonical bindings and available integrity-valid artifacts. Catalog drift is
+reported without implementing revocation. Binding/materialization still emits
+no Decision, ReviewRequest, Grant, effect or provider invocation. Policy-driven
+authority begins in Wave 10. See the canonical [governance
+reference](reference/governance.md).
 
 ## Current provider and context behavior
 
@@ -489,6 +506,7 @@ participates.
 | `cmd/yai/src/controlled_effect.rs` + `engine/yai-engine/src/effect.rs` | controlled proposal/admission/recovery orchestration and the Grant-validating Rust filesystem carrier | product-reachable first constitutional effect family |
 | `cmd/yai/src/review.rs` | Case-native typed participant actions and effective Decision recording; never carrier execution | product-reachable human review boundary |
 | `engine/yai-engine/src/governance.rs` + `cmd/yai/src/policy.rs` | deterministic source compiler, immutable PolicyArtifact/lifecycle contracts and thin operator surface | product-reachable Case-independent governance authoring boundary; no Case authority |
+| `engine/yai-engine/src/case_policy.rs` + `cmd/yai/src/case_policy.rs` | exact Case PolicyBinding contract, deterministic EffectivePolicy materializer and thin Case-policy operator surface | canonical binding transition algorithm plus derived normative view; no operational authority |
 | `cmd/yai/src/filesystem.rs` | read-only filesystem compatibility observation | product-reachable compatibility boundary |
 | `cmd/yai/src/replay.rs` | legacy inspect/dry-run/isolated import and replay reports | product-reachable state compatibility boundary |
 | `cmd/yai/src/graph_runtime.rs` | graph relation materialization, rebuild and query | product-reachable derived owner |
@@ -514,14 +532,15 @@ from one checkout.
 | PREPARE/EFFECT/FINALIZE with indeterminate recovery | implemented for local filesystem write, including prepared discovery, failpoints, reconciliation and stable idempotency identity; the Case runtime reconciles before its next invocation | automatic multi-Case background recovery, explicit abandoned issued-Grant cleanup, and non-filesystem protocols |
 | filesystem attachment confinement | lexical validation plus canonical-parent containment rejects traversal and symlink-parent escape in the current single-machine tests | race-resistant directory-handle confinement for adversarial concurrent namespace mutation |
 | distinct ProviderResult, Observation, EffectReceipt | implemented as separate Rust types and Transition payload roles; compatibility export still has old receipt-shaped rows | migrate process observations or other live resource families when they become product-reachable |
-| Case plus materialized CaseState | implemented and replayable for provider/review/resource/operation/grant/effect refs | extend only for demonstrated future consumers; migrate daemon hot/fixture state only if it becomes canonical input |
+| Case plus materialized CaseState | implemented and replayable for provider/review/resource/operation/grant/effect refs and exact policy bindings | extend only for demonstrated future consumers; migrate daemon hot/fixture state only if it becomes canonical input |
 | summary is presentation only | canonical reducers and migrated paths do not parse it; old projection/frame and analytics records use the compatibility decoder | migrate or retire remaining legacy-only producers and views |
 | Projection/Residency/ContextFrame/KV separation | typed Projection, pure `yai.residency_plan.v1`, independent ContextFrame and distinct render identity are implemented; opaque continuation is optional and tokens/KV are absent from canonical state | semantic units and rendered-size estimation are conservative rather than tokenizer-authoritative; no ContextDelta consumer |
 | provenance-bound operational memory | `yai.operational_memory.v1` is deterministically derived, participant-filtered before ranking, bounded, inspectable and droppable/rebuildable; the runtime repairs it automatically and current state/observed consequence retain precedence | no learned compression, embedding/reranker or global retention policy |
 | agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops, typed human pause/resume, LMDB run admission and restart tests | generalized operation families, distributed admission and daemon scheduling are absent |
 | provider replacement preserves semantic continuity | real HTTP Provider A→filesystem FINALIZE→Provider B, same-provider model replacement, continuation invalidation and provider restart are deterministic product tests | generalized routing/economics and native runtime continuation protocols are deliberately absent |
 | derived data rebuilds from canonical state | graph rebuild consumes typed transitions and legacy compatibility; operational memory can be dropped/rebuilt with deterministic identity and canonical fallback; facts remain legacy-derived | adaptive invalidation/scheduling, compression and full typed analytics inputs |
-| governance source/artifact history | exact-byte source identity, typed deterministic parse/IR, immutable artifacts and append-only lifecycle share LMDB while remaining independent from Cases | Case PolicyBinding, effective materialization, precedence/conflict resolution, policy authority, publisher authentication and retention policy |
+| governance source/artifact history | exact-byte source identity, typed deterministic parse/IR, immutable artifacts and append-only lifecycle share LMDB while remaining independent from Cases | policy authority, publisher authentication, validity/revocation and retention policy |
+| Case policy configuration | exact published artifacts bind through `yai.transition.v5`; CaseState replays bindings and `yai.effective_policy.v1` deterministically composes provenance-bound semantics with derived readiness/drift | DecisionBasis, operation applicability, policy-driven review eligibility and policy-bound Grant are Wave 10 |
 
 The remaining gaps are intentional boundaries of this wave. The
 [Roadmap](../ROADMAP.md) owns their implementation sequence.

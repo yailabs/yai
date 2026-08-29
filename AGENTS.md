@@ -92,6 +92,13 @@ implementation
   work.
 - Every completed wave report must record its baseline SHA, final commit SHA,
   push result, and verification that `origin/master == HEAD`.
+- Every implementation or hardening wave must retain actual executable
+  evidence. Reports must identify the exact command, working directory and
+  relevant environment, real exit status, a bounded unedited stdout/stderr
+  excerpt, produced identifiers, and the invariant demonstrated. Product
+  commands and qualification suites are distinct evidence; use both when a
+  product surface exists. Never reconstruct, paraphrase as raw output, or
+  fabricate a transcript after the fact.
 - A failed or rejected push leaves the wave blocked at publication; do not
   declare it complete and do not automatically pull, merge, rebase, or force
   push through an unexpected remote divergence.

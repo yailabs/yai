@@ -14,6 +14,11 @@
 //! Status:
 //!   active
 
+use crate::case_policy::{
+    build_case_policy_binding, materialize_effective_policy, EffectivePolicyInput,
+    NormativeReadiness, NormativeStatus, PolicyCatalogDrift, CASE_POLICY_BINDING_SCHEMA,
+    EFFECTIVE_POLICY_SCHEMA, POLICY_MATERIALIZER_VERSION,
+};
 use crate::compatibility::{
     decode_legacy_record, inspect_legacy_jsonl, LegacyDecodeOutcome, LegacyRecord,
 };
@@ -34,9 +39,10 @@ use crate::memory::{
 };
 use crate::record::Record;
 use crate::transition::{
-    replay_case, CaseState, PendingTransition, Transition, TransitionPayload, CASE_STATE_SCHEMA,
-    CASE_STATE_SCHEMA_V1, CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3, TRANSITION_SCHEMA,
-    TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3,
+    replay_case, CaseLifecycle, CaseState, PendingTransition, Transition, TransitionPayload,
+    TransitionSource, CASE_STATE_SCHEMA, CASE_STATE_SCHEMA_V1, CASE_STATE_SCHEMA_V2,
+    CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1,
+    TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4,
 };
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
@@ -124,6 +130,7 @@ pub struct LmdbRecordStore {
     policy_lifecycle_events_by_id: Database,
     policy_lifecycle_sequence: Database,
     policy_current_by_lineage: Database,
+    effective_policy_by_case: Database,
     schema_meta: Database,
 }
 
@@ -160,6 +167,14 @@ pub enum CaseRuntimeAdmissionOutcome {
 pub struct CanonicalCommit {
     pub transition: Transition,
     pub state: CaseState,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CasePolicyMutationOutcome {
+    pub changed: bool,
+    pub commit: Option<CanonicalCommit>,
+    pub status: NormativeStatus,
+    pub derived_cache_error: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -378,6 +393,9 @@ impl LmdbRecordStore {
         let policy_current_by_lineage = env
             .create_db(Some("policy_current_by_lineage"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open policy_current_by_lineage: {error}"))?;
+        let effective_policy_by_case = env
+            .create_db(Some("effective_policy_by_case"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open effective_policy_by_case: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -405,6 +423,7 @@ impl LmdbRecordStore {
             policy_lifecycle_events_by_id,
             policy_lifecycle_sequence,
             policy_current_by_lineage,
+            effective_policy_by_case,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -1397,6 +1416,466 @@ impl LmdbRecordStore {
         Ok(event)
     }
 
+    /// Atomically binds one exact currently-published artifact to an existing
+    /// Case. Catalog eligibility and the canonical Case transition are checked
+    /// and committed in the same LMDB write transaction.
+    pub fn bind_case_policy(
+        &self,
+        case_id: &str,
+        artifact_id: &str,
+        expected_generation: u64,
+        actor_ref: &str,
+        reason: &str,
+    ) -> Result<CasePolicyMutationOutcome, String> {
+        self.bind_case_policy_inner(
+            case_id,
+            artifact_id,
+            expected_generation,
+            actor_ref,
+            reason,
+            false,
+        )
+    }
+
+    fn bind_case_policy_inner(
+        &self,
+        case_id: &str,
+        artifact_id: &str,
+        expected_generation: u64,
+        actor_ref: &str,
+        reason: &str,
+        inject_derived_cache_failure: bool,
+    ) -> Result<CasePolicyMutationOutcome, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start Case policy bind transaction: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        require_open_case_for_policy(&state)?;
+        if state.generation != expected_generation {
+            return Err(format!(
+                "stale_case_generation: expected={expected_generation} actual={}",
+                state.generation
+            ));
+        }
+        let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        if let Some(current) = state
+            .policy_bindings
+            .iter()
+            .find(|binding| binding.lineage_id == artifact.lineage().identity())
+        {
+            if current.artifact_id == artifact_id {
+                drop(txn);
+                return self.case_policy_no_change_outcome(case_id);
+            }
+            return Err(format!(
+                "case_policy_lineage_already_bound: lineage={} binding={}",
+                current.lineage_id, current.binding_id
+            ));
+        }
+        let publication = self.binding_eligible_publication_txn(&txn, &artifact)?;
+        let binding = build_case_policy_binding(
+            case_id,
+            &artifact,
+            &publication.event_id,
+            publication.sequence,
+            state.generation + 1,
+            actor_ref,
+            reason,
+            None,
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:policy-bind:{}", binding.binding_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.case_policy".to_string(),
+                participant_id: Some(actor_ref.to_string()),
+                source_ref: Some(binding.artifact_id.clone()),
+            },
+            TransitionPayload::CasePolicyBound {
+                binding: binding.clone(),
+            },
+        );
+        pending.causal_refs = vec![
+            binding.artifact_id.clone(),
+            binding.publication_event_id.clone(),
+        ];
+        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit Case policy binding: {error}"))?;
+        self.case_policy_changed_outcome(case_id, commit, inject_derived_cache_failure)
+    }
+
+    pub fn replace_case_policy(
+        &self,
+        case_id: &str,
+        prior_binding_id: &str,
+        artifact_id: &str,
+        expected_generation: u64,
+        actor_ref: &str,
+        reason: &str,
+    ) -> Result<CasePolicyMutationOutcome, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start Case policy replace transaction: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        require_open_case_for_policy(&state)?;
+        if state.generation != expected_generation {
+            return Err(format!(
+                "stale_case_generation: expected={expected_generation} actual={}",
+                state.generation
+            ));
+        }
+        let prior = state
+            .policy_bindings
+            .iter()
+            .find(|binding| binding.binding_id == prior_binding_id)
+            .ok_or_else(|| "case_policy_replace_prior_binding_not_found".to_string())?;
+        if prior.artifact_id == artifact_id {
+            drop(txn);
+            return self.case_policy_no_change_outcome(case_id);
+        }
+        let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        if artifact.lineage().identity() != prior.lineage_id {
+            return Err("case_policy_replace_lineage_mismatch".to_string());
+        }
+        let publication = self.binding_eligible_publication_txn(&txn, &artifact)?;
+        let binding = build_case_policy_binding(
+            case_id,
+            &artifact,
+            &publication.event_id,
+            publication.sequence,
+            state.generation + 1,
+            actor_ref,
+            reason,
+            Some(prior_binding_id.to_string()),
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:policy-replace:{}", binding.binding_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.case_policy".to_string(),
+                participant_id: Some(actor_ref.to_string()),
+                source_ref: Some(binding.artifact_id.clone()),
+            },
+            TransitionPayload::CasePolicyReplaced {
+                prior_binding_id: prior_binding_id.to_string(),
+                binding: binding.clone(),
+            },
+        );
+        pending.causal_refs = vec![
+            prior_binding_id.to_string(),
+            binding.artifact_id.clone(),
+            binding.publication_event_id.clone(),
+        ];
+        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit Case policy replacement: {error}"))?;
+        self.case_policy_changed_outcome(case_id, commit, false)
+    }
+
+    pub fn unbind_case_policy(
+        &self,
+        case_id: &str,
+        binding_id: &str,
+        expected_generation: u64,
+        actor_ref: &str,
+        reason: &str,
+    ) -> Result<CasePolicyMutationOutcome, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start Case policy unbind transaction: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        require_open_case_for_policy(&state)?;
+        if state.generation != expected_generation {
+            return Err(format!(
+                "stale_case_generation: expected={expected_generation} actual={}",
+                state.generation
+            ));
+        }
+        let binding = state
+            .policy_bindings
+            .iter()
+            .find(|binding| binding.binding_id == binding_id)
+            .ok_or_else(|| "case_policy_unbind_current_binding_not_found".to_string())?;
+        let mut pending = PendingTransition::new(
+            format!(
+                "transition:policy-unbind:{case_id}:{}",
+                state.generation + 1
+            ),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.case_policy".to_string(),
+                participant_id: Some(actor_ref.to_string()),
+                source_ref: Some(binding.binding_id.clone()),
+            },
+            TransitionPayload::CasePolicyUnbound {
+                binding_id: binding.binding_id.clone(),
+                lineage_id: binding.lineage_id.clone(),
+                actor_ref: actor_ref.to_string(),
+                reason: reason.to_string(),
+            },
+        );
+        pending.causal_refs = vec![binding.binding_id.clone()];
+        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit Case policy unbind: {error}"))?;
+        self.case_policy_changed_outcome(case_id, commit, false)
+    }
+
+    /// Pure derivation from CaseState plus exact immutable PolicyArtifacts.
+    pub fn case_policy_status(&self, case_id: &str) -> Result<NormativeStatus, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start Case policy status read: {error}"))?;
+        self.materialize_case_policy_txn(&txn, case_id)
+    }
+
+    /// Rebuilds the optional derived cache. Canonical Case/policy history is
+    /// read-only input and is not modified.
+    pub fn rebuild_effective_policy(&self, case_id: &str) -> Result<NormativeStatus, String> {
+        let status = self.case_policy_status(case_id)?;
+        self.put_effective_policy_status(case_id, &status)?;
+        Ok(status)
+    }
+
+    pub fn drop_effective_policy(&self, case_id: &str) -> Result<bool, String> {
+        let key = effective_policy_case_key(case_id);
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start EffectivePolicy cache deletion: {error}"))?;
+        let removed = match txn.del(self.effective_policy_by_case, &key, None) {
+            Ok(()) => true,
+            Err(Error::NotFound) => false,
+            Err(error) => return Err(format!("failed to delete EffectivePolicy cache: {error}")),
+        };
+        txn.commit()
+            .map_err(|error| format!("failed to commit EffectivePolicy cache deletion: {error}"))?;
+        Ok(removed)
+    }
+
+    pub fn cached_effective_policy(
+        &self,
+        case_id: &str,
+    ) -> Result<Option<NormativeStatus>, String> {
+        let key = effective_policy_case_key(case_id);
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start EffectivePolicy cache read: {error}"))?;
+        match txn.get(self.effective_policy_by_case, &key) {
+            Ok(value) => serde_json::from_slice(value)
+                .map(Some)
+                .map_err(|error| format!("effective_policy_cache_decode_failed: {error}")),
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!("failed to read EffectivePolicy cache: {error}")),
+        }
+    }
+
+    fn case_policy_no_change_outcome(
+        &self,
+        case_id: &str,
+    ) -> Result<CasePolicyMutationOutcome, String> {
+        Ok(CasePolicyMutationOutcome {
+            changed: false,
+            commit: None,
+            status: self.case_policy_status(case_id)?,
+            derived_cache_error: None,
+        })
+    }
+
+    fn case_policy_changed_outcome(
+        &self,
+        case_id: &str,
+        commit: CanonicalCommit,
+        inject_derived_cache_failure: bool,
+    ) -> Result<CasePolicyMutationOutcome, String> {
+        let status = self.case_policy_status(case_id)?;
+        let derived_cache_error = if inject_derived_cache_failure {
+            Some("injected_effective_policy_cache_failure".to_string())
+        } else {
+            self.put_effective_policy_status(case_id, &status).err()
+        };
+        Ok(CasePolicyMutationOutcome {
+            changed: true,
+            commit: Some(commit),
+            status,
+            derived_cache_error,
+        })
+    }
+
+    fn put_effective_policy_status(
+        &self,
+        case_id: &str,
+        status: &NormativeStatus,
+    ) -> Result<(), String> {
+        let key = effective_policy_case_key(case_id);
+        let value = serde_json::to_vec(status)
+            .map_err(|error| format!("effective_policy_cache_encode_failed: {error}"))?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start EffectivePolicy cache write: {error}"))?;
+        txn.put(
+            self.effective_policy_by_case,
+            &key,
+            &value,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to write EffectivePolicy cache: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit EffectivePolicy cache: {error}"))
+    }
+
+    fn binding_eligible_publication_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        artifact: &PolicyArtifact,
+    ) -> Result<PolicyLifecycleEvent, String> {
+        artifact.validate()?;
+        let view = self.policy_artifact_view_txn(txn, &artifact.artifact_id)?;
+        if view.lifecycle != PolicyLifecycleState::Published || !view.runtime_consumable {
+            return Err(format!(
+                "policy_artifact_not_eligible_for_new_case_binding: lifecycle={:?} runtime_consumable={}",
+                view.lifecycle, view.runtime_consumable
+            ));
+        }
+        let current = self.current_published_policy_txn(txn, &artifact.lineage())?;
+        if current.as_deref() != Some(artifact.artifact_id.as_str()) {
+            return Err("policy_artifact_not_current_published_for_lineage".to_string());
+        }
+        view.lifecycle_events
+            .iter()
+            .rev()
+            .find(|event| event.action == PolicyLifecycleAction::Published)
+            .cloned()
+            .ok_or_else(|| "policy_publication_evidence_missing".to_string())
+    }
+
+    fn current_published_policy_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        lineage: &PolicyLineage,
+    ) -> Result<Option<String>, String> {
+        let key = policy_lineage_key(lineage);
+        match txn.get(self.policy_current_by_lineage, &key) {
+            Ok(value) => {
+                let artifact_id = std::str::from_utf8(value)
+                    .map_err(|error| format!("policy_current_index_not_utf8: {error}"))?;
+                let view = self.policy_artifact_view_txn(txn, artifact_id)?;
+                if view.artifact.lineage() != *lineage
+                    || view.lifecycle != PolicyLifecycleState::Published
+                {
+                    return Err("policy_current_index_integrity_mismatch".to_string());
+                }
+                Ok(Some(artifact_id.to_string()))
+            }
+            Err(Error::NotFound) => {
+                let found = self.published_policy_artifacts_for_lineage_txn(txn, lineage, None)?;
+                match found.as_slice() {
+                    [] => Ok(None),
+                    [artifact] => Ok(Some(artifact.clone())),
+                    _ => Err("policy_lineage_has_multiple_current_artifacts".to_string()),
+                }
+            }
+            Err(error) => Err(format!("failed to read current policy lineage: {error}")),
+        }
+    }
+
+    fn materialize_case_policy_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        case_id: &str,
+    ) -> Result<NormativeStatus, String> {
+        let state = self
+            .get_case_state_txn(txn, case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        if state.policy_bindings.is_empty() {
+            return Ok(materialize_effective_policy(case_id, Vec::new()));
+        }
+        let mut inputs = Vec::new();
+        let mut missing = Vec::new();
+        let mut drift = BTreeMap::new();
+        for binding in &state.policy_bindings {
+            let artifact = match self.policy_artifact_txn(txn, &binding.artifact_id) {
+                Ok(artifact) => artifact,
+                Err(error) => {
+                    missing.push(format!("{}:{error}", binding.binding_id));
+                    continue;
+                }
+            };
+            if let Err(error) = binding.matches_artifact(&artifact) {
+                missing.push(format!("{}:{error}", binding.binding_id));
+                continue;
+            }
+            let publication_ok = self
+                .policy_lifecycle_events_txn(txn, Some(&artifact.artifact_id))?
+                .iter()
+                .any(|event| {
+                    event.event_id == binding.publication_event_id
+                        && event.sequence == binding.publication_event_sequence
+                        && event.action == PolicyLifecycleAction::Published
+                        && event.artifact_id == artifact.artifact_id
+                });
+            if !publication_ok {
+                missing.push(format!(
+                    "{}:binding_publication_evidence_invalid",
+                    binding.binding_id
+                ));
+                continue;
+            }
+            let view = self.policy_artifact_view_txn(txn, &artifact.artifact_id)?;
+            let current = self.current_published_policy_txn(txn, &artifact.lineage())?;
+            let catalog_drift = match view.lifecycle {
+                PolicyLifecycleState::Published
+                    if current.as_deref() == Some(artifact.artifact_id.as_str()) =>
+                {
+                    PolicyCatalogDrift::Current
+                }
+                PolicyLifecycleState::Superseded => PolicyCatalogDrift::Superseded {
+                    current_artifact_id: view
+                        .superseded_by
+                        .clone()
+                        .or(current)
+                        .unwrap_or_else(|| "unknown".to_string()),
+                },
+                PolicyLifecycleState::Retired => PolicyCatalogDrift::Retired,
+                _ => PolicyCatalogDrift::NoCurrentPublishedArtifact,
+            };
+            drift.insert(binding.lineage_id.clone(), catalog_drift.clone());
+            inputs.push(EffectivePolicyInput {
+                binding: binding.clone(),
+                artifact,
+                drift: catalog_drift,
+            });
+        }
+        if !missing.is_empty() {
+            missing.sort();
+            return Ok(NormativeStatus {
+                case_id: case_id.to_string(),
+                readiness: NormativeReadiness::Blocked,
+                effective_policy: None,
+                missing,
+                blocking_conflicts: Vec::new(),
+                catalog_drift: drift,
+            });
+        }
+        Ok(materialize_effective_policy(case_id, inputs))
+    }
+
     /// Atomically appends one immutable canonical Transition and replaces the
     /// corresponding rebuildable CaseState materialization.
     pub fn commit_transition(&self, pending: PendingTransition) -> Result<CanonicalCommit, String> {
@@ -1412,6 +1891,18 @@ impl LmdbRecordStore {
             .env
             .begin_rw_txn()
             .map_err(|error| format!("failed to start canonical write transaction: {error}"))?;
+        let commit = self.commit_transition_txn(&mut txn, pending, inject_failure_before_commit)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit canonical transaction: {error}"))?;
+        Ok(commit)
+    }
+
+    fn commit_transition_txn(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        pending: PendingTransition,
+        inject_failure_before_commit: bool,
+    ) -> Result<CanonicalCommit, String> {
         let transition_key = transition_id_key(&pending.transition_id);
         match txn.get(self.transitions_by_id, &transition_key) {
             Ok(_) => {
@@ -1429,7 +1920,7 @@ impl LmdbRecordStore {
             }
         }
 
-        let current_state = self.get_case_state_txn(&txn, &pending.case_id)?;
+        let current_state = self.get_case_state_txn(txn, &pending.case_id)?;
         let actual_generation = current_state
             .as_ref()
             .map(|state| state.generation)
@@ -1496,8 +1987,6 @@ impl LmdbRecordStore {
         if inject_failure_before_commit {
             return Err("injected_failure_before_canonical_commit".to_string());
         }
-        txn.commit()
-            .map_err(|error| format!("failed to commit canonical transaction: {error}"))?;
         Ok(CanonicalCommit {
             transition,
             state: next_state,
@@ -2037,6 +2526,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V4,
                 TRANSITION_SCHEMA_V3,
                 TRANSITION_SCHEMA_V2,
                 TRANSITION_SCHEMA_V1,
@@ -2048,6 +2538,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                CASE_STATE_SCHEMA_V4,
                 CASE_STATE_SCHEMA_V3,
                 CASE_STATE_SCHEMA_V2,
                 CASE_STATE_SCHEMA_V1,
@@ -2123,6 +2614,27 @@ impl LmdbRecordStore {
             POLICY_LIFECYCLE_EVENT_SCHEMA,
             &[],
         )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:case_policy_binding_schema",
+            CASE_POLICY_BINDING_SCHEMA,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:effective_policy_schema",
+            EFFECTIVE_POLICY_SCHEMA,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:policy_materializer_version",
+            POLICY_MATERIALIZER_VERSION,
+            &[],
+        )?;
         for (key, value) in [
             ("meta:canonical_transition_schema", TRANSITION_SCHEMA),
             ("meta:case_state_schema", CASE_STATE_SCHEMA),
@@ -2159,6 +2671,15 @@ impl LmdbRecordStore {
             (
                 "meta:policy_lifecycle_event_schema",
                 POLICY_LIFECYCLE_EVENT_SCHEMA,
+            ),
+            (
+                "meta:case_policy_binding_schema",
+                CASE_POLICY_BINDING_SCHEMA,
+            ),
+            ("meta:effective_policy_schema", EFFECTIVE_POLICY_SCHEMA),
+            (
+                "meta:policy_materializer_version",
+                POLICY_MATERIALIZER_VERSION,
             ),
         ] {
             txn.put(self.schema_meta, &key, &value, WriteFlags::empty())
@@ -2294,6 +2815,21 @@ impl LmdbRecordStore {
         }
         txn.commit()
             .map_err(|error| format!("failed to commit test policy source deletion: {error}"))
+    }
+
+    #[cfg(test)]
+    fn discard_policy_artifact_for_test(&self, artifact_id: &str) -> Result<(), String> {
+        let key = policy_artifact_key(artifact_id);
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start test policy artifact deletion: {error}"))?;
+        match txn.del(self.policy_artifacts_by_id, &key, None) {
+            Ok(()) | Err(Error::NotFound) => {}
+            Err(error) => return Err(format!("failed to delete test policy artifact: {error}")),
+        }
+        txn.commit()
+            .map_err(|error| format!("failed to commit test policy artifact deletion: {error}"))
     }
 
     fn put_record(
@@ -2960,6 +3496,39 @@ fn derive_graph_relations_from_transition(
                 &action.reviewer_participant_id,
             );
         }
+        TransitionPayload::CasePolicyBound { binding }
+        | TransitionPayload::CasePolicyReplaced { binding, .. } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "case_policy_binding_uses_artifact",
+                "case_policy_binding",
+                &binding.binding_id,
+                "policy_artifact",
+                &binding.artifact_id,
+            );
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "case_has_policy_binding",
+                "case",
+                &transition.case_id,
+                "case_policy_binding",
+                &binding.binding_id,
+            );
+        }
+        TransitionPayload::CasePolicyUnbound { binding_id, .. } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "case_policy_binding_removed",
+            "transition",
+            &transition.transition_id,
+            "case_policy_binding",
+            binding_id,
+        ),
         TransitionPayload::ReviewResolved {
             review_id,
             decision_ref,
@@ -3495,6 +4064,18 @@ fn case_sequence_key(case_id: &str, sequence: u64) -> String {
 
 fn case_state_key(case_id: &str) -> String {
     format!("case_state:{case_id}")
+}
+
+fn effective_policy_case_key(case_id: &str) -> String {
+    format!("effective_policy:case:{case_id}")
+}
+
+fn require_open_case_for_policy(state: &CaseState) -> Result<(), String> {
+    if state.lifecycle != CaseLifecycle::Open {
+        Err("case_policy_mutation_requires_open_case".to_string())
+    } else {
+        Ok(())
+    }
 }
 
 fn case_runtime_admission_key(case_id: &str) -> String {
@@ -6108,5 +6689,626 @@ mod tests {
 
         drop(store);
         fs::remove_dir_all(path).expect("remove LMDB test store");
+    }
+
+    fn open_policy_case(store: &LmdbRecordStore, case_id: &str) -> CaseState {
+        store
+            .commit_transition(pending(
+                &format!("transition:open:{case_id}"),
+                case_id,
+                0,
+                TransitionPayload::CaseOpened {
+                    lifecycle: CaseLifecycle::Open,
+                },
+            ))
+            .expect("open policy Case")
+            .state
+    }
+
+    fn publish_compilation(store: &LmdbRecordStore, bytes: &[u8]) -> PolicyCompilation {
+        let compilation = compile_policy_source(bytes).expect("compile policy source");
+        store
+            .ingest_policy_compilation(&compilation, "participant:policy-admin")
+            .expect("ingest candidate");
+        store
+            .validate_policy_artifact(
+                &compilation.artifact.artifact_id,
+                "participant:policy-admin",
+                "qualified for binding test",
+            )
+            .expect("validate candidate");
+        store
+            .publish_policy_artifact(
+                &compilation.artifact.artifact_id,
+                "participant:policy-admin",
+                "publish for binding test",
+            )
+            .expect("publish policy");
+        compilation
+    }
+
+    fn policy_with_rules(
+        owner: &str,
+        key: &str,
+        version: &str,
+        effect: &str,
+        review: bool,
+    ) -> Vec<u8> {
+        serde_json::to_vec(&serde_json::json!({
+            "schema": POLICY_SOURCE_INPUT_SCHEMA,
+            "policy_key": key,
+            "source_version": version,
+            "owner_ref": owner,
+            "source_origin": {
+                "source_system": "wave9-test",
+                "source_uri": format!("test://wave9/{owner}/{key}/{version}")
+            },
+            "rules": [
+                {"kind":"operation_restriction","rule_id":format!("operation-{key}-{version}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","effect":effect,"reason":"deterministic operation posture"},
+                {"kind":"review_requirement","rule_id":format!("review-{key}-{version}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","required":review,"reason":"deterministic review posture"},
+                {"kind":"evidence_obligation","rule_id":format!("evidence-{key}-{version}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"post_observation","reason":"observed consequence required"}
+            ]
+        }))
+        .expect("serialize Wave-9 policy")
+    }
+
+    #[test]
+    fn wave9_exact_version_binding_replacement_replay_and_rebuild_are_deterministic() {
+        let path = temp_store_path("wave9-version-pinning");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let state = open_policy_case(&store, "case:wave9-version");
+        let v1 = publish_compilation(
+            &store,
+            &policy_with_rules(
+                "organization:acme",
+                "filesystem-security",
+                "1",
+                "allow",
+                false,
+            ),
+        );
+        let bound = store
+            .bind_case_policy(
+                &state.case_id,
+                &v1.artifact.artifact_id,
+                state.generation,
+                "participant:operator",
+                "pin exact version one",
+            )
+            .expect("bind v1");
+        assert!(bound.changed);
+        assert_eq!(bound.status.readiness, NormativeReadiness::Ready);
+        assert_eq!(
+            bound.commit.as_ref().unwrap().state.policy_bindings.len(),
+            1
+        );
+        assert_eq!(
+            bound.commit.as_ref().unwrap().state.policy_bindings[0].artifact_version,
+            "1"
+        );
+        let e1 = bound.status.effective_policy.clone().expect("effective v1");
+
+        let v2 = publish_compilation(
+            &store,
+            &policy_with_rules(
+                "organization:acme",
+                "filesystem-security",
+                "2",
+                "deny",
+                true,
+            ),
+        );
+        let pinned = store
+            .case_policy_status(&state.case_id)
+            .expect("pinned status");
+        assert_eq!(
+            store
+                .get_case_state(&state.case_id)
+                .unwrap()
+                .unwrap()
+                .policy_bindings[0]
+                .artifact_id,
+            v1.artifact.artifact_id
+        );
+        assert_eq!(
+            pinned
+                .effective_policy
+                .as_ref()
+                .unwrap()
+                .effective_policy_id,
+            e1.effective_policy_id
+        );
+        assert!(matches!(
+            pinned.catalog_drift.values().next(),
+            Some(PolicyCatalogDrift::Superseded { .. })
+        ));
+
+        let before_replace = store.get_case_state(&state.case_id).unwrap().unwrap();
+        let prior_binding = before_replace.policy_bindings[0].binding_id.clone();
+        let replaced = store
+            .replace_case_policy(
+                &state.case_id,
+                &prior_binding,
+                &v2.artifact.artifact_id,
+                before_replace.generation,
+                "participant:operator",
+                "explicitly replace with version two",
+            )
+            .expect("replace v1 with v2");
+        let e2 = replaced
+            .status
+            .effective_policy
+            .clone()
+            .expect("effective v2");
+        assert_ne!(e1.effective_policy_id, e2.effective_policy_id);
+        assert_eq!(
+            replaced.commit.as_ref().unwrap().state.policy_bindings[0].artifact_version,
+            "2"
+        );
+        store
+            .discard_policy_source_for_test(&v2.source.source_id)
+            .expect("simulate future source-payload retention loss");
+        assert_eq!(
+            store.case_policy_status(&state.case_id).unwrap().readiness,
+            NormativeReadiness::Ready
+        );
+        assert!(store
+            .verify_case_state(&state.case_id)
+            .expect("replay exact binding"));
+        let transition_count = store.list_case_transitions(&state.case_id).unwrap().len();
+        assert!(store
+            .drop_effective_policy(&state.case_id)
+            .expect("drop cache"));
+        assert!(store
+            .cached_effective_policy(&state.case_id)
+            .unwrap()
+            .is_none());
+        let rebuilt = store
+            .rebuild_effective_policy(&state.case_id)
+            .expect("rebuild derived");
+        assert_eq!(
+            rebuilt.effective_policy.unwrap().effective_policy_id,
+            e2.effective_policy_id
+        );
+        assert_eq!(
+            store.list_case_transitions(&state.case_id).unwrap().len(),
+            transition_count
+        );
+        assert!(store
+            .list_case_transitions(&state.case_id)
+            .unwrap()
+            .iter()
+            .all(|item| !matches!(
+                item.payload,
+                TransitionPayload::DecisionRecorded { .. }
+                    | TransitionPayload::ExecutionGrantIssued { .. }
+                    | TransitionPayload::EffectPrepared { .. }
+            )));
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
+    fn wave9_derived_cache_failure_preserves_canonical_binding_and_repairs_without_duplication() {
+        let path = temp_store_path("wave9-derived-failure");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let state = open_policy_case(&store, "case:wave9-derived-failure");
+        let policy = publish_compilation(
+            &store,
+            &policy_with_rules("organization:acme", "derived-failure", "1", "deny", true),
+        );
+        let outcome = store
+            .bind_case_policy_inner(
+                &state.case_id,
+                &policy.artifact.artifact_id,
+                state.generation,
+                "participant:operator",
+                "inject derived cache failure after canonical commit",
+                true,
+            )
+            .expect("canonical bind survives derived failure");
+        assert!(outcome.changed);
+        assert_eq!(
+            outcome.derived_cache_error.as_deref(),
+            Some("injected_effective_policy_cache_failure")
+        );
+        assert!(store
+            .cached_effective_policy(&state.case_id)
+            .expect("read absent cache")
+            .is_none());
+        let committed = store.get_case_state(&state.case_id).unwrap().unwrap();
+        assert_eq!(committed.policy_bindings.len(), 1);
+        let transition_count = store.list_case_transitions(&state.case_id).unwrap().len();
+        let repaired = store
+            .rebuild_effective_policy(&state.case_id)
+            .expect("repair derived materialization");
+        assert_eq!(repaired.readiness, NormativeReadiness::Ready);
+        assert!(store
+            .cached_effective_policy(&state.case_id)
+            .unwrap()
+            .is_some());
+        assert_eq!(
+            store.list_case_transitions(&state.case_id).unwrap().len(),
+            transition_count
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
+    fn wave9_binding_admission_rejects_candidate_validated_and_missing_case() {
+        let path = temp_store_path("wave9-admission");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let state = open_policy_case(&store, "case:wave9-admission");
+        let candidate = compile_policy_source(&policy_source("candidate", true)).unwrap();
+        store
+            .ingest_policy_compilation(&candidate, "participant:admin")
+            .unwrap();
+        assert!(store
+            .bind_case_policy(
+                &state.case_id,
+                &candidate.artifact.artifact_id,
+                state.generation,
+                "participant:operator",
+                "must fail candidate"
+            )
+            .unwrap_err()
+            .contains("not_eligible"));
+        store
+            .validate_policy_artifact(
+                &candidate.artifact.artifact_id,
+                "participant:admin",
+                "valid",
+            )
+            .unwrap();
+        assert!(store
+            .bind_case_policy(
+                &state.case_id,
+                &candidate.artifact.artifact_id,
+                state.generation,
+                "participant:operator",
+                "must fail validated"
+            )
+            .unwrap_err()
+            .contains("not_eligible"));
+        store
+            .publish_policy_artifact(
+                &candidate.artifact.artifact_id,
+                "participant:admin",
+                "publish first version",
+            )
+            .unwrap();
+        let replacement = publish_compilation(&store, &policy_source("replacement", false));
+        assert!(store
+            .bind_case_policy(
+                &state.case_id,
+                &candidate.artifact.artifact_id,
+                state.generation,
+                "participant:operator",
+                "must fail superseded",
+            )
+            .unwrap_err()
+            .contains("not_eligible"));
+        store
+            .retire_policy_artifact(
+                &replacement.artifact.artifact_id,
+                "participant:admin",
+                "retire current version",
+            )
+            .unwrap();
+        assert!(store
+            .bind_case_policy(
+                &state.case_id,
+                &replacement.artifact.artifact_id,
+                state.generation,
+                "participant:operator",
+                "must fail retired",
+            )
+            .unwrap_err()
+            .contains("not_eligible"));
+        assert_eq!(
+            store
+                .get_case_state(&state.case_id)
+                .unwrap()
+                .unwrap()
+                .generation,
+            1
+        );
+        assert!(store
+            .bind_case_policy(
+                "case:missing",
+                &candidate.artifact.artifact_id,
+                0,
+                "participant:operator",
+                "must fail missing Case"
+            )
+            .unwrap_err()
+            .contains("case_state_not_found"));
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
+    fn wave9_multi_artifact_composition_is_order_independent_conservative_and_provenanced() {
+        let path = temp_store_path("wave9-composition");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let state = open_policy_case(&store, "case:wave9-composition");
+        let allow = publish_compilation(
+            &store,
+            &policy_with_rules("organization:acme", "baseline", "1", "allow", false),
+        );
+        let deny = publish_compilation(
+            &store,
+            &policy_with_rules("organization:acme", "hardening", "1", "deny", true),
+        );
+        store
+            .bind_case_policy(
+                &state.case_id,
+                &deny.artifact.artifact_id,
+                1,
+                "participant:operator",
+                "bind deny first",
+            )
+            .unwrap();
+        let outcome = store
+            .bind_case_policy(
+                &state.case_id,
+                &allow.artifact.artifact_id,
+                2,
+                "participant:operator",
+                "bind allow second",
+            )
+            .unwrap();
+        let effective = outcome
+            .status
+            .effective_policy
+            .expect("effective multi policy");
+        assert_eq!(effective.input_rule_count, 6);
+        assert_eq!(effective.rules.len(), 3);
+        assert_eq!(effective.resolved_conflict_count, 2);
+        assert!(effective.rules.iter().any(|rule| matches!(rule, crate::case_policy::EffectivePolicyRule::OperationRestriction { effect: crate::governance::PolicyEffect::Deny, contributions, .. } if contributions.len() == 2)));
+        assert!(effective.rules.iter().any(|rule| matches!(rule, crate::case_policy::EffectivePolicyRule::ReviewRequirement { required: true, contributions, .. } if contributions.len() == 2)));
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
+    fn wave9_missing_artifact_blocks_readiness_without_erasing_binding_history() {
+        let path = temp_store_path("wave9-missing");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let state = open_policy_case(&store, "case:wave9-missing");
+        let policy = publish_compilation(&store, &policy_source("1", true));
+        store
+            .bind_case_policy(
+                &state.case_id,
+                &policy.artifact.artifact_id,
+                1,
+                "participant:operator",
+                "bind before simulated catalog loss",
+            )
+            .unwrap();
+        let before = store.get_case_state(&state.case_id).unwrap().unwrap();
+        let mut corrupted = policy.artifact.clone();
+        corrupted.policy_ir.ir_digest = format!("sha256:{}", "0".repeat(64));
+        {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            txn.put(
+                store.policy_artifacts_by_id,
+                &policy_artifact_key(&corrupted.artifact_id),
+                &serde_json::to_vec(&corrupted).unwrap(),
+                WriteFlags::empty(),
+            )
+            .unwrap();
+            txn.commit().unwrap();
+        }
+        let corrupted_status = store
+            .case_policy_status(&state.case_id)
+            .expect("corrupt artifact becomes blocked diagnostics");
+        assert_eq!(corrupted_status.readiness, NormativeReadiness::Blocked);
+        assert!(corrupted_status.missing[0].contains("policy_ir_not_reproducible"));
+        {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            txn.put(
+                store.policy_artifacts_by_id,
+                &policy_artifact_key(&policy.artifact.artifact_id),
+                &serde_json::to_vec(&policy.artifact).unwrap(),
+                WriteFlags::empty(),
+            )
+            .unwrap();
+            txn.commit().unwrap();
+        }
+        store
+            .discard_policy_artifact_for_test(&policy.artifact.artifact_id)
+            .expect("simulate missing immutable artifact");
+        let status = store
+            .case_policy_status(&state.case_id)
+            .expect("blocked status");
+        assert_eq!(status.readiness, NormativeReadiness::Blocked);
+        assert_eq!(status.missing.len(), 1);
+        assert_eq!(
+            store.get_case_state(&state.case_id).unwrap().unwrap(),
+            before
+        );
+        assert!(store.verify_case_state(&state.case_id).unwrap());
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
+    fn wave9_idempotence_unbind_multi_case_and_concurrent_mutation_are_safe() {
+        let path = temp_store_path("wave9-concurrency");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        open_policy_case(&store, "case:wave9-a");
+        open_policy_case(&store, "case:wave9-b");
+        let first = publish_compilation(
+            &store,
+            &policy_with_rules("organization:acme", "shared", "1", "allow", false),
+        );
+        let second = publish_compilation(
+            &store,
+            &policy_with_rules("organization:acme", "independent", "1", "deny", true),
+        );
+        let bound_a = store
+            .bind_case_policy(
+                "case:wave9-a",
+                &first.artifact.artifact_id,
+                1,
+                "participant:operator",
+                "bind shared to A",
+            )
+            .unwrap();
+        let duplicate = store
+            .bind_case_policy(
+                "case:wave9-a",
+                &first.artifact.artifact_id,
+                2,
+                "participant:operator",
+                "repeat exact binding",
+            )
+            .unwrap();
+        assert!(!duplicate.changed);
+        assert_eq!(
+            store
+                .get_case_state("case:wave9-a")
+                .unwrap()
+                .unwrap()
+                .generation,
+            2
+        );
+        store
+            .bind_case_policy(
+                "case:wave9-b",
+                &first.artifact.artifact_id,
+                1,
+                "participant:operator",
+                "bind shared to B",
+            )
+            .unwrap();
+        assert_eq!(
+            store
+                .get_case_state("case:wave9-a")
+                .unwrap()
+                .unwrap()
+                .policy_bindings
+                .len(),
+            1
+        );
+        assert_eq!(
+            store
+                .get_case_state("case:wave9-b")
+                .unwrap()
+                .unwrap()
+                .policy_bindings
+                .len(),
+            1
+        );
+        let first_binding = bound_a.commit.unwrap().state.policy_bindings[0]
+            .binding_id
+            .clone();
+        drop(store);
+
+        let barrier = Arc::new(Barrier::new(3));
+        let mut joins = Vec::new();
+        for index in 0..2 {
+            let thread_path = path.clone();
+            let thread_barrier = Arc::clone(&barrier);
+            let artifact = second.artifact.artifact_id.clone();
+            joins.push(thread::spawn(move || {
+                let thread_store =
+                    LmdbRecordStore::open(&thread_path).expect("open concurrent store");
+                thread_barrier.wait();
+                thread_store.bind_case_policy(
+                    "case:wave9-a",
+                    &artifact,
+                    2,
+                    "participant:operator",
+                    &format!("concurrent bind {index}"),
+                )
+            }));
+        }
+        barrier.wait();
+        let results = joins
+            .into_iter()
+            .map(|join| join.join().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| result
+                    .as_ref()
+                    .err()
+                    .is_some_and(|error| error.contains("stale_case_generation")))
+                .count(),
+            1
+        );
+        let store = LmdbRecordStore::open(&path).expect("reopen after concurrent writers");
+        let current = store.get_case_state("case:wave9-a").unwrap().unwrap();
+        assert_eq!(current.policy_bindings.len(), 2);
+        let unbound = store
+            .unbind_case_policy(
+                "case:wave9-a",
+                &first_binding,
+                current.generation,
+                "participant:operator",
+                "remove shared policy",
+            )
+            .unwrap();
+        assert_eq!(unbound.commit.unwrap().state.policy_bindings.len(), 1);
+        assert!(store.verify_case_state("case:wave9-a").unwrap());
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
+    fn wave9_many_policy_materialization_characterization_is_bounded() {
+        let path = temp_store_path("wave9-many-policy");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let case_id = "case:wave9-many-policy";
+        open_policy_case(&store, case_id);
+        let start = Instant::now();
+        for index in 0..24_u64 {
+            let policy = publish_compilation(
+                &store,
+                &policy_with_rules(
+                    "organization:scale",
+                    &format!("policy-{index:02}"),
+                    "1",
+                    if index % 2 == 0 { "allow" } else { "deny" },
+                    index % 3 == 0,
+                ),
+            );
+            store
+                .bind_case_policy(
+                    case_id,
+                    &policy.artifact.artifact_id,
+                    index + 1,
+                    "participant:operator",
+                    "bounded many-policy characterization",
+                )
+                .expect("bind independent lineage");
+        }
+        let status = store.case_policy_status(case_id).expect("materialize");
+        let effective = status.effective_policy.expect("effective policy");
+        let encoded_size = serde_json::to_vec(&effective).unwrap().len();
+        assert_eq!(status.readiness, NormativeReadiness::Ready);
+        assert_eq!(effective.binding_ids.len(), 24);
+        assert_eq!(effective.input_rule_count, 72);
+        assert_eq!(effective.rules.len(), 3);
+        assert_eq!(effective.merged_rule_count, 69);
+        assert_eq!(effective.resolved_conflict_count, 2);
+        assert!(encoded_size < 100_000);
+        println!(
+            "wave9_multi_policy_characterization: artifacts=24 input_rules={} output_rules={} merged_rules={} resolved_conflicts={} blocking_conflicts={} derived_bytes={} elapsed_ms={}",
+            effective.input_rule_count,
+            effective.rules.len(),
+            effective.merged_rule_count,
+            effective.resolved_conflict_count,
+            status.blocking_conflicts.len(),
+            encoded_size,
+            start.elapsed().as_millis()
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
     }
 }

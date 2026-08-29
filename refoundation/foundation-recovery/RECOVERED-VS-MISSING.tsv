@@ -1,6 +1,6 @@
 foundation_family	status	current_evidence	remaining_gap	target_recheck
-Transition/ref replay	refounded_proven	yai.transition.v4 + LMDB tests	compaction/migration	Wave18
-CaseState	refounded_proven	yai.case_state.v4 replay	complete lifecycle	Wave16
+Transition/ref replay	refounded_proven	yai.transition.v5 + LMDB tests	compaction/migration	Wave18
+CaseState	refounded_proven	yai.case_state.v5 replay including exact policy bindings	complete lifecycle	Wave16
 Case identity/lifecycle	partially_refounded	open + runtime stop/review	qualification/cancel/close/archive	Wave11/Wave16
 runtime administrative root	missing	process/paths only	independent lifecycle verdict	Wave13/Wave17
 Build Lifecycle	missing	Make/Cargo current build	archaeology and install/activation/migration	Wave17
@@ -8,16 +8,16 @@ Tenant/Organization/security domain	missing	owner_ref string is provenance only	
 Participant	refounded_proven	Case-bound typed identity	authority integration recheck	Wave10
 human review	refounded_proven	yai.review_request.v1/action.v1	policy reviewer eligibility	Wave10
 delegation	missing	no current owner	historical doctrine + consumer	future
-governance source intake	refounded_proven	yai.policy_source_artifact.v2 strict parser+origin	additional formats only with consumers	Wave9 recheck
+governance source intake	refounded_proven	yai.policy_source_artifact.v2 strict parser+origin; Wave9 direct recheck	additional formats only with consumers	future consumer recheck
 PolicyArtifact lifecycle	refounded_proven	yai.policy_artifact.v2 + owner-scoped atomic events	authenticated publication/withdraw	Wave10/12
 governance source provenance	refounded_proven	digest-bound declared origin+fact/IR refs	authentication/privacy/observation events	Wave12/18
 policy lineage/version identity	refounded_proven	owner_ref+policy_key and declared-version collision guard	Tenant-owned lineage	Wave12
 governance catalog/shared ownership	partially_refounded	Case-independent LMDB history+derived current index+capacity contract	organization authentication/query isolation	Wave12
-Case PolicyBinding	missing	none	exact immutable binding	Wave9
-EffectivePolicy materialization	missing	none	precedence/overlay materialization	Wave9
-Case normative qualification	missing	none	ready/stale/invalid posture	Wave9
-policy precedence	missing	conflict only; no resolver	hard/system/org/Case/resource rules	Wave9
-policy conflicts/missingness	partially_refounded	Wave8 source-local typed blockers	multi-artifact applicability/precedence	Wave9
+Case PolicyBinding	refounded_proven	yai.case_policy_binding.v1 + transition/case_state.v5	authenticated mutation authority/validity	Wave10/11/12
+EffectivePolicy materialization	refounded_proven	yai.effective_policy.v1 + deterministic rebuild	operation applicability/DecisionBasis	Wave10
+Case normative qualification	partially_refounded	derived unconfigured/ready/blocked	policy validity/stale/invalidation	Wave11
+policy precedence	partially_refounded	v1 conservative algebra for current three rule families	hard/system/org/Case/resource scopes	Wave10/12
+policy conflicts/missingness	refounded_proven	source-local blockers + multi-artifact conservative resolution/blocking	operation-specific missing-rule semantics	Wave10
 policy validity/expiry/refresh/revoke	missing	none	full lifecycle	Wave11
 policy-driven invalidation	missing	none	Decision/review/Grant/context invalidation	Wave11
 historical policy replay	missing	artifact versions inspectable	Decision binding/replay	Wave11
@@ -26,7 +26,7 @@ DecisionBasis	partially_refounded	typed current Decision source/basis refs	Effec
 evidence obligations	partially_refounded	PolicyIr declaration + effect observations	materialized enforcement	Wave10
 ExecutionGrant lifecycle	partially_refounded	operation/generation-bound one-time Grant	policy binding/expiry/revoke	Wave10/11
 cancellation/Case closure	missing/partial	run stop only	durable Case lifecycle	Wave11
-resource attachment	refounded_proven	filesystem logical/local split	policy qualification/lifecycle	Wave9/14
+resource attachment	refounded_proven	filesystem logical/local split	policy-driven qualification/lifecycle	Wave10/14
 resource concurrency/fencing	missing	none	multi-Case conflict control	Wave14
 carrier model	partially_refounded	filesystem.write constitutional carrier	second real carrier	Wave14
 multi-Case runtime	missing	single Case runner/admission	quotas/fairness/backpressure/sweep	Wave13
@@ -37,7 +37,7 @@ provider health/failover	partially_refounded	bounded retry/replacement	shared he
 Projection/disclosure governance	partially_refounded	participant visibility before render	policy/provider confidentiality	Wave10/15
 Residency	refounded_proven	yai.residency_plan.v1	policy invalidation/native telemetry	Wave10/15
 operational memory	refounded_proven	yai.operational_memory.v1	retention/advanced compression	future
-graph/lineage	partially_refounded	derived typed effect/review lineage	policy source→effect edges	Wave9/10
+graph/lineage	partially_refounded	derived typed effect/review and binding→artifact lineage	policy source→Decision→effect edges	Wave10
 analytics	partially_refounded	derived DuckDB facts	policy/runtime/cost coverage	future
 data longevity	partially_refounded	replay/rebuild	compaction/archive/backup/restore	Wave18
 API/SDK/product boundary	missing/partial	local CLI/Rust crate	stable policy/review/runtime APIs	future

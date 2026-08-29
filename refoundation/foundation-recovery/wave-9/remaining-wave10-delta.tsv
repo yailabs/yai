@@ -1,0 +1,10 @@
+semantic_property	wave9_boundary	wave10_required_delta
+operation applicability	EffectivePolicy rule only	typed evaluation against one Operation
+DecisionBasis	absent	bind effective policy/rule/provenance/conflict/obligation refs
+authority eligibility	absent	participant/resource/effective-policy eligibility
+review eligibility	unchanged narrow Wave7 rule	policy-driven eligibility without provider authority
+evidence obligation	materialized declaration	enforcement and satisfaction evidence
+Decision	unchanged existing chain	policy-derived ALLOW/DENY/REQUIRE_REVIEW
+ExecutionGrant	unchanged operation/generation-bound	bind exact DecisionBasis/effective policy and obligations
+historical explanation	exact Case binding history	Decision retains exact effective materialization basis
+validity/revoke	drift diagnostic only	still Wave11; do not absorb into Wave10 without archaeology

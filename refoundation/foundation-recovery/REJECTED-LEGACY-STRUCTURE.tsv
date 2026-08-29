@@ -12,3 +12,7 @@ case:__system__	do_not_port	shared policy lifecycle is not a fake Case	independe
 LLM policy interpretation	do_not_port	nondeterministic and no historical requirement	strict JSON compiler
 Markdown/YAML parser breadth	defer_no_consumer	one complete grammar sufficient	constrained JSON
 runtime topology descriptors	do_not_port	metadata lacked direct Wave8 runtime consumer	minimal artifact fields
+mutable policy profile alias	do_not_port	old Case could silently observe changed target	exact PolicyArtifact binding
+free normative readiness boolean	do_not_port	could diverge from materialization inputs	derived NormativeStatus
+generated DuckDB governance view as truth	do_not_port	mutable second authority with default injection	rebuildable EffectivePolicy
+supervisor/Case registry policy owner	do_not_port	binding belongs to Case transitions; supervision is a runtime consumer	Transition v5 + CaseState v5
