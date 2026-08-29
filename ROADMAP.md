@@ -6,11 +6,13 @@ concept or stage does not automatically justify a source subsystem.
 
 ## Objective
 
-Preserve canonical transition/effect/context/memory/review authority while
-giving Case lifecycle, cancellation and bounded authority expiry executable
-meaning. Human review and single-host runtime admission now exist; the next
-change must make stale work and Case closure fail closed without introducing a
-Workflow, scheduler, or Agent owner.
+Recover the strongest executable foundations of the original YAI through a
+direct `yai-dev` archaeology → current characterization → semantic
+differential → minimal refounded implementation cycle. The recovery ledger is
+navigation, never historical authority. Existing transition/effect/context/
+memory/review guarantees remain fixed while governance, lifecycle, tenant,
+runtime, provider and longevity semantics are recovered without restoring the
+old planes, Agent sovereignty or noun-per-module topology.
 
 ## Completed boundary — executable reality convergence
 
@@ -210,34 +212,74 @@ The local CLI trust boundary verifies a claimed bound Participant and review
 eligibility; it does not authenticate an operating-system person, SSO identity
 or remote signature.
 
-## Stage 8 — durable cancellation, expiry, and Case closure
+## Completed boundary — governance source intake and policy artifacts
 
-The exact next task is `YAI.SOURCE.REFOUNDATION.8 — Durable Cancellation,
-Authority Expiry, and Case Closure`. It should give current live consumers one
-typed fail-closed lifecycle contract for:
+`YAI.SOURCE.REFOUNDATION.8` began the systematic Foundation Recovery program.
+Direct archaeology across the March 2026 ingestion, review, registry,
+workspace-attachment and later topology/drain epochs recovered the useful
+supply-chain properties while rejecting the former governance forest. Current
+YAI now provides:
 
-- operator cancellation versus disposable run stop;
-- open/closing/closed Case transitions and their effect on runtime admission;
-- stale pending Operation/review invalidation when Case/resource policy changes;
-- ExecutionGrant expiry/revocation before PREPARE, without pretending an
-  already-started external effect can be rolled back;
-- deterministic restart/replay behavior at cancellation and closure
-  boundaries;
-- provider Projection of cancellation/closure truth without adding Workflow or
-  a generic policy language.
+- bounded `yai.policy_source_input.v1` constrained JSON with exact-byte SHA-256
+  identity and retained immutable `yai.policy_source_artifact.v1`;
+- deterministic typed parsing for operation restrictions, review requirements
+  and evidence obligations, with source JSON-location provenance;
+- normalized `yai.policy_ir.v1` with deterministic digest, deduplication,
+  unresolved semantics and typed conflict blockers;
+- immutable/versioned `yai.policy_artifact.v1` candidates and an append-only
+  independent governance lifecycle (`candidate → validated → published →
+  superseded/retired`) in the existing LMDB environment;
+- `runtime_consumable` only as a derived published-and-qualified disposition;
+  no Case binding, EffectivePolicy, Decision, Grant, provider call or carrier
+  effect is produced by authoring;
+- idempotent duplicate intake, immutable P@1/P@2 history, pure inspection and
+  fail-closed malformed/unknown/conflicting input.
+
+The local `--as` actor is lifecycle provenance, not authenticated enterprise
+identity or policy authority. Full source bytes are currently retained under a
+hard bound; global privacy/retention policy remains open.
+
+## Foundation Recovery sequence
+
+The local cancellation-first sequence is superseded. The current provisional
+order is:
+
+1. Wave 9: Case PolicyBinding, EffectivePolicy materialization, normative
+   readiness, precedence/conflict/missingness.
+2. Wave 10: policy-driven authority, DecisionBasis, obligations, review
+   eligibility and policy-bound Grant.
+3. Wave 11: validity/expiry/refresh/revoke, policy invalidation, historical
+   policy replay, durable cancellation and Case closure.
+4. Later waves: tenant/security isolation; multi-Case runtime; shared-resource
+   fencing and a second carrier; provider governance; lifecycle/build/data
+   longevity, each gated by fresh direct archaeology.
+
+The sequence may change only when repository evidence establishes a stronger
+dependency. Every wave is incomplete until its isolated commit is pushed and
+`HEAD == origin/master == ls-remote`.
+
+## Stage 9 — Case policy materialization
+
+The exact next task is `YAI.SOURCE.REFOUNDATION.9 — Case PolicyBinding,
+Effective Policy Materialization, and Normative Readiness`. It must recover and
+prove the semantic delta between a published shared PolicyArtifact and the
+immutable version actually bound/materialized for a Case. It must address
+precedence, conflicts and missingness conservatively, but must not yet fold
+authority resolution or policy-bound Grant issuance into the compiler.
 
 ## Explicit non-goals
 
 This roadmap does not introduce Space or Agent as owners, import `yai-dev`,
-clone YVEX, create a directory per concept, or require ContextDelta. Stage 8
-does not introduce a generic Workflow, policy language, inbox daemon,
-distributed lease service or second carrier while closing lifecycle authority.
+clone YVEX, create a directory per concept, or require ContextDelta. It does
+not restore the historical Governance/Compliance/Authority planes, registry
+forest, Workflow, supervisor or embedded-law topology.
 
 ## Exit criteria for the next source task
 
-`YAI.SOURCE.REFOUNDATION.8` is complete only when Case closure/cancellation is
-canonical, pending review/Operation and unconsumed Grant authority fail closed
-under the lifecycle contract, restart/replay are deterministic, and no
-external-effect rollback is falsely claimed. Every earlier review, runtime-
-admission, replay, residency, memory, provider-replacement and controlled-
-effect invariant must remain green.
+`YAI.SOURCE.REFOUNDATION.9` is complete only when a Case can bind exact
+immutable published artifact identities, rebuild one provenance-bound
+EffectivePolicy materialization, distinguish existence from normative
+readiness, fail closed on conflict/missingness/staleness, and preserve every
+Wave 2–8 invariant. It must begin with a fresh direct `yai-dev` reinspection
+and end with an isolated published commit; do not implement Wave 10 authority
+resolution automatically.

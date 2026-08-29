@@ -60,6 +60,20 @@ performs the effect itself; a later `yai case resume` may execute an approved
 Operation through that same carrier. Use only a disposable bound root and read
 [Test cases](test-cases.md) first. The former direct write command is removed.
 
+Governance authoring also needs no Case, provider or carrier. With a constrained
+`yai.policy_source_input.v1` JSON file:
+
+```sh
+target/debug/yai policy ingest ./policy.json --as participant:policy-admin
+target/debug/yai policy validate <artifact-id> --as participant:policy-admin
+target/debug/yai policy publish <artifact-id> --as participant:policy-admin
+target/debug/yai policy inspect <artifact-id>
+```
+
+Publication means the immutable qualified artifact is eligible for future Case
+binding; Wave 8 does not bind it to a Case or turn it into authority. Use an
+isolated `YAI_HOME`: these commands append a canonical governance lifecycle.
+
 ## What to read next
 
 - [Executable architecture](architecture.md) explains what the binaries
@@ -76,7 +90,9 @@ YAI has typed LMDB Transition/CaseState authority and one controlled local
 `filesystem.write` vertical: durable PREPARE precedes mutation, and observed
 outcome is finalized or reconciled afterward. It has no general carrier or
 policy language, automatic multi-Case recovery service, race-resistant hostile-
-namespace confinement, distributed run admission, or authenticated remote
-human identity. Typed Projection/ContextFrame and local Case-native review are
-implemented. Legacy JSONL/record paths remain compatibility surfaces. Do not
-infer production safety from a passing smoke suite.
+namespace confinement, distributed run admission, authenticated remote human
+identity, Case PolicyBinding, EffectivePolicy or policy-driven authority.
+Typed Projection/ContextFrame, local Case-native review and deterministic
+Case-independent PolicyArtifact intake are implemented. Legacy JSONL/record
+paths remain compatibility surfaces. Do not infer production safety from a
+passing smoke suite.

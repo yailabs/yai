@@ -19,6 +19,13 @@ use crate::compatibility::{
 };
 use crate::context::SemanticContextArtifact;
 use crate::effect::{LocalFilesystemBinding, OperationOrigin, LOCAL_FILESYSTEM_BINDING_SCHEMA};
+use crate::governance::{
+    build_lifecycle_event, compile_policy_source, lifecycle_from_events, PolicyArtifact,
+    PolicyArtifactView, PolicyCompilation, PolicyIngestOutcome, PolicyLifecycleAction,
+    PolicyLifecycleEvent, PolicyLifecycleEventInput, PolicyLifecycleOutcome, PolicyLifecycleState,
+    PolicySourceArtifact, PolicyValidationStatus, POLICY_ARTIFACT_SCHEMA,
+    POLICY_LIFECYCLE_EVENT_SCHEMA, POLICY_SOURCE_ARTIFACT_SCHEMA,
+};
 use crate::journal::Journal;
 use crate::memory::{
     OperationalMemoryBuild, OperationalMemoryEntry, OperationalMemoryManifest,
@@ -108,6 +115,10 @@ pub struct LmdbRecordStore {
     operational_memory_by_id: Database,
     operational_memory_case_index: Database,
     case_runtime_admission: Database,
+    policy_sources_by_id: Database,
+    policy_artifacts_by_id: Database,
+    policy_lifecycle_events_by_id: Database,
+    policy_lifecycle_sequence: Database,
     schema_meta: Database,
 }
 
@@ -274,7 +285,7 @@ impl LmdbRecordStore {
         fs::create_dir_all(path)
             .map_err(|error| format!("failed to create {}: {error}", path.display()))?;
         let env = Environment::new()
-            .set_max_dbs(24)
+            .set_max_dbs(32)
             .set_map_size(MAP_SIZE)
             .open(path)
             .map_err(|error| format!("failed to open LMDB env {}: {error}", path.display()))?;
@@ -335,6 +346,21 @@ impl LmdbRecordStore {
         let case_runtime_admission = env
             .create_db(Some("case_runtime_admission"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open case_runtime_admission: {error}"))?;
+        let policy_sources_by_id = env
+            .create_db(Some("policy_sources_by_id"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open policy_sources_by_id: {error}"))?;
+        let policy_artifacts_by_id = env
+            .create_db(Some("policy_artifacts_by_id"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open policy_artifacts_by_id: {error}"))?;
+        let policy_lifecycle_events_by_id = env
+            .create_db(
+                Some("policy_lifecycle_events_by_id"),
+                DatabaseFlags::empty(),
+            )
+            .map_err(|error| format!("failed to open policy_lifecycle_events_by_id: {error}"))?;
+        let policy_lifecycle_sequence = env
+            .create_db(Some("policy_lifecycle_sequence"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open policy_lifecycle_sequence: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -357,6 +383,10 @@ impl LmdbRecordStore {
             operational_memory_by_id,
             operational_memory_case_index,
             case_runtime_admission,
+            policy_sources_by_id,
+            policy_artifacts_by_id,
+            policy_lifecycle_events_by_id,
+            policy_lifecycle_sequence,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -721,6 +751,470 @@ impl LmdbRecordStore {
         txn.commit()
             .map_err(|error| format!("failed to commit Case runtime admission release: {error}"))?;
         Ok(true)
+    }
+
+    /// Atomically persists immutable source/compiler artifacts and registers
+    /// the candidate in the independent append-only governance history. The
+    /// Case ledger is neither required nor mutated.
+    pub fn ingest_policy_compilation(
+        &self,
+        compilation: &PolicyCompilation,
+        actor_ref: &str,
+    ) -> Result<PolicyIngestOutcome, String> {
+        compilation.validate()?;
+        if compile_policy_source(compilation.source.content_utf8.as_bytes())? != *compilation {
+            return Err("policy_compilation_not_reproducible_from_source".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start policy intake transaction: {error}"))?;
+        let source_key = policy_source_key(&compilation.source.source_id);
+        let source_created = match txn.get(self.policy_sources_by_id, &source_key) {
+            Ok(value) => {
+                let stored = decode_policy_source(value)?;
+                if stored != compilation.source {
+                    return Err("immutable_policy_source_identity_collision".to_string());
+                }
+                false
+            }
+            Err(Error::NotFound) => {
+                let encoded = serde_json::to_vec(&compilation.source)
+                    .map_err(|error| format!("policy_source_encode_failed: {error}"))?;
+                txn.put(
+                    self.policy_sources_by_id,
+                    &source_key,
+                    &encoded,
+                    WriteFlags::NO_OVERWRITE,
+                )
+                .map_err(|error| format!("failed to store immutable policy source: {error}"))?;
+                true
+            }
+            Err(error) => return Err(format!("failed to inspect policy source: {error}")),
+        };
+
+        let artifact_key = policy_artifact_key(&compilation.artifact.artifact_id);
+        let artifact_created = match txn.get(self.policy_artifacts_by_id, &artifact_key) {
+            Ok(value) => {
+                let stored = decode_policy_artifact(value)?;
+                if stored != compilation.artifact {
+                    return Err("immutable_policy_artifact_identity_collision".to_string());
+                }
+                false
+            }
+            Err(Error::NotFound) => {
+                let encoded = serde_json::to_vec(&compilation.artifact)
+                    .map_err(|error| format!("policy_artifact_encode_failed: {error}"))?;
+                txn.put(
+                    self.policy_artifacts_by_id,
+                    &artifact_key,
+                    &encoded,
+                    WriteFlags::NO_OVERWRITE,
+                )
+                .map_err(|error| format!("failed to store immutable policy artifact: {error}"))?;
+                true
+            }
+            Err(error) => return Err(format!("failed to inspect policy artifact: {error}")),
+        };
+
+        if artifact_created {
+            self.append_policy_event_txn(
+                &mut txn,
+                &compilation.artifact.artifact_id,
+                PolicyLifecycleAction::CandidateRegistered,
+                None,
+                PolicyLifecycleState::Candidate,
+                None,
+                actor_ref,
+                "immutable policy candidate registered",
+            )?;
+        }
+        let view = self.policy_artifact_view_txn(&txn, &compilation.artifact.artifact_id)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit policy intake: {error}"))?;
+        Ok(PolicyIngestOutcome {
+            source_created,
+            artifact_created,
+            view,
+        })
+    }
+
+    pub fn get_policy_source(
+        &self,
+        source_id: &str,
+    ) -> Result<Option<PolicySourceArtifact>, String> {
+        let key = policy_source_key(source_id);
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start policy source read: {error}"))?;
+        match txn.get(self.policy_sources_by_id, &key) {
+            Ok(value) => decode_policy_source(value).map(Some),
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!("failed to read policy source: {error}")),
+        }
+    }
+
+    pub fn get_policy_artifact(&self, artifact_id: &str) -> Result<Option<PolicyArtifact>, String> {
+        let key = policy_artifact_key(artifact_id);
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start policy artifact read: {error}"))?;
+        match txn.get(self.policy_artifacts_by_id, &key) {
+            Ok(value) => decode_policy_artifact(value).map(Some),
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!("failed to read policy artifact: {error}")),
+        }
+    }
+
+    pub fn policy_artifact_view(
+        &self,
+        artifact_id: &str,
+    ) -> Result<Option<PolicyArtifactView>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start policy artifact view read: {error}"))?;
+        match self.policy_artifact_view_txn(&txn, artifact_id) {
+            Ok(view) => Ok(Some(view)),
+            Err(error) if error == "policy_artifact_not_found" => Ok(None),
+            Err(error) => Err(error),
+        }
+    }
+
+    pub fn list_policy_artifact_views(&self) -> Result<Vec<PolicyArtifactView>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start policy artifact list: {error}"))?;
+        let mut cursor = txn
+            .open_ro_cursor(self.policy_artifacts_by_id)
+            .map_err(|error| format!("failed to open policy artifact cursor: {error}"))?;
+        let mut artifact_ids = Vec::new();
+        for (_, value) in cursor.iter() {
+            artifact_ids.push(decode_policy_artifact(value)?.artifact_id);
+        }
+        drop(cursor);
+        artifact_ids.sort();
+        artifact_ids
+            .iter()
+            .map(|artifact_id| self.policy_artifact_view_txn(&txn, artifact_id))
+            .collect()
+    }
+
+    pub fn list_policy_lifecycle_events(
+        &self,
+        artifact_id: Option<&str>,
+    ) -> Result<Vec<PolicyLifecycleEvent>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start policy lifecycle read: {error}"))?;
+        self.policy_lifecycle_events_txn(&txn, artifact_id)
+    }
+
+    pub fn validate_policy_artifact(
+        &self,
+        artifact_id: &str,
+        actor_ref: &str,
+        reason: &str,
+    ) -> Result<PolicyLifecycleOutcome, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start policy validation transaction: {error}"))?;
+        let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        if artifact.validation.status != PolicyValidationStatus::Qualified {
+            return Err(format!(
+                "policy_artifact_qualification_blocked: {}",
+                artifact.validation.blockers.join(",")
+            ));
+        }
+        let current = self.policy_lifecycle_state_txn(&txn, artifact_id)?;
+        let changed = match current {
+            PolicyLifecycleState::Candidate => {
+                self.append_policy_event_txn(
+                    &mut txn,
+                    artifact_id,
+                    PolicyLifecycleAction::Validated,
+                    Some(PolicyLifecycleState::Candidate),
+                    PolicyLifecycleState::Validated,
+                    None,
+                    actor_ref,
+                    reason,
+                )?;
+                true
+            }
+            PolicyLifecycleState::Validated | PolicyLifecycleState::Published => false,
+            PolicyLifecycleState::Superseded | PolicyLifecycleState::Retired => {
+                return Err(format!("policy_artifact_not_validatable_from: {current:?}"))
+            }
+        };
+        let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit policy validation: {error}"))?;
+        Ok(PolicyLifecycleOutcome { changed, view })
+    }
+
+    pub fn publish_policy_artifact(
+        &self,
+        artifact_id: &str,
+        actor_ref: &str,
+        reason: &str,
+    ) -> Result<PolicyLifecycleOutcome, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start policy publication transaction: {error}"))?;
+        let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        if artifact.validation.status != PolicyValidationStatus::Qualified {
+            return Err("blocked_policy_artifact_cannot_publish".to_string());
+        }
+        let current = self.policy_lifecycle_state_txn(&txn, artifact_id)?;
+        if current == PolicyLifecycleState::Published {
+            let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
+            return Ok(PolicyLifecycleOutcome {
+                changed: false,
+                view,
+            });
+        }
+        if current != PolicyLifecycleState::Validated {
+            return Err(format!(
+                "policy_artifact_must_be_validated_before_publish: current={current:?}"
+            ));
+        }
+
+        let published = self.published_policy_artifacts_for_key_txn(
+            &txn,
+            &artifact.policy_key,
+            Some(artifact_id),
+        )?;
+        for previous_id in published {
+            self.append_policy_event_txn(
+                &mut txn,
+                &previous_id,
+                PolicyLifecycleAction::Superseded,
+                Some(PolicyLifecycleState::Published),
+                PolicyLifecycleState::Superseded,
+                Some(artifact_id),
+                actor_ref,
+                "new immutable policy version published",
+            )?;
+        }
+        self.append_policy_event_txn(
+            &mut txn,
+            artifact_id,
+            PolicyLifecycleAction::Published,
+            Some(PolicyLifecycleState::Validated),
+            PolicyLifecycleState::Published,
+            None,
+            actor_ref,
+            reason,
+        )?;
+        let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit policy publication: {error}"))?;
+        Ok(PolicyLifecycleOutcome {
+            changed: true,
+            view,
+        })
+    }
+
+    pub fn retire_policy_artifact(
+        &self,
+        artifact_id: &str,
+        actor_ref: &str,
+        reason: &str,
+    ) -> Result<PolicyLifecycleOutcome, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start policy retirement transaction: {error}"))?;
+        let _artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        let current = self.policy_lifecycle_state_txn(&txn, artifact_id)?;
+        if current == PolicyLifecycleState::Retired {
+            let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
+            return Ok(PolicyLifecycleOutcome {
+                changed: false,
+                view,
+            });
+        }
+        self.append_policy_event_txn(
+            &mut txn,
+            artifact_id,
+            PolicyLifecycleAction::Retired,
+            Some(current),
+            PolicyLifecycleState::Retired,
+            None,
+            actor_ref,
+            reason,
+        )?;
+        let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit policy retirement: {error}"))?;
+        Ok(PolicyLifecycleOutcome {
+            changed: true,
+            view,
+        })
+    }
+
+    fn policy_artifact_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        artifact_id: &str,
+    ) -> Result<PolicyArtifact, String> {
+        let key = policy_artifact_key(artifact_id);
+        match txn.get(self.policy_artifacts_by_id, &key) {
+            Ok(value) => decode_policy_artifact(value),
+            Err(Error::NotFound) => Err("policy_artifact_not_found".to_string()),
+            Err(error) => Err(format!("failed to read policy artifact: {error}")),
+        }
+    }
+
+    fn policy_lifecycle_events_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        artifact_id: Option<&str>,
+    ) -> Result<Vec<PolicyLifecycleEvent>, String> {
+        let mut cursor = txn
+            .open_ro_cursor(self.policy_lifecycle_sequence)
+            .map_err(|error| format!("failed to open policy lifecycle cursor: {error}"))?;
+        let mut event_ids = Vec::new();
+        for (_, value) in cursor.iter() {
+            let event_id = std::str::from_utf8(value)
+                .map_err(|error| format!("policy_lifecycle_event_id_not_utf8: {error}"))?;
+            event_ids.push(event_id.to_string());
+        }
+        drop(cursor);
+        let mut events = Vec::new();
+        for event_id in event_ids {
+            let key = policy_event_key(&event_id);
+            let value = txn
+                .get(self.policy_lifecycle_events_by_id, &key)
+                .map_err(|error| format!("policy_lifecycle_sequence_dangling: {error}"))?;
+            let event = decode_policy_lifecycle_event(value)?;
+            if artifact_id
+                .map(|expected| event.artifact_id == expected)
+                .unwrap_or(true)
+            {
+                events.push(event);
+            }
+        }
+        events.sort_by_key(|event| event.sequence);
+        Ok(events)
+    }
+
+    fn policy_lifecycle_state_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        artifact_id: &str,
+    ) -> Result<PolicyLifecycleState, String> {
+        lifecycle_from_events(&self.policy_lifecycle_events_txn(txn, Some(artifact_id))?)
+    }
+
+    fn policy_artifact_view_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        artifact_id: &str,
+    ) -> Result<PolicyArtifactView, String> {
+        let artifact = self.policy_artifact_txn(txn, artifact_id)?;
+        let events = self.policy_lifecycle_events_txn(txn, Some(artifact_id))?;
+        let lifecycle = lifecycle_from_events(&events)?;
+        let superseded_by = events
+            .iter()
+            .rev()
+            .find(|event| event.action == PolicyLifecycleAction::Superseded)
+            .and_then(|event| event.related_artifact_id.clone());
+        let runtime_consumable = lifecycle == PolicyLifecycleState::Published
+            && artifact.validation.status == PolicyValidationStatus::Qualified;
+        let view = PolicyArtifactView {
+            artifact,
+            lifecycle,
+            runtime_consumable,
+            superseded_by,
+            lifecycle_events: events,
+        };
+        view.validate()?;
+        Ok(view)
+    }
+
+    fn published_policy_artifacts_for_key_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        policy_key: &str,
+        exclude: Option<&str>,
+    ) -> Result<Vec<String>, String> {
+        let mut cursor = txn
+            .open_ro_cursor(self.policy_artifacts_by_id)
+            .map_err(|error| format!("failed to open policy artifact cursor: {error}"))?;
+        let mut ids = Vec::new();
+        for (_, value) in cursor.iter() {
+            let artifact = decode_policy_artifact(value)?;
+            if artifact.policy_key == policy_key
+                && exclude.map(|id| id != artifact.artifact_id).unwrap_or(true)
+            {
+                ids.push(artifact.artifact_id);
+            }
+        }
+        drop(cursor);
+        let mut published = Vec::new();
+        for artifact_id in ids {
+            if self.policy_lifecycle_state_txn(txn, &artifact_id)?
+                == PolicyLifecycleState::Published
+            {
+                published.push(artifact_id);
+            }
+        }
+        published.sort();
+        Ok(published)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn append_policy_event_txn(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        artifact_id: &str,
+        action: PolicyLifecycleAction,
+        prior_state: Option<PolicyLifecycleState>,
+        next_state: PolicyLifecycleState,
+        related_artifact_id: Option<&str>,
+        actor_ref: &str,
+        reason: &str,
+    ) -> Result<PolicyLifecycleEvent, String> {
+        let sequence = next_policy_lifecycle_sequence(txn, self.schema_meta)?;
+        let event = build_lifecycle_event(
+            sequence,
+            PolicyLifecycleEventInput {
+                artifact_id,
+                action,
+                prior_state,
+                next_state,
+                related_artifact_id,
+                actor_ref,
+                reason,
+                committed_at_unix_ms: unix_time_ms() as u64,
+            },
+        )?;
+        let event_key = policy_event_key(&event.event_id);
+        let sequence_key = policy_sequence_key(sequence);
+        let encoded = serde_json::to_vec(&event)
+            .map_err(|error| format!("policy_lifecycle_event_encode_failed: {error}"))?;
+        txn.put(
+            self.policy_lifecycle_events_by_id,
+            &event_key,
+            &encoded,
+            WriteFlags::NO_OVERWRITE,
+        )
+        .map_err(|error| format!("failed to append policy lifecycle event: {error}"))?;
+        txn.put(
+            self.policy_lifecycle_sequence,
+            &sequence_key,
+            &event.event_id,
+            WriteFlags::NO_OVERWRITE,
+        )
+        .map_err(|error| format!("failed to append policy lifecycle sequence: {error}"))?;
+        Ok(event)
     }
 
     /// Atomically appends one immutable canonical Transition and replaces the
@@ -1428,6 +1922,27 @@ impl LmdbRecordStore {
             OPERATIONAL_MEMORY_DERIVATION,
             &[],
         )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:policy_source_artifact_schema",
+            POLICY_SOURCE_ARTIFACT_SCHEMA,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:policy_artifact_schema",
+            POLICY_ARTIFACT_SCHEMA,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:policy_lifecycle_event_schema",
+            POLICY_LIFECYCLE_EVENT_SCHEMA,
+            &[],
+        )?;
         for (key, value) in [
             ("meta:canonical_transition_schema", TRANSITION_SCHEMA),
             ("meta:case_state_schema", CASE_STATE_SCHEMA),
@@ -1455,6 +1970,15 @@ impl LmdbRecordStore {
             (
                 "meta:case_runtime_admission_schema",
                 CASE_RUNTIME_ADMISSION_SCHEMA,
+            ),
+            (
+                "meta:policy_source_artifact_schema",
+                POLICY_SOURCE_ARTIFACT_SCHEMA,
+            ),
+            ("meta:policy_artifact_schema", POLICY_ARTIFACT_SCHEMA),
+            (
+                "meta:policy_lifecycle_event_schema",
+                POLICY_LIFECYCLE_EVENT_SCHEMA,
             ),
         ] {
             txn.put(self.schema_meta, &key, &value, WriteFlags::empty())
@@ -1575,6 +2099,21 @@ impl LmdbRecordStore {
         }
         txn.commit()
             .map_err(|error| format!("failed to commit test CaseState deletion: {error}"))
+    }
+
+    #[cfg(test)]
+    fn discard_policy_source_for_test(&self, source_id: &str) -> Result<(), String> {
+        let key = policy_source_key(source_id);
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start test policy source deletion: {error}"))?;
+        match txn.del(self.policy_sources_by_id, &key, None) {
+            Ok(()) | Err(Error::NotFound) => {}
+            Err(error) => return Err(format!("failed to delete test policy source: {error}")),
+        }
+        txn.commit()
+            .map_err(|error| format!("failed to commit test policy source deletion: {error}"))
     }
 
     fn put_record(
@@ -1825,7 +2364,7 @@ impl LmdbRecordStore {
     fn schema_ready(path: &Path) -> Result<bool, ()> {
         let mut builder = Environment::new();
         builder
-            .set_max_dbs(24)
+            .set_max_dbs(32)
             .set_map_size(MAP_SIZE)
             .set_flags(EnvironmentFlags::READ_ONLY);
         let env = builder.open(path).map_err(|_| ())?;
@@ -2782,6 +3321,65 @@ fn case_runtime_admission_key(case_id: &str) -> String {
     format!("case-runtime-admission:{case_id}")
 }
 
+fn policy_source_key(source_id: &str) -> String {
+    format!("policy-source:id:{source_id}")
+}
+
+fn policy_artifact_key(artifact_id: &str) -> String {
+    format!("policy-artifact:id:{artifact_id}")
+}
+
+fn policy_event_key(event_id: &str) -> String {
+    format!("policy-lifecycle:id:{event_id}")
+}
+
+fn policy_sequence_key(sequence: u64) -> String {
+    format!("policy-lifecycle:sequence:{sequence:020}")
+}
+
+fn next_policy_lifecycle_sequence(
+    txn: &mut RwTransaction<'_>,
+    schema_meta: Database,
+) -> Result<u64, String> {
+    let key = "meta:policy_lifecycle_last_sequence";
+    let current = match txn.get(schema_meta, &key) {
+        Ok(value) => std::str::from_utf8(value)
+            .map_err(|error| format!("policy_lifecycle_sequence_not_utf8: {error}"))?
+            .parse::<u64>()
+            .map_err(|error| format!("policy_lifecycle_sequence_invalid: {error}"))?,
+        Err(Error::NotFound) => 0,
+        Err(error) => return Err(format!("failed to read policy lifecycle sequence: {error}")),
+    };
+    let next = current
+        .checked_add(1)
+        .ok_or_else(|| "policy_lifecycle_sequence_exhausted".to_string())?;
+    let encoded = next.to_string();
+    txn.put(schema_meta, &key, &encoded, WriteFlags::empty())
+        .map_err(|error| format!("failed to advance policy lifecycle sequence: {error}"))?;
+    Ok(next)
+}
+
+fn decode_policy_source(value: &[u8]) -> Result<PolicySourceArtifact, String> {
+    let source: PolicySourceArtifact = serde_json::from_slice(value)
+        .map_err(|error| format!("policy_source_decode_failed: {error}"))?;
+    source.validate()?;
+    Ok(source)
+}
+
+fn decode_policy_artifact(value: &[u8]) -> Result<PolicyArtifact, String> {
+    let artifact: PolicyArtifact = serde_json::from_slice(value)
+        .map_err(|error| format!("policy_artifact_decode_failed: {error}"))?;
+    artifact.validate()?;
+    Ok(artifact)
+}
+
+fn decode_policy_lifecycle_event(value: &[u8]) -> Result<PolicyLifecycleEvent, String> {
+    let event: PolicyLifecycleEvent = serde_json::from_slice(value)
+        .map_err(|error| format!("policy_lifecycle_event_decode_failed: {error}"))?;
+    event.validate()?;
+    Ok(event)
+}
+
 fn validate_runtime_admission_request(request: &CaseRuntimeAdmissionRequest) -> Result<(), String> {
     if request.case_id.is_empty()
         || request.run_id.is_empty()
@@ -2935,6 +3533,10 @@ mod tests {
         CarrierResult, EffectOutcome, LocalFilesystemBinding, NormalizationContext,
         ReconciliationConclusion,
     };
+    use crate::governance::{
+        compile_policy_source, PolicyLifecycleState, PolicyValidationStatus,
+        POLICY_SOURCE_INPUT_SCHEMA,
+    };
     use crate::memory::{derive_operational_memory, OperationalMemoryKind};
     use crate::record::{Record, RecordKind};
     use crate::transition::{
@@ -2977,6 +3579,34 @@ mod tests {
             output_contract_id: "output-contract:natural-language".to_string(),
             continuation_disposition: "not_provided".to_string(),
         }
+    }
+
+    fn policy_source(version: &str, required: bool) -> Vec<u8> {
+        serde_json::to_vec(&serde_json::json!({
+            "schema": POLICY_SOURCE_INPUT_SCHEMA,
+            "policy_key": "organization.example.filesystem",
+            "source_version": version,
+            "owner_ref": "organization:example",
+            "rules": [
+                {
+                    "kind": "review_requirement",
+                    "rule_id": format!("review-v{version}"),
+                    "operation_kind": "filesystem.write",
+                    "resource_kind": "filesystem",
+                    "required": required,
+                    "reason": "filesystem writes use explicit governance"
+                },
+                {
+                    "kind": "evidence_obligation",
+                    "rule_id": format!("post-observation-v{version}"),
+                    "operation_kind": "filesystem.write",
+                    "resource_kind": "filesystem",
+                    "obligation": "post_observation",
+                    "reason": "observed consequence is required"
+                }
+            ]
+        }))
+        .expect("serialize policy source fixture")
     }
 
     fn commit_typed(
@@ -3123,6 +3753,247 @@ mod tests {
             before
         );
         fs::remove_dir_all(path).expect("remove temp store");
+    }
+
+    #[test]
+    fn policy_intake_is_case_independent_idempotent_and_query_pure() {
+        let path = temp_store_path("policy-intake");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB policy store");
+        let compilation = compile_policy_source(&policy_source("1", true)).expect("compile policy");
+        let canonical_before = store.canonical_summary().expect("canonical summary before");
+
+        let first = store
+            .ingest_policy_compilation(&compilation, "participant:policy-admin")
+            .expect("ingest policy candidate");
+        assert!(first.source_created);
+        assert!(first.artifact_created);
+        assert_eq!(first.view.lifecycle, PolicyLifecycleState::Candidate);
+        assert!(!first.view.runtime_consumable);
+
+        let duplicate = store
+            .ingest_policy_compilation(&compilation, "participant:policy-admin")
+            .expect("duplicate intake is idempotent");
+        assert!(!duplicate.source_created);
+        assert!(!duplicate.artifact_created);
+        assert_eq!(duplicate.view, first.view);
+        assert_eq!(
+            store
+                .list_policy_lifecycle_events(None)
+                .expect("events after duplicate")
+                .len(),
+            1
+        );
+
+        let event_count = store
+            .list_policy_lifecycle_events(None)
+            .expect("events before pure reads")
+            .len();
+        let listed = store
+            .list_policy_artifact_views()
+            .expect("list policy artifacts");
+        assert_eq!(listed, vec![first.view]);
+        assert_eq!(
+            store
+                .get_policy_source(&compilation.source.source_id)
+                .expect("source read"),
+            Some(compilation.source.clone())
+        );
+        assert_eq!(
+            store
+                .get_policy_artifact(&compilation.artifact.artifact_id)
+                .expect("artifact read"),
+            Some(compilation.artifact.clone())
+        );
+        assert_eq!(
+            store
+                .list_policy_lifecycle_events(None)
+                .expect("events after pure reads")
+                .len(),
+            event_count
+        );
+        assert_eq!(
+            store.canonical_summary().expect("canonical summary after"),
+            canonical_before
+        );
+        assert!(store.get_case_state("case:__system__").unwrap().is_none());
+        fs::remove_dir_all(path).expect("remove policy intake store");
+    }
+
+    #[test]
+    fn policy_lifecycle_publishes_versions_without_mutating_history() {
+        let path = temp_store_path("policy-lifecycle");
+        let store = LmdbRecordStore::open(&path).expect("open policy lifecycle store");
+        let v1 = compile_policy_source(&policy_source("1", true)).expect("compile v1");
+        let v2 = compile_policy_source(&policy_source("2", false)).expect("compile v2");
+        let v1_original = v1.artifact.clone();
+
+        store
+            .ingest_policy_compilation(&v1, "participant:policy-admin")
+            .expect("ingest v1");
+        assert!(store
+            .publish_policy_artifact(
+                &v1.artifact.artifact_id,
+                "participant:policy-admin",
+                "cannot publish before deterministic validation"
+            )
+            .unwrap_err()
+            .contains("must_be_validated"));
+        let validated = store
+            .validate_policy_artifact(
+                &v1.artifact.artifact_id,
+                "participant:policy-admin",
+                "deterministic qualification passed",
+            )
+            .expect("validate v1");
+        assert_eq!(validated.view.lifecycle, PolicyLifecycleState::Validated);
+        assert!(!validated.view.runtime_consumable);
+        let published = store
+            .publish_policy_artifact(
+                &v1.artifact.artifact_id,
+                "participant:policy-admin",
+                "publish version one",
+            )
+            .expect("publish v1");
+        assert_eq!(published.view.lifecycle, PolicyLifecycleState::Published);
+        assert!(published.view.runtime_consumable);
+
+        store
+            .ingest_policy_compilation(&v2, "participant:policy-admin")
+            .expect("ingest v2");
+        store
+            .validate_policy_artifact(
+                &v2.artifact.artifact_id,
+                "participant:policy-admin",
+                "deterministic qualification passed",
+            )
+            .expect("validate v2");
+        store
+            .publish_policy_artifact(
+                &v2.artifact.artifact_id,
+                "participant:policy-admin",
+                "publish version two",
+            )
+            .expect("publish v2");
+
+        let old = store
+            .policy_artifact_view(&v1.artifact.artifact_id)
+            .expect("read v1 view")
+            .expect("v1 exists");
+        let current = store
+            .policy_artifact_view(&v2.artifact.artifact_id)
+            .expect("read v2 view")
+            .expect("v2 exists");
+        assert_eq!(old.artifact, v1_original);
+        assert_eq!(old.lifecycle, PolicyLifecycleState::Superseded);
+        assert_eq!(old.superseded_by, Some(v2.artifact.artifact_id.clone()));
+        assert!(!old.runtime_consumable);
+        assert_eq!(current.lifecycle, PolicyLifecycleState::Published);
+        assert!(current.runtime_consumable);
+        drop(store);
+
+        let reopened = LmdbRecordStore::open(&path).expect("restart policy store");
+        assert_eq!(
+            reopened
+                .get_policy_artifact(&v1.artifact.artifact_id)
+                .unwrap(),
+            Some(v1_original)
+        );
+        assert_eq!(
+            reopened
+                .policy_artifact_view(&v2.artifact.artifact_id)
+                .unwrap()
+                .unwrap()
+                .lifecycle,
+            PolicyLifecycleState::Published
+        );
+        let retired = reopened
+            .retire_policy_artifact(
+                &v2.artifact.artifact_id,
+                "participant:policy-admin",
+                "version withdrawn from future Case use",
+            )
+            .expect("retire v2");
+        assert!(retired.changed);
+        assert_eq!(retired.view.lifecycle, PolicyLifecycleState::Retired);
+        assert!(!retired.view.runtime_consumable);
+        assert!(
+            !reopened
+                .retire_policy_artifact(
+                    &v2.artifact.artifact_id,
+                    "participant:policy-admin",
+                    "version withdrawn from future Case use",
+                )
+                .expect("repeat retirement")
+                .changed
+        );
+        fs::remove_dir_all(path).expect("remove policy lifecycle store");
+    }
+
+    #[test]
+    fn blocked_policy_and_source_payload_loss_fail_closed_without_erasing_provenance() {
+        let path = temp_store_path("policy-blocked");
+        let store = LmdbRecordStore::open(&path).expect("open blocked policy store");
+        let blocked_bytes = serde_json::to_vec(&serde_json::json!({
+            "schema": POLICY_SOURCE_INPUT_SCHEMA,
+            "policy_key": "organization.example.unresolved",
+            "source_version": "1",
+            "owner_ref": "organization:example",
+            "rules": [{"kind":"unsupported_future_rule","payload":"opaque"}]
+        }))
+        .unwrap();
+        let blocked = compile_policy_source(&blocked_bytes).expect("compile unresolved source");
+        assert_eq!(
+            blocked.artifact.validation.status,
+            PolicyValidationStatus::Blocked
+        );
+        store
+            .ingest_policy_compilation(&blocked, "participant:policy-admin")
+            .expect("retain blocked candidate");
+        assert!(store
+            .validate_policy_artifact(
+                &blocked.artifact.artifact_id,
+                "participant:policy-admin",
+                "attempt validation"
+            )
+            .unwrap_err()
+            .contains("qualification_blocked"));
+        assert!(store
+            .publish_policy_artifact(
+                &blocked.artifact.artifact_id,
+                "participant:policy-admin",
+                "attempt publication"
+            )
+            .unwrap_err()
+            .contains("cannot_publish"));
+        let event_count = store
+            .list_policy_lifecycle_events(Some(&blocked.artifact.artifact_id))
+            .unwrap()
+            .len();
+        assert_eq!(event_count, 1);
+
+        store
+            .discard_policy_source_for_test(&blocked.source.source_id)
+            .expect("simulate source payload loss");
+        assert!(store
+            .get_policy_source(&blocked.source.source_id)
+            .unwrap()
+            .is_none());
+        let retained = store
+            .get_policy_artifact(&blocked.artifact.artifact_id)
+            .unwrap()
+            .expect("artifact survives source payload loss");
+        assert_eq!(retained.source_id, blocked.source.source_id);
+        assert_eq!(retained.source_digest, blocked.source.content_digest);
+        assert_eq!(retained.parsed, blocked.artifact.parsed);
+        assert_eq!(retained.policy_ir, blocked.artifact.policy_ir);
+        assert!(
+            !store
+                .policy_artifact_view(&blocked.artifact.artifact_id)
+                .unwrap()
+                .unwrap()
+                .runtime_consumable
+        );
+        fs::remove_dir_all(path).expect("remove blocked policy store");
     }
 
     #[test]

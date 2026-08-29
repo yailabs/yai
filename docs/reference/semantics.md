@@ -111,7 +111,7 @@ not.
 | OperationCandidate | COLLAPSE | ephemeral parser/normalizer input; no durable identity unless normalization succeeds |
 | Operation | ADOPT | immutable normalized requested transformation; owns exact typed intent, source refs, Scope, and parameters; never permission |
 | Attempt | COLLAPSE | invocation/carrier retry metadata on Invocation, Grant, Receipt, and Transition; not a universal object |
-| Policy | ADOPT | versioned rules/source material associated with a Case/system context; informs evaluation but cannot decide or execute |
+| Policy | ADOPT | immutable versioned source/IR artifact with an independent governance lifecycle; a later exact Case binding/materialization may inform evaluation but cannot itself decide or execute |
 | Authority | COLLAPSE | property established by identity, Binding, policy, and supporting references; not a universal object or ambient role |
 | Capability | RENAME | either non-authoritative advertised ability metadata or an ExecutionGrant; descriptors never become permission |
 | Decision | ADOPT | immutable authority conclusion for one Operation under exact Scope, policy/binding versions, and Case generation |

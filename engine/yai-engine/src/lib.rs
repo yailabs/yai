@@ -16,6 +16,7 @@
 pub mod compatibility;
 pub mod context;
 pub mod effect;
+pub mod governance;
 pub mod graph;
 pub mod journal;
 pub mod memory;

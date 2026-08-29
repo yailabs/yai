@@ -25,6 +25,7 @@ The strongest current validation groups are:
 | agentless Case runtime | `agentless-case-runtime`, `human-review-runtime`, engine 128-iteration residency endurance | 26 real HTTP turns, 24 controlled effects, DENY/adaptation, typed human pause/resume, single-Case runner exclusion, provider/model replacement, automatic memory repair/effect reconciliation, budget stop, bounded context and crash resume without Agent/Workflow state | distributed admission, generalized operation/carrier families |
 | controlled filesystem effect | `controlled-effect-vertical`, engine controlled-effect/replay tests | real provider candidate → typed Operation/Decision/Grant → durable PREPARE → observed atomic replacement → FINALIZE/RECONCILE → second typed provider view, including crashes and security failures | another carrier, general policy/review or multi-Case background recovery |
 | human review/filesystem | `human-review-runtime`, engine typed-review/replay tests | real Operation-bound REQUIRE_REVIEW, bound Participant APPROVE/DENY/DEFER, no-live-runner action, provider/model replacement, R1–R6 crash recovery, no duplicate Operation/effect and the existing Grant/PREPARE/carrier/FINALIZE chain | authenticated OS/remote identity, generic approval workflow, review for other carriers |
+| governance intake | `governance-intake`, engine governance/LMDB tests | exact-byte immutable source identity, typed deterministic facts/IR, unresolved/conflict failure, candidate/validated/published distinction, P@1/P@2 supersession, Case-independent append-only lifecycle and pure inspection | Case PolicyBinding, EffectivePolicy, authority/Decision/Grant integration, authenticated publisher, general privacy/retention policy |
 | direct filesystem bypass | `direct-filesystem-bypass` | former write command is unreachable; retained compatibility command is observation-only | a second effect path or bypass authority |
 | journal replay/store | `journal-replay-*`, `record-store-*`, `replay-idempotency-schema-version`, engine canonical-authority tests | JSONL compatibility replay/import, atomic LMDB Transition/CaseState commit, restart, rollback, replay and rebuild | retire remaining legacy mutable record paths after their consumers migrate |
 | graph | `graph-relation-write-path`, `runtimegraph-*`, engine derived-failure tests | typed-transition and decoded-legacy relation materialization, deterministic rebuild and causal query behavior | migrate remaining legacy compatibility inputs; graph stays derived |
@@ -49,6 +50,7 @@ For a full validation run:
 make check
 make characterization
 make endurance-agentless-case-runtime
+make smoke-governance-intake
 ```
 
 Read the first failing target directly. Do not mask failures caused by a dirty

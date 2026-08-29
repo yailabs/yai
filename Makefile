@@ -19,7 +19,7 @@
 .PHONY: smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33
 .PHONY: smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40
 .PHONY: smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47
-.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime endurance-agentless-case-runtime characterization smoke check clean
+.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake endurance-agentless-case-runtime characterization smoke check clean
 
 CC ?= cc
 AR ?= ar
@@ -162,10 +162,11 @@ CHARACTERIZATION_DIRECT_FILESYSTEM := tests/characterization/direct-filesystem-b
 CHARACTERIZATION_CONTROLLED_EFFECT := tests/characterization/controlled-effect-vertical/test_controlled_effect_vertical.sh
 CHARACTERIZATION_AGENTLESS_CASE_RUNTIME := tests/characterization/agentless-case-runtime/test_agentless_case_runtime.sh
 CHARACTERIZATION_HUMAN_REVIEW_RUNTIME := tests/characterization/human-review-runtime/test_human_review_runtime.sh
+CHARACTERIZATION_GOVERNANCE_INTAKE := tests/characterization/governance-intake/test_governance_intake.sh
 
 info:
 	@printf "yai: admitted operational-state transition system with one controlled filesystem vertical\n"
-	@printf "source-refoundation-6-baseline: f148b1f37e62130aeb340220094bab49992290c8\n"
+	@printf "foundation-recovery-baseline: 3403ecdd2a321b689e41d747cbeb9d9e7c58e5e1\n"
 	@printf "documentation: docs/index.md\n"
 	@printf "roadmap: ROADMAP.md\n"
 	@printf "source-layout: include/ system/ engine/ cmd/\n"
@@ -184,6 +185,7 @@ info:
 	@printf "provider-runtime: agentless bounded Case loop with typed Projection/ContextFrame lineage\n"
 	@printf "semantic-residency: derived yai.residency_plan.v1; explicit item/context budgets\n"
 	@printf "operational-memory: derived yai.operational_memory.v1 with qualified retrieval and canonical fallback\n"
+	@printf "governance-intake: immutable source + typed yai.policy_ir.v1 + versioned yai.policy_artifact.v1 lifecycle\n"
 	@printf "provider-registry: removed; case-bound invocation remains\n"
 	@printf "crates: removed\n"
 	@printf "ctl: removed\n"
@@ -550,7 +552,7 @@ smoke-spine33e: $(SMOKE_HOST_OBSERVATION_PROBE) build-rust
 
 
 
-smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime
+smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake
 
 smoke-semantic-continuity: $(YAID) build-rust
 	@$(CHARACTERIZATION_SEMANTIC_CONTINUITY)
@@ -561,6 +563,9 @@ smoke-agentless-case-runtime: $(YAID) build-rust
 smoke-human-review-runtime: $(YAID) build-rust
 	@$(CHARACTERIZATION_HUMAN_REVIEW_RUNTIME)
 
+smoke-governance-intake: build-rust
+	@$(CHARACTERIZATION_GOVERNANCE_INTAKE)
+
 endurance-agentless-case-runtime: smoke-agentless-case-runtime
 
 characterization: smoke-new4 smoke-new11 smoke-new12 smoke-spine39 smoke-spine45 smoke-spine51
@@ -570,6 +575,7 @@ characterization: smoke-new4 smoke-new11 smoke-new12 smoke-spine39 smoke-spine45
 	@$(CHARACTERIZATION_CONTROLLED_EFFECT)
 	@$(CHARACTERIZATION_AGENTLESS_CASE_RUNTIME)
 	@$(CHARACTERIZATION_HUMAN_REVIEW_RUNTIME)
+	@$(CHARACTERIZATION_GOVERNANCE_INTAKE)
 
 check: check-layout check-docs build smoke
 

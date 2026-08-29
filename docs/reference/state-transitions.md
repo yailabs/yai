@@ -20,6 +20,13 @@ CaseState is maintained transactionally with a ledger append. It is a current
 materialization and may be rebuilt; the ledger is the durable explanation of
 how it arose. A single database may store both without making them equivalent.
 
+Shared immutable PolicyArtifacts have an independent canonical governance
+lifecycle because they may exist before and across Cases. Their append-only
+events are not Case Transitions, are never stored under a synthetic system
+Case, and cannot directly create Decision/Grant/effect state. A future Case
+PolicyBinding must reference exact published identities; it must not copy or
+mutate the artifact history.
+
 Graph relations, indexes, memory, analytics, hot state, and participant/model/
 operator views carry source generation and are rebuildable. They may be dropped
 without loss of canonical history. A physical resource is external reality,

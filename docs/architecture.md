@@ -1,9 +1,9 @@
 # Current executable architecture
 
-Authority: implementation truth. Source-refoundation baseline:
-`a5a4015d8f7a3f9c12c2749f9f62c1d41979411b` (the published Wave-6
+Authority: implementation truth. Foundation-recovery baseline:
+`3403ecdd2a321b689e41d747cbeb9d9e7c58e5e1` (the published Wave-7
 checkpoint). This document describes the resulting
-`YAI.SOURCE.REFOUNDATION.7` worktree.
+`YAI.SOURCE.REFOUNDATION.8` worktree.
 
 This document includes current contradictions. It does not claim that the
 [Constitution](constitution.md) is implemented. Target changes and sequencing
@@ -23,6 +23,7 @@ operator
   |     +-- controlled filesystem effect transition family
   |     +-- Case-native typed human review on the controlled carrier
   |     +-- durable single-Case runtime admission metadata
+  |     +-- deterministic governance intake and immutable policy artifacts
   |     +-- canonical Transition/CaseState authority in LMDB
   |     +-- legacy journal inspect/import/replay compatibility
   |     +-- LMDB graph materialization/query
@@ -37,11 +38,12 @@ operator
         +-- restartable hot-state snapshot
 ```
 
-[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is a 1,910-line command
+[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is a 1,926-line command
 parser, dispatcher, common CLI support surface, and compatibility shell. The
 current domain implementation is grouped by demonstrated boundary in
 [`provider.rs`](../cmd/yai/src/provider.rs),
 [`case_runtime.rs`](../cmd/yai/src/case_runtime.rs),
+[`policy.rs`](../cmd/yai/src/policy.rs),
 [`memory_cli.rs`](../cmd/yai/src/memory_cli.rs),
 [`review.rs`](../cmd/yai/src/review.rs),
 [`controlled_effect.rs`](../cmd/yai/src/controlled_effect.rs),
@@ -73,6 +75,7 @@ mean constitutional, general, or production-ready.
 | Agentless Case runtime | disposable bounded runner reloads CaseState → reconciles effects/review → repairs memory → retrieves/plans residency → invokes provider → normalizes/decides/effects → repeats from new canonical reality; typed `AWAITING_REVIEW`, provider/model replacement, crash recovery, and one transactionally admitted runner per Case are executable | one synchronous single-host `filesystem.write` loop; no background scheduler or distributed lease |
 | Controlled filesystem effect | typed logical attachment + local binding → real HTTP ProviderResult → exact proposal normalization → typed Operation/Decision/ExecutionGrant → durable PREPARE → Rust atomic-replacement carrier → pre/post Observation and EffectReceipt → FINALIZE/RECONCILE → second provider turn | only `filesystem.write`; prefix policy and single-machine binding; no general review/policy/carrier system |
 | Human-reviewed filesystem effect | normalized Operation → `REQUIRE_REVIEW` → typed ReviewRequest → bound human Participant action APPROVE/DENY/DEFER → effective Decision → existing Grant/PREPARE/carrier/FINALIZE path; review works with no live runner and survives provider/model replacement | local CLI asserts a bound participant identity but does not authenticate an OS person, SSO principal, or remote signer; only filesystem policy review exists |
+| Governance intake | constrained JSON bytes → immutable source digest → typed parsed facts → normalized Policy IR → immutable candidate → deterministic validation → explicit local publication; P@1/P@2 remain distinct and lifecycle events are append-only | artifacts are not yet bound/materialized into any Case; local publisher identity is asserted, full source retention policy is provisional, and no authority is derived |
 | Journal compatibility | inspect/dry-run/import `yai.store.record.v0` or `yai.record.v1`, preserving unknowns opaquely in an isolated target; old replay still materializes legacy record indexes | general semantic promotion is deliberately absent; the old record plane remains compatibility data, not authority |
 | Graph | typed canonical transitions and explicitly decoded legacy records → derived relations → rebuildable RuntimeGraph → bounded query | generation/version invalidation remains minimal; legacy-only cases still depend on compatibility translation |
 | Analytical facts | LMDB operational records → DuckDB extraction → reports | four declared families have no extractor; schema/orchestration remains embedded in the command crate |
@@ -276,6 +279,53 @@ Surviving C control, filesystem/process carrier, receipt, and observation
 components contain typed or platform properties protected by component tests.
 They are built separately and are not normal product call paths.
 
+## Current governance intake behavior
+
+[`governance.rs`](../engine/yai-engine/src/governance.rs) owns one source
+compiler, not a governance plane. It accepts only bounded constrained JSON
+under `yai.policy_source_input.v1`. The exact UTF-8 bytes receive a SHA-256
+identity and become an immutable `yai.policy_source_artifact.v1`; no model or
+free-form policy interpreter participates.
+
+The compiler emits `yai.parsed_policy.v1` facts for exactly three current
+families: operation restriction, review requirement and evidence obligation.
+Every fact retains its source artifact and JSON location. Normalization emits
+`yai.policy_ir.v1`, deterministically deduplicates equivalent semantics,
+preserves unknown rule kinds as unresolved, and records contradictory outcomes
+as typed conflicts. Unknown syntax/schema or malformed known rules fail;
+unresolved/conflicted candidates remain inspectable but cannot validate.
+
+`yai.policy_artifact.v1` embeds the parsed and normalized provenance chain and
+uses source version plus content/IR digests for immutable identity. The same
+LMDB environment contains four logically separate canonical governance
+databases: immutable sources, immutable artifacts, lifecycle events by ID and
+their append order. This is an independent governance history, not a synthetic
+Case ledger and not derived state. Lifecycle is reconstructed from integrity-
+bound events:
+
+```text
+candidate → validated → published → superseded | retired
+```
+
+The artifact bytes never change. Publishing another validated version of the
+same policy key appends `superseded` for the previous publication and
+`published` for the new artifact. `runtime_consumable` is true only for a
+qualified artifact whose derived lifecycle is currently `published`; it means
+eligible for future Case binding, not effective or authoritative now.
+
+[`policy.rs`](../cmd/yai/src/policy.rs) provides ingest/inspect/validate/
+publish/retire/list. Reads are pure. Mutating commands record a claimed local
+actor ref for provenance, but Wave 8 does not authenticate that person. Full
+bounded source bytes are retained to make compilation reproducible; source
+loss leaves artifact digest/parsed/IR provenance inspectable but the original
+payload unavailable. Global source retention/privacy policy remains open.
+
+No policy authoring operation appends a Case Transition, invokes a provider or
+carrier, creates a Decision/Grant, or modifies filesystem resources. Case
+PolicyBinding, EffectivePolicy, normative readiness, precedence and policy-
+driven authority begin in later recovery waves. See the canonical
+[governance reference](reference/governance.md).
+
 ## Current provider and context behavior
 
 [`context.rs`](../engine/yai-engine/src/context.rs) owns a pure compilation
@@ -425,6 +475,7 @@ participates.
 | `engine/yai-engine/src/memory.rs` | deterministic operational-memory derivation, provenance validation, supersession and qualified bounded retrieval; legacy MemoryCandidate summary compatibility | product-reachable derived algorithm/store contract; never canonical authority |
 | `cmd/yai/src/controlled_effect.rs` + `engine/yai-engine/src/effect.rs` | controlled proposal/admission/recovery orchestration and the Grant-validating Rust filesystem carrier | product-reachable first constitutional effect family |
 | `cmd/yai/src/review.rs` | Case-native typed participant actions and effective Decision recording; never carrier execution | product-reachable human review boundary |
+| `engine/yai-engine/src/governance.rs` + `cmd/yai/src/policy.rs` | deterministic source compiler, immutable PolicyArtifact/lifecycle contracts and thin operator surface | product-reachable Case-independent governance authoring boundary; no Case authority |
 | `cmd/yai/src/filesystem.rs` | read-only filesystem compatibility observation | product-reachable compatibility boundary |
 | `cmd/yai/src/replay.rs` | legacy inspect/dry-run/isolated import and replay reports | product-reachable state compatibility boundary |
 | `cmd/yai/src/graph_runtime.rs` | graph relation materialization, rebuild and query | product-reachable derived owner |
@@ -457,6 +508,7 @@ from one checkout.
 | agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops, typed human pause/resume, LMDB run admission and restart tests | generalized operation families, distributed admission and daemon scheduling are absent |
 | provider replacement preserves semantic continuity | real HTTP Provider A→filesystem FINALIZE→Provider B, same-provider model replacement, continuation invalidation and provider restart are deterministic product tests | generalized routing/economics and native runtime continuation protocols are deliberately absent |
 | derived data rebuilds from canonical state | graph rebuild consumes typed transitions and legacy compatibility; operational memory can be dropped/rebuilt with deterministic identity and canonical fallback; facts remain legacy-derived | adaptive invalidation/scheduling, compression and full typed analytics inputs |
+| governance source/artifact history | exact-byte source identity, typed deterministic parse/IR, immutable artifacts and append-only lifecycle share LMDB while remaining independent from Cases | Case PolicyBinding, effective materialization, precedence/conflict resolution, policy authority, publisher authentication and retention policy |
 
 The remaining gaps are intentional boundaries of this wave. The
 [Roadmap](../ROADMAP.md) owns their implementation sequence.

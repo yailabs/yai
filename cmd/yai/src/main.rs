@@ -120,6 +120,7 @@ fn print_info() {
     println!("effect_paths: typed filesystem.write with Case-native human review and no product review bypass");
     println!("semantic_context: typed yai.projection.v4 plus yai.context_frame.v4 derived from CaseState, qualified memory, review posture and ResidencyPlan");
     println!("operational_memory: yai.operational_memory.v1 derived, provenance-bound, droppable and rebuildable");
+    println!("governance_intake: immutable yai.policy_source_artifact.v1 plus typed yai.policy_ir.v1 and append-only yai.policy_artifact.v1 lifecycle; no Case binding");
     println!("provider-runtime: provider-specific rendering and real OpenAI-compatible HTTP invocation with typed frame lineage");
     println!("journal_inspection: file-based JSONL v0 compatibility input");
     println!("journal_replay: legacy LMDB compatibility materialization with schema/cursor/report metadata v0");
@@ -278,6 +279,12 @@ fn print_usage() {
     println!("       yai case resume --case <case_ref> [budget overrides]");
     println!("       yai case status --case <case_ref>");
     println!("       yai case stop --case <case_ref>");
+    println!("       yai policy ingest <source.json> --as <operator-ref>");
+    println!("       yai policy inspect <source-id|artifact-id>");
+    println!("       yai policy validate <artifact-id> --as <operator-ref> [--reason <reason>]");
+    println!("       yai policy publish <artifact-id> --as <operator-ref> [--reason <reason>]");
+    println!("       yai policy retire <artifact-id> --as <operator-ref> --reason <reason>");
+    println!("       yai policy list");
     println!("       yai effect filesystem-write --case <case_ref> --subject <provider-participant> --attachment <id> --prompt <text> --base-url <url> --model <model> [--failpoint <name>]");
     println!("       yai effect reconcile --case <case_ref> [--effect <effect-id>] [--retry]");
     println!("       yai effect inspect --case <case_ref> --effect <effect-id>");
@@ -1201,6 +1208,9 @@ use controlled_effect::*;
 mod case_runtime;
 use case_runtime::*;
 
+mod policy;
+use policy::policy_command;
+
 fn decision_outcome(summary: &str) -> String {
     parse_legacy_summary_fields(summary)
         .remove("decision")
@@ -1560,6 +1570,12 @@ fn main() {
         }
         Some("case") if args.get(1).map(String::as_str) == Some("stop") => {
             if let Err(error) = case_runtime_stop(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("policy") => {
+            if let Err(error) = policy_command(&args[1..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }
