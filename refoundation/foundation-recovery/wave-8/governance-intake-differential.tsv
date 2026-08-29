@@ -1,0 +1,16 @@
+property	legacy_strongest	current_before_wave8	wave8_result	verdict
+source formats	restricted Markdown/YAML/JSON	none	one constrained JSON grammar	breadth rejected until consumer
+source identity	path/id strings	none	exact-byte SHA-256 immutable source	stronger
+deterministic parse	yes except generated time	none	fully deterministic typed output	stronger
+fact kinds	12 shallow kinds	none	3 typed current-consumer-adjacent kinds	narrower complete slice
+provenance	source ref + raw line	policy_id string	source digest + fact ID + JSON location	stronger
+normalized IR	candidate buckets	no owner	typed sorted/deduped rules + blockers	stronger narrower
+ambiguity	unresolved warning possible	no representation	blocking unresolved	stronger fail closed
+conflict	conflict hints	no representation	typed blocking conflict	stronger
+candidate lifecycle	mutable files	absent	immutable artifact + append-only events	stronger
+runtime_consumable	candidate flag + registry consumer	absent	derived qualified AND published	stronger boundary
+versioning	month/source strings;mutable current	policy_id string	immutable content/provenance identity + source version	stronger
+persistence	tracked files	LMDB available	independent canonical LMDB governance stream	stronger
+Case independence	candidate files outside workspace	narrow resource policy inside Case	published artifact needs zero Cases	recovered
+Case binding	separate registry/workspace attach	narrow attachment string	not implemented	Wave9
+authority	metadata profiles	narrow current effect evaluator	not emitted	Wave10

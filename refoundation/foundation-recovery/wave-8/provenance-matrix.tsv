@@ -1,0 +1,10 @@
+claim	artifact_path	minimum_refs	proof
+source bytes entered YAI	PolicySourceArtifact	content_digest+source_id	SHA-256 validation
+fact parsed	ParsedPolicyFact	source_id+fact_id+JSON location	artifact validation
+rule normalized	NormalizedPolicyRule	source_id+all fact refs+locations	provenance validation
+IR built	PolicyIr	source_id+IR digest	rebuild deterministic test
+artifact candidate exists	PolicyArtifact	source/parsed/IR digests	immutable ID validation
+artifact lifecycle changed	PolicyLifecycleEvent	artifact+prior/next+actor+reason+integrity	append-only event validation
+P@1 superseded	PolicyLifecycleEvent	related_artifact_id=P@2	version test/CLI characterization
+runtime consumable	PolicyArtifactView	qualified artifact+published lifecycle	derived validation
+source payload missing	PolicyArtifact	source_id+digest+parsed+IR retained	source-loss test;bytes unavailable explicit

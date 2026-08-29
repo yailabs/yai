@@ -1,0 +1,22 @@
+id	case	expected	proof
+H8-05	duplicate top-level key	reject duplicate_json_key	strict_json_rejects test+CLI
+H8-06	duplicate known-rule field	reject duplicate_json_key	strict_json_rejects test+CLI
+H8-07	malformed JSON	reject policy_source_json_invalid	governance intake characterization
+H8-08	future schema	reject unsupported schema	governance tests/characterization
+H8-09	more than 256 KiB	reject before parse	parser limits test
+H8-10	more than 128 rules	reject explicitly	parser limits test
+H8-11	invalid UTF-8	reject explicitly	strict_json test
+H8-12	more than 32 JSON levels	reject depth_exceeded	strict_json test
+H8-13	known rule unknown field	reject strict shape	strict_json test
+H8-14	unknown rule kind	preserve unresolved; block qualification	unsupported rules test
+H8-15	empty/overlong/non-ASCII identifier	reject	identifier bounds tests
+H8-P01	empty input/zero rules	reject	compiler+identifier bounds tests
+H8-P02	UTF-8 BOM	reject explicitly	strict_json test
+H8-P03	valid Unicode reason	accept normalized reason	duplicate evidence test
+H8-P04	empty/overlong reason	reject	identifier bounds test
+H8-P05	duplicate rule_id	block even if semantics equal	parser conflict test
+H8-P06	allow+deny same selector	contradictory_policy_outcome	operation conflict test
+H8-P07	review true+false same selector	contradictory_policy_outcome	review conflict test
+H8-P08	repeated evidence obligation	one normalized rule+all provenance; duplicate ID blocks	parser conflict test
+H8-P09	rule reorder	different exact source ID; same typed rule-id set	ordering test
+H8-P10	file/local absolute origin URI	reject	origin validator contract

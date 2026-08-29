@@ -1,0 +1,12 @@
+prior	action	next	allowed	runtime_consumable	invariant
+none	candidate_registered	candidate	yes	false	atomic with first immutable artifact store
+candidate	validated	validated	yes	false	artifact deterministic validation qualified
+validated	published	published	yes	true	local explicit actor action
+published	superseded	superseded	yes	false	related new artifact retained
+candidate	retired	retired	yes	false	withdraw candidate
+validated	retired	retired	yes	false	withdraw qualified artifact
+published	retired	retired	yes	false	remove future consumability
+superseded	retired	retired	yes	false	terminal retirement
+candidate	published	-	no	false	validation required
+superseded	published	-	no	false	immutable history cannot reactivate
+retired	any	-	no	false	terminal

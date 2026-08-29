@@ -1,0 +1,14 @@
+epoch	paths_or_symbols	executable_property	failure_or_architectural_problem	h8_disposition
+885ddac44	governance/grammar;governance/registry;lib/runtime/session	attachability/runtime_consumable checks reached runtime session metadata	large registry and duplicated manifest truth	recover lifecycle distinction; reject forest
+c3f599890	governance/manifests;governance/schema;lib/runtime/session	governance manifest/runtime spine retained consumability checks	broad planes and documentation-heavy authority	reject ownership/topology
+45c36bd0c	governance/ingestion;deterministic_governance_ingestion.py;tools/bin/yai-govern	source→parsed→normalized→candidate; conflict and review checks; source origin metadata	mutable files; path provenance; no content digest/transactionality	recover deterministic stages/origin only
+575f76fcd	lib/governance/loader/law_loader.c;runtime session;loader tests	canonical-first loader with explicit-only legacy fallback; attach consumer	string-search JSON loader; manifest forest	recover fail-closed cutover property; reject loader
+c5501101f	governance/authority/publication-policy.md;formal law removal	canonical/informative/transitional publication distinction	mostly contract; formal/runtime relationship removed	recover candidate≠published only
+1ebfb8d84	governance/ingestion;validate_governance_ingestion_pipeline.py	neutral samples and source→parsed→normalized ref checks	file refs, no immutable catalog identity	recover provenance continuity
+2eeb8ea22	governance/contracts→docs/reference/protocol	protocol contract relocation	no stronger intake consumer	do not port
+3cb2e94a4	embedded/law;Makefile governance-check	removed embedded-law duplication and implicit fallback	still filesystem-root governance	recover single-owner principle
+a22476726	governance→specs;registry deletion	removed governance root as authority location	large relocation; executable intake no stronger	do not port topology
+526c824bd	container/supervisor;runtime source	later runtime/supervisor consolidation	no stronger source identity/lineage; supervisor overreach	do not port
+7b3c1b7bc	case/evidence;state/records/case;apps/cli	Case metadata enforced runtime_consumable/deprecated blockers	duplicate legacy-owner/state owners	recheck in Wave9; reject duplicate owners
+2a4018147	refoundation/core-spine drain ledgers	physical drain classified old state/ingest owners	closure evidence, not stronger governance behavior	record rejection
+5c1c7b9d	README.md	yai-dev explicitly became concept mine/lab	no canonical product authority	archaeology only

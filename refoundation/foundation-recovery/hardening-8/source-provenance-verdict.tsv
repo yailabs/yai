@@ -1,0 +1,9 @@
+question	verdict	contract	remaining_gap
+bytes identity	recovered	exact UTF-8 SHA-256 source_id	none for retained payload
+origin identity	recovered	v2 source_system+source_uri digest-covered with source	origin authentication
+owner sufficient	no	owner_ref and source origin are distinct	tenant ownership later
+local path persisted	no	CLI prints input path only; artifact rejects file/absolute URI	remote intake API later
+multiple observations	deferred exact	exact duplicate intake is idempotent; no observation event	add only with consumer
+sensitive provenance	bounded	source_system 120 bytes; source_uri 512; controls/file paths rejected	global privacy policy
+source unavailable	explicit degraded	artifact retains digest/origin/facts/IR; no byte replay claim	no product deletion lifecycle
+actor vs owner	distinct	actor_ref affects event only; owner_ref fixes lineage	authenticated Principal/Tenant later

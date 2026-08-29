@@ -1,0 +1,4 @@
+scenario	policy_lineages	artifact_versions	lifecycle_events	total_source_bytes	LMDB_file_bytes	ingest_ms	publish_ms	list_ms	inspect_ms	outcome
+debug_scale_combined	33	40	127	25664	536576	1192	included_in_ingest	251	5	pass; order-of-growth evidence only
+default_max_source_contract	256	256	256	62985252	65175552	not_benchmarked	n/a	not_benchmarked	not_benchmarked	pass at 268435456-byte map
+minimum_map_exhaustion	65	65	65	approximately_15992760	16637952	not_benchmarked	n/a	n/a	n/a	explicit policy_catalog_capacity_exhausted; no partial artifact

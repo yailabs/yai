@@ -1,0 +1,9 @@
+operation	CaseTransition	Decision	ReviewRequest	ExecutionGrant	effect	provider_call	proof
+ingest	0	0	0	0	0	0	canonical summary+source inspection
+validate	0	0	0	0	0	0	canonical summary+lifecycle-only event
+publish	0	0	0	0	0	0	characterization
+retire	0	0	0	0	0	0	store unit tests
+inspect	0	0	0	0	0	0	event count unchanged
+list	0	0	0	0	0	0	event count unchanged
+actor_ref differs from owner_ref	0	0	0	0	0	0	lineage identity unit test
+policy source claims approval	0	0	0	0	0	0	no such fact family/runtime consumer

@@ -220,13 +220,14 @@ workspace-attachment and later topology/drain epochs recovered the useful
 supply-chain properties while rejecting the former governance forest. Current
 YAI now provides:
 
-- bounded `yai.policy_source_input.v1` constrained JSON with exact-byte SHA-256
-  identity and retained immutable `yai.policy_source_artifact.v1`;
+- bounded `yai.policy_source_input.v2` constrained JSON with exact-byte SHA-256
+  identity, declared source-origin provenance and retained immutable
+  `yai.policy_source_artifact.v2` (v1 remains readable);
 - deterministic typed parsing for operation restrictions, review requirements
   and evidence obligations, with source JSON-location provenance;
 - normalized `yai.policy_ir.v1` with deterministic digest, deduplication,
   unresolved semantics and typed conflict blockers;
-- immutable/versioned `yai.policy_artifact.v1` candidates and an append-only
+- immutable/versioned `yai.policy_artifact.v2` candidates and an append-only
   independent governance lifecycle (`candidate → validated → published →
   superseded/retired`) in the existing LMDB environment;
 - `runtime_consumable` only as a derived published-and-qualified disposition;
@@ -238,6 +239,31 @@ YAI now provides:
 The local `--as` actor is lifecycle provenance, not authenticated enterprise
 identity or policy authority. Full source bytes are currently retained under a
 hard bound; global privacy/retention policy remains open.
+
+## Completed hardening — governance artifact foundation
+
+`YAI.FOUNDATION.HARDENING.8` re-ran direct cross-family archaeology and made
+the Wave-8 foundation safe for later Case binding without implementing it:
+
+- policy lineage is exactly `owner_ref + policy_key`, preventing cross-owner
+  supersession while keeping tenant/Principal semantics deferred;
+- one declared version in one lineage can identify only one immutable content;
+  changed bytes fail atomically instead of creating ambiguous `P@version`;
+- duplicate JSON keys, pathological depth, BOM/UTF-8/identifier violations and
+  malformed known rules fail before persistence;
+- `source_system`/`source_uri` are bounded declared provenance distinct from
+  source bytes, local paths, actor identity and authenticated ownership;
+- validation is re-derived from stored IR, lifecycle/supersession refs are
+  integrity checked, and LMDB abort/concurrency tests prove one current
+  publication per lineage;
+- a rebuildable current-lineage index accelerates exact lookup without becoming
+  governance history;
+- the shared LMDB default is now 256 MiB with an explicit 256-source catalog
+  contract and fail-closed capacity exhaustion.
+
+Case PolicyBinding, EffectivePolicy, normative readiness, precedence and
+policy-driven authority remain the next recovery delta; H8 emitted none of
+them.
 
 ## Foundation Recovery sequence
 

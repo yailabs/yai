@@ -23,8 +23,9 @@ use crate::governance::{
     build_lifecycle_event, compile_policy_source, lifecycle_from_events, PolicyArtifact,
     PolicyArtifactView, PolicyCompilation, PolicyIngestOutcome, PolicyLifecycleAction,
     PolicyLifecycleEvent, PolicyLifecycleEventInput, PolicyLifecycleOutcome, PolicyLifecycleState,
-    PolicySourceArtifact, PolicyValidationStatus, POLICY_ARTIFACT_SCHEMA,
-    POLICY_LIFECYCLE_EVENT_SCHEMA, POLICY_SOURCE_ARTIFACT_SCHEMA,
+    PolicyLineage, PolicySourceArtifact, PolicyValidationStatus, POLICY_ARTIFACT_SCHEMA,
+    POLICY_ARTIFACT_SCHEMA_V1, POLICY_LIFECYCLE_EVENT_SCHEMA, POLICY_SOURCE_ARTIFACT_SCHEMA,
+    POLICY_SOURCE_ARTIFACT_SCHEMA_V1,
 };
 use crate::journal::Journal;
 use crate::memory::{
@@ -41,11 +42,14 @@ use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
     RwTransaction, Transaction, WriteFlags,
 };
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const MAP_SIZE: usize = 16 * 1024 * 1024;
+pub const DEFAULT_LMDB_MAP_SIZE: usize = 256 * 1024 * 1024;
+pub const MINIMUM_LMDB_MAP_SIZE: usize = 16 * 1024 * 1024;
+pub const SUPPORTED_POLICY_CATALOG_SOURCES: usize = 256;
 pub const RECORD_SCHEMA: &str = "yai.record.v1";
 pub const GRAPH_RELATION_SCHEMA: &str = "yai.graph_relation.v1";
 pub const GRAPH_RELATION_STORE_NAME: &str = "lmdb_graph_relations_v0";
@@ -119,6 +123,7 @@ pub struct LmdbRecordStore {
     policy_artifacts_by_id: Database,
     policy_lifecycle_events_by_id: Database,
     policy_lifecycle_sequence: Database,
+    policy_current_by_lineage: Database,
     schema_meta: Database,
 }
 
@@ -281,12 +286,21 @@ pub struct ReplayMetadata {
 
 impl LmdbRecordStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, String> {
+        Self::open_with_map_size(path, DEFAULT_LMDB_MAP_SIZE)
+    }
+
+    pub fn open_with_map_size(path: impl AsRef<Path>, map_size: usize) -> Result<Self, String> {
+        if map_size < MINIMUM_LMDB_MAP_SIZE {
+            return Err(format!(
+                "lmdb_map_size_below_supported_minimum: minimum={MINIMUM_LMDB_MAP_SIZE} actual={map_size}"
+            ));
+        }
         let path = path.as_ref();
         fs::create_dir_all(path)
             .map_err(|error| format!("failed to create {}: {error}", path.display()))?;
         let env = Environment::new()
             .set_max_dbs(32)
-            .set_map_size(MAP_SIZE)
+            .set_map_size(map_size)
             .open(path)
             .map_err(|error| format!("failed to open LMDB env {}: {error}", path.display()))?;
         let records_by_id = env
@@ -361,6 +375,9 @@ impl LmdbRecordStore {
         let policy_lifecycle_sequence = env
             .create_db(Some("policy_lifecycle_sequence"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open policy_lifecycle_sequence: {error}"))?;
+        let policy_current_by_lineage = env
+            .create_db(Some("policy_current_by_lineage"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open policy_current_by_lineage: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -387,6 +404,7 @@ impl LmdbRecordStore {
             policy_artifacts_by_id,
             policy_lifecycle_events_by_id,
             policy_lifecycle_sequence,
+            policy_current_by_lineage,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -769,6 +787,21 @@ impl LmdbRecordStore {
             .env
             .begin_rw_txn()
             .map_err(|error| format!("failed to start policy intake transaction: {error}"))?;
+        if let Some(existing) = self.policy_artifact_for_declared_version_txn(
+            &txn,
+            &compilation.artifact.lineage(),
+            &compilation.artifact.artifact_version,
+        )? {
+            if existing.artifact_id != compilation.artifact.artifact_id {
+                return Err(format!(
+                    "policy_version_identity_collision: lineage={} version={} existing={} candidate={}",
+                    compilation.artifact.lineage().identity(),
+                    compilation.artifact.artifact_version,
+                    existing.artifact_id,
+                    compilation.artifact.artifact_id
+                ));
+            }
+        }
         let source_key = policy_source_key(&compilation.source.source_id);
         let source_created = match txn.get(self.policy_sources_by_id, &source_key) {
             Ok(value) => {
@@ -787,7 +820,7 @@ impl LmdbRecordStore {
                     &encoded,
                     WriteFlags::NO_OVERWRITE,
                 )
-                .map_err(|error| format!("failed to store immutable policy source: {error}"))?;
+                .map_err(|error| policy_store_write_error("immutable policy source", error))?;
                 true
             }
             Err(error) => return Err(format!("failed to inspect policy source: {error}")),
@@ -811,7 +844,7 @@ impl LmdbRecordStore {
                     &encoded,
                     WriteFlags::NO_OVERWRITE,
                 )
-                .map_err(|error| format!("failed to store immutable policy artifact: {error}"))?;
+                .map_err(|error| policy_store_write_error("immutable policy artifact", error))?;
                 true
             }
             Err(error) => return Err(format!("failed to inspect policy artifact: {error}")),
@@ -914,6 +947,87 @@ impl LmdbRecordStore {
         self.policy_lifecycle_events_txn(&txn, artifact_id)
     }
 
+    /// Returns the one published artifact for an owner-scoped lineage. The
+    /// index is only an accelerator: missing index state falls back to the
+    /// immutable artifacts and lifecycle history.
+    pub fn current_published_policy(
+        &self,
+        owner_ref: &str,
+        policy_key: &str,
+    ) -> Result<Option<PolicyArtifactView>, String> {
+        let lineage = PolicyLineage::new(owner_ref, policy_key)?;
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start current policy read: {error}"))?;
+        let lineage_key = policy_lineage_key(&lineage);
+        match txn.get(self.policy_current_by_lineage, &lineage_key) {
+            Ok(value) => {
+                let artifact_id = std::str::from_utf8(value)
+                    .map_err(|error| format!("policy_current_index_not_utf8: {error}"))?;
+                let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
+                if view.artifact.lineage() != lineage
+                    || view.lifecycle != PolicyLifecycleState::Published
+                {
+                    return Err("policy_current_index_integrity_mismatch".to_string());
+                }
+                Ok(Some(view))
+            }
+            Err(Error::NotFound) => {
+                let found =
+                    self.published_policy_artifacts_for_lineage_txn(&txn, &lineage, None)?;
+                match found.as_slice() {
+                    [] => Ok(None),
+                    [artifact_id] => self.policy_artifact_view_txn(&txn, artifact_id).map(Some),
+                    _ => Err("policy_lineage_has_multiple_current_artifacts".to_string()),
+                }
+            }
+            Err(error) => Err(format!("failed to read current policy lineage: {error}")),
+        }
+    }
+
+    /// Rebuilds the non-authoritative current-lineage accelerator from the
+    /// immutable artifacts and lifecycle events.
+    pub fn rebuild_policy_current_index(&self) -> Result<usize, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start policy index rebuild: {error}"))?;
+        txn.clear_db(self.policy_current_by_lineage)
+            .map_err(|error| policy_store_write_error("current policy lineage index", error))?;
+        let mut cursor = txn
+            .open_ro_cursor(self.policy_artifacts_by_id)
+            .map_err(|error| format!("failed to open policy artifact cursor: {error}"))?;
+        let mut artifacts = Vec::new();
+        for (_, value) in cursor.iter() {
+            artifacts.push(decode_policy_artifact(value)?);
+        }
+        drop(cursor);
+        let mut current = BTreeMap::<PolicyLineage, String>::new();
+        for artifact in artifacts {
+            if self.policy_lifecycle_state_txn(&txn, &artifact.artifact_id)?
+                == PolicyLifecycleState::Published
+                && current
+                    .insert(artifact.lineage(), artifact.artifact_id.clone())
+                    .is_some()
+            {
+                return Err("policy_lineage_has_multiple_current_artifacts".to_string());
+            }
+        }
+        for (lineage, artifact_id) in &current {
+            txn.put(
+                self.policy_current_by_lineage,
+                &policy_lineage_key(lineage),
+                artifact_id,
+                WriteFlags::NO_OVERWRITE,
+            )
+            .map_err(|error| policy_store_write_error("current policy lineage index", error))?;
+        }
+        txn.commit()
+            .map_err(|error| policy_store_write_error("policy index rebuild", error))?;
+        Ok(current.len())
+    }
+
     pub fn validate_policy_artifact(
         &self,
         artifact_id: &str,
@@ -985,11 +1099,12 @@ impl LmdbRecordStore {
             ));
         }
 
-        let published = self.published_policy_artifacts_for_key_txn(
-            &txn,
-            &artifact.policy_key,
-            Some(artifact_id),
-        )?;
+        let lineage = artifact.lineage();
+        let published =
+            self.published_policy_artifacts_for_lineage_txn(&txn, &lineage, Some(artifact_id))?;
+        if published.len() > 1 {
+            return Err("policy_lineage_has_multiple_current_artifacts".to_string());
+        }
         for previous_id in published {
             self.append_policy_event_txn(
                 &mut txn,
@@ -1012,6 +1127,14 @@ impl LmdbRecordStore {
             actor_ref,
             reason,
         )?;
+        let lineage_key = policy_lineage_key(&lineage);
+        txn.put(
+            self.policy_current_by_lineage,
+            &lineage_key,
+            &artifact_id,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| policy_store_write_error("current policy lineage index", error))?;
         let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
         txn.commit()
             .map_err(|error| format!("failed to commit policy publication: {error}"))?;
@@ -1031,7 +1154,7 @@ impl LmdbRecordStore {
             .env
             .begin_rw_txn()
             .map_err(|error| format!("failed to start policy retirement transaction: {error}"))?;
-        let _artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
         let current = self.policy_lifecycle_state_txn(&txn, artifact_id)?;
         if current == PolicyLifecycleState::Retired {
             let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
@@ -1044,12 +1167,27 @@ impl LmdbRecordStore {
             &mut txn,
             artifact_id,
             PolicyLifecycleAction::Retired,
-            Some(current),
+            Some(current.clone()),
             PolicyLifecycleState::Retired,
             None,
             actor_ref,
             reason,
         )?;
+        if current == PolicyLifecycleState::Published {
+            let lineage_key = policy_lineage_key(&artifact.lineage());
+            match txn.get(self.policy_current_by_lineage, &lineage_key) {
+                Ok(value) if value == artifact_id.as_bytes() => {
+                    txn.del(self.policy_current_by_lineage, &lineage_key, None)
+                        .map_err(|error| {
+                            policy_store_write_error("current policy lineage index", error)
+                        })?;
+                }
+                Ok(_) | Err(Error::NotFound) => {}
+                Err(error) => {
+                    return Err(format!("failed to inspect current policy lineage: {error}"))
+                }
+            }
+        }
         let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
         txn.commit()
             .map_err(|error| format!("failed to commit policy retirement: {error}"))?;
@@ -1081,19 +1219,29 @@ impl LmdbRecordStore {
             .open_ro_cursor(self.policy_lifecycle_sequence)
             .map_err(|error| format!("failed to open policy lifecycle cursor: {error}"))?;
         let mut event_ids = Vec::new();
-        for (_, value) in cursor.iter() {
+        for (key, value) in cursor.iter() {
+            let sequence_key = std::str::from_utf8(key)
+                .map_err(|error| format!("policy_lifecycle_sequence_key_not_utf8: {error}"))?;
+            let sequence = sequence_key
+                .strip_prefix("policy-lifecycle:sequence:")
+                .ok_or_else(|| "policy_lifecycle_sequence_key_invalid".to_string())?
+                .parse::<u64>()
+                .map_err(|error| format!("policy_lifecycle_sequence_key_invalid: {error}"))?;
             let event_id = std::str::from_utf8(value)
                 .map_err(|error| format!("policy_lifecycle_event_id_not_utf8: {error}"))?;
-            event_ids.push(event_id.to_string());
+            event_ids.push((sequence, event_id.to_string()));
         }
         drop(cursor);
         let mut events = Vec::new();
-        for event_id in event_ids {
+        for (sequence, event_id) in event_ids {
             let key = policy_event_key(&event_id);
             let value = txn
                 .get(self.policy_lifecycle_events_by_id, &key)
                 .map_err(|error| format!("policy_lifecycle_sequence_dangling: {error}"))?;
             let event = decode_policy_lifecycle_event(value)?;
+            if event.sequence != sequence || event.event_id != event_id {
+                return Err("policy_lifecycle_sequence_integrity_mismatch".to_string());
+            }
             if artifact_id
                 .map(|expected| event.artifact_id == expected)
                 .unwrap_or(true)
@@ -1136,13 +1284,19 @@ impl LmdbRecordStore {
             lifecycle_events: events,
         };
         view.validate()?;
+        if let Some(replacement_id) = &view.superseded_by {
+            let replacement = self.policy_artifact_txn(txn, replacement_id)?;
+            if replacement.lineage() != view.artifact.lineage() {
+                return Err("policy_supersession_crosses_lineage".to_string());
+            }
+        }
         Ok(view)
     }
 
-    fn published_policy_artifacts_for_key_txn<T: Transaction>(
+    fn published_policy_artifacts_for_lineage_txn<T: Transaction>(
         &self,
         txn: &T,
-        policy_key: &str,
+        lineage: &PolicyLineage,
         exclude: Option<&str>,
     ) -> Result<Vec<String>, String> {
         let mut cursor = txn
@@ -1151,7 +1305,8 @@ impl LmdbRecordStore {
         let mut ids = Vec::new();
         for (_, value) in cursor.iter() {
             let artifact = decode_policy_artifact(value)?;
-            if artifact.policy_key == policy_key
+            if artifact.owner_ref == lineage.owner_ref
+                && artifact.policy_key == lineage.policy_key
                 && exclude.map(|id| id != artifact.artifact_id).unwrap_or(true)
             {
                 ids.push(artifact.artifact_id);
@@ -1168,6 +1323,31 @@ impl LmdbRecordStore {
         }
         published.sort();
         Ok(published)
+    }
+
+    fn policy_artifact_for_declared_version_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        lineage: &PolicyLineage,
+        artifact_version: &str,
+    ) -> Result<Option<PolicyArtifact>, String> {
+        let mut cursor = txn
+            .open_ro_cursor(self.policy_artifacts_by_id)
+            .map_err(|error| format!("failed to open policy artifact cursor: {error}"))?;
+        let mut found = None;
+        for (_, value) in cursor.iter() {
+            let artifact = decode_policy_artifact(value)?;
+            if artifact.owner_ref == lineage.owner_ref
+                && artifact.policy_key == lineage.policy_key
+                && artifact.artifact_version == artifact_version
+            {
+                if found.is_some() {
+                    return Err("policy_version_identity_not_unique_in_store".to_string());
+                }
+                found = Some(artifact);
+            }
+        }
+        Ok(found)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1927,14 +2107,14 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:policy_source_artifact_schema",
             POLICY_SOURCE_ARTIFACT_SCHEMA,
-            &[],
+            &[POLICY_SOURCE_ARTIFACT_SCHEMA_V1],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:policy_artifact_schema",
             POLICY_ARTIFACT_SCHEMA,
-            &[],
+            &[POLICY_ARTIFACT_SCHEMA_V1],
         )?;
         ensure_meta_upgradeable(
             &txn,
@@ -2365,7 +2545,7 @@ impl LmdbRecordStore {
         let mut builder = Environment::new();
         builder
             .set_max_dbs(32)
-            .set_map_size(MAP_SIZE)
+            .set_map_size(DEFAULT_LMDB_MAP_SIZE)
             .set_flags(EnvironmentFlags::READ_ONLY);
         let env = builder.open(path).map_err(|_| ())?;
         let Ok(schema_meta) = env.open_db(Some("schema_meta")) else {
@@ -3329,6 +3509,18 @@ fn policy_artifact_key(artifact_id: &str) -> String {
     format!("policy-artifact:id:{artifact_id}")
 }
 
+fn policy_lineage_key(lineage: &PolicyLineage) -> String {
+    format!("policy-current:lineage:{}", lineage.identity())
+}
+
+fn policy_store_write_error(operation: &str, error: Error) -> String {
+    if error == Error::MapFull {
+        format!("policy_catalog_capacity_exhausted: {operation}")
+    } else {
+        format!("failed to store {operation}: {error}")
+    }
+}
+
 fn policy_event_key(event_id: &str) -> String {
     format!("policy-lifecycle:id:{event_id}")
 }
@@ -3544,6 +3736,9 @@ mod tests {
         ProviderInvocationLineage, ResourceAttachmentState, ResourceKind, ReviewActionKind,
         ReviewRequirement, ReviewResolution, TransitionPayload, TransitionScope, TransitionSource,
     };
+    use std::sync::{Arc, Barrier};
+    use std::thread;
+    use std::time::Instant;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_store_path(name: &str) -> PathBuf {
@@ -3582,11 +3777,29 @@ mod tests {
     }
 
     fn policy_source(version: &str, required: bool) -> Vec<u8> {
+        policy_source_for(
+            "organization:example",
+            "organization.example.filesystem",
+            version,
+            required,
+        )
+    }
+
+    fn policy_source_for(
+        owner_ref: &str,
+        policy_key: &str,
+        version: &str,
+        required: bool,
+    ) -> Vec<u8> {
         serde_json::to_vec(&serde_json::json!({
             "schema": POLICY_SOURCE_INPUT_SCHEMA,
-            "policy_key": "organization.example.filesystem",
+            "policy_key": policy_key,
             "source_version": version,
-            "owner_ref": "organization:example",
+            "owner_ref": owner_ref,
+            "source_origin": {
+                "source_system": "unit-test",
+                "source_uri": format!("test://governance/{owner_ref}/{policy_key}/{version}")
+            },
             "rules": [
                 {
                     "kind": "review_requirement",
@@ -3607,6 +3820,24 @@ mod tests {
             ]
         }))
         .expect("serialize policy source fixture")
+    }
+
+    fn large_policy_source(index: usize) -> Vec<u8> {
+        serde_json::to_vec(&serde_json::json!({
+            "schema": POLICY_SOURCE_INPUT_SCHEMA,
+            "policy_key": format!("capacity.policy.{index}"),
+            "source_version": "1",
+            "owner_ref": "organization:capacity",
+            "source_origin": {
+                "source_system": "capacity-test",
+                "source_uri": format!("test://capacity/{index}")
+            },
+            "rules": [{
+                "kind": "future_bounded_rule",
+                "opaque_payload": "x".repeat(240 * 1024)
+            }]
+        }))
+        .expect("serialize large policy source")
     }
 
     fn commit_typed(
@@ -3771,7 +4002,7 @@ mod tests {
         assert!(!first.view.runtime_consumable);
 
         let duplicate = store
-            .ingest_policy_compilation(&compilation, "participant:policy-admin")
+            .ingest_policy_compilation(&compilation, "participant:second-observer")
             .expect("duplicate intake is idempotent");
         assert!(!duplicate.source_created);
         assert!(!duplicate.artifact_created);
@@ -3889,6 +4120,14 @@ mod tests {
         assert!(!old.runtime_consumable);
         assert_eq!(current.lifecycle, PolicyLifecycleState::Published);
         assert!(current.runtime_consumable);
+        assert!(store
+            .publish_policy_artifact(
+                &v1.artifact.artifact_id,
+                "participant:policy-admin",
+                "attempt supersession cycle"
+            )
+            .unwrap_err()
+            .contains("current=Superseded"));
         drop(store);
 
         let reopened = LmdbRecordStore::open(&path).expect("restart policy store");
@@ -3930,6 +4169,652 @@ mod tests {
     }
 
     #[test]
+    fn policy_lineage_is_owner_scoped_and_declared_versions_are_immutable() {
+        let path = temp_store_path("policy-lineage");
+        let store = LmdbRecordStore::open(&path).expect("open policy lineage store");
+        let key = "production.filesystem";
+        let owner_a = compile_policy_source(&policy_source_for("organization:a", key, "1", true))
+            .expect("compile owner A");
+        let owner_b = compile_policy_source(&policy_source_for("organization:b", key, "1", false))
+            .expect("compile owner B");
+        for artifact in [&owner_a, &owner_b] {
+            store
+                .ingest_policy_compilation(artifact, "participant:local-operator")
+                .expect("ingest independent lineage");
+            store
+                .validate_policy_artifact(
+                    &artifact.artifact.artifact_id,
+                    "participant:local-operator",
+                    "deterministic validation",
+                )
+                .expect("validate independent lineage");
+            store
+                .publish_policy_artifact(
+                    &artifact.artifact.artifact_id,
+                    "participant:local-operator",
+                    "publish independent lineage",
+                )
+                .expect("publish independent lineage");
+        }
+        assert_eq!(
+            store
+                .current_published_policy("organization:a", key)
+                .unwrap()
+                .unwrap()
+                .artifact
+                .artifact_id,
+            owner_a.artifact.artifact_id
+        );
+        assert_eq!(
+            store
+                .current_published_policy("organization:b", key)
+                .unwrap()
+                .unwrap()
+                .artifact
+                .artifact_id,
+            owner_b.artifact.artifact_id
+        );
+        assert_eq!(
+            store
+                .policy_artifact_view(&owner_a.artifact.artifact_id)
+                .unwrap()
+                .unwrap()
+                .lifecycle,
+            PolicyLifecycleState::Published
+        );
+
+        let collision =
+            compile_policy_source(&policy_source_for("organization:a", key, "1", false))
+                .expect("compile changed bytes under declared version");
+        let error = store
+            .ingest_policy_compilation(&collision, "participant:not-the-owner")
+            .unwrap_err();
+        assert!(error.contains("policy_version_identity_collision"));
+        assert!(store
+            .get_policy_source(&collision.source.source_id)
+            .unwrap()
+            .is_none());
+
+        let next = compile_policy_source(&policy_source_for("organization:a", key, "2", false))
+            .expect("compile next immutable version");
+        store
+            .ingest_policy_compilation(&next, "participant:not-the-owner")
+            .expect("actor provenance is not lineage ownership");
+        assert_ne!(owner_a.artifact.artifact_id, next.artifact.artifact_id);
+        assert_eq!(owner_a.artifact.artifact_version, "1");
+        fs::remove_dir_all(path).expect("remove policy lineage store");
+    }
+
+    #[test]
+    fn policy_publication_is_serialized_per_lineage_and_independent_across_lineages() {
+        let path = temp_store_path("policy-publication-concurrency");
+        let store = Arc::new(LmdbRecordStore::open(&path).expect("open concurrent policy store"));
+        let versions = ["1", "2"]
+            .into_iter()
+            .map(|version| {
+                compile_policy_source(&policy_source_for(
+                    "organization:concurrent",
+                    "concurrent.filesystem",
+                    version,
+                    version == "1",
+                ))
+                .expect("compile version")
+            })
+            .collect::<Vec<_>>();
+        for version in &versions {
+            store
+                .ingest_policy_compilation(version, "participant:publisher")
+                .unwrap();
+            store
+                .validate_policy_artifact(
+                    &version.artifact.artifact_id,
+                    "participant:publisher",
+                    "validated",
+                )
+                .unwrap();
+        }
+        let barrier = Arc::new(Barrier::new(3));
+        let mut handles = Vec::new();
+        for version in &versions {
+            let store = Arc::clone(&store);
+            let barrier = Arc::clone(&barrier);
+            let id = version.artifact.artifact_id.clone();
+            handles.push(thread::spawn(move || {
+                barrier.wait();
+                store.publish_policy_artifact(
+                    &id,
+                    "participant:publisher",
+                    "concurrent publication",
+                )
+            }));
+        }
+        barrier.wait();
+        for handle in handles {
+            handle.join().expect("publisher thread").expect("publish");
+        }
+        let views = versions
+            .iter()
+            .map(|version| {
+                store
+                    .policy_artifact_view(&version.artifact.artifact_id)
+                    .unwrap()
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            views
+                .iter()
+                .filter(|view| view.lifecycle == PolicyLifecycleState::Published)
+                .count(),
+            1
+        );
+        assert_eq!(
+            views
+                .iter()
+                .filter(|view| view.lifecycle == PolicyLifecycleState::Superseded)
+                .count(),
+            1
+        );
+        {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            txn.clear_db(store.policy_current_by_lineage).unwrap();
+            txn.commit().unwrap();
+        }
+        assert!(store
+            .current_published_policy("organization:concurrent", "concurrent.filesystem")
+            .unwrap()
+            .is_some());
+        assert_eq!(store.rebuild_policy_current_index().unwrap(), 1);
+        assert!(store
+            .current_published_policy("organization:concurrent", "concurrent.filesystem")
+            .unwrap()
+            .is_some());
+
+        let independent = ["a", "b"]
+            .into_iter()
+            .map(|owner| {
+                compile_policy_source(&policy_source_for(
+                    &format!("organization:{owner}"),
+                    "independent.filesystem",
+                    "1",
+                    true,
+                ))
+                .unwrap()
+            })
+            .collect::<Vec<_>>();
+        for artifact in &independent {
+            store
+                .ingest_policy_compilation(artifact, "participant:publisher")
+                .unwrap();
+            store
+                .validate_policy_artifact(
+                    &artifact.artifact.artifact_id,
+                    "participant:publisher",
+                    "validated",
+                )
+                .unwrap();
+        }
+        let barrier = Arc::new(Barrier::new(3));
+        let mut handles = Vec::new();
+        for artifact in &independent {
+            let store = Arc::clone(&store);
+            let barrier = Arc::clone(&barrier);
+            let id = artifact.artifact.artifact_id.clone();
+            handles.push(thread::spawn(move || {
+                barrier.wait();
+                store.publish_policy_artifact(
+                    &id,
+                    "participant:publisher",
+                    "independent publication",
+                )
+            }));
+        }
+        barrier.wait();
+        for handle in handles {
+            handle.join().unwrap().unwrap();
+        }
+        for owner in ["organization:a", "organization:b"] {
+            assert!(store
+                .current_published_policy(owner, "independent.filesystem")
+                .unwrap()
+                .is_some());
+        }
+        drop(store);
+        fs::remove_dir_all(path).expect("remove concurrent policy store");
+    }
+
+    #[test]
+    fn aborted_policy_transactions_leave_no_partial_lifecycle() {
+        let path = temp_store_path("policy-atomicity");
+        let store = LmdbRecordStore::open(&path).expect("open atomicity store");
+        let candidate = compile_policy_source(&policy_source("1", true)).unwrap();
+        let source_key = policy_source_key(&candidate.source.source_id);
+        let artifact_key = policy_artifact_key(&candidate.artifact.artifact_id);
+        let source_bytes = serde_json::to_vec(&candidate.source).unwrap();
+        let artifact_bytes = serde_json::to_vec(&candidate.artifact).unwrap();
+
+        {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            txn.put(
+                store.policy_sources_by_id,
+                &source_key,
+                &source_bytes,
+                WriteFlags::NO_OVERWRITE,
+            )
+            .unwrap();
+        }
+        assert!(store
+            .get_policy_source(&candidate.source.source_id)
+            .unwrap()
+            .is_none());
+        {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            txn.put(
+                store.policy_sources_by_id,
+                &source_key,
+                &source_bytes,
+                WriteFlags::NO_OVERWRITE,
+            )
+            .unwrap();
+            txn.put(
+                store.policy_artifacts_by_id,
+                &artifact_key,
+                &artifact_bytes,
+                WriteFlags::NO_OVERWRITE,
+            )
+            .unwrap();
+        }
+        assert!(store
+            .get_policy_artifact(&candidate.artifact.artifact_id)
+            .unwrap()
+            .is_none());
+
+        store
+            .ingest_policy_compilation(&candidate, "participant:publisher")
+            .unwrap();
+        {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            store
+                .append_policy_event_txn(
+                    &mut txn,
+                    &candidate.artifact.artifact_id,
+                    PolicyLifecycleAction::Validated,
+                    Some(PolicyLifecycleState::Candidate),
+                    PolicyLifecycleState::Validated,
+                    None,
+                    "participant:publisher",
+                    "abort validation",
+                )
+                .unwrap();
+        }
+        assert_eq!(
+            store
+                .policy_artifact_view(&candidate.artifact.artifact_id)
+                .unwrap()
+                .unwrap()
+                .lifecycle,
+            PolicyLifecycleState::Candidate
+        );
+
+        store
+            .validate_policy_artifact(
+                &candidate.artifact.artifact_id,
+                "participant:publisher",
+                "validated",
+            )
+            .unwrap();
+        store
+            .publish_policy_artifact(
+                &candidate.artifact.artifact_id,
+                "participant:publisher",
+                "published",
+            )
+            .unwrap();
+        let next = compile_policy_source(&policy_source("2", false)).unwrap();
+        store
+            .ingest_policy_compilation(&next, "participant:publisher")
+            .unwrap();
+        store
+            .validate_policy_artifact(
+                &next.artifact.artifact_id,
+                "participant:publisher",
+                "validated",
+            )
+            .unwrap();
+        for include_new_publish in [false, true] {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            store
+                .append_policy_event_txn(
+                    &mut txn,
+                    &candidate.artifact.artifact_id,
+                    PolicyLifecycleAction::Superseded,
+                    Some(PolicyLifecycleState::Published),
+                    PolicyLifecycleState::Superseded,
+                    Some(&next.artifact.artifact_id),
+                    "participant:publisher",
+                    "abort replacement",
+                )
+                .unwrap();
+            if include_new_publish {
+                store
+                    .append_policy_event_txn(
+                        &mut txn,
+                        &next.artifact.artifact_id,
+                        PolicyLifecycleAction::Published,
+                        Some(PolicyLifecycleState::Validated),
+                        PolicyLifecycleState::Published,
+                        None,
+                        "participant:publisher",
+                        "abort new publication",
+                    )
+                    .unwrap();
+            }
+        }
+        assert_eq!(
+            store
+                .policy_artifact_view(&candidate.artifact.artifact_id)
+                .unwrap()
+                .unwrap()
+                .lifecycle,
+            PolicyLifecycleState::Published
+        );
+        assert_eq!(
+            store
+                .policy_artifact_view(&next.artifact.artifact_id)
+                .unwrap()
+                .unwrap()
+                .lifecycle,
+            PolicyLifecycleState::Validated
+        );
+        {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            store
+                .append_policy_event_txn(
+                    &mut txn,
+                    &candidate.artifact.artifact_id,
+                    PolicyLifecycleAction::Retired,
+                    Some(PolicyLifecycleState::Published),
+                    PolicyLifecycleState::Retired,
+                    None,
+                    "participant:publisher",
+                    "abort retirement",
+                )
+                .unwrap();
+        }
+        assert_eq!(
+            store
+                .policy_artifact_view(&candidate.artifact.artifact_id)
+                .unwrap()
+                .unwrap()
+                .lifecycle,
+            PolicyLifecycleState::Published
+        );
+        fs::remove_dir_all(path).expect("remove atomicity store");
+    }
+
+    #[test]
+    fn persisted_policy_corruption_and_future_schemas_fail_closed() {
+        let source_path = temp_store_path("policy-corrupt-source");
+        let source_store = LmdbRecordStore::open(&source_path).unwrap();
+        {
+            let mut txn = source_store.env.begin_rw_txn().unwrap();
+            txn.put(
+                source_store.policy_sources_by_id,
+                &policy_source_key("policy-source:broken"),
+                &b"{".as_slice(),
+                WriteFlags::empty(),
+            )
+            .unwrap();
+            txn.commit().unwrap();
+        }
+        assert!(source_store
+            .get_policy_source("policy-source:broken")
+            .unwrap_err()
+            .contains("decode_failed"));
+        let valid = compile_policy_source(&policy_source("1", true)).unwrap();
+        let mut future_source = valid.source.clone();
+        future_source.schema = "yai.policy_source_artifact.v99".to_string();
+        {
+            let mut txn = source_store.env.begin_rw_txn().unwrap();
+            txn.put(
+                source_store.policy_sources_by_id,
+                &policy_source_key(&future_source.source_id),
+                &serde_json::to_vec(&future_source).unwrap(),
+                WriteFlags::empty(),
+            )
+            .unwrap();
+            txn.commit().unwrap();
+        }
+        assert!(source_store
+            .get_policy_source(&future_source.source_id)
+            .unwrap_err()
+            .contains("unsupported_policy_source_artifact_schema"));
+        drop(source_store);
+        fs::remove_dir_all(source_path).unwrap();
+
+        let artifact_path = temp_store_path("policy-corrupt-artifact");
+        let artifact_store = LmdbRecordStore::open(&artifact_path).unwrap();
+        let compilation = compile_policy_source(&policy_source("1", true)).unwrap();
+        let mut future_artifact = compilation.artifact.clone();
+        future_artifact.schema = "yai.policy_artifact.v99".to_string();
+        {
+            let mut txn = artifact_store.env.begin_rw_txn().unwrap();
+            txn.put(
+                artifact_store.policy_artifacts_by_id,
+                &policy_artifact_key(&future_artifact.artifact_id),
+                &serde_json::to_vec(&future_artifact).unwrap(),
+                WriteFlags::empty(),
+            )
+            .unwrap();
+            txn.commit().unwrap();
+        }
+        assert!(artifact_store
+            .get_policy_artifact(&future_artifact.artifact_id)
+            .unwrap_err()
+            .contains("unsupported_policy_artifact_schema"));
+        let mut corrupted = compilation.artifact.clone();
+        corrupted.policy_ir.ir_digest = format!("sha256:{}", "0".repeat(64));
+        let corrupted_bytes = serde_json::to_vec(&corrupted).unwrap();
+        {
+            let mut txn = artifact_store.env.begin_rw_txn().unwrap();
+            txn.put(
+                artifact_store.policy_artifacts_by_id,
+                &policy_artifact_key(&corrupted.artifact_id),
+                &corrupted_bytes,
+                WriteFlags::empty(),
+            )
+            .unwrap();
+            txn.commit().unwrap();
+        }
+        assert_eq!(
+            artifact_store
+                .get_policy_artifact(&corrupted.artifact_id)
+                .unwrap_err(),
+            "policy_ir_not_reproducible_from_parsed_facts"
+        );
+        drop(artifact_store);
+        fs::remove_dir_all(artifact_path).unwrap();
+
+        let event_path = temp_store_path("policy-corrupt-event");
+        let event_store = LmdbRecordStore::open(&event_path).unwrap();
+        event_store
+            .ingest_policy_compilation(&compilation, "participant:publisher")
+            .unwrap();
+        let event = event_store
+            .list_policy_lifecycle_events(None)
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap();
+        let mut future = event.clone();
+        future.schema = "yai.policy_lifecycle_event.v99".to_string();
+        {
+            let mut txn = event_store.env.begin_rw_txn().unwrap();
+            txn.put(
+                event_store.policy_lifecycle_events_by_id,
+                &policy_event_key(&event.event_id),
+                &serde_json::to_vec(&future).unwrap(),
+                WriteFlags::empty(),
+            )
+            .unwrap();
+            txn.commit().unwrap();
+        }
+        assert!(event_store
+            .list_policy_lifecycle_events(None)
+            .unwrap_err()
+            .contains("unsupported_policy_lifecycle_event_schema"));
+        drop(event_store);
+        fs::remove_dir_all(event_path).unwrap();
+
+        let dangling_path = temp_store_path("policy-dangling-event");
+        let dangling_store = LmdbRecordStore::open(&dangling_path).unwrap();
+        {
+            let mut txn = dangling_store.env.begin_rw_txn().unwrap();
+            txn.put(
+                dangling_store.policy_lifecycle_sequence,
+                &policy_sequence_key(1),
+                &"policy-event:missing",
+                WriteFlags::empty(),
+            )
+            .unwrap();
+            txn.commit().unwrap();
+        }
+        assert!(dangling_store
+            .list_policy_lifecycle_events(None)
+            .unwrap_err()
+            .contains("sequence_dangling"));
+        drop(dangling_store);
+        fs::remove_dir_all(dangling_path).unwrap();
+    }
+
+    #[test]
+    fn policy_catalog_capacity_contract_is_explicit_and_bounded() {
+        let path = temp_store_path("policy-capacity-supported");
+        let store = LmdbRecordStore::open(&path).expect("open default-size catalog");
+        let mut retained_source_bytes = 0usize;
+        for index in 0..SUPPORTED_POLICY_CATALOG_SOURCES {
+            let source = large_policy_source(index);
+            assert!(source.len() <= crate::governance::MAX_POLICY_SOURCE_BYTES);
+            retained_source_bytes += source.len();
+            let compilation = compile_policy_source(&source).expect("compile bounded source");
+            store
+                .ingest_policy_compilation(&compilation, "participant:capacity-test")
+                .expect("supported catalog does not fill default map");
+        }
+        assert_eq!(
+            store.list_policy_artifact_views().unwrap().len(),
+            SUPPORTED_POLICY_CATALOG_SOURCES
+        );
+        let supported_db_bytes = fs::metadata(path.join("data.mdb")).unwrap().len();
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+
+        let constrained_path = temp_store_path("policy-capacity-exhausted");
+        let constrained =
+            LmdbRecordStore::open_with_map_size(&constrained_path, MINIMUM_LMDB_MAP_SIZE)
+                .expect("open minimum-size catalog");
+        let mut capacity_error = None;
+        let mut constrained_artifacts = 0usize;
+        for index in 0..SUPPORTED_POLICY_CATALOG_SOURCES {
+            let compilation = compile_policy_source(&large_policy_source(index)).unwrap();
+            if let Err(error) =
+                constrained.ingest_policy_compilation(&compilation, "participant:capacity-test")
+            {
+                capacity_error = Some(error);
+                break;
+            }
+            constrained_artifacts += 1;
+        }
+        assert!(capacity_error
+            .expect("minimum map eventually reaches explicit capacity")
+            .contains("policy_catalog_capacity_exhausted"));
+        let constrained_db_bytes = fs::metadata(constrained_path.join("data.mdb"))
+            .unwrap()
+            .len();
+        eprintln!(
+            "policy_catalog_capacity: default_map_bytes={DEFAULT_LMDB_MAP_SIZE} sources={} retained_source_bytes={retained_source_bytes} db_bytes={supported_db_bytes} minimum_map_bytes={MINIMUM_LMDB_MAP_SIZE} constrained_artifacts={constrained_artifacts} constrained_db_bytes={constrained_db_bytes}"
+            , SUPPORTED_POLICY_CATALOG_SOURCES
+        );
+        drop(constrained);
+        fs::remove_dir_all(constrained_path).unwrap();
+    }
+
+    #[test]
+    fn policy_catalog_scale_characterization_is_bounded() {
+        let path = temp_store_path("policy-catalog-scale");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let mut artifacts = Vec::new();
+        let mut total_source_bytes = 0usize;
+        for lineage in 0..32 {
+            let source = policy_source_for(
+                "organization:scale",
+                &format!("scale.lineage.{lineage}"),
+                "1",
+                lineage % 2 == 0,
+            );
+            total_source_bytes += source.len();
+            artifacts.push(compile_policy_source(&source).unwrap());
+        }
+        for version in 1..=8 {
+            let source = policy_source_for(
+                "organization:scale",
+                "scale.versioned",
+                &version.to_string(),
+                version % 2 == 0,
+            );
+            total_source_bytes += source.len();
+            artifacts.push(compile_policy_source(&source).unwrap());
+        }
+
+        let ingest_started = Instant::now();
+        for artifact in &artifacts {
+            store
+                .ingest_policy_compilation(artifact, "participant:scale")
+                .unwrap();
+            store
+                .validate_policy_artifact(
+                    &artifact.artifact.artifact_id,
+                    "participant:scale",
+                    "scale validation",
+                )
+                .unwrap();
+            store
+                .publish_policy_artifact(
+                    &artifact.artifact.artifact_id,
+                    "participant:scale",
+                    "scale publication",
+                )
+                .unwrap();
+        }
+        let ingest_ms = ingest_started.elapsed().as_millis();
+        let list_started = Instant::now();
+        let views = store.list_policy_artifact_views().unwrap();
+        let list_ms = list_started.elapsed().as_millis();
+        let inspect_started = Instant::now();
+        let inspected = store
+            .policy_artifact_view(&artifacts[20].artifact.artifact_id)
+            .unwrap()
+            .unwrap();
+        let inspect_ms = inspect_started.elapsed().as_millis();
+        assert_eq!(views.len(), 40);
+        assert_eq!(store.list_policy_lifecycle_events(None).unwrap().len(), 127);
+        assert_eq!(
+            views
+                .iter()
+                .filter(|view| view.lifecycle == PolicyLifecycleState::Published)
+                .count(),
+            33
+        );
+        assert_eq!(inspected.artifact, artifacts[20].artifact);
+        let db_bytes = fs::metadata(path.join("data.mdb")).unwrap().len();
+        eprintln!(
+            "policy_catalog_scale: lineages=33 artifacts=40 events=127 source_bytes={total_source_bytes} db_bytes={db_bytes} ingest_publish_ms={ingest_ms} list_ms={list_ms} inspect_ms={inspect_ms}"
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
     fn blocked_policy_and_source_payload_loss_fail_closed_without_erasing_provenance() {
         let path = temp_store_path("policy-blocked");
         let store = LmdbRecordStore::open(&path).expect("open blocked policy store");
@@ -3938,6 +4823,7 @@ mod tests {
             "policy_key": "organization.example.unresolved",
             "source_version": "1",
             "owner_ref": "organization:example",
+            "source_origin": {"source_system":"unit-test","source_uri":"test://governance/blocked"},
             "rules": [{"kind":"unsupported_future_rule","payload":"opaque"}]
         }))
         .unwrap();

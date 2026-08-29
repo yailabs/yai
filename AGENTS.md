@@ -55,6 +55,13 @@ historical source, recovered property, target owner, and reason for reuse.
 
 No rediscovery without archaeology.
 
+For Foundation Recovery work, `FOUNDATION-RECOVERY-LEDGER.tsv` is navigation,
+never authority. Reinspect `yai-dev` source, history, tests, consumers, and
+adjacent semantic families in every recovery wave, even when a ledger row says
+`refounded_proven`; do not search only the directory named by the current noun.
+Repository evidence wins over the ledger, which must be corrected when they
+conflict. Adjacent-family evidence may reopen any prior recovery verdict.
+
 ## Safe change discipline
 
 - Inspect Git status before editing. Preserve unrelated dirty work and stage

@@ -283,8 +283,8 @@ They are built separately and are not normal product call paths.
 
 [`governance.rs`](../engine/yai-engine/src/governance.rs) owns one source
 compiler, not a governance plane. It accepts only bounded constrained JSON
-under `yai.policy_source_input.v1`. The exact UTF-8 bytes receive a SHA-256
-identity and become an immutable `yai.policy_source_artifact.v1`; no model or
+under `yai.policy_source_input.v2`. The exact UTF-8 bytes receive a SHA-256
+identity and become an immutable `yai.policy_source_artifact.v2`; no model or
 free-form policy interpreter participates.
 
 The compiler emits `yai.parsed_policy.v1` facts for exactly three current
@@ -295,11 +295,14 @@ preserves unknown rule kinds as unresolved, and records contradictory outcomes
 as typed conflicts. Unknown syntax/schema or malformed known rules fail;
 unresolved/conflicted candidates remain inspectable but cannot validate.
 
-`yai.policy_artifact.v1` embeds the parsed and normalized provenance chain and
+`yai.policy_artifact.v2` embeds the parsed and normalized provenance chain,
+including bounded declared `source_system` and `source_uri` origin metadata,
+and
 uses source version plus content/IR digests for immutable identity. The same
 LMDB environment contains four logically separate canonical governance
 databases: immutable sources, immutable artifacts, lifecycle events by ID and
-their append order. This is an independent governance history, not a synthetic
+their append order. A fifth rebuildable index accelerates current-policy lookup
+but is not authority. This is an independent governance history, not a synthetic
 Case ledger and not derived state. Lifecycle is reconstructed from integrity-
 bound events:
 
@@ -307,18 +310,28 @@ bound events:
 candidate → validated → published → superseded | retired
 ```
 
-The artifact bytes never change. Publishing another validated version of the
-same policy key appends `superseded` for the previous publication and
+The shared LMDB map is configurable at open and defaults to 256 MiB (formerly
+16 MiB). The supported H8 catalog contract is 256 retained sources of up to
+256 KiB each plus their artifacts/events in the shared environment; capacity
+exhaustion is explicit and cannot partially commit a governance transaction.
+
+The artifact bytes never change. Policy lineage is exactly `owner_ref +
+policy_key`; a declared version identifies at most one immutable content inside
+that lineage. Publishing another validated version in the same lineage appends
+`superseded` for the previous publication and
 `published` for the new artifact. `runtime_consumable` is true only for a
 qualified artifact whose derived lifecycle is currently `published`; it means
 eligible for future Case binding, not effective or authoritative now.
 
 [`policy.rs`](../cmd/yai/src/policy.rs) provides ingest/inspect/validate/
 publish/retire/list. Reads are pure. Mutating commands record a claimed local
-actor ref for provenance, but Wave 8 does not authenticate that person. Full
+actor ref for provenance, but H8 does not authenticate that person and actor
+identity is not lineage ownership. Full
 bounded source bytes are retained to make compilation reproducible; source
-loss leaves artifact digest/parsed/IR provenance inspectable but the original
-payload unavailable. Global source retention/privacy policy remains open.
+artifact absence or corruption leaves the separately stored artifact's
+digest/parsed/IR and declared origin inspectable, but byte-level recompilation
+then cannot be claimed. There is no product source-deletion lifecycle. Global
+source retention/privacy policy remains open.
 
 No policy authoring operation appends a Case Transition, invokes a provider or
 carrier, creates a Decision/Grant, or modifies filesystem resources. Case

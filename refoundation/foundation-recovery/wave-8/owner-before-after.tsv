@@ -1,0 +1,7 @@
+owner	before_wave8	after_wave8	reason
+engine/yai-engine/src/governance.rs	absent	compiler+typed source/fact/IR/artifact/lifecycle contracts	one coherent supply-chain algorithm/lifecycle
+engine/yai-engine/src/store/lmdb.rs	Transition/CaseState+derived/local metadata DBs	adds 4 logically separate governance DBs and atomic lifecycle writes	existing physical store; independent canonical governance history
+cmd/yai/src/policy.rs	absent	thin ingest/inspect/validate/publish/retire/list CLI	real operator consumer separated from main.rs
+cmd/yai/src/main.rs	1910 lines	1926 lines parse/dispatch only	one module declaration+dispatch+usage/info; no compiler logic
+C sources/headers	150 C/H/Rust source files	152 with two Rust owners	no C semantic duplication/header
+Case Transition/CaseState	v4	unchanged	Wave8 policy authoring is Case-independent

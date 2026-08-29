@@ -1,0 +1,11 @@
+contract	value	consumer_or_invariant
+schema	yai.policy_ir.v1	strict reader
+compiler_version	yai.policy_compiler.v1	rebuild compatibility
+source_id	immutable source ref	provenance
+ir_digest	SHA-256 typed material	artifact identity/integrity
+rules	ordered NormalizedPolicyRule	future materialization input
+rule kinds	operation_restriction;review_requirement;evidence_obligation	current complete slice
+provenance	source_id+fact_refs+JSON locations	audit/rebuild
+unresolved	typed code/kind/location/detail	blocks validation
+conflicts	typed code/selector/fact refs	blocks validation
+normalization	deterministic ordering+equivalent rule merge	rebuild/idempotence

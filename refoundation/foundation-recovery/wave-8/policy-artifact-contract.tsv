@@ -1,0 +1,12 @@
+field	contract	consumer_or_invariant
+schema	yai.policy_artifact.v1	strict persistence reader
+artifact_id	SHA-256 of source/parsed/IR/validation identity	immutable lookup
+policy_key	logical version family	supersession selection
+artifact_version	source-supplied bounded version	historical inspection
+owner_ref	provenance owner	inspection;not authority
+source_id/source_digest	exact input lineage	integrity
+parsed/parsed_digest	full typed facts	inspection/source-loss provenance
+policy_ir/ir_digest	normalized semantic material	future Case binding input
+validation	qualified|blocked + blockers	validation/publication gate
+runtime_consumable	derived view only	future PolicyBinding admission
+Case reference	absent	Wave8 independence invariant

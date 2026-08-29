@@ -120,7 +120,7 @@ fn print_info() {
     println!("effect_paths: typed filesystem.write with Case-native human review and no product review bypass");
     println!("semantic_context: typed yai.projection.v4 plus yai.context_frame.v4 derived from CaseState, qualified memory, review posture and ResidencyPlan");
     println!("operational_memory: yai.operational_memory.v1 derived, provenance-bound, droppable and rebuildable");
-    println!("governance_intake: immutable yai.policy_source_artifact.v1 plus typed yai.policy_ir.v1 and append-only yai.policy_artifact.v1 lifecycle; no Case binding");
+    println!("governance_intake: immutable yai.policy_source_artifact.v2 plus typed yai.policy_ir.v1 and owner-scoped yai.policy_artifact.v2 lifecycle; no Case binding");
     println!("provider-runtime: provider-specific rendering and real OpenAI-compatible HTTP invocation with typed frame lineage");
     println!("journal_inspection: file-based JSONL v0 compatibility input");
     println!("journal_replay: legacy LMDB compatibility materialization with schema/cursor/report metadata v0");

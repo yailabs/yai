@@ -1,0 +1,10 @@
+legacy_property	legacy_evidence	refounded_equivalent	status	stronger_current_property	intentional_rejection
+deterministic RULE parser	45c36bd0c tools/gen/deterministic_governance_ingestion.py	compile_policy_source constrained JSON	refounded_proven	exact bytes/digests/strict known fields	Markdown/YAML breadth
+parsed fact source line	parsed/*.json raw_statement_ref	fact source_id + JSON location	refounded_proven	cryptographic source identity	confidence copied from manifest
+normalized candidates	normalized/*.json	PolicyIr	refounded_proven	deterministic digest + typed conflict/unresolved	large candidate topology metadata
+candidate runtime_consumable	candidate JSON/runtime attach registry	PolicyArtifactView.runtime_consumable	refounded_proven	derived only from qualified+published	candidate-time true flag
+review lifecycle	tools/bin/yai-govern	append-only lifecycle events	refounded_proven	immutable artifact/integrity/global order	mutable review/candidate files
+governance registry	governance/registry/governable-objects.v1.json	none	legacy_structure_rejected	immutable direct IDs/list query	registry without demonstrated promotion consumer
+workspace attach	lib/runtime/session/session_utils_*	none	partially_refounded	future exact PolicyBinding	Wave8 premature binding
+authority/evidence profiles	candidate metadata/manifests	typed IR fact subset	partially_refounded	only current coherent semantics retained	unused taxonomy bulk
+embedded law/overlay/compliance forest	governance tree/manifests	none	legacy_structure_rejected	future owner test per consumer	planes and scaffolding

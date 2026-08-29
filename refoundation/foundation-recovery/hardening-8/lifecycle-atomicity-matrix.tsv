@@ -1,0 +1,15 @@
+id	injected_abort_or_race	expected_observed_state	result
+H8-31	after source put	source absent after txn drop	pass
+H8-32	after source+artifact before CandidateRegistered	both absent after txn drop	pass
+H8-33	after Validated event	artifact remains Candidate	pass
+H8-34a	after old Superseded before new Published	old Published; new Validated	pass
+H8-34b	after both events before commit	old Published; new Validated	pass
+H8-35	after Retired event	artifact remains Published	pass
+H8-36	two same-lineage publisher threads	one Published; one Superseded	pass
+H8-37	two different-lineage publisher threads	both independently Published	pass
+H8-L01	repeated publish	no new event	pass
+H8-L02	repeated retire	no new event	pass
+H8-L03	cross-lineage replacement ref	view validation fails	pass by same-lineage check
+H8-L04	self supersession	lifecycle validation fails	pass
+H8-L05	dangling sequence ref	read fails closed	pass
+H8-L06	future/corrupt event	read fails closed	pass

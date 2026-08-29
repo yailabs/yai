@@ -1,0 +1,9 @@
+commit_epoch	paths_symbols	execution_status	consumer	persistent_state	useful_property	failure_problem	disposition
+45c36bd0c	governance/ingestion;deterministic_governance_ingestion.py	executable_partial	yai-govern+validators	tracked JSON stages	deterministic non-LLM parse and provenance	no digests;generated timestamps;loose schema	recover semantics
+45c36bd0c	tools/bin/yai-govern review_*	executable_partial	operator CLI	mutable review/candidate files	candidate/review/apply lifecycle intent	pre-update apply check bug;unauthenticated;mutable	rewrite
+575f76fcd	lib/runtime/session/utils/session_utils_helpers_events.inc.c	executable_proven	workspace attach	registry+workspace manifest	target/status/review/runtime-consumable fail-closed attach	separate registry not proven from intake candidate	defer to Wave9
+c5501101f	governance loaders/manifests	executable_partial	runtime loaders	files	law/governance convergence	topology change, not compiler strengthening	reject topology
+1ebfb8d84	governance/ingestion examples/tests	executable_partial	validation suite	files	neutral canonical fixtures	only naming/sample cleanup	recover fixture discipline
+2eeb8ea22	protocol/governance contract cutover	characterization_only	build/docs	files	contract path convergence	generated timestamps still drift	reject topology
+3cb2e94a4;a22476726;526c824bd;7b3c1b7bc	embedded/governance/spec topology	contradictory	loaders/build	duplicated trees	embedded-copy removal	repeated plane moves/large forests	reject structure
+2a4018147;5c1c7b9d	src/decision/basis/decision_ingest_governance_drain.c;include/yai/knowledge/ingest/governance.h	scaffold	bridge only	none	acknowledged future decision/policy owner	no executable intake remains	do not port stub

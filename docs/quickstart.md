@@ -61,7 +61,8 @@ Operation through that same carrier. Use only a disposable bound root and read
 [Test cases](test-cases.md) first. The former direct write command is removed.
 
 Governance authoring also needs no Case, provider or carrier. With a constrained
-`yai.policy_source_input.v1` JSON file:
+`yai.policy_source_input.v2` JSON file (including bounded declared
+`source_origin` provenance):
 
 ```sh
 target/debug/yai policy ingest ./policy.json --as participant:policy-admin

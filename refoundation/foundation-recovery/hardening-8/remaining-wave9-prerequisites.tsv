@@ -1,0 +1,11 @@
+prerequisite	H8_available	Wave9_required	must_not_assume
+exact published artifact lookup	owner-scoped current lookup+canonical fallback	consume immutable artifact identity	index is authority
+historical versions	all artifacts/events retained	bind exact version	mutable current policy
+source provenance	digest+origin+fact locations	carry refs into binding/materialization	origin authenticated
+validation	IR-rederived qualification	refuse non-runtime-consumable	published means effective
+lineage	owner_ref+policy_key	define binding owner compatibility	Tenant exists
+multi-artifact conflicts	source-local conflicts only	applicability/precedence/missingness	most-specific-wins
+normative readiness	none	Case posture from materialization	Case existence implies ready
+invalidation	artifact lifecycle inspectable	binding/materialization stale rules	retroactive rewrite of history
+authority	none from authoring	defer to Wave10	PolicyArtifact emits Decision/Grant
+catalog trust	claimed actor/owner only	preserve trust gap	SSO/signature/Principal proven

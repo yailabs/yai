@@ -1,0 +1,7 @@
+scenario	result	writes	ordering_semantics
+same lineage+version+exact bytes	idempotent same source/artifact	no duplicate event	none
+same lineage+version+changed bytes	policy_version_identity_collision	none	none
+same lineage+different version+changed bytes	distinct immutable artifacts	candidate event each	publication order only
+different lineage+same key/version/semantics	independent immutable artifacts	independent lifecycle	none
+publish newer intake event	previous current superseded atomically	one transaction	declared version not compared
+historical P@1 after P@2	P@1 bytes inspectable; lifecycle superseded	no mutation	n/a

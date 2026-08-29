@@ -1,0 +1,10 @@
+finding	baseline_behavior	risk	h8_result	proof
+owner_lineage	publish scan used policy_key only	cross-owner supersession	PolicyLineage(owner_ref,policy_key)	cross-owner unit+HTTP-free CLI characterization
+declared_version	content address allowed two contents at same lineage/version	ambiguous P@version	atomic collision rejection	policy_lineage_is_owner_scoped test
+origin	bytes/owner only	audit cannot distinguish source claim	v2 declared source_system/source_uri	origin integrity and CLI inspect tests
+duplicate_json	serde last-key-wins possible	parser ambiguity	strict recursive duplicate rejection	strict_json test+characterization
+validator	stored status/blocker posture partly trusted	qualification tamper	rebuild IR and exact validation disposition	validator tamper tests
+supersession	append events but lookup crossed owner	lineage corruption	same-lineage target validation and one current invariant	publication concurrency tests
+current_lookup	full scans only	Wave9 lookup cost	rebuildable lineage index with canonical fallback	current lookup+rebuild test
+capacity	16 MiB shared map	credible MapFull at small catalog	configurable 256 MiB default/explicit failure	256-source capacity test
+query_purity	pure in Wave8	regression risk	unchanged event/Case counts	CLI+store tests

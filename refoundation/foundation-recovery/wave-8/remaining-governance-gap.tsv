@@ -1,0 +1,15 @@
+gap	why_not_wave8	target	fail_closed_posture_now
+Case PolicyBinding	separate lifecycle/transition consumer	Wave9	published artifact has no Case effect
+EffectivePolicy materialization	needs multi-source precedence/applicability archaeology	Wave9	no policy evaluation
+normative Case readiness	depends on binding/materialization	Wave9	current narrow resource policy unchanged
+precedence/overlays	no single-source intake need	Wave9	conflicts block publication
+policy-driven authority	needs EffectivePolicy consumer	Wave10	no Decision/Grant emitted
+review eligibility from policy	Wave7 narrow review must be rediffed	Wave10	current bound policy owner only
+evidence obligation enforcement	declaration precedes DecisionBasis consumer	Wave10	Wave8 obligation is non-authoritative IR
+expiry/revoke/invalidation	needs real policy-bound authority	Wave11	artifact retirement only affects future binding eligibility
+cancellation/Case closure	must invalidate recovered authority coherently	Wave11	not implemented
+tenant ownership/isolation	owner_ref is only provenance	Wave12	no enterprise identity claim
+publisher authentication	local CLI provenance only	Wave10/12	no authenticated authority claim
+source privacy/retention	global policy out of scope	future	bounded full bytes; withheld on inspect
+additional source formats	no current consumer	future	unsupported schema fails explicitly
+legacy candidate import	unsafe semantic mismatch	future compatibility only	no silent promotion

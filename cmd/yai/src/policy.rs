@@ -50,6 +50,12 @@ fn print_source(source: &PolicySourceArtifact) {
     println!("policy_key: {}", source.policy_key);
     println!("source_version: {}", source.source_version);
     println!("owner_ref: {}", source.owner_ref);
+    if let Some(origin) = &source.source_origin {
+        println!("source_system: {}", origin.source_system);
+        println!("source_uri: {}", origin.source_uri);
+    } else {
+        println!("source_origin: unavailable_legacy_v1");
+    }
     println!("source_bytes_retained: {}", source.content_utf8.len());
     println!("source_payload_display: withheld_by_default");
 }
@@ -61,6 +67,13 @@ fn print_artifact(view: &PolicyArtifactView) {
     println!("policy_key: {}", artifact.policy_key);
     println!("artifact_version: {}", artifact.artifact_version);
     println!("owner_ref: {}", artifact.owner_ref);
+    println!("policy_lineage_id: {}", artifact.lineage().identity());
+    if let Some(origin) = &artifact.source_origin {
+        println!("source_system: {}", origin.source_system);
+        println!("source_uri: {}", origin.source_uri);
+    } else {
+        println!("source_origin: unavailable_legacy_v1");
+    }
     println!("source_id: {}", artifact.source_id);
     println!("source_digest: {}", artifact.source_digest);
     println!("parsed_schema: {}", artifact.parsed.schema);
@@ -246,8 +259,9 @@ fn policy_list() -> Result<(), String> {
     println!("policy_artifacts: {}", views.len());
     for view in views {
         println!(
-            "policy_artifact: id={} policy_key={} version={} lifecycle={} runtime_consumable={}",
+            "policy_artifact: id={} owner_ref={} policy_key={} version={} lifecycle={} runtime_consumable={}",
             view.artifact.artifact_id,
+            view.artifact.owner_ref,
             view.artifact.policy_key,
             view.artifact.artifact_version,
             state_label(&view.lifecycle),

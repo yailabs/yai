@@ -25,10 +25,14 @@ write_policy() {
   local required="$3"
   cat >"$path" <<JSON
 {
-  "schema": "yai.policy_source_input.v1",
+  "schema": "yai.policy_source_input.v2",
   "policy_key": "organization.example.filesystem",
   "source_version": "$version",
   "owner_ref": "organization:example",
+  "source_origin": {
+    "source_system": "characterization-fixture",
+    "source_uri": "test://governance-intake/version-$version"
+  },
   "rules": [
     {
       "kind": "review_requirement",
@@ -58,7 +62,9 @@ write_policy "$TEST_DIR/sources/v2.json" 2 false
 v1_ingest=$("$YAI_BIN" policy ingest "$TEST_DIR/sources/v1.json" \
   --as participant:policy-admin)
 require_text "$v1_ingest" "policy_ingest: candidate_created"
-require_text "$v1_ingest" "policy_source_schema: yai.policy_source_artifact.v1"
+require_text "$v1_ingest" "policy_source_schema: yai.policy_source_artifact.v2"
+require_text "$v1_ingest" "source_system: characterization-fixture"
+require_text "$v1_ingest" "source_uri: test://governance-intake/version-1"
 require_text "$v1_ingest" "parsed_schema: yai.parsed_policy.v1"
 require_text "$v1_ingest" "policy_ir_schema: yai.policy_ir.v1"
 require_text "$v1_ingest" "lifecycle: candidate"
@@ -127,10 +133,14 @@ require_text "$v1_old" "runtime_consumable: false"
 # malformed and future schemas fail before an artifact exists.
 cat >"$TEST_DIR/sources/unknown.json" <<'JSON'
 {
-  "schema": "yai.policy_source_input.v1",
+  "schema": "yai.policy_source_input.v2",
   "policy_key": "organization.example.unknown",
   "source_version": "1",
   "owner_ref": "organization:example",
+  "source_origin": {
+    "source_system": "characterization-fixture",
+    "source_uri": "test://governance-intake/unknown"
+  },
   "rules": [{"kind": "imagined_rule", "meaning": "must not be guessed"}]
 }
 JSON

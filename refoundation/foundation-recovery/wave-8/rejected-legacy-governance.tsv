@@ -1,0 +1,17 @@
+legacy_item	verdict	reason
+governance directory forest	do_not_port	pipeline stages do not earn separate owners
+governance registry	do_not_port	no demonstrated intake candidate promotion; direct IDs suffice
+compliance plane	do_not_port	no Wave8 executable consumer
+overlay plane	do_not_port	precedence materialization deferred to Wave9
+authority plane	do_not_port	authority evaluation belongs to Wave10
+supervisor/Agent/Workflow	do_not_port	no governance authoring lifecycle requirement
+embedded governance/law copy	do_not_port	duplicate truth/loaders
+mutable candidate/review files	do_not_port	break immutable version history
+month-based generated version	do_not_port	nondeterministic identity
+generated_at in semantic digest	do_not_port	break rebuild equivalence
+confidence hint copied from source	do_not_port	no consumer/invariant
+Markdown/YAML parsers	defer_no_consumer	one complete deterministic JSON grammar is enough
+runtime topology/family taxonomy	do_not_port	metadata without current consumers
+strings-as-schema	do_not_port	typed serde contracts own semantics
+case:__system__	do_not_port	shared governance history has independent lifecycle
+C semantic mirror	do_not_port	Rust owns semantic/control contracts

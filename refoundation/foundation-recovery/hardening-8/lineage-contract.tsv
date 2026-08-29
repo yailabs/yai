@@ -1,0 +1,7 @@
+field	contract	authority_posture	consumer
+owner_ref	declared bounded artifact ownership metadata; not authenticated	lineage component	publication/current lookup
+policy_key	bounded semantic family key	lineage component	publication/current lookup
+lineage_id	deterministic digest of owner_ref+policy_key	derived index identity	LMDB accelerator/operator inspect
+artifact_version	unique declared label inside lineage; no ordering implied	immutable identity constraint	intake collision check
+current_artifact	at most one Published artifact per lineage	derived from lifecycle history	future Wave9 exact lookup
+actor_ref	claimed local lifecycle actor; distinct from owner_ref	provenance only	lifecycle event inspection

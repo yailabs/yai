@@ -1,0 +1,10 @@
+field	contract	consumer_or_invariant	retention
+schema	yai.policy_source_artifact.v1	strict reader compatibility	permanent identity metadata
+source_id	policy-source:<sha256>	immutable lookup/idempotence	permanent
+content_digest	SHA-256 exact bytes	integrity/recompile	permanent
+source_format	constrained_json	parser selection	permanent
+policy_key	bounded stable logical family	version grouping/supersession	permanent
+source_version	bounded caller version	artifact version/history	permanent
+owner_ref	bounded provenance owner	inspection/future catalog	permanent;not authority
+content_utf8	exact bounded bytes	reproducible compiler	currently retained;privacy gap
+limit	256 KiB/128 rules	resource bound	n/a
