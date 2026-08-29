@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 YAI_BIN="$ROOT/target/debug/yai"
+source "$ROOT/tests/characterization/lib/governed_case_policy.sh"
 YAID="$ROOT/build/yaid"
 FIXTURE="$ROOT/tests/fixtures/semantic_continuity_provider.py"
 TEST_DIR="$(mktemp -d /tmp/yai-semantic-continuity.XXXXXX)"
@@ -97,6 +98,8 @@ setup_case provider-switch provider:a model-a "$port_a"
 YAI_HOME="$CASE_HOME" "$YAI_BIN" case attach-filesystem \
   --case case:new12-filesystem --attachment workspace --root "$RESOURCE_ROOT" \
   --allow-prefix allowed --policy-owner subject:policy-pack --max-bytes 256 >/dev/null
+yai_configure_governed_filesystem_case "$YAI_BIN" "$CASE_HOME" \
+  case:new12-filesystem semantic-continuity 1 allow subject:llm-provider >/dev/null
 provider_switch=$(YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" effect filesystem-write \
   --case case:new12-filesystem --subject subject:llm-provider --attachment workspace \
   --prompt "propose a continuity write" \
@@ -145,6 +148,8 @@ setup_case model-switch provider:stable model-a "$port_model"
 YAI_HOME="$CASE_HOME" "$YAI_BIN" case attach-filesystem \
   --case case:new12-filesystem --attachment workspace --root "$RESOURCE_ROOT" \
   --allow-prefix allowed --policy-owner subject:policy-pack --max-bytes 256 >/dev/null
+yai_configure_governed_filesystem_case "$YAI_BIN" "$CASE_HOME" \
+  case:new12-filesystem semantic-continuity-restart 1 allow subject:llm-provider >/dev/null
 model_switch=$(YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" effect filesystem-write \
   --case case:new12-filesystem --subject subject:llm-provider --attachment workspace \
   --prompt "propose a model-switch write" \

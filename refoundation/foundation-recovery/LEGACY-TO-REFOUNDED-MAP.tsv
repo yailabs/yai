@@ -9,4 +9,8 @@ workspace attach	case runtime/session aliases + registry refs	yai.case_policy_bi
 normative readiness	case registry boolean + control bridge gate	derived NormativeStatus	refounded_proven	readiness recomputed from exact bindings/artifacts/materializer	free canonical boolean
 generated effective governance	stated/legald DuckDB views; later resolver	EffectivePolicy v1	refounded_proven	deterministic semantic identity/provenance/rebuild	mutable second truth/default authority injection
 authority/evidence profiles	candidate metadata/manifests	typed IR fact subset	partially_refounded	only current coherent semantics retained	unused taxonomy bulk
+Case-qualified mediation	8daca5604 control/runtime gate	yai.decision_basis.v1 + transition.v6	refounded_proven	exact EffectivePolicy/binding/rule provenance and closed-world result	Supervisor/planes
+authority profile/context	a6b67ee39 string matching	Case Participant roles + policy authority_requirement	refounded_proven	typed operation-scoped all-of eligibility	mutable aliases/substrings
+controlled action admission	controlled_action.c mega-envelope	yai.execution_grant.v2	refounded_proven	transactionally current DecisionBasis/EffectivePolicy + one effect	ambient operator flags/duplicate envelope
+evidence refs	mediation/evidence strings	typed obligation evaluations	refounded_proven	canonical provider/review refs and execution phases	decorative evidence metadata
 embedded law/overlay/compliance forest	governance tree/manifests	none	legacy_structure_rejected	future owner test per consumer	planes and scaffolding

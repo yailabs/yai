@@ -97,6 +97,9 @@ fn print_normative_status(
                 | EffectivePolicyRule::EvidenceObligation { contributions, .. } => {
                     contributions.len()
                 }
+                EffectivePolicyRule::AuthorityRequirement { contributions, .. } => {
+                    contributions.len()
+                }
             })
             .sum::<usize>();
         println!("effective_provenance_contributions: {provenance_count}");

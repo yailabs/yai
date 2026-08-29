@@ -220,14 +220,14 @@ workspace-attachment and later topology/drain epochs recovered the useful
 supply-chain properties while rejecting the former governance forest. Current
 YAI now provides:
 
-- bounded `yai.policy_source_input.v2` constrained JSON with exact-byte SHA-256
+- bounded `yai.policy_source_input.v3` constrained JSON with exact-byte SHA-256
   identity, declared source-origin provenance and retained immutable
-  `yai.policy_source_artifact.v2` (v1 remains readable);
+  `yai.policy_source_artifact.v3` (v1-v2 remain readable);
 - deterministic typed parsing for operation restrictions, review requirements
   and evidence obligations, with source JSON-location provenance;
-- normalized `yai.policy_ir.v1` with deterministic digest, deduplication,
+- normalized `yai.policy_ir.v2` with deterministic digest, deduplication,
   unresolved semantics and typed conflict blockers;
-- immutable/versioned `yai.policy_artifact.v2` candidates and an append-only
+- immutable/versioned `yai.policy_artifact.v3` candidates and an append-only
   independent governance lifecycle (`candidate → validated → published →
   superseded/retired`) in the existing LMDB environment;
 - `runtime_consumable` only as a derived published-and-qualified disposition;
@@ -271,13 +271,13 @@ operational authority.
 qualification property while rejecting mutable profile aliases, generated
 second truths and free readiness booleans. Current YAI now provides:
 
-- canonical `yai.transition.v5` bind/replace/unbind history and compact
-  `yai.case_state.v5` active bindings, each pinned to one exact immutable
+- canonical bind/replace/unbind history (introduced in v5, current
+  `yai.transition.v6`) and compact `yai.case_state.v6` active bindings, each pinned to one exact immutable
   published PolicyArtifact and bind-time publication event;
 - one active binding per owner-scoped policy lineage, explicit atomic
   replacement and no automatic adoption of a newer publication;
-- rebuildable `yai.effective_policy.v1` under
-  `yai.policy_materializer.v1`, with deterministic sorted composition and full
+- rebuildable `yai.effective_policy.v2` under
+  `yai.policy_materializer.v2`, with deterministic sorted composition and full
   contributing provenance;
 - conservative DENY-over-ALLOW, required-review dominance, additive evidence
   obligations, and blocking missing/integrity failures;
@@ -292,9 +292,9 @@ no Decision, review request, Grant, effect or model/provider call.
 The local cancellation-first sequence is superseded. The current provisional
 order is:
 
-1. Wave 10: policy-driven authority, DecisionBasis, obligations, review
-   eligibility and policy-bound Grant.
-2. Wave 11: validity/expiry/refresh/revoke, policy invalidation, historical
+1. Wave 10: complete — policy-driven authority, DecisionBasis, obligations,
+   review eligibility and policy-bound Grant.
+2. Wave 11: next — validity/expiry/refresh/revoke, policy invalidation, historical
    policy replay, durable cancellation and Case closure.
 3. Later waves: tenant/security isolation; multi-Case runtime; shared-resource
    fencing and a second carrier; provider governance; lifecycle/build/data
@@ -304,14 +304,34 @@ The sequence may change only when repository evidence establishes a stronger
 dependency. Every wave is incomplete until its isolated commit is pushed and
 `HEAD == origin/master == ls-remote`.
 
-## Stage 10 — Policy-driven authority
+## Completed boundary — policy-driven authority
 
-The exact next task is `YAI.SOURCE.REFOUNDATION.10 — Policy-Driven Authority
-Resolution, DecisionBasis, Obligations, Review Eligibility, and Policy-Bound
-ExecutionGrant`. It must freshly re-inspect `yai-dev`, consume the exact
-EffectivePolicy without converting it into authority, and mechanically recover
-the distinctions between applicability, authority eligibility, evidence
-obligations, final Decision, human review and operation-specific Grant.
+`YAI.SOURCE.REFOUNDATION.10` freshly re-inspected legacy mediation and recovered
+its fail-closed useful properties without its planes, mutable profiles,
+default-ALLOW or ambient operator booleans. New live filesystem admission now:
+
+- requires derived normative readiness before provider invocation;
+- evaluates a normalized Operation under the exact `yai.effective_policy.v2`
+  through immutable `yai.decision_basis.v1`;
+- denies an applicable DENY or absence of explicit applicable ALLOW;
+- intersects policy with the hard attachment envelope and Case-bound
+  proposer/reviewer all-of roles;
+- gives source-provenance, audit-reason and pre/post observation obligations
+  typed executable meaning;
+- records `yai.decision.v2`, optionally pauses on
+  `yai.review_request.v2`, and issues `yai.execution_grant.v2` only after final
+  ALLOW under the same current policy basis.
+
+Policy change before review or Grant fails closed. Legacy resource policy-owner
+and review fields remain readable but are not active authority in this path.
+
+## Stage 11 — Validity, invalidation and Case closure
+
+The exact next task is `YAI.SOURCE.REFOUNDATION.11`: recover policy
+validity/expiry/refresh/revoke, policy-driven invalidation, historical policy
+replay, durable cancellation and Case closure. It must begin with direct
+cross-family `yai-dev` archaeology and must not reinterpret past Decisions
+under current policy.
 
 ## Explicit non-goals
 
@@ -322,10 +342,8 @@ forest, Workflow, supervisor or embedded-law topology.
 
 ## Exit criteria for the next source task
 
-`YAI.SOURCE.REFOUNDATION.10` is complete only when current typed Operation
-evaluation consumes one exact provenance-bound EffectivePolicy through a typed
-DecisionBasis, obligations and review eligibility remain distinct from
-authority, and only a committed final ALLOW can issue a policy-bound
-operation-specific Grant. It must begin with fresh direct `yai-dev`
-reinspection and end with an isolated published commit; do not implement Wave
-11 validity/revocation/cancellation semantics.
+Wave 11 is complete only when validity change can contract future autonomy
+without rewriting historical basis, pending review/unused Grant invalidation is
+typed and replayable, and cancellation/closure interact correctly with that
+authority lifecycle. It must end with isolated publication; later tenant,
+scheduling and distributed semantics remain out of scope.

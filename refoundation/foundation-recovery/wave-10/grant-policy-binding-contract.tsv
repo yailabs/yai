@@ -1,0 +1,9 @@
+field_or_check	contract
+schema	yai.execution_grant.v2; v1 compatibility reader retained
+causal input	Operation + final Decision v2 + DecisionBasis
+governance binding	EffectivePolicy id/digest + exact binding/artifact refs
+review binding	review action ref required when DecisionBasis used human approval
+effect binding	Case/participant/resource/target/content/generation/idempotency
+evidence	policy execution obligations plus unconditional platform pre/post observations
+issuance revalidation	Ready current materialization must equal basis EffectivePolicy and exact bindings in same LMDB transaction
+stale result	policy_authority_basis_stale; zero committed Grant

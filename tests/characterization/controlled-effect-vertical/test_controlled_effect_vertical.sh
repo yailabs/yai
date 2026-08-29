@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 YAI_BIN="$ROOT/target/debug/yai"
+source "$ROOT/tests/characterization/lib/governed_case_policy.sh"
 YAID="$ROOT/build/yaid"
 FIXTURE="$ROOT/tests/fixtures/controlled_effect_provider.py"
 TEST_DIR="$(mktemp -d /tmp/yai-controlled-effect.XXXXXX)"
@@ -87,6 +88,8 @@ setup_case() {
     --allow-prefix allowed \
     --policy-owner subject:policy-pack \
     --max-bytes "$max_bytes" >/dev/null
+  yai_configure_governed_filesystem_case "$YAI_BIN" "$CASE_HOME" \
+    case:new12-filesystem "controlled-$name" 1 allow subject:llm-provider >/dev/null
 }
 
 run_effect() {

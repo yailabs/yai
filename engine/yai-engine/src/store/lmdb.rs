@@ -17,7 +17,8 @@
 use crate::case_policy::{
     build_case_policy_binding, materialize_effective_policy, EffectivePolicyInput,
     NormativeReadiness, NormativeStatus, PolicyCatalogDrift, CASE_POLICY_BINDING_SCHEMA,
-    EFFECTIVE_POLICY_SCHEMA, POLICY_MATERIALIZER_VERSION,
+    EFFECTIVE_POLICY_SCHEMA, EFFECTIVE_POLICY_SCHEMA_V1, POLICY_MATERIALIZER_VERSION,
+    POLICY_MATERIALIZER_VERSION_V1,
 };
 use crate::compatibility::{
     decode_legacy_record, inspect_legacy_jsonl, LegacyDecodeOutcome, LegacyRecord,
@@ -29,8 +30,9 @@ use crate::governance::{
     PolicyArtifactView, PolicyCompilation, PolicyIngestOutcome, PolicyLifecycleAction,
     PolicyLifecycleEvent, PolicyLifecycleEventInput, PolicyLifecycleOutcome, PolicyLifecycleState,
     PolicyLineage, PolicySourceArtifact, PolicyValidationStatus, POLICY_ARTIFACT_SCHEMA,
-    POLICY_ARTIFACT_SCHEMA_V1, POLICY_LIFECYCLE_EVENT_SCHEMA, POLICY_SOURCE_ARTIFACT_SCHEMA,
-    POLICY_SOURCE_ARTIFACT_SCHEMA_V1,
+    POLICY_ARTIFACT_SCHEMA_V1, POLICY_ARTIFACT_SCHEMA_V2, POLICY_LIFECYCLE_EVENT_SCHEMA,
+    POLICY_SOURCE_ARTIFACT_SCHEMA, POLICY_SOURCE_ARTIFACT_SCHEMA_V1,
+    POLICY_SOURCE_ARTIFACT_SCHEMA_V2,
 };
 use crate::journal::Journal;
 use crate::memory::{
@@ -41,8 +43,9 @@ use crate::record::Record;
 use crate::transition::{
     replay_case, CaseLifecycle, CaseState, PendingTransition, Transition, TransitionPayload,
     TransitionSource, CASE_STATE_SCHEMA, CASE_STATE_SCHEMA_V1, CASE_STATE_SCHEMA_V2,
-    CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1,
-    TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4,
+    CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5, TRANSITION_SCHEMA,
+    TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4,
+    TRANSITION_SCHEMA_V5,
 };
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
@@ -1931,6 +1934,12 @@ impl LmdbRecordStore {
                 pending.expected_generation
             ));
         }
+        self.validate_policy_authority_txn(
+            txn,
+            current_state.as_ref(),
+            &pending.case_id,
+            &pending.payload,
+        )?;
         let sequence = actual_generation + 1;
         let transition = Transition {
             schema: TRANSITION_SCHEMA.to_string(),
@@ -1991,6 +2000,79 @@ impl LmdbRecordStore {
             transition,
             state: next_state,
         })
+    }
+
+    fn validate_policy_authority_txn(
+        &self,
+        txn: &RwTransaction<'_>,
+        current_state: Option<&CaseState>,
+        case_id: &str,
+        payload: &TransitionPayload,
+    ) -> Result<(), String> {
+        let expected = match payload {
+            TransitionPayload::DecisionRecorded { decision }
+                if decision.schema == crate::effect::DECISION_SCHEMA =>
+            {
+                let basis = decision
+                    .decision_basis
+                    .as_ref()
+                    .ok_or_else(|| "policy_decision_basis_missing".to_string())?;
+                Some((
+                    basis.effective_policy_id.as_str(),
+                    basis.effective_policy_digest.as_str(),
+                    basis.policy_binding_refs.as_slice(),
+                ))
+            }
+            TransitionPayload::ExecutionGrantIssued { grant }
+                if grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA =>
+            {
+                Some((
+                    grant.effective_policy_id.as_deref().unwrap_or_default(),
+                    grant.effective_policy_digest.as_deref().unwrap_or_default(),
+                    grant.policy_binding_refs.as_slice(),
+                ))
+            }
+            TransitionPayload::ReviewRequested { review }
+                if review.schema == crate::transition::REVIEW_REQUEST_SCHEMA =>
+            {
+                Some((
+                    review.effective_policy_id.as_str(),
+                    review.effective_policy_digest.as_str(),
+                    review.policy_binding_refs.as_slice(),
+                ))
+            }
+            TransitionPayload::ReviewActionRecorded { action } => current_state
+                .and_then(|state| {
+                    state.reviews.iter().find(|review| {
+                        review.review_id == action.review_id
+                            && review.schema == crate::transition::REVIEW_REQUEST_SCHEMA
+                    })
+                })
+                .map(|review| {
+                    (
+                        review.effective_policy_id.as_str(),
+                        review.effective_policy_digest.as_str(),
+                        review.policy_binding_refs.as_slice(),
+                    )
+                }),
+            _ => None,
+        };
+        let Some((expected_id, expected_digest, expected_bindings)) = expected else {
+            return Ok(());
+        };
+        let status = self.materialize_case_policy_txn(txn, case_id)?;
+        let effective = status
+            .effective_policy
+            .as_ref()
+            .filter(|_| status.readiness == NormativeReadiness::Ready)
+            .ok_or_else(|| "policy_authority_requires_normative_ready".to_string())?;
+        if effective.effective_policy_id != expected_id
+            || effective.semantic_digest != expected_digest
+            || effective.binding_ids != expected_bindings
+        {
+            return Err("policy_authority_basis_stale".to_string());
+        }
+        Ok(())
     }
 
     pub fn get_transition_by_id(&self, transition_id: &str) -> Result<Option<Transition>, String> {
@@ -2526,6 +2608,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V5,
                 TRANSITION_SCHEMA_V4,
                 TRANSITION_SCHEMA_V3,
                 TRANSITION_SCHEMA_V2,
@@ -2538,6 +2621,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                CASE_STATE_SCHEMA_V5,
                 CASE_STATE_SCHEMA_V4,
                 CASE_STATE_SCHEMA_V3,
                 CASE_STATE_SCHEMA_V2,
@@ -2598,14 +2682,17 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:policy_source_artifact_schema",
             POLICY_SOURCE_ARTIFACT_SCHEMA,
-            &[POLICY_SOURCE_ARTIFACT_SCHEMA_V1],
+            &[
+                POLICY_SOURCE_ARTIFACT_SCHEMA_V1,
+                POLICY_SOURCE_ARTIFACT_SCHEMA_V2,
+            ],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:policy_artifact_schema",
             POLICY_ARTIFACT_SCHEMA,
-            &[POLICY_ARTIFACT_SCHEMA_V1],
+            &[POLICY_ARTIFACT_SCHEMA_V1, POLICY_ARTIFACT_SCHEMA_V2],
         )?;
         ensure_meta_upgradeable(
             &txn,
@@ -2626,14 +2713,14 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:effective_policy_schema",
             EFFECTIVE_POLICY_SCHEMA,
-            &[],
+            &[EFFECTIVE_POLICY_SCHEMA_V1],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:policy_materializer_version",
             POLICY_MATERIALIZER_VERSION,
-            &[],
+            &[POLICY_MATERIALIZER_VERSION_V1],
         )?;
         for (key, value) in [
             ("meta:canonical_transition_schema", TRANSITION_SCHEMA),
@@ -3379,26 +3466,76 @@ fn derive_graph_relations_from_transition(
                 &operation.resource_attachment_id,
             );
         }
-        TransitionPayload::DecisionRecorded { decision } => add_transition_relation(
-            &mut relations,
-            skipped,
-            transition,
-            "decision_controls_operation",
-            "decision",
-            &decision.decision_id,
-            "operation",
-            &decision.operation_id,
-        ),
-        TransitionPayload::ExecutionGrantIssued { grant } => add_transition_relation(
-            &mut relations,
-            skipped,
-            transition,
-            "execution_grant_from_decision",
-            "execution_grant",
-            &grant.grant_id,
-            "decision",
-            &grant.decision_id,
-        ),
+        TransitionPayload::DecisionRecorded { decision } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "decision_controls_operation",
+                "decision",
+                &decision.decision_id,
+                "operation",
+                &decision.operation_id,
+            );
+            if let Some(basis) = &decision.decision_basis {
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "decision_uses_basis",
+                    "decision",
+                    &decision.decision_id,
+                    "decision_basis",
+                    &basis.basis_id,
+                );
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "decision_uses_effective_policy",
+                    "decision_basis",
+                    &basis.basis_id,
+                    "effective_policy",
+                    &basis.effective_policy_id,
+                );
+                for artifact_id in &basis.policy_artifact_refs {
+                    add_transition_relation(
+                        &mut relations,
+                        skipped,
+                        transition,
+                        "decision_basis_uses_policy_artifact",
+                        "decision_basis",
+                        &basis.basis_id,
+                        "policy_artifact",
+                        artifact_id,
+                    );
+                }
+            }
+        }
+        TransitionPayload::ExecutionGrantIssued { grant } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "execution_grant_from_decision",
+                "execution_grant",
+                &grant.grant_id,
+                "decision",
+                &grant.decision_id,
+            );
+            if let Some(basis_id) = &grant.decision_basis_id {
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "execution_grant_uses_basis",
+                    "execution_grant",
+                    &grant.grant_id,
+                    "decision_basis",
+                    basis_id,
+                );
+            }
+        }
         TransitionPayload::EffectPrepared { prepared } => add_transition_relation(
             &mut relations,
             skipped,
@@ -3472,6 +3609,18 @@ fn derive_graph_relations_from_transition(
                     "operation",
                     &review.operation_id,
                 );
+                if !review.decision_basis_id.is_empty() {
+                    add_transition_relation(
+                        &mut relations,
+                        skipped,
+                        transition,
+                        "review_request_uses_decision_basis",
+                        "review_request",
+                        &review.review_id,
+                        "decision_basis",
+                        &review.decision_basis_id,
+                    );
+                }
             }
         }
         TransitionPayload::ReviewActionRecorded { action } => {
@@ -4297,14 +4446,15 @@ fn unix_time_ms() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::admission::{evaluate_filesystem_admission, EvidenceContext};
     use crate::context::{RenderedInputMetadata, SemanticContextArtifact, RENDERED_INPUT_SCHEMA};
     use crate::effect::{
         build_effect_receipt, build_filesystem_review_request, classify_reconciliation,
         decide_filesystem_write, execute_filesystem_write, issue_execution_grant,
-        normalize_filesystem_write_candidate, observe_filesystem, prepare_effect,
-        resolve_filesystem_review_decision, validate_finalized_effect_chain, CarrierFailpoint,
-        CarrierResult, EffectOutcome, LocalFilesystemBinding, NormalizationContext,
-        ReconciliationConclusion,
+        issue_policy_execution_grant, normalize_filesystem_write_candidate, observe_filesystem,
+        prepare_effect, resolve_filesystem_review_decision, validate_finalized_effect_chain,
+        CarrierFailpoint, CarrierResult, EffectOutcome, LocalFilesystemBinding,
+        NormalizationContext, ReconciliationConclusion,
     };
     use crate::governance::{
         compile_policy_source, PolicyLifecycleState, PolicyValidationStatus,
@@ -7307,6 +7457,229 @@ mod tests {
             status.blocking_conflicts.len(),
             encoded_size,
             start.elapsed().as_millis()
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
+    fn wave10_policy_mutation_between_decision_and_grant_fails_in_same_transaction() {
+        let path = temp_store_path("wave10-stale-basis");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let case_id = "case:wave10-stale-basis";
+        let proposer = "participant:model";
+        let reviewer = "participant:reviewer";
+        open_policy_case(&store, case_id);
+        commit_typed(
+            &store,
+            "transition:wave10-proposer",
+            case_id,
+            1,
+            TransitionPayload::ParticipantBound {
+                participant_id: proposer.to_string(),
+                role: "operation-proposer".to_string(),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:wave10-reviewer",
+            case_id,
+            2,
+            TransitionPayload::ParticipantBound {
+                participant_id: reviewer.to_string(),
+                role: "operation-reviewer".to_string(),
+            },
+            None,
+            vec![],
+        );
+        let resource = ResourceAttachmentState {
+            attachment_id: "workspace".to_string(),
+            kind: ResourceKind::Filesystem,
+            allowed_write_prefix: "allowed".to_string(),
+            max_write_bytes: 128,
+            policy_id: "policy:legacy-inert".to_string(),
+            policy_owner_participant_id: reviewer.to_string(),
+            review_requirement: ReviewRequirement::Automatic,
+        };
+        commit_typed(
+            &store,
+            "transition:wave10-resource",
+            case_id,
+            3,
+            TransitionPayload::ResourceAttached {
+                attachment: resource.clone(),
+            },
+            None,
+            vec![reviewer.to_string()],
+        );
+        let v1 = publish_compilation(
+            &store,
+            &policy_with_rules("organization:acme", "authority", "1", "allow", false),
+        );
+        let bound = store
+            .bind_case_policy(
+                case_id,
+                &v1.artifact.artifact_id,
+                4,
+                "participant:operator",
+                "bind E1",
+            )
+            .expect("bind E1");
+        commit_typed(
+            &store,
+            "transition:wave10-provider",
+            case_id,
+            5,
+            TransitionPayload::ProviderAttached {
+                participant_id: proposer.to_string(),
+                provider_id: "provider:wave10".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                base_url: "http://127.0.0.1:1".to_string(),
+                model_id: "model:wave10".to_string(),
+                credential_ref: "env:TEST".to_string(),
+            },
+            None,
+            vec![],
+        );
+        let lineage = test_provider_lineage(6);
+        commit_typed(
+            &store,
+            "transition:wave10-invocation",
+            case_id,
+            6,
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: "invocation:wave10".to_string(),
+                participant_id: proposer.to_string(),
+                provider_id: "provider:wave10".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:wave10".to_string(),
+                semantic_lineage: Some(lineage.clone()),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:wave10-result",
+            case_id,
+            7,
+            TransitionPayload::ProviderResultRecorded {
+                result_id: "provider-result:wave10".to_string(),
+                invocation_id: "invocation:wave10".to_string(),
+                provider_id: "provider:wave10".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:wave10".to_string(),
+                semantic_lineage: Some(lineage),
+                output: "policy-bound proposal".to_string(),
+            },
+            None,
+            vec!["invocation:wave10".to_string()],
+        );
+        let operation = normalize_filesystem_write_candidate(
+            r#"{"schema":"yai.operation_proposal.filesystem_write.v1","operation":"filesystem.write","resource":"workspace","path":"allowed/stale.txt","content":"stale"}"#,
+            &NormalizationContext {
+                case_id,
+                participant_id: proposer,
+                provider_result_id: "provider-result:wave10",
+                provider_invocation_id: "invocation:wave10",
+                case_generation: 8,
+                resource: &resource,
+            },
+        )
+        .expect("normalize operation");
+        commit_typed(
+            &store,
+            "transition:wave10-operation",
+            case_id,
+            8,
+            TransitionPayload::OperationRecorded {
+                operation: operation.clone(),
+            },
+            Some(operation.scope.clone()),
+            operation.origin.causal_refs(),
+        );
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let effective = bound.status.effective_policy.expect("E1");
+        let decision = evaluate_filesystem_admission(
+            &operation,
+            &state,
+            &resource,
+            &effective,
+            &EvidenceContext::default(),
+        )
+        .expect("evaluate E1");
+        assert_eq!(decision.outcome, crate::effect::DecisionOutcome::Allow);
+        let basis = decision.decision_basis.as_ref().expect("basis");
+        let decision_commit = commit_typed(
+            &store,
+            "transition:wave10-decision",
+            case_id,
+            9,
+            TransitionPayload::DecisionRecorded {
+                decision: decision.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                basis.basis_id.clone(),
+                basis.effective_policy_id.clone(),
+            ],
+        );
+        let v2 = publish_compilation(
+            &store,
+            &policy_with_rules("organization:acme", "authority", "2", "deny", false),
+        );
+        let prior_binding = decision_commit.state.policy_bindings[0].binding_id.clone();
+        let replaced = store
+            .replace_case_policy(
+                case_id,
+                &prior_binding,
+                &v2.artifact.artifact_id,
+                decision_commit.state.generation,
+                "participant:operator",
+                "replace E1 with E2 before Grant",
+            )
+            .expect("replace with E2");
+        let grant = issue_policy_execution_grant(
+            &operation,
+            &decision,
+            replaced.commit.as_ref().unwrap().state.generation,
+        )
+        .expect("build stale E1 grant");
+        let mut stale_grant = PendingTransition::new(
+            "transition:wave10-stale-grant",
+            case_id,
+            replaced.commit.as_ref().unwrap().state.generation,
+            TransitionSource::component("wave10-test"),
+            TransitionPayload::ExecutionGrantIssued {
+                grant: grant.clone(),
+            },
+        );
+        stale_grant.scope = Some(operation.scope.clone());
+        stale_grant.causal_refs = vec![
+            operation.operation_id.clone(),
+            decision.decision_id.clone(),
+            basis.basis_id.clone(),
+            basis.effective_policy_id.clone(),
+        ];
+        let error = store
+            .commit_transition(stale_grant)
+            .expect_err("E1 Grant must not commit after E2 binding");
+        assert!(error.contains("policy_authority_basis_stale"), "{error}");
+        assert!(store
+            .get_case_state(case_id)
+            .unwrap()
+            .unwrap()
+            .grants
+            .is_empty());
+        assert!(store.verify_case_state(case_id).expect("replay after race"));
+        println!(
+            "wave10_stale_basis: decision_basis={} evaluated_effective_policy={} current_effective_policy={} grant_committed=false error=policy_authority_basis_stale",
+            basis.basis_id,
+            basis.effective_policy_id,
+            replaced.status.effective_policy.unwrap().effective_policy_id,
         );
         drop(store);
         fs::remove_dir_all(path).expect("remove store");

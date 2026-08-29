@@ -61,7 +61,7 @@ Operation through that same carrier. Use only a disposable bound root and read
 [Test cases](test-cases.md) first. The former direct write command is removed.
 
 Governance authoring also needs no Case, provider or carrier. With a constrained
-`yai.policy_source_input.v2` JSON file (including bounded declared
+`yai.policy_source_input.v3` JSON file (including bounded declared
 `source_origin` provenance):
 
 ```sh
@@ -71,9 +71,12 @@ target/debug/yai policy publish <artifact-id> --as participant:policy-admin
 target/debug/yai policy inspect <artifact-id>
 ```
 
-Publication means the immutable qualified artifact is eligible for future Case
-binding; Wave 8 does not bind it to a Case or turn it into authority. Use an
-isolated `YAI_HOME`: these commands append a canonical governance lifecycle.
+Publication makes the immutable qualified artifact eligible for an exact Case
+binding; it is not authority by itself. Use `yai case policy bind` to pin an
+artifact, `yai case bind-participant-role` to record required Case roles, and
+`yai case policy status` to inspect derived readiness. New live governed
+operations require Ready policy with an explicit applicable ALLOW; evaluation
+then records DecisionBasis/Decision and only final ALLOW can issue a Grant.
 
 ## What to read next
 
@@ -92,8 +95,8 @@ YAI has typed LMDB Transition/CaseState authority and one controlled local
 outcome is finalized or reconciled afterward. It has no general carrier or
 policy language, automatic multi-Case recovery service, race-resistant hostile-
 namespace confinement, distributed run admission, authenticated remote human
-identity, Case PolicyBinding, EffectivePolicy or policy-driven authority.
-Typed Projection/ContextFrame, local Case-native review and deterministic
-Case-independent PolicyArtifact intake are implemented. Legacy JSONL/record
+identity, expiry/revoke, or general RBAC/ABAC. Exact Case PolicyBinding,
+EffectivePolicy, policy-driven local-role admission, typed
+Projection/ContextFrame and Case-native review are implemented. Legacy JSONL/record
 paths remain compatibility surfaces. Do not infer production safety from a
 passing smoke suite.

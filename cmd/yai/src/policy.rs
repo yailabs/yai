@@ -31,6 +31,7 @@ fn fact_kind(fact: &ParsedPolicyFact) -> &'static str {
         ParsedPolicyFact::OperationRestriction { .. } => "operation_restriction",
         ParsedPolicyFact::ReviewRequirement { .. } => "review_requirement",
         ParsedPolicyFact::EvidenceObligation { .. } => "evidence_obligation",
+        ParsedPolicyFact::AuthorityRequirement { .. } => "authority_requirement",
     }
 }
 
@@ -39,6 +40,7 @@ fn normalized_kind(rule: &NormalizedPolicyRule) -> &'static str {
         NormalizedPolicyRule::OperationRestriction { .. } => "operation_restriction",
         NormalizedPolicyRule::ReviewRequirement { .. } => "review_requirement",
         NormalizedPolicyRule::EvidenceObligation { .. } => "evidence_obligation",
+        NormalizedPolicyRule::AuthorityRequirement { .. } => "authority_requirement",
     }
 }
 

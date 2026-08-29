@@ -90,12 +90,17 @@ implementation
 - Never include unrelated dirty work in a wave commit.
 - Do not begin the next wave from uncommitted or unpublished architectural
   work.
-- Every completed wave report must record its baseline SHA, final commit SHA,
-  push result, and verification that `origin/master == HEAD`.
+- A versioned wave report records the baseline SHA, intended commit message,
+  implementation/test state, and pre-publication closure state. It must not try
+  to record the SHA of the commit that contains itself. The post-commit final
+  response records the actual final SHA, push result, and equality of `HEAD`,
+  `origin/master`, and the remote branch reference.
 - Every implementation or hardening wave must retain actual executable
   evidence. Reports must identify the exact command, working directory and
   relevant environment, real exit status, a bounded unedited stdout/stderr
-  excerpt, produced identifiers, and the invariant demonstrated. Product
+  excerpt, produced identifiers, and the invariant demonstrated. Each retained
+  block also records a run ID, execution order, and material pre-state; outputs
+  from different runs must not be mixed into one causal proof. Product
   commands and qualification suites are distinct evidence; use both when a
   product surface exists. Never reconstruct, paraphrase as raw output, or
   fabricate a transcript after the fact.

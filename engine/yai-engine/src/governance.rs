@@ -12,17 +12,24 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-pub const POLICY_SOURCE_INPUT_SCHEMA: &str = "yai.policy_source_input.v2";
+pub const POLICY_SOURCE_INPUT_SCHEMA: &str = "yai.policy_source_input.v3";
+pub const POLICY_SOURCE_INPUT_SCHEMA_V2: &str = "yai.policy_source_input.v2";
 pub const POLICY_SOURCE_INPUT_SCHEMA_V1: &str = "yai.policy_source_input.v1";
-pub const POLICY_SOURCE_ARTIFACT_SCHEMA: &str = "yai.policy_source_artifact.v2";
+pub const POLICY_SOURCE_ARTIFACT_SCHEMA: &str = "yai.policy_source_artifact.v3";
+pub const POLICY_SOURCE_ARTIFACT_SCHEMA_V2: &str = "yai.policy_source_artifact.v2";
 pub const POLICY_SOURCE_ARTIFACT_SCHEMA_V1: &str = "yai.policy_source_artifact.v1";
-pub const PARSED_POLICY_SCHEMA: &str = "yai.parsed_policy.v1";
-pub const POLICY_IR_SCHEMA: &str = "yai.policy_ir.v1";
-pub const POLICY_ARTIFACT_SCHEMA: &str = "yai.policy_artifact.v2";
+pub const PARSED_POLICY_SCHEMA: &str = "yai.parsed_policy.v2";
+pub const PARSED_POLICY_SCHEMA_V1: &str = "yai.parsed_policy.v1";
+pub const POLICY_IR_SCHEMA: &str = "yai.policy_ir.v2";
+pub const POLICY_IR_SCHEMA_V1: &str = "yai.policy_ir.v1";
+pub const POLICY_ARTIFACT_SCHEMA: &str = "yai.policy_artifact.v3";
+pub const POLICY_ARTIFACT_SCHEMA_V2: &str = "yai.policy_artifact.v2";
 pub const POLICY_ARTIFACT_SCHEMA_V1: &str = "yai.policy_artifact.v1";
 pub const POLICY_LIFECYCLE_EVENT_SCHEMA: &str = "yai.policy_lifecycle_event.v1";
-pub const POLICY_COMPILER_VERSION: &str = "yai.policy_compiler.v1";
-pub const POLICY_VALIDATOR_VERSION: &str = "yai.policy_validator.v1";
+pub const POLICY_COMPILER_VERSION: &str = "yai.policy_compiler.v2";
+pub const POLICY_COMPILER_VERSION_V1: &str = "yai.policy_compiler.v1";
+pub const POLICY_VALIDATOR_VERSION: &str = "yai.policy_validator.v2";
+pub const POLICY_VALIDATOR_VERSION_V1: &str = "yai.policy_validator.v1";
 pub const MAX_POLICY_SOURCE_BYTES: usize = 256 * 1024;
 pub const MAX_POLICY_RULES: usize = 128;
 pub const MAX_POLICY_JSON_DEPTH: usize = 32;
@@ -103,6 +110,13 @@ pub enum EvidenceObligationKind {
     SourceProvenance,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthoritySubject {
+    Proposer,
+    Reviewer,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ParsedPolicyFact {
@@ -136,6 +150,17 @@ pub enum ParsedPolicyFact {
         source_ref: String,
         source_location: String,
     },
+    AuthorityRequirement {
+        fact_id: String,
+        rule_id: String,
+        operation_kind: String,
+        resource_kind: Option<String>,
+        subject: AuthoritySubject,
+        required_role: String,
+        reason: String,
+        source_ref: String,
+        source_location: String,
+    },
 }
 
 impl ParsedPolicyFact {
@@ -143,7 +168,8 @@ impl ParsedPolicyFact {
         match self {
             Self::OperationRestriction { fact_id, .. }
             | Self::ReviewRequirement { fact_id, .. }
-            | Self::EvidenceObligation { fact_id, .. } => fact_id,
+            | Self::EvidenceObligation { fact_id, .. }
+            | Self::AuthorityRequirement { fact_id, .. } => fact_id,
         }
     }
 
@@ -151,7 +177,8 @@ impl ParsedPolicyFact {
         match self {
             Self::OperationRestriction { rule_id, .. }
             | Self::ReviewRequirement { rule_id, .. }
-            | Self::EvidenceObligation { rule_id, .. } => rule_id,
+            | Self::EvidenceObligation { rule_id, .. }
+            | Self::AuthorityRequirement { rule_id, .. } => rule_id,
         }
     }
 
@@ -165,6 +192,9 @@ impl ParsedPolicyFact {
             }
             | Self::EvidenceObligation {
                 source_location, ..
+            }
+            | Self::AuthorityRequirement {
+                source_location, ..
             } => source_location,
         }
     }
@@ -173,7 +203,8 @@ impl ParsedPolicyFact {
         match self {
             Self::OperationRestriction { source_ref, .. }
             | Self::ReviewRequirement { source_ref, .. }
-            | Self::EvidenceObligation { source_ref, .. } => source_ref,
+            | Self::EvidenceObligation { source_ref, .. }
+            | Self::AuthorityRequirement { source_ref, .. } => source_ref,
         }
     }
 }
@@ -233,6 +264,15 @@ pub enum NormalizedPolicyRule {
         reason: String,
         provenance: PolicyRuleProvenance,
     },
+    AuthorityRequirement {
+        rule_id: String,
+        operation_kind: String,
+        resource_kind: Option<String>,
+        subject: AuthoritySubject,
+        required_role: String,
+        reason: String,
+        provenance: PolicyRuleProvenance,
+    },
 }
 
 impl NormalizedPolicyRule {
@@ -240,7 +280,8 @@ impl NormalizedPolicyRule {
         match self {
             Self::OperationRestriction { rule_id, .. }
             | Self::ReviewRequirement { rule_id, .. }
-            | Self::EvidenceObligation { rule_id, .. } => rule_id,
+            | Self::EvidenceObligation { rule_id, .. }
+            | Self::AuthorityRequirement { rule_id, .. } => rule_id,
         }
     }
 
@@ -248,7 +289,8 @@ impl NormalizedPolicyRule {
         match self {
             Self::OperationRestriction { provenance, .. }
             | Self::ReviewRequirement { provenance, .. }
-            | Self::EvidenceObligation { provenance, .. } => provenance,
+            | Self::EvidenceObligation { provenance, .. }
+            | Self::AuthorityRequirement { provenance, .. } => provenance,
         }
     }
 
@@ -256,7 +298,8 @@ impl NormalizedPolicyRule {
         match self {
             Self::OperationRestriction { provenance, .. }
             | Self::ReviewRequirement { provenance, .. }
-            | Self::EvidenceObligation { provenance, .. } => provenance,
+            | Self::EvidenceObligation { provenance, .. }
+            | Self::AuthorityRequirement { provenance, .. } => provenance,
         }
     }
 }
@@ -477,6 +520,18 @@ struct EvidenceObligationSourceRule {
     reason: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AuthorityRequirementSourceRule {
+    kind: String,
+    rule_id: String,
+    operation_kind: String,
+    resource_kind: Option<String>,
+    subject: AuthoritySubject,
+    required_role: String,
+    reason: String,
+}
+
 #[derive(Serialize)]
 struct ParsedDigestMaterial<'a> {
     schema: &'a str,
@@ -662,6 +717,7 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     let document: PolicySourceDocument = serde_json::from_value(strict_value)
         .map_err(|error| format!("policy_source_json_invalid: {error}"))?;
     if document.schema != POLICY_SOURCE_INPUT_SCHEMA
+        && document.schema != POLICY_SOURCE_INPUT_SCHEMA_V2
         && document.schema != POLICY_SOURCE_INPUT_SCHEMA_V1
     {
         return Err(format!(
@@ -669,7 +725,10 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
             document.schema
         ));
     }
-    if document.schema == POLICY_SOURCE_INPUT_SCHEMA && document.source_origin.is_none() {
+    if (document.schema == POLICY_SOURCE_INPUT_SCHEMA
+        || document.schema == POLICY_SOURCE_INPUT_SCHEMA_V2)
+        && document.source_origin.is_none()
+    {
         return Err("policy_source_origin_required".to_string());
     }
     validate_identifier("policy_key", &document.policy_key, 160)?;
@@ -691,10 +750,10 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     let source_digest = digest_bytes(bytes);
     let source_id = format!("policy-source:{}", digest_suffix(&source_digest));
     let source = PolicySourceArtifact {
-        schema: if document.schema == POLICY_SOURCE_INPUT_SCHEMA {
-            POLICY_SOURCE_ARTIFACT_SCHEMA
-        } else {
-            POLICY_SOURCE_ARTIFACT_SCHEMA_V1
+        schema: match document.schema.as_str() {
+            POLICY_SOURCE_INPUT_SCHEMA => POLICY_SOURCE_ARTIFACT_SCHEMA,
+            POLICY_SOURCE_INPUT_SCHEMA_V2 => POLICY_SOURCE_ARTIFACT_SCHEMA_V2,
+            _ => POLICY_SOURCE_ARTIFACT_SCHEMA_V1,
         }
         .to_string(),
         source_id: source_id.clone(),
@@ -707,17 +766,28 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
         content_utf8,
     };
 
-    let (facts, unresolved) = parse_policy_rules(&source_id, &document.rules)?;
+    let is_v3 = document.schema == POLICY_SOURCE_INPUT_SCHEMA;
+    let parsed_schema = if is_v3 {
+        PARSED_POLICY_SCHEMA
+    } else {
+        PARSED_POLICY_SCHEMA_V1
+    };
+    let compiler_version = if is_v3 {
+        POLICY_COMPILER_VERSION
+    } else {
+        POLICY_COMPILER_VERSION_V1
+    };
+    let (facts, unresolved) = parse_policy_rules(&source_id, &document.rules, is_v3)?;
     let parsed_digest = digest_serialized(&ParsedDigestMaterial {
-        schema: PARSED_POLICY_SCHEMA,
-        compiler_version: POLICY_COMPILER_VERSION,
+        schema: parsed_schema,
+        compiler_version,
         source_id: &source_id,
         facts: &facts,
         unresolved: &unresolved,
     });
     let parsed = ParsedPolicy {
-        schema: PARSED_POLICY_SCHEMA.to_string(),
-        compiler_version: POLICY_COMPILER_VERSION.to_string(),
+        schema: parsed_schema.to_string(),
+        compiler_version: compiler_version.to_string(),
         source_id: source_id.clone(),
         parsed_digest,
         facts,
@@ -725,12 +795,12 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     };
     let policy_ir = normalize_policy(&parsed)?;
     let validation = derive_policy_validation(&policy_ir);
-    let artifact_schema = if document.schema == POLICY_SOURCE_INPUT_SCHEMA {
-        POLICY_ARTIFACT_SCHEMA
-    } else {
-        POLICY_ARTIFACT_SCHEMA_V1
+    let artifact_schema = match document.schema.as_str() {
+        POLICY_SOURCE_INPUT_SCHEMA => POLICY_ARTIFACT_SCHEMA,
+        POLICY_SOURCE_INPUT_SCHEMA_V2 => POLICY_ARTIFACT_SCHEMA_V2,
+        _ => POLICY_ARTIFACT_SCHEMA_V1,
     };
-    let artifact_digest = if artifact_schema == POLICY_ARTIFACT_SCHEMA {
+    let artifact_digest = if artifact_schema != POLICY_ARTIFACT_SCHEMA_V1 {
         digest_serialized(&PolicyArtifactDigestMaterial {
             schema: artifact_schema,
             policy_key: &document.policy_key,
@@ -777,6 +847,7 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
 fn parse_policy_rules(
     source_id: &str,
     rules: &[Value],
+    authority_rules_enabled: bool,
 ) -> Result<(Vec<ParsedPolicyFact>, Vec<UnresolvedPolicyItem>), String> {
     let mut facts = Vec::new();
     let mut unresolved = Vec::new();
@@ -852,6 +923,31 @@ fn parse_policy_rules(
                     operation_kind: rule.operation_kind,
                     resource_kind: rule.resource_kind,
                     obligation: rule.obligation,
+                    reason: normalize_reason(&rule.reason),
+                    source_ref: source_id.to_string(),
+                    source_location: location,
+                });
+            }
+            "authority_requirement" if authority_rules_enabled => {
+                let rule: AuthorityRequirementSourceRule = serde_json::from_value(value.clone())
+                    .map_err(|error| format!("policy_rule_invalid: {location}: {error}"))?;
+                validate_source_rule(
+                    &rule.kind,
+                    &rule.rule_id,
+                    &rule.operation_kind,
+                    rule.resource_kind.as_deref(),
+                    &rule.reason,
+                    &location,
+                )?;
+                validate_identifier("required_role", &rule.required_role, 160)?;
+                let fact_id = fact_identity(source_id, index, value);
+                facts.push(ParsedPolicyFact::AuthorityRequirement {
+                    fact_id,
+                    rule_id: rule.rule_id,
+                    operation_kind: rule.operation_kind,
+                    resource_kind: rule.resource_kind,
+                    subject: rule.subject,
+                    required_role: rule.required_role,
                     reason: normalize_reason(&rule.reason),
                     source_ref: source_id.to_string(),
                     source_location: location,
@@ -936,17 +1032,22 @@ fn normalize_policy(parsed: &ParsedPolicy) -> Result<PolicyIr, String> {
                 serde_json::to_string(right).unwrap_or_default(),
             ))
     });
+    let (ir_schema, compiler_version) = if parsed.compiler_version == POLICY_COMPILER_VERSION {
+        (POLICY_IR_SCHEMA, POLICY_COMPILER_VERSION)
+    } else {
+        (POLICY_IR_SCHEMA_V1, POLICY_COMPILER_VERSION_V1)
+    };
     let ir_digest = digest_serialized(&PolicyIrDigestMaterial {
-        schema: POLICY_IR_SCHEMA,
-        compiler_version: POLICY_COMPILER_VERSION,
+        schema: ir_schema,
+        compiler_version,
         source_id: &parsed.source_id,
         rules: &rules,
         unresolved: &parsed.unresolved,
         conflicts: &conflicts,
     });
     Ok(PolicyIr {
-        schema: POLICY_IR_SCHEMA.to_string(),
-        compiler_version: POLICY_COMPILER_VERSION.to_string(),
+        schema: ir_schema.to_string(),
+        compiler_version: compiler_version.to_string(),
         source_id: parsed.source_id.clone(),
         ir_digest,
         rules,
@@ -962,7 +1063,8 @@ fn normalized_from_fact(
         source_id: match fact {
             ParsedPolicyFact::OperationRestriction { source_ref, .. }
             | ParsedPolicyFact::ReviewRequirement { source_ref, .. }
-            | ParsedPolicyFact::EvidenceObligation { source_ref, .. } => source_ref.clone(),
+            | ParsedPolicyFact::EvidenceObligation { source_ref, .. }
+            | ParsedPolicyFact::AuthorityRequirement { source_ref, .. } => source_ref.clone(),
         },
         fact_refs: vec![fact.fact_id().to_string()],
         source_locations: vec![fact.source_location().to_string()],
@@ -1040,6 +1142,32 @@ fn normalized_from_fact(
                 },
             )
         }
+        ParsedPolicyFact::AuthorityRequirement {
+            rule_id,
+            operation_kind,
+            resource_kind,
+            subject,
+            required_role,
+            reason,
+            ..
+        } => {
+            let selector = selector_key("authority_requirement", operation_kind, resource_kind);
+            let outcome = format!("subject:{subject:?}:role:{required_role}");
+            (
+                format!("{selector}:{outcome}"),
+                format!("{selector}:{outcome}"),
+                outcome,
+                NormalizedPolicyRule::AuthorityRequirement {
+                    rule_id: rule_id.clone(),
+                    operation_kind: operation_kind.clone(),
+                    resource_kind: resource_kind.clone(),
+                    subject: subject.clone(),
+                    required_role: required_role.clone(),
+                    reason: reason.clone(),
+                    provenance,
+                },
+            )
+        }
     };
     Ok(result)
 }
@@ -1092,6 +1220,7 @@ impl PolicyCompilation {
 impl PolicySourceArtifact {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != POLICY_SOURCE_ARTIFACT_SCHEMA
+            && self.schema != POLICY_SOURCE_ARTIFACT_SCHEMA_V2
             && self.schema != POLICY_SOURCE_ARTIFACT_SCHEMA_V1
         {
             return Err(format!(
@@ -1111,7 +1240,11 @@ impl PolicySourceArtifact {
         validate_identifier("owner_ref", &self.owner_ref, 160)?;
         match (&*self.schema, &self.source_origin) {
             (POLICY_SOURCE_ARTIFACT_SCHEMA, Some(origin)) => origin.validate()?,
+            (POLICY_SOURCE_ARTIFACT_SCHEMA_V2, Some(origin)) => origin.validate()?,
             (POLICY_SOURCE_ARTIFACT_SCHEMA, None) => {
+                return Err("policy_source_origin_required".to_string())
+            }
+            (POLICY_SOURCE_ARTIFACT_SCHEMA_V2, None) => {
                 return Err("policy_source_origin_required".to_string())
             }
             (POLICY_SOURCE_ARTIFACT_SCHEMA_V1, Some(_)) => {
@@ -1129,10 +1262,10 @@ impl PolicySourceArtifact {
         let value = parse_strict_json(self.content_utf8.as_bytes())?;
         let document: PolicySourceDocument = serde_json::from_value(value)
             .map_err(|error| format!("stored_policy_source_json_invalid: {error}"))?;
-        let expected_input_schema = if self.schema == POLICY_SOURCE_ARTIFACT_SCHEMA {
-            POLICY_SOURCE_INPUT_SCHEMA
-        } else {
-            POLICY_SOURCE_INPUT_SCHEMA_V1
+        let expected_input_schema = match self.schema.as_str() {
+            POLICY_SOURCE_ARTIFACT_SCHEMA => POLICY_SOURCE_INPUT_SCHEMA,
+            POLICY_SOURCE_ARTIFACT_SCHEMA_V2 => POLICY_SOURCE_INPUT_SCHEMA_V2,
+            _ => POLICY_SOURCE_INPUT_SCHEMA_V1,
         };
         if document.schema != expected_input_schema
             || document.policy_key != self.policy_key
@@ -1151,14 +1284,21 @@ impl PolicySourceArtifact {
         if let Some(origin) = &document.source_origin {
             origin.validate()?;
         }
-        parse_policy_rules(&self.source_id, &document.rules)?;
+        parse_policy_rules(
+            &self.source_id,
+            &document.rules,
+            self.schema == POLICY_SOURCE_ARTIFACT_SCHEMA,
+        )?;
         Ok(())
     }
 }
 
 impl PolicyArtifact {
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != POLICY_ARTIFACT_SCHEMA && self.schema != POLICY_ARTIFACT_SCHEMA_V1 {
+        if self.schema != POLICY_ARTIFACT_SCHEMA
+            && self.schema != POLICY_ARTIFACT_SCHEMA_V2
+            && self.schema != POLICY_ARTIFACT_SCHEMA_V1
+        {
             return Err(format!(
                 "unsupported_policy_artifact_schema: {}",
                 self.schema
@@ -1171,7 +1311,11 @@ impl PolicyArtifact {
         self.lineage().validate()?;
         match (&*self.schema, &self.source_origin) {
             (POLICY_ARTIFACT_SCHEMA, Some(origin)) => origin.validate()?,
+            (POLICY_ARTIFACT_SCHEMA_V2, Some(origin)) => origin.validate()?,
             (POLICY_ARTIFACT_SCHEMA, None) => {
+                return Err("policy_artifact_source_origin_required".to_string())
+            }
+            (POLICY_ARTIFACT_SCHEMA_V2, None) => {
                 return Err("policy_artifact_source_origin_required".to_string())
             }
             (POLICY_ARTIFACT_SCHEMA_V1, Some(_)) => {
@@ -1185,11 +1329,32 @@ impl PolicyArtifact {
         if self.source_id != format!("policy-source:{}", digest_suffix(&self.source_digest)) {
             return Err("policy_artifact_source_identity_mismatch".to_string());
         }
-        if self.parsed.schema != PARSED_POLICY_SCHEMA
-            || self.policy_ir.schema != POLICY_IR_SCHEMA
-            || self.parsed.compiler_version != POLICY_COMPILER_VERSION
-            || self.policy_ir.compiler_version != POLICY_COMPILER_VERSION
-            || self.validation.validator_version != POLICY_VALIDATOR_VERSION
+        let is_v3 = self.schema == POLICY_ARTIFACT_SCHEMA;
+        let expected_parsed = if is_v3 {
+            PARSED_POLICY_SCHEMA
+        } else {
+            PARSED_POLICY_SCHEMA_V1
+        };
+        let expected_ir = if is_v3 {
+            POLICY_IR_SCHEMA
+        } else {
+            POLICY_IR_SCHEMA_V1
+        };
+        let expected_compiler = if is_v3 {
+            POLICY_COMPILER_VERSION
+        } else {
+            POLICY_COMPILER_VERSION_V1
+        };
+        let expected_validator = if is_v3 {
+            POLICY_VALIDATOR_VERSION
+        } else {
+            POLICY_VALIDATOR_VERSION_V1
+        };
+        if self.parsed.schema != expected_parsed
+            || self.policy_ir.schema != expected_ir
+            || self.parsed.compiler_version != expected_compiler
+            || self.policy_ir.compiler_version != expected_compiler
+            || self.validation.validator_version != expected_validator
         {
             return Err("unsupported_policy_compiler_contract".to_string());
         }
@@ -1246,7 +1411,7 @@ impl PolicyArtifact {
                 return Err("policy_rule_provenance_invalid".to_string());
             }
         }
-        let artifact_digest = if self.schema == POLICY_ARTIFACT_SCHEMA {
+        let artifact_digest = if self.schema != POLICY_ARTIFACT_SCHEMA_V1 {
             digest_serialized(&PolicyArtifactDigestMaterial {
                 schema: &self.schema,
                 policy_key: &self.policy_key,
@@ -1336,7 +1501,12 @@ pub fn derive_policy_validation(policy_ir: &PolicyIr) -> PolicyValidation {
             .map(|conflict| format!("conflict:{}:{}", conflict.code, conflict.selector)),
     );
     PolicyValidation {
-        validator_version: POLICY_VALIDATOR_VERSION.to_string(),
+        validator_version: if policy_ir.compiler_version == POLICY_COMPILER_VERSION {
+            POLICY_VALIDATOR_VERSION
+        } else {
+            POLICY_VALIDATOR_VERSION_V1
+        }
+        .to_string(),
         status: if blockers.is_empty() {
             PolicyValidationStatus::Qualified
         } else {
@@ -1994,4 +2164,63 @@ mod tests {
         };
         assert_eq!(ids(&original), ids(&reordered));
     }
+}
+#[test]
+fn v3_authority_requirement_is_typed_provenanced_and_v2_remains_unchanged() {
+    let source = serde_json::to_vec(&serde_json::json!({
+        "schema": POLICY_SOURCE_INPUT_SCHEMA,
+        "policy_key":"authority",
+        "source_version":"1",
+        "owner_ref":"organization:acme",
+        "source_origin":{"source_system":"unit-test","source_uri":"test://authority/1"},
+        "rules":[{
+            "kind":"authority_requirement",
+            "rule_id":"reviewer-role",
+            "operation_kind":"filesystem.write",
+            "resource_kind":"filesystem",
+            "subject":"reviewer",
+            "required_role":"policy-reviewer",
+            "reason":"human approval requires a Case-bound role"
+        }]
+    }))
+    .unwrap();
+    let compilation = compile_policy_source(&source).unwrap();
+    assert_eq!(compilation.artifact.schema, POLICY_ARTIFACT_SCHEMA);
+    assert_eq!(compilation.artifact.parsed.schema, PARSED_POLICY_SCHEMA);
+    assert!(matches!(
+        compilation.artifact.policy_ir.rules.as_slice(),
+        [NormalizedPolicyRule::AuthorityRequirement {
+            subject: AuthoritySubject::Reviewer,
+            required_role,
+            provenance,
+            ..
+        }] if required_role == "policy-reviewer"
+            && provenance.source_id == compilation.source.source_id
+    ));
+
+    let legacy = serde_json::to_vec(&serde_json::json!({
+        "schema": POLICY_SOURCE_INPUT_SCHEMA_V2,
+        "policy_key":"authority",
+        "source_version":"legacy",
+        "owner_ref":"organization:acme",
+        "source_origin":{"source_system":"unit-test","source_uri":"test://authority/legacy"},
+        "rules":[{
+            "kind":"authority_requirement",
+            "rule_id":"reviewer-role",
+            "operation_kind":"filesystem.write",
+            "resource_kind":"filesystem",
+            "subject":"reviewer",
+            "required_role":"policy-reviewer",
+            "reason":"not part of v2 semantics"
+        }]
+    }))
+    .unwrap();
+    let legacy = compile_policy_source(&legacy).unwrap();
+    assert_eq!(legacy.artifact.schema, POLICY_ARTIFACT_SCHEMA_V2);
+    assert_eq!(legacy.artifact.policy_ir.rules.len(), 0);
+    assert_eq!(legacy.artifact.policy_ir.unresolved.len(), 1);
+    assert_eq!(
+        legacy.artifact.validation.status,
+        PolicyValidationStatus::Blocked
+    );
 }

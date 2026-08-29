@@ -6,14 +6,17 @@
 
 use crate::effect::digest_bytes;
 use crate::governance::{
-    EvidenceObligationKind, NormalizedPolicyRule, PolicyArtifact, PolicyEffect, PolicyLineage,
+    AuthoritySubject, EvidenceObligationKind, NormalizedPolicyRule, PolicyArtifact, PolicyEffect,
+    PolicyLineage,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub const CASE_POLICY_BINDING_SCHEMA: &str = "yai.case_policy_binding.v1";
-pub const EFFECTIVE_POLICY_SCHEMA: &str = "yai.effective_policy.v1";
-pub const POLICY_MATERIALIZER_VERSION: &str = "yai.policy_materializer.v1";
+pub const EFFECTIVE_POLICY_SCHEMA: &str = "yai.effective_policy.v2";
+pub const EFFECTIVE_POLICY_SCHEMA_V1: &str = "yai.effective_policy.v1";
+pub const POLICY_MATERIALIZER_VERSION: &str = "yai.policy_materializer.v2";
+pub const POLICY_MATERIALIZER_VERSION_V1: &str = "yai.policy_materializer.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -252,6 +255,14 @@ pub enum EffectivePolicyRule {
         resolution: String,
         contributions: Vec<EffectiveRuleProvenance>,
     },
+    AuthorityRequirement {
+        operation_kind: String,
+        resource_kind: Option<String>,
+        subject: AuthoritySubject,
+        required_roles: Vec<String>,
+        resolution: String,
+        contributions: Vec<EffectiveRuleProvenance>,
+    },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -370,9 +381,18 @@ pub fn materialize_effective_policy(
         obligation: Option<EvidenceObligationKind>,
         contributions: Vec<EffectiveRuleProvenance>,
     }
+    #[derive(Default)]
+    struct AuthorityGroup {
+        operation: String,
+        resource: Option<String>,
+        subject: Option<AuthoritySubject>,
+        roles: BTreeSet<String>,
+        contributions: Vec<EffectiveRuleProvenance>,
+    }
     let mut operations = BTreeMap::<String, OpGroup>::new();
     let mut reviews = BTreeMap::<String, ReviewGroup>::new();
     let mut evidence = BTreeMap::<String, EvidenceGroup>::new();
+    let mut authority = BTreeMap::<String, AuthorityGroup>::new();
     let mut input_rule_count = 0usize;
     for input in &inputs {
         for rule in &input.artifact.policy_ir.rules {
@@ -422,6 +442,27 @@ pub fn materialize_effective_policy(
                     group.operation = operation_kind.clone();
                     group.resource = resource_kind.clone();
                     group.obligation = Some(obligation.clone());
+                    group.contributions.push(provenance);
+                }
+                NormalizedPolicyRule::AuthorityRequirement {
+                    operation_kind,
+                    resource_kind,
+                    subject,
+                    required_role,
+                    ..
+                } => {
+                    let subject_key = format!("{subject:?}");
+                    let key = selector(
+                        "authority",
+                        operation_kind,
+                        resource_kind,
+                        Some(&subject_key),
+                    );
+                    let group = authority.entry(key).or_default();
+                    group.operation = operation_kind.clone();
+                    group.resource = resource_kind.clone();
+                    group.subject = Some(subject.clone());
+                    group.roles.insert(required_role.clone());
                     group.contributions.push(provenance);
                 }
             }
@@ -479,6 +520,18 @@ pub fn materialize_effective_policy(
             resource_kind: group.resource,
             obligation: group.obligation.expect("group populated from a rule"),
             resolution: "obligation_set_union_with_provenance".to_string(),
+            contributions: group.contributions,
+        });
+    }
+    for (_, mut group) in authority {
+        sort_contributions(&mut group.contributions);
+        rules.push(EffectivePolicyRule::AuthorityRequirement {
+            operation_kind: group.operation,
+            resource_kind: group.resource,
+            subject: group.subject.expect("group populated from a rule"),
+            required_roles: group.roles.into_iter().collect(),
+            resolution: "required_roles_compose_all_of_under_yai.policy_materializer.v2"
+                .to_string(),
             contributions: group.contributions,
         });
     }

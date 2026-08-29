@@ -5,7 +5,9 @@
 //! Decision; it never invokes a carrier or performs an external effect.
 
 use super::*;
-use yai_core_engine::effect::{resolve_filesystem_review_decision, DecisionOutcome, Operation};
+use yai_core_engine::admission::{resolve_policy_review_decision, reviewer_is_eligible};
+use yai_core_engine::case_policy::NormativeReadiness;
+use yai_core_engine::effect::{DecisionOutcome, Operation};
 use yai_core_engine::transition::{
     build_review_action, CaseLifecycle, ReviewAction, ReviewActionKind, ReviewResolution,
     ReviewState, Transition, REVIEW_REQUEST_SCHEMA,
@@ -134,7 +136,16 @@ fn print_review(review: &ReviewState, case_id: &str) {
         "requesting_participant: {}",
         review.requested_by_participant
     );
-    println!("eligible_reviewer: {}", review.reviewer_participant);
+    if review.schema == REVIEW_REQUEST_SCHEMA {
+        println!(
+            "required_reviewer_roles: {}",
+            review.required_reviewer_roles.join(",")
+        );
+        println!("decision_basis_id: {}", review.decision_basis_id);
+        println!("effective_policy_id: {}", review.effective_policy_id);
+    } else {
+        println!("eligible_reviewer: {}", review.reviewer_participant);
+    }
     println!(
         "resource_attachment_id: {}",
         if review.resource_attachment_id.is_empty() {
@@ -226,18 +237,47 @@ fn commit_effective_decision(
     let state = store
         .get_case_state(case_id)?
         .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let source_participant = decision
+        .decision_basis
+        .as_ref()
+        .map(|basis| basis.proposer_participant_id.as_str())
+        .or_else(|| {
+            decision
+                .source
+                .as_ref()
+                .map(|source| source.owner_participant_id.as_str())
+        });
     let mut pending = PendingTransition::new(
         format!("transition:review-decision:{}", decision.decision_id),
         case_id,
         state.generation,
-        review_source(&decision.source.owner_participant_id, &decision.decision_id),
+        TransitionSource {
+            component: "yai.review".to_string(),
+            participant_id: source_participant.map(str::to_string),
+            source_ref: Some(decision.decision_id.clone()),
+        },
         TransitionPayload::DecisionRecorded {
             decision: decision.clone(),
         },
     );
-    pending.causal_refs = std::iter::once(decision.operation_id.clone())
-        .chain(decision.basis_refs.iter().cloned())
-        .collect();
+    pending.causal_refs = vec![decision.operation_id.clone()];
+    if let Some(basis) = &decision.decision_basis {
+        pending.causal_refs.push(basis.basis_id.clone());
+        pending.causal_refs.push(basis.effective_policy_id.clone());
+        pending
+            .causal_refs
+            .extend(basis.policy_binding_refs.iter().cloned());
+        pending
+            .causal_refs
+            .extend(basis.policy_artifact_refs.iter().cloned());
+        if let Some(action) = &basis.review_action_ref {
+            pending.causal_refs.push(action.clone());
+        }
+    } else {
+        pending
+            .causal_refs
+            .extend(decision.basis_refs.iter().cloned());
+    }
     store.commit_transition(pending).map(|commit| commit.state)
 }
 
@@ -260,13 +300,19 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
     if review.schema != REVIEW_REQUEST_SCHEMA {
         return Err("legacy_review_is_compatibility_only".to_string());
     }
-    if review.reviewer_participant != reviewer
-        || !state
-            .participants
-            .iter()
-            .any(|participant| participant.participant_id == reviewer)
-    {
+    if !reviewer_is_eligible(&state, &review, &reviewer) {
         return Err("reviewer_not_eligible_for_case_review".to_string());
+    }
+    let normative = store.case_policy_status(&case_id)?;
+    let effective_policy = normative
+        .effective_policy
+        .as_ref()
+        .filter(|_| normative.readiness == NormativeReadiness::Ready)
+        .ok_or_else(|| "review_policy_basis_stale".to_string())?;
+    if review.effective_policy_id != effective_policy.effective_policy_id
+        || review.effective_policy_digest != effective_policy.semantic_digest
+    {
+        return Err("review_policy_basis_stale".to_string());
     }
     let transitions = store.list_case_transitions(&case_id)?;
     if !review_is_open(&review.status) {
@@ -325,12 +371,19 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
             .iter()
             .find(|resource| resource.attachment_id == current_review.resource_attachment_id)
             .ok_or_else(|| "review_resource_binding_missing".to_string())?;
-        let effective = resolve_filesystem_review_decision(
+        let current_normative = store.case_policy_status(&case_id)?;
+        let current_effective = current_normative
+            .effective_policy
+            .as_ref()
+            .filter(|_| current_normative.readiness == NormativeReadiness::Ready)
+            .ok_or_else(|| "review_policy_basis_stale".to_string())?;
+        let effective = resolve_policy_review_decision(
             &operation,
+            &state_after_action,
             resource,
+            current_effective,
             &current_review,
             &action,
-            state_after_action.generation,
         )?;
         let state_after_decision = commit_effective_decision(&store, &case_id, &effective)?;
         effective_decision_id = Some(effective.decision_id.clone());

@@ -72,10 +72,10 @@ mean constitutional, general, or production-ready.
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
 | Case-bound provider prompt | admitted participant + typed CaseState/history → qualified `yai.operational_memory.v1` retrieval → `yai.residency_plan.v1` → `yai.projection.v4` → `yai.context_frame.v4` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | HTTP is local/plain and non-streaming; ranking/residency are typed and deterministic; no learned compression or authoritative tokenizer |
-| Agentless Case runtime | disposable bounded runner reloads CaseState → reconciles effects/review → repairs memory → retrieves/plans residency → invokes provider → normalizes/decides/effects → repeats from new canonical reality; typed `AWAITING_REVIEW`, provider/model replacement, crash recovery, and one transactionally admitted runner per Case are executable | one synchronous single-host `filesystem.write` loop; no background scheduler or distributed lease |
-| Controlled filesystem effect | typed logical attachment + local binding → real HTTP ProviderResult → exact proposal normalization → typed Operation/Decision/ExecutionGrant → durable PREPARE → Rust atomic-replacement carrier → pre/post Observation and EffectReceipt → FINALIZE/RECONCILE → second provider turn | only `filesystem.write`; prefix policy and single-machine binding; no general review/policy/carrier system |
-| Human-reviewed filesystem effect | normalized Operation → `REQUIRE_REVIEW` → typed ReviewRequest → bound human Participant action APPROVE/DENY/DEFER → effective Decision → existing Grant/PREPARE/carrier/FINALIZE path; review works with no live runner and survives provider/model replacement | local CLI asserts a bound participant identity but does not authenticate an OS person, SSO principal, or remote signer; only filesystem policy review exists |
-| Governance intake | constrained JSON bytes → immutable source digest → typed parsed facts → normalized Policy IR → immutable candidate → deterministic validation → explicit local publication; P@1/P@2 remain distinct and lifecycle events are append-only | artifacts are not yet bound/materialized into any Case; local publisher identity is asserted, full source retention policy is provisional, and no authority is derived |
+| Agentless Case runtime | disposable bounded runner reloads CaseState → reconciles effects/review → gates on normative readiness → repairs memory → retrieves/plans residency → invokes provider → normalizes/admits/effects → repeats from new canonical reality; typed `AWAITING_REVIEW`, normative stops, provider/model replacement, crash recovery, and one admitted runner per Case are executable | one synchronous single-host `filesystem.write` loop; no background scheduler or distributed lease |
+| Controlled filesystem effect | typed attachment + Ready EffectivePolicy → real HTTP ProviderResult → exact Operation → DecisionBasis/Decision/ExecutionGrant → durable PREPARE → Rust atomic replacement → Observation/Receipt → FINALIZE/RECONCILE → second provider turn | only `filesystem.write`; no validity/revoke lifecycle, second carrier or hostile-namespace fencing |
+| Human-reviewed filesystem effect | policy-driven `REQUIRE_REVIEW` → v2 request with exact basis and Case-role eligibility → APPROVE/DENY/DEFER → effective Decision → same Grant/carrier path; stale policy blocks approval | local CLI asserts a bound participant identity but does not authenticate an OS person, SSO principal, or remote signer |
+| Governance intake and admission | constrained JSON → immutable source/artifact lifecycle → exact Case binding → EffectivePolicy → operation-specific DecisionBasis; P@1/P@2 remain distinct and no automatic latest adoption occurs | publisher/actor identity is asserted; expiry/revoke, tenant authority and full retention policy remain future work |
 | Journal compatibility | inspect/dry-run/import `yai.store.record.v0` or `yai.record.v1`, preserving unknowns opaquely in an isolated target; old replay still materializes legacy record indexes | general semantic promotion is deliberately absent; the old record plane remains compatibility data, not authority |
 | Graph | typed canonical transitions and explicitly decoded legacy records → derived relations → rebuildable RuntimeGraph → bounded query | generation/version invalidation remains minimal; legacy-only cases still depend on compatibility translation |
 | Analytical facts | LMDB operational records → DuckDB extraction → reports | four declared families have no extractor; schema/orchestration remains embedded in the command crate |
@@ -111,7 +111,7 @@ verticals/tests.
 Rust owns one canonical semantic write path in
 [`transition.rs`](../engine/yai-engine/src/transition.rs) and
 [`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). Its serialized contracts
-are `yai.transition.v5` and `yai.case_state.v5`; readers retain v1-v4 state
+are `yai.transition.v6` and `yai.case_state.v6`; readers retain v1-v5 state
 and transition compatibility while rejecting unknown future contracts.
 Version 3 added provider identity, semantic-frame/render lineage and typed
 interaction turns. Version 4 adds Operation-bound ReviewRequest,
@@ -213,8 +213,11 @@ typed CaseState/resource attachment
 → non-authoritative ProviderResult
 → strict yai.operation_proposal.filesystem_write.v1 decoder
 → yai.operation.v1
-→ deterministic prefix Decision(ALLOW|DENY|REQUIRE_REVIEW)
-→ integrity-bound yai.execution_grant.v1
+→ Ready yai.effective_policy.v2
+→ yai.decision_basis.v1 applicability/authority/evidence evaluation
+→ yai.decision.v2 (ALLOW|DENY|REQUIRE_REVIEW)
+→ optional integrity-bound yai.review_request.v2 participant action
+→ policy-bound yai.execution_grant.v2
 → typed pre-observation
 → EffectPrepared Transition
 → rust.filesystem.atomic_replace.v1
@@ -228,13 +231,15 @@ The proposal decoder rejects unknown fields/schema/operation, malformed or
 natural-language-only output, wrong attachments, empty/oversized content,
 absolute paths, dot components, and traversal. Normalization creates stable
 Operation identity and content digest. Provider material cannot construct a
-Decision, Grant, Receipt, or canonical resource identity. The deterministic
-policy owner must be a bound participant distinct from the model participant;
-ALLOW is limited to the attachment's normalized prefix.
+Decision, Grant, Receipt, or canonical resource identity. New live admission is
+closed-world: no explicit applicable ALLOW is DENY. A policy ALLOW cannot widen
+the attachment's normalized prefix or payload bound. The proposer must be
+Case-bound and satisfy every applicable policy role requirement.
 
-The immutable Grant binds Operation/Decision digests, Case and participant,
-logical attachment, normalized target, intended digest, expected Case
-generation, idempotency key, and pre/post observation obligations. The carrier
+The immutable Grant binds Operation/Decision/DecisionBasis and EffectivePolicy
+digests, exact Case binding/artifact refs, Case and participant, logical
+attachment, target/content, generation, idempotency, review evidence when
+required, and typed execution obligations. The carrier
 accepts no unprepared Grant: CaseState must show that the exact Grant was
 consumed by the current `EffectPrepared` transition. Any intervening Case
 transition makes an issued Grant stale before PREPARE. Repeated invocation of
@@ -260,13 +265,15 @@ receipt construction but before FINALIZE. The visible-effect crashes finalize
 after restart without a duplicate write.
 
 [`review.rs`](../cmd/yai/src/review.rs) owns only the Case-native operator
-boundary. A resource attachment may require review by its bound policy-owner
-Participant. `REQUIRE_REVIEW` issues no Grant, commits a typed request for the
+boundary. Policy may require review and Case-bound reviewer roles; the legacy
+resource policy-owner field is compatibility metadata, not authority.
+`REQUIRE_REVIEW` issues no Grant, commits a typed request for the
 already-normalized Operation, and stops the runtime. APPROVE/DENY/DEFER actions
 are identity- and digest-bound to that review, Case, Operation, reviewer and
 expected generation. APPROVE and DENY derive a new effective Decision;
-approval itself performs no effect. Resume revalidates current Case/resource
-bindings and executes the original Operation through the existing controlled
+approval itself performs no effect. Resume revalidates the exact
+EffectivePolicy identity/digest plus Case/resource bindings and executes the
+original Operation through the existing controlled
 carrier. `CompatibilityReview`, `PendingOperator`, `ReviewResolved`, and
 `Quarantined` remain reader/reducer vocabulary for v1-v3 data only; no active
 writer or product command produces them.
@@ -285,19 +292,20 @@ They are built separately and are not normal product call paths.
 
 [`governance.rs`](../engine/yai-engine/src/governance.rs) owns one source
 compiler, not a governance plane. It accepts only bounded constrained JSON
-under `yai.policy_source_input.v2`. The exact UTF-8 bytes receive a SHA-256
-identity and become an immutable `yai.policy_source_artifact.v2`; no model or
+under `yai.policy_source_input.v3`. The exact UTF-8 bytes receive a SHA-256
+identity and become an immutable `yai.policy_source_artifact.v3`; no model or
 free-form policy interpreter participates.
 
-The compiler emits `yai.parsed_policy.v1` facts for exactly three current
-families: operation restriction, review requirement and evidence obligation.
+The compiler emits `yai.parsed_policy.v2` facts for four current families:
+operation restriction, review requirement, evidence obligation and scoped
+proposer/reviewer authority requirement.
 Every fact retains its source artifact and JSON location. Normalization emits
-`yai.policy_ir.v1`, deterministically deduplicates equivalent semantics,
+`yai.policy_ir.v2`, deterministically deduplicates equivalent semantics,
 preserves unknown rule kinds as unresolved, and records contradictory outcomes
 as typed conflicts. Unknown syntax/schema or malformed known rules fail;
 unresolved/conflicted candidates remain inspectable but cannot validate.
 
-`yai.policy_artifact.v2` embeds the parsed and normalized provenance chain,
+`yai.policy_artifact.v3` embeds the parsed and normalized provenance chain,
 including bounded declared `source_system` and `source_uri` origin metadata,
 and
 uses source version plus content/IR digests for immutable identity. The same
@@ -345,16 +353,36 @@ typed bind or replacement Transition; unbind is also canonical. CaseState keeps
 only compact exact binding refs. A published newer version never moves an
 existing Case automatically.
 
-`yai.effective_policy.v1` is derived from current bindings plus the exact
-immutable artifacts under `yai.policy_materializer.v1`. Inputs are sorted;
+`yai.effective_policy.v2` is derived from current bindings plus the exact
+immutable artifacts under `yai.policy_materializer.v2`. Inputs are sorted;
 DENY dominates ALLOW, required review dominates optional review, evidence
-obligations union, and provenance from every contribution survives. Its cache
+obligations and role requirements compose additively, and provenance from every
+contribution survives. Its cache
 is droppable; readiness (`unconfigured`, `ready`, `blocked`) is recomputed from
 canonical bindings and available integrity-valid artifacts. Catalog drift is
-reported without implementing revocation. Binding/materialization still emits
-no Decision, ReviewRequest, Grant, effect or provider invocation. Policy-driven
-authority begins in Wave 10. See the canonical [governance
+reported without implementing revocation. Binding/materialization alone emits
+no Decision, ReviewRequest, Grant, effect or provider invocation. The separate
+admission owner consumes Ready policy only after a normalized Operation exists.
+See the canonical [governance
 reference](reference/governance.md).
+
+[`admission.rs`](../engine/yai-engine/src/admission.rs) owns the one current
+operational policy boundary. It intersects a normalized Operation with the hard
+resource envelope, Ready EffectivePolicy, Case-bound Participant roles and
+typed evidence. `yai.decision_basis.v1` preserves exact EffectivePolicy,
+binding/artifact/rule provenance, mechanical posture, authority evaluation,
+obligations and final reason. A committed `yai.decision.v2` binds that basis;
+only final ALLOW can produce `yai.execution_grant.v2` under the same current
+policy identity. Missing ALLOW, missing proposer authority, forged provider
+lineage or stale policy basis fails closed. `source_provenance` is satisfied
+only by canonical ProviderInvocation/ProviderResult lineage; `audit_reason`
+requires an actual human ReviewAction reason; pre/post observation obligations
+are carried into the Grant and never weaken carrier baseline safety.
+
+The v2 ReviewRequest carries policy basis/effective-policy digests and role
+eligibility. Approval cannot override DENY and cannot survive a changed Case
+policy basis. The local actor/role mapping remains claimed local provenance,
+not authentication, SSO, tenant authority or a generic RBAC system.
 
 ## Current provider and context behavior
 
@@ -453,7 +481,8 @@ does not prove KV reuse.
 [`case_runtime.rs`](../cmd/yai/src/case_runtime.rs) owns one disposable
 transition algorithm. It is not an Agent, workflow, scheduler, or state owner.
 Each iteration reloads CaseState, reconciles prepared/indeterminate filesystem
-effects, repairs stale or missing derived memory, performs qualified retrieval
+effects, resolves normative readiness before provider invocation, repairs stale
+or missing derived memory, performs qualified retrieval
 and Residency planning, compiles a fresh Projection/ContextFrame, invokes the
 current provider/model, persists ProviderResult, and advances a valid candidate
 through the existing Operation/Decision/Grant/effect boundary. The next
@@ -464,7 +493,7 @@ in-process narrative.
 A versioned JSON run checkpoint records only disposable execution-attempt
 metadata: budgets, counters, pending ProviderResult identity, last derived
 artifact/effect refs and stop reason. It owns no Case facts. Stops distinguish
-completion, denial, malformed/provider failure, unresolved effect, budget
+completion, normative unconfigured/blocked, denial, malformed/provider failure, unresolved effect, budget
 exhaustion, operator stop and invariant failure; a stopped run does not close
 the Case.
 
@@ -507,6 +536,7 @@ participates.
 | `cmd/yai/src/review.rs` | Case-native typed participant actions and effective Decision recording; never carrier execution | product-reachable human review boundary |
 | `engine/yai-engine/src/governance.rs` + `cmd/yai/src/policy.rs` | deterministic source compiler, immutable PolicyArtifact/lifecycle contracts and thin operator surface | product-reachable Case-independent governance authoring boundary; no Case authority |
 | `engine/yai-engine/src/case_policy.rs` + `cmd/yai/src/case_policy.rs` | exact Case PolicyBinding contract, deterministic EffectivePolicy materializer and thin Case-policy operator surface | canonical binding transition algorithm plus derived normative view; no operational authority |
+| `engine/yai-engine/src/admission.rs` | immutable DecisionBasis, closed-world applicability, Case-role/evidence eligibility and policy-bound Decision/Grant admission | product-reachable operational admission; no policy authoring/materialization ownership |
 | `cmd/yai/src/filesystem.rs` | read-only filesystem compatibility observation | product-reachable compatibility boundary |
 | `cmd/yai/src/replay.rs` | legacy inspect/dry-run/isolated import and replay reports | product-reachable state compatibility boundary |
 | `cmd/yai/src/graph_runtime.rs` | graph relation materialization, rebuild and query | product-reachable derived owner |
@@ -540,7 +570,7 @@ from one checkout.
 | provider replacement preserves semantic continuity | real HTTP Provider A→filesystem FINALIZE→Provider B, same-provider model replacement, continuation invalidation and provider restart are deterministic product tests | generalized routing/economics and native runtime continuation protocols are deliberately absent |
 | derived data rebuilds from canonical state | graph rebuild consumes typed transitions and legacy compatibility; operational memory can be dropped/rebuilt with deterministic identity and canonical fallback; facts remain legacy-derived | adaptive invalidation/scheduling, compression and full typed analytics inputs |
 | governance source/artifact history | exact-byte source identity, typed deterministic parse/IR, immutable artifacts and append-only lifecycle share LMDB while remaining independent from Cases | policy authority, publisher authentication, validity/revocation and retention policy |
-| Case policy configuration | exact published artifacts bind through `yai.transition.v5`; CaseState replays bindings and `yai.effective_policy.v1` deterministically composes provenance-bound semantics with derived readiness/drift | DecisionBasis, operation applicability, policy-driven review eligibility and policy-bound Grant are Wave 10 |
+| Case policy configuration and admission | exact artifacts bind canonically; `yai.transition.v6` records Decision v2, review v2 and Grant v2 bound to `yai.effective_policy.v2` through typed DecisionBasis | validity/expiry/revoke and durable cancellation/closure remain Wave 11; authentication remains later |
 
 The remaining gaps are intentional boundaries of this wave. The
 [Roadmap](../ROADMAP.md) owns their implementation sequence.

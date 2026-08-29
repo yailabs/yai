@@ -6,19 +6,23 @@
 //! It is deliberately not a generic carrier registry or policy engine.
 
 use super::*;
+use yai_core_engine::admission::{
+    build_policy_review_request, evaluate_filesystem_admission, resolve_policy_review_decision,
+    EvidenceContext,
+};
+use yai_core_engine::case_policy::NormativeReadiness;
 use yai_core_engine::effect::{
-    build_effect_receipt, build_filesystem_review_request, classify_reconciliation,
-    decide_filesystem_write, execute_filesystem_write, issue_execution_grant,
-    normalize_filesystem_write_candidate, normalize_write_prefix, observe_filesystem,
-    prepare_effect, resolve_filesystem_review_decision, validate_finalized_effect_chain,
-    CarrierFailpoint, CarrierResult, Decision, DecisionOutcome, EffectOutcome, ExecutionGrant,
-    FilesystemObservation, LocalFilesystemBinding, NormalizationContext, Operation, PreparedEffect,
-    ReconciliationConclusion, ResourceState, OPERATION_PROPOSAL_SCHEMA,
+    build_effect_receipt, classify_reconciliation, execute_filesystem_write,
+    issue_policy_execution_grant, normalize_filesystem_write_candidate, normalize_write_prefix,
+    observe_filesystem, prepare_effect, validate_finalized_effect_chain, CarrierFailpoint,
+    CarrierResult, Decision, DecisionOutcome, EffectOutcome, ExecutionGrant, FilesystemObservation,
+    LocalFilesystemBinding, NormalizationContext, Operation, PreparedEffect,
+    ReconciliationConclusion, ResourceState, EXECUTION_GRANT_SCHEMA, OPERATION_PROPOSAL_SCHEMA,
 };
 use yai_core_engine::transition::{
     CaseState, EffectLifecycle, PendingTransition, ResourceAttachmentState, ResourceKind,
     ReviewRequirement, ReviewResolution, ReviewState, Transition, TransitionPayload,
-    TransitionScope, TransitionSource,
+    TransitionScope, TransitionSource, REVIEW_REQUEST_SCHEMA,
 };
 
 const CONTROLLED_EFFECT_COMPONENT: &str = "yai.controlled_filesystem_effect";
@@ -322,18 +326,38 @@ fn commit_decision(
     case_id: &str,
     decision: &Decision,
 ) -> Result<CaseState, String> {
+    let participant_id = decision
+        .decision_basis
+        .as_ref()
+        .map(|basis| basis.proposer_participant_id.as_str())
+        .or_else(|| {
+            decision
+                .source
+                .as_ref()
+                .map(|source| source.owner_participant_id.as_str())
+        });
+    let mut causal_refs = vec![decision.operation_id.clone()];
+    if let Some(basis) = &decision.decision_basis {
+        causal_refs.push(basis.basis_id.clone());
+        causal_refs.push(basis.effective_policy_id.clone());
+        causal_refs.extend(basis.policy_binding_refs.iter().cloned());
+        causal_refs.extend(basis.policy_artifact_refs.iter().cloned());
+        if let Some(action) = &basis.review_action_ref {
+            causal_refs.push(action.clone());
+        }
+    } else {
+        causal_refs.extend(decision.basis_refs.iter().cloned());
+    }
     commit_effect_transition(
         store,
         case_id,
-        Some(&decision.source.owner_participant_id),
+        participant_id,
         &format!("decision:{}", decision.decision_id),
         TransitionPayload::DecisionRecorded {
             decision: decision.clone(),
         },
         None,
-        std::iter::once(decision.operation_id.clone())
-            .chain(decision.basis_refs.iter().cloned())
-            .collect(),
+        causal_refs,
     )
 }
 
@@ -342,6 +366,16 @@ fn commit_review_request(
     case_id: &str,
     review: &ReviewState,
 ) -> Result<CaseState, String> {
+    let mut causal_refs = vec![
+        review.operation_id.clone(),
+        review.initial_decision_id.clone(),
+    ];
+    if review.schema == REVIEW_REQUEST_SCHEMA {
+        causal_refs.push(review.decision_basis_id.clone());
+        causal_refs.push(review.effective_policy_id.clone());
+        causal_refs.extend(review.policy_binding_refs.iter().cloned());
+        causal_refs.extend(review.policy_artifact_refs.iter().cloned());
+    }
     commit_effect_transition(
         store,
         case_id,
@@ -351,14 +385,25 @@ fn commit_review_request(
             review: review.clone(),
         },
         None,
-        vec![
-            review.operation_id.clone(),
-            review.initial_decision_id.clone(),
-        ],
+        causal_refs,
     )
 }
 
 fn commit_grant(store: &LmdbRecordStore, grant: &ExecutionGrant) -> Result<CaseState, String> {
+    let mut causal_refs = vec![grant.operation_id.clone(), grant.decision_id.clone()];
+    if grant.schema == EXECUTION_GRANT_SCHEMA {
+        if let Some(basis_id) = &grant.decision_basis_id {
+            causal_refs.push(basis_id.clone());
+        }
+        if let Some(effective_policy_id) = &grant.effective_policy_id {
+            causal_refs.push(effective_policy_id.clone());
+        }
+        causal_refs.extend(grant.policy_binding_refs.iter().cloned());
+        causal_refs.extend(grant.policy_artifact_refs.iter().cloned());
+        if let Some(action_id) = &grant.review_action_ref {
+            causal_refs.push(action_id.clone());
+        }
+    }
     commit_effect_transition(
         store,
         &grant.case_id,
@@ -368,7 +413,7 @@ fn commit_grant(store: &LmdbRecordStore, grant: &ExecutionGrant) -> Result<CaseS
             grant: grant.clone(),
         },
         None,
-        vec![grant.operation_id.clone(), grant.decision_id.clone()],
+        causal_refs,
     )
 }
 
@@ -497,9 +542,12 @@ pub(super) fn advance_controlled_filesystem_candidate(
         .get_case_state(case_id)?
         .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
     let resource = resource_for_case(&state, attachment_id)?;
-    if resource.policy_owner_participant_id == participant_id {
-        return Err("operation participant cannot own its admission policy".to_string());
-    }
+    let normative = store.case_policy_status(case_id)?;
+    let effective_policy = normative
+        .effective_policy
+        .clone()
+        .filter(|_| normative.readiness == NormativeReadiness::Ready)
+        .ok_or_else(|| format!("normative_case_not_ready: {:?}", normative.readiness))?;
     let binding = store
         .get_local_filesystem_binding(case_id, attachment_id)?
         .ok_or_else(|| format!("local binding missing for {case_id}/{attachment_id}"))?;
@@ -619,8 +667,35 @@ pub(super) fn advance_controlled_filesystem_candidate(
                 .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
             (decision, state)
         } else {
-            let decision =
-                decide_filesystem_write(&operation, &resource, state_after_operation.generation);
+            let canonical_provider_lineage = existing.iter().any(|transition| {
+                matches!(
+                    &transition.payload,
+                    TransitionPayload::ProviderResultRecorded { result_id, invocation_id, .. }
+                        if result_id == &provider_result.result_id
+                            && invocation_id == &provider_result.invocation_id
+                )
+            }) && existing.iter().any(|transition| {
+                matches!(
+                    &transition.payload,
+                    TransitionPayload::ProviderInvocationStarted { invocation_id, .. }
+                        if invocation_id == &provider_result.invocation_id
+                )
+            });
+            let evidence = EvidenceContext {
+                canonical_provider_result_id: canonical_provider_lineage
+                    .then(|| provider_result.result_id.clone()),
+                canonical_provider_invocation_id: canonical_provider_lineage
+                    .then(|| provider_result.invocation_id.clone()),
+                review_action_id: None,
+                review_reason: None,
+            };
+            let decision = evaluate_filesystem_admission(
+                &operation,
+                &state_after_operation,
+                &resource,
+                &effective_policy,
+                &evidence,
+            )?;
             let state = commit_decision(&store, case_id, &decision)?;
             (decision, state)
         };
@@ -641,10 +716,9 @@ pub(super) fn advance_controlled_filesystem_candidate(
             {
                 review
             } else {
-                let review = build_filesystem_review_request(
+                let review = build_policy_review_request(
                     &operation,
                     &initial,
-                    &resource,
                     state_after_initial.generation,
                 )?;
                 commit_review_request(&store, case_id, &review)?;
@@ -698,12 +772,19 @@ pub(super) fn advance_controlled_filesystem_candidate(
             let current = store
                 .get_case_state(case_id)?
                 .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
-            let effective = resolve_filesystem_review_decision(
+            let current_normative = store.case_policy_status(case_id)?;
+            let current_effective = current_normative
+                .effective_policy
+                .as_ref()
+                .filter(|_| current_normative.readiness == NormativeReadiness::Ready)
+                .ok_or_else(|| "review_policy_basis_stale".to_string())?;
+            let effective = resolve_policy_review_decision(
                 &operation,
+                &current,
                 &resource,
+                current_effective,
                 &review,
                 &action,
-                current.generation,
             )?;
             let state = commit_decision(&store, case_id, &effective)?;
             if effective.outcome == DecisionOutcome::Allow
@@ -726,6 +807,25 @@ pub(super) fn advance_controlled_filesystem_candidate(
         }
     };
     println!("decision_id: {}", decision.decision_id);
+    println!("decision_reason: {}", decision.reason);
+    if let Some(basis) = &decision.decision_basis {
+        println!("decision_basis_id: {}", basis.basis_id);
+        println!("effective_policy_id: {}", basis.effective_policy_id);
+        println!(
+            "matched_policy_rules: {}",
+            basis.matched_rule_refs.join(",")
+        );
+        println!(
+            "authority_requirements: {}",
+            serde_json::to_string(&basis.authority)
+                .map_err(|error| format!("authority_render_failed: {error}"))?
+        );
+        println!(
+            "evidence_obligations: {}",
+            serde_json::to_string(&basis.obligations)
+                .map_err(|error| format!("obligation_render_failed: {error}"))?
+        );
+    }
     println!(
         "decision: {}",
         match decision.outcome {
@@ -773,11 +873,16 @@ pub(super) fn advance_controlled_filesystem_candidate(
         {
             return Err("execution_grant_requires_latest_case_decision".to_string());
         }
-        let grant = issue_execution_grant(&operation, &decision, state_after_decision.generation)?;
+        let grant =
+            issue_policy_execution_grant(&operation, &decision, state_after_decision.generation)?;
         commit_grant(&store, &grant)?;
         grant
     };
     println!("execution_grant_id: {}", grant.grant_id);
+    println!(
+        "execution_grant_decision_basis_id: {}",
+        grant.decision_basis_id.as_deref().unwrap_or("none")
+    );
     if matches!(
         failpoint(args).as_deref(),
         Some("after_grant_before_prepare" | "review_r5")
@@ -926,8 +1031,16 @@ pub(super) fn controlled_filesystem_write(args: &[String]) -> Result<(), String>
         .get_case_state(&case_id)?
         .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
     let resource = resource_for_case(&state, &attachment_id)?;
-    if resource.policy_owner_participant_id == participant_id {
-        return Err("operation participant cannot own its admission policy".to_string());
+    let normative = store.case_policy_status(&case_id)?;
+    if normative.readiness != NormativeReadiness::Ready {
+        println!("normative_readiness: {:?}", normative.readiness);
+        println!("provider_invocations: 0");
+        println!("execution_grants: 0");
+        println!("external_effect: none");
+        return Err(format!(
+            "normative_case_not_ready: {:?}",
+            normative.readiness
+        ));
     }
     drop(store);
     let provider_args = provider_args_for_case(args, &case_id, &participant_id);

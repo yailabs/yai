@@ -1,0 +1,5 @@
+subject	source	rule composition	satisfaction	failure
+proposer	EffectivePolicy authority_requirement	all applicable required roles union/all-of	Operation participant is Case-bound and owns all roles	DENY proposer_not_case_role_eligible
+reviewer	EffectivePolicy authority_requirement	all applicable required roles union/all-of	one or more Case participants own all roles	DENY if review required and none eligible
+operator actor	local CLI --as	no authority composition	claimed provenance only	no authentication claim
+resource legacy owner	ResourceAttachmentState compatibility field	none in v2 path	never consulted for authority	cannot change Decision/reviewer set

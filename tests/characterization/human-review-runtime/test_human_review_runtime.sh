@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 YAI_BIN="$ROOT/target/debug/yai"
+source "$ROOT/tests/characterization/lib/governed_case_policy.sh"
 YAID="$ROOT/build/yaid"
 FIXTURE="$ROOT/tests/fixtures/agentless_case_runtime_provider.py"
 TEST_DIR="$(mktemp -d /tmp/yai-human-review.XXXXXX)"
@@ -31,6 +32,12 @@ trap cleanup EXIT INT TERM
 
 require_text() {
   grep -Fq -- "$2" <<<"$1"
+}
+
+trace_review_product() {
+  [[ "${YAI_EXECUTION_EVIDENCE:-0}" == "1" ]] || return 0
+  printf '\n[review-product-command:%s]\n$ %s\n%s\nexit: %s\n' \
+    "$1" "$2" "$3" "$4" >&2
 }
 
 start_provider() {
@@ -94,6 +101,9 @@ setup_case() {
     --case case:new12-filesystem --attachment workspace --root "$RESOURCE_ROOT" \
     --allow-prefix allowed --policy-owner subject:policy-pack --max-bytes 256 \
     --require-review >/dev/null
+  yai_configure_governed_filesystem_case "$YAI_BIN" "$CASE_HOME" \
+    case:new12-filesystem "review-$name" 1 allow subject:llm-provider \
+    subject:policy-pack >/dev/null
 }
 
 run_case() {
@@ -129,6 +139,7 @@ resolve_review() {
 start_provider review 2 approve
 setup_case approve provider:review-a model-review-a "$LAST_PROVIDER_PORT"
 approve_pause=$(run_case)
+trace_review_product 01 "YAI_HOME=$CASE_HOME YAI_JOURNAL=$CASE_JOURNAL $YAI_BIN case run --case case:new12-filesystem --subject subject:llm-provider --attachment workspace --prompt 'propose one human-reviewed filesystem write, then report completion' --max-invocations 3 --max-operations 2 --max-resident-items 12 --max-semantic-units 6000 --max-estimated-input-units 50000" "$approve_pause" 0
 require_text "$approve_pause" "runtime_status: AwaitingReview"
 require_text "$approve_pause" "execution_grant: none"
 require_text "$approve_pause" "external_effect: none"
@@ -139,6 +150,7 @@ summary_before=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" store summary)
 count_before=$(sed -n 's/^transitions_total: //p' <<<"$summary_before")
 show_pending=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" review show "$review_id" \
   --case case:new12-filesystem)
+trace_review_product 02 "YAI_HOME=$CASE_HOME $YAI_BIN review show $review_id --case case:new12-filesystem" "$show_pending" 0
 require_text "$show_pending" "status: pending"
 require_text "$show_pending" "operation_id: operation:"
 require_text "$show_pending" "normalized_target: allowed/reviewed.txt"
@@ -153,6 +165,7 @@ wrong_reviewer=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" review approve "$review_id" \
 wrong_reviewer_code=$?
 set -e
 [[ "$wrong_reviewer_code" -ne 0 ]]
+trace_review_product 03 "YAI_HOME=$CASE_HOME $YAI_BIN review approve $review_id --case case:new12-filesystem --as subject:llm-provider --reason 'self approve'" "$wrong_reviewer" "$wrong_reviewer_code"
 require_text "$wrong_reviewer" "reviewer_not_eligible_for_case_review"
 set +e
 wrong_case=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" review approve "$review_id" \
@@ -166,12 +179,14 @@ still_pending=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" review show "$review_id" \
   --case case:new12-filesystem)
 require_text "$still_pending" "status: pending"
 approved=$(resolve_review approve "$review_id")
+trace_review_product 04 "YAI_HOME=$CASE_HOME $YAI_BIN review approve $review_id --case case:new12-filesystem --as subject:policy-pack --reason 'human participant approve exact operation'" "$approved" 0
 require_text "$approved" "review_action: committed"
 require_text "$approved" "execution_grant: none_review_command_never_executes"
 [[ ! -e "$RESOURCE_ROOT/allowed/reviewed.txt" ]]
 duplicate=$(resolve_review approve "$review_id")
 require_text "$duplicate" "review_action: already_resolved_idempotent"
 approve_resume=$(resume_case)
+trace_review_product 05 "YAI_HOME=$CASE_HOME YAI_JOURNAL=$CASE_JOURNAL $YAI_BIN case resume --case case:new12-filesystem" "$approve_resume" 0
 wait_providers
 require_text "$approve_resume" "runtime_status: Completed"
 require_text "$approve_resume" "operations: 1"
@@ -271,6 +286,46 @@ fake_output=$(run_case)
 wait_providers
 require_text "$fake_output" "runtime_status: MalformedProviderResult"
 require_text "$fake_output" "operations: 0"
+[[ ! -e "$RESOURCE_ROOT/allowed/reviewed.txt" ]]
+
+# A pending review is bound to the exact EffectivePolicy. Replacing the Case
+# binding makes the old human gate stale; approval cannot mint authority from
+# the superseded basis.
+start_provider review 1 policy-stale
+setup_case stale provider:stale-policy model-stale-policy "$LAST_PROVIDER_PORT"
+stale_pause=$(run_case)
+require_text "$stale_pause" "runtime_status: AwaitingReview"
+policy_stale_review=$(pending_review_id)
+wait_providers
+status_before_replace=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" case policy status \
+  --case case:new12-filesystem)
+prior_binding=$(sed -n 's/^policy_binding: binding_id=\([^ ]*\).*/\1/p' \
+  <<<"$status_before_replace" | head -1)
+generation_before_replace=$(sed -n 's/^case_generation: //p' \
+  <<<"$status_before_replace" | head -1)
+policy_v1="$CASE_HOME/review-stale-1.policy.json"
+policy_v2="$CASE_HOME/review-stale-2.policy.json"
+sed 's/"source_version":"1"/"source_version":"2"/; s#test://review-stale/1#test://review-stale/2#' \
+  "$policy_v1" >"$policy_v2"
+v2_ingest=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" policy ingest "$policy_v2" \
+  --as participant:local-policy-operator)
+v2_artifact=$(sed -n 's/^artifact_id: //p' <<<"$v2_ingest" | head -1)
+YAI_HOME="$CASE_HOME" "$YAI_BIN" policy validate "$v2_artifact" \
+  --as participant:local-policy-operator --reason "validate replacement" >/dev/null
+YAI_HOME="$CASE_HOME" "$YAI_BIN" policy publish "$v2_artifact" \
+  --as participant:local-policy-operator --reason "publish replacement" >/dev/null
+replace_output=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" case policy replace \
+  --case case:new12-filesystem --binding "$prior_binding" --artifact "$v2_artifact" \
+  --expected-generation "$generation_before_replace" --as participant:local-policy-operator \
+  --reason "replace while review pending")
+trace_review_product 06 "YAI_HOME=$CASE_HOME $YAI_BIN case policy replace --case case:new12-filesystem --binding $prior_binding --artifact $v2_artifact --expected-generation $generation_before_replace --as participant:local-policy-operator --reason 'replace while review pending'" "$replace_output" 0
+set +e
+stale_approval=$(resolve_review approve "$policy_stale_review" 2>&1)
+stale_approval_code=$?
+set -e
+[[ "$stale_approval_code" -ne 0 ]]
+trace_review_product 07 "YAI_HOME=$CASE_HOME $YAI_BIN review approve $policy_stale_review --case case:new12-filesystem --as subject:policy-pack --reason 'human participant approve exact operation'" "$stale_approval" "$stale_approval_code"
+require_text "$stale_approval" "review_policy_basis_stale"
 [[ ! -e "$RESOURCE_ROOT/allowed/reviewed.txt" ]]
 
 # Cross-process Case admission: runner B is rejected transactionally while A
@@ -385,3 +440,4 @@ printf 'human_review:provider_model_replacement_and_no_second_operation ok\n'
 printf 'human_review:runtime_admission_concurrency_and_stale_reclaim ok\n'
 printf 'human_review:crash_r1_r6_recovery ok\n'
 printf 'human_review:provider_cannot_invent_human_authority ok\n'
+printf 'human_review:policy_basis_change_fails_closed ok\n'

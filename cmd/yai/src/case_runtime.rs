@@ -8,6 +8,7 @@ use super::*;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
+use yai_core_engine::case_policy::NormativeReadiness;
 use yai_core_engine::effect::OPERATION_PROPOSAL_SCHEMA;
 use yai_core_engine::store::lmdb::{CaseRuntimeAdmissionOutcome, CaseRuntimeAdmissionRequest};
 
@@ -51,6 +52,8 @@ pub(super) enum CaseRuntimeStop {
     OperatorStopped,
     MalformedProviderResult,
     FatalInvariantViolation,
+    NormativeUnconfigured,
+    NormativeBlocked,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -575,6 +578,31 @@ fn run_loop(
                 break;
             }
             CaseReconciliationStatus::Clean | CaseReconciliationStatus::Reconciled { .. } => {}
+        }
+        let normative =
+            LmdbRecordStore::open(record_store_path())?.case_policy_status(&checkpoint.case_id)?;
+        match normative.readiness {
+            NormativeReadiness::Ready => {}
+            NormativeReadiness::Unconfigured => {
+                checkpoint.stop(
+                    CaseRuntimeStop::NormativeUnconfigured,
+                    "Case has no exact published policy binding; provider was not invoked",
+                );
+                write_checkpoint(&checkpoint)?;
+                break;
+            }
+            NormativeReadiness::Blocked => {
+                checkpoint.stop(
+                    CaseRuntimeStop::NormativeBlocked,
+                    format!(
+                        "normative materialization blocked: missing={} conflicts={}",
+                        normative.missing.join(","),
+                        normative.blocking_conflicts.join(",")
+                    ),
+                );
+                write_checkpoint(&checkpoint)?;
+                break;
+            }
         }
         if let Err(error) = ensure_memory_fresh(&checkpoint.case_id) {
             eprintln!("runtime_memory_fallback_to_canonical: {error}");

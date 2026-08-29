@@ -1,0 +1,5 @@
+obligation	phase	satisfaction	evidence	failure
+source_provenance	admission	canonical ProviderInvocationStarted + ProviderResultRecorded match Operation origin	provider result/invocation refs	missing/forged => DENY
+audit_reason	admission/review	non-empty eligible ReviewAction reason	review action ref	missing => REQUIRE_REVIEW; evaluator reason never satisfies
+pre_observation	execution	Grant requires carrier pre Observation	Grant requirement then PreparedEffect observation ref	cannot be disabled by policy
+post_observation	execution	Grant requires post Observation/Receipt	Grant requirement then receipt/post observation	cannot be disabled by policy

@@ -8,4 +8,5 @@ Source Refoundation 6	f148b1f	a5a4015	yes	agentless Case runtime/residency	multi
 Source Refoundation 7	a5a4015	3403ecd	yes	human review/runtime admission	policy authority
 Source Refoundation 8	3403ecd	7ce67afee34a3dbe879c2e5bee945602492be70c	yes	governance intake/PolicyArtifact	Wave9 materialization
 Foundation Hardening 8	7ce67afee34a3dbe879c2e5bee945602492be70c	a92673847808b46b6be82e8a96e90d45b1c12888	yes	governance lineage/provenance/integrity/catalog	Wave9 materialization
-Source Refoundation 9	a92673847808b46b6be82e8a96e90d45b1c12888	this_commit	yes	exact Case policy binding/effective materialization/readiness	Wave10 authority
+Source Refoundation 9	a92673847808b46b6be82e8a96e90d45b1c12888	c424718861925333f5881d5f7c5db42015558f94	yes	exact Case policy binding/effective materialization/readiness	Wave10 authority
+Source Refoundation 10	c424718861925333f5881d5f7c5db42015558f94	pre-publication	not_yet	policy-driven admission/DecisionBasis/role and evidence eligibility/policy-bound Grant	Wave11 validity/invalidation/cancellation/closure

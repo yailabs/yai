@@ -4,10 +4,11 @@
 //! boundary proved by SOURCE.REFOUNDATION.3. It does not own provider
 //! execution, policy languages, carrier registries, or any C semantic mirror.
 
+use crate::admission::{DecisionBasis, ExecutionEvidenceRequirement};
 use crate::transition::{
     CaseState, ResourceAttachmentState, ReviewAction, ReviewActionKind, ReviewRequirement,
     ReviewResolution, ReviewState, Transition, TransitionPayload, TransitionScope,
-    REVIEW_REQUEST_SCHEMA,
+    REVIEW_REQUEST_SCHEMA_V1,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as FmtWrite;
@@ -18,8 +19,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const OPERATION_PROPOSAL_SCHEMA: &str = "yai.operation_proposal.filesystem_write.v1";
 pub const OPERATION_SCHEMA: &str = "yai.operation.v1";
-pub const DECISION_SCHEMA: &str = "yai.decision.v1";
-pub const EXECUTION_GRANT_SCHEMA: &str = "yai.execution_grant.v1";
+pub const DECISION_SCHEMA: &str = "yai.decision.v2";
+pub const DECISION_SCHEMA_V1: &str = "yai.decision.v1";
+pub const EXECUTION_GRANT_SCHEMA: &str = "yai.execution_grant.v2";
+pub const EXECUTION_GRANT_SCHEMA_V1: &str = "yai.execution_grant.v1";
 pub const OBSERVATION_SCHEMA: &str = "yai.observation.filesystem.v1";
 pub const PREPARED_EFFECT_SCHEMA: &str = "yai.prepared_effect.v1";
 pub const EFFECT_RECEIPT_SCHEMA: &str = "yai.effect_receipt.v1";
@@ -157,7 +160,10 @@ pub struct Decision {
     pub operation_id: String,
     pub operation_digest: String,
     pub outcome: DecisionOutcome,
-    pub source: DecisionSource,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<DecisionSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_basis: Option<DecisionBasis>,
     pub reason: String,
     pub basis_refs: Vec<String>,
     pub decided_at_case_generation: u64,
@@ -172,6 +178,18 @@ struct DecisionDigestMaterial<'a> {
     source: &'a DecisionSource,
     reason: &'a str,
     basis_refs: &'a [String],
+    decided_at_case_generation: u64,
+}
+
+#[derive(Serialize)]
+struct DecisionDigestMaterialV2<'a> {
+    schema: &'a str,
+    operation_id: &'a str,
+    operation_digest: &'a str,
+    outcome: &'a DecisionOutcome,
+    decision_basis_id: &'a str,
+    decision_basis_digest: &'a str,
+    reason: &'a str,
     decided_at_case_generation: u64,
 }
 
@@ -200,6 +218,22 @@ pub struct ExecutionGrant {
     pub idempotency_key: String,
     pub require_pre_observation: bool,
     pub require_post_observation: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_basis_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_basis_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_policy_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_policy_digest: Option<String>,
+    #[serde(default)]
+    pub policy_binding_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_artifact_refs: Vec<String>,
+    #[serde(default)]
+    pub execution_evidence_requirements: Vec<ExecutionEvidenceRequirement>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub review_action_ref: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -219,6 +253,33 @@ struct GrantDigestMaterial<'a> {
     idempotency_key: &'a str,
     require_pre_observation: bool,
     require_post_observation: bool,
+}
+
+#[derive(Serialize)]
+struct GrantDigestMaterialV2<'a> {
+    schema: &'a str,
+    operation_id: &'a str,
+    operation_digest: &'a str,
+    decision_id: &'a str,
+    decision_digest: &'a str,
+    decision_basis_id: &'a str,
+    decision_basis_digest: &'a str,
+    effective_policy_id: &'a str,
+    effective_policy_digest: &'a str,
+    policy_binding_refs: &'a [String],
+    policy_artifact_refs: &'a [String],
+    case_id: &'a str,
+    participant_id: &'a str,
+    resource_attachment_id: &'a str,
+    permitted_effect: &'a GrantedEffect,
+    normalized_target: &'a str,
+    intended_content_digest: &'a str,
+    expected_case_generation: u64,
+    idempotency_key: &'a str,
+    require_pre_observation: bool,
+    require_post_observation: bool,
+    execution_evidence_requirements: &'a [ExecutionEvidenceRequirement],
+    review_action_ref: &'a Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -525,14 +586,19 @@ pub fn build_filesystem_review_request(
     )?;
     if initial_decision.outcome != DecisionOutcome::RequireReview
         || resource.review_requirement != ReviewRequirement::RequireReview
-        || initial_decision.source.policy_id != resource.policy_id
-        || initial_decision.source.owner_participant_id != resource.policy_owner_participant_id
+        || initial_decision
+            .source
+            .as_ref()
+            .is_none_or(|source| source.policy_id != resource.policy_id)
+        || initial_decision.source.as_ref().is_none_or(|source| {
+            source.owner_participant_id != resource.policy_owner_participant_id
+        })
         || current_case_generation != initial_decision.decided_at_case_generation + 1
     {
         return Err("review_request_requires_committed_review_decision".to_string());
     }
     let material = serde_json::json!({
-        "schema": REVIEW_REQUEST_SCHEMA,
+        "schema": REVIEW_REQUEST_SCHEMA_V1,
         "case_id": operation.case_id,
         "operation_id": operation.operation_id,
         "operation_digest": operation.operation_digest,
@@ -546,10 +612,19 @@ pub fn build_filesystem_review_request(
     let digest = digest_bytes(material.to_string().as_bytes());
     Ok(ReviewState {
         review_id: format!("review:{}", &digest[..32]),
-        schema: REVIEW_REQUEST_SCHEMA.to_string(),
+        schema: REVIEW_REQUEST_SCHEMA_V1.to_string(),
+        integrity_digest: String::new(),
+        case_id: operation.case_id.clone(),
         operation_id: operation.operation_id.clone(),
         operation_digest: operation.operation_digest.clone(),
         initial_decision_id: initial_decision.decision_id.clone(),
+        decision_basis_id: String::new(),
+        decision_basis_digest: String::new(),
+        effective_policy_id: String::new(),
+        effective_policy_digest: String::new(),
+        policy_binding_refs: Vec::new(),
+        policy_artifact_refs: Vec::new(),
+        required_reviewer_roles: Vec::new(),
         resource_attachment_id: resource.attachment_id.clone(),
         normalized_target: operation.filesystem_write.relative_path.clone(),
         created_at_generation: current_case_generation,
@@ -581,7 +656,7 @@ pub fn resolve_filesystem_review_decision(
     current_case_generation: u64,
 ) -> Result<Decision, String> {
     action.validate_integrity()?;
-    if review.schema != REVIEW_REQUEST_SCHEMA
+    if review.schema != REVIEW_REQUEST_SCHEMA_V1
         || review.operation_id != operation.operation_id
         || review.operation_digest != operation.operation_digest
         || review.resource_attachment_id != resource.attachment_id
@@ -658,7 +733,7 @@ fn build_filesystem_decision_with_basis(
         owner_participant_id: resource.policy_owner_participant_id.clone(),
     };
     let material = DecisionDigestMaterial {
-        schema: DECISION_SCHEMA,
+        schema: DECISION_SCHEMA_V1,
         operation_id: &operation.operation_id,
         operation_digest: &operation.operation_digest,
         outcome: &outcome,
@@ -669,17 +744,145 @@ fn build_filesystem_decision_with_basis(
     };
     let decision_digest = digest_serialized(&material);
     Decision {
+        schema: DECISION_SCHEMA_V1.to_string(),
+        decision_id: format!("decision:{}", digest_suffix(&decision_digest, 32)),
+        decision_digest,
+        operation_id: operation.operation_id.clone(),
+        operation_digest: operation.operation_digest.clone(),
+        outcome,
+        source: Some(source),
+        decision_basis: None,
+        reason: reason.to_string(),
+        basis_refs,
+        decided_at_case_generation: current_case_generation,
+    }
+}
+
+pub fn build_policy_decision(
+    operation: &Operation,
+    decision_basis: DecisionBasis,
+    reason: &str,
+) -> Result<Decision, String> {
+    operation.validate()?;
+    decision_basis.validate_integrity()?;
+    if reason.trim().is_empty()
+        || decision_basis.operation_id != operation.operation_id
+        || decision_basis.operation_digest != operation.operation_digest
+        || decision_basis.case_id != operation.case_id
+    {
+        return Err("policy_decision_input_mismatch".to_string());
+    }
+    let outcome = decision_basis.final_posture.clone();
+    let decided_at_case_generation = decision_basis.evaluated_case_generation;
+    let decision_digest = {
+        let material = DecisionDigestMaterialV2 {
+            schema: DECISION_SCHEMA,
+            operation_id: &operation.operation_id,
+            operation_digest: &operation.operation_digest,
+            outcome: &outcome,
+            decision_basis_id: &decision_basis.basis_id,
+            decision_basis_digest: &decision_basis.integrity_digest,
+            reason,
+            decided_at_case_generation,
+        };
+        digest_serialized(&material)
+    };
+    let decision = Decision {
         schema: DECISION_SCHEMA.to_string(),
         decision_id: format!("decision:{}", digest_suffix(&decision_digest, 32)),
         decision_digest,
         operation_id: operation.operation_id.clone(),
         operation_digest: operation.operation_digest.clone(),
         outcome,
-        source,
+        source: None,
+        decision_basis: Some(decision_basis),
         reason: reason.to_string(),
-        basis_refs,
-        decided_at_case_generation: current_case_generation,
+        basis_refs: Vec::new(),
+        decided_at_case_generation,
+    };
+    decision.validate_integrity()?;
+    Ok(decision)
+}
+
+pub fn issue_policy_execution_grant(
+    operation: &Operation,
+    decision: &Decision,
+    current_case_generation: u64,
+) -> Result<ExecutionGrant, String> {
+    validate_decision(operation, decision, decision.decided_at_case_generation)?;
+    if decision.schema != DECISION_SCHEMA || decision.outcome != DecisionOutcome::Allow {
+        return Err("policy_execution_grant_requires_v2_allow_decision".to_string());
     }
+    let basis = decision
+        .decision_basis
+        .as_ref()
+        .ok_or_else(|| "policy_execution_grant_basis_missing".to_string())?;
+    if current_case_generation < decision.decided_at_case_generation + 1
+        || !basis.admission_obligations_satisfied()
+    {
+        return Err("policy_execution_grant_admission_incomplete".to_string());
+    }
+    let idempotency_key = format!(
+        "effect-key:{}",
+        digest_suffix(&operation.operation_digest, 32)
+    );
+    let execution_evidence_requirements = basis.execution_evidence_requirements();
+    let review_action_ref = basis.review_action_ref.clone();
+    let material = GrantDigestMaterialV2 {
+        schema: EXECUTION_GRANT_SCHEMA,
+        operation_id: &operation.operation_id,
+        operation_digest: &operation.operation_digest,
+        decision_id: &decision.decision_id,
+        decision_digest: &decision.decision_digest,
+        decision_basis_id: &basis.basis_id,
+        decision_basis_digest: &basis.integrity_digest,
+        effective_policy_id: &basis.effective_policy_id,
+        effective_policy_digest: &basis.effective_policy_digest,
+        policy_binding_refs: &basis.policy_binding_refs,
+        policy_artifact_refs: &basis.policy_artifact_refs,
+        case_id: &operation.case_id,
+        participant_id: &operation.participant_id,
+        resource_attachment_id: &operation.resource_attachment_id,
+        permitted_effect: &GrantedEffect::FilesystemWrite,
+        normalized_target: &operation.filesystem_write.relative_path,
+        intended_content_digest: &operation.filesystem_write.content_digest,
+        expected_case_generation: current_case_generation,
+        idempotency_key: &idempotency_key,
+        require_pre_observation: true,
+        require_post_observation: true,
+        execution_evidence_requirements: &execution_evidence_requirements,
+        review_action_ref: &review_action_ref,
+    };
+    let integrity_digest = digest_serialized(&material);
+    let grant = ExecutionGrant {
+        schema: EXECUTION_GRANT_SCHEMA.to_string(),
+        grant_id: format!("grant:{}", digest_suffix(&integrity_digest, 32)),
+        integrity_digest,
+        operation_id: operation.operation_id.clone(),
+        operation_digest: operation.operation_digest.clone(),
+        decision_id: decision.decision_id.clone(),
+        decision_digest: decision.decision_digest.clone(),
+        case_id: operation.case_id.clone(),
+        participant_id: operation.participant_id.clone(),
+        resource_attachment_id: operation.resource_attachment_id.clone(),
+        permitted_effect: GrantedEffect::FilesystemWrite,
+        normalized_target: operation.filesystem_write.relative_path.clone(),
+        intended_content_digest: operation.filesystem_write.content_digest.clone(),
+        expected_case_generation: current_case_generation,
+        idempotency_key,
+        require_pre_observation: true,
+        require_post_observation: true,
+        decision_basis_id: Some(basis.basis_id.clone()),
+        decision_basis_digest: Some(basis.integrity_digest.clone()),
+        effective_policy_id: Some(basis.effective_policy_id.clone()),
+        effective_policy_digest: Some(basis.effective_policy_digest.clone()),
+        policy_binding_refs: basis.policy_binding_refs.clone(),
+        policy_artifact_refs: basis.policy_artifact_refs.clone(),
+        execution_evidence_requirements,
+        review_action_ref,
+    };
+    grant.validate_integrity()?;
+    Ok(grant)
 }
 
 pub fn issue_execution_grant(
@@ -699,7 +902,7 @@ pub fn issue_execution_grant(
         digest_suffix(&operation.operation_digest, 32)
     );
     let material = GrantDigestMaterial {
-        schema: EXECUTION_GRANT_SCHEMA,
+        schema: EXECUTION_GRANT_SCHEMA_V1,
         operation_id: &operation.operation_id,
         operation_digest: &operation.operation_digest,
         decision_id: &decision.decision_id,
@@ -717,7 +920,7 @@ pub fn issue_execution_grant(
     };
     let integrity_digest = digest_serialized(&material);
     Ok(ExecutionGrant {
-        schema: EXECUTION_GRANT_SCHEMA.to_string(),
+        schema: EXECUTION_GRANT_SCHEMA_V1.to_string(),
         grant_id: format!("grant:{}", digest_suffix(&integrity_digest, 32)),
         integrity_digest,
         operation_id: operation.operation_id.clone(),
@@ -734,6 +937,14 @@ pub fn issue_execution_grant(
         idempotency_key,
         require_pre_observation: true,
         require_post_observation: true,
+        decision_basis_id: None,
+        decision_basis_digest: None,
+        effective_policy_id: None,
+        effective_policy_digest: None,
+        policy_binding_refs: Vec::new(),
+        policy_artifact_refs: Vec::new(),
+        execution_evidence_requirements: Vec::new(),
+        review_action_ref: None,
     })
 }
 
@@ -776,24 +987,14 @@ pub fn validate_decision(
     current_case_generation: u64,
 ) -> Result<(), String> {
     operation.validate()?;
-    if decision.schema != DECISION_SCHEMA
+    if (decision.schema != DECISION_SCHEMA && decision.schema != DECISION_SCHEMA_V1)
         || decision.operation_id != operation.operation_id
         || decision.operation_digest != operation.operation_digest
         || decision.decided_at_case_generation != current_case_generation
     {
         return Err("decision_operation_or_generation_mismatch".to_string());
     }
-    let material = DecisionDigestMaterial {
-        schema: &decision.schema,
-        operation_id: &decision.operation_id,
-        operation_digest: &decision.operation_digest,
-        outcome: &decision.outcome,
-        source: &decision.source,
-        reason: &decision.reason,
-        basis_refs: &decision.basis_refs,
-        decided_at_case_generation: decision.decided_at_case_generation,
-    };
-    if digest_serialized(&material) != decision.decision_digest {
+    if decision.validate_integrity().is_err() {
         return Err("decision_digest_mismatch".to_string());
     }
     Ok(())
@@ -809,7 +1010,7 @@ pub fn validate_grant(
     if decision.outcome != DecisionOutcome::Allow {
         return Err("grant_decision_is_not_allow".to_string());
     }
-    if grant.schema != EXECUTION_GRANT_SCHEMA
+    if (grant.schema != EXECUTION_GRANT_SCHEMA && grant.schema != EXECUTION_GRANT_SCHEMA_V1)
         || grant.operation_id != operation.operation_id
         || grant.operation_digest != operation.operation_digest
         || grant.decision_id != decision.decision_id
@@ -826,24 +1027,7 @@ pub fn validate_grant(
     {
         return Err("execution_grant_contract_mismatch".to_string());
     }
-    let material = GrantDigestMaterial {
-        schema: &grant.schema,
-        operation_id: &grant.operation_id,
-        operation_digest: &grant.operation_digest,
-        decision_id: &grant.decision_id,
-        decision_digest: &grant.decision_digest,
-        case_id: &grant.case_id,
-        participant_id: &grant.participant_id,
-        resource_attachment_id: &grant.resource_attachment_id,
-        permitted_effect: &grant.permitted_effect,
-        normalized_target: &grant.normalized_target,
-        intended_content_digest: &grant.intended_content_digest,
-        expected_case_generation: grant.expected_case_generation,
-        idempotency_key: &grant.idempotency_key,
-        require_pre_observation: grant.require_pre_observation,
-        require_post_observation: grant.require_post_observation,
-    };
-    if digest_serialized(&material) != grant.integrity_digest {
+    if grant.validate_integrity().is_err() {
         return Err("execution_grant_integrity_mismatch".to_string());
     }
     Ok(())
@@ -912,27 +1096,64 @@ impl Operation {
 
 impl Decision {
     pub fn validate_integrity(&self) -> Result<(), String> {
-        if self.schema != DECISION_SCHEMA
+        if (self.schema != DECISION_SCHEMA && self.schema != DECISION_SCHEMA_V1)
             || self.decision_id.is_empty()
             || self.operation_id.is_empty()
             || self.operation_digest.is_empty()
-            || self.source.policy_id.is_empty()
-            || self.source.owner_participant_id.is_empty()
             || self.reason.is_empty()
         {
             return Err("invalid_decision_contract".to_string());
         }
-        let material = DecisionDigestMaterial {
-            schema: &self.schema,
-            operation_id: &self.operation_id,
-            operation_digest: &self.operation_digest,
-            outcome: &self.outcome,
-            source: &self.source,
-            reason: &self.reason,
-            basis_refs: &self.basis_refs,
-            decided_at_case_generation: self.decided_at_case_generation,
+        let digest = if self.schema == DECISION_SCHEMA_V1 {
+            let source = self
+                .source
+                .as_ref()
+                .ok_or_else(|| "legacy_decision_source_missing".to_string())?;
+            if source.policy_id.is_empty()
+                || source.owner_participant_id.is_empty()
+                || self.decision_basis.is_some()
+            {
+                return Err("invalid_legacy_decision_contract".to_string());
+            }
+            digest_serialized(&DecisionDigestMaterial {
+                schema: &self.schema,
+                operation_id: &self.operation_id,
+                operation_digest: &self.operation_digest,
+                outcome: &self.outcome,
+                source,
+                reason: &self.reason,
+                basis_refs: &self.basis_refs,
+                decided_at_case_generation: self.decided_at_case_generation,
+            })
+        } else {
+            let basis = self
+                .decision_basis
+                .as_ref()
+                .ok_or_else(|| "policy_decision_basis_missing".to_string())?;
+            basis.validate_integrity()?;
+            if self.source.is_some()
+                || !self.basis_refs.is_empty()
+                || basis.operation_id != self.operation_id
+                || basis.operation_digest != self.operation_digest
+                || basis.final_posture != self.outcome
+                || basis.evaluated_case_generation != self.decided_at_case_generation
+            {
+                return Err("policy_decision_basis_mismatch".to_string());
+            }
+            digest_serialized(&DecisionDigestMaterialV2 {
+                schema: &self.schema,
+                operation_id: &self.operation_id,
+                operation_digest: &self.operation_digest,
+                outcome: &self.outcome,
+                decision_basis_id: &basis.basis_id,
+                decision_basis_digest: &basis.integrity_digest,
+                reason: &self.reason,
+                decided_at_case_generation: self.decided_at_case_generation,
+            })
         };
-        if digest_serialized(&material) != self.decision_digest {
+        if digest != self.decision_digest
+            || self.decision_id != format!("decision:{}", digest_suffix(&digest, 32))
+        {
             return Err("decision_digest_mismatch".to_string());
         }
         Ok(())
@@ -941,7 +1162,7 @@ impl Decision {
 
 impl ExecutionGrant {
     pub fn validate_integrity(&self) -> Result<(), String> {
-        if self.schema != EXECUTION_GRANT_SCHEMA
+        if (self.schema != EXECUTION_GRANT_SCHEMA && self.schema != EXECUTION_GRANT_SCHEMA_V1)
             || self.grant_id.is_empty()
             || self.operation_id.is_empty()
             || self.decision_id.is_empty()
@@ -955,24 +1176,73 @@ impl ExecutionGrant {
         {
             return Err("invalid_execution_grant_contract".to_string());
         }
-        let material = GrantDigestMaterial {
-            schema: &self.schema,
-            operation_id: &self.operation_id,
-            operation_digest: &self.operation_digest,
-            decision_id: &self.decision_id,
-            decision_digest: &self.decision_digest,
-            case_id: &self.case_id,
-            participant_id: &self.participant_id,
-            resource_attachment_id: &self.resource_attachment_id,
-            permitted_effect: &self.permitted_effect,
-            normalized_target: &self.normalized_target,
-            intended_content_digest: &self.intended_content_digest,
-            expected_case_generation: self.expected_case_generation,
-            idempotency_key: &self.idempotency_key,
-            require_pre_observation: self.require_pre_observation,
-            require_post_observation: self.require_post_observation,
+        let digest = if self.schema == EXECUTION_GRANT_SCHEMA_V1 {
+            if self.decision_basis_id.is_some()
+                || self.effective_policy_id.is_some()
+                || !self.execution_evidence_requirements.is_empty()
+            {
+                return Err("legacy_execution_grant_claims_policy_basis".to_string());
+            }
+            digest_serialized(&GrantDigestMaterial {
+                schema: &self.schema,
+                operation_id: &self.operation_id,
+                operation_digest: &self.operation_digest,
+                decision_id: &self.decision_id,
+                decision_digest: &self.decision_digest,
+                case_id: &self.case_id,
+                participant_id: &self.participant_id,
+                resource_attachment_id: &self.resource_attachment_id,
+                permitted_effect: &self.permitted_effect,
+                normalized_target: &self.normalized_target,
+                intended_content_digest: &self.intended_content_digest,
+                expected_case_generation: self.expected_case_generation,
+                idempotency_key: &self.idempotency_key,
+                require_pre_observation: self.require_pre_observation,
+                require_post_observation: self.require_post_observation,
+            })
+        } else {
+            let basis_id = self.decision_basis_id.as_deref().unwrap_or_default();
+            let basis_digest = self.decision_basis_digest.as_deref().unwrap_or_default();
+            let effective_id = self.effective_policy_id.as_deref().unwrap_or_default();
+            let effective_digest = self.effective_policy_digest.as_deref().unwrap_or_default();
+            if basis_id.is_empty()
+                || basis_digest.is_empty()
+                || effective_id.is_empty()
+                || effective_digest.is_empty()
+                || self.policy_binding_refs.is_empty()
+                || self.policy_artifact_refs.is_empty()
+            {
+                return Err("policy_execution_grant_basis_missing".to_string());
+            }
+            digest_serialized(&GrantDigestMaterialV2 {
+                schema: &self.schema,
+                operation_id: &self.operation_id,
+                operation_digest: &self.operation_digest,
+                decision_id: &self.decision_id,
+                decision_digest: &self.decision_digest,
+                decision_basis_id: basis_id,
+                decision_basis_digest: basis_digest,
+                effective_policy_id: effective_id,
+                effective_policy_digest: effective_digest,
+                policy_binding_refs: &self.policy_binding_refs,
+                policy_artifact_refs: &self.policy_artifact_refs,
+                case_id: &self.case_id,
+                participant_id: &self.participant_id,
+                resource_attachment_id: &self.resource_attachment_id,
+                permitted_effect: &self.permitted_effect,
+                normalized_target: &self.normalized_target,
+                intended_content_digest: &self.intended_content_digest,
+                expected_case_generation: self.expected_case_generation,
+                idempotency_key: &self.idempotency_key,
+                require_pre_observation: self.require_pre_observation,
+                require_post_observation: self.require_post_observation,
+                execution_evidence_requirements: &self.execution_evidence_requirements,
+                review_action_ref: &self.review_action_ref,
+            })
         };
-        if digest_serialized(&material) != self.integrity_digest {
+        if digest != self.integrity_digest
+            || self.grant_id != format!("grant:{}", digest_suffix(&digest, 32))
+        {
             return Err("execution_grant_integrity_mismatch".to_string());
         }
         Ok(())

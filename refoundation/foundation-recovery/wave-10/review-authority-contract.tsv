@@ -1,0 +1,6 @@
+stage	contract	fail_closed_property
+request	yai.review_request.v2 binds Case, original Operation/digest, initial Decision, DecisionBasis, EffectivePolicy, exact policy refs and reviewer roles	no Grant under REQUIRE_REVIEW
+action	yai.review_action.v1 binds review/Case/Operation/reviewer/action/reason/generation	wrong role/Case/stale/replay rejected
+approve	re-evaluate same Operation with actual ReviewAction evidence under same EffectivePolicy	cannot override policy DENY; stale basis rejected
+deny	effective DENY; no Grant/effect	approval cannot follow denial
+defer	no final Decision/Grant; review stays unresolved	no Decision-level DEFER added

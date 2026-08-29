@@ -7,9 +7,9 @@
 
 use crate::case_policy::CasePolicyBinding;
 use crate::effect::{
-    Decision, DecisionOutcome, EffectOutcome, EffectReceipt, ExecutionGrant, FilesystemObservation,
-    NormalizationFailure, Operation, OperationOrigin, PreparedEffect, ReconciliationConclusion,
-    EFFECT_RECEIPT_SCHEMA, OBSERVATION_SCHEMA, PREPARED_EFFECT_SCHEMA,
+    digest_bytes, Decision, DecisionOutcome, EffectOutcome, EffectReceipt, ExecutionGrant,
+    FilesystemObservation, NormalizationFailure, Operation, OperationOrigin, PreparedEffect,
+    ReconciliationConclusion, EFFECT_RECEIPT_SCHEMA, OBSERVATION_SCHEMA, PREPARED_EFFECT_SCHEMA,
 };
 use serde::{Deserialize, Serialize};
 
@@ -17,13 +17,16 @@ pub const TRANSITION_SCHEMA_V1: &str = "yai.transition.v1";
 pub const TRANSITION_SCHEMA_V2: &str = "yai.transition.v2";
 pub const TRANSITION_SCHEMA_V3: &str = "yai.transition.v3";
 pub const TRANSITION_SCHEMA_V4: &str = "yai.transition.v4";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v5";
+pub const TRANSITION_SCHEMA_V5: &str = "yai.transition.v5";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v6";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
 pub const CASE_STATE_SCHEMA_V4: &str = "yai.case_state.v4";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v5";
-pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v1";
+pub const CASE_STATE_SCHEMA_V5: &str = "yai.case_state.v5";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v6";
+pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v2";
+pub const REVIEW_REQUEST_SCHEMA_V1: &str = "yai.review_request.v1";
 pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -333,7 +336,7 @@ pub fn build_review_action(
     expected_case_generation: u64,
     source: &str,
 ) -> Result<ReviewAction, String> {
-    if review.schema != REVIEW_REQUEST_SCHEMA
+    if review.schema != REVIEW_REQUEST_SCHEMA && review.schema != REVIEW_REQUEST_SCHEMA_V1
         || case_id.is_empty()
         || reviewer_participant_id.is_empty()
         || reason.trim().is_empty()
@@ -504,11 +507,29 @@ pub struct ReviewState {
     #[serde(default)]
     pub schema: String,
     #[serde(default)]
+    pub integrity_digest: String,
+    #[serde(default)]
+    pub case_id: String,
+    #[serde(default)]
     pub operation_id: String,
     #[serde(default)]
     pub operation_digest: String,
     #[serde(default)]
     pub initial_decision_id: String,
+    #[serde(default)]
+    pub decision_basis_id: String,
+    #[serde(default)]
+    pub decision_basis_digest: String,
+    #[serde(default)]
+    pub effective_policy_id: String,
+    #[serde(default)]
+    pub effective_policy_digest: String,
+    #[serde(default)]
+    pub policy_binding_refs: Vec<String>,
+    #[serde(default)]
+    pub policy_artifact_refs: Vec<String>,
+    #[serde(default)]
+    pub required_reviewer_roles: Vec<String>,
     #[serde(default)]
     pub resource_attachment_id: String,
     #[serde(default)]
@@ -601,7 +622,12 @@ pub struct DecisionState {
     pub operation_id: String,
     pub operation_digest: String,
     pub outcome: DecisionOutcome,
-    pub policy_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub policy_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub decision_basis_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_policy_id: Option<String>,
     pub recorded_at_generation: u64,
 }
 
@@ -933,33 +959,78 @@ impl CaseState {
                     .iter()
                     .find(|resource| resource.attachment_id == operation.resource_attachment_id)
                     .ok_or_else(|| "decision_resource_not_attached".to_string())?;
-                if decision.source.policy_id != resource.policy_id
-                    || decision.source.owner_participant_id != resource.policy_owner_participant_id
-                    || decision.source.owner_participant_id == operation.participant_id
-                {
-                    return Err("decision_source_not_attachment_policy".to_string());
-                }
+                let (policy_id, decision_basis_id, effective_policy_id) =
+                    if decision.schema == crate::effect::DECISION_SCHEMA_V1 {
+                        let source = decision
+                            .source
+                            .as_ref()
+                            .ok_or_else(|| "legacy_decision_source_missing".to_string())?;
+                        if source.policy_id != resource.policy_id
+                            || source.owner_participant_id != resource.policy_owner_participant_id
+                            || source.owner_participant_id == operation.participant_id
+                        {
+                            return Err("decision_source_not_attachment_policy".to_string());
+                        }
+                        (Some(source.policy_id.clone()), None, None)
+                    } else {
+                        let basis = decision
+                            .decision_basis
+                            .as_ref()
+                            .ok_or_else(|| "policy_decision_basis_missing".to_string())?;
+                        if basis.case_id != next.case_id
+                            || basis.operation_id != operation.operation_id
+                            || basis.operation_digest != operation.operation_digest
+                            || basis.resource_attachment_id != resource.attachment_id
+                            || basis.proposer_participant_id != operation.participant_id
+                            || basis.policy_binding_refs
+                                != next
+                                    .policy_bindings
+                                    .iter()
+                                    .map(|binding| binding.binding_id.clone())
+                                    .collect::<Vec<_>>()
+                        {
+                            return Err("policy_decision_case_basis_mismatch".to_string());
+                        }
+                        (
+                            None,
+                            Some(basis.basis_id.clone()),
+                            Some(basis.effective_policy_id.clone()),
+                        )
+                    };
                 next.last_decision = Some(DecisionState {
                     decision_id: decision.decision_id.clone(),
                     decision_digest: decision.decision_digest.clone(),
                     operation_id: decision.operation_id.clone(),
                     operation_digest: decision.operation_digest.clone(),
                     outcome: decision.outcome.clone(),
-                    policy_id: decision.source.policy_id.clone(),
+                    policy_id,
+                    decision_basis_id,
+                    effective_policy_id,
                     recorded_at_generation: transition.sequence,
                 });
                 if decision.outcome != DecisionOutcome::RequireReview {
                     if let Some(review) = next.reviews.iter_mut().find(|review| {
                         review.operation_id == decision.operation_id
-                            && decision
+                            && (decision
                                 .basis_refs
                                 .iter()
                                 .any(|basis| basis == &review.review_id)
+                                || decision
+                                    .decision_basis
+                                    .as_ref()
+                                    .and_then(|basis| basis.review_action_ref.as_ref())
+                                    == review.latest_action_id.as_ref())
                     }) {
                         let Some(action_id) = review.latest_action_id.as_ref() else {
                             return Err("effective_review_decision_without_action".to_string());
                         };
-                        if !decision.basis_refs.iter().any(|basis| basis == action_id) {
+                        if !decision.basis_refs.iter().any(|basis| basis == action_id)
+                            && decision
+                                .decision_basis
+                                .as_ref()
+                                .and_then(|basis| basis.review_action_ref.as_ref())
+                                != Some(action_id)
+                        {
                             return Err("effective_review_decision_action_mismatch".to_string());
                         }
                         review.effective_decision_id = Some(decision.decision_id.clone());
@@ -989,6 +1060,19 @@ impl CaseState {
                         .any(|existing| existing.grant_id == grant.grant_id)
                 {
                     return Err("grant_chain_or_generation_mismatch".to_string());
+                }
+                if grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA
+                    && (grant.decision_basis_id.as_deref() != decision.decision_basis_id.as_deref()
+                        || grant.effective_policy_id.as_deref()
+                            != decision.effective_policy_id.as_deref()
+                        || grant.policy_binding_refs
+                            != next
+                                .policy_bindings
+                                .iter()
+                                .map(|binding| binding.binding_id.clone())
+                                .collect::<Vec<_>>())
+                {
+                    return Err("policy_grant_case_basis_mismatch".to_string());
                 }
                 next.grants.push(GrantState {
                     grant_id: grant.grant_id.clone(),
@@ -1187,15 +1271,39 @@ impl CaseState {
                         .iter()
                         .find(|resource| resource.attachment_id == review.resource_attachment_id)
                         .ok_or_else(|| "review_resource_not_attached".to_string())?;
-                    if review.operation_id != operation.operation_id
+                    let policy_v2 = review.schema == REVIEW_REQUEST_SCHEMA;
+                    if policy_v2 && review.case_id != next.case_id
+                        || review.operation_id != operation.operation_id
                         || review.operation_digest != operation.operation_digest
                         || review.initial_decision_id != decision.decision_id
                         || decision.operation_id != operation.operation_id
                         || decision.outcome != DecisionOutcome::RequireReview
                         || review.requested_by_participant != operation.participant_id
-                        || review.reviewer_participant != resource.policy_owner_participant_id
                         || review.normalized_target != operation.relative_path
                         || review.created_at_generation != next.generation
+                    {
+                        return Err("review_request_chain_mismatch".to_string());
+                    }
+                    if policy_v2 {
+                        if review.decision_basis_id.is_empty()
+                            || review.decision_basis_digest.is_empty()
+                            || review.effective_policy_id.is_empty()
+                            || review.effective_policy_digest.is_empty()
+                            || review.required_reviewer_roles.is_empty()
+                            || decision.decision_basis_id.as_deref()
+                                != Some(review.decision_basis_id.as_str())
+                            || decision.effective_policy_id.as_deref()
+                                != Some(review.effective_policy_id.as_str())
+                            || !next.participants.iter().any(|participant| {
+                                review
+                                    .required_reviewer_roles
+                                    .iter()
+                                    .all(|role| participant.roles.contains(role))
+                            })
+                        {
+                            return Err("policy_review_request_basis_mismatch".to_string());
+                        }
+                    } else if review.reviewer_participant != resource.policy_owner_participant_id
                         || !next.participants.iter().any(|participant| {
                             participant.participant_id == review.reviewer_participant
                         })
@@ -1217,9 +1325,16 @@ impl CaseState {
                 if review.operation_id != action.operation_id
                     || action.case_id != next.case_id
                     || action.expected_case_generation != next.generation
-                    || review.reviewer_participant != action.reviewer_participant_id
                     || !next.participants.iter().any(|participant| {
                         participant.participant_id == action.reviewer_participant_id
+                            && if review.schema == REVIEW_REQUEST_SCHEMA {
+                                review
+                                    .required_reviewer_roles
+                                    .iter()
+                                    .all(|role| participant.roles.contains(role))
+                            } else {
+                                review.reviewer_participant == action.reviewer_participant_id
+                            }
                     })
                 {
                     return Err("review_action_binding_or_generation_mismatch".to_string());
@@ -1333,6 +1448,7 @@ impl CaseState {
             || state.schema == CASE_STATE_SCHEMA_V2
             || state.schema == CASE_STATE_SCHEMA_V3
             || state.schema == CASE_STATE_SCHEMA_V4
+            || state.schema == CASE_STATE_SCHEMA_V5
         {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
@@ -1345,6 +1461,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V5
             && self.schema != TRANSITION_SCHEMA_V4
             && self.schema != TRANSITION_SCHEMA_V3
             && self.schema != TRANSITION_SCHEMA_V2
@@ -1365,8 +1482,11 @@ impl Transition {
         if !supports_wave7_contract(&self.schema) && self.payload.is_wave7_kind() {
             return Err("wave7_transition_kind_requires_yai_transition_v4".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave9_kind() {
+        if !supports_wave9_contract(&self.schema) && self.payload.is_wave9_kind() {
             return Err("wave9_transition_kind_requires_yai_transition_v5".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave10_kind() {
+            return Err("wave10_contract_requires_yai_transition_v6".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -1510,11 +1630,35 @@ impl Transition {
             TransitionPayload::DecisionRecorded { decision } => {
                 decision.validate_integrity()?;
                 require_causal_ref(&self.causal_refs, &decision.operation_id, "operation")?;
+                if decision.schema == crate::effect::DECISION_SCHEMA {
+                    let basis = decision
+                        .decision_basis
+                        .as_ref()
+                        .ok_or_else(|| "policy_decision_basis_missing".to_string())?;
+                    require_causal_ref(&self.causal_refs, &basis.basis_id, "decision_basis")?;
+                    require_causal_ref(
+                        &self.causal_refs,
+                        &basis.effective_policy_id,
+                        "effective_policy",
+                    )?;
+                }
             }
             TransitionPayload::ExecutionGrantIssued { grant } => {
                 grant.validate_integrity()?;
                 require_causal_ref(&self.causal_refs, &grant.operation_id, "operation")?;
                 require_causal_ref(&self.causal_refs, &grant.decision_id, "decision")?;
+                if grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA {
+                    require_causal_ref(
+                        &self.causal_refs,
+                        grant.decision_basis_id.as_deref().unwrap_or_default(),
+                        "decision_basis",
+                    )?;
+                    require_causal_ref(
+                        &self.causal_refs,
+                        grant.effective_policy_id.as_deref().unwrap_or_default(),
+                        "effective_policy",
+                    )?;
+                }
             }
             TransitionPayload::EffectPrepared { prepared } => {
                 prepared.validate()?;
@@ -1583,6 +1727,18 @@ impl Transition {
                         &review.initial_decision_id,
                         "review_initial_decision",
                     )?;
+                    if review.schema == REVIEW_REQUEST_SCHEMA {
+                        require_causal_ref(
+                            &self.causal_refs,
+                            &review.decision_basis_id,
+                            "decision_basis",
+                        )?;
+                        require_causal_ref(
+                            &self.causal_refs,
+                            &review.effective_policy_id,
+                            "effective_policy",
+                        )?;
+                    }
                 } else {
                     require_causal_ref(&self.causal_refs, &review.attempt_id, "review_attempt")?;
                 }
@@ -1670,11 +1826,61 @@ impl Transition {
 }
 
 impl ReviewState {
+    pub fn seal_policy_integrity(mut self) -> Result<Self, String> {
+        if self.schema != REVIEW_REQUEST_SCHEMA {
+            return Err("policy_review_integrity_requires_v2".to_string());
+        }
+        self.review_id.clear();
+        self.integrity_digest.clear();
+        let digest = self.policy_integrity_digest()?;
+        self.review_id = format!("review:{}", &digest["sha256:".len()..][..32]);
+        self.integrity_digest = digest;
+        Ok(self)
+    }
+
+    pub fn validate_policy_integrity(&self) -> Result<(), String> {
+        if self.schema != REVIEW_REQUEST_SCHEMA {
+            return Err("policy_review_integrity_requires_v2".to_string());
+        }
+        let digest = self.policy_integrity_digest()?;
+        if self.integrity_digest != digest
+            || self.review_id != format!("review:{}", &digest["sha256:".len()..][..32])
+        {
+            return Err("policy_review_request_integrity_mismatch".to_string());
+        }
+        Ok(())
+    }
+
+    fn policy_integrity_digest(&self) -> Result<String, String> {
+        serde_json::to_vec(&serde_json::json!({
+            "schema": self.schema,
+            "case_id": self.case_id,
+            "operation_id": self.operation_id,
+            "operation_digest": self.operation_digest,
+            "initial_decision_id": self.initial_decision_id,
+            "decision_basis_id": self.decision_basis_id,
+            "decision_basis_digest": self.decision_basis_digest,
+            "effective_policy_id": self.effective_policy_id,
+            "effective_policy_digest": self.effective_policy_digest,
+            "policy_binding_refs": self.policy_binding_refs,
+            "policy_artifact_refs": self.policy_artifact_refs,
+            "required_reviewer_roles": self.required_reviewer_roles,
+            "resource_attachment_id": self.resource_attachment_id,
+            "normalized_target": self.normalized_target,
+            "created_at_generation": self.created_at_generation,
+            "requested_by_participant": self.requested_by_participant,
+            "policy_reason": self.policy_reason,
+        }))
+        .map(|value| digest_bytes(&value))
+        .map_err(|error| format!("policy_review_request_digest_encode_failed: {error}"))
+    }
+
     fn validate_for_schema(&self, transition_schema: &str) -> Result<(), String> {
         require_value("review_id", &self.review_id)?;
         require_value("policy_reason", &self.policy_reason)?;
         if supports_wave7_contract(transition_schema) {
-            if self.schema != REVIEW_REQUEST_SCHEMA
+            let wave10 = self.schema == REVIEW_REQUEST_SCHEMA;
+            if self.schema != REVIEW_REQUEST_SCHEMA && self.schema != REVIEW_REQUEST_SCHEMA_V1
                 || self.status != ReviewResolution::Pending
                 || self.created_at_generation == 0
                 || self.latest_action_id.is_some()
@@ -1682,7 +1888,10 @@ impl ReviewState {
             {
                 return Err("invalid_review_request_contract".to_string());
             }
-            for (field, value) in [
+            if wave10 && transition_schema != TRANSITION_SCHEMA {
+                return Err("policy_review_requires_yai_transition_v6".to_string());
+            }
+            let mut required = vec![
                 ("review.operation_id", self.operation_id.as_str()),
                 ("review.operation_digest", self.operation_digest.as_str()),
                 (
@@ -1694,15 +1903,40 @@ impl ReviewState {
                     self.requested_by_participant.as_str(),
                 ),
                 (
-                    "review.reviewer_participant",
-                    self.reviewer_participant.as_str(),
-                ),
-                (
                     "review.resource_attachment_id",
                     self.resource_attachment_id.as_str(),
                 ),
                 ("review.normalized_target", self.normalized_target.as_str()),
-            ] {
+            ];
+            if wave10 {
+                self.validate_policy_integrity()?;
+                required.extend([
+                    ("review.case_id", self.case_id.as_str()),
+                    ("review.decision_basis_id", self.decision_basis_id.as_str()),
+                    (
+                        "review.decision_basis_digest",
+                        self.decision_basis_digest.as_str(),
+                    ),
+                    (
+                        "review.effective_policy_id",
+                        self.effective_policy_id.as_str(),
+                    ),
+                    (
+                        "review.effective_policy_digest",
+                        self.effective_policy_digest.as_str(),
+                    ),
+                ]);
+                if self.required_reviewer_roles.is_empty() || !self.reviewer_participant.is_empty()
+                {
+                    return Err("invalid_policy_review_eligibility_contract".to_string());
+                }
+            } else {
+                required.push((
+                    "review.reviewer_participant",
+                    self.reviewer_participant.as_str(),
+                ));
+            }
+            for (field, value) in required {
                 require_value(field, value)?;
             }
             return Ok(());
@@ -1796,10 +2030,30 @@ impl TransitionPayload {
                 | Self::CasePolicyUnbound { .. }
         )
     }
+
+    fn is_wave10_kind(&self) -> bool {
+        match self {
+            Self::DecisionRecorded { decision } => {
+                decision.schema == crate::effect::DECISION_SCHEMA
+            }
+            Self::ExecutionGrantIssued { grant } => {
+                grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA
+            }
+            Self::ReviewRequested { review } => review.schema == REVIEW_REQUEST_SCHEMA,
+            _ => false,
+        }
+    }
 }
 
 fn supports_wave7_contract(schema: &str) -> bool {
-    matches!(schema, TRANSITION_SCHEMA | TRANSITION_SCHEMA_V4)
+    matches!(
+        schema,
+        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V5 | TRANSITION_SCHEMA_V4
+    )
+}
+
+fn supports_wave9_contract(schema: &str) -> bool {
+    matches!(schema, TRANSITION_SCHEMA | TRANSITION_SCHEMA_V5)
 }
 
 fn validate_provider_lineage(lineage: Option<&ProviderInvocationLineage>) -> Result<(), String> {

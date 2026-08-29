@@ -1,0 +1,9 @@
+boundary	proof	result
+A1 Decision before Grant	existing after-decision failpoint + canonical resume	one Decision; one Grant/effect on resume
+A2 REQUIRE_REVIEW before request	review_r1 characterization	request reconstructed once; no Grant/effect
+A3 request before runner release	review_r2 characterization	pending canonical review; claim reclaim/release safe
+A4 ReviewAction before effective Decision	review_r3 characterization	effective Decision reconstructed once
+A5 effective ALLOW before Grant	review_r4 characterization	one Grant/effect
+A6 Grant before PREPARE	review_r5/after_grant_before_prepare characterization	one stable Grant then one PREPARE/effect
+visible carrier boundaries	Wave3/Wave7 existing failpoints	FINALIZE/reconcile without duplicate mutation
+policy mutation race	wave10_policy_mutation_between_decision_and_grant_fails_in_same_transaction	E1 Grant rejected after E2 canonical replace

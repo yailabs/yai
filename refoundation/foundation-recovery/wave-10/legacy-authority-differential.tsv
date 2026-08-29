@@ -1,0 +1,9 @@
+property	strongest_legacy_evidence	current_before_wave10	delta	wave10_disposition	owner
+Case-qualified mediation	8daca5604 runtime gate	normative readiness existed but live effect ignored it	policy must gate live runtime	recovered stronger; pre-provider stop	case_runtime + admission
+normative policy result	policy_evaluation normative_effect	resource-local prefix/review fields	consume exact EffectivePolicy	closed-world applicable allow/deny	admission
+authority eligibility	authority_profile/context string gate	resource policy-owner magic participant	roles need Case/policy binding	all-of Case-bound proposer/reviewer roles	admission
+explicit basis	mediation result reasons/evidence refs	Decision v1 source + generic basis_refs	multi-artifact provenance absent	yai.decision_basis.v1	admission/effect
+human gate	review_required distinct token	Wave7 durable review with fixed eligible reviewer	policy role eligibility missing	yai.review_request.v2 + stale-basis check	admission/review
+evidence obligations	legacy evidence refs copied through envelope	Policy IR declarations decorative	give current four obligations executable phases	typed obligation evaluations + Grant requirements	admission/effect
+carrier admission	controlled_action validation	Grant v1 operation/generation bound	normative basis absent	yai.execution_grant.v2	admission/effect/store
+bypass behavior	several paths initialized or rewrote ALLOW	legacy decide_filesystem_write still normal writer	second authority seam	compatibility-only v1; no live fallback	controlled_effect

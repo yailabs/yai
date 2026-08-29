@@ -102,6 +102,10 @@ pub enum ProjectedValue {
         operation_id: String,
         decision_id: String,
         outcome: DecisionOutcome,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        decision_basis_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        effective_policy_id: Option<String>,
     },
     ReviewPosture {
         review_id: String,
@@ -451,6 +455,8 @@ pub fn compile_projection(
                 operation_id: decision.operation_id.clone(),
                 decision_id: decision.decision_id.clone(),
                 outcome: decision.outcome.clone(),
+                decision_basis_id: decision.decision_basis_id.clone(),
+                effective_policy_id: decision.effective_policy_id.clone(),
             },
             provenance: provenance_for_latest(transitions, |payload| {
                 matches!(payload, TransitionPayload::DecisionRecorded { decision: item } if item.decision_id == decision.decision_id)
@@ -460,7 +466,15 @@ pub fn compile_projection(
     for review in state.reviews.iter().filter(|review| {
         !review.operation_id.is_empty()
             && (review.requested_by_participant == request.participant_id
-                || review.reviewer_participant == request.participant_id)
+                || review.reviewer_participant == request.participant_id
+                || state.participants.iter().any(|participant| {
+                    participant.participant_id == request.participant_id
+                        && !review.required_reviewer_roles.is_empty()
+                        && review
+                            .required_reviewer_roles
+                            .iter()
+                            .all(|role| participant.roles.contains(role))
+                }))
             && matches!(
                 review.status,
                 ReviewResolution::Pending
@@ -1010,9 +1024,18 @@ mod tests {
         let review = ReviewState {
             review_id: "review:context".to_string(),
             schema: REVIEW_REQUEST_SCHEMA.to_string(),
+            integrity_digest: String::new(),
+            case_id: "case:context".to_string(),
             operation_id: "operation:context".to_string(),
             operation_digest: "sha256:operation".to_string(),
             initial_decision_id: "decision:require-review".to_string(),
+            decision_basis_id: "decision-basis:context".to_string(),
+            decision_basis_digest: "sha256:basis".to_string(),
+            effective_policy_id: "effective-policy:context".to_string(),
+            effective_policy_digest: "sha256:effective".to_string(),
+            policy_binding_refs: vec!["case-policy-binding:context".to_string()],
+            policy_artifact_refs: vec!["policy-artifact:context".to_string()],
+            required_reviewer_roles: vec!["reviewer".to_string()],
             resource_attachment_id: "workspace".to_string(),
             normalized_target: "allowed/reviewed.txt".to_string(),
             created_at_generation: 1,
@@ -1021,7 +1044,7 @@ mod tests {
             attempt_id: String::new(),
             requested_by_participant: "participant:model".to_string(),
             target_participant: String::new(),
-            reviewer_participant: "participant:reviewer".to_string(),
+            reviewer_participant: String::new(),
             operation_kind: String::new(),
             carrier_family: String::new(),
             target_display: String::new(),
@@ -1248,7 +1271,9 @@ mod tests {
             operation_id: "operation:false-claim".to_string(),
             operation_digest: "operation-digest".to_string(),
             outcome: DecisionOutcome::Deny,
-            policy_id: "policy:test".to_string(),
+            policy_id: Some("policy:test".to_string()),
+            decision_basis_id: None,
+            effective_policy_id: None,
             recorded_at_generation: 3,
         });
         let projection = compile_projection(

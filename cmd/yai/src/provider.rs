@@ -806,6 +806,69 @@ fn ensure_canonical_case(
     Ok(state)
 }
 
+pub(super) fn case_bind_participant_role(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let role = named_arg(args, "--role")?;
+    let actor_ref = named_arg(args, "--as")?;
+    if role.trim().is_empty()
+        || !role
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "._:-".contains(character))
+    {
+        return Err("participant_role_identifier_invalid".to_string());
+    }
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = store
+        .get_case_state(&case_id)?
+        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    if !state
+        .participants
+        .iter()
+        .any(|participant| participant.participant_id == participant_id)
+    {
+        return Err("participant_role_binding_requires_existing_case_participant".to_string());
+    }
+    if state.participants.iter().any(|participant| {
+        participant.participant_id == participant_id && participant.roles.contains(&role)
+    }) {
+        println!("participant_role_binding: already_bound");
+        println!("case_id: {case_id}");
+        println!("participant_id: {participant_id}");
+        println!("role: {role}");
+        return Ok(());
+    }
+    let mut pending = PendingTransition::new(
+        format!(
+            "transition:participant-role:{}:{}:{}",
+            canonical_id_component(&case_id),
+            canonical_id_component(&participant_id),
+            canonical_id_component(&role)
+        ),
+        &case_id,
+        state.generation,
+        TransitionSource {
+            component: "yai.local_case_participant_configuration".to_string(),
+            participant_id: Some(actor_ref.clone()),
+            source_ref: Some(format!("participant-role:{participant_id}:{role}")),
+        },
+        TransitionPayload::ParticipantBound {
+            participant_id: participant_id.clone(),
+            role: role.clone(),
+        },
+    );
+    pending.causal_refs = vec![participant_id.clone()];
+    let commit = store.commit_transition(pending)?;
+    println!("participant_role_binding: committed");
+    println!("case_id: {case_id}");
+    println!("case_generation: {}", commit.state.generation);
+    println!("participant_id: {participant_id}");
+    println!("role: {role}");
+    println!("actor_ref: {actor_ref}");
+    println!("actor_trust_boundary: local_cli_claimed_provenance");
+    Ok(())
+}
+
 fn promote_provider_compatibility_state(
     store: &LmdbRecordStore,
     journal: &Journal,

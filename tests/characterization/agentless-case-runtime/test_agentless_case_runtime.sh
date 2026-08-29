@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 YAI_BIN="$ROOT/target/debug/yai"
+source "$ROOT/tests/characterization/lib/governed_case_policy.sh"
 YAID="$ROOT/build/yaid"
 FIXTURE="$ROOT/tests/fixtures/agentless_case_runtime_provider.py"
 TEST_DIR="$(mktemp -d /tmp/yai-agentless-runtime.XXXXXX)"
@@ -93,6 +94,8 @@ setup_case() {
   YAI_HOME="$CASE_HOME" "$YAI_BIN" case attach-filesystem \
     --case case:new12-filesystem --attachment workspace --root "$RESOURCE_ROOT" \
     --allow-prefix allowed --policy-owner subject:policy-pack --max-bytes 256 >/dev/null
+  yai_configure_governed_filesystem_case "$YAI_BIN" "$CASE_HOME" \
+    case:new12-filesystem "runtime-$name" 1 allow subject:llm-provider >/dev/null
 }
 
 run_case() {

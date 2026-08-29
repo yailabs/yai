@@ -1,0 +1,9 @@
+field_family	contract	integrity_or_consumer
+identity	yai.decision_basis.v1;basis_id;integrity_digest	content-derived and validated by Decision/store
+Case/Operation	case_id;generation;operation id/digest/kind;proposer	binds one evaluation to one normalized Operation
+resource	attachment id/kind;mechanical posture	hard prefix/payload envelope cannot be widened
+governance	EffectivePolicy id/digest/materializer;exact binding/artifact refs	transactionally revalidated before review action/Grant
+applicability	matched rules/provenance;explicit allow/deny/no-match	closed-world deterministic result
+eligibility	proposer/reviewer required and observed roles;eligible reviewers	CaseState roles only; all-of
+evidence	typed obligations/status/evidence refs	provider lineage/review action/execution requirements
+result	final posture and reason;optional review action ref	Decision v2 integrity covers basis id/digest

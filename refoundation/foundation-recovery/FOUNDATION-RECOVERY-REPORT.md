@@ -26,10 +26,11 @@ later governance/law cutovers, neutral-sample cleanup and final drain residue.
   refounded proven after H8 lineage/provenance/parser/lifecycle/catalog
   hardening; rechecked during Wave 9 and reopen for Wave 12 ownership.
 - Case PolicyBinding, EffectivePolicy and normative readiness: refounded proven
-  at the exact-version configuration/materialization boundary; reopen for
-  Wave 10 authority and Wave 11 validity/revoke.
-- Policy-driven authority/DecisionBasis/review eligibility/Grant binding:
-  missing, Wave 10; human review must be reinspected then.
+  at the exact-version boundary and rechecked by their first operational
+  consumer; reopen for Wave 11 validity/revoke.
+- Policy-driven authority, DecisionBasis, evidence obligations, role-based
+  review eligibility and policy-bound Grant: refounded proven for the current
+  filesystem consumer; authentication and generalized policy remain open.
 - Validity/expiry/revoke, cancellation and Case closure: missing/partial, Wave
   11 after governance authority exists.
 - Tenant isolation, multi-Case runtime, resource fencing/second carrier,
@@ -90,5 +91,23 @@ provenance-bound derivation. DENY dominates ALLOW, required review dominates
 optional review and evidence obligations union. `unconfigured`, `ready` and
 `blocked` are derived readiness states; catalog drift is diagnostic only.
 Dropping/failing the derived cache cannot erase canonical binding history.
-Wave 9 emits no Decision, Grant, effect or provider invocation. Operational
-policy authority remains Wave 10.
+Wave 9 emits no Decision, Grant, effect or provider invocation. Its operational
+consumer is the separate Wave-10 admission boundary.
+
+## Wave-10 verdict
+
+Fresh cross-family archaeology recovered Case-qualified fail-closed mediation,
+the distinction among normative result, authority eligibility, review and
+evidence, explicit basis/reason, and operation-specific enforcement. It rejected
+legacy default-ALLOW, string authority profiles, ambient `operator_armed`,
+duplicated outcome rewriting, planes/supervisor and the controlled-action
+mega-envelope.
+
+Current YAI uses `yai.decision_basis.v1` to bind a normalized Operation to one
+Ready `yai.effective_policy.v2`, exact Case bindings/artifacts/rules, the hard
+resource envelope, Case-bound proposer/reviewer roles and typed obligations.
+`yai.decision.v2`, `yai.review_request.v2` and `yai.execution_grant.v2` bind that
+basis through `yai.transition.v6`/`yai.case_state.v6`. Admission is closed-world;
+review or Grant cannot survive a changed policy basis; authoring/materialization
+alone remains non-authoritative. Full validity/revoke/invalidation and durable
+cancellation/closure remain Wave 11.

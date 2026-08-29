@@ -12,7 +12,7 @@ import sys
 
 
 SCENARIO = sys.argv[1] if len(sys.argv) > 1 else "allow"
-EXPECTED_REQUESTS = 2 if SCENARIO in {"allow", "deny", "carrier_failure"} else 1
+EXPECTED_REQUESTS = 2 if SCENARIO in {"allow", "deny", "policy_deny", "no_match", "carrier_failure"} else 1
 REQUESTS = []
 
 
@@ -125,7 +125,10 @@ class Handler(BaseHTTPRequestHandler):
                 content = "I created allowed/hello.txt successfully."
             else:
                 proposal_scenario = (
-                    "allow" if SCENARIO in {"allow_once", "carrier_failure"} else SCENARIO
+                    "allow"
+                    if SCENARIO
+                    in {"allow_once", "policy_deny", "no_match", "carrier_failure"}
+                    else SCENARIO
                 )
                 content = json.dumps(
                     FIRST_RESPONSES[proposal_scenario], separators=(",", ":")

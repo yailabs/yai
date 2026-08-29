@@ -109,12 +109,12 @@ fn print_info() {
         "yai: technical YAI control command\n",
         "status: SPINE.51 Fact Plane Freeze\n",
         "ownership: Rust operational CLI plus Rust data engine\n",
-        "canonical_state: LMDB yai.transition.v5 plus atomically materialized yai.case_state.v5\n",
+        "canonical_state: LMDB yai.transition.v6 plus atomically materialized yai.case_state.v6\n",
         "effect_paths: typed filesystem.write with Case-native human review and no product review bypass\n",
         "semantic_context: typed yai.projection.v4 plus yai.context_frame.v4 derived from CaseState, qualified memory, review posture and ResidencyPlan\n",
         "operational_memory: yai.operational_memory.v1 derived, provenance-bound, droppable and rebuildable\n",
-        "governance_intake: immutable yai.policy_source_artifact.v2 plus typed yai.policy_ir.v1 and owner-scoped yai.policy_artifact.v2 lifecycle\n",
-        "case_governance: exact yai.case_policy_binding.v1 canonical transitions plus rebuildable yai.effective_policy.v1 normative readiness; no authority emission\n",
+        "governance_intake: immutable yai.policy_source_artifact.v3 plus typed yai.policy_ir.v2 and owner-scoped yai.policy_artifact.v3 lifecycle\n",
+        "case_governance: exact bindings plus yai.effective_policy.v2 and policy-bound DecisionBasis/Decision/review/ExecutionGrant admission\n",
         "provider-runtime: provider-specific rendering and real OpenAI-compatible HTTP invocation with typed frame lineage"
     ));
 }
@@ -260,6 +260,7 @@ fn print_usage() {
     println!("       yai case enter --case <case_ref> --subject <subject_ref> [--consumer model] [--kind model_context] [--shell zsh]");
     println!("       yai case attach-provider --case <case_ref> --subject <subject_ref> --base-url <url> --model <model> [--provider-id <id>] [--api-key-env <env>] [--shell zsh]");
     println!("       yai case attach-filesystem --case <case_ref> --attachment <id> --root <existing-dir> --allow-prefix <relative-dir> --policy-owner <participant> [--require-review] [--policy-id <id>] [--max-bytes <N>]");
+    println!("       yai case bind-participant-role --case <case_ref> --participant <participant> --role <role> --as <actor-ref>");
     println!("       yai case policy bind --case <case_ref> --artifact <id> --expected-generation <N> --as <participant> [--reason <reason>]");
     println!("       yai case policy replace --case <case_ref> --binding <id> --artifact <id> --expected-generation <N> --as <participant> [--reason <reason>]");
     println!("       yai case policy unbind --case <case_ref> --binding <id> --expected-generation <N> --as <participant> --reason <reason>");
@@ -1539,6 +1540,12 @@ fn main() {
         Some("case") if args.get(1).map(String::as_str) == Some("attach-filesystem") => {
             if let Err(error) = case_attach_filesystem(&args[2..]) {
                 eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("case") if args.get(1).map(String::as_str) == Some("bind-participant-role") => {
+            if let Err(error) = provider::case_bind_participant_role(&args[2..]) {
+                eprintln!("error: {error}");
                 std::process::exit(2);
             }
         }

@@ -224,20 +224,23 @@ admitted, attempted, observed, and indeterminate.
 
 ## Current implementation gap
 
-`yai.transition.v5` provides immutable typed payloads, per-Case sequence,
+`yai.transition.v6` provides immutable typed payloads, per-Case sequence,
 mechanical closure checks, stale-generation rejection, and atomic LMDB append
-plus `yai.case_state.v5` reduction. Readers retain v1-v4 compatibility.
+plus `yai.case_state.v6` reduction. Readers retain v1-v5 compatibility.
 Version 4 adds Operation-bound ReviewRequest, integrity-bound ReviewAction,
 effective Decision refs and resource review posture without placing derived
 context or runtime admission in CaseState. Version 5 adds exact PolicyArtifact
 bind/replace/unbind payloads and compact active binding state; EffectivePolicy
-and normative readiness remain derived. CaseState rebuild/replay equivalence,
+and normative readiness remain derived. Version 6 adds policy-bound Decision
+v2, ReviewRequest v2 and ExecutionGrant v2 materialization with compact
+DecisionBasis/EffectivePolicy refs. CaseState rebuild/replay equivalence,
 restart, rollback-before-commit, duplicate identity, derived failure isolation,
 and typed graph rebuild are executable invariants.
 
 The first product effect contract is now implemented for `filesystem.write`.
 It has strict ProviderResult-candidate normalization, typed Operation,
-ALLOW/DENY/REQUIRE_REVIEW Decision, one-time generation-bound ExecutionGrant, typed pre/post
+closed-world policy-driven ALLOW/DENY/REQUIRE_REVIEW Decision, one-time
+generation- and EffectivePolicy-bound ExecutionGrant, typed pre/post
 filesystem Observation, durable EffectPrepared, typed EffectReceipt,
 EffectFinalized/EffectIndeterminate/EffectReconciled, stable idempotency, and
 restart reconciliation. Human approval retains the original provider-origin
@@ -248,7 +251,7 @@ previous output. The direct write command is removed.
 
 The implementation remains narrower than the full contract: only one local
 filesystem carrier exists; issued-but-never-prepared Grant cleanup is not
-modeled; expiry/revocation and general policy are absent. The synchronous
+modeled; expiry/revocation, authentication and broader policy families are absent. The synchronous
 agentless Case runtime now discovers and reconciles unresolved effects before
 its next provider invocation, but there is no multi-Case background recovery
 service. It reloads canonical CaseState on every iteration and owns only a

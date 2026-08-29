@@ -1,0 +1,13 @@
+attack_or_gap	expected	proof
+no applicable ALLOW	DENY/no Grant/effect	policy-authority-admission no-match product run
+applicable DENY	DENY/no Grant/effect	policy-authority-admission deny product run
+unconfigured/blocked	stop before provider	product unconfigured + engine materialization tests
+resource prefix/payload violation	DENY despite policy ALLOW	admission engine tests + normalization/security characterization
+unbound/missing proposer role	DENY	admission engine test
+wrong reviewer role	nonzero/no Decision/Grant/effect	human-review product transcript
+forged provider provenance	DENY	admission engine test
+generated Decision reason as audit evidence	not satisfied	audit_reason engine test
+changed policy before review	stale/nonzero/no Grant/effect	human-review product transcript
+changed policy before Grant	stale transaction/no Grant	LMDB race test
+legacy resource policy fields changed	new Decision unchanged	admission engine test
+provider/memory/graph/checkpoint approval claim	no authority	typed source boundaries + existing negative characterizations

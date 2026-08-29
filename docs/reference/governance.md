@@ -1,8 +1,7 @@
 # Governance source and PolicyArtifact reference
 
-Authority: current Wave-8/H8 governance authoring and Wave-9 Case policy
-configuration/materialization contracts. This reference does not define
-operational policy authority.
+Authority: current Wave-8/H8 governance authoring, Wave-9 Case policy
+materialization, and Wave-10 operational admission contracts.
 
 ## Boundary
 
@@ -29,17 +28,18 @@ published PolicyArtifact
 
 A published artifact is merely eligible for binding. A binding is durable Case
 configuration, not a policy result. EffectivePolicy is deterministic normative
-input, not DecisionBasis. None authorizes an Operation, produces a Decision,
-changes review eligibility or issues an ExecutionGrant.
+input, not authority. Only Wave-10 evaluation of a normalized Operation under a
+Ready EffectivePolicy can produce DecisionBasis and a Decision; only final
+ALLOW under the same current basis can issue an ExecutionGrant.
 
 ## Input grammar
 
-`yai.policy_source_input.v2` is bounded UTF-8 JSON with no unknown top-level
+`yai.policy_source_input.v3` is bounded UTF-8 JSON with no unknown top-level
 fields:
 
 ```json
 {
-  "schema": "yai.policy_source_input.v2",
+  "schema": "yai.policy_source_input.v3",
   "policy_key": "organization.example.filesystem",
   "source_version": "1",
   "owner_ref": "organization:example",
@@ -68,20 +68,21 @@ rule fail parsing. An unknown rule `kind` is retained as an unresolved item so
 an operator can inspect the candidate, but blocks qualification and
 publication. No LLM interprets source material.
 
-Wave 8 implements these parsed fact kinds:
+The current compiler implements these parsed fact kinds:
 
 | Kind | Typed semantic payload | Current consumer |
 |---|---|---|
-| `operation_restriction` | operation/resource selector, ALLOW or DENY posture, reason | Policy IR construction and conflict detection only |
-| `review_requirement` | operation/resource selector, required boolean, reason | Policy IR construction and conflict detection only |
-| `evidence_obligation` | operation/resource selector, pre/post observation, audit reason or source-provenance obligation | Policy IR construction only |
+| `operation_restriction` | operation/resource selector, ALLOW or DENY posture, reason | EffectivePolicy and closed-world operation admission |
+| `review_requirement` | operation/resource selector, required boolean, reason | EffectivePolicy and ReviewRequest posture |
+| `evidence_obligation` | operation/resource selector, pre/post observation, audit reason or source-provenance obligation | admission/effect evidence requirements |
+| `authority_requirement` | proposer/reviewer subject plus required Case role for an operation/resource selector | proposer and reviewer eligibility |
 
-Wave 9 composes these types only into EffectivePolicy; the existing
-review/effect path remains unchanged.
+Authority requirements are additive/all-of. They are scoped to one evaluation
+and never create ambient Participant permission.
 
 ## Source and provenance
 
-`yai.policy_source_artifact.v2` stores:
+`yai.policy_source_artifact.v3` stores:
 
 ```text
 source_id
@@ -113,8 +114,8 @@ is unavailable or corrupt, its PolicyArtifact still contains the source digest,
 declared origin, typed facts and IR, but byte-level recompilation is no longer
 claimable. That failure posture is not advertised as a retention feature.
 
-`yai.parsed_policy.v1` gives every typed fact a deterministic identity, source
-artifact ref and JSON location such as `$.rules[0]`. `yai.policy_ir.v1` carries
+`yai.parsed_policy.v2` gives every typed fact a deterministic identity, source
+artifact ref and JSON location such as `$.rules[0]`. `yai.policy_ir.v2` carries
 those fact refs and source locations on every normalized rule. Combined rules
 retain all contributing refs; citations are never invented.
 
@@ -139,7 +140,7 @@ documented below.
 
 ## Immutable PolicyArtifact and lifecycle
 
-`yai.policy_artifact.v2` binds:
+`yai.policy_artifact.v3` binds:
 
 ```text
 artifact_id
@@ -193,8 +194,9 @@ event ID/sequence, resulting Case generation, claimed local actor/reason and an
 optional replaced-binding ref. Its identity and integrity digest cover those
 fields.
 
-Binding is a canonical `yai.transition.v5` payload. `yai.case_state.v5`
-materializes only active compact binding records, with one binding per lineage.
+Binding was introduced as a canonical v5 payload; current `yai.transition.v6`
+records it and `yai.case_state.v6` materializes only active compact binding
+records, with one binding per lineage.
 Bind and replace validate catalog eligibility and append the Case Transition in
 one LMDB write transaction. New binding requires the exact artifact to be
 integrity-valid, qualified, currently published and `runtime_consumable`.
@@ -209,18 +211,19 @@ authenticated authority.
 
 ## EffectivePolicy and normative readiness
 
-`yai.effective_policy.v1` is derived and rebuildable from current CaseState
+`yai.effective_policy.v2` is derived and rebuildable from current CaseState
 bindings plus their exact retained PolicyArtifacts. The materializer contract
-is `yai.policy_materializer.v1`. It sorts inputs independent of ingest,
+is `yai.policy_materializer.v2`. It sorts inputs independent of ingest,
 publication, binding and LMDB cursor order. Its semantic identity covers the
 Case, sorted exact binding/artifact inputs, materializer version and normalized
 effective rules, but not wall clock, process or unrelated Case generations.
 
-The v1 composition algebra is intentionally small:
+The v2 composition algebra is intentionally small:
 
 - DENY dominates ALLOW for the same operation/resource selector;
 - `required=true` dominates `false` review posture;
 - evidence obligations form a deterministic set union;
+- proposer/reviewer role requirements form deterministic all-of sets;
 - identical effective semantics merge all contributing fact/rule/artifact
   provenance;
 - duplicate active lineage, missing/corrupt artifact, binding mismatch or an
@@ -242,6 +245,41 @@ Readiness is not Case lifecycle and is never a stored free authority boolean.
 The optional `effective_policy_by_case` LMDB cache is derived and droppable;
 status/rebuild reads do not append Case or governance history. Cache failure
 after a canonical bind leaves the binding committed and repairable.
+
+## Policy-driven operation admission
+
+Wave 10 adds one operational consumer without moving materialization authority.
+`yai.decision_basis.v1` binds the Case generation, Operation/resource,
+EffectivePolicy identity/digest/materializer, exact Case bindings and artifacts,
+matched rules/provenance, resource-envelope result, proposer/reviewer role
+eligibility, evidence obligations and final posture. `yai.decision.v2` embeds
+and integrity-binds that basis; v1 remains compatibility-readable.
+
+The current closed-world algebra is deterministic:
+
+1. invalid Case/Operation or non-Ready normative state fails;
+2. hard resource-envelope violation denies;
+3. missing Case-bound proposer role denies;
+4. applicable DENY denies;
+5. absence of explicit applicable ALLOW denies;
+6. impossible admission evidence denies;
+7. audit rationale or policy review creates REQUIRE_REVIEW only when an
+   eligible Case participant exists;
+8. otherwise admission is ALLOW.
+
+`source_provenance` requires the canonical ProviderInvocation/ProviderResult
+lineage. An evaluator-generated reason cannot satisfy `audit_reason`; an
+eligible approved ReviewAction reason can. Policy pre/post observation
+obligations travel in `yai.execution_grant.v2`, while the carrier's mandatory
+pre/post safety remains unconditional.
+
+`yai.review_request.v2` binds the original Operation, DecisionBasis,
+EffectivePolicy and required reviewer roles. Policy change before review
+resolution is stale and cannot yield ALLOW. Grant issuance transactionally
+re-materializes current readiness and requires the exact same EffectivePolicy
+and binding set, preventing a Decision under E1 from issuing a Grant after E2
+becomes current. These checks are immediate basis consistency, not Wave-11
+expiry/revoke semantics.
 
 ## Persistence authority
 
@@ -296,7 +334,6 @@ Historical `yai-dev` JSON candidates/manifests are archaeology, not accepted
 Wave-8 input. They lacked immutable content identity and were mutated in place
 during lifecycle operations. No compatibility reader silently promotes them.
 
-Wave 8/H8/Wave 9 does not claim free-form policy interpretation,
-YAML/Markdown support, authority resolution, DecisionBasis, operation
-applicability, review-policy integration, Grant binding, expiry/revocation,
-tenant ownership or general retention/privacy policy.
+Wave 8/H8/Wave 9/Wave 10 does not claim free-form policy interpretation,
+YAML/Markdown support, generic RBAC/ABAC, authenticated actors, expiry/revoke,
+automatic refresh, tenant ownership or general retention/privacy policy.

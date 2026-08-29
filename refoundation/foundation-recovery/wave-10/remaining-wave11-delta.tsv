@@ -1,0 +1,7 @@
+family	current_wave10_boundary	remaining_wave11_semantics
+policy validity	exact basis must still equal current Case materialization	time validity, expiry, refresh, revoke and replacement lifecycle
+invalidation	stale review/Grant commit rejected locally	typed fanout/posture for pending Decision/review/unused Grant/context/cache
+historical replay	DecisionBasis pins historical policy identity	explanation after retention/migration without reevaluating under current policy
+Grant lifecycle	basis/generation one-time issuance	expiry/revocation/abandoned issued Grant
+Case lifecycle	open lifecycle checked by current reducer	durable cancel/closing/closed semantics and pending work invalidation
+authority trust	Case roles under claimed local actor	authenticated Principal/Tenant explicitly remains later than Wave11

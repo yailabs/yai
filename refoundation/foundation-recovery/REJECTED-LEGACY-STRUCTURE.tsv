@@ -16,3 +16,8 @@ mutable policy profile alias	do_not_port	old Case could silently observe changed
 free normative readiness boolean	do_not_port	could diverge from materialization inputs	derived NormativeStatus
 generated DuckDB governance view as truth	do_not_port	mutable second authority with default injection	rebuildable EffectivePolicy
 supervisor/Case registry policy owner	do_not_port	binding belongs to Case transitions; supervision is a runtime consumer	Transition v5 + CaseState v5
+default-ALLOW policy evaluation	do_not_port	absence of explicit normative admission cannot increase autonomy	closed-world DecisionBasis
+string authority_context/profile aliases	do_not_port	mutable substring semantics are not authority	policy rules + Case-bound roles
+operator_armed/authority_lock ambient flags	do_not_port	not bound to one Case/Operation/policy basis	operation-specific Decision/Grant
+controlled-action mega-envelope	do_not_port	duplicated semantics and validation was ignored by a real caller	DecisionBasis plus narrow Grant/carrier types
+duplicated runtime outcome rewrite	do_not_port	creates multiple Decision authorities	one canonical DecisionRecorded path
