@@ -17,7 +17,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::ffi::{CStr, CString};
 use std::fmt::Write as FmtWrite;
 use std::fs::{self, OpenOptions};
-use std::io::{self, IsTerminal, Read, Write};
+use std::io::{IsTerminal, Read, Write};
 use std::net::TcpStream;
 use std::os::raw::{c_char, c_int, c_void};
 #[cfg(unix)]
@@ -26,8 +26,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use yai_core_engine::compatibility::{
-    decode_legacy_record, inspect_legacy_jsonl, legacy_summary_has_marker,
-    parse_legacy_summary_fields, LegacyDecodeOutcome,
+    inspect_legacy_jsonl, legacy_summary_has_marker, parse_legacy_summary_fields,
 };
 use yai_core_engine::context::{
     build_context_frame, compile_projection, render_openai_compatible, ContextFrame,
@@ -57,7 +56,7 @@ use yai_core_engine::store::lmdb::{
 use yai_core_engine::store::Store;
 use yai_core_engine::transition::{
     CaseLifecycle, InterpretationAuthority, PendingTransition, ProviderInvocationLineage,
-    ReviewResolution, ReviewState, TransitionPayload, TransitionProvenance, TransitionSource,
+    ReviewActionKind, TransitionPayload, TransitionProvenance, TransitionSource,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -115,11 +114,11 @@ fn print_info() {
     println!("foundation_freeze: filesystem_runtime_layout");
     println!("hot_state: YAI_HOME/run/hot-state.json live cache v0");
     println!(
-        "canonical_state: LMDB yai.transition.v3 plus atomically materialized yai.case_state.v3"
+        "canonical_state: LMDB yai.transition.v4 plus atomically materialized yai.case_state.v4"
     );
     println!("legacy_record_store: YAI_HOME/store/lmdb yai.record.v1 compatibility plane");
-    println!("effect_paths: typed controlled filesystem.write plus characterized legacy paths");
-    println!("semantic_context: typed yai.projection.v3 plus yai.context_frame.v3 derived from CaseState, qualified memory and ResidencyPlan");
+    println!("effect_paths: typed filesystem.write with Case-native human review and no product review bypass");
+    println!("semantic_context: typed yai.projection.v4 plus yai.context_frame.v4 derived from CaseState, qualified memory, review posture and ResidencyPlan");
     println!("operational_memory: yai.operational_memory.v1 derived, provenance-bound, droppable and rebuildable");
     println!("provider-runtime: provider-specific rendering and real OpenAI-compatible HTTP invocation with typed frame lineage");
     println!("journal_inspection: file-based JSONL v0 compatibility input");
@@ -274,7 +273,7 @@ fn print_usage() {
     println!("       yai context inspect --id <projection|frame|rendered-input-id>");
     println!("       yai case enter --case <case_ref> --subject <subject_ref> [--consumer model] [--kind model_context] [--shell zsh]");
     println!("       yai case attach-provider --case <case_ref> --subject <subject_ref> --base-url <url> --model <model> [--provider-id <id>] [--api-key-env <env>] [--shell zsh]");
-    println!("       yai case attach-filesystem --case <case_ref> --attachment <id> --root <existing-dir> --allow-prefix <relative-dir> --policy-owner <participant> [--policy-id <id>] [--max-bytes <N>]");
+    println!("       yai case attach-filesystem --case <case_ref> --attachment <id> --root <existing-dir> --allow-prefix <relative-dir> --policy-owner <participant> [--require-review] [--policy-id <id>] [--max-bytes <N>]");
     println!("       yai case run --case <case_ref> --subject <participant> --attachment <id> --prompt <task> [--max-invocations <N>] [--max-operations <N>] [--max-semantic-units <N>] [--max-estimated-input-units <N>]");
     println!("       yai case resume --case <case_ref> [budget overrides]");
     println!("       yai case status --case <case_ref>");
@@ -285,15 +284,9 @@ fn print_usage() {
     println!("       yai prompt [--once <text>] [--dry-run] [--language-mode auto|none] [--case <case_ref>] [--subject <subject_ref>]");
     println!("       yai prompt [--dry-run] [--language-mode auto|none] [--case <case_ref>] [--subject <subject_ref>] < prompt.txt");
     println!("       yai control summary --journal <path>");
-    println!("       yai control pending --case <case_ref>");
-    println!("       yai control show <review_id>");
-    println!("       yai control review --case <case_ref> --interactive");
-    println!("       yai control watch --case <case_ref> [--interval-ms <N>] [--max-events <N>]");
-    println!("       yai control wait <review_id> --timeout <seconds>");
-    println!("       yai control approve <review_id> --reason <reason>");
-    println!("       yai control deny <review_id> --reason <reason>");
-    println!("       yai control defer <review_id> --reason <reason>");
-    println!("       yai control quarantine <review_id> --reason <reason>");
+    println!("       yai review pending --case <case_ref>");
+    println!("       yai review show <review_id> --case <case_ref>");
+    println!("       yai review approve|deny|defer <review_id> --case <case_ref> --as <participant> --reason <reason>");
     println!("       yai decision inspect --journal <path>");
     println!("       yai receipt summary --journal <path>");
     println!("       yai graph summary --journal <path>");
@@ -339,7 +332,6 @@ fn print_usage() {
     println!("       yai daemon shutdown --socket <path>");
     println!("       yai daemon run-minimum-loop --socket <path>");
     println!("       yai daemon run-filesystem-loop --socket <path>");
-    println!("       yai daemon run-filesystem-review-loop --socket <path>");
     println!("       yai daemon journal-summary --socket <path> --journal <path>");
     println!("       yai daemon projection-summary --socket <path> --journal <path>");
     println!("       yai process observe --pid <pid>");
@@ -1602,56 +1594,32 @@ fn main() {
                 std::process::exit(2);
             }
         }
-        Some("control") if args.get(1).map(String::as_str) == Some("pending") => {
-            if let Err(error) = control_pending(&args[2..]) {
+        Some("review") if args.get(1).map(String::as_str) == Some("pending") => {
+            if let Err(error) = review_pending(&args[2..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }
         }
-        Some("control") if args.get(1).map(String::as_str) == Some("show") => {
-            if let Err(error) = control_show(&args[2..]) {
+        Some("review") if args.get(1).map(String::as_str) == Some("show") => {
+            if let Err(error) = review_show(&args[2..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }
         }
-        Some("control") if args.get(1).map(String::as_str) == Some("review") => {
-            if let Err(error) = control_review_interactive(&args[2..]) {
+        Some("review") if args.get(1).map(String::as_str) == Some("approve") => {
+            if let Err(error) = review_resolve(&args[2..], ReviewActionKind::Approve) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }
         }
-        Some("control") if args.get(1).map(String::as_str) == Some("watch") => {
-            if let Err(error) = control_watch(&args[2..]) {
+        Some("review") if args.get(1).map(String::as_str) == Some("deny") => {
+            if let Err(error) = review_resolve(&args[2..], ReviewActionKind::Deny) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }
         }
-        Some("control") if args.get(1).map(String::as_str) == Some("wait") => {
-            if let Err(error) = control_wait(&args[2..]) {
-                eprintln!("{error}");
-                std::process::exit(2);
-            }
-        }
-        Some("control") if args.get(1).map(String::as_str) == Some("approve") => {
-            if let Err(error) = control_resolve(&args[2..], "approve") {
-                eprintln!("{error}");
-                std::process::exit(2);
-            }
-        }
-        Some("control") if args.get(1).map(String::as_str) == Some("deny") => {
-            if let Err(error) = control_resolve(&args[2..], "deny") {
-                eprintln!("{error}");
-                std::process::exit(2);
-            }
-        }
-        Some("control") if args.get(1).map(String::as_str) == Some("defer") => {
-            if let Err(error) = control_resolve(&args[2..], "defer") {
-                eprintln!("{error}");
-                std::process::exit(2);
-            }
-        }
-        Some("control") if args.get(1).map(String::as_str) == Some("quarantine") => {
-            if let Err(error) = control_resolve(&args[2..], "quarantine") {
+        Some("review") if args.get(1).map(String::as_str) == Some("defer") => {
+            if let Err(error) = review_resolve(&args[2..], ReviewActionKind::Defer) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }
@@ -1886,12 +1854,6 @@ fn main() {
                 &args[2..],
                 "run_filesystem_loop request_id=yai-filesystem case_ref=case:new12-filesystem subject_ref=subject:filesystem-sandbox",
             ) {
-                eprintln!("{error}");
-                std::process::exit(2);
-            }
-        }
-        Some("daemon") if args.get(1).map(String::as_str) == Some("run-filesystem-review-loop") => {
-            if let Err(error) = daemon_filesystem_review_loop(&args[2..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }

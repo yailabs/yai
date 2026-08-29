@@ -18,8 +18,8 @@
 .PHONY: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b
 .PHONY: smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33
 .PHONY: smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40
-.PHONY: smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47
-.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime endurance-agentless-case-runtime characterization smoke check clean
+.PHONY: smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47
+.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime endurance-agentless-case-runtime characterization smoke check clean
 
 CC ?= cc
 AR ?= ar
@@ -147,9 +147,6 @@ SMOKE_GRAPH_RELATION_WRITE_PATH := tests/smoke/graph-relation-write-path/test_gr
 SMOKE_RUNTIMEGRAPH_WORKING_SET := tests/smoke/runtimegraph-working-set/test_runtimegraph_working_set.sh
 SMOKE_RUNTIMEGRAPH_REBUILD := tests/smoke/runtimegraph-rebuild/test_runtimegraph_rebuild.sh
 SMOKE_RUNTIMEGRAPH_QUERY := tests/smoke/runtimegraph-query/test_runtimegraph_query.sh
-SMOKE_OPERATOR_REVIEW_LOOP := tests/smoke/operator-review-loop/test_operator_review_loop.sh
-SMOKE_OPERATOR_REVIEW_CLI := tests/smoke/operator-review-cli/test_operator_review_cli.sh
-SMOKE_REVIEW_LOOP_TEST_MATRIX := tests/smoke/review-loop-test-matrix/test_review_loop_test_matrix.sh
 SMOKE_GRAPH_RUNTIMEGRAPH_FREEZE := tests/smoke/graph-runtimegraph-freeze/test_graph_runtimegraph_freeze.sh
 SMOKE_DUCKDB_FACT_PLANE := tests/smoke/duckdb-fact-plane/test_duckdb_fact_plane.sh
 SMOKE_RECEIPT_DECISION_PROJECTION_FACTS := tests/smoke/receipt-decision-projection-facts/test_receipt_decision_projection_facts.sh
@@ -164,6 +161,7 @@ CHARACTERIZATION_SEMANTIC_CONTINUITY := tests/characterization/provider-semantic
 CHARACTERIZATION_DIRECT_FILESYSTEM := tests/characterization/direct-filesystem-bypass/test_direct_filesystem_bypass.sh
 CHARACTERIZATION_CONTROLLED_EFFECT := tests/characterization/controlled-effect-vertical/test_controlled_effect_vertical.sh
 CHARACTERIZATION_AGENTLESS_CASE_RUNTIME := tests/characterization/agentless-case-runtime/test_agentless_case_runtime.sh
+CHARACTERIZATION_HUMAN_REVIEW_RUNTIME := tests/characterization/human-review-runtime/test_human_review_runtime.sh
 
 info:
 	@printf "yai: admitted operational-state transition system with one controlled filesystem vertical\n"
@@ -175,7 +173,7 @@ info:
 	@printf "hot-state: %s/hot-state.json\n" "$(YAI_RUN_DIR)"
 	@printf "record-store: %s\n" "$(YAI_RECORD_STORE_DIR)"
 	@printf "fact-plane: DuckDB yai.fact.v1 extraction plus compact CLI reports\n"
-	@printf "state-authority: LMDB yai.transition.v3 plus atomic yai.case_state.v3; v1/v2 readable\n"
+	@printf "state-authority: LMDB yai.transition.v4 plus atomic yai.case_state.v4; v1/v2/v3 readable\n"
 	@printf "legacy-journal: yai.store.record.v0 compatibility input/export only\n"
 	@printf "effect-boundary: controlled filesystem.write Grant/PREPARE/FINALIZE plus reconciliation\n"
 	@printf "c-product: narrow yaid/store/hot/projection dependency set\n"
@@ -506,15 +504,6 @@ smoke-spine43: build-rust
 smoke-spine44: build-rust
 	@$(SMOKE_RUNTIMEGRAPH_QUERY)
 
-smoke-spine44a: $(YAID) build-rust
-	@$(SMOKE_OPERATOR_REVIEW_LOOP)
-
-smoke-spine44b: $(YAID) build-rust
-	@$(SMOKE_OPERATOR_REVIEW_CLI)
-
-smoke-spine44c: $(YAID) build-rust
-	@$(SMOKE_REVIEW_LOOP_TEST_MATRIX)
-
 smoke-spine45: $(YAID) build-rust
 	@$(SMOKE_GRAPH_RUNTIMEGRAPH_FREEZE)
 
@@ -561,7 +550,7 @@ smoke-spine33e: $(SMOKE_HOST_OBSERVATION_PROBE) build-rust
 
 
 
-smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine44a smoke-spine44b smoke-spine44c smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime
+smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime
 
 smoke-semantic-continuity: $(YAID) build-rust
 	@$(CHARACTERIZATION_SEMANTIC_CONTINUITY)
@@ -569,14 +558,18 @@ smoke-semantic-continuity: $(YAID) build-rust
 smoke-agentless-case-runtime: $(YAID) build-rust
 	@$(CHARACTERIZATION_AGENTLESS_CASE_RUNTIME)
 
+smoke-human-review-runtime: $(YAID) build-rust
+	@$(CHARACTERIZATION_HUMAN_REVIEW_RUNTIME)
+
 endurance-agentless-case-runtime: smoke-agentless-case-runtime
 
-characterization: smoke-new4 smoke-new11 smoke-new12 smoke-spine39 smoke-spine44a smoke-spine45 smoke-spine51
+characterization: smoke-new4 smoke-new11 smoke-new12 smoke-spine39 smoke-spine45 smoke-spine51
 	@$(CHARACTERIZATION_PROVIDER_MODEL)
 	@$(CHARACTERIZATION_SEMANTIC_CONTINUITY)
 	@$(CHARACTERIZATION_DIRECT_FILESYSTEM)
 	@$(CHARACTERIZATION_CONTROLLED_EFFECT)
 	@$(CHARACTERIZATION_AGENTLESS_CASE_RUNTIME)
+	@$(CHARACTERIZATION_HUMAN_REVIEW_RUNTIME)
 
 check: check-layout check-docs build smoke
 

@@ -54,8 +54,10 @@ print-install-paths` to inspect configured install locations.
 
 These status commands do not require a provider. Provider commands require an
 explicit endpoint/model and may make real network requests. Controlled
-`filesystem.write` and approved review commands perform real effects through
-the Grant/PREPARE carrier boundary; use only a disposable bound root and read
+`filesystem.write` performs real effects only through the Grant/PREPARE carrier
+boundary. A review command records a typed human participant action and never
+performs the effect itself; a later `yai case resume` may execute an approved
+Operation through that same carrier. Use only a disposable bound root and read
 [Test cases](test-cases.md) first. The former direct write command is removed.
 
 ## What to read next
@@ -73,7 +75,8 @@ the Grant/PREPARE carrier boundary; use only a disposable bound root and read
 YAI has typed LMDB Transition/CaseState authority and one controlled local
 `filesystem.write` vertical: durable PREPARE precedes mutation, and observed
 outcome is finalized or reconciled afterward. It has no general carrier or
-policy system, automatic recovery service, race-resistant hostile-namespace
-confinement, or provider-independent ContextFrame implementation. Legacy
-JSONL/record paths remain compatibility surfaces. Do not infer production
-safety from a passing smoke suite.
+policy language, automatic multi-Case recovery service, race-resistant hostile-
+namespace confinement, distributed run admission, or authenticated remote
+human identity. Typed Projection/ContextFrame and local Case-native review are
+implemented. Legacy JSONL/record paths remain compatibility surfaces. Do not
+infer production safety from a passing smoke suite.

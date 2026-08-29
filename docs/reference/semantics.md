@@ -26,8 +26,9 @@ and committed transition refs. It may not directly mutate CaseState, own a
 physical resource/secret, or absorb all runtime data.
 
 Current reality: the Rust authority now materializes typed Case lifecycle,
-generation, participant admission, provider lineage, and fixture review state.
-C daemon fixtures and remaining historical views still use legacy records.
+generation, participant admission, provider lineage, resource bindings and
+Operation-bound human review state. C daemon fixtures and remaining historical
+views still use legacy records.
 
 ### CaseState — ADOPT
 
@@ -115,7 +116,7 @@ not.
 | Capability | RENAME | either non-authoritative advertised ability metadata or an ExecutionGrant; descriptors never become permission |
 | Decision | ADOPT | immutable authority conclusion for one Operation under exact Scope, policy/binding versions, and Case generation |
 | ExecutionGrant | ADOPT | bounded, expiring, revocable carrier admission consumed exactly by ResourceBoundary |
-| Review | DEFER | optional participant-mediated Decision workflow/outcome; not an owner; allow/deny remain constitutional |
+| Review | ADOPT as control state | Operation-bound request plus immutable eligible-Participant action; it mediates a new effective Decision, owns no carrier/effect authority, and is not a workflow plane |
 
 The former `CapabilityLease` CLI/C views were inspect-only and were removed.
 The Rust `filesystem.write` ResourceBoundary now consumes a typed

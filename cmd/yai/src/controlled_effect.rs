@@ -7,18 +7,18 @@
 
 use super::*;
 use yai_core_engine::effect::{
-    build_effect_receipt, classify_reconciliation, decide_filesystem_write,
-    execute_filesystem_write, issue_execution_grant, normalize_filesystem_write_candidate,
-    normalize_review_filesystem_write, normalize_write_prefix, observe_filesystem, prepare_effect,
-    record_filesystem_decision, validate_finalized_effect_chain, CarrierFailpoint, CarrierResult,
-    Decision, DecisionOutcome, EffectOutcome, ExecutionGrant, FilesystemObservation,
-    LocalFilesystemBinding, NormalizationContext, Operation, PreparedEffect,
+    build_effect_receipt, build_filesystem_review_request, classify_reconciliation,
+    decide_filesystem_write, execute_filesystem_write, issue_execution_grant,
+    normalize_filesystem_write_candidate, normalize_write_prefix, observe_filesystem,
+    prepare_effect, resolve_filesystem_review_decision, validate_finalized_effect_chain,
+    CarrierFailpoint, CarrierResult, Decision, DecisionOutcome, EffectOutcome, ExecutionGrant,
+    FilesystemObservation, LocalFilesystemBinding, NormalizationContext, Operation, PreparedEffect,
     ReconciliationConclusion, ResourceState, OPERATION_PROPOSAL_SCHEMA,
 };
 use yai_core_engine::transition::{
     CaseState, EffectLifecycle, PendingTransition, ResourceAttachmentState, ResourceKind,
-    ReviewResolution, ReviewState, Transition, TransitionPayload, TransitionScope,
-    TransitionSource,
+    ReviewRequirement, ReviewResolution, ReviewState, Transition, TransitionPayload,
+    TransitionScope, TransitionSource,
 };
 
 const CONTROLLED_EFFECT_COMPONENT: &str = "yai.controlled_filesystem_effect";
@@ -94,6 +94,11 @@ pub(super) fn case_attach_filesystem(args: &[String]) -> Result<(), String> {
     let policy_owner = named_arg(args, "--policy-owner")?;
     let policy_id = optional_arg(args, "--policy-id")
         .unwrap_or_else(|| format!("policy:filesystem-prefix:{attachment_id}"));
+    let review_requirement = if args.iter().any(|arg| arg == "--require-review") {
+        ReviewRequirement::RequireReview
+    } else {
+        ReviewRequirement::Automatic
+    };
     let max_write_bytes = parse_max_bytes(args)?;
     if max_write_bytes == 0 {
         return Err("--max-bytes must be positive".to_string());
@@ -128,6 +133,7 @@ pub(super) fn case_attach_filesystem(args: &[String]) -> Result<(), String> {
         max_write_bytes,
         policy_id: policy_id.clone(),
         policy_owner_participant_id: policy_owner.clone(),
+        review_requirement: review_requirement.clone(),
     };
     attachment.validate()?;
 
@@ -167,6 +173,13 @@ pub(super) fn case_attach_filesystem(args: &[String]) -> Result<(), String> {
     println!("allowed_write_prefix: {allowed_write_prefix}");
     println!("policy_id: {policy_id}");
     println!("policy_owner: {policy_owner}");
+    println!(
+        "review_requirement: {}",
+        match review_requirement {
+            ReviewRequirement::Automatic => "automatic",
+            ReviewRequirement::RequireReview => "require_review",
+        }
+    );
     println!("local_binding: configured_noncanonical");
     println!("local_root: {}", binding.canonical_root);
     Ok(())
@@ -318,7 +331,30 @@ fn commit_decision(
             decision: decision.clone(),
         },
         None,
-        vec![decision.operation_id.clone()],
+        std::iter::once(decision.operation_id.clone())
+            .chain(decision.basis_refs.iter().cloned())
+            .collect(),
+    )
+}
+
+fn commit_review_request(
+    store: &LmdbRecordStore,
+    case_id: &str,
+    review: &ReviewState,
+) -> Result<CaseState, String> {
+    commit_effect_transition(
+        store,
+        case_id,
+        Some(&review.requested_by_participant),
+        &format!("review-request:{}", review.review_id),
+        TransitionPayload::ReviewRequested {
+            review: review.clone(),
+        },
+        None,
+        vec![
+            review.operation_id.clone(),
+            review.initial_decision_id.clone(),
+        ],
     )
 }
 
@@ -430,6 +466,7 @@ fn update_derived_after_commit(store: &LmdbRecordStore, case_id: &str, args: &[S
 pub(super) enum ControlledEffectTurnStatus {
     NormalizationRejected,
     Denied,
+    AwaitingReview,
     Finalized,
     Indeterminate,
 }
@@ -439,6 +476,7 @@ pub(super) struct ControlledEffectTurnResult {
     pub status: ControlledEffectTurnStatus,
     pub operation_id: Option<String>,
     pub decision_id: Option<String>,
+    pub review_id: Option<String>,
     pub effect_id: Option<String>,
     pub receipt_id: Option<String>,
     pub outcome: Option<EffectOutcome>,
@@ -477,6 +515,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
             status: ControlledEffectTurnStatus::NormalizationRejected,
             operation_id: None,
             decision_id: None,
+            review_id: None,
             effect_id: None,
             receipt_id: None,
             outcome: None,
@@ -534,6 +573,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
                         status: ControlledEffectTurnStatus::NormalizationRejected,
                         operation_id: None,
                         decision_id: None,
+                        review_id: None,
                         effect_id: None,
                         receipt_id: None,
                         outcome: None,
@@ -547,26 +587,143 @@ pub(super) fn advance_controlled_filesystem_candidate(
     println!("operation_id: {}", operation.operation_id);
     println!("operation_kind: filesystem.write");
 
-    let existing_decision = existing
+    let existing_decisions = existing
         .iter()
-        .find_map(|transition| match &transition.payload {
+        .filter_map(|transition| match &transition.payload {
             TransitionPayload::DecisionRecorded { decision }
                 if decision.operation_id == operation.operation_id =>
             {
                 Some(decision.clone())
             }
             _ => None,
-        });
-    let (decision, state_after_decision) = if let Some(decision) = existing_decision {
+        })
+        .collect::<Vec<_>>();
+    let existing_effective = existing_decisions
+        .iter()
+        .rev()
+        .find(|decision| decision.outcome != DecisionOutcome::RequireReview)
+        .cloned();
+    let (decision, state_after_decision) = if let Some(decision) = existing_effective {
         let state = store
             .get_case_state(case_id)?
             .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
         (decision, state)
     } else {
-        let decision =
-            decide_filesystem_write(&operation, &resource, state_after_operation.generation);
-        let state = commit_decision(&store, case_id, &decision)?;
-        (decision, state)
+        let (initial, state_after_initial) = if let Some(decision) = existing_decisions
+            .iter()
+            .find(|decision| decision.outcome == DecisionOutcome::RequireReview)
+            .cloned()
+        {
+            let state = store
+                .get_case_state(case_id)?
+                .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+            (decision, state)
+        } else {
+            let decision =
+                decide_filesystem_write(&operation, &resource, state_after_operation.generation);
+            let state = commit_decision(&store, case_id, &decision)?;
+            (decision, state)
+        };
+        if initial.outcome != DecisionOutcome::RequireReview {
+            (initial, state_after_initial)
+        } else {
+            if matches!(
+                failpoint(args).as_deref(),
+                Some("review_after_require_decision" | "review_r1")
+            ) {
+                exit_at_failpoint("review_after_require_decision", 94);
+            }
+            let review = if let Some(review) = state_after_initial
+                .reviews
+                .iter()
+                .find(|review| review.operation_id == operation.operation_id)
+                .cloned()
+            {
+                review
+            } else {
+                let review = build_filesystem_review_request(
+                    &operation,
+                    &initial,
+                    &resource,
+                    state_after_initial.generation,
+                )?;
+                commit_review_request(&store, case_id, &review)?;
+                if matches!(
+                    failpoint(args).as_deref(),
+                    Some("review_after_request" | "review_r2")
+                ) {
+                    exit_at_failpoint("review_after_request", 95);
+                }
+                review
+            };
+            if matches!(
+                review.status,
+                ReviewResolution::Pending
+                    | ReviewResolution::PendingOperator
+                    | ReviewResolution::Deferred
+            ) {
+                update_derived_after_commit(&store, case_id, args);
+                println!("decision: require_review");
+                println!("review_id: {}", review.review_id);
+                println!("execution_grant: none");
+                println!("external_effect: none");
+                return Ok(ControlledEffectTurnResult {
+                    status: ControlledEffectTurnStatus::AwaitingReview,
+                    operation_id: Some(operation.operation_id),
+                    decision_id: Some(initial.decision_id),
+                    review_id: Some(review.review_id),
+                    effect_id: None,
+                    receipt_id: None,
+                    outcome: None,
+                });
+            }
+            if review.status == ReviewResolution::Quarantined {
+                return Err("legacy_quarantined_review_is_not_executable".to_string());
+            }
+            let action_id = review
+                .latest_action_id
+                .as_ref()
+                .ok_or_else(|| "resolved review is missing its human action".to_string())?;
+            let action = existing
+                .iter()
+                .find_map(|transition| match &transition.payload {
+                    TransitionPayload::ReviewActionRecorded { action }
+                        if action.action_id == *action_id =>
+                    {
+                        Some(action.clone())
+                    }
+                    _ => None,
+                })
+                .ok_or_else(|| "review action transition is missing".to_string())?;
+            let current = store
+                .get_case_state(case_id)?
+                .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+            let effective = resolve_filesystem_review_decision(
+                &operation,
+                &resource,
+                &review,
+                &action,
+                current.generation,
+            )?;
+            let state = commit_decision(&store, case_id, &effective)?;
+            if effective.outcome == DecisionOutcome::Allow
+                && matches!(
+                    failpoint(args).as_deref(),
+                    Some("review_after_allow_decision" | "review_r4")
+                )
+            {
+                exit_at_failpoint("review_after_allow_decision", 96);
+            }
+            if effective.outcome == DecisionOutcome::Deny
+                && matches!(
+                    failpoint(args).as_deref(),
+                    Some("review_after_deny_decision" | "review_r6")
+                )
+            {
+                exit_at_failpoint("review_after_deny_decision", 97);
+            }
+            (effective, state)
+        }
     };
     println!("decision_id: {}", decision.decision_id);
     println!(
@@ -574,6 +731,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
         match decision.outcome {
             DecisionOutcome::Allow => "allow",
             DecisionOutcome::Deny => "deny",
+            DecisionOutcome::RequireReview => "require_review",
         }
     );
     if decision.outcome == DecisionOutcome::Deny {
@@ -582,8 +740,13 @@ pub(super) fn advance_controlled_filesystem_candidate(
         println!("external_effect: none");
         return Ok(ControlledEffectTurnResult {
             status: ControlledEffectTurnStatus::Denied,
-            operation_id: Some(operation.operation_id),
+            operation_id: Some(operation.operation_id.clone()),
             decision_id: Some(decision.decision_id),
+            review_id: state_after_decision
+                .reviews
+                .iter()
+                .find(|review| review.operation_id == operation.operation_id)
+                .map(|review| review.review_id.clone()),
             effect_id: None,
             receipt_id: None,
             outcome: None,
@@ -603,12 +766,22 @@ pub(super) fn advance_controlled_filesystem_candidate(
     let grant = if let Some(grant) = existing_grant {
         grant
     } else {
+        if state_after_decision
+            .last_decision
+            .as_ref()
+            .is_none_or(|current| current.decision_id != decision.decision_id)
+        {
+            return Err("execution_grant_requires_latest_case_decision".to_string());
+        }
         let grant = issue_execution_grant(&operation, &decision, state_after_decision.generation)?;
         commit_grant(&store, &grant)?;
         grant
     };
     println!("execution_grant_id: {}", grant.grant_id);
-    if failpoint(args).as_deref() == Some("after_grant_before_prepare") {
+    if matches!(
+        failpoint(args).as_deref(),
+        Some("after_grant_before_prepare" | "review_r5")
+    ) {
         exit_at_failpoint("after_grant_before_prepare", 84);
     }
 
@@ -636,6 +809,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
                     status: ControlledEffectTurnStatus::Finalized,
                     operation_id: Some(operation.operation_id),
                     decision_id: Some(decision.decision_id),
+                    review_id: None,
                     effect_id: Some(prepared.effect_id),
                     receipt_id: effect.receipt_id.clone(),
                     outcome: effect.outcome.clone(),
@@ -646,6 +820,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
                     status: ControlledEffectTurnStatus::Indeterminate,
                     operation_id: Some(operation.operation_id),
                     decision_id: Some(decision.decision_id),
+                    review_id: None,
                     effect_id: Some(prepared.effect_id),
                     receipt_id: None,
                     outcome: effect.outcome.clone(),
@@ -711,6 +886,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
             status: ControlledEffectTurnStatus::Indeterminate,
             operation_id: Some(operation.operation_id),
             decision_id: Some(decision.decision_id),
+            review_id: None,
             effect_id: Some(prepared.effect_id),
             receipt_id: None,
             outcome: Some(result.outcome),
@@ -733,6 +909,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
         status: ControlledEffectTurnStatus::Finalized,
         operation_id: Some(operation.operation_id),
         decision_id: Some(decision.decision_id),
+        review_id: None,
         effect_id: Some(prepared.effect_id),
         receipt_id: Some(receipt.receipt_id),
         outcome: Some(result.outcome),
@@ -786,6 +963,7 @@ pub(super) fn controlled_filesystem_write(args: &[String]) -> Result<(), String>
     if matches!(
         outcome.status,
         ControlledEffectTurnStatus::NormalizationRejected
+            | ControlledEffectTurnStatus::AwaitingReview
             | ControlledEffectTurnStatus::Indeterminate
     ) {
         return Ok(());
@@ -802,6 +980,7 @@ pub(super) fn controlled_filesystem_write(args: &[String]) -> Result<(), String>
                 "Report the observed controlled filesystem consequence from this view."
             }
             ControlledEffectTurnStatus::NormalizationRejected
+            | ControlledEffectTurnStatus::AwaitingReview
             | ControlledEffectTurnStatus::Indeterminate => unreachable!(),
         },
         InvocationOutputContract::NaturalLanguage,
@@ -814,147 +993,11 @@ pub(super) fn controlled_filesystem_write(args: &[String]) -> Result<(), String>
             ControlledEffectTurnStatus::Denied => "committed_denial_no_effect",
             ControlledEffectTurnStatus::Finalized => "observed_reality_from_canonical_state",
             ControlledEffectTurnStatus::NormalizationRejected
+            | ControlledEffectTurnStatus::AwaitingReview
             | ControlledEffectTurnStatus::Indeterminate => unreachable!(),
         }
     );
     Ok(())
-}
-
-pub(super) struct CompatibilityReviewEffect {
-    pub operation_id: String,
-    pub decision_id: String,
-    pub grant_id: String,
-    pub effect_id: String,
-    pub receipt_id: String,
-}
-
-/// Migrates the existing fixture-bound approved review write onto the same
-/// typed Grant/PREPARE/carrier/FINALIZE path. Its review origin is explicit and
-/// cannot be mistaken for provider-originated candidate material.
-pub(super) fn execute_approved_review_filesystem_write(
-    case_id: &str,
-    review: &ReviewState,
-    operator_reason: &str,
-) -> Result<CompatibilityReviewEffect, String> {
-    if review.status != ReviewResolution::PendingOperator {
-        return Err("review effect requires a pending operator review".to_string());
-    }
-    let sandbox = fs::canonicalize(&review.sandbox_path)
-        .map_err(|error| format!("failed to canonicalize review sandbox: {error}"))?;
-    let root = sandbox
-        .parent()
-        .ok_or_else(|| "review sandbox has no binding root".to_string())?;
-    let prefix = sandbox
-        .file_name()
-        .and_then(|value| value.to_str())
-        .ok_or_else(|| "review sandbox prefix is not UTF-8".to_string())?;
-    let target = Path::new(&review.target_path);
-    let filename = target
-        .file_name()
-        .and_then(|value| value.to_str())
-        .ok_or_else(|| "review target filename is not UTF-8".to_string())?;
-    let relative_path = format!("{prefix}/{filename}");
-    let attachment_id = format!("review-resource:{}", id_component(&review.review_id));
-    let resource = ResourceAttachmentState {
-        attachment_id: attachment_id.clone(),
-        kind: ResourceKind::Filesystem,
-        allowed_write_prefix: prefix.to_string(),
-        max_write_bytes: 4096,
-        policy_id: format!("policy:review:{}", id_component(&review.review_id)),
-        policy_owner_participant_id: review.reviewer_participant.clone(),
-    };
-    resource.validate()?;
-    let store = LmdbRecordStore::open(record_store_path())?;
-    let mut state = store
-        .get_case_state(case_id)?
-        .ok_or_else(|| "canonical review CaseState missing".to_string())?;
-    if !state
-        .resources
-        .iter()
-        .any(|existing| existing.attachment_id == attachment_id)
-    {
-        state = commit_effect_transition(
-            &store,
-            case_id,
-            Some(&review.reviewer_participant),
-            &format!("resource-attached:{attachment_id}"),
-            TransitionPayload::ResourceAttached {
-                attachment: resource.clone(),
-            },
-            Some(TransitionScope {
-                case_id: case_id.to_string(),
-                participant_refs: vec![review.reviewer_participant.clone()],
-                resource_refs: vec![attachment_id.clone()],
-                policy_refs: vec![resource.policy_id.clone()],
-            }),
-            vec![review.reviewer_participant.clone()],
-        )?;
-    }
-    let binding = LocalFilesystemBinding::new(case_id, &attachment_id, root)?;
-    store.put_local_filesystem_binding(&binding)?;
-    let operation = normalize_review_filesystem_write(
-        case_id,
-        &review.requested_by_participant,
-        &review.review_id,
-        &review.attempt_id,
-        state.generation,
-        &resource,
-        &relative_path,
-        "approved reviewed filesystem write\n",
-    )
-    .map_err(|failure| format!("review_operation_normalization_failed: {}", failure.detail))?;
-    let state = commit_operation(&store, &operation)?;
-    let decision = record_filesystem_decision(
-        &operation,
-        &resource,
-        state.generation,
-        DecisionOutcome::Allow,
-        operator_reason,
-    )?;
-    let state = commit_decision(&store, case_id, &decision)?;
-    let grant = issue_execution_grant(&operation, &decision, state.generation)?;
-    commit_grant(&store, &grant)?;
-    let pre = observe_filesystem(
-        &binding,
-        &resource,
-        &relative_path,
-        format!("observation:{}:pre", grant.grant_id),
-    );
-    let prepared = prepare_effect(&operation, &decision, &grant, pre)?;
-    let state = commit_prepare(&store, &prepared)?;
-    let result = execute_filesystem_write(
-        &operation,
-        &decision,
-        &grant,
-        &prepared,
-        &state,
-        &binding,
-        &resource,
-        CarrierFailpoint::None,
-    )?;
-    if !matches!(
-        result.outcome,
-        EffectOutcome::Applied | EffectOutcome::AlreadyApplied
-    ) {
-        commit_indeterminate(
-            &store,
-            &prepared,
-            result.detail,
-            Some(result.post_observation),
-        )?;
-        return Err("review filesystem effect did not establish intended post-state".to_string());
-    }
-    let receipt = build_effect_receipt(&prepared, &result);
-    commit_finalize(&store, &prepared, &result)?;
-    let transitions = store.list_case_transitions(case_id)?;
-    validate_finalized_effect_chain(&transitions, &prepared.effect_id)?;
-    Ok(CompatibilityReviewEffect {
-        operation_id: operation.operation_id,
-        decision_id: decision.decision_id,
-        grant_id: grant.grant_id,
-        effect_id: prepared.effect_id,
-        receipt_id: receipt.receipt_id,
-    })
 }
 
 #[derive(Clone)]

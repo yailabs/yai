@@ -217,22 +217,23 @@ admitted, attempted, observed, and indeterminate.
 
 ## Current implementation gap
 
-`yai.transition.v3` provides immutable typed payloads, per-Case sequence,
+`yai.transition.v4` provides immutable typed payloads, per-Case sequence,
 mechanical closure checks, stale-generation rejection, and atomic LMDB append
-plus `yai.case_state.v3` reduction. Readers retain v1/v2 compatibility. Version
-3 adds provider identity, Projection/ContextFrame/render/output-contract
-lineage and typed interaction turns without placing derived context in
-CaseState. CaseState rebuild/replay equivalence,
+plus `yai.case_state.v4` reduction. Readers retain v1/v2/v3 compatibility.
+Version 4 adds Operation-bound ReviewRequest, integrity-bound ReviewAction,
+effective Decision refs and resource review posture without placing derived
+context or runtime admission in CaseState. CaseState rebuild/replay equivalence,
 restart, rollback-before-commit, duplicate identity, derived failure isolation,
 and typed graph rebuild are executable invariants.
 
 The first product effect contract is now implemented for `filesystem.write`.
 It has strict ProviderResult-candidate normalization, typed Operation,
-ALLOW/DENY Decision, one-time generation-bound ExecutionGrant, typed pre/post
+ALLOW/DENY/REQUIRE_REVIEW Decision, one-time generation-bound ExecutionGrant, typed pre/post
 filesystem Observation, durable EffectPrepared, typed EffectReceipt,
 EffectFinalized/EffectIndeterminate/EffectReconciled, stable idempotency, and
-restart reconciliation. Review approval uses the same carrier with an explicit
-compatibility-review Operation origin. A deterministic real-HTTP fixture proves
+restart reconciliation. Human approval retains the original provider-origin
+Operation, produces a new effective Decision, and resumes through the same
+carrier; approval alone is never effect evidence. A deterministic real-HTTP fixture proves
 the second model turn sees committed observed consequence rather than its
 previous output. The direct write command is removed.
 

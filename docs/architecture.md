@@ -1,9 +1,9 @@
 # Current executable architecture
 
 Authority: implementation truth. Source-refoundation baseline:
-`f148b1f37e62130aeb340220094bab49992290c8` (the pushed Wave-5 sequence,
-remote-history reconciliation, and canonical `AGENTS.md` checkpoint). This
-document describes the resulting `YAI.SOURCE.REFOUNDATION.6` worktree.
+`a5a4015d8f7a3f9c12c2749f9f62c1d41979411b` (the published Wave-6
+checkpoint). This document describes the resulting
+`YAI.SOURCE.REFOUNDATION.7` worktree.
 
 This document includes current contradictions. It does not claim that the
 [Constitution](constitution.md) is implemented. Target changes and sequencing
@@ -21,7 +21,8 @@ operator
   |     +-- provenance-bound operational-memory derivation/retrieval
   |     +-- derived semantic ResidencyPlan and bounded Case execution loop
   |     +-- controlled filesystem effect transition family
-  |     +-- controlled review compatibility on the same carrier
+  |     +-- Case-native typed human review on the controlled carrier
+  |     +-- durable single-Case runtime admission metadata
   |     +-- canonical Transition/CaseState authority in LMDB
   |     +-- legacy journal inspect/import/replay compatibility
   |     +-- LMDB graph materialization/query
@@ -36,7 +37,7 @@ operator
         +-- restartable hot-state snapshot
 ```
 
-[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is a 1,948-line command
+[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is a 1,910-line command
 parser, dispatcher, common CLI support surface, and compatibility shell. The
 current domain implementation is grouped by demonstrated boundary in
 [`provider.rs`](../cmd/yai/src/provider.rs),
@@ -68,10 +69,10 @@ mean constitutional, general, or production-ready.
 
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
-| Case-bound provider prompt | admitted participant + typed CaseState/history → qualified `yai.operational_memory.v1` retrieval → `yai.residency_plan.v1` → `yai.projection.v3` → `yai.context_frame.v3` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | HTTP is local/plain and non-streaming; ranking/residency are typed and deterministic; no learned compression or authoritative tokenizer |
-| Agentless Case runtime | disposable bounded runner reloads CaseState → reconciles effects → repairs memory → retrieves/plans residency → invokes provider → normalizes/decides/effects → repeats from new canonical reality; 26 real HTTP turns, 24 controlled effects, DENY adaptation, provider/model replacement and crash recovery are executable | one synchronous `filesystem.write` loop; human review pause is not yet connected and run checkpoints are single-process operator metadata |
+| Case-bound provider prompt | admitted participant + typed CaseState/history → qualified `yai.operational_memory.v1` retrieval → `yai.residency_plan.v1` → `yai.projection.v4` → `yai.context_frame.v4` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | HTTP is local/plain and non-streaming; ranking/residency are typed and deterministic; no learned compression or authoritative tokenizer |
+| Agentless Case runtime | disposable bounded runner reloads CaseState → reconciles effects/review → repairs memory → retrieves/plans residency → invokes provider → normalizes/decides/effects → repeats from new canonical reality; typed `AWAITING_REVIEW`, provider/model replacement, crash recovery, and one transactionally admitted runner per Case are executable | one synchronous single-host `filesystem.write` loop; no background scheduler or distributed lease |
 | Controlled filesystem effect | typed logical attachment + local binding → real HTTP ProviderResult → exact proposal normalization → typed Operation/Decision/ExecutionGrant → durable PREPARE → Rust atomic-replacement carrier → pre/post Observation and EffectReceipt → FINALIZE/RECONCILE → second provider turn | only `filesystem.write`; prefix policy and single-machine binding; no general review/policy/carrier system |
-| Filesystem review fixture | typed ReviewRequested/ReviewResolved remains compatibility-visible; approval is normalized with explicit review origin and uses the same Grant/PREPARE/carrier/FINALIZE path | fixed review identities/path and compatibility records remain; deny/defer/quarantine retain their historical fixture model |
+| Human-reviewed filesystem effect | normalized Operation → `REQUIRE_REVIEW` → typed ReviewRequest → bound human Participant action APPROVE/DENY/DEFER → effective Decision → existing Grant/PREPARE/carrier/FINALIZE path; review works with no live runner and survives provider/model replacement | local CLI asserts a bound participant identity but does not authenticate an OS person, SSO principal, or remote signer; only filesystem policy review exists |
 | Journal compatibility | inspect/dry-run/import `yai.store.record.v0` or `yai.record.v1`, preserving unknowns opaquely in an isolated target; old replay still materializes legacy record indexes | general semantic promotion is deliberately absent; the old record plane remains compatibility data, not authority |
 | Graph | typed canonical transitions and explicitly decoded legacy records → derived relations → rebuildable RuntimeGraph → bounded query | generation/version invalidation remains minimal; legacy-only cases still depend on compatibility translation |
 | Analytical facts | LMDB operational records → DuckDB extraction → reports | four declared families have no extractor; schema/orchestration remains embedded in the command crate |
@@ -107,10 +108,12 @@ verticals/tests.
 Rust owns one canonical semantic write path in
 [`transition.rs`](../engine/yai-engine/src/transition.rs) and
 [`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). Its serialized contracts
-are `yai.transition.v3` and `yai.case_state.v3`; readers promote v1/v2 state
-and transitions while rejecting unknown future contracts. Version 3 adds
-provider identity, semantic-frame/render lineage and typed interaction turns;
-it does not make derived context canonical. One bounded LMDB write
+are `yai.transition.v4` and `yai.case_state.v4`; readers retain v1/v2/v3 state
+and transition compatibility while rejecting unknown future contracts.
+Version 3 added provider identity, semantic-frame/render lineage and typed
+interaction turns. Version 4 adds Operation-bound ReviewRequest,
+integrity-bound ReviewAction, effective Decision refs and resource review
+posture. It does not make derived context canonical. One bounded LMDB write
 transaction:
 
 1. validates typed payload closure and global Transition identity;
@@ -132,8 +135,8 @@ materialized CaseState == replay(ordered canonical Transitions)
 
 The reducer deliberately covers only current live fields: Case lifecycle and
 generation, participant bindings/admitted views, one current provider/model
-attachment, latest provider invocation/result/interpretation lineage, fixture
-review state, logical filesystem attachments, latest Operation/Decision, Grant
+attachment, latest provider invocation/result/interpretation lineage, typed
+Operation-bound review state, logical filesystem attachments, latest Operation/Decision, Grant
 lifecycle, and compact prepared/finalized/indeterminate effect refs. Full
 content, Observations, and Receipts remain in immutable Transitions rather than
 turning CaseState into an object bag.
@@ -157,9 +160,9 @@ malformed. Unknown future kinds/schemas are retained without invented meaning.
 dry-run, and import into an explicitly isolated LMDB target. Compatibility
 payloads never append canonical Transitions or CaseState. Old `journal replay`
 and legacy record indexes survive for operator/data compatibility; they are no
-longer historical authority. Provider and review commands commit canonical
-state first and emit their old JSONL/record shapes afterward for existing
-consumers.
+longer historical authority. Provider compatibility commands still emit old
+JSONL/record shapes where required. New review actions write only typed
+canonical Transitions and never dual-write `control/review.jsonl`.
 
 ### Derived/cache stores
 
@@ -205,7 +208,7 @@ typed CaseState/resource attachment
 → non-authoritative ProviderResult
 → strict yai.operation_proposal.filesystem_write.v1 decoder
 → yai.operation.v1
-→ deterministic prefix Decision(ALLOW|DENY)
+→ deterministic prefix Decision(ALLOW|DENY|REQUIRE_REVIEW)
 → integrity-bound yai.execution_grant.v1
 → typed pre-observation
 → EffectPrepared Transition
@@ -251,13 +254,17 @@ inject crashes after Grant, after PREPARE, after visible rename, and after
 receipt construction but before FINALIZE. The visible-effect crashes finalize
 after restart without a duplicate write.
 
-The fixed review fixture in [`review.rs`](../cmd/yai/src/review.rs) retains its
-operator/compatibility surface. Approval now records an Operation with explicit
-`compatibility_review` origin and passes through the same typed ALLOW, Grant,
-PREPARE, carrier, Observation, Receipt, and FINALIZE boundary before committing
-ReviewResolved. Deny, defer, and quarantine invoke no carrier. Historical
-receipt-shaped records remain compatibility output and are not canonical
-EffectReceipts.
+[`review.rs`](../cmd/yai/src/review.rs) owns only the Case-native operator
+boundary. A resource attachment may require review by its bound policy-owner
+Participant. `REQUIRE_REVIEW` issues no Grant, commits a typed request for the
+already-normalized Operation, and stops the runtime. APPROVE/DENY/DEFER actions
+are identity- and digest-bound to that review, Case, Operation, reviewer and
+expected generation. APPROVE and DENY derive a new effective Decision;
+approval itself performs no effect. Resume revalidates current Case/resource
+bindings and executes the original Operation through the existing controlled
+carrier. `CompatibilityReview`, `PendingOperator`, `ReviewResolved`, and
+`Quarantined` remain reader/reducer vocabulary for v1-v3 data only; no active
+writer or product command produces them.
 
 The direct `carrier fs-write` command and Rust primitive were removed after
 characterization. [`filesystem.rs`](../cmd/yai/src/filesystem.rs) now owns only
@@ -275,8 +282,8 @@ They are built separately and are not normal product call paths.
 boundary from typed CaseState, ordered canonical Transitions and an optional
 qualified RetrievalSet to an immutable candidate Projection. The pure
 [`residency.rs`](../engine/yai-engine/src/residency.rs) planner applies a
-`yai.residency_plan.v1` budget before the compiler emits `yai.projection.v3`
-and one task/output-contract-specific `yai.context_frame.v3`. Projection identity binds
+`yai.residency_plan.v1` budget before the compiler emits `yai.projection.v4`
+and one task/output-contract-specific `yai.context_frame.v4`. Projection identity binds
 Case generation, participant/purpose/admitted view, ordered typed entries,
 provenance and bounded omission state. Provider availability, rendering,
 tokenization, KV state and opaque continuation identity do not participate.
@@ -326,7 +333,7 @@ OpenAI-compatible render function in
 minimal provider/model profile and creates a distinct render identity/digest;
 [`provider.rs`](../cmd/yai/src/provider.rs) owns the HTTP transport.
 
-`yai.transition.v3` Invocation and ProviderResult payloads explicitly reference
+`yai.transition.v4` Invocation and ProviderResult payloads explicitly reference
 provider ID, model ID, Projection, ContextFrame, Case generation, render ID/
 digest and output-contract ID. ProviderResult content remains non-authoritative.
 A typed `InteractionTurnRecorded` transition preserves bounded task lineage;
@@ -381,6 +388,15 @@ completion, denial, malformed/provider failure, unresolved effect, budget
 exhaustion, operator stop and invariant failure; a stopped run does not close
 the Case.
 
+One `yai.case_runtime_admission.v1` record in a separate LMDB database provides
+single-host cross-process mutual exclusion for active Case advancement. The
+claim binds Case, run, opaque owner token, PID and bounded expiry. LMDB write
+serialization makes acquisition exclusive; same-owner renewal is explicit,
+live competing owners fail closed, and expired or demonstrably dead local
+owners can be reclaimed. Normal stop, completion, budget stop and
+`AWAITING_REVIEW` release it. This metadata is not Transition history,
+participant authority, an ExecutionGrant, or Case continuity.
+
 Invocation, operation, semantic-context and cumulative estimated-input budgets
 are enforced before transport or effect. Semantic size and conservative
 rendered-input estimates are distinct from optional provider-reported token
@@ -408,7 +424,8 @@ participates.
 | `engine/yai-engine/src/residency.rs` | deterministic mandatory/retained/reintroduced/omitted semantic selection and budget accounting | product-reachable pure derived planner; no persistent authority |
 | `engine/yai-engine/src/memory.rs` | deterministic operational-memory derivation, provenance validation, supersession and qualified bounded retrieval; legacy MemoryCandidate summary compatibility | product-reachable derived algorithm/store contract; never canonical authority |
 | `cmd/yai/src/controlled_effect.rs` + `engine/yai-engine/src/effect.rs` | controlled proposal/admission/recovery orchestration and the Grant-validating Rust filesystem carrier | product-reachable first constitutional effect family |
-| `cmd/yai/src/review.rs` + `filesystem.rs` | review compatibility on the controlled carrier plus read-only filesystem observation | product-reachable compatibility boundary |
+| `cmd/yai/src/review.rs` | Case-native typed participant actions and effective Decision recording; never carrier execution | product-reachable human review boundary |
+| `cmd/yai/src/filesystem.rs` | read-only filesystem compatibility observation | product-reachable compatibility boundary |
 | `cmd/yai/src/replay.rs` | legacy inspect/dry-run/isolated import and replay reports | product-reachable state compatibility boundary |
 | `cmd/yai/src/graph_runtime.rs` | graph relation materialization, rebuild and query | product-reachable derived owner |
 | `cmd/yai/src/analytics.rs` | DuckDB schemas, extraction and reports | product-reachable derived owner |
@@ -437,7 +454,7 @@ from one checkout.
 | summary is presentation only | canonical reducers and migrated paths do not parse it; old projection/frame and analytics records use the compatibility decoder | migrate or retire remaining legacy-only producers and views |
 | Projection/Residency/ContextFrame/KV separation | typed Projection, pure `yai.residency_plan.v1`, independent ContextFrame and distinct render identity are implemented; opaque continuation is optional and tokens/KV are absent from canonical state | semantic units and rendered-size estimation are conservative rather than tokenizer-authoritative; no ContextDelta consumer |
 | provenance-bound operational memory | `yai.operational_memory.v1` is deterministically derived, participant-filtered before ranking, bounded, inspectable and droppable/rebuildable; the runtime repairs it automatically and current state/observed consequence retain precedence | no learned compression, embedding/reranker or global retention policy |
-| agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops and restart tests | real human-review pause/resume, concurrent-run leases, generalized operation families and daemon scheduling are absent |
+| agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops, typed human pause/resume, LMDB run admission and restart tests | generalized operation families, distributed admission and daemon scheduling are absent |
 | provider replacement preserves semantic continuity | real HTTP Provider A→filesystem FINALIZE→Provider B, same-provider model replacement, continuation invalidation and provider restart are deterministic product tests | generalized routing/economics and native runtime continuation protocols are deliberately absent |
 | derived data rebuilds from canonical state | graph rebuild consumes typed transitions and legacy compatibility; operational memory can be dropped/rebuilt with deterministic identity and canonical fallback; facts remain legacy-derived | adaptive invalidation/scheduling, compression and full typed analytics inputs |
 

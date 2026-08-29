@@ -29,6 +29,7 @@ pub const MAX_MEMORY_DESCRIPTION_CHARS: usize = 320;
 pub enum OperationalMemoryKind {
     ResourceEffect,
     Decision,
+    Review,
     UnresolvedEffect,
     NormalizationFailure,
     ProviderClaim,
@@ -39,6 +40,7 @@ impl OperationalMemoryKind {
         match self {
             Self::ResourceEffect => "resource_effect",
             Self::Decision => "decision",
+            Self::Review => "review",
             Self::UnresolvedEffect => "unresolved_effect",
             Self::NormalizationFailure => "normalization_failure",
             Self::ProviderClaim => "provider_claim",
@@ -49,6 +51,7 @@ impl OperationalMemoryKind {
         match value {
             "resource_effect" => Some(Self::ResourceEffect),
             "decision" => Some(Self::Decision),
+            "review" => Some(Self::Review),
             "unresolved_effect" => Some(Self::UnresolvedEffect),
             "normalization_failure" => Some(Self::NormalizationFailure),
             "provider_claim" => Some(Self::ProviderClaim),
@@ -134,6 +137,16 @@ pub enum OperationalMemoryValue {
         relative_path: String,
         reason: String,
     },
+    Review {
+        review_id: String,
+        operation_id: String,
+        resource_attachment_id: String,
+        relative_path: String,
+        reviewer_participant_id: String,
+        status: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        action_id: Option<String>,
+    },
     UnresolvedEffect {
         operation_id: String,
         effect_id: String,
@@ -164,6 +177,10 @@ impl OperationalMemoryValue {
                 ..
             }
             | Self::Decision {
+                resource_attachment_id,
+                ..
+            }
+            | Self::Review {
                 resource_attachment_id,
                 ..
             }
@@ -341,6 +358,13 @@ struct DecisionOriginEntry {
 }
 
 #[derive(Clone)]
+struct ReviewOriginEntry {
+    review: crate::transition::ReviewState,
+    transition_id: String,
+    generation: u64,
+}
+
+#[derive(Clone)]
 struct PreparedOriginEntry {
     prepared: PreparedEffect,
     transition_id: String,
@@ -358,6 +382,7 @@ pub fn derive_operational_memory(
     let mut results = BTreeMap::<String, ProviderResultOrigin>::new();
     let mut operations = BTreeMap::<String, OperationOriginEntry>::new();
     let mut decisions = BTreeMap::<String, DecisionOriginEntry>::new();
+    let mut reviews = BTreeMap::<String, ReviewOriginEntry>::new();
     let mut prepared_effects = BTreeMap::<String, PreparedOriginEntry>::new();
     let mut entries = Vec::new();
 
@@ -514,6 +539,117 @@ pub fn derive_operational_memory(
                     },
                 );
             }
+            TransitionPayload::ReviewRequested { review } if !review.operation_id.is_empty() => {
+                let operation = operations
+                    .get(&review.operation_id)
+                    .ok_or_else(|| "memory_review_without_operation".to_string())?;
+                entries.push(build_entry(
+                    case_id,
+                    OperationalMemoryKind::Review,
+                    OperationalMemoryPosture::Unresolved,
+                    OperationalMemoryValue::Review {
+                        review_id: review.review_id.clone(),
+                        operation_id: review.operation_id.clone(),
+                        resource_attachment_id: review.resource_attachment_id.clone(),
+                        relative_path: review.normalized_target.clone(),
+                        reviewer_participant_id: review.reviewer_participant.clone(),
+                        status: "pending".to_string(),
+                        action_id: None,
+                    },
+                    format!(
+                        "Operation {} awaits review {} by participant {}",
+                        review.operation_id, review.review_id, review.reviewer_participant
+                    ),
+                    provenance(
+                        vec![
+                            operation.transition_id.clone(),
+                            transition.transition_id.clone(),
+                        ],
+                        Vec::new(),
+                        Vec::new(),
+                        vec![
+                            review.operation_id.clone(),
+                            review.initial_decision_id.clone(),
+                            review.review_id.clone(),
+                        ],
+                        operation.generation,
+                        transition.sequence,
+                    ),
+                    vec![
+                        operation.operation.participant_id.clone(),
+                        review.reviewer_participant.clone(),
+                    ],
+                    derived_at_generation,
+                )?);
+                reviews.insert(
+                    review.review_id.clone(),
+                    ReviewOriginEntry {
+                        review: review.clone(),
+                        transition_id: transition.transition_id.clone(),
+                        generation: transition.sequence,
+                    },
+                );
+            }
+            TransitionPayload::ReviewActionRecorded { action } => {
+                let review = reviews
+                    .get(&action.review_id)
+                    .ok_or_else(|| "memory_review_action_without_request".to_string())?;
+                let operation = operations
+                    .get(&action.operation_id)
+                    .ok_or_else(|| "memory_review_action_without_operation".to_string())?;
+                let status = match action.action {
+                    crate::transition::ReviewActionKind::Approve => "approved",
+                    crate::transition::ReviewActionKind::Deny => "denied",
+                    crate::transition::ReviewActionKind::Defer => "deferred",
+                };
+                let posture = if action.action == crate::transition::ReviewActionKind::Defer {
+                    OperationalMemoryPosture::Unresolved
+                } else {
+                    OperationalMemoryPosture::DecisionControlHistory
+                };
+                entries.push(build_entry(
+                    case_id,
+                    OperationalMemoryKind::Review,
+                    posture,
+                    OperationalMemoryValue::Review {
+                        review_id: action.review_id.clone(),
+                        operation_id: action.operation_id.clone(),
+                        resource_attachment_id: review.review.resource_attachment_id.clone(),
+                        relative_path: review.review.normalized_target.clone(),
+                        reviewer_participant_id: action.reviewer_participant_id.clone(),
+                        status: status.to_string(),
+                        action_id: Some(action.action_id.clone()),
+                    },
+                    format!(
+                        "Review {} for Operation {} was {} by participant {}: {}",
+                        action.review_id,
+                        action.operation_id,
+                        status,
+                        action.reviewer_participant_id,
+                        bounded_memory_text(&action.reason)
+                    ),
+                    provenance(
+                        vec![
+                            review.transition_id.clone(),
+                            transition.transition_id.clone(),
+                        ],
+                        Vec::new(),
+                        Vec::new(),
+                        vec![
+                            action.review_id.clone(),
+                            action.operation_id.clone(),
+                            action.action_id.clone(),
+                        ],
+                        review.generation,
+                        transition.sequence,
+                    ),
+                    vec![
+                        operation.operation.participant_id.clone(),
+                        action.reviewer_participant_id.clone(),
+                    ],
+                    derived_at_generation,
+                )?);
+            }
             TransitionPayload::EffectPrepared { prepared } => {
                 let operation = operations
                     .get(&prepared.operation_id)
@@ -644,6 +780,7 @@ pub fn derive_operational_memory(
     }
 
     apply_effect_supersession(&mut entries);
+    apply_review_supersession(&mut entries);
     apply_resource_state_supersession(&mut entries);
     entries.sort_by(|left, right| {
         left.provenance
@@ -870,6 +1007,7 @@ fn rank_memory(
     }
     let purpose_score = match qualification.purpose {
         ProjectionPurpose::FilesystemWriteProposal => match entry.semantic_kind {
+            OperationalMemoryKind::Review => 65,
             OperationalMemoryKind::Decision => 60,
             OperationalMemoryKind::ResourceEffect => 50,
             OperationalMemoryKind::NormalizationFailure => 40,
@@ -878,6 +1016,7 @@ fn rank_memory(
         },
         ProjectionPurpose::EffectConsequence => match entry.semantic_kind {
             OperationalMemoryKind::UnresolvedEffect => 70,
+            OperationalMemoryKind::Review => 60,
             OperationalMemoryKind::ResourceEffect => 65,
             OperationalMemoryKind::Decision => 45,
             OperationalMemoryKind::NormalizationFailure => 20,
@@ -885,6 +1024,7 @@ fn rank_memory(
         },
         ProjectionPurpose::Conversation => match entry.semantic_kind {
             OperationalMemoryKind::ResourceEffect => 50,
+            OperationalMemoryKind::Review => 45,
             OperationalMemoryKind::Decision => 35,
             OperationalMemoryKind::UnresolvedEffect => 35,
             OperationalMemoryKind::NormalizationFailure => 20,
@@ -1093,6 +1233,25 @@ fn apply_effect_supersession(entries: &mut [OperationalMemoryEntry]) {
     }
 }
 
+fn apply_review_supersession(entries: &mut [OperationalMemoryEntry]) {
+    let mut by_review = BTreeMap::<String, Vec<usize>>::new();
+    for (index, entry) in entries.iter().enumerate() {
+        if let OperationalMemoryValue::Review { review_id, .. } = &entry.value {
+            by_review.entry(review_id.clone()).or_default().push(index);
+        }
+    }
+    for indexes in by_review.values_mut() {
+        indexes.sort_by_key(|index| entries[*index].provenance.generation_end);
+        if let Some(latest) = indexes.last().copied() {
+            let replacement = entries[latest].memory_id.clone();
+            for index in indexes.iter().copied().filter(|index| *index != latest) {
+                entries[index].lifecycle = OperationalMemoryLifecycle::Superseded;
+                entries[index].superseded_by = Some(replacement.clone());
+            }
+        }
+    }
+}
+
 fn apply_resource_state_supersession(entries: &mut [OperationalMemoryEntry]) {
     let mut current = BTreeMap::<(String, String), usize>::new();
     let mut ordered = entries
@@ -1230,6 +1389,7 @@ fn decision_outcome_label(outcome: &DecisionOutcome) -> &'static str {
     match outcome {
         DecisionOutcome::Allow => "allowed",
         DecisionOutcome::Deny => "denied",
+        DecisionOutcome::RequireReview => "requires_review",
     }
 }
 
@@ -1342,6 +1502,7 @@ mod tests {
             max_write_bytes: 1024,
             policy_id: "policy:workspace".to_string(),
             policy_owner_participant_id: PARTICIPANT_A.to_string(),
+            review_requirement: crate::transition::ReviewRequirement::Automatic,
         }
     }
 

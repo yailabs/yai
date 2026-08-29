@@ -8,13 +8,14 @@
 
 use crate::effect::{DecisionOutcome, EffectOutcome};
 use crate::transition::{
-    CaseLifecycle, CaseState, EffectLifecycle, ResourceKind, Transition, TransitionPayload,
+    CaseLifecycle, CaseState, EffectLifecycle, ResourceKind, ReviewRequirement, ReviewResolution,
+    Transition, TransitionPayload,
 };
 use serde::{Deserialize, Serialize};
 
-pub const PROJECTION_SCHEMA: &str = "yai.projection.v3";
-pub const CONTEXT_FRAME_SCHEMA: &str = "yai.context_frame.v3";
-pub const RENDERED_INPUT_SCHEMA: &str = "yai.rendered_input.v3";
+pub const PROJECTION_SCHEMA: &str = "yai.projection.v4";
+pub const CONTEXT_FRAME_SCHEMA: &str = "yai.context_frame.v4";
+pub const RENDERED_INPUT_SCHEMA: &str = "yai.rendered_input.v4";
 pub const DEFAULT_MAX_PROJECTION_ITEMS: usize = 48;
 pub const DEFAULT_MAX_PROVIDER_CLAIMS: usize = 6;
 pub const DEFAULT_MAX_INTERACTION_TURNS: usize = 8;
@@ -95,11 +96,22 @@ pub enum ProjectedValue {
         resource_kind: ResourceKind,
         allowed_write_prefix: String,
         max_write_bytes: usize,
+        review_requirement: ReviewRequirement,
     },
     DecisionOutcome {
         operation_id: String,
         decision_id: String,
         outcome: DecisionOutcome,
+    },
+    ReviewPosture {
+        review_id: String,
+        operation_id: String,
+        reviewer_participant_id: String,
+        status: ReviewResolution,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        latest_action_id: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        effective_decision_id: Option<String>,
     },
     ResourceConsequence {
         operation_id: String,
@@ -424,6 +436,7 @@ pub fn compile_projection(
                 resource_kind: resource.kind.clone(),
                 allowed_write_prefix: resource.allowed_write_prefix.clone(),
                 max_write_bytes: resource.max_write_bytes,
+                review_requirement: resource.review_requirement.clone(),
             },
             provenance: provenance_for_latest(transitions, |payload| {
                 matches!(payload, TransitionPayload::ResourceAttached { attachment } if attachment.attachment_id == resource.attachment_id)
@@ -441,6 +454,39 @@ pub fn compile_projection(
             },
             provenance: provenance_for_latest(transitions, |payload| {
                 matches!(payload, TransitionPayload::DecisionRecorded { decision: item } if item.decision_id == decision.decision_id)
+            }),
+        });
+    }
+    for review in state.reviews.iter().filter(|review| {
+        !review.operation_id.is_empty()
+            && (review.requested_by_participant == request.participant_id
+                || review.reviewer_participant == request.participant_id)
+            && matches!(
+                review.status,
+                ReviewResolution::Pending
+                    | ReviewResolution::PendingOperator
+                    | ReviewResolution::Deferred
+            )
+    }) {
+        mandatory.push(ProjectionEntry {
+            entry_id: format!("review:{}", review.review_id),
+            posture: AuthorityPosture::Unresolved,
+            value: ProjectedValue::ReviewPosture {
+                review_id: review.review_id.clone(),
+                operation_id: review.operation_id.clone(),
+                reviewer_participant_id: review.reviewer_participant.clone(),
+                status: review.status.clone(),
+                latest_action_id: review.latest_action_id.clone(),
+                effective_decision_id: review.effective_decision_id.clone(),
+            },
+            provenance: provenance_for_latest(transitions, |payload| match payload {
+                TransitionPayload::ReviewRequested { review: item } => {
+                    item.review_id == review.review_id
+                }
+                TransitionPayload::ReviewActionRecorded { action } => {
+                    action.review_id == review.review_id
+                }
+                _ => false,
             }),
         });
     }
@@ -880,7 +926,7 @@ mod tests {
     use super::*;
     use crate::transition::{
         AdmittedView, DecisionState, EffectState, ParticipantState, ProviderAttachmentState,
-        TransitionSource, TRANSITION_SCHEMA,
+        ReviewState, TransitionSource, REVIEW_REQUEST_SCHEMA, TRANSITION_SCHEMA,
     };
 
     fn transition(sequence: u64, payload: TransitionPayload) -> Transition {
@@ -957,6 +1003,79 @@ mod tests {
         .unwrap();
         assert_ne!(answer.frame_id, summarize.frame_id);
         assert_eq!(answer.projection_id, summarize.projection_id);
+    }
+
+    #[test]
+    fn pending_human_review_is_mandatory_unresolved_context_with_provenance() {
+        let review = ReviewState {
+            review_id: "review:context".to_string(),
+            schema: REVIEW_REQUEST_SCHEMA.to_string(),
+            operation_id: "operation:context".to_string(),
+            operation_digest: "sha256:operation".to_string(),
+            initial_decision_id: "decision:require-review".to_string(),
+            resource_attachment_id: "workspace".to_string(),
+            normalized_target: "allowed/reviewed.txt".to_string(),
+            created_at_generation: 1,
+            latest_action_id: None,
+            effective_decision_id: None,
+            attempt_id: String::new(),
+            requested_by_participant: "participant:model".to_string(),
+            target_participant: String::new(),
+            reviewer_participant: "participant:reviewer".to_string(),
+            operation_kind: String::new(),
+            carrier_family: String::new(),
+            target_display: String::new(),
+            sandbox_path: String::new(),
+            target_path: String::new(),
+            policy_reason: "resource policy requires review".to_string(),
+            status: ReviewResolution::Pending,
+            carrier_attempted: false,
+            execution_performed: false,
+            decision_ref: None,
+            receipt_ref: None,
+        };
+        let history = vec![
+            transition(
+                1,
+                TransitionPayload::CaseOpened {
+                    lifecycle: CaseLifecycle::Open,
+                },
+            ),
+            transition(
+                2,
+                TransitionPayload::ReviewRequested {
+                    review: review.clone(),
+                },
+            ),
+        ];
+        let mut materialized = state(2);
+        materialized.reviews.push(review);
+        let projection = compile_projection(
+            &materialized,
+            &history,
+            &ProjectionRequest {
+                max_items: 4,
+                ..ProjectionRequest::model(
+                    "participant:model",
+                    ProjectionPurpose::FilesystemWriteProposal,
+                )
+            },
+            &DerivedProjectionInput::default(),
+        )
+        .expect("compile pending review context at tight budget");
+        let review_entry = projection
+            .entries
+            .iter()
+            .find(|entry| matches!(entry.value, ProjectedValue::ReviewPosture { .. }))
+            .expect("pending review is mandatory");
+        assert_eq!(review_entry.posture, AuthorityPosture::Unresolved);
+        assert!(review_entry.provenance.iter().any(|source| {
+            source.kind == ProvenanceKind::Transition && source.source_ref == "transition:2"
+        }));
+        assert!(!projection
+            .entries
+            .iter()
+            .any(|entry| matches!(entry.value, ProjectedValue::ResourceConsequence { .. })));
     }
 
     #[test]
@@ -1372,7 +1491,7 @@ mod tests {
             &DerivedProjectionInput::default(),
         )
         .unwrap();
-        projection.schema = "yai.projection.v4".to_string();
+        projection.schema = "yai.projection.v99".to_string();
         assert_eq!(
             build_context_frame(
                 &projection,
@@ -1380,7 +1499,7 @@ mod tests {
                 InvocationOutputContract::NaturalLanguage,
             )
             .unwrap_err(),
-            "unsupported_projection_schema: yai.projection.v4"
+            "unsupported_projection_schema: yai.projection.v99"
         );
 
         projection.schema = PROJECTION_SCHEMA.to_string();
@@ -1390,7 +1509,7 @@ mod tests {
             InvocationOutputContract::NaturalLanguage,
         )
         .unwrap();
-        frame.schema = "yai.context_frame.v4".to_string();
+        frame.schema = "yai.context_frame.v99".to_string();
         assert_eq!(
             render_openai_compatible(
                 &frame,
@@ -1404,7 +1523,7 @@ mod tests {
                 "none",
             )
             .unwrap_err(),
-            "unsupported_context_frame_schema: yai.context_frame.v4"
+            "unsupported_context_frame_schema: yai.context_frame.v99"
         );
     }
 }

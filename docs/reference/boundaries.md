@@ -141,10 +141,12 @@ Observations and EffectReceipt.
 PREPARE, FINALIZE, INDETERMINATE, and RECONCILE are canonical Transition kinds.
 Restart reconciliation compares the actual target with persisted expected
 pre-state and intended post-digest, and never infers no effect from missing
-acknowledgement. The fixed review approval path reuses this boundary with an
-explicit review-origin Operation. The former direct `fs-write` command is
-removed, and the old C daemon fixture no longer mutates `output.txt`. C
-control/carrier components remain characterized test-only mechanics.
+acknowledgement. A resource may require typed human review of the original
+normalized Operation; APPROVE creates an effective Decision but only runtime
+resume can issue the Grant and enter this carrier boundary. The former fixed
+review effect and direct `fs-write` command are removed, and the old C daemon
+fixture no longer mutates `output.txt`. C control/carrier components remain
+characterized test-only mechanics.
 
 This is not a universal carrier layer: there is no carrier registry, process
 carrier migration, generic policy engine, distributed binding, automatic
@@ -154,9 +156,9 @@ Confinement currently validates the canonical parent immediately before the
 operation; it does not claim race-resistant `openat`/directory-handle security
 against a concurrently hostile namespace.
 
-The provider path now compiles typed `yai.projection.v3` and
-`yai.context_frame.v3`, renders them for raw OpenAI-compatible HTTP, and records
-provider/model/frame/render lineage in `yai.transition.v3` Invocation and
+The provider path now compiles typed `yai.projection.v4` and
+`yai.context_frame.v4`, renders them for raw OpenAI-compatible HTTP, and records
+provider/model/frame/render lineage in `yai.transition.v4` Invocation and
 ProviderResult payloads. The controlled effect and ordinary prompt paths use
 the same compiler. A qualified, participant-filtered `yai.operational_memory.v1`
 input is derived from canonical history and may enrich Projection; it can be

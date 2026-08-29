@@ -5,7 +5,9 @@
 //! execution, policy languages, carrier registries, or any C semantic mirror.
 
 use crate::transition::{
-    CaseState, ResourceAttachmentState, Transition, TransitionPayload, TransitionScope,
+    CaseState, ResourceAttachmentState, ReviewAction, ReviewActionKind, ReviewRequirement,
+    ReviewResolution, ReviewState, Transition, TransitionPayload, TransitionScope,
+    REVIEW_REQUEST_SCHEMA,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt::Write as FmtWrite;
@@ -138,6 +140,7 @@ struct OperationDigestMaterial<'a> {
 pub enum DecisionOutcome {
     Allow,
     Deny,
+    RequireReview,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -414,62 +417,6 @@ pub fn normalize_filesystem_write_candidate(
     ))
 }
 
-pub fn normalize_review_filesystem_write(
-    case_id: &str,
-    participant_id: &str,
-    review_id: &str,
-    attempt_id: &str,
-    case_generation: u64,
-    resource: &ResourceAttachmentState,
-    relative_path: &str,
-    content: &str,
-) -> Result<Operation, NormalizationFailure> {
-    let relative_path =
-        normalize_relative_path(relative_path).map_err(|detail| NormalizationFailure {
-            code: NormalizationFailureCode::InvalidRelativePath,
-            detail,
-        })?;
-    if content.is_empty() {
-        return Err(NormalizationFailure {
-            code: NormalizationFailureCode::EmptyContent,
-            detail: "filesystem.write content must not be empty".to_string(),
-        });
-    }
-    if content.len() > resource.max_write_bytes {
-        return Err(NormalizationFailure {
-            code: NormalizationFailureCode::PayloadTooLarge,
-            detail: format!(
-                "payload is {} bytes; attachment limit is {}",
-                content.len(),
-                resource.max_write_bytes
-            ),
-        });
-    }
-    let scope = TransitionScope {
-        case_id: case_id.to_string(),
-        participant_refs: vec![participant_id.to_string()],
-        resource_refs: vec![resource.attachment_id.clone()],
-        policy_refs: vec![resource.policy_id.clone()],
-    };
-    Ok(build_filesystem_write_operation(
-        case_id,
-        participant_id,
-        case_generation,
-        resource,
-        scope,
-        FilesystemWritePayload {
-            relative_path,
-            content: content.to_string(),
-            content_digest: digest_bytes(content.as_bytes()),
-            content_bytes: content.len(),
-        },
-        OperationOrigin::CompatibilityReview {
-            review_id: review_id.to_string(),
-            attempt_id: attempt_id.to_string(),
-        },
-    ))
-}
-
 fn build_filesystem_write_operation(
     case_id: &str,
     participant_id: &str,
@@ -515,15 +462,19 @@ pub fn decide_filesystem_write(
         &resource.allowed_write_prefix,
         &operation.filesystem_write.relative_path,
     );
-    let outcome = if allowed {
-        DecisionOutcome::Allow
-    } else {
+    let outcome = if !allowed {
         DecisionOutcome::Deny
-    };
-    let reason = if allowed {
-        "normalized target is inside the attachment write prefix"
+    } else if resource.review_requirement == ReviewRequirement::RequireReview {
+        DecisionOutcome::RequireReview
     } else {
+        DecisionOutcome::Allow
+    };
+    let reason = if !allowed {
         "normalized target is outside the attachment write prefix"
+    } else if outcome == DecisionOutcome::RequireReview {
+        "attachment policy requires an eligible human participant review"
+    } else {
+        "normalized target is inside the attachment write prefix"
     };
     build_filesystem_decision(
         operation,
@@ -544,7 +495,7 @@ pub fn record_filesystem_decision(
     if reason.is_empty() {
         return Err("decision reason must not be empty".to_string());
     }
-    if outcome == DecisionOutcome::Allow
+    if outcome != DecisionOutcome::Deny
         && !path_within_prefix(
             &resource.allowed_write_prefix,
             &operation.filesystem_write.relative_path,
@@ -561,6 +512,122 @@ pub fn record_filesystem_decision(
     ))
 }
 
+pub fn build_filesystem_review_request(
+    operation: &Operation,
+    initial_decision: &Decision,
+    resource: &ResourceAttachmentState,
+    current_case_generation: u64,
+) -> Result<ReviewState, String> {
+    validate_decision(
+        operation,
+        initial_decision,
+        initial_decision.decided_at_case_generation,
+    )?;
+    if initial_decision.outcome != DecisionOutcome::RequireReview
+        || resource.review_requirement != ReviewRequirement::RequireReview
+        || initial_decision.source.policy_id != resource.policy_id
+        || initial_decision.source.owner_participant_id != resource.policy_owner_participant_id
+        || current_case_generation != initial_decision.decided_at_case_generation + 1
+    {
+        return Err("review_request_requires_committed_review_decision".to_string());
+    }
+    let material = serde_json::json!({
+        "schema": REVIEW_REQUEST_SCHEMA,
+        "case_id": operation.case_id,
+        "operation_id": operation.operation_id,
+        "operation_digest": operation.operation_digest,
+        "initial_decision_id": initial_decision.decision_id,
+        "resource_attachment_id": resource.attachment_id,
+        "normalized_target": operation.filesystem_write.relative_path,
+        "requesting_participant": operation.participant_id,
+        "eligible_reviewer": resource.policy_owner_participant_id,
+        "created_at_generation": current_case_generation,
+    });
+    let digest = digest_bytes(material.to_string().as_bytes());
+    Ok(ReviewState {
+        review_id: format!("review:{}", &digest[..32]),
+        schema: REVIEW_REQUEST_SCHEMA.to_string(),
+        operation_id: operation.operation_id.clone(),
+        operation_digest: operation.operation_digest.clone(),
+        initial_decision_id: initial_decision.decision_id.clone(),
+        resource_attachment_id: resource.attachment_id.clone(),
+        normalized_target: operation.filesystem_write.relative_path.clone(),
+        created_at_generation: current_case_generation,
+        latest_action_id: None,
+        effective_decision_id: None,
+        attempt_id: String::new(),
+        requested_by_participant: operation.participant_id.clone(),
+        target_participant: String::new(),
+        reviewer_participant: resource.policy_owner_participant_id.clone(),
+        operation_kind: String::new(),
+        carrier_family: String::new(),
+        target_display: String::new(),
+        sandbox_path: String::new(),
+        target_path: String::new(),
+        policy_reason: initial_decision.reason.clone(),
+        status: ReviewResolution::Pending,
+        carrier_attempted: false,
+        execution_performed: false,
+        decision_ref: None,
+        receipt_ref: None,
+    })
+}
+
+pub fn resolve_filesystem_review_decision(
+    operation: &Operation,
+    resource: &ResourceAttachmentState,
+    review: &ReviewState,
+    action: &ReviewAction,
+    current_case_generation: u64,
+) -> Result<Decision, String> {
+    action.validate_integrity()?;
+    if review.schema != REVIEW_REQUEST_SCHEMA
+        || review.operation_id != operation.operation_id
+        || review.operation_digest != operation.operation_digest
+        || review.resource_attachment_id != resource.attachment_id
+        || review.reviewer_participant != resource.policy_owner_participant_id
+        || review.latest_action_id.as_deref() != Some(action.action_id.as_str())
+        || action.review_id != review.review_id
+        || action.operation_id != operation.operation_id
+        || action.case_id != operation.case_id
+        || action.reviewer_participant_id != review.reviewer_participant
+        || resource.review_requirement != ReviewRequirement::RequireReview
+        || !path_within_prefix(
+            &resource.allowed_write_prefix,
+            &operation.filesystem_write.relative_path,
+        )
+    {
+        return Err("review_resolution_chain_or_policy_mismatch".to_string());
+    }
+    let outcome = match action.action {
+        ReviewActionKind::Approve if review.status == ReviewResolution::Approved => {
+            DecisionOutcome::Allow
+        }
+        ReviewActionKind::Deny if review.status == ReviewResolution::Denied => {
+            DecisionOutcome::Deny
+        }
+        ReviewActionKind::Defer => {
+            return Err("deferred_review_has_no_effective_decision".to_string())
+        }
+        _ => return Err("review_action_state_mismatch".to_string()),
+    };
+    let reason = format!("human review {}: {}", review.review_id, action.reason);
+    let basis_refs = vec![
+        resource.attachment_id.clone(),
+        resource.policy_id.clone(),
+        review.review_id.clone(),
+        action.action_id.clone(),
+    ];
+    Ok(build_filesystem_decision_with_basis(
+        operation,
+        resource,
+        current_case_generation,
+        outcome,
+        &reason,
+        basis_refs,
+    ))
+}
+
 fn build_filesystem_decision(
     operation: &Operation,
     resource: &ResourceAttachmentState,
@@ -568,11 +635,28 @@ fn build_filesystem_decision(
     outcome: DecisionOutcome,
     reason: &str,
 ) -> Decision {
+    build_filesystem_decision_with_basis(
+        operation,
+        resource,
+        current_case_generation,
+        outcome,
+        reason,
+        vec![resource.attachment_id.clone(), resource.policy_id.clone()],
+    )
+}
+
+fn build_filesystem_decision_with_basis(
+    operation: &Operation,
+    resource: &ResourceAttachmentState,
+    current_case_generation: u64,
+    outcome: DecisionOutcome,
+    reason: &str,
+    basis_refs: Vec<String>,
+) -> Decision {
     let source = DecisionSource {
         policy_id: resource.policy_id.clone(),
         owner_participant_id: resource.policy_owner_participant_id.clone(),
     };
-    let basis_refs = vec![resource.attachment_id.clone(), resource.policy_id.clone()];
     let material = DecisionDigestMaterial {
         schema: DECISION_SCHEMA,
         operation_id: &operation.operation_id,
@@ -604,7 +688,7 @@ pub fn issue_execution_grant(
     current_case_generation: u64,
 ) -> Result<ExecutionGrant, String> {
     validate_decision(operation, decision, decision.decided_at_case_generation)?;
-    if current_case_generation != decision.decided_at_case_generation + 1 {
+    if current_case_generation < decision.decided_at_case_generation + 1 {
         return Err("execution_grant_requires_current_committed_decision".to_string());
     }
     if decision.outcome != DecisionOutcome::Allow {
@@ -736,7 +820,7 @@ pub fn validate_grant(
         || grant.normalized_target != operation.filesystem_write.relative_path
         || grant.intended_content_digest != operation.filesystem_write.content_digest
         || grant.expected_case_generation != expected_generation
-        || grant.expected_case_generation != decision.decided_at_case_generation + 1
+        || grant.expected_case_generation <= decision.decided_at_case_generation
         || !grant.require_pre_observation
         || !grant.require_post_observation
     {
@@ -1566,6 +1650,7 @@ mod tests {
             max_write_bytes: limit,
             policy_id: "policy:workspace".to_string(),
             policy_owner_participant_id: "participant:operator".to_string(),
+            review_requirement: crate::transition::ReviewRequirement::Automatic,
         }
     }
 
@@ -1688,6 +1773,66 @@ mod tests {
         assert!(validate_grant(&allowed_operation, &allowed, &grant, 9)
             .unwrap_err()
             .contains("contract_mismatch"));
+    }
+
+    #[test]
+    fn human_review_is_operation_bound_and_only_effective_allow_can_issue_grant() {
+        let mut resource = resource("allowed", 1024);
+        resource.review_requirement = ReviewRequirement::RequireReview;
+        let operation = normalize(
+            r#"{"schema":"yai.operation_proposal.filesystem_write.v1","operation":"filesystem.write","resource":"workspace","path":"allowed/reviewed.txt","content":"reviewed"}"#,
+            &resource,
+        )
+        .expect("normalize review-bound operation");
+        let initial = decide_filesystem_write(&operation, &resource, 8);
+        assert_eq!(initial.outcome, DecisionOutcome::RequireReview);
+        assert!(issue_execution_grant(&operation, &initial, 9).is_err());
+
+        let mut review = build_filesystem_review_request(&operation, &initial, &resource, 9)
+            .expect("build typed review request");
+        let action = crate::transition::build_review_action(
+            &review,
+            &operation.case_id,
+            &resource.policy_owner_participant_id,
+            ReviewActionKind::Approve,
+            "operator accepts this exact operation",
+            10,
+            "local_cli_claimed_participant",
+        )
+        .expect("build integrity-bound action");
+        let mut tampered = action.clone();
+        tampered.reason = "tampered".to_string();
+        assert!(tampered.validate_integrity().is_err());
+
+        review.status = ReviewResolution::Approved;
+        review.latest_action_id = Some(action.action_id.clone());
+        let effective =
+            resolve_filesystem_review_decision(&operation, &resource, &review, &action, 11)
+                .expect("derive effective allow from committed action posture");
+        assert_eq!(effective.outcome, DecisionOutcome::Allow);
+        assert!(effective.basis_refs.contains(&review.review_id));
+        assert!(effective.basis_refs.contains(&action.action_id));
+        issue_execution_grant(&operation, &effective, 12)
+            .expect("only effective allow can issue grant");
+
+        let wrong_reviewer = crate::transition::build_review_action(
+            &review,
+            &operation.case_id,
+            "participant:intruder",
+            ReviewActionKind::Approve,
+            "not eligible",
+            10,
+            "local_cli_claimed_participant",
+        )
+        .expect("action construction is separate from eligibility");
+        assert!(resolve_filesystem_review_decision(
+            &operation,
+            &resource,
+            &review,
+            &wrong_reviewer,
+            11,
+        )
+        .is_err());
     }
 
     #[test]

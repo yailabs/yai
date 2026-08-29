@@ -9,9 +9,11 @@ use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::effect::OPERATION_PROPOSAL_SCHEMA;
+use yai_core_engine::store::lmdb::{CaseRuntimeAdmissionOutcome, CaseRuntimeAdmissionRequest};
 
 const CASE_RUNTIME_CHECKPOINT_SCHEMA: &str = "yai.case_runtime_checkpoint.v1";
 const CASE_RUNTIME_OUTPUT_SCHEMA: &str = "yai.case_runtime_turn.v1";
+const CASE_RUNTIME_ADMISSION_TTL_MS: u64 = 30 * 60 * 1000;
 
 fn runtime_failpoint(args: &[String]) -> Option<String> {
     optional_arg(args, "--failpoint")
@@ -91,6 +93,8 @@ struct CaseRuntimeCheckpoint {
     pending_provider_result_id: Option<String>,
     last_operation_id: Option<String>,
     last_decision_id: Option<String>,
+    #[serde(default)]
+    last_review_id: Option<String>,
     last_effect_id: Option<String>,
     last_receipt_id: Option<String>,
     last_effect_outcome: Option<String>,
@@ -266,6 +270,7 @@ fn initial_checkpoint(args: &[String]) -> Result<CaseRuntimeCheckpoint, String> 
         pending_provider_result_id: None,
         last_operation_id: None,
         last_decision_id: None,
+        last_review_id: None,
         last_effect_id: None,
         last_receipt_id: None,
         last_effect_outcome: None,
@@ -410,11 +415,109 @@ fn load_canonical_provider_result(
         .ok_or_else(|| format!("canonical ProviderResult not found: {result_id}"))
 }
 
-fn run_loop(mut checkpoint: CaseRuntimeCheckpoint, args: &[String]) -> Result<(), String> {
+struct RuntimeAdmissionOwner {
+    case_id: String,
+    run_id: String,
+    owner_token: String,
+    owner_pid: u32,
+}
+
+#[cfg(unix)]
+fn local_process_alive(pid: u32) -> bool {
+    unsafe { kill(pid as c_int, 0) == 0 }
+}
+
+#[cfg(not(unix))]
+fn local_process_alive(_pid: u32) -> bool {
+    true
+}
+
+fn runtime_admission_request(owner: &RuntimeAdmissionOwner) -> CaseRuntimeAdmissionRequest {
+    CaseRuntimeAdmissionRequest {
+        case_id: owner.case_id.clone(),
+        run_id: owner.run_id.clone(),
+        owner_token: owner.owner_token.clone(),
+        owner_pid: owner.owner_pid,
+        now_unix_ms: runtime_now_millis().min(u64::MAX as u128) as u64,
+        lease_duration_ms: CASE_RUNTIME_ADMISSION_TTL_MS,
+    }
+}
+
+fn acquire_runtime_admission(
+    checkpoint: &CaseRuntimeCheckpoint,
+) -> Result<RuntimeAdmissionOwner, String> {
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let existing = store.get_case_runtime_admission(&checkpoint.case_id)?;
+    let allow_reclaim = existing.as_ref().is_some_and(|admission| {
+        admission.expires_at_unix_ms <= runtime_now_millis().min(u64::MAX as u128) as u64
+            || !local_process_alive(admission.owner_pid)
+    });
+    let owner_pid = std::process::id();
+    let token_material = format!(
+        "{}:{}:{}:{}",
+        checkpoint.case_id,
+        checkpoint.run_id,
+        owner_pid,
+        runtime_now_millis()
+    );
+    let owner = RuntimeAdmissionOwner {
+        case_id: checkpoint.case_id.clone(),
+        run_id: checkpoint.run_id.clone(),
+        owner_token: format!(
+            "run-owner:{}",
+            yai_core_engine::context::stable_digest(&token_material)
+        ),
+        owner_pid,
+    };
+    let (outcome, admission) =
+        store.acquire_case_runtime_admission(&runtime_admission_request(&owner), allow_reclaim)?;
+    println!(
+        "runtime_admission: {}",
+        match outcome {
+            CaseRuntimeAdmissionOutcome::Acquired => "acquired",
+            CaseRuntimeAdmissionOutcome::Renewed => "renewed",
+            CaseRuntimeAdmissionOutcome::Reclaimed => "reclaimed_stale",
+        }
+    );
+    println!("runtime_admission_owner_pid: {}", admission.owner_pid);
+    Ok(owner)
+}
+
+fn renew_runtime_admission(owner: &RuntimeAdmissionOwner) -> Result<(), String> {
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let (outcome, _) =
+        store.acquire_case_runtime_admission(&runtime_admission_request(owner), false)?;
+    if outcome != CaseRuntimeAdmissionOutcome::Renewed {
+        return Err("case_runtime_admission_lost".to_string());
+    }
+    Ok(())
+}
+
+fn run_with_admission(checkpoint: CaseRuntimeCheckpoint, args: &[String]) -> Result<(), String> {
+    let owner = acquire_runtime_admission(&checkpoint)?;
+    let result = run_loop(checkpoint, args, &owner);
+    let release = LmdbRecordStore::open(record_store_path()).and_then(|store| {
+        store
+            .release_case_runtime_admission(&owner.case_id, &owner.run_id, &owner.owner_token)
+            .map(|_| ())
+    });
+    match (result, release) {
+        (Err(error), _) => Err(error),
+        (Ok(()), Err(error)) => Err(error),
+        (Ok(()), Ok(())) => Ok(()),
+    }
+}
+
+fn run_loop(
+    mut checkpoint: CaseRuntimeCheckpoint,
+    args: &[String],
+    admission: &RuntimeAdmissionOwner,
+) -> Result<(), String> {
     std::env::set_var("YAI_JOURNAL", &checkpoint.journal_path);
     let started = Instant::now();
     write_checkpoint(&checkpoint)?;
     loop {
+        renew_runtime_admission(admission)?;
         checkpoint = read_checkpoint(&checkpoint.case_id)?;
         if checkpoint.stop_requested {
             checkpoint.stop(
@@ -594,9 +697,12 @@ fn run_loop(mut checkpoint: CaseRuntimeCheckpoint, args: &[String]) -> Result<()
             &checkpoint.attachment_id,
             &provider_result,
         )?;
-        checkpoint.pending_provider_result_id = None;
+        if outcome.status != ControlledEffectTurnStatus::AwaitingReview {
+            checkpoint.pending_provider_result_id = None;
+        }
         checkpoint.last_operation_id = outcome.operation_id.clone();
         checkpoint.last_decision_id = outcome.decision_id.clone();
+        checkpoint.last_review_id = outcome.review_id.clone();
         checkpoint.last_effect_id = outcome.effect_id.clone();
         checkpoint.last_receipt_id = outcome.receipt_id.clone();
         checkpoint.last_effect_outcome = outcome
@@ -616,6 +722,15 @@ fn run_loop(mut checkpoint: CaseRuntimeCheckpoint, args: &[String]) -> Result<()
                 if checkpoint.stop_on_deny {
                     checkpoint.stop(CaseRuntimeStop::Denied, "typed Decision denied operation");
                 }
+            }
+            ControlledEffectTurnStatus::AwaitingReview => {
+                checkpoint.stop(
+                    CaseRuntimeStop::AwaitingReview,
+                    format!(
+                        "human participant action required for {}",
+                        outcome.review_id.as_deref().unwrap_or("unknown_review")
+                    ),
+                );
             }
             ControlledEffectTurnStatus::Finalized => {
                 checkpoint.operations += 1;
@@ -711,9 +826,24 @@ fn print_runtime_summary(checkpoint: &CaseRuntimeCheckpoint) -> Result<(), Strin
         checkpoint.last_effect_id.as_deref().unwrap_or("none")
     );
     println!(
+        "last_review_id: {}",
+        checkpoint.last_review_id.as_deref().unwrap_or("none")
+    );
+    println!(
         "last_effect_outcome: {}",
         checkpoint.last_effect_outcome.as_deref().unwrap_or("none")
     );
+    if let Some(admission) = store.get_case_runtime_admission(&checkpoint.case_id)? {
+        println!("runtime_admission_status: active");
+        println!("runtime_admission_run_id: {}", admission.run_id);
+        println!("runtime_admission_owner_pid: {}", admission.owner_pid);
+        println!(
+            "runtime_admission_expires_at_unix_ms: {}",
+            admission.expires_at_unix_ms
+        );
+    } else {
+        println!("runtime_admission_status: none");
+    }
     Ok(())
 }
 
@@ -729,14 +859,14 @@ pub(super) fn case_runtime_run(args: &[String]) -> Result<(), String> {
             ));
         }
     }
-    run_loop(checkpoint, args)
+    run_with_admission(checkpoint, args)
 }
 
 pub(super) fn case_runtime_resume(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let mut checkpoint = read_checkpoint(&case_id)?;
     update_resume_budgets(&mut checkpoint, args)?;
-    run_loop(checkpoint, args)
+    run_with_admission(checkpoint, args)
 }
 
 pub(super) fn case_runtime_status(args: &[String]) -> Result<(), String> {

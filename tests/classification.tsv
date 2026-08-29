@@ -2,7 +2,7 @@ path	class	reachability	property
 tests/characterization/provider-model-vertical/test_provider_model_vertical.sh	product_characterization	product	case admission through real provider invocation and durable provider-result interpretation residue
 tests/characterization/provider-semantic-continuity/test_provider_semantic_continuity.sh	product_characterization	product	typed Projection/ContextFrame continuity across provider, model and continuation replacement
 tests/characterization/direct-filesystem-bypass/test_direct_filesystem_bypass.sh	product_characterization	product	removed direct write command plus retained read-only compatibility observation
-tests/smoke/operator-review-loop/test_operator_review_loop.sh	product_characterization	product_fixture	controlled filesystem approve deny defer and quarantine behavior
+tests/characterization/human-review-runtime/test_human_review_runtime.sh	product_characterization	product_vertical	Case-native typed human review, controlled effect resume, runtime admission, and crash recovery
 tests/smoke/journal-replay-freeze/test_journal_replay_freeze.sh	product_characterization	product	journal validation replay metadata idempotency and diagnostics
 tests/smoke/graph-runtimegraph-freeze/test_graph_runtimegraph_freeze.sh	product_characterization	product	LMDB relation materialization RuntimeGraph rebuild and bounded query
 tests/smoke/fact-plane-freeze/test_fact_plane_freeze.sh	product_characterization	product	derived DuckDB extraction idempotency and reports

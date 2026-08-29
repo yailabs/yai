@@ -14,10 +14,14 @@ use serde::{Deserialize, Serialize};
 
 pub const TRANSITION_SCHEMA_V1: &str = "yai.transition.v1";
 pub const TRANSITION_SCHEMA_V2: &str = "yai.transition.v2";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v3";
+pub const TRANSITION_SCHEMA_V3: &str = "yai.transition.v3";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v4";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v3";
+pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v4";
+pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v1";
+pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Transition {
@@ -210,6 +214,11 @@ pub enum TransitionPayload {
     ReviewRequested {
         review: ReviewState,
     },
+    ReviewActionRecorded {
+        action: ReviewAction,
+    },
+    /// Input compatibility for pre-Wave-7 fixture review history. New writers
+    /// use `ReviewActionRecorded` followed by an effective `DecisionRecorded`.
     ReviewResolved {
         review_id: String,
         attempt_id: String,
@@ -243,6 +252,7 @@ impl TransitionPayload {
             Self::EffectIndeterminate { .. } => "effect_indeterminate",
             Self::EffectReconciled { .. } => "effect_reconciled",
             Self::ReviewRequested { .. } => "review_requested",
+            Self::ReviewActionRecorded { .. } => "review_action_recorded",
             Self::ReviewResolved { .. } => "review_resolved",
         }
     }
@@ -264,11 +274,106 @@ pub enum InterpretationAuthority {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ReviewResolution {
+    Pending,
     PendingOperator,
     Approved,
     Denied,
     Deferred,
     Quarantined,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewActionKind {
+    Approve,
+    Deny,
+    Defer,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ReviewAction {
+    pub schema: String,
+    pub action_id: String,
+    pub integrity_digest: String,
+    pub review_id: String,
+    pub operation_id: String,
+    pub case_id: String,
+    pub reviewer_participant_id: String,
+    pub action: ReviewActionKind,
+    pub reason: String,
+    pub expected_case_generation: u64,
+    pub source: String,
+}
+
+pub fn build_review_action(
+    review: &ReviewState,
+    case_id: &str,
+    reviewer_participant_id: &str,
+    action: ReviewActionKind,
+    reason: &str,
+    expected_case_generation: u64,
+    source: &str,
+) -> Result<ReviewAction, String> {
+    if review.schema != REVIEW_REQUEST_SCHEMA
+        || case_id.is_empty()
+        || reviewer_participant_id.is_empty()
+        || reason.trim().is_empty()
+        || source.is_empty()
+    {
+        return Err("invalid_review_action_input".to_string());
+    }
+    let reason = reason.split_whitespace().collect::<Vec<_>>().join(" ");
+    let material = review_action_digest_material(
+        REVIEW_ACTION_SCHEMA,
+        &review.review_id,
+        &review.operation_id,
+        case_id,
+        reviewer_participant_id,
+        &action,
+        &reason,
+        expected_case_generation,
+        source,
+    );
+    let integrity_digest = crate::effect::digest_bytes(material.to_string().as_bytes());
+    let result = ReviewAction {
+        schema: REVIEW_ACTION_SCHEMA.to_string(),
+        action_id: format!("review-action:{}", &integrity_digest[..32]),
+        integrity_digest,
+        review_id: review.review_id.clone(),
+        operation_id: review.operation_id.clone(),
+        case_id: case_id.to_string(),
+        reviewer_participant_id: reviewer_participant_id.to_string(),
+        action,
+        reason,
+        expected_case_generation,
+        source: source.to_string(),
+    };
+    result.validate_integrity()?;
+    Ok(result)
+}
+
+fn review_action_digest_material(
+    schema: &str,
+    review_id: &str,
+    operation_id: &str,
+    case_id: &str,
+    reviewer_participant_id: &str,
+    action: &ReviewActionKind,
+    reason: &str,
+    expected_case_generation: u64,
+    source: &str,
+) -> serde_json::Value {
+    serde_json::json!({
+        "schema": schema,
+        "review_id": review_id,
+        "operation_id": operation_id,
+        "case_id": case_id,
+        "reviewer_participant_id": reviewer_participant_id,
+        "action": action,
+        "reason": reason,
+        "expected_case_generation": expected_case_generation,
+        "source": source,
+    })
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -375,18 +480,48 @@ pub struct ModelInterpretationState {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ReviewState {
     pub review_id: String,
+    #[serde(default)]
+    pub schema: String,
+    #[serde(default)]
+    pub operation_id: String,
+    #[serde(default)]
+    pub operation_digest: String,
+    #[serde(default)]
+    pub initial_decision_id: String,
+    #[serde(default)]
+    pub resource_attachment_id: String,
+    #[serde(default)]
+    pub normalized_target: String,
+    #[serde(default)]
+    pub created_at_generation: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_action_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effective_decision_id: Option<String>,
+    /* Compatibility-only fields for yai.transition.v1-v3 and legacy records. */
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub attempt_id: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub requested_by_participant: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub target_participant: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub reviewer_participant: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub operation_kind: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub carrier_family: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub target_display: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub sandbox_path: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub target_path: String,
     pub policy_reason: String,
     pub status: ReviewResolution,
+    #[serde(default)]
     pub carrier_attempted: bool,
+    #[serde(default)]
     pub execution_performed: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decision_ref: Option<String>,
@@ -400,6 +535,14 @@ pub enum ResourceKind {
     Filesystem,
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewRequirement {
+    #[default]
+    Automatic,
+    RequireReview,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ResourceAttachmentState {
     pub attachment_id: String,
@@ -408,6 +551,8 @@ pub struct ResourceAttachmentState {
     pub max_write_bytes: usize,
     pub policy_id: String,
     pub policy_owner_participant_id: String,
+    #[serde(default)]
+    pub review_requirement: ReviewRequirement,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -781,6 +926,23 @@ impl CaseState {
                     policy_id: decision.source.policy_id.clone(),
                     recorded_at_generation: transition.sequence,
                 });
+                if decision.outcome != DecisionOutcome::RequireReview {
+                    if let Some(review) = next.reviews.iter_mut().find(|review| {
+                        review.operation_id == decision.operation_id
+                            && decision
+                                .basis_refs
+                                .iter()
+                                .any(|basis| basis == &review.review_id)
+                    }) {
+                        let Some(action_id) = review.latest_action_id.as_ref() else {
+                            return Err("effective_review_decision_without_action".to_string());
+                        };
+                        if !decision.basis_refs.iter().any(|basis| basis == action_id) {
+                            return Err("effective_review_decision_action_mismatch".to_string());
+                        }
+                        review.effective_decision_id = Some(decision.decision_id.clone());
+                    }
+                }
             }
             TransitionPayload::ExecutionGrantIssued { grant } => {
                 grant.validate_integrity()?;
@@ -989,7 +1151,69 @@ impl CaseState {
                 {
                     return Err("review_already_exists".to_string());
                 }
+                if transition.schema == TRANSITION_SCHEMA {
+                    let operation = next
+                        .last_operation
+                        .as_ref()
+                        .ok_or_else(|| "review_without_operation".to_string())?;
+                    let decision = next
+                        .last_decision
+                        .as_ref()
+                        .ok_or_else(|| "review_without_initial_decision".to_string())?;
+                    let resource = next
+                        .resources
+                        .iter()
+                        .find(|resource| resource.attachment_id == review.resource_attachment_id)
+                        .ok_or_else(|| "review_resource_not_attached".to_string())?;
+                    if review.operation_id != operation.operation_id
+                        || review.operation_digest != operation.operation_digest
+                        || review.initial_decision_id != decision.decision_id
+                        || decision.operation_id != operation.operation_id
+                        || decision.outcome != DecisionOutcome::RequireReview
+                        || review.requested_by_participant != operation.participant_id
+                        || review.reviewer_participant != resource.policy_owner_participant_id
+                        || review.normalized_target != operation.relative_path
+                        || review.created_at_generation != next.generation
+                        || !next.participants.iter().any(|participant| {
+                            participant.participant_id == review.reviewer_participant
+                        })
+                    {
+                        return Err("review_request_chain_mismatch".to_string());
+                    }
+                }
                 next.reviews.push(review.clone());
+            }
+            TransitionPayload::ReviewActionRecorded { action } => {
+                action.validate_integrity()?;
+                let Some(review) = next
+                    .reviews
+                    .iter_mut()
+                    .find(|review| review.review_id == action.review_id)
+                else {
+                    return Err("review_not_found".to_string());
+                };
+                if review.operation_id != action.operation_id
+                    || action.case_id != next.case_id
+                    || action.expected_case_generation != next.generation
+                    || review.reviewer_participant != action.reviewer_participant_id
+                    || !next.participants.iter().any(|participant| {
+                        participant.participant_id == action.reviewer_participant_id
+                    })
+                {
+                    return Err("review_action_binding_or_generation_mismatch".to_string());
+                }
+                if !matches!(
+                    review.status,
+                    ReviewResolution::Pending | ReviewResolution::Deferred
+                ) {
+                    return Err("review_already_resolved".to_string());
+                }
+                review.status = match action.action {
+                    ReviewActionKind::Approve => ReviewResolution::Approved,
+                    ReviewActionKind::Deny => ReviewResolution::Denied,
+                    ReviewActionKind::Defer => ReviewResolution::Deferred,
+                };
+                review.latest_action_id = Some(action.action_id.clone());
             }
             TransitionPayload::ReviewResolved {
                 review_id,
@@ -1001,6 +1225,9 @@ impl CaseState {
                 execution_performed,
                 ..
             } => {
+                if transition.schema == TRANSITION_SCHEMA {
+                    return Err("legacy_review_resolution_not_writable_in_v4".to_string());
+                }
                 let Some(review) = next
                     .reviews
                     .iter_mut()
@@ -1029,7 +1256,10 @@ impl CaseState {
     pub fn from_json(value: &str) -> Result<Self, String> {
         let mut state: Self = serde_json::from_str(value)
             .map_err(|error| format!("case_state_decode_failed: {error}"))?;
-        if state.schema == CASE_STATE_SCHEMA_V1 || state.schema == CASE_STATE_SCHEMA_V2 {
+        if state.schema == CASE_STATE_SCHEMA_V1
+            || state.schema == CASE_STATE_SCHEMA_V2
+            || state.schema == CASE_STATE_SCHEMA_V3
+        {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
             return Err(format!("unsupported_case_state_schema: {}", state.schema));
@@ -1041,6 +1271,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V3
             && self.schema != TRANSITION_SCHEMA_V2
             && self.schema != TRANSITION_SCHEMA_V1
         {
@@ -1049,8 +1280,15 @@ impl Transition {
         if self.schema == TRANSITION_SCHEMA_V1 && self.payload.is_wave3_kind() {
             return Err("wave3_transition_kind_requires_yai_transition_v2".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave4_kind() {
+        if matches!(
+            self.schema.as_str(),
+            TRANSITION_SCHEMA_V1 | TRANSITION_SCHEMA_V2
+        ) && self.payload.is_wave4_kind()
+        {
             return Err("wave4_transition_kind_requires_yai_transition_v3".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave7_kind() {
+            return Err("wave7_transition_kind_requires_yai_transition_v4".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -1255,8 +1493,26 @@ impl Transition {
                 require_causal_ref(&self.causal_refs, effect_id, "prepared_effect")?;
             }
             TransitionPayload::ReviewRequested { review } => {
-                review.validate()?;
-                require_causal_ref(&self.causal_refs, &review.attempt_id, "review_attempt")?;
+                review.validate_for_schema(&self.schema)?;
+                if self.schema == TRANSITION_SCHEMA {
+                    require_causal_ref(
+                        &self.causal_refs,
+                        &review.operation_id,
+                        "review_operation",
+                    )?;
+                    require_causal_ref(
+                        &self.causal_refs,
+                        &review.initial_decision_id,
+                        "review_initial_decision",
+                    )?;
+                } else {
+                    require_causal_ref(&self.causal_refs, &review.attempt_id, "review_attempt")?;
+                }
+            }
+            TransitionPayload::ReviewActionRecorded { action } => {
+                action.validate_integrity()?;
+                require_causal_ref(&self.causal_refs, &action.review_id, "review_request")?;
+                require_causal_ref(&self.causal_refs, &action.operation_id, "review_operation")?;
             }
             TransitionPayload::ReviewResolved {
                 review_id,
@@ -1290,8 +1546,43 @@ impl Transition {
 }
 
 impl ReviewState {
-    fn validate(&self) -> Result<(), String> {
+    fn validate_for_schema(&self, transition_schema: &str) -> Result<(), String> {
         require_value("review_id", &self.review_id)?;
+        require_value("policy_reason", &self.policy_reason)?;
+        if transition_schema == TRANSITION_SCHEMA {
+            if self.schema != REVIEW_REQUEST_SCHEMA
+                || self.status != ReviewResolution::Pending
+                || self.created_at_generation == 0
+                || self.latest_action_id.is_some()
+                || self.effective_decision_id.is_some()
+            {
+                return Err("invalid_review_request_contract".to_string());
+            }
+            for (field, value) in [
+                ("review.operation_id", self.operation_id.as_str()),
+                ("review.operation_digest", self.operation_digest.as_str()),
+                (
+                    "review.initial_decision_id",
+                    self.initial_decision_id.as_str(),
+                ),
+                (
+                    "review.requested_by_participant",
+                    self.requested_by_participant.as_str(),
+                ),
+                (
+                    "review.reviewer_participant",
+                    self.reviewer_participant.as_str(),
+                ),
+                (
+                    "review.resource_attachment_id",
+                    self.resource_attachment_id.as_str(),
+                ),
+                ("review.normalized_target", self.normalized_target.as_str()),
+            ] {
+                require_value(field, value)?;
+            }
+            return Ok(());
+        }
         require_value("attempt_id", &self.attempt_id)?;
         require_value("requested_by_participant", &self.requested_by_participant)?;
         require_value("target_participant", &self.target_participant)?;
@@ -1301,7 +1592,51 @@ impl ReviewState {
         require_value("target_display", &self.target_display)?;
         require_value("sandbox_path", &self.sandbox_path)?;
         require_value("target_path", &self.target_path)?;
-        require_value("policy_reason", &self.policy_reason)
+        Ok(())
+    }
+}
+
+impl ReviewAction {
+    pub fn validate_integrity(&self) -> Result<(), String> {
+        if self.schema != REVIEW_ACTION_SCHEMA {
+            return Err("unsupported_review_action_schema".to_string());
+        }
+        for (field, value) in [
+            ("review_action.action_id", self.action_id.as_str()),
+            (
+                "review_action.integrity_digest",
+                self.integrity_digest.as_str(),
+            ),
+            ("review_action.review_id", self.review_id.as_str()),
+            ("review_action.operation_id", self.operation_id.as_str()),
+            ("review_action.case_id", self.case_id.as_str()),
+            (
+                "review_action.reviewer_participant_id",
+                self.reviewer_participant_id.as_str(),
+            ),
+            ("review_action.reason", self.reason.as_str()),
+            ("review_action.source", self.source.as_str()),
+        ] {
+            require_value(field, value)?;
+        }
+        let material = review_action_digest_material(
+            &self.schema,
+            &self.review_id,
+            &self.operation_id,
+            &self.case_id,
+            &self.reviewer_participant_id,
+            &self.action,
+            &self.reason,
+            self.expected_case_generation,
+            &self.source,
+        );
+        let digest = crate::effect::digest_bytes(material.to_string().as_bytes());
+        if digest != self.integrity_digest
+            || self.action_id != format!("review-action:{}", &digest[..32])
+        {
+            return Err("review_action_integrity_mismatch".to_string());
+        }
+        Ok(())
     }
 }
 
@@ -1323,6 +1658,10 @@ impl TransitionPayload {
 
     fn is_wave4_kind(&self) -> bool {
         matches!(self, Self::InteractionTurnRecorded { .. })
+    }
+
+    fn is_wave7_kind(&self) -> bool {
+        matches!(self, Self::ReviewActionRecorded { .. })
     }
 }
 
@@ -1605,7 +1944,7 @@ mod tests {
         .to_json()
         .expect("encode");
         assert!(
-            Transition::from_json(&encoded.replace(TRANSITION_SCHEMA, "yai.transition.v4"))
+            Transition::from_json(&encoded.replace(TRANSITION_SCHEMA, "yai.transition.v99"))
                 .unwrap_err()
                 .contains("unsupported_transition_schema")
         );

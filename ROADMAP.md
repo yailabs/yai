@@ -6,10 +6,11 @@ concept or stage does not automatically justify a source subsystem.
 
 ## Objective
 
-Preserve canonical transition/effect/context/memory authority while replacing
-the fixture-bound review seam with a real durable human admission pause/resume
-path. The agentless Case runtime now exists; the next change must let it await
-and consume an operator Decision without hidden process state or a Workflow.
+Preserve canonical transition/effect/context/memory/review authority while
+giving Case lifecycle, cancellation and bounded authority expiry executable
+meaning. Human review and single-host runtime admission now exist; the next
+change must make stale work and Case closure fail closed without introducing a
+Workflow, scheduler, or Agent owner.
 
 ## Completed boundary — executable reality convergence
 
@@ -184,37 +185,59 @@ The current runner is synchronous and single-process. Its run checkpoint is
 non-authoritative operator metadata, and the only effect family remains local
 `filesystem.write`.
 
-## Stage 7 — typed human review and durable runtime admission
+## Completed boundary — typed human review and durable runtime admission
 
-The exact next task is `YAI.SOURCE.REFOUNDATION.7 — Typed Human Review and
-Durable Runtime Admission`. It should:
+`YAI.SOURCE.REFOUNDATION.7` removed the fixed review world and implemented:
 
-- characterize and replace the fixed review fixture with Case-scoped typed
-  review request and operator participant action identities;
-- let a normalized Operation produce an explicit awaiting-review posture
-  without issuing a Grant or spinning provider turns;
-- resume the agentless Case runtime from canonical CaseState after an operator
-  ALLOW/DENY/DEFER action, with no hidden provider/process continuation;
-- mechanically prove only effective ALLOW issues the existing ExecutionGrant
-  and all filesystem effects retain PREPARE/EFFECT/FINALIZE semantics;
-- preserve review denial/defer history in Projection/memory without promoting
-  it to resource truth;
-- remove the last fixture-only review ownership after compatibility evidence is
-  retained, without adding Workflow, generic policy DSL, inbox daemon or Agent.
+- `yai.transition.v4` / `yai.case_state.v4` typed Operation-bound
+  ReviewRequest, integrity-bound ReviewAction and effective Decision refs;
+- explicit `REQUIRE_REVIEW`, where no Grant/PREPARE/effect exists until an
+  eligible bound human Participant records APPROVE and runtime resumes;
+- durable APPROVE/DENY/DEFER state with query purity, duplicate/stale/wrong-
+  participant rejection and replay-equivalent CaseState;
+- provider/model replacement during review while preserving the original
+  Operation identity and observed second-turn consequence;
+- provenance-bound review memory and mandatory unresolved review Projection
+  posture without treating approval as resource evidence;
+- `yai.case_runtime_admission.v1` in noncanonical LMDB metadata, providing
+  process-safe single-Case exclusion, normal/pause release and dead/expired
+  owner reclamation;
+- deterministic R1–R6 review crash recovery and removal of the old fixed
+  Case/review/attempt/path, direct review effect, JSONL dual-write, quarantine
+  writer and `CompatibilityReview` constructor.
+
+The local CLI trust boundary verifies a claimed bound Participant and review
+eligibility; it does not authenticate an operating-system person, SSO identity
+or remote signature.
+
+## Stage 8 — durable cancellation, expiry, and Case closure
+
+The exact next task is `YAI.SOURCE.REFOUNDATION.8 — Durable Cancellation,
+Authority Expiry, and Case Closure`. It should give current live consumers one
+typed fail-closed lifecycle contract for:
+
+- operator cancellation versus disposable run stop;
+- open/closing/closed Case transitions and their effect on runtime admission;
+- stale pending Operation/review invalidation when Case/resource policy changes;
+- ExecutionGrant expiry/revocation before PREPARE, without pretending an
+  already-started external effect can be rolled back;
+- deterministic restart/replay behavior at cancellation and closure
+  boundaries;
+- provider Projection of cancellation/closure truth without adding Workflow or
+  a generic policy language.
 
 ## Explicit non-goals
 
 This roadmap does not introduce Space or Agent as owners, import `yai-dev`,
-clone YVEX, create a directory per concept, or require ContextDelta. Stage 7
-does not introduce a generic Workflow, policy language, inbox daemon or second
-carrier while closing the review seam.
+clone YVEX, create a directory per concept, or require ContextDelta. Stage 8
+does not introduce a generic Workflow, policy language, inbox daemon,
+distributed lease service or second carrier while closing lifecycle authority.
 
 ## Exit criteria for the next source task
 
-`YAI.SOURCE.REFOUNDATION.7` is complete only when a product Operation can pause
-in typed review state, survive restart/provider loss, accept a real bound
-operator participant action, resume the same Case without duplicate Decision
-or effect, and issue a Grant only for effective ALLOW. The old fixed review
-fixture must be compatibility-only or removed, while every earlier replay,
-residency, memory, provider-replacement and controlled-effect invariant remains
-green.
+`YAI.SOURCE.REFOUNDATION.8` is complete only when Case closure/cancellation is
+canonical, pending review/Operation and unconsumed Grant authority fail closed
+under the lifecycle contract, restart/replay are deterministic, and no
+external-effect rollback is falsely claimed. Every earlier review, runtime-
+admission, replay, residency, memory, provider-replacement and controlled-
+effect invariant must remain green.

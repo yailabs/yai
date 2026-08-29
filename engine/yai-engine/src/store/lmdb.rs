@@ -27,8 +27,8 @@ use crate::memory::{
 use crate::record::Record;
 use crate::transition::{
     replay_case, CaseState, PendingTransition, Transition, TransitionPayload, CASE_STATE_SCHEMA,
-    CASE_STATE_SCHEMA_V1, CASE_STATE_SCHEMA_V2, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1,
-    TRANSITION_SCHEMA_V2,
+    CASE_STATE_SCHEMA_V1, CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3, TRANSITION_SCHEMA,
+    TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3,
 };
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
@@ -45,6 +45,7 @@ pub const GRAPH_RELATION_STORE_NAME: &str = "lmdb_graph_relations_v0";
 pub const CANONICAL_AUTHORITY_BACKEND: &str = "lmdb_transaction_authority_v1";
 pub const LEGACY_COMPATIBILITY_SCHEMA: &str = "yai.legacy.compatibility.v1";
 pub const SEMANTIC_CONTEXT_ARTIFACT_SCHEMA: &str = "yai.semantic_context_artifact.v1";
+pub const CASE_RUNTIME_ADMISSION_SCHEMA: &str = "yai.case_runtime_admission.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RecordStoreStatusKind {
@@ -106,7 +107,37 @@ pub struct LmdbRecordStore {
     semantic_context_artifacts: Database,
     operational_memory_by_id: Database,
     operational_memory_case_index: Database,
+    case_runtime_admission: Database,
     schema_meta: Database,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct CaseRuntimeAdmission {
+    pub schema: String,
+    pub case_id: String,
+    pub run_id: String,
+    pub owner_token: String,
+    pub owner_pid: u32,
+    pub acquired_at_unix_ms: u64,
+    pub renewed_at_unix_ms: u64,
+    pub expires_at_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CaseRuntimeAdmissionRequest {
+    pub case_id: String,
+    pub run_id: String,
+    pub owner_token: String,
+    pub owner_pid: u32,
+    pub now_unix_ms: u64,
+    pub lease_duration_ms: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CaseRuntimeAdmissionOutcome {
+    Acquired,
+    Renewed,
+    Reclaimed,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -243,7 +274,7 @@ impl LmdbRecordStore {
         fs::create_dir_all(path)
             .map_err(|error| format!("failed to create {}: {error}", path.display()))?;
         let env = Environment::new()
-            .set_max_dbs(20)
+            .set_max_dbs(24)
             .set_map_size(MAP_SIZE)
             .open(path)
             .map_err(|error| format!("failed to open LMDB env {}: {error}", path.display()))?;
@@ -301,6 +332,9 @@ impl LmdbRecordStore {
                 DatabaseFlags::empty(),
             )
             .map_err(|error| format!("failed to open operational_memory_case_index: {error}"))?;
+        let case_runtime_admission = env
+            .create_db(Some("case_runtime_admission"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open case_runtime_admission: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -322,6 +356,7 @@ impl LmdbRecordStore {
             semantic_context_artifacts,
             operational_memory_by_id,
             operational_memory_case_index,
+            case_runtime_admission,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -572,6 +607,120 @@ impl LmdbRecordStore {
             .map_err(|error| format!("failed to clear operational memory manifests: {error}"))?;
         txn.commit()
             .map_err(|error| format!("failed to commit operational memory drop: {error}"))
+    }
+
+    /// Acquires the non-canonical, single-host admission for advancing one
+    /// Case. The LMDB write transaction makes competing acquisition attempts
+    /// mutually exclusive. `allow_reclaim` is supplied only after the runtime
+    /// boundary has established that the recorded local process no longer
+    /// exists; expiry remains the portable fallback.
+    pub fn acquire_case_runtime_admission(
+        &self,
+        request: &CaseRuntimeAdmissionRequest,
+        allow_reclaim: bool,
+    ) -> Result<(CaseRuntimeAdmissionOutcome, CaseRuntimeAdmission), String> {
+        validate_runtime_admission_request(request)?;
+        let key = case_runtime_admission_key(&request.case_id);
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start Case runtime admission: {error}"))?;
+        let existing = match txn.get(self.case_runtime_admission, &key) {
+            Ok(value) => Some(decode_runtime_admission(value)?),
+            Err(Error::NotFound) => None,
+            Err(error) => return Err(format!("failed to read Case runtime admission: {error}")),
+        };
+        let outcome = match existing.as_ref() {
+            Some(active)
+                if active.run_id == request.run_id
+                    && active.owner_token == request.owner_token
+                    && active.owner_pid == request.owner_pid =>
+            {
+                CaseRuntimeAdmissionOutcome::Renewed
+            }
+            Some(active) if !allow_reclaim && active.expires_at_unix_ms > request.now_unix_ms => {
+                return Err(format!(
+                    "case_runtime_admission_active: run_id={} owner_pid={} expires_at_unix_ms={}",
+                    active.run_id, active.owner_pid, active.expires_at_unix_ms
+                ));
+            }
+            Some(_) => CaseRuntimeAdmissionOutcome::Reclaimed,
+            None => CaseRuntimeAdmissionOutcome::Acquired,
+        };
+        let admission = CaseRuntimeAdmission {
+            schema: CASE_RUNTIME_ADMISSION_SCHEMA.to_string(),
+            case_id: request.case_id.clone(),
+            run_id: request.run_id.clone(),
+            owner_token: request.owner_token.clone(),
+            owner_pid: request.owner_pid,
+            acquired_at_unix_ms: existing
+                .as_ref()
+                .filter(|active| {
+                    active.run_id == request.run_id
+                        && active.owner_token == request.owner_token
+                        && active.owner_pid == request.owner_pid
+                })
+                .map(|active| active.acquired_at_unix_ms)
+                .unwrap_or(request.now_unix_ms),
+            renewed_at_unix_ms: request.now_unix_ms,
+            expires_at_unix_ms: request
+                .now_unix_ms
+                .saturating_add(request.lease_duration_ms),
+        };
+        let encoded = serde_json::to_vec(&admission)
+            .map_err(|error| format!("case_runtime_admission_encode_failed: {error}"))?;
+        txn.put(
+            self.case_runtime_admission,
+            &key,
+            &encoded,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to write Case runtime admission: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit Case runtime admission: {error}"))?;
+        Ok((outcome, admission))
+    }
+
+    pub fn get_case_runtime_admission(
+        &self,
+        case_id: &str,
+    ) -> Result<Option<CaseRuntimeAdmission>, String> {
+        let key = case_runtime_admission_key(case_id);
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start Case runtime admission read: {error}"))?;
+        match txn.get(self.case_runtime_admission, &key) {
+            Ok(value) => decode_runtime_admission(value).map(Some),
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!("failed to read Case runtime admission: {error}")),
+        }
+    }
+
+    pub fn release_case_runtime_admission(
+        &self,
+        case_id: &str,
+        run_id: &str,
+        owner_token: &str,
+    ) -> Result<bool, String> {
+        let key = case_runtime_admission_key(case_id);
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start Case runtime admission release: {error}"))?;
+        let current = match txn.get(self.case_runtime_admission, &key) {
+            Ok(value) => decode_runtime_admission(value)?,
+            Err(Error::NotFound) => return Ok(false),
+            Err(error) => return Err(format!("failed to read Case runtime admission: {error}")),
+        };
+        if current.run_id != run_id || current.owner_token != owner_token {
+            return Err("case_runtime_admission_release_owner_mismatch".to_string());
+        }
+        txn.del(self.case_runtime_admission, &key, None)
+            .map_err(|error| format!("failed to delete Case runtime admission: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit Case runtime admission release: {error}"))?;
+        Ok(true)
     }
 
     /// Atomically appends one immutable canonical Transition and replaces the
@@ -1213,20 +1362,35 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
-            &[TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V1],
+            &[
+                TRANSITION_SCHEMA_V3,
+                TRANSITION_SCHEMA_V2,
+                TRANSITION_SCHEMA_V1,
+            ],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
-            &[CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V1],
+            &[
+                CASE_STATE_SCHEMA_V3,
+                CASE_STATE_SCHEMA_V2,
+                CASE_STATE_SCHEMA_V1,
+            ],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:legacy_compatibility_schema",
             LEGACY_COMPATIBILITY_SCHEMA,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:case_runtime_admission_schema",
+            CASE_RUNTIME_ADMISSION_SCHEMA,
             &[],
         )?;
         ensure_meta_upgradeable(
@@ -1287,6 +1451,10 @@ impl LmdbRecordStore {
             (
                 "meta:operational_memory_derivation",
                 OPERATIONAL_MEMORY_DERIVATION,
+            ),
+            (
+                "meta:case_runtime_admission_schema",
+                CASE_RUNTIME_ADMISSION_SCHEMA,
             ),
         ] {
             txn.put(self.schema_meta, &key, &value, WriteFlags::empty())
@@ -1657,7 +1825,7 @@ impl LmdbRecordStore {
     fn schema_ready(path: &Path) -> Result<bool, ()> {
         let mut builder = Environment::new();
         builder
-            .set_max_dbs(16)
+            .set_max_dbs(24)
             .set_map_size(MAP_SIZE)
             .set_flags(EnvironmentFlags::READ_ONLY);
         let env = builder.open(path).map_err(|_| ())?;
@@ -2026,16 +2194,53 @@ fn derive_graph_relations_from_transition(
             "prepared_effect",
             effect_id,
         ),
-        TransitionPayload::ReviewRequested { review } => add_transition_relation(
-            &mut relations,
-            skipped,
-            transition,
-            "review_request_for_attempt",
-            "review_request",
-            &review.review_id,
-            "attempt",
-            &review.attempt_id,
-        ),
+        TransitionPayload::ReviewRequested { review } => {
+            if review.operation_id.is_empty() {
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "review_request_for_attempt",
+                    "review_request",
+                    &review.review_id,
+                    "attempt",
+                    &review.attempt_id,
+                );
+            } else {
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "review_request_for_operation",
+                    "review_request",
+                    &review.review_id,
+                    "operation",
+                    &review.operation_id,
+                );
+            }
+        }
+        TransitionPayload::ReviewActionRecorded { action } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "review_action_resolves_request",
+                "review_action",
+                &action.action_id,
+                "review_request",
+                &action.review_id,
+            );
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "review_action_by_participant",
+                "review_action",
+                &action.action_id,
+                "participant",
+                &action.reviewer_participant_id,
+            );
+        }
         TransitionPayload::ReviewResolved {
             review_id,
             decision_ref,
@@ -2573,6 +2778,37 @@ fn case_state_key(case_id: &str) -> String {
     format!("case_state:{case_id}")
 }
 
+fn case_runtime_admission_key(case_id: &str) -> String {
+    format!("case-runtime-admission:{case_id}")
+}
+
+fn validate_runtime_admission_request(request: &CaseRuntimeAdmissionRequest) -> Result<(), String> {
+    if request.case_id.is_empty()
+        || request.run_id.is_empty()
+        || request.owner_token.is_empty()
+        || request.owner_pid == 0
+        || request.lease_duration_ms == 0
+    {
+        return Err("invalid_case_runtime_admission_request".to_string());
+    }
+    Ok(())
+}
+
+fn decode_runtime_admission(value: &[u8]) -> Result<CaseRuntimeAdmission, String> {
+    let admission: CaseRuntimeAdmission = serde_json::from_slice(value)
+        .map_err(|error| format!("case_runtime_admission_decode_failed: {error}"))?;
+    if admission.schema != CASE_RUNTIME_ADMISSION_SCHEMA
+        || admission.case_id.is_empty()
+        || admission.run_id.is_empty()
+        || admission.owner_token.is_empty()
+        || admission.owner_pid == 0
+        || admission.expires_at_unix_ms < admission.acquired_at_unix_ms
+    {
+        return Err("invalid_case_runtime_admission_record".to_string());
+    }
+    Ok(admission)
+}
+
 fn semantic_context_artifact_key(artifact_id: &str) -> String {
     format!("semantic-context:id:{artifact_id}")
 }
@@ -2692,18 +2928,19 @@ mod tests {
     use super::*;
     use crate::context::{RenderedInputMetadata, SemanticContextArtifact, RENDERED_INPUT_SCHEMA};
     use crate::effect::{
-        build_effect_receipt, classify_reconciliation, decide_filesystem_write,
-        execute_filesystem_write, issue_execution_grant, normalize_filesystem_write_candidate,
-        observe_filesystem, prepare_effect, validate_finalized_effect_chain, CarrierFailpoint,
+        build_effect_receipt, build_filesystem_review_request, classify_reconciliation,
+        decide_filesystem_write, execute_filesystem_write, issue_execution_grant,
+        normalize_filesystem_write_candidate, observe_filesystem, prepare_effect,
+        resolve_filesystem_review_decision, validate_finalized_effect_chain, CarrierFailpoint,
         CarrierResult, EffectOutcome, LocalFilesystemBinding, NormalizationContext,
         ReconciliationConclusion,
     };
     use crate::memory::{derive_operational_memory, OperationalMemoryKind};
     use crate::record::{Record, RecordKind};
     use crate::transition::{
-        CaseLifecycle, InterpretationAuthority, PendingTransition, ProviderInvocationLineage,
-        ResourceAttachmentState, ResourceKind, ReviewResolution, ReviewState, TransitionPayload,
-        TransitionScope, TransitionSource,
+        build_review_action, CaseLifecycle, InterpretationAuthority, PendingTransition,
+        ProviderInvocationLineage, ResourceAttachmentState, ResourceKind, ReviewActionKind,
+        ReviewRequirement, ReviewResolution, TransitionPayload, TransitionScope, TransitionSource,
     };
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -3059,6 +3296,7 @@ mod tests {
             max_write_bytes: 1024,
             policy_id: "policy:workspace".to_string(),
             policy_owner_participant_id: operator.to_string(),
+            review_requirement: crate::transition::ReviewRequirement::Automatic,
         };
         commit_typed(
             &store,
@@ -3478,7 +3716,7 @@ mod tests {
     }
 
     #[test]
-    fn provider_and_review_payloads_reduce_without_summary_semantics() {
+    fn provider_payloads_reduce_without_summary_semantics() {
         let path = temp_store_path("typed-reducers");
         let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
         let case_id = "case:typed";
@@ -3552,59 +3790,12 @@ mod tests {
             .commit_transition(interpretation)
             .expect("commit interpretation");
 
-        let mut review = pending(
-            "transition:review",
-            case_id,
-            6,
-            TransitionPayload::ReviewRequested {
-                review: ReviewState {
-                    review_id: "review:1".to_string(),
-                    attempt_id: "attempt:1".to_string(),
-                    requested_by_participant: "participant:model".to_string(),
-                    target_participant: "participant:filesystem".to_string(),
-                    reviewer_participant: "participant:operator".to_string(),
-                    operation_kind: "fs.write".to_string(),
-                    carrier_family: "filesystem".to_string(),
-                    target_display: "sandbox/output.txt".to_string(),
-                    sandbox_path: "/tmp/sandbox".to_string(),
-                    target_path: "/tmp/sandbox/output.txt".to_string(),
-                    policy_reason: "review_required".to_string(),
-                    status: ReviewResolution::PendingOperator,
-                    carrier_attempted: false,
-                    execution_performed: false,
-                    decision_ref: None,
-                    receipt_ref: None,
-                },
-            },
-        );
-        review.causal_refs = vec!["attempt:1".to_string()];
-        store.commit_transition(review).expect("commit review");
-
-        let mut resolved = pending(
-            "transition:resolved",
-            case_id,
-            7,
-            TransitionPayload::ReviewResolved {
-                review_id: "review:1".to_string(),
-                attempt_id: "attempt:1".to_string(),
-                resolution: ReviewResolution::Denied,
-                reason: "operator denied".to_string(),
-                decision_ref: "decision:1".to_string(),
-                receipt_ref: "receipt:1".to_string(),
-                carrier_attempted: false,
-                execution_performed: false,
-            },
-        );
-        resolved.causal_refs = vec!["review:1".to_string(), "attempt:1".to_string()];
         let committed = store
-            .commit_transition(resolved)
-            .expect("commit resolution");
-        assert_eq!(committed.state.generation, 8);
-        assert_eq!(
-            committed.state.last_provider_result.unwrap().output_chars,
-            12
-        );
-        assert_eq!(committed.state.reviews[0].status, ReviewResolution::Denied);
+            .get_case_state(case_id)
+            .expect("read typed state")
+            .expect("typed state exists");
+        assert_eq!(committed.generation, 6);
+        assert_eq!(committed.last_provider_result.unwrap().output_chars, 12);
         assert!(store.verify_case_state(case_id).expect("verify replay"));
         assert!(store
             .materialize_graph_relations_for_case_inner(case_id, true)
@@ -3835,6 +4026,328 @@ mod tests {
         assert_eq!(summary.records_by_kind, 2);
         assert_eq!(summary.records_by_subject, 2);
         assert_eq!(summary.records_by_receipt, 2);
+
+        drop(store);
+        fs::remove_dir_all(path).expect("remove LMDB test store");
+    }
+
+    #[test]
+    fn case_runtime_admission_is_exclusive_reclaimable_and_noncanonical() {
+        let path = temp_store_path("case-runtime-admission");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
+        let case_id = "case:runtime-admission";
+        store
+            .commit_transition(pending(
+                "transition:runtime-admission-open",
+                case_id,
+                0,
+                TransitionPayload::CaseOpened {
+                    lifecycle: CaseLifecycle::Open,
+                },
+            ))
+            .expect("commit canonical case");
+        let canonical_before = store
+            .list_case_transitions(case_id)
+            .expect("canonical history before claim");
+        let owner_a = CaseRuntimeAdmissionRequest {
+            case_id: case_id.to_string(),
+            run_id: "run:a".to_string(),
+            owner_token: "owner:a".to_string(),
+            owner_pid: 1001,
+            now_unix_ms: 1_000,
+            lease_duration_ms: 100,
+        };
+        let (outcome, claim) = store
+            .acquire_case_runtime_admission(&owner_a, false)
+            .expect("first owner acquires");
+        assert_eq!(outcome, CaseRuntimeAdmissionOutcome::Acquired);
+        assert_eq!(claim.expires_at_unix_ms, 1_100);
+
+        let owner_b_active = CaseRuntimeAdmissionRequest {
+            case_id: case_id.to_string(),
+            run_id: "run:b".to_string(),
+            owner_token: "owner:b".to_string(),
+            owner_pid: 1002,
+            now_unix_ms: 1_050,
+            lease_duration_ms: 100,
+        };
+        let error = store
+            .acquire_case_runtime_admission(&owner_b_active, false)
+            .expect_err("second active owner must fail closed");
+        assert!(error.contains("case_runtime_admission_active"));
+
+        let mut owner_a_renew = owner_a.clone();
+        owner_a_renew.now_unix_ms = 1_060;
+        let (outcome, renewed) = store
+            .acquire_case_runtime_admission(&owner_a_renew, false)
+            .expect("same owner renews");
+        assert_eq!(outcome, CaseRuntimeAdmissionOutcome::Renewed);
+        assert_eq!(renewed.acquired_at_unix_ms, 1_000);
+
+        let mut owner_b_stale = owner_b_active;
+        owner_b_stale.now_unix_ms = 1_200;
+        let (outcome, reclaimed) = store
+            .acquire_case_runtime_admission(&owner_b_stale, true)
+            .expect("expired claim is reclaimed");
+        assert_eq!(outcome, CaseRuntimeAdmissionOutcome::Reclaimed);
+        assert_eq!(reclaimed.run_id, "run:b");
+        assert!(store
+            .release_case_runtime_admission(case_id, "run:a", "owner:a")
+            .unwrap_err()
+            .contains("release_owner_mismatch"));
+        store
+            .release_case_runtime_admission(case_id, "run:b", "owner:b")
+            .expect("current owner releases");
+        assert!(store
+            .get_case_runtime_admission(case_id)
+            .expect("read released claim")
+            .is_none());
+        assert_eq!(
+            store
+                .list_case_transitions(case_id)
+                .expect("canonical history after claim lifecycle"),
+            canonical_before,
+            "runtime admission metadata must not mutate canonical history"
+        );
+        assert!(store
+            .verify_case_state(case_id)
+            .expect("replay after claims"));
+
+        drop(store);
+        fs::remove_dir_all(path).expect("remove LMDB test store");
+    }
+
+    #[test]
+    fn typed_human_review_replays_without_promoting_approval_to_effect_truth() {
+        let path = temp_store_path("typed-human-review-replay");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
+        let case_id = "case:typed-human-review";
+        let model = "participant:model";
+        let reviewer = "participant:reviewer";
+        commit_typed(
+            &store,
+            "transition:review-case-open",
+            case_id,
+            0,
+            TransitionPayload::CaseOpened {
+                lifecycle: CaseLifecycle::Open,
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:review-model-bound",
+            case_id,
+            1,
+            TransitionPayload::ParticipantBound {
+                participant_id: model.to_string(),
+                role: "model_participant".to_string(),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:review-human-bound",
+            case_id,
+            2,
+            TransitionPayload::ParticipantBound {
+                participant_id: reviewer.to_string(),
+                role: "resource_policy_owner".to_string(),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:review-provider",
+            case_id,
+            3,
+            TransitionPayload::ProviderAttached {
+                participant_id: model.to_string(),
+                provider_id: "provider:review".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                base_url: "http://127.0.0.1:1".to_string(),
+                model_id: "model:review".to_string(),
+                credential_ref: "env:TEST".to_string(),
+            },
+            None,
+            vec![],
+        );
+        let lineage = test_provider_lineage(4);
+        commit_typed(
+            &store,
+            "transition:review-invocation",
+            case_id,
+            4,
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: "invocation:review".to_string(),
+                participant_id: model.to_string(),
+                provider_id: "provider:review".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:review".to_string(),
+                semantic_lineage: Some(lineage.clone()),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            &store,
+            "transition:review-result",
+            case_id,
+            5,
+            TransitionPayload::ProviderResultRecorded {
+                result_id: "provider-result:review".to_string(),
+                invocation_id: "invocation:review".to_string(),
+                provider_id: "provider:review".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:review".to_string(),
+                semantic_lineage: Some(lineage),
+                output: "typed review proposal".to_string(),
+            },
+            None,
+            vec!["invocation:review".to_string()],
+        );
+        let resource = ResourceAttachmentState {
+            attachment_id: "workspace".to_string(),
+            kind: ResourceKind::Filesystem,
+            allowed_write_prefix: "allowed".to_string(),
+            max_write_bytes: 128,
+            policy_id: "policy:review".to_string(),
+            policy_owner_participant_id: reviewer.to_string(),
+            review_requirement: ReviewRequirement::RequireReview,
+        };
+        commit_typed(
+            &store,
+            "transition:review-resource",
+            case_id,
+            6,
+            TransitionPayload::ResourceAttached {
+                attachment: resource.clone(),
+            },
+            None,
+            vec![reviewer.to_string()],
+        );
+        let operation = normalize_filesystem_write_candidate(
+            r#"{"schema":"yai.operation_proposal.filesystem_write.v1","operation":"filesystem.write","resource":"workspace","path":"allowed/reviewed.txt","content":"reviewed"}"#,
+            &NormalizationContext {
+                case_id,
+                participant_id: model,
+                provider_result_id: "provider-result:review",
+                provider_invocation_id: "invocation:review",
+                case_generation: 7,
+                resource: &resource,
+            },
+        )
+        .expect("normalize original operation");
+        commit_typed(
+            &store,
+            "transition:review-operation",
+            case_id,
+            7,
+            TransitionPayload::OperationRecorded {
+                operation: operation.clone(),
+            },
+            Some(operation.scope.clone()),
+            operation.origin.causal_refs(),
+        );
+        let initial = decide_filesystem_write(&operation, &resource, 8);
+        assert_eq!(
+            initial.outcome,
+            crate::effect::DecisionOutcome::RequireReview
+        );
+        commit_typed(
+            &store,
+            "transition:review-required",
+            case_id,
+            8,
+            TransitionPayload::DecisionRecorded {
+                decision: initial.clone(),
+            },
+            Some(operation.scope.clone()),
+            std::iter::once(operation.operation_id.clone())
+                .chain(initial.basis_refs.iter().cloned())
+                .collect(),
+        );
+        let review = build_filesystem_review_request(&operation, &initial, &resource, 9)
+            .expect("build review request");
+        commit_typed(
+            &store,
+            "transition:review-request",
+            case_id,
+            9,
+            TransitionPayload::ReviewRequested {
+                review: review.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![operation.operation_id.clone(), initial.decision_id.clone()],
+        );
+        let action = build_review_action(
+            &review,
+            case_id,
+            reviewer,
+            ReviewActionKind::Approve,
+            "approve exact operation",
+            10,
+            "local_cli_claimed_participant",
+        )
+        .expect("build review action");
+        let action_commit = commit_typed(
+            &store,
+            "transition:review-action",
+            case_id,
+            10,
+            TransitionPayload::ReviewActionRecorded {
+                action: action.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![review.review_id.clone(), operation.operation_id.clone()],
+        );
+        let resolved_review = action_commit
+            .state
+            .reviews
+            .iter()
+            .find(|item| item.review_id == review.review_id)
+            .expect("materialized resolved review");
+        assert_eq!(resolved_review.status, ReviewResolution::Approved);
+        let effective =
+            resolve_filesystem_review_decision(&operation, &resource, resolved_review, &action, 11)
+                .expect("derive effective decision");
+        let final_commit = commit_typed(
+            &store,
+            "transition:review-effective-decision",
+            case_id,
+            11,
+            TransitionPayload::DecisionRecorded {
+                decision: effective.clone(),
+            },
+            Some(operation.scope.clone()),
+            std::iter::once(operation.operation_id.clone())
+                .chain(effective.basis_refs.iter().cloned())
+                .collect(),
+        );
+        assert_eq!(final_commit.state.generation, 12);
+        assert_eq!(
+            final_commit.state.reviews[0]
+                .effective_decision_id
+                .as_deref(),
+            Some(effective.decision_id.as_str())
+        );
+        assert!(final_commit.state.effects.is_empty());
+        assert!(store.verify_case_state(case_id).expect("review replay"));
+        let history = store
+            .list_case_transitions(case_id)
+            .expect("review canonical history");
+        let memory = derive_operational_memory(case_id, &history).expect("derive review memory");
+        assert!(memory.entries.iter().any(|entry| {
+            entry.semantic_kind == OperationalMemoryKind::Review
+                && entry.description.contains("was approved")
+        }));
+        assert!(!memory
+            .entries
+            .iter()
+            .any(|entry| entry.semantic_kind == OperationalMemoryKind::ResourceEffect));
 
         drop(store);
         fs::remove_dir_all(path).expect("remove LMDB test store");
