@@ -1,0 +1,6 @@
+scenario	current-time behavior	historical replay behavior	proof
+P1 expires after finalized effect	P1 cannot authorize new work	D1/G1/receipt remain self-contained history	H10 historical chain + Wave11 compatibility suite
+P1 revoked after PREPARE	future operations blocked	prepared effect settles and receipt remains valid	wave11_prepare_is_nonretroactive_cut_across_revoke_and_cancel
+P1 superseded by P2	P1 binding stale until explicit replacement	old P1 Decision not rewritten	H10 P1→P2 replay remains green
+clock rollback	effective current time stays at floor	historical transitions never reevaluated against current wall clock	Wave11 temporal test/reducer separation
+derived cache deleted	current EffectivePolicy rebuilds	DecisionBasis/Grant history unchanged	H10 cache rebuild regression

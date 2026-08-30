@@ -16,6 +16,7 @@ fn state_label(state: &PolicyLifecycleState) -> &'static str {
         PolicyLifecycleState::Published => "published",
         PolicyLifecycleState::Superseded => "superseded",
         PolicyLifecycleState::Retired => "retired",
+        PolicyLifecycleState::Revoked => "revoked",
     }
 }
 
@@ -78,6 +79,28 @@ fn print_artifact(view: &PolicyArtifactView) {
     }
     println!("source_id: {}", artifact.source_id);
     println!("source_digest: {}", artifact.source_digest);
+    println!("validity_mode: {:?}", artifact.validity.mode);
+    println!(
+        "valid_from_unix_ms: {}",
+        artifact
+            .validity
+            .valid_from_unix_ms
+            .map_or_else(|| "none".to_string(), |value| value.to_string())
+    );
+    println!(
+        "refresh_after_unix_ms: {}",
+        artifact
+            .validity
+            .refresh_after_unix_ms
+            .map_or_else(|| "none".to_string(), |value| value.to_string())
+    );
+    println!(
+        "expires_at_unix_ms: {}",
+        artifact
+            .validity
+            .expires_at_unix_ms
+            .map_or_else(|| "none".to_string(), |value| value.to_string())
+    );
     println!("parsed_schema: {}", artifact.parsed.schema);
     println!("parsed_digest: {}", artifact.parsed.parsed_digest);
     println!("parsed_facts: {}", artifact.parsed.facts.len());
@@ -255,6 +278,24 @@ fn policy_retire(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+fn policy_revoke(args: &[String]) -> Result<(), String> {
+    let artifact_id = positional(args, "policy artifact id")?;
+    let actor_ref = named_arg(args, "--as")?;
+    let reason = named_arg(args, "--reason")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let outcome = store.revoke_policy_artifact(&artifact_id, &actor_ref, &reason)?;
+    println!(
+        "policy_revoke: {}",
+        if outcome.changed {
+            "revoked"
+        } else {
+            "already_revoked_idempotent"
+        }
+    );
+    print_artifact(&outcome.view);
+    Ok(())
+}
+
 fn policy_list() -> Result<(), String> {
     let store = LmdbRecordStore::open(record_store_path())?;
     let views = store.list_policy_artifact_views()?;
@@ -280,6 +321,7 @@ pub(super) fn policy_command(args: &[String]) -> Result<(), String> {
         Some("validate") => policy_validate(&args[1..]),
         Some("publish") => policy_publish(&args[1..]),
         Some("retire") => policy_retire(&args[1..]),
+        Some("revoke") => policy_revoke(&args[1..]),
         Some("list") => policy_list(),
         Some(other) => Err(format!("unknown policy command: {other}")),
         None => Err("policy command is required".to_string()),

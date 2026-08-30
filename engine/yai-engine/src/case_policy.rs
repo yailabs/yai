@@ -7,7 +7,7 @@
 use crate::effect::digest_bytes;
 use crate::governance::{
     AuthoritySubject, EvidenceObligationKind, NormalizedPolicyRule, PolicyArtifact, PolicyEffect,
-    PolicyLineage,
+    PolicyLineage, PolicyValidityContract,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -217,7 +217,33 @@ pub enum PolicyCatalogDrift {
     Current,
     Superseded { current_artifact_id: String },
     Retired,
+    Revoked,
     NoCurrentPublishedArtifact,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyValidityPosture {
+    Valid,
+    NotYetValid,
+    RefreshRequired,
+    Stale,
+    Expired,
+    Revoked,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BindingValidity {
+    pub binding_id: String,
+    pub lineage_id: String,
+    pub artifact_id: String,
+    pub contract: PolicyValidityContract,
+    pub posture: PolicyValidityPosture,
+    pub reason: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revoke_event_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -293,11 +319,25 @@ pub struct EffectivePolicyInput {
 pub struct NormativeStatus {
     pub case_id: String,
     pub readiness: NormativeReadiness,
+    #[serde(default = "unavailable_validity")]
+    pub validity: PolicyValidityPosture,
+    #[serde(default)]
+    pub authority_time_unix_ms: u64,
+    #[serde(default)]
+    pub observed_wall_time_unix_ms: u64,
+    #[serde(default)]
+    pub persisted_authority_floor_unix_ms: u64,
+    #[serde(default)]
+    pub binding_validity: BTreeMap<String, BindingValidity>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_policy: Option<EffectivePolicy>,
     pub missing: Vec<String>,
     pub blocking_conflicts: Vec<String>,
     pub catalog_drift: BTreeMap<String, PolicyCatalogDrift>,
+}
+
+fn unavailable_validity() -> PolicyValidityPosture {
+    PolicyValidityPosture::Unavailable
 }
 
 #[derive(Serialize)]
@@ -318,6 +358,11 @@ pub fn materialize_effective_policy(
         return NormativeStatus {
             case_id: case_id.to_string(),
             readiness: NormativeReadiness::Unconfigured,
+            validity: PolicyValidityPosture::Unavailable,
+            authority_time_unix_ms: 0,
+            observed_wall_time_unix_ms: 0,
+            persisted_authority_floor_unix_ms: 0,
+            binding_validity: BTreeMap::new(),
             effective_policy: None,
             missing: Vec::new(),
             blocking_conflicts: Vec::new(),
@@ -353,6 +398,11 @@ pub fn materialize_effective_policy(
         return NormativeStatus {
             case_id: case_id.to_string(),
             readiness: NormativeReadiness::Blocked,
+            validity: PolicyValidityPosture::Unavailable,
+            authority_time_unix_ms: 0,
+            observed_wall_time_unix_ms: 0,
+            persisted_authority_floor_unix_ms: 0,
+            binding_validity: BTreeMap::new(),
             effective_policy: None,
             missing,
             blocking_conflicts: conflicts,
@@ -558,6 +608,11 @@ pub fn materialize_effective_policy(
     NormativeStatus {
         case_id: case_id.to_string(),
         readiness: NormativeReadiness::Ready,
+        validity: PolicyValidityPosture::Unavailable,
+        authority_time_unix_ms: 0,
+        observed_wall_time_unix_ms: 0,
+        persisted_authority_floor_unix_ms: 0,
+        binding_validity: BTreeMap::new(),
         effective_policy: Some(EffectivePolicy {
             schema: EFFECTIVE_POLICY_SCHEMA.to_string(),
             effective_policy_id: format!("effective-policy:{}", digest_prefix(&semantic_digest)),
@@ -635,6 +690,7 @@ mod tests {
             "source_version": version,
             "owner_ref": owner,
             "source_origin": {"source_system":"unit-test","source_uri":format!("test://{owner}/{key}/{version}")},
+            "validity": {"mode":"unbounded"},
             "rules": [{
                 "kind":"operation_restriction",
                 "rule_id":format!("rule-{key}-{version}"),

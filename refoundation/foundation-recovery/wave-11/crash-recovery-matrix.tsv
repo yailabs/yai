@@ -1,0 +1,11 @@
+boundary	injection_or_transaction	post-restart invariant	status
+T1	revoke shared event before Case interaction	Case derives Revoked; no fanout daemon required	proven
+T2	ReviewInvalidated commit before response	one terminal invalidation on replay	proven by atomic transition tests
+T3	Grant invalidation commit before response	one Expired/Revoked/Abandoned state	proven
+T4	cancellation before runner observation	replay barrier blocks provider	proven
+T5	cancellation plus reviews	one RW transaction; no half-cancelled Case	proven
+T6	cancellation plus Grants	one RW transaction; unused Grants abandoned	proven
+T7	close verification before append	abort leaves Case cancelled/open	LMDB atomicity
+T8	close append before response	repeat close is idempotent	proven
+T9	expiry boundary before PREPARE	atomic prepare API commits either PREPARE or invalidation	proven
+T10	PREPARE then crash/revoke/cancel	reconcile/finalize remains required and possible	product failpoint 86 + reconcile

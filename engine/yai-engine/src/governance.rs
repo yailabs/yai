@@ -12,20 +12,24 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-pub const POLICY_SOURCE_INPUT_SCHEMA: &str = "yai.policy_source_input.v3";
+pub const POLICY_SOURCE_INPUT_SCHEMA: &str = "yai.policy_source_input.v4";
+pub const POLICY_SOURCE_INPUT_SCHEMA_V3: &str = "yai.policy_source_input.v3";
 pub const POLICY_SOURCE_INPUT_SCHEMA_V2: &str = "yai.policy_source_input.v2";
 pub const POLICY_SOURCE_INPUT_SCHEMA_V1: &str = "yai.policy_source_input.v1";
-pub const POLICY_SOURCE_ARTIFACT_SCHEMA: &str = "yai.policy_source_artifact.v3";
+pub const POLICY_SOURCE_ARTIFACT_SCHEMA: &str = "yai.policy_source_artifact.v4";
+pub const POLICY_SOURCE_ARTIFACT_SCHEMA_V3: &str = "yai.policy_source_artifact.v3";
 pub const POLICY_SOURCE_ARTIFACT_SCHEMA_V2: &str = "yai.policy_source_artifact.v2";
 pub const POLICY_SOURCE_ARTIFACT_SCHEMA_V1: &str = "yai.policy_source_artifact.v1";
 pub const PARSED_POLICY_SCHEMA: &str = "yai.parsed_policy.v2";
 pub const PARSED_POLICY_SCHEMA_V1: &str = "yai.parsed_policy.v1";
 pub const POLICY_IR_SCHEMA: &str = "yai.policy_ir.v2";
 pub const POLICY_IR_SCHEMA_V1: &str = "yai.policy_ir.v1";
-pub const POLICY_ARTIFACT_SCHEMA: &str = "yai.policy_artifact.v3";
+pub const POLICY_ARTIFACT_SCHEMA: &str = "yai.policy_artifact.v4";
+pub const POLICY_ARTIFACT_SCHEMA_V3: &str = "yai.policy_artifact.v3";
 pub const POLICY_ARTIFACT_SCHEMA_V2: &str = "yai.policy_artifact.v2";
 pub const POLICY_ARTIFACT_SCHEMA_V1: &str = "yai.policy_artifact.v1";
-pub const POLICY_LIFECYCLE_EVENT_SCHEMA: &str = "yai.policy_lifecycle_event.v1";
+pub const POLICY_LIFECYCLE_EVENT_SCHEMA: &str = "yai.policy_lifecycle_event.v2";
+pub const POLICY_LIFECYCLE_EVENT_SCHEMA_V1: &str = "yai.policy_lifecycle_event.v1";
 pub const POLICY_COMPILER_VERSION: &str = "yai.policy_compiler.v2";
 pub const POLICY_COMPILER_VERSION_V1: &str = "yai.policy_compiler.v1";
 pub const POLICY_VALIDATOR_VERSION: &str = "yai.policy_validator.v2";
@@ -33,6 +37,56 @@ pub const POLICY_VALIDATOR_VERSION_V1: &str = "yai.policy_validator.v1";
 pub const MAX_POLICY_SOURCE_BYTES: usize = 256 * 1024;
 pub const MAX_POLICY_RULES: usize = 128;
 pub const MAX_POLICY_JSON_DEPTH: usize = 32;
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyValidityMode {
+    #[default]
+    Unbounded,
+    Bounded,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyValidityContract {
+    pub mode: PolicyValidityMode,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub valid_from_unix_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refresh_after_unix_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at_unix_ms: Option<u64>,
+}
+
+impl PolicyValidityContract {
+    pub fn validate(&self) -> Result<(), String> {
+        match self.mode {
+            PolicyValidityMode::Unbounded => {
+                if self.valid_from_unix_ms.is_some()
+                    || self.refresh_after_unix_ms.is_some()
+                    || self.expires_at_unix_ms.is_some()
+                {
+                    return Err("unbounded_policy_validity_cannot_have_window".to_string());
+                }
+            }
+            PolicyValidityMode::Bounded => {
+                let valid_from = self
+                    .valid_from_unix_ms
+                    .ok_or_else(|| "bounded_policy_validity_requires_valid_from".to_string())?;
+                let refresh_after = self
+                    .refresh_after_unix_ms
+                    .ok_or_else(|| "bounded_policy_validity_requires_refresh_after".to_string())?;
+                let expires_at = self
+                    .expires_at_unix_ms
+                    .ok_or_else(|| "bounded_policy_validity_requires_expires_at".to_string())?;
+                if valid_from > refresh_after || refresh_after > expires_at {
+                    return Err("policy_validity_window_order_invalid".to_string());
+                }
+            }
+        }
+        Ok(())
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -91,6 +145,8 @@ pub struct PolicySourceArtifact {
     pub owner_ref: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_origin: Option<PolicySourceOrigin>,
+    #[serde(default)]
+    pub validity: PolicyValidityContract,
     pub content_utf8: String,
 }
 
@@ -350,6 +406,8 @@ pub struct PolicyArtifact {
     pub owner_ref: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_origin: Option<PolicySourceOrigin>,
+    #[serde(default)]
+    pub validity: PolicyValidityContract,
     pub source_id: String,
     pub source_digest: String,
     pub parsed: ParsedPolicy,
@@ -393,6 +451,7 @@ pub enum PolicyLifecycleState {
     Published,
     Superseded,
     Retired,
+    Revoked,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -403,6 +462,7 @@ pub enum PolicyLifecycleAction {
     Published,
     Superseded,
     Retired,
+    Revoked,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -484,6 +544,8 @@ struct PolicySourceDocument {
     owner_ref: String,
     #[serde(default)]
     source_origin: Option<PolicySourceOrigin>,
+    #[serde(default)]
+    validity: Option<PolicyValidityContract>,
     rules: Vec<Value>,
 }
 
@@ -553,6 +615,21 @@ struct PolicyIrDigestMaterial<'a> {
 
 #[derive(Serialize)]
 struct PolicyArtifactDigestMaterial<'a> {
+    schema: &'a str,
+    policy_key: &'a str,
+    artifact_version: &'a str,
+    owner_ref: &'a str,
+    source_origin: Option<&'a PolicySourceOrigin>,
+    validity: &'a PolicyValidityContract,
+    source_id: &'a str,
+    source_digest: &'a str,
+    parsed_digest: &'a str,
+    ir_digest: &'a str,
+    validation: &'a PolicyValidation,
+}
+
+#[derive(Serialize)]
+struct PolicyArtifactDigestMaterialV2V3<'a> {
     schema: &'a str,
     policy_key: &'a str,
     artifact_version: &'a str,
@@ -717,6 +794,7 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     let document: PolicySourceDocument = serde_json::from_value(strict_value)
         .map_err(|error| format!("policy_source_json_invalid: {error}"))?;
     if document.schema != POLICY_SOURCE_INPUT_SCHEMA
+        && document.schema != POLICY_SOURCE_INPUT_SCHEMA_V3
         && document.schema != POLICY_SOURCE_INPUT_SCHEMA_V2
         && document.schema != POLICY_SOURCE_INPUT_SCHEMA_V1
     {
@@ -726,6 +804,7 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
         ));
     }
     if (document.schema == POLICY_SOURCE_INPUT_SCHEMA
+        || document.schema == POLICY_SOURCE_INPUT_SCHEMA_V3
         || document.schema == POLICY_SOURCE_INPUT_SCHEMA_V2)
         && document.source_origin.is_none()
     {
@@ -737,6 +816,15 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     if let Some(origin) = &document.source_origin {
         origin.validate()?;
     }
+    let validity = match (&*document.schema, document.validity.clone()) {
+        (POLICY_SOURCE_INPUT_SCHEMA, Some(validity)) => validity,
+        (POLICY_SOURCE_INPUT_SCHEMA, None) => {
+            return Err("policy_validity_contract_required".to_string())
+        }
+        (_, Some(_)) => return Err("legacy_policy_source_cannot_claim_v4_validity".to_string()),
+        (_, None) => PolicyValidityContract::default(),
+    };
+    validity.validate()?;
     if document.rules.is_empty() {
         return Err("policy_source_requires_rules".to_string());
     }
@@ -752,6 +840,7 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     let source = PolicySourceArtifact {
         schema: match document.schema.as_str() {
             POLICY_SOURCE_INPUT_SCHEMA => POLICY_SOURCE_ARTIFACT_SCHEMA,
+            POLICY_SOURCE_INPUT_SCHEMA_V3 => POLICY_SOURCE_ARTIFACT_SCHEMA_V3,
             POLICY_SOURCE_INPUT_SCHEMA_V2 => POLICY_SOURCE_ARTIFACT_SCHEMA_V2,
             _ => POLICY_SOURCE_ARTIFACT_SCHEMA_V1,
         }
@@ -763,21 +852,26 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
         source_version: document.source_version.clone(),
         owner_ref: document.owner_ref.clone(),
         source_origin: document.source_origin.clone(),
+        validity: validity.clone(),
         content_utf8,
     };
 
-    let is_v3 = document.schema == POLICY_SOURCE_INPUT_SCHEMA;
-    let parsed_schema = if is_v3 {
+    let supports_authority_rules = matches!(
+        document.schema.as_str(),
+        POLICY_SOURCE_INPUT_SCHEMA | POLICY_SOURCE_INPUT_SCHEMA_V3
+    );
+    let parsed_schema = if supports_authority_rules {
         PARSED_POLICY_SCHEMA
     } else {
         PARSED_POLICY_SCHEMA_V1
     };
-    let compiler_version = if is_v3 {
+    let compiler_version = if supports_authority_rules {
         POLICY_COMPILER_VERSION
     } else {
         POLICY_COMPILER_VERSION_V1
     };
-    let (facts, unresolved) = parse_policy_rules(&source_id, &document.rules, is_v3)?;
+    let (facts, unresolved) =
+        parse_policy_rules(&source_id, &document.rules, supports_authority_rules)?;
     let parsed_digest = digest_serialized(&ParsedDigestMaterial {
         schema: parsed_schema,
         compiler_version,
@@ -797,11 +891,26 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     let validation = derive_policy_validation(&policy_ir);
     let artifact_schema = match document.schema.as_str() {
         POLICY_SOURCE_INPUT_SCHEMA => POLICY_ARTIFACT_SCHEMA,
+        POLICY_SOURCE_INPUT_SCHEMA_V3 => POLICY_ARTIFACT_SCHEMA_V3,
         POLICY_SOURCE_INPUT_SCHEMA_V2 => POLICY_ARTIFACT_SCHEMA_V2,
         _ => POLICY_ARTIFACT_SCHEMA_V1,
     };
-    let artifact_digest = if artifact_schema != POLICY_ARTIFACT_SCHEMA_V1 {
+    let artifact_digest = if artifact_schema == POLICY_ARTIFACT_SCHEMA {
         digest_serialized(&PolicyArtifactDigestMaterial {
+            schema: artifact_schema,
+            policy_key: &document.policy_key,
+            artifact_version: &document.source_version,
+            owner_ref: &document.owner_ref,
+            source_origin: document.source_origin.as_ref(),
+            validity: &validity,
+            source_id: &source_id,
+            source_digest: &source_digest,
+            parsed_digest: &parsed.parsed_digest,
+            ir_digest: &policy_ir.ir_digest,
+            validation: &validation,
+        })
+    } else if artifact_schema != POLICY_ARTIFACT_SCHEMA_V1 {
+        digest_serialized(&PolicyArtifactDigestMaterialV2V3 {
             schema: artifact_schema,
             policy_key: &document.policy_key,
             artifact_version: &document.source_version,
@@ -833,6 +942,7 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
         artifact_version: document.source_version,
         owner_ref: document.owner_ref,
         source_origin: document.source_origin,
+        validity,
         source_id,
         source_digest,
         parsed,
@@ -1210,6 +1320,7 @@ impl PolicyCompilation {
             || self.source.source_version != self.artifact.artifact_version
             || self.source.owner_ref != self.artifact.owner_ref
             || self.source.source_origin != self.artifact.source_origin
+            || self.source.validity != self.artifact.validity
         {
             return Err("policy_compilation_source_artifact_mismatch".to_string());
         }
@@ -1220,6 +1331,7 @@ impl PolicyCompilation {
 impl PolicySourceArtifact {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != POLICY_SOURCE_ARTIFACT_SCHEMA
+            && self.schema != POLICY_SOURCE_ARTIFACT_SCHEMA_V3
             && self.schema != POLICY_SOURCE_ARTIFACT_SCHEMA_V2
             && self.schema != POLICY_SOURCE_ARTIFACT_SCHEMA_V1
         {
@@ -1240,8 +1352,12 @@ impl PolicySourceArtifact {
         validate_identifier("owner_ref", &self.owner_ref, 160)?;
         match (&*self.schema, &self.source_origin) {
             (POLICY_SOURCE_ARTIFACT_SCHEMA, Some(origin)) => origin.validate()?,
+            (POLICY_SOURCE_ARTIFACT_SCHEMA_V3, Some(origin)) => origin.validate()?,
             (POLICY_SOURCE_ARTIFACT_SCHEMA_V2, Some(origin)) => origin.validate()?,
             (POLICY_SOURCE_ARTIFACT_SCHEMA, None) => {
+                return Err("policy_source_origin_required".to_string())
+            }
+            (POLICY_SOURCE_ARTIFACT_SCHEMA_V3, None) => {
                 return Err("policy_source_origin_required".to_string())
             }
             (POLICY_SOURCE_ARTIFACT_SCHEMA_V2, None) => {
@@ -1264,6 +1380,7 @@ impl PolicySourceArtifact {
             .map_err(|error| format!("stored_policy_source_json_invalid: {error}"))?;
         let expected_input_schema = match self.schema.as_str() {
             POLICY_SOURCE_ARTIFACT_SCHEMA => POLICY_SOURCE_INPUT_SCHEMA,
+            POLICY_SOURCE_ARTIFACT_SCHEMA_V3 => POLICY_SOURCE_INPUT_SCHEMA_V3,
             POLICY_SOURCE_ARTIFACT_SCHEMA_V2 => POLICY_SOURCE_INPUT_SCHEMA_V2,
             _ => POLICY_SOURCE_INPUT_SCHEMA_V1,
         };
@@ -1272,6 +1389,7 @@ impl PolicySourceArtifact {
             || document.source_version != self.source_version
             || document.owner_ref != self.owner_ref
             || document.source_origin != self.source_origin
+            || document.validity.clone().unwrap_or_default() != self.validity
         {
             return Err("policy_source_artifact_metadata_mismatch".to_string());
         }
@@ -1284,10 +1402,20 @@ impl PolicySourceArtifact {
         if let Some(origin) = &document.source_origin {
             origin.validate()?;
         }
+        self.validity.validate()?;
+        if self.schema == POLICY_SOURCE_ARTIFACT_SCHEMA && document.validity.is_none() {
+            return Err("policy_validity_contract_required".to_string());
+        }
+        if self.schema != POLICY_SOURCE_ARTIFACT_SCHEMA && document.validity.is_some() {
+            return Err("legacy_policy_source_cannot_claim_v4_validity".to_string());
+        }
         parse_policy_rules(
             &self.source_id,
             &document.rules,
-            self.schema == POLICY_SOURCE_ARTIFACT_SCHEMA,
+            matches!(
+                self.schema.as_str(),
+                POLICY_SOURCE_ARTIFACT_SCHEMA | POLICY_SOURCE_ARTIFACT_SCHEMA_V3
+            ),
         )?;
         Ok(())
     }
@@ -1296,6 +1424,7 @@ impl PolicySourceArtifact {
 impl PolicyArtifact {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != POLICY_ARTIFACT_SCHEMA
+            && self.schema != POLICY_ARTIFACT_SCHEMA_V3
             && self.schema != POLICY_ARTIFACT_SCHEMA_V2
             && self.schema != POLICY_ARTIFACT_SCHEMA_V1
         {
@@ -1311,8 +1440,12 @@ impl PolicyArtifact {
         self.lineage().validate()?;
         match (&*self.schema, &self.source_origin) {
             (POLICY_ARTIFACT_SCHEMA, Some(origin)) => origin.validate()?,
+            (POLICY_ARTIFACT_SCHEMA_V3, Some(origin)) => origin.validate()?,
             (POLICY_ARTIFACT_SCHEMA_V2, Some(origin)) => origin.validate()?,
             (POLICY_ARTIFACT_SCHEMA, None) => {
+                return Err("policy_artifact_source_origin_required".to_string())
+            }
+            (POLICY_ARTIFACT_SCHEMA_V3, None) => {
                 return Err("policy_artifact_source_origin_required".to_string())
             }
             (POLICY_ARTIFACT_SCHEMA_V2, None) => {
@@ -1329,23 +1462,32 @@ impl PolicyArtifact {
         if self.source_id != format!("policy-source:{}", digest_suffix(&self.source_digest)) {
             return Err("policy_artifact_source_identity_mismatch".to_string());
         }
-        let is_v3 = self.schema == POLICY_ARTIFACT_SCHEMA;
-        let expected_parsed = if is_v3 {
+        self.validity.validate()?;
+        if self.schema != POLICY_ARTIFACT_SCHEMA
+            && self.validity != PolicyValidityContract::default()
+        {
+            return Err("legacy_policy_artifact_cannot_claim_v4_validity".to_string());
+        }
+        let supports_authority_rules = matches!(
+            self.schema.as_str(),
+            POLICY_ARTIFACT_SCHEMA | POLICY_ARTIFACT_SCHEMA_V3
+        );
+        let expected_parsed = if supports_authority_rules {
             PARSED_POLICY_SCHEMA
         } else {
             PARSED_POLICY_SCHEMA_V1
         };
-        let expected_ir = if is_v3 {
+        let expected_ir = if supports_authority_rules {
             POLICY_IR_SCHEMA
         } else {
             POLICY_IR_SCHEMA_V1
         };
-        let expected_compiler = if is_v3 {
+        let expected_compiler = if supports_authority_rules {
             POLICY_COMPILER_VERSION
         } else {
             POLICY_COMPILER_VERSION_V1
         };
-        let expected_validator = if is_v3 {
+        let expected_validator = if supports_authority_rules {
             POLICY_VALIDATOR_VERSION
         } else {
             POLICY_VALIDATOR_VERSION_V1
@@ -1411,8 +1553,22 @@ impl PolicyArtifact {
                 return Err("policy_rule_provenance_invalid".to_string());
             }
         }
-        let artifact_digest = if self.schema != POLICY_ARTIFACT_SCHEMA_V1 {
+        let artifact_digest = if self.schema == POLICY_ARTIFACT_SCHEMA {
             digest_serialized(&PolicyArtifactDigestMaterial {
+                schema: &self.schema,
+                policy_key: &self.policy_key,
+                artifact_version: &self.artifact_version,
+                owner_ref: &self.owner_ref,
+                source_origin: self.source_origin.as_ref(),
+                validity: &self.validity,
+                source_id: &self.source_id,
+                source_digest: &self.source_digest,
+                parsed_digest: &self.parsed.parsed_digest,
+                ir_digest: &self.policy_ir.ir_digest,
+                validation: &self.validation,
+            })
+        } else if self.schema != POLICY_ARTIFACT_SCHEMA_V1 {
+            digest_serialized(&PolicyArtifactDigestMaterialV2V3 {
                 schema: &self.schema,
                 policy_key: &self.policy_key,
                 artifact_version: &self.artifact_version,
@@ -1446,7 +1602,9 @@ impl PolicyArtifact {
 
 impl PolicyLifecycleEvent {
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != POLICY_LIFECYCLE_EVENT_SCHEMA {
+        if self.schema != POLICY_LIFECYCLE_EVENT_SCHEMA
+            && self.schema != POLICY_LIFECYCLE_EVENT_SCHEMA_V1
+        {
             return Err(format!(
                 "unsupported_policy_lifecycle_event_schema: {}",
                 self.schema
@@ -1460,6 +1618,11 @@ impl PolicyLifecycleEvent {
         validate_identifier("actor_ref", &self.actor_ref, 160)?;
         validate_reason(&self.reason, "policy_lifecycle_reason")?;
         validate_lifecycle_transition(self.prior_state.as_ref(), &self.action, &self.next_state)?;
+        if self.schema == POLICY_LIFECYCLE_EVENT_SCHEMA_V1
+            && self.action == PolicyLifecycleAction::Revoked
+        {
+            return Err("policy_revocation_requires_lifecycle_event_v2".to_string());
+        }
         match (&self.action, &self.related_artifact_id) {
             (PolicyLifecycleAction::Superseded, Some(related)) => {
                 validate_identifier("related_artifact_id", related, 128)?;
@@ -1574,6 +1737,18 @@ pub fn validate_lifecycle_transition(
             Some(PolicyLifecycleState::Superseded),
             PolicyLifecycleAction::Retired,
             PolicyLifecycleState::Retired
+        ) | (
+            Some(PolicyLifecycleState::Published),
+            PolicyLifecycleAction::Revoked,
+            PolicyLifecycleState::Revoked
+        ) | (
+            Some(PolicyLifecycleState::Superseded),
+            PolicyLifecycleAction::Revoked,
+            PolicyLifecycleState::Revoked
+        ) | (
+            Some(PolicyLifecycleState::Retired),
+            PolicyLifecycleAction::Revoked,
+            PolicyLifecycleState::Revoked
         )
     );
     if valid {
@@ -1726,6 +1901,7 @@ mod tests {
                 "source_system": "unit-test",
                 "source_uri": "test://governance/example"
             },
+            "validity": {"mode":"unbounded"},
             "rules": [
                 {
                     "kind": "operation_restriction",
@@ -1819,6 +1995,7 @@ mod tests {
             "source_version": "1",
             "owner_ref": "organization:example",
             "source_origin": {"source_system":"unit-test","source_uri":"test://governance/unknown"},
+            "validity": {"mode":"unbounded"},
             "rules": [{"kind":"imagined_rule","meaning":"guess"}]
         }))
         .unwrap();
@@ -1835,6 +2012,7 @@ mod tests {
             "source_version": "1",
             "owner_ref": "organization:example",
             "source_origin": {"source_system":"unit-test","source_uri":"test://governance/conflict"},
+            "validity": {"mode":"unbounded"},
             "rules": [
                 {"kind":"review_requirement","rule_id":"review-a","operation_kind":"filesystem.write","resource_kind":"filesystem","required":true,"reason":"review"},
                 {"kind":"review_requirement","rule_id":"review-b","operation_kind":"filesystem.write","resource_kind":"filesystem","required":false,"reason":"automatic"}
@@ -1854,6 +2032,7 @@ mod tests {
             "source_version": "1",
             "owner_ref": "organization:example",
             "source_origin": {"source_system":"unit-test","source_uri":"test://governance/operation-conflict"},
+            "validity": {"mode":"unbounded"},
             "rules": [
                 {"kind":"operation_restriction","rule_id":"allow-a","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","reason":"allow"},
                 {"kind":"operation_restriction","rule_id":"deny-a","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"deny","reason":"deny"}
@@ -1998,6 +2177,7 @@ mod tests {
             "source_version": "1",
             "owner_ref": "organization:test",
             "source_origin": {"source_system":"test","source_uri":"test://limit"},
+            "validity": {"mode":"unbounded"},
             "rules": (0..=MAX_POLICY_RULES).map(|index| serde_json::json!({
                 "kind":"review_requirement", "rule_id":format!("r{index}"),
                 "operation_kind":"filesystem.write", "required":true, "reason":"valid"
@@ -2014,6 +2194,7 @@ mod tests {
             "source_version": "1",
             "owner_ref": "organization:test",
             "source_origin": {"source_system":"test","source_uri":"test://duplicate"},
+            "validity": {"mode":"unbounded"},
             "rules": [
                 {"kind":"evidence_obligation","rule_id":"same","operation_kind":"filesystem.write","obligation":"audit_reason","reason":"motivo è valido"},
                 {"kind":"evidence_obligation","rule_id":"same","operation_kind":"filesystem.write","obligation":"audit_reason","reason":"motivo è valido"}
@@ -2090,6 +2271,7 @@ mod tests {
                 "source_version": "1",
                 "owner_ref": "organization:test",
                 "source_origin": {"source_system":"test","source_uri":"test://bounds"},
+                "validity": {"mode":"unbounded"},
                 "rules": rules
             }))
             .unwrap()
@@ -2173,6 +2355,7 @@ fn v3_authority_requirement_is_typed_provenanced_and_v2_remains_unchanged() {
         "source_version":"1",
         "owner_ref":"organization:acme",
         "source_origin":{"source_system":"unit-test","source_uri":"test://authority/1"},
+        "validity":{"mode":"unbounded"},
         "rules":[{
             "kind":"authority_requirement",
             "rule_id":"reviewer-role",
@@ -2222,5 +2405,61 @@ fn v3_authority_requirement_is_typed_provenanced_and_v2_remains_unchanged() {
     assert_eq!(
         legacy.artifact.validation.status,
         PolicyValidationStatus::Blocked
+    );
+}
+
+#[test]
+fn wave11_policy_validity_contract_is_explicit_ordered_and_identity_bearing() {
+    let source = |validity: serde_json::Value| {
+        serde_json::to_vec(&serde_json::json!({
+            "schema": POLICY_SOURCE_INPUT_SCHEMA,
+            "policy_key":"temporal",
+            "source_version":"1",
+            "owner_ref":"organization:acme",
+            "source_origin":{"source_system":"unit-test","source_uri":"test://temporal/1"},
+            "validity": validity,
+            "rules":[{
+                "kind":"operation_restriction",
+                "rule_id":"allow-write",
+                "operation_kind":"filesystem.write",
+                "resource_kind":"filesystem",
+                "effect":"allow",
+                "reason":"bounded authority test"
+            }]
+        }))
+        .unwrap()
+    };
+    let bounded = compile_policy_source(&source(serde_json::json!({
+        "mode":"bounded",
+        "valid_from_unix_ms":100,
+        "refresh_after_unix_ms":200,
+        "expires_at_unix_ms":300
+    })))
+    .expect("ordered bounded validity");
+    let unbounded = compile_policy_source(&source(serde_json::json!({"mode":"unbounded"})))
+        .expect("explicit unbounded validity");
+    assert_ne!(bounded.artifact.artifact_id, unbounded.artifact.artifact_id);
+    assert_eq!(
+        compile_policy_source(&source(serde_json::json!({
+            "mode":"bounded",
+            "valid_from_unix_ms":300,
+            "refresh_after_unix_ms":200,
+            "expires_at_unix_ms":100
+        })))
+        .unwrap_err(),
+        "policy_validity_window_order_invalid"
+    );
+    let missing = serde_json::to_vec(&serde_json::json!({
+        "schema": POLICY_SOURCE_INPUT_SCHEMA,
+        "policy_key":"temporal",
+        "source_version":"1",
+        "owner_ref":"organization:acme",
+        "source_origin":{"source_system":"unit-test","source_uri":"test://temporal/missing"},
+        "rules":[]
+    }))
+    .unwrap();
+    assert_eq!(
+        compile_policy_source(&missing).unwrap_err(),
+        "policy_validity_contract_required"
     );
 }

@@ -16,13 +16,13 @@
 
 use crate::admission::{
     build_policy_review_request, evaluate_filesystem_admission, resolve_canonical_evidence,
-    resolve_policy_review_decision, reviewer_is_eligible,
+    resolve_policy_review_decision, reviewer_is_eligible, AuthorityTemporalContext,
 };
 use crate::case_policy::{
-    build_case_policy_binding, materialize_effective_policy, EffectivePolicy, EffectivePolicyInput,
-    NormativeReadiness, NormativeStatus, PolicyCatalogDrift, CASE_POLICY_BINDING_SCHEMA,
-    EFFECTIVE_POLICY_SCHEMA, EFFECTIVE_POLICY_SCHEMA_V1, POLICY_MATERIALIZER_VERSION,
-    POLICY_MATERIALIZER_VERSION_V1,
+    build_case_policy_binding, materialize_effective_policy, BindingValidity, EffectivePolicy,
+    EffectivePolicyInput, NormativeReadiness, NormativeStatus, PolicyCatalogDrift,
+    PolicyValidityPosture, CASE_POLICY_BINDING_SCHEMA, EFFECTIVE_POLICY_SCHEMA,
+    EFFECTIVE_POLICY_SCHEMA_V1, POLICY_MATERIALIZER_VERSION, POLICY_MATERIALIZER_VERSION_V1,
 };
 use crate::compatibility::{
     decode_legacy_record, inspect_legacy_jsonl, LegacyDecodeOutcome, LegacyRecord,
@@ -37,10 +37,11 @@ use crate::governance::{
     build_lifecycle_event, compile_policy_source, lifecycle_from_events, PolicyArtifact,
     PolicyArtifactView, PolicyCompilation, PolicyIngestOutcome, PolicyLifecycleAction,
     PolicyLifecycleEvent, PolicyLifecycleEventInput, PolicyLifecycleOutcome, PolicyLifecycleState,
-    PolicyLineage, PolicySourceArtifact, PolicyValidationStatus, POLICY_ARTIFACT_SCHEMA,
-    POLICY_ARTIFACT_SCHEMA_V1, POLICY_ARTIFACT_SCHEMA_V2, POLICY_LIFECYCLE_EVENT_SCHEMA,
+    PolicyLineage, PolicySourceArtifact, PolicyValidationStatus, PolicyValidityMode,
+    POLICY_ARTIFACT_SCHEMA, POLICY_ARTIFACT_SCHEMA_V1, POLICY_ARTIFACT_SCHEMA_V2,
+    POLICY_ARTIFACT_SCHEMA_V3, POLICY_LIFECYCLE_EVENT_SCHEMA, POLICY_LIFECYCLE_EVENT_SCHEMA_V1,
     POLICY_SOURCE_ARTIFACT_SCHEMA, POLICY_SOURCE_ARTIFACT_SCHEMA_V1,
-    POLICY_SOURCE_ARTIFACT_SCHEMA_V2,
+    POLICY_SOURCE_ARTIFACT_SCHEMA_V2, POLICY_SOURCE_ARTIFACT_SCHEMA_V3,
 };
 use crate::journal::Journal;
 use crate::memory::{
@@ -49,11 +50,13 @@ use crate::memory::{
 };
 use crate::record::Record;
 use crate::transition::{
-    replay_case, CaseLifecycle, CaseState, PendingTransition, Transition, TransitionPayload,
-    TransitionSource, CASE_STATE_SCHEMA, CASE_STATE_SCHEMA_V1, CASE_STATE_SCHEMA_V2,
-    CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5, TRANSITION_SCHEMA,
-    TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4,
-    TRANSITION_SCHEMA_V5,
+    replay_case, AuthorityInvalidationReason, CaseCancellationState, CaseClosureState,
+    CaseLifecycle, CaseState, ExecutionGrantInvalidation, GrantInvalidationDisposition,
+    GrantLifecycle, PendingTransition, ReviewInvalidation, ReviewResolution, Transition,
+    TransitionPayload, TransitionSource, CASE_STATE_SCHEMA, CASE_STATE_SCHEMA_V1,
+    CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5,
+    CASE_STATE_SCHEMA_V6, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V2,
+    TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6,
 };
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
@@ -74,6 +77,7 @@ pub const CANONICAL_AUTHORITY_BACKEND: &str = "lmdb_transaction_authority_v1";
 pub const LEGACY_COMPATIBILITY_SCHEMA: &str = "yai.legacy.compatibility.v1";
 pub const SEMANTIC_CONTEXT_ARTIFACT_SCHEMA: &str = "yai.semantic_context_artifact.v1";
 pub const CASE_RUNTIME_ADMISSION_SCHEMA: &str = "yai.case_runtime_admission.v1";
+pub const AUTHORITY_TIME_FLOOR_KEY: &str = "meta:authority_time_floor_unix_ms";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RecordStoreStatusKind {
@@ -178,6 +182,28 @@ pub enum CaseRuntimeAdmissionOutcome {
 pub struct CanonicalCommit {
     pub transition: Transition,
     pub state: CaseState,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CaseCancellationOutcome {
+    pub changed: bool,
+    pub commits: Vec<CanonicalCommit>,
+    pub state: CaseState,
+    pub invalidated_reviews: usize,
+    pub abandoned_grants: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CaseClosureOutcome {
+    pub changed: bool,
+    pub commit: Option<CanonicalCommit>,
+    pub state: CaseState,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PreparedCommitOutcome {
+    Prepared(CanonicalCommit),
+    GrantInvalidated(CanonicalCommit),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1091,7 +1117,9 @@ impl LmdbRecordStore {
                 true
             }
             PolicyLifecycleState::Validated | PolicyLifecycleState::Published => false,
-            PolicyLifecycleState::Superseded | PolicyLifecycleState::Retired => {
+            PolicyLifecycleState::Superseded
+            | PolicyLifecycleState::Retired
+            | PolicyLifecycleState::Revoked => {
                 return Err(format!("policy_artifact_not_validatable_from: {current:?}"))
             }
         };
@@ -1221,6 +1249,72 @@ impl LmdbRecordStore {
         let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
         txn.commit()
             .map_err(|error| format!("failed to commit policy retirement: {error}"))?;
+        Ok(PolicyLifecycleOutcome {
+            changed: true,
+            view,
+        })
+    }
+
+    /// Appends terminal authority withdrawal without mutating immutable policy
+    /// content. Revocation is stronger than catalog retirement/supersession.
+    pub fn revoke_policy_artifact(
+        &self,
+        artifact_id: &str,
+        actor_ref: &str,
+        reason: &str,
+    ) -> Result<PolicyLifecycleOutcome, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start policy revocation transaction: {error}"))?;
+        let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        let current = self.policy_lifecycle_state_txn(&txn, artifact_id)?;
+        if current == PolicyLifecycleState::Revoked {
+            let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
+            return Ok(PolicyLifecycleOutcome {
+                changed: false,
+                view,
+            });
+        }
+        if !matches!(
+            current,
+            PolicyLifecycleState::Published
+                | PolicyLifecycleState::Superseded
+                | PolicyLifecycleState::Retired
+        ) {
+            return Err(format!("policy_artifact_not_revocable_from: {current:?}"));
+        }
+        let authority_time =
+            self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        self.append_policy_event_at_txn(
+            &mut txn,
+            artifact_id,
+            PolicyLifecycleAction::Revoked,
+            Some(current.clone()),
+            PolicyLifecycleState::Revoked,
+            None,
+            actor_ref,
+            reason,
+            authority_time,
+        )?;
+        if current == PolicyLifecycleState::Published {
+            let lineage_key = policy_lineage_key(&artifact.lineage());
+            match txn.get(self.policy_current_by_lineage, &lineage_key) {
+                Ok(value) if value == artifact_id.as_bytes() => {
+                    txn.del(self.policy_current_by_lineage, &lineage_key, None)
+                        .map_err(|error| {
+                            policy_store_write_error("current policy lineage index", error)
+                        })?;
+                }
+                Ok(_) | Err(Error::NotFound) => {}
+                Err(error) => {
+                    return Err(format!("failed to inspect current policy lineage: {error}"))
+                }
+            }
+        }
+        let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit policy revocation: {error}"))?;
         Ok(PolicyLifecycleOutcome {
             changed: true,
             view,
@@ -1392,6 +1486,32 @@ impl LmdbRecordStore {
         actor_ref: &str,
         reason: &str,
     ) -> Result<PolicyLifecycleEvent, String> {
+        self.append_policy_event_at_txn(
+            txn,
+            artifact_id,
+            action,
+            prior_state,
+            next_state,
+            related_artifact_id,
+            actor_ref,
+            reason,
+            unix_time_ms() as u64,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn append_policy_event_at_txn(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        artifact_id: &str,
+        action: PolicyLifecycleAction,
+        prior_state: Option<PolicyLifecycleState>,
+        next_state: PolicyLifecycleState,
+        related_artifact_id: Option<&str>,
+        actor_ref: &str,
+        reason: &str,
+        committed_at_unix_ms: u64,
+    ) -> Result<PolicyLifecycleEvent, String> {
         let sequence = next_policy_lifecycle_sequence(txn, self.schema_meta)?;
         let event = build_lifecycle_event(
             sequence,
@@ -1403,7 +1523,7 @@ impl LmdbRecordStore {
                 related_artifact_id,
                 actor_ref,
                 reason,
-                committed_at_unix_ms: unix_time_ms() as u64,
+                committed_at_unix_ms,
             },
         )?;
         let event_key = policy_event_key(&event.event_id);
@@ -1647,11 +1767,29 @@ impl LmdbRecordStore {
 
     /// Pure derivation from CaseState plus exact immutable PolicyArtifacts.
     pub fn case_policy_status(&self, case_id: &str) -> Result<NormativeStatus, String> {
+        self.case_policy_status_at(case_id, authority_wall_time_unix_ms())
+    }
+
+    /// Pure deterministic status derivation used by temporal qualification.
+    /// The supplied clock cannot move authority below the committed floor.
+    pub fn case_policy_status_at(
+        &self,
+        case_id: &str,
+        observed_wall_time_unix_ms: u64,
+    ) -> Result<NormativeStatus, String> {
         let txn = self
             .env
             .begin_ro_txn()
             .map_err(|error| format!("failed to start Case policy status read: {error}"))?;
-        self.materialize_case_policy_txn(&txn, case_id)
+        let floor = self.authority_time_floor_txn(&txn)?;
+        let mut status = self.materialize_case_policy_at_txn(
+            &txn,
+            case_id,
+            observed_wall_time_unix_ms.max(floor),
+            floor,
+        )?;
+        status.observed_wall_time_unix_ms = observed_wall_time_unix_ms;
+        Ok(status)
     }
 
     /// Rebuilds the optional derived cache. Canonical Case/policy history is
@@ -1811,15 +1949,39 @@ impl LmdbRecordStore {
         txn: &T,
         case_id: &str,
     ) -> Result<NormativeStatus, String> {
+        let floor = self.authority_time_floor_txn(txn)?;
+        let observed_wall_time = authority_wall_time_unix_ms();
+        let mut status = self.materialize_case_policy_at_txn(
+            txn,
+            case_id,
+            observed_wall_time.max(floor),
+            floor,
+        )?;
+        status.observed_wall_time_unix_ms = observed_wall_time;
+        Ok(status)
+    }
+
+    fn materialize_case_policy_at_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        case_id: &str,
+        authority_time_unix_ms: u64,
+        persisted_floor_unix_ms: u64,
+    ) -> Result<NormativeStatus, String> {
         let state = self
             .get_case_state_txn(txn, case_id)?
             .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
         if state.policy_bindings.is_empty() {
-            return Ok(materialize_effective_policy(case_id, Vec::new()));
+            let mut status = materialize_effective_policy(case_id, Vec::new());
+            status.authority_time_unix_ms = authority_time_unix_ms;
+            status.observed_wall_time_unix_ms = authority_time_unix_ms;
+            status.persisted_authority_floor_unix_ms = persisted_floor_unix_ms;
+            return Ok(status);
         }
         let mut inputs = Vec::new();
         let mut missing = Vec::new();
         let mut drift = BTreeMap::new();
+        let mut binding_validity = BTreeMap::new();
         for binding in &state.policy_bindings {
             let artifact = match self.policy_artifact_txn(txn, &binding.artifact_id) {
                 Ok(artifact) => artifact,
@@ -1864,9 +2026,34 @@ impl LmdbRecordStore {
                         .unwrap_or_else(|| "unknown".to_string()),
                 },
                 PolicyLifecycleState::Retired => PolicyCatalogDrift::Retired,
+                PolicyLifecycleState::Revoked => PolicyCatalogDrift::Revoked,
                 _ => PolicyCatalogDrift::NoCurrentPublishedArtifact,
             };
             drift.insert(binding.lineage_id.clone(), catalog_drift.clone());
+            let revoke_event_id = view
+                .lifecycle_events
+                .iter()
+                .rev()
+                .find(|event| event.action == PolicyLifecycleAction::Revoked)
+                .map(|event| event.event_id.clone());
+            let (posture, reason) = binding_validity_posture(
+                &artifact,
+                &catalog_drift,
+                revoke_event_id.is_some(),
+                authority_time_unix_ms,
+            );
+            binding_validity.insert(
+                binding.lineage_id.clone(),
+                BindingValidity {
+                    binding_id: binding.binding_id.clone(),
+                    lineage_id: binding.lineage_id.clone(),
+                    artifact_id: artifact.artifact_id.clone(),
+                    contract: artifact.validity.clone(),
+                    posture,
+                    reason,
+                    revoke_event_id,
+                },
+            );
             inputs.push(EffectivePolicyInput {
                 binding: binding.clone(),
                 artifact,
@@ -1878,17 +2065,458 @@ impl LmdbRecordStore {
             return Ok(NormativeStatus {
                 case_id: case_id.to_string(),
                 readiness: NormativeReadiness::Blocked,
+                validity: PolicyValidityPosture::Unavailable,
+                authority_time_unix_ms,
+                observed_wall_time_unix_ms: authority_time_unix_ms,
+                persisted_authority_floor_unix_ms: persisted_floor_unix_ms,
+                binding_validity,
                 effective_policy: None,
                 missing,
                 blocking_conflicts: Vec::new(),
                 catalog_drift: drift,
             });
         }
-        Ok(materialize_effective_policy(case_id, inputs))
+        let mut status = materialize_effective_policy(case_id, inputs);
+        status.authority_time_unix_ms = authority_time_unix_ms;
+        status.observed_wall_time_unix_ms = authority_time_unix_ms;
+        status.persisted_authority_floor_unix_ms = persisted_floor_unix_ms;
+        status.binding_validity = binding_validity;
+        status.validity = status
+            .binding_validity
+            .values()
+            .map(|entry| entry.posture.clone())
+            .max_by_key(validity_severity)
+            .unwrap_or(PolicyValidityPosture::Unavailable);
+        Ok(status)
+    }
+
+    fn authority_time_floor_txn<T: Transaction>(&self, txn: &T) -> Result<u64, String> {
+        match txn.get(self.schema_meta, &AUTHORITY_TIME_FLOOR_KEY) {
+            Ok(value) => std::str::from_utf8(value)
+                .map_err(|error| format!("authority_time_floor_not_utf8: {error}"))?
+                .parse::<u64>()
+                .map_err(|error| format!("authority_time_floor_invalid: {error}")),
+            Err(Error::NotFound) => Ok(0),
+            Err(error) => Err(format!("failed to read authority time floor: {error}")),
+        }
+    }
+
+    fn advance_authority_time_txn(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        observed_wall_time_unix_ms: u64,
+    ) -> Result<u64, String> {
+        let effective = observed_wall_time_unix_ms.max(self.authority_time_floor_txn(txn)?);
+        txn.put(
+            self.schema_meta,
+            &AUTHORITY_TIME_FLOOR_KEY,
+            &effective.to_string(),
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to persist authority time floor: {error}"))?;
+        Ok(effective)
+    }
+
+    /// A mutating review action uses this write boundary first. Read-only
+    /// status never appends invalidation; an attempted authority use does.
+    pub fn invalidate_review_if_policy_unusable(
+        &self,
+        case_id: &str,
+        review_id: &str,
+    ) -> Result<Option<CanonicalCommit>, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start review validity transaction: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        let review = state
+            .reviews
+            .iter()
+            .find(|review| review.review_id == review_id)
+            .ok_or_else(|| "review_not_found".to_string())?;
+        if !matches!(
+            review.status,
+            ReviewResolution::Pending | ReviewResolution::Deferred
+        ) {
+            return Ok(None);
+        }
+        let authority_time =
+            self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let floor = self.authority_time_floor_txn(&txn)?;
+        let status = self.materialize_case_policy_at_txn(&txn, case_id, authority_time, floor)?;
+        let (reason, source_ref) = if let Some(cancellation) = &state.cancellation {
+            (
+                AuthorityInvalidationReason::CaseCancelled,
+                cancellation.transition_id.clone(),
+            )
+        } else if state.lifecycle == CaseLifecycle::Closed {
+            (
+                AuthorityInvalidationReason::CaseClosed,
+                state
+                    .closure
+                    .as_ref()
+                    .map(|closure| closure.transition_id.clone())
+                    .unwrap_or_else(|| case_id.to_string()),
+            )
+        } else if status.validity == PolicyValidityPosture::Valid
+            && status.effective_policy.as_ref().is_some_and(|effective| {
+                effective.effective_policy_id == review.effective_policy_id
+                    && effective.semantic_digest == review.effective_policy_digest
+            })
+        {
+            return Ok(None);
+        } else {
+            let reason = match status.validity {
+                PolicyValidityPosture::RefreshRequired => {
+                    AuthorityInvalidationReason::PolicyRefreshRequired
+                }
+                PolicyValidityPosture::Stale => AuthorityInvalidationReason::PolicyStale,
+                PolicyValidityPosture::Expired => AuthorityInvalidationReason::PolicyExpired,
+                PolicyValidityPosture::Revoked => AuthorityInvalidationReason::PolicyRevoked,
+                _ => AuthorityInvalidationReason::PolicyBasisChanged,
+            };
+            let source = status
+                .binding_validity
+                .values()
+                .find_map(|binding| binding.revoke_event_id.clone())
+                .or_else(|| {
+                    status
+                        .effective_policy
+                        .as_ref()
+                        .map(|effective| effective.effective_policy_id.clone())
+                })
+                .unwrap_or_else(|| case_id.to_string());
+            (reason, source)
+        };
+        let mut pending = PendingTransition::new(
+            format!(
+                "transition:review-invalidated:{review_id}:{}",
+                state.generation + 1
+            ),
+            case_id,
+            state.generation,
+            TransitionSource::component("yai.temporal_governance"),
+            TransitionPayload::ReviewInvalidated {
+                invalidation: ReviewInvalidation {
+                    review_id: review_id.to_string(),
+                    reason,
+                    source_ref: source_ref.clone(),
+                    invalidated_at_unix_ms: authority_time,
+                },
+            },
+        );
+        pending.causal_refs = vec![review_id.to_string(), source_ref];
+        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit review invalidation: {error}"))?;
+        Ok(Some(commit))
+    }
+
+    /// Atomically installs the durable cancellation barrier and terminalizes
+    /// every still-usable review and every issued, not-yet-prepared Grant.
+    pub fn cancel_case(
+        &self,
+        case_id: &str,
+        actor_ref: &str,
+        reason: &str,
+    ) -> Result<CaseCancellationOutcome, String> {
+        if actor_ref.trim().is_empty() || reason.trim().is_empty() {
+            return Err("case_cancellation_actor_and_reason_required".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start Case cancellation transaction: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        if state.lifecycle == CaseLifecycle::Closed {
+            return Err("case_already_closed".to_string());
+        }
+        if state.cancellation.is_some() {
+            return Ok(CaseCancellationOutcome {
+                changed: false,
+                commits: Vec::new(),
+                state,
+                invalidated_reviews: 0,
+                abandoned_grants: 0,
+            });
+        }
+        let authority_time =
+            self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let cancellation_transition_id = format!("transition:case-cancel:{case_id}");
+        let cancellation = CaseCancellationState {
+            actor_ref: actor_ref.to_string(),
+            reason: reason.split_whitespace().collect::<Vec<_>>().join(" "),
+            requested_at_unix_ms: authority_time,
+            transition_id: cancellation_transition_id.clone(),
+        };
+        let pending_reviews = state
+            .reviews
+            .iter()
+            .filter(|review| {
+                matches!(
+                    review.status,
+                    ReviewResolution::Pending | ReviewResolution::Deferred
+                )
+            })
+            .map(|review| review.review_id.clone())
+            .collect::<Vec<_>>();
+        let issued_grants = state
+            .grants
+            .iter()
+            .filter(|grant| grant.status == GrantLifecycle::Issued)
+            .map(|grant| grant.grant_id.clone())
+            .collect::<Vec<_>>();
+        let mut commits = Vec::new();
+        let cancel = PendingTransition::new(
+            &cancellation_transition_id,
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.case_lifecycle".to_string(),
+                participant_id: Some(actor_ref.to_string()),
+                source_ref: None,
+            },
+            TransitionPayload::CaseCancellationRequested { cancellation },
+        );
+        commits.push(self.commit_transition_txn(&mut txn, cancel, false)?);
+        for review_id in &pending_reviews {
+            let current = commits.last().expect("cancel commit").state.generation;
+            let mut pending = PendingTransition::new(
+                format!("transition:review-invalidated:cancel:{review_id}"),
+                case_id,
+                current,
+                TransitionSource::component("yai.case_lifecycle"),
+                TransitionPayload::ReviewInvalidated {
+                    invalidation: ReviewInvalidation {
+                        review_id: review_id.clone(),
+                        reason: AuthorityInvalidationReason::CaseCancelled,
+                        source_ref: cancellation_transition_id.clone(),
+                        invalidated_at_unix_ms: authority_time,
+                    },
+                },
+            );
+            pending.causal_refs = vec![review_id.clone(), cancellation_transition_id.clone()];
+            commits.push(self.commit_transition_txn(&mut txn, pending, false)?);
+        }
+        for grant_id in &issued_grants {
+            let current = commits.last().expect("cancel commit").state.generation;
+            let mut pending = PendingTransition::new(
+                format!("transition:grant-abandoned:cancel:{grant_id}"),
+                case_id,
+                current,
+                TransitionSource::component("yai.case_lifecycle"),
+                TransitionPayload::ExecutionGrantInvalidated {
+                    invalidation: ExecutionGrantInvalidation {
+                        grant_id: grant_id.clone(),
+                        disposition: GrantInvalidationDisposition::Abandoned,
+                        reason: "case_cancelled_before_prepare".to_string(),
+                        source_ref: cancellation_transition_id.clone(),
+                        invalidated_at_unix_ms: authority_time,
+                    },
+                },
+            );
+            pending.causal_refs = vec![grant_id.clone(), cancellation_transition_id.clone()];
+            commits.push(self.commit_transition_txn(&mut txn, pending, false)?);
+        }
+        let final_state = commits.last().expect("cancel commit").state.clone();
+        txn.commit()
+            .map_err(|error| format!("failed to commit Case cancellation: {error}"))?;
+        Ok(CaseCancellationOutcome {
+            changed: true,
+            commits,
+            state: final_state,
+            invalidated_reviews: pending_reviews.len(),
+            abandoned_grants: issued_grants.len(),
+        })
+    }
+
+    /// Atomically verifies the terminal boundary and appends the one CaseClosed
+    /// transition. Physical resources and historical records are untouched.
+    pub fn close_case(
+        &self,
+        case_id: &str,
+        actor_ref: &str,
+        reason: &str,
+    ) -> Result<CaseClosureOutcome, String> {
+        if actor_ref.trim().is_empty() || reason.trim().is_empty() {
+            return Err("case_closure_actor_and_reason_required".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start Case closure transaction: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        if state.lifecycle == CaseLifecycle::Closed {
+            return Ok(CaseClosureOutcome {
+                changed: false,
+                commit: None,
+                state,
+            });
+        }
+        let cancellation = state
+            .cancellation
+            .as_ref()
+            .ok_or_else(|| "case_close_requires_cancellation".to_string())?;
+        let blockers = closure_blockers(&state);
+        if !blockers.is_empty() {
+            return Err(format!("case_close_blocked: {}", blockers.join(",")));
+        }
+        let now = authority_wall_time_unix_ms();
+        let admission_key = case_runtime_admission_key(case_id);
+        match txn.get(self.case_runtime_admission, &admission_key) {
+            Ok(value) => {
+                let claim: CaseRuntimeAdmission = serde_json::from_slice(value)
+                    .map_err(|error| format!("case_runtime_admission_decode_failed: {error}"))?;
+                if claim.expires_at_unix_ms > now {
+                    return Err(format!(
+                        "case_close_blocked: live_runtime_admission:{}",
+                        claim.run_id
+                    ));
+                }
+                txn.del(self.case_runtime_admission, &admission_key, None)
+                    .map_err(|error| format!("failed to clear stale runtime admission: {error}"))?;
+            }
+            Err(Error::NotFound) => {}
+            Err(error) => return Err(format!("failed to inspect runtime admission: {error}")),
+        }
+        let authority_time = self.advance_authority_time_txn(&mut txn, now)?;
+        let transition_id = format!("transition:case-close:{case_id}");
+        let mut pending = PendingTransition::new(
+            &transition_id,
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.case_lifecycle".to_string(),
+                participant_id: Some(actor_ref.to_string()),
+                source_ref: Some(cancellation.transition_id.clone()),
+            },
+            TransitionPayload::CaseClosed {
+                closure: CaseClosureState {
+                    actor_ref: actor_ref.to_string(),
+                    reason: reason.split_whitespace().collect::<Vec<_>>().join(" "),
+                    closed_at_unix_ms: authority_time,
+                    cancellation_ref: cancellation.transition_id.clone(),
+                    transition_id: transition_id.clone(),
+                },
+            },
+        );
+        pending.causal_refs = vec![cancellation.transition_id.clone()];
+        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit Case closure: {error}"))?;
+        Ok(CaseClosureOutcome {
+            changed: true,
+            state: commit.state.clone(),
+            commit: Some(commit),
+        })
     }
 
     /// Atomically appends one immutable canonical Transition and replaces the
     /// corresponding rebuildable CaseState materialization.
+    pub fn commit_effect_prepared(
+        &self,
+        pending: PendingTransition,
+    ) -> Result<PreparedCommitOutcome, String> {
+        let TransitionPayload::EffectPrepared { prepared } = &pending.payload else {
+            return Err("commit_effect_prepared_requires_prepare_payload".to_string());
+        };
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start prepare authority transaction: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, &pending.case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {}", pending.case_id))?;
+        if state.generation != pending.expected_generation {
+            return Err(format!(
+                "stale_case_generation: expected={} actual={}",
+                pending.expected_generation, state.generation
+            ));
+        }
+        let grant_state = state
+            .grants
+            .iter()
+            .find(|grant| grant.grant_id == prepared.grant_id)
+            .ok_or_else(|| "prepare_without_grant".to_string())?;
+        if grant_state.status != GrantLifecycle::Issued {
+            return Err("prepare_requires_issued_grant".to_string());
+        }
+        let authority_time =
+            self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let floor = self.authority_time_floor_txn(&txn)?;
+        let status =
+            self.materialize_case_policy_at_txn(&txn, &pending.case_id, authority_time, floor)?;
+        let invalidation = if let Some(cancellation) = &state.cancellation {
+            Some((
+                GrantInvalidationDisposition::Abandoned,
+                "case_cancelled_before_prepare".to_string(),
+                cancellation.transition_id.clone(),
+            ))
+        } else if grant_state.expires_at_unix_ms != 0
+            && authority_time >= grant_state.expires_at_unix_ms
+        {
+            Some((
+                GrantInvalidationDisposition::Expired,
+                "execution_grant_expired_before_prepare".to_string(),
+                prepared.grant_id.clone(),
+            ))
+        } else if status.validity != PolicyValidityPosture::Valid {
+            let disposition = if status.validity == PolicyValidityPosture::Revoked {
+                GrantInvalidationDisposition::Revoked
+            } else {
+                GrantInvalidationDisposition::Expired
+            };
+            let source = status
+                .binding_validity
+                .values()
+                .find_map(|binding| binding.revoke_event_id.clone())
+                .unwrap_or_else(|| prepared.grant_id.clone());
+            Some((
+                disposition,
+                format!("policy_invalid_before_prepare:{:?}", status.validity),
+                source,
+            ))
+        } else {
+            None
+        };
+        if let Some((disposition, reason, source_ref)) = invalidation {
+            let mut invalidation_pending = PendingTransition::new(
+                format!(
+                    "transition:grant-invalidated:{}:{}",
+                    prepared.grant_id,
+                    state.generation + 1
+                ),
+                &pending.case_id,
+                state.generation,
+                TransitionSource::component("yai.temporal_governance"),
+                TransitionPayload::ExecutionGrantInvalidated {
+                    invalidation: ExecutionGrantInvalidation {
+                        grant_id: prepared.grant_id.clone(),
+                        disposition,
+                        reason,
+                        source_ref: source_ref.clone(),
+                        invalidated_at_unix_ms: authority_time,
+                    },
+                },
+            );
+            invalidation_pending.causal_refs = vec![prepared.grant_id.clone(), source_ref];
+            let commit = self.commit_transition_txn(&mut txn, invalidation_pending, false)?;
+            txn.commit()
+                .map_err(|error| format!("failed to commit Grant invalidation: {error}"))?;
+            return Ok(PreparedCommitOutcome::GrantInvalidated(commit));
+        }
+        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit prepared effect: {error}"))?;
+        Ok(PreparedCommitOutcome::Prepared(commit))
+    }
+
     pub fn commit_transition(&self, pending: PendingTransition) -> Result<CanonicalCommit, String> {
         self.commit_transition_inner(pending, false)
     }
@@ -1913,6 +2541,16 @@ impl LmdbRecordStore {
         txn: &mut RwTransaction<'_>,
         pending: PendingTransition,
         inject_failure_before_commit: bool,
+    ) -> Result<CanonicalCommit, String> {
+        self.commit_transition_txn_at(txn, pending, inject_failure_before_commit, None)
+    }
+
+    fn commit_transition_txn_at(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        pending: PendingTransition,
+        inject_failure_before_commit: bool,
+        authority_time_unix_ms: Option<u64>,
     ) -> Result<CanonicalCommit, String> {
         let transition_key = transition_id_key(&pending.transition_id);
         match txn.get(self.transitions_by_id, &transition_key) {
@@ -1942,11 +2580,16 @@ impl LmdbRecordStore {
                 pending.expected_generation
             ));
         }
+        let authority_time = match authority_time_unix_ms {
+            Some(authority_time) => authority_time,
+            None => self.advance_authority_time_txn(txn, authority_wall_time_unix_ms())?,
+        };
         self.validate_policy_authority_txn(
             txn,
             current_state.as_ref(),
             &pending.case_id,
             &pending.payload,
+            authority_time,
         )?;
         let sequence = actual_generation + 1;
         let transition = Transition {
@@ -1954,7 +2597,7 @@ impl LmdbRecordStore {
             transition_id: pending.transition_id,
             case_id: pending.case_id,
             sequence,
-            committed_at_unix_ms: unix_time_ms() as u64,
+            committed_at_unix_ms: authority_time,
             source: pending.source,
             scope: pending.scope,
             causal_refs: pending.causal_refs,
@@ -2016,6 +2659,7 @@ impl LmdbRecordStore {
         current_state: Option<&CaseState>,
         case_id: &str,
         payload: &TransitionPayload,
+        authority_time_unix_ms: u64,
     ) -> Result<(), String> {
         let state = match current_state {
             Some(state) => state,
@@ -2027,8 +2671,18 @@ impl LmdbRecordStore {
             {
                 decision.validate_integrity()?;
                 let history = self.list_case_transitions_txn(txn, case_id)?;
-                let expected =
-                    self.derive_expected_policy_decision_txn(txn, state, &history, decision)?;
+                let expected = self.derive_expected_policy_decision_at_time_txn(
+                    txn,
+                    state,
+                    &history,
+                    decision,
+                    Some(authority_time_unix_ms),
+                )?;
+                if decision.decision_basis.as_ref().is_none_or(|basis| {
+                    basis.authority_evaluated_at_unix_ms != authority_time_unix_ms
+                }) {
+                    return Err("authority_decision_time_mismatch".to_string());
+                }
                 if expected != *decision {
                     return Err("authority_decision_basis_mismatch".to_string());
                 }
@@ -2089,6 +2743,9 @@ impl LmdbRecordStore {
                 if grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA =>
             {
                 grant.validate_integrity()?;
+                if authority_time_unix_ms >= grant.expires_at_unix_ms {
+                    return Err("policy_execution_grant_expired_before_issuance".to_string());
+                }
                 let history = self.list_case_transitions_txn(txn, case_id)?;
                 let Some(last_transition) = history.last() else {
                     return Err("policy_grant_decision_not_adjacent".to_string());
@@ -2110,11 +2767,32 @@ impl LmdbRecordStore {
                 }
                 let prior_history = &history[..history.len() - 1];
                 let prior_state = replay_case(case_id, prior_history)?;
-                let expected_decision = self.derive_expected_policy_decision_txn(
+                let floor = self.authority_time_floor_txn(txn)?;
+                let current_status = self.materialize_case_policy_at_txn(
+                    txn,
+                    case_id,
+                    authority_time_unix_ms,
+                    floor,
+                )?;
+                if current_status.readiness != NormativeReadiness::Ready
+                    || current_status.validity != PolicyValidityPosture::Valid
+                {
+                    return Err(format!(
+                        "policy_grant_requires_ready_and_valid: readiness={:?} validity={:?}",
+                        current_status.readiness, current_status.validity
+                    ));
+                }
+                let decision_authority_time = decision
+                    .decision_basis
+                    .as_ref()
+                    .ok_or_else(|| "policy_decision_basis_missing".to_string())?
+                    .authority_evaluated_at_unix_ms;
+                let expected_decision = self.derive_expected_policy_decision_at_time_txn(
                     txn,
                     &prior_state,
                     prior_history,
                     decision,
+                    Some(decision_authority_time),
                 )?;
                 if expected_decision != *decision {
                     return Err("policy_grant_decision_semantics_stale".to_string());
@@ -2143,6 +2821,26 @@ impl LmdbRecordStore {
                 let [grant] = grants.as_slice() else {
                     return Err("execution_obligation_grant_ambiguous_or_missing".to_string());
                 };
+                if grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA {
+                    if authority_time_unix_ms >= grant.expires_at_unix_ms {
+                        return Err("execution_grant_expired_before_prepare".to_string());
+                    }
+                    let floor = self.authority_time_floor_txn(txn)?;
+                    let status = self.materialize_case_policy_at_txn(
+                        txn,
+                        case_id,
+                        authority_time_unix_ms,
+                        floor,
+                    )?;
+                    if status.readiness != NormativeReadiness::Ready
+                        || status.validity != PolicyValidityPosture::Valid
+                    {
+                        return Err(format!(
+                            "policy_invalid_before_prepare: readiness={:?} validity={:?}",
+                            status.readiness, status.validity
+                        ));
+                    }
+                }
                 validate_execution_obligation_preparation(grant, prepared)?;
             }
             TransitionPayload::EffectFinalized {
@@ -2235,6 +2933,94 @@ impl LmdbRecordStore {
         self.get_case_state_txn(&txn, case_id)
     }
 
+    pub fn derive_and_commit_policy_decision(
+        &self,
+        case_id: &str,
+        operation_id: &str,
+    ) -> Result<(Decision, CanonicalCommit), String> {
+        self.derive_and_commit_policy_decision_inner(case_id, operation_id, None)
+    }
+
+    pub fn derive_and_commit_policy_review_decision(
+        &self,
+        case_id: &str,
+        operation_id: &str,
+        review_id: &str,
+        action_id: &str,
+    ) -> Result<(Decision, CanonicalCommit), String> {
+        self.derive_and_commit_policy_decision_inner(
+            case_id,
+            operation_id,
+            Some((review_id, action_id)),
+        )
+    }
+
+    fn derive_and_commit_policy_decision_inner(
+        &self,
+        case_id: &str,
+        operation_id: &str,
+        review: Option<(&str, &str)>,
+    ) -> Result<(Decision, CanonicalCommit), String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start policy Decision transaction: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let authority_time =
+            self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let decision = if let Some((review_id, action_id)) = review {
+            self.derive_review_policy_decision_txn(
+                &txn,
+                &state,
+                &history,
+                operation_id,
+                (review_id, action_id),
+                Some(authority_time),
+            )?
+        } else {
+            self.derive_initial_policy_decision_txn(
+                &txn,
+                &state,
+                &history,
+                operation_id,
+                Some(authority_time),
+            )?
+        };
+        let basis = decision
+            .decision_basis
+            .as_ref()
+            .ok_or_else(|| "policy_decision_basis_missing".to_string())?;
+        let mut causal_refs = vec![decision.operation_id.clone(), basis.basis_id.clone()];
+        causal_refs.push(basis.effective_policy_id.clone());
+        causal_refs.extend(basis.policy_binding_refs.iter().cloned());
+        causal_refs.extend(basis.policy_artifact_refs.iter().cloned());
+        if let Some(action) = &basis.review_action_ref {
+            causal_refs.push(action.clone());
+        }
+        let mut pending = PendingTransition::new(
+            format!("transition:policy-decision:{}", decision.decision_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.policy_authority_admission".to_string(),
+                participant_id: Some(basis.proposer_participant_id.clone()),
+                source_ref: Some(decision.decision_id.clone()),
+            },
+            TransitionPayload::DecisionRecorded {
+                decision: decision.clone(),
+            },
+        );
+        pending.causal_refs = causal_refs;
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, Some(authority_time))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit policy Decision: {error}"))?;
+        Ok((decision, commit))
+    }
+
     pub fn derive_policy_decision(
         &self,
         case_id: &str,
@@ -2248,7 +3034,7 @@ impl LmdbRecordStore {
             .get_case_state_txn(&txn, case_id)?
             .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
         let history = self.list_case_transitions_txn(&txn, case_id)?;
-        self.derive_initial_policy_decision_txn(&txn, &state, &history, operation_id)
+        self.derive_initial_policy_decision_txn(&txn, &state, &history, operation_id, None)
     }
 
     pub fn derive_policy_review_decision(
@@ -2271,8 +3057,8 @@ impl LmdbRecordStore {
             &state,
             &history,
             operation_id,
-            review_id,
-            action_id,
+            (review_id, action_id),
+            None,
         )
     }
 
@@ -2284,8 +3070,16 @@ impl LmdbRecordStore {
         let status = self.materialize_case_policy_txn(txn, case_id)?;
         status
             .effective_policy
-            .filter(|_| status.readiness == NormativeReadiness::Ready)
-            .ok_or_else(|| "policy_authority_requires_normative_ready".to_string())
+            .filter(|_| {
+                status.readiness == NormativeReadiness::Ready
+                    && status.validity == PolicyValidityPosture::Valid
+            })
+            .ok_or_else(|| {
+                format!(
+                    "policy_authority_requires_ready_and_valid: readiness={:?} validity={:?}",
+                    status.readiness, status.validity
+                )
+            })
     }
 
     fn canonical_operation(
@@ -2358,6 +3152,7 @@ impl LmdbRecordStore {
         state: &CaseState,
         history: &[Transition],
         operation_id: &str,
+        authority_time_unix_ms: Option<u64>,
     ) -> Result<Decision, String> {
         let operation = Self::canonical_operation(state, history, operation_id)?;
         let resource = state
@@ -2365,9 +3160,33 @@ impl LmdbRecordStore {
             .iter()
             .find(|resource| resource.attachment_id == operation.resource_attachment_id)
             .ok_or_else(|| "authority_resource_not_attached".to_string())?;
-        let effective = self.current_ready_effective_policy_txn(txn, &state.case_id)?;
+        let status = if let Some(authority_time) = authority_time_unix_ms {
+            let floor = self.authority_time_floor_txn(txn)?;
+            self.materialize_case_policy_at_txn(txn, &state.case_id, authority_time, floor)?
+        } else {
+            self.materialize_case_policy_txn(txn, &state.case_id)?
+        };
+        let effective = status
+            .effective_policy
+            .clone()
+            .filter(|_| {
+                status.readiness == NormativeReadiness::Ready
+                    && status.validity == PolicyValidityPosture::Valid
+            })
+            .ok_or_else(|| {
+                format!(
+                    "policy_authority_requires_ready_and_valid: readiness={:?} validity={:?}",
+                    status.readiness, status.validity
+                )
+            })?;
+        let temporal = AuthorityTemporalContext {
+            authority_time_unix_ms: status.authority_time_unix_ms,
+            binding_validity: status.binding_validity.into_values().collect(),
+        };
         let evidence = resolve_canonical_evidence(&operation, history, None)?;
-        evaluate_filesystem_admission(&operation, state, resource, &effective, &evidence)
+        evaluate_filesystem_admission(
+            &operation, state, resource, &effective, &evidence, &temporal,
+        )
     }
 
     fn derive_review_policy_decision_txn<T: Transaction>(
@@ -2376,9 +3195,10 @@ impl LmdbRecordStore {
         state: &CaseState,
         history: &[Transition],
         operation_id: &str,
-        review_id: &str,
-        action_id: &str,
+        review_and_action: (&str, &str),
+        authority_time_unix_ms: Option<u64>,
     ) -> Result<Decision, String> {
+        let (review_id, action_id) = review_and_action;
         let operation = Self::canonical_operation(state, history, operation_id)?;
         let resource = state
             .resources
@@ -2408,19 +3228,42 @@ impl LmdbRecordStore {
         let [action] = actions.as_slice() else {
             return Err("canonical_review_action_ambiguous_or_missing".to_string());
         };
-        let effective = self.current_ready_effective_policy_txn(txn, &state.case_id)?;
+        let status = if let Some(authority_time) = authority_time_unix_ms {
+            let floor = self.authority_time_floor_txn(txn)?;
+            self.materialize_case_policy_at_txn(txn, &state.case_id, authority_time, floor)?
+        } else {
+            self.materialize_case_policy_txn(txn, &state.case_id)?
+        };
+        let effective = status
+            .effective_policy
+            .clone()
+            .filter(|_| {
+                status.readiness == NormativeReadiness::Ready
+                    && status.validity == PolicyValidityPosture::Valid
+            })
+            .ok_or_else(|| {
+                format!(
+                    "policy_authority_requires_ready_and_valid: readiness={:?} validity={:?}",
+                    status.readiness, status.validity
+                )
+            })?;
+        let temporal = AuthorityTemporalContext {
+            authority_time_unix_ms: status.authority_time_unix_ms,
+            binding_validity: status.binding_validity.into_values().collect(),
+        };
         let evidence = resolve_canonical_evidence(&operation, history, Some(action_id))?;
         resolve_policy_review_decision(
-            &operation, state, resource, &effective, review, action, &evidence,
+            &operation, state, resource, &effective, review, action, &evidence, &temporal,
         )
     }
 
-    fn derive_expected_policy_decision_txn<T: Transaction>(
+    fn derive_expected_policy_decision_at_time_txn<T: Transaction>(
         &self,
         txn: &T,
         state: &CaseState,
         history: &[Transition],
         proposed: &Decision,
+        authority_time_unix_ms: Option<u64>,
     ) -> Result<Decision, String> {
         let basis = proposed
             .decision_basis
@@ -2440,11 +3283,17 @@ impl LmdbRecordStore {
                 state,
                 history,
                 &proposed.operation_id,
-                &review.review_id,
-                action_id,
+                (&review.review_id, action_id),
+                authority_time_unix_ms,
             )
         } else {
-            self.derive_initial_policy_decision_txn(txn, state, history, &proposed.operation_id)
+            self.derive_initial_policy_decision_txn(
+                txn,
+                state,
+                history,
+                &proposed.operation_id,
+                authority_time_unix_ms,
+            )
         }
     }
 
@@ -2957,6 +3806,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V6,
                 TRANSITION_SCHEMA_V5,
                 TRANSITION_SCHEMA_V4,
                 TRANSITION_SCHEMA_V3,
@@ -2970,6 +3820,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                CASE_STATE_SCHEMA_V6,
                 CASE_STATE_SCHEMA_V5,
                 CASE_STATE_SCHEMA_V4,
                 CASE_STATE_SCHEMA_V3,
@@ -3034,6 +3885,7 @@ impl LmdbRecordStore {
             &[
                 POLICY_SOURCE_ARTIFACT_SCHEMA_V1,
                 POLICY_SOURCE_ARTIFACT_SCHEMA_V2,
+                POLICY_SOURCE_ARTIFACT_SCHEMA_V3,
             ],
         )?;
         ensure_meta_upgradeable(
@@ -3041,14 +3893,18 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:policy_artifact_schema",
             POLICY_ARTIFACT_SCHEMA,
-            &[POLICY_ARTIFACT_SCHEMA_V1, POLICY_ARTIFACT_SCHEMA_V2],
+            &[
+                POLICY_ARTIFACT_SCHEMA_V1,
+                POLICY_ARTIFACT_SCHEMA_V2,
+                POLICY_ARTIFACT_SCHEMA_V3,
+            ],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:policy_lifecycle_event_schema",
             POLICY_LIFECYCLE_EVENT_SCHEMA,
-            &[],
+            &[POLICY_LIFECYCLE_EVENT_SCHEMA_V1],
         )?;
         ensure_meta_upgradeable(
             &txn,
@@ -3994,6 +4850,46 @@ fn derive_graph_relations_from_transition(
                 &action.reviewer_participant_id,
             );
         }
+        TransitionPayload::ReviewInvalidated { invalidation } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "review_invalidated_by_authority_change",
+            "transition",
+            &transition.transition_id,
+            "review_request",
+            &invalidation.review_id,
+        ),
+        TransitionPayload::ExecutionGrantInvalidated { invalidation } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "execution_grant_invalidated",
+            "transition",
+            &transition.transition_id,
+            "execution_grant",
+            &invalidation.grant_id,
+        ),
+        TransitionPayload::CaseCancellationRequested { .. } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "case_cancellation_barrier",
+            "transition",
+            &transition.transition_id,
+            "case",
+            &transition.case_id,
+        ),
+        TransitionPayload::CaseClosed { .. } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "case_terminally_closed",
+            "transition",
+            &transition.transition_id,
+            "case",
+            &transition.case_id,
+        ),
         TransitionPayload::CasePolicyBound { binding }
         | TransitionPayload::CasePolicyReplaced { binding, .. } => {
             add_transition_relation(
@@ -4571,6 +5467,8 @@ fn effective_policy_case_key(case_id: &str) -> String {
 fn require_open_case_for_policy(state: &CaseState) -> Result<(), String> {
     if state.lifecycle != CaseLifecycle::Open {
         Err("case_policy_mutation_requires_open_case".to_string())
+    } else if state.cancellation.is_some() {
+        Err("case_policy_mutation_forbidden_after_cancellation".to_string())
     } else {
         Ok(())
     }
@@ -4792,6 +5690,116 @@ fn unix_time_ms() -> u128 {
         .unwrap_or(0)
 }
 
+fn authority_wall_time_unix_ms() -> u64 {
+    // One authority write observes one whole-second value. This makes the
+    // derive/commit comparison deterministic while the persisted floor still
+    // prevents rollback from expanding authority.
+    ((unix_time_ms() as u64) / 1_000) * 1_000
+}
+
+fn validity_severity(posture: &PolicyValidityPosture) -> u8 {
+    match posture {
+        PolicyValidityPosture::Valid => 0,
+        PolicyValidityPosture::NotYetValid => 1,
+        PolicyValidityPosture::RefreshRequired => 2,
+        PolicyValidityPosture::Stale => 3,
+        PolicyValidityPosture::Expired => 4,
+        PolicyValidityPosture::Revoked => 5,
+        PolicyValidityPosture::Unavailable => 6,
+    }
+}
+
+fn binding_validity_posture(
+    artifact: &PolicyArtifact,
+    drift: &PolicyCatalogDrift,
+    revoked: bool,
+    authority_time_unix_ms: u64,
+) -> (PolicyValidityPosture, String) {
+    if revoked || matches!(drift, PolicyCatalogDrift::Revoked) {
+        return (
+            PolicyValidityPosture::Revoked,
+            "explicit_policy_revocation".to_string(),
+        );
+    }
+    let temporal = match artifact.validity.mode {
+        PolicyValidityMode::Unbounded => (PolicyValidityPosture::Valid, "unbounded".to_string()),
+        PolicyValidityMode::Bounded => {
+            let valid_from = artifact.validity.valid_from_unix_ms.unwrap_or(u64::MAX);
+            let refresh_after = artifact.validity.refresh_after_unix_ms.unwrap_or(u64::MAX);
+            let expires_at = artifact.validity.expires_at_unix_ms.unwrap_or(0);
+            if authority_time_unix_ms < valid_from {
+                (
+                    PolicyValidityPosture::NotYetValid,
+                    "before_valid_from".to_string(),
+                )
+            } else if authority_time_unix_ms >= expires_at {
+                (
+                    PolicyValidityPosture::Expired,
+                    "authority_time_reached_expires_at".to_string(),
+                )
+            } else if authority_time_unix_ms >= refresh_after {
+                (
+                    PolicyValidityPosture::RefreshRequired,
+                    "authority_time_reached_refresh_after".to_string(),
+                )
+            } else {
+                (
+                    PolicyValidityPosture::Valid,
+                    "inside_validity_window".to_string(),
+                )
+            }
+        }
+    };
+    let catalog = match drift {
+        PolicyCatalogDrift::Current => (PolicyValidityPosture::Valid, None),
+        PolicyCatalogDrift::Superseded { .. } => (
+            PolicyValidityPosture::Stale,
+            Some("bound_artifact_superseded"),
+        ),
+        PolicyCatalogDrift::Retired => {
+            (PolicyValidityPosture::Stale, Some("bound_artifact_retired"))
+        }
+        PolicyCatalogDrift::NoCurrentPublishedArtifact => (
+            PolicyValidityPosture::Stale,
+            Some("no_current_published_artifact"),
+        ),
+        PolicyCatalogDrift::Revoked => unreachable!("handled above"),
+    };
+    if validity_severity(&catalog.0) > validity_severity(&temporal.0) {
+        (catalog.0, catalog.1.unwrap_or("catalog_stale").to_string())
+    } else {
+        temporal
+    }
+}
+
+fn closure_blockers(state: &CaseState) -> Vec<String> {
+    let mut blockers = Vec::new();
+    for review in &state.reviews {
+        if matches!(
+            review.status,
+            ReviewResolution::Pending | ReviewResolution::Deferred
+        ) {
+            blockers.push(format!("usable_review:{}", review.review_id));
+        }
+    }
+    for grant in &state.grants {
+        if grant.status == GrantLifecycle::Issued {
+            blockers.push(format!("usable_grant:{}", grant.grant_id));
+        }
+    }
+    for effect in &state.effects {
+        if matches!(
+            effect.status,
+            crate::transition::EffectLifecycle::Prepared
+                | crate::transition::EffectLifecycle::Indeterminate
+        ) {
+            blockers.push(format!("unresolved_effect:{}", effect.effect_id));
+        }
+    }
+    blockers.sort();
+    blockers
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4859,6 +5867,21 @@ mod tests {
         }
     }
 
+    fn test_temporal_context() -> AuthorityTemporalContext {
+        AuthorityTemporalContext {
+            authority_time_unix_ms: authority_wall_time_unix_ms(),
+            binding_validity: vec![BindingValidity {
+                binding_id: "binding:one".to_string(),
+                lineage_id: "lineage:one".to_string(),
+                artifact_id: "artifact:one".to_string(),
+                contract: crate::governance::PolicyValidityContract::default(),
+                posture: PolicyValidityPosture::Valid,
+                reason: "unbounded".to_string(),
+                revoke_event_id: None,
+            }],
+        }
+    }
+
     fn policy_source(version: &str, required: bool) -> Vec<u8> {
         policy_source_for(
             "organization:example",
@@ -4879,6 +5902,7 @@ mod tests {
             "policy_key": policy_key,
             "source_version": version,
             "owner_ref": owner_ref,
+            "validity": {"mode":"unbounded"},
             "source_origin": {
                 "source_system": "unit-test",
                 "source_uri": format!("test://governance/{owner_ref}/{policy_key}/{version}")
@@ -4915,6 +5939,7 @@ mod tests {
                 "source_system": "capacity-test",
                 "source_uri": format!("test://capacity/{index}")
             },
+            "validity": {"mode":"unbounded"},
             "rules": [{
                 "kind": "future_bounded_rule",
                 "opaque_payload": "x".repeat(240 * 1024)
@@ -5907,6 +6932,7 @@ mod tests {
             "source_version": "1",
             "owner_ref": "organization:example",
             "source_origin": {"source_system":"unit-test","source_uri":"test://governance/blocked"},
+            "validity": {"mode":"unbounded"},
             "rules": [{"kind":"unsupported_future_rule","payload":"opaque"}]
         }))
         .unwrap();
@@ -7245,6 +8271,7 @@ mod tests {
                 "source_system": "wave9-test",
                 "source_uri": format!("test://wave9/{owner}/{key}/{version}")
             },
+            "validity": {"mode":"unbounded"},
             "rules": [
                 {"kind":"operation_restriction","rule_id":format!("operation-{key}-{version}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","effect":effect,"reason":"deterministic operation posture"},
                 {"kind":"review_requirement","rule_id":format!("review-{key}-{version}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","required":review,"reason":"deterministic review posture"},
@@ -7276,9 +8303,51 @@ mod tests {
                 "source_system": "h10-test",
                 "source_uri": format!("test://h10/{key}/{version}")
             },
+            "validity": {"mode":"unbounded"},
             "rules": rules,
         }))
         .expect("serialize H10 policy")
+    }
+
+    fn wave11_bounded_policy(
+        key: &str,
+        version: &str,
+        effect: &str,
+        valid_from: u64,
+        refresh_after: u64,
+        expires_at: u64,
+    ) -> Vec<u8> {
+        serde_json::to_vec(&serde_json::json!({
+            "schema": POLICY_SOURCE_INPUT_SCHEMA,
+            "policy_key": key,
+            "source_version": version,
+            "owner_ref": "organization:wave11",
+            "source_origin": {
+                "source_system": "wave11-test",
+                "source_uri": format!("test://wave11/{key}/{version}")
+            },
+            "validity": {
+                "mode": "bounded",
+                "valid_from_unix_ms": valid_from,
+                "refresh_after_unix_ms": refresh_after,
+                "expires_at_unix_ms": expires_at
+            },
+            "rules": [
+                {"kind":"operation_restriction","rule_id":format!("operation-{key}-{version}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","effect":effect,"reason":"Wave11 bounded operation posture"},
+                {"kind":"authority_requirement","rule_id":format!("proposer-{key}-{version}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_role":"operation-proposer","reason":"Wave11 proposer authority"},
+                {"kind":"evidence_obligation","rule_id":format!("source-{key}-{version}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"source_provenance","reason":"Wave11 source lineage"}
+            ]
+        }))
+        .expect("serialize Wave11 bounded policy")
+    }
+
+    fn advance_authority_floor(store: &LmdbRecordStore, observed: u64) -> u64 {
+        let mut txn = store.env.begin_rw_txn().expect("authority floor txn");
+        let effective = store
+            .advance_authority_time_txn(&mut txn, observed)
+            .expect("advance authority floor");
+        txn.commit().expect("commit authority floor");
+        effective
     }
 
     fn setup_h10_authority_case(
@@ -8261,6 +9330,7 @@ mod tests {
             &resource,
             &effective,
             &forged_evidence,
+            &test_temporal_context(),
         )
         .expect("construct content-valid Decision from caller evidence claim");
         let caller_claim_pending = PendingTransition::new(
@@ -8472,6 +9542,7 @@ mod tests {
             current_review,
             &action,
             &evidence,
+            &test_temporal_context(),
         )
         .expect("build content-valid final Decision with forged provenance");
         let forged_final_pending = PendingTransition::new(
@@ -8674,6 +9745,10 @@ mod tests {
             operation.origin.causal_refs(),
         );
         let state = store.get_case_state(case_id).unwrap().unwrap();
+        let temporal = AuthorityTemporalContext {
+            authority_time_unix_ms: bound.status.authority_time_unix_ms,
+            binding_validity: bound.status.binding_validity.into_values().collect(),
+        };
         let effective = bound.status.effective_policy.expect("E1");
         let decision = evaluate_filesystem_admission(
             &operation,
@@ -8681,6 +9756,7 @@ mod tests {
             &resource,
             &effective,
             &CanonicalEvidenceResolution::default(),
+            &temporal,
         )
         .expect("evaluate E1");
         assert_eq!(decision.outcome, crate::effect::DecisionOutcome::Allow);
@@ -8795,6 +9871,7 @@ mod tests {
             &resource,
             &forged_effective,
             &CanonicalEvidenceResolution::default(),
+            &test_temporal_context(),
         )
         .expect("forge self-consistent ALLOW basis over E2 identity");
         assert_eq!(forged_allow.outcome, crate::effect::DecisionOutcome::Allow);
@@ -8864,6 +9941,621 @@ mod tests {
             replaced.status.effective_policy.unwrap().effective_policy_id,
         );
         drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
+    fn wave11_policy_time_postures_revoke_stale_refresh_and_clock_floor_contract() {
+        let path = temp_store_path("wave11-policy-time");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let case_id = "case:wave11-policy-time";
+        let now = authority_wall_time_unix_ms();
+        open_policy_case(&store, case_id);
+        let p1 = publish_compilation(
+            &store,
+            &wave11_bounded_policy(
+                "temporal-authority",
+                "1",
+                "allow",
+                now.saturating_sub(1_000),
+                now + 10_000,
+                now + 20_000,
+            ),
+        );
+        let bound = store
+            .bind_case_policy(
+                case_id,
+                &p1.artifact.artifact_id,
+                1,
+                "participant:operator",
+                "bind bounded P1",
+            )
+            .expect("bind bounded P1");
+        assert_eq!(bound.status.validity, PolicyValidityPosture::Valid);
+        assert_eq!(
+            store
+                .case_policy_status_at(case_id, now + 10_000)
+                .expect("refresh status")
+                .validity,
+            PolicyValidityPosture::RefreshRequired
+        );
+        assert_eq!(
+            store
+                .case_policy_status_at(case_id, now + 20_000)
+                .expect("expiry status")
+                .validity,
+            PolicyValidityPosture::Expired
+        );
+        let p2 = publish_compilation(
+            &store,
+            &wave11_bounded_policy(
+                "temporal-authority",
+                "2",
+                "deny",
+                now.saturating_sub(1_000),
+                now + 40_000,
+                now + 50_000,
+            ),
+        );
+        let stale = store
+            .case_policy_status_at(case_id, now)
+            .expect("P1 stale status");
+        assert_eq!(stale.validity, PolicyValidityPosture::Stale);
+        assert_eq!(
+            stale
+                .effective_policy
+                .as_ref()
+                .expect("P1 effective policy")
+                .artifact_ids,
+            vec![p1.artifact.artifact_id.clone()]
+        );
+        let prior = stale
+            .effective_policy
+            .as_ref()
+            .expect("P1 effective policy")
+            .binding_ids[0]
+            .clone();
+        let refreshed = store
+            .replace_case_policy(
+                case_id,
+                &prior,
+                &p2.artifact.artifact_id,
+                2,
+                "participant:operator",
+                "explicitly replace P1 with P2",
+            )
+            .expect("replace P1 with P2");
+        assert_eq!(refreshed.status.validity, PolicyValidityPosture::Valid);
+        let future = publish_compilation(
+            &store,
+            &wave11_bounded_policy(
+                "future-independent-lineage",
+                "1",
+                "allow",
+                now + 100_000,
+                now + 110_000,
+                now + 120_000,
+            ),
+        );
+        let with_future = store
+            .bind_case_policy(
+                case_id,
+                &future.artifact.artifact_id,
+                refreshed.commit.as_ref().unwrap().state.generation,
+                "participant:operator",
+                "bind future independent lineage",
+            )
+            .expect("bind not-yet-valid policy");
+        assert_eq!(
+            with_future.status.validity,
+            PolicyValidityPosture::NotYetValid
+        );
+        store
+            .retire_policy_artifact(
+                &future.artifact.artifact_id,
+                "participant:policy-admin",
+                "withdraw future catalog entry",
+            )
+            .expect("retire future policy");
+        assert_eq!(
+            store.case_policy_status(case_id).unwrap().validity,
+            PolicyValidityPosture::Stale
+        );
+        let floor = advance_authority_floor(&store, now + 50_000);
+        let rollback = store
+            .case_policy_status_at(case_id, now)
+            .expect("rollback status");
+        assert_eq!(rollback.persisted_authority_floor_unix_ms, floor);
+        assert_eq!(rollback.authority_time_unix_ms, floor);
+        assert_eq!(rollback.validity, PolicyValidityPosture::Expired);
+        let revoked = store
+            .revoke_policy_artifact(
+                &p2.artifact.artifact_id,
+                "participant:policy-admin",
+                "withdraw Wave11 test authority",
+            )
+            .expect("revoke P2");
+        assert_eq!(revoked.view.lifecycle, PolicyLifecycleState::Revoked);
+        let revoked_status = store.case_policy_status(case_id).expect("revoked status");
+        assert_eq!(revoked_status.validity, PolicyValidityPosture::Revoked);
+        let event_count = revoked.view.lifecycle_events.len();
+        let repeated = store
+            .revoke_policy_artifact(
+                &p2.artifact.artifact_id,
+                "participant:policy-admin",
+                "same terminal revoke",
+            )
+            .expect("idempotent revoke");
+        assert!(!repeated.changed);
+        assert_eq!(repeated.view.lifecycle_events.len(), event_count);
+        println!(
+            "wave11_temporal_governance: p1={} p2={} future={} valid=true not_yet_valid=true refresh_required=true expired=true rollback_floor={} stale_pinned_to_p1=true retired_stale=true weakest_composition=true explicit_refresh=true revoke_event={} revoked=true",
+            p1.artifact.artifact_id,
+            p2.artifact.artifact_id,
+            future.artifact.artifact_id,
+            floor,
+            revoked
+                .view
+                .lifecycle_events
+                .last()
+                .expect("revoke event")
+                .event_id
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
+    fn wave11_revoked_review_is_durably_invalidated_and_cannot_approve() {
+        let path = temp_store_path("wave11-review-revoke");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let case_id = "case:wave11-review-revoke";
+        let (_resource, operation) = setup_h10_authority_case(&store, case_id, "allow", true);
+        let decision = store
+            .derive_policy_decision(case_id, &operation.operation_id)
+            .expect("derive review Decision");
+        let basis = decision.decision_basis.as_ref().expect("DecisionBasis");
+        let decision_commit = commit_typed(
+            &store,
+            "transition:wave11-review-decision",
+            case_id,
+            9,
+            TransitionPayload::DecisionRecorded {
+                decision: decision.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                basis.basis_id.clone(),
+                basis.effective_policy_id.clone(),
+            ],
+        );
+        let review =
+            build_policy_review_request(&operation, &decision, decision_commit.state.generation)
+                .expect("build review");
+        let review_commit = commit_typed(
+            &store,
+            "transition:wave11-review-request",
+            case_id,
+            decision_commit.state.generation,
+            TransitionPayload::ReviewRequested {
+                review: review.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                decision.decision_id.clone(),
+                review.decision_basis_id.clone(),
+                review.effective_policy_id.clone(),
+            ],
+        );
+        let artifact_id = review_commit.state.policy_bindings[0].artifact_id.clone();
+        store
+            .revoke_policy_artifact(
+                &artifact_id,
+                "participant:policy-admin",
+                "invalidate pending review",
+            )
+            .expect("revoke review policy");
+        let invalidated = store
+            .invalidate_review_if_policy_unusable(case_id, &review.review_id)
+            .expect("derive review invalidation")
+            .expect("invalidation committed");
+        assert!(matches!(
+            invalidated.transition.payload,
+            TransitionPayload::ReviewInvalidated { .. }
+        ));
+        let action = build_review_action(
+            &review,
+            case_id,
+            "participant:reviewer",
+            ReviewActionKind::Approve,
+            "must not revive revoked policy",
+            invalidated.state.generation,
+            "wave11-test",
+        )
+        .expect("build structurally valid action");
+        let approval_error = store
+            .commit_transition(PendingTransition::new(
+                "transition:wave11-invalid-review-approval",
+                case_id,
+                invalidated.state.generation,
+                TransitionSource::component("wave11-test"),
+                TransitionPayload::ReviewActionRecorded { action },
+            ))
+            .expect_err("invalidated review cannot approve");
+        assert!(approval_error.contains("review_action_binding_or_generation_mismatch"));
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        assert_eq!(state.reviews[0].status, ReviewResolution::Invalidated);
+        assert!(state.grants.is_empty());
+        assert!(store.verify_case_state(case_id).expect("review replay"));
+        println!(
+            "wave11_review_invalidation: review={} artifact={} invalidation_transition={} approval_error={} grants=0 replay=true",
+            review.review_id,
+            artifact_id,
+            invalidated.transition.transition_id,
+            approval_error
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
+    fn wave11_grant_expiry_before_prepare_is_terminal_and_effect_free() {
+        let path = temp_store_path("wave11-grant-expiry");
+        let root = temp_store_path("wave11-grant-expiry-files");
+        fs::create_dir_all(root.join("allowed")).expect("create root");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let case_id = "case:wave11-grant-expiry";
+        let (resource, operation) = setup_h10_authority_case(&store, case_id, "allow", false);
+        let decision = store
+            .derive_policy_decision(case_id, &operation.operation_id)
+            .expect("derive Decision");
+        let basis = decision.decision_basis.as_ref().expect("basis");
+        let decision_commit = commit_typed(
+            &store,
+            "transition:wave11-expiry-decision",
+            case_id,
+            9,
+            TransitionPayload::DecisionRecorded {
+                decision: decision.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                basis.basis_id.clone(),
+                basis.effective_policy_id.clone(),
+            ],
+        );
+        let grant =
+            issue_policy_execution_grant(&operation, &decision, decision_commit.state.generation)
+                .expect("issue finite Grant");
+        assert!(grant.expires_at_unix_ms > grant.issued_at_unix_ms);
+        let grant_commit = commit_typed(
+            &store,
+            "transition:wave11-expiry-grant",
+            case_id,
+            decision_commit.state.generation,
+            TransitionPayload::ExecutionGrantIssued {
+                grant: grant.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                decision.decision_id.clone(),
+                basis.basis_id.clone(),
+                basis.effective_policy_id.clone(),
+            ],
+        );
+        advance_authority_floor(&store, grant.expires_at_unix_ms);
+        let binding = LocalFilesystemBinding::new(case_id, "workspace", &root).unwrap();
+        let pre = observe_filesystem(
+            &binding,
+            &resource,
+            &operation.filesystem_write.relative_path,
+            "observation:wave11-expiry-pre",
+        );
+        let prepared = prepare_effect(&operation, &decision, &grant, pre).expect("build PREPARE");
+        let mut pending = PendingTransition::new(
+            "transition:wave11-expired-prepare",
+            case_id,
+            grant_commit.state.generation,
+            TransitionSource::component("wave11-test"),
+            TransitionPayload::EffectPrepared {
+                prepared: prepared.clone(),
+            },
+        );
+        pending.scope = Some(operation.scope.clone());
+        pending.causal_refs = vec![grant.grant_id.clone(), prepared.effect_id.clone()];
+        let invalidation = match store
+            .commit_effect_prepared(pending)
+            .expect("temporal PREPARE admission")
+        {
+            PreparedCommitOutcome::GrantInvalidated(commit) => commit,
+            PreparedCommitOutcome::Prepared(_) => panic!("expired Grant reached PREPARE"),
+        };
+        let state = invalidation.state;
+        assert_eq!(state.grants[0].status, GrantLifecycle::Expired);
+        assert!(state.effects.is_empty());
+        assert!(store
+            .verify_case_state(case_id)
+            .expect("expired Grant replay"));
+        println!(
+            "wave11_grant_expiry: grant={} issued_at={} expires_at={} authority_floor={} invalidation_transition={} prepare=false effects=0",
+            grant.grant_id,
+            grant.issued_at_unix_ms,
+            grant.expires_at_unix_ms,
+            store.case_policy_status(case_id).unwrap().persisted_authority_floor_unix_ms,
+            invalidation.transition.transition_id
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+        fs::remove_dir_all(root).expect("remove root");
+    }
+
+    #[test]
+    fn wave11_prepare_is_nonretroactive_cut_across_revoke_and_cancel() {
+        let path = temp_store_path("wave11-prepare-cut");
+        let root = temp_store_path("wave11-prepare-cut-files");
+        fs::create_dir_all(root.join("allowed")).expect("create root");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let case_id = "case:wave11-prepare-cut";
+        let (resource, operation) = setup_h10_authority_case(&store, case_id, "allow", false);
+        let decision = store
+            .derive_policy_decision(case_id, &operation.operation_id)
+            .expect("derive Decision");
+        let basis = decision.decision_basis.as_ref().expect("basis");
+        let decision_commit = commit_typed(
+            &store,
+            "transition:wave11-cut-decision",
+            case_id,
+            9,
+            TransitionPayload::DecisionRecorded {
+                decision: decision.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                basis.basis_id.clone(),
+                basis.effective_policy_id.clone(),
+            ],
+        );
+        let grant =
+            issue_policy_execution_grant(&operation, &decision, decision_commit.state.generation)
+                .expect("issue Grant");
+        let grant_commit = commit_typed(
+            &store,
+            "transition:wave11-cut-grant",
+            case_id,
+            decision_commit.state.generation,
+            TransitionPayload::ExecutionGrantIssued {
+                grant: grant.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                decision.decision_id.clone(),
+                basis.basis_id.clone(),
+                basis.effective_policy_id.clone(),
+            ],
+        );
+        let binding = LocalFilesystemBinding::new(case_id, "workspace", &root).unwrap();
+        let pre = observe_filesystem(
+            &binding,
+            &resource,
+            &operation.filesystem_write.relative_path,
+            "observation:wave11-cut-pre",
+        );
+        let prepared = prepare_effect(&operation, &decision, &grant, pre).expect("prepare effect");
+        let mut prepare_pending = PendingTransition::new(
+            "transition:wave11-cut-prepare",
+            case_id,
+            grant_commit.state.generation,
+            TransitionSource::component("wave11-test"),
+            TransitionPayload::EffectPrepared {
+                prepared: prepared.clone(),
+            },
+        );
+        prepare_pending.scope = Some(operation.scope.clone());
+        prepare_pending.causal_refs = vec![
+            operation.operation_id.clone(),
+            decision.decision_id.clone(),
+            grant.grant_id.clone(),
+            prepared.expected_pre_observation.observation_id.clone(),
+        ];
+        let prepared_commit = match store
+            .commit_effect_prepared(prepare_pending)
+            .expect("commit PREPARE before contraction")
+        {
+            PreparedCommitOutcome::Prepared(commit) => commit,
+            PreparedCommitOutcome::GrantInvalidated(_) => panic!("valid Grant invalidated"),
+        };
+        let artifact_id = prepared_commit.state.policy_bindings[0].artifact_id.clone();
+        store
+            .revoke_policy_artifact(
+                &artifact_id,
+                "participant:policy-admin",
+                "revoke after PREPARE",
+            )
+            .expect("revoke after PREPARE");
+        let cancelled = store
+            .cancel_case(case_id, "participant:operator", "cancel after PREPARE")
+            .expect("cancel after PREPARE");
+        assert_eq!(cancelled.abandoned_grants, 0);
+        assert_eq!(cancelled.state.grants[0].status, GrantLifecycle::Prepared);
+        let prepared_close_error = store
+            .close_case(case_id, "participant:operator", "unsafe prepared close")
+            .expect_err("PREPARE must block closure");
+        assert!(prepared_close_error.contains("unresolved_effect"));
+        let crashed = execute_filesystem_write(
+            &operation,
+            &decision,
+            &grant,
+            &prepared,
+            &cancelled.state,
+            &binding,
+            &resource,
+            CarrierFailpoint::CrashAfterVisibleEffect,
+        )
+        .expect("visible carrier effect after PREPARE cut");
+        assert_eq!(crashed.outcome, EffectOutcome::Indeterminate);
+        let indeterminate = commit_typed(
+            &store,
+            "transition:wave11-cut-indeterminate",
+            case_id,
+            cancelled.state.generation,
+            TransitionPayload::EffectIndeterminate {
+                effect_id: prepared.effect_id.clone(),
+                reason: "carrier returned after visible mutation before observation".to_string(),
+                observation: None,
+            },
+            None,
+            vec![prepared.effect_id.clone()],
+        );
+        let indeterminate_close_error = store
+            .close_case(
+                case_id,
+                "participant:operator",
+                "unsafe indeterminate close",
+            )
+            .expect_err("indeterminate effect must block closure");
+        assert!(indeterminate_close_error.contains("unresolved_effect"));
+        let observed = observe_filesystem(
+            &binding,
+            &resource,
+            &prepared.relative_path,
+            "observation:wave11-cut-reconcile",
+        );
+        assert_eq!(
+            classify_reconciliation(&prepared, &observed),
+            ReconciliationConclusion::EffectObserved
+        );
+        let reconciled_result = CarrierResult {
+            outcome: EffectOutcome::Applied,
+            post_observation: observed.clone(),
+            carrier_attempted: true,
+            mutation_performed: true,
+            crash_injected_after_effect: false,
+            detail: "reconciled intended post-state".to_string(),
+        };
+        let receipt = build_effect_receipt(&prepared, &reconciled_result);
+        let reconciled = commit_typed(
+            &store,
+            "transition:wave11-cut-reconcile",
+            case_id,
+            indeterminate.state.generation,
+            TransitionPayload::EffectReconciled {
+                effect_id: prepared.effect_id.clone(),
+                conclusion: ReconciliationConclusion::EffectObserved,
+                observation: observed,
+                receipt: Some(receipt.clone()),
+            },
+            Some(operation.scope.clone()),
+            vec![prepared.effect_id.clone(), receipt.receipt_id.clone()],
+        );
+        assert_eq!(reconciled.state.grants[0].status, GrantLifecycle::Finalized);
+        assert_eq!(
+            reconciled.state.effects[0].status,
+            crate::transition::EffectLifecycle::Finalized
+        );
+        let closed = store
+            .close_case(
+                case_id,
+                "participant:operator",
+                "close after reconciliation",
+            )
+            .expect("close after reconciliation");
+        assert_eq!(closed.state.lifecycle, CaseLifecycle::Closed);
+        assert!(root.join("allowed/h10.txt").exists());
+        assert!(store
+            .verify_case_state(case_id)
+            .expect("PREPARE cut replay"));
+        println!(
+            "wave11_prepare_cut: grant={} prepare_generation={} revoke_after_prepare=true cancellation_generation={} prepared_close={} indeterminate_generation={} indeterminate_close={} reconcile_generation={} close_generation={} receipt={} effect_truth_preserved=true",
+            grant.grant_id,
+            prepared_commit.state.generation,
+            cancelled.state.generation,
+            prepared_close_error,
+            indeterminate.state.generation,
+            indeterminate_close_error,
+            reconciled.state.generation,
+            closed.state.generation,
+            receipt.receipt_id
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+        fs::remove_dir_all(root).expect("remove root");
+    }
+
+    #[test]
+    fn wave11_cancellation_and_closure_are_atomic_terminal_and_replayable() {
+        let path = temp_store_path("wave11-case-terminal");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let case_id = "case:wave11-terminal";
+        open_policy_case(&store, case_id);
+        let cancelled = store
+            .cancel_case(case_id, "participant:operator", "operator requested stop")
+            .expect("cancel Case");
+        assert!(cancelled.changed);
+        assert!(cancelled.state.cancellation.is_some());
+        let repeated = store
+            .cancel_case(case_id, "participant:operator", "different later reason")
+            .expect("idempotent cancel");
+        assert!(!repeated.changed);
+        assert_eq!(repeated.state.generation, cancelled.state.generation);
+        let blocked = store
+            .commit_transition(pending(
+                "transition:wave11-post-cancel-operation",
+                case_id,
+                cancelled.state.generation,
+                TransitionPayload::ParticipantBound {
+                    participant_id: "participant:late".to_string(),
+                    role: "operation-proposer".to_string(),
+                },
+            ))
+            .expect_err("cancelled Case must reject new canonical work");
+        assert!(blocked.contains("case_cancelled_write_barrier"));
+        let closed = store
+            .close_case(case_id, "participant:operator", "terminal safe closure")
+            .expect("close Case");
+        assert!(closed.changed);
+        assert_eq!(closed.state.lifecycle, CaseLifecycle::Closed);
+        let repeated_close = store
+            .close_case(case_id, "participant:operator", "repeat close")
+            .expect("idempotent close");
+        assert!(!repeated_close.changed);
+        assert_eq!(repeated_close.state.generation, closed.state.generation);
+        let closed_error = store
+            .commit_transition(pending(
+                "transition:wave11-post-close",
+                case_id,
+                closed.state.generation,
+                TransitionPayload::ParticipantBound {
+                    participant_id: "participant:never".to_string(),
+                    role: "operation-proposer".to_string(),
+                },
+            ))
+            .expect_err("closed Case write barrier");
+        assert!(closed_error.contains("case_closed_write_barrier"));
+        let replay = store.replay_case_state(case_id).expect("terminal replay");
+        assert_eq!(replay, closed.state);
+        assert!(store.verify_case_state(case_id).expect("terminal verify"));
+        println!(
+            "wave11_case_terminal: cancellation_transition={} cancellation_generation={} close_transition={} close_generation={} cancel_idempotent=true close_idempotent=true post_cancel={} post_close={} replay_closed=true",
+            cancelled.commits[0].transition.transition_id,
+            cancelled.commits[0].transition.sequence,
+            closed.commit.as_ref().unwrap().transition.transition_id,
+            closed.commit.as_ref().unwrap().transition.sequence,
+            blocked,
+            closed_error
+        );
+        drop(store);
+        let reopened = LmdbRecordStore::open(&path).expect("reopen terminal store");
+        assert_eq!(
+            reopened.get_case_state(case_id).unwrap().unwrap().lifecycle,
+            CaseLifecycle::Closed
+        );
+        drop(reopened);
         fs::remove_dir_all(path).expect("remove store");
     }
 }

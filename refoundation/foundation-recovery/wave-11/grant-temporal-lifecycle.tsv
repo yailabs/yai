@@ -1,0 +1,10 @@
+state_or_field	contract	transition
+schema	yai.execution_grant.v3	v1/v2 readable; normal governed writer emits v3
+issued_at	DecisionBasis authority evaluation time	integrity-bound
+expires_at	min(issued_at+30000ms,earliest policy expiry)	finite and integrity-bound
+Issued	unused authority	may become Expired/Revoked/Abandoned
+Prepared	PREPARE durably committed	cannot move back to unused invalidation
+Expired	time reached before PREPARE	ExecutionGrantInvalidated
+Revoked	policy revoked before PREPARE	ExecutionGrantInvalidated
+Abandoned	Case cancelled before PREPARE	ExecutionGrantInvalidated
+Finalized	effect receipt/reconciliation closed	terminal historical fact

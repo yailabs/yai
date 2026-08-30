@@ -1,0 +1,8 @@
+reason	canonical source	result
+policy_refresh_required	binding validity	ReviewInvalidated; no action/Decision/Grant
+policy_stale	catalog lifecycle	ReviewInvalidated; no automatic upgrade
+policy_expired	authority clock + immutable window	ReviewInvalidated
+policy_revoked	Policy lifecycle Revoked event	ReviewInvalidated with event ref
+policy_basis_changed	current EffectivePolicy differs	ReviewInvalidated
+case_cancelled	CaseCancellationRequested	atomically invalidated during cancellation
+case_closed	closure barrier	no new action; pending review cannot survive close prerequisites

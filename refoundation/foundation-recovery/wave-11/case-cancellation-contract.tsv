@@ -1,0 +1,9 @@
+property	contract
+canonical payload	CaseCancellationRequested in yai.transition.v7
+materialization	CaseState v7 cancellation actor/reason/time/transition ref
+barrier	no new provider invocation/Operation/Decision/ReviewAction/Grant/PREPARE
+allowed settlement	ProviderResult already externally returned; EffectFinalized/Indeterminate/Reconciled; typed invalidations; CaseClosed
+atomicity	cancellation + pending Review invalidation + Issued Grant abandonment in one LMDB RW transaction
+idempotence	first reason wins; repeat adds no Transition
+runtime	checked after reconciliation and before provider; direct effect checks before provider
+trust	--as is local claimed provenance, not authentication

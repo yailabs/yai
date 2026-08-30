@@ -19,9 +19,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const OPERATION_PROPOSAL_SCHEMA: &str = "yai.operation_proposal.filesystem_write.v1";
 pub const OPERATION_SCHEMA: &str = "yai.operation.v1";
-pub const DECISION_SCHEMA: &str = "yai.decision.v2";
+pub const DECISION_SCHEMA: &str = "yai.decision.v3";
+pub const DECISION_SCHEMA_V2: &str = "yai.decision.v2";
 pub const DECISION_SCHEMA_V1: &str = "yai.decision.v1";
-pub const EXECUTION_GRANT_SCHEMA: &str = "yai.execution_grant.v2";
+pub const EXECUTION_GRANT_SCHEMA: &str = "yai.execution_grant.v3";
+pub const EXECUTION_GRANT_SCHEMA_V2: &str = "yai.execution_grant.v2";
 pub const EXECUTION_GRANT_SCHEMA_V1: &str = "yai.execution_grant.v1";
 pub const OBSERVATION_SCHEMA: &str = "yai.observation.filesystem.v1";
 pub const PREPARED_EFFECT_SCHEMA: &str = "yai.prepared_effect.v1";
@@ -29,6 +31,7 @@ pub const EFFECT_RECEIPT_SCHEMA: &str = "yai.effect_receipt.v1";
 pub const LOCAL_FILESYSTEM_BINDING_SCHEMA: &str = "yai.local_filesystem_binding.v1";
 pub const FILESYSTEM_CARRIER_BACKEND: &str = "rust.filesystem.atomic_replace.v1";
 pub const DEFAULT_MAX_WRITE_BYTES: usize = 65_536;
+pub const MAX_EXECUTION_GRANT_LIFETIME_MS: u64 = 30_000;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -218,6 +221,10 @@ pub struct ExecutionGrant {
     pub idempotency_key: String,
     pub require_pre_observation: bool,
     pub require_post_observation: bool,
+    #[serde(default)]
+    pub issued_at_unix_ms: u64,
+    #[serde(default)]
+    pub expires_at_unix_ms: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub decision_basis_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -278,6 +285,35 @@ struct GrantDigestMaterialV2<'a> {
     idempotency_key: &'a str,
     require_pre_observation: bool,
     require_post_observation: bool,
+    execution_evidence_requirements: &'a [ExecutionEvidenceRequirement],
+    review_action_ref: &'a Option<String>,
+}
+
+#[derive(Serialize)]
+struct GrantDigestMaterialV3<'a> {
+    schema: &'a str,
+    operation_id: &'a str,
+    operation_digest: &'a str,
+    decision_id: &'a str,
+    decision_digest: &'a str,
+    decision_basis_id: &'a str,
+    decision_basis_digest: &'a str,
+    effective_policy_id: &'a str,
+    effective_policy_digest: &'a str,
+    policy_binding_refs: &'a [String],
+    policy_artifact_refs: &'a [String],
+    case_id: &'a str,
+    participant_id: &'a str,
+    resource_attachment_id: &'a str,
+    permitted_effect: &'a GrantedEffect,
+    normalized_target: &'a str,
+    intended_content_digest: &'a str,
+    expected_case_generation: u64,
+    idempotency_key: &'a str,
+    require_pre_observation: bool,
+    require_post_observation: bool,
+    issued_at_unix_ms: u64,
+    expires_at_unix_ms: u64,
     execution_evidence_requirements: &'a [ExecutionEvidenceRequirement],
     review_action_ref: &'a Option<String>,
 }
@@ -630,6 +666,9 @@ pub fn build_filesystem_review_request(
         created_at_generation: current_case_generation,
         latest_action_id: None,
         effective_decision_id: None,
+        invalidation_reason: None,
+        invalidation_source_ref: None,
+        invalidated_at_unix_ms: None,
         attempt_id: String::new(),
         requested_by_participant: operation.participant_id.clone(),
         target_participant: String::new(),
@@ -828,7 +867,17 @@ pub fn issue_policy_execution_grant(
     );
     let execution_evidence_requirements = basis.execution_evidence_requirements();
     let review_action_ref = basis.review_action_ref.clone();
-    let material = GrantDigestMaterialV2 {
+    let issued_at_unix_ms = basis.authority_evaluated_at_unix_ms;
+    let platform_expiry = issued_at_unix_ms.saturating_add(MAX_EXECUTION_GRANT_LIFETIME_MS);
+    let expires_at_unix_ms = basis
+        .earliest_policy_expiry_unix_ms
+        .map_or(platform_expiry, |policy_expiry| {
+            policy_expiry.min(platform_expiry)
+        });
+    if issued_at_unix_ms == 0 || expires_at_unix_ms <= issued_at_unix_ms {
+        return Err("policy_execution_grant_temporal_window_invalid".to_string());
+    }
+    let material = GrantDigestMaterialV3 {
         schema: EXECUTION_GRANT_SCHEMA,
         operation_id: &operation.operation_id,
         operation_digest: &operation.operation_digest,
@@ -850,6 +899,8 @@ pub fn issue_policy_execution_grant(
         idempotency_key: &idempotency_key,
         require_pre_observation: true,
         require_post_observation: true,
+        issued_at_unix_ms,
+        expires_at_unix_ms,
         execution_evidence_requirements: &execution_evidence_requirements,
         review_action_ref: &review_action_ref,
     };
@@ -872,6 +923,8 @@ pub fn issue_policy_execution_grant(
         idempotency_key,
         require_pre_observation: true,
         require_post_observation: true,
+        issued_at_unix_ms,
+        expires_at_unix_ms,
         decision_basis_id: Some(basis.basis_id.clone()),
         decision_basis_digest: Some(basis.integrity_digest.clone()),
         effective_policy_id: Some(basis.effective_policy_id.clone()),
@@ -887,7 +940,7 @@ pub fn issue_policy_execution_grant(
 
 #[cfg(test)]
 pub(crate) fn reseal_policy_execution_grant_for_test(mut grant: ExecutionGrant) -> ExecutionGrant {
-    let material = GrantDigestMaterialV2 {
+    let material = GrantDigestMaterialV3 {
         schema: &grant.schema,
         operation_id: &grant.operation_id,
         operation_digest: &grant.operation_digest,
@@ -909,6 +962,8 @@ pub(crate) fn reseal_policy_execution_grant_for_test(mut grant: ExecutionGrant) 
         idempotency_key: &grant.idempotency_key,
         require_pre_observation: grant.require_pre_observation,
         require_post_observation: grant.require_post_observation,
+        issued_at_unix_ms: grant.issued_at_unix_ms,
+        expires_at_unix_ms: grant.expires_at_unix_ms,
         execution_evidence_requirements: &grant.execution_evidence_requirements,
         review_action_ref: &grant.review_action_ref,
     };
@@ -969,6 +1024,8 @@ pub fn issue_execution_grant(
         idempotency_key,
         require_pre_observation: true,
         require_post_observation: true,
+        issued_at_unix_ms: 0,
+        expires_at_unix_ms: 0,
         decision_basis_id: None,
         decision_basis_digest: None,
         effective_policy_id: None,
@@ -1128,7 +1185,9 @@ impl Operation {
 
 impl Decision {
     pub fn validate_integrity(&self) -> Result<(), String> {
-        if (self.schema != DECISION_SCHEMA && self.schema != DECISION_SCHEMA_V1)
+        if (self.schema != DECISION_SCHEMA
+            && self.schema != DECISION_SCHEMA_V2
+            && self.schema != DECISION_SCHEMA_V1)
             || self.decision_id.is_empty()
             || self.operation_id.is_empty()
             || self.operation_digest.is_empty()
@@ -1163,6 +1222,13 @@ impl Decision {
                 .as_ref()
                 .ok_or_else(|| "policy_decision_basis_missing".to_string())?;
             basis.validate_integrity()?;
+            if (self.schema == DECISION_SCHEMA
+                && basis.schema != crate::admission::DECISION_BASIS_SCHEMA)
+                || (self.schema == DECISION_SCHEMA_V2
+                    && basis.schema != crate::admission::DECISION_BASIS_SCHEMA_V1)
+            {
+                return Err("decision_basis_schema_generation_mismatch".to_string());
+            }
             if self.source.is_some()
                 || !self.basis_refs.is_empty()
                 || basis.operation_id != self.operation_id
@@ -1194,7 +1260,9 @@ impl Decision {
 
 impl ExecutionGrant {
     pub fn validate_integrity(&self) -> Result<(), String> {
-        if (self.schema != EXECUTION_GRANT_SCHEMA && self.schema != EXECUTION_GRANT_SCHEMA_V1)
+        if (self.schema != EXECUTION_GRANT_SCHEMA
+            && self.schema != EXECUTION_GRANT_SCHEMA_V2
+            && self.schema != EXECUTION_GRANT_SCHEMA_V1)
             || self.grant_id.is_empty()
             || self.operation_id.is_empty()
             || self.decision_id.is_empty()
@@ -1232,7 +1300,7 @@ impl ExecutionGrant {
                 require_pre_observation: self.require_pre_observation,
                 require_post_observation: self.require_post_observation,
             })
-        } else {
+        } else if self.schema == EXECUTION_GRANT_SCHEMA_V2 {
             let basis_id = self.decision_basis_id.as_deref().unwrap_or_default();
             let basis_digest = self.decision_basis_digest.as_deref().unwrap_or_default();
             let effective_id = self.effective_policy_id.as_deref().unwrap_or_default();
@@ -1268,6 +1336,51 @@ impl ExecutionGrant {
                 idempotency_key: &self.idempotency_key,
                 require_pre_observation: self.require_pre_observation,
                 require_post_observation: self.require_post_observation,
+                execution_evidence_requirements: &self.execution_evidence_requirements,
+                review_action_ref: &self.review_action_ref,
+            })
+        } else {
+            let basis_id = self.decision_basis_id.as_deref().unwrap_or_default();
+            let basis_digest = self.decision_basis_digest.as_deref().unwrap_or_default();
+            let effective_id = self.effective_policy_id.as_deref().unwrap_or_default();
+            let effective_digest = self.effective_policy_digest.as_deref().unwrap_or_default();
+            if basis_id.is_empty()
+                || basis_digest.is_empty()
+                || effective_id.is_empty()
+                || effective_digest.is_empty()
+                || self.policy_binding_refs.is_empty()
+                || self.policy_artifact_refs.is_empty()
+                || self.issued_at_unix_ms == 0
+                || self.expires_at_unix_ms <= self.issued_at_unix_ms
+                || self.expires_at_unix_ms - self.issued_at_unix_ms
+                    > MAX_EXECUTION_GRANT_LIFETIME_MS
+            {
+                return Err("policy_execution_grant_temporal_or_basis_missing".to_string());
+            }
+            digest_serialized(&GrantDigestMaterialV3 {
+                schema: &self.schema,
+                operation_id: &self.operation_id,
+                operation_digest: &self.operation_digest,
+                decision_id: &self.decision_id,
+                decision_digest: &self.decision_digest,
+                decision_basis_id: basis_id,
+                decision_basis_digest: basis_digest,
+                effective_policy_id: effective_id,
+                effective_policy_digest: effective_digest,
+                policy_binding_refs: &self.policy_binding_refs,
+                policy_artifact_refs: &self.policy_artifact_refs,
+                case_id: &self.case_id,
+                participant_id: &self.participant_id,
+                resource_attachment_id: &self.resource_attachment_id,
+                permitted_effect: &self.permitted_effect,
+                normalized_target: &self.normalized_target,
+                intended_content_digest: &self.intended_content_digest,
+                expected_case_generation: self.expected_case_generation,
+                idempotency_key: &self.idempotency_key,
+                require_pre_observation: self.require_pre_observation,
+                require_post_observation: self.require_post_observation,
+                issued_at_unix_ms: self.issued_at_unix_ms,
+                expires_at_unix_ms: self.expires_at_unix_ms,
                 execution_evidence_requirements: &self.execution_evidence_requirements,
                 review_action_ref: &self.review_action_ref,
             })
@@ -1452,7 +1565,6 @@ pub fn execute_filesystem_write(
         .ok_or_else(|| "prepared_effect_not_materialized".to_string())?;
     if effect_state.status != crate::transition::EffectLifecycle::Prepared
         || effect_state.grant_id != grant.grant_id
-        || effect_state.prepared_at_generation != case_state.generation
     {
         return Err("grant_is_not_current_prepared_authority".to_string());
     }

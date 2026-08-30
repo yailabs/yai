@@ -269,11 +269,14 @@ fn print_usage() {
     println!("       yai case resume --case <case_ref> [budget overrides]");
     println!("       yai case status --case <case_ref>");
     println!("       yai case stop --case <case_ref>");
+    println!("       yai case cancel --case <case_ref> --as <actor-ref> --reason <reason>");
+    println!("       yai case close --case <case_ref> --as <actor-ref> --reason <reason>");
     println!("       yai policy ingest <source.json> --as <operator-ref>");
     println!("       yai policy inspect <source-id|artifact-id>");
     println!("       yai policy validate <artifact-id> --as <operator-ref> [--reason <reason>]");
     println!("       yai policy publish <artifact-id> --as <operator-ref> [--reason <reason>]");
     println!("       yai policy retire <artifact-id> --as <operator-ref> --reason <reason>");
+    println!("       yai policy revoke <artifact-id> --as <operator-ref> --reason <reason>");
     println!("       yai policy list");
     println!("       yai effect filesystem-write --case <case_ref> --subject <provider-participant> --attachment <id> --prompt <text> --base-url <url> --model <model> [--failpoint <name>]");
     println!("       yai effect reconcile --case <case_ref> [--effect <effect-id>] [--retry]");
@@ -1204,6 +1207,9 @@ use policy::policy_command;
 mod case_policy;
 use case_policy::case_policy_command;
 
+mod case_lifecycle;
+use case_lifecycle::{case_cancel, case_close};
+
 fn decision_outcome(summary: &str) -> String {
     parse_legacy_summary_fields(summary)
         .remove("decision")
@@ -1575,6 +1581,18 @@ fn main() {
         }
         Some("case") if args.get(1).map(String::as_str) == Some("stop") => {
             if let Err(error) = case_runtime_stop(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("case") if args.get(1).map(String::as_str) == Some("cancel") => {
+            if let Err(error) = case_cancel(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("case") if args.get(1).map(String::as_str) == Some("close") => {
+            if let Err(error) = case_close(&args[2..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }

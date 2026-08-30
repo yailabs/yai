@@ -5,7 +5,10 @@
 //! evidence. It emits immutable decision material; it does not own policy
 //! authoring/materialization, review persistence, or carrier execution.
 
-use crate::case_policy::{EffectivePolicy, EffectivePolicyRule, EffectiveRuleProvenance};
+use crate::case_policy::{
+    BindingValidity, EffectivePolicy, EffectivePolicyRule, EffectiveRuleProvenance,
+    PolicyValidityPosture,
+};
 use crate::effect::{
     build_policy_decision, digest_bytes, path_within_prefix, Decision, DecisionOutcome, Operation,
     OperationKind, OperationOrigin,
@@ -18,7 +21,40 @@ use crate::transition::{
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-pub const DECISION_BASIS_SCHEMA: &str = "yai.decision_basis.v1";
+pub const DECISION_BASIS_SCHEMA: &str = "yai.decision_basis.v2";
+pub const DECISION_BASIS_SCHEMA_V1: &str = "yai.decision_basis.v1";
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct AuthorityTemporalContext {
+    pub authority_time_unix_ms: u64,
+    pub binding_validity: Vec<BindingValidity>,
+}
+
+impl AuthorityTemporalContext {
+    pub(crate) fn validate_for_new_authority(&self) -> Result<(), String> {
+        if self.authority_time_unix_ms == 0 || self.binding_validity.is_empty() {
+            return Err("policy_temporal_context_unavailable".to_string());
+        }
+        if let Some(invalid) = self
+            .binding_validity
+            .iter()
+            .find(|binding| binding.posture != PolicyValidityPosture::Valid)
+        {
+            return Err(format!(
+                "policy_temporal_authority_invalid: binding={} posture={:?}",
+                invalid.binding_id, invalid.posture
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn earliest_expiry_unix_ms(&self) -> Option<u64> {
+        self.binding_validity
+            .iter()
+            .filter_map(|binding| binding.contract.expires_at_unix_ms)
+            .min()
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -82,6 +118,12 @@ pub struct DecisionBasis {
     pub integrity_digest: String,
     pub case_id: String,
     pub evaluated_case_generation: u64,
+    #[serde(default)]
+    pub authority_evaluated_at_unix_ms: u64,
+    #[serde(default)]
+    pub policy_validity: Vec<BindingValidity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub earliest_policy_expiry_unix_ms: Option<u64>,
     pub operation_id: String,
     pub operation_digest: String,
     pub operation_kind: String,
@@ -108,6 +150,37 @@ pub struct DecisionBasis {
 
 #[derive(Serialize)]
 struct DecisionBasisDigestMaterial<'a> {
+    schema: &'a str,
+    case_id: &'a str,
+    evaluated_case_generation: u64,
+    authority_evaluated_at_unix_ms: u64,
+    policy_validity: &'a [BindingValidity],
+    earliest_policy_expiry_unix_ms: &'a Option<u64>,
+    operation_id: &'a str,
+    operation_digest: &'a str,
+    operation_kind: &'a str,
+    proposer_participant_id: &'a str,
+    resource_attachment_id: &'a str,
+    resource_kind: &'a str,
+    effective_policy_id: &'a str,
+    effective_policy_digest: &'a str,
+    materializer_version: &'a str,
+    policy_binding_refs: &'a [String],
+    policy_artifact_refs: &'a [String],
+    matched_rule_refs: &'a [String],
+    contributing_provenance: &'a [EffectiveRuleProvenance],
+    mechanical_posture: &'a MechanicalPosture,
+    operation_restriction: &'a OperationRestrictionPosture,
+    review_required: bool,
+    authority: &'a [AuthorityEvaluation],
+    obligations: &'a [ObligationEvaluation],
+    final_posture: &'a DecisionOutcome,
+    final_reason: &'a str,
+    review_action_ref: &'a Option<String>,
+}
+
+#[derive(Serialize)]
+struct DecisionBasisDigestMaterialV1<'a> {
     schema: &'a str,
     case_id: &'a str,
     evaluated_case_generation: u64,
@@ -147,8 +220,10 @@ pub(crate) fn evaluate_filesystem_admission(
     resource: &ResourceAttachmentState,
     effective_policy: &EffectivePolicy,
     evidence: &CanonicalEvidenceResolution,
+    temporal: &AuthorityTemporalContext,
 ) -> Result<Decision, String> {
     operation.validate()?;
+    temporal.validate_for_new_authority()?;
     if state.case_id != operation.case_id
         || state.generation == 0
         || resource.attachment_id != operation.resource_attachment_id
@@ -365,6 +440,9 @@ pub(crate) fn evaluate_filesystem_admission(
         integrity_digest: String::new(),
         case_id: operation.case_id.clone(),
         evaluated_case_generation: state.generation,
+        authority_evaluated_at_unix_ms: temporal.authority_time_unix_ms,
+        policy_validity: temporal.binding_validity.clone(),
+        earliest_policy_expiry_unix_ms: temporal.earliest_expiry_unix_ms(),
         operation_id: operation.operation_id.clone(),
         operation_digest: operation.operation_digest.clone(),
         operation_kind: operation_kind_name(&operation.kind).to_string(),
@@ -398,6 +476,7 @@ pub(crate) fn resolve_policy_review_decision(
     review: &ReviewState,
     action: &ReviewAction,
     evidence: &CanonicalEvidenceResolution,
+    temporal: &AuthorityTemporalContext,
 ) -> Result<Decision, String> {
     action.validate_integrity()?;
     if review.schema != REVIEW_REQUEST_SCHEMA
@@ -420,8 +499,14 @@ pub(crate) fn resolve_policy_review_decision(
     {
         return Err("review_policy_basis_stale_or_ineligible".to_string());
     }
-    let mut decision =
-        evaluate_filesystem_admission(operation, state, resource, effective_policy, evidence)?;
+    let mut decision = evaluate_filesystem_admission(
+        operation,
+        state,
+        resource,
+        effective_policy,
+        evidence,
+        temporal,
+    )?;
     let basis = decision
         .decision_basis
         .as_mut()
@@ -495,6 +580,9 @@ pub fn build_policy_review_request(
         created_at_generation: current_case_generation,
         latest_action_id: None,
         effective_decision_id: None,
+        invalidation_reason: None,
+        invalidation_source_ref: None,
+        invalidated_at_unix_ms: None,
         attempt_id: String::new(),
         requested_by_participant: operation.participant_id.clone(),
         target_participant: String::new(),
@@ -530,7 +618,7 @@ pub fn reviewer_is_eligible(state: &CaseState, review: &ReviewState, participant
 
 impl DecisionBasis {
     pub fn validate_integrity(&self) -> Result<(), String> {
-        if self.schema != DECISION_BASIS_SCHEMA
+        if self.schema != DECISION_BASIS_SCHEMA && self.schema != DECISION_BASIS_SCHEMA_V1
             || self.case_id.is_empty()
             || self.operation_id.is_empty()
             || self.operation_digest.is_empty()
@@ -542,6 +630,11 @@ impl DecisionBasis {
             || self.final_reason.is_empty()
         {
             return Err("invalid_decision_basis_contract".to_string());
+        }
+        if self.schema == DECISION_BASIS_SCHEMA
+            && (self.authority_evaluated_at_unix_ms == 0 || self.policy_validity.is_empty())
+        {
+            return Err("decision_basis_temporal_context_missing".to_string());
         }
         let digest = basis_digest(self)?;
         if self.integrity_digest != digest
@@ -603,34 +696,67 @@ fn seal_basis(mut basis: DecisionBasis) -> Result<DecisionBasis, String> {
 }
 
 fn basis_digest(basis: &DecisionBasis) -> Result<String, String> {
-    serde_json::to_vec(&DecisionBasisDigestMaterial {
-        schema: &basis.schema,
-        case_id: &basis.case_id,
-        evaluated_case_generation: basis.evaluated_case_generation,
-        operation_id: &basis.operation_id,
-        operation_digest: &basis.operation_digest,
-        operation_kind: &basis.operation_kind,
-        proposer_participant_id: &basis.proposer_participant_id,
-        resource_attachment_id: &basis.resource_attachment_id,
-        resource_kind: &basis.resource_kind,
-        effective_policy_id: &basis.effective_policy_id,
-        effective_policy_digest: &basis.effective_policy_digest,
-        materializer_version: &basis.materializer_version,
-        policy_binding_refs: &basis.policy_binding_refs,
-        policy_artifact_refs: &basis.policy_artifact_refs,
-        matched_rule_refs: &basis.matched_rule_refs,
-        contributing_provenance: &basis.contributing_provenance,
-        mechanical_posture: &basis.mechanical_posture,
-        operation_restriction: &basis.operation_restriction,
-        review_required: basis.review_required,
-        authority: &basis.authority,
-        obligations: &basis.obligations,
-        final_posture: &basis.final_posture,
-        final_reason: &basis.final_reason,
-        review_action_ref: &basis.review_action_ref,
-    })
-    .map(|value| digest_bytes(&value))
-    .map_err(|error| format!("decision_basis_digest_encode_failed: {error}"))
+    let encoded = if basis.schema == DECISION_BASIS_SCHEMA_V1 {
+        serde_json::to_vec(&DecisionBasisDigestMaterialV1 {
+            schema: &basis.schema,
+            case_id: &basis.case_id,
+            evaluated_case_generation: basis.evaluated_case_generation,
+            operation_id: &basis.operation_id,
+            operation_digest: &basis.operation_digest,
+            operation_kind: &basis.operation_kind,
+            proposer_participant_id: &basis.proposer_participant_id,
+            resource_attachment_id: &basis.resource_attachment_id,
+            resource_kind: &basis.resource_kind,
+            effective_policy_id: &basis.effective_policy_id,
+            effective_policy_digest: &basis.effective_policy_digest,
+            materializer_version: &basis.materializer_version,
+            policy_binding_refs: &basis.policy_binding_refs,
+            policy_artifact_refs: &basis.policy_artifact_refs,
+            matched_rule_refs: &basis.matched_rule_refs,
+            contributing_provenance: &basis.contributing_provenance,
+            mechanical_posture: &basis.mechanical_posture,
+            operation_restriction: &basis.operation_restriction,
+            review_required: basis.review_required,
+            authority: &basis.authority,
+            obligations: &basis.obligations,
+            final_posture: &basis.final_posture,
+            final_reason: &basis.final_reason,
+            review_action_ref: &basis.review_action_ref,
+        })
+    } else {
+        serde_json::to_vec(&DecisionBasisDigestMaterial {
+            schema: &basis.schema,
+            case_id: &basis.case_id,
+            evaluated_case_generation: basis.evaluated_case_generation,
+            authority_evaluated_at_unix_ms: basis.authority_evaluated_at_unix_ms,
+            policy_validity: &basis.policy_validity,
+            earliest_policy_expiry_unix_ms: &basis.earliest_policy_expiry_unix_ms,
+            operation_id: &basis.operation_id,
+            operation_digest: &basis.operation_digest,
+            operation_kind: &basis.operation_kind,
+            proposer_participant_id: &basis.proposer_participant_id,
+            resource_attachment_id: &basis.resource_attachment_id,
+            resource_kind: &basis.resource_kind,
+            effective_policy_id: &basis.effective_policy_id,
+            effective_policy_digest: &basis.effective_policy_digest,
+            materializer_version: &basis.materializer_version,
+            policy_binding_refs: &basis.policy_binding_refs,
+            policy_artifact_refs: &basis.policy_artifact_refs,
+            matched_rule_refs: &basis.matched_rule_refs,
+            contributing_provenance: &basis.contributing_provenance,
+            mechanical_posture: &basis.mechanical_posture,
+            operation_restriction: &basis.operation_restriction,
+            review_required: basis.review_required,
+            authority: &basis.authority,
+            obligations: &basis.obligations,
+            final_posture: &basis.final_posture,
+            final_reason: &basis.final_reason,
+            review_action_ref: &basis.review_action_ref,
+        })
+    };
+    encoded
+        .map(|value| digest_bytes(&value))
+        .map_err(|error| format!("decision_basis_digest_encode_failed: {error}"))
 }
 
 fn source_provenance_status(
@@ -1032,14 +1158,35 @@ mod tests {
         }
     }
 
+    fn temporal() -> AuthorityTemporalContext {
+        AuthorityTemporalContext {
+            authority_time_unix_ms: 1_000_000,
+            binding_validity: vec![BindingValidity {
+                binding_id: "binding:one".to_string(),
+                lineage_id: "lineage:one".to_string(),
+                artifact_id: "artifact:one".to_string(),
+                contract: crate::governance::PolicyValidityContract::default(),
+                posture: PolicyValidityPosture::Valid,
+                reason: "unbounded".to_string(),
+                revoke_event_id: None,
+            }],
+        }
+    }
+
     #[test]
     fn explicit_allow_is_policy_bound_and_resource_legacy_fields_are_inert() {
         let state = state();
         let operation = operation_fixture(&state, "allowed/result.txt");
         let policy = policy(Some(PolicyEffect::Allow), false);
-        let first =
-            evaluate_filesystem_admission(&operation, &state, &resource(), &policy, &evidence())
-                .unwrap();
+        let first = evaluate_filesystem_admission(
+            &operation,
+            &state,
+            &resource(),
+            &policy,
+            &evidence(),
+            &temporal(),
+        )
+        .unwrap();
         assert_eq!(first.schema, DECISION_SCHEMA);
         assert_eq!(first.outcome, DecisionOutcome::Allow);
         let mut changed_legacy = resource();
@@ -1052,6 +1199,7 @@ mod tests {
             &changed_legacy,
             &policy,
             &evidence(),
+            &temporal(),
         )
         .unwrap();
         assert_eq!(first.decision_digest, second.decision_digest);
@@ -1078,6 +1226,7 @@ mod tests {
             &resource(),
             &policy(Some(PolicyEffect::Deny), false),
             &evidence(),
+            &temporal(),
         )
         .unwrap();
         assert_eq!(deny.outcome, DecisionOutcome::Deny);
@@ -1088,6 +1237,7 @@ mod tests {
             &resource(),
             &policy(None, false),
             &evidence(),
+            &temporal(),
         )
         .unwrap();
         assert_eq!(no_match.reason, "no_applicable_allow_rule");
@@ -1098,6 +1248,7 @@ mod tests {
             &resource(),
             &policy(Some(PolicyEffect::Allow), false),
             &evidence(),
+            &temporal(),
         )
         .unwrap();
         assert_eq!(resource_deny.reason, "resource_mechanical_envelope_denied");
@@ -1108,6 +1259,7 @@ mod tests {
             &resource(),
             &policy(Some(PolicyEffect::Allow), false),
             &evidence(),
+            &temporal(),
         )
         .unwrap();
         assert_eq!(role_deny.reason, "proposer_not_case_role_eligible");
@@ -1118,9 +1270,15 @@ mod tests {
         let state = state();
         let operation = operation_fixture(&state, "allowed/review.txt");
         let policy = policy(Some(PolicyEffect::Allow), true);
-        let decision =
-            evaluate_filesystem_admission(&operation, &state, &resource(), &policy, &evidence())
-                .unwrap();
+        let decision = evaluate_filesystem_admission(
+            &operation,
+            &state,
+            &resource(),
+            &policy,
+            &evidence(),
+            &temporal(),
+        )
+        .unwrap();
         assert_eq!(decision.outcome, DecisionOutcome::RequireReview);
         let reviewer = decision
             .decision_basis
@@ -1151,6 +1309,7 @@ mod tests {
             &resource(),
             &policy,
             &CanonicalEvidenceResolution::default(),
+            &temporal(),
         )
         .unwrap();
         assert_eq!(forged.outcome, DecisionOutcome::Deny);
@@ -1170,9 +1329,15 @@ mod tests {
             contributions: provenance("audit"),
         });
         policy.input_rule_count = policy.rules.len();
-        let initial =
-            evaluate_filesystem_admission(&operation, &state, &resource(), &policy, &evidence())
-                .expect("evaluate missing audit reason");
+        let initial = evaluate_filesystem_admission(
+            &operation,
+            &state,
+            &resource(),
+            &policy,
+            &evidence(),
+            &temporal(),
+        )
+        .expect("evaluate missing audit reason");
         assert_eq!(initial.outcome, DecisionOutcome::RequireReview);
         assert!(initial
             .decision_basis
@@ -1221,6 +1386,7 @@ mod tests {
             &review,
             &action,
             &review_evidence,
+            &temporal(),
         )
         .expect("approve with real audit evidence");
         assert_eq!(effective.outcome, DecisionOutcome::Allow);
@@ -1246,6 +1412,7 @@ mod tests {
             &resource(),
             &policy(Some(PolicyEffect::Allow), false),
             &evidence(),
+            &temporal(),
         )
         .unwrap();
         let mut tampered = decision.clone();

@@ -17,4 +17,8 @@ evidence integrity posture	legacy unknown/unverified/verified/tampered labels	ca
 authority object integrity	legacy records/controlled-action refs	content integrity plus transactional semantic re-derivation	refounded_proven	valid digest cannot manufacture authority	string mediation/default ALLOW
 Grant freshness	ambient operator/case/profile state	exact Decision adjacency + expected Grant re-derivation	refounded_proven for current issuance	any intervening Transition forces new Decision	classifying transitions as harmless
 historical policy explanation	mutable profile/view references	DecisionBasis pins P1 and replays after P2	partially_refounded	history not reevaluated under current policy	moving aliases
+temporal validity strings	PolicyValidityContract v4 + derived PolicyValidityPosture	refounded_proven	explicit immutable window and weakest composition	scattered clocks/default expiry
+legacy revoke/cache precedence	PolicyLifecycleEvent v2 Revoked	refounded_proven	append-only terminal withdrawal consumed by Case authority	edge distribution planes
+volatile grant terminal state	ExecutionGrant v3 + ExecutionGrantInvalidated	refounded_proven for filesystem carrier	finite authority and replayable Expired/Revoked/Abandoned	fixed global registry/bearer posture
+workspace suspend/destroy	CaseCancellationRequested + CaseClosed	refounded_proven	non-destructive durable barrier and mechanically safe terminal close	Workspace ownership/deletion
 embedded law/overlay/compliance forest	governance tree/manifests	none	legacy_structure_rejected	future owner test per consumer	planes and scaffolding

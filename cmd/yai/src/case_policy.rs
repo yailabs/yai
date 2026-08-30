@@ -29,6 +29,7 @@ fn drift_label(value: &PolicyCatalogDrift) -> String {
             format!("superseded:current={current_artifact_id}")
         }
         PolicyCatalogDrift::Retired => "retired".to_string(),
+        PolicyCatalogDrift::Revoked => "revoked".to_string(),
         PolicyCatalogDrift::NoCurrentPublishedArtifact => {
             "no_current_published_artifact".to_string()
         }
@@ -58,10 +59,28 @@ fn print_normative_status(
         .count();
     println!("case_id: {case_id}");
     println!("case_generation: {}", state.generation);
+    println!("case_lifecycle: {:?}", state.lifecycle);
+    println!("case_cancelled: {}", state.cancellation.is_some());
+    if let Some(cancellation) = &state.cancellation {
+        println!("cancellation_transition: {}", cancellation.transition_id);
+    }
+    if let Some(closure) = &state.closure {
+        println!("closure_transition: {}", closure.transition_id);
+    }
     println!("transition_count: {}", transitions.len());
     println!(
         "normative_readiness: {}",
         readiness_label(&status.readiness)
+    );
+    println!("policy_validity: {:?}", status.validity);
+    println!("observed_wall_time: {}", status.observed_wall_time_unix_ms);
+    println!(
+        "persisted_authority_floor: {}",
+        status.persisted_authority_floor_unix_ms
+    );
+    println!(
+        "effective_authority_time: {}",
+        status.authority_time_unix_ms
     );
     println!("active_policy_bindings: {}", state.policy_bindings.len());
     for binding in &state.policy_bindings {
@@ -125,6 +144,19 @@ fn print_normative_status(
         println!(
             "catalog_drift: lineage_id={lineage} status={}",
             drift_label(drift)
+        );
+    }
+    for (lineage, validity) in &status.binding_validity {
+        println!(
+            "binding_validity: lineage_id={lineage} binding_id={} artifact_id={} posture={:?} reason={} valid_from={} refresh_after={} expires_at={} revoke_event={}",
+            validity.binding_id,
+            validity.artifact_id,
+            validity.posture,
+            validity.reason,
+            validity.contract.valid_from_unix_ms.map_or_else(|| "none".to_string(), |value| value.to_string()),
+            validity.contract.refresh_after_unix_ms.map_or_else(|| "none".to_string(), |value| value.to_string()),
+            validity.contract.expires_at_unix_ms.map_or_else(|| "none".to_string(), |value| value.to_string()),
+            validity.revoke_event_id.as_deref().unwrap_or("none")
         );
     }
     println!("decision_count: {decisions}");

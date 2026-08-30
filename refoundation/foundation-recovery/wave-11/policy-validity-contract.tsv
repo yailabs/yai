@@ -1,0 +1,9 @@
+contract	value	invariant
+schema	yai.policy_source_input.v4;yai.policy_source_artifact.v4;yai.policy_artifact.v4	v1-v3 remain readable and retain their identities
+mode	unbounded	explicit; no window fields permitted
+mode	bounded	valid_from <= refresh_after <= expires_at; all three required
+postures	valid;not_yet_valid;refresh_required;stale;expired;revoked;unavailable	separate from normative readiness
+composition	weakest posture wins	one invalid binding cannot be masked
+stale	superseded;retired;no current published artifact	exact binding remains pinned; no automatic latest
+refresh	explicit CasePolicyReplaced	Review does not refresh governance
+revoke	append-only PolicyLifecycleEvent v2 Revoked	terminal for new authority; artifact remains inspectable

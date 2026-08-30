@@ -1,0 +1,10 @@
+property	legacy strongest evidence	current before Wave11	Wave11 disposition	owner
+freshness vs validity	ca8e0ff runtime validity state	readiness plus catalog drift only	separate PolicyValidityPosture; readiness unchanged	case_policy.rs
+explicit validity window	issued/refresh/expires fields with defaults	absent	immutable explicit bounded/unbounded v4 contract	governance.rs
+revoke	legacy revoke dominated cached authority	retire/supersede only	append-only Revoked lifecycle event v2	governance.rs;store/lmdb.rs
+clock rollback	no proof	SystemTime at callers	persistent authority-time floor in schema_meta	store/lmdb.rs
+review invalidation	shutdown/review fragments	pending/approved/denied/deferred	ReviewInvalidated typed transition	transition.rs
+Grant temporal lifecycle	volatile grant enum	Issued/Prepared/Finalized/Rejected	v3 finite window plus Expired/Revoked/Abandoned	 effect.rs;transition.rs
+PREPARE cut	no equivalent found	durable PREPARE existed without temporal contraction	unused authority invalid before PREPARE; prepared truth must settle	effect.rs;store/lmdb.rs
+Case cancellation	mostly process/workspace stop	runtime checkpoint stop only	canonical cancellation barrier with atomic invalidations	transition.rs;store/lmdb.rs
+Case closure	workspace destroy/taxonomy	Closed enum without product lifecycle	atomic terminal CaseClosed with blockers	transition.rs;store/lmdb.rs

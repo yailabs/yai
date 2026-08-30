@@ -24,3 +24,9 @@ duplicated runtime outcome rewrite	do_not_port	creates multiple Decision authori
 Evidence subsystem/registry	do_not_port	legacy integrity labels lacked a verified promotion consumer and duplicated refs	sealed canonical evidence resolution in admission
 hash-as-authority	do_not_port	content identity proves bytes, not correct Case/policy/evidence derivation	transactional semantic re-derivation
 harmless-transition classification	do_not_port	no evidence yet supports a stable authority-irrelevance taxonomy	exact adjacency and new Decision after any intervening Transition
+edge sovereignty/owner planes	do_not_port	current product has one local canonical owner and no distributed consumer	local authority-time fence and append-only revoke
+capability-envelope taxonomy	do_not_port	legacy breadth exceeded executable Grant consumers	narrow policy-bound ExecutionGrant v3
+workspace destruction as Case closure	do_not_port	deletion/missingness erases rather than closes historical truth	non-destructive CaseClosed transition
+scattered time(NULL)/caller validity strings	do_not_port	cannot prove one transactional authority time or prevent rollback expansion	LMDB authority-time floor + typed immutable contract
+global Grant registry/manager	do_not_port	volatile fixed capacity and duplicate authority owner	Case Transition/CaseState lifecycle
+background revoke fanout daemon	do_not_port	shared PolicyArtifact history is directly derivable by each Case	lazy derived invalidity plus action-time canonical invalidation

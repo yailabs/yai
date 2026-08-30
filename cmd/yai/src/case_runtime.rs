@@ -8,7 +8,7 @@ use super::*;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
-use yai_core_engine::case_policy::NormativeReadiness;
+use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
 use yai_core_engine::effect::OPERATION_PROPOSAL_SCHEMA;
 use yai_core_engine::store::lmdb::{CaseRuntimeAdmissionOutcome, CaseRuntimeAdmissionRequest};
 
@@ -54,6 +54,14 @@ pub(super) enum CaseRuntimeStop {
     FatalInvariantViolation,
     NormativeUnconfigured,
     NormativeBlocked,
+    PolicyNotYetValid,
+    PolicyRefreshRequired,
+    PolicyStale,
+    PolicyExpired,
+    PolicyRevoked,
+    PolicyValidityUnavailable,
+    Cancelled,
+    Closed,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -579,8 +587,27 @@ fn run_loop(
             }
             CaseReconciliationStatus::Clean | CaseReconciliationStatus::Reconciled { .. } => {}
         }
-        let normative =
-            LmdbRecordStore::open(record_store_path())?.case_policy_status(&checkpoint.case_id)?;
+        let store = LmdbRecordStore::open(record_store_path())?;
+        let state = store
+            .get_case_state(&checkpoint.case_id)?
+            .ok_or_else(|| format!("canonical CaseState missing for {}", checkpoint.case_id))?;
+        if state.lifecycle == CaseLifecycle::Closed {
+            checkpoint.stop(
+                CaseRuntimeStop::Closed,
+                "Case is durably closed; provider was not invoked",
+            );
+            write_checkpoint(&checkpoint)?;
+            break;
+        }
+        if state.cancellation.is_some() {
+            checkpoint.stop(
+                CaseRuntimeStop::Cancelled,
+                "Case has a durable cancellation barrier; provider was not invoked",
+            );
+            write_checkpoint(&checkpoint)?;
+            break;
+        }
+        let normative = store.case_policy_status(&checkpoint.case_id)?;
         match normative.readiness {
             NormativeReadiness::Ready => {}
             NormativeReadiness::Unconfigured => {
@@ -603,6 +630,37 @@ fn run_loop(
                 write_checkpoint(&checkpoint)?;
                 break;
             }
+        }
+        let temporal_stop = match normative.validity {
+            PolicyValidityPosture::Valid => None,
+            PolicyValidityPosture::NotYetValid => Some((
+                CaseRuntimeStop::PolicyNotYetValid,
+                "Case policy is not yet valid",
+            )),
+            PolicyValidityPosture::RefreshRequired => Some((
+                CaseRuntimeStop::PolicyRefreshRequired,
+                "Case policy requires explicit replacement/refresh",
+            )),
+            PolicyValidityPosture::Stale => Some((
+                CaseRuntimeStop::PolicyStale,
+                "Case is pinned to stale policy material",
+            )),
+            PolicyValidityPosture::Expired => {
+                Some((CaseRuntimeStop::PolicyExpired, "Case policy has expired"))
+            }
+            PolicyValidityPosture::Revoked => Some((
+                CaseRuntimeStop::PolicyRevoked,
+                "Case policy has been revoked",
+            )),
+            PolicyValidityPosture::Unavailable => Some((
+                CaseRuntimeStop::PolicyValidityUnavailable,
+                "Case policy validity cannot be established",
+            )),
+        };
+        if let Some((stop, detail)) = temporal_stop {
+            checkpoint.stop(stop, format!("{detail}; provider was not invoked"));
+            write_checkpoint(&checkpoint)?;
+            break;
         }
         if let Err(error) = ensure_memory_fresh(&checkpoint.case_id) {
             eprintln!("runtime_memory_fallback_to_canonical: {error}");

@@ -325,7 +325,9 @@ stale_approval_code=$?
 set -e
 [[ "$stale_approval_code" -ne 0 ]]
 trace_review_product 07 "YAI_HOME=$CASE_HOME $YAI_BIN review approve $policy_stale_review --case case:new12-filesystem --as subject:policy-pack --reason 'human participant approve exact operation'" "$stale_approval" "$stale_approval_code"
-require_text "$stale_approval" "review_policy_basis_stale"
+require_text "$stale_approval" "review_invalidation: committed"
+require_text "$stale_approval" "invalidation_reason: Some(PolicyBasisChanged)"
+require_text "$stale_approval" "review_authority_invalidated"
 [[ ! -e "$RESOURCE_ROOT/allowed/reviewed.txt" ]]
 
 # Cross-process Case admission: runner B is rejected transactionally while A

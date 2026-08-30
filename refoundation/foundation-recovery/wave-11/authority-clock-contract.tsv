@@ -1,0 +1,8 @@
+property	contract	proof
+product clock	host wall clock, truncated to whole milliseconds/seconds at current boundary	executable status output
+transaction observation	one authority time per canonical RW transaction	commit_transition_txn
+high-watermark	max(observed wall time,persisted floor); stored in existing schema_meta DB	wave11_policy_time_postures_revoke_stale_refresh_and_clock_floor_contract
+rollback	cannot lower effective authority time or resurrect expired policy	same test, rollback_floor output
+forward jump	may contract authority early; documented local limitation	fail-closed contract
+query purity	status uses max(observed,floor) without persisting floor	status transition-count checks/full regression
+excluded clocks	memory/provider/graph/checkpoint timestamps never establish authority	source inspection and H10 negatives

@@ -18,16 +18,72 @@ pub const TRANSITION_SCHEMA_V2: &str = "yai.transition.v2";
 pub const TRANSITION_SCHEMA_V3: &str = "yai.transition.v3";
 pub const TRANSITION_SCHEMA_V4: &str = "yai.transition.v4";
 pub const TRANSITION_SCHEMA_V5: &str = "yai.transition.v5";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v6";
+pub const TRANSITION_SCHEMA_V6: &str = "yai.transition.v6";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v7";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
 pub const CASE_STATE_SCHEMA_V4: &str = "yai.case_state.v4";
 pub const CASE_STATE_SCHEMA_V5: &str = "yai.case_state.v5";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v6";
+pub const CASE_STATE_SCHEMA_V6: &str = "yai.case_state.v6";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v7";
 pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v2";
 pub const REVIEW_REQUEST_SCHEMA_V1: &str = "yai.review_request.v1";
 pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v1";
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AuthorityInvalidationReason {
+    PolicyRefreshRequired,
+    PolicyStale,
+    PolicyExpired,
+    PolicyRevoked,
+    PolicyBasisChanged,
+    CaseCancelled,
+    CaseClosed,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ReviewInvalidation {
+    pub review_id: String,
+    pub reason: AuthorityInvalidationReason,
+    pub source_ref: String,
+    pub invalidated_at_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GrantInvalidationDisposition {
+    Expired,
+    Revoked,
+    Abandoned,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ExecutionGrantInvalidation {
+    pub grant_id: String,
+    pub disposition: GrantInvalidationDisposition,
+    pub reason: String,
+    pub source_ref: String,
+    pub invalidated_at_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CaseCancellationState {
+    pub actor_ref: String,
+    pub reason: String,
+    pub requested_at_unix_ms: u64,
+    pub transition_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CaseClosureState {
+    pub actor_ref: String,
+    pub reason: String,
+    pub closed_at_unix_ms: u64,
+    pub cancellation_ref: String,
+    pub transition_id: String,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Transition {
@@ -223,6 +279,18 @@ pub enum TransitionPayload {
     ReviewActionRecorded {
         action: ReviewAction,
     },
+    ReviewInvalidated {
+        invalidation: ReviewInvalidation,
+    },
+    ExecutionGrantInvalidated {
+        invalidation: ExecutionGrantInvalidation,
+    },
+    CaseCancellationRequested {
+        cancellation: CaseCancellationState,
+    },
+    CaseClosed {
+        closure: CaseClosureState,
+    },
     CasePolicyBound {
         binding: CasePolicyBinding,
     },
@@ -272,6 +340,10 @@ impl TransitionPayload {
             Self::EffectReconciled { .. } => "effect_reconciled",
             Self::ReviewRequested { .. } => "review_requested",
             Self::ReviewActionRecorded { .. } => "review_action_recorded",
+            Self::ReviewInvalidated { .. } => "review_invalidated",
+            Self::ExecutionGrantInvalidated { .. } => "execution_grant_invalidated",
+            Self::CaseCancellationRequested { .. } => "case_cancellation_requested",
+            Self::CaseClosed { .. } => "case_closed",
             Self::CasePolicyBound { .. } => "case_policy_bound",
             Self::CasePolicyReplaced { .. } => "case_policy_replaced",
             Self::CasePolicyUnbound { .. } => "case_policy_unbound",
@@ -302,6 +374,7 @@ pub enum ReviewResolution {
     Denied,
     Deferred,
     Quarantined,
+    Invalidated,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -404,6 +477,10 @@ pub struct CaseState {
     pub case_id: String,
     pub generation: u64,
     pub lifecycle: CaseLifecycle,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cancellation: Option<CaseCancellationState>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub closure: Option<CaseClosureState>,
     #[serde(default)]
     pub participants: Vec<ParticipantState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -540,6 +617,12 @@ pub struct ReviewState {
     pub latest_action_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub effective_decision_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invalidation_reason: Option<AuthorityInvalidationReason>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invalidation_source_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invalidated_at_unix_ms: Option<u64>,
     /* Compatibility-only fields for yai.transition.v1-v3 and legacy records. */
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub attempt_id: String,
@@ -638,6 +721,9 @@ pub enum GrantLifecycle {
     Prepared,
     Finalized,
     Rejected,
+    Expired,
+    Revoked,
+    Abandoned,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -650,6 +736,16 @@ pub struct GrantState {
     pub idempotency_key: String,
     pub status: GrantLifecycle,
     pub issued_at_generation: u64,
+    #[serde(default)]
+    pub issued_at_unix_ms: u64,
+    #[serde(default)]
+    pub expires_at_unix_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invalidation_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invalidation_source_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub invalidated_at_unix_ms: Option<u64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -688,6 +784,8 @@ impl CaseState {
             case_id: case_id.into(),
             generation: 0,
             lifecycle,
+            cancellation: None,
+            closure: None,
             participants: Vec::new(),
             provider: None,
             last_provider_invocation: None,
@@ -718,6 +816,23 @@ impl CaseState {
         }
 
         let mut next = self.clone();
+        if self.generation > 0 && self.lifecycle == CaseLifecycle::Closed {
+            return Err("case_closed_write_barrier".to_string());
+        }
+        if self.cancellation.is_some()
+            && !matches!(
+                transition.payload,
+                TransitionPayload::ProviderResultRecorded { .. }
+                    | TransitionPayload::ReviewInvalidated { .. }
+                    | TransitionPayload::ExecutionGrantInvalidated { .. }
+                    | TransitionPayload::EffectFinalized { .. }
+                    | TransitionPayload::EffectIndeterminate { .. }
+                    | TransitionPayload::EffectReconciled { .. }
+                    | TransitionPayload::CaseClosed { .. }
+            )
+        {
+            return Err("case_cancelled_write_barrier".to_string());
+        }
         match &transition.payload {
             TransitionPayload::CaseOpened { lifecycle } => {
                 if transition.sequence != 1 {
@@ -1083,6 +1198,11 @@ impl CaseState {
                     idempotency_key: grant.idempotency_key.clone(),
                     status: GrantLifecycle::Issued,
                     issued_at_generation: transition.sequence,
+                    issued_at_unix_ms: grant.issued_at_unix_ms,
+                    expires_at_unix_ms: grant.expires_at_unix_ms,
+                    invalidation_reason: None,
+                    invalidation_source_ref: None,
+                    invalidated_at_unix_ms: None,
                 });
             }
             TransitionPayload::EffectPrepared { prepared } => {
@@ -1352,6 +1472,82 @@ impl CaseState {
                 };
                 review.latest_action_id = Some(action.action_id.clone());
             }
+            TransitionPayload::ReviewInvalidated { invalidation } => {
+                let review = next
+                    .reviews
+                    .iter_mut()
+                    .find(|review| review.review_id == invalidation.review_id)
+                    .ok_or_else(|| "review_not_found".to_string())?;
+                if !matches!(
+                    review.status,
+                    ReviewResolution::Pending | ReviewResolution::Deferred
+                ) {
+                    return Err("review_invalidation_requires_usable_review".to_string());
+                }
+                review.status = ReviewResolution::Invalidated;
+                review.invalidation_reason = Some(invalidation.reason.clone());
+                review.invalidation_source_ref = Some(invalidation.source_ref.clone());
+                review.invalidated_at_unix_ms = Some(invalidation.invalidated_at_unix_ms);
+            }
+            TransitionPayload::ExecutionGrantInvalidated { invalidation } => {
+                let grant = next
+                    .grants
+                    .iter_mut()
+                    .find(|grant| grant.grant_id == invalidation.grant_id)
+                    .ok_or_else(|| "execution_grant_not_found".to_string())?;
+                if grant.status != GrantLifecycle::Issued {
+                    return Err("execution_grant_invalidation_requires_issued".to_string());
+                }
+                grant.status = match invalidation.disposition {
+                    GrantInvalidationDisposition::Expired => GrantLifecycle::Expired,
+                    GrantInvalidationDisposition::Revoked => GrantLifecycle::Revoked,
+                    GrantInvalidationDisposition::Abandoned => GrantLifecycle::Abandoned,
+                };
+                grant.invalidation_reason = Some(invalidation.reason.clone());
+                grant.invalidation_source_ref = Some(invalidation.source_ref.clone());
+                grant.invalidated_at_unix_ms = Some(invalidation.invalidated_at_unix_ms);
+            }
+            TransitionPayload::CaseCancellationRequested { cancellation } => {
+                if next.cancellation.is_some() {
+                    return Err("case_already_cancelled".to_string());
+                }
+                if cancellation.transition_id != transition.transition_id {
+                    return Err("case_cancellation_transition_identity_mismatch".to_string());
+                }
+                next.cancellation = Some(cancellation.clone());
+            }
+            TransitionPayload::CaseClosed { closure } => {
+                let cancellation = next
+                    .cancellation
+                    .as_ref()
+                    .ok_or_else(|| "case_close_requires_cancellation".to_string())?;
+                if closure.cancellation_ref != cancellation.transition_id {
+                    return Err("case_closure_cancellation_ref_mismatch".to_string());
+                }
+                if closure.transition_id != transition.transition_id {
+                    return Err("case_closure_transition_identity_mismatch".to_string());
+                }
+                if next.reviews.iter().any(|review| {
+                    matches!(
+                        review.status,
+                        ReviewResolution::Pending | ReviewResolution::Deferred
+                    )
+                }) || next
+                    .grants
+                    .iter()
+                    .any(|grant| grant.status == GrantLifecycle::Issued)
+                    || next.effects.iter().any(|effect| {
+                        matches!(
+                            effect.status,
+                            EffectLifecycle::Prepared | EffectLifecycle::Indeterminate
+                        )
+                    })
+                {
+                    return Err("case_close_has_unresolved_authority_or_effect".to_string());
+                }
+                next.lifecycle = CaseLifecycle::Closed;
+                next.closure = Some(closure.clone());
+            }
             TransitionPayload::CasePolicyBound { binding } => {
                 binding.validate_integrity()?;
                 if binding.case_id != next.case_id
@@ -1449,6 +1645,7 @@ impl CaseState {
             || state.schema == CASE_STATE_SCHEMA_V3
             || state.schema == CASE_STATE_SCHEMA_V4
             || state.schema == CASE_STATE_SCHEMA_V5
+            || state.schema == CASE_STATE_SCHEMA_V6
         {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
@@ -1461,6 +1658,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V6
             && self.schema != TRANSITION_SCHEMA_V5
             && self.schema != TRANSITION_SCHEMA_V4
             && self.schema != TRANSITION_SCHEMA_V3
@@ -1485,8 +1683,11 @@ impl Transition {
         if !supports_wave9_contract(&self.schema) && self.payload.is_wave9_kind() {
             return Err("wave9_transition_kind_requires_yai_transition_v5".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave10_kind() {
+        if !supports_wave10_contract(&self.schema) && self.payload.is_wave10_kind() {
             return Err("wave10_contract_requires_yai_transition_v6".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave11_kind() {
+            return Err("wave11_contract_requires_yai_transition_v7".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -1748,6 +1949,47 @@ impl Transition {
                 require_causal_ref(&self.causal_refs, &action.review_id, "review_request")?;
                 require_causal_ref(&self.causal_refs, &action.operation_id, "review_operation")?;
             }
+            TransitionPayload::ReviewInvalidated { invalidation } => {
+                require_value("review_invalidation.review_id", &invalidation.review_id)?;
+                require_value("review_invalidation.source_ref", &invalidation.source_ref)?;
+                require_causal_ref(&self.causal_refs, &invalidation.review_id, "review_request")?;
+                require_causal_ref(
+                    &self.causal_refs,
+                    &invalidation.source_ref,
+                    "invalidation_source",
+                )?;
+            }
+            TransitionPayload::ExecutionGrantInvalidated { invalidation } => {
+                require_value("grant_invalidation.grant_id", &invalidation.grant_id)?;
+                require_value("grant_invalidation.reason", &invalidation.reason)?;
+                require_value("grant_invalidation.source_ref", &invalidation.source_ref)?;
+                require_causal_ref(&self.causal_refs, &invalidation.grant_id, "execution_grant")?;
+                require_causal_ref(
+                    &self.causal_refs,
+                    &invalidation.source_ref,
+                    "invalidation_source",
+                )?;
+            }
+            TransitionPayload::CaseCancellationRequested { cancellation } => {
+                require_value("case_cancellation.actor_ref", &cancellation.actor_ref)?;
+                require_value("case_cancellation.reason", &cancellation.reason)?;
+                if cancellation.transition_id != self.transition_id {
+                    return Err("case_cancellation_transition_identity_mismatch".to_string());
+                }
+            }
+            TransitionPayload::CaseClosed { closure } => {
+                require_value("case_closure.actor_ref", &closure.actor_ref)?;
+                require_value("case_closure.reason", &closure.reason)?;
+                require_value("case_closure.cancellation_ref", &closure.cancellation_ref)?;
+                if closure.transition_id != self.transition_id {
+                    return Err("case_closure_transition_identity_mismatch".to_string());
+                }
+                require_causal_ref(
+                    &self.causal_refs,
+                    &closure.cancellation_ref,
+                    "case_cancellation",
+                )?;
+            }
             TransitionPayload::CasePolicyBound { binding } => {
                 binding.validate_integrity()?;
                 if binding.case_id != self.case_id
@@ -1888,7 +2130,7 @@ impl ReviewState {
             {
                 return Err("invalid_review_request_contract".to_string());
             }
-            if wave10 && transition_schema != TRANSITION_SCHEMA {
+            if wave10 && !supports_wave10_contract(transition_schema) {
                 return Err("policy_review_requires_yai_transition_v6".to_string());
             }
             let mut required = vec![
@@ -2043,17 +2285,34 @@ impl TransitionPayload {
             _ => false,
         }
     }
+
+    fn is_wave11_kind(&self) -> bool {
+        matches!(
+            self,
+            Self::ReviewInvalidated { .. }
+                | Self::ExecutionGrantInvalidated { .. }
+                | Self::CaseCancellationRequested { .. }
+                | Self::CaseClosed { .. }
+        )
+    }
 }
 
 fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
-        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V5 | TRANSITION_SCHEMA_V4
+        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V6 | TRANSITION_SCHEMA_V5 | TRANSITION_SCHEMA_V4
     )
 }
 
 fn supports_wave9_contract(schema: &str) -> bool {
-    matches!(schema, TRANSITION_SCHEMA | TRANSITION_SCHEMA_V5)
+    matches!(
+        schema,
+        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V6 | TRANSITION_SCHEMA_V5
+    )
+}
+
+fn supports_wave10_contract(schema: &str) -> bool {
+    matches!(schema, TRANSITION_SCHEMA | TRANSITION_SCHEMA_V6)
 }
 
 fn validate_provider_lineage(lineage: Option<&ProviderInvocationLineage>) -> Result<(), String> {

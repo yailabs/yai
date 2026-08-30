@@ -24,6 +24,7 @@ fn review_status_label(status: &ReviewResolution) -> &'static str {
         ReviewResolution::Denied => "denied",
         ReviewResolution::PendingOperator => "compatibility_pending_operator",
         ReviewResolution::Quarantined => "compatibility_quarantined",
+        ReviewResolution::Invalidated => "invalidated",
     }
 }
 
@@ -229,58 +230,6 @@ fn commit_review_action(
     store.commit_transition(pending).map(|commit| commit.state)
 }
 
-fn commit_effective_decision(
-    store: &LmdbRecordStore,
-    case_id: &str,
-    decision: &yai_core_engine::effect::Decision,
-) -> Result<yai_core_engine::transition::CaseState, String> {
-    let state = store
-        .get_case_state(case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
-    let source_participant = decision
-        .decision_basis
-        .as_ref()
-        .map(|basis| basis.proposer_participant_id.as_str())
-        .or_else(|| {
-            decision
-                .source
-                .as_ref()
-                .map(|source| source.owner_participant_id.as_str())
-        });
-    let mut pending = PendingTransition::new(
-        format!("transition:review-decision:{}", decision.decision_id),
-        case_id,
-        state.generation,
-        TransitionSource {
-            component: "yai.review".to_string(),
-            participant_id: source_participant.map(str::to_string),
-            source_ref: Some(decision.decision_id.clone()),
-        },
-        TransitionPayload::DecisionRecorded {
-            decision: decision.clone(),
-        },
-    );
-    pending.causal_refs = vec![decision.operation_id.clone()];
-    if let Some(basis) = &decision.decision_basis {
-        pending.causal_refs.push(basis.basis_id.clone());
-        pending.causal_refs.push(basis.effective_policy_id.clone());
-        pending
-            .causal_refs
-            .extend(basis.policy_binding_refs.iter().cloned());
-        pending
-            .causal_refs
-            .extend(basis.policy_artifact_refs.iter().cloned());
-        if let Some(action) = &basis.review_action_ref {
-            pending.causal_refs.push(action.clone());
-        }
-    } else {
-        pending
-            .causal_refs
-            .extend(decision.basis_refs.iter().cloned());
-    }
-    store.commit_transition(pending).map(|commit| commit.state)
-}
-
 pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Result<(), String> {
     let review_id = args
         .first()
@@ -290,16 +239,28 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
     let reviewer = named_arg(args, "--as")?;
     let reason = named_arg(args, "--reason")?;
     let store = LmdbRecordStore::open(record_store_path())?;
+    let initial_state = store
+        .get_case_state(&case_id)?
+        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    if initial_state.lifecycle != CaseLifecycle::Open {
+        return Err("review_action_requires_open_case".to_string());
+    }
+    let initial_review = case_review(&initial_state, review_id)?;
+    if initial_review.schema != REVIEW_REQUEST_SCHEMA {
+        return Err("legacy_review_is_compatibility_only".to_string());
+    }
+    if let Some(commit) = store.invalidate_review_if_policy_unusable(&case_id, review_id)? {
+        let invalidated = case_review(&commit.state, review_id)?;
+        println!("review_invalidation: committed");
+        println!("review_id: {review_id}");
+        println!("case_generation: {}", commit.state.generation);
+        println!("invalidation_reason: {:?}", invalidated.invalidation_reason);
+        return Err("review_authority_invalidated".to_string());
+    }
     let state = store
         .get_case_state(&case_id)?
         .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
-    if state.lifecycle != CaseLifecycle::Open {
-        return Err("review_action_requires_open_case".to_string());
-    }
     let review = case_review(&state, review_id)?;
-    if review.schema != REVIEW_REQUEST_SCHEMA {
-        return Err("legacy_review_is_compatibility_only".to_string());
-    }
     if !reviewer_is_eligible(&state, &review, &reviewer) {
         return Err("reviewer_not_eligible_for_case_review".to_string());
     }
@@ -307,7 +268,10 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
     let effective_policy = normative
         .effective_policy
         .as_ref()
-        .filter(|_| normative.readiness == NormativeReadiness::Ready)
+        .filter(|_| {
+            normative.readiness == NormativeReadiness::Ready
+                && normative.validity == yai_core_engine::case_policy::PolicyValidityPosture::Valid
+        })
         .ok_or_else(|| "review_policy_basis_stale".to_string())?;
     if review.effective_policy_id != effective_policy.effective_policy_id
         || review.effective_policy_digest != effective_policy.semantic_digest
@@ -366,13 +330,13 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
     if requested != ReviewActionKind::Defer {
         let current_review = case_review(&state_after_action, review_id)?;
         let operation = operation_for_review(&transitions, &current_review)?;
-        let effective = store.derive_policy_review_decision(
+        let (effective, commit) = store.derive_and_commit_policy_review_decision(
             &case_id,
             &operation.operation_id,
             &current_review.review_id,
             &action.action_id,
         )?;
-        let state_after_decision = commit_effective_decision(&store, &case_id, &effective)?;
+        let state_after_decision = commit.state;
         effective_decision_id = Some(effective.decision_id.clone());
         let failpoint = optional_arg(args, "--failpoint");
         if effective.outcome == DecisionOutcome::Allow && failpoint.as_deref() == Some("review_r4")

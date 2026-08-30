@@ -294,9 +294,11 @@ order is:
 
 1. Wave 10: complete — policy-driven authority, DecisionBasis, obligations,
    review eligibility and policy-bound Grant.
-2. Wave 11: next — validity/expiry/refresh/revoke, policy invalidation, historical
-   policy replay, durable cancellation and Case closure.
-3. Later waves: tenant/security isolation; multi-Case runtime; shared-resource
+2. Wave 11: complete — validity/expiry/refresh/revoke, policy invalidation,
+   historical policy replay, durable cancellation and Case closure.
+3. Wave 12: next — fresh recovery of authenticated Principal/organization and
+   tenant/security ownership boundaries; no design is pre-authorized here.
+4. Later waves: multi-Case runtime; shared-resource
    fencing and a second carrier; provider governance; lifecycle/build/data
    longevity, each gated by fresh direct archaeology.
 
@@ -325,13 +327,14 @@ default-ALLOW or ambient operator booleans. New live filesystem admission now:
 Policy change before review or Grant fails closed. Legacy resource policy-owner
 and review fields remain readable but are not active authority in this path.
 
-## Stage 11 — Validity, invalidation and Case closure
+## Completed boundary — temporal governance and Case termination
 
-The exact next task is `YAI.SOURCE.REFOUNDATION.11`: recover policy
-validity/expiry/refresh/revoke, policy-driven invalidation, historical policy
-replay, durable cancellation and Case closure. It must begin with direct
-cross-family `yai-dev` archaeology and must not reinterpret past Decisions
-under current policy.
+`YAI.SOURCE.REFOUNDATION.11` adds explicit immutable policy validity,
+append-only revoke, a rollback-safe authority-time floor, typed review/Grant
+invalidation, finite Grant v3 authority, durable Case cancellation and terminal
+non-destructive closure. `yai.transition.v7`/`yai.case_state.v7` replay the
+barriers. PREPARE is the non-retroactive cut: authority can contract before it;
+after it the effect must finalize or reconcile.
 
 ## Explicit non-goals
 
@@ -342,8 +345,8 @@ forest, Workflow, supervisor or embedded-law topology.
 
 ## Exit criteria for the next source task
 
-Wave 11 is complete only when validity change can contract future autonomy
-without rewriting historical basis, pending review/unused Grant invalidation is
-typed and replayable, and cancellation/closure interact correctly with that
-authority lifecycle. It must end with isolated publication; later tenant,
-scheduling and distributed semantics remain out of scope.
+Wave 12 must begin with fresh direct archaeology of identity/ownership rather
+than extending local `--as` claims into authentication. It may not weaken the
+Wave-11 temporal, cancellation, closure or historical replay contracts. Tenant,
+Principal and organization semantics must earn one canonical owner before any
+multi-Case scheduling, resource fencing or distributed revoke work begins.

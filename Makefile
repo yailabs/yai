@@ -19,7 +19,7 @@
 .PHONY: smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33
 .PHONY: smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40
 .PHONY: smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47
-.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening endurance-agentless-case-runtime characterization smoke check clean
+.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance endurance-agentless-case-runtime characterization smoke check clean
 
 CC ?= cc
 AR ?= ar
@@ -167,6 +167,7 @@ CHARACTERIZATION_GOVERNANCE_HARDENING := tests/characterization/governance-harde
 CHARACTERIZATION_CASE_POLICY := tests/characterization/case-policy-materialization/test_case_policy_materialization.sh
 CHARACTERIZATION_POLICY_AUTHORITY := tests/characterization/policy-authority-admission/test_policy_authority_admission.sh
 CHARACTERIZATION_POLICY_AUTHORITY_HARDENING := tests/characterization/policy-authority-hardening/test_policy_authority_hardening.sh
+CHARACTERIZATION_TEMPORAL_GOVERNANCE := tests/characterization/temporal-governance/test_temporal_governance.sh
 
 info:
 	@printf "yai: admitted operational-state transition system with one controlled filesystem vertical\n"
@@ -178,7 +179,7 @@ info:
 	@printf "hot-state: %s/hot-state.json\n" "$(YAI_RUN_DIR)"
 	@printf "record-store: %s\n" "$(YAI_RECORD_STORE_DIR)"
 	@printf "fact-plane: DuckDB yai.fact.v1 extraction plus compact CLI reports\n"
-	@printf "state-authority: LMDB yai.transition.v6 plus atomic yai.case_state.v6; v1-v5 readable\n"
+	@printf "state-authority: LMDB yai.transition.v7 plus atomic yai.case_state.v7; v1-v6 readable\n"
 	@printf "legacy-journal: yai.store.record.v0 compatibility input/export only\n"
 	@printf "effect-boundary: controlled filesystem.write Grant/PREPARE/FINALIZE plus reconciliation\n"
 	@printf "c-product: narrow yaid/store/hot/projection dependency set\n"
@@ -189,7 +190,7 @@ info:
 	@printf "provider-runtime: agentless bounded Case loop with typed Projection/ContextFrame lineage\n"
 	@printf "semantic-residency: derived yai.residency_plan.v1; explicit item/context budgets\n"
 	@printf "operational-memory: derived yai.operational_memory.v1 with qualified retrieval and canonical fallback\n"
-	@printf "governance-intake: owner-scoped immutable yai.policy_artifact.v2 + typed yai.policy_ir.v1 lifecycle\n"
+	@printf "governance-intake: owner-scoped immutable yai.policy_artifact.v4 + typed yai.policy_ir.v2 temporal lifecycle\n"
 	@printf "provider-registry: removed; case-bound invocation remains\n"
 	@printf "crates: removed\n"
 	@printf "ctl: removed\n"
@@ -581,6 +582,9 @@ smoke-policy-authority-admission: $(YAID) build-rust
 
 smoke-policy-authority-hardening:
 	@$(CHARACTERIZATION_POLICY_AUTHORITY_HARDENING)
+
+smoke-temporal-governance: $(YAID) build-rust
+	@$(CHARACTERIZATION_TEMPORAL_GOVERNANCE)
 
 endurance-agentless-case-runtime: smoke-agentless-case-runtime
 

@@ -26,13 +26,14 @@ later governance/law cutovers, neutral-sample cleanup and final drain residue.
   refounded proven after H8 lineage/provenance/parser/lifecycle/catalog
   hardening; rechecked during Wave 9 and reopen for Wave 12 ownership.
 - Case PolicyBinding, EffectivePolicy and normative readiness: refounded proven
-  at the exact-version boundary and rechecked by their first operational
-  consumer; reopen for Wave 11 validity/revoke.
+  at the exact-version boundary; validity is a separate derived dimension and
+  both are rechecked by the operational consumer.
 - Policy-driven authority, DecisionBasis, evidence obligations, role-based
   review eligibility and policy-bound Grant: refounded proven for the current
   filesystem consumer; authentication and generalized policy remain open.
-- Validity/expiry/revoke, cancellation and Case closure: missing/partial, Wave
-  11 after governance authority exists.
+- Validity/expiry/revoke, review/Grant invalidation, cancellation and terminal
+  non-destructive Case closure: refounded proven for the local filesystem
+  consumer after Wave 11.
 - Tenant isolation, multi-Case runtime, resource fencing/second carrier,
   provider governance, complete Case lifecycle, build lifecycle and data
   longevity remain future recovery families.
@@ -132,3 +133,32 @@ are `refounded_proven` and H10-qualified for the current local filesystem trust
 model. ExecutionGrant remains partial only because expiry, revoke and
 abandonment are Wave 11. No time, revoke, cancellation or closure semantics were
 introduced by H10.
+
+## Wave-11 verdict
+
+Wave 11 directly re-inspected the legacy temporal authority, distribution,
+workspace and grant families. It recovered the executable conservative
+property behind legacy validity states while rejecting their scattered clocks,
+string/default windows, edge planes, volatile grant registry and destructive
+workspace lifecycle.
+
+Current policy source/artifact v4 now carries an explicit immutable validity
+contract; lifecycle v2 adds terminal revoke. Case normative readiness remains
+materialization-only while a separate derived validity posture contracts to the
+weakest exact binding. A persisted LMDB authority-time floor prevents clock
+rollback from resurrecting authority. Exact replacement is the only refresh;
+publishing a newer artifact leaves the old Case binding stale and pinned.
+
+DecisionBasis v2/Decision v3 record the temporal basis. ExecutionGrant v3 is
+finite and can become Expired, Revoked or Abandoned only before PREPARE. Once
+PREPARE commits, later revoke/cancellation cannot erase physical truth; the
+effect must finalize or reconcile. Transition/CaseState v7 add typed review and
+Grant invalidation, durable cancellation and terminal non-destructive closure.
+Closure is atomic and fails while review, unused Grant, Prepared/Indeterminate
+effect or live runtime admission remains unresolved.
+
+Policy validity/revocation, review invalidation, local filesystem Grant temporal
+lifecycle, cancellation, closure and historical temporal replay are
+`refounded_proven` within the current local trust model. Authentication,
+Tenant/Principal, distributed time/revoke, resource fencing, second carriers,
+archive/retention and reopen remain outside Wave 11.

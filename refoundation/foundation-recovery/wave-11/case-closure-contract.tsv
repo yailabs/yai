@@ -1,0 +1,9 @@
+property	contract
+canonical payload	CaseClosed in yai.transition.v7 with exact cancellation ref
+preconditions	cancellation exists; no live admission; no pending/deferred Review; no Issued Grant; no Prepared/Indeterminate effect
+atomicity	precondition snapshot and closure append share one LMDB RW transaction
+terminality	CaseState.lifecycle=Closed; reducer rejects every later normal transition
+idempotence	repeat returns already_closed and writes nothing
+preservation	no Case/policy/provider/resource/receipt/history deletion
+replay	CaseState v7 reconstructs Closed and barriers after restart
+reopen	not implemented

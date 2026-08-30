@@ -1,0 +1,8 @@
+family	exact remaining delta	Wave11 prohibition preserved
+identity	authenticated Principal/organization/tenant ownership	--as remains local provenance
+resource coordination	cross-Case resource fencing and multi-Case scheduling	no scheduler/lock service added
+policy distribution	distributed/edge revoke propagation and remote clocks	local LMDB owner only
+carriers	second carrier and carrier-specific temporal characterization	filesystem one-shot only
+provider governance	provider eligibility/routing/credentials	no policy prompt/model enforcement
+lifecycle	archive/retention/delete/export/import/clone/reopen	Closed is terminal; data retained
+grant lifecycle	distributed leases or remote revocation	no bearer token/TTL service

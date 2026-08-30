@@ -36,7 +36,7 @@ yai_configure_governed_filesystem_case() {
   fi
 
   {
-    printf '{"schema":"yai.policy_source_input.v3","policy_key":"%s","source_version":"%s","owner_ref":"organization:characterization","source_origin":{"source_system":"characterization","source_uri":"test://%s/%s"},"rules":[' \
+    printf '{"schema":"yai.policy_source_input.v4","policy_key":"%s","source_version":"%s","owner_ref":"organization:characterization","source_origin":{"source_system":"characterization","source_uri":"test://%s/%s"},"validity":{"mode":"unbounded"},"rules":[' \
       "$policy_key" "$policy_version" "$policy_key" "$policy_version"
     if [[ "$effect" != "none" ]]; then
       printf '{"kind":"operation_restriction","rule_id":"filesystem-posture","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"%s","reason":"explicit characterization posture"},' "$effect"

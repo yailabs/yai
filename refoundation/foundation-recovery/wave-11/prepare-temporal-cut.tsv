@@ -1,0 +1,5 @@
+boundary	allowed	forbidden	proof
+before PREPARE	validity/revoke/cancel checks may terminalize Issued Grant	carrier mutation with invalid Grant	wave11_grant_expiry_before_prepare_is_terminal_and_effect_free
+at PREPARE	one transaction checks exact generation + Ready + Valid + Grant time	TOCTOU between check and append	commit_effect_prepared
+after PREPARE	finalize; indeterminate; reconcile even after revoke/cancel	reclassify Prepared as expired/revoked/abandoned	wave11_prepare_is_nonretroactive_cut_across_revoke_and_cancel
+closure	fails while Prepared/Indeterminate; succeeds after reconcile	erase unresolved physical truth	product commands 08-10

@@ -1,0 +1,6 @@
+operation	precondition	result	idempotence
+revoke	Published/Superseded/Retired qualified artifact	append Revoked event; remove current index only if exact current; runtime_consumable=false	repeated revoke adds no event
+new Decision	exact binding revoked	Ready material may still rebuild; validity=Revoked; admission fails	fail closed
+pending Review	revoke discovered on mutating review action	append ReviewInvalidated with revoke event ref	terminal
+Issued Grant	revoke before PREPARE	append GrantInvalidated disposition Revoked	terminal
+Prepared Grant	revoke after PREPARE	do not invalidate; effect finalizes/reconciles	physical truth wins
