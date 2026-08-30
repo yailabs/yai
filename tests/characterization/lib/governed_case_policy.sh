@@ -12,6 +12,23 @@ yai_policy_trace() {
     "$order" "$command_text" "$output" >&2
 }
 
+yai_bootstrap_tenant_case() {
+  local yai_bin="$1"
+  local yai_home="$2"
+  local case_id="$3"
+  local tenant_id="${4:-tenant:characterization}"
+  local organization_ref="${5:-organization:characterization}"
+  YAI_HOME="$yai_home" "$yai_bin" security bootstrap-local \
+    --tenant "$tenant_id" --organization "$organization_ref" >/dev/null
+  YAI_HOME="$yai_home" "$yai_bin" case create \
+    --case "$case_id" --tenant "$tenant_id" >/dev/null
+  # ResourceAttachmentState v1 still carries this compatibility-only
+  # participant reference. It is not consulted by DecisionBasis v3.
+  YAI_HOME="$yai_home" "$yai_bin" case bind-participant-role \
+    --case "$case_id" --participant subject:policy-pack \
+    --role resource-attachment-compatibility-owner >/dev/null
+}
+
 yai_configure_governed_filesystem_case() {
   local yai_bin="$1"
   local yai_home="$2"
@@ -21,18 +38,17 @@ yai_configure_governed_filesystem_case() {
   local effect="$6"
   local proposer="$7"
   local reviewer="${8:-}"
+  local tenant_id="${YAI_TEST_TENANT_ID:-tenant:characterization}"
   local policy_source="$yai_home/${policy_key//[:\/]/_}-${policy_version}.policy.json"
 
   local role_output
   role_output=$(YAI_HOME="$yai_home" "$yai_bin" case bind-participant-role \
-    --case "$case_id" --participant "$proposer" --role operation-proposer \
-    --as participant:local-policy-operator)
-  yai_policy_trace 01 "YAI_HOME=$yai_home $yai_bin case bind-participant-role --case $case_id --participant $proposer --role operation-proposer --as participant:local-policy-operator" "$role_output"
+    --case "$case_id" --participant "$proposer" --role operation-proposer)
+  yai_policy_trace 01 "YAI_HOME=$yai_home $yai_bin case bind-participant-role --case $case_id --participant $proposer --role operation-proposer" "$role_output"
   if [[ -n "$reviewer" ]]; then
     role_output=$(YAI_HOME="$yai_home" "$yai_bin" case bind-participant-role \
-      --case "$case_id" --participant "$reviewer" --role operation-reviewer \
-      --as participant:local-policy-operator)
-    yai_policy_trace 02 "YAI_HOME=$yai_home $yai_bin case bind-participant-role --case $case_id --participant $reviewer --role operation-reviewer --as participant:local-policy-operator" "$role_output"
+      --case "$case_id" --participant "$reviewer" --role operation-reviewer)
+    yai_policy_trace 02 "YAI_HOME=$yai_home $yai_bin case bind-participant-role --case $case_id --participant $reviewer --role operation-reviewer" "$role_output"
   fi
 
   {
@@ -54,23 +70,23 @@ yai_configure_governed_filesystem_case() {
 
   local ingest_output artifact_id status_output generation
   ingest_output=$(YAI_HOME="$yai_home" "$yai_bin" policy ingest "$policy_source" \
-    --as participant:local-policy-operator)
-  yai_policy_trace 03 "YAI_HOME=$yai_home $yai_bin policy ingest $policy_source --as participant:local-policy-operator" "$ingest_output"
+    --tenant "$tenant_id")
+  yai_policy_trace 03 "YAI_HOME=$yai_home $yai_bin policy ingest $policy_source --tenant $tenant_id" "$ingest_output"
   artifact_id=$(sed -n 's/^artifact_id: //p' <<<"$ingest_output" | head -1)
   [[ "$artifact_id" == policy-artifact:* ]]
   local validate_output publish_output bind_output
   validate_output=$(YAI_HOME="$yai_home" "$yai_bin" policy validate "$artifact_id" \
-    --as participant:local-policy-operator --reason "deterministic validation")
-  yai_policy_trace 04 "YAI_HOME=$yai_home $yai_bin policy validate $artifact_id --as participant:local-policy-operator --reason 'deterministic validation'" "$validate_output"
+    --reason "deterministic validation")
+  yai_policy_trace 04 "YAI_HOME=$yai_home $yai_bin policy validate $artifact_id --reason 'deterministic validation'" "$validate_output"
   publish_output=$(YAI_HOME="$yai_home" "$yai_bin" policy publish "$artifact_id" \
-    --as participant:local-policy-operator --reason "publish characterization policy")
-  yai_policy_trace 05 "YAI_HOME=$yai_home $yai_bin policy publish $artifact_id --as participant:local-policy-operator --reason 'publish characterization policy'" "$publish_output"
+    --reason "publish characterization policy")
+  yai_policy_trace 05 "YAI_HOME=$yai_home $yai_bin policy publish $artifact_id --reason 'publish characterization policy'" "$publish_output"
   status_output=$(YAI_HOME="$yai_home" "$yai_bin" case policy status --case "$case_id")
   yai_policy_trace 06 "YAI_HOME=$yai_home $yai_bin case policy status --case $case_id" "$status_output"
   generation=$(sed -n 's/^case_generation: //p' <<<"$status_output" | head -1)
   bind_output=$(YAI_HOME="$yai_home" "$yai_bin" case policy bind --case "$case_id" \
     --artifact "$artifact_id" --expected-generation "$generation" \
-    --as participant:local-policy-operator --reason "bind explicit runtime policy")
-  yai_policy_trace 07 "YAI_HOME=$yai_home $yai_bin case policy bind --case $case_id --artifact $artifact_id --expected-generation $generation --as participant:local-policy-operator --reason 'bind explicit runtime policy'" "$bind_output"
+    --reason "bind explicit runtime policy")
+  yai_policy_trace 07 "YAI_HOME=$yai_home $yai_bin case policy bind --case $case_id --artifact $artifact_id --expected-generation $generation --reason 'bind explicit runtime policy'" "$bind_output"
   printf '%s\n' "$artifact_id"
 }

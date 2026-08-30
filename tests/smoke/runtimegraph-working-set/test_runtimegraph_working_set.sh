@@ -22,6 +22,12 @@ cat > "$JOURNAL" <<'JSONL'
 JSONL
 
 YAI_HOME="$YAI_HOME" "$YAI_BIN" journal replay --path "$JOURNAL" >/dev/null
+YAI_HOME="$YAI_HOME" "$YAI_BIN" security bootstrap-local \
+  --tenant tenant:spine42 --organization organization:characterization >/dev/null
+YAI_HOME="$YAI_HOME" "$YAI_BIN" case create \
+  --case case:spine42 --tenant tenant:spine42 >/dev/null
+YAI_HOME="$YAI_HOME" "$YAI_BIN" case create \
+  --case case:missing --tenant tenant:spine42 >/dev/null
 YAI_HOME="$YAI_HOME" "$YAI_BIN" graph materialize --case case:spine42 >/dev/null
 
 status="$(YAI_HOME="$YAI_HOME" "$YAI_BIN" graph runtime-status)"

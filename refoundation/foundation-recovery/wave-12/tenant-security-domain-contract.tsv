@@ -1,0 +1,11 @@
+property	contract
+schema	yai.tenant.v1
+identity	tenant_id is immutable and is the runtime isolation/security domain
+organization	organization_ref is immutable metadata/projection, not a second security domain
+owner	one owner_principal_id established atomically at bootstrap
+membership	Owner or Member only; membership grants visibility, never a Case role
+Case ownership	every new Case is opened with exactly one tenant_id and cannot move
+policy namespace	new lineage identity is tenant_id + policy_key
+same organization	never merges Tenants or grants cross-Tenant visibility
+same Principal multiple Tenants	one operation resolves exactly one Tenant context
+legacy	v1-v7 Cases and v1-v4 artifacts remain readable as legacy_unscoped and cannot gain new authority

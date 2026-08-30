@@ -1,0 +1,8 @@
+input	status	meaning
+geteuid/getegid	AUTHORITATIVE_INPUT	effective process credential selects the local authentication binding
+getuid/getgid	PROVENANCE	recorded to expose real/effective mismatch; does not override eUID authority
+$USER;LOGNAME;HOME;SUDO_USER	REJECTED	never authentication input
+--as	REJECTED_AS_AUTHORITY	optional compatibility claim must equal resolved Principal where accepted
+eUID 0	NO_AMBIENT_ADMIN	must be enrolled and own/member of the selected Tenant
+password	NOT_IMPLEMENTED	no password DB, argv transport, login session, OAuth or SSO
+SecurityContext	EPHEMERAL	one authenticated Principal resolved to exactly one Tenant membership for one invocation

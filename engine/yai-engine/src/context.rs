@@ -393,7 +393,10 @@ pub fn compile_projection(
             lifecycle: state.lifecycle.clone(),
         },
         provenance: provenance_for_latest(transitions, |payload| {
-            matches!(payload, TransitionPayload::CaseOpened { .. })
+            matches!(
+                payload,
+                TransitionPayload::CaseOpened { .. } | TransitionPayload::TenantCaseOpened { .. }
+            )
         }),
     });
     mandatory.push(ProjectionEntry {

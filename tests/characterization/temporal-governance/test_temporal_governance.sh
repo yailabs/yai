@@ -54,6 +54,7 @@ wait "$DAEMON_PID"
 DAEMON_PID=""
 cp "$BASE_JOURNAL" "$CASE_JOURNAL"
 
+yai_bootstrap_tenant_case "$YAI_BIN" "$CASE_HOME" case:new12-filesystem
 YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" case enter \
   --case case:new12-filesystem --subject subject:llm-provider >/dev/null
 YAI_HOME="$CASE_HOME" "$YAI_BIN" case attach-filesystem \
@@ -70,11 +71,11 @@ trace_product 01 "YAI_HOME=$CASE_HOME $YAI_BIN case policy status --case case:ne
 
 p2_source="$TEST_DIR/temporal-filesystem-v2.policy.json"
 printf '%s\n' '{"schema":"yai.policy_source_input.v4","policy_key":"temporal-filesystem","source_version":"2","owner_ref":"organization:characterization","source_origin":{"source_system":"characterization","source_uri":"test://temporal-filesystem/2"},"validity":{"mode":"unbounded"},"rules":[{"kind":"operation_restriction","rule_id":"filesystem-posture-v2","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","reason":"explicit refreshed posture"},{"kind":"authority_requirement","rule_id":"filesystem-proposer-v2","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_role":"operation-proposer","reason":"Case-bound proposer"},{"kind":"evidence_obligation","rule_id":"filesystem-source-v2","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"source_provenance","reason":"canonical provider lineage"},{"kind":"evidence_obligation","rule_id":"filesystem-post-v2","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"post_observation","reason":"observed closure"}]}' >"$p2_source"
-p2_ingest=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" policy ingest "$p2_source" --as participant:policy-admin)
+p2_ingest=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" policy ingest "$p2_source" --tenant tenant:characterization)
 p2=$(sed -n 's/^artifact_id: //p' <<<"$p2_ingest" | head -1)
-p2_validate=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" policy validate "$p2" --as participant:policy-admin --reason "validate refresh")
-p2_publish=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" policy publish "$p2" --as participant:policy-admin --reason "publish refresh")
-trace_product 02 "YAI_HOME=$CASE_HOME $YAI_BIN policy publish $p2 --as participant:policy-admin --reason 'publish refresh'" "$p2_publish" 0
+p2_validate=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" policy validate "$p2" --reason "validate refresh")
+p2_publish=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" policy publish "$p2" --reason "publish refresh")
+trace_product 02 "YAI_HOME=$CASE_HOME $YAI_BIN policy publish $p2 --reason 'publish refresh'" "$p2_publish" 0
 
 stale_status=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" case policy status --case case:new12-filesystem)
 require_text "$stale_status" "artifact_id=$p1 version=1"
@@ -85,10 +86,10 @@ binding=$(sed -n 's/^policy_binding: binding_id=\([^ ]*\).*/\1/p' <<<"$stale_sta
 generation=$(sed -n 's/^case_generation: //p' <<<"$stale_status" | head -1)
 refreshed=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" case policy replace --case case:new12-filesystem \
   --binding "$binding" --artifact "$p2" --expected-generation "$generation" \
-  --as participant:operator --reason "explicit temporal refresh")
+  --reason "explicit temporal refresh")
 require_text "$refreshed" "policy_validity: Valid"
 require_text "$refreshed" "artifact_id=$p2 version=2"
-trace_product 04 "YAI_HOME=$CASE_HOME $YAI_BIN case policy replace --case case:new12-filesystem --binding $binding --artifact $p2 --expected-generation $generation --as participant:operator --reason 'explicit temporal refresh'" "$refreshed" 0
+trace_product 04 "YAI_HOME=$CASE_HOME $YAI_BIN case policy replace --case case:new12-filesystem --binding $binding --artifact $p2 --expected-generation $generation --reason 'explicit temporal refresh'" "$refreshed" 0
 
 port_file="$TEST_DIR/provider.port"
 python3 "$FIXTURE" allow >"$port_file" &
@@ -114,36 +115,36 @@ require_text "$prepare_output" "effect_state: prepared_durable_before_mutation"
 trace_product 05 "YAI_HOME=$CASE_HOME YAI_JOURNAL=$CASE_JOURNAL $YAI_BIN effect filesystem-write --case case:new12-filesystem --subject subject:llm-provider --attachment workspace --prompt 'prepare one temporal write' --provider-id provider:temporal --base-url http://127.0.0.1:$PROVIDER_PORT/v1/chat/completions --model controlled-model --failpoint after_effect_before_finalize" "$prepare_output" "$prepare_exit"
 
 revoke_output=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" policy revoke "$p2" \
-  --as participant:policy-admin --reason "withdraw before future authority")
+  --reason "withdraw before future authority")
 require_text "$revoke_output" "policy_revoke: revoked"
 require_text "$revoke_output" "lifecycle: revoked"
 require_text "$revoke_output" "runtime_consumable: false"
-trace_product 06 "YAI_HOME=$CASE_HOME $YAI_BIN policy revoke $p2 --as participant:policy-admin --reason 'withdraw before future authority'" "$revoke_output" 0
+trace_product 06 "YAI_HOME=$CASE_HOME $YAI_BIN policy revoke $p2 --reason 'withdraw before future authority'" "$revoke_output" 0
 
 cancel_output=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" case cancel --case case:new12-filesystem \
-  --as participant:operator --reason "stop after prepared external attempt")
+  --reason "stop after prepared external attempt")
 require_text "$cancel_output" "case_cancel: cancelled"
 require_text "$cancel_output" "unresolved_effects: 1"
-trace_product 07 "YAI_HOME=$CASE_HOME $YAI_BIN case cancel --case case:new12-filesystem --as participant:operator --reason 'stop after prepared external attempt'" "$cancel_output" 0
+trace_product 07 "YAI_HOME=$CASE_HOME $YAI_BIN case cancel --case case:new12-filesystem --reason 'stop after prepared external attempt'" "$cancel_output" 0
 
 set +e
 unsafe_close=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" case close --case case:new12-filesystem \
-  --as participant:operator --reason "unsafe close" 2>&1)
+  --reason "unsafe close" 2>&1)
 unsafe_close_exit=$?
 set -e
 [[ "$unsafe_close_exit" -ne 0 ]]
 require_text "$unsafe_close" "case_close_blocked: unresolved_effect:"
-trace_product 08 "YAI_HOME=$CASE_HOME $YAI_BIN case close --case case:new12-filesystem --as participant:operator --reason 'unsafe close'" "$unsafe_close" "$unsafe_close_exit"
+trace_product 08 "YAI_HOME=$CASE_HOME $YAI_BIN case close --case case:new12-filesystem --reason 'unsafe close'" "$unsafe_close" "$unsafe_close_exit"
 
 reconcile_output=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" effect reconcile --case case:new12-filesystem --retry)
 require_text "$reconcile_output" "reconciliation: EffectObserved"
 trace_product 09 "YAI_HOME=$CASE_HOME $YAI_BIN effect reconcile --case case:new12-filesystem --retry" "$reconcile_output" 0
 close_output=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" case close --case case:new12-filesystem \
-  --as participant:operator --reason "safe after reconciliation")
+  --reason "safe after reconciliation")
 require_text "$close_output" "case_close: closed"
 require_text "$close_output" "case_lifecycle: Closed"
 require_text "$close_output" "unresolved_effects: 0"
-trace_product 10 "YAI_HOME=$CASE_HOME $YAI_BIN case close --case case:new12-filesystem --as participant:operator --reason 'safe after reconciliation'" "$close_output" 0
+trace_product 10 "YAI_HOME=$CASE_HOME $YAI_BIN case close --case case:new12-filesystem --reason 'safe after reconciliation'" "$close_output" 0
 
 set +e
 closed_effect=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" effect filesystem-write --case case:new12-filesystem \

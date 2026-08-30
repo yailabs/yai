@@ -34,9 +34,7 @@ fn derive_current_operational_memory(
     store: &LmdbRecordStore,
     case_id: &str,
 ) -> Result<(yai_core_engine::memory::OperationalMemoryBuild, usize), String> {
-    let state = store
-        .get_case_state(case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let state = security::authorize_case_read_if_scoped(store, case_id)?;
     let transitions = store.list_case_transitions(case_id)?;
     let ledger_count = transitions.len();
     let build = derive_operational_memory(case_id, &transitions)?;
@@ -70,6 +68,7 @@ pub(super) fn memory_rebuild(args: &[String]) -> Result<(), String> {
 pub(super) fn memory_clear(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let store = LmdbRecordStore::open(record_store_path())?;
+    security::authorize_case_read_if_scoped(&store, &case_id)?;
     let transition_count = store.list_case_transitions(&case_id)?.len();
     store.clear_case_operational_memory(&case_id)?;
     println!("memory_clear: completed");
@@ -105,6 +104,7 @@ pub(super) fn memory_list(args: &[String]) -> Result<(), String> {
     let include_superseded = args.iter().any(|value| value == "--include-superseded");
     let limit = parse_limit(args)?;
     let store = LmdbRecordStore::open(record_store_path())?;
+    security::authorize_case_read_if_scoped(&store, &case_id)?;
     let manifest = store.operational_memory_manifest(&case_id)?;
     let mut entries = store.list_operational_memory(&case_id)?;
     if !include_superseded {
@@ -149,6 +149,7 @@ pub(super) fn memory_show(args: &[String]) -> Result<(), String> {
     let entry = store
         .get_operational_memory(memory_id)?
         .ok_or_else(|| format!("operational memory not found: {memory_id}"))?;
+    security::authorize_case_read_if_scoped(&store, &entry.case_id)?;
     print_operational_memory(&entry)
 }
 
@@ -160,6 +161,7 @@ pub(super) fn memory_provenance(args: &[String]) -> Result<(), String> {
     let entry = store
         .get_operational_memory(memory_id)?
         .ok_or_else(|| format!("operational memory not found: {memory_id}"))?;
+    security::authorize_case_read_if_scoped(&store, &entry.case_id)?;
     let transitions = store.list_case_transitions(&entry.case_id)?;
     yai_core_engine::memory::validate_memory_provenance(&entry, &transitions)?;
     println!("memory_id: {}", entry.memory_id);
@@ -202,9 +204,7 @@ pub(super) fn memory_retrieve(args: &[String]) -> Result<(), String> {
         .transpose()?
         .unwrap_or_default();
     let store = LmdbRecordStore::open(record_store_path())?;
-    let state = store
-        .get_case_state(&case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let state = security::authorize_case_read_if_scoped(&store, &case_id)?;
     let manifest = store.operational_memory_manifest(&case_id)?;
     let entries = if manifest
         .as_ref()

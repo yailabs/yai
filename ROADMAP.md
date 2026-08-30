@@ -296,9 +296,12 @@ order is:
    review eligibility and policy-bound Grant.
 2. Wave 11: complete — validity/expiry/refresh/revoke, policy invalidation,
    historical policy replay, durable cancellation and Case closure.
-3. Wave 12: next — fresh recovery of authenticated Principal/organization and
-   tenant/security ownership boundaries; no design is pre-authorized here.
-4. Later waves: multi-Case runtime; shared-resource
+3. Wave 12: complete — local POSIX-authenticated Principal projection,
+   immutable Tenant security domains, Tenant-bound policy/Case ownership and
+   Principal-to-Participant human authority binding.
+4. Wave 13: next — fresh recovery of multi-Case runtime-instance lifecycle,
+   quotas, scheduling, backpressure and recovery sweep.
+5. Later waves: shared-resource
    fencing and a second carrier; provider governance; lifecycle/build/data
    longevity, each gated by fresh direct archaeology.
 
@@ -336,6 +339,26 @@ non-destructive closure. `yai.transition.v7`/`yai.case_state.v7` replay the
 barriers. PREPARE is the non-retroactive cut: authority can contract before it;
 after it the effect must finalize or reconcile.
 
+## Completed boundary — authenticated Tenant security domains
+
+`YAI.SOURCE.REFOUNDATION.12` replaces human/admin string claims on the new live
+path with a kernel-observed local POSIX Principal projection. One durable
+security owner records immutable `yai.security_principal.v1` and
+`yai.tenant.v1` objects plus minimal Owner/Member history. Every new Case has
+one immutable Tenant; legacy v1-v7 Cases remain read/replay-only and cannot
+acquire new authority implicitly.
+
+New policy artifact v5 identity and lineage are Tenant-scoped, Case binding v2
+rejects cross-Tenant artifacts, EffectivePolicy v3 and DecisionBasis v3 retain
+the exact security domain, and ReviewAction v2 resolves an authenticated
+Principal through Tenant membership and an explicit one-to-one Case
+Participant link before applying existing policy roles. Organization remains
+Tenant metadata, not a second runtime owner. Product reads and canonical
+administrative writes enforce the Tenant boundary; exact or overlapping local
+filesystem roots across Tenants fail closed. This is local process/runtime
+isolation over OS-protected LMDB, not SSO, credential-vault, container or VM
+isolation.
+
 ## Explicit non-goals
 
 This roadmap does not introduce Space or Agent as owners, import `yai-dev`,
@@ -345,8 +368,9 @@ forest, Workflow, supervisor or embedded-law topology.
 
 ## Exit criteria for the next source task
 
-Wave 12 must begin with fresh direct archaeology of identity/ownership rather
-than extending local `--as` claims into authentication. It may not weaken the
-Wave-11 temporal, cancellation, closure or historical replay contracts. Tenant,
-Principal and organization semantics must earn one canonical owner before any
-multi-Case scheduling, resource fencing or distributed revoke work begins.
+Wave 13 must begin with fresh direct archaeology of runtime-instance and
+multi-Case scheduling behavior. It may not weaken Tenant isolation, exact
+single-Case runtime admission, temporal governance, cancellation/closure or
+historical replay. Worker pools, quotas, priorities, backpressure and recovery
+sweeps require independent executable consumers; Wave 12 does not authorize
+shared-resource fencing or provider governance.

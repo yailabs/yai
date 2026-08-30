@@ -5,16 +5,17 @@
 //! Decision; it never invokes a carrier or performs an external effect.
 
 use super::*;
+use crate::security::authenticate_local;
 use yai_core_engine::admission::reviewer_is_eligible;
 use yai_core_engine::case_policy::NormativeReadiness;
 use yai_core_engine::effect::{DecisionOutcome, Operation};
 use yai_core_engine::transition::{
-    build_review_action, CaseLifecycle, ReviewAction, ReviewActionKind, ReviewResolution,
-    ReviewState, Transition, REVIEW_REQUEST_SCHEMA,
+    build_authenticated_review_action, CaseLifecycle, ReviewAction, ReviewActionKind,
+    ReviewResolution, ReviewState, Transition, REVIEW_REQUEST_SCHEMA,
 };
 
 const REVIEW_COMPONENT: &str = "yai.human_review_boundary";
-const LOCAL_OPERATOR_SOURCE: &str = "local_cli_claimed_participant";
+const LOCAL_OPERATOR_SOURCE: &str = "kernel_authenticated_principal_participant_link";
 
 fn review_status_label(status: &ReviewResolution) -> &'static str {
     match status {
@@ -40,14 +41,6 @@ fn action_label(action: &ReviewActionKind) -> &'static str {
         ReviewActionKind::Approve => "approve",
         ReviewActionKind::Deny => "deny",
         ReviewActionKind::Defer => "defer",
-    }
-}
-
-fn review_source(participant_id: &str, source_ref: &str) -> TransitionSource {
-    TransitionSource {
-        component: REVIEW_COMPONENT.to_string(),
-        participant_id: Some(participant_id.to_string()),
-        source_ref: Some(source_ref.to_string()),
     }
 }
 
@@ -174,15 +167,14 @@ fn print_review(review: &ReviewState, case_id: &str) {
         review.effective_decision_id.as_deref().unwrap_or("none")
     );
     println!("effect_evidence: none_owned_by_review");
-    println!("operator_trust_boundary: local_cli_claimed_bound_participant");
+    println!("operator_trust_boundary: kernel_authenticated_principal_participant_link");
 }
 
 pub(super) fn review_pending(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
+    let authenticated = authenticate_local()?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let state = store
-        .get_case_state(&case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
     let pending = state
         .reviews
         .iter()
@@ -204,16 +196,17 @@ pub(super) fn review_show(args: &[String]) -> Result<(), String> {
         .filter(|value| !value.starts_with("--"))
         .ok_or_else(|| "review_id is required".to_string())?;
     let case_id = named_arg(args, "--case")?;
+    let authenticated = authenticate_local()?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let state = store
-        .get_case_state(&case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
     print_review(&case_review(&state, review_id)?, &case_id);
     Ok(())
 }
 
 fn commit_review_action(
     store: &LmdbRecordStore,
+    authenticated: &yai_core_engine::security::AuthenticatedPrincipal,
+    tenant_id: &str,
     state: &yai_core_engine::transition::CaseState,
     action: &ReviewAction,
 ) -> Result<yai_core_engine::transition::CaseState, String> {
@@ -221,13 +214,20 @@ fn commit_review_action(
         format!("transition:{}", action.action_id),
         &state.case_id,
         state.generation,
-        review_source(&action.reviewer_participant_id, &action.action_id),
+        TransitionSource {
+            component: REVIEW_COMPONENT.to_string(),
+            participant_id: Some(action.reviewer_participant_id.clone()),
+            principal_id: action.principal_id.clone(),
+            source_ref: Some(action.action_id.clone()),
+        },
         TransitionPayload::ReviewActionRecorded {
             action: action.clone(),
         },
     );
     pending.causal_refs = vec![action.review_id.clone(), action.operation_id.clone()];
-    store.commit_transition(pending).map(|commit| commit.state)
+    store
+        .commit_secured_transition(authenticated, tenant_id, pending, false)
+        .map(|commit| commit.state)
 }
 
 pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Result<(), String> {
@@ -236,12 +236,24 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
         .filter(|value| !value.starts_with("--"))
         .ok_or_else(|| "review_id is required".to_string())?;
     let case_id = named_arg(args, "--case")?;
-    let reviewer = named_arg(args, "--as")?;
+    if optional_arg(args, "--as").is_some() {
+        return Err("reviewer_selection_by_as_is_forbidden_for_tenant_case".to_string());
+    }
     let reason = named_arg(args, "--reason")?;
+    let authenticated = authenticate_local()?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let initial_state = store
-        .get_case_state(&case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let initial_state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    let tenant_id = initial_state
+        .tenant_id
+        .clone()
+        .ok_or_else(|| "legacy_review_is_compatibility_only".to_string())?;
+    let principal_id = authenticated.projected_principal_id();
+    let reviewer = initial_state
+        .principal_participant_links
+        .iter()
+        .find(|link| link.principal_id == principal_id && link.tenant_id == tenant_id)
+        .map(|link| link.participant_id.clone())
+        .ok_or_else(|| "authenticated_principal_participant_link_required".to_string())?;
     if initial_state.lifecycle != CaseLifecycle::Open {
         return Err("review_action_requires_open_case".to_string());
     }
@@ -257,9 +269,7 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
         println!("invalidation_reason: {:?}", invalidated.invalidation_reason);
         return Err("review_authority_invalidated".to_string());
     }
-    let state = store
-        .get_case_state(&case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
     let review = case_review(&state, review_id)?;
     if !reviewer_is_eligible(&state, &review, &reviewer) {
         return Err("reviewer_not_eligible_for_case_review".to_string());
@@ -312,16 +322,19 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
             }
         }
     }
-    let action = build_review_action(
+    let action = build_authenticated_review_action(
         &review,
         &case_id,
+        &tenant_id,
+        &principal_id,
         &reviewer,
         requested.clone(),
         &reason,
         state.generation,
         LOCAL_OPERATOR_SOURCE,
     )?;
-    let state_after_action = commit_review_action(&store, &state, &action)?;
+    let state_after_action =
+        commit_review_action(&store, &authenticated, &tenant_id, &state, &action)?;
     if optional_arg(args, "--failpoint").as_deref() == Some("review_r3") {
         eprintln!("review_crash_injected: review_r3");
         std::process::exit(103);
@@ -357,6 +370,7 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
     println!("review_id: {review_id}");
     println!("case_id: {case_id}");
     println!("reviewer_participant: {reviewer}");
+    println!("authenticated_principal_id: {principal_id}");
     println!("action: {}", action_label(&requested));
     println!("action_id: {}", action.action_id);
     println!(

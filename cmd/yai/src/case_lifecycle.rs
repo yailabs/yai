@@ -1,6 +1,7 @@
 //! CLI-only surface for durable Case cancellation and terminal closure.
 
 use super::*;
+use crate::security::{authenticate_local, reject_spoofed_as};
 use yai_core_engine::transition::{EffectLifecycle, GrantLifecycle, ReviewResolution};
 
 fn print_terminal_posture(store: &LmdbRecordStore, case_id: &str) -> Result<(), String> {
@@ -55,10 +56,12 @@ fn print_terminal_posture(store: &LmdbRecordStore, case_id: &str) -> Result<(), 
 
 pub(super) fn case_cancel(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
-    let actor_ref = named_arg(args, "--as")?;
+    let authenticated = authenticate_local()?;
+    reject_spoofed_as(args, &authenticated.projected_principal_id())?;
     let reason = named_arg(args, "--reason")?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let outcome = store.cancel_case(&case_id, &actor_ref, &reason)?;
+    store.get_case_state_authorized(&authenticated, &case_id)?;
+    let outcome = store.cancel_tenant_case(&authenticated, &case_id, &reason)?;
     println!(
         "case_cancel: {}",
         if outcome.changed {
@@ -82,10 +85,12 @@ pub(super) fn case_cancel(args: &[String]) -> Result<(), String> {
 
 pub(super) fn case_close(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
-    let actor_ref = named_arg(args, "--as")?;
+    let authenticated = authenticate_local()?;
+    reject_spoofed_as(args, &authenticated.projected_principal_id())?;
     let reason = named_arg(args, "--reason")?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let outcome = store.close_case(&case_id, &actor_ref, &reason)?;
+    store.get_case_state_authorized(&authenticated, &case_id)?;
+    let outcome = store.close_tenant_case(&authenticated, &case_id, &reason)?;
     println!(
         "case_close: {}",
         if outcome.changed {

@@ -35,8 +35,15 @@ require_text() {
 
 trace_product() {
   [[ "${YAI_EXECUTION_EVIDENCE:-0}" == "1" ]] || return 0
-  printf '\n[product-command:%s]\n$ %s\n%s\nexit: %s\n' \
-    "$1" "$2" "$3" "$4" >&2
+  if [[ "${YAI_EVIDENCE_COMPACT:-0}" == "1" ]]; then
+    local bounded
+    bounded=$(grep -E '^(principal_id|tenant_id|policy_(ingest|validate|publish)|artifact_id|policy_lineage_id|lifecycle|runtime_consumable|case_policy_bind|binding_id|normative_readiness|policy_validity|effective_policy_id|provider_invocation_id|provider_result_id|operation_id|decision_id|decision_reason|decision_basis_id|decision|execution_grant_id|execution_grant|grant_id|grant_issued_at|grant_expires_at|prepared_effect_id|effect_id|receipt_id|effect_receipt_id|effect_lifecycle|external_effect|second_provider_invocation_id|second_provider_result_id|second_turn_consequence|provider_invocations|execution_grants):' <<<"$3" || true)
+    printf '\n[product-command:%s]\n$ %s\n%s\nexit: %s\n' \
+      "$1" "$2" "$bounded" "$4" >&2
+  else
+    printf '\n[product-command:%s]\n$ %s\n%s\nexit: %s\n' \
+      "$1" "$2" "$3" "$4" >&2
+  fi
 }
 
 mkdir -p "$TEST_DIR/daemon-user"
@@ -72,6 +79,7 @@ setup_case() {
     sleep 0.02
   done
   PROVIDER_PORT=$(tr -d '[:space:]' <"$port_file")
+  yai_bootstrap_tenant_case "$YAI_BIN" "$CASE_HOME" case:new12-filesystem
   YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" case enter \
     --case case:new12-filesystem --subject subject:llm-provider >/dev/null
   YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" case attach-provider \
@@ -134,6 +142,7 @@ CASE_JOURNAL="$TEST_DIR/unconfigured/journal.jsonl"
 RESOURCE_ROOT="$TEST_DIR/unconfigured/resource"
 mkdir -p "$CASE_HOME" "$RESOURCE_ROOT/allowed"
 cp "$BASE_JOURNAL" "$CASE_JOURNAL"
+yai_bootstrap_tenant_case "$YAI_BIN" "$CASE_HOME" case:new12-filesystem
 YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" case enter \
   --case case:new12-filesystem --subject subject:llm-provider >/dev/null
 YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" case attach-provider \

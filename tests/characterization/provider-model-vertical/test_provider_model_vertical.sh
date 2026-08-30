@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 YAI_BIN="$ROOT/target/debug/yai"
+source "$ROOT/tests/characterization/lib/governed_case_policy.sh"
 YAID="$ROOT/build/yaid"
 TEST_DIR="$ROOT/build/tmp/characterization-provider-$$"
 YAI_HOME="$TEST_DIR/home"
@@ -40,6 +41,7 @@ journal=$(sed -n 's/.*"journal_path":"\([^"]*\)".*/\1/p' <<<"$loop_output")
 test -s "$journal"
 frames_before=$(grep -c -F '"record_kind":"participant_view_frame"' "$journal" || true)
 
+yai_bootstrap_tenant_case "$YAI_BIN" "$YAI_HOME" case:new12-filesystem
 YAI_JOURNAL="$journal" "$YAI_BIN" case enter \
   --case case:new12-filesystem --subject subject:llm-provider >/dev/null
 YAI_JOURNAL="$journal" "$YAI_BIN" case attach-provider \

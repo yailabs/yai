@@ -4,9 +4,10 @@
 //! artifacts/lifecycle events. It never binds a Case or emits authority.
 
 use super::*;
+use crate::security::{authenticate_local, reject_spoofed_as};
 use yai_core_engine::governance::{
-    compile_policy_source, NormalizedPolicyRule, ParsedPolicyFact, PolicyArtifactView,
-    PolicyLifecycleState, PolicySourceArtifact, PolicyValidationStatus,
+    compile_policy_source, scope_policy_compilation, NormalizedPolicyRule, ParsedPolicyFact,
+    PolicyArtifactView, PolicyLifecycleState, PolicySourceArtifact, PolicyValidationStatus,
 };
 
 fn state_label(state: &PolicyLifecycleState) -> &'static str {
@@ -70,6 +71,17 @@ fn print_artifact(view: &PolicyArtifactView) {
     println!("policy_key: {}", artifact.policy_key);
     println!("artifact_version: {}", artifact.artifact_version);
     println!("owner_ref: {}", artifact.owner_ref);
+    println!(
+        "tenant_id: {}",
+        artifact.tenant_id.as_deref().unwrap_or("legacy_unscoped")
+    );
+    println!(
+        "organization_ref: {}",
+        artifact
+            .organization_ref
+            .as_deref()
+            .unwrap_or("legacy_projection_unavailable")
+    );
     println!("policy_lineage_id: {}", artifact.lineage().identity());
     if let Some(origin) = &artifact.source_origin {
         println!("source_system: {}", origin.source_system);
@@ -183,12 +195,25 @@ fn positional(args: &[String], label: &str) -> Result<String, String> {
 
 fn policy_ingest(args: &[String]) -> Result<(), String> {
     let source_path = PathBuf::from(positional(args, "policy source path")?);
-    let actor_ref = named_arg(args, "--as")?;
+    let tenant_id = named_arg(args, "--tenant")?;
+    let authenticated = authenticate_local()?;
+    let principal_id = authenticated.projected_principal_id();
+    reject_spoofed_as(args, &principal_id)?;
     let bytes = fs::read(&source_path)
         .map_err(|error| format!("failed to read {}: {error}", source_path.display()))?;
-    let compilation = compile_policy_source(&bytes)?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let outcome = store.ingest_policy_compilation(&compilation, &actor_ref)?;
+    let context = store.resolve_security_context(&authenticated, &tenant_id)?;
+    context.require_owner()?;
+    let tenant = store
+        .get_tenant(&tenant_id)?
+        .ok_or_else(|| "tenant_not_visible".to_string())?;
+    let compilation = scope_policy_compilation(
+        &compile_policy_source(&bytes)?,
+        &tenant_id,
+        &tenant.organization_ref,
+    )?;
+    let outcome =
+        store.ingest_tenant_policy_compilation(&authenticated, &tenant_id, &compilation)?;
     println!(
         "policy_ingest: {}",
         if outcome.artifact_created {
@@ -207,16 +232,14 @@ fn policy_ingest(args: &[String]) -> Result<(), String> {
 
 fn policy_inspect(args: &[String]) -> Result<(), String> {
     let identity = positional(args, "policy source/artifact id")?;
+    let authenticated = authenticate_local()?;
     let store = LmdbRecordStore::open(record_store_path())?;
     if identity.starts_with("policy-source:") {
-        let source = store
-            .get_policy_source(&identity)?
-            .ok_or_else(|| format!("policy_source_not_found: {identity}"))?;
+        let tenant_id = named_arg(args, "--tenant")?;
+        let source = store.get_policy_source_authorized(&authenticated, &tenant_id, &identity)?;
         print_source(&source);
     } else {
-        let view = store
-            .policy_artifact_view(&identity)?
-            .ok_or_else(|| format!("policy_artifact_not_found: {identity}"))?;
+        let view = store.policy_artifact_view_authorized(&authenticated, &identity)?;
         print_artifact(&view);
     }
     Ok(())
@@ -224,11 +247,12 @@ fn policy_inspect(args: &[String]) -> Result<(), String> {
 
 fn policy_validate(args: &[String]) -> Result<(), String> {
     let artifact_id = positional(args, "policy artifact id")?;
-    let actor_ref = named_arg(args, "--as")?;
+    let authenticated = authenticate_local()?;
+    reject_spoofed_as(args, &authenticated.projected_principal_id())?;
     let reason = optional_arg(args, "--reason")
         .unwrap_or_else(|| "deterministic policy qualification passed".to_string());
     let store = LmdbRecordStore::open(record_store_path())?;
-    let outcome = store.validate_policy_artifact(&artifact_id, &actor_ref, &reason)?;
+    let outcome = store.validate_tenant_policy_artifact(&authenticated, &artifact_id, &reason)?;
     println!(
         "policy_validate: {}",
         if outcome.changed {
@@ -243,11 +267,12 @@ fn policy_validate(args: &[String]) -> Result<(), String> {
 
 fn policy_publish(args: &[String]) -> Result<(), String> {
     let artifact_id = positional(args, "policy artifact id")?;
-    let actor_ref = named_arg(args, "--as")?;
+    let authenticated = authenticate_local()?;
+    reject_spoofed_as(args, &authenticated.projected_principal_id())?;
     let reason = optional_arg(args, "--reason")
         .unwrap_or_else(|| "trusted local operator published qualified artifact".to_string());
     let store = LmdbRecordStore::open(record_store_path())?;
-    let outcome = store.publish_policy_artifact(&artifact_id, &actor_ref, &reason)?;
+    let outcome = store.publish_tenant_policy_artifact(&authenticated, &artifact_id, &reason)?;
     println!(
         "policy_publish: {}",
         if outcome.changed {
@@ -262,10 +287,11 @@ fn policy_publish(args: &[String]) -> Result<(), String> {
 
 fn policy_retire(args: &[String]) -> Result<(), String> {
     let artifact_id = positional(args, "policy artifact id")?;
-    let actor_ref = named_arg(args, "--as")?;
+    let authenticated = authenticate_local()?;
+    reject_spoofed_as(args, &authenticated.projected_principal_id())?;
     let reason = named_arg(args, "--reason")?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let outcome = store.retire_policy_artifact(&artifact_id, &actor_ref, &reason)?;
+    let outcome = store.retire_tenant_policy_artifact(&authenticated, &artifact_id, &reason)?;
     println!(
         "policy_retire: {}",
         if outcome.changed {
@@ -280,10 +306,11 @@ fn policy_retire(args: &[String]) -> Result<(), String> {
 
 fn policy_revoke(args: &[String]) -> Result<(), String> {
     let artifact_id = positional(args, "policy artifact id")?;
-    let actor_ref = named_arg(args, "--as")?;
+    let authenticated = authenticate_local()?;
+    reject_spoofed_as(args, &authenticated.projected_principal_id())?;
     let reason = named_arg(args, "--reason")?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let outcome = store.revoke_policy_artifact(&artifact_id, &actor_ref, &reason)?;
+    let outcome = store.revoke_tenant_policy_artifact(&authenticated, &artifact_id, &reason)?;
     println!(
         "policy_revoke: {}",
         if outcome.changed {
@@ -296,9 +323,11 @@ fn policy_revoke(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-fn policy_list() -> Result<(), String> {
+fn policy_list(args: &[String]) -> Result<(), String> {
+    let tenant_id = named_arg(args, "--tenant")?;
+    let authenticated = authenticate_local()?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let views = store.list_policy_artifact_views()?;
+    let views = store.list_policy_artifact_views_authorized(&authenticated, &tenant_id)?;
     println!("policy_artifacts: {}", views.len());
     for view in views {
         println!(
@@ -322,7 +351,7 @@ pub(super) fn policy_command(args: &[String]) -> Result<(), String> {
         Some("publish") => policy_publish(&args[1..]),
         Some("retire") => policy_retire(&args[1..]),
         Some("revoke") => policy_revoke(&args[1..]),
-        Some("list") => policy_list(),
+        Some("list") => policy_list(&args[1..]),
         Some(other) => Err(format!("unknown policy command: {other}")),
         None => Err("policy command is required".to_string()),
     }

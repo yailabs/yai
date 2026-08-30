@@ -3,9 +3,10 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 YAI_BIN="$ROOT/target/debug/yai"
+source "$ROOT/tests/characterization/lib/governed_case_policy.sh"
 YAID="$ROOT/build/yaid"
 TEST_DIR="$(mktemp -d /tmp/yai-case-policy.XXXXXX)"
-SOCKET="/tmp/yai-wave9-$$.sock"
+SOCKET="$TEST_DIR/yaid.sock"
 BASE_JOURNAL="$TEST_DIR/base.jsonl"
 DAEMON_PID=""
 CASE_HOME="$TEST_DIR/home"
@@ -25,65 +26,55 @@ require_text() { grep -Fq -- "$2" <<<"$1"; }
 write_policy() {
   local path="$1" key="$2" version="$3" effect="$4" review="$5"
   cat >"$path" <<JSON
-{"schema":"yai.policy_source_input.v2","policy_key":"$key","source_version":"$version","owner_ref":"organization:wave9","source_origin":{"source_system":"wave9-characterization","source_uri":"test://wave9/$key/$version"},"rules":[{"kind":"operation_restriction","rule_id":"operation-$key-$version","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"$effect","reason":"deterministic operation posture"},{"kind":"review_requirement","rule_id":"review-$key-$version","operation_kind":"filesystem.write","resource_kind":"filesystem","required":$review,"reason":"deterministic review posture"},{"kind":"evidence_obligation","rule_id":"evidence-$key-$version","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"post_observation","reason":"observed consequence required"}]}
+{"schema":"yai.policy_source_input.v4","policy_key":"$key","source_version":"$version","owner_ref":"organization:characterization","source_origin":{"source_system":"wave9-characterization","source_uri":"test://wave9/$key/$version"},"validity":{"mode":"unbounded"},"rules":[{"kind":"operation_restriction","rule_id":"operation-$key-$version","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"$effect","reason":"deterministic operation posture"},{"kind":"review_requirement","rule_id":"review-$key-$version","operation_kind":"filesystem.write","resource_kind":"filesystem","required":$review,"reason":"deterministic review posture"},{"kind":"evidence_obligation","rule_id":"evidence-$key-$version","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"post_observation","reason":"observed consequence required"}]}
 JSON
 }
 
-mkdir -p "$TEST_DIR/daemon-home" "$CASE_HOME" "$TEST_DIR/policies"
-YAI_HOME="$TEST_DIR/daemon-home" "$YAID" --socket "$SOCKET" --foreground >"$TEST_DIR/yaid.log" 2>&1 &
-DAEMON_PID=$!
-for _ in $(seq 1 100); do [[ -S "$SOCKET" ]] && break; sleep 0.02; done
-[[ -S "$SOCKET" ]]
-loop_output=$(YAI_HOME="$TEST_DIR/daemon-home" "$YAI_BIN" daemon run-filesystem-loop --socket "$SOCKET")
-source_journal=$(sed -n 's/.*"journal_path":"\([^"]*\)".*/\1/p' <<<"$loop_output")
-cp "$ROOT/$source_journal" "$BASE_JOURNAL"
-YAI_HOME="$TEST_DIR/daemon-home" "$YAI_BIN" daemon shutdown --socket "$SOCKET" >/dev/null
-wait "$DAEMON_PID"
-DAEMON_PID=""
+mkdir -p "$CASE_HOME" "$TEST_DIR/policies"
 export YAI_HOME="$CASE_HOME"
-YAI_JOURNAL="$BASE_JOURNAL" "$YAI_BIN" case enter --case case:new12-filesystem --subject subject:llm-provider >/dev/null
+yai_bootstrap_tenant_case "$YAI_BIN" "$CASE_HOME" case:new12-filesystem
 
 write_policy "$TEST_DIR/policies/security-v1.json" filesystem-security 1 allow false
 write_policy "$TEST_DIR/policies/security-v2.json" filesystem-security 2 deny true
 write_policy "$TEST_DIR/policies/audit-v1.json" audit-obligations 1 deny true
 
-candidate=$("$YAI_BIN" policy ingest "$TEST_DIR/policies/security-v1.json" --as participant:policy-admin)
+candidate=$("$YAI_BIN" policy ingest "$TEST_DIR/policies/security-v1.json" --tenant tenant:characterization)
 v1=$(sed -n 's/^artifact_id: //p' <<<"$candidate" | head -1)
 generation=$("$YAI_BIN" case policy status --case case:new12-filesystem | sed -n 's/^case_generation: //p')
 set +e
-candidate_error=$("$YAI_BIN" case policy bind --case case:new12-filesystem --artifact "$v1" --expected-generation "$generation" --as participant:operator 2>&1)
+candidate_error=$("$YAI_BIN" case policy bind --case case:new12-filesystem --artifact "$v1" --expected-generation "$generation" 2>&1)
 candidate_code=$?
 set -e
 [[ "$candidate_code" -ne 0 ]]
 require_text "$candidate_error" "not_eligible"
-v1_validation=$("$YAI_BIN" policy validate "$v1" --as participant:policy-admin)
-v1_publication=$("$YAI_BIN" policy publish "$v1" --as participant:policy-admin)
-bound=$("$YAI_BIN" case policy bind --case case:new12-filesystem --artifact "$v1" --expected-generation "$generation" --as participant:operator)
+v1_validation=$("$YAI_BIN" policy validate "$v1")
+v1_publication=$("$YAI_BIN" policy publish "$v1")
+bound=$("$YAI_BIN" case policy bind --case case:new12-filesystem --artifact "$v1" --expected-generation "$generation")
 require_text "$bound" "case_policy_bind: committed"
 require_text "$bound" "normative_readiness: ready"
 binding=$(sed -n 's/^policy_binding: binding_id=\([^ ]*\).*/\1/p' <<<"$bound" | head -1)
 
-audit_candidate=$("$YAI_BIN" policy ingest "$TEST_DIR/policies/audit-v1.json" --as participant:policy-admin)
+audit_candidate=$("$YAI_BIN" policy ingest "$TEST_DIR/policies/audit-v1.json" --tenant tenant:characterization)
 audit=$(sed -n 's/^artifact_id: //p' <<<"$audit_candidate" | head -1)
-audit_validation=$("$YAI_BIN" policy validate "$audit" --as participant:policy-admin)
-audit_publication=$("$YAI_BIN" policy publish "$audit" --as participant:policy-admin)
+audit_validation=$("$YAI_BIN" policy validate "$audit")
+audit_publication=$("$YAI_BIN" policy publish "$audit")
 generation=$(sed -n 's/^case_generation: //p' <<<"$bound" | head -1)
-multi=$("$YAI_BIN" case policy bind --case case:new12-filesystem --artifact "$audit" --expected-generation "$generation" --as participant:operator)
+multi=$("$YAI_BIN" case policy bind --case case:new12-filesystem --artifact "$audit" --expected-generation "$generation")
 require_text "$multi" "active_policy_bindings: 2"
 require_text "$multi" "effective_resolved_conflicts: 2"
 require_text "$multi" "decision_count: 0"
 require_text "$multi" "execution_grant_count: 0"
 require_text "$multi" "prepared_effect_count: 0"
 
-v2_candidate=$("$YAI_BIN" policy ingest "$TEST_DIR/policies/security-v2.json" --as participant:policy-admin)
+v2_candidate=$("$YAI_BIN" policy ingest "$TEST_DIR/policies/security-v2.json" --tenant tenant:characterization)
 v2=$(sed -n 's/^artifact_id: //p' <<<"$v2_candidate" | head -1)
-v2_validation=$("$YAI_BIN" policy validate "$v2" --as participant:policy-admin)
-v2_publication=$("$YAI_BIN" policy publish "$v2" --as participant:policy-admin)
+v2_validation=$("$YAI_BIN" policy validate "$v2")
+v2_publication=$("$YAI_BIN" policy publish "$v2")
 pinned=$("$YAI_BIN" case policy status --case case:new12-filesystem)
 require_text "$pinned" "artifact_id=$v1 version=1"
 require_text "$pinned" "status=superseded:current=$v2"
 generation=$(sed -n 's/^case_generation: //p' <<<"$pinned")
-replaced=$("$YAI_BIN" case policy replace --case case:new12-filesystem --binding "$binding" --artifact "$v2" --expected-generation "$generation" --as participant:operator)
+replaced=$("$YAI_BIN" case policy replace --case case:new12-filesystem --binding "$binding" --artifact "$v2" --expected-generation "$generation")
 require_text "$replaced" "case_policy_replace: committed"
 require_text "$replaced" "artifact_id=$v2 version=2"
 

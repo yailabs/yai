@@ -21,6 +21,13 @@ cat > "$JOURNAL" <<'JSONL'
 {"schema":"yai.store.record.v0","record_id":"rec:spine44-policy","case_ref":"case:spine44","record_kind":"policy_rule","subject_ref":"subject:filesystem","attempt_id":"","decision_id":"","receipt_id":"","summary":"policy constrains subject"}
 JSONL
 
+YAI_HOME="$YAI_HOME" "$YAI_BIN" security bootstrap-local \
+  --tenant tenant:spine44 --organization organization:characterization >/dev/null
+YAI_HOME="$YAI_HOME" "$YAI_BIN" case create \
+  --case case:spine44 --tenant tenant:spine44 >/dev/null
+YAI_HOME="$YAI_HOME" "$YAI_BIN" case create \
+  --case case:missing --tenant tenant:spine44 >/dev/null
+
 YAI_HOME="$YAI_HOME" "$YAI_BIN" graph rebuild --case case:spine44 --from journal --path "$JOURNAL" >/dev/null
 
 summary="$(YAI_HOME="$YAI_HOME" "$YAI_BIN" graph runtime-summary --case case:spine44)"

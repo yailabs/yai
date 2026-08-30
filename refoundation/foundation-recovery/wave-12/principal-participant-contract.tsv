@@ -1,0 +1,9 @@
+property	contract
+canonical_payload	ParticipantPrincipalLinked in yai.transition.v8
+materialization	CaseState v8 principal_participant_links
+domain	link Case tenant_id must match Principal Tenant membership and current Case domain
+cardinality	one active Participant per Principal per Case; one human-linked Principal per Participant
+roles	link never adds, copies or implies a Participant role
+provider	provider/model Participants remain unlinked and cannot submit human ReviewAction
+review_resolution	authenticate → membership → link → current Participant roles → policy reviewer eligibility
+admin_provenance	created_by_principal_id is integrity-bound and source.principal_id must match

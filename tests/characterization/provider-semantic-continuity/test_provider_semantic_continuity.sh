@@ -79,6 +79,7 @@ setup_case() {
   RESOURCE_ROOT="$TEST_DIR/$name/resource"
   mkdir -p "$CASE_HOME" "$RESOURCE_ROOT/allowed"
   cp "$BASE_JOURNAL" "$CASE_JOURNAL"
+  yai_bootstrap_tenant_case "$YAI_BIN" "$CASE_HOME" case:new12-filesystem
   YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" case enter \
     --case case:new12-filesystem --subject subject:llm-provider >/dev/null
   YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" case attach-provider \

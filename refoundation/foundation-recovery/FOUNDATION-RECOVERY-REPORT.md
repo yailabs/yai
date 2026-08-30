@@ -30,13 +30,15 @@ later governance/law cutovers, neutral-sample cleanup and final drain residue.
   both are rechecked by the operational consumer.
 - Policy-driven authority, DecisionBasis, evidence obligations, role-based
   review eligibility and policy-bound Grant: refounded proven for the current
-  filesystem consumer; authentication and generalized policy remain open.
+  filesystem consumer; human review is local-POSIX-Principal qualified.
 - Validity/expiry/revoke, review/Grant invalidation, cancellation and terminal
   non-destructive Case closure: refounded proven for the local filesystem
   consumer after Wave 11.
-- Tenant isolation, multi-Case runtime, resource fencing/second carrier,
-  provider governance, complete Case lifecycle, build lifecycle and data
-  longevity remain future recovery families.
+- Local Tenant/Principal security-domain ownership and Case/policy/read
+  isolation: refounded proven within the documented POSIX/filesystem trust
+  model. Multi-Case runtime, resource fencing/second carrier, provider
+  governance, external SSO/account identity, build lifecycle and data longevity
+  remain future recovery families.
 
 ## Wave-8 constitutional verdict
 
@@ -162,3 +164,39 @@ lifecycle, cancellation, closure and historical temporal replay are
 `refounded_proven` within the current local trust model. Authentication,
 Tenant/Principal, distributed time/revoke, resource fencing, second carriers,
 archive/retention and reopen remain outside Wave 11.
+
+## Wave-12 verdict
+
+Wave 12 directly re-inspected the canonical-login, post-auth session,
+root/user contamination and root OPERATOR/arming epochs plus their final-tree
+auth/session forms. It recovered explicit authenticated identity, kernel
+credential provenance, authentication/session separation, scoped Case access
+and the fact that identity is not role. It rejected password transport/user
+store restoration, environment identity, root/user Case hierarchy, caller
+OPERATOR/arming fields, self-verified local-dev auth and the mutable UserSession
+mega-context.
+
+The refounded local boundary is one `security.rs` owner. A sealed
+`AuthenticatedPrincipal` observes real/effective POSIX UID/GID and uses the
+effective credential binding. Immutable `yai.security_principal.v1` and
+`yai.tenant.v1` records plus append-only `yai.security_event.v1` membership
+history share the existing LMDB environment. Tenant is the security domain;
+Organization remains immutable Tenant metadata/projection and earned no
+independent runtime owner or lifecycle. No canonical login session was added.
+
+New Case v8 history binds exactly one immutable Tenant. New policy artifact v5
+and lifecycle v3 ownership, Tenant+policy-key lineage, CasePolicyBinding v2,
+EffectivePolicy v3 and DecisionBasis v3 preserve that domain. ReviewAction v2
+records an authenticated Principal and linked Participant; the link adds no
+role, and Tenant Owner is not an automatic reviewer. Canonical admin writes and
+Case/policy/review reads revalidate membership/ownership at the store boundary.
+Cross-Tenant binding and exact/overlapping filesystem root aliases fail closed.
+Legacy unscoped Case and policy histories remain readable/replayable but cannot
+silently become new Tenant authority.
+
+Principal/local authentication, Tenant security-domain ownership, Tenant-
+scoped governance catalog, Case/read isolation and authenticated human review
+are `refounded_proven` within the local POSIX trust model. Organization is
+`partially_refounded` as projection-only. SSO/account identity, credential
+vaulting, membership removal, VM/container isolation, multi-Case scheduling
+and shared-resource fencing remain deferred.

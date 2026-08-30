@@ -1223,7 +1223,8 @@ impl Decision {
                 .ok_or_else(|| "policy_decision_basis_missing".to_string())?;
             basis.validate_integrity()?;
             if (self.schema == DECISION_SCHEMA
-                && basis.schema != crate::admission::DECISION_BASIS_SCHEMA)
+                && basis.schema != crate::admission::DECISION_BASIS_SCHEMA
+                && basis.schema != crate::admission::DECISION_BASIS_SCHEMA_V2)
                 || (self.schema == DECISION_SCHEMA_V2
                     && basis.schema != crate::admission::DECISION_BASIS_SCHEMA_V1)
             {

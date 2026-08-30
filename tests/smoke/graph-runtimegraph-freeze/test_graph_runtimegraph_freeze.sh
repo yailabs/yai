@@ -48,6 +48,12 @@ if [[ -z "$journal_path" ]]; then
 fi
 
 YAI_HOME="$YAI_HOME" "$YAI_BIN" journal replay --path "$journal_path" >/dev/null
+YAI_HOME="$YAI_HOME" "$YAI_BIN" security bootstrap-local \
+  --tenant tenant:graph-freeze --organization organization:characterization >/dev/null
+YAI_HOME="$YAI_HOME" "$YAI_BIN" case create \
+  --case case:new12-filesystem --tenant tenant:graph-freeze >/dev/null
+YAI_HOME="$YAI_HOME" "$YAI_BIN" case create \
+  --case case:missing --tenant tenant:graph-freeze >/dev/null
 
 schema="$(YAI_HOME="$YAI_HOME" "$YAI_BIN" graph schema)"
 require_line "$schema" "graph_schema:"

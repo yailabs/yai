@@ -1,0 +1,12 @@
+scenario	expected	proof_owner
+Principal A reads Case B	case_not_visible	wave12_security_domains engine test
+Tenant A binds Tenant B artifact	cross_tenant_case_policy_binding_rejected	wave12_policy_isolation engine/product characterization
+Tenant A revokes Tenant B artifact	tenant_not_visible; B remains Published	wave12_policy_isolation
+same source bytes A/B	global source digest may match; artifact and lineage differ	wave12_policy_isolation
+Tenant B attaches Tenant A exact root	cross_tenant_filesystem_root_overlap	wave12_root_isolation/product
+Tenant B attaches descendant root	cross_tenant_filesystem_root_overlap	wave12_root_isolation/product
+Member performs admin mutation	tenant_owner_required	wave12_security_domains
+raw commit carries real Principal string	authenticated_tenant_owner_required	wave12_security_domains
+spoofed --as	caller_supplied_as_cannot_authenticate_principal	tenant-security product characterization
+Organization refs equal	no cross access	wave12_security_domains
+provider/model claims Principal or role	no human ReviewAction	H10/W10 negative suite + authenticated review path

@@ -1,9 +1,9 @@
 # Current executable architecture
 
 Authority: implementation truth. Foundation-recovery baseline:
-`3403ecdd2a321b689e41d747cbeb9d9e7c58e5e1` (the published Wave-7
+`0e9cccd6391ba624e7cbae9312cdfa74d74bb1df` (the published Wave-11
 checkpoint). This document describes the resulting
-`YAI.SOURCE.REFOUNDATION.8` worktree.
+`YAI.SOURCE.REFOUNDATION.12` worktree.
 
 This document includes current contradictions. It does not claim that the
 [Constitution](constitution.md) is implemented. Target changes and sequencing
@@ -24,6 +24,7 @@ operator
   |     +-- Case-native typed human review on the controlled carrier
   |     +-- durable single-Case runtime admission metadata
   |     +-- deterministic governance intake and immutable policy artifacts
+  |     +-- local POSIX-authenticated Principal and Tenant security isolation
   |     +-- canonical Transition/CaseState authority in LMDB
   |     +-- legacy journal inspect/import/replay compatibility
   |     +-- LMDB graph materialization/query
@@ -38,12 +39,13 @@ operator
         +-- restartable hot-state snapshot
 ```
 
-[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is a 1,926-line command
+[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is a 1,985-line command
 parser, dispatcher, common CLI support surface, and compatibility shell. The
 current domain implementation is grouped by demonstrated boundary in
 [`provider.rs`](../cmd/yai/src/provider.rs),
 [`case_runtime.rs`](../cmd/yai/src/case_runtime.rs),
 [`policy.rs`](../cmd/yai/src/policy.rs),
+[`security.rs`](../cmd/yai/src/security.rs),
 [`memory_cli.rs`](../cmd/yai/src/memory_cli.rs),
 [`review.rs`](../cmd/yai/src/review.rs),
 [`controlled_effect.rs`](../cmd/yai/src/controlled_effect.rs),
@@ -72,10 +74,10 @@ mean constitutional, general, or production-ready.
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
 | Case-bound provider prompt | admitted participant + typed CaseState/history → qualified `yai.operational_memory.v1` retrieval → `yai.residency_plan.v1` → `yai.projection.v4` → `yai.context_frame.v4` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | HTTP is local/plain and non-streaming; ranking/residency are typed and deterministic; no learned compression or authoritative tokenizer |
-| Agentless Case runtime | disposable bounded runner reloads CaseState → reconciles effects/review → gates on normative readiness → repairs memory → retrieves/plans residency → invokes provider → normalizes/admits/effects → repeats from new canonical reality; typed `AWAITING_REVIEW`, normative stops, provider/model replacement, crash recovery, and one admitted runner per Case are executable | one synchronous single-host `filesystem.write` loop; no background scheduler or distributed lease |
-| Controlled filesystem effect | typed attachment + Ready EffectivePolicy → real HTTP ProviderResult → exact Operation → DecisionBasis/Decision/ExecutionGrant → durable PREPARE → Rust atomic replacement → Observation/Receipt → FINALIZE/RECONCILE → second provider turn | only `filesystem.write`; no validity/revoke lifecycle, second carrier or hostile-namespace fencing |
-| Human-reviewed filesystem effect | policy-driven `REQUIRE_REVIEW` → v2 request with exact basis and Case-role eligibility → APPROVE/DENY/DEFER → effective Decision → same Grant/carrier path; stale policy blocks approval | local CLI asserts a bound participant identity but does not authenticate an OS person, SSO principal, or remote signer |
-| Governance intake and admission | constrained JSON → immutable source/artifact lifecycle → exact Case binding → EffectivePolicy → operation-specific DecisionBasis; P@1/P@2 remain distinct and no automatic latest adoption occurs | publisher/actor identity is asserted; expiry/revoke, tenant authority and full retention policy remain future work |
+| Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | one synchronous single-host `filesystem.write` loop; no multi-Case scheduler, quotas, backpressure or distributed lease |
+| Controlled filesystem effect | Tenant-scoped attachment + Ready/Valid EffectivePolicy → real HTTP ProviderResult → exact Operation → DecisionBasis/Decision/finite ExecutionGrant → durable PREPARE → Rust atomic replacement → Observation/Receipt → FINALIZE/RECONCILE | only `filesystem.write`; exact/overlapping roots are rejected across Tenants, but hostile namespace fencing and a second carrier are absent |
+| Human-reviewed filesystem effect | policy-driven `REQUIRE_REVIEW` → v2 request → per-command POSIX Principal authentication → Tenant membership → explicit Principal/Participant link → Case-role eligibility → ReviewAction v2 → effective Decision → same Grant/carrier path | local POSIX identity only; no SSO, remote signer or membership removal lifecycle |
+| Governance intake and admission | authenticated Tenant owner + constrained JSON → Tenant-owned immutable artifact/lifecycle → exact Tenant-safe Case binding → EffectivePolicy → operation-specific DecisionBasis; P@1/P@2 remain distinct and validity/revoke contract future authority | local ownership is enforced; external organization identity, credential security, retention and distributed revoke remain future work |
 | Journal compatibility | inspect/dry-run/import `yai.store.record.v0` or `yai.record.v1`, preserving unknowns opaquely in an isolated target; old replay still materializes legacy record indexes | general semantic promotion is deliberately absent; the old record plane remains compatibility data, not authority |
 | Graph | typed canonical transitions and explicitly decoded legacy records → derived relations → rebuildable RuntimeGraph → bounded query | generation/version invalidation remains minimal; legacy-only cases still depend on compatibility translation |
 | Analytical facts | LMDB operational records → DuckDB extraction → reports | four declared families have no extractor; schema/orchestration remains embedded in the command crate |
@@ -111,14 +113,17 @@ verticals/tests.
 Rust owns one canonical semantic write path in
 [`transition.rs`](../engine/yai-engine/src/transition.rs) and
 [`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). Its serialized contracts
-are `yai.transition.v6` and `yai.case_state.v6`; readers retain v1-v5 state
+are `yai.transition.v8` and `yai.case_state.v8`; readers retain v1-v7 state
 and transition compatibility while rejecting unknown future contracts.
 Version 3 added provider identity, semantic-frame/render lineage and typed
 interaction turns. Version 4 adds Operation-bound ReviewRequest,
 integrity-bound ReviewAction, effective Decision refs and resource review
 posture. Version 5 adds exact Case PolicyBinding bind/replace/unbind payloads
 and their compact current CaseState materialization. It does not make derived
-EffectivePolicy or context canonical. One bounded LMDB write
+EffectivePolicy or context canonical. Version 6 adds policy-bound authority,
+version 7 temporal invalidation/cancellation/closure, and version 8 adds
+immutable Case Tenant ownership, authenticated transition provenance and
+Principal-to-Participant links. One bounded LMDB write
 transaction:
 
 1. validates typed payload closure and global Transition identity;
@@ -139,7 +144,8 @@ materialized CaseState == replay(ordered canonical Transitions)
 ```
 
 The reducer deliberately covers only current live fields: Case lifecycle and
-generation, participant bindings/admitted views, one current provider/model
+generation, immutable Tenant domain, Principal links, participant
+bindings/admitted views, one current provider/model
 attachment, latest provider invocation/result/interpretation lineage, typed
 Operation-bound review state, logical filesystem attachments, latest Operation/Decision, Grant
 lifecycle, and compact prepared/finalized/indeterminate effect refs. Full
@@ -305,7 +311,7 @@ preserves unknown rule kinds as unresolved, and records contradictory outcomes
 as typed conflicts. Unknown syntax/schema or malformed known rules fail;
 unresolved/conflicted candidates remain inspectable but cannot validate.
 
-`yai.policy_artifact.v3` embeds the parsed and normalized provenance chain,
+`yai.policy_artifact.v5` embeds the parsed and normalized provenance chain,
 including bounded declared `source_system` and `source_uri` origin metadata,
 and
 uses source version plus content/IR digests for immutable identity. The same
@@ -325,8 +331,10 @@ The shared LMDB map is configurable at open and defaults to 256 MiB (formerly
 256 KiB each plus their artifacts/events in the shared environment; capacity
 exhaustion is explicit and cannot partially commit a governance transaction.
 
-The artifact bytes never change. Policy lineage is exactly `owner_ref +
-policy_key`; a declared version identifies at most one immutable content inside
+The artifact bytes never change. New authority-bearing policy lineage is
+exactly `tenant_id + policy_key`; legacy v1-v4 artifacts preserve their
+historical `owner_ref + policy_key` lineage but cannot be adopted as new Tenant
+authority. A declared version identifies at most one immutable content inside
 that lineage. Publishing another validated version in the same lineage appends
 `superseded` for the previous publication and
 `published` for the new artifact. `runtime_consumable` is true only for a
@@ -334,9 +342,10 @@ qualified artifact whose derived lifecycle is currently `published`; it means
 eligible for future Case binding, not effective or authoritative now.
 
 [`policy.rs`](../cmd/yai/src/policy.rs) provides ingest/inspect/validate/
-publish/retire/list. Reads are pure. Mutating commands record a claimed local
-actor ref for provenance, but H8 does not authenticate that person and actor
-identity is not lineage ownership. Full
+publish/retire/revoke/list. Reads are pure and Tenant-filtered. Mutating
+commands authenticate the current POSIX Principal and require Tenant Owner
+membership; lifecycle v3 records that Principal. Source `owner_ref` remains
+declared provenance and cannot select the authority domain. Full
 bounded source bytes are retained to make compilation reproducible; source
 artifact absence or corruption leaves the separately stored artifact's
 digest/parsed/IR and declared origin inspectable, but byte-level recompilation
@@ -349,18 +358,20 @@ carrier, creates a Decision/Grant, or modifies filesystem resources.
 Wave 9 adds the distinct Case-native boundary in
 [`case_policy.rs`](../engine/yai-engine/src/case_policy.rs). One atomic catalog+
 Case transaction verifies an exact currently published artifact and appends a
-typed bind or replacement Transition; unbind is also canonical. CaseState keeps
+typed v2 bind or replacement Transition; unbind is also canonical. The
+artifact Tenant must exactly equal the immutable Case Tenant. CaseState keeps
 only compact exact binding refs. A published newer version never moves an
 existing Case automatically.
 
-`yai.effective_policy.v2` is derived from current bindings plus the exact
-immutable artifacts under `yai.policy_materializer.v2`. Inputs are sorted;
+`yai.effective_policy.v3` is derived from current bindings plus the exact
+immutable artifacts under `yai.policy_materializer.v3`. Its identity retains
+the Case Tenant. Inputs are sorted;
 DENY dominates ALLOW, required review dominates optional review, evidence
 obligations and role requirements compose additively, and provenance from every
 contribution survives. Its cache
 is droppable; readiness (`unconfigured`, `ready`, `blocked`) is recomputed from
 canonical bindings and available integrity-valid artifacts. Catalog drift is
-reported without implementing revocation. Binding/materialization alone emits
+reported independently from temporal validity/revoke. Binding/materialization alone emits
 no Decision, ReviewRequest, Grant, effect or provider invocation. The separate
 admission owner consumes Ready policy only after a normalized Operation exists.
 See the canonical [governance
@@ -369,11 +380,13 @@ reference](reference/governance.md).
 [`admission.rs`](../engine/yai-engine/src/admission.rs) owns the one current
 operational policy boundary. It intersects a normalized Operation with the hard
 resource envelope, Ready EffectivePolicy, Case-bound Participant roles and
-typed evidence. `yai.decision_basis.v1` preserves exact EffectivePolicy,
-binding/artifact/rule provenance, mechanical posture, authority evaluation,
-obligations and final reason. A committed `yai.decision.v2` binds that basis;
-only final ALLOW can produce `yai.execution_grant.v2` under the same current
-policy identity. Missing ALLOW, missing proposer authority, forged provider
+typed evidence. `yai.decision_basis.v3` preserves the immutable Case Tenant,
+exact EffectivePolicy,
+binding/artifact/rule provenance, mechanical posture, temporal validity,
+authority evaluation, obligations and final reason. A committed
+`yai.decision.v3` binds that basis; only final ALLOW can produce finite
+`yai.execution_grant.v3` under the same current policy identity. Missing
+ALLOW, missing proposer authority, forged provider
 lineage or stale policy basis fails closed. `source_provenance` is satisfied
 only by canonical ProviderInvocation/ProviderResult lineage; `audit_reason`
 requires an actual human ReviewAction reason; pre/post observation obligations
@@ -381,8 +394,35 @@ are carried into the Grant and never weaken carrier baseline safety.
 
 The v2 ReviewRequest carries policy basis/effective-policy digests and role
 eligibility. Approval cannot override DENY and cannot survive a changed Case
-policy basis. The local actor/role mapping remains claimed local provenance,
-not authentication, SSO, tenant authority or a generic RBAC system.
+policy basis. New ReviewAction v2 records the per-command authenticated
+Principal and exact linked reviewer Participant. Tenant ownership does not
+create a Case role; policy eligibility still consumes only current Case roles.
+
+### Local identity and Tenant isolation
+
+[`security.rs`](../engine/yai-engine/src/security.rs) is the sole identity and
+isolation semantic owner. `AuthenticatedPrincipal` is invocation-scoped and
+sealed; on POSIX it observes real/effective UID and GID from the kernel and
+uses the effective UID binding for authority. `$USER`, `HOME`, caller strings
+and eUID 0 do not grant YAI authority. Stable `yai.security_principal.v1` and
+immutable `yai.tenant.v1` records plus append-only `yai.security_event.v1`
+Owner/Member history live in five dedicated databases in the existing LMDB
+environment. Organization is immutable Tenant metadata only.
+
+Every new Case opens through a v8 TenantCaseOpened transition and can never
+change Tenant. A human Case action resolves authenticated Principal → selected
+Tenant membership → one active Principal/Participant link → existing
+Participant roles. The link carries no role. New scoped administrative writes
+and reads are verified at the store boundary; knowledge of IDs is insufficient.
+Legacy v1-v7 Cases and v1-v4 policy artifacts remain readable and replayable as
+`legacy_unscoped`, but cannot produce new live authority without a future
+explicit migration contract.
+
+For the local filesystem carrier, canonical root equality or ancestor overlap
+across different Tenants is rejected at attachment. This is a conservative
+alias barrier, not a fencing engine or hostile mount-namespace defense. The
+same Principal may belong to multiple Tenants, but every operation resolves
+one Tenant context and never combines catalogs or Case-derived reads.
 
 ## Current provider and context behavior
 
@@ -569,8 +609,9 @@ from one checkout.
 | agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops, typed human pause/resume, LMDB run admission and restart tests | generalized operation families, distributed admission and daemon scheduling are absent |
 | provider replacement preserves semantic continuity | real HTTP Provider A→filesystem FINALIZE→Provider B, same-provider model replacement, continuation invalidation and provider restart are deterministic product tests | generalized routing/economics and native runtime continuation protocols are deliberately absent |
 | derived data rebuilds from canonical state | graph rebuild consumes typed transitions and legacy compatibility; operational memory can be dropped/rebuilt with deterministic identity and canonical fallback; facts remain legacy-derived | adaptive invalidation/scheduling, compression and full typed analytics inputs |
-| governance source/artifact history | exact-byte source identity, typed deterministic parse/IR, immutable v4 validity contracts and append-only lifecycle/revoke share LMDB while remaining independent from Cases | publisher/organization authentication and retention policy |
-| Case policy configuration and admission | exact artifacts bind canonically; `yai.transition.v7` records temporally bound Decision v3, review invalidation and finite Grant v3 under `yai.effective_policy.v2`; cancellation/closure are durable barriers and historical basis is never rewritten | authenticated Principal/tenant ownership, distributed revoke and additional carriers remain later |
+| governance source/artifact history | exact-byte source identity, typed deterministic parse/IR, immutable v5 Tenant ownership/validity and append-only authenticated lifecycle/revoke share LMDB while remaining independent from Cases | external organization/SSO assertion, retention policy and distributed revoke |
+| Case policy configuration and admission | Tenant-safe exact artifacts bind canonically; `yai.transition.v8` records DecisionBasis v3, authenticated ReviewAction v2, temporal invalidation and finite Grant v3 under `yai.effective_policy.v3`; cancellation/closure are durable barriers and historical basis is never rewritten | multi-Case runtime, additional carriers and externally authenticated principals remain later |
+| authenticated Principal and Tenant isolation | kernel eUID projection, immutable Principal/Tenant catalog, Owner/Member admin checks, immutable Case Tenant, Principal/Participant links, Tenant-filtered reads and cross-Tenant filesystem-root alias rejection | local OS trust only; no SSO/account directory, membership removal, VM/container boundary or shared-resource fencing |
 
 The remaining gaps are intentional boundaries of this wave. The
 [Roadmap](../ROADMAP.md) owns their implementation sequence.

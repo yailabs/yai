@@ -21,8 +21,9 @@ use crate::admission::{
 use crate::case_policy::{
     build_case_policy_binding, materialize_effective_policy, BindingValidity, EffectivePolicy,
     EffectivePolicyInput, NormativeReadiness, NormativeStatus, PolicyCatalogDrift,
-    PolicyValidityPosture, CASE_POLICY_BINDING_SCHEMA, EFFECTIVE_POLICY_SCHEMA,
-    EFFECTIVE_POLICY_SCHEMA_V1, POLICY_MATERIALIZER_VERSION, POLICY_MATERIALIZER_VERSION_V1,
+    PolicyValidityPosture, CASE_POLICY_BINDING_SCHEMA, CASE_POLICY_BINDING_SCHEMA_V1,
+    EFFECTIVE_POLICY_SCHEMA, EFFECTIVE_POLICY_SCHEMA_V1, EFFECTIVE_POLICY_SCHEMA_V2,
+    POLICY_MATERIALIZER_VERSION, POLICY_MATERIALIZER_VERSION_V1, POLICY_MATERIALIZER_VERSION_V2,
 };
 use crate::compatibility::{
     decode_legacy_record, inspect_legacy_jsonl, LegacyDecodeOutcome, LegacyRecord,
@@ -34,14 +35,16 @@ use crate::effect::{
     OperationOrigin, LOCAL_FILESYSTEM_BINDING_SCHEMA,
 };
 use crate::governance::{
-    build_lifecycle_event, compile_policy_source, lifecycle_from_events, PolicyArtifact,
-    PolicyArtifactView, PolicyCompilation, PolicyIngestOutcome, PolicyLifecycleAction,
-    PolicyLifecycleEvent, PolicyLifecycleEventInput, PolicyLifecycleOutcome, PolicyLifecycleState,
-    PolicyLineage, PolicySourceArtifact, PolicyValidationStatus, PolicyValidityMode,
-    POLICY_ARTIFACT_SCHEMA, POLICY_ARTIFACT_SCHEMA_V1, POLICY_ARTIFACT_SCHEMA_V2,
-    POLICY_ARTIFACT_SCHEMA_V3, POLICY_LIFECYCLE_EVENT_SCHEMA, POLICY_LIFECYCLE_EVENT_SCHEMA_V1,
-    POLICY_SOURCE_ARTIFACT_SCHEMA, POLICY_SOURCE_ARTIFACT_SCHEMA_V1,
-    POLICY_SOURCE_ARTIFACT_SCHEMA_V2, POLICY_SOURCE_ARTIFACT_SCHEMA_V3,
+    build_lifecycle_event, compile_policy_source, lifecycle_from_events, scope_policy_compilation,
+    PolicyArtifact, PolicyArtifactView, PolicyCompilation, PolicyIngestOutcome,
+    PolicyLifecycleAction, PolicyLifecycleEvent, PolicyLifecycleEventInput, PolicyLifecycleOutcome,
+    PolicyLifecycleState, PolicyLineage, PolicySourceArtifact, PolicyValidationStatus,
+    PolicyValidityMode, POLICY_ARTIFACT_SCHEMA, POLICY_ARTIFACT_SCHEMA_V1,
+    POLICY_ARTIFACT_SCHEMA_V2, POLICY_ARTIFACT_SCHEMA_V3, POLICY_ARTIFACT_SCHEMA_V4,
+    POLICY_LIFECYCLE_EVENT_SCHEMA, POLICY_LIFECYCLE_EVENT_SCHEMA_V1,
+    POLICY_LIFECYCLE_EVENT_SCHEMA_V2, POLICY_SOURCE_ARTIFACT_SCHEMA,
+    POLICY_SOURCE_ARTIFACT_SCHEMA_V1, POLICY_SOURCE_ARTIFACT_SCHEMA_V2,
+    POLICY_SOURCE_ARTIFACT_SCHEMA_V3,
 };
 use crate::journal::Journal;
 use crate::memory::{
@@ -49,14 +52,19 @@ use crate::memory::{
     OPERATIONAL_MEMORY_DERIVATION, OPERATIONAL_MEMORY_MANIFEST_SCHEMA, OPERATIONAL_MEMORY_SCHEMA,
 };
 use crate::record::Record;
+use crate::security::{
+    AuthenticatedPrincipal, SecurityContext, SecurityEvent, SecurityEventAction, SecurityPrincipal,
+    Tenant, TenantMembershipKind, SECURITY_EVENT_SCHEMA, SECURITY_PRINCIPAL_SCHEMA, TENANT_SCHEMA,
+};
 use crate::transition::{
     replay_case, AuthorityInvalidationReason, CaseCancellationState, CaseClosureState,
     CaseLifecycle, CaseState, ExecutionGrantInvalidation, GrantInvalidationDisposition,
     GrantLifecycle, PendingTransition, ReviewInvalidation, ReviewResolution, Transition,
     TransitionPayload, TransitionSource, CASE_STATE_SCHEMA, CASE_STATE_SCHEMA_V1,
     CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5,
-    CASE_STATE_SCHEMA_V6, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V2,
-    TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6,
+    CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1,
+    TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5,
+    TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7,
 };
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
@@ -146,7 +154,27 @@ pub struct LmdbRecordStore {
     policy_lifecycle_sequence: Database,
     policy_current_by_lineage: Database,
     effective_policy_by_case: Database,
+    security_principals_by_id: Database,
+    security_principal_by_binding: Database,
+    tenants_by_id: Database,
+    tenant_memberships: Database,
+    security_events_by_id: Database,
     schema_meta: Database,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SecurityBootstrapOutcome {
+    pub principal: SecurityPrincipal,
+    pub tenant: Tenant,
+    pub membership: TenantMembershipKind,
+    pub events: Vec<SecurityEvent>,
+    pub created: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PrincipalTenantRelation {
+    pub tenant: Tenant,
+    pub membership: TenantMembershipKind,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -351,7 +379,7 @@ impl LmdbRecordStore {
         fs::create_dir_all(path)
             .map_err(|error| format!("failed to create {}: {error}", path.display()))?;
         let env = Environment::new()
-            .set_max_dbs(32)
+            .set_max_dbs(40)
             .set_map_size(map_size)
             .open(path)
             .map_err(|error| format!("failed to open LMDB env {}: {error}", path.display()))?;
@@ -433,6 +461,24 @@ impl LmdbRecordStore {
         let effective_policy_by_case = env
             .create_db(Some("effective_policy_by_case"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open effective_policy_by_case: {error}"))?;
+        let security_principals_by_id = env
+            .create_db(Some("security_principals_by_id"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open security_principals_by_id: {error}"))?;
+        let security_principal_by_binding = env
+            .create_db(
+                Some("security_principal_by_binding"),
+                DatabaseFlags::empty(),
+            )
+            .map_err(|error| format!("failed to open security_principal_by_binding: {error}"))?;
+        let tenants_by_id = env
+            .create_db(Some("tenants_by_id"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open tenants_by_id: {error}"))?;
+        let tenant_memberships = env
+            .create_db(Some("tenant_memberships"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open tenant_memberships: {error}"))?;
+        let security_events_by_id = env
+            .create_db(Some("security_events_by_id"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open security_events_by_id: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -461,6 +507,11 @@ impl LmdbRecordStore {
             policy_lifecycle_sequence,
             policy_current_by_lineage,
             effective_policy_by_case,
+            security_principals_by_id,
+            security_principal_by_binding,
+            tenants_by_id,
+            tenant_memberships,
+            security_events_by_id,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -487,6 +538,429 @@ impl LmdbRecordStore {
             backend: "lmdb",
             status,
         }
+    }
+
+    /// Atomically enrolls the kernel-observed local Principal, creates one
+    /// Tenant security domain, and binds the Principal as its owner. The
+    /// operation is idempotent only for an exact repeat of the same bootstrap.
+    pub fn bootstrap_local_security(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        organization_ref: &str,
+        now_unix_ms: u64,
+    ) -> Result<SecurityBootstrapOutcome, String> {
+        let proposed_principal = SecurityPrincipal::from_authenticated(authenticated, now_unix_ms)?;
+        let proposed_tenant = Tenant::new(
+            tenant_id,
+            organization_ref,
+            &proposed_principal.principal_id,
+            now_unix_ms,
+        )?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start security bootstrap: {error}"))?;
+
+        let existing_principal = get_json_txn::<SecurityPrincipal, _>(
+            &txn,
+            self.security_principals_by_id,
+            &proposed_principal.principal_id,
+            "security_principal",
+        )?;
+        let principal_created = existing_principal.is_none();
+        let principal = match existing_principal {
+            Some(existing) => {
+                existing.validate()?;
+                if !existing.matches_authenticated(authenticated) {
+                    return Err("security_principal_authentication_binding_mismatch".to_string());
+                }
+                existing
+            }
+            None => {
+                if let Ok(existing_id) = txn.get(
+                    self.security_principal_by_binding,
+                    &authenticated.binding().binding_ref,
+                ) {
+                    let existing_id = std::str::from_utf8(existing_id)
+                        .map_err(|error| format!("security_binding_index_not_utf8: {error}"))?;
+                    if existing_id != proposed_principal.principal_id {
+                        return Err("security_authentication_binding_ambiguous".to_string());
+                    }
+                }
+                put_json_txn(
+                    &mut txn,
+                    self.security_principals_by_id,
+                    &proposed_principal.principal_id,
+                    &proposed_principal,
+                    WriteFlags::NO_OVERWRITE,
+                    "security principal",
+                )?;
+                txn.put(
+                    self.security_principal_by_binding,
+                    &authenticated.binding().binding_ref,
+                    &proposed_principal.principal_id,
+                    WriteFlags::NO_OVERWRITE,
+                )
+                .map_err(|error| format!("failed to index security principal binding: {error}"))?;
+                proposed_principal.clone()
+            }
+        };
+
+        let existing_tenant =
+            get_json_txn::<Tenant, _>(&txn, self.tenants_by_id, tenant_id, "tenant")?;
+        if let Some(existing) = &existing_tenant {
+            existing.validate()?;
+            if existing.organization_ref != organization_ref
+                || existing.owner_principal_id != principal.principal_id
+            {
+                return Err("unsafe_duplicate_tenant_bootstrap".to_string());
+            }
+        }
+
+        let membership_key = tenant_membership_key(tenant_id, &principal.principal_id);
+        let existing_membership = get_json_txn::<TenantMembershipKind, _>(
+            &txn,
+            self.tenant_memberships,
+            &membership_key,
+            "tenant_membership",
+        )?;
+        if let Some(existing) = &existing_membership {
+            if *existing != TenantMembershipKind::Owner {
+                return Err("tenant_owner_membership_integrity_mismatch".to_string());
+            }
+        }
+
+        let created = existing_tenant.is_none();
+        let mut events = Vec::new();
+        if principal_created {
+            let principal_event = self.append_security_event_txn(
+                &mut txn,
+                SecurityEventAction::LocalPrincipalRegistered,
+                &principal.principal_id,
+                None,
+                Some(&principal.principal_id),
+                None,
+                now_unix_ms,
+                "kernel_authenticated_local_enrollment",
+            )?;
+            events.push(principal_event);
+        }
+        if created {
+            put_json_txn(
+                &mut txn,
+                self.tenants_by_id,
+                tenant_id,
+                &proposed_tenant,
+                WriteFlags::NO_OVERWRITE,
+                "tenant",
+            )?;
+            put_json_txn(
+                &mut txn,
+                self.tenant_memberships,
+                &membership_key,
+                &TenantMembershipKind::Owner,
+                WriteFlags::NO_OVERWRITE,
+                "tenant membership",
+            )?;
+            let tenant_event = self.append_security_event_txn(
+                &mut txn,
+                SecurityEventAction::TenantCreated,
+                &principal.principal_id,
+                Some(tenant_id),
+                Some(&principal.principal_id),
+                Some(TenantMembershipKind::Owner),
+                now_unix_ms,
+                "local_security_bootstrap",
+            )?;
+            events.push(tenant_event);
+        }
+        txn.commit()
+            .map_err(|error| format!("failed to commit security bootstrap: {error}"))?;
+        Ok(SecurityBootstrapOutcome {
+            principal,
+            tenant: existing_tenant.unwrap_or(proposed_tenant),
+            membership: TenantMembershipKind::Owner,
+            events,
+            created,
+        })
+    }
+
+    pub fn resolve_security_context(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+    ) -> Result<SecurityContext, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start security context read: {error}"))?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)
+    }
+
+    pub fn enrolled_principal(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+    ) -> Result<SecurityPrincipal, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start Principal read: {error}"))?;
+        self.authenticated_principal_txn(&txn, authenticated)
+    }
+
+    pub fn list_principal_tenants(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+    ) -> Result<Vec<PrincipalTenantRelation>, String> {
+        let principal = self.enrolled_principal(authenticated)?;
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start Tenant membership read: {error}"))?;
+        let mut cursor = txn
+            .open_ro_cursor(self.tenant_memberships)
+            .map_err(|error| format!("failed to open Tenant membership cursor: {error}"))?;
+        let suffix = format!("\0{}", principal.principal_id);
+        let mut tenant_ids = Vec::new();
+        for (key, value) in cursor.iter() {
+            let key = std::str::from_utf8(key)
+                .map_err(|error| format!("tenant_membership_key_not_utf8: {error}"))?;
+            if let Some(tenant_id) = key.strip_suffix(&suffix) {
+                let membership: TenantMembershipKind = serde_json::from_slice(value)
+                    .map_err(|error| format!("tenant_membership_decode_failed: {error}"))?;
+                tenant_ids.push((tenant_id.to_string(), membership));
+            }
+        }
+        drop(cursor);
+        tenant_ids.sort_by(|left, right| left.0.cmp(&right.0));
+        tenant_ids
+            .into_iter()
+            .map(|(tenant_id, membership)| {
+                let tenant =
+                    get_json_txn::<Tenant, _>(&txn, self.tenants_by_id, &tenant_id, "tenant")?
+                        .ok_or_else(|| "tenant_membership_dangling_tenant".to_string())?;
+                tenant.validate()?;
+                Ok(PrincipalTenantRelation { tenant, membership })
+            })
+            .collect()
+    }
+
+    pub fn get_tenant(&self, tenant_id: &str) -> Result<Option<Tenant>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start Tenant read: {error}"))?;
+        let tenant = get_json_txn::<Tenant, _>(&txn, self.tenants_by_id, tenant_id, "tenant")?;
+        if let Some(value) = &tenant {
+            value.validate()?;
+        }
+        Ok(tenant)
+    }
+
+    pub fn list_security_events(&self) -> Result<Vec<SecurityEvent>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start security event read: {error}"))?;
+        let mut cursor = txn
+            .open_ro_cursor(self.security_events_by_id)
+            .map_err(|error| format!("failed to open security event cursor: {error}"))?;
+        let mut events = Vec::new();
+        for (_, value) in cursor.iter() {
+            let event: SecurityEvent = serde_json::from_slice(value)
+                .map_err(|error| format!("security_event_decode_failed: {error}"))?;
+            event.validate()?;
+            events.push(event);
+        }
+        events.sort_by_key(|event| event.sequence);
+        Ok(events)
+    }
+
+    pub fn add_tenant_member(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        subject_principal_id: &str,
+        now_unix_ms: u64,
+    ) -> Result<SecurityEvent, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start Tenant membership write: {error}"))?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        let subject = get_json_txn::<SecurityPrincipal, _>(
+            &txn,
+            self.security_principals_by_id,
+            subject_principal_id,
+            "security_principal",
+        )?
+        .ok_or_else(|| "subject_principal_not_enrolled".to_string())?;
+        subject.validate()?;
+        let key = tenant_membership_key(tenant_id, subject_principal_id);
+        if get_json_txn::<TenantMembershipKind, _>(
+            &txn,
+            self.tenant_memberships,
+            &key,
+            "tenant_membership",
+        )?
+        .is_some()
+        {
+            return Err("tenant_membership_already_exists".to_string());
+        }
+        put_json_txn(
+            &mut txn,
+            self.tenant_memberships,
+            &key,
+            &TenantMembershipKind::Member,
+            WriteFlags::NO_OVERWRITE,
+            "tenant membership",
+        )?;
+        let event = self.append_security_event_txn(
+            &mut txn,
+            SecurityEventAction::TenantMemberAdded,
+            context.principal_id(),
+            Some(tenant_id),
+            Some(subject_principal_id),
+            Some(TenantMembershipKind::Member),
+            now_unix_ms,
+            "tenant_owner_membership_add",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit Tenant membership write: {error}"))?;
+        Ok(event)
+    }
+
+    fn authenticated_principal_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        authenticated: &AuthenticatedPrincipal,
+    ) -> Result<SecurityPrincipal, String> {
+        let principal_id = match txn.get(
+            self.security_principal_by_binding,
+            &authenticated.binding().binding_ref,
+        ) {
+            Ok(value) => std::str::from_utf8(value)
+                .map_err(|error| format!("security_binding_index_not_utf8: {error}"))?
+                .to_string(),
+            Err(Error::NotFound) => return Err("local_principal_not_enrolled".to_string()),
+            Err(error) => return Err(format!("failed to read security binding index: {error}")),
+        };
+        let principal = get_json_txn::<SecurityPrincipal, _>(
+            txn,
+            self.security_principals_by_id,
+            &principal_id,
+            "security_principal",
+        )?
+        .ok_or_else(|| "security_binding_index_dangling".to_string())?;
+        principal.validate()?;
+        if !principal.matches_authenticated(authenticated) {
+            return Err("kernel_principal_binding_mismatch".to_string());
+        }
+        Ok(principal)
+    }
+
+    fn resolve_security_context_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+    ) -> Result<SecurityContext, String> {
+        let principal = self.authenticated_principal_txn(txn, authenticated)?;
+        let tenant = get_json_txn::<Tenant, _>(txn, self.tenants_by_id, tenant_id, "tenant")?
+            .ok_or_else(|| "tenant_not_visible".to_string())?;
+        tenant.validate()?;
+        let membership = get_json_txn::<TenantMembershipKind, _>(
+            txn,
+            self.tenant_memberships,
+            &tenant_membership_key(tenant_id, &principal.principal_id),
+            "tenant_membership",
+        )?
+        .ok_or_else(|| "tenant_not_visible".to_string())?;
+        Ok(SecurityContext::resolved(
+            principal.principal_id,
+            tenant.tenant_id,
+            membership,
+            authenticated.binding().binding_ref.clone(),
+        ))
+    }
+
+    fn resolve_case_owner_context_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        state: &CaseState,
+        actor_ref: &str,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<Option<SecurityContext>, String> {
+        match state.tenant_id.as_deref() {
+            Some(tenant_id) => {
+                let authenticated = authenticated
+                    .ok_or_else(|| "authenticated_tenant_owner_required".to_string())?;
+                let context = self.resolve_security_context_txn(txn, authenticated, tenant_id)?;
+                context.require_owner()?;
+                if actor_ref != context.principal_id() {
+                    return Err("administrative_principal_provenance_mismatch".to_string());
+                }
+                Ok(Some(context))
+            }
+            None if authenticated.is_none() => Ok(None),
+            None => Err("legacy_unscoped_case_cannot_accept_tenant_authority".to_string()),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn append_security_event_txn(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        action: SecurityEventAction,
+        principal_id: &str,
+        tenant_id: Option<&str>,
+        subject_principal_id: Option<&str>,
+        membership: Option<TenantMembershipKind>,
+        committed_at_unix_ms: u64,
+        reason: &str,
+    ) -> Result<SecurityEvent, String> {
+        let sequence = match txn.get(self.schema_meta, &"meta:security_event_sequence") {
+            Ok(value) => std::str::from_utf8(value)
+                .map_err(|error| format!("security_event_sequence_not_utf8: {error}"))?
+                .parse::<u64>()
+                .map_err(|error| format!("security_event_sequence_invalid: {error}"))?
+                .checked_add(1)
+                .ok_or_else(|| "security_event_sequence_overflow".to_string())?,
+            Err(Error::NotFound) => 1,
+            Err(error) => return Err(format!("failed to read security event sequence: {error}")),
+        };
+        let event = SecurityEvent {
+            schema: SECURITY_EVENT_SCHEMA.to_string(),
+            event_id: String::new(),
+            sequence,
+            action,
+            principal_id: principal_id.to_string(),
+            tenant_id: tenant_id.map(str::to_string),
+            subject_principal_id: subject_principal_id.map(str::to_string),
+            membership,
+            committed_at_unix_ms,
+            reason: reason.to_string(),
+            integrity_digest: String::new(),
+        }
+        .seal()?;
+        put_json_txn(
+            txn,
+            self.security_events_by_id,
+            &event.event_id,
+            &event,
+            WriteFlags::NO_OVERWRITE,
+            "security event",
+        )?;
+        txn.put(
+            self.schema_meta,
+            &"meta:security_event_sequence",
+            &sequence.to_string(),
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to update security event sequence: {error}"))?;
+        Ok(event)
     }
 
     pub fn append_record(&self, record: &Record, source_ref: &str) -> Result<(), String> {
@@ -835,8 +1309,62 @@ impl LmdbRecordStore {
         compilation: &PolicyCompilation,
         actor_ref: &str,
     ) -> Result<PolicyIngestOutcome, String> {
+        self.ingest_policy_compilation_inner(compilation, actor_ref, None)
+    }
+
+    pub fn ingest_tenant_policy_compilation(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        compilation: &PolicyCompilation,
+    ) -> Result<PolicyIngestOutcome, String> {
+        let context = self.resolve_security_context(authenticated, tenant_id)?;
+        context.require_owner()?;
+        if compilation.artifact.tenant_id.as_deref() != Some(tenant_id) {
+            return Err("policy_artifact_authenticated_tenant_mismatch".to_string());
+        }
+        let tenant = self
+            .get_tenant(tenant_id)?
+            .ok_or_else(|| "tenant_not_visible".to_string())?;
+        if compilation.artifact.organization_ref.as_deref()
+            != Some(tenant.organization_ref.as_str())
+        {
+            return Err("policy_artifact_organization_projection_mismatch".to_string());
+        }
+        self.ingest_policy_compilation_inner(compilation, context.principal_id(), Some(tenant_id))
+    }
+
+    fn ingest_policy_compilation_inner(
+        &self,
+        compilation: &PolicyCompilation,
+        actor_ref: &str,
+        authenticated_tenant: Option<&str>,
+    ) -> Result<PolicyIngestOutcome, String> {
         compilation.validate()?;
-        if compile_policy_source(compilation.source.content_utf8.as_bytes())? != *compilation {
+        let rebuilt = compile_policy_source(compilation.source.content_utf8.as_bytes())?;
+        let rebuilt = match compilation.artifact.tenant_id.as_deref() {
+            Some(tenant_id) => {
+                if authenticated_tenant != Some(tenant_id) {
+                    return Err("authenticated_tenant_policy_intake_required".to_string());
+                }
+                scope_policy_compilation(
+                    &rebuilt,
+                    tenant_id,
+                    compilation
+                        .artifact
+                        .organization_ref
+                        .as_deref()
+                        .ok_or_else(|| "tenant_policy_organization_ref_missing".to_string())?,
+                )?
+            }
+            None => {
+                if authenticated_tenant.is_some() {
+                    return Err("legacy_policy_artifact_cannot_enter_tenant_authority".to_string());
+                }
+                rebuilt
+            }
+        };
+        if rebuilt != *compilation {
             return Err("policy_compilation_not_reproducible_from_source".to_string());
         }
         let mut txn = self
@@ -972,6 +1500,71 @@ impl LmdbRecordStore {
         }
     }
 
+    pub fn policy_artifact_view_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        artifact_id: &str,
+    ) -> Result<PolicyArtifactView, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start secured policy artifact read: {error}"))?;
+        let artifact = self
+            .policy_artifact_txn(&txn, artifact_id)
+            .map_err(|_| "policy_artifact_not_visible".to_string())?;
+        let tenant_id = artifact.tenant_id.as_deref().ok_or_else(|| {
+            "legacy_policy_artifact_requires_compatibility_inspection".to_string()
+        })?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)
+            .map_err(|_| "policy_artifact_not_visible".to_string())?;
+        self.policy_artifact_view_txn(&txn, artifact_id)
+    }
+
+    pub fn list_policy_artifact_views_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+    ) -> Result<Vec<PolicyArtifactView>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start secured policy list: {error}"))?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let mut cursor = txn
+            .open_ro_cursor(self.policy_artifacts_by_id)
+            .map_err(|error| format!("failed to open policy artifact cursor: {error}"))?;
+        let mut artifact_ids = Vec::new();
+        for (_, value) in cursor.iter() {
+            let artifact = decode_policy_artifact(value)?;
+            if artifact.tenant_id.as_deref() == Some(tenant_id) {
+                artifact_ids.push(artifact.artifact_id);
+            }
+        }
+        drop(cursor);
+        artifact_ids.sort();
+        artifact_ids
+            .iter()
+            .map(|artifact_id| self.policy_artifact_view_txn(&txn, artifact_id))
+            .collect()
+    }
+
+    pub fn get_policy_source_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        source_id: &str,
+    ) -> Result<PolicySourceArtifact, String> {
+        let views = self.list_policy_artifact_views_authorized(authenticated, tenant_id)?;
+        if !views
+            .iter()
+            .any(|view| view.artifact.source_id == source_id)
+        {
+            return Err("policy_source_not_visible".to_string());
+        }
+        self.get_policy_source(source_id)?
+            .ok_or_else(|| "policy_source_not_visible".to_string())
+    }
+
     pub fn list_policy_artifact_views(&self) -> Result<Vec<PolicyArtifactView>, String> {
         let txn = self
             .env
@@ -1090,11 +1683,36 @@ impl LmdbRecordStore {
         actor_ref: &str,
         reason: &str,
     ) -> Result<PolicyLifecycleOutcome, String> {
+        self.validate_policy_artifact_inner(artifact_id, actor_ref, reason, None)
+    }
+
+    pub fn validate_tenant_policy_artifact(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        artifact_id: &str,
+        reason: &str,
+    ) -> Result<PolicyLifecycleOutcome, String> {
+        self.validate_policy_artifact_inner(
+            artifact_id,
+            &authenticated.projected_principal_id(),
+            reason,
+            Some(authenticated),
+        )
+    }
+
+    fn validate_policy_artifact_inner(
+        &self,
+        artifact_id: &str,
+        actor_ref: &str,
+        reason: &str,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<PolicyLifecycleOutcome, String> {
         let mut txn = self
             .env
             .begin_rw_txn()
             .map_err(|error| format!("failed to start policy validation transaction: {error}"))?;
         let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        self.authorize_policy_admin_txn(&txn, &artifact, actor_ref, authenticated)?;
         if artifact.validation.status != PolicyValidationStatus::Qualified {
             return Err(format!(
                 "policy_artifact_qualification_blocked: {}",
@@ -1135,11 +1753,36 @@ impl LmdbRecordStore {
         actor_ref: &str,
         reason: &str,
     ) -> Result<PolicyLifecycleOutcome, String> {
+        self.publish_policy_artifact_inner(artifact_id, actor_ref, reason, None)
+    }
+
+    pub fn publish_tenant_policy_artifact(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        artifact_id: &str,
+        reason: &str,
+    ) -> Result<PolicyLifecycleOutcome, String> {
+        self.publish_policy_artifact_inner(
+            artifact_id,
+            &authenticated.projected_principal_id(),
+            reason,
+            Some(authenticated),
+        )
+    }
+
+    fn publish_policy_artifact_inner(
+        &self,
+        artifact_id: &str,
+        actor_ref: &str,
+        reason: &str,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<PolicyLifecycleOutcome, String> {
         let mut txn = self
             .env
             .begin_rw_txn()
             .map_err(|error| format!("failed to start policy publication transaction: {error}"))?;
         let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        self.authorize_policy_admin_txn(&txn, &artifact, actor_ref, authenticated)?;
         if artifact.validation.status != PolicyValidationStatus::Qualified {
             return Err("blocked_policy_artifact_cannot_publish".to_string());
         }
@@ -1208,11 +1851,36 @@ impl LmdbRecordStore {
         actor_ref: &str,
         reason: &str,
     ) -> Result<PolicyLifecycleOutcome, String> {
+        self.retire_policy_artifact_inner(artifact_id, actor_ref, reason, None)
+    }
+
+    pub fn retire_tenant_policy_artifact(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        artifact_id: &str,
+        reason: &str,
+    ) -> Result<PolicyLifecycleOutcome, String> {
+        self.retire_policy_artifact_inner(
+            artifact_id,
+            &authenticated.projected_principal_id(),
+            reason,
+            Some(authenticated),
+        )
+    }
+
+    fn retire_policy_artifact_inner(
+        &self,
+        artifact_id: &str,
+        actor_ref: &str,
+        reason: &str,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<PolicyLifecycleOutcome, String> {
         let mut txn = self
             .env
             .begin_rw_txn()
             .map_err(|error| format!("failed to start policy retirement transaction: {error}"))?;
         let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        self.authorize_policy_admin_txn(&txn, &artifact, actor_ref, authenticated)?;
         let current = self.policy_lifecycle_state_txn(&txn, artifact_id)?;
         if current == PolicyLifecycleState::Retired {
             let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
@@ -1263,11 +1931,36 @@ impl LmdbRecordStore {
         actor_ref: &str,
         reason: &str,
     ) -> Result<PolicyLifecycleOutcome, String> {
+        self.revoke_policy_artifact_inner(artifact_id, actor_ref, reason, None)
+    }
+
+    pub fn revoke_tenant_policy_artifact(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        artifact_id: &str,
+        reason: &str,
+    ) -> Result<PolicyLifecycleOutcome, String> {
+        self.revoke_policy_artifact_inner(
+            artifact_id,
+            &authenticated.projected_principal_id(),
+            reason,
+            Some(authenticated),
+        )
+    }
+
+    fn revoke_policy_artifact_inner(
+        &self,
+        artifact_id: &str,
+        actor_ref: &str,
+        reason: &str,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<PolicyLifecycleOutcome, String> {
         let mut txn = self
             .env
             .begin_rw_txn()
             .map_err(|error| format!("failed to start policy revocation transaction: {error}"))?;
         let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        self.authorize_policy_admin_txn(&txn, &artifact, actor_ref, authenticated)?;
         let current = self.policy_lifecycle_state_txn(&txn, artifact_id)?;
         if current == PolicyLifecycleState::Revoked {
             let view = self.policy_artifact_view_txn(&txn, artifact_id)?;
@@ -1331,6 +2024,29 @@ impl LmdbRecordStore {
             Ok(value) => decode_policy_artifact(value),
             Err(Error::NotFound) => Err("policy_artifact_not_found".to_string()),
             Err(error) => Err(format!("failed to read policy artifact: {error}")),
+        }
+    }
+
+    fn authorize_policy_admin_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        artifact: &PolicyArtifact,
+        actor_ref: &str,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<(), String> {
+        match artifact.tenant_id.as_deref() {
+            Some(tenant_id) => {
+                let authenticated = authenticated
+                    .ok_or_else(|| "authenticated_tenant_owner_required".to_string())?;
+                let context = self.resolve_security_context_txn(txn, authenticated, tenant_id)?;
+                context.require_owner()?;
+                if actor_ref != context.principal_id() {
+                    return Err("policy_admin_principal_provenance_mismatch".to_string());
+                }
+                Ok(())
+            }
+            None if authenticated.is_none() => Ok(()),
+            None => Err("legacy_policy_artifact_not_adopted_by_tenant".to_string()),
         }
     }
 
@@ -1429,8 +2145,7 @@ impl LmdbRecordStore {
         let mut ids = Vec::new();
         for (_, value) in cursor.iter() {
             let artifact = decode_policy_artifact(value)?;
-            if artifact.owner_ref == lineage.owner_ref
-                && artifact.policy_key == lineage.policy_key
+            if artifact.lineage() == *lineage
                 && exclude.map(|id| id != artifact.artifact_id).unwrap_or(true)
             {
                 ids.push(artifact.artifact_id);
@@ -1461,10 +2176,7 @@ impl LmdbRecordStore {
         let mut found = None;
         for (_, value) in cursor.iter() {
             let artifact = decode_policy_artifact(value)?;
-            if artifact.owner_ref == lineage.owner_ref
-                && artifact.policy_key == lineage.policy_key
-                && artifact.artifact_version == artifact_version
-            {
+            if artifact.lineage() == *lineage && artifact.artifact_version == artifact_version {
                 if found.is_some() {
                     return Err("policy_version_identity_not_unique_in_store".to_string());
                 }
@@ -1513,6 +2225,9 @@ impl LmdbRecordStore {
         committed_at_unix_ms: u64,
     ) -> Result<PolicyLifecycleEvent, String> {
         let sequence = next_policy_lifecycle_sequence(txn, self.schema_meta)?;
+        let artifact = self.policy_artifact_txn(txn, artifact_id)?;
+        let tenant_id = artifact.tenant_id.as_deref();
+        let principal_id = tenant_id.map(|_| actor_ref);
         let event = build_lifecycle_event(
             sequence,
             PolicyLifecycleEventInput {
@@ -1521,6 +2236,8 @@ impl LmdbRecordStore {
                 prior_state,
                 next_state,
                 related_artifact_id,
+                tenant_id,
+                principal_id,
                 actor_ref,
                 reason,
                 committed_at_unix_ms,
@@ -1565,9 +2282,30 @@ impl LmdbRecordStore {
             actor_ref,
             reason,
             false,
+            None,
         )
     }
 
+    pub fn bind_tenant_case_policy(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        artifact_id: &str,
+        expected_generation: u64,
+        reason: &str,
+    ) -> Result<CasePolicyMutationOutcome, String> {
+        self.bind_case_policy_inner(
+            case_id,
+            artifact_id,
+            expected_generation,
+            &authenticated.projected_principal_id(),
+            reason,
+            false,
+            Some(authenticated),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
     fn bind_case_policy_inner(
         &self,
         case_id: &str,
@@ -1576,6 +2314,7 @@ impl LmdbRecordStore {
         actor_ref: &str,
         reason: &str,
         inject_derived_cache_failure: bool,
+        authenticated: Option<&AuthenticatedPrincipal>,
     ) -> Result<CasePolicyMutationOutcome, String> {
         let mut txn = self
             .env
@@ -1585,6 +2324,8 @@ impl LmdbRecordStore {
             .get_case_state_txn(&txn, case_id)?
             .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
         require_open_case_for_policy(&state)?;
+        let security_context =
+            self.resolve_case_owner_context_txn(&txn, &state, actor_ref, authenticated)?;
         if state.generation != expected_generation {
             return Err(format!(
                 "stale_case_generation: expected={expected_generation} actual={}",
@@ -1592,6 +2333,9 @@ impl LmdbRecordStore {
             ));
         }
         let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        if artifact.tenant_id != state.tenant_id {
+            return Err("cross_tenant_case_policy_binding_rejected".to_string());
+        }
         if let Some(current) = state
             .policy_bindings
             .iter()
@@ -1623,7 +2367,10 @@ impl LmdbRecordStore {
             state.generation,
             TransitionSource {
                 component: "yai.case_policy".to_string(),
-                participant_id: Some(actor_ref.to_string()),
+                participant_id: None,
+                principal_id: security_context
+                    .as_ref()
+                    .map(|context| context.principal_id().to_string()),
                 source_ref: Some(binding.artifact_id.clone()),
             },
             TransitionPayload::CasePolicyBound {
@@ -1634,7 +2381,13 @@ impl LmdbRecordStore {
             binding.artifact_id.clone(),
             binding.publication_event_id.clone(),
         ];
-        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        let commit = self.commit_transition_txn_at(
+            &mut txn,
+            pending,
+            false,
+            None,
+            security_context.as_ref(),
+        )?;
         txn.commit()
             .map_err(|error| format!("failed to commit Case policy binding: {error}"))?;
         self.case_policy_changed_outcome(case_id, commit, inject_derived_cache_failure)
@@ -1649,6 +2402,48 @@ impl LmdbRecordStore {
         actor_ref: &str,
         reason: &str,
     ) -> Result<CasePolicyMutationOutcome, String> {
+        self.replace_case_policy_inner(
+            case_id,
+            prior_binding_id,
+            artifact_id,
+            expected_generation,
+            actor_ref,
+            reason,
+            None,
+        )
+    }
+
+    pub fn replace_tenant_case_policy(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        prior_binding_id: &str,
+        artifact_id: &str,
+        expected_generation: u64,
+        reason: &str,
+    ) -> Result<CasePolicyMutationOutcome, String> {
+        self.replace_case_policy_inner(
+            case_id,
+            prior_binding_id,
+            artifact_id,
+            expected_generation,
+            &authenticated.projected_principal_id(),
+            reason,
+            Some(authenticated),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn replace_case_policy_inner(
+        &self,
+        case_id: &str,
+        prior_binding_id: &str,
+        artifact_id: &str,
+        expected_generation: u64,
+        actor_ref: &str,
+        reason: &str,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<CasePolicyMutationOutcome, String> {
         let mut txn = self
             .env
             .begin_rw_txn()
@@ -1657,6 +2452,8 @@ impl LmdbRecordStore {
             .get_case_state_txn(&txn, case_id)?
             .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
         require_open_case_for_policy(&state)?;
+        let security_context =
+            self.resolve_case_owner_context_txn(&txn, &state, actor_ref, authenticated)?;
         if state.generation != expected_generation {
             return Err(format!(
                 "stale_case_generation: expected={expected_generation} actual={}",
@@ -1673,6 +2470,9 @@ impl LmdbRecordStore {
             return self.case_policy_no_change_outcome(case_id);
         }
         let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
+        if artifact.tenant_id != state.tenant_id {
+            return Err("cross_tenant_case_policy_binding_rejected".to_string());
+        }
         if artifact.lineage().identity() != prior.lineage_id {
             return Err("case_policy_replace_lineage_mismatch".to_string());
         }
@@ -1693,7 +2493,10 @@ impl LmdbRecordStore {
             state.generation,
             TransitionSource {
                 component: "yai.case_policy".to_string(),
-                participant_id: Some(actor_ref.to_string()),
+                participant_id: None,
+                principal_id: security_context
+                    .as_ref()
+                    .map(|context| context.principal_id().to_string()),
                 source_ref: Some(binding.artifact_id.clone()),
             },
             TransitionPayload::CasePolicyReplaced {
@@ -1706,7 +2509,13 @@ impl LmdbRecordStore {
             binding.artifact_id.clone(),
             binding.publication_event_id.clone(),
         ];
-        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        let commit = self.commit_transition_txn_at(
+            &mut txn,
+            pending,
+            false,
+            None,
+            security_context.as_ref(),
+        )?;
         txn.commit()
             .map_err(|error| format!("failed to commit Case policy replacement: {error}"))?;
         self.case_policy_changed_outcome(case_id, commit, false)
@@ -1720,6 +2529,44 @@ impl LmdbRecordStore {
         actor_ref: &str,
         reason: &str,
     ) -> Result<CasePolicyMutationOutcome, String> {
+        self.unbind_case_policy_inner(
+            case_id,
+            binding_id,
+            expected_generation,
+            actor_ref,
+            reason,
+            None,
+        )
+    }
+
+    pub fn unbind_tenant_case_policy(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        binding_id: &str,
+        expected_generation: u64,
+        reason: &str,
+    ) -> Result<CasePolicyMutationOutcome, String> {
+        self.unbind_case_policy_inner(
+            case_id,
+            binding_id,
+            expected_generation,
+            &authenticated.projected_principal_id(),
+            reason,
+            Some(authenticated),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn unbind_case_policy_inner(
+        &self,
+        case_id: &str,
+        binding_id: &str,
+        expected_generation: u64,
+        actor_ref: &str,
+        reason: &str,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<CasePolicyMutationOutcome, String> {
         let mut txn = self
             .env
             .begin_rw_txn()
@@ -1728,6 +2575,8 @@ impl LmdbRecordStore {
             .get_case_state_txn(&txn, case_id)?
             .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
         require_open_case_for_policy(&state)?;
+        let security_context =
+            self.resolve_case_owner_context_txn(&txn, &state, actor_ref, authenticated)?;
         if state.generation != expected_generation {
             return Err(format!(
                 "stale_case_generation: expected={expected_generation} actual={}",
@@ -1748,7 +2597,10 @@ impl LmdbRecordStore {
             state.generation,
             TransitionSource {
                 component: "yai.case_policy".to_string(),
-                participant_id: Some(actor_ref.to_string()),
+                participant_id: None,
+                principal_id: security_context
+                    .as_ref()
+                    .map(|context| context.principal_id().to_string()),
                 source_ref: Some(binding.binding_id.clone()),
             },
             TransitionPayload::CasePolicyUnbound {
@@ -1759,7 +2611,13 @@ impl LmdbRecordStore {
             },
         );
         pending.causal_refs = vec![binding.binding_id.clone()];
-        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        let commit = self.commit_transition_txn_at(
+            &mut txn,
+            pending,
+            false,
+            None,
+            security_context.as_ref(),
+        )?;
         txn.commit()
             .map_err(|error| format!("failed to commit Case policy unbind: {error}"))?;
         self.case_policy_changed_outcome(case_id, commit, false)
@@ -1983,6 +2841,13 @@ impl LmdbRecordStore {
         let mut drift = BTreeMap::new();
         let mut binding_validity = BTreeMap::new();
         for binding in &state.policy_bindings {
+            if binding.tenant_id != state.tenant_id {
+                missing.push(format!(
+                    "{}:case_policy_binding_security_domain_mismatch",
+                    binding.binding_id
+                ));
+                continue;
+            }
             let artifact = match self.policy_artifact_txn(txn, &binding.artifact_id) {
                 Ok(artifact) => artifact,
                 Err(error) => {
@@ -2002,6 +2867,7 @@ impl LmdbRecordStore {
                         && event.sequence == binding.publication_event_sequence
                         && event.action == PolicyLifecycleAction::Published
                         && event.artifact_id == artifact.artifact_id
+                        && event.tenant_id == binding.tenant_id
                 });
             if !publication_ok {
                 missing.push(format!(
@@ -2222,6 +3088,30 @@ impl LmdbRecordStore {
         actor_ref: &str,
         reason: &str,
     ) -> Result<CaseCancellationOutcome, String> {
+        self.cancel_case_inner(case_id, actor_ref, reason, None)
+    }
+
+    pub fn cancel_tenant_case(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        reason: &str,
+    ) -> Result<CaseCancellationOutcome, String> {
+        self.cancel_case_inner(
+            case_id,
+            &authenticated.projected_principal_id(),
+            reason,
+            Some(authenticated),
+        )
+    }
+
+    fn cancel_case_inner(
+        &self,
+        case_id: &str,
+        actor_ref: &str,
+        reason: &str,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<CaseCancellationOutcome, String> {
         if actor_ref.trim().is_empty() || reason.trim().is_empty() {
             return Err("case_cancellation_actor_and_reason_required".to_string());
         }
@@ -2232,6 +3122,8 @@ impl LmdbRecordStore {
         let state = self
             .get_case_state_txn(&txn, case_id)?
             .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        let security_context =
+            self.resolve_case_owner_context_txn(&txn, &state, actor_ref, authenticated)?;
         if state.lifecycle == CaseLifecycle::Closed {
             return Err("case_already_closed".to_string());
         }
@@ -2277,12 +3169,21 @@ impl LmdbRecordStore {
             state.generation,
             TransitionSource {
                 component: "yai.case_lifecycle".to_string(),
-                participant_id: Some(actor_ref.to_string()),
+                participant_id: None,
+                principal_id: security_context
+                    .as_ref()
+                    .map(|context| context.principal_id().to_string()),
                 source_ref: None,
             },
             TransitionPayload::CaseCancellationRequested { cancellation },
         );
-        commits.push(self.commit_transition_txn(&mut txn, cancel, false)?);
+        commits.push(self.commit_transition_txn_at(
+            &mut txn,
+            cancel,
+            false,
+            None,
+            security_context.as_ref(),
+        )?);
         for review_id in &pending_reviews {
             let current = commits.last().expect("cancel commit").state.generation;
             let mut pending = PendingTransition::new(
@@ -2342,6 +3243,30 @@ impl LmdbRecordStore {
         actor_ref: &str,
         reason: &str,
     ) -> Result<CaseClosureOutcome, String> {
+        self.close_case_inner(case_id, actor_ref, reason, None)
+    }
+
+    pub fn close_tenant_case(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        reason: &str,
+    ) -> Result<CaseClosureOutcome, String> {
+        self.close_case_inner(
+            case_id,
+            &authenticated.projected_principal_id(),
+            reason,
+            Some(authenticated),
+        )
+    }
+
+    fn close_case_inner(
+        &self,
+        case_id: &str,
+        actor_ref: &str,
+        reason: &str,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<CaseClosureOutcome, String> {
         if actor_ref.trim().is_empty() || reason.trim().is_empty() {
             return Err("case_closure_actor_and_reason_required".to_string());
         }
@@ -2352,6 +3277,8 @@ impl LmdbRecordStore {
         let state = self
             .get_case_state_txn(&txn, case_id)?
             .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        let security_context =
+            self.resolve_case_owner_context_txn(&txn, &state, actor_ref, authenticated)?;
         if state.lifecycle == CaseLifecycle::Closed {
             return Ok(CaseClosureOutcome {
                 changed: false,
@@ -2393,7 +3320,10 @@ impl LmdbRecordStore {
             state.generation,
             TransitionSource {
                 component: "yai.case_lifecycle".to_string(),
-                participant_id: Some(actor_ref.to_string()),
+                participant_id: None,
+                principal_id: security_context
+                    .as_ref()
+                    .map(|context| context.principal_id().to_string()),
                 source_ref: Some(cancellation.transition_id.clone()),
             },
             TransitionPayload::CaseClosed {
@@ -2407,7 +3337,13 @@ impl LmdbRecordStore {
             },
         );
         pending.causal_refs = vec![cancellation.transition_id.clone()];
-        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        let commit = self.commit_transition_txn_at(
+            &mut txn,
+            pending,
+            false,
+            None,
+            security_context.as_ref(),
+        )?;
         txn.commit()
             .map_err(|error| format!("failed to commit Case closure: {error}"))?;
         Ok(CaseClosureOutcome {
@@ -2521,6 +3457,78 @@ impl LmdbRecordStore {
         self.commit_transition_inner(pending, false)
     }
 
+    /// Canonical write entry point for Tenant-scoped human/admin mutations.
+    /// Authentication is re-resolved from the kernel binding and security
+    /// catalog inside the same LMDB transaction that appends Case truth.
+    pub fn commit_secured_transition(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        pending: PendingTransition,
+        owner_required: bool,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start secured canonical write: {error}"))?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        if owner_required {
+            context.require_owner()?;
+        }
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit secured canonical write: {error}"))?;
+        Ok(commit)
+    }
+
+    pub fn create_tenant_case(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        case_id: &str,
+    ) -> Result<CanonicalCommit, String> {
+        let principal_id = authenticated.projected_principal_id();
+        let pending = PendingTransition::new(
+            format!("transition:tenant-case-open:{case_id}"),
+            case_id,
+            0,
+            TransitionSource {
+                component: "yai.case_security".to_string(),
+                participant_id: None,
+                principal_id: Some(principal_id.clone()),
+                source_ref: Some(tenant_id.to_string()),
+            },
+            TransitionPayload::TenantCaseOpened {
+                lifecycle: CaseLifecycle::Open,
+                tenant_id: tenant_id.to_string(),
+                principal_id,
+            },
+        );
+        self.commit_secured_transition(authenticated, tenant_id, pending, true)
+    }
+
+    pub fn get_case_state_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+    ) -> Result<CaseState, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start secured Case read: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "legacy_unscoped_case_read_requires_compatibility_path".to_string())?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)
+            .map_err(|_| "case_not_visible".to_string())?;
+        Ok(state)
+    }
+
     fn commit_transition_inner(
         &self,
         pending: PendingTransition,
@@ -2542,7 +3550,7 @@ impl LmdbRecordStore {
         pending: PendingTransition,
         inject_failure_before_commit: bool,
     ) -> Result<CanonicalCommit, String> {
-        self.commit_transition_txn_at(txn, pending, inject_failure_before_commit, None)
+        self.commit_transition_txn_at(txn, pending, inject_failure_before_commit, None, None)
     }
 
     fn commit_transition_txn_at(
@@ -2551,6 +3559,7 @@ impl LmdbRecordStore {
         pending: PendingTransition,
         inject_failure_before_commit: bool,
         authority_time_unix_ms: Option<u64>,
+        security_context: Option<&SecurityContext>,
     ) -> Result<CanonicalCommit, String> {
         let transition_key = transition_id_key(&pending.transition_id);
         match txn.get(self.transitions_by_id, &transition_key) {
@@ -2580,6 +3589,12 @@ impl LmdbRecordStore {
                 pending.expected_generation
             ));
         }
+        self.validate_case_security_write_txn(
+            txn,
+            current_state.as_ref(),
+            &pending,
+            security_context,
+        )?;
         let authority_time = match authority_time_unix_ms {
             Some(authority_time) => authority_time,
             None => self.advance_authority_time_txn(txn, authority_wall_time_unix_ms())?,
@@ -2610,10 +3625,12 @@ impl LmdbRecordStore {
         let next_state = if let Some(state) = current_state {
             state.reduce(&transition)?
         } else {
-            let crate::transition::TransitionPayload::CaseOpened { lifecycle } =
-                &transition.payload
-            else {
-                return Err("case_history_must_start_with_case_opened".to_string());
+            let lifecycle = match &transition.payload {
+                crate::transition::TransitionPayload::CaseOpened { lifecycle }
+                | crate::transition::TransitionPayload::TenantCaseOpened { lifecycle, .. } => {
+                    lifecycle
+                }
+                _ => return Err("case_history_must_start_with_case_opened".to_string()),
             };
             CaseState::new(&transition.case_id, lifecycle.clone()).reduce(&transition)?
         };
@@ -2651,6 +3668,114 @@ impl LmdbRecordStore {
             transition,
             state: next_state,
         })
+    }
+
+    fn validate_case_security_write_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        current_state: Option<&CaseState>,
+        pending: &PendingTransition,
+        security_context: Option<&SecurityContext>,
+    ) -> Result<(), String> {
+        if let TransitionPayload::TenantCaseOpened {
+            tenant_id,
+            principal_id,
+            ..
+        } = &pending.payload
+        {
+            if current_state.is_some() {
+                return Err("tenant_case_open_requires_new_case".to_string());
+            }
+            let context = security_context
+                .ok_or_else(|| "authenticated_tenant_owner_required".to_string())?;
+            context.require_owner()?;
+            if context.tenant_id() != tenant_id
+                || context.principal_id() != principal_id
+                || pending.source.principal_id.as_deref() != Some(principal_id)
+            {
+                return Err("tenant_case_open_security_context_mismatch".to_string());
+            }
+            return Ok(());
+        }
+
+        let Some(state) = current_state else {
+            return Ok(());
+        };
+        let Some(case_tenant_id) = state.tenant_id.as_deref() else {
+            if security_context.is_some() {
+                return Err("legacy_unscoped_case_cannot_accept_tenant_authority".to_string());
+            }
+            return Ok(());
+        };
+        if let Some(context) = security_context {
+            if context.tenant_id() != case_tenant_id {
+                return Err("cross_tenant_case_write_rejected".to_string());
+            }
+        }
+
+        let owner_protected = matches!(
+            pending.payload,
+            TransitionPayload::ParticipantBound { .. }
+                | TransitionPayload::ParticipantAdmitted { .. }
+                | TransitionPayload::ParticipantPrincipalLinked { .. }
+                | TransitionPayload::ProviderAttached { .. }
+                | TransitionPayload::ResourceAttached { .. }
+                | TransitionPayload::CasePolicyBound { .. }
+                | TransitionPayload::CasePolicyReplaced { .. }
+                | TransitionPayload::CasePolicyUnbound { .. }
+                | TransitionPayload::CaseCancellationRequested { .. }
+                | TransitionPayload::CaseClosed { .. }
+        );
+        if owner_protected {
+            let context = security_context
+                .ok_or_else(|| "authenticated_tenant_owner_required".to_string())?;
+            context.require_owner()?;
+            if pending.source.principal_id.as_deref() != Some(context.principal_id()) {
+                return Err("administrative_principal_provenance_mismatch".to_string());
+            }
+        }
+
+        if let TransitionPayload::ParticipantPrincipalLinked { link } = &pending.payload {
+            let context = security_context
+                .ok_or_else(|| "authenticated_tenant_owner_required".to_string())?;
+            if link.case_id != pending.case_id
+                || link.tenant_id != case_tenant_id
+                || link.created_by_principal_id != context.principal_id()
+            {
+                return Err("principal_participant_link_security_domain_mismatch".to_string());
+            }
+            if get_json_txn::<TenantMembershipKind, _>(
+                txn,
+                self.tenant_memberships,
+                &tenant_membership_key(case_tenant_id, &link.principal_id),
+                "tenant_membership",
+            )?
+            .is_none()
+            {
+                return Err("linked_principal_not_tenant_member".to_string());
+            }
+        }
+
+        if let TransitionPayload::ReviewActionRecorded { action } = &pending.payload {
+            let context = security_context
+                .ok_or_else(|| "authenticated_human_review_required".to_string())?;
+            if action.schema != crate::transition::REVIEW_ACTION_SCHEMA
+                || action.principal_id.as_deref() != Some(context.principal_id())
+                || action.tenant_id.as_deref() != Some(case_tenant_id)
+                || pending.source.principal_id.as_deref() != Some(context.principal_id())
+            {
+                return Err("authenticated_review_security_context_mismatch".to_string());
+            }
+            let linked = state.principal_participant_links.iter().any(|link| {
+                link.principal_id == context.principal_id()
+                    && link.participant_id == action.reviewer_participant_id
+                    && link.tenant_id == case_tenant_id
+            });
+            if !linked {
+                return Err("authenticated_principal_participant_link_required".to_string());
+            }
+        }
+        Ok(())
     }
 
     fn validate_policy_authority_txn(
@@ -3007,6 +4132,7 @@ impl LmdbRecordStore {
             TransitionSource {
                 component: "yai.policy_authority_admission".to_string(),
                 participant_id: Some(basis.proposer_participant_id.clone()),
+                principal_id: None,
                 source_ref: Some(decision.decision_id.clone()),
             },
             TransitionPayload::DecisionRecorded {
@@ -3015,7 +4141,7 @@ impl LmdbRecordStore {
         );
         pending.causal_refs = causal_refs;
         let commit =
-            self.commit_transition_txn_at(&mut txn, pending, false, Some(authority_time))?;
+            self.commit_transition_txn_at(&mut txn, pending, false, Some(authority_time), None)?;
         txn.commit()
             .map_err(|error| format!("failed to commit policy Decision: {error}"))?;
         Ok((decision, commit))
@@ -3303,6 +4429,59 @@ impl LmdbRecordStore {
         &self,
         binding: &LocalFilesystemBinding,
     ) -> Result<(), String> {
+        self.put_local_filesystem_binding_inner(binding, None)
+    }
+
+    pub fn put_tenant_local_filesystem_binding(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        binding: &LocalFilesystemBinding,
+    ) -> Result<(), String> {
+        self.put_local_filesystem_binding_inner(binding, Some(authenticated))
+    }
+
+    pub fn commit_tenant_resource_attachment(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        pending: PendingTransition,
+        binding: &LocalFilesystemBinding,
+    ) -> Result<CanonicalCommit, String> {
+        binding.validate()?;
+        if binding.case_id != pending.case_id
+            || !matches!(pending.payload, TransitionPayload::ResourceAttached { .. })
+        {
+            return Err("secured_resource_attachment_input_mismatch".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start secured resource attachment: {error}"))?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        self.validate_cross_tenant_root_txn(&txn, &context, binding)?;
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        let key = local_binding_key(&binding.case_id, &binding.attachment_id);
+        let value = serde_json::to_string(binding)
+            .map_err(|error| format!("local_binding_encode_failed: {error}"))?;
+        txn.put(
+            self.local_resource_bindings,
+            &key,
+            &value,
+            WriteFlags::empty(),
+        )
+        .map_err(|error| format!("failed to persist local resource binding: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit secured resource attachment: {error}"))?;
+        Ok(commit)
+    }
+
+    fn put_local_filesystem_binding_inner(
+        &self,
+        binding: &LocalFilesystemBinding,
+        authenticated: Option<&AuthenticatedPrincipal>,
+    ) -> Result<(), String> {
         binding.validate()?;
         let key = local_binding_key(&binding.case_id, &binding.attachment_id);
         let value = serde_json::to_string(binding)
@@ -3311,6 +4490,20 @@ impl LmdbRecordStore {
             .env
             .begin_rw_txn()
             .map_err(|error| format!("failed to start local binding write: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, &binding.case_id)?
+            .ok_or_else(|| "local_binding_case_state_missing".to_string())?;
+        let security_context = self.resolve_case_owner_context_txn(
+            &txn,
+            &state,
+            &authenticated
+                .map(AuthenticatedPrincipal::projected_principal_id)
+                .unwrap_or_default(),
+            authenticated,
+        )?;
+        if let Some(context) = &security_context {
+            self.validate_cross_tenant_root_txn(&txn, context, binding)?;
+        }
         txn.put(
             self.local_resource_bindings,
             &key,
@@ -3320,6 +4513,46 @@ impl LmdbRecordStore {
         .map_err(|error| format!("failed to persist local resource binding: {error}"))?;
         txn.commit()
             .map_err(|error| format!("failed to commit local resource binding: {error}"))
+    }
+
+    fn validate_cross_tenant_root_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        context: &SecurityContext,
+        binding: &LocalFilesystemBinding,
+    ) -> Result<(), String> {
+        let mut cursor = txn
+            .open_ro_cursor(self.local_resource_bindings)
+            .map_err(|error| format!("failed to inspect resource isolation roots: {error}"))?;
+        let mut existing = Vec::new();
+        for (_, raw) in cursor.iter() {
+            let value: LocalFilesystemBinding = serde_json::from_slice(raw)
+                .map_err(|error| format!("local_binding_decode_failed: {error}"))?;
+            existing.push(value);
+        }
+        drop(cursor);
+        let proposed_root = Path::new(&binding.canonical_root);
+        for value in existing {
+            if value.case_id == binding.case_id && value.attachment_id == binding.attachment_id {
+                continue;
+            }
+            let Some(other_state) = self.get_case_state_txn(txn, &value.case_id)? else {
+                return Err("local_binding_dangling_case_state".to_string());
+            };
+            if let Some(other_tenant) = other_state.tenant_id.as_deref() {
+                let existing_root = Path::new(&value.canonical_root);
+                if other_tenant != context.tenant_id()
+                    && (proposed_root.starts_with(existing_root)
+                        || existing_root.starts_with(proposed_root))
+                {
+                    return Err(format!(
+                        "cross_tenant_filesystem_root_overlap: conflicting_case={}",
+                        value.case_id
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     pub fn get_local_filesystem_binding(
@@ -3806,6 +5039,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V7,
                 TRANSITION_SCHEMA_V6,
                 TRANSITION_SCHEMA_V5,
                 TRANSITION_SCHEMA_V4,
@@ -3820,6 +5054,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                CASE_STATE_SCHEMA_V7,
                 CASE_STATE_SCHEMA_V6,
                 CASE_STATE_SCHEMA_V5,
                 CASE_STATE_SCHEMA_V4,
@@ -3894,6 +5129,7 @@ impl LmdbRecordStore {
             "meta:policy_artifact_schema",
             POLICY_ARTIFACT_SCHEMA,
             &[
+                POLICY_ARTIFACT_SCHEMA_V4,
                 POLICY_ARTIFACT_SCHEMA_V1,
                 POLICY_ARTIFACT_SCHEMA_V2,
                 POLICY_ARTIFACT_SCHEMA_V3,
@@ -3904,28 +5140,55 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:policy_lifecycle_event_schema",
             POLICY_LIFECYCLE_EVENT_SCHEMA,
-            &[POLICY_LIFECYCLE_EVENT_SCHEMA_V1],
+            &[
+                POLICY_LIFECYCLE_EVENT_SCHEMA_V2,
+                POLICY_LIFECYCLE_EVENT_SCHEMA_V1,
+            ],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:case_policy_binding_schema",
             CASE_POLICY_BINDING_SCHEMA,
-            &[],
+            &[CASE_POLICY_BINDING_SCHEMA_V1],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:effective_policy_schema",
             EFFECTIVE_POLICY_SCHEMA,
-            &[EFFECTIVE_POLICY_SCHEMA_V1],
+            &[EFFECTIVE_POLICY_SCHEMA_V2, EFFECTIVE_POLICY_SCHEMA_V1],
         )?;
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
             "meta:policy_materializer_version",
             POLICY_MATERIALIZER_VERSION,
-            &[POLICY_MATERIALIZER_VERSION_V1],
+            &[
+                POLICY_MATERIALIZER_VERSION_V2,
+                POLICY_MATERIALIZER_VERSION_V1,
+            ],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:security_principal_schema",
+            SECURITY_PRINCIPAL_SCHEMA,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:tenant_schema",
+            TENANT_SCHEMA,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:security_event_schema",
+            SECURITY_EVENT_SCHEMA,
+            &[],
         )?;
         for (key, value) in [
             ("meta:canonical_transition_schema", TRANSITION_SCHEMA),
@@ -3973,6 +5236,9 @@ impl LmdbRecordStore {
                 "meta:policy_materializer_version",
                 POLICY_MATERIALIZER_VERSION,
             ),
+            ("meta:security_principal_schema", SECURITY_PRINCIPAL_SCHEMA),
+            ("meta:tenant_schema", TENANT_SCHEMA),
+            ("meta:security_event_schema", SECURITY_EVENT_SCHEMA),
         ] {
             txn.put(self.schema_meta, &key, &value, WriteFlags::empty())
                 .map_err(|error| format!("failed to write persisted schema {key}: {error}"))?;
@@ -4510,6 +5776,16 @@ fn derive_graph_relations_from_transition(
     );
     match &transition.payload {
         TransitionPayload::CaseOpened { .. } => {}
+        TransitionPayload::TenantCaseOpened { tenant_id, .. } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "case_owned_by_tenant",
+            "case",
+            &transition.case_id,
+            "tenant",
+            tenant_id,
+        ),
         TransitionPayload::ParticipantBound { participant_id, .. } => add_transition_relation(
             &mut relations,
             skipped,
@@ -4530,6 +5806,28 @@ fn derive_graph_relations_from_transition(
             "case",
             &transition.case_id,
         ),
+        TransitionPayload::ParticipantPrincipalLinked { link } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "principal_linked_to_participant",
+                "principal",
+                &link.principal_id,
+                "participant",
+                &link.participant_id,
+            );
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "principal_participant_link_scoped_to_tenant",
+                "principal_participant_link",
+                &link.link_id,
+                "tenant",
+                &link.tenant_id,
+            );
+        }
         TransitionPayload::ProviderAttached {
             participant_id,
             model_id,
@@ -5460,6 +6758,43 @@ fn case_state_key(case_id: &str) -> String {
     format!("case_state:{case_id}")
 }
 
+fn tenant_membership_key(tenant_id: &str, principal_id: &str) -> String {
+    format!("{tenant_id}\0{principal_id}")
+}
+
+fn get_json_txn<V, T>(
+    txn: &T,
+    database: Database,
+    key: &str,
+    label: &str,
+) -> Result<Option<V>, String>
+where
+    V: serde::de::DeserializeOwned,
+    T: Transaction,
+{
+    match txn.get(database, &key) {
+        Ok(value) => serde_json::from_slice(value)
+            .map(Some)
+            .map_err(|error| format!("{label}_decode_failed: {error}")),
+        Err(Error::NotFound) => Ok(None),
+        Err(error) => Err(format!("failed to read {label}: {error}")),
+    }
+}
+
+fn put_json_txn<V: serde::Serialize>(
+    txn: &mut RwTransaction<'_>,
+    database: Database,
+    key: &str,
+    value: &V,
+    flags: WriteFlags,
+    label: &str,
+) -> Result<(), String> {
+    let encoded =
+        serde_json::to_vec(value).map_err(|error| format!("{label}_encode_failed: {error}"))?;
+    txn.put(database, &key, &encoded, flags)
+        .map_err(|error| format!("failed to store {label}: {error}"))
+}
+
 fn effective_policy_case_key(case_id: &str) -> String {
     format!("effective_policy:case:{case_id}")
 }
@@ -5817,8 +7152,8 @@ mod tests {
         LocalFilesystemBinding, NormalizationContext, ReconciliationConclusion,
     };
     use crate::governance::{
-        compile_policy_source, PolicyLifecycleState, PolicyValidationStatus,
-        POLICY_SOURCE_INPUT_SCHEMA,
+        compile_policy_source, scope_policy_compilation, PolicyLifecycleState,
+        PolicyValidationStatus, POLICY_SOURCE_INPUT_SCHEMA,
     };
     use crate::memory::{derive_operational_memory, OperationalMemoryKind};
     use crate::record::{Record, RecordKind};
@@ -5831,6 +7166,27 @@ mod tests {
     use std::thread;
     use std::time::Instant;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn secured_pending(
+        id: &str,
+        case_id: &str,
+        generation: u64,
+        principal_id: &str,
+        payload: TransitionPayload,
+    ) -> PendingTransition {
+        PendingTransition::new(
+            id,
+            case_id,
+            generation,
+            TransitionSource {
+                component: "wave12-security-test".to_string(),
+                participant_id: None,
+                principal_id: Some(principal_id.to_string()),
+                source_ref: None,
+            },
+            payload,
+        )
+    }
 
     fn temp_store_path(name: &str) -> PathBuf {
         let now = SystemTime::now()
@@ -8645,6 +10001,7 @@ mod tests {
                 "participant:operator",
                 "inject derived cache failure after canonical commit",
                 true,
+                None,
             )
             .expect("canonical bind survives derived failure");
         assert!(outcome.changed);
@@ -9060,6 +10417,10 @@ mod tests {
         let store = LmdbRecordStore::open(&path).expect("open store");
         let case_id = "case:h10-historical-replay";
         let (resource, operation) = setup_h10_authority_case(&store, case_id, "allow", false);
+        advance_authority_floor(
+            &store,
+            authority_wall_time_unix_ms().saturating_add(86_400_000),
+        );
         let decision = store
             .derive_policy_decision(case_id, &operation.operation_id)
             .expect("derive P1 Decision");
@@ -9349,32 +10710,12 @@ mod tests {
             caller_claim_error.contains("authority_decision_basis_mismatch"),
             "{caller_claim_error}"
         );
-        let initial = store
-            .derive_policy_decision(case_id, &operation.operation_id)
-            .expect("derive canonical initial review Decision");
+        let (initial, initial_commit) = store
+            .derive_and_commit_policy_decision(case_id, &operation.operation_id)
+            .expect("derive and atomically commit canonical initial review Decision");
         assert_eq!(
             initial.outcome,
             crate::effect::DecisionOutcome::RequireReview
-        );
-        let initial_commit = commit_typed(
-            &store,
-            "transition:h10-review-initial-decision",
-            case_id,
-            9,
-            TransitionPayload::DecisionRecorded {
-                decision: initial.clone(),
-            },
-            Some(operation.scope.clone()),
-            vec![
-                operation.operation_id.clone(),
-                initial.decision_basis.as_ref().unwrap().basis_id.clone(),
-                initial
-                    .decision_basis
-                    .as_ref()
-                    .unwrap()
-                    .effective_policy_id
-                    .clone(),
-            ],
         );
         let expected_review =
             build_policy_review_request(&operation, &initial, initial_commit.state.generation)
@@ -9561,39 +10902,17 @@ mod tests {
             forged_final_error.contains("authority_decision_basis_mismatch"),
             "{forged_final_error}"
         );
-        let final_decision = store
-            .derive_policy_review_decision(
+        let (final_decision, final_commit) = store
+            .derive_and_commit_policy_review_decision(
                 case_id,
                 &operation.operation_id,
                 &expected_review.review_id,
                 &action.action_id,
             )
-            .expect("derive canonical final review Decision");
-        let final_commit = commit_typed(
-            &store,
-            "transition:h10-final-review-decision",
-            case_id,
-            action_commit.state.generation,
-            TransitionPayload::DecisionRecorded {
-                decision: final_decision.clone(),
-            },
-            Some(operation.scope.clone()),
-            vec![
-                operation.operation_id.clone(),
-                action.action_id.clone(),
-                final_decision
-                    .decision_basis
-                    .as_ref()
-                    .unwrap()
-                    .basis_id
-                    .clone(),
-                final_decision
-                    .decision_basis
-                    .as_ref()
-                    .unwrap()
-                    .effective_policy_id
-                    .clone(),
-            ],
+            .expect("derive and atomically commit canonical final review Decision");
+        assert_eq!(
+            final_decision.outcome,
+            crate::effect::DecisionOutcome::Allow
         );
         assert_eq!(final_commit.state.generation, 13);
         assert!(final_commit.state.grants.is_empty());
@@ -9662,7 +10981,7 @@ mod tests {
             &store,
             &policy_with_rules("organization:acme", "authority", "1", "allow", false),
         );
-        let bound = store
+        store
             .bind_case_policy(
                 case_id,
                 &v1.artifact.artifact_id,
@@ -9744,38 +11063,11 @@ mod tests {
             Some(operation.scope.clone()),
             operation.origin.causal_refs(),
         );
-        let state = store.get_case_state(case_id).unwrap().unwrap();
-        let temporal = AuthorityTemporalContext {
-            authority_time_unix_ms: bound.status.authority_time_unix_ms,
-            binding_validity: bound.status.binding_validity.into_values().collect(),
-        };
-        let effective = bound.status.effective_policy.expect("E1");
-        let decision = evaluate_filesystem_admission(
-            &operation,
-            &state,
-            &resource,
-            &effective,
-            &CanonicalEvidenceResolution::default(),
-            &temporal,
-        )
-        .expect("evaluate E1");
+        let (decision, decision_commit) = store
+            .derive_and_commit_policy_decision(case_id, &operation.operation_id)
+            .expect("derive and atomically commit E1 Decision");
         assert_eq!(decision.outcome, crate::effect::DecisionOutcome::Allow);
         let basis = decision.decision_basis.as_ref().expect("basis");
-        let decision_commit = commit_typed(
-            &store,
-            "transition:wave10-decision",
-            case_id,
-            9,
-            TransitionPayload::DecisionRecorded {
-                decision: decision.clone(),
-            },
-            Some(operation.scope.clone()),
-            vec![
-                operation.operation_id.clone(),
-                basis.basis_id.clone(),
-                basis.effective_policy_id.clone(),
-            ],
-        );
         let grant =
             issue_policy_execution_grant(&operation, &decision, decision_commit.state.generation)
                 .expect("build E1 grant before intervening authority state");
@@ -10111,25 +11403,9 @@ mod tests {
         let store = LmdbRecordStore::open(&path).expect("open store");
         let case_id = "case:wave11-review-revoke";
         let (_resource, operation) = setup_h10_authority_case(&store, case_id, "allow", true);
-        let decision = store
-            .derive_policy_decision(case_id, &operation.operation_id)
-            .expect("derive review Decision");
-        let basis = decision.decision_basis.as_ref().expect("DecisionBasis");
-        let decision_commit = commit_typed(
-            &store,
-            "transition:wave11-review-decision",
-            case_id,
-            9,
-            TransitionPayload::DecisionRecorded {
-                decision: decision.clone(),
-            },
-            Some(operation.scope.clone()),
-            vec![
-                operation.operation_id.clone(),
-                basis.basis_id.clone(),
-                basis.effective_policy_id.clone(),
-            ],
-        );
+        let (decision, decision_commit) = store
+            .derive_and_commit_policy_decision(case_id, &operation.operation_id)
+            .expect("derive and atomically commit review Decision");
         let review =
             build_policy_review_request(&operation, &decision, decision_commit.state.generation)
                 .expect("build review");
@@ -10208,25 +11484,10 @@ mod tests {
         let store = LmdbRecordStore::open(&path).expect("open store");
         let case_id = "case:wave11-grant-expiry";
         let (resource, operation) = setup_h10_authority_case(&store, case_id, "allow", false);
-        let decision = store
-            .derive_policy_decision(case_id, &operation.operation_id)
-            .expect("derive Decision");
+        let (decision, decision_commit) = store
+            .derive_and_commit_policy_decision(case_id, &operation.operation_id)
+            .expect("derive and atomically commit Decision");
         let basis = decision.decision_basis.as_ref().expect("basis");
-        let decision_commit = commit_typed(
-            &store,
-            "transition:wave11-expiry-decision",
-            case_id,
-            9,
-            TransitionPayload::DecisionRecorded {
-                decision: decision.clone(),
-            },
-            Some(operation.scope.clone()),
-            vec![
-                operation.operation_id.clone(),
-                basis.basis_id.clone(),
-                basis.effective_policy_id.clone(),
-            ],
-        );
         let grant =
             issue_policy_execution_grant(&operation, &decision, decision_commit.state.generation)
                 .expect("issue finite Grant");
@@ -10301,25 +11562,10 @@ mod tests {
         let store = LmdbRecordStore::open(&path).expect("open store");
         let case_id = "case:wave11-prepare-cut";
         let (resource, operation) = setup_h10_authority_case(&store, case_id, "allow", false);
-        let decision = store
-            .derive_policy_decision(case_id, &operation.operation_id)
-            .expect("derive Decision");
+        let (decision, decision_commit) = store
+            .derive_and_commit_policy_decision(case_id, &operation.operation_id)
+            .expect("derive and atomically commit Decision");
         let basis = decision.decision_basis.as_ref().expect("basis");
-        let decision_commit = commit_typed(
-            &store,
-            "transition:wave11-cut-decision",
-            case_id,
-            9,
-            TransitionPayload::DecisionRecorded {
-                decision: decision.clone(),
-            },
-            Some(operation.scope.clone()),
-            vec![
-                operation.operation_id.clone(),
-                basis.basis_id.clone(),
-                basis.effective_policy_id.clone(),
-            ],
-        );
         let grant =
             issue_policy_execution_grant(&operation, &decision, decision_commit.state.generation)
                 .expect("issue Grant");
@@ -10557,5 +11803,567 @@ mod tests {
         );
         drop(reopened);
         fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
+    fn wave12_kernel_principals_tenants_and_case_links_are_isolated_and_restart_safe() {
+        let path = temp_store_path("wave12-security-domains");
+        let store = LmdbRecordStore::open(&path).expect("open security store");
+        let owner_a = AuthenticatedPrincipal::for_test(12001);
+        let owner_b = AuthenticatedPrincipal::for_test(12002);
+        let bootstrap_a = store
+            .bootstrap_local_security(
+                &owner_a,
+                "tenant:wave12-a",
+                "organization:shared",
+                1_200_001,
+            )
+            .expect("bootstrap Tenant A");
+        let bootstrap_b = store
+            .bootstrap_local_security(
+                &owner_b,
+                "tenant:wave12-b",
+                "organization:shared",
+                1_200_002,
+            )
+            .expect("bootstrap Tenant B");
+        assert_ne!(
+            bootstrap_a.principal.principal_id,
+            bootstrap_b.principal.principal_id
+        );
+        assert!(
+            !store
+                .bootstrap_local_security(
+                    &owner_a,
+                    "tenant:wave12-a",
+                    "organization:shared",
+                    1_200_001,
+                )
+                .expect("exact bootstrap is idempotent")
+                .created
+        );
+        assert!(store
+            .bootstrap_local_security(
+                &owner_b,
+                "tenant:wave12-a",
+                "organization:shared",
+                1_200_003,
+            )
+            .unwrap_err()
+            .contains("unsafe_duplicate_tenant_bootstrap"));
+
+        let case_a = store
+            .create_tenant_case(&owner_a, "tenant:wave12-a", "case:wave12-a")
+            .expect("create Tenant A Case");
+        let case_b = store
+            .create_tenant_case(&owner_b, "tenant:wave12-b", "case:wave12-b")
+            .expect("create Tenant B Case");
+        assert_eq!(case_a.state.tenant_id.as_deref(), Some("tenant:wave12-a"));
+        assert_eq!(case_b.state.tenant_id.as_deref(), Some("tenant:wave12-b"));
+        assert_eq!(
+            store
+                .get_case_state_authorized(&owner_a, "case:wave12-b")
+                .unwrap_err(),
+            "case_not_visible"
+        );
+        assert_eq!(
+            store
+                .get_case_state_authorized(&owner_b, "case:wave12-a")
+                .unwrap_err(),
+            "case_not_visible"
+        );
+
+        store
+            .add_tenant_member(
+                &owner_a,
+                "tenant:wave12-a",
+                &bootstrap_b.principal.principal_id,
+                1_200_004,
+            )
+            .expect("owner adds enrolled member");
+        assert_eq!(
+            store
+                .resolve_security_context(&owner_b, "tenant:wave12-a")
+                .expect("member context")
+                .membership(),
+            &TenantMembershipKind::Member
+        );
+        let principal_a = bootstrap_a.principal.principal_id.clone();
+        let participant = store
+            .commit_secured_transition(
+                &owner_a,
+                "tenant:wave12-a",
+                secured_pending(
+                    "transition:wave12-human",
+                    "case:wave12-a",
+                    case_a.state.generation,
+                    &principal_a,
+                    TransitionPayload::ParticipantBound {
+                        participant_id: "participant:human".to_string(),
+                        role: "operation-reviewer".to_string(),
+                    },
+                ),
+                true,
+            )
+            .expect("owner binds Case Participant");
+        let link = crate::transition::PrincipalParticipantLink::new(
+            "case:wave12-a",
+            "tenant:wave12-a",
+            &bootstrap_b.principal.principal_id,
+            "participant:human",
+            &principal_a,
+            1_200_005,
+        )
+        .expect("build Principal Participant link");
+        let mut link_pending = secured_pending(
+            "transition:wave12-human-link",
+            "case:wave12-a",
+            participant.state.generation,
+            &principal_a,
+            TransitionPayload::ParticipantPrincipalLinked { link: link.clone() },
+        );
+        link_pending.causal_refs = vec![
+            bootstrap_b.principal.principal_id.clone(),
+            "participant:human".to_string(),
+        ];
+        let linked = store
+            .commit_secured_transition(&owner_a, "tenant:wave12-a", link_pending, true)
+            .expect("link member Principal to Participant");
+        assert_eq!(linked.state.principal_participant_links, vec![link]);
+        assert_eq!(
+            linked.state.participants[0].roles,
+            vec!["operation-reviewer".to_string()]
+        );
+
+        let member_admin = store
+            .commit_secured_transition(
+                &owner_b,
+                "tenant:wave12-a",
+                secured_pending(
+                    "transition:wave12-member-admin",
+                    "case:wave12-a",
+                    linked.state.generation,
+                    &bootstrap_b.principal.principal_id,
+                    TransitionPayload::ParticipantBound {
+                        participant_id: "participant:forbidden".to_string(),
+                        role: "admin".to_string(),
+                    },
+                ),
+                true,
+            )
+            .expect_err("Tenant member is not an administrator");
+        assert_eq!(member_admin, "tenant_owner_required");
+        let injected = store
+            .commit_transition(secured_pending(
+                "transition:wave12-low-level-injection",
+                "case:wave12-a",
+                linked.state.generation,
+                &principal_a,
+                TransitionPayload::ParticipantBound {
+                    participant_id: "participant:forged".to_string(),
+                    role: "admin".to_string(),
+                },
+            ))
+            .expect_err("Principal strings cannot bypass canonical security");
+        assert_eq!(injected, "authenticated_tenant_owner_required");
+
+        assert_eq!(
+            store
+                .cancel_tenant_case(&owner_b, "case:wave12-a", "member cannot cancel")
+                .expect_err("Tenant member cannot cancel"),
+            "tenant_owner_required"
+        );
+        let cancellation = store
+            .cancel_tenant_case(&owner_a, "case:wave12-a", "owner cancellation")
+            .expect("Tenant owner cancels Case");
+        assert_eq!(
+            cancellation.commits[0]
+                .transition
+                .source
+                .principal_id
+                .as_deref(),
+            Some(principal_a.as_str())
+        );
+        let closure = store
+            .close_tenant_case(&owner_a, "case:wave12-a", "owner closure")
+            .expect("Tenant owner closes Case");
+        assert_eq!(
+            closure
+                .commit
+                .as_ref()
+                .unwrap()
+                .transition
+                .source
+                .principal_id
+                .as_deref(),
+            Some(principal_a.as_str())
+        );
+        assert_eq!(closure.state.lifecycle, CaseLifecycle::Closed);
+        assert_eq!(
+            store
+                .commit_secured_transition(
+                    &owner_a,
+                    "tenant:wave12-a",
+                    secured_pending(
+                        "transition:wave12-post-close",
+                        "case:wave12-a",
+                        closure.state.generation,
+                        &principal_a,
+                        TransitionPayload::ParticipantBound {
+                            participant_id: "participant:post-close".to_string(),
+                            role: "forbidden".to_string(),
+                        },
+                    ),
+                    true,
+                )
+                .expect_err("Tenant owner cannot mutate a closed Case"),
+            "case_closed_write_barrier"
+        );
+
+        drop(store);
+        let reopened = LmdbRecordStore::open(&path).expect("reopen security store");
+        let replay = reopened
+            .replay_case_state("case:wave12-a")
+            .expect("replay tenant Case");
+        assert_eq!(replay.tenant_id.as_deref(), Some("tenant:wave12-a"));
+        assert_eq!(replay.principal_participant_links.len(), 1);
+        println!(
+            "wave12_security_domains: principal_a={} principal_b={} tenant_a={} tenant_b={} case_a={} case_b={} link={} cross_tenant_read=denied member_admin={} low_level_injection={} cancellation_actor={} closure_actor={} owner_cannot_reopen_closed=true restart_tenant={} organization_projection_shared_without_cross_access=true",
+            bootstrap_a.principal.principal_id,
+            bootstrap_b.principal.principal_id,
+            bootstrap_a.tenant.tenant_id,
+            bootstrap_b.tenant.tenant_id,
+            case_a.state.case_id,
+            case_b.state.case_id,
+            replay.principal_participant_links[0].link_id,
+            member_admin,
+            injected,
+            cancellation.commits[0]
+                .transition
+                .source
+                .principal_id
+                .as_deref()
+                .unwrap(),
+            closure
+                .commit
+                .as_ref()
+                .unwrap()
+                .transition
+                .source
+                .principal_id
+                .as_deref()
+                .unwrap(),
+            replay.tenant_id.as_deref().unwrap()
+        );
+        drop(reopened);
+        fs::remove_dir_all(path).expect("remove security store");
+    }
+
+    #[test]
+    fn wave12_policy_namespace_is_tenant_bound_and_cross_tenant_binding_fails_closed() {
+        let path = temp_store_path("wave12-policy-isolation");
+        let store = LmdbRecordStore::open(&path).expect("open policy isolation store");
+        let owner_a = AuthenticatedPrincipal::for_test(12101);
+        let owner_b = AuthenticatedPrincipal::for_test(12102);
+        store
+            .bootstrap_local_security(
+                &owner_a,
+                "tenant:policy-a",
+                "organization:shared",
+                1_210_001,
+            )
+            .unwrap();
+        store
+            .bootstrap_local_security(
+                &owner_b,
+                "tenant:policy-b",
+                "organization:shared",
+                1_210_002,
+            )
+            .unwrap();
+        let case_a = store
+            .create_tenant_case(&owner_a, "tenant:policy-a", "case:policy-a")
+            .unwrap();
+        let case_b = store
+            .create_tenant_case(&owner_b, "tenant:policy-b", "case:policy-b")
+            .unwrap();
+        let source_bytes =
+            policy_source_for("organization:shared", "production.security", "1", false);
+        let global = compile_policy_source(&source_bytes).expect("compile global source content");
+        let scoped_a =
+            scope_policy_compilation(&global, "tenant:policy-a", "organization:shared").unwrap();
+        let scoped_b =
+            scope_policy_compilation(&global, "tenant:policy-b", "organization:shared").unwrap();
+        assert_eq!(
+            scoped_a.source.content_digest,
+            scoped_b.source.content_digest
+        );
+        assert_ne!(scoped_a.artifact.artifact_id, scoped_b.artifact.artifact_id);
+        assert_ne!(
+            scoped_a.artifact.lineage().identity(),
+            scoped_b.artifact.lineage().identity()
+        );
+        for (auth, tenant, compilation) in [
+            (&owner_a, "tenant:policy-a", &scoped_a),
+            (&owner_b, "tenant:policy-b", &scoped_b),
+        ] {
+            store
+                .ingest_tenant_policy_compilation(auth, tenant, compilation)
+                .unwrap();
+            store
+                .validate_tenant_policy_artifact(
+                    auth,
+                    &compilation.artifact.artifact_id,
+                    "tenant validation",
+                )
+                .unwrap();
+            store
+                .publish_tenant_policy_artifact(
+                    auth,
+                    &compilation.artifact.artifact_id,
+                    "tenant publication",
+                )
+                .unwrap();
+        }
+        let cross = store
+            .bind_tenant_case_policy(
+                &owner_a,
+                "case:policy-a",
+                &scoped_b.artifact.artifact_id,
+                case_a.state.generation,
+                "cross tenant must fail",
+            )
+            .expect_err("cross-Tenant binding");
+        assert_eq!(cross, "cross_tenant_case_policy_binding_rejected");
+        assert!(store
+            .get_case_state("case:policy-a")
+            .unwrap()
+            .unwrap()
+            .policy_bindings
+            .is_empty());
+        let bound_a = store
+            .bind_tenant_case_policy(
+                &owner_a,
+                "case:policy-a",
+                &scoped_a.artifact.artifact_id,
+                case_a.state.generation,
+                "bind Tenant A policy",
+            )
+            .unwrap();
+        let bound_b = store
+            .bind_tenant_case_policy(
+                &owner_b,
+                "case:policy-b",
+                &scoped_b.artifact.artifact_id,
+                case_b.state.generation,
+                "bind Tenant B policy",
+            )
+            .unwrap();
+        let wrong_revoke = store
+            .revoke_tenant_policy_artifact(
+                &owner_a,
+                &scoped_b.artifact.artifact_id,
+                "must not cross Tenant",
+            )
+            .expect_err("Tenant A cannot revoke Tenant B policy");
+        assert_eq!(wrong_revoke, "tenant_not_visible");
+        store
+            .revoke_tenant_policy_artifact(
+                &owner_a,
+                &scoped_a.artifact.artifact_id,
+                "Tenant A revoke",
+            )
+            .unwrap();
+        assert_eq!(
+            store
+                .policy_artifact_view_authorized(&owner_b, &scoped_b.artifact.artifact_id)
+                .unwrap()
+                .lifecycle,
+            PolicyLifecycleState::Published
+        );
+        println!(
+            "wave12_policy_isolation: shared_source_digest={} artifact_a={} artifact_b={} lineage_a={} lineage_b={} binding_a={} binding_b={} cross_bind={} cross_revoke={} tenant_b_lifecycle=published",
+            scoped_a.source.content_digest,
+            scoped_a.artifact.artifact_id,
+            scoped_b.artifact.artifact_id,
+            scoped_a.artifact.lineage().identity(),
+            scoped_b.artifact.lineage().identity(),
+            bound_a
+                .commit
+                .as_ref()
+                .unwrap()
+                .state
+                .policy_bindings
+                .last()
+                .unwrap()
+                .binding_id,
+            bound_b
+                .commit
+                .as_ref()
+                .unwrap()
+                .state
+                .policy_bindings
+                .last()
+                .unwrap()
+                .binding_id,
+            cross,
+            wrong_revoke
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove policy isolation store");
+    }
+
+    #[test]
+    fn wave12_cross_tenant_filesystem_roots_reject_exact_and_overlapping_aliases() {
+        let path = temp_store_path("wave12-root-isolation");
+        let root = temp_store_path("wave12-shared-root");
+        fs::create_dir_all(root.join("nested")).expect("create root hierarchy");
+        let store = LmdbRecordStore::open(&path).expect("open root isolation store");
+        let owner_a = AuthenticatedPrincipal::for_test(12201);
+        let owner_b = AuthenticatedPrincipal::for_test(12202);
+        for (auth, tenant, organization) in [
+            (&owner_a, "tenant:root-a", "organization:root-a"),
+            (&owner_b, "tenant:root-b", "organization:root-b"),
+        ] {
+            store
+                .bootstrap_local_security(auth, tenant, organization, 1_220_000)
+                .unwrap();
+        }
+        let case_a = store
+            .create_tenant_case(&owner_a, "tenant:root-a", "case:root-a")
+            .unwrap();
+        let case_b = store
+            .create_tenant_case(&owner_b, "tenant:root-b", "case:root-b")
+            .unwrap();
+        let resource = |id: &str| ResourceAttachmentState {
+            attachment_id: id.to_string(),
+            kind: ResourceKind::Filesystem,
+            allowed_write_prefix: "allowed".to_string(),
+            max_write_bytes: 1024,
+            policy_id: "compatibility:inert".to_string(),
+            policy_owner_participant_id: "compatibility:inert".to_string(),
+            review_requirement: ReviewRequirement::Automatic,
+        };
+        let principal_a = owner_a.projected_principal_id();
+        let principal_b = owner_b.projected_principal_id();
+        let participant_a = store
+            .commit_secured_transition(
+                &owner_a,
+                "tenant:root-a",
+                secured_pending(
+                    "transition:root-a-resource-participant",
+                    "case:root-a",
+                    case_a.state.generation,
+                    &principal_a,
+                    TransitionPayload::ParticipantBound {
+                        participant_id: "participant:resource-a".to_string(),
+                        role: "resource-compatibility-owner".to_string(),
+                    },
+                ),
+                true,
+            )
+            .unwrap();
+        let participant_b = store
+            .commit_secured_transition(
+                &owner_b,
+                "tenant:root-b",
+                secured_pending(
+                    "transition:root-b-resource-participant",
+                    "case:root-b",
+                    case_b.state.generation,
+                    &principal_b,
+                    TransitionPayload::ParticipantBound {
+                        participant_id: "participant:resource-b".to_string(),
+                        role: "resource-compatibility-owner".to_string(),
+                    },
+                ),
+                true,
+            )
+            .unwrap();
+        let mut attach_a = secured_pending(
+            "transition:root-a",
+            "case:root-a",
+            participant_a.state.generation,
+            &principal_a,
+            TransitionPayload::ResourceAttached {
+                attachment: ResourceAttachmentState {
+                    policy_owner_participant_id: "participant:resource-a".to_string(),
+                    ..resource("workspace-a")
+                },
+            },
+        );
+        attach_a.causal_refs = vec!["participant:resource-a".to_string()];
+        store
+            .commit_tenant_resource_attachment(
+                &owner_a,
+                "tenant:root-a",
+                attach_a,
+                &LocalFilesystemBinding::new("case:root-a", "workspace-a", &root).unwrap(),
+            )
+            .expect("Tenant A attaches root");
+        let mut attach_b_exact = secured_pending(
+            "transition:root-b-exact",
+            "case:root-b",
+            participant_b.state.generation,
+            &principal_b,
+            TransitionPayload::ResourceAttached {
+                attachment: ResourceAttachmentState {
+                    policy_owner_participant_id: "participant:resource-b".to_string(),
+                    ..resource("workspace-b-exact")
+                },
+            },
+        );
+        attach_b_exact.causal_refs = vec!["participant:resource-b".to_string()];
+        let exact = store
+            .commit_tenant_resource_attachment(
+                &owner_b,
+                "tenant:root-b",
+                attach_b_exact,
+                &LocalFilesystemBinding::new("case:root-b", "workspace-b-exact", &root).unwrap(),
+            )
+            .expect_err("exact root reuse across Tenants");
+        assert!(exact.contains("cross_tenant_filesystem_root_overlap"));
+        let mut attach_b_overlap = secured_pending(
+            "transition:root-b-overlap",
+            "case:root-b",
+            participant_b.state.generation,
+            &principal_b,
+            TransitionPayload::ResourceAttached {
+                attachment: ResourceAttachmentState {
+                    policy_owner_participant_id: "participant:resource-b".to_string(),
+                    ..resource("workspace-b-overlap")
+                },
+            },
+        );
+        attach_b_overlap.causal_refs = vec!["participant:resource-b".to_string()];
+        let overlap = store
+            .commit_tenant_resource_attachment(
+                &owner_b,
+                "tenant:root-b",
+                attach_b_overlap,
+                &LocalFilesystemBinding::new(
+                    "case:root-b",
+                    "workspace-b-overlap",
+                    &root.join("nested"),
+                )
+                .unwrap(),
+            )
+            .expect_err("overlapping root reuse across Tenants");
+        assert!(overlap.contains("cross_tenant_filesystem_root_overlap"));
+        assert!(store
+            .get_case_state("case:root-b")
+            .unwrap()
+            .unwrap()
+            .resources
+            .is_empty());
+        println!(
+            "wave12_root_isolation: tenant_a=tenant:root-a tenant_b=tenant:root-b root={} exact={} overlap={} tenant_b_resource_count=0",
+            root.display(),
+            exact,
+            overlap
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove root isolation store");
+        fs::remove_dir_all(root).expect("remove root hierarchy");
     }
 }

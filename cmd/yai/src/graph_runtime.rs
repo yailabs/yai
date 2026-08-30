@@ -74,6 +74,15 @@ const GRAPH_EDGE_KINDS: &[&str] = &[
     "unknown",
 ];
 
+fn authorize_graph_case(case_ref: &str) -> Result<(), String> {
+    let status = LmdbRecordStore::status(record_store_path());
+    if status.status == RecordStoreStatusKind::Ready {
+        let store = LmdbRecordStore::open(&status.path)?;
+        security::authorize_case_read_if_scoped(&store, case_ref)?;
+    }
+    Ok(())
+}
+
 pub(super) fn graph_schema(args: &[String]) -> Result<(), String> {
     if !args.is_empty() {
         return Err("usage: yai graph schema".to_string());
@@ -128,6 +137,7 @@ pub(super) fn graph_runtime_status(args: &[String]) -> Result<(), String> {
 
 pub(super) fn graph_runtime_load(args: &[String], summary_only: bool) -> Result<(), String> {
     let case_ref = named_arg(args, "--case")?;
+    authorize_graph_case(&case_ref)?;
     let status = LmdbRecordStore::status(record_store_path());
     if status.status != RecordStoreStatusKind::Ready {
         print_non_ready_record_store(&status);
@@ -238,6 +248,7 @@ impl RuntimeGraphRebuildReport {
 
 pub(super) fn graph_rebuild(args: &[String]) -> Result<(), String> {
     let case_ref = named_arg(args, "--case")?;
+    authorize_graph_case(&case_ref)?;
     let source_mode = named_arg(args, "--from")?;
     match source_mode.as_str() {
         "graph-relations" => graph_rebuild_from_graph_relations(&case_ref),
@@ -359,6 +370,7 @@ fn apply_materialize_report(
 
 pub(super) fn graph_rebuild_report(args: &[String]) -> Result<(), String> {
     let case_ref = named_arg(args, "--case")?;
+    authorize_graph_case(&case_ref)?;
     let report_path = runtime_graph_rebuild_report_path(&case_ref);
     if !report_path.is_file() {
         println!("runtime_graph_rebuild_report:");
@@ -563,6 +575,7 @@ fn json_string_array(values: &[String]) -> String {
 
 pub(super) fn graph_materialize(args: &[String]) -> Result<(), String> {
     let case_ref = named_arg(args, "--case")?;
+    authorize_graph_case(&case_ref)?;
     let status = LmdbRecordStore::status(record_store_path());
     if status.status != RecordStoreStatusKind::Ready {
         print_non_ready_record_store(&status);
@@ -585,6 +598,7 @@ pub(super) fn graph_materialize(args: &[String]) -> Result<(), String> {
 
 pub(super) fn graph_relations(args: &[String]) -> Result<(), String> {
     let case_ref = named_arg(args, "--case")?;
+    authorize_graph_case(&case_ref)?;
     let limit = parse_limit(args)?;
     let status = LmdbRecordStore::status(record_store_path());
     if status.status != RecordStoreStatusKind::Ready {
@@ -634,6 +648,7 @@ fn graph_query_depth(
 }
 
 fn runtime_graph_for_query(case_ref: &str) -> Result<Option<RuntimeGraphLoadResult>, String> {
+    authorize_graph_case(case_ref)?;
     let status = LmdbRecordStore::status(record_store_path());
     if status.status != RecordStoreStatusKind::Ready {
         print_non_ready_record_store(&status);

@@ -53,6 +53,10 @@ fi
 
 filesystem_summary=$(target/debug/yai daemon journal-summary --socket "$socket_path" --journal "$filesystem_journal")
 filesystem_projection=$(target/debug/yai projection inspect --journal "$filesystem_journal")
+security_bootstrap=$(target/debug/yai security bootstrap-local \
+  --tenant tenant:daemon-core-loop --organization organization:characterization)
+tenant_case=$(target/debug/yai case create \
+  --case case:new12-filesystem --tenant tenant:daemon-core-loop)
 filesystem_case_entry=$(YAI_JOURNAL="$filesystem_journal" target/debug/yai case enter --case case:new12-filesystem --subject subject:llm-provider)
 filesystem_case_shell=$(YAI_JOURNAL="$filesystem_journal" target/debug/yai case enter --case case:new12-filesystem --subject subject:llm-provider --shell zsh)
 filesystem_provider_attach=$(YAI_JOURNAL="$filesystem_journal" target/debug/yai case attach-provider --case case:new12-filesystem --subject subject:llm-provider --base-url http://127.0.0.1:43117/v1/chat/completions --model qwen-local)
@@ -94,6 +98,10 @@ printf '%s\n' "$filesystem_projection" | grep 'redacted_or_limited: 1' >/dev/nul
 printf '%s\n' "$filesystem_projection" | grep 'projection_freshness: fresh' >/dev/null
 printf '%s\n' "$filesystem_projection" | grep 'freshness_policy: usable' >/dev/null
 printf '%s\n' "$filesystem_projection" | grep 'source: hot_state' >/dev/null
+printf '%s\n' "$security_bootstrap" | grep 'authentication_kind: local_posix_effective_credential' >/dev/null
+printf '%s\n' "$security_bootstrap" | grep 'tenant_id: tenant:daemon-core-loop' >/dev/null
+printf '%s\n' "$tenant_case" | grep 'case_created: true' >/dev/null
+printf '%s\n' "$tenant_case" | grep 'tenant_id: tenant:daemon-core-loop' >/dev/null
 printf '%s\n' "$filesystem_case_entry" | grep 'case_entry: accepted' >/dev/null
 printf '%s\n' "$filesystem_case_entry" | grep 'subject_ref: subject:llm-provider' >/dev/null
 printf '%s\n' "$filesystem_case_entry" | grep 'case_session: active' >/dev/null
@@ -147,6 +155,7 @@ printf 'daemon-loop:minimum completed\n'
 printf 'daemon-loop:filesystem completed\n'
 printf 'journal:summary ok\n'
 printf 'projection:summary ok\n'
+printf 'security:tenant case bootstrapped\n'
 printf 'case:enter ok\n'
 printf 'case:attach-provider ok\n'
 printf 'case:transcript retention ok\n'

@@ -6,6 +6,7 @@
 //! It is deliberately not a generic carrier registry or policy engine.
 
 use super::*;
+use crate::security::authenticate_local;
 use yai_core_engine::admission::build_policy_review_request;
 use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
 use yai_core_engine::effect::{
@@ -42,6 +43,7 @@ fn effect_source(participant_id: Option<&str>, source_ref: &str) -> TransitionSo
     TransitionSource {
         component: CONTROLLED_EFFECT_COMPONENT.to_string(),
         participant_id: participant_id.map(ToString::to_string),
+        principal_id: None,
         source_ref: Some(source_ref.to_string()),
     }
 }
@@ -107,9 +109,15 @@ pub(super) fn case_attach_filesystem(args: &[String]) -> Result<(), String> {
     }
 
     let store = LmdbRecordStore::open(record_store_path())?;
-    let state = store
-        .get_case_state(&case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let authenticated = authenticate_local()?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    let tenant_id = state
+        .tenant_id
+        .clone()
+        .ok_or_else(|| "legacy_unscoped_case_cannot_attach_filesystem".to_string())?;
+    store
+        .resolve_security_context(&authenticated, &tenant_id)?
+        .require_owner()?;
     if !state
         .participants
         .iter()
@@ -147,26 +155,31 @@ pub(super) fn case_attach_filesystem(args: &[String]) -> Result<(), String> {
         if existing != &attachment {
             return Err("resource attachment already exists with a different contract".to_string());
         }
-        store.put_local_filesystem_binding(&binding)?;
+        store.put_tenant_local_filesystem_binding(&authenticated, &binding)?;
         println!("filesystem_attachment: already_attached");
     } else {
-        commit_effect_transition(
-            &store,
+        let mut pending = PendingTransition::new(
+            format!("transition:resource-attached:{attachment_id}"),
             &case_id,
-            Some(&policy_owner),
-            &format!("resource-attached:{attachment_id}"),
+            state.generation,
+            TransitionSource {
+                component: CONTROLLED_EFFECT_COMPONENT.to_string(),
+                participant_id: None,
+                principal_id: Some(authenticated.projected_principal_id()),
+                source_ref: Some(format!("resource-attached:{attachment_id}")),
+            },
             TransitionPayload::ResourceAttached {
                 attachment: attachment.clone(),
             },
-            Some(TransitionScope {
-                case_id: case_id.clone(),
-                participant_refs: vec![policy_owner.clone()],
-                resource_refs: vec![attachment_id.clone()],
-                policy_refs: vec![policy_id.clone()],
-            }),
-            vec![policy_owner.clone()],
-        )?;
-        store.put_local_filesystem_binding(&binding)?;
+        );
+        pending.scope = Some(TransitionScope {
+            case_id: case_id.clone(),
+            participant_refs: vec![policy_owner.clone()],
+            resource_refs: vec![attachment_id.clone()],
+            policy_refs: vec![policy_id.clone()],
+        });
+        pending.causal_refs = vec![policy_owner.clone()];
+        store.commit_tenant_resource_attachment(&authenticated, &tenant_id, pending, &binding)?;
         println!("filesystem_attachment: attached");
     }
     println!("case_id: {case_id}");
@@ -1009,9 +1022,8 @@ pub(super) fn controlled_filesystem_write(args: &[String]) -> Result<(), String>
     let attachment_id = named_arg(args, "--attachment")?;
     let prompt = named_arg(args, "--prompt")?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let state = store
-        .get_case_state(&case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let authenticated = authenticate_local()?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
     if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
         println!("case_lifecycle: {:?}", state.lifecycle);
         println!("case_cancelled: {}", state.cancellation.is_some());
@@ -1271,6 +1283,10 @@ pub(super) fn controlled_effect_reconcile(args: &[String]) -> Result<(), String>
     let state = store
         .get_case_state(&case_id)?
         .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    if state.tenant_id.is_some() {
+        let authenticated = authenticate_local()?;
+        store.get_case_state_authorized(&authenticated, &case_id)?;
+    }
     let effect_state = if let Some(effect_id) = requested_effect.as_deref() {
         state
             .effects
@@ -1397,11 +1413,15 @@ pub(super) fn controlled_effect_inspect(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let effect_id = named_arg(args, "--effect")?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let transitions = store.list_case_transitions(&case_id)?;
-    let chain = load_effect_chain(&transitions, &effect_id)?;
     let state = store
         .get_case_state(&case_id)?
         .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    if state.tenant_id.is_some() {
+        let authenticated = authenticate_local()?;
+        store.get_case_state_authorized(&authenticated, &case_id)?;
+    }
+    let transitions = store.list_case_transitions(&case_id)?;
+    let chain = load_effect_chain(&transitions, &effect_id)?;
     let effect = state
         .effects
         .iter()

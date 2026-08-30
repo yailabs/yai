@@ -1,0 +1,11 @@
+surface	Tenant_member	Tenant_nonmember	owner_required	mechanical_boundary
+Case status/policy/runtime status	allow	case_not_visible	no	Case tenant lookup + membership
+Case run/resume/stop	owner only	deny	yes	current authenticated SecurityContext
+policy list/inspect	allow selected Tenant	tenant_not_visible	mutation only	artifact tenant_id/query filter
+policy ingest/lifecycle	deny member	deny	yes	artifact domain + owner verification
+review show/pending	allow selected Tenant	case_not_visible	no	Case membership
+review action	linked eligible member/owner	deny	no	Principal link + Case role + policy
+memory/graph/context	allow only target Case	case_not_visible	no	Case→Tenant gate before rendering/query
+filesystem attachment	deny member	deny	yes	Case domain + canonical root overlap scan
+provider attachment	deny member	deny	yes	Case domain admin boundary
+cancel/close	deny member	deny	yes	secured transactional lifecycle writer

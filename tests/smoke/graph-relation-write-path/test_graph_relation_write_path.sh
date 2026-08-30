@@ -23,6 +23,12 @@ cat > "$JOURNAL" <<'JSONL'
 JSONL
 
 YAI_HOME="$YAI_HOME" "$YAI_BIN" journal replay --path "$JOURNAL" >/dev/null
+YAI_HOME="$YAI_HOME" "$YAI_BIN" security bootstrap-local \
+  --tenant tenant:spine41 --organization organization:characterization >/dev/null
+YAI_HOME="$YAI_HOME" "$YAI_BIN" case create \
+  --case case:spine41 --tenant tenant:spine41 >/dev/null
+YAI_HOME="$YAI_HOME" "$YAI_BIN" case create \
+  --case case:missing --tenant tenant:spine41 >/dev/null
 
 materialize_first="$(YAI_HOME="$YAI_HOME" "$YAI_BIN" graph materialize --case case:spine41)"
 grep -q "graph_materialize:" <<<"$materialize_first"

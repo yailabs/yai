@@ -1,0 +1,10 @@
+field_or_property	contract
+schema	yai.security_principal.v1
+principal_id	stable digest-derived ID of authentication method + binding_ref + effective UID
+authentication_binding	local POSIX binding `posix:euid:<uid>`; real/effective UID/GID recorded
+uniqueness	one active binding index entry resolves to exactly one Principal
+persistence	immutable LMDB record plus LocalPrincipalRegistered security event
+restart	ID remains stable for the same effective OS credential
+separation	Principal is not Participant, Case role, Tenant membership or execution authority
+construction	AuthenticatedPrincipal fields are private; production constructor observes kernel credentials; test constructors are cfg(test)
+trust_limit	local process/LMDB filesystem trust boundary; no defense against out-of-band LMDB corruption

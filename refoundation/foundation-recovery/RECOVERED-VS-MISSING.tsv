@@ -46,3 +46,9 @@ native YVEX integration	future_research	OpenAI-compatible boundary only	native i
 qualification/release discipline	refounded_proven	wave tests+commit/push contract	keep per-wave evidence	all waves
 policy revocation	refounded_proven	append-only Revoked event consumed by Decision/review/Grant/runtime	remote fanout/authenticated admin	Wave12+
 review invalidation	refounded_proven	typed terminal invalidation for policy/cancel basis	additional review lifecycles only with consumers	future
+authenticated Principal/local auth	refounded_proven within local POSIX trust model	sealed kernel credential projection + yai.security_principal.v1 enrollment	external SSO/account identity and credential vault	future identity
+Tenant/security domain	refounded_proven	yai.tenant.v1; immutable v8 Case tenant; membership-gated writes/reads	membership removal/deletion and distributed enforcement	future identity/lifecycle
+shared governance catalog	refounded_proven for Tenant ownership	policy artifact v5 + lifecycle v3 + Tenant lineage/cross-bind tests	retention/distributed catalog	future
+human review identity	refounded_proven + authenticated-principal-qualified	ReviewAction v2 + Principal/Participant link + Case roles	remote signatures/external identity	future identity
+Organization	partially_refounded projection-only	immutable organization_ref on Tenant	verified legal/account organization lifecycle	future account service
+multi-Tenant read isolation	refounded_proven for local product surfaces	Case/Tenant membership gate before Case/policy/review/memory/graph/context rendering	remote/API perimeter and hostile out-of-band DB access	future API/security

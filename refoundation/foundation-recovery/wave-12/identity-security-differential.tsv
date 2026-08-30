@@ -1,0 +1,10 @@
+property	strongest_legacy_evidence	legacy_owner	current_pre_wave12	wave12_disposition	refounded_owner
+authentication	1efadcfe yai-auth + substrate authn_verified	user store/session runtime	caller --as strings	kernel-observed effective POSIX credential	security.rs
+authenticated identity	principal_id plus host UID/GID in substrate session	session mega-context	absent	durable SecurityPrincipal plus ephemeral AuthenticatedPrincipal	security.rs + LMDB
+session context	1238741 post-auth shell; final runtime_session	substrate/user-session registry	per-command process	invocation-scoped SecurityContext; no canonical login session	security.rs
+Case visibility	1efadc root/user Case separation	root/user hierarchy	Case ID knowledge	immutable Case tenant_id plus membership-gated reads	Transition/CaseState + security.rs
+role	c88 caller protocol role; later session_role strings	RPC/session envelope	Case Participant roles	roles remain only in CaseState and never derive from Principal	Transition reducer
+policy ownership	owner_ref/profile strings	governance/session metadata	owner_ref + policy_key	Tenant + policy_key lineage for v5 artifacts	governance.rs
+organization	no independent executable lifecycle	string metadata	owner_ref conventions	organization_ref immutable Tenant projection only	security.rs Tenant
+human review	claimed --as Participant	CLI/session strings	Case role check without auth	Principal→Tenant membership→Participant link→Case role	review.rs + store
+root isolation	root/user Case contamination cleanup	root context/session tree	no Tenant boundary	root/eUID 0 has no YAI authority without enrollment	authentication + catalog

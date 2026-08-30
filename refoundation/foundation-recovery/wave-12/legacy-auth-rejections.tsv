@@ -1,0 +1,11 @@
+legacy_mechanism	disposition	reason
+password-on-argv/password database	REJECT	current product needs no account directory; secrets must not traverse argv
+YAI_USER_NAME/YAI_USER/USER/HOME authentication	REJECT	caller-controlled environment is not identity evidence
+hard-coded root/local-dev Principal	REJECT	self-asserted identity cannot cross canonical boundary
+caller OPERATOR role + arming bit	REJECT	client could manufacture both fields
+ambient eUID 0 YAI authority	REJECT	OS authority is authentication input, not Tenant membership
+root/user Case hierarchy as Tenant	REJECT	host topology is not a durable multi-Tenant isolation model
+canonical UserSession registry	REJECT	no independent current lifecycle consumer; invocation-scoped projection suffices
+Principal equals Participant/role	REJECT	authentication, Case participation and policy authority are distinct
+Organization registry/account plane	DEFER	no lifecycle/consumer earns an owner
+SecurityManager/IAM module forest	REJECT	one cohesive security owner covers current contracts

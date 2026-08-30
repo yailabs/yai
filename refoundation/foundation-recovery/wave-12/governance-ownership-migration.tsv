@@ -1,0 +1,8 @@
+contract	legacy	new_authority	compatibility
+source content	yai.policy_source_artifact.v1-v4 global exact bytes	yai.policy_source_artifact.v4 remains global content identity	same bytes may be shared without sharing authority
+artifact	yai.policy_artifact.v1-v4 owner_ref lineage	yai.policy_artifact.v5 binds tenant_id + organization_ref	old artifacts inspect/replay only; no string adoption
+lineage	owner_ref + policy_key	tenant_id + policy_key	owner_ref retained as source provenance on v5
+lifecycle	yai.policy_lifecycle_event.v1-v2 actor_ref	yai.policy_lifecycle_event.v3 binds tenant_id + principal_id	old events readable
+Case binding	yai.case_policy_binding.v1	yai.case_policy_binding.v2 binds tenant_id + principal_id	v1 history readable; no cross-Tenant binding
+EffectivePolicy	yai.effective_policy.v1-v2	yai.effective_policy.v3 binds one tenant_id	mixed domains block materialization
+DecisionBasis	yai.decision_basis.v1-v2	yai.decision_basis.v3 binds tenant_id	canonical writer re-derives domain

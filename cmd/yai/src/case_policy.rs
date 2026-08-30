@@ -1,6 +1,7 @@
 //! Case-native policy binding and derived normative-state CLI.
 
 use super::*;
+use crate::security::{authenticate_local, reject_spoofed_as};
 use yai_core_engine::case_policy::{
     EffectivePolicyRule, NormativeReadiness, NormativeStatus, PolicyCatalogDrift,
 };
@@ -58,6 +59,10 @@ fn print_normative_status(
         .filter(|item| matches!(item.payload, TransitionPayload::EffectPrepared { .. }))
         .count();
     println!("case_id: {case_id}");
+    println!(
+        "tenant_id: {}",
+        state.tenant_id.as_deref().unwrap_or("legacy_unscoped")
+    );
     println!("case_generation: {}", state.generation);
     println!("case_lifecycle: {:?}", state.lifecycle);
     println!("case_cancelled: {}", state.cancellation.is_some());
@@ -194,15 +199,17 @@ fn print_mutation(
 fn bind(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let artifact_id = named_arg(args, "--artifact")?;
-    let actor = named_arg(args, "--as")?;
+    let authenticated = authenticate_local()?;
+    reject_spoofed_as(args, &authenticated.projected_principal_id())?;
     let reason =
         optional_arg(args, "--reason").unwrap_or_else(|| "bind exact published policy".to_string());
     let store = LmdbRecordStore::open(record_store_path())?;
-    let outcome = store.bind_case_policy(
+    store.get_case_state_authorized(&authenticated, &case_id)?;
+    let outcome = store.bind_tenant_case_policy(
+        &authenticated,
         &case_id,
         &artifact_id,
         required_generation(args)?,
-        &actor,
         &reason,
     )?;
     print_mutation(&store, &case_id, "bind", outcome)
@@ -212,16 +219,18 @@ fn replace(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let binding_id = named_arg(args, "--binding")?;
     let artifact_id = named_arg(args, "--artifact")?;
-    let actor = named_arg(args, "--as")?;
+    let authenticated = authenticate_local()?;
+    reject_spoofed_as(args, &authenticated.projected_principal_id())?;
     let reason = optional_arg(args, "--reason")
         .unwrap_or_else(|| "replace exact policy binding".to_string());
     let store = LmdbRecordStore::open(record_store_path())?;
-    let outcome = store.replace_case_policy(
+    store.get_case_state_authorized(&authenticated, &case_id)?;
+    let outcome = store.replace_tenant_case_policy(
+        &authenticated,
         &case_id,
         &binding_id,
         &artifact_id,
         required_generation(args)?,
-        &actor,
         &reason,
     )?;
     print_mutation(&store, &case_id, "replace", outcome)
@@ -230,14 +239,16 @@ fn replace(args: &[String]) -> Result<(), String> {
 fn unbind(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let binding_id = named_arg(args, "--binding")?;
-    let actor = named_arg(args, "--as")?;
+    let authenticated = authenticate_local()?;
+    reject_spoofed_as(args, &authenticated.projected_principal_id())?;
     let reason = named_arg(args, "--reason")?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let outcome = store.unbind_case_policy(
+    store.get_case_state_authorized(&authenticated, &case_id)?;
+    let outcome = store.unbind_tenant_case_policy(
+        &authenticated,
         &case_id,
         &binding_id,
         required_generation(args)?,
-        &actor,
         &reason,
     )?;
     print_mutation(&store, &case_id, "unbind", outcome)
@@ -245,14 +256,18 @@ fn unbind(args: &[String]) -> Result<(), String> {
 
 fn status(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
+    let authenticated = authenticate_local()?;
     let store = LmdbRecordStore::open(record_store_path())?;
+    store.get_case_state_authorized(&authenticated, &case_id)?;
     let status = store.case_policy_status(&case_id)?;
     print_normative_status(&store, &case_id, &status)
 }
 
 fn rebuild(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
+    let authenticated = authenticate_local()?;
     let store = LmdbRecordStore::open(record_store_path())?;
+    store.get_case_state_authorized(&authenticated, &case_id)?;
     let before = store.list_case_transitions(&case_id)?.len();
     let status = store.rebuild_effective_policy(&case_id)?;
     let after = store.list_case_transitions(&case_id)?.len();

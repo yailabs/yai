@@ -30,3 +30,11 @@ workspace destruction as Case closure	do_not_port	deletion/missingness erases ra
 scattered time(NULL)/caller validity strings	do_not_port	cannot prove one transactional authority time or prevent rollback expansion	LMDB authority-time floor + typed immutable contract
 global Grant registry/manager	do_not_port	volatile fixed capacity and duplicate authority owner	Case Transition/CaseState lifecycle
 background revoke fanout daemon	do_not_port	shared PolicyArtifact history is directly derivable by each Case	lazy derived invalidity plus action-time canonical invalidation
+password user store / argv authentication	do_not_port	current local product has a stronger kernel credential and no account lifecycle consumer	sealed POSIX AuthenticatedPrincipal projection
+environment username authentication	do_not_port	USER/HOME/LOGNAME are caller-mutable strings	kernel real/effective UID/GID observation
+root/user Case hierarchy	do_not_port	legacy contamination barrier was useful but topology is not a Tenant model	immutable Tenant security domain and membership-gated Case access
+caller OPERATOR role / arming boolean	do_not_port	caller envelope selected its own authority	Tenant Owner catalog relation plus independent Case policy roles
+canonical UserSession mega-context	do_not_port	no current independent login-session lifecycle consumer	invocation-scoped SecurityContext with minimal canonical event refs
+Organization registry/plane	do_not_port	no executable independent Organization lifecycle or isolation consumer	organization_ref immutable Tenant projection
+string owner_ref as Tenant migration	do_not_port	metadata coincidence cannot prove authenticated security ownership	Tenant-scoped policy artifact v5 and explicit binding
+magic root/system Tenant	do_not_port	would recreate ambient authority and hide bootstrap provenance	kernel-authenticated atomic local bootstrap

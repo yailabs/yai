@@ -36,8 +36,15 @@ require_text() {
 
 trace_review_product() {
   [[ "${YAI_EXECUTION_EVIDENCE:-0}" == "1" ]] || return 0
-  printf '\n[review-product-command:%s]\n$ %s\n%s\nexit: %s\n' \
-    "$1" "$2" "$3" "$4" >&2
+  if [[ "${YAI_EVIDENCE_COMPACT:-0}" == "1" ]]; then
+    local bounded
+    bounded=$(grep -E '^(case_id|tenant_id|principal_id|authenticated_principal_id|participant_id|reviewer_participant|operation_id|decision_id|decision_basis_id|effective_policy_id|review_id|review_request_id|review_status|review_action_id|review_action|reviewer|required_reviewer_roles|runtime_stop|runtime_state|execution_grant_id|grant_id|prepared_effect_id|effect_id|receipt_id|effect_receipt_id|external_effect|same_operation|provider_invocations|policy_validity|normative_readiness|case_policy_replace|error):' <<<"$3" || true)
+    printf '\n[review-product-command:%s]\n$ %s\n%s\nexit: %s\n' \
+      "$1" "$2" "$bounded" "$4" >&2
+  else
+    printf '\n[review-product-command:%s]\n$ %s\n%s\nexit: %s\n' \
+      "$1" "$2" "$3" "$4" >&2
+  fi
 }
 
 start_provider() {
@@ -90,6 +97,7 @@ setup_case() {
   RESOURCE_ROOT="$TEST_DIR/$name/resource"
   mkdir -p "$CASE_HOME" "$RESOURCE_ROOT/allowed"
   cp "$BASE_JOURNAL" "$CASE_JOURNAL"
+  yai_bootstrap_tenant_case "$YAI_BIN" "$CASE_HOME" case:new12-filesystem
   YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" case enter \
     --case case:new12-filesystem --subject subject:llm-provider >/dev/null
   YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" case attach-provider \
@@ -104,6 +112,12 @@ setup_case() {
   yai_configure_governed_filesystem_case "$YAI_BIN" "$CASE_HOME" \
     case:new12-filesystem "review-$name" 1 allow subject:llm-provider \
     subject:policy-pack >/dev/null
+  local principal_id
+  principal_id=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" identity whoami | \
+    sed -n 's/^principal_id: //p' | head -1)
+  YAI_HOME="$CASE_HOME" "$YAI_BIN" case principal link \
+    --case case:new12-filesystem --principal "$principal_id" \
+    --participant subject:policy-pack >/dev/null
 }
 
 run_case() {
@@ -129,7 +143,7 @@ resolve_review() {
   local review_id="$2"
   shift 2
   YAI_HOME="$CASE_HOME" "$YAI_BIN" review "$action" "$review_id" \
-    --case case:new12-filesystem --as subject:policy-pack \
+    --case case:new12-filesystem \
     --reason "human participant $action exact operation" "$@"
 }
 
@@ -154,7 +168,7 @@ trace_review_product 02 "YAI_HOME=$CASE_HOME $YAI_BIN review show $review_id --c
 require_text "$show_pending" "status: pending"
 require_text "$show_pending" "operation_id: operation:"
 require_text "$show_pending" "normalized_target: allowed/reviewed.txt"
-require_text "$show_pending" "operator_trust_boundary: local_cli_claimed_bound_participant"
+require_text "$show_pending" "operator_trust_boundary: kernel_authenticated_principal_participant_link"
 YAI_HOME="$CASE_HOME" "$YAI_BIN" review pending --case case:new12-filesystem >/dev/null
 summary_after=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" store summary)
 count_after=$(sed -n 's/^transitions_total: //p' <<<"$summary_after")
@@ -166,20 +180,20 @@ wrong_reviewer_code=$?
 set -e
 [[ "$wrong_reviewer_code" -ne 0 ]]
 trace_review_product 03 "YAI_HOME=$CASE_HOME $YAI_BIN review approve $review_id --case case:new12-filesystem --as subject:llm-provider --reason 'self approve'" "$wrong_reviewer" "$wrong_reviewer_code"
-require_text "$wrong_reviewer" "reviewer_not_eligible_for_case_review"
+require_text "$wrong_reviewer" "reviewer_selection_by_as_is_forbidden_for_tenant_case"
 set +e
 wrong_case=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" review approve "$review_id" \
-  --case case:wrong-review-target --as subject:policy-pack \
+  --case case:wrong-review-target \
   --reason "wrong Case must not resolve review" 2>&1)
 wrong_case_code=$?
 set -e
 [[ "$wrong_case_code" -ne 0 ]]
-require_text "$wrong_case" "canonical CaseState missing for case:wrong-review-target"
+require_text "$wrong_case" "case_not_visible"
 still_pending=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" review show "$review_id" \
   --case case:new12-filesystem)
 require_text "$still_pending" "status: pending"
 approved=$(resolve_review approve "$review_id")
-trace_review_product 04 "YAI_HOME=$CASE_HOME $YAI_BIN review approve $review_id --case case:new12-filesystem --as subject:policy-pack --reason 'human participant approve exact operation'" "$approved" 0
+trace_review_product 04 "YAI_HOME=$CASE_HOME $YAI_BIN review approve $review_id --case case:new12-filesystem --reason 'human participant approve exact operation'" "$approved" 0
 require_text "$approved" "review_action: committed"
 require_text "$approved" "execution_grant: none_review_command_never_executes"
 [[ ! -e "$RESOURCE_ROOT/allowed/reviewed.txt" ]]
@@ -308,23 +322,23 @@ policy_v2="$CASE_HOME/review-stale-2.policy.json"
 sed 's/"source_version":"1"/"source_version":"2"/; s#test://review-stale/1#test://review-stale/2#' \
   "$policy_v1" >"$policy_v2"
 v2_ingest=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" policy ingest "$policy_v2" \
-  --as participant:local-policy-operator)
+  --tenant tenant:characterization)
 v2_artifact=$(sed -n 's/^artifact_id: //p' <<<"$v2_ingest" | head -1)
 YAI_HOME="$CASE_HOME" "$YAI_BIN" policy validate "$v2_artifact" \
-  --as participant:local-policy-operator --reason "validate replacement" >/dev/null
+  --reason "validate replacement" >/dev/null
 YAI_HOME="$CASE_HOME" "$YAI_BIN" policy publish "$v2_artifact" \
-  --as participant:local-policy-operator --reason "publish replacement" >/dev/null
+  --reason "publish replacement" >/dev/null
 replace_output=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" case policy replace \
   --case case:new12-filesystem --binding "$prior_binding" --artifact "$v2_artifact" \
-  --expected-generation "$generation_before_replace" --as participant:local-policy-operator \
+  --expected-generation "$generation_before_replace" \
   --reason "replace while review pending")
-trace_review_product 06 "YAI_HOME=$CASE_HOME $YAI_BIN case policy replace --case case:new12-filesystem --binding $prior_binding --artifact $v2_artifact --expected-generation $generation_before_replace --as participant:local-policy-operator --reason 'replace while review pending'" "$replace_output" 0
+trace_review_product 06 "YAI_HOME=$CASE_HOME $YAI_BIN case policy replace --case case:new12-filesystem --binding $prior_binding --artifact $v2_artifact --expected-generation $generation_before_replace --reason 'replace while review pending'" "$replace_output" 0
 set +e
 stale_approval=$(resolve_review approve "$policy_stale_review" 2>&1)
 stale_approval_code=$?
 set -e
 [[ "$stale_approval_code" -ne 0 ]]
-trace_review_product 07 "YAI_HOME=$CASE_HOME $YAI_BIN review approve $policy_stale_review --case case:new12-filesystem --as subject:policy-pack --reason 'human participant approve exact operation'" "$stale_approval" "$stale_approval_code"
+trace_review_product 07 "YAI_HOME=$CASE_HOME $YAI_BIN review approve $policy_stale_review --case case:new12-filesystem --reason 'human participant approve exact operation'" "$stale_approval" "$stale_approval_code"
 require_text "$stale_approval" "review_invalidation: committed"
 require_text "$stale_approval" "invalidation_reason: Some(PolicyBasisChanged)"
 require_text "$stale_approval" "review_authority_invalidated"

@@ -24,11 +24,13 @@ pub const PARSED_POLICY_SCHEMA: &str = "yai.parsed_policy.v2";
 pub const PARSED_POLICY_SCHEMA_V1: &str = "yai.parsed_policy.v1";
 pub const POLICY_IR_SCHEMA: &str = "yai.policy_ir.v2";
 pub const POLICY_IR_SCHEMA_V1: &str = "yai.policy_ir.v1";
-pub const POLICY_ARTIFACT_SCHEMA: &str = "yai.policy_artifact.v4";
+pub const POLICY_ARTIFACT_SCHEMA: &str = "yai.policy_artifact.v5";
+pub const POLICY_ARTIFACT_SCHEMA_V4: &str = "yai.policy_artifact.v4";
 pub const POLICY_ARTIFACT_SCHEMA_V3: &str = "yai.policy_artifact.v3";
 pub const POLICY_ARTIFACT_SCHEMA_V2: &str = "yai.policy_artifact.v2";
 pub const POLICY_ARTIFACT_SCHEMA_V1: &str = "yai.policy_artifact.v1";
-pub const POLICY_LIFECYCLE_EVENT_SCHEMA: &str = "yai.policy_lifecycle_event.v2";
+pub const POLICY_LIFECYCLE_EVENT_SCHEMA: &str = "yai.policy_lifecycle_event.v3";
+pub const POLICY_LIFECYCLE_EVENT_SCHEMA_V2: &str = "yai.policy_lifecycle_event.v2";
 pub const POLICY_LIFECYCLE_EVENT_SCHEMA_V1: &str = "yai.policy_lifecycle_event.v1";
 pub const POLICY_COMPILER_VERSION: &str = "yai.policy_compiler.v2";
 pub const POLICY_COMPILER_VERSION_V1: &str = "yai.policy_compiler.v1";
@@ -91,6 +93,8 @@ impl PolicyValidityContract {
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PolicyLineage {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
     pub owner_ref: String,
     pub policy_key: String,
 }
@@ -101,7 +105,22 @@ impl PolicyLineage {
         policy_key: impl Into<String>,
     ) -> Result<Self, String> {
         let lineage = Self {
+            tenant_id: None,
             owner_ref: owner_ref.into(),
+            policy_key: policy_key.into(),
+        };
+        lineage.validate()?;
+        Ok(lineage)
+    }
+
+    pub fn tenant(
+        tenant_id: impl Into<String>,
+        organization_ref: impl Into<String>,
+        policy_key: impl Into<String>,
+    ) -> Result<Self, String> {
+        let lineage = Self {
+            tenant_id: Some(tenant_id.into()),
+            owner_ref: organization_ref.into(),
             policy_key: policy_key.into(),
         };
         lineage.validate()?;
@@ -110,11 +129,27 @@ impl PolicyLineage {
 
     pub fn validate(&self) -> Result<(), String> {
         validate_identifier("owner_ref", &self.owner_ref, 160)?;
+        if let Some(tenant_id) = &self.tenant_id {
+            validate_identifier("tenant_id", tenant_id, 160)?;
+            if !tenant_id.starts_with("tenant:") {
+                return Err("policy_lineage_tenant_id_invalid".to_string());
+            }
+        }
         validate_identifier("policy_key", &self.policy_key, 160)
     }
 
     pub fn identity(&self) -> String {
-        let digest = digest_serialized(self);
+        let digest = match &self.tenant_id {
+            Some(tenant_id) => digest_serialized(&serde_json::json!({
+                "schema": "yai.policy_lineage.v2",
+                "tenant_id": tenant_id,
+                "policy_key": self.policy_key,
+            })),
+            None => digest_serialized(&serde_json::json!({
+                "owner_ref": self.owner_ref,
+                "policy_key": self.policy_key,
+            })),
+        };
         format!("policy-lineage:{}", digest_suffix(&digest))
     }
 }
@@ -405,6 +440,10 @@ pub struct PolicyArtifact {
     pub artifact_version: String,
     pub owner_ref: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub organization_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_origin: Option<PolicySourceOrigin>,
     #[serde(default)]
     pub validity: PolicyValidityContract,
@@ -418,6 +457,7 @@ pub struct PolicyArtifact {
 impl PolicyArtifact {
     pub fn lineage(&self) -> PolicyLineage {
         PolicyLineage {
+            tenant_id: self.tenant_id.clone(),
             owner_ref: self.owner_ref.clone(),
             policy_key: self.policy_key.clone(),
         }
@@ -476,6 +516,10 @@ pub struct PolicyLifecycleEvent {
     pub prior_state: Option<PolicyLifecycleState>,
     pub next_state: PolicyLifecycleState,
     pub related_artifact_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub principal_id: Option<String>,
     pub actor_ref: String,
     pub reason: String,
     pub committed_at_unix_ms: u64,
@@ -488,6 +532,8 @@ pub(crate) struct PolicyLifecycleEventInput<'a> {
     pub prior_state: Option<PolicyLifecycleState>,
     pub next_state: PolicyLifecycleState,
     pub related_artifact_id: Option<&'a str>,
+    pub tenant_id: Option<&'a str>,
+    pub principal_id: Option<&'a str>,
     pub actor_ref: &'a str,
     pub reason: &'a str,
     pub committed_at_unix_ms: u64,
@@ -614,7 +660,24 @@ struct PolicyIrDigestMaterial<'a> {
 }
 
 #[derive(Serialize)]
-struct PolicyArtifactDigestMaterial<'a> {
+struct PolicyArtifactDigestMaterialV5<'a> {
+    tenant_id: &'a str,
+    organization_ref: &'a str,
+    schema: &'a str,
+    policy_key: &'a str,
+    artifact_version: &'a str,
+    owner_ref: &'a str,
+    source_origin: Option<&'a PolicySourceOrigin>,
+    validity: &'a PolicyValidityContract,
+    source_id: &'a str,
+    source_digest: &'a str,
+    parsed_digest: &'a str,
+    ir_digest: &'a str,
+    validation: &'a PolicyValidation,
+}
+
+#[derive(Serialize)]
+struct PolicyArtifactDigestMaterialV4<'a> {
     schema: &'a str,
     policy_key: &'a str,
     artifact_version: &'a str,
@@ -890,13 +953,13 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     let policy_ir = normalize_policy(&parsed)?;
     let validation = derive_policy_validation(&policy_ir);
     let artifact_schema = match document.schema.as_str() {
-        POLICY_SOURCE_INPUT_SCHEMA => POLICY_ARTIFACT_SCHEMA,
+        POLICY_SOURCE_INPUT_SCHEMA => POLICY_ARTIFACT_SCHEMA_V4,
         POLICY_SOURCE_INPUT_SCHEMA_V3 => POLICY_ARTIFACT_SCHEMA_V3,
         POLICY_SOURCE_INPUT_SCHEMA_V2 => POLICY_ARTIFACT_SCHEMA_V2,
         _ => POLICY_ARTIFACT_SCHEMA_V1,
     };
-    let artifact_digest = if artifact_schema == POLICY_ARTIFACT_SCHEMA {
-        digest_serialized(&PolicyArtifactDigestMaterial {
+    let artifact_digest = if artifact_schema == POLICY_ARTIFACT_SCHEMA_V4 {
+        digest_serialized(&PolicyArtifactDigestMaterialV4 {
             schema: artifact_schema,
             policy_key: &document.policy_key,
             artifact_version: &document.source_version,
@@ -941,6 +1004,8 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
         policy_key: document.policy_key,
         artifact_version: document.source_version,
         owner_ref: document.owner_ref,
+        tenant_id: None,
+        organization_ref: None,
         source_origin: document.source_origin,
         validity,
         source_id,
@@ -952,6 +1017,54 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     let compilation = PolicyCompilation { source, artifact };
     compilation.validate()?;
     Ok(compilation)
+}
+
+/// Binds an already deterministic source compilation to the authenticated
+/// Tenant ingest context. Source bytes remain globally content-addressed; the
+/// authority-bearing artifact identity becomes Tenant-specific.
+pub fn scope_policy_compilation(
+    compilation: &PolicyCompilation,
+    tenant_id: &str,
+    organization_ref: &str,
+) -> Result<PolicyCompilation, String> {
+    compilation.validate()?;
+    validate_identifier("tenant_id", tenant_id, 160)?;
+    validate_identifier("organization_ref", organization_ref, 160)?;
+    if !tenant_id.starts_with("tenant:") || !organization_ref.starts_with("organization:") {
+        return Err("policy_security_scope_invalid".to_string());
+    }
+    if compilation.source.owner_ref != organization_ref {
+        return Err("policy_source_owner_disagrees_with_authenticated_tenant".to_string());
+    }
+    if compilation.artifact.schema != POLICY_ARTIFACT_SCHEMA_V4 {
+        return Err("only_v4_policy_compilation_can_enter_tenant_authority".to_string());
+    }
+    let mut artifact = compilation.artifact.clone();
+    artifact.schema = POLICY_ARTIFACT_SCHEMA.to_string();
+    artifact.tenant_id = Some(tenant_id.to_string());
+    artifact.organization_ref = Some(organization_ref.to_string());
+    let digest = digest_serialized(&PolicyArtifactDigestMaterialV5 {
+        tenant_id,
+        organization_ref,
+        schema: &artifact.schema,
+        policy_key: &artifact.policy_key,
+        artifact_version: &artifact.artifact_version,
+        owner_ref: &artifact.owner_ref,
+        source_origin: artifact.source_origin.as_ref(),
+        validity: &artifact.validity,
+        source_id: &artifact.source_id,
+        source_digest: &artifact.source_digest,
+        parsed_digest: &artifact.parsed.parsed_digest,
+        ir_digest: &artifact.policy_ir.ir_digest,
+        validation: &artifact.validation,
+    });
+    artifact.artifact_id = format!("policy-artifact:{}", digest_suffix(&digest));
+    let result = PolicyCompilation {
+        source: compilation.source.clone(),
+        artifact,
+    };
+    result.validate()?;
+    Ok(result)
 }
 
 fn parse_policy_rules(
@@ -1424,6 +1537,7 @@ impl PolicySourceArtifact {
 impl PolicyArtifact {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != POLICY_ARTIFACT_SCHEMA
+            && self.schema != POLICY_ARTIFACT_SCHEMA_V4
             && self.schema != POLICY_ARTIFACT_SCHEMA_V3
             && self.schema != POLICY_ARTIFACT_SCHEMA_V2
             && self.schema != POLICY_ARTIFACT_SCHEMA_V1
@@ -1437,12 +1551,33 @@ impl PolicyArtifact {
         validate_identifier("policy_key", &self.policy_key, 160)?;
         validate_identifier("artifact_version", &self.artifact_version, 80)?;
         validate_identifier("owner_ref", &self.owner_ref, 160)?;
+        match (&*self.schema, &self.tenant_id, &self.organization_ref) {
+            (POLICY_ARTIFACT_SCHEMA, Some(tenant_id), Some(organization_ref)) => {
+                validate_identifier("tenant_id", tenant_id, 160)?;
+                validate_identifier("organization_ref", organization_ref, 160)?;
+                if !tenant_id.starts_with("tenant:")
+                    || !organization_ref.starts_with("organization:")
+                    || organization_ref != &self.owner_ref
+                {
+                    return Err("policy_artifact_security_scope_invalid".to_string());
+                }
+            }
+            (POLICY_ARTIFACT_SCHEMA, _, _) => {
+                return Err("tenant_policy_artifact_security_scope_required".to_string())
+            }
+            (_, None, None) => {}
+            _ => return Err("legacy_policy_artifact_cannot_claim_tenant_scope".to_string()),
+        }
         self.lineage().validate()?;
         match (&*self.schema, &self.source_origin) {
             (POLICY_ARTIFACT_SCHEMA, Some(origin)) => origin.validate()?,
+            (POLICY_ARTIFACT_SCHEMA_V4, Some(origin)) => origin.validate()?,
             (POLICY_ARTIFACT_SCHEMA_V3, Some(origin)) => origin.validate()?,
             (POLICY_ARTIFACT_SCHEMA_V2, Some(origin)) => origin.validate()?,
             (POLICY_ARTIFACT_SCHEMA, None) => {
+                return Err("policy_artifact_source_origin_required".to_string())
+            }
+            (POLICY_ARTIFACT_SCHEMA_V4, None) => {
                 return Err("policy_artifact_source_origin_required".to_string())
             }
             (POLICY_ARTIFACT_SCHEMA_V3, None) => {
@@ -1464,13 +1599,14 @@ impl PolicyArtifact {
         }
         self.validity.validate()?;
         if self.schema != POLICY_ARTIFACT_SCHEMA
+            && self.schema != POLICY_ARTIFACT_SCHEMA_V4
             && self.validity != PolicyValidityContract::default()
         {
             return Err("legacy_policy_artifact_cannot_claim_v4_validity".to_string());
         }
         let supports_authority_rules = matches!(
             self.schema.as_str(),
-            POLICY_ARTIFACT_SCHEMA | POLICY_ARTIFACT_SCHEMA_V3
+            POLICY_ARTIFACT_SCHEMA | POLICY_ARTIFACT_SCHEMA_V4 | POLICY_ARTIFACT_SCHEMA_V3
         );
         let expected_parsed = if supports_authority_rules {
             PARSED_POLICY_SCHEMA
@@ -1554,7 +1690,29 @@ impl PolicyArtifact {
             }
         }
         let artifact_digest = if self.schema == POLICY_ARTIFACT_SCHEMA {
-            digest_serialized(&PolicyArtifactDigestMaterial {
+            digest_serialized(&PolicyArtifactDigestMaterialV5 {
+                tenant_id: self
+                    .tenant_id
+                    .as_deref()
+                    .ok_or("tenant_policy_artifact_security_scope_required")?,
+                organization_ref: self
+                    .organization_ref
+                    .as_deref()
+                    .ok_or("tenant_policy_artifact_security_scope_required")?,
+                schema: &self.schema,
+                policy_key: &self.policy_key,
+                artifact_version: &self.artifact_version,
+                owner_ref: &self.owner_ref,
+                source_origin: self.source_origin.as_ref(),
+                validity: &self.validity,
+                source_id: &self.source_id,
+                source_digest: &self.source_digest,
+                parsed_digest: &self.parsed.parsed_digest,
+                ir_digest: &self.policy_ir.ir_digest,
+                validation: &self.validation,
+            })
+        } else if self.schema == POLICY_ARTIFACT_SCHEMA_V4 {
+            digest_serialized(&PolicyArtifactDigestMaterialV4 {
                 schema: &self.schema,
                 policy_key: &self.policy_key,
                 artifact_version: &self.artifact_version,
@@ -1603,6 +1761,7 @@ impl PolicyArtifact {
 impl PolicyLifecycleEvent {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != POLICY_LIFECYCLE_EVENT_SCHEMA
+            && self.schema != POLICY_LIFECYCLE_EVENT_SCHEMA_V2
             && self.schema != POLICY_LIFECYCLE_EVENT_SCHEMA_V1
         {
             return Err(format!(
@@ -1616,6 +1775,23 @@ impl PolicyLifecycleEvent {
         validate_identifier("event_id", &self.event_id, 128)?;
         validate_identifier("artifact_id", &self.artifact_id, 128)?;
         validate_identifier("actor_ref", &self.actor_ref, 160)?;
+        match (&*self.schema, &self.tenant_id, &self.principal_id) {
+            (POLICY_LIFECYCLE_EVENT_SCHEMA, Some(tenant_id), Some(principal_id)) => {
+                validate_identifier("tenant_id", tenant_id, 160)?;
+                validate_identifier("principal_id", principal_id, 160)?;
+                if !tenant_id.starts_with("tenant:")
+                    || !principal_id.starts_with("principal:")
+                    || &self.actor_ref != principal_id
+                {
+                    return Err("policy_lifecycle_security_provenance_invalid".to_string());
+                }
+            }
+            (POLICY_LIFECYCLE_EVENT_SCHEMA, _, _) => {
+                return Err("tenant_policy_lifecycle_security_provenance_required".to_string())
+            }
+            (_, None, None) => {}
+            _ => return Err("legacy_policy_lifecycle_cannot_claim_security_scope".to_string()),
+        }
         validate_reason(&self.reason, "policy_lifecycle_reason")?;
         validate_lifecycle_transition(self.prior_state.as_ref(), &self.action, &self.next_state)?;
         if self.schema == POLICY_LIFECYCLE_EVENT_SCHEMA_V1
@@ -1770,8 +1946,16 @@ pub(crate) fn build_lifecycle_event(
     }
     validate_reason(input.reason, "policy_lifecycle_reason")?;
     validate_lifecycle_transition(input.prior_state.as_ref(), &input.action, &input.next_state)?;
+    if input.tenant_id.is_some() != input.principal_id.is_some() {
+        return Err("policy_lifecycle_security_context_incomplete".to_string());
+    }
     let mut event = PolicyLifecycleEvent {
-        schema: POLICY_LIFECYCLE_EVENT_SCHEMA.to_string(),
+        schema: if input.tenant_id.is_some() {
+            POLICY_LIFECYCLE_EVENT_SCHEMA
+        } else {
+            POLICY_LIFECYCLE_EVENT_SCHEMA_V2
+        }
+        .to_string(),
         event_id: String::new(),
         sequence,
         artifact_id: input.artifact_id.to_string(),
@@ -1779,6 +1963,8 @@ pub(crate) fn build_lifecycle_event(
         prior_state: input.prior_state,
         next_state: input.next_state,
         related_artifact_id: input.related_artifact_id.map(ToString::to_string),
+        tenant_id: input.tenant_id.map(ToString::to_string),
+        principal_id: input.principal_id.map(ToString::to_string),
         actor_ref: input.actor_ref.to_string(),
         reason: normalize_reason(input.reason),
         committed_at_unix_ms: input.committed_at_unix_ms,
@@ -1791,8 +1977,12 @@ pub(crate) fn build_lifecycle_event(
 }
 
 fn lifecycle_event_digest(event: &PolicyLifecycleEvent) -> String {
-    digest_serialized(&serde_json::json!({
-        "schema": POLICY_LIFECYCLE_EVENT_SCHEMA,
+    let mut value = serde_json::json!({
+        "schema": if event.schema == POLICY_LIFECYCLE_EVENT_SCHEMA {
+            POLICY_LIFECYCLE_EVENT_SCHEMA
+        } else {
+            POLICY_LIFECYCLE_EVENT_SCHEMA_V2
+        },
         "sequence": event.sequence,
         "artifact_id": event.artifact_id,
         "action": event.action,
@@ -1802,7 +1992,12 @@ fn lifecycle_event_digest(event: &PolicyLifecycleEvent) -> String {
         "actor_ref": event.actor_ref,
         "reason": event.reason,
         "committed_at_unix_ms": event.committed_at_unix_ms,
-    }))
+    });
+    if event.schema == POLICY_LIFECYCLE_EVENT_SCHEMA {
+        value["tenant_id"] = serde_json::json!(event.tenant_id);
+        value["principal_id"] = serde_json::json!(event.principal_id);
+    }
+    digest_serialized(&value)
 }
 
 fn validate_source_rule(
@@ -2062,6 +2257,8 @@ mod tests {
                 prior_state: None,
                 next_state: PolicyLifecycleState::Candidate,
                 related_artifact_id: None,
+                tenant_id: None,
+                principal_id: None,
                 actor_ref: "participant:operator",
                 reason: "source ingested",
                 committed_at_unix_ms: 1,
@@ -2076,6 +2273,8 @@ mod tests {
                 prior_state: Some(PolicyLifecycleState::Candidate),
                 next_state: PolicyLifecycleState::Validated,
                 related_artifact_id: None,
+                tenant_id: None,
+                principal_id: None,
                 actor_ref: "participant:operator",
                 reason: "deterministic qualification passed",
                 committed_at_unix_ms: 2,
@@ -2103,6 +2302,8 @@ mod tests {
                 prior_state: None,
                 next_state: PolicyLifecycleState::Candidate,
                 related_artifact_id: None,
+                tenant_id: None,
+                principal_id: None,
                 actor_ref: "participant:operator",
                 reason: "invalid second candidate",
                 committed_at_unix_ms: 3,
@@ -2368,7 +2569,7 @@ fn v3_authority_requirement_is_typed_provenanced_and_v2_remains_unchanged() {
     }))
     .unwrap();
     let compilation = compile_policy_source(&source).unwrap();
-    assert_eq!(compilation.artifact.schema, POLICY_ARTIFACT_SCHEMA);
+    assert_eq!(compilation.artifact.schema, POLICY_ARTIFACT_SCHEMA_V4);
     assert_eq!(compilation.artifact.parsed.schema, PARSED_POLICY_SCHEMA);
     assert!(matches!(
         compilation.artifact.policy_ir.rules.as_slice(),

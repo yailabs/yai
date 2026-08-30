@@ -21,7 +21,8 @@ use crate::transition::{
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
-pub const DECISION_BASIS_SCHEMA: &str = "yai.decision_basis.v2";
+pub const DECISION_BASIS_SCHEMA: &str = "yai.decision_basis.v3";
+pub const DECISION_BASIS_SCHEMA_V2: &str = "yai.decision_basis.v2";
 pub const DECISION_BASIS_SCHEMA_V1: &str = "yai.decision_basis.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -117,6 +118,8 @@ pub struct DecisionBasis {
     pub basis_id: String,
     pub integrity_digest: String,
     pub case_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
     pub evaluated_case_generation: u64,
     #[serde(default)]
     pub authority_evaluated_at_unix_ms: u64,
@@ -149,7 +152,39 @@ pub struct DecisionBasis {
 }
 
 #[derive(Serialize)]
-struct DecisionBasisDigestMaterial<'a> {
+struct DecisionBasisDigestMaterialV3<'a> {
+    schema: &'a str,
+    case_id: &'a str,
+    tenant_id: &'a str,
+    evaluated_case_generation: u64,
+    authority_evaluated_at_unix_ms: u64,
+    policy_validity: &'a [BindingValidity],
+    earliest_policy_expiry_unix_ms: &'a Option<u64>,
+    operation_id: &'a str,
+    operation_digest: &'a str,
+    operation_kind: &'a str,
+    proposer_participant_id: &'a str,
+    resource_attachment_id: &'a str,
+    resource_kind: &'a str,
+    effective_policy_id: &'a str,
+    effective_policy_digest: &'a str,
+    materializer_version: &'a str,
+    policy_binding_refs: &'a [String],
+    policy_artifact_refs: &'a [String],
+    matched_rule_refs: &'a [String],
+    contributing_provenance: &'a [EffectiveRuleProvenance],
+    mechanical_posture: &'a MechanicalPosture,
+    operation_restriction: &'a OperationRestrictionPosture,
+    review_required: bool,
+    authority: &'a [AuthorityEvaluation],
+    obligations: &'a [ObligationEvaluation],
+    final_posture: &'a DecisionOutcome,
+    final_reason: &'a str,
+    review_action_ref: &'a Option<String>,
+}
+
+#[derive(Serialize)]
+struct DecisionBasisDigestMaterialV2<'a> {
     schema: &'a str,
     case_id: &'a str,
     evaluated_case_generation: u64,
@@ -228,6 +263,7 @@ pub(crate) fn evaluate_filesystem_admission(
         || state.generation == 0
         || resource.attachment_id != operation.resource_attachment_id
         || effective_policy.case_id != operation.case_id
+        || effective_policy.tenant_id != state.tenant_id
     {
         return Err("admission_case_operation_input_mismatch".to_string());
     }
@@ -434,11 +470,17 @@ pub(crate) fn evaluate_filesystem_admission(
         (DecisionOutcome::Allow, "policy_admission_satisfied")
     };
 
+    let basis_schema = if state.tenant_id.is_some() {
+        DECISION_BASIS_SCHEMA
+    } else {
+        DECISION_BASIS_SCHEMA_V2
+    };
     let basis = seal_basis(DecisionBasis {
-        schema: DECISION_BASIS_SCHEMA.to_string(),
+        schema: basis_schema.to_string(),
         basis_id: String::new(),
         integrity_digest: String::new(),
         case_id: operation.case_id.clone(),
+        tenant_id: state.tenant_id.clone(),
         evaluated_case_generation: state.generation,
         authority_evaluated_at_unix_ms: temporal.authority_time_unix_ms,
         policy_validity: temporal.binding_validity.clone(),
@@ -618,7 +660,9 @@ pub fn reviewer_is_eligible(state: &CaseState, review: &ReviewState, participant
 
 impl DecisionBasis {
     pub fn validate_integrity(&self) -> Result<(), String> {
-        if self.schema != DECISION_BASIS_SCHEMA && self.schema != DECISION_BASIS_SCHEMA_V1
+        if self.schema != DECISION_BASIS_SCHEMA
+            && self.schema != DECISION_BASIS_SCHEMA_V2
+            && self.schema != DECISION_BASIS_SCHEMA_V1
             || self.case_id.is_empty()
             || self.operation_id.is_empty()
             || self.operation_digest.is_empty()
@@ -631,7 +675,15 @@ impl DecisionBasis {
         {
             return Err("invalid_decision_basis_contract".to_string());
         }
-        if self.schema == DECISION_BASIS_SCHEMA
+        match (&*self.schema, &self.tenant_id) {
+            (DECISION_BASIS_SCHEMA, Some(tenant_id)) if tenant_id.starts_with("tenant:") => {}
+            (DECISION_BASIS_SCHEMA, _) => {
+                return Err("decision_basis_tenant_security_domain_required".to_string())
+            }
+            (_, None) => {}
+            _ => return Err("legacy_decision_basis_cannot_claim_tenant_scope".to_string()),
+        }
+        if self.schema != DECISION_BASIS_SCHEMA_V1
             && (self.authority_evaluated_at_unix_ms == 0 || self.policy_validity.is_empty())
         {
             return Err("decision_basis_temporal_context_missing".to_string());
@@ -723,10 +775,44 @@ fn basis_digest(basis: &DecisionBasis) -> Result<String, String> {
             final_reason: &basis.final_reason,
             review_action_ref: &basis.review_action_ref,
         })
-    } else {
-        serde_json::to_vec(&DecisionBasisDigestMaterial {
+    } else if basis.schema == DECISION_BASIS_SCHEMA_V2 {
+        serde_json::to_vec(&DecisionBasisDigestMaterialV2 {
             schema: &basis.schema,
             case_id: &basis.case_id,
+            evaluated_case_generation: basis.evaluated_case_generation,
+            authority_evaluated_at_unix_ms: basis.authority_evaluated_at_unix_ms,
+            policy_validity: &basis.policy_validity,
+            earliest_policy_expiry_unix_ms: &basis.earliest_policy_expiry_unix_ms,
+            operation_id: &basis.operation_id,
+            operation_digest: &basis.operation_digest,
+            operation_kind: &basis.operation_kind,
+            proposer_participant_id: &basis.proposer_participant_id,
+            resource_attachment_id: &basis.resource_attachment_id,
+            resource_kind: &basis.resource_kind,
+            effective_policy_id: &basis.effective_policy_id,
+            effective_policy_digest: &basis.effective_policy_digest,
+            materializer_version: &basis.materializer_version,
+            policy_binding_refs: &basis.policy_binding_refs,
+            policy_artifact_refs: &basis.policy_artifact_refs,
+            matched_rule_refs: &basis.matched_rule_refs,
+            contributing_provenance: &basis.contributing_provenance,
+            mechanical_posture: &basis.mechanical_posture,
+            operation_restriction: &basis.operation_restriction,
+            review_required: basis.review_required,
+            authority: &basis.authority,
+            obligations: &basis.obligations,
+            final_posture: &basis.final_posture,
+            final_reason: &basis.final_reason,
+            review_action_ref: &basis.review_action_ref,
+        })
+    } else {
+        serde_json::to_vec(&DecisionBasisDigestMaterialV3 {
+            schema: &basis.schema,
+            case_id: &basis.case_id,
+            tenant_id: basis
+                .tenant_id
+                .as_deref()
+                .ok_or_else(|| "decision_basis_tenant_security_domain_required".to_string())?,
             evaluated_case_generation: basis.evaluated_case_generation,
             authority_evaluated_at_unix_ms: basis.authority_evaluated_at_unix_ms,
             policy_validity: &basis.policy_validity,
@@ -1133,11 +1219,12 @@ mod tests {
             contributions: provenance("post"),
         });
         EffectivePolicy {
-            schema: crate::case_policy::EFFECTIVE_POLICY_SCHEMA.to_string(),
+            schema: crate::case_policy::EFFECTIVE_POLICY_SCHEMA_V2.to_string(),
             effective_policy_id: "effective-policy:one".to_string(),
             semantic_digest: "sha256:effective-one".to_string(),
             case_id: "case:admission".to_string(),
-            materializer_version: crate::case_policy::POLICY_MATERIALIZER_VERSION.to_string(),
+            tenant_id: None,
+            materializer_version: crate::case_policy::POLICY_MATERIALIZER_VERSION_V2.to_string(),
             binding_ids: vec!["binding:one".to_string()],
             artifact_ids: vec!["artifact:one".to_string()],
             input_rule_count: rules.len(),

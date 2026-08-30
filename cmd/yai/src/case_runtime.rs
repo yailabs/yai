@@ -5,6 +5,7 @@
 //! resumes from the Transition ledger and materialized CaseState.
 
 use super::*;
+use crate::security::authenticate_local;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -935,6 +936,18 @@ fn print_runtime_summary(checkpoint: &CaseRuntimeCheckpoint) -> Result<(), Strin
 
 pub(super) fn case_runtime_run(args: &[String]) -> Result<(), String> {
     let checkpoint = initial_checkpoint(args)?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let authenticated = authenticate_local()?;
+    store
+        .resolve_security_context(
+            &authenticated,
+            store
+                .get_case_state_authorized(&authenticated, &checkpoint.case_id)?
+                .tenant_id
+                .as_deref()
+                .ok_or_else(|| "legacy_unscoped_case_cannot_start_new_runtime".to_string())?,
+        )?
+        .require_owner()?;
     let path = checkpoint_path(&checkpoint.case_id);
     if path.exists() {
         let existing = read_checkpoint(&checkpoint.case_id)?;
@@ -950,6 +963,18 @@ pub(super) fn case_runtime_run(args: &[String]) -> Result<(), String> {
 
 pub(super) fn case_runtime_resume(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let authenticated = authenticate_local()?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    store
+        .resolve_security_context(
+            &authenticated,
+            state
+                .tenant_id
+                .as_deref()
+                .ok_or_else(|| "legacy_unscoped_case_cannot_resume_runtime".to_string())?,
+        )?
+        .require_owner()?;
     let mut checkpoint = read_checkpoint(&case_id)?;
     update_resume_budgets(&mut checkpoint, args)?;
     run_with_admission(checkpoint, args)
@@ -957,12 +982,26 @@ pub(super) fn case_runtime_resume(args: &[String]) -> Result<(), String> {
 
 pub(super) fn case_runtime_status(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let authenticated = authenticate_local()?;
+    store.get_case_state_authorized(&authenticated, &case_id)?;
     let checkpoint = read_checkpoint(&case_id)?;
     print_runtime_summary(&checkpoint)
 }
 
 pub(super) fn case_runtime_stop(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let authenticated = authenticate_local()?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    store
+        .resolve_security_context(
+            &authenticated,
+            state.tenant_id.as_deref().ok_or_else(|| {
+                "legacy_unscoped_case_runtime_stop_is_compatibility_only".to_string()
+            })?,
+        )?
+        .require_owner()?;
     let mut checkpoint = read_checkpoint(&case_id)?;
     checkpoint.stop_requested = true;
     checkpoint.stop_detail = "operator stop requested".to_string();

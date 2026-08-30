@@ -1,6 +1,7 @@
 //! Case-scoped projection construction and OpenAI-compatible provider invocation.
 
 use super::*;
+use crate::security::{authenticate_local, reject_spoofed_as};
 use std::time::Instant;
 
 pub(super) fn projection_summary(args: &[String]) -> Result<(), String> {
@@ -106,6 +107,19 @@ pub(super) fn semantic_context_inspect(args: &[String]) -> Result<(), String> {
     let artifact = store
         .get_semantic_context_artifact(&artifact_id)?
         .ok_or_else(|| format!("semantic context artifact not found: {artifact_id}"))?;
+    let case_id = artifact.case_id().map(str::to_string).or_else(|| {
+        if let SemanticContextArtifact::RenderedInputMetadata(metadata) = &artifact {
+            store
+                .get_semantic_context_artifact(&metadata.context_frame_id)
+                .ok()
+                .flatten()
+                .and_then(|frame| frame.case_id().map(str::to_string))
+        } else {
+            None
+        }
+    });
+    let case_id = case_id.ok_or_else(|| "context_artifact_not_visible".to_string())?;
+    security::authorize_case_read_if_scoped(&store, &case_id)?;
     match artifact {
         SemanticContextArtifact::Projection(projection) => {
             println!("artifact_kind: projection");
@@ -608,7 +622,13 @@ pub(super) fn case_enter(args: &[String]) -> Result<(), String> {
     }
 
     let store = LmdbRecordStore::open(record_store_path())?;
+    let authenticated = authenticate_local()?;
     let mut state = ensure_canonical_case(&store, &journal, &path, &case_ref)?;
+    let tenant_id = state
+        .tenant_id
+        .clone()
+        .ok_or_else(|| "legacy_unscoped_case_cannot_begin_new_live_session".to_string())?;
+    store.get_case_state_authorized(&authenticated, &case_ref)?;
     let already_admitted = state
         .participants
         .iter()
@@ -641,7 +661,10 @@ pub(super) fn case_enter(args: &[String]) -> Result<(), String> {
         admission.summary = Some(format!(
             "Participant admitted to {consumer}/{kind} view for compatibility command output"
         ));
-        state = store.commit_transition(admission)?.state;
+        admission.source.principal_id = Some(authenticated.projected_principal_id());
+        state = store
+            .commit_secured_transition(&authenticated, &tenant_id, admission, true)?
+            .state;
         debug_assert!(state.generation > 0);
     }
 
@@ -729,6 +752,7 @@ fn provider_source(participant_id: Option<&str>, source_ref: &str) -> Transition
     TransitionSource {
         component: "yai.provider_boundary".to_string(),
         participant_id: participant_id.map(ToString::to_string),
+        principal_id: None,
         source_ref: Some(source_ref.to_string()),
     }
 }
@@ -752,65 +776,19 @@ fn ensure_canonical_case(
     journal_path: &Path,
     case_id: &str,
 ) -> Result<yai_core_engine::transition::CaseState, String> {
-    if let Some(state) = store.get_case_state(case_id)? {
-        return Ok(state);
-    }
-    let mut open = PendingTransition::new(
-        format!("transition:case-open:{}", canonical_id_component(case_id)),
-        case_id,
-        0,
-        provider_source(None, &journal_path.display().to_string()),
-        TransitionPayload::CaseOpened {
-            lifecycle: CaseLifecycle::Open,
-        },
-    );
-    open.provenance.push(legacy_provenance(
-        journal_path,
-        None,
-        "compatibility_bootstrap",
-    ));
-    open.summary = Some("Case opened from readable legacy journal input".to_string());
-    let mut state = store.commit_transition(open)?.state;
-
-    let mut seen = HashSet::new();
-    for record in journal.records().iter().filter(|record| {
-        record.case_ref == case_id
-            && record.kind == RecordKind::SubjectBinding
-            && !record.subject_ref.is_empty()
-            && record.subject_ref != "subject:none"
-    }) {
-        if !seen.insert(record.subject_ref.clone()) {
-            continue;
-        }
-        let mut binding = PendingTransition::new(
-            format!(
-                "transition:participant-bound:{}:{}",
-                canonical_id_component(case_id),
-                canonical_id_component(&record.subject_ref)
-            ),
-            case_id,
-            state.generation,
-            provider_source(Some(&record.subject_ref), &record.id),
-            TransitionPayload::ParticipantBound {
-                participant_id: record.subject_ref.clone(),
-                role: "legacy_subject_binding".to_string(),
-            },
-        );
-        binding.provenance.push(legacy_provenance(
-            journal_path,
-            Some(&record.id),
-            "lossless_structural_promotion",
-        ));
-        state = store.commit_transition(binding)?.state;
-    }
-    Ok(state)
+    let _ = (journal, journal_path);
+    store.get_case_state(case_id)?.ok_or_else(|| {
+        "new_live_case_requires_security_bootstrap_and_tenant_case_create".to_string()
+    })
 }
 
 pub(super) fn case_bind_participant_role(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let participant_id = named_arg(args, "--participant")?;
     let role = named_arg(args, "--role")?;
-    let actor_ref = named_arg(args, "--as")?;
+    let authenticated = authenticate_local()?;
+    let actor_ref = authenticated.projected_principal_id();
+    reject_spoofed_as(args, &actor_ref)?;
     if role.trim().is_empty()
         || !role
             .chars()
@@ -819,16 +797,11 @@ pub(super) fn case_bind_participant_role(args: &[String]) -> Result<(), String> 
         return Err("participant_role_identifier_invalid".to_string());
     }
     let store = LmdbRecordStore::open(record_store_path())?;
-    let state = store
-        .get_case_state(&case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
-    if !state
-        .participants
-        .iter()
-        .any(|participant| participant.participant_id == participant_id)
-    {
-        return Err("participant_role_binding_requires_existing_case_participant".to_string());
-    }
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    let tenant_id = state
+        .tenant_id
+        .clone()
+        .ok_or_else(|| "legacy_unscoped_case_cannot_accept_new_participant".to_string())?;
     if state.participants.iter().any(|participant| {
         participant.participant_id == participant_id && participant.roles.contains(&role)
     }) {
@@ -849,7 +822,8 @@ pub(super) fn case_bind_participant_role(args: &[String]) -> Result<(), String> 
         state.generation,
         TransitionSource {
             component: "yai.local_case_participant_configuration".to_string(),
-            participant_id: Some(actor_ref.clone()),
+            participant_id: None,
+            principal_id: Some(actor_ref.clone()),
             source_ref: Some(format!("participant-role:{participant_id}:{role}")),
         },
         TransitionPayload::ParticipantBound {
@@ -858,14 +832,14 @@ pub(super) fn case_bind_participant_role(args: &[String]) -> Result<(), String> 
         },
     );
     pending.causal_refs = vec![participant_id.clone()];
-    let commit = store.commit_transition(pending)?;
+    let commit = store.commit_secured_transition(&authenticated, &tenant_id, pending, true)?;
     println!("participant_role_binding: committed");
     println!("case_id: {case_id}");
     println!("case_generation: {}", commit.state.generation);
     println!("participant_id: {participant_id}");
     println!("role: {role}");
     println!("actor_ref: {actor_ref}");
-    println!("actor_trust_boundary: local_cli_claimed_provenance");
+    println!("actor_trust_boundary: kernel_authenticated_tenant_owner");
     Ok(())
 }
 
@@ -1059,7 +1033,15 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
         "provider_attachment:attached provider_id:{provider_id} provider:openai_compatible base_url:{base_url} model:{model} api_key_env:{api_key_env} prompt_surface:vendored_linenoise context:typed_projection_context_frame"
     );
     let store = LmdbRecordStore::open(record_store_path())?;
+    let authenticated = authenticate_local()?;
     let state = ensure_canonical_case(&store, &journal, &path, &case_ref)?;
+    let tenant_id = state
+        .tenant_id
+        .clone()
+        .ok_or_else(|| "legacy_unscoped_case_cannot_attach_provider".to_string())?;
+    store
+        .resolve_security_context(&authenticated, &tenant_id)?
+        .require_owner()?;
     let already_attached = state.provider.as_ref().is_some_and(|provider| {
         provider.participant_id == subject_ref
             && (provider.provider_id.is_empty() || provider.provider_id == provider_id)
@@ -1105,7 +1087,8 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
             },
         );
         attached.summary = Some("OpenAI-compatible provider attachment".to_string());
-        store.commit_transition(attached)?;
+        attached.source.principal_id = Some(authenticated.projected_principal_id());
+        store.commit_secured_transition(&authenticated, &tenant_id, attached, true)?;
     }
     if !legacy_already_attached {
         append_record_to_journal(&path, &record)?;

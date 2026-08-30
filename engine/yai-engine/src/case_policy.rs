@@ -12,10 +12,13 @@ use crate::governance::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const CASE_POLICY_BINDING_SCHEMA: &str = "yai.case_policy_binding.v1";
-pub const EFFECTIVE_POLICY_SCHEMA: &str = "yai.effective_policy.v2";
+pub const CASE_POLICY_BINDING_SCHEMA: &str = "yai.case_policy_binding.v2";
+pub const CASE_POLICY_BINDING_SCHEMA_V1: &str = "yai.case_policy_binding.v1";
+pub const EFFECTIVE_POLICY_SCHEMA: &str = "yai.effective_policy.v3";
+pub const EFFECTIVE_POLICY_SCHEMA_V2: &str = "yai.effective_policy.v2";
 pub const EFFECTIVE_POLICY_SCHEMA_V1: &str = "yai.effective_policy.v1";
-pub const POLICY_MATERIALIZER_VERSION: &str = "yai.policy_materializer.v2";
+pub const POLICY_MATERIALIZER_VERSION: &str = "yai.policy_materializer.v3";
+pub const POLICY_MATERIALIZER_VERSION_V2: &str = "yai.policy_materializer.v2";
 pub const POLICY_MATERIALIZER_VERSION_V1: &str = "yai.policy_materializer.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -25,6 +28,10 @@ pub struct CasePolicyBinding {
     pub binding_id: String,
     pub integrity_digest: String,
     pub case_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub principal_id: Option<String>,
     pub lineage_id: String,
     pub owner_ref: String,
     pub policy_key: String,
@@ -62,6 +69,28 @@ struct BindingDigestMaterial<'a> {
     replaces_binding_id: &'a Option<String>,
 }
 
+#[derive(Serialize)]
+struct TenantBindingDigestMaterial<'a> {
+    schema: &'a str,
+    case_id: &'a str,
+    tenant_id: &'a str,
+    principal_id: &'a str,
+    lineage_id: &'a str,
+    owner_ref: &'a str,
+    policy_key: &'a str,
+    artifact_id: &'a str,
+    artifact_version: &'a str,
+    source_id: &'a str,
+    source_digest: &'a str,
+    policy_ir_digest: &'a str,
+    publication_event_id: &'a str,
+    publication_event_sequence: u64,
+    bound_at_case_generation: u64,
+    actor_ref: &'a str,
+    reason: &'a str,
+    replaces_binding_id: &'a Option<String>,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn build_case_policy_binding(
     case_id: &str,
@@ -76,32 +105,64 @@ pub fn build_case_policy_binding(
     artifact.validate()?;
     let lineage_id = artifact.lineage().identity();
     let reason = normalize_text(reason);
-    let material = BindingDigestMaterial {
-        schema: CASE_POLICY_BINDING_SCHEMA,
-        case_id,
-        lineage_id: &lineage_id,
-        owner_ref: &artifact.owner_ref,
-        policy_key: &artifact.policy_key,
-        artifact_id: &artifact.artifact_id,
-        artifact_version: &artifact.artifact_version,
-        source_id: &artifact.source_id,
-        source_digest: &artifact.source_digest,
-        policy_ir_digest: &artifact.policy_ir.ir_digest,
-        publication_event_id,
-        publication_event_sequence,
-        bound_at_case_generation,
-        actor_ref,
-        reason: &reason,
-        replaces_binding_id: &replaces_binding_id,
+    let schema = if artifact.tenant_id.is_some() {
+        CASE_POLICY_BINDING_SCHEMA
+    } else {
+        CASE_POLICY_BINDING_SCHEMA_V1
     };
-    let encoded = serde_json::to_vec(&material)
-        .map_err(|error| format!("case_policy_binding_digest_encode_failed: {error}"))?;
+    let encoded = if let Some(tenant_id) = artifact.tenant_id.as_deref() {
+        if actor_ref != actor_ref.trim() || !actor_ref.starts_with("principal:") {
+            return Err("tenant_policy_binding_requires_authenticated_principal".to_string());
+        }
+        serde_json::to_vec(&TenantBindingDigestMaterial {
+            schema,
+            case_id,
+            tenant_id,
+            principal_id: actor_ref,
+            lineage_id: &lineage_id,
+            owner_ref: &artifact.owner_ref,
+            policy_key: &artifact.policy_key,
+            artifact_id: &artifact.artifact_id,
+            artifact_version: &artifact.artifact_version,
+            source_id: &artifact.source_id,
+            source_digest: &artifact.source_digest,
+            policy_ir_digest: &artifact.policy_ir.ir_digest,
+            publication_event_id,
+            publication_event_sequence,
+            bound_at_case_generation,
+            actor_ref,
+            reason: &reason,
+            replaces_binding_id: &replaces_binding_id,
+        })
+    } else {
+        serde_json::to_vec(&BindingDigestMaterial {
+            schema,
+            case_id,
+            lineage_id: &lineage_id,
+            owner_ref: &artifact.owner_ref,
+            policy_key: &artifact.policy_key,
+            artifact_id: &artifact.artifact_id,
+            artifact_version: &artifact.artifact_version,
+            source_id: &artifact.source_id,
+            source_digest: &artifact.source_digest,
+            policy_ir_digest: &artifact.policy_ir.ir_digest,
+            publication_event_id,
+            publication_event_sequence,
+            bound_at_case_generation,
+            actor_ref,
+            reason: &reason,
+            replaces_binding_id: &replaces_binding_id,
+        })
+    }
+    .map_err(|error| format!("case_policy_binding_digest_encode_failed: {error}"))?;
     let integrity_digest = digest_bytes(&encoded);
     let binding = CasePolicyBinding {
-        schema: CASE_POLICY_BINDING_SCHEMA.to_string(),
+        schema: schema.to_string(),
         binding_id: format!("case-policy-binding:{}", digest_prefix(&integrity_digest)),
         integrity_digest,
         case_id: case_id.to_string(),
+        tenant_id: artifact.tenant_id.clone(),
+        principal_id: artifact.tenant_id.as_ref().map(|_| actor_ref.to_string()),
         lineage_id,
         owner_ref: artifact.owner_ref.clone(),
         policy_key: artifact.policy_key.clone(),
@@ -123,15 +184,28 @@ pub fn build_case_policy_binding(
 
 impl CasePolicyBinding {
     pub fn lineage(&self) -> Result<PolicyLineage, String> {
-        PolicyLineage::new(&self.owner_ref, &self.policy_key)
+        match &self.tenant_id {
+            Some(tenant_id) => PolicyLineage::tenant(tenant_id, &self.owner_ref, &self.policy_key),
+            None => PolicyLineage::new(&self.owner_ref, &self.policy_key),
+        }
     }
 
     pub fn validate_integrity(&self) -> Result<(), String> {
-        if self.schema != CASE_POLICY_BINDING_SCHEMA {
+        if self.schema != CASE_POLICY_BINDING_SCHEMA && self.schema != CASE_POLICY_BINDING_SCHEMA_V1
+        {
             return Err(format!(
                 "unsupported_case_policy_binding_schema: {}",
                 self.schema
             ));
+        }
+        match (&*self.schema, &self.tenant_id, &self.principal_id) {
+            (CASE_POLICY_BINDING_SCHEMA, Some(tenant_id), Some(principal_id))
+                if tenant_id.starts_with("tenant:") && principal_id.starts_with("principal:") => {}
+            (CASE_POLICY_BINDING_SCHEMA, _, _) => {
+                return Err("tenant_case_policy_binding_security_scope_required".to_string())
+            }
+            (CASE_POLICY_BINDING_SCHEMA_V1, None, None) => {}
+            _ => return Err("legacy_case_policy_binding_cannot_claim_tenant_scope".to_string()),
         }
         for (name, value) in [
             ("binding_id", self.binding_id.as_str()),
@@ -156,28 +230,50 @@ impl CasePolicyBinding {
         if lineage.identity() != self.lineage_id {
             return Err("case_policy_binding_lineage_identity_mismatch".to_string());
         }
-        let material = BindingDigestMaterial {
-            schema: &self.schema,
-            case_id: &self.case_id,
-            lineage_id: &self.lineage_id,
-            owner_ref: &self.owner_ref,
-            policy_key: &self.policy_key,
-            artifact_id: &self.artifact_id,
-            artifact_version: &self.artifact_version,
-            source_id: &self.source_id,
-            source_digest: &self.source_digest,
-            policy_ir_digest: &self.policy_ir_digest,
-            publication_event_id: &self.publication_event_id,
-            publication_event_sequence: self.publication_event_sequence,
-            bound_at_case_generation: self.bound_at_case_generation,
-            actor_ref: &self.actor_ref,
-            reason: &self.reason,
-            replaces_binding_id: &self.replaces_binding_id,
-        };
-        let digest = digest_bytes(
-            &serde_json::to_vec(&material)
-                .map_err(|error| format!("case_policy_binding_digest_encode_failed: {error}"))?,
-        );
+        let encoded =
+            if let (Some(tenant_id), Some(principal_id)) = (&self.tenant_id, &self.principal_id) {
+                serde_json::to_vec(&TenantBindingDigestMaterial {
+                    schema: &self.schema,
+                    case_id: &self.case_id,
+                    tenant_id,
+                    principal_id,
+                    lineage_id: &self.lineage_id,
+                    owner_ref: &self.owner_ref,
+                    policy_key: &self.policy_key,
+                    artifact_id: &self.artifact_id,
+                    artifact_version: &self.artifact_version,
+                    source_id: &self.source_id,
+                    source_digest: &self.source_digest,
+                    policy_ir_digest: &self.policy_ir_digest,
+                    publication_event_id: &self.publication_event_id,
+                    publication_event_sequence: self.publication_event_sequence,
+                    bound_at_case_generation: self.bound_at_case_generation,
+                    actor_ref: &self.actor_ref,
+                    reason: &self.reason,
+                    replaces_binding_id: &self.replaces_binding_id,
+                })
+            } else {
+                serde_json::to_vec(&BindingDigestMaterial {
+                    schema: &self.schema,
+                    case_id: &self.case_id,
+                    lineage_id: &self.lineage_id,
+                    owner_ref: &self.owner_ref,
+                    policy_key: &self.policy_key,
+                    artifact_id: &self.artifact_id,
+                    artifact_version: &self.artifact_version,
+                    source_id: &self.source_id,
+                    source_digest: &self.source_digest,
+                    policy_ir_digest: &self.policy_ir_digest,
+                    publication_event_id: &self.publication_event_id,
+                    publication_event_sequence: self.publication_event_sequence,
+                    bound_at_case_generation: self.bound_at_case_generation,
+                    actor_ref: &self.actor_ref,
+                    reason: &self.reason,
+                    replaces_binding_id: &self.replaces_binding_id,
+                })
+            }
+            .map_err(|error| format!("case_policy_binding_digest_encode_failed: {error}"))?;
+        let digest = digest_bytes(&encoded);
         if digest != self.integrity_digest
             || self.binding_id != format!("case-policy-binding:{}", digest_prefix(&digest))
         {
@@ -196,6 +292,7 @@ impl CasePolicyBinding {
             || self.source_id != artifact.source_id
             || self.source_digest != artifact.source_digest
             || self.policy_ir_digest != artifact.policy_ir.ir_digest
+            || self.tenant_id != artifact.tenant_id
         {
             return Err("case_policy_binding_artifact_integrity_mismatch".to_string());
         }
@@ -298,6 +395,8 @@ pub struct EffectivePolicy {
     pub effective_policy_id: String,
     pub semantic_digest: String,
     pub case_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
     pub materializer_version: String,
     pub binding_ids: Vec<String>,
     pub artifact_ids: Vec<String>,
@@ -350,6 +449,17 @@ struct EffectiveDigestMaterial<'a> {
     rules: &'a [EffectivePolicyRule],
 }
 
+#[derive(Serialize)]
+struct TenantEffectiveDigestMaterial<'a> {
+    schema: &'a str,
+    case_id: &'a str,
+    tenant_id: &'a str,
+    materializer_version: &'a str,
+    binding_ids: &'a [String],
+    artifact_ids: &'a [String],
+    rules: &'a [EffectivePolicyRule],
+}
+
 pub fn materialize_effective_policy(
     case_id: &str,
     mut inputs: Vec<EffectivePolicyInput>,
@@ -374,6 +484,13 @@ pub fn materialize_effective_policy(
     let mut conflicts = Vec::new();
     let mut seen_lineages = BTreeSet::new();
     let mut drift = BTreeMap::new();
+    let tenant_ids = inputs
+        .iter()
+        .map(|input| input.binding.tenant_id.clone())
+        .collect::<BTreeSet<_>>();
+    if tenant_ids.len() != 1 {
+        conflicts.push("effective_policy_mixed_security_domains".to_string());
+    }
     for input in &inputs {
         if input.binding.case_id != case_id {
             missing.push(format!(
@@ -594,16 +711,40 @@ pub fn materialize_effective_policy(
         .iter()
         .map(|item| item.artifact.artifact_id.clone())
         .collect::<Vec<_>>();
-    let material = EffectiveDigestMaterial {
-        schema: EFFECTIVE_POLICY_SCHEMA,
-        case_id,
-        materializer_version: POLICY_MATERIALIZER_VERSION,
-        binding_ids: &binding_ids,
-        artifact_ids: &artifact_ids,
-        rules: &rules,
+    let tenant_id = inputs
+        .first()
+        .and_then(|input| input.binding.tenant_id.clone());
+    let (schema, materializer_version, encoded) = if let Some(tenant_id) = tenant_id.as_deref() {
+        (
+            EFFECTIVE_POLICY_SCHEMA,
+            POLICY_MATERIALIZER_VERSION,
+            serde_json::to_vec(&TenantEffectiveDigestMaterial {
+                schema: EFFECTIVE_POLICY_SCHEMA,
+                case_id,
+                tenant_id,
+                materializer_version: POLICY_MATERIALIZER_VERSION,
+                binding_ids: &binding_ids,
+                artifact_ids: &artifact_ids,
+                rules: &rules,
+            })
+            .expect("serializable material"),
+        )
+    } else {
+        (
+            EFFECTIVE_POLICY_SCHEMA_V2,
+            POLICY_MATERIALIZER_VERSION_V2,
+            serde_json::to_vec(&EffectiveDigestMaterial {
+                schema: EFFECTIVE_POLICY_SCHEMA_V2,
+                case_id,
+                materializer_version: POLICY_MATERIALIZER_VERSION_V2,
+                binding_ids: &binding_ids,
+                artifact_ids: &artifact_ids,
+                rules: &rules,
+            })
+            .expect("serializable material"),
+        )
     };
-    let semantic_digest =
-        digest_bytes(&serde_json::to_vec(&material).expect("serializable material"));
+    let semantic_digest = digest_bytes(&encoded);
     let output_count = rules.len();
     NormativeStatus {
         case_id: case_id.to_string(),
@@ -614,11 +755,12 @@ pub fn materialize_effective_policy(
         persisted_authority_floor_unix_ms: 0,
         binding_validity: BTreeMap::new(),
         effective_policy: Some(EffectivePolicy {
-            schema: EFFECTIVE_POLICY_SCHEMA.to_string(),
+            schema: schema.to_string(),
             effective_policy_id: format!("effective-policy:{}", digest_prefix(&semantic_digest)),
             semantic_digest,
             case_id: case_id.to_string(),
-            materializer_version: POLICY_MATERIALIZER_VERSION.to_string(),
+            tenant_id,
+            materializer_version: materializer_version.to_string(),
             binding_ids,
             artifact_ids,
             input_rule_count,

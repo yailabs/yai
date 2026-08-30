@@ -1,0 +1,6 @@
+owner_test	result	evidence
+independent lifecycle	NO	no current consumer or legacy executable Organization create/mutate/close lifecycle
+owns many Tenants	NOT YET PROVEN	organization_ref may repeat without access sharing
+independent authority consumer	NO	all isolation and admin checks resolve Tenant
+canonical owner earned	NO	Organization remains immutable projection metadata on Tenant
+future strengthening	DEFERRED	external account/SSO/company assertion may bind organization_ref without changing Tenant isolation

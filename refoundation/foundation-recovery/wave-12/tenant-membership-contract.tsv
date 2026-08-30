@@ -1,0 +1,5 @@
+membership	read_visibility	administration	Case_role_effect
+owner	selected Tenant Cases/policies/reviews	membership; Case/provider/resource/role/link; policy lifecycle/binding; runtime/cancel/close	none automatically
+member	selected Tenant read surfaces; may be linked to Participant	none in Wave12	none automatically
+none	not_visible/access denied	none	none
+mutation_scope	membership addition only; no removal/suspend/delete/transfer	owner required	future lifecycle deferred

@@ -1,7 +1,8 @@
 # Governance source and PolicyArtifact reference
 
-Authority: current Wave-8/H8 governance authoring, Wave-9 Case policy
-materialization, and Wave-10 operational admission contracts.
+Authority: current Wave-8/H8 governance authoring, Wave-9 materialization,
+Wave-10/H10 admission, Wave-11 temporal governance and Wave-12 Tenant security
+contracts.
 
 ## Boundary
 
@@ -34,12 +35,12 @@ ALLOW under the same current basis can issue an ExecutionGrant.
 
 ## Input grammar
 
-`yai.policy_source_input.v3` is bounded UTF-8 JSON with no unknown top-level
+`yai.policy_source_input.v4` is bounded UTF-8 JSON with no unknown top-level
 fields:
 
 ```json
 {
-  "schema": "yai.policy_source_input.v3",
+  "schema": "yai.policy_source_input.v4",
   "policy_key": "organization.example.filesystem",
   "source_version": "1",
   "owner_ref": "organization:example",
@@ -47,6 +48,7 @@ fields:
     "source_system": "policy-intake",
     "source_uri": "internal://governance/filesystem"
   },
+  "validity": { "mode": "unbounded" },
   "rules": [
     {
       "kind": "review_requirement",
@@ -82,7 +84,7 @@ and never create ambient Participant permission.
 
 ## Source and provenance
 
-`yai.policy_source_artifact.v3` stores:
+`yai.policy_source_artifact.v4` stores:
 
 ```text
 source_id
@@ -140,11 +142,12 @@ documented below.
 
 ## Immutable PolicyArtifact and lifecycle
 
-`yai.policy_artifact.v3` binds:
+`yai.policy_artifact.v5` binds:
 
 ```text
 artifact_id
-owner-scoped lineage = owner_ref + policy_key
+Tenant-scoped lineage = tenant_id + policy_key
+tenant_id + organization_ref projection
 artifact_version unique inside the lineage
 declared source origin
 source_id + source_digest
@@ -153,13 +156,16 @@ PolicyIr + IR digest
 deterministic validation disposition
 ```
 
-Artifact identity is content/provenance-derived. Identical bytes at the same
-lineage/version are idempotent; changed bytes collide and fail before any
-write. Different owners cannot supersede each other, and declared versions are
+Artifact identity is content/provenance/security-domain-derived. Identical
+source bytes may have one source digest across Tenants, but authority artifacts
+and lineages remain Tenant-distinct. Changed bytes at the same lineage/version
+collide and fail before any write. Different Tenants cannot supersede each
+other, and declared versions are
 not interpreted as SemVer or sorted authority. Stored artifact bytes are
 immutable. Lifecycle is a separate append-only
-`yai.policy_lifecycle_event.v1` history with global LMDB order, prior/next
-state, actor ref, reason, optional related artifact, time and integrity digest.
+`yai.policy_lifecycle_event.v3` history with global LMDB order, Tenant and
+authenticated Principal, prior/next state, reason, optional related artifact,
+time and integrity digest.
 
 ```text
 candidate
@@ -187,15 +193,16 @@ It means only “eligible for later Case PolicyBinding/materialization.”
 
 ## Exact Case PolicyBinding
 
-`yai.case_policy_binding.v1` binds one Case to one exact immutable artifact.
+`yai.case_policy_binding.v2` binds one Tenant-scoped Case to one exact immutable
+Tenant-owned artifact.
 The binding contains the Case and binding identities, owner-scoped lineage,
 artifact ID and declared version, source and IR digests, bind-time publication
 event ID/sequence, resulting Case generation, claimed local actor/reason and an
 optional replaced-binding ref. Its identity and integrity digest cover those
 fields.
 
-Binding was introduced as a canonical v5 payload; current `yai.transition.v6`
-records it and `yai.case_state.v6` materializes only active compact binding
+Binding was introduced as a canonical v5 payload; current `yai.transition.v8`
+records it and `yai.case_state.v8` materializes only active compact binding
 records, with one binding per lineage.
 Bind and replace validate catalog eligibility and append the Case Transition in
 one LMDB write transaction. New binding requires the exact artifact to be
@@ -205,15 +212,16 @@ bind is an idempotent no-op.
 
 Publication of `P@2` never changes a Case pinned to `P@1`. The Case reports
 catalog drift (`current`, `superseded`, `retired`, or no current publication)
-until an operator explicitly replaces the binding. Drift reporting is not
-Wave-11 revocation or refresh semantics. The CLI actor is provenance, not
-authenticated authority.
+until an operator explicitly replaces the binding. Drift remains separate from
+Wave-11 validity/revoke posture. Binding v2 records the authenticated Principal;
+source `owner_ref` cannot substitute for Tenant equality.
 
 ## EffectivePolicy and normative readiness
 
-`yai.effective_policy.v2` is derived and rebuildable from current CaseState
+`yai.effective_policy.v3` is derived and rebuildable from current CaseState
 bindings plus their exact retained PolicyArtifacts. The materializer contract
-is `yai.policy_materializer.v2`. It sorts inputs independent of ingest,
+is `yai.policy_materializer.v3`; both retain the exact immutable Case Tenant.
+It sorts inputs independent of ingest,
 publication, binding and LMDB cursor order. Its semantic identity covers the
 Case, sorted exact binding/artifact inputs, materializer version and normalized
 effective rules, but not wall clock, process or unrelated Case generations.
@@ -249,11 +257,13 @@ after a canonical bind leaves the binding committed and repairable.
 ## Policy-driven operation admission
 
 Wave 10 adds one operational consumer without moving materialization authority.
-`yai.decision_basis.v1` binds the Case generation, Operation/resource,
-EffectivePolicy identity/digest/materializer, exact Case bindings and artifacts,
+Current `yai.decision_basis.v3` binds the Case Tenant and generation,
+Operation/resource, EffectivePolicy v3 identity/digest/materializer, exact Case
+bindings and artifacts,
 matched rules/provenance, resource-envelope result, proposer/reviewer role
-eligibility, evidence obligations and final posture. `yai.decision.v2` embeds
-and integrity-binds that basis; v1 remains compatibility-readable.
+eligibility, temporal posture, evidence obligations and final posture.
+`yai.decision.v3` embeds and integrity-binds that basis; old schemas remain
+compatibility-readable.
 
 The current closed-world algebra is deterministic:
 
@@ -270,12 +280,14 @@ The current closed-world algebra is deterministic:
 `source_provenance` requires the canonical ProviderInvocation/ProviderResult
 lineage. An evaluator-generated reason cannot satisfy `audit_reason`; an
 eligible approved ReviewAction reason can. Policy pre/post observation
-obligations travel in `yai.execution_grant.v2`, while the carrier's mandatory
+obligations travel in finite `yai.execution_grant.v3`, while the carrier's mandatory
 pre/post safety remains unconditional.
 
 `yai.review_request.v2` binds the original Operation, DecisionBasis,
-EffectivePolicy and required reviewer roles. Policy change before review
-resolution is stale and cannot yield ALLOW. Grant issuance transactionally
+EffectivePolicy and required reviewer roles. ReviewAction v2 resolves and
+records the per-invocation authenticated Principal through Tenant membership
+and an explicit Principal/Participant link; the link adds no Case role. Policy
+change before review resolution is stale and cannot yield ALLOW. Grant issuance transactionally
 re-materializes current readiness and requires the exact same EffectivePolicy
 and binding set, preventing a Decision under E1 from issuing a Grant after E2
 becomes current. These checks are immediate basis consistency, not Wave-11
@@ -300,6 +312,14 @@ lifecycle. It is not CaseState, a Case Transition stream, graph/memory derived
 state, or `case:__system__`. A PolicyArtifact may be published with zero Cases.
 Inspection/listing does not mutate either governance history or Case history.
 
+The same environment now hosts one separate security catalog owner:
+`yai.security_principal.v1`, `yai.tenant.v1`, and append-only
+`yai.security_event.v1` records with indexes by Principal binding, Tenant and
+membership. `AuthenticatedPrincipal` is a sealed invocation value derived from
+kernel real/effective POSIX credentials; the effective UID binding selects the
+Principal. Organization is immutable Tenant metadata, not a second isolation
+domain. Security catalog reads are pure.
+
 The shared LMDB map defaults to 256 MiB (formerly 16 MiB) and embedding callers
 may configure it down to the documented 16 MiB minimum. The H8 supported
 catalog contract covers 256 retained sources of up to 256 KiB under the
@@ -307,26 +327,33 @@ default. Capacity exhaustion is explicit and transactionally harmless.
 
 ## Operator trust and commands
 
-The local CLI supports:
+The local authenticated CLI supports:
 
 ```text
-yai policy ingest <source.json> --as <operator-ref>
+yai security bootstrap-local --tenant <tenant:id> --organization <organization:id>
+yai identity whoami
+yai tenant list
+yai tenant status --tenant <tenant:id>
+yai policy ingest <source.json> --tenant <tenant:id>
 yai policy inspect <source-id|artifact-id>
-yai policy validate <artifact-id> --as <operator-ref>
-yai policy publish <artifact-id> --as <operator-ref>
-yai policy retire <artifact-id> --as <operator-ref> --reason <reason>
+yai policy validate <artifact-id> --reason <reason>
+yai policy publish <artifact-id> --reason <reason>
+yai policy retire <artifact-id> --reason <reason>
+yai policy revoke <artifact-id> --reason <reason>
 yai policy list
-yai case policy bind <case-id> <artifact-id> --expected-generation <n> --as <actor>
-yai case policy replace <case-id> <prior-binding-id> <artifact-id> --expected-generation <n> --as <actor>
-yai case policy unbind <case-id> <binding-id> --expected-generation <n> --as <actor>
+yai case policy bind --case <case:id> --artifact <artifact:id> --expected-generation <n> --reason <reason>
+yai case policy replace --case <case:id> --binding <binding:id> --artifact <artifact:id> --expected-generation <n> --reason <reason>
+yai case policy unbind --case <case:id> --binding <binding:id> --expected-generation <n> --reason <reason>
 yai case policy status <case-id>
 yai case policy rebuild <case-id>
 ```
 
-`--as` is recorded actor provenance from a local command and is distinct from
-the artifact's declared `owner_ref`; it cannot alter lineage. H8 does not prove OS
-identity, enterprise authentication, remote signature or publish authority.
-Those trust and authority gaps remain explicit.
+New scoped mutations authenticate on every invocation and re-check Principal,
+Tenant and Owner membership at the store boundary. A retained `--as` value is
+compatibility-only and must equal the resolved Principal; it cannot authenticate
+or select authority. This local POSIX trust model does not prove enterprise
+authentication, external Organization identity, remote signature or security
+against a process with unrestricted out-of-band LMDB file access.
 
 ## Compatibility and non-claims
 
@@ -334,6 +361,7 @@ Historical `yai-dev` JSON candidates/manifests are archaeology, not accepted
 Wave-8 input. They lacked immutable content identity and were mutated in place
 during lifecycle operations. No compatibility reader silently promotes them.
 
-Wave 8/H8/Wave 9/Wave 10 does not claim free-form policy interpretation,
-YAML/Markdown support, generic RBAC/ABAC, authenticated actors, expiry/revoke,
-automatic refresh, tenant ownership or general retention/privacy policy.
+The current Waves 8–12 implementation does not claim free-form policy
+interpretation, YAML/Markdown support, generic RBAC/ABAC, SSO/account identity,
+automatic refresh, cross-host Tenant isolation, distributed revoke or general
+retention/privacy policy.

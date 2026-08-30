@@ -109,12 +109,13 @@ fn print_info() {
         "yai: technical YAI control command\n",
         "status: SPINE.51 Fact Plane Freeze\n",
         "ownership: Rust operational CLI plus Rust data engine\n",
-        "canonical_state: LMDB yai.transition.v6 plus atomically materialized yai.case_state.v6\n",
+        "canonical_state: LMDB yai.transition.v8 plus atomically materialized yai.case_state.v8\n",
         "effect_paths: typed filesystem.write with Case-native human review and no product review bypass\n",
         "semantic_context: typed yai.projection.v4 plus yai.context_frame.v4 derived from CaseState, qualified memory, review posture and ResidencyPlan\n",
         "operational_memory: yai.operational_memory.v1 derived, provenance-bound, droppable and rebuildable\n",
-        "governance_intake: immutable yai.policy_source_artifact.v3 plus typed yai.policy_ir.v2 and owner-scoped yai.policy_artifact.v3 lifecycle\n",
-        "case_governance: exact bindings plus yai.effective_policy.v2 and policy-bound DecisionBasis/Decision/review/ExecutionGrant admission\n",
+        "governance_intake: immutable source content plus Tenant-scoped yai.policy_artifact.v5 lifecycle\n",
+        "case_governance: Tenant-exact bindings plus yai.effective_policy.v3 and policy-bound authority admission\n",
+        "security: invocation-scoped local POSIX Principal projected into immutable Tenant security domains\n",
         "provider-runtime: provider-specific rendering and real OpenAI-compatible HTTP invocation with typed frame lineage"
     ));
 }
@@ -257,27 +258,33 @@ fn print_usage() {
     println!("       yai projection inspect --journal <path> [--consumer model|operator|audit|debug|agent]");
     println!("       yai projection request --journal <path> --consumer <consumer> --kind <kind>");
     println!("       yai context inspect --id <projection|frame|rendered-input-id>");
+    println!(
+        "       yai security bootstrap-local --tenant <tenant:id> --organization <organization:id>"
+    );
+    println!("       yai identity whoami");
+    println!("       yai tenant list|status [--tenant <tenant:id>]");
+    println!("       yai tenant add-member --tenant <tenant:id> --principal <principal:id>");
+    println!("       yai case create --case <case:id> --tenant <tenant:id>");
+    println!("       yai case principal link --case <case:id> --principal <principal:id> --participant <participant:id>");
     println!("       yai case enter --case <case_ref> --subject <subject_ref> [--consumer model] [--kind model_context] [--shell zsh]");
     println!("       yai case attach-provider --case <case_ref> --subject <subject_ref> --base-url <url> --model <model> [--provider-id <id>] [--api-key-env <env>] [--shell zsh]");
     println!("       yai case attach-filesystem --case <case_ref> --attachment <id> --root <existing-dir> --allow-prefix <relative-dir> --policy-owner <participant> [--require-review] [--policy-id <id>] [--max-bytes <N>]");
-    println!("       yai case bind-participant-role --case <case_ref> --participant <participant> --role <role> --as <actor-ref>");
-    println!("       yai case policy bind --case <case_ref> --artifact <id> --expected-generation <N> --as <participant> [--reason <reason>]");
-    println!("       yai case policy replace --case <case_ref> --binding <id> --artifact <id> --expected-generation <N> --as <participant> [--reason <reason>]");
-    println!("       yai case policy unbind --case <case_ref> --binding <id> --expected-generation <N> --as <participant> --reason <reason>");
+    println!("       yai case bind-participant-role --case <case_ref> --participant <participant> --role <role>");
+    println!("       yai case policy bind --case <case_ref> --artifact <id> --expected-generation <N> [--reason <reason>]");
+    println!("       yai case policy replace --case <case_ref> --binding <id> --artifact <id> --expected-generation <N> [--reason <reason>]");
+    println!("       yai case policy unbind --case <case_ref> --binding <id> --expected-generation <N> --reason <reason>");
     println!("       yai case policy status|rebuild --case <case_ref>");
     println!("       yai case run --case <case_ref> --subject <participant> --attachment <id> --prompt <task> [--max-invocations <N>] [--max-operations <N>] [--max-semantic-units <N>] [--max-estimated-input-units <N>]");
     println!("       yai case resume --case <case_ref> [budget overrides]");
     println!("       yai case status --case <case_ref>");
     println!("       yai case stop --case <case_ref>");
-    println!("       yai case cancel --case <case_ref> --as <actor-ref> --reason <reason>");
-    println!("       yai case close --case <case_ref> --as <actor-ref> --reason <reason>");
-    println!("       yai policy ingest <source.json> --as <operator-ref>");
-    println!("       yai policy inspect <source-id|artifact-id>");
-    println!("       yai policy validate <artifact-id> --as <operator-ref> [--reason <reason>]");
-    println!("       yai policy publish <artifact-id> --as <operator-ref> [--reason <reason>]");
-    println!("       yai policy retire <artifact-id> --as <operator-ref> --reason <reason>");
-    println!("       yai policy revoke <artifact-id> --as <operator-ref> --reason <reason>");
-    println!("       yai policy list");
+    println!("       yai case cancel --case <case_ref> --reason <reason>");
+    println!("       yai case close --case <case_ref> --reason <reason>");
+    println!("       yai policy ingest <source.json> --tenant <tenant:id>");
+    println!("       yai policy inspect <artifact-id> | yai policy inspect <source-id> --tenant <tenant:id>");
+    println!("       yai policy validate|publish <artifact-id> [--reason <reason>]");
+    println!("       yai policy retire|revoke <artifact-id> --reason <reason>");
+    println!("       yai policy list --tenant <tenant:id>");
     println!("       yai effect filesystem-write --case <case_ref> --subject <provider-participant> --attachment <id> --prompt <text> --base-url <url> --model <model> [--failpoint <name>]");
     println!("       yai effect reconcile --case <case_ref> [--effect <effect-id>] [--retry]");
     println!("       yai effect inspect --case <case_ref> --effect <effect-id>");
@@ -286,7 +293,9 @@ fn print_usage() {
     println!("       yai control summary --journal <path>");
     println!("       yai review pending --case <case_ref>");
     println!("       yai review show <review_id> --case <case_ref>");
-    println!("       yai review approve|deny|defer <review_id> --case <case_ref> --as <participant> --reason <reason>");
+    println!(
+        "       yai review approve|deny|defer <review_id> --case <case_ref> --reason <reason>"
+    );
     println!("       yai decision inspect --journal <path>");
     println!("       yai receipt summary --journal <path>");
     println!("       yai graph summary --journal <path>");
@@ -561,11 +570,11 @@ fn print_store_status() {
     println!("record_store_status: {}", status.status);
     println!("record_store_path: {}", status.path.display());
     println!("canonical_authority: lmdb_transaction_authority_v1");
-    println!("transition_schema: yai.transition.v1");
-    println!("case_state_schema: yai.case_state.v1");
+    println!("transition_schema: yai.transition.v8");
+    println!("case_state_schema: yai.case_state.v8");
     println!("legacy_record_schema: yai.record.v1");
     if status.status == "ready" {
-        println!("canonical_databases: transitions_by_id,case_transition_sequence,case_state");
+        println!("canonical_databases: transitions_by_id,case_transition_sequence,case_state,security_principals_by_id,tenants_by_id,tenant_memberships,security_events_by_id");
         println!("indexes: records_by_id,records_by_case,records_by_kind,records_by_subject,records_by_receipt");
         println!("legacy_databases: records_by_id,records_by_case,records_by_kind,records_by_subject,records_by_receipt,legacy_compatibility_payloads");
         println!("derived_databases: graph_relations_by_id,graph_relations_by_case,graph_relations_by_kind");
@@ -1210,6 +1219,9 @@ use case_policy::case_policy_command;
 mod case_lifecycle;
 use case_lifecycle::{case_cancel, case_close};
 
+mod security;
+use security::{case_security_command, identity_command, security_command, tenant_command};
+
 fn decision_outcome(summary: &str) -> String {
     parse_legacy_summary_fields(summary)
         .remove("decision")
@@ -1527,6 +1539,30 @@ fn main() {
         }
         Some("context") if args.get(1).map(String::as_str) == Some("inspect") => {
             if let Err(error) = semantic_context_inspect(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("security") => {
+            if let Err(error) = security_command(&args[1..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("identity") => {
+            if let Err(error) = identity_command(&args[1..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("tenant") => {
+            if let Err(error) = tenant_command(&args[1..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("case") if matches!(args.get(1).map(String::as_str), Some("create" | "principal")) => {
+            if let Err(error) = case_security_command(&args[1..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }

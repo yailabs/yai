@@ -1,0 +1,9 @@
+family	remaining_semantic_delta	not_implemented_in_wave12
+multi-Case runtime	select and advance multiple Tenant-scoped Cases fairly	no scheduler/worker pool
+runtime instance lifecycle	durable local runtime instance identity/start/recovery/stop if owner test earns it	no RuntimeManager or instance owner
+quotas	Tenant/Case bounded runtime consumption with real consumers	no plan/quota/account fields
+scheduling	priority/fairness/admission across Cases	no queues/priorities
+backpressure	bounded provider/carrier work across concurrent Cases	no global backpressure service
+recovery sweep	discover abandoned runnable/in-flight Cases after restart	no background sweep/supervisor
+concurrency trust	preserve Wave12 Tenant gates under multi-runner mutation	current one-Case admission remains
+explicit exclusions	resource fencing/second carrier/provider governance remain later waves	no Wave14/15 work begun

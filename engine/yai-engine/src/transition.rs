@@ -19,17 +19,20 @@ pub const TRANSITION_SCHEMA_V3: &str = "yai.transition.v3";
 pub const TRANSITION_SCHEMA_V4: &str = "yai.transition.v4";
 pub const TRANSITION_SCHEMA_V5: &str = "yai.transition.v5";
 pub const TRANSITION_SCHEMA_V6: &str = "yai.transition.v6";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v7";
+pub const TRANSITION_SCHEMA_V7: &str = "yai.transition.v7";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v8";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
 pub const CASE_STATE_SCHEMA_V4: &str = "yai.case_state.v4";
 pub const CASE_STATE_SCHEMA_V5: &str = "yai.case_state.v5";
 pub const CASE_STATE_SCHEMA_V6: &str = "yai.case_state.v6";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v7";
+pub const CASE_STATE_SCHEMA_V7: &str = "yai.case_state.v7";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v8";
 pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v2";
 pub const REVIEW_REQUEST_SCHEMA_V1: &str = "yai.review_request.v1";
-pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v1";
+pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v2";
+pub const REVIEW_ACTION_SCHEMA_V1: &str = "yai.review_action.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -145,6 +148,8 @@ pub struct TransitionSource {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub participant_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub principal_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_ref: Option<String>,
 }
 
@@ -153,6 +158,7 @@ impl TransitionSource {
         Self {
             component: component.into(),
             participant_id: None,
+            principal_id: None,
             source_ref: None,
         }
     }
@@ -184,6 +190,11 @@ pub enum TransitionPayload {
     CaseOpened {
         lifecycle: CaseLifecycle,
     },
+    TenantCaseOpened {
+        lifecycle: CaseLifecycle,
+        tenant_id: String,
+        principal_id: String,
+    },
     ParticipantBound {
         participant_id: String,
         role: String,
@@ -192,6 +203,9 @@ pub enum TransitionPayload {
         participant_id: String,
         consumer: String,
         view_kind: String,
+    },
+    ParticipantPrincipalLinked {
+        link: PrincipalParticipantLink,
     },
     ProviderAttached {
         participant_id: String,
@@ -322,8 +336,10 @@ impl TransitionPayload {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::CaseOpened { .. } => "case_opened",
+            Self::TenantCaseOpened { .. } => "tenant_case_opened",
             Self::ParticipantBound { .. } => "participant_bound",
             Self::ParticipantAdmitted { .. } => "participant_admitted",
+            Self::ParticipantPrincipalLinked { .. } => "participant_principal_linked",
             Self::ProviderAttached { .. } => "provider_attached",
             Self::ProviderInvocationStarted { .. } => "provider_invocation_started",
             Self::ProviderResultRecorded { .. } => "provider_result_recorded",
@@ -394,6 +410,10 @@ pub struct ReviewAction {
     pub operation_id: String,
     pub case_id: String,
     pub reviewer_participant_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub principal_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
     pub action: ReviewActionKind,
     pub reason: String,
     pub expected_case_generation: u64,
@@ -419,10 +439,65 @@ pub fn build_review_action(
     }
     let reason = reason.split_whitespace().collect::<Vec<_>>().join(" ");
     let material = review_action_digest_material(
+        REVIEW_ACTION_SCHEMA_V1,
+        &review.review_id,
+        &review.operation_id,
+        case_id,
+        reviewer_participant_id,
+        &action,
+        &reason,
+        expected_case_generation,
+        source,
+    );
+    let integrity_digest = crate::effect::digest_bytes(material.to_string().as_bytes());
+    let result = ReviewAction {
+        schema: REVIEW_ACTION_SCHEMA_V1.to_string(),
+        action_id: format!("review-action:{}", &integrity_digest[..32]),
+        integrity_digest,
+        review_id: review.review_id.clone(),
+        operation_id: review.operation_id.clone(),
+        case_id: case_id.to_string(),
+        reviewer_participant_id: reviewer_participant_id.to_string(),
+        principal_id: None,
+        tenant_id: None,
+        action,
+        reason,
+        expected_case_generation,
+        source: source.to_string(),
+    };
+    result.validate_integrity()?;
+    Ok(result)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn build_authenticated_review_action(
+    review: &ReviewState,
+    case_id: &str,
+    tenant_id: &str,
+    principal_id: &str,
+    reviewer_participant_id: &str,
+    action: ReviewActionKind,
+    reason: &str,
+    expected_case_generation: u64,
+    source: &str,
+) -> Result<ReviewAction, String> {
+    if review.schema != REVIEW_REQUEST_SCHEMA
+        || !tenant_id.starts_with("tenant:")
+        || !principal_id.starts_with("principal:")
+    {
+        return Err("authenticated_review_action_security_context_invalid".to_string());
+    }
+    let reason = reason.split_whitespace().collect::<Vec<_>>().join(" ");
+    if reason.is_empty() {
+        return Err("invalid_review_action_input".to_string());
+    }
+    let material = authenticated_review_action_digest_material(
         REVIEW_ACTION_SCHEMA,
         &review.review_id,
         &review.operation_id,
         case_id,
+        tenant_id,
+        principal_id,
         reviewer_participant_id,
         &action,
         &reason,
@@ -438,6 +513,8 @@ pub fn build_review_action(
         operation_id: review.operation_id.clone(),
         case_id: case_id.to_string(),
         reviewer_participant_id: reviewer_participant_id.to_string(),
+        principal_id: Some(principal_id.to_string()),
+        tenant_id: Some(tenant_id.to_string()),
         action,
         reason,
         expected_case_generation,
@@ -447,6 +524,7 @@ pub fn build_review_action(
     Ok(result)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn review_action_digest_material(
     schema: &str,
     review_id: &str,
@@ -471,12 +549,126 @@ fn review_action_digest_material(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
+fn authenticated_review_action_digest_material(
+    schema: &str,
+    review_id: &str,
+    operation_id: &str,
+    case_id: &str,
+    tenant_id: &str,
+    principal_id: &str,
+    reviewer_participant_id: &str,
+    action: &ReviewActionKind,
+    reason: &str,
+    expected_case_generation: u64,
+    source: &str,
+) -> serde_json::Value {
+    serde_json::json!({
+        "schema": schema,
+        "review_id": review_id,
+        "operation_id": operation_id,
+        "case_id": case_id,
+        "tenant_id": tenant_id,
+        "principal_id": principal_id,
+        "reviewer_participant_id": reviewer_participant_id,
+        "action": action,
+        "reason": reason,
+        "expected_case_generation": expected_case_generation,
+        "source": source,
+    })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PrincipalParticipantLink {
+    pub link_id: String,
+    pub case_id: String,
+    pub tenant_id: String,
+    pub principal_id: String,
+    pub participant_id: String,
+    pub created_by_principal_id: String,
+    pub created_at_unix_ms: u64,
+    pub integrity_digest: String,
+}
+
+impl PrincipalParticipantLink {
+    pub fn new(
+        case_id: &str,
+        tenant_id: &str,
+        principal_id: &str,
+        participant_id: &str,
+        created_by_principal_id: &str,
+        created_at_unix_ms: u64,
+    ) -> Result<Self, String> {
+        let material = serde_json::json!({
+            "case_id": case_id,
+            "tenant_id": tenant_id,
+            "principal_id": principal_id,
+            "participant_id": participant_id,
+            "created_by_principal_id": created_by_principal_id,
+            "created_at_unix_ms": created_at_unix_ms,
+        });
+        let integrity_digest = crate::effect::digest_bytes(material.to_string().as_bytes());
+        let result = Self {
+            link_id: format!(
+                "principal-participant-link:{}",
+                &integrity_digest
+                    .strip_prefix("sha256:")
+                    .unwrap_or(&integrity_digest)[..32]
+            ),
+            case_id: case_id.to_string(),
+            tenant_id: tenant_id.to_string(),
+            principal_id: principal_id.to_string(),
+            participant_id: participant_id.to_string(),
+            created_by_principal_id: created_by_principal_id.to_string(),
+            created_at_unix_ms,
+            integrity_digest,
+        };
+        result.validate_integrity()?;
+        Ok(result)
+    }
+
+    pub fn validate_integrity(&self) -> Result<(), String> {
+        if !self.tenant_id.starts_with("tenant:")
+            || !self.principal_id.starts_with("principal:")
+            || !self.created_by_principal_id.starts_with("principal:")
+            || self.case_id.is_empty()
+            || self.participant_id.is_empty()
+        {
+            return Err("principal_participant_link_contract_invalid".to_string());
+        }
+        let material = serde_json::json!({
+            "case_id": self.case_id,
+            "tenant_id": self.tenant_id,
+            "principal_id": self.principal_id,
+            "participant_id": self.participant_id,
+            "created_by_principal_id": self.created_by_principal_id,
+            "created_at_unix_ms": self.created_at_unix_ms,
+        });
+        let digest = crate::effect::digest_bytes(material.to_string().as_bytes());
+        if digest != self.integrity_digest
+            || self.link_id
+                != format!(
+                    "principal-participant-link:{}",
+                    &digest.strip_prefix("sha256:").unwrap_or(&digest)[..32]
+                )
+        {
+            return Err("principal_participant_link_integrity_mismatch".to_string());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CaseState {
     pub schema: String,
     pub case_id: String,
     pub generation: u64,
     pub lifecycle: CaseLifecycle,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tenant_id: Option<String>,
+    #[serde(default)]
+    pub principal_participant_links: Vec<PrincipalParticipantLink>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cancellation: Option<CaseCancellationState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -784,6 +976,8 @@ impl CaseState {
             case_id: case_id.into(),
             generation: 0,
             lifecycle,
+            tenant_id: None,
+            principal_participant_links: Vec::new(),
             cancellation: None,
             closure: None,
             participants: Vec::new(),
@@ -840,6 +1034,17 @@ impl CaseState {
                 }
                 next.lifecycle = lifecycle.clone();
             }
+            TransitionPayload::TenantCaseOpened {
+                lifecycle,
+                tenant_id,
+                principal_id: _,
+            } => {
+                if transition.sequence != 1 || !tenant_id.starts_with("tenant:") {
+                    return Err("tenant_case_open_contract_invalid".to_string());
+                }
+                next.lifecycle = lifecycle.clone();
+                next.tenant_id = Some(tenant_id.clone());
+            }
             TransitionPayload::ParticipantBound {
                 participant_id,
                 role,
@@ -860,6 +1065,23 @@ impl CaseState {
                 if !participant.admitted_views.contains(&admitted) {
                     participant.admitted_views.push(admitted);
                 }
+            }
+            TransitionPayload::ParticipantPrincipalLinked { link } => {
+                link.validate_integrity()?;
+                if link.case_id != next.case_id
+                    || next.tenant_id.as_deref() != Some(link.tenant_id.as_str())
+                    || !next
+                        .participants
+                        .iter()
+                        .any(|participant| participant.participant_id == link.participant_id)
+                    || next.principal_participant_links.iter().any(|existing| {
+                        existing.principal_id == link.principal_id
+                            || existing.participant_id == link.participant_id
+                    })
+                {
+                    return Err("principal_participant_link_case_contract_invalid".to_string());
+                }
+                next.principal_participant_links.push(link.clone());
             }
             TransitionPayload::ProviderAttached {
                 participant_id,
@@ -1093,6 +1315,7 @@ impl CaseState {
                             .as_ref()
                             .ok_or_else(|| "policy_decision_basis_missing".to_string())?;
                         if basis.case_id != next.case_id
+                            || basis.tenant_id != next.tenant_id
                             || basis.operation_id != operation.operation_id
                             || basis.operation_digest != operation.operation_digest
                             || basis.resource_attachment_id != resource.attachment_id
@@ -1646,6 +1869,7 @@ impl CaseState {
             || state.schema == CASE_STATE_SCHEMA_V4
             || state.schema == CASE_STATE_SCHEMA_V5
             || state.schema == CASE_STATE_SCHEMA_V6
+            || state.schema == CASE_STATE_SCHEMA_V7
         {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
@@ -1658,6 +1882,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V7
             && self.schema != TRANSITION_SCHEMA_V6
             && self.schema != TRANSITION_SCHEMA_V5
             && self.schema != TRANSITION_SCHEMA_V4
@@ -1686,8 +1911,15 @@ impl Transition {
         if !supports_wave10_contract(&self.schema) && self.payload.is_wave10_kind() {
             return Err("wave10_contract_requires_yai_transition_v6".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave11_kind() {
+        if !matches!(
+            self.schema.as_str(),
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V7
+        ) && self.payload.is_wave11_kind()
+        {
             return Err("wave11_contract_requires_yai_transition_v7".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave12_kind() {
+            return Err("wave12_contract_requires_yai_transition_v8".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -1709,6 +1941,19 @@ impl Transition {
                     return Err("case_opened_must_be_first_transition".to_string());
                 }
             }
+            TransitionPayload::TenantCaseOpened {
+                tenant_id,
+                principal_id,
+                ..
+            } => {
+                if self.sequence != 1
+                    || !tenant_id.starts_with("tenant:")
+                    || !principal_id.starts_with("principal:")
+                    || self.source.principal_id.as_deref() != Some(principal_id.as_str())
+                {
+                    return Err("tenant_case_open_contract_invalid".to_string());
+                }
+            }
             TransitionPayload::ParticipantBound {
                 participant_id,
                 role,
@@ -1724,6 +1969,17 @@ impl Transition {
                 require_value("participant_id", participant_id)?;
                 require_value("consumer", consumer)?;
                 require_value("view_kind", view_kind)?;
+            }
+            TransitionPayload::ParticipantPrincipalLinked { link } => {
+                link.validate_integrity()?;
+                if link.case_id != self.case_id
+                    || self.source.principal_id.as_deref()
+                        != Some(link.created_by_principal_id.as_str())
+                {
+                    return Err("principal_participant_link_transition_mismatch".to_string());
+                }
+                require_causal_ref(&self.causal_refs, &link.principal_id, "principal")?;
+                require_causal_ref(&self.causal_refs, &link.participant_id, "participant")?;
             }
             TransitionPayload::ProviderAttached {
                 participant_id,
@@ -2198,7 +2454,7 @@ impl ReviewState {
 
 impl ReviewAction {
     pub fn validate_integrity(&self) -> Result<(), String> {
-        if self.schema != REVIEW_ACTION_SCHEMA {
+        if self.schema != REVIEW_ACTION_SCHEMA && self.schema != REVIEW_ACTION_SCHEMA_V1 {
             return Err("unsupported_review_action_schema".to_string());
         }
         for (field, value) in [
@@ -2219,17 +2475,44 @@ impl ReviewAction {
         ] {
             require_value(field, value)?;
         }
-        let material = review_action_digest_material(
-            &self.schema,
-            &self.review_id,
-            &self.operation_id,
-            &self.case_id,
-            &self.reviewer_participant_id,
-            &self.action,
-            &self.reason,
-            self.expected_case_generation,
-            &self.source,
-        );
+        let material = if self.schema == REVIEW_ACTION_SCHEMA {
+            let tenant_id = self
+                .tenant_id
+                .as_deref()
+                .ok_or_else(|| "review_action_tenant_missing".to_string())?;
+            let principal_id = self
+                .principal_id
+                .as_deref()
+                .ok_or_else(|| "review_action_principal_missing".to_string())?;
+            authenticated_review_action_digest_material(
+                &self.schema,
+                &self.review_id,
+                &self.operation_id,
+                &self.case_id,
+                tenant_id,
+                principal_id,
+                &self.reviewer_participant_id,
+                &self.action,
+                &self.reason,
+                self.expected_case_generation,
+                &self.source,
+            )
+        } else {
+            if self.principal_id.is_some() || self.tenant_id.is_some() {
+                return Err("legacy_review_action_cannot_claim_security_identity".to_string());
+            }
+            review_action_digest_material(
+                &self.schema,
+                &self.review_id,
+                &self.operation_id,
+                &self.case_id,
+                &self.reviewer_participant_id,
+                &self.action,
+                &self.reason,
+                self.expected_case_generation,
+                &self.source,
+            )
+        };
         let digest = crate::effect::digest_bytes(material.to_string().as_bytes());
         if digest != self.integrity_digest
             || self.action_id != format!("review-action:{}", &digest[..32])
@@ -2295,24 +2578,41 @@ impl TransitionPayload {
                 | Self::CaseClosed { .. }
         )
     }
+
+    fn is_wave12_kind(&self) -> bool {
+        matches!(
+            self,
+            Self::TenantCaseOpened { .. } | Self::ParticipantPrincipalLinked { .. }
+        ) || matches!(
+            self,
+            Self::ReviewActionRecorded { action } if action.schema == REVIEW_ACTION_SCHEMA
+        )
+    }
 }
 
 fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
-        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V6 | TRANSITION_SCHEMA_V5 | TRANSITION_SCHEMA_V4
+        TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V7
+            | TRANSITION_SCHEMA_V6
+            | TRANSITION_SCHEMA_V5
+            | TRANSITION_SCHEMA_V4
     )
 }
 
 fn supports_wave9_contract(schema: &str) -> bool {
     matches!(
         schema,
-        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V6 | TRANSITION_SCHEMA_V5
+        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V7 | TRANSITION_SCHEMA_V6 | TRANSITION_SCHEMA_V5
     )
 }
 
 fn supports_wave10_contract(schema: &str) -> bool {
-    matches!(schema, TRANSITION_SCHEMA | TRANSITION_SCHEMA_V6)
+    matches!(
+        schema,
+        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V7 | TRANSITION_SCHEMA_V6
+    )
 }
 
 fn validate_provider_lineage(lineage: Option<&ProviderInvocationLineage>) -> Result<(), String> {
@@ -2495,10 +2795,13 @@ pub fn replay_case(case_id: &str, transitions: &[Transition]) -> Result<CaseStat
     if first.case_id != case_id {
         return Err("replay_case_mismatch".to_string());
     }
-    let TransitionPayload::CaseOpened { lifecycle } = &first.payload else {
-        return Err("case_history_must_start_with_case_opened".to_string());
+    let mut state = match &first.payload {
+        TransitionPayload::CaseOpened { lifecycle } => CaseState::new(case_id, lifecycle.clone()),
+        TransitionPayload::TenantCaseOpened { lifecycle, .. } => {
+            CaseState::new(case_id, lifecycle.clone())
+        }
+        _ => return Err("case_history_must_start_with_case_opened".to_string()),
     };
-    let mut state = CaseState::new(case_id, lifecycle.clone());
     for transition in transitions {
         state = state.reduce(transition)?;
     }

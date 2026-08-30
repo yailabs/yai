@@ -21,4 +21,9 @@ temporal validity strings	PolicyValidityContract v4 + derived PolicyValidityPost
 legacy revoke/cache precedence	PolicyLifecycleEvent v2 Revoked	refounded_proven	append-only terminal withdrawal consumed by Case authority	edge distribution planes
 volatile grant terminal state	ExecutionGrant v3 + ExecutionGrantInvalidated	refounded_proven for filesystem carrier	finite authority and replayable Expired/Revoked/Abandoned	fixed global registry/bearer posture
 workspace suspend/destroy	CaseCancellationRequested + CaseClosed	refounded_proven	non-destructive durable barrier and mechanically safe terminal close	Workspace ownership/deletion
+authn_verified post-auth context	sealed kernel-observed AuthenticatedPrincipal + durable SecurityPrincipal binding	refounded_proven within local POSIX trust model	effective credential selects enrolled identity; real credential retained as provenance	password-on-argv/stdin user store and self-verified local-dev auth
+root/user Case separation	immutable Tenant security domain on every new Case	refounded_proven	one Case Tenant plus membership-gated read/write boundary	root/user hierarchy and ambient root authority
+legacy principal/session role strings	Principal→Tenant membership→explicit Case Participant link→Case roles	refounded_proven	authentication, membership, participation and role remain four distinct facts	caller OPERATOR/arming and UserSession mega-context
+owner_ref governance namespace	Tenant+policy_key artifact lineage and Tenant-safe Case binding	refounded_proven	same source bytes/key remain authority-distinct across Tenants	string coincidence as migration/ownership
+organization metadata	immutable Tenant organization_ref projection	partially_refounded	Organization never merges Tenant isolation domains	Organization registry/plane without lifecycle consumer
 embedded law/overlay/compliance forest	governance tree/manifests	none	legacy_structure_rejected	future owner test per consumer	planes and scaffolding
