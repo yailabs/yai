@@ -6,10 +6,7 @@
 //! It is deliberately not a generic carrier registry or policy engine.
 
 use super::*;
-use yai_core_engine::admission::{
-    build_policy_review_request, evaluate_filesystem_admission, resolve_policy_review_decision,
-    EvidenceContext,
-};
+use yai_core_engine::admission::build_policy_review_request;
 use yai_core_engine::case_policy::NormativeReadiness;
 use yai_core_engine::effect::{
     build_effect_receipt, classify_reconciliation, execute_filesystem_write,
@@ -543,9 +540,9 @@ pub(super) fn advance_controlled_filesystem_candidate(
         .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
     let resource = resource_for_case(&state, attachment_id)?;
     let normative = store.case_policy_status(case_id)?;
-    let effective_policy = normative
+    normative
         .effective_policy
-        .clone()
+        .as_ref()
         .filter(|_| normative.readiness == NormativeReadiness::Ready)
         .ok_or_else(|| format!("normative_case_not_ready: {:?}", normative.readiness))?;
     let binding = store
@@ -585,7 +582,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
             }
             _ => None,
         });
-    let (operation, state_after_operation) = if let Some(operation) = existing_operation {
+    let (operation, _state_after_operation) = if let Some(operation) = existing_operation {
         let state = store
             .get_case_state(case_id)?
             .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
@@ -651,7 +648,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
         .rev()
         .find(|decision| decision.outcome != DecisionOutcome::RequireReview)
         .cloned();
-    let (decision, state_after_decision) = if let Some(decision) = existing_effective {
+    let (mut decision, mut state_after_decision) = if let Some(decision) = existing_effective {
         let state = store
             .get_case_state(case_id)?
             .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
@@ -667,35 +664,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
                 .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
             (decision, state)
         } else {
-            let canonical_provider_lineage = existing.iter().any(|transition| {
-                matches!(
-                    &transition.payload,
-                    TransitionPayload::ProviderResultRecorded { result_id, invocation_id, .. }
-                        if result_id == &provider_result.result_id
-                            && invocation_id == &provider_result.invocation_id
-                )
-            }) && existing.iter().any(|transition| {
-                matches!(
-                    &transition.payload,
-                    TransitionPayload::ProviderInvocationStarted { invocation_id, .. }
-                        if invocation_id == &provider_result.invocation_id
-                )
-            });
-            let evidence = EvidenceContext {
-                canonical_provider_result_id: canonical_provider_lineage
-                    .then(|| provider_result.result_id.clone()),
-                canonical_provider_invocation_id: canonical_provider_lineage
-                    .then(|| provider_result.invocation_id.clone()),
-                review_action_id: None,
-                review_reason: None,
-            };
-            let decision = evaluate_filesystem_admission(
-                &operation,
-                &state_after_operation,
-                &resource,
-                &effective_policy,
-                &evidence,
-            )?;
+            let decision = store.derive_policy_decision(case_id, &operation.operation_id)?;
             let state = commit_decision(&store, case_id, &decision)?;
             (decision, state)
         };
@@ -769,22 +738,11 @@ pub(super) fn advance_controlled_filesystem_candidate(
                     _ => None,
                 })
                 .ok_or_else(|| "review action transition is missing".to_string())?;
-            let current = store
-                .get_case_state(case_id)?
-                .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
-            let current_normative = store.case_policy_status(case_id)?;
-            let current_effective = current_normative
-                .effective_policy
-                .as_ref()
-                .filter(|_| current_normative.readiness == NormativeReadiness::Ready)
-                .ok_or_else(|| "review_policy_basis_stale".to_string())?;
-            let effective = resolve_policy_review_decision(
-                &operation,
-                &current,
-                &resource,
-                current_effective,
-                &review,
-                &action,
+            let effective = store.derive_policy_review_decision(
+                case_id,
+                &operation.operation_id,
+                &review.review_id,
+                &action.action_id,
             )?;
             let state = commit_decision(&store, case_id, &effective)?;
             if effective.outcome == DecisionOutcome::Allow
@@ -806,6 +764,49 @@ pub(super) fn advance_controlled_filesystem_candidate(
             (effective, state)
         }
     };
+    let existing_grant = existing
+        .iter()
+        .find_map(|transition| match &transition.payload {
+            TransitionPayload::ExecutionGrantIssued { grant }
+                if grant.operation_id == operation.operation_id =>
+            {
+                Some(grant.clone())
+            }
+            _ => None,
+        });
+    if existing_grant.is_none()
+        && decision.outcome == DecisionOutcome::Allow
+        && state_after_decision.generation != decision.decided_at_case_generation + 1
+    {
+        // H10 freshness is deliberately transition-adjacent. Any canonical
+        // transition after ALLOW requires a new semantic derivation; the
+        // runtime never classifies intervening state as harmless and never
+        // asks the provider to synthesize another Operation.
+        let refreshed = if let Some(action_id) = decision
+            .decision_basis
+            .as_ref()
+            .and_then(|basis| basis.review_action_ref.as_deref())
+        {
+            let review = state_after_decision
+                .reviews
+                .iter()
+                .find(|review| {
+                    review.operation_id == operation.operation_id
+                        && review.latest_action_id.as_deref() == Some(action_id)
+                })
+                .ok_or_else(|| "canonical_review_resolution_not_current".to_string())?;
+            store.derive_policy_review_decision(
+                case_id,
+                &operation.operation_id,
+                &review.review_id,
+                action_id,
+            )?
+        } else {
+            store.derive_policy_decision(case_id, &operation.operation_id)?
+        };
+        state_after_decision = commit_decision(&store, case_id, &refreshed)?;
+        decision = refreshed;
+    }
     println!("decision_id: {}", decision.decision_id);
     println!("decision_reason: {}", decision.reason);
     if let Some(basis) = &decision.decision_basis {
@@ -853,16 +854,6 @@ pub(super) fn advance_controlled_filesystem_candidate(
         });
     }
 
-    let existing_grant = existing
-        .iter()
-        .find_map(|transition| match &transition.payload {
-            TransitionPayload::ExecutionGrantIssued { grant }
-                if grant.operation_id == operation.operation_id =>
-            {
-                Some(grant.clone())
-            }
-            _ => None,
-        });
     let grant = if let Some(grant) = existing_grant {
         grant
     } else {

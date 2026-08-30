@@ -817,7 +817,7 @@ pub fn issue_policy_execution_grant(
         .decision_basis
         .as_ref()
         .ok_or_else(|| "policy_execution_grant_basis_missing".to_string())?;
-    if current_case_generation < decision.decided_at_case_generation + 1
+    if current_case_generation != decision.decided_at_case_generation + 1
         || !basis.admission_obligations_satisfied()
     {
         return Err("policy_execution_grant_admission_incomplete".to_string());
@@ -883,6 +883,38 @@ pub fn issue_policy_execution_grant(
     };
     grant.validate_integrity()?;
     Ok(grant)
+}
+
+#[cfg(test)]
+pub(crate) fn reseal_policy_execution_grant_for_test(mut grant: ExecutionGrant) -> ExecutionGrant {
+    let material = GrantDigestMaterialV2 {
+        schema: &grant.schema,
+        operation_id: &grant.operation_id,
+        operation_digest: &grant.operation_digest,
+        decision_id: &grant.decision_id,
+        decision_digest: &grant.decision_digest,
+        decision_basis_id: grant.decision_basis_id.as_deref().unwrap_or_default(),
+        decision_basis_digest: grant.decision_basis_digest.as_deref().unwrap_or_default(),
+        effective_policy_id: grant.effective_policy_id.as_deref().unwrap_or_default(),
+        effective_policy_digest: grant.effective_policy_digest.as_deref().unwrap_or_default(),
+        policy_binding_refs: &grant.policy_binding_refs,
+        policy_artifact_refs: &grant.policy_artifact_refs,
+        case_id: &grant.case_id,
+        participant_id: &grant.participant_id,
+        resource_attachment_id: &grant.resource_attachment_id,
+        permitted_effect: &grant.permitted_effect,
+        normalized_target: &grant.normalized_target,
+        intended_content_digest: &grant.intended_content_digest,
+        expected_case_generation: grant.expected_case_generation,
+        idempotency_key: &grant.idempotency_key,
+        require_pre_observation: grant.require_pre_observation,
+        require_post_observation: grant.require_post_observation,
+        execution_evidence_requirements: &grant.execution_evidence_requirements,
+        review_action_ref: &grant.review_action_ref,
+    };
+    grant.integrity_digest = digest_serialized(&material);
+    grant.grant_id = format!("grant:{}", digest_suffix(&grant.integrity_digest, 32));
+    grant
 }
 
 pub fn issue_execution_grant(
@@ -1551,6 +1583,47 @@ pub fn build_effect_receipt(prepared: &PreparedEffect, result: &CarrierResult) -
     }
 }
 
+pub(crate) fn validate_execution_obligation_preparation(
+    grant: &ExecutionGrant,
+    prepared: &PreparedEffect,
+) -> Result<(), String> {
+    grant.validate_integrity()?;
+    prepared.validate()?;
+    if grant
+        .execution_evidence_requirements
+        .contains(&ExecutionEvidenceRequirement::PreObservation)
+        && (!grant.require_pre_observation
+            || prepared.expected_pre_observation.observation_id.is_empty()
+            || prepared.expected_pre_observation.resource_attachment_id
+                != grant.resource_attachment_id
+            || prepared.expected_pre_observation.relative_path != grant.normalized_target)
+    {
+        return Err("required_pre_observation_evidence_missing".to_string());
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_execution_obligation_closure(
+    grant: &ExecutionGrant,
+    prepared: &PreparedEffect,
+    post_observation: &FilesystemObservation,
+    receipt: &EffectReceipt,
+) -> Result<(), String> {
+    validate_execution_obligation_preparation(grant, prepared)?;
+    post_observation.validate()?;
+    if grant
+        .execution_evidence_requirements
+        .contains(&ExecutionEvidenceRequirement::PostObservation)
+        && (!grant.require_post_observation
+            || receipt.post_observation_id != post_observation.observation_id
+            || post_observation.resource_attachment_id != grant.resource_attachment_id
+            || post_observation.relative_path != grant.normalized_target)
+    {
+        return Err("required_post_observation_evidence_missing".to_string());
+    }
+    Ok(())
+}
+
 /// Mechanically validates closure of one finalized effect chain. Identity
 /// links must exist as typed payload fields; transition order, timestamps and
 /// presentation summaries are never used to infer missing links.
@@ -1622,6 +1695,7 @@ pub fn validate_finalized_effect_chain(
         .ok_or_else(|| "effect_chain_missing_finalization".to_string())?;
 
     validate_grant(operation, decision, grant, grant.expected_case_generation)?;
+    validate_execution_obligation_closure(grant, prepared, post_observation, receipt)?;
     if prepared.operation_id != operation.operation_id
         || prepared.decision_id != decision.decision_id
         || prepared.grant_id != grant.grant_id

@@ -1,0 +1,7 @@
+family	H10 foundation	remaining Wave11 delta
+policy validity	semantically verified exact current basis	typed validity/freshness/expiry/refresh/revoke lifecycle
+invalidation	stale basis fails only when visibly changed at write time	durable invalidation of pending Decision/review/unused or abandoned Grant and derived caches
+Grant lifecycle	adjacent one-time issuance and effect evidence closure	expiry/revoke/abandonment and restart semantics
+historical explanation	P1 records replay after P2 current	retention/migration under expiry/revoke and current-vs-historical inspection
+Case cancellation/closure	no H10 lifecycle expansion	canonical cancel/closing/closed semantics and pending authority/effect handling
+time	absent by design	clock source, boundary ordering and fail-closed restart behavior

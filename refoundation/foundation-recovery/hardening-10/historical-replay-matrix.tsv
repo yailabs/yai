@@ -1,0 +1,11 @@
+step	generation	evidence	verdict
+Operation O under P1	9	operation canonical	retained
+DecisionBasis/Decision D1	basis evaluated 9; Decision transition 10	P1 exact EffectivePolicy/bindings/rules	retained
+Grant G1	current/expected 10; Grant transition 11	D1 adjacent and semantically verified	retained
+PREPARE/FINALIZE	12/13	actual observations and receipt	retained
+replace P1 with P2	14	new canonical binding/current EffectivePolicy	future authority changes
+drop/rebuild derived EffectivePolicy	n/a	immutable artifacts+bindings	current P2 rebuilds identically
+replay old D1/G1/effect	n/a	self-contained historical contracts	valid history; no evaluation under P2
+H10-C1 Decision abort	generation 9	semantic validation succeeds then transaction aborts	no Decision Transition/CaseState mutation
+H10-C2 Decision committed before Grant	generation 10	Decision replay valid; grants empty	restart can derive one adjacent Grant
+H10-C5 Grant abort	generation 10	semantic validation succeeds then transaction aborts	no Grant Transition/CaseState mutation/effect

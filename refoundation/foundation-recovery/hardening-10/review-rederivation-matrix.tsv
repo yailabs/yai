@@ -1,0 +1,10 @@
+scenario	write_boundary	result
+canonical v2 request from REQUIRE_REVIEW Decision	rebuild and exact compare	commit
+request reviewer roles changed and resealed	rebuild exposes mismatch	reject authority_review_request_mismatch
+ineligible low-level ReviewAction	Case participant/current roles/open request/generation	refuse action
+fabricated ReviewAction audit reason	canonical evidence resolution	obligation unsatisfied; refuse Decision
+content-valid forged final Decision	canonical request/action/evidence re-derivation	reject authority_decision_basis_mismatch
+policy changes during pending review	current EffectivePolicy differs from request basis	review_policy_basis_stale; no Decision/Grant/effect
+intervening provider attachment after final review Decision	exact Grant adjacency	derive a new Decision for same Operation/action; no model re-invocation for authority
+H10-C3 ReviewRequest abort	semantic verification succeeds; LMDB transaction aborts	no request or CaseState residue
+H10-C4 ReviewAction before final Decision	action committed and replayed; initial Decision remains current	restart re-derives exactly one final Decision

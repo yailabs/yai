@@ -1,0 +1,11 @@
+test	attack	pre_fix	post_fix
+H10-01	actual DENY; content-valid forged ALLOW Decision	accepted by low-level canonical commit	rejected authority_decision_basis_mismatch
+H10-02	correct policy id/digest; forged rule/provenance refs	not independently checked	rejected by exact basis equality
+H10-03	invented proposer observed role and satisfied=true	not independently checked	rejected from canonical Case roles
+H10-04	matching caller-provided provider ids	could satisfy evaluator input	caller evidence type removed; canonical history resolver required
+H10-05	ReviewRequest reviewer role tamper + reseal	content-only acceptance possible	rejected authority_review_request_mismatch
+H10-06	wrong reviewer low-level action	CLI checked; generic boundary relied on reducer	low-level transaction validator rejects
+H10-07	forged final review Decision/reason refs	not independently re-derived	rejected authority_decision_basis_mismatch
+H10-08	forged Grant refs + reseal	policy identity/generation subset checked	rejected policy_execution_grant_semantic_mismatch
+H10-09	role-state Transition between Decision and Grant	generation >= allowed	rejected policy_grant_decision_not_adjacent
+H10-10	provider/memory/graph/checkpoint exact-ID claims	could be passed via caller EvidenceContext	not accepted by sealed canonical resolver

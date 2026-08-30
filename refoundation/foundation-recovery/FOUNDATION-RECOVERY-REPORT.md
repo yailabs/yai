@@ -111,3 +111,24 @@ basis through `yai.transition.v6`/`yai.case_state.v6`. Admission is closed-world
 review or Grant cannot survive a changed policy basis; authoring/materialization
 alone remains non-authoritative. Full validity/revoke/invalidation and durable
 cancellation/closure remain Wave 11.
+
+## Hardening-10 verdict
+
+H10 directly reopened the legacy mediation/evidence family and recovered the
+strong property behind its otherwise incomplete `unverified`/`verified` model:
+an evidence ref or correctly hashed authority object is not semantic authority.
+Current YAI now resolves provider and review evidence from canonical Transition
+history and re-derives every new Decision v2, ReviewRequest v2, final review
+Decision and Grant v2 at the transactional write boundary.
+
+Grant freshness is exact: a final ALLOW Decision must be the immediately
+current authority state. Any intervening Transition requires a new Decision on
+the same Operation. Historical replay remains separate and preserves a P1
+Decision/Grant/effect after P2 becomes current. Pre/post policy obligations now
+close against actual PreparedEffect/Observation/Receipt refs.
+
+Authority, DecisionBasis, evidence obligations and policy-driven human review
+are `refounded_proven` and H10-qualified for the current local filesystem trust
+model. ExecutionGrant remains partial only because expiry, revoke and
+abandonment are Wave 11. No time, revoke, cancellation or closure semantics were
+introduced by H10.

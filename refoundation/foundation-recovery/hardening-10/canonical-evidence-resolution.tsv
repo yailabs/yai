@@ -1,0 +1,6 @@
+evidence	canonical requirements	caller claim behavior	consumer
+source_provenance	unique same-Case invocation;unique result;result names invocation;Operation names both;participant/provider/model/lineage consistent;ordered invocation<result<Operation	ignored as authority; matching strings alone cannot verify	DecisionBasis admission obligation
+audit_reason	canonical ReviewRequest plus canonical ReviewAction for exact Operation/request;eligible reviewer;non-empty reason;same policy basis	fabricated action id/reason cannot verify	post-review DecisionBasis
+pre_observation	PreparedEffect references actual matching pre Observation and Grant requirement	generic evidence string rejected	Grant/effect preparation
+post_observation	Receipt references actual matching post Observation and Grant requirement	generic evidence string rejected	FINALIZE/receipt closure
+memory_graph_checkpoint	never accepted by canonical resolver	cannot substitute for source/review evidence	none

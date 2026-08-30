@@ -21,3 +21,6 @@ string authority_context/profile aliases	do_not_port	mutable substring semantics
 operator_armed/authority_lock ambient flags	do_not_port	not bound to one Case/Operation/policy basis	operation-specific Decision/Grant
 controlled-action mega-envelope	do_not_port	duplicated semantics and validation was ignored by a real caller	DecisionBasis plus narrow Grant/carrier types
 duplicated runtime outcome rewrite	do_not_port	creates multiple Decision authorities	one canonical DecisionRecorded path
+Evidence subsystem/registry	do_not_port	legacy integrity labels lacked a verified promotion consumer and duplicated refs	sealed canonical evidence resolution in admission
+hash-as-authority	do_not_port	content identity proves bytes, not correct Case/policy/evidence derivation	transactional semantic re-derivation
+harmless-transition classification	do_not_port	no evidence yet supports a stable authority-irrelevance taxonomy	exact adjacency and new Decision after any intervening Transition

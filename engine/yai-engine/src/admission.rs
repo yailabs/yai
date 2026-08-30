@@ -13,7 +13,7 @@ use crate::effect::{
 use crate::governance::{AuthoritySubject, EvidenceObligationKind, PolicyEffect};
 use crate::transition::{
     CaseState, ResourceAttachmentState, ReviewAction, ReviewActionKind, ReviewResolution,
-    ReviewState, REVIEW_REQUEST_SCHEMA,
+    ReviewState, Transition, TransitionPayload, REVIEW_REQUEST_SCHEMA,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -135,19 +135,18 @@ struct DecisionBasisDigestMaterial<'a> {
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct EvidenceContext {
-    pub canonical_provider_result_id: Option<String>,
-    pub canonical_provider_invocation_id: Option<String>,
-    pub review_action_id: Option<String>,
-    pub review_reason: Option<String>,
+pub(crate) struct CanonicalEvidenceResolution {
+    source_provenance_refs: Option<Vec<String>>,
+    review_action_id: Option<String>,
+    review_reason: Option<String>,
 }
 
-pub fn evaluate_filesystem_admission(
+pub(crate) fn evaluate_filesystem_admission(
     operation: &Operation,
     state: &CaseState,
     resource: &ResourceAttachmentState,
     effective_policy: &EffectivePolicy,
-    evidence: &EvidenceContext,
+    evidence: &CanonicalEvidenceResolution,
 ) -> Result<Decision, String> {
     operation.validate()?;
     if state.case_id != operation.case_id
@@ -391,13 +390,14 @@ pub fn evaluate_filesystem_admission(
     build_policy_decision(operation, basis, final_reason)
 }
 
-pub fn resolve_policy_review_decision(
+pub(crate) fn resolve_policy_review_decision(
     operation: &Operation,
     state: &CaseState,
     resource: &ResourceAttachmentState,
     effective_policy: &EffectivePolicy,
     review: &ReviewState,
     action: &ReviewAction,
+    evidence: &CanonicalEvidenceResolution,
 ) -> Result<Decision, String> {
     action.validate_integrity()?;
     if review.schema != REVIEW_REQUEST_SCHEMA
@@ -420,25 +420,8 @@ pub fn resolve_policy_review_decision(
     {
         return Err("review_policy_basis_stale_or_ineligible".to_string());
     }
-    let evidence = EvidenceContext {
-        canonical_provider_result_id: match &operation.origin {
-            OperationOrigin::ProviderResult {
-                provider_result_id, ..
-            } => Some(provider_result_id.clone()),
-            _ => None,
-        },
-        canonical_provider_invocation_id: match &operation.origin {
-            OperationOrigin::ProviderResult {
-                provider_invocation_id,
-                ..
-            } => Some(provider_invocation_id.clone()),
-            _ => None,
-        },
-        review_action_id: Some(action.action_id.clone()),
-        review_reason: Some(action.reason.clone()),
-    };
     let mut decision =
-        evaluate_filesystem_admission(operation, state, resource, effective_policy, &evidence)?;
+        evaluate_filesystem_admission(operation, state, resource, effective_policy, evidence)?;
     let basis = decision
         .decision_basis
         .as_mut()
@@ -651,23 +634,182 @@ fn basis_digest(basis: &DecisionBasis) -> Result<String, String> {
 }
 
 fn source_provenance_status(
-    operation: &Operation,
-    evidence: &EvidenceContext,
+    _operation: &Operation,
+    evidence: &CanonicalEvidenceResolution,
 ) -> (ObligationStatus, Vec<String>) {
-    match &operation.origin {
-        OperationOrigin::ProviderResult {
-            provider_result_id,
-            provider_invocation_id,
-        } if evidence.canonical_provider_result_id.as_deref() == Some(provider_result_id)
-            && evidence.canonical_provider_invocation_id.as_deref()
-                == Some(provider_invocation_id) =>
-        {
-            (
-                ObligationStatus::Satisfied,
-                vec![provider_result_id.clone(), provider_invocation_id.clone()],
-            )
+    evidence
+        .source_provenance_refs
+        .clone()
+        .map(|refs| (ObligationStatus::Satisfied, refs))
+        .unwrap_or_else(|| (ObligationStatus::MissingDeny, Vec::new()))
+}
+
+pub(crate) fn resolve_canonical_evidence(
+    operation: &Operation,
+    history: &[Transition],
+    review_action_ref: Option<&str>,
+) -> Result<CanonicalEvidenceResolution, String> {
+    operation.validate()?;
+    for transition in history {
+        transition.validate()?;
+        if transition.case_id != operation.case_id {
+            return Err("canonical_evidence_cross_case_history".to_string());
         }
-        _ => (ObligationStatus::MissingDeny, Vec::new()),
+    }
+
+    let operation_positions = history
+        .iter()
+        .enumerate()
+        .filter_map(|(index, transition)| match &transition.payload {
+            TransitionPayload::OperationRecorded {
+                operation: recorded,
+            } if recorded == operation => Some(index),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let mut resolved = CanonicalEvidenceResolution::default();
+    let Some(&operation_index) = operation_positions.as_slice().first() else {
+        return Ok(resolved);
+    };
+    if operation_positions.len() != 1 {
+        return Err("canonical_evidence_operation_identity_ambiguous".to_string());
+    }
+
+    if let OperationOrigin::ProviderResult {
+        provider_result_id,
+        provider_invocation_id,
+    } = &operation.origin
+    {
+        let invocations = history
+            .iter()
+            .enumerate()
+            .filter_map(|(index, transition)| match &transition.payload {
+                TransitionPayload::ProviderInvocationStarted {
+                    invocation_id,
+                    participant_id,
+                    provider_id,
+                    provider_kind,
+                    model_id,
+                    semantic_lineage,
+                } if invocation_id == provider_invocation_id => Some((
+                    index,
+                    participant_id,
+                    provider_id,
+                    provider_kind,
+                    model_id,
+                    semantic_lineage,
+                )),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let results = history
+            .iter()
+            .enumerate()
+            .filter_map(|(index, transition)| match &transition.payload {
+                TransitionPayload::ProviderResultRecorded {
+                    result_id,
+                    invocation_id,
+                    provider_id,
+                    provider_kind,
+                    model_id,
+                    semantic_lineage,
+                    ..
+                } if result_id == provider_result_id => Some((
+                    index,
+                    invocation_id,
+                    provider_id,
+                    provider_kind,
+                    model_id,
+                    semantic_lineage,
+                )),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if let (
+            [(invocation_index, participant_id, provider_id, provider_kind, model_id, lineage)],
+            [(
+                result_index,
+                result_invocation_id,
+                result_provider_id,
+                result_provider_kind,
+                result_model_id,
+                result_lineage,
+            )],
+        ) = (invocations.as_slice(), results.as_slice())
+        {
+            if *invocation_index < *result_index
+                && *result_index < operation_index
+                && *participant_id == &operation.participant_id
+                && *result_invocation_id == provider_invocation_id
+                && *provider_id == *result_provider_id
+                && *provider_kind == *result_provider_kind
+                && *model_id == *result_model_id
+                && *lineage == *result_lineage
+            {
+                resolved.source_provenance_refs = Some(vec![
+                    provider_result_id.clone(),
+                    provider_invocation_id.clone(),
+                ]);
+            }
+        }
+    }
+
+    if let Some(action_id) = review_action_ref {
+        let actions = history
+            .iter()
+            .enumerate()
+            .filter_map(|(index, transition)| match &transition.payload {
+                TransitionPayload::ReviewActionRecorded { action }
+                    if action.action_id == action_id =>
+                {
+                    Some((index, action))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if let [(action_index, action)] = actions.as_slice() {
+            let requests = history
+                .iter()
+                .enumerate()
+                .filter_map(|(index, transition)| match &transition.payload {
+                    TransitionPayload::ReviewRequested { review }
+                        if review.review_id == action.review_id =>
+                    {
+                        Some((index, review))
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            if let [(request_index, review)] = requests.as_slice() {
+                if *request_index < *action_index
+                    && review.case_id == operation.case_id
+                    && review.operation_id == operation.operation_id
+                    && review.operation_digest == operation.operation_digest
+                    && action.case_id == operation.case_id
+                    && action.operation_id == operation.operation_id
+                    && !action.reason.trim().is_empty()
+                {
+                    action.validate_integrity()?;
+                    review.validate_policy_integrity()?;
+                    resolved.review_action_id = Some(action.action_id.clone());
+                    resolved.review_reason = Some(action.reason.clone());
+                }
+            }
+        }
+    }
+    Ok(resolved)
+}
+
+#[cfg(test)]
+pub(crate) fn forged_evidence_resolution_for_test(
+    source_provenance_refs: Option<Vec<String>>,
+    review_action_id: Option<String>,
+    review_reason: Option<String>,
+) -> CanonicalEvidenceResolution {
+    CanonicalEvidenceResolution {
+        source_provenance_refs,
+        review_action_id,
+        review_reason,
     }
 }
 
@@ -879,10 +1021,12 @@ mod tests {
         }
     }
 
-    fn evidence() -> EvidenceContext {
-        EvidenceContext {
-            canonical_provider_result_id: Some("provider-result:canonical".to_string()),
-            canonical_provider_invocation_id: Some("provider-invocation:canonical".to_string()),
+    fn evidence() -> CanonicalEvidenceResolution {
+        CanonicalEvidenceResolution {
+            source_provenance_refs: Some(vec![
+                "provider-result:canonical".to_string(),
+                "provider-invocation:canonical".to_string(),
+            ]),
             review_action_id: None,
             review_reason: None,
         }
@@ -1006,7 +1150,7 @@ mod tests {
             &state,
             &resource(),
             &policy,
-            &EvidenceContext::default(),
+            &CanonicalEvidenceResolution::default(),
         )
         .unwrap();
         assert_eq!(forged.outcome, DecisionOutcome::Deny);
@@ -1064,6 +1208,11 @@ mod tests {
             origin: operation.origin.clone(),
             recorded_at_generation: state.generation,
         });
+        let review_evidence = CanonicalEvidenceResolution {
+            source_provenance_refs: evidence().source_provenance_refs,
+            review_action_id: Some(action.action_id.clone()),
+            review_reason: Some(action.reason.clone()),
+        };
         let effective = resolve_policy_review_decision(
             &operation,
             &state,
@@ -1071,6 +1220,7 @@ mod tests {
             &policy,
             &review,
             &action,
+            &review_evidence,
         )
         .expect("approve with real audit evidence");
         assert_eq!(effective.outcome, DecisionOutcome::Allow);

@@ -6,7 +6,7 @@ runtime administrative root	missing	process/paths only	independent lifecycle ver
 Build Lifecycle	missing	Make/Cargo current build	archaeology and install/activation/migration	Wave17
 Tenant/Organization/security domain	missing	owner_ref string is provenance only	isolation/ownership/principal	Wave12
 Participant	refounded_proven	Case-bound identity and policy all-of role evaluation	authenticated Principal/Tenant	Wave12
-human review	refounded_proven	yai.review_request.v2/action.v1 + stale policy check	expiry/revoke invalidation recheck	Wave11
+human review	refounded_proven	yai.review_request.v2/action.v1 + canonical request/action/final-Decision re-derivation	expiry/revoke invalidation recheck	Wave11
 delegation	missing	no current owner	historical doctrine + consumer	future
 governance source intake	refounded_proven	yai.policy_source_artifact.v3 + typed authority rules	additional formats only with consumers	future consumer recheck
 PolicyArtifact lifecycle	refounded_proven	yai.policy_artifact.v3 + owner-scoped atomic events	authenticated publication/withdraw	Wave12
@@ -20,11 +20,11 @@ policy precedence	partially_refounded	v2 conservative algebra including additive
 policy conflicts/missingness	refounded_proven	source blockers + conservative composition + closed-world no-match DENY	validity/unknown applicability	Wave11
 policy validity/expiry/refresh/revoke	missing	none	full lifecycle	Wave11
 policy-driven invalidation	missing	none	Decision/review/Grant/context invalidation	Wave11
-historical policy replay	partially_refounded	DecisionBasis pins immutable historical policy inputs	retention/migration explanation	Wave11
-authority	refounded_proven	closed-world policy + Case roles + resource envelope for filesystem	authentication/broader operations	Wave12/later carriers
-DecisionBasis	refounded_proven	yai.decision_basis.v1 with effective policy/rule/provenance/evidence refs	validity/revoke semantics	Wave11
-evidence obligations	refounded_proven	source/audit admission evidence and pre/post Grant requirements	additional families only with consumers	future
-ExecutionGrant lifecycle	partially_refounded	policy-bound operation/generation one-time Grant	expiry/revoke/abandoned issuance	Wave11
+historical policy replay	partially_refounded	P1 Decision/Grant/effect replay after P2 current and derived-cache rebuild	retention/migration plus expiry/revoke explanation	Wave11/18
+authority	refounded_proven	closed-world policy + canonical roles/evidence + transactional semantic re-derivation	authentication/broader operations	Wave12/later carriers
+DecisionBasis	refounded_proven	yai.decision_basis.v1 canonical-write-verified against exact EffectivePolicy/Case/evidence	validity/revoke semantics	Wave11
+evidence obligations	refounded_proven	canonical source/review evidence plus pre/post closure through actual observations	additional families only with consumers	future
+ExecutionGrant lifecycle	partially_refounded	exact-adjacent semantically re-derived operation-specific Grant; P1 replay proven	expiry/revoke/abandoned issuance	Wave11
 cancellation/Case closure	missing/partial	run stop only	durable Case lifecycle	Wave11
 resource attachment	refounded_proven	filesystem hard envelope intersected with policy	shared-resource lifecycle/fencing	Wave14
 resource concurrency/fencing	missing	none	multi-Case conflict control	Wave14

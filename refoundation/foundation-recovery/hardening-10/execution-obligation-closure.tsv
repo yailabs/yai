@@ -1,0 +1,5 @@
+obligation	platform_baseline	policy_binding	closure
+pre_observation	always required by filesystem carrier	Grant lists PreObservation when policy contributes it	PreparedEffect pre_observation_ref resolves to matching resource/target Observation
+post_observation	always required by filesystem carrier	Grant lists PostObservation when policy contributes it	EffectReceipt post_observation_ref resolves to matching resource/target Observation
+missing required evidence	platform chain already invalid	policy audit additionally incomplete	PREPARE/FINALIZE canonical append rejected
+policy omits observation obligation	platform requirement remains	no normative contributor recorded	carrier still observes before/after

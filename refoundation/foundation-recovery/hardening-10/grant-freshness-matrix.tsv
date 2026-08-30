@@ -1,0 +1,7 @@
+scenario	generation_or_context	result
+adjacent final ALLOW	current generation == decided_at + 1	Grant may be derived and exact-compared
+any intervening Transition	current generation != decided_at + 1	old Grant rejected; new Decision required
+participant role binding after Decision	EffectivePolicy unchanged but generation advanced	reject policy_grant_decision_not_adjacent
+policy replacement after Decision	EffectivePolicy and generation changed	reject policy_grant_decision_not_adjacent/stale
+forged artifact/binding/review/obligation refs with valid Grant digest	expected Grant differs	reject policy_execution_grant_semantic_mismatch
+historical Grant after later P2 replacement	replay path	retain historical P1 chain; never re-authorize current work

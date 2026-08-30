@@ -13,4 +13,8 @@ Case-qualified mediation	8daca5604 control/runtime gate	yai.decision_basis.v1 + 
 authority profile/context	a6b67ee39 string matching	Case Participant roles + policy authority_requirement	refounded_proven	typed operation-scoped all-of eligibility	mutable aliases/substrings
 controlled action admission	controlled_action.c mega-envelope	yai.execution_grant.v2	refounded_proven	transactionally current DecisionBasis/EffectivePolicy + one effect	ambient operator flags/duplicate envelope
 evidence refs	mediation/evidence strings	typed obligation evaluations	refounded_proven	canonical provider/review refs and execution phases	decorative evidence metadata
+evidence integrity posture	legacy unknown/unverified/verified/tampered labels	canonical Transition evidence resolution	refounded_proven	verification is derived, not caller supplied	Evidence registry/plane
+authority object integrity	legacy records/controlled-action refs	content integrity plus transactional semantic re-derivation	refounded_proven	valid digest cannot manufacture authority	string mediation/default ALLOW
+Grant freshness	ambient operator/case/profile state	exact Decision adjacency + expected Grant re-derivation	refounded_proven for current issuance	any intervening Transition forces new Decision	classifying transitions as harmless
+historical policy explanation	mutable profile/view references	DecisionBasis pins P1 and replays after P2	partially_refounded	history not reevaluated under current policy	moving aliases
 embedded law/overlay/compliance forest	governance tree/manifests	none	legacy_structure_rejected	future owner test per consumer	planes and scaffolding

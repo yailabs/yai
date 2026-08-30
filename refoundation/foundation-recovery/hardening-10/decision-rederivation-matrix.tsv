@@ -1,0 +1,7 @@
+scenario	content_integrity	canonical_semantics	result
+ordinary explicit ALLOW	valid	matches re-derived basis	commit
+actual policy DENY; forged ALLOW resealed	valid	outcome/restriction mismatch	reject authority_decision_basis_mismatch
+correct EffectivePolicy id; forged matched rules/provenance	valid	contributors mismatch	reject authority_decision_basis_mismatch
+missing proposer role; forged observed role/satisfied	valid	CaseState roles mismatch	reject authority_decision_basis_mismatch
+caller copies Operation provider ids without canonical transitions	valid	source provenance unresolved	reject authority_decision_basis_mismatch
+historical P1 Decision after P2 current	valid	historical replay only	retain as history; do not reevaluate with P2

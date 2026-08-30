@@ -14,8 +14,12 @@
 //! Status:
 //!   active
 
+use crate::admission::{
+    build_policy_review_request, evaluate_filesystem_admission, resolve_canonical_evidence,
+    resolve_policy_review_decision, reviewer_is_eligible,
+};
 use crate::case_policy::{
-    build_case_policy_binding, materialize_effective_policy, EffectivePolicyInput,
+    build_case_policy_binding, materialize_effective_policy, EffectivePolicy, EffectivePolicyInput,
     NormativeReadiness, NormativeStatus, PolicyCatalogDrift, CASE_POLICY_BINDING_SCHEMA,
     EFFECTIVE_POLICY_SCHEMA, EFFECTIVE_POLICY_SCHEMA_V1, POLICY_MATERIALIZER_VERSION,
     POLICY_MATERIALIZER_VERSION_V1,
@@ -24,7 +28,11 @@ use crate::compatibility::{
     decode_legacy_record, inspect_legacy_jsonl, LegacyDecodeOutcome, LegacyRecord,
 };
 use crate::context::SemanticContextArtifact;
-use crate::effect::{LocalFilesystemBinding, OperationOrigin, LOCAL_FILESYSTEM_BINDING_SCHEMA};
+use crate::effect::{
+    issue_policy_execution_grant, validate_execution_obligation_closure,
+    validate_execution_obligation_preparation, Decision, LocalFilesystemBinding, Operation,
+    OperationOrigin, LOCAL_FILESYSTEM_BINDING_SCHEMA,
+};
 use crate::governance::{
     build_lifecycle_event, compile_policy_source, lifecycle_from_events, PolicyArtifact,
     PolicyArtifactView, PolicyCompilation, PolicyIngestOutcome, PolicyLifecycleAction,
@@ -2009,70 +2017,198 @@ impl LmdbRecordStore {
         case_id: &str,
         payload: &TransitionPayload,
     ) -> Result<(), String> {
-        let expected = match payload {
+        let state = match current_state {
+            Some(state) => state,
+            None => return Ok(()),
+        };
+        match payload {
             TransitionPayload::DecisionRecorded { decision }
                 if decision.schema == crate::effect::DECISION_SCHEMA =>
             {
-                let basis = decision
-                    .decision_basis
-                    .as_ref()
-                    .ok_or_else(|| "policy_decision_basis_missing".to_string())?;
-                Some((
-                    basis.effective_policy_id.as_str(),
-                    basis.effective_policy_digest.as_str(),
-                    basis.policy_binding_refs.as_slice(),
-                ))
-            }
-            TransitionPayload::ExecutionGrantIssued { grant }
-                if grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA =>
-            {
-                Some((
-                    grant.effective_policy_id.as_deref().unwrap_or_default(),
-                    grant.effective_policy_digest.as_deref().unwrap_or_default(),
-                    grant.policy_binding_refs.as_slice(),
-                ))
+                decision.validate_integrity()?;
+                let history = self.list_case_transitions_txn(txn, case_id)?;
+                let expected =
+                    self.derive_expected_policy_decision_txn(txn, state, &history, decision)?;
+                if expected != *decision {
+                    return Err("authority_decision_basis_mismatch".to_string());
+                }
             }
             TransitionPayload::ReviewRequested { review }
                 if review.schema == crate::transition::REVIEW_REQUEST_SCHEMA =>
             {
-                Some((
-                    review.effective_policy_id.as_str(),
-                    review.effective_policy_digest.as_str(),
-                    review.policy_binding_refs.as_slice(),
-                ))
-            }
-            TransitionPayload::ReviewActionRecorded { action } => current_state
-                .and_then(|state| {
-                    state.reviews.iter().find(|review| {
-                        review.review_id == action.review_id
-                            && review.schema == crate::transition::REVIEW_REQUEST_SCHEMA
+                review.validate_policy_integrity()?;
+                let history = self.list_case_transitions_txn(txn, case_id)?;
+                let decision_state = state
+                    .last_decision
+                    .as_ref()
+                    .filter(|decision| {
+                        decision.outcome == crate::effect::DecisionOutcome::RequireReview
+                            && decision.operation_id == review.operation_id
                     })
-                })
-                .map(|review| {
-                    (
-                        review.effective_policy_id.as_str(),
-                        review.effective_policy_digest.as_str(),
-                        review.policy_binding_refs.as_slice(),
+                    .ok_or_else(|| "policy_review_initial_decision_not_current".to_string())?;
+                let decision =
+                    Self::canonical_decision(state, &history, &decision_state.decision_id)?;
+                let operation = Self::canonical_operation(state, &history, &review.operation_id)?;
+                let expected =
+                    build_policy_review_request(&operation, &decision, state.generation)?;
+                if expected != *review {
+                    return Err("authority_review_request_mismatch".to_string());
+                }
+            }
+            TransitionPayload::ReviewActionRecorded { action } => {
+                action.validate_integrity()?;
+                let review = state
+                    .reviews
+                    .iter()
+                    .find(|review| review.review_id == action.review_id)
+                    .ok_or_else(|| "policy_review_request_not_current".to_string())?;
+                if review.schema != crate::transition::REVIEW_REQUEST_SCHEMA {
+                    return Ok(());
+                }
+                if review.operation_id != action.operation_id
+                    || action.case_id != case_id
+                    || action.expected_case_generation != state.generation
+                    || !matches!(
+                        review.status,
+                        crate::transition::ReviewResolution::Pending
+                            | crate::transition::ReviewResolution::Deferred
                     )
-                }),
-            _ => None,
-        };
-        let Some((expected_id, expected_digest, expected_bindings)) = expected else {
-            return Ok(());
-        };
-        let status = self.materialize_case_policy_txn(txn, case_id)?;
-        let effective = status
-            .effective_policy
-            .as_ref()
-            .filter(|_| status.readiness == NormativeReadiness::Ready)
-            .ok_or_else(|| "policy_authority_requires_normative_ready".to_string())?;
-        if effective.effective_policy_id != expected_id
-            || effective.semantic_digest != expected_digest
-            || effective.binding_ids != expected_bindings
-        {
-            return Err("policy_authority_basis_stale".to_string());
+                    || !reviewer_is_eligible(state, review, &action.reviewer_participant_id)
+                {
+                    return Err("review_action_binding_or_generation_mismatch".to_string());
+                }
+                let effective = self.current_ready_effective_policy_txn(txn, case_id)?;
+                if review.effective_policy_id != effective.effective_policy_id
+                    || review.effective_policy_digest != effective.semantic_digest
+                    || review.policy_binding_refs != effective.binding_ids
+                {
+                    return Err("policy_authority_basis_stale".to_string());
+                }
+            }
+            TransitionPayload::ExecutionGrantIssued { grant }
+                if grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA =>
+            {
+                grant.validate_integrity()?;
+                let history = self.list_case_transitions_txn(txn, case_id)?;
+                let Some(last_transition) = history.last() else {
+                    return Err("policy_grant_decision_not_adjacent".to_string());
+                };
+                let TransitionPayload::DecisionRecorded { decision } = &last_transition.payload
+                else {
+                    return Err("policy_grant_decision_not_adjacent".to_string());
+                };
+                if decision.schema != crate::effect::DECISION_SCHEMA
+                    || decision.outcome != crate::effect::DecisionOutcome::Allow
+                    || last_transition.sequence != state.generation
+                    || state.last_decision.as_ref().is_none_or(|current| {
+                        current.decision_id != decision.decision_id
+                            || current.recorded_at_generation != state.generation
+                    })
+                    || state.generation != decision.decided_at_case_generation + 1
+                {
+                    return Err("policy_grant_decision_not_adjacent".to_string());
+                }
+                let prior_history = &history[..history.len() - 1];
+                let prior_state = replay_case(case_id, prior_history)?;
+                let expected_decision = self.derive_expected_policy_decision_txn(
+                    txn,
+                    &prior_state,
+                    prior_history,
+                    decision,
+                )?;
+                if expected_decision != *decision {
+                    return Err("policy_grant_decision_semantics_stale".to_string());
+                }
+                let operation =
+                    Self::canonical_operation(&prior_state, prior_history, &decision.operation_id)?;
+                let expected_grant =
+                    issue_policy_execution_grant(&operation, decision, state.generation)?;
+                if expected_grant != *grant {
+                    return Err("policy_execution_grant_semantic_mismatch".to_string());
+                }
+            }
+            TransitionPayload::EffectPrepared { prepared } => {
+                let history = self.list_case_transitions_txn(txn, case_id)?;
+                let grants = history
+                    .iter()
+                    .filter_map(|transition| match &transition.payload {
+                        TransitionPayload::ExecutionGrantIssued { grant }
+                            if grant.grant_id == prepared.grant_id =>
+                        {
+                            Some(grant)
+                        }
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>();
+                let [grant] = grants.as_slice() else {
+                    return Err("execution_obligation_grant_ambiguous_or_missing".to_string());
+                };
+                validate_execution_obligation_preparation(grant, prepared)?;
+            }
+            TransitionPayload::EffectFinalized {
+                effect_id,
+                post_observation,
+                receipt,
+            } => {
+                self.validate_execution_obligation_closure_txn(
+                    txn,
+                    case_id,
+                    effect_id,
+                    post_observation,
+                    receipt,
+                )?;
+            }
+            TransitionPayload::EffectReconciled {
+                effect_id,
+                observation,
+                receipt: Some(receipt),
+                ..
+            } => {
+                self.validate_execution_obligation_closure_txn(
+                    txn,
+                    case_id,
+                    effect_id,
+                    observation,
+                    receipt,
+                )?;
+            }
+            _ => {}
         }
         Ok(())
+    }
+
+    fn validate_execution_obligation_closure_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        case_id: &str,
+        effect_id: &str,
+        post_observation: &crate::effect::FilesystemObservation,
+        receipt: &crate::effect::EffectReceipt,
+    ) -> Result<(), String> {
+        let history = self.list_case_transitions_txn(txn, case_id)?;
+        let prepared = history
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::EffectPrepared { prepared }
+                    if prepared.effect_id == effect_id =>
+                {
+                    Some(prepared)
+                }
+                _ => None,
+            })
+            .ok_or_else(|| "execution_obligation_prepare_missing".to_string())?;
+        let grant = history
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::ExecutionGrantIssued { grant }
+                    if grant.grant_id == prepared.grant_id =>
+                {
+                    Some(grant)
+                }
+                _ => None,
+            })
+            .ok_or_else(|| "execution_obligation_grant_missing".to_string())?;
+        validate_execution_obligation_closure(grant, prepared, post_observation, receipt)
     }
 
     pub fn get_transition_by_id(&self, transition_id: &str) -> Result<Option<Transition>, String> {
@@ -2097,6 +2233,219 @@ impl LmdbRecordStore {
             .begin_ro_txn()
             .map_err(|error| format!("failed to start CaseState read: {error}"))?;
         self.get_case_state_txn(&txn, case_id)
+    }
+
+    pub fn derive_policy_decision(
+        &self,
+        case_id: &str,
+        operation_id: &str,
+    ) -> Result<Decision, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start policy decision read: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        self.derive_initial_policy_decision_txn(&txn, &state, &history, operation_id)
+    }
+
+    pub fn derive_policy_review_decision(
+        &self,
+        case_id: &str,
+        operation_id: &str,
+        review_id: &str,
+        action_id: &str,
+    ) -> Result<Decision, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start policy review decision read: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        self.derive_review_policy_decision_txn(
+            &txn,
+            &state,
+            &history,
+            operation_id,
+            review_id,
+            action_id,
+        )
+    }
+
+    fn current_ready_effective_policy_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        case_id: &str,
+    ) -> Result<EffectivePolicy, String> {
+        let status = self.materialize_case_policy_txn(txn, case_id)?;
+        status
+            .effective_policy
+            .filter(|_| status.readiness == NormativeReadiness::Ready)
+            .ok_or_else(|| "policy_authority_requires_normative_ready".to_string())
+    }
+
+    fn canonical_operation(
+        state: &CaseState,
+        history: &[Transition],
+        operation_id: &str,
+    ) -> Result<Operation, String> {
+        let current = state
+            .last_operation
+            .as_ref()
+            .filter(|operation| operation.operation_id == operation_id)
+            .ok_or_else(|| "authority_operation_not_current".to_string())?;
+        let matches = history
+            .iter()
+            .filter_map(|transition| match &transition.payload {
+                TransitionPayload::OperationRecorded { operation }
+                    if operation.operation_id == operation_id =>
+                {
+                    Some(operation)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let [operation] = matches.as_slice() else {
+            return Err("authority_operation_history_ambiguous_or_missing".to_string());
+        };
+        if operation.operation_digest != current.operation_digest
+            || operation.case_id != state.case_id
+        {
+            return Err("authority_operation_history_mismatch".to_string());
+        }
+        operation.validate()?;
+        Ok((*operation).clone())
+    }
+
+    fn canonical_decision(
+        state: &CaseState,
+        history: &[Transition],
+        decision_id: &str,
+    ) -> Result<Decision, String> {
+        let current = state
+            .last_decision
+            .as_ref()
+            .filter(|decision| decision.decision_id == decision_id)
+            .ok_or_else(|| "authority_decision_not_current".to_string())?;
+        let matches = history
+            .iter()
+            .filter_map(|transition| match &transition.payload {
+                TransitionPayload::DecisionRecorded { decision }
+                    if decision.decision_id == decision_id =>
+                {
+                    Some(decision)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let [decision] = matches.as_slice() else {
+            return Err("authority_decision_history_ambiguous_or_missing".to_string());
+        };
+        if decision.decision_digest != current.decision_digest {
+            return Err("authority_decision_history_mismatch".to_string());
+        }
+        decision.validate_integrity()?;
+        Ok((*decision).clone())
+    }
+
+    fn derive_initial_policy_decision_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        state: &CaseState,
+        history: &[Transition],
+        operation_id: &str,
+    ) -> Result<Decision, String> {
+        let operation = Self::canonical_operation(state, history, operation_id)?;
+        let resource = state
+            .resources
+            .iter()
+            .find(|resource| resource.attachment_id == operation.resource_attachment_id)
+            .ok_or_else(|| "authority_resource_not_attached".to_string())?;
+        let effective = self.current_ready_effective_policy_txn(txn, &state.case_id)?;
+        let evidence = resolve_canonical_evidence(&operation, history, None)?;
+        evaluate_filesystem_admission(&operation, state, resource, &effective, &evidence)
+    }
+
+    fn derive_review_policy_decision_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        state: &CaseState,
+        history: &[Transition],
+        operation_id: &str,
+        review_id: &str,
+        action_id: &str,
+    ) -> Result<Decision, String> {
+        let operation = Self::canonical_operation(state, history, operation_id)?;
+        let resource = state
+            .resources
+            .iter()
+            .find(|resource| resource.attachment_id == operation.resource_attachment_id)
+            .ok_or_else(|| "authority_resource_not_attached".to_string())?;
+        let review = state
+            .reviews
+            .iter()
+            .find(|review| {
+                review.review_id == review_id
+                    && review.operation_id == operation_id
+                    && review.latest_action_id.as_deref() == Some(action_id)
+            })
+            .ok_or_else(|| "canonical_review_resolution_not_current".to_string())?;
+        let actions = history
+            .iter()
+            .filter_map(|transition| match &transition.payload {
+                TransitionPayload::ReviewActionRecorded { action }
+                    if action.action_id == action_id =>
+                {
+                    Some(action)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let [action] = actions.as_slice() else {
+            return Err("canonical_review_action_ambiguous_or_missing".to_string());
+        };
+        let effective = self.current_ready_effective_policy_txn(txn, &state.case_id)?;
+        let evidence = resolve_canonical_evidence(&operation, history, Some(action_id))?;
+        resolve_policy_review_decision(
+            &operation, state, resource, &effective, review, action, &evidence,
+        )
+    }
+
+    fn derive_expected_policy_decision_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        state: &CaseState,
+        history: &[Transition],
+        proposed: &Decision,
+    ) -> Result<Decision, String> {
+        let basis = proposed
+            .decision_basis
+            .as_ref()
+            .ok_or_else(|| "policy_decision_basis_missing".to_string())?;
+        if let Some(action_id) = basis.review_action_ref.as_deref() {
+            let review = state
+                .reviews
+                .iter()
+                .find(|review| {
+                    review.operation_id == proposed.operation_id
+                        && review.latest_action_id.as_deref() == Some(action_id)
+                })
+                .ok_or_else(|| "canonical_review_resolution_not_current".to_string())?;
+            self.derive_review_policy_decision_txn(
+                txn,
+                state,
+                history,
+                &proposed.operation_id,
+                &review.review_id,
+                action_id,
+            )
+        } else {
+            self.derive_initial_policy_decision_txn(txn, state, history, &proposed.operation_id)
+        }
     }
 
     /// Persists a machine-local resource binding. This database is required
@@ -4446,15 +4795,18 @@ fn unix_time_ms() -> u128 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::admission::{evaluate_filesystem_admission, EvidenceContext};
+    use crate::admission::{
+        evaluate_filesystem_admission, forged_evidence_resolution_for_test,
+        CanonicalEvidenceResolution,
+    };
     use crate::context::{RenderedInputMetadata, SemanticContextArtifact, RENDERED_INPUT_SCHEMA};
     use crate::effect::{
         build_effect_receipt, build_filesystem_review_request, classify_reconciliation,
         decide_filesystem_write, execute_filesystem_write, issue_execution_grant,
         issue_policy_execution_grant, normalize_filesystem_write_candidate, observe_filesystem,
-        prepare_effect, resolve_filesystem_review_decision, validate_finalized_effect_chain,
-        CarrierFailpoint, CarrierResult, EffectOutcome, LocalFilesystemBinding,
-        NormalizationContext, ReconciliationConclusion,
+        prepare_effect, reseal_policy_execution_grant_for_test, resolve_filesystem_review_decision,
+        validate_finalized_effect_chain, CarrierFailpoint, CarrierResult, EffectOutcome,
+        LocalFilesystemBinding, NormalizationContext, ReconciliationConclusion,
     };
     use crate::governance::{
         compile_policy_source, PolicyLifecycleState, PolicyValidationStatus,
@@ -6902,6 +7254,175 @@ mod tests {
         .expect("serialize Wave-9 policy")
     }
 
+    fn h10_authority_policy(key: &str, version: &str, effect: &str, review: bool) -> Vec<u8> {
+        let mut rules = vec![
+            serde_json::json!({"kind":"operation_restriction","rule_id":format!("operation-{key}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","effect":effect,"reason":"H10 operation posture"}),
+            serde_json::json!({"kind":"review_requirement","rule_id":format!("review-{key}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","required":review,"reason":"H10 review posture"}),
+            serde_json::json!({"kind":"authority_requirement","rule_id":format!("proposer-{key}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_role":"operation-proposer","reason":"H10 proposer eligibility"}),
+            serde_json::json!({"kind":"evidence_obligation","rule_id":format!("source-{key}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"source_provenance","reason":"H10 canonical provider lineage"}),
+            serde_json::json!({"kind":"evidence_obligation","rule_id":format!("pre-{key}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"pre_observation","reason":"H10 effect preparation evidence"}),
+            serde_json::json!({"kind":"evidence_obligation","rule_id":format!("post-{key}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"post_observation","reason":"H10 effect closure"}),
+        ];
+        if review {
+            rules.push(serde_json::json!({"kind":"authority_requirement","rule_id":format!("reviewer-{key}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"reviewer","required_role":"operation-reviewer","reason":"H10 reviewer eligibility"}));
+            rules.push(serde_json::json!({"kind":"evidence_obligation","rule_id":format!("audit-{key}"),"operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"audit_reason","reason":"H10 canonical review rationale"}));
+        }
+        serde_json::to_vec(&serde_json::json!({
+            "schema": POLICY_SOURCE_INPUT_SCHEMA,
+            "policy_key": key,
+            "source_version": version,
+            "owner_ref": "organization:h10",
+            "source_origin": {
+                "source_system": "h10-test",
+                "source_uri": format!("test://h10/{key}/{version}")
+            },
+            "rules": rules,
+        }))
+        .expect("serialize H10 policy")
+    }
+
+    fn setup_h10_authority_case(
+        store: &LmdbRecordStore,
+        case_id: &str,
+        effect: &str,
+        review: bool,
+    ) -> (ResourceAttachmentState, Operation) {
+        let proposer = "participant:model";
+        let reviewer = "participant:reviewer";
+        open_policy_case(store, case_id);
+        commit_typed(
+            store,
+            &format!("transition:{case_id}:proposer"),
+            case_id,
+            1,
+            TransitionPayload::ParticipantBound {
+                participant_id: proposer.to_string(),
+                role: "operation-proposer".to_string(),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            store,
+            &format!("transition:{case_id}:reviewer"),
+            case_id,
+            2,
+            TransitionPayload::ParticipantBound {
+                participant_id: reviewer.to_string(),
+                role: "operation-reviewer".to_string(),
+            },
+            None,
+            vec![],
+        );
+        let resource = ResourceAttachmentState {
+            attachment_id: "workspace".to_string(),
+            kind: ResourceKind::Filesystem,
+            allowed_write_prefix: "allowed".to_string(),
+            max_write_bytes: 256,
+            policy_id: "policy:legacy-inert".to_string(),
+            policy_owner_participant_id: reviewer.to_string(),
+            review_requirement: ReviewRequirement::Automatic,
+        };
+        commit_typed(
+            store,
+            &format!("transition:{case_id}:resource"),
+            case_id,
+            3,
+            TransitionPayload::ResourceAttached {
+                attachment: resource.clone(),
+            },
+            None,
+            vec![reviewer.to_string()],
+        );
+        let policy = publish_compilation(
+            store,
+            &h10_authority_policy("authority", "1", effect, review),
+        );
+        store
+            .bind_case_policy(
+                case_id,
+                &policy.artifact.artifact_id,
+                4,
+                "participant:operator",
+                "bind H10 authority policy",
+            )
+            .expect("bind H10 policy");
+        commit_typed(
+            store,
+            &format!("transition:{case_id}:provider"),
+            case_id,
+            5,
+            TransitionPayload::ProviderAttached {
+                participant_id: proposer.to_string(),
+                provider_id: "provider:h10".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                base_url: "http://127.0.0.1:1".to_string(),
+                model_id: "model:h10".to_string(),
+                credential_ref: "env:TEST".to_string(),
+            },
+            None,
+            vec![],
+        );
+        let lineage = test_provider_lineage(6);
+        commit_typed(
+            store,
+            &format!("transition:{case_id}:invocation"),
+            case_id,
+            6,
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: format!("invocation:{case_id}"),
+                participant_id: proposer.to_string(),
+                provider_id: "provider:h10".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:h10".to_string(),
+                semantic_lineage: Some(lineage.clone()),
+            },
+            None,
+            vec![],
+        );
+        commit_typed(
+            store,
+            &format!("transition:{case_id}:result"),
+            case_id,
+            7,
+            TransitionPayload::ProviderResultRecorded {
+                result_id: format!("provider-result:{case_id}"),
+                invocation_id: format!("invocation:{case_id}"),
+                provider_id: "provider:h10".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:h10".to_string(),
+                semantic_lineage: Some(lineage),
+                output: "H10 typed operation proposal".to_string(),
+            },
+            None,
+            vec![format!("invocation:{case_id}")],
+        );
+        let operation = normalize_filesystem_write_candidate(
+            r#"{"schema":"yai.operation_proposal.filesystem_write.v1","operation":"filesystem.write","resource":"workspace","path":"allowed/h10.txt","content":"h10"}"#,
+            &NormalizationContext {
+                case_id,
+                participant_id: proposer,
+                provider_result_id: &format!("provider-result:{case_id}"),
+                provider_invocation_id: &format!("invocation:{case_id}"),
+                case_generation: 8,
+                resource: &resource,
+            },
+        )
+        .expect("normalize H10 operation");
+        commit_typed(
+            store,
+            &format!("transition:{case_id}:operation"),
+            case_id,
+            8,
+            TransitionPayload::OperationRecorded {
+                operation: operation.clone(),
+            },
+            Some(operation.scope.clone()),
+            operation.origin.causal_refs(),
+        );
+        (resource, operation)
+    }
+
     #[test]
     fn wave9_exact_version_binding_replacement_replay_and_rebuild_are_deterministic() {
         let path = temp_store_path("wave9-version-pinning");
@@ -7463,6 +7984,558 @@ mod tests {
     }
 
     #[test]
+    fn h10_historical_p1_authority_chain_replays_after_p2_and_cache_rebuild() {
+        let path = temp_store_path("h10-historical-replay");
+        let root = temp_store_path("h10-historical-files");
+        fs::create_dir_all(root.join("allowed")).expect("create carrier root");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let case_id = "case:h10-historical-replay";
+        let (resource, operation) = setup_h10_authority_case(&store, case_id, "allow", false);
+        let decision = store
+            .derive_policy_decision(case_id, &operation.operation_id)
+            .expect("derive P1 Decision");
+        assert_eq!(decision.outcome, crate::effect::DecisionOutcome::Allow);
+        let basis = decision.decision_basis.as_ref().unwrap();
+        let mut decision_abort = PendingTransition::new(
+            "transition:h10-c1-decision-abort",
+            case_id,
+            9,
+            TransitionSource::component("h10-crash-test"),
+            TransitionPayload::DecisionRecorded {
+                decision: decision.clone(),
+            },
+        );
+        decision_abort.scope = Some(operation.scope.clone());
+        decision_abort.causal_refs = vec![
+            operation.operation_id.clone(),
+            basis.basis_id.clone(),
+            basis.effective_policy_id.clone(),
+        ];
+        assert!(store
+            .commit_transition_inner(decision_abort, true)
+            .expect_err("C1 must abort after semantic verification")
+            .contains("injected_failure_before_canonical_commit"));
+        assert!(store
+            .get_transition_by_id("transition:h10-c1-decision-abort")
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            store.get_case_state(case_id).unwrap().unwrap().generation,
+            9
+        );
+        let decision_commit = commit_typed(
+            &store,
+            "transition:h10-replay-decision",
+            case_id,
+            9,
+            TransitionPayload::DecisionRecorded {
+                decision: decision.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                basis.basis_id.clone(),
+                basis.effective_policy_id.clone(),
+            ],
+        );
+        assert!(decision_commit.state.grants.is_empty());
+        assert!(store.verify_case_state(case_id).expect("C2 replay"));
+        let grant =
+            issue_policy_execution_grant(&operation, &decision, decision_commit.state.generation)
+                .expect("issue adjacent P1 Grant");
+        assert!(grant
+            .execution_evidence_requirements
+            .contains(&crate::admission::ExecutionEvidenceRequirement::PreObservation));
+        assert!(grant
+            .execution_evidence_requirements
+            .contains(&crate::admission::ExecutionEvidenceRequirement::PostObservation));
+        let mut grant_abort = PendingTransition::new(
+            "transition:h10-c5-grant-abort",
+            case_id,
+            decision_commit.state.generation,
+            TransitionSource::component("h10-crash-test"),
+            TransitionPayload::ExecutionGrantIssued {
+                grant: grant.clone(),
+            },
+        );
+        grant_abort.scope = Some(operation.scope.clone());
+        grant_abort.causal_refs = vec![
+            operation.operation_id.clone(),
+            decision.decision_id.clone(),
+            basis.basis_id.clone(),
+            basis.effective_policy_id.clone(),
+        ];
+        assert!(store
+            .commit_transition_inner(grant_abort, true)
+            .expect_err("C5 must abort after Grant semantic verification")
+            .contains("injected_failure_before_canonical_commit"));
+        assert!(store
+            .get_transition_by_id("transition:h10-c5-grant-abort")
+            .unwrap()
+            .is_none());
+        assert!(store
+            .get_case_state(case_id)
+            .unwrap()
+            .unwrap()
+            .grants
+            .is_empty());
+        let grant_commit = commit_typed(
+            &store,
+            "transition:h10-replay-grant",
+            case_id,
+            decision_commit.state.generation,
+            TransitionPayload::ExecutionGrantIssued {
+                grant: grant.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                decision.decision_id.clone(),
+                basis.basis_id.clone(),
+                basis.effective_policy_id.clone(),
+            ],
+        );
+        let binding = LocalFilesystemBinding::new(case_id, "workspace", &root)
+            .expect("local filesystem binding");
+        let pre = observe_filesystem(
+            &binding,
+            &resource,
+            &operation.filesystem_write.relative_path,
+            "observation:h10-replay-pre",
+        );
+        let prepared =
+            prepare_effect(&operation, &decision, &grant, pre).expect("prepare P1 effect");
+        let prepared_commit = commit_typed(
+            &store,
+            "transition:h10-replay-prepare",
+            case_id,
+            grant_commit.state.generation,
+            TransitionPayload::EffectPrepared {
+                prepared: prepared.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                decision.decision_id.clone(),
+                grant.grant_id.clone(),
+                prepared.expected_pre_observation.observation_id.clone(),
+            ],
+        );
+        let result = execute_filesystem_write(
+            &operation,
+            &decision,
+            &grant,
+            &prepared,
+            &prepared_commit.state,
+            &binding,
+            &resource,
+            CarrierFailpoint::None,
+        )
+        .expect("execute P1 effect");
+        let receipt = build_effect_receipt(&prepared, &result);
+        let mut missing_post_receipt = receipt.clone();
+        missing_post_receipt.post_observation_id = "observation:missing".to_string();
+        assert_eq!(
+            validate_execution_obligation_closure(
+                &grant,
+                &prepared,
+                &result.post_observation,
+                &missing_post_receipt,
+            )
+            .expect_err("required post-observation evidence must close exactly"),
+            "required_post_observation_evidence_missing"
+        );
+        let finalized = commit_typed(
+            &store,
+            "transition:h10-replay-finalize",
+            case_id,
+            prepared_commit.state.generation,
+            TransitionPayload::EffectFinalized {
+                effect_id: prepared.effect_id.clone(),
+                post_observation: result.post_observation.clone(),
+                receipt: receipt.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![prepared.effect_id.clone(), receipt.receipt_id.clone()],
+        );
+        let p2 = publish_compilation(
+            &store,
+            &h10_authority_policy("authority", "2", "deny", false),
+        );
+        let prior_binding = finalized.state.policy_bindings[0].binding_id.clone();
+        let replaced = store
+            .replace_case_policy(
+                case_id,
+                &prior_binding,
+                &p2.artifact.artifact_id,
+                finalized.state.generation,
+                "participant:operator",
+                "replace historical P1 with current P2",
+            )
+            .expect("replace P1 with P2");
+        let current = store
+            .derive_policy_decision(case_id, &operation.operation_id)
+            .expect("derive current P2 Decision");
+        assert_eq!(current.outcome, crate::effect::DecisionOutcome::Deny);
+        assert!(store
+            .drop_effective_policy(case_id)
+            .expect("drop derived cache"));
+        let rebuilt_policy = store
+            .rebuild_effective_policy(case_id)
+            .expect("rebuild P2 EffectivePolicy");
+        assert_eq!(
+            rebuilt_policy
+                .effective_policy
+                .as_ref()
+                .unwrap()
+                .effective_policy_id,
+            replaced
+                .status
+                .effective_policy
+                .as_ref()
+                .unwrap()
+                .effective_policy_id
+        );
+        let replay = store.replay_case_state(case_id).expect("replay after P2");
+        assert_eq!(
+            replay.last_decision.as_ref().unwrap().decision_id,
+            decision.decision_id
+        );
+        assert!(replay
+            .grants
+            .iter()
+            .any(|state| state.grant_id == grant.grant_id
+                && state.status == crate::transition::GrantLifecycle::Finalized));
+        let history = store
+            .list_case_transitions(case_id)
+            .expect("history after P2");
+        let chain = validate_finalized_effect_chain(&history, &prepared.effect_id)
+            .expect("historical P1 chain remains valid");
+        assert_eq!(chain.receipt_id, receipt.receipt_id);
+        assert!(store
+            .verify_case_state(case_id)
+            .expect("materialized replay"));
+        println!(
+            "h10_historical_replay: operation_generation=9 basis_generation={} decision_transition={} grant_expected_generation={} grant_transition={} prepare_transition={} finalize_transition={} replacement_transition={} p1_basis={} p1_decision={} p1_grant={} p1_receipt={} current_p2={} replay=true crash_c1_c2_c5=true",
+            basis.evaluated_case_generation,
+            decision_commit.state.generation,
+            grant.expected_case_generation,
+            grant_commit.state.generation,
+            prepared_commit.state.generation,
+            finalized.state.generation,
+            replaced.commit.as_ref().unwrap().state.generation,
+            basis.basis_id,
+            decision.decision_id,
+            grant.grant_id,
+            receipt.receipt_id,
+            rebuilt_policy.effective_policy.unwrap().effective_policy_id
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+        fs::remove_dir_all(root).expect("remove carrier root");
+    }
+
+    #[test]
+    fn h10_review_writes_rederive_roles_provenance_and_final_decision() {
+        let path = temp_store_path("h10-review-rederivation");
+        let store = LmdbRecordStore::open(&path).expect("open store");
+        let case_id = "case:h10-review-rederivation";
+        let (resource, operation) = setup_h10_authority_case(&store, case_id, "allow", true);
+        let state_before_decision = store.get_case_state(case_id).unwrap().unwrap();
+        let effective = store
+            .case_policy_status(case_id)
+            .unwrap()
+            .effective_policy
+            .unwrap();
+        let forged_evidence = forged_evidence_resolution_for_test(
+            Some(vec![
+                "provider-result:caller-claim".to_string(),
+                "invocation:caller-claim".to_string(),
+            ]),
+            None,
+            None,
+        );
+        let caller_claim_decision = evaluate_filesystem_admission(
+            &operation,
+            &state_before_decision,
+            &resource,
+            &effective,
+            &forged_evidence,
+        )
+        .expect("construct content-valid Decision from caller evidence claim");
+        let caller_claim_pending = PendingTransition::new(
+            "transition:h10-caller-evidence-claim",
+            case_id,
+            state_before_decision.generation,
+            TransitionSource::component("h10-adversarial-test"),
+            TransitionPayload::DecisionRecorded {
+                decision: caller_claim_decision,
+            },
+        );
+        let caller_claim_error = store
+            .commit_transition(caller_claim_pending)
+            .expect_err("caller evidence claims must not cross canonical write boundary");
+        assert!(
+            caller_claim_error.contains("authority_decision_basis_mismatch"),
+            "{caller_claim_error}"
+        );
+        let initial = store
+            .derive_policy_decision(case_id, &operation.operation_id)
+            .expect("derive canonical initial review Decision");
+        assert_eq!(
+            initial.outcome,
+            crate::effect::DecisionOutcome::RequireReview
+        );
+        let initial_commit = commit_typed(
+            &store,
+            "transition:h10-review-initial-decision",
+            case_id,
+            9,
+            TransitionPayload::DecisionRecorded {
+                decision: initial.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                initial.decision_basis.as_ref().unwrap().basis_id.clone(),
+                initial
+                    .decision_basis
+                    .as_ref()
+                    .unwrap()
+                    .effective_policy_id
+                    .clone(),
+            ],
+        );
+        let expected_review =
+            build_policy_review_request(&operation, &initial, initial_commit.state.generation)
+                .expect("build canonical ReviewRequest v2");
+        let mut review_abort = PendingTransition::new(
+            "transition:h10-c3-review-request-abort",
+            case_id,
+            initial_commit.state.generation,
+            TransitionSource::component("h10-crash-test"),
+            TransitionPayload::ReviewRequested {
+                review: expected_review.clone(),
+            },
+        );
+        review_abort.scope = Some(operation.scope.clone());
+        review_abort.causal_refs = vec![
+            operation.operation_id.clone(),
+            initial.decision_id.clone(),
+            expected_review.decision_basis_id.clone(),
+            expected_review.effective_policy_id.clone(),
+        ];
+        assert!(store
+            .commit_transition_inner(review_abort, true)
+            .expect_err("C3 must abort after ReviewRequest semantic verification")
+            .contains("injected_failure_before_canonical_commit"));
+        assert!(store
+            .get_transition_by_id("transition:h10-c3-review-request-abort")
+            .unwrap()
+            .is_none());
+        assert!(store
+            .get_case_state(case_id)
+            .unwrap()
+            .unwrap()
+            .reviews
+            .is_empty());
+        let mut forged_review = expected_review.clone();
+        forged_review.required_reviewer_roles = vec!["model".to_string()];
+        let forged_review = forged_review
+            .seal_policy_integrity()
+            .expect("reseal content-valid forged ReviewRequest");
+        let forged_review_pending = PendingTransition::new(
+            "transition:h10-forged-review-request",
+            case_id,
+            initial_commit.state.generation,
+            TransitionSource::component("h10-adversarial-test"),
+            TransitionPayload::ReviewRequested {
+                review: forged_review,
+            },
+        );
+        let forged_review_error = store
+            .commit_transition(forged_review_pending)
+            .expect_err("forged reviewer roles must fail write-time re-derivation");
+        assert!(
+            forged_review_error.contains("authority_review_request_mismatch"),
+            "{forged_review_error}"
+        );
+        let review_commit = commit_typed(
+            &store,
+            "transition:h10-review-request",
+            case_id,
+            initial_commit.state.generation,
+            TransitionPayload::ReviewRequested {
+                review: expected_review.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                initial.decision_id.clone(),
+                expected_review.decision_basis_id.clone(),
+                expected_review.effective_policy_id.clone(),
+            ],
+        );
+
+        let wrong_action = build_review_action(
+            &expected_review,
+            case_id,
+            "participant:model",
+            ReviewActionKind::Approve,
+            "forged proposer approval",
+            review_commit.state.generation,
+            "h10-test",
+        )
+        .expect("build structurally valid ineligible action");
+        let wrong_action_pending = PendingTransition::new(
+            "transition:h10-ineligible-review-action",
+            case_id,
+            review_commit.state.generation,
+            TransitionSource::component("h10-adversarial-test"),
+            TransitionPayload::ReviewActionRecorded {
+                action: wrong_action,
+            },
+        );
+        let wrong_reviewer_error = store
+            .commit_transition(wrong_action_pending)
+            .expect_err("ineligible low-level ReviewAction must fail");
+        assert!(
+            wrong_reviewer_error.contains("review_action_binding_or_generation_mismatch"),
+            "{wrong_reviewer_error}"
+        );
+
+        let action = build_review_action(
+            &expected_review,
+            case_id,
+            "participant:reviewer",
+            ReviewActionKind::Approve,
+            "ticket H10-42 authorizes this exact operation",
+            review_commit.state.generation,
+            "h10-test",
+        )
+        .expect("build eligible action");
+        let action_commit = commit_typed(
+            &store,
+            "transition:h10-eligible-review-action",
+            case_id,
+            review_commit.state.generation,
+            TransitionPayload::ReviewActionRecorded {
+                action: action.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                expected_review.review_id.clone(),
+                operation.operation_id.clone(),
+            ],
+        );
+        assert_eq!(
+            action_commit
+                .state
+                .last_decision
+                .as_ref()
+                .unwrap()
+                .decision_id,
+            initial.decision_id
+        );
+        assert!(store.verify_case_state(case_id).expect("C4 replay"));
+        let current_review = action_commit
+            .state
+            .reviews
+            .iter()
+            .find(|review| review.review_id == expected_review.review_id)
+            .expect("resolved current review");
+        let history = store
+            .list_case_transitions(case_id)
+            .expect("canonical history");
+        let evidence =
+            resolve_canonical_evidence(&operation, &history, Some(action.action_id.as_str()))
+                .expect("resolve canonical provider and review evidence");
+        let mut forged_effective = store
+            .case_policy_status(case_id)
+            .expect("current policy status")
+            .effective_policy
+            .expect("current effective policy");
+        for rule in &mut forged_effective.rules {
+            if let crate::case_policy::EffectivePolicyRule::OperationRestriction {
+                contributions,
+                ..
+            } = rule
+            {
+                contributions.clear();
+            }
+        }
+        let forged_final = resolve_policy_review_decision(
+            &operation,
+            &action_commit.state,
+            &action_commit.state.resources[0],
+            &forged_effective,
+            current_review,
+            &action,
+            &evidence,
+        )
+        .expect("build content-valid final Decision with forged provenance");
+        let forged_final_pending = PendingTransition::new(
+            "transition:h10-forged-final-decision",
+            case_id,
+            action_commit.state.generation,
+            TransitionSource::component("h10-adversarial-test"),
+            TransitionPayload::DecisionRecorded {
+                decision: forged_final,
+            },
+        );
+        let forged_final_error = store
+            .commit_transition(forged_final_pending)
+            .expect_err("forged final review Decision must fail semantic comparison");
+        assert!(
+            forged_final_error.contains("authority_decision_basis_mismatch"),
+            "{forged_final_error}"
+        );
+        let final_decision = store
+            .derive_policy_review_decision(
+                case_id,
+                &operation.operation_id,
+                &expected_review.review_id,
+                &action.action_id,
+            )
+            .expect("derive canonical final review Decision");
+        let final_commit = commit_typed(
+            &store,
+            "transition:h10-final-review-decision",
+            case_id,
+            action_commit.state.generation,
+            TransitionPayload::DecisionRecorded {
+                decision: final_decision.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                action.action_id.clone(),
+                final_decision
+                    .decision_basis
+                    .as_ref()
+                    .unwrap()
+                    .basis_id
+                    .clone(),
+                final_decision
+                    .decision_basis
+                    .as_ref()
+                    .unwrap()
+                    .effective_policy_id
+                    .clone(),
+            ],
+        );
+        assert_eq!(final_commit.state.generation, 13);
+        assert!(final_commit.state.grants.is_empty());
+        assert!(store.verify_case_state(case_id).expect("historical replay"));
+        println!(
+            "h10_review_rederivation: caller_evidence={} forged_request={} wrong_reviewer={} forged_final={} canonical_final=true crash_c3_c4=true",
+            caller_claim_error, forged_review_error, wrong_reviewer_error, forged_final_error
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
+    }
+
+    #[test]
     fn wave10_policy_mutation_between_decision_and_grant_fails_in_same_transaction() {
         let path = temp_store_path("wave10-stale-basis");
         let store = LmdbRecordStore::open(&path).expect("open store");
@@ -7607,7 +8680,7 @@ mod tests {
             &state,
             &resource,
             &effective,
-            &EvidenceContext::default(),
+            &CanonicalEvidenceResolution::default(),
         )
         .expect("evaluate E1");
         assert_eq!(decision.outcome, crate::effect::DecisionOutcome::Allow);
@@ -7627,6 +8700,66 @@ mod tests {
                 basis.effective_policy_id.clone(),
             ],
         );
+        let grant =
+            issue_policy_execution_grant(&operation, &decision, decision_commit.state.generation)
+                .expect("build E1 grant before intervening authority state");
+        let mut forged_grant = grant.clone();
+        forged_grant.policy_artifact_refs = vec!["policy-artifact:forged".to_string()];
+        let forged_grant = reseal_policy_execution_grant_for_test(forged_grant);
+        forged_grant
+            .validate_integrity()
+            .expect("forged Grant remains content-valid");
+        let mut forged_grant_transition = PendingTransition::new(
+            "transition:h10-forged-grant",
+            case_id,
+            decision_commit.state.generation,
+            TransitionSource::component("h10-adversarial-test"),
+            TransitionPayload::ExecutionGrantIssued {
+                grant: forged_grant,
+            },
+        );
+        forged_grant_transition.scope = Some(operation.scope.clone());
+        let forged_grant_error = store
+            .commit_transition(forged_grant_transition)
+            .expect_err("content-valid forged Grant must fail semantic comparison");
+        assert!(
+            forged_grant_error.contains("policy_execution_grant_semantic_mismatch"),
+            "{forged_grant_error}"
+        );
+        let role_change = commit_typed(
+            &store,
+            "transition:h10-intervening-role",
+            case_id,
+            decision_commit.state.generation,
+            TransitionPayload::ParticipantBound {
+                participant_id: reviewer.to_string(),
+                role: "additional-authority-context".to_string(),
+            },
+            None,
+            vec![reviewer.to_string()],
+        );
+        let mut role_stale_grant = PendingTransition::new(
+            "transition:h10-role-stale-grant",
+            case_id,
+            role_change.state.generation,
+            TransitionSource::component("h10-adversarial-test"),
+            TransitionPayload::ExecutionGrantIssued {
+                grant: grant.clone(),
+            },
+        );
+        role_stale_grant.scope = Some(operation.scope.clone());
+        role_stale_grant.causal_refs = vec![
+            operation.operation_id.clone(),
+            decision.decision_id.clone(),
+            basis.basis_id.clone(),
+        ];
+        let role_stale_error = store
+            .commit_transition(role_stale_grant)
+            .expect_err("intervening role state must invalidate Decision adjacency");
+        assert!(
+            role_stale_error.contains("policy_grant_decision_not_adjacent"),
+            "{role_stale_error}"
+        );
         let v2 = publish_compilation(
             &store,
             &policy_with_rules("organization:acme", "authority", "2", "deny", false),
@@ -7637,17 +8770,59 @@ mod tests {
                 case_id,
                 &prior_binding,
                 &v2.artifact.artifact_id,
-                decision_commit.state.generation,
+                role_change.state.generation,
                 "participant:operator",
                 "replace E1 with E2 before Grant",
             )
             .expect("replace with E2");
-        let grant = issue_policy_execution_grant(
+        let state_after_replace = replaced.commit.as_ref().unwrap().state.clone();
+        let mut forged_effective = replaced
+            .status
+            .effective_policy
+            .clone()
+            .expect("current E2");
+        for rule in &mut forged_effective.rules {
+            if let crate::case_policy::EffectivePolicyRule::OperationRestriction {
+                effect, ..
+            } = rule
+            {
+                *effect = crate::governance::PolicyEffect::Allow;
+            }
+        }
+        let forged_allow = evaluate_filesystem_admission(
             &operation,
-            &decision,
-            replaced.commit.as_ref().unwrap().state.generation,
+            &state_after_replace,
+            &resource,
+            &forged_effective,
+            &CanonicalEvidenceResolution::default(),
         )
-        .expect("build stale E1 grant");
+        .expect("forge self-consistent ALLOW basis over E2 identity");
+        assert_eq!(forged_allow.outcome, crate::effect::DecisionOutcome::Allow);
+        let forged_basis = forged_allow.decision_basis.as_ref().unwrap();
+        let forged_basis_id = forged_basis.basis_id.clone();
+        let forged_effective_policy_id = forged_basis.effective_policy_id.clone();
+        let mut forged_transition = PendingTransition::new(
+            "transition:h10-forged-allow",
+            case_id,
+            state_after_replace.generation,
+            TransitionSource::component("h10-adversarial-test"),
+            TransitionPayload::DecisionRecorded {
+                decision: forged_allow,
+            },
+        );
+        forged_transition.scope = Some(operation.scope.clone());
+        forged_transition.causal_refs = vec![
+            operation.operation_id.clone(),
+            forged_basis_id,
+            forged_effective_policy_id,
+        ];
+        let forged_error = store
+            .commit_transition(forged_transition)
+            .expect_err("content-valid forged ALLOW must fail semantic re-derivation");
+        assert!(
+            forged_error.contains("authority_decision_basis_mismatch"),
+            "{forged_error}"
+        );
         let mut stale_grant = PendingTransition::new(
             "transition:wave10-stale-grant",
             case_id,
@@ -7667,7 +8842,10 @@ mod tests {
         let error = store
             .commit_transition(stale_grant)
             .expect_err("E1 Grant must not commit after E2 binding");
-        assert!(error.contains("policy_authority_basis_stale"), "{error}");
+        assert!(
+            error.contains("policy_grant_decision_not_adjacent"),
+            "{error}"
+        );
         assert!(store
             .get_case_state(case_id)
             .unwrap()
@@ -7676,7 +8854,11 @@ mod tests {
             .is_empty());
         assert!(store.verify_case_state(case_id).expect("replay after race"));
         println!(
-            "wave10_stale_basis: decision_basis={} evaluated_effective_policy={} current_effective_policy={} grant_committed=false error=policy_authority_basis_stale",
+            "h10_authority_injection: forged_decision={} forged_grant={} role_stale_grant={} policy_stale_grant={} decision_basis={} evaluated_effective_policy={} current_effective_policy={} grant_committed=false",
+            forged_error,
+            forged_grant_error,
+            role_stale_error,
+            error,
             basis.basis_id,
             basis.effective_policy_id,
             replaced.status.effective_policy.unwrap().effective_policy_id,

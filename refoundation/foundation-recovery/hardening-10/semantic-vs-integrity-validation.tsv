@@ -1,0 +1,7 @@
+contract	structural_or_content_integrity	semantic_validity	failure
+DecisionBasis	schema;basis_id;integrity_digest;typed refs	must equal deterministic evaluation of canonical transaction snapshot	authority_decision_basis_mismatch
+Decision v2	decision id/digest;Operation and basis bindings	outcome/reason/basis must equal re-derived expected Decision	authority_decision_basis_mismatch
+ReviewRequest v2	request id/digest and typed refs	must equal request rebuilt from current REQUIRE_REVIEW Decision	authority_review_request_mismatch
+ReviewAction	action id/digest/request refs	reviewer currently Case-bound/eligible; request open; exact generation	review_action_binding_or_generation_mismatch
+ExecutionGrant v2	grant id/digest and compact refs	adjacent final ALLOW; re-derived basis; exact expected Grant	policy_grant_decision_not_adjacent or policy_execution_grant_semantic_mismatch
+evidence ref	typed identifier syntax	exact canonical ordered same-Case Transition lineage	authority_decision_basis_mismatch through missing obligation

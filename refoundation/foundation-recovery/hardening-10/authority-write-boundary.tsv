@@ -1,0 +1,9 @@
+object	constructor_or_source	canonical_writer	content_validation	semantic_write_validation	replay_contract
+Operation	provider candidate normalizer	LMDB Transition append	operation digest/scope/origin	canonical ProviderResult lineage checked when Decision derives	self-contained historical validation
+DecisionBasis	admission evaluator	embedded in DecisionRecorded	v1 schema/id/digest	fully re-derived in same LMDB transaction snapshot	not reevaluated under current policy
+Decision v2	admission evaluator	LMDB Transition append	decision id/digest/basis binding	Operation/Case/EffectivePolicy/resource/roles/evidence re-derived and exact-equal	original basis retained
+ReviewRequest v2	request builder	LMDB Transition append	request integrity	request rebuilt from current canonical REQUIRE_REVIEW Decision	original request retained
+ReviewAction v1	local participant action	LMDB Transition append	action integrity	open exact request/generation/current Case roles checked	original action retained
+ExecutionGrant v2	Grant builder	LMDB Transition append	grant id/digest/refs	adjacent final ALLOW basis and exact expected Grant re-derived	original Grant retained
+PreparedEffect	prepare_effect	LMDB Transition append	grant/effect/observation binding	Grant plus required pre-observation closure	self-contained chain validation
+EffectReceipt	carrier result	LMDB Transition append	receipt/observation digest	post-observation obligation closure and exact target/resource	self-contained chain validation

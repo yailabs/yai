@@ -5,7 +5,7 @@
 //! Decision; it never invokes a carrier or performs an external effect.
 
 use super::*;
-use yai_core_engine::admission::{resolve_policy_review_decision, reviewer_is_eligible};
+use yai_core_engine::admission::reviewer_is_eligible;
 use yai_core_engine::case_policy::NormativeReadiness;
 use yai_core_engine::effect::{DecisionOutcome, Operation};
 use yai_core_engine::transition::{
@@ -366,24 +366,11 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
     if requested != ReviewActionKind::Defer {
         let current_review = case_review(&state_after_action, review_id)?;
         let operation = operation_for_review(&transitions, &current_review)?;
-        let resource = state_after_action
-            .resources
-            .iter()
-            .find(|resource| resource.attachment_id == current_review.resource_attachment_id)
-            .ok_or_else(|| "review_resource_binding_missing".to_string())?;
-        let current_normative = store.case_policy_status(&case_id)?;
-        let current_effective = current_normative
-            .effective_policy
-            .as_ref()
-            .filter(|_| current_normative.readiness == NormativeReadiness::Ready)
-            .ok_or_else(|| "review_policy_basis_stale".to_string())?;
-        let effective = resolve_policy_review_decision(
-            &operation,
-            &state_after_action,
-            resource,
-            current_effective,
-            &current_review,
-            &action,
+        let effective = store.derive_policy_review_decision(
+            &case_id,
+            &operation.operation_id,
+            &current_review.review_id,
+            &action.action_id,
         )?;
         let state_after_decision = commit_effective_decision(&store, &case_id, &effective)?;
         effective_decision_id = Some(effective.decision_id.clone());
