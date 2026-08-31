@@ -105,7 +105,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         user_content = messages[1].get("content", "")
         frame = typed_frame(user_content)
-        if frame is None or frame.get("schema") != "yai.context_frame.v4":
+        if frame is None or frame.get("schema") != "yai.context_frame.v5":
             self.send_error(400)
             return
         REQUESTS.append(user_content)

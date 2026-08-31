@@ -1,0 +1,11 @@
+field	observed
+repository	/tmp/yvex-research.bZQXAZ/repo
+branch	main
+HEAD	2df3b84cc840dfca8b38f6fc387a833169b5598e
+origin	2df3b84cc840dfca8b38f6fc387a833169b5598e
+dirty	clean
+executable	yvex 0.1.0 protocol=11 commit=2df3b84cc840dfca8b38f6fc387a833169b5598e
+endpoint	http://127.0.0.1:8001/v1
+selected model	none; MODELS count=0
+state	blocked_external_dependency
+reason	no runtime socket and no reachable models endpoint; no model installed

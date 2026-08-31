@@ -1,0 +1,6 @@
+scenario	result	physical mutation
+epoch E1 current	carrier admitted	at most one intended mutation
+E1 after E2 acquisition	stale_resource_fence	zero
+forged fields/digest	integrity rejection	zero
+wrong Case/Grant/effect	chain/current-state rejection	zero
+live current owner reclaim	live_resource_owner_cannot_be_reclaimed	zero

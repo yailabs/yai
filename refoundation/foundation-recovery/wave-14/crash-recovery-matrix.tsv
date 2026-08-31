@@ -1,0 +1,11 @@
+id	boundary	recovery invariant	status
+F1	before acquisition	no lease/no PREPARE	covered transaction design
+F2	acquire/PREPARE transaction	both or neither	covered LMDB atomic test
+F3	after PREPARE before carrier	same-effect lease retained/reclaimable	implemented
+F4	carrier validation before syscall	stale fence rejects	covered
+F5	physical effect before FINALIZE	lease retained;reconcile existing effect	preserved from W11 plus fence
+F6	old owner after reclaim	old epoch rejected	covered
+F7	reconcile before terminal commit	lease retained	implemented
+F8	FINALIZE/release commit	both or neither	covered transaction design
+F9	second Case while unresolved	resource busy	covered
+F10	release then acquire	new monotonic epoch	covered epoch1/epoch2 test

@@ -31,8 +31,8 @@ use crate::compatibility::{
 use crate::context::SemanticContextArtifact;
 use crate::effect::{
     issue_policy_execution_grant, validate_execution_obligation_closure,
-    validate_execution_obligation_preparation, Decision, LocalFilesystemBinding, Operation,
-    OperationOrigin, LOCAL_FILESYSTEM_BINDING_SCHEMA,
+    validate_execution_obligation_preparation, Decision, LocalFilesystemBinding,
+    LocalProcessBinding, Operation, OperationOrigin, LOCAL_FILESYSTEM_BINDING_SCHEMA,
 };
 use crate::governance::{
     build_lifecycle_event, compile_policy_source, lifecycle_from_events, scope_policy_compilation,
@@ -52,6 +52,11 @@ use crate::memory::{
     OPERATIONAL_MEMORY_DERIVATION, OPERATIONAL_MEMORY_MANIFEST_SCHEMA, OPERATIONAL_MEMORY_SCHEMA,
 };
 use crate::record::Record;
+use crate::resource_control::{
+    filesystem_relation, ActiveResourceLease, FilesystemRelation, LocalProcessIdentity,
+    ResourceControlAction, ResourceControlEvent, ResourceControlState, ResourceFence,
+    ResourceFenceAuthority, ResourceIdentity, RESOURCE_CONTROL_STATE_SCHEMA,
+};
 use crate::security::{
     AuthenticatedPrincipal, SecurityContext, SecurityEvent, SecurityEventAction, SecurityPrincipal,
     Tenant, TenantMembershipKind, SECURITY_EVENT_SCHEMA, SECURITY_PRINCIPAL_SCHEMA, TENANT_SCHEMA,
@@ -62,9 +67,9 @@ use crate::transition::{
     GrantLifecycle, PendingTransition, ReviewInvalidation, ReviewResolution, Transition,
     TransitionPayload, TransitionSource, CASE_STATE_SCHEMA, CASE_STATE_SCHEMA_V1,
     CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5,
-    CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1,
-    TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5,
-    TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7,
+    CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7, CASE_STATE_SCHEMA_V8, TRANSITION_SCHEMA,
+    TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4,
+    TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7, TRANSITION_SCHEMA_V8,
 };
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
@@ -170,6 +175,8 @@ pub struct LmdbRecordStore {
     tenants_by_id: Database,
     tenant_memberships: Database,
     security_events_by_id: Database,
+    resource_control_states_by_id: Database,
+    resource_control_events_by_id: Database,
     schema_meta: Database,
 }
 
@@ -787,6 +794,18 @@ impl LmdbRecordStore {
         let security_events_by_id = env
             .create_db(Some("security_events_by_id"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open security_events_by_id: {error}"))?;
+        let resource_control_states_by_id = env
+            .create_db(
+                Some("resource_control_states_by_id"),
+                DatabaseFlags::empty(),
+            )
+            .map_err(|error| format!("failed to open resource_control_states_by_id: {error}"))?;
+        let resource_control_events_by_id = env
+            .create_db(
+                Some("resource_control_events_by_id"),
+                DatabaseFlags::empty(),
+            )
+            .map_err(|error| format!("failed to open resource_control_events_by_id: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -823,6 +842,8 @@ impl LmdbRecordStore {
             tenants_by_id,
             tenant_memberships,
             security_events_by_id,
+            resource_control_states_by_id,
+            resource_control_events_by_id,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -4375,6 +4396,9 @@ impl LmdbRecordStore {
         let TransitionPayload::EffectPrepared { prepared } = &pending.payload else {
             return Err("commit_effect_prepared_requires_prepare_payload".to_string());
         };
+        if prepared.schema == crate::effect::PREPARED_EFFECT_SCHEMA {
+            return Err("tenant_prepare_requires_atomic_resource_control_boundary".to_string());
+        }
         let mut txn = self
             .env
             .begin_rw_txn()
@@ -4464,6 +4488,552 @@ impl LmdbRecordStore {
         txn.commit()
             .map_err(|error| format!("failed to commit prepared effect: {error}"))?;
         Ok(PreparedCommitOutcome::Prepared(commit))
+    }
+
+    /// Atomically validates Grant/time/policy authority, acquires one shared
+    /// filesystem resource generation, seals the fence into PREPARE, appends
+    /// the Case transition, and publishes resource current/history state.
+    /// No externally visible resource lease can exist without PREPARE and no
+    /// PREPARE can exist without its resource lease.
+    pub fn commit_fenced_effect_prepared(
+        &self,
+        mut pending: PendingTransition,
+        owner_pid: u32,
+    ) -> Result<PreparedCommitOutcome, String> {
+        if owner_pid != std::process::id() {
+            return Err("resource_fence_owner_must_be_current_process".to_string());
+        }
+        let prepared_snapshot = match &pending.payload {
+            TransitionPayload::EffectPrepared { prepared } => prepared.clone(),
+            _ => return Err("commit_fenced_effect_prepared_requires_prepare_payload".to_string()),
+        };
+        if prepared_snapshot.schema != crate::effect::PREPARED_EFFECT_SCHEMA
+            || prepared_snapshot.resource_fence.is_some()
+        {
+            return Err("fenced_prepare_requires_unsealed_v2_intent".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start fenced prepare transaction: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, &pending.case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {}", pending.case_id))?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "fenced_prepare_requires_tenant_case".to_string())?;
+        if state.lifecycle == CaseLifecycle::Closed {
+            return Err("closed_case_cannot_acquire_resource".to_string());
+        }
+        if state.generation != pending.expected_generation {
+            return Err(format!(
+                "stale_case_generation: expected={} actual={}",
+                pending.expected_generation, state.generation
+            ));
+        }
+        let grant_state = state
+            .grants
+            .iter()
+            .find(|grant| grant.grant_id == prepared_snapshot.grant_id)
+            .ok_or_else(|| "prepare_without_grant".to_string())?;
+        if grant_state.status != GrantLifecycle::Issued {
+            return Err("prepare_requires_issued_grant".to_string());
+        }
+        let authority_time =
+            self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let floor = self.authority_time_floor_txn(&txn)?;
+        let status =
+            self.materialize_case_policy_at_txn(&txn, &pending.case_id, authority_time, floor)?;
+        let invalidation = if let Some(cancellation) = &state.cancellation {
+            Some((
+                GrantInvalidationDisposition::Abandoned,
+                "case_cancelled_before_prepare".to_string(),
+                cancellation.transition_id.clone(),
+            ))
+        } else if grant_state.expires_at_unix_ms != 0
+            && authority_time >= grant_state.expires_at_unix_ms
+        {
+            Some((
+                GrantInvalidationDisposition::Expired,
+                "execution_grant_expired_before_prepare".to_string(),
+                prepared_snapshot.grant_id.clone(),
+            ))
+        } else if status.validity != PolicyValidityPosture::Valid {
+            let disposition = if status.validity == PolicyValidityPosture::Revoked {
+                GrantInvalidationDisposition::Revoked
+            } else {
+                GrantInvalidationDisposition::Expired
+            };
+            let source = status
+                .binding_validity
+                .values()
+                .find_map(|binding| binding.revoke_event_id.clone())
+                .unwrap_or_else(|| prepared_snapshot.grant_id.clone());
+            Some((
+                disposition,
+                format!("policy_invalid_before_prepare:{:?}", status.validity),
+                source,
+            ))
+        } else {
+            None
+        };
+        if let Some((disposition, reason, source_ref)) = invalidation {
+            let mut invalidation_pending = PendingTransition::new(
+                format!(
+                    "transition:grant-invalidated:{}:{}",
+                    prepared_snapshot.grant_id,
+                    state.generation + 1
+                ),
+                &pending.case_id,
+                state.generation,
+                TransitionSource::component("yai.temporal_governance"),
+                TransitionPayload::ExecutionGrantInvalidated {
+                    invalidation: ExecutionGrantInvalidation {
+                        grant_id: prepared_snapshot.grant_id.clone(),
+                        disposition,
+                        reason,
+                        source_ref: source_ref.clone(),
+                        invalidated_at_unix_ms: authority_time,
+                    },
+                },
+            );
+            invalidation_pending.causal_refs = vec![prepared_snapshot.grant_id.clone(), source_ref];
+            let commit = self.commit_transition_txn(&mut txn, invalidation_pending, false)?;
+            txn.commit()
+                .map_err(|error| format!("failed to commit Grant invalidation: {error}"))?;
+            return Ok(PreparedCommitOutcome::GrantInvalidated(commit));
+        }
+
+        let binding = self
+            .local_filesystem_binding_txn(
+                &txn,
+                &pending.case_id,
+                &prepared_snapshot.resource_attachment_id,
+            )?
+            .ok_or_else(|| "fenced_prepare_local_binding_missing".to_string())?;
+        let identity = ResourceIdentity::filesystem(tenant_id, &binding.canonical_root)?;
+        self.reject_active_resource_conflict_txn(&txn, &identity)?;
+        let prior = self.resource_control_state_txn(&txn, &identity.resource_id)?;
+        let next_epoch = match prior.as_ref() {
+            Some(current) => current
+                .resource_epoch
+                .checked_add(1)
+                .ok_or_else(|| "resource_epoch_exhausted".to_string())?,
+            None => 1,
+        };
+        let next_sequence = match prior.as_ref() {
+            Some(current) => current
+                .event_sequence
+                .checked_add(1)
+                .ok_or_else(|| "resource_event_sequence_exhausted".to_string())?,
+            None => 1,
+        };
+        let owner_process_identity = LocalProcessIdentity::capture(owner_pid)?.canonical_identity();
+        let fence = ResourceFence::issue(
+            &identity,
+            next_epoch,
+            &prepared_snapshot.case_id,
+            &prepared_snapshot.operation_id,
+            &prepared_snapshot.grant_id,
+            &prepared_snapshot.effect_id,
+            owner_pid,
+            &owner_process_identity,
+            authority_time,
+        )?;
+        let event = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &fence,
+            next_sequence,
+            authority_time,
+        )?;
+        let control = ResourceControlState {
+            schema: RESOURCE_CONTROL_STATE_SCHEMA.to_string(),
+            identity,
+            resource_epoch: next_epoch,
+            event_sequence: next_sequence,
+            active_lease: Some(ActiveResourceLease {
+                fence: fence.clone(),
+            }),
+        };
+        control.validate()?;
+        let TransitionPayload::EffectPrepared { prepared } = &mut pending.payload else {
+            unreachable!()
+        };
+        prepared.resource_fence = Some(fence.clone());
+        pending.causal_refs.push(fence.fence_id.clone());
+        let commit = self.commit_transition_txn_at_with_fence(
+            &mut txn,
+            pending,
+            false,
+            None,
+            None,
+            Some(&fence),
+        )?;
+        self.put_resource_control_event_txn(&mut txn, &event)?;
+        self.put_resource_control_state_txn(&mut txn, &control)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit fenced prepared effect: {error}"))?;
+        Ok(PreparedCommitOutcome::Prepared(commit))
+    }
+
+    /// Process-signal equivalent of `commit_fenced_effect_prepared`. It uses
+    /// the same Grant/time/policy checks and the same atomic resource epoch +
+    /// Case PREPARE transaction; only physical identity resolution differs.
+    pub fn commit_fenced_process_effect_prepared(
+        &self,
+        mut pending: PendingTransition,
+        owner_pid: u32,
+    ) -> Result<PreparedCommitOutcome, String> {
+        if owner_pid != std::process::id() {
+            return Err("resource_fence_owner_must_be_current_process".to_string());
+        }
+        let prepared_snapshot = match &pending.payload {
+            TransitionPayload::ProcessEffectPrepared { prepared } => prepared.clone(),
+            _ => {
+                return Err(
+                    "commit_fenced_process_effect_prepared_requires_prepare_payload".to_string(),
+                )
+            }
+        };
+        if prepared_snapshot.schema != crate::effect::PREPARED_PROCESS_EFFECT_SCHEMA
+            || prepared_snapshot.resource_fence.is_some()
+        {
+            return Err("fenced_process_prepare_requires_unsealed_intent".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start fenced process prepare: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, &pending.case_id)?
+            .ok_or_else(|| format!("case_state_not_found: {}", pending.case_id))?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "fenced_prepare_requires_tenant_case".to_string())?;
+        if state.lifecycle == CaseLifecycle::Closed {
+            return Err("closed_case_cannot_acquire_resource".to_string());
+        }
+        if state.generation != pending.expected_generation {
+            return Err(format!(
+                "stale_case_generation: expected={} actual={}",
+                pending.expected_generation, state.generation
+            ));
+        }
+        let grant_state = state
+            .grants
+            .iter()
+            .find(|grant| grant.grant_id == prepared_snapshot.grant_id)
+            .ok_or_else(|| "prepare_without_grant".to_string())?;
+        if grant_state.status != GrantLifecycle::Issued {
+            return Err("prepare_requires_issued_grant".to_string());
+        }
+        let authority_time =
+            self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let floor = self.authority_time_floor_txn(&txn)?;
+        let status =
+            self.materialize_case_policy_at_txn(&txn, &pending.case_id, authority_time, floor)?;
+        let invalidation = if let Some(cancellation) = &state.cancellation {
+            Some((
+                GrantInvalidationDisposition::Abandoned,
+                "case_cancelled_before_prepare".to_string(),
+                cancellation.transition_id.clone(),
+            ))
+        } else if grant_state.expires_at_unix_ms != 0
+            && authority_time >= grant_state.expires_at_unix_ms
+        {
+            Some((
+                GrantInvalidationDisposition::Expired,
+                "execution_grant_expired_before_prepare".to_string(),
+                prepared_snapshot.grant_id.clone(),
+            ))
+        } else if status.validity != PolicyValidityPosture::Valid {
+            let disposition = if status.validity == PolicyValidityPosture::Revoked {
+                GrantInvalidationDisposition::Revoked
+            } else {
+                GrantInvalidationDisposition::Expired
+            };
+            let source = status
+                .binding_validity
+                .values()
+                .find_map(|binding| binding.revoke_event_id.clone())
+                .unwrap_or_else(|| prepared_snapshot.grant_id.clone());
+            Some((
+                disposition,
+                format!("policy_invalid_before_prepare:{:?}", status.validity),
+                source,
+            ))
+        } else {
+            None
+        };
+        if let Some((disposition, reason, source_ref)) = invalidation {
+            let mut invalidation_pending = PendingTransition::new(
+                format!(
+                    "transition:grant-invalidated:{}:{}",
+                    prepared_snapshot.grant_id,
+                    state.generation + 1
+                ),
+                &pending.case_id,
+                state.generation,
+                TransitionSource::component("yai.temporal_governance"),
+                TransitionPayload::ExecutionGrantInvalidated {
+                    invalidation: ExecutionGrantInvalidation {
+                        grant_id: prepared_snapshot.grant_id.clone(),
+                        disposition,
+                        reason,
+                        source_ref: source_ref.clone(),
+                        invalidated_at_unix_ms: authority_time,
+                    },
+                },
+            );
+            invalidation_pending.causal_refs = vec![prepared_snapshot.grant_id.clone(), source_ref];
+            let commit = self.commit_transition_txn(&mut txn, invalidation_pending, false)?;
+            txn.commit()
+                .map_err(|error| format!("failed to commit Grant invalidation: {error}"))?;
+            return Ok(PreparedCommitOutcome::GrantInvalidated(commit));
+        }
+
+        let binding = self
+            .local_process_binding_txn(
+                &txn,
+                &pending.case_id,
+                &prepared_snapshot.resource_attachment_id,
+            )?
+            .ok_or_else(|| "fenced_prepare_local_process_binding_missing".to_string())?;
+        if binding.process.canonical_identity()
+            != prepared_snapshot
+                .expected_pre_observation
+                .process_identity
+                .canonical_identity()
+        {
+            return Err("fenced_prepare_process_birth_identity_mismatch".to_string());
+        }
+        let identity = ResourceIdentity::process(tenant_id, &binding.process)?;
+        self.reject_active_resource_conflict_txn(&txn, &identity)?;
+        let prior = self.resource_control_state_txn(&txn, &identity.resource_id)?;
+        let next_epoch = match prior.as_ref() {
+            Some(current) => current
+                .resource_epoch
+                .checked_add(1)
+                .ok_or_else(|| "resource_epoch_exhausted".to_string())?,
+            None => 1,
+        };
+        let next_sequence = match prior.as_ref() {
+            Some(current) => current
+                .event_sequence
+                .checked_add(1)
+                .ok_or_else(|| "resource_event_sequence_exhausted".to_string())?,
+            None => 1,
+        };
+        let owner_process_identity = LocalProcessIdentity::capture(owner_pid)?.canonical_identity();
+        let fence = ResourceFence::issue(
+            &identity,
+            next_epoch,
+            &prepared_snapshot.case_id,
+            &prepared_snapshot.operation_id,
+            &prepared_snapshot.grant_id,
+            &prepared_snapshot.effect_id,
+            owner_pid,
+            &owner_process_identity,
+            authority_time,
+        )?;
+        let event = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &fence,
+            next_sequence,
+            authority_time,
+        )?;
+        let control = ResourceControlState {
+            schema: RESOURCE_CONTROL_STATE_SCHEMA.to_string(),
+            identity,
+            resource_epoch: next_epoch,
+            event_sequence: next_sequence,
+            active_lease: Some(ActiveResourceLease {
+                fence: fence.clone(),
+            }),
+        };
+        control.validate()?;
+        let TransitionPayload::ProcessEffectPrepared { prepared } = &mut pending.payload else {
+            unreachable!()
+        };
+        prepared.resource_fence = Some(fence.clone());
+        pending.causal_refs.push(fence.fence_id.clone());
+        let commit = self.commit_transition_txn_at_with_fence(
+            &mut txn,
+            pending,
+            false,
+            None,
+            None,
+            Some(&fence),
+        )?;
+        self.put_resource_control_event_txn(&mut txn, &event)?;
+        self.put_resource_control_state_txn(&mut txn, &control)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit fenced process PREPARE: {error}"))?;
+        Ok(PreparedCommitOutcome::Prepared(commit))
+    }
+
+    /// Commits a terminal Case effect and releases the exact current resource
+    /// fence in the same LMDB transaction. Indeterminate effects are not
+    /// terminal and deliberately have no release path here.
+    pub fn commit_fenced_effect_terminal(
+        &self,
+        pending: PendingTransition,
+        fence: &ResourceFence,
+    ) -> Result<CanonicalCommit, String> {
+        fence.validate_integrity()?;
+        let terminal_effect = match &pending.payload {
+            TransitionPayload::EffectFinalized { effect_id, .. } => effect_id,
+            TransitionPayload::ProcessEffectFinalized { effect_id, .. } => effect_id,
+            TransitionPayload::EffectReconciled {
+                effect_id,
+                conclusion:
+                    crate::effect::ReconciliationConclusion::EffectObserved
+                    | crate::effect::ReconciliationConclusion::NoEffectObserved,
+                ..
+            } => effect_id,
+            _ => return Err("resource_release_requires_terminal_effect_transition".to_string()),
+        };
+        if terminal_effect != &fence.effect_id || pending.case_id != fence.case_id {
+            return Err("resource_release_effect_or_case_mismatch".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start fenced terminal transaction: {error}"))?;
+        self.validate_carrier_fence_txn(&txn, fence, false)?;
+        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        let mut state = self
+            .resource_control_state_txn(&txn, &fence.resource_id)?
+            .ok_or_else(|| "resource_control_state_missing_at_release".to_string())?;
+        state.event_sequence = state
+            .event_sequence
+            .checked_add(1)
+            .ok_or_else(|| "resource_event_sequence_exhausted".to_string())?;
+        let released_at =
+            self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let event = ResourceControlEvent::build(
+            ResourceControlAction::Released,
+            fence,
+            state.event_sequence,
+            released_at,
+        )?;
+        state.active_lease = None;
+        state.validate()?;
+        self.put_resource_control_event_txn(&mut txn, &event)?;
+        self.put_resource_control_state_txn(&mut txn, &state)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit terminal resource release: {error}"))?;
+        Ok(commit)
+    }
+
+    /// Reclaims the same unresolved effect after the exact former owner
+    /// process dies. The effect identity is unchanged; a new resource epoch
+    /// makes every old carrier request stale.
+    pub fn reclaim_resource_for_effect(
+        &self,
+        prior_fence: &ResourceFence,
+        new_owner_pid: u32,
+    ) -> Result<ResourceFence, String> {
+        if new_owner_pid != std::process::id() {
+            return Err("resource_reclaim_owner_must_be_current_process".to_string());
+        }
+        prior_fence.validate_integrity()?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start resource reclaim: {error}"))?;
+        let mut state = self
+            .resource_control_state_txn(&txn, &prior_fence.resource_id)?
+            .ok_or_else(|| "resource_control_state_missing_at_reclaim".to_string())?;
+        let active = state
+            .active_lease
+            .as_ref()
+            .ok_or_else(|| "resource_reclaim_requires_active_effect".to_string())?;
+        if active.fence != *prior_fence {
+            return Err("resource_reclaim_prior_fence_not_current".to_string());
+        }
+        if active.fence.effect_id != prior_fence.effect_id
+            || active.fence.case_id != prior_fence.case_id
+            || active.fence.grant_id != prior_fence.grant_id
+        {
+            return Err("resource_reclaim_may_only_continue_same_effect".to_string());
+        }
+        if resource_owner_is_live(&active.fence) {
+            return Err("live_resource_owner_cannot_be_reclaimed".to_string());
+        }
+        let owner_identity = LocalProcessIdentity::capture(new_owner_pid)?.canonical_identity();
+        state.resource_epoch = state
+            .resource_epoch
+            .checked_add(1)
+            .ok_or_else(|| "resource_epoch_exhausted".to_string())?;
+        state.event_sequence = state
+            .event_sequence
+            .checked_add(1)
+            .ok_or_else(|| "resource_event_sequence_exhausted".to_string())?;
+        let now = self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let fence = ResourceFence::issue(
+            &state.identity,
+            state.resource_epoch,
+            &prior_fence.case_id,
+            &prior_fence.operation_id,
+            &prior_fence.grant_id,
+            &prior_fence.effect_id,
+            new_owner_pid,
+            &owner_identity,
+            now,
+        )?;
+        state.active_lease = Some(ActiveResourceLease {
+            fence: fence.clone(),
+        });
+        state.validate()?;
+        let event = ResourceControlEvent::build(
+            ResourceControlAction::Reclaimed,
+            &fence,
+            state.event_sequence,
+            now,
+        )?;
+        self.put_resource_control_event_txn(&mut txn, &event)?;
+        self.put_resource_control_state_txn(&mut txn, &state)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit resource reclaim: {error}"))?;
+        Ok(fence)
+    }
+
+    pub fn get_resource_control_state(
+        &self,
+        resource_id: &str,
+    ) -> Result<Option<ResourceControlState>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to read resource control state: {error}"))?;
+        self.resource_control_state_txn(&txn, resource_id)
+    }
+
+    pub fn list_resource_control_events(
+        &self,
+        resource_id: &str,
+    ) -> Result<Vec<ResourceControlEvent>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to read resource control history: {error}"))?;
+        let mut cursor = txn
+            .open_ro_cursor(self.resource_control_events_by_id)
+            .map_err(|error| format!("failed to open resource event cursor: {error}"))?;
+        let mut events = Vec::new();
+        for (_, raw) in cursor.iter() {
+            let event: ResourceControlEvent = serde_json::from_slice(raw)
+                .map_err(|error| format!("resource_control_event_decode_failed: {error}"))?;
+            event.validate_integrity()?;
+            if event.resource_id == resource_id {
+                events.push(event);
+            }
+        }
+        events.sort_by_key(|event| event.sequence);
+        Ok(events)
     }
 
     pub fn commit_transition(&self, pending: PendingTransition) -> Result<CanonicalCommit, String> {
@@ -4574,6 +5144,43 @@ impl LmdbRecordStore {
         authority_time_unix_ms: Option<u64>,
         security_context: Option<&SecurityContext>,
     ) -> Result<CanonicalCommit, String> {
+        self.commit_transition_txn_at_with_fence(
+            txn,
+            pending,
+            inject_failure_before_commit,
+            authority_time_unix_ms,
+            security_context,
+            None,
+        )
+    }
+
+    fn commit_transition_txn_at_with_fence(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        pending: PendingTransition,
+        inject_failure_before_commit: bool,
+        authority_time_unix_ms: Option<u64>,
+        security_context: Option<&SecurityContext>,
+        resource_fence: Option<&ResourceFence>,
+    ) -> Result<CanonicalCommit, String> {
+        match (&pending.payload, resource_fence) {
+            (TransitionPayload::EffectPrepared { prepared }, Some(fence))
+                if prepared.schema == crate::effect::PREPARED_EFFECT_SCHEMA
+                    && prepared.resource_fence.as_ref() == Some(fence) => {}
+            (TransitionPayload::EffectPrepared { prepared }, None)
+                if prepared.schema != crate::effect::PREPARED_EFFECT_SCHEMA => {}
+            (TransitionPayload::ProcessEffectPrepared { prepared }, Some(fence))
+                if prepared.schema == crate::effect::PREPARED_PROCESS_EFFECT_SCHEMA
+                    && prepared.resource_fence.as_ref() == Some(fence) => {}
+            (TransitionPayload::EffectPrepared { .. }, _)
+            | (TransitionPayload::ProcessEffectPrepared { .. }, _) => {
+                return Err(
+                    "fenced_prepare_rejected_outside_resource_control_transaction".to_string(),
+                )
+            }
+            (_, Some(_)) => return Err("resource_fence_context_requires_prepare".to_string()),
+            (_, None) => {}
+        }
         let transition_key = transition_id_key(&pending.transition_id);
         match txn.get(self.transitions_by_id, &transition_key) {
             Ok(_) => {
@@ -5490,6 +6097,49 @@ impl LmdbRecordStore {
         Ok(commit)
     }
 
+    /// Atomically appends a Tenant-scoped process attachment and persists the
+    /// exact kernel process-birth binding used by the carrier. The binding is
+    /// operational resolution material; the attachment remains Case truth.
+    pub fn commit_tenant_process_attachment(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        pending: PendingTransition,
+        binding: &LocalProcessBinding,
+    ) -> Result<CanonicalCommit, String> {
+        binding.validate()?;
+        let attachment_id = match &pending.payload {
+            TransitionPayload::ResourceAttached { attachment }
+                if attachment.kind == crate::transition::ResourceKind::Process =>
+            {
+                &attachment.attachment_id
+            }
+            _ => return Err("secured_process_attachment_input_mismatch".to_string()),
+        };
+        if binding.case_id != pending.case_id || binding.attachment_id != *attachment_id {
+            return Err("secured_process_attachment_binding_mismatch".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start secured process attachment: {error}"))?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        put_json_txn(
+            &mut txn,
+            self.local_resource_bindings,
+            &local_binding_key(&binding.case_id, &binding.attachment_id),
+            binding,
+            WriteFlags::empty(),
+            "local_process_binding",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit secured process attachment: {error}"))?;
+        Ok(commit)
+    }
+
     fn put_local_filesystem_binding_inner(
         &self,
         binding: &LocalFilesystemBinding,
@@ -5539,6 +6189,13 @@ impl LmdbRecordStore {
             .map_err(|error| format!("failed to inspect resource isolation roots: {error}"))?;
         let mut existing = Vec::new();
         for (_, raw) in cursor.iter() {
+            let envelope: serde_json::Value = serde_json::from_slice(raw)
+                .map_err(|error| format!("local_binding_decode_failed: {error}"))?;
+            if envelope.get("schema").and_then(serde_json::Value::as_str)
+                != Some(LOCAL_FILESYSTEM_BINDING_SCHEMA)
+            {
+                continue;
+            }
             let value: LocalFilesystemBinding = serde_json::from_slice(raw)
                 .map_err(|error| format!("local_binding_decode_failed: {error}"))?;
             existing.push(value);
@@ -5573,11 +6230,20 @@ impl LmdbRecordStore {
         case_id: &str,
         attachment_id: &str,
     ) -> Result<Option<LocalFilesystemBinding>, String> {
-        let key = local_binding_key(case_id, attachment_id);
         let txn = self
             .env
             .begin_ro_txn()
             .map_err(|error| format!("failed to start local binding read: {error}"))?;
+        self.local_filesystem_binding_txn(&txn, case_id, attachment_id)
+    }
+
+    fn local_filesystem_binding_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        case_id: &str,
+        attachment_id: &str,
+    ) -> Result<Option<LocalFilesystemBinding>, String> {
+        let key = local_binding_key(case_id, attachment_id);
         match txn.get(self.local_resource_bindings, &key) {
             Ok(value) => {
                 let binding: LocalFilesystemBinding = serde_json::from_slice(value)
@@ -5588,6 +6254,170 @@ impl LmdbRecordStore {
             Err(Error::NotFound) => Ok(None),
             Err(error) => Err(format!("failed to read local resource binding: {error}")),
         }
+    }
+
+    pub fn get_local_process_binding(
+        &self,
+        case_id: &str,
+        attachment_id: &str,
+    ) -> Result<Option<LocalProcessBinding>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start local process binding read: {error}"))?;
+        self.local_process_binding_txn(&txn, case_id, attachment_id)
+    }
+
+    fn local_process_binding_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        case_id: &str,
+        attachment_id: &str,
+    ) -> Result<Option<LocalProcessBinding>, String> {
+        let key = local_binding_key(case_id, attachment_id);
+        match txn.get(self.local_resource_bindings, &key) {
+            Ok(value) => {
+                let binding: LocalProcessBinding = serde_json::from_slice(value)
+                    .map_err(|error| format!("local_process_binding_decode_failed: {error}"))?;
+                binding.validate()?;
+                Ok(Some(binding))
+            }
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!("failed to read local process binding: {error}")),
+        }
+    }
+
+    fn resource_control_state_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        resource_id: &str,
+    ) -> Result<Option<ResourceControlState>, String> {
+        let key = resource_control_state_key(resource_id);
+        match txn.get(self.resource_control_states_by_id, &key) {
+            Ok(raw) => {
+                let state: ResourceControlState = serde_json::from_slice(raw)
+                    .map_err(|error| format!("resource_control_state_decode_failed: {error}"))?;
+                state.validate()?;
+                Ok(Some(state))
+            }
+            Err(Error::NotFound) => Ok(None),
+            Err(error) => Err(format!("failed to read resource control state: {error}")),
+        }
+    }
+
+    fn put_resource_control_state_txn(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        state: &ResourceControlState,
+    ) -> Result<(), String> {
+        state.validate()?;
+        put_json_txn(
+            txn,
+            self.resource_control_states_by_id,
+            &resource_control_state_key(&state.identity.resource_id),
+            state,
+            WriteFlags::empty(),
+            "resource_control_state",
+        )
+    }
+
+    fn put_resource_control_event_txn(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        event: &ResourceControlEvent,
+    ) -> Result<(), String> {
+        event.validate_integrity()?;
+        put_json_txn(
+            txn,
+            self.resource_control_events_by_id,
+            &resource_control_event_key(&event.event_id),
+            event,
+            WriteFlags::NO_OVERWRITE,
+            "resource_control_event",
+        )
+    }
+
+    fn reject_active_resource_conflict_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        proposed: &ResourceIdentity,
+    ) -> Result<(), String> {
+        proposed.validate()?;
+        let mut cursor = txn
+            .open_ro_cursor(self.resource_control_states_by_id)
+            .map_err(|error| format!("failed to inspect resource controls: {error}"))?;
+        for (_, raw) in cursor.iter() {
+            let state: ResourceControlState = serde_json::from_slice(raw)
+                .map_err(|error| format!("resource_control_state_decode_failed: {error}"))?;
+            state.validate()?;
+            if state.identity.tenant_id != proposed.tenant_id
+                || state.active_lease.is_none()
+                || state.identity.resource_kind != proposed.resource_kind
+            {
+                continue;
+            }
+            let conflict = match proposed.resource_kind {
+                crate::resource_control::ControlledResourceKind::Filesystem => !matches!(
+                    filesystem_relation(
+                        &proposed.canonical_identity,
+                        &state.identity.canonical_identity,
+                    ),
+                    FilesystemRelation::Disjoint
+                ),
+                crate::resource_control::ControlledResourceKind::Process => {
+                    proposed.canonical_identity == state.identity.canonical_identity
+                }
+            };
+            if conflict {
+                let active = state.active_lease.expect("checked active lease");
+                return Err(format!(
+                    "resource_temporarily_owned: resource_id={} epoch={} case_id={} effect_id={}",
+                    state.identity.resource_id,
+                    state.resource_epoch,
+                    active.fence.case_id,
+                    active.fence.effect_id
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_carrier_fence_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        fence: &ResourceFence,
+        require_live_owner: bool,
+    ) -> Result<(), String> {
+        fence.validate_integrity()?;
+        let state = self
+            .resource_control_state_txn(txn, &fence.resource_id)?
+            .ok_or_else(|| "carrier_resource_control_state_missing".to_string())?;
+        let current = state
+            .active_lease
+            .as_ref()
+            .ok_or_else(|| "carrier_resource_not_owned".to_string())?;
+        if current.fence != *fence
+            || state.resource_epoch != fence.resource_epoch
+            || state.identity.tenant_id != fence.tenant_id
+            || state.identity.resource_kind != fence.resource_kind
+        {
+            return Err(format!(
+                "stale_resource_fence: requested_epoch={} current_epoch={}",
+                fence.resource_epoch, state.resource_epoch
+            ));
+        }
+        if require_live_owner {
+            let current = LocalProcessIdentity::capture(std::process::id())?;
+            if fence.owner_pid != current.pid
+                || fence.owner_process_identity != current.canonical_identity()
+            {
+                return Err("resource_fence_owner_process_mismatch".to_string());
+            }
+            if !resource_owner_is_live(fence) {
+                return Err("resource_fence_owner_process_not_live".to_string());
+            }
+        }
+        Ok(())
     }
 
     pub fn replay_case_state(&self, case_id: &str) -> Result<CaseState, String> {
@@ -6052,6 +6882,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V8,
                 TRANSITION_SCHEMA_V7,
                 TRANSITION_SCHEMA_V6,
                 TRANSITION_SCHEMA_V5,
@@ -6067,6 +6898,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                CASE_STATE_SCHEMA_V8,
                 CASE_STATE_SCHEMA_V7,
                 CASE_STATE_SCHEMA_V6,
                 CASE_STATE_SCHEMA_V5,
@@ -7111,6 +7943,38 @@ fn derive_graph_relations_from_transition(
                 .map(|value| value.receipt_id.as_str())
                 .unwrap_or(&transition.transition_id),
             "prepared_effect",
+            effect_id,
+        ),
+        TransitionPayload::ProcessEffectPrepared { prepared } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "prepared_process_effect_consumes_grant",
+            "prepared_process_effect",
+            &prepared.effect_id,
+            "execution_grant",
+            &prepared.grant_id,
+        ),
+        TransitionPayload::ProcessEffectFinalized {
+            effect_id, receipt, ..
+        } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "process_effect_receipt_closes_prepared_effect",
+            "process_effect_receipt",
+            &receipt.receipt_id,
+            "prepared_process_effect",
+            effect_id,
+        ),
+        TransitionPayload::ProcessEffectIndeterminate { effect_id, .. } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "indeterminate_transition_tracks_process_effect",
+            "transition",
+            &transition.transition_id,
+            "prepared_process_effect",
             effect_id,
         ),
         TransitionPayload::ReviewRequested { review } => {
@@ -8283,6 +9147,19 @@ fn local_binding_key(case_id: &str, attachment_id: &str) -> String {
     )
 }
 
+fn resource_control_state_key(resource_id: &str) -> String {
+    format!("resource-control:state:{resource_id}")
+}
+
+fn resource_control_event_key(event_id: &str) -> String {
+    format!("resource-control:event:{event_id}")
+}
+
+fn resource_owner_is_live(fence: &ResourceFence) -> bool {
+    LocalProcessIdentity::capture(fence.owner_pid)
+        .is_ok_and(|identity| identity.canonical_identity() == fence.owner_process_identity)
+}
+
 fn json_string_field(content: &str, key: &str) -> Option<String> {
     let marker = format!("\"{key}\":\"");
     let start = content.find(&marker)? + marker.len();
@@ -8444,6 +9321,16 @@ fn closure_blockers(state: &CaseState) -> Vec<String> {
     blockers
 }
 
+impl ResourceFenceAuthority for LmdbRecordStore {
+    fn validate_carrier_fence(&self, fence: &ResourceFence) -> Result<(), String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to validate carrier fence: {error}"))?;
+        self.validate_carrier_fence_txn(&txn, fence, true)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -8453,12 +9340,15 @@ mod tests {
     };
     use crate::context::{RenderedInputMetadata, SemanticContextArtifact, RENDERED_INPUT_SCHEMA};
     use crate::effect::{
-        build_effect_receipt, build_filesystem_review_request, classify_reconciliation,
-        decide_filesystem_write, execute_filesystem_write, issue_execution_grant,
-        issue_policy_execution_grant, normalize_filesystem_write_candidate, observe_filesystem,
-        prepare_effect, reseal_policy_execution_grant_for_test, resolve_filesystem_review_decision,
-        validate_finalized_effect_chain, CarrierFailpoint, CarrierResult, EffectOutcome,
-        LocalFilesystemBinding, NormalizationContext, ReconciliationConclusion,
+        build_effect_receipt, build_filesystem_review_request, build_process_effect_receipt,
+        classify_reconciliation, decide_filesystem_write, execute_fenced_filesystem_write,
+        execute_fenced_process_signal, execute_filesystem_write, issue_execution_grant,
+        issue_policy_execution_grant, normalize_filesystem_write_candidate,
+        normalize_process_signal_candidate, observe_filesystem, observe_process, prepare_effect,
+        prepare_fenced_effect, prepare_process_effect, reseal_policy_execution_grant_for_test,
+        resolve_filesystem_review_decision, validate_finalized_effect_chain, CarrierFailpoint,
+        CarrierResult, EffectOutcome, LocalFilesystemBinding, LocalProcessBinding,
+        NormalizationContext, ProcessSignalAction, ReconciliationConclusion,
     };
     use crate::governance::{
         compile_policy_source, scope_policy_compilation, PolicyLifecycleState,
@@ -9828,6 +10718,7 @@ mod tests {
             policy_id: "policy:workspace".to_string(),
             policy_owner_participant_id: operator.to_string(),
             review_requirement: crate::transition::ReviewRequirement::Automatic,
+            process_signal_actions: Vec::new(),
         };
         commit_typed(
             &store,
@@ -10782,6 +11673,7 @@ mod tests {
             policy_id: "policy:review".to_string(),
             policy_owner_participant_id: reviewer.to_string(),
             review_requirement: ReviewRequirement::RequireReview,
+            process_signal_actions: Vec::new(),
         };
         commit_typed(
             &store,
@@ -11090,6 +11982,7 @@ mod tests {
             policy_id: "policy:legacy-inert".to_string(),
             policy_owner_participant_id: reviewer.to_string(),
             review_requirement: ReviewRequirement::Automatic,
+            process_signal_actions: Vec::new(),
         };
         commit_typed(
             store,
@@ -12308,6 +13201,7 @@ mod tests {
             policy_id: "policy:legacy-inert".to_string(),
             policy_owner_participant_id: reviewer.to_string(),
             review_requirement: ReviewRequirement::Automatic,
+            process_signal_actions: Vec::new(),
         };
         commit_typed(
             &store,
@@ -13586,6 +14480,7 @@ mod tests {
             policy_id: "compatibility:inert".to_string(),
             policy_owner_participant_id: "compatibility:inert".to_string(),
             review_requirement: ReviewRequirement::Automatic,
+            process_signal_actions: Vec::new(),
         };
         let principal_a = owner_a.projected_principal_id();
         let principal_b = owner_b.projected_principal_id();
@@ -13748,6 +14643,7 @@ mod tests {
             policy_id: "compatibility-only".to_string(),
             policy_owner_participant_id: "participant:model".to_string(),
             review_requirement: ReviewRequirement::Automatic,
+            process_signal_actions: Vec::new(),
         };
         let mut pending = secured_pending(
             &format!("transition:runtime-resource:{suffix}"),
@@ -14386,5 +15282,783 @@ mod tests {
         assert!(max_heartbeat_ms < 5_000);
         drop(store);
         fs::remove_dir_all(path).expect("remove heartbeat store");
+    }
+
+    struct Wave14FilesystemAuthority {
+        resource: ResourceAttachmentState,
+        operation: Operation,
+        decision: Decision,
+        grant: crate::effect::ExecutionGrant,
+        prepared_intent: crate::effect::PreparedEffect,
+    }
+
+    fn setup_wave14_filesystem_authority(
+        store: &LmdbRecordStore,
+        owner: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        case_id: &str,
+        suffix: &str,
+        root: &Path,
+        content: &str,
+    ) -> Wave14FilesystemAuthority {
+        let principal_id = owner.projected_principal_id();
+        store
+            .create_tenant_case(owner, tenant_id, case_id)
+            .expect("create Wave14 Case");
+        let participant = store
+            .commit_secured_transition(
+                owner,
+                tenant_id,
+                secured_pending(
+                    &format!("transition:w14:{suffix}:participant"),
+                    case_id,
+                    1,
+                    &principal_id,
+                    TransitionPayload::ParticipantBound {
+                        participant_id: "participant:model".to_string(),
+                        role: "operation-proposer".to_string(),
+                    },
+                ),
+                true,
+            )
+            .expect("bind Wave14 proposer");
+        let resource = ResourceAttachmentState {
+            attachment_id: "resource:shared".to_string(),
+            kind: ResourceKind::Filesystem,
+            allowed_write_prefix: "allowed".to_string(),
+            max_write_bytes: 4096,
+            policy_id: format!("policy:w14:{suffix}"),
+            policy_owner_participant_id: "participant:model".to_string(),
+            review_requirement: ReviewRequirement::Automatic,
+            process_signal_actions: Vec::new(),
+        };
+        let mut attachment = secured_pending(
+            &format!("transition:w14:{suffix}:resource"),
+            case_id,
+            participant.state.generation,
+            &principal_id,
+            TransitionPayload::ResourceAttached {
+                attachment: resource.clone(),
+            },
+        );
+        attachment.causal_refs = vec!["participant:model".to_string()];
+        store
+            .commit_tenant_resource_attachment(
+                owner,
+                tenant_id,
+                attachment,
+                &LocalFilesystemBinding::new(case_id, "resource:shared", root).unwrap(),
+            )
+            .expect("attach shared filesystem root");
+        let source = serde_json::to_vec(&serde_json::json!({
+            "schema": POLICY_SOURCE_INPUT_SCHEMA,
+            "policy_key": format!("wave14.shared.{suffix}"),
+            "source_version": "1",
+            "owner_ref": "organization:wave14",
+            "source_origin": {
+                "source_system": "wave14-test",
+                "source_uri": format!("test://wave14/{suffix}")
+            },
+            "validity": {"mode":"unbounded"},
+            "rules": [
+                {"kind":"operation_restriction","rule_id":"allow","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","reason":"Wave14 test allow"},
+                {"kind":"authority_requirement","rule_id":"proposer","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_role":"operation-proposer","reason":"Wave14 proposer"},
+                {"kind":"evidence_obligation","rule_id":"source","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"source_provenance","reason":"Wave14 canonical source"},
+                {"kind":"evidence_obligation","rule_id":"pre","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"pre_observation","reason":"Wave14 pre observation"},
+                {"kind":"evidence_obligation","rule_id":"post","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"post_observation","reason":"Wave14 post observation"}
+            ]
+        }))
+        .unwrap();
+        let global = compile_policy_source(&source).expect("compile Wave14 policy");
+        let scoped = scope_policy_compilation(&global, tenant_id, "organization:wave14")
+            .expect("scope Wave14 policy");
+        store
+            .ingest_tenant_policy_compilation(owner, tenant_id, &scoped)
+            .unwrap();
+        store
+            .validate_tenant_policy_artifact(owner, &scoped.artifact.artifact_id, "Wave14")
+            .unwrap();
+        store
+            .publish_tenant_policy_artifact(owner, &scoped.artifact.artifact_id, "Wave14")
+            .unwrap();
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        store
+            .bind_tenant_case_policy(
+                owner,
+                case_id,
+                &scoped.artifact.artifact_id,
+                state.generation,
+                "Wave14 exact binding",
+            )
+            .unwrap();
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        store
+            .commit_secured_transition(
+                owner,
+                tenant_id,
+                secured_pending(
+                    &format!("transition:w14:{suffix}:provider"),
+                    case_id,
+                    state.generation,
+                    &principal_id,
+                    TransitionPayload::ProviderAttached {
+                        participant_id: "participant:model".to_string(),
+                        provider_id: "provider:test".to_string(),
+                        provider_kind: "openai_compatible".to_string(),
+                        base_url: "http://127.0.0.1:1".to_string(),
+                        model_id: "model:test".to_string(),
+                        credential_ref: "env:TEST".to_string(),
+                    },
+                ),
+                true,
+            )
+            .unwrap();
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let lineage = test_provider_lineage(state.generation);
+        let invocation_id = format!("invocation:w14:{suffix}");
+        let result_id = format!("provider-result:w14:{suffix}");
+        commit_typed(
+            store,
+            &format!("transition:w14:{suffix}:invocation"),
+            case_id,
+            state.generation,
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: invocation_id.clone(),
+                participant_id: "participant:model".to_string(),
+                provider_id: "provider:test".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:test".to_string(),
+                semantic_lineage: Some(lineage.clone()),
+            },
+            None,
+            vec![],
+        );
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        commit_typed(
+            store,
+            &format!("transition:w14:{suffix}:result"),
+            case_id,
+            state.generation,
+            TransitionPayload::ProviderResultRecorded {
+                result_id: result_id.clone(),
+                invocation_id: invocation_id.clone(),
+                provider_id: "provider:test".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:test".to_string(),
+                semantic_lineage: Some(lineage),
+                output: "Wave14 candidate".to_string(),
+            },
+            None,
+            vec![invocation_id.clone()],
+        );
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let raw = format!(
+            "{{\"schema\":\"yai.operation_proposal.filesystem_write.v1\",\"operation\":\"filesystem.write\",\"resource\":\"resource:shared\",\"path\":\"allowed/shared.txt\",\"content\":{}}}",
+            serde_json::to_string(content).unwrap()
+        );
+        let operation = normalize_filesystem_write_candidate(
+            &raw,
+            &NormalizationContext {
+                case_id,
+                participant_id: "participant:model",
+                provider_result_id: &result_id,
+                provider_invocation_id: &invocation_id,
+                case_generation: state.generation,
+                resource: &resource,
+            },
+        )
+        .unwrap();
+        let operation_commit = commit_typed(
+            store,
+            &format!("transition:w14:{suffix}:operation"),
+            case_id,
+            state.generation,
+            TransitionPayload::OperationRecorded {
+                operation: operation.clone(),
+            },
+            Some(operation.scope.clone()),
+            operation.origin.causal_refs(),
+        );
+        let (decision, decision_commit) = store
+            .derive_and_commit_policy_decision(case_id, &operation.operation_id)
+            .expect("derive Wave14 Decision");
+        assert_eq!(decision.outcome, crate::effect::DecisionOutcome::Allow);
+        assert_eq!(
+            decision.decided_at_case_generation,
+            operation_commit.state.generation
+        );
+        let grant =
+            issue_policy_execution_grant(&operation, &decision, decision_commit.state.generation)
+                .unwrap();
+        let basis = decision.decision_basis.as_ref().unwrap();
+        let grant_commit = commit_typed(
+            store,
+            &format!("transition:w14:{suffix}:grant"),
+            case_id,
+            decision_commit.state.generation,
+            TransitionPayload::ExecutionGrantIssued {
+                grant: grant.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                decision.decision_id.clone(),
+                basis.basis_id.clone(),
+                basis.effective_policy_id.clone(),
+            ],
+        );
+        let binding = store
+            .get_local_filesystem_binding(case_id, "resource:shared")
+            .unwrap()
+            .unwrap();
+        let pre = observe_filesystem(
+            &binding,
+            &resource,
+            "allowed/shared.txt",
+            format!("observation:w14:{suffix}:pre"),
+        );
+        let prepared_intent = prepare_fenced_effect(&operation, &decision, &grant, pre).unwrap();
+        assert_eq!(
+            grant_commit.state.generation,
+            grant.expected_case_generation + 1
+        );
+        Wave14FilesystemAuthority {
+            resource,
+            operation,
+            decision,
+            grant,
+            prepared_intent,
+        }
+    }
+
+    fn wave14_prepare_pending(
+        store: &LmdbRecordStore,
+        suffix: &str,
+        chain: &Wave14FilesystemAuthority,
+    ) -> PendingTransition {
+        let generation = store
+            .get_case_state(&chain.operation.case_id)
+            .unwrap()
+            .unwrap()
+            .generation;
+        let mut pending = PendingTransition::new(
+            format!("transition:w14:{suffix}:prepare"),
+            &chain.operation.case_id,
+            generation,
+            TransitionSource::component("wave14-test"),
+            TransitionPayload::EffectPrepared {
+                prepared: chain.prepared_intent.clone(),
+            },
+        );
+        pending.causal_refs = vec![
+            chain.operation.operation_id.clone(),
+            chain.decision.decision_id.clone(),
+            chain.grant.grant_id.clone(),
+            chain
+                .prepared_intent
+                .expected_pre_observation
+                .observation_id
+                .clone(),
+        ];
+        pending
+    }
+
+    #[test]
+    fn wave14_shared_resource_epoch_blocks_competitor_and_stale_carrier() {
+        let path = temp_store_path("wave14-shared-resource");
+        let root = temp_store_path("wave14-shared-root");
+        fs::create_dir_all(root.join("allowed")).unwrap();
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(14001);
+        store
+            .bootstrap_local_security(&owner, "tenant:wave14", "organization:wave14", 1_400_001)
+            .unwrap();
+        let first = setup_wave14_filesystem_authority(
+            &store,
+            &owner,
+            "tenant:wave14",
+            "case:wave14-a",
+            "a",
+            &root,
+            "epoch-one",
+        );
+        let mut second = setup_wave14_filesystem_authority(
+            &store,
+            &owner,
+            "tenant:wave14",
+            "case:wave14-b",
+            "b",
+            &root,
+            "epoch-two",
+        );
+        let first_commit = match store
+            .commit_fenced_effect_prepared(
+                wave14_prepare_pending(&store, "a", &first),
+                std::process::id(),
+            )
+            .unwrap()
+        {
+            PreparedCommitOutcome::Prepared(commit) => commit,
+            PreparedCommitOutcome::GrantInvalidated(_) => panic!("first Grant invalidated"),
+        };
+        let first_prepared = match first_commit.transition.payload {
+            TransitionPayload::EffectPrepared { prepared } => prepared,
+            _ => unreachable!(),
+        };
+        let fence_one = first_prepared.resource_fence.clone().unwrap();
+        assert_eq!(fence_one.resource_epoch, 1);
+        assert_eq!(
+            store
+                .reclaim_resource_for_effect(&fence_one, std::process::id())
+                .expect_err("live exact owner cannot be reclaimed"),
+            "live_resource_owner_cannot_be_reclaimed"
+        );
+        let blocked = store
+            .commit_fenced_effect_prepared(
+                wave14_prepare_pending(&store, "b", &second),
+                std::process::id(),
+            )
+            .expect_err("second Case cannot PREPARE active shared resource");
+        assert!(blocked.contains("resource_temporarily_owned"));
+        assert!(store
+            .get_case_state("case:wave14-b")
+            .unwrap()
+            .unwrap()
+            .effects
+            .is_empty());
+        let first_binding = store
+            .get_local_filesystem_binding("case:wave14-a", "resource:shared")
+            .unwrap()
+            .unwrap();
+        let first_result = execute_fenced_filesystem_write(
+            &store,
+            &fence_one,
+            &first.operation,
+            &first.decision,
+            &first.grant,
+            &first_prepared,
+            &first_commit.state,
+            &first_binding,
+            &first.resource,
+            CarrierFailpoint::None,
+        )
+        .unwrap();
+        let first_receipt = build_effect_receipt(&first_prepared, &first_result);
+        let mut first_final = PendingTransition::new(
+            "transition:w14:a:final",
+            "case:wave14-a",
+            first_commit.state.generation,
+            TransitionSource::component("wave14-test"),
+            TransitionPayload::EffectFinalized {
+                effect_id: first_prepared.effect_id.clone(),
+                post_observation: first_result.post_observation.clone(),
+                receipt: first_receipt.clone(),
+            },
+        );
+        first_final.causal_refs = vec![first_prepared.effect_id.clone(), first_receipt.receipt_id];
+        store
+            .commit_fenced_effect_terminal(first_final, &fence_one)
+            .unwrap();
+        let second_binding = store
+            .get_local_filesystem_binding("case:wave14-b", "resource:shared")
+            .unwrap()
+            .unwrap();
+        let second_pre = observe_filesystem(
+            &second_binding,
+            &second.resource,
+            "allowed/shared.txt",
+            "observation:w14:b:pre-after-release",
+        );
+        second.prepared_intent = prepare_fenced_effect(
+            &second.operation,
+            &second.decision,
+            &second.grant,
+            second_pre,
+        )
+        .unwrap();
+        let second_commit = match store
+            .commit_fenced_effect_prepared(
+                wave14_prepare_pending(&store, "b", &second),
+                std::process::id(),
+            )
+            .unwrap()
+        {
+            PreparedCommitOutcome::Prepared(commit) => commit,
+            PreparedCommitOutcome::GrantInvalidated(_) => panic!("second Grant invalidated"),
+        };
+        let second_prepared = match second_commit.transition.payload {
+            TransitionPayload::EffectPrepared { prepared } => prepared,
+            _ => unreachable!(),
+        };
+        let fence_two = second_prepared.resource_fence.clone().unwrap();
+        assert_eq!(fence_two.resource_epoch, 2);
+        let stale = execute_fenced_filesystem_write(
+            &store,
+            &fence_one,
+            &first.operation,
+            &first.decision,
+            &first.grant,
+            &first_prepared,
+            &first_commit.state,
+            &first_binding,
+            &first.resource,
+            CarrierFailpoint::None,
+        )
+        .expect_err("epoch one carrier must be stale after epoch two acquisition");
+        assert!(stale.contains("stale_resource_fence"));
+        assert_eq!(
+            fs::read_to_string(root.join("allowed/shared.txt")).unwrap(),
+            "epoch-one"
+        );
+        let second_result = execute_fenced_filesystem_write(
+            &store,
+            &fence_two,
+            &second.operation,
+            &second.decision,
+            &second.grant,
+            &second_prepared,
+            &second_commit.state,
+            &second_binding,
+            &second.resource,
+            CarrierFailpoint::None,
+        )
+        .unwrap();
+        let second_receipt = build_effect_receipt(&second_prepared, &second_result);
+        let mut second_final = PendingTransition::new(
+            "transition:w14:b:final",
+            "case:wave14-b",
+            second_commit.state.generation,
+            TransitionSource::component("wave14-test"),
+            TransitionPayload::EffectFinalized {
+                effect_id: second_prepared.effect_id.clone(),
+                post_observation: second_result.post_observation.clone(),
+                receipt: second_receipt.clone(),
+            },
+        );
+        second_final.causal_refs =
+            vec![second_prepared.effect_id.clone(), second_receipt.receipt_id];
+        store
+            .commit_fenced_effect_terminal(second_final, &fence_two)
+            .unwrap();
+        assert_eq!(
+            fs::read_to_string(root.join("allowed/shared.txt")).unwrap(),
+            "epoch-two"
+        );
+        assert!(store
+            .get_resource_control_state(&fence_two.resource_id)
+            .unwrap()
+            .unwrap()
+            .active_lease
+            .is_none());
+        assert_eq!(
+            store
+                .list_resource_control_events(&fence_two.resource_id)
+                .unwrap()
+                .len(),
+            4
+        );
+        assert!(store.verify_case_state("case:wave14-a").unwrap());
+        assert!(store.verify_case_state("case:wave14-b").unwrap());
+        println!(
+            "wave14_fencing: resource={} epoch1={} blocked={} epoch2={} stale={} final=epoch-two history_events=4",
+            fence_two.resource_id,
+            fence_one.resource_epoch,
+            blocked,
+            fence_two.resource_epoch,
+            stale
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn wave14_process_signal_uses_same_authority_spine_and_exact_birth_fence() {
+        let path = temp_store_path("wave14-process-carrier");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(14002);
+        let tenant_id = "tenant:wave14-process";
+        let case_id = "case:wave14-process";
+        store
+            .bootstrap_local_security(&owner, tenant_id, "organization:wave14", 1_400_002)
+            .unwrap();
+        let mut child = std::process::Command::new("sh")
+            .arg("-c")
+            .arg("while :; do sleep 1; done")
+            .spawn()
+            .expect("spawn test-owned process fixture");
+        let pid = child.id();
+        let principal_id = owner.projected_principal_id();
+        store
+            .create_tenant_case(&owner, tenant_id, case_id)
+            .unwrap();
+        let participant = store
+            .commit_secured_transition(
+                &owner,
+                tenant_id,
+                secured_pending(
+                    "transition:w14:process:participant",
+                    case_id,
+                    1,
+                    &principal_id,
+                    TransitionPayload::ParticipantBound {
+                        participant_id: "participant:model".to_string(),
+                        role: "operation-proposer".to_string(),
+                    },
+                ),
+                true,
+            )
+            .unwrap();
+        let attachment = ResourceAttachmentState {
+            attachment_id: "resource:process-fixture".to_string(),
+            kind: ResourceKind::Process,
+            allowed_write_prefix: String::new(),
+            max_write_bytes: 0,
+            policy_id: "policy:process-signal".to_string(),
+            policy_owner_participant_id: "participant:model".to_string(),
+            review_requirement: ReviewRequirement::Automatic,
+            process_signal_actions: vec![ProcessSignalAction::Suspend],
+        };
+        let binding = LocalProcessBinding::capture(case_id, &attachment.attachment_id, pid)
+            .expect("capture exact process birth");
+        let mut attach = secured_pending(
+            "transition:w14:process:resource",
+            case_id,
+            participant.state.generation,
+            &principal_id,
+            TransitionPayload::ResourceAttached {
+                attachment: attachment.clone(),
+            },
+        );
+        attach.causal_refs = vec!["participant:model".to_string()];
+        store
+            .commit_tenant_process_attachment(&owner, tenant_id, attach, &binding)
+            .unwrap();
+        let source = serde_json::to_vec(&serde_json::json!({
+            "schema": POLICY_SOURCE_INPUT_SCHEMA,
+            "policy_key": "wave14.process.signal",
+            "source_version": "1",
+            "owner_ref": "organization:wave14",
+            "source_origin": {"source_system":"wave14-test","source_uri":"test://wave14/process"},
+            "validity": {"mode":"unbounded"},
+            "rules": [
+                {"kind":"operation_restriction","rule_id":"allow","operation_kind":"process.signal","resource_kind":"process","effect":"allow","reason":"test-owned process action"},
+                {"kind":"authority_requirement","rule_id":"proposer","operation_kind":"process.signal","resource_kind":"process","subject":"proposer","required_role":"operation-proposer","reason":"explicit Case role"},
+                {"kind":"evidence_obligation","rule_id":"source","operation_kind":"process.signal","resource_kind":"process","obligation":"source_provenance","reason":"canonical model source"},
+                {"kind":"evidence_obligation","rule_id":"pre","operation_kind":"process.signal","resource_kind":"process","obligation":"pre_observation","reason":"exact birth pre observation"},
+                {"kind":"evidence_obligation","rule_id":"post","operation_kind":"process.signal","resource_kind":"process","obligation":"post_observation","reason":"truthful kernel result"}
+            ]
+        }))
+        .unwrap();
+        let global = compile_policy_source(&source).unwrap();
+        let scoped = scope_policy_compilation(&global, tenant_id, "organization:wave14").unwrap();
+        store
+            .ingest_tenant_policy_compilation(&owner, tenant_id, &scoped)
+            .unwrap();
+        store
+            .validate_tenant_policy_artifact(&owner, &scoped.artifact.artifact_id, "Wave14")
+            .unwrap();
+        store
+            .publish_tenant_policy_artifact(&owner, &scoped.artifact.artifact_id, "Wave14")
+            .unwrap();
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        store
+            .bind_tenant_case_policy(
+                &owner,
+                case_id,
+                &scoped.artifact.artifact_id,
+                state.generation,
+                "bind process authority",
+            )
+            .unwrap();
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        store
+            .commit_secured_transition(
+                &owner,
+                tenant_id,
+                secured_pending(
+                    "transition:w14:process:provider",
+                    case_id,
+                    state.generation,
+                    &principal_id,
+                    TransitionPayload::ProviderAttached {
+                        participant_id: "participant:model".to_string(),
+                        provider_id: "provider:test".to_string(),
+                        provider_kind: "openai_compatible".to_string(),
+                        base_url: "http://127.0.0.1:1".to_string(),
+                        model_id: "model:test".to_string(),
+                        credential_ref: "env:TEST".to_string(),
+                    },
+                ),
+                true,
+            )
+            .unwrap();
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let lineage = test_provider_lineage(state.generation);
+        commit_typed(
+            &store,
+            "transition:w14:process:invocation",
+            case_id,
+            state.generation,
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: "invocation:w14:process".to_string(),
+                participant_id: "participant:model".to_string(),
+                provider_id: "provider:test".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:test".to_string(),
+                semantic_lineage: Some(lineage.clone()),
+            },
+            None,
+            vec![],
+        );
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        commit_typed(
+            &store,
+            "transition:w14:process:result",
+            case_id,
+            state.generation,
+            TransitionPayload::ProviderResultRecorded {
+                result_id: "provider-result:w14:process".to_string(),
+                invocation_id: "invocation:w14:process".to_string(),
+                provider_id: "provider:test".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:test".to_string(),
+                semantic_lineage: Some(lineage),
+                output: "process proposal".to_string(),
+            },
+            None,
+            vec!["invocation:w14:process".to_string()],
+        );
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let operation = normalize_process_signal_candidate(
+            r#"{"schema":"yai.operation_proposal.process_signal.v1","operation":"process.signal","resource":"resource:process-fixture","action":"suspend"}"#,
+            &NormalizationContext {
+                case_id,
+                participant_id: "participant:model",
+                provider_result_id: "provider-result:w14:process",
+                provider_invocation_id: "invocation:w14:process",
+                case_generation: state.generation,
+                resource: &attachment,
+            },
+            &binding.process,
+        )
+        .unwrap();
+        commit_typed(
+            &store,
+            "transition:w14:process:operation",
+            case_id,
+            state.generation,
+            TransitionPayload::OperationRecorded {
+                operation: operation.clone(),
+            },
+            Some(operation.scope.clone()),
+            operation.origin.causal_refs(),
+        );
+        let (decision, decision_commit) = store
+            .derive_and_commit_policy_decision(case_id, &operation.operation_id)
+            .unwrap();
+        assert_eq!(decision.outcome, crate::effect::DecisionOutcome::Allow);
+        let grant =
+            issue_policy_execution_grant(&operation, &decision, decision_commit.state.generation)
+                .unwrap();
+        let basis = decision.decision_basis.as_ref().unwrap();
+        let grant_commit = commit_typed(
+            &store,
+            "transition:w14:process:grant",
+            case_id,
+            decision_commit.state.generation,
+            TransitionPayload::ExecutionGrantIssued {
+                grant: grant.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                decision.decision_id.clone(),
+                basis.basis_id.clone(),
+                basis.effective_policy_id.clone(),
+            ],
+        );
+        let pre = observe_process(&binding, "observation:w14:process:pre");
+        let prepared_intent = prepare_process_effect(&operation, &decision, &grant, pre).unwrap();
+        let mut prepare = PendingTransition::new(
+            "transition:w14:process:prepare",
+            case_id,
+            grant_commit.state.generation,
+            TransitionSource::component("wave14-test"),
+            TransitionPayload::ProcessEffectPrepared {
+                prepared: prepared_intent.clone(),
+            },
+        );
+        prepare.causal_refs = vec![
+            operation.operation_id.clone(),
+            decision.decision_id.clone(),
+            grant.grant_id.clone(),
+            prepared_intent
+                .expected_pre_observation
+                .observation_id
+                .clone(),
+        ];
+        let prepare_commit = match store
+            .commit_fenced_process_effect_prepared(prepare, std::process::id())
+            .unwrap()
+        {
+            PreparedCommitOutcome::Prepared(commit) => commit,
+            PreparedCommitOutcome::GrantInvalidated(_) => panic!("process Grant invalidated"),
+        };
+        let prepared = match prepare_commit.transition.payload {
+            TransitionPayload::ProcessEffectPrepared { prepared } => prepared,
+            _ => unreachable!(),
+        };
+        let fence = prepared.resource_fence.clone().unwrap();
+        let result = execute_fenced_process_signal(
+            &store,
+            &fence,
+            &operation,
+            &decision,
+            &grant,
+            &prepared,
+            &prepare_commit.state,
+            &binding,
+        )
+        .unwrap();
+        assert!(result.signal_attempted);
+        assert!(result.syscall_accepted);
+        let receipt = build_process_effect_receipt(&prepared, &result);
+        let mut final_transition = PendingTransition::new(
+            "transition:w14:process:final",
+            case_id,
+            prepare_commit.state.generation,
+            TransitionSource::component("wave14-test"),
+            TransitionPayload::ProcessEffectFinalized {
+                effect_id: prepared.effect_id.clone(),
+                observation: result.post_observation.clone(),
+                receipt: receipt.clone(),
+            },
+        );
+        final_transition.causal_refs = vec![prepared.effect_id.clone(), receipt.receipt_id.clone()];
+        store
+            .commit_fenced_effect_terminal(final_transition, &fence)
+            .unwrap();
+        assert!(store.verify_case_state(case_id).unwrap());
+        println!(
+            "wave14_process_carrier: fixture_pid={} boot_id={} start_ticks={} operation={} decision={} grant={} resource={} epoch={} fence={} signal={} syscall_accepted={} observed_state={:?} receipt={} finalized=true",
+            binding.process.pid,
+            binding.process.boot_id,
+            binding.process.start_ticks,
+            operation.operation_id,
+            decision.decision_id,
+            grant.grant_id,
+            fence.resource_id,
+            fence.resource_epoch,
+            fence.fence_id,
+            result.kernel_signal,
+            result.syscall_accepted,
+            result.post_observation.state,
+            receipt.receipt_id
+        );
+        child.kill().ok();
+        child.wait().ok();
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
     }
 }

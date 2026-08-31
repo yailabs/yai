@@ -1,0 +1,7 @@
+question	answer	evidence
+same physical resource referenced by multiple Cases	yes	same-Tenant filesystem attachments and product/runtime paths
+independent processes may attempt it	yes	direct run and RuntimeInstance use shared LMDB but separate scheduling views
+one Case ledger serializes another	no	Case Transition generation is Case-local
+epoch survives Case/runtime death	yes	resource state is Case-independent LMDB state
+carrier needs one current writer	yes	stale writer test rejects epoch 1 after epoch 2
+owner verdict	earned	one cohesive resource_control owner

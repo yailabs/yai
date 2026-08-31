@@ -1,0 +1,7 @@
+stage	contract
+attachment	owner-authenticated;exact test-owned process birth;PID > 1;not current YAI process
+proposal	model supplies attachment ID plus finite semantic action;never raw authoritative PID/signal integer
+admission	process.signal/process uses the same policy evaluator and roles/review
+PREPARE	Grant plus resource epoch/fence atomically committed
+carrier	birth identity and fence rechecked immediately before kill(2)
+receipt	syscall_accepted and observed state recorded separately;exit never inferred

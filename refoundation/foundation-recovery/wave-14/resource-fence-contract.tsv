@@ -1,0 +1,7 @@
+field	meaning	carrier check
+resource_id;tenant_id;resource_kind	exact security-scoped physical identity	exact current state
+resource_epoch	logical writer generation	exact equality
+case_id;operation_id;grant_id;effect_id	authority chain	exact active lease
+owner_pid;owner_process_identity	current local writer	exact current process birth
+integrity_digest	field tamper evidence	recomputed before state lookup
+fence_id	stable reference	not bearer authority

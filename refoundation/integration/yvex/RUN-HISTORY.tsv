@@ -1,0 +1,2 @@
+run_id	observed_at	yai_sha	yvex_sha	branch	dirty	endpoint	model	exit	state	finding_ids
+yvex-probe-20260831-01	2026-08-31T20:33:45+02:00	7b2312a4675b8c0750f3530c4f142df690fc0ab5+wave14-working-tree	2df3b84cc840dfca8b38f6fc387a833169b5598e	main	clean	http://127.0.0.1:8001/v1	none	3	blocked_external_dependency	YVEX-W14-001

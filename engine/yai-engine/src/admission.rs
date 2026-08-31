@@ -15,8 +15,8 @@ use crate::effect::{
 };
 use crate::governance::{AuthoritySubject, EvidenceObligationKind, PolicyEffect};
 use crate::transition::{
-    CaseState, ResourceAttachmentState, ReviewAction, ReviewActionKind, ReviewResolution,
-    ReviewState, Transition, TransitionPayload, REVIEW_REQUEST_SCHEMA,
+    CaseState, ResourceAttachmentState, ResourceKind, ReviewAction, ReviewActionKind,
+    ReviewResolution, ReviewState, Transition, TransitionPayload, REVIEW_REQUEST_SCHEMA,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -257,6 +257,24 @@ pub(crate) fn evaluate_filesystem_admission(
     evidence: &CanonicalEvidenceResolution,
     temporal: &AuthorityTemporalContext,
 ) -> Result<Decision, String> {
+    evaluate_operation_admission(
+        operation,
+        state,
+        resource,
+        effective_policy,
+        evidence,
+        temporal,
+    )
+}
+
+pub(crate) fn evaluate_operation_admission(
+    operation: &Operation,
+    state: &CaseState,
+    resource: &ResourceAttachmentState,
+    effective_policy: &EffectivePolicy,
+    evidence: &CanonicalEvidenceResolution,
+    temporal: &AuthorityTemporalContext,
+) -> Result<Decision, String> {
     operation.validate()?;
     temporal.validate_for_new_authority()?;
     if state.case_id != operation.case_id
@@ -268,23 +286,42 @@ pub(crate) fn evaluate_filesystem_admission(
         return Err("admission_case_operation_input_mismatch".to_string());
     }
 
+    let expected_operation_kind = operation_kind_name(&operation.kind);
+    let expected_resource_kind = operation_resource_kind_name(&operation.kind);
     let selector_matches = |operation_kind: &str, resource_kind: &Option<String>| {
-        operation_kind == "filesystem.write"
+        operation_kind == expected_operation_kind
             && resource_kind
                 .as_deref()
-                .is_none_or(|kind| kind == "filesystem")
+                .is_none_or(|kind| kind == expected_resource_kind)
     };
-    let mechanical_posture = if resource.attachment_id != operation.resource_attachment_id {
-        MechanicalPosture::AttachmentMismatch
-    } else if !path_within_prefix(
-        &resource.allowed_write_prefix,
-        &operation.filesystem_write.relative_path,
-    ) {
-        MechanicalPosture::TargetOutsideAttachment
-    } else if operation.filesystem_write.content_bytes > resource.max_write_bytes {
-        MechanicalPosture::PayloadExceedsAttachment
-    } else {
-        MechanicalPosture::Satisfied
+    let mechanical_posture = match operation.kind {
+        OperationKind::FilesystemWrite => {
+            if resource.kind != ResourceKind::Filesystem {
+                MechanicalPosture::AttachmentMismatch
+            } else if !path_within_prefix(
+                &resource.allowed_write_prefix,
+                &operation.filesystem_write.relative_path,
+            ) {
+                MechanicalPosture::TargetOutsideAttachment
+            } else if operation.filesystem_write.content_bytes > resource.max_write_bytes {
+                MechanicalPosture::PayloadExceedsAttachment
+            } else {
+                MechanicalPosture::Satisfied
+            }
+        }
+        OperationKind::ProcessSignal => {
+            let action = operation
+                .process_signal
+                .as_ref()
+                .map(|payload| &payload.action);
+            if resource.kind != ResourceKind::Process
+                || action.is_none_or(|action| !resource.process_signal_actions.contains(action))
+            {
+                MechanicalPosture::AttachmentMismatch
+            } else {
+                MechanicalPosture::Satisfied
+            }
+        }
     };
 
     let mut allow = false;
@@ -490,7 +527,7 @@ pub(crate) fn evaluate_filesystem_admission(
         operation_kind: operation_kind_name(&operation.kind).to_string(),
         proposer_participant_id: operation.participant_id.clone(),
         resource_attachment_id: resource.attachment_id.clone(),
-        resource_kind: "filesystem".to_string(),
+        resource_kind: expected_resource_kind.to_string(),
         effective_policy_id: effective_policy.effective_policy_id.clone(),
         effective_policy_digest: effective_policy.semantic_digest.clone(),
         materializer_version: effective_policy.materializer_version.clone(),
@@ -541,7 +578,7 @@ pub(crate) fn resolve_policy_review_decision(
     {
         return Err("review_policy_basis_stale_or_ineligible".to_string());
     }
-    let mut decision = evaluate_filesystem_admission(
+    let mut decision = evaluate_operation_admission(
         operation,
         state,
         resource,
@@ -618,7 +655,7 @@ pub fn build_policy_review_request(
         policy_artifact_refs: basis.policy_artifact_refs.clone(),
         required_reviewer_roles: reviewer_roles,
         resource_attachment_id: operation.resource_attachment_id.clone(),
-        normalized_target: operation.filesystem_write.relative_path.clone(),
+        normalized_target: operation.normalized_target()?,
         created_at_generation: current_case_generation,
         latest_action_id: None,
         effective_decision_id: None,
@@ -1077,6 +1114,14 @@ fn sorted_unique(mut values: Vec<String>) -> Vec<String> {
 fn operation_kind_name(kind: &OperationKind) -> &'static str {
     match kind {
         OperationKind::FilesystemWrite => "filesystem.write",
+        OperationKind::ProcessSignal => "process.signal",
+    }
+}
+
+fn operation_resource_kind_name(kind: &OperationKind) -> &'static str {
+    match kind {
+        OperationKind::FilesystemWrite => "filesystem",
+        OperationKind::ProcessSignal => "process",
     }
 }
 
@@ -1107,6 +1152,7 @@ mod tests {
             policy_id: "compatibility-only-policy".to_string(),
             policy_owner_participant_id: "participant:legacy-owner".to_string(),
             review_requirement: ReviewRequirement::RequireReview,
+            process_signal_actions: Vec::new(),
         }
     }
 
@@ -1457,6 +1503,7 @@ mod tests {
             resource_attachment_id: operation.resource_attachment_id.clone(),
             relative_path: operation.filesystem_write.relative_path.clone(),
             intended_content_digest: operation.filesystem_write.content_digest.clone(),
+            kind: OperationKind::FilesystemWrite,
             origin: operation.origin.clone(),
             recorded_at_generation: state.generation,
         });

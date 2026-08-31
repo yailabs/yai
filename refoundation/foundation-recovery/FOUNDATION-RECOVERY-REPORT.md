@@ -253,3 +253,50 @@ runtime. Runtime state remains noncanonical:
 Case Transitions/CaseState and the existing security/governance histories own
 truth. Canonical resource leases, epochs/fencing, cross-process exclusion and
 a second real carrier remain Wave 14.
+
+## Wave-14 verdict
+
+Wave 14 directly re-inspected the executable legacy process-map/watch,
+host-mediated carrier and controlled-action epochs. Legacy YAI did perform
+finite real SIGTERM/SIGSTOP/SIGCONT syscalls against observed process
+attachments and kept the model separate from carrier execution. It did not
+have a canonical shared-resource generation, a carrier-resolved fence or
+stale-writer exclusion. The refounded design is deliberately stronger while
+rejecting Supervisor ownership, root Case, ambient OPERATOR/arming and
+deny-means-kill.
+
+One new Case-independent semantic owner is earned: Tenant-bound
+`ResourceControlState v1` plus append-only `ResourceControlEvent v1` history.
+It resolves canonical filesystem roots or exact Linux process-birth identities,
+advances a monotonic resource epoch and exposes at most one active exact fence.
+Grant/current policy/time validation, conflict resolution, epoch acquisition,
+fence sealing and Case PREPARE commit in one LMDB transaction. Terminal Case
+truth and resource release also commit together; Indeterminate truth retains
+ownership. Reclaim is limited to the same unresolved effect after exact owner
+death and advances the epoch, so a late carrier at the prior epoch fails before
+physical mutation.
+
+`process.signal` is the second physical carrier. It admits only finite typed
+terminate/suspend/resume operations against a canonical attachment and uses
+the same Operation/Decision/review/Grant/PREPARE chain as filesystem writes.
+Kernel syscall acceptance is recorded separately from observed process state.
+Unknown signal-delivery outcomes are not blindly retried: an indeterminate
+process effect remains fenced and parked.
+
+Real product qualification used an independent direct YAI process and a
+RuntimeInstance worker against one shared root. The direct path committed
+epoch 1; the worker's independent ALLOW chain failed PREPARE with
+`resource_temporarily_owned`; physical mutations remained zero until the same
+unresolved effect reclaimed and reconciled. Focused stale-fence evidence then
+advanced to epoch 2 and rejected the old carrier request.
+
+Shared resource authority, local carrier fencing, filesystem carrier fencing,
+the Linux process-signal carrier and local YAI-mediated cross-process exclusion
+are `refounded_proven`, subject to the adversarial/high-contention H14 delta.
+This does not fence arbitrary non-YAI writers or provide distributed fencing.
+
+The permanent generic-provider/YVEX qualification loop is now repository
+policy and has a first-class external harness. The exact read-only YVEX checkout
+was clean at `2df3b84cc840dfca8b38f6fc387a833169b5598e`, but exposed no live server or
+installed model. YVEX external compatibility therefore remains
+`blocked_external_dependency`; no live pass or YVEX-side defect is claimed.

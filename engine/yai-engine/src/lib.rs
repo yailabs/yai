@@ -27,6 +27,7 @@ pub mod query;
 pub mod reconcile;
 pub mod record;
 pub mod residency;
+pub mod resource_control;
 pub mod security;
 pub mod store;
 pub mod transition;

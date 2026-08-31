@@ -1,0 +1,6 @@
+property	legacy	Wave14
+target identity	PID/session mapping	canonical attachment with PID+boot_id+start_ticks
+action	finite signal mapping	terminate/suspend/resume semantic enum
+authority	Supervisor/arming-era topology	same DecisionBasis/review/Grant spine
+fencing	none	PREPARE epoch and carrier current-state validation
+truth	kernel result/evidence	kernel acceptance separated from observed process state

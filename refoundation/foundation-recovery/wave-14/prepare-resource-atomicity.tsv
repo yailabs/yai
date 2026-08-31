@@ -1,0 +1,5 @@
+boundary	transactional invariant	failure result
+before transaction	no PREPARE;no lease	unchanged
+Grant/policy/time validation	canonical revalidation	invalid Grant produces typed invalidation or error
+acquire+PREPARE	one LMDB RW commit	both visible or neither
+FINALIZE+release	one LMDB RW commit	terminal truth and release converge together

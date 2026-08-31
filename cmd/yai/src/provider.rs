@@ -1992,6 +1992,7 @@ fn compile_semantic_invocation(
     request.max_interaction_turns = 64;
     let resource_refs = match &output_contract {
         InvocationOutputContract::FilesystemWriteProposal { attachment_id, .. }
+        | InvocationOutputContract::ProcessSignalProposal { attachment_id, .. }
         | InvocationOutputContract::CaseRuntimeTurn { attachment_id, .. } => {
             vec![attachment_id.clone()]
         }
@@ -2088,6 +2089,7 @@ fn compile_semantic_invocation(
         structured_output_supported: matches!(
             &output_contract,
             InvocationOutputContract::FilesystemWriteProposal { .. }
+                | InvocationOutputContract::ProcessSignalProposal { .. }
                 | InvocationOutputContract::CaseRuntimeTurn { .. }
         ),
         continuation_supported: session.provider.continuation_supported,

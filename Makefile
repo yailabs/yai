@@ -19,7 +19,7 @@
 .PHONY: smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33
 .PHONY: smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40
 .PHONY: smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47
-.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance smoke-tenant-security smoke-multi-case-runtime smoke-multi-case-runtime-hardening endurance-agentless-case-runtime characterization smoke check clean
+.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance smoke-tenant-security smoke-multi-case-runtime smoke-multi-case-runtime-hardening smoke-shared-resource-fencing smoke-second-carrier qualification-yvex-provider endurance-agentless-case-runtime characterization smoke check clean
 
 CC ?= cc
 AR ?= ar
@@ -171,6 +171,9 @@ CHARACTERIZATION_TEMPORAL_GOVERNANCE := tests/characterization/temporal-governan
 CHARACTERIZATION_TENANT_SECURITY := tests/characterization/tenant-security/test_tenant_security.sh
 CHARACTERIZATION_MULTI_CASE_RUNTIME := tests/characterization/multi-case-runtime/test_multi_case_runtime.sh
 CHARACTERIZATION_MULTI_CASE_RUNTIME_HARDENING := tests/characterization/multi-case-runtime-hardening/test_terminal_ack_reproduction.sh
+CHARACTERIZATION_SHARED_RESOURCE_FENCING := tests/characterization/shared-resource-fencing/test_shared_resource_fencing.sh
+CHARACTERIZATION_SECOND_CARRIER := tests/characterization/second-carrier/test_second_carrier.sh
+QUALIFICATION_YVEX_PROVIDER := tests/integration/yvex/qualification_yvex_provider.sh
 
 info:
 	@printf "yai: admitted operational-state transition system with one controlled filesystem vertical\n"
@@ -597,6 +600,15 @@ smoke-multi-case-runtime: $(YAID) build-rust
 
 smoke-multi-case-runtime-hardening: $(YAID) build-rust
 	@$(CHARACTERIZATION_MULTI_CASE_RUNTIME_HARDENING)
+
+smoke-shared-resource-fencing: build-rust
+	@$(CHARACTERIZATION_SHARED_RESOURCE_FENCING)
+
+smoke-second-carrier: build-rust
+	@$(CHARACTERIZATION_SECOND_CARRIER)
+
+qualification-yvex-provider: build-rust
+	@$(QUALIFICATION_YVEX_PROVIDER)
 
 endurance-agentless-case-runtime: smoke-agentless-case-runtime
 

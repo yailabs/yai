@@ -73,7 +73,7 @@ mean constitutional, general, or production-ready.
 
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
-| Case-bound provider prompt | admitted participant + typed CaseState/history → qualified `yai.operational_memory.v1` retrieval → `yai.residency_plan.v1` → `yai.projection.v4` → `yai.context_frame.v4` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | HTTP is local/plain and non-streaming; ranking/residency are typed and deterministic; no learned compression or authoritative tokenizer |
+| Case-bound provider prompt | admitted participant + typed CaseState/history → qualified `yai.operational_memory.v1` retrieval → `yai.residency_plan.v1` → `yai.projection.v5` → `yai.context_frame.v5` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | HTTP is local/plain and non-streaming; ranking/residency are typed and deterministic; no learned compression or authoritative tokenizer |
 | Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | one synchronous single-host `filesystem.write` loop; no multi-Case scheduler, quotas, backpressure or distributed lease |
 | Controlled filesystem effect | Tenant-scoped attachment + Ready/Valid EffectivePolicy → real HTTP ProviderResult → exact Operation → DecisionBasis/Decision/finite ExecutionGrant → durable PREPARE → Rust atomic replacement → Observation/Receipt → FINALIZE/RECONCILE | only `filesystem.write`; exact/overlapping roots are rejected across Tenants, but hostile namespace fencing and a second carrier are absent |
 | Human-reviewed filesystem effect | policy-driven `REQUIRE_REVIEW` → v2 request → per-command POSIX Principal authentication → Tenant membership → explicit Principal/Participant link → Case-role eligibility → ReviewAction v2 → effective Decision → same Grant/carrier path | local POSIX identity only; no SSO, remote signer or membership removal lifecycle |
@@ -430,8 +430,8 @@ one Tenant context and never combines catalogs or Case-derived reads.
 boundary from typed CaseState, ordered canonical Transitions and an optional
 qualified RetrievalSet to an immutable candidate Projection. The pure
 [`residency.rs`](../engine/yai-engine/src/residency.rs) planner applies a
-`yai.residency_plan.v1` budget before the compiler emits `yai.projection.v4`
-and one task/output-contract-specific `yai.context_frame.v4`. Projection identity binds
+`yai.residency_plan.v1` budget before the compiler emits `yai.projection.v5`
+and one task/output-contract-specific `yai.context_frame.v5`. Projection identity binds
 Case generation, participant/purpose/admitted view, ordered typed entries,
 provenance and bounded omission state. Provider availability, rendering,
 tokenization, KV state and opaque continuation identity do not participate.

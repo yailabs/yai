@@ -5,6 +5,9 @@
 //! execution, policy languages, carrier registries, or any C semantic mirror.
 
 use crate::admission::{DecisionBasis, ExecutionEvidenceRequirement};
+use crate::resource_control::{
+    LocalProcessIdentity, ResourceFence, ResourceFenceAuthority, PROCESS_IDENTITY_SCHEMA,
+};
 use crate::transition::{
     CaseState, ResourceAttachmentState, ReviewAction, ReviewActionKind, ReviewRequirement,
     ReviewResolution, ReviewState, Transition, TransitionPayload, TransitionScope,
@@ -14,11 +17,20 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Write as FmtWrite;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
+#[cfg(unix)]
+use std::os::raw::c_int;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(unix)]
+unsafe extern "C" {
+    fn kill(pid: c_int, sig: c_int) -> c_int;
+}
+
 pub const OPERATION_PROPOSAL_SCHEMA: &str = "yai.operation_proposal.filesystem_write.v1";
-pub const OPERATION_SCHEMA: &str = "yai.operation.v1";
+pub const PROCESS_SIGNAL_PROPOSAL_SCHEMA: &str = "yai.operation_proposal.process_signal.v1";
+pub const OPERATION_SCHEMA_V1: &str = "yai.operation.v1";
+pub const OPERATION_SCHEMA: &str = "yai.operation.v2";
 pub const DECISION_SCHEMA: &str = "yai.decision.v3";
 pub const DECISION_SCHEMA_V2: &str = "yai.decision.v2";
 pub const DECISION_SCHEMA_V1: &str = "yai.decision.v1";
@@ -26,10 +38,16 @@ pub const EXECUTION_GRANT_SCHEMA: &str = "yai.execution_grant.v3";
 pub const EXECUTION_GRANT_SCHEMA_V2: &str = "yai.execution_grant.v2";
 pub const EXECUTION_GRANT_SCHEMA_V1: &str = "yai.execution_grant.v1";
 pub const OBSERVATION_SCHEMA: &str = "yai.observation.filesystem.v1";
-pub const PREPARED_EFFECT_SCHEMA: &str = "yai.prepared_effect.v1";
+pub const PREPARED_EFFECT_SCHEMA_V1: &str = "yai.prepared_effect.v1";
+pub const PREPARED_EFFECT_SCHEMA: &str = "yai.prepared_effect.v2";
 pub const EFFECT_RECEIPT_SCHEMA: &str = "yai.effect_receipt.v1";
 pub const LOCAL_FILESYSTEM_BINDING_SCHEMA: &str = "yai.local_filesystem_binding.v1";
 pub const FILESYSTEM_CARRIER_BACKEND: &str = "rust.filesystem.atomic_replace.v1";
+pub const PROCESS_OBSERVATION_SCHEMA: &str = "yai.observation.process.v1";
+pub const PREPARED_PROCESS_EFFECT_SCHEMA: &str = "yai.prepared_process_effect.v1";
+pub const PROCESS_EFFECT_RECEIPT_SCHEMA: &str = "yai.process_effect_receipt.v1";
+pub const LOCAL_PROCESS_BINDING_SCHEMA: &str = "yai.local_process_binding.v1";
+pub const PROCESS_SIGNAL_CARRIER_BACKEND: &str = "rust.process.signal.v1";
 pub const DEFAULT_MAX_WRITE_BYTES: usize = 65_536;
 pub const MAX_EXECUTION_GRANT_LIFETIME_MS: u64 = 30_000;
 
@@ -41,6 +59,15 @@ pub struct FilesystemWriteProposal {
     pub resource: String,
     pub path: String,
     pub content: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProcessSignalProposal {
+    pub schema: String,
+    pub operation: String,
+    pub resource: String,
+    pub action: ProcessSignalAction,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -71,10 +98,12 @@ pub enum NormalizationFailureCode {
     PayloadTooLarge,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum OperationKind {
+    #[default]
     FilesystemWrite,
+    ProcessSignal,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -105,12 +134,36 @@ impl OperationOrigin {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct FilesystemWritePayload {
     pub relative_path: String,
     pub content: String,
     pub content_digest: String,
     pub content_bytes: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProcessSignalAction {
+    Terminate,
+    Suspend,
+    Resume,
+}
+
+impl ProcessSignalAction {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Terminate => "terminate",
+            Self::Suspend => "suspend",
+            Self::Resume => "resume",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ProcessSignalPayload {
+    pub action: ProcessSignalAction,
+    pub target_identity_digest: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -124,6 +177,8 @@ pub struct Operation {
     pub kind: OperationKind,
     pub resource_attachment_id: String,
     pub filesystem_write: FilesystemWritePayload,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process_signal: Option<ProcessSignalPayload>,
     pub origin: OperationOrigin,
     pub expected_case_generation: u64,
 }
@@ -137,6 +192,19 @@ struct OperationDigestMaterial<'a> {
     kind: &'a OperationKind,
     resource_attachment_id: &'a str,
     filesystem_write: &'a FilesystemWritePayload,
+    origin: &'a OperationOrigin,
+    expected_case_generation: u64,
+}
+
+#[derive(Serialize)]
+struct OperationDigestMaterialV2<'a> {
+    schema: &'a str,
+    case_id: &'a str,
+    participant_id: &'a str,
+    scope: &'a TransitionScope,
+    kind: &'a OperationKind,
+    resource_attachment_id: &'a str,
+    process_signal: &'a ProcessSignalPayload,
     origin: &'a OperationOrigin,
     expected_case_generation: u64,
 }
@@ -200,6 +268,7 @@ struct DecisionDigestMaterialV2<'a> {
 #[serde(rename_all = "snake_case")]
 pub enum GrantedEffect {
     FilesystemWrite,
+    ProcessSignal,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -360,6 +429,8 @@ pub struct PreparedEffect {
     pub intended_content_digest: String,
     pub idempotency_key: String,
     pub carrier_backend: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_fence: Option<ResourceFence>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -407,6 +478,184 @@ pub struct LocalFilesystemBinding {
     pub case_id: String,
     pub attachment_id: String,
     pub canonical_root: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct LocalProcessBinding {
+    pub schema: String,
+    pub case_id: String,
+    pub attachment_id: String,
+    pub process: LocalProcessIdentity,
+}
+
+impl LocalProcessBinding {
+    pub fn capture(
+        case_id: impl Into<String>,
+        attachment_id: impl Into<String>,
+        pid: u32,
+    ) -> Result<Self, String> {
+        let binding = Self {
+            schema: LOCAL_PROCESS_BINDING_SCHEMA.to_string(),
+            case_id: case_id.into(),
+            attachment_id: attachment_id.into(),
+            process: LocalProcessIdentity::capture(pid)?,
+        };
+        binding.validate()?;
+        Ok(binding)
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.schema != LOCAL_PROCESS_BINDING_SCHEMA
+            || self.case_id.is_empty()
+            || self.attachment_id.is_empty()
+            || self.process.schema != PROCESS_IDENTITY_SCHEMA
+        {
+            return Err("invalid_local_process_binding".to_string());
+        }
+        self.process.validate()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProcessObservedState {
+    Running,
+    Sleeping,
+    Stopped,
+    Zombie,
+    Exited,
+    Other,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ProcessObservation {
+    pub schema: String,
+    pub observation_id: String,
+    pub resource_attachment_id: String,
+    pub process_identity: LocalProcessIdentity,
+    pub state: ProcessObservedState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    pub observed_at_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct PreparedProcessEffect {
+    pub schema: String,
+    pub effect_id: String,
+    pub operation_id: String,
+    pub decision_id: String,
+    pub grant_id: String,
+    pub case_id: String,
+    pub participant_id: String,
+    pub resource_attachment_id: String,
+    pub action: ProcessSignalAction,
+    pub expected_pre_observation: ProcessObservation,
+    pub target_identity_digest: String,
+    pub idempotency_key: String,
+    pub carrier_backend: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_fence: Option<ResourceFence>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ProcessEffectReceipt {
+    pub schema: String,
+    pub receipt_id: String,
+    pub effect_id: String,
+    pub operation_id: String,
+    pub decision_id: String,
+    pub grant_id: String,
+    pub resource_attachment_id: String,
+    pub action: ProcessSignalAction,
+    pub pre_observation_id: String,
+    pub post_observation_id: String,
+    pub kernel_signal: i32,
+    pub syscall_accepted: bool,
+    pub observed_state: ProcessObservedState,
+    pub outcome: EffectOutcome,
+    pub carrier_backend: String,
+    pub completed_at_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProcessCarrierResult {
+    pub outcome: EffectOutcome,
+    pub post_observation: ProcessObservation,
+    pub kernel_signal: i32,
+    pub signal_attempted: bool,
+    pub syscall_accepted: bool,
+    pub detail: String,
+}
+
+impl ProcessObservation {
+    pub fn validate(&self) -> Result<(), String> {
+        self.process_identity.validate()?;
+        if self.schema != PROCESS_OBSERVATION_SCHEMA
+            || self.observation_id.is_empty()
+            || self.resource_attachment_id.is_empty()
+            || self.observed_at_unix_ms == 0
+            || (self.state == ProcessObservedState::Unavailable && self.error.is_none())
+        {
+            return Err("invalid_process_observation".to_string());
+        }
+        Ok(())
+    }
+}
+
+impl PreparedProcessEffect {
+    pub fn validate(&self) -> Result<(), String> {
+        self.expected_pre_observation.validate()?;
+        let fence = self
+            .resource_fence
+            .as_ref()
+            .ok_or_else(|| "prepared_process_effect_resource_fence_required".to_string())?;
+        fence.validate_integrity()?;
+        if self.schema != PREPARED_PROCESS_EFFECT_SCHEMA
+            || self.effect_id.is_empty()
+            || self.operation_id.is_empty()
+            || self.decision_id.is_empty()
+            || self.grant_id.is_empty()
+            || self.case_id.is_empty()
+            || self.participant_id.is_empty()
+            || self.resource_attachment_id.is_empty()
+            || self.target_identity_digest.is_empty()
+            || self.idempotency_key.is_empty()
+            || self.carrier_backend != PROCESS_SIGNAL_CARRIER_BACKEND
+            || self.expected_pre_observation.resource_attachment_id != self.resource_attachment_id
+            || digest_bytes(
+                self.expected_pre_observation
+                    .process_identity
+                    .canonical_identity()
+                    .as_bytes(),
+            ) != self.target_identity_digest
+            || fence.case_id != self.case_id
+            || fence.operation_id != self.operation_id
+            || fence.grant_id != self.grant_id
+            || fence.effect_id != self.effect_id
+        {
+            return Err("invalid_prepared_process_effect".to_string());
+        }
+        Ok(())
+    }
+}
+
+impl ProcessEffectReceipt {
+    pub fn validate(&self, observation: &ProcessObservation) -> Result<(), String> {
+        observation.validate()?;
+        if self.schema != PROCESS_EFFECT_RECEIPT_SCHEMA
+            || self.receipt_id.is_empty()
+            || self.effect_id.is_empty()
+            || self.post_observation_id != observation.observation_id
+            || self.resource_attachment_id != observation.resource_attachment_id
+            || self.observed_state != observation.state
+            || (self.outcome == EffectOutcome::Applied && !self.syscall_accepted)
+        {
+            return Err("invalid_process_effect_receipt".to_string());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -524,7 +773,7 @@ fn build_filesystem_write_operation(
     origin: OperationOrigin,
 ) -> Operation {
     let material = OperationDigestMaterial {
-        schema: OPERATION_SCHEMA,
+        schema: OPERATION_SCHEMA_V1,
         case_id,
         participant_id,
         scope: &scope,
@@ -536,7 +785,7 @@ fn build_filesystem_write_operation(
     };
     let operation_digest = digest_serialized(&material);
     Operation {
-        schema: OPERATION_SCHEMA.to_string(),
+        schema: OPERATION_SCHEMA_V1.to_string(),
         operation_id: format!("operation:{}", digest_suffix(&operation_digest, 32)),
         operation_digest,
         case_id: case_id.to_string(),
@@ -545,9 +794,96 @@ fn build_filesystem_write_operation(
         kind: OperationKind::FilesystemWrite,
         resource_attachment_id: resource.attachment_id.clone(),
         filesystem_write,
+        process_signal: None,
         origin,
         expected_case_generation: case_generation,
     }
+}
+
+pub fn normalize_process_signal_candidate(
+    raw_provider_output: &str,
+    context: &NormalizationContext<'_>,
+    process: &LocalProcessIdentity,
+) -> Result<Operation, NormalizationFailure> {
+    let proposal: ProcessSignalProposal =
+        serde_json::from_str(raw_provider_output).map_err(|error| NormalizationFailure {
+            code: NormalizationFailureCode::MalformedJson,
+            detail: format!("provider output is not the exact process proposal object: {error}"),
+        })?;
+    if proposal.schema != PROCESS_SIGNAL_PROPOSAL_SCHEMA {
+        return Err(NormalizationFailure {
+            code: NormalizationFailureCode::UnsupportedSchema,
+            detail: format!("unsupported proposal schema: {}", proposal.schema),
+        });
+    }
+    if proposal.operation != "process.signal" {
+        return Err(NormalizationFailure {
+            code: NormalizationFailureCode::UnsupportedOperation,
+            detail: format!("unsupported operation: {}", proposal.operation),
+        });
+    }
+    if proposal.resource != context.resource.attachment_id {
+        return Err(NormalizationFailure {
+            code: NormalizationFailureCode::AttachmentMismatch,
+            detail: "process proposal does not target the attached resource".to_string(),
+        });
+    }
+    if context.resource.kind != crate::transition::ResourceKind::Process
+        || !context
+            .resource
+            .process_signal_actions
+            .contains(&proposal.action)
+    {
+        return Err(NormalizationFailure {
+            code: NormalizationFailureCode::UnsupportedOperation,
+            detail: "process signal action is not admitted by the attachment".to_string(),
+        });
+    }
+    process.validate().map_err(|detail| NormalizationFailure {
+        code: NormalizationFailureCode::AttachmentMismatch,
+        detail,
+    })?;
+    let target_identity_digest = digest_bytes(process.canonical_identity().as_bytes());
+    let payload = ProcessSignalPayload {
+        action: proposal.action,
+        target_identity_digest,
+    };
+    let scope = TransitionScope {
+        case_id: context.case_id.to_string(),
+        participant_refs: vec![context.participant_id.to_string()],
+        resource_refs: vec![context.resource.attachment_id.clone()],
+        policy_refs: vec![context.resource.policy_id.clone()],
+    };
+    let origin = OperationOrigin::ProviderResult {
+        provider_result_id: context.provider_result_id.to_string(),
+        provider_invocation_id: context.provider_invocation_id.to_string(),
+    };
+    let material = OperationDigestMaterialV2 {
+        schema: OPERATION_SCHEMA,
+        case_id: context.case_id,
+        participant_id: context.participant_id,
+        scope: &scope,
+        kind: &OperationKind::ProcessSignal,
+        resource_attachment_id: &context.resource.attachment_id,
+        process_signal: &payload,
+        origin: &origin,
+        expected_case_generation: context.case_generation,
+    };
+    let operation_digest = digest_serialized(&material);
+    Ok(Operation {
+        schema: OPERATION_SCHEMA.to_string(),
+        operation_id: format!("operation:{}", digest_suffix(&operation_digest, 32)),
+        operation_digest,
+        case_id: context.case_id.to_string(),
+        participant_id: context.participant_id.to_string(),
+        scope,
+        kind: OperationKind::ProcessSignal,
+        resource_attachment_id: context.resource.attachment_id.clone(),
+        filesystem_write: FilesystemWritePayload::default(),
+        process_signal: Some(payload),
+        origin,
+        expected_case_generation: context.case_generation,
+    })
 }
 
 pub fn decide_filesystem_write(
@@ -867,6 +1203,9 @@ pub fn issue_policy_execution_grant(
     );
     let execution_evidence_requirements = basis.execution_evidence_requirements();
     let review_action_ref = basis.review_action_ref.clone();
+    let permitted_effect = operation.granted_effect();
+    let normalized_target = operation.normalized_target()?;
+    let intended_content_digest = operation.intended_effect_digest()?;
     let issued_at_unix_ms = basis.authority_evaluated_at_unix_ms;
     let platform_expiry = issued_at_unix_ms.saturating_add(MAX_EXECUTION_GRANT_LIFETIME_MS);
     let expires_at_unix_ms = basis
@@ -892,9 +1231,9 @@ pub fn issue_policy_execution_grant(
         case_id: &operation.case_id,
         participant_id: &operation.participant_id,
         resource_attachment_id: &operation.resource_attachment_id,
-        permitted_effect: &GrantedEffect::FilesystemWrite,
-        normalized_target: &operation.filesystem_write.relative_path,
-        intended_content_digest: &operation.filesystem_write.content_digest,
+        permitted_effect: &permitted_effect,
+        normalized_target: &normalized_target,
+        intended_content_digest: &intended_content_digest,
         expected_case_generation: current_case_generation,
         idempotency_key: &idempotency_key,
         require_pre_observation: true,
@@ -916,9 +1255,9 @@ pub fn issue_policy_execution_grant(
         case_id: operation.case_id.clone(),
         participant_id: operation.participant_id.clone(),
         resource_attachment_id: operation.resource_attachment_id.clone(),
-        permitted_effect: GrantedEffect::FilesystemWrite,
-        normalized_target: operation.filesystem_write.relative_path.clone(),
-        intended_content_digest: operation.filesystem_write.content_digest.clone(),
+        permitted_effect,
+        normalized_target,
+        intended_content_digest,
         expected_case_generation: current_case_generation,
         idempotency_key,
         require_pre_observation: true,
@@ -1054,7 +1393,7 @@ pub fn prepare_effect(
     }
     let effect_id = format!("effect:{}", digest_suffix(&grant.integrity_digest, 32));
     Ok(PreparedEffect {
-        schema: PREPARED_EFFECT_SCHEMA.to_string(),
+        schema: PREPARED_EFFECT_SCHEMA_V1.to_string(),
         effect_id,
         operation_id: operation.operation_id.clone(),
         decision_id: decision.decision_id.clone(),
@@ -1067,6 +1406,66 @@ pub fn prepare_effect(
         intended_content_digest: operation.filesystem_write.content_digest.clone(),
         idempotency_key: grant.idempotency_key.clone(),
         carrier_backend: FILESYSTEM_CARRIER_BACKEND.to_string(),
+        resource_fence: None,
+    })
+}
+
+/// Builds the PREPARE intent for a Tenant-scoped effect.  It is deliberately
+/// incomplete until `LmdbRecordStore::commit_fenced_effect_prepared` issues
+/// the resource epoch and commits the fence plus Case PREPARE atomically.
+pub fn prepare_fenced_effect(
+    operation: &Operation,
+    decision: &Decision,
+    grant: &ExecutionGrant,
+    pre_observation: FilesystemObservation,
+) -> Result<PreparedEffect, String> {
+    let mut prepared = prepare_effect(operation, decision, grant, pre_observation)?;
+    prepared.schema = PREPARED_EFFECT_SCHEMA.to_string();
+    Ok(prepared)
+}
+
+pub fn prepare_process_effect(
+    operation: &Operation,
+    decision: &Decision,
+    grant: &ExecutionGrant,
+    pre_observation: ProcessObservation,
+) -> Result<PreparedProcessEffect, String> {
+    validate_grant(operation, decision, grant, grant.expected_case_generation)?;
+    let payload = operation
+        .process_signal
+        .as_ref()
+        .ok_or_else(|| "prepare_process_signal_payload_missing".to_string())?;
+    if operation.kind != OperationKind::ProcessSignal
+        || grant.permitted_effect != GrantedEffect::ProcessSignal
+        || pre_observation.resource_attachment_id != operation.resource_attachment_id
+        || pre_observation.state == ProcessObservedState::Unavailable
+    {
+        return Err("prepare_process_observation_target_mismatch".to_string());
+    }
+    let observed_digest = digest_bytes(
+        pre_observation
+            .process_identity
+            .canonical_identity()
+            .as_bytes(),
+    );
+    if observed_digest != payload.target_identity_digest {
+        return Err("prepare_process_birth_identity_mismatch".to_string());
+    }
+    Ok(PreparedProcessEffect {
+        schema: PREPARED_PROCESS_EFFECT_SCHEMA.to_string(),
+        effect_id: format!("effect:{}", digest_suffix(&grant.integrity_digest, 32)),
+        operation_id: operation.operation_id.clone(),
+        decision_id: decision.decision_id.clone(),
+        grant_id: grant.grant_id.clone(),
+        case_id: operation.case_id.clone(),
+        participant_id: operation.participant_id.clone(),
+        resource_attachment_id: operation.resource_attachment_id.clone(),
+        action: payload.action.clone(),
+        expected_pre_observation: pre_observation,
+        target_identity_digest: payload.target_identity_digest.clone(),
+        idempotency_key: grant.idempotency_key.clone(),
+        carrier_backend: PROCESS_SIGNAL_CARRIER_BACKEND.to_string(),
+        resource_fence: None,
     })
 }
 
@@ -1099,6 +1498,8 @@ pub fn validate_grant(
     if decision.outcome != DecisionOutcome::Allow {
         return Err("grant_decision_is_not_allow".to_string());
     }
+    let normalized_target = operation.normalized_target()?;
+    let intended_content_digest = operation.intended_effect_digest()?;
     if (grant.schema != EXECUTION_GRANT_SCHEMA && grant.schema != EXECUTION_GRANT_SCHEMA_V1)
         || grant.operation_id != operation.operation_id
         || grant.operation_digest != operation.operation_digest
@@ -1107,8 +1508,9 @@ pub fn validate_grant(
         || grant.case_id != operation.case_id
         || grant.participant_id != operation.participant_id
         || grant.resource_attachment_id != operation.resource_attachment_id
-        || grant.normalized_target != operation.filesystem_write.relative_path
-        || grant.intended_content_digest != operation.filesystem_write.content_digest
+        || grant.permitted_effect != operation.granted_effect()
+        || grant.normalized_target != normalized_target
+        || grant.intended_content_digest != intended_content_digest
         || grant.expected_case_generation != expected_generation
         || grant.expected_case_generation <= decision.decided_at_case_generation
         || !grant.require_pre_observation
@@ -1123,8 +1525,46 @@ pub fn validate_grant(
 }
 
 impl Operation {
+    pub fn normalized_target(&self) -> Result<String, String> {
+        match self.kind {
+            OperationKind::FilesystemWrite => Ok(self.filesystem_write.relative_path.clone()),
+            OperationKind::ProcessSignal => self
+                .process_signal
+                .as_ref()
+                .map(|payload| payload.action.as_str().to_string())
+                .ok_or_else(|| "process_signal_payload_missing".to_string()),
+        }
+    }
+
+    pub fn intended_effect_digest(&self) -> Result<String, String> {
+        match self.kind {
+            OperationKind::FilesystemWrite => Ok(self.filesystem_write.content_digest.clone()),
+            OperationKind::ProcessSignal => self
+                .process_signal
+                .as_ref()
+                .map(|payload| {
+                    digest_bytes(
+                        format!(
+                            "{}|{}",
+                            payload.action.as_str(),
+                            payload.target_identity_digest
+                        )
+                        .as_bytes(),
+                    )
+                })
+                .ok_or_else(|| "process_signal_payload_missing".to_string()),
+        }
+    }
+
+    pub fn granted_effect(&self) -> GrantedEffect {
+        match self.kind {
+            OperationKind::FilesystemWrite => GrantedEffect::FilesystemWrite,
+            OperationKind::ProcessSignal => GrantedEffect::ProcessSignal,
+        }
+    }
+
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != OPERATION_SCHEMA
+        if (self.schema != OPERATION_SCHEMA && self.schema != OPERATION_SCHEMA_V1)
             || self.case_id.is_empty()
             || self.participant_id.is_empty()
             || self.resource_attachment_id.is_empty()
@@ -1157,26 +1597,49 @@ impl Operation {
             }
             _ => {}
         }
-        if normalize_relative_path(&self.filesystem_write.relative_path)?
-            != self.filesystem_write.relative_path
-            || digest_bytes(self.filesystem_write.content.as_bytes())
-                != self.filesystem_write.content_digest
-            || self.filesystem_write.content.len() != self.filesystem_write.content_bytes
-        {
-            return Err("operation_payload_integrity_mismatch".to_string());
-        }
-        let material = OperationDigestMaterial {
-            schema: &self.schema,
-            case_id: &self.case_id,
-            participant_id: &self.participant_id,
-            scope: &self.scope,
-            kind: &self.kind,
-            resource_attachment_id: &self.resource_attachment_id,
-            filesystem_write: &self.filesystem_write,
-            origin: &self.origin,
-            expected_case_generation: self.expected_case_generation,
+        let digest = match (&*self.schema, &self.kind, &self.process_signal) {
+            (OPERATION_SCHEMA_V1, OperationKind::FilesystemWrite, None) => {
+                if normalize_relative_path(&self.filesystem_write.relative_path)?
+                    != self.filesystem_write.relative_path
+                    || digest_bytes(self.filesystem_write.content.as_bytes())
+                        != self.filesystem_write.content_digest
+                    || self.filesystem_write.content.len() != self.filesystem_write.content_bytes
+                {
+                    return Err("operation_payload_integrity_mismatch".to_string());
+                }
+                digest_serialized(&OperationDigestMaterial {
+                    schema: &self.schema,
+                    case_id: &self.case_id,
+                    participant_id: &self.participant_id,
+                    scope: &self.scope,
+                    kind: &self.kind,
+                    resource_attachment_id: &self.resource_attachment_id,
+                    filesystem_write: &self.filesystem_write,
+                    origin: &self.origin,
+                    expected_case_generation: self.expected_case_generation,
+                })
+            }
+            (OPERATION_SCHEMA, OperationKind::ProcessSignal, Some(process_signal))
+                if !process_signal.target_identity_digest.is_empty() =>
+            {
+                if self.filesystem_write != FilesystemWritePayload::default() {
+                    return Err("process_operation_contains_filesystem_payload".to_string());
+                }
+                digest_serialized(&OperationDigestMaterialV2 {
+                    schema: &self.schema,
+                    case_id: &self.case_id,
+                    participant_id: &self.participant_id,
+                    scope: &self.scope,
+                    kind: &self.kind,
+                    resource_attachment_id: &self.resource_attachment_id,
+                    process_signal,
+                    origin: &self.origin,
+                    expected_case_generation: self.expected_case_generation,
+                })
+            }
+            _ => return Err("operation_schema_kind_payload_mismatch".to_string()),
         };
-        if digest_serialized(&material) != self.operation_digest {
+        if digest != self.operation_digest {
             return Err("operation_digest_mismatch".to_string());
         }
         Ok(())
@@ -1541,9 +2004,82 @@ pub fn execute_filesystem_write(
     resource: &ResourceAttachmentState,
     failpoint: CarrierFailpoint,
 ) -> Result<CarrierResult, String> {
+    if case_state.tenant_id.is_some() {
+        return Err("tenant_effect_requires_carrier_resource_fence".to_string());
+    }
+    execute_filesystem_write_inner(
+        operation,
+        decision,
+        grant,
+        prepared,
+        case_state,
+        binding,
+        resource,
+        failpoint,
+        || Ok(()),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn execute_fenced_filesystem_write<A: ResourceFenceAuthority>(
+    authority: &A,
+    fence: &ResourceFence,
+    operation: &Operation,
+    decision: &Decision,
+    grant: &ExecutionGrant,
+    prepared: &PreparedEffect,
+    case_state: &CaseState,
+    binding: &LocalFilesystemBinding,
+    resource: &ResourceAttachmentState,
+    failpoint: CarrierFailpoint,
+) -> Result<CarrierResult, String> {
+    let prepared_fence = prepared
+        .resource_fence
+        .as_ref()
+        .ok_or_else(|| "prepared_effect_resource_fence_missing".to_string())?;
+    if prepared.schema != PREPARED_EFFECT_SCHEMA
+        || case_state.tenant_id.as_deref() != Some(fence.tenant_id.as_str())
+        || prepared_fence.resource_id != fence.resource_id
+        || prepared_fence.tenant_id != fence.tenant_id
+        || prepared_fence.case_id != fence.case_id
+        || prepared_fence.operation_id != fence.operation_id
+        || prepared_fence.grant_id != fence.grant_id
+        || prepared_fence.effect_id != fence.effect_id
+        || fence.resource_epoch < prepared_fence.resource_epoch
+    {
+        return Err("prepared_effect_resource_fence_mismatch".to_string());
+    }
+    // This call is intentionally inside the carrier boundary and immediately
+    // precedes all physical inspection/mutation below.
+    authority.validate_carrier_fence(fence)?;
+    execute_filesystem_write_inner(
+        operation,
+        decision,
+        grant,
+        prepared,
+        case_state,
+        binding,
+        resource,
+        failpoint,
+        || authority.validate_carrier_fence(fence),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_filesystem_write_inner<F: Fn() -> Result<(), String>>(
+    operation: &Operation,
+    decision: &Decision,
+    grant: &ExecutionGrant,
+    prepared: &PreparedEffect,
+    case_state: &CaseState,
+    binding: &LocalFilesystemBinding,
+    resource: &ResourceAttachmentState,
+    failpoint: CarrierFailpoint,
+    validate_immediately_before_mutation: F,
+) -> Result<CarrierResult, String> {
     validate_grant(operation, decision, grant, grant.expected_case_generation)?;
     binding.validate()?;
-    if prepared.schema != PREPARED_EFFECT_SCHEMA
+    if (prepared.schema != PREPARED_EFFECT_SCHEMA && prepared.schema != PREPARED_EFFECT_SCHEMA_V1)
         || prepared.operation_id != operation.operation_id
         || prepared.decision_id != decision.decision_id
         || prepared.grant_id != grant.grant_id
@@ -1627,6 +2163,7 @@ pub fn execute_filesystem_write(
     }
 
     let target = resolve_target(binding, resource, &prepared.relative_path)?;
+    validate_immediately_before_mutation()?;
     atomic_replace(
         &target,
         operation.filesystem_write.content.as_bytes(),
@@ -1663,6 +2200,230 @@ pub fn execute_filesystem_write(
         crash_injected_after_effect: false,
         detail: "atomic replacement completed and resource re-observed".to_string(),
     })
+}
+
+pub fn observe_process(
+    binding: &LocalProcessBinding,
+    observation_id: impl Into<String>,
+) -> ProcessObservation {
+    let observation_id = observation_id.into();
+    let pid = binding.process.pid;
+    let stat_path = format!("/proc/{pid}/stat");
+    let stat = match fs::read_to_string(&stat_path) {
+        Ok(stat) => stat,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return ProcessObservation {
+                schema: PROCESS_OBSERVATION_SCHEMA.to_string(),
+                observation_id,
+                resource_attachment_id: binding.attachment_id.clone(),
+                process_identity: binding.process.clone(),
+                state: ProcessObservedState::Exited,
+                error: None,
+                observed_at_unix_ms: unix_time_ms(),
+            }
+        }
+        Err(error) => {
+            return ProcessObservation {
+                schema: PROCESS_OBSERVATION_SCHEMA.to_string(),
+                observation_id,
+                resource_attachment_id: binding.attachment_id.clone(),
+                process_identity: binding.process.clone(),
+                state: ProcessObservedState::Unavailable,
+                error: Some(format!("process_stat_unavailable: {error}")),
+                observed_at_unix_ms: unix_time_ms(),
+            }
+        }
+    };
+    let observed_identity = match LocalProcessIdentity::capture(pid) {
+        Ok(identity) => identity,
+        Err(error) => {
+            return ProcessObservation {
+                schema: PROCESS_OBSERVATION_SCHEMA.to_string(),
+                observation_id,
+                resource_attachment_id: binding.attachment_id.clone(),
+                process_identity: binding.process.clone(),
+                state: ProcessObservedState::Unavailable,
+                error: Some(error),
+                observed_at_unix_ms: unix_time_ms(),
+            }
+        }
+    };
+    if observed_identity != binding.process {
+        return ProcessObservation {
+            schema: PROCESS_OBSERVATION_SCHEMA.to_string(),
+            observation_id,
+            resource_attachment_id: binding.attachment_id.clone(),
+            process_identity: observed_identity,
+            state: ProcessObservedState::Unavailable,
+            error: Some("process_birth_identity_mismatch".to_string()),
+            observed_at_unix_ms: unix_time_ms(),
+        };
+    }
+    let state = stat
+        .rfind(')')
+        .and_then(|end| stat[end + 1..].split_whitespace().next())
+        .and_then(|value| value.chars().next())
+        .map_or(ProcessObservedState::Other, |state| match state {
+            'R' => ProcessObservedState::Running,
+            'S' | 'D' => ProcessObservedState::Sleeping,
+            'T' | 't' => ProcessObservedState::Stopped,
+            'Z' => ProcessObservedState::Zombie,
+            _ => ProcessObservedState::Other,
+        });
+    ProcessObservation {
+        schema: PROCESS_OBSERVATION_SCHEMA.to_string(),
+        observation_id,
+        resource_attachment_id: binding.attachment_id.clone(),
+        process_identity: observed_identity,
+        state,
+        error: None,
+        observed_at_unix_ms: unix_time_ms(),
+    }
+}
+
+fn process_signal_number(action: &ProcessSignalAction) -> Result<i32, String> {
+    #[cfg(target_os = "linux")]
+    {
+        Ok(match action {
+            ProcessSignalAction::Terminate => 15,
+            ProcessSignalAction::Suspend => 19,
+            ProcessSignalAction::Resume => 18,
+        })
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = action;
+        Err("process_signal_carrier_unsupported_platform".to_string())
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn execute_fenced_process_signal<A: ResourceFenceAuthority>(
+    authority: &A,
+    fence: &ResourceFence,
+    operation: &Operation,
+    decision: &Decision,
+    grant: &ExecutionGrant,
+    prepared: &PreparedProcessEffect,
+    case_state: &CaseState,
+    binding: &LocalProcessBinding,
+) -> Result<ProcessCarrierResult, String> {
+    validate_grant(operation, decision, grant, grant.expected_case_generation)?;
+    binding.validate()?;
+    prepared.validate()?;
+    let prepared_fence = prepared
+        .resource_fence
+        .as_ref()
+        .ok_or_else(|| "prepared_process_effect_resource_fence_missing".to_string())?;
+    if case_state.tenant_id.as_deref() != Some(fence.tenant_id.as_str())
+        || prepared_fence.resource_id != fence.resource_id
+        || prepared_fence.case_id != fence.case_id
+        || prepared_fence.operation_id != fence.operation_id
+        || prepared_fence.grant_id != fence.grant_id
+        || prepared_fence.effect_id != fence.effect_id
+        || fence.resource_epoch < prepared_fence.resource_epoch
+        || binding.case_id != operation.case_id
+        || binding.attachment_id != operation.resource_attachment_id
+        || binding.process.pid == std::process::id()
+    {
+        return Err("prepared_process_effect_chain_mismatch".to_string());
+    }
+    let effect = case_state
+        .effects
+        .iter()
+        .find(|effect| effect.effect_id == prepared.effect_id)
+        .ok_or_else(|| "prepared_process_effect_not_materialized".to_string())?;
+    if effect.status != crate::transition::EffectLifecycle::Prepared
+        || effect.grant_id != grant.grant_id
+    {
+        return Err("process_grant_is_not_current_prepared_authority".to_string());
+    }
+    let current = observe_process(
+        binding,
+        format!("observation:{}:carrier-pre", prepared.effect_id),
+    );
+    if current.state == ProcessObservedState::Exited {
+        return Ok(ProcessCarrierResult {
+            outcome: EffectOutcome::NoEffect,
+            post_observation: current,
+            kernel_signal: process_signal_number(&prepared.action)?,
+            signal_attempted: false,
+            syscall_accepted: false,
+            detail: "exact attached process already exited; no signal sent".to_string(),
+        });
+    }
+    if current.state == ProcessObservedState::Unavailable
+        || current.process_identity != prepared.expected_pre_observation.process_identity
+    {
+        return Ok(ProcessCarrierResult {
+            outcome: EffectOutcome::Conflict,
+            post_observation: current,
+            kernel_signal: process_signal_number(&prepared.action)?,
+            signal_attempted: false,
+            syscall_accepted: false,
+            detail: "process birth identity no longer matches PREPARE".to_string(),
+        });
+    }
+    // Carrier-side stale-writer boundary immediately before kill(2).
+    authority.validate_carrier_fence(fence)?;
+    let signal = process_signal_number(&prepared.action)?;
+    #[cfg(unix)]
+    let accepted = unsafe { kill(binding.process.pid as c_int, signal as c_int) == 0 };
+    #[cfg(not(unix))]
+    let accepted = false;
+    let post = observe_process(binding, format!("observation:{}:post", prepared.effect_id));
+    Ok(ProcessCarrierResult {
+        outcome: if accepted {
+            EffectOutcome::Applied
+        } else {
+            EffectOutcome::FailedNoEffect
+        },
+        post_observation: post,
+        kernel_signal: signal,
+        signal_attempted: true,
+        syscall_accepted: accepted,
+        detail: if accepted {
+            "kernel accepted the exact semantic signal; observed process state is recorded separately"
+                .to_string()
+        } else {
+            "kernel rejected the signal; no high-level process outcome is claimed".to_string()
+        },
+    })
+}
+
+pub fn build_process_effect_receipt(
+    prepared: &PreparedProcessEffect,
+    result: &ProcessCarrierResult,
+) -> ProcessEffectReceipt {
+    let material = format!(
+        "{}|{}|{}|{}|{}",
+        prepared.effect_id,
+        prepared.grant_id,
+        result.post_observation.observation_id,
+        result.kernel_signal,
+        result.syscall_accepted
+    );
+    ProcessEffectReceipt {
+        schema: PROCESS_EFFECT_RECEIPT_SCHEMA.to_string(),
+        receipt_id: format!(
+            "effect-receipt:{}",
+            digest_suffix(&digest_bytes(material.as_bytes()), 32)
+        ),
+        effect_id: prepared.effect_id.clone(),
+        operation_id: prepared.operation_id.clone(),
+        decision_id: prepared.decision_id.clone(),
+        grant_id: prepared.grant_id.clone(),
+        resource_attachment_id: prepared.resource_attachment_id.clone(),
+        action: prepared.action.clone(),
+        pre_observation_id: prepared.expected_pre_observation.observation_id.clone(),
+        post_observation_id: result.post_observation.observation_id.clone(),
+        kernel_signal: result.kernel_signal,
+        syscall_accepted: result.syscall_accepted,
+        observed_state: result.post_observation.state.clone(),
+        outcome: result.outcome.clone(),
+        carrier_backend: prepared.carrier_backend.clone(),
+        completed_at_unix_ms: unix_time_ms(),
+    }
 }
 
 pub fn build_effect_receipt(prepared: &PreparedEffect, result: &CarrierResult) -> EffectReceipt {
@@ -2108,6 +2869,7 @@ mod tests {
             policy_id: "policy:workspace".to_string(),
             policy_owner_participant_id: "participant:operator".to_string(),
             review_requirement: crate::transition::ReviewRequirement::Automatic,
+            process_signal_actions: Vec::new(),
         }
     }
 
@@ -2332,6 +3094,7 @@ mod tests {
             post_observation_id: None,
             receipt_id: None,
             outcome: None,
+            kind: OperationKind::FilesystemWrite,
             status: EffectLifecycle::Prepared,
             prepared_at_generation: 11,
             updated_at_generation: 11,

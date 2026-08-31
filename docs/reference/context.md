@@ -271,7 +271,7 @@ invalidate continuation without invalidating ContextFrame.
 
 ## Current repository reality
 
-Current Rust code implements `yai.projection.v4` and `yai.context_frame.v4` in
+Current Rust code implements `yai.projection.v5` and `yai.context_frame.v5` in
 one pure compiler. Projection binds exact Case generation,
 participant/purpose/admitted view, typed entries, authority posture,
 Transition/Observation/Receipt/derived-memory provenance, deterministic bounds,
@@ -282,7 +282,7 @@ Provider claims remain labeled non-authoritative.
 ContextFrame has independent identity because a Projection can feed multiple
 tasks/output contracts. The Wave-3 `filesystem.write` proposal schema is a
 typed output contract in the frame. The OpenAI-compatible adapter produces a
-separate `yai.rendered_input.v4` identity/digest and wire body. Invocation and
+separate `yai.rendered_input.v5` identity/digest and wire body. Invocation and
 ProviderResult transitions identify their Projection, frame, Case generation,
 render, provider, model and output contract explicitly.
 

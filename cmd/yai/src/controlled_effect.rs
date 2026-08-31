@@ -10,13 +10,19 @@ use crate::security::authenticate_local;
 use yai_core_engine::admission::build_policy_review_request;
 use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
 use yai_core_engine::effect::{
-    build_effect_receipt, classify_reconciliation, execute_filesystem_write,
-    issue_policy_execution_grant, normalize_filesystem_write_candidate, normalize_write_prefix,
-    observe_filesystem, prepare_effect, validate_finalized_effect_chain, CarrierFailpoint,
-    CarrierResult, Decision, DecisionOutcome, EffectOutcome, ExecutionGrant, FilesystemObservation,
-    LocalFilesystemBinding, NormalizationContext, Operation, PreparedEffect,
-    ReconciliationConclusion, ResourceState, EXECUTION_GRANT_SCHEMA, OPERATION_PROPOSAL_SCHEMA,
+    build_effect_receipt, build_process_effect_receipt, classify_reconciliation,
+    execute_fenced_filesystem_write, execute_fenced_process_signal, execute_filesystem_write,
+    issue_policy_execution_grant, normalize_filesystem_write_candidate,
+    normalize_process_signal_candidate, normalize_write_prefix, observe_filesystem,
+    observe_process, prepare_fenced_effect, prepare_process_effect,
+    validate_finalized_effect_chain, CarrierFailpoint, CarrierResult, Decision, DecisionOutcome,
+    EffectOutcome, ExecutionGrant, FilesystemObservation, LocalFilesystemBinding,
+    LocalProcessBinding, NormalizationContext, Operation, OperationKind, PreparedEffect,
+    PreparedProcessEffect, ProcessCarrierResult, ProcessSignalAction, ReconciliationConclusion,
+    ResourceState, EXECUTION_GRANT_SCHEMA, OPERATION_PROPOSAL_SCHEMA,
+    PROCESS_SIGNAL_PROPOSAL_SCHEMA,
 };
+use yai_core_engine::resource_control::{ResourceFence, ResourceFenceAuthority};
 use yai_core_engine::store::lmdb::PreparedCommitOutcome;
 use yai_core_engine::transition::{
     CaseState, EffectLifecycle, PendingTransition, ResourceAttachmentState, ResourceKind,
@@ -57,6 +63,27 @@ fn commit_effect_transition(
     scope: Option<TransitionScope>,
     causal_refs: Vec<String>,
 ) -> Result<CaseState, String> {
+    let pending = build_effect_pending(
+        store,
+        case_id,
+        participant_id,
+        label,
+        payload,
+        scope,
+        causal_refs,
+    )?;
+    store.commit_transition(pending).map(|commit| commit.state)
+}
+
+fn build_effect_pending(
+    store: &LmdbRecordStore,
+    case_id: &str,
+    participant_id: Option<&str>,
+    label: &str,
+    payload: TransitionPayload,
+    scope: Option<TransitionScope>,
+    causal_refs: Vec<String>,
+) -> Result<PendingTransition, String> {
     let generation = store
         .get_case_state(case_id)?
         .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?
@@ -76,7 +103,7 @@ fn commit_effect_transition(
     );
     pending.scope = scope;
     pending.causal_refs = causal_refs;
-    store.commit_transition(pending).map(|commit| commit.state)
+    Ok(pending)
 }
 
 fn parse_max_bytes(args: &[String]) -> Result<usize, String> {
@@ -144,6 +171,7 @@ pub(super) fn case_attach_filesystem(args: &[String]) -> Result<(), String> {
         policy_id: policy_id.clone(),
         policy_owner_participant_id: policy_owner.clone(),
         review_requirement: review_requirement.clone(),
+        process_signal_actions: Vec::new(),
     };
     attachment.validate()?;
 
@@ -203,6 +231,132 @@ pub(super) fn case_attach_filesystem(args: &[String]) -> Result<(), String> {
     );
     println!("local_binding: configured_noncanonical");
     println!("local_root: {}", binding.canonical_root);
+    Ok(())
+}
+
+pub(super) fn case_attach_process(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let attachment_id = named_arg(args, "--attachment")?;
+    let pid = named_arg(args, "--pid")?
+        .parse::<u32>()
+        .map_err(|error| format!("invalid --pid: {error}"))?;
+    let policy_owner = named_arg(args, "--policy-owner")?;
+    let policy_id = optional_arg(args, "--policy-id")
+        .unwrap_or_else(|| format!("policy:process-signal:{attachment_id}"));
+    let review_requirement = if args.iter().any(|arg| arg == "--require-review") {
+        ReviewRequirement::RequireReview
+    } else {
+        ReviewRequirement::Automatic
+    };
+    let mut actions = optional_arg(args, "--actions")
+        .unwrap_or_else(|| "terminate".to_string())
+        .split(',')
+        .map(|value| match value.trim() {
+            "terminate" => Ok(ProcessSignalAction::Terminate),
+            "suspend" => Ok(ProcessSignalAction::Suspend),
+            "resume" => Ok(ProcessSignalAction::Resume),
+            other => Err(format!("unsupported process action: {other}")),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    actions.sort_by_key(ProcessSignalAction::as_str);
+    actions.dedup();
+    if actions.is_empty() {
+        return Err("at least one process action is required".to_string());
+    }
+
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let authenticated = authenticate_local()?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    let tenant_id = state
+        .tenant_id
+        .clone()
+        .ok_or_else(|| "legacy_unscoped_case_cannot_attach_process".to_string())?;
+    store
+        .resolve_security_context(&authenticated, &tenant_id)?
+        .require_owner()?;
+    if !state
+        .participants
+        .iter()
+        .any(|participant| participant.participant_id == policy_owner)
+    {
+        return Err(format!(
+            "policy owner {policy_owner} is not bound to {case_id}"
+        ));
+    }
+    let binding = LocalProcessBinding::capture(&case_id, &attachment_id, pid)?;
+    if binding.process.pid == std::process::id() {
+        return Err("cannot_attach_current_yai_process".to_string());
+    }
+    let attachment = ResourceAttachmentState {
+        attachment_id: attachment_id.clone(),
+        kind: ResourceKind::Process,
+        allowed_write_prefix: String::new(),
+        max_write_bytes: 0,
+        policy_id: policy_id.clone(),
+        policy_owner_participant_id: policy_owner.clone(),
+        review_requirement: review_requirement.clone(),
+        process_signal_actions: actions.clone(),
+    };
+    attachment.validate()?;
+    if let Some(existing) = state
+        .resources
+        .iter()
+        .find(|resource| resource.attachment_id == attachment_id)
+    {
+        if existing != &attachment
+            || store
+                .get_local_process_binding(&case_id, &attachment_id)?
+                .as_ref()
+                != Some(&binding)
+        {
+            return Err("process_attachment_is_immutable".to_string());
+        }
+        println!("process_attachment: already_attached");
+    } else {
+        let mut pending = PendingTransition::new(
+            format!(
+                "transition:process-resource-attached:{}:{attachment_id}",
+                yai_core_engine::context::stable_digest(&case_id)
+            ),
+            &case_id,
+            state.generation,
+            TransitionSource {
+                component: CONTROLLED_EFFECT_COMPONENT.to_string(),
+                participant_id: None,
+                principal_id: Some(authenticated.projected_principal_id()),
+                source_ref: Some(format!("process-resource-attached:{attachment_id}")),
+            },
+            TransitionPayload::ResourceAttached {
+                attachment: attachment.clone(),
+            },
+        );
+        pending.scope = Some(TransitionScope {
+            case_id: case_id.clone(),
+            participant_refs: vec![policy_owner.clone()],
+            resource_refs: vec![attachment_id.clone()],
+            policy_refs: vec![policy_id.clone()],
+        });
+        pending.causal_refs = vec![policy_owner.clone()];
+        store.commit_tenant_process_attachment(&authenticated, &tenant_id, pending, &binding)?;
+        println!("process_attachment: attached");
+    }
+    println!("case_id: {case_id}");
+    println!("attachment_id: {attachment_id}");
+    println!("logical_kind: process");
+    println!("process_pid: {}", binding.process.pid);
+    println!("process_boot_id: {}", binding.process.boot_id);
+    println!("process_start_ticks: {}", binding.process.start_ticks);
+    println!(
+        "allowed_actions: {}",
+        actions
+            .iter()
+            .map(ProcessSignalAction::as_str)
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    println!("policy_id: {policy_id}");
+    println!("policy_owner: {policy_owner}");
+    println!("local_binding: exact_process_birth_identity");
     Ok(())
 }
 
@@ -394,7 +548,10 @@ fn commit_grant(store: &LmdbRecordStore, grant: &ExecutionGrant) -> Result<CaseS
     )
 }
 
-fn commit_prepare(store: &LmdbRecordStore, prepared: &PreparedEffect) -> Result<CaseState, String> {
+fn commit_prepare(
+    store: &LmdbRecordStore,
+    prepared: &PreparedEffect,
+) -> Result<(PreparedEffect, CaseState), String> {
     let generation = store
         .get_case_state(&prepared.case_id)?
         .ok_or_else(|| format!("canonical CaseState missing for {}", prepared.case_id))?
@@ -420,8 +577,58 @@ fn commit_prepare(store: &LmdbRecordStore, prepared: &PreparedEffect) -> Result<
         prepared.grant_id.clone(),
         prepared.expected_pre_observation.observation_id.clone(),
     ];
-    match store.commit_effect_prepared(pending)? {
-        PreparedCommitOutcome::Prepared(commit) => Ok(commit.state),
+    match store.commit_fenced_effect_prepared(pending, std::process::id())? {
+        PreparedCommitOutcome::Prepared(commit) => {
+            let committed = match &commit.transition.payload {
+                TransitionPayload::EffectPrepared { prepared } => prepared.clone(),
+                _ => unreachable!("prepared commit payload"),
+            };
+            Ok((committed, commit.state))
+        }
+        PreparedCommitOutcome::GrantInvalidated(commit) => Err(format!(
+            "execution_grant_invalidated_before_prepare: generation={}",
+            commit.state.generation
+        )),
+    }
+}
+
+fn commit_process_prepare(
+    store: &LmdbRecordStore,
+    prepared: &PreparedProcessEffect,
+) -> Result<(PreparedProcessEffect, CaseState), String> {
+    let generation = store
+        .get_case_state(&prepared.case_id)?
+        .ok_or_else(|| format!("canonical CaseState missing for {}", prepared.case_id))?
+        .generation;
+    let label = format!("process-prepare:{}", prepared.effect_id);
+    let mut pending = PendingTransition::new(
+        format!(
+            "transition:controlled-effect:{}:{:020}:{}",
+            id_component(&prepared.case_id),
+            generation + 1,
+            id_component(&label)
+        ),
+        &prepared.case_id,
+        generation,
+        effect_source(Some(&prepared.participant_id), &label),
+        TransitionPayload::ProcessEffectPrepared {
+            prepared: prepared.clone(),
+        },
+    );
+    pending.causal_refs = vec![
+        prepared.operation_id.clone(),
+        prepared.decision_id.clone(),
+        prepared.grant_id.clone(),
+        prepared.expected_pre_observation.observation_id.clone(),
+    ];
+    match store.commit_fenced_process_effect_prepared(pending, std::process::id())? {
+        PreparedCommitOutcome::Prepared(commit) => {
+            let committed = match &commit.transition.payload {
+                TransitionPayload::ProcessEffectPrepared { prepared } => prepared.clone(),
+                _ => unreachable!("prepared process commit payload"),
+            };
+            Ok((committed, commit.state))
+        }
         PreparedCommitOutcome::GrantInvalidated(commit) => Err(format!(
             "execution_grant_invalidated_before_prepare: generation={}",
             commit.state.generation
@@ -450,13 +657,34 @@ fn commit_indeterminate(
     )
 }
 
+fn commit_process_indeterminate(
+    store: &LmdbRecordStore,
+    prepared: &PreparedProcessEffect,
+    reason: String,
+    observation: Option<yai_core_engine::effect::ProcessObservation>,
+) -> Result<CaseState, String> {
+    commit_effect_transition(
+        store,
+        &prepared.case_id,
+        Some(&prepared.participant_id),
+        &format!("process-indeterminate:{}", prepared.effect_id),
+        TransitionPayload::ProcessEffectIndeterminate {
+            effect_id: prepared.effect_id.clone(),
+            reason,
+            observation,
+        },
+        None,
+        vec![prepared.effect_id.clone()],
+    )
+}
+
 fn commit_finalize(
     store: &LmdbRecordStore,
     prepared: &PreparedEffect,
     result: &CarrierResult,
 ) -> Result<CaseState, String> {
     let receipt = build_effect_receipt(prepared, result);
-    commit_effect_transition(
+    let pending = build_effect_pending(
         store,
         &prepared.case_id,
         Some(&prepared.participant_id),
@@ -468,7 +696,42 @@ fn commit_finalize(
         },
         None,
         vec![prepared.effect_id.clone(), receipt.receipt_id],
-    )
+    )?;
+    if let Some(fence) = &prepared.resource_fence {
+        store
+            .commit_fenced_effect_terminal(pending, fence)
+            .map(|commit| commit.state)
+    } else {
+        store.commit_transition(pending).map(|commit| commit.state)
+    }
+}
+
+fn commit_process_finalize(
+    store: &LmdbRecordStore,
+    prepared: &PreparedProcessEffect,
+    result: &ProcessCarrierResult,
+) -> Result<CaseState, String> {
+    let receipt = build_process_effect_receipt(prepared, result);
+    let pending = build_effect_pending(
+        store,
+        &prepared.case_id,
+        Some(&prepared.participant_id),
+        &format!("process-finalize:{}", prepared.effect_id),
+        TransitionPayload::ProcessEffectFinalized {
+            effect_id: prepared.effect_id.clone(),
+            observation: result.post_observation.clone(),
+            receipt: receipt.clone(),
+        },
+        None,
+        vec![prepared.effect_id.clone(), receipt.receipt_id],
+    )?;
+    let fence = prepared
+        .resource_fence
+        .as_ref()
+        .ok_or_else(|| "prepared_process_effect_resource_fence_missing".to_string())?;
+    store
+        .commit_fenced_effect_terminal(pending, fence)
+        .map(|commit| commit.state)
 }
 
 fn failpoint(args: &[String]) -> Option<String> {
@@ -555,9 +818,6 @@ pub(super) fn advance_controlled_filesystem_candidate(
                 normative.readiness, normative.validity
             )
         })?;
-    let binding = store
-        .get_local_filesystem_binding(case_id, attachment_id)?
-        .ok_or_else(|| format!("local binding missing for {case_id}/{attachment_id}"))?;
     let existing = store.list_case_transitions(case_id)?;
     if existing.iter().any(|transition| {
         matches!(
@@ -609,38 +869,60 @@ pub(super) fn advance_controlled_filesystem_candidate(
             case_generation: state_after_provider.generation,
             resource: &resource,
         };
-        let operation =
-            match normalize_filesystem_write_candidate(&provider_result.raw_output, &context) {
-                Ok(operation) => operation,
-                Err(failure) => {
-                    commit_normalization_failure(
-                        &store,
-                        case_id,
-                        participant_id,
-                        &provider_result.result_id,
-                        failure.clone(),
-                    )?;
-                    update_derived_after_commit(&store, case_id, args);
-                    println!("operation_normalization: rejected");
-                    println!("normalization_code: {:?}", failure.code);
-                    println!("external_effect: none");
-                    return Ok(ControlledEffectTurnResult {
-                        status: ControlledEffectTurnStatus::NormalizationRejected,
-                        operation_id: None,
-                        decision_id: None,
-                        review_id: None,
-                        effect_id: None,
-                        receipt_id: None,
-                        outcome: None,
-                    });
-                }
-            };
+        let normalized = match resource.kind {
+            ResourceKind::Filesystem => {
+                normalize_filesystem_write_candidate(&provider_result.raw_output, &context)
+            }
+            ResourceKind::Process => {
+                let binding = store
+                    .get_local_process_binding(case_id, attachment_id)?
+                    .ok_or_else(|| {
+                        format!("local process binding missing for {case_id}/{attachment_id}")
+                    })?;
+                normalize_process_signal_candidate(
+                    &provider_result.raw_output,
+                    &context,
+                    &binding.process,
+                )
+            }
+        };
+        let operation = match normalized {
+            Ok(operation) => operation,
+            Err(failure) => {
+                commit_normalization_failure(
+                    &store,
+                    case_id,
+                    participant_id,
+                    &provider_result.result_id,
+                    failure.clone(),
+                )?;
+                update_derived_after_commit(&store, case_id, args);
+                println!("operation_normalization: rejected");
+                println!("normalization_code: {:?}", failure.code);
+                println!("external_effect: none");
+                return Ok(ControlledEffectTurnResult {
+                    status: ControlledEffectTurnStatus::NormalizationRejected,
+                    operation_id: None,
+                    decision_id: None,
+                    review_id: None,
+                    effect_id: None,
+                    receipt_id: None,
+                    outcome: None,
+                });
+            }
+        };
         let state = commit_operation(&store, &operation)?;
         (operation, state)
     };
     println!("operation_normalization: accepted");
     println!("operation_id: {}", operation.operation_id);
-    println!("operation_kind: filesystem.write");
+    println!(
+        "operation_kind: {}",
+        match operation.kind {
+            OperationKind::FilesystemWrite => "filesystem.write",
+            OperationKind::ProcessSignal => "process.signal",
+        }
+    );
 
     let existing_decisions = existing
         .iter()
@@ -891,6 +1173,16 @@ pub(super) fn advance_controlled_filesystem_candidate(
         exit_at_failpoint("after_grant_before_prepare", 84);
     }
 
+    if operation.kind == OperationKind::ProcessSignal {
+        return advance_process_signal_after_grant(
+            args, &store, &existing, &operation, &decision, &grant, &resource,
+        );
+    }
+
+    let binding = store
+        .get_local_filesystem_binding(case_id, attachment_id)?
+        .ok_or_else(|| format!("local binding missing for {case_id}/{attachment_id}"))?;
+
     let existing_prepared = existing
         .iter()
         .find_map(|transition| match &transition.payload {
@@ -947,11 +1239,17 @@ pub(super) fn advance_controlled_filesystem_candidate(
                 pre_observation.error.as_deref().unwrap_or("unknown")
             ));
         }
-        let prepared = prepare_effect(&operation, &decision, &grant, pre_observation)?;
-        let state = commit_prepare(&store, &prepared)?;
-        (prepared, state)
+        let prepared = prepare_fenced_effect(&operation, &decision, &grant, pre_observation)?;
+        commit_prepare(&store, &prepared)?
     };
+    let fence = prepared
+        .resource_fence
+        .as_ref()
+        .ok_or_else(|| "prepared_effect_resource_fence_missing".to_string())?;
     println!("effect_id: {}", prepared.effect_id);
+    println!("resource_id: {}", fence.resource_id);
+    println!("resource_epoch: {}", fence.resource_epoch);
+    println!("resource_fence_id: {}", fence.fence_id);
     println!("effect_state: prepared_durable_before_mutation");
     if failpoint(args).as_deref() == Some("after_prepare_before_effect") {
         exit_at_failpoint("after_prepare_before_effect", 85);
@@ -962,7 +1260,9 @@ pub(super) fn advance_controlled_filesystem_candidate(
         Some("after_effect_before_finalize") => CarrierFailpoint::CrashAfterVisibleEffect,
         _ => CarrierFailpoint::None,
     };
-    let result = execute_filesystem_write(
+    let result = execute_fenced_filesystem_write(
+        &store,
+        fence,
         &operation,
         &decision,
         &grant,
@@ -1015,6 +1315,144 @@ pub(super) fn advance_controlled_filesystem_candidate(
         status: ControlledEffectTurnStatus::Finalized,
         operation_id: Some(operation.operation_id),
         decision_id: Some(decision.decision_id),
+        review_id: None,
+        effect_id: Some(prepared.effect_id),
+        receipt_id: Some(receipt.receipt_id),
+        outcome: Some(result.outcome),
+    })
+}
+
+fn advance_process_signal_after_grant(
+    args: &[String],
+    store: &LmdbRecordStore,
+    existing: &[Transition],
+    operation: &Operation,
+    decision: &Decision,
+    grant: &ExecutionGrant,
+    resource: &ResourceAttachmentState,
+) -> Result<ControlledEffectTurnResult, String> {
+    if resource.kind != ResourceKind::Process {
+        return Err("process_operation_resource_kind_mismatch".to_string());
+    }
+    let binding = store
+        .get_local_process_binding(&operation.case_id, &operation.resource_attachment_id)?
+        .ok_or_else(|| "local_process_binding_missing".to_string())?;
+    let existing_prepared = existing
+        .iter()
+        .find_map(|transition| match &transition.payload {
+            TransitionPayload::ProcessEffectPrepared { prepared }
+                if prepared.operation_id == operation.operation_id =>
+            {
+                Some(prepared.clone())
+            }
+            _ => None,
+        });
+    let (prepared, state_after_prepare) = if let Some(prepared) = existing_prepared {
+        let current = store
+            .get_case_state(&operation.case_id)?
+            .ok_or_else(|| format!("canonical CaseState missing for {}", operation.case_id))?;
+        if let Some(effect) = current
+            .effects
+            .iter()
+            .find(|effect| effect.effect_id == prepared.effect_id)
+        {
+            if effect.status == EffectLifecycle::Finalized {
+                return Ok(ControlledEffectTurnResult {
+                    status: ControlledEffectTurnStatus::Finalized,
+                    operation_id: Some(operation.operation_id.clone()),
+                    decision_id: Some(decision.decision_id.clone()),
+                    review_id: None,
+                    effect_id: Some(prepared.effect_id),
+                    receipt_id: effect.receipt_id.clone(),
+                    outcome: effect.outcome.clone(),
+                });
+            }
+            if effect.status == EffectLifecycle::Indeterminate {
+                return Ok(ControlledEffectTurnResult {
+                    status: ControlledEffectTurnStatus::Indeterminate,
+                    operation_id: Some(operation.operation_id.clone()),
+                    decision_id: Some(decision.decision_id.clone()),
+                    review_id: None,
+                    effect_id: Some(prepared.effect_id),
+                    receipt_id: None,
+                    outcome: effect.outcome.clone(),
+                });
+            }
+        }
+        (prepared, current)
+    } else {
+        let pre = observe_process(&binding, format!("observation:{}:pre", grant.grant_id));
+        if matches!(
+            pre.state,
+            yai_core_engine::effect::ProcessObservedState::Unavailable
+                | yai_core_engine::effect::ProcessObservedState::Exited
+        ) {
+            return Err(format!("process_pre_observation_not_live: {:?}", pre.state));
+        }
+        let prepared = prepare_process_effect(operation, decision, grant, pre)?;
+        commit_process_prepare(store, &prepared)?
+    };
+    let fence = prepared
+        .resource_fence
+        .as_ref()
+        .ok_or_else(|| "prepared_process_effect_resource_fence_missing".to_string())?;
+    println!("effect_id: {}", prepared.effect_id);
+    println!("resource_id: {}", fence.resource_id);
+    println!("resource_epoch: {}", fence.resource_epoch);
+    println!("resource_fence_id: {}", fence.fence_id);
+    println!("effect_state: prepared_durable_before_signal");
+    if failpoint(args).as_deref() == Some("after_prepare_before_effect") {
+        exit_at_failpoint("after_prepare_before_effect", 85);
+    }
+    let result = execute_fenced_process_signal(
+        store,
+        fence,
+        operation,
+        decision,
+        grant,
+        &prepared,
+        &state_after_prepare,
+        &binding,
+    )?;
+    if matches!(
+        result.outcome,
+        EffectOutcome::Conflict | EffectOutcome::Indeterminate
+    ) {
+        let state = commit_process_indeterminate(
+            store,
+            &prepared,
+            result.detail,
+            Some(result.post_observation),
+        )?;
+        update_derived_after_commit(store, &operation.case_id, args);
+        println!("effect_state: indeterminate");
+        println!("case_generation: {}", state.generation);
+        return Ok(ControlledEffectTurnResult {
+            status: ControlledEffectTurnStatus::Indeterminate,
+            operation_id: Some(operation.operation_id.clone()),
+            decision_id: Some(decision.decision_id.clone()),
+            review_id: None,
+            effect_id: Some(prepared.effect_id),
+            receipt_id: None,
+            outcome: Some(result.outcome),
+        });
+    }
+    let receipt = build_process_effect_receipt(&prepared, &result);
+    commit_process_finalize(store, &prepared, &result)?;
+    println!("kernel_signal: {}", result.kernel_signal);
+    println!("kernel_syscall_accepted: {}", result.syscall_accepted);
+    println!(
+        "observed_process_state: {:?}",
+        result.post_observation.state
+    );
+    println!("effect_receipt_id: {}", receipt.receipt_id);
+    println!("effect_outcome: {:?}", result.outcome);
+    println!("effect_state: finalized");
+    update_derived_after_commit(store, &operation.case_id, args);
+    Ok(ControlledEffectTurnResult {
+        status: ControlledEffectTurnStatus::Finalized,
+        operation_id: Some(operation.operation_id.clone()),
+        decision_id: Some(decision.decision_id.clone()),
         review_id: None,
         effect_id: Some(prepared.effect_id),
         receipt_id: Some(receipt.receipt_id),
@@ -1128,6 +1566,101 @@ pub(super) fn controlled_filesystem_write(args: &[String]) -> Result<(), String>
     Ok(())
 }
 
+pub(super) fn controlled_process_signal(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--subject")?;
+    let attachment_id = named_arg(args, "--attachment")?;
+    let prompt = named_arg(args, "--prompt")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let authenticated = authenticate_local()?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
+        println!("provider_invocations: 0");
+        println!("execution_grants: 0");
+        println!("physical_signal: none");
+        return Err(if state.lifecycle == CaseLifecycle::Closed {
+            "case_closed_new_effect_forbidden".to_string()
+        } else {
+            "case_cancelled_new_effect_forbidden".to_string()
+        });
+    }
+    let resource = resource_for_case(&state, &attachment_id)?;
+    if resource.kind != ResourceKind::Process {
+        return Err("process_signal_requires_process_attachment".to_string());
+    }
+    let normative = store.case_policy_status(&case_id)?;
+    if normative.readiness != NormativeReadiness::Ready
+        || normative.validity != PolicyValidityPosture::Valid
+    {
+        println!("provider_invocations: 0");
+        println!("execution_grants: 0");
+        println!("physical_signal: none");
+        return Err(format!(
+            "normative_case_not_authoritative: readiness={:?} validity={:?}",
+            normative.readiness, normative.validity
+        ));
+    }
+    drop(store);
+    let provider_args = provider_args_for_case(args, &case_id, &participant_id);
+    let provider_result = invoke_controlled_provider(
+        &provider_args,
+        ProjectionPurpose::ProcessSignalProposal,
+        &prompt,
+        InvocationOutputContract::ProcessSignalProposal {
+            schema: PROCESS_SIGNAL_PROPOSAL_SCHEMA.to_string(),
+            attachment_id: resource.attachment_id.clone(),
+            allowed_actions: resource
+                .process_signal_actions
+                .iter()
+                .map(|action| action.as_str().to_string())
+                .collect(),
+        },
+    )?;
+    println!("provider_invocation_id: {}", provider_result.invocation_id);
+    println!("provider_result_id: {}", provider_result.result_id);
+    println!("provider_id: {}", provider_result.provider_id);
+    println!("provider_model: {}", provider_result.model_id);
+    println!("provider_projection_id: {}", provider_result.projection_id);
+    println!(
+        "provider_context_frame_id: {}",
+        provider_result.context_frame_id
+    );
+    println!("provider_result_authority: non_authoritative_candidate_material");
+    let outcome = advance_controlled_filesystem_candidate(
+        args,
+        &case_id,
+        &participant_id,
+        &attachment_id,
+        &provider_result,
+    )?;
+    if matches!(
+        outcome.status,
+        ControlledEffectTurnStatus::NormalizationRejected
+            | ControlledEffectTurnStatus::AwaitingReview
+            | ControlledEffectTurnStatus::Indeterminate
+    ) {
+        return Ok(());
+    }
+    let second_provider_args = second_turn_provider_args(args, &case_id, &participant_id)?;
+    let second = invoke_controlled_provider(
+        &second_provider_args,
+        ProjectionPurpose::EffectConsequence,
+        match outcome.status {
+            ControlledEffectTurnStatus::Denied => {
+                "Report the committed process-signal denial from this Case view."
+            }
+            ControlledEffectTurnStatus::Finalized => {
+                "Report exactly what the kernel carrier and observation recorded."
+            }
+            _ => unreachable!(),
+        },
+        InvocationOutputContract::NaturalLanguage,
+    )?;
+    println!("second_provider_invocation_id: {}", second.invocation_id);
+    println!("second_provider_result_id: {}", second.result_id);
+    Ok(())
+}
+
 #[derive(Clone)]
 struct StoredEffectChain {
     operation: Operation,
@@ -1210,6 +1743,37 @@ fn reconciliation_result(
     }
 }
 
+fn effect_fence_for_current_process(
+    store: &LmdbRecordStore,
+    prepared: &PreparedEffect,
+) -> Result<Option<ResourceFence>, String> {
+    let Some(original) = prepared.resource_fence.as_ref() else {
+        return Ok(None);
+    };
+    let state = store
+        .get_resource_control_state(&original.resource_id)?
+        .ok_or_else(|| "resource_control_state_missing_for_effect".to_string())?;
+    let current = state
+        .active_lease
+        .as_ref()
+        .ok_or_else(|| "unresolved_effect_resource_lease_missing".to_string())?
+        .fence
+        .clone();
+    if current.effect_id != prepared.effect_id
+        || current.case_id != prepared.case_id
+        || current.grant_id != prepared.grant_id
+    {
+        return Err("unresolved_effect_resource_owned_by_other_authority".to_string());
+    }
+    if store.validate_carrier_fence(&current).is_ok() {
+        Ok(Some(current))
+    } else {
+        store
+            .reclaim_resource_for_effect(&current, std::process::id())
+            .map(Some)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum CaseReconciliationStatus {
     Clean,
@@ -1218,8 +1782,10 @@ pub(super) enum CaseReconciliationStatus {
 }
 
 /// Reconcile every currently unresolved filesystem effect before a new model
-/// invocation. This is intentionally a synchronous Case boundary, not a
-/// background scheduler.
+/// invocation. Process signals are deliberately not retried: after a lost
+/// acknowledgement the kernel side effect is not generally replay-safe, so
+/// the unresolved process effect remains parked with its resource fence. This
+/// is intentionally a synchronous Case boundary, not a background scheduler.
 pub(super) fn reconcile_case_before_invocation(
     case_id: &str,
     retry_no_effect: bool,
@@ -1237,13 +1803,16 @@ pub(super) fn reconcile_case_before_invocation(
                 EffectLifecycle::Prepared | EffectLifecycle::Indeterminate
             )
         })
-        .map(|effect| effect.effect_id.clone())
+        .map(|effect| (effect.effect_id.clone(), effect.kind.clone()))
         .collect::<Vec<_>>();
     drop(store);
     if unresolved.is_empty() {
         return Ok(CaseReconciliationStatus::Clean);
     }
-    for effect_id in &unresolved {
+    for (effect_id, kind) in &unresolved {
+        if *kind == OperationKind::ProcessSignal {
+            continue;
+        }
         let mut args = vec![
             "--case".to_string(),
             case_id.to_string(),
@@ -1316,6 +1885,12 @@ pub(super) fn controlled_effect_reconcile(args: &[String]) -> Result<(), String>
         );
         return Ok(());
     }
+    if effect_state.kind == OperationKind::ProcessSignal {
+        return Err(
+            "process_effect_reconciliation_requires_explicit_observation; physical signal retry is unsafe"
+                .to_string(),
+        );
+    }
     let transitions = store.list_case_transitions(&case_id)?;
     let chain = load_effect_chain(&transitions, &effect_state.effect_id)?;
     let resource = resource_for_case(&state, &chain.prepared.resource_attachment_id)?;
@@ -1334,16 +1909,32 @@ pub(super) fn controlled_effect_reconcile(args: &[String]) -> Result<(), String>
         && retry
         && effect_state.status == EffectLifecycle::Prepared
     {
-        let result = execute_filesystem_write(
-            &chain.operation,
-            &chain.decision,
-            &chain.grant,
-            &chain.prepared,
-            &state,
-            &binding,
-            &resource,
-            CarrierFailpoint::None,
-        )?;
+        let fence = effect_fence_for_current_process(&store, &chain.prepared)?;
+        let result = if let Some(fence) = &fence {
+            execute_fenced_filesystem_write(
+                &store,
+                fence,
+                &chain.operation,
+                &chain.decision,
+                &chain.grant,
+                &chain.prepared,
+                &state,
+                &binding,
+                &resource,
+                CarrierFailpoint::None,
+            )?
+        } else {
+            execute_filesystem_write(
+                &chain.operation,
+                &chain.decision,
+                &chain.grant,
+                &chain.prepared,
+                &state,
+                &binding,
+                &resource,
+                CarrierFailpoint::None,
+            )?
+        };
         conclusion = if matches!(
             result.outcome,
             EffectOutcome::Applied | EffectOutcome::AlreadyApplied
@@ -1388,7 +1979,7 @@ fn commit_reconciliation(
         None
     };
     let refs = vec![chain.prepared.effect_id.clone()];
-    let state = commit_effect_transition(
+    let pending = build_effect_pending(
         store,
         &chain.prepared.case_id,
         Some(&chain.prepared.participant_id),
@@ -1402,6 +1993,19 @@ fn commit_reconciliation(
         None,
         refs,
     )?;
+    let terminal = matches!(
+        conclusion,
+        ReconciliationConclusion::EffectObserved | ReconciliationConclusion::NoEffectObserved
+    );
+    let state = if terminal {
+        if let Some(fence) = effect_fence_for_current_process(store, &chain.prepared)? {
+            store.commit_fenced_effect_terminal(pending, &fence)?.state
+        } else {
+            store.commit_transition(pending)?.state
+        }
+    } else {
+        store.commit_transition(pending)?.state
+    };
     println!("reconciliation: {:?}", conclusion);
     println!("effect_id: {}", chain.prepared.effect_id);
     println!(

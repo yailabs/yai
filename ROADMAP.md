@@ -289,21 +289,30 @@ no Decision, review request, Grant, effect or model/provider call.
 
 ## Foundation Recovery sequence
 
-The local cancellation-first sequence is superseded. The current provisional
-order is:
+The current dependency order is:
 
-1. Wave 10: complete — policy-driven authority, DecisionBasis, obligations,
-   review eligibility and policy-bound Grant.
-2. Wave 11: complete — validity/expiry/refresh/revoke, policy invalidation,
-   historical policy replay, durable cancellation and Case closure.
-3. Wave 12: complete — local POSIX-authenticated Principal projection,
-   immutable Tenant security domains, Tenant-bound policy/Case ownership and
-   Principal-to-Participant human authority binding.
-4. Wave 13: next — fresh recovery of multi-Case runtime-instance lifecycle,
-   quotas, scheduling, backpressure and recovery sweep.
-5. Later waves: shared-resource
-   fencing and a second carrier; provider governance; lifecycle/build/data
-   longevity, each gated by fresh direct archaeology.
+1. Waves 10–12: complete — policy-driven authority, temporal governance,
+   durable Case termination and authenticated Tenant security domains.
+2. Wave 13 and H13: complete — local multi-Case RuntimeInstance, bounded
+   workers, Tenant-fair scheduling/backpressure, canonical-first recovery,
+   process-bound operational ownership and terminal-ack closure.
+3. Wave 14: active — shared resource authority, monotonic resource epochs,
+   carrier-enforced fencing, a second physical carrier, and the first permanent
+   external YAI↔YVEX qualification baseline.
+4. H14: next only after independent review — adversarial stale-writer,
+   reclaim, forgery, alias and cross-process carrier qualification.
+5. Wave 15 — Case-Bound Workflow Kernel: immutable Tenant-bound definitions,
+   exact Case adoption, deterministic resolution and bounded ready work.
+6. H15 — workflow determinism, replay, crash and authority-isolation closure.
+7. Wave 16 — adaptive workflow evolution, typed same-Tenant multi-Case handoff,
+   PlanPatch, bounded subflow and reconciliation.
+8. Wave 17 — provider governance, qualification/trust/capability selection,
+   health, and an optional YVEX-native extension lane.
+
+Numbering after Wave 17 is provisional and must be re-evaluated from executable
+evidence. Workflow design is recorded in
+`refoundation/foundation-recovery/WORKFLOW-REFOUNDATION-PLAN.md`; Wave 14 does
+not implement it.
 
 The sequence may change only when repository evidence establishes a stronger
 dependency. Every wave is incomplete until its isolated commit is pushed and
@@ -359,18 +368,44 @@ filesystem roots across Tenants fail closed. This is local process/runtime
 isolation over OS-protected LMDB, not SSO, credential-vault, container or VM
 isolation.
 
+## Completed boundary — multi-Case runtime concurrency
+
+`YAI.SOURCE.REFOUNDATION.13` and `YAI.FOUNDATION.HARDENING.13` add one local
+foreground RuntimeInstance with a finite worker pool, durable bounded
+WorkItems, Tenant round-robin/FIFO, per-Tenant and global backpressure, one
+active work item per Case, process-bound instance ownership and restart-stable
+fairness. Recovery derives terminal/parked WorkItem posture from exact Case
+checkpoint and canonical truth; lost scheduler acknowledgement cannot reopen a
+completed or denied Case attempt. This operational state is not Case authority.
+
+The remaining physical gap is cross-process shared-resource exclusion. Current
+scheduler-local root overlap serialization cannot stop a separate direct Case
+runner from reaching the same mutable resource.
+
+## Active boundary — shared-resource fencing and second carrier
+
+Wave 14 owns one Tenant-bound shared-resource authority, monotonic resource
+epochs, PREPARE-atomic fence acquisition, carrier-side current-fence
+validation, stale-writer rejection and release only with terminal effect truth.
+It also qualifies a second real physical carrier through the same
+Operation→Decision→Grant→PREPARE chain and establishes a cumulative external
+YVEX provider pressure-test surface. It does not implement Workflow or provider
+governance.
+
 ## Explicit non-goals
 
 This roadmap does not introduce Space or Agent as owners, import `yai-dev`,
-clone YVEX, create a directory per concept, or require ContextDelta. It does
+modify YVEX from YAI work, create a directory per concept, or require
+ContextDelta. It does
 not restore the historical Governance/Compliance/Authority planes, registry
 forest, Workflow, supervisor or embedded-law topology.
 
-## Exit criteria for the next source task
+## Exit criteria for the active source task
 
-Wave 13 must begin with fresh direct archaeology of runtime-instance and
-multi-Case scheduling behavior. It may not weaken Tenant isolation, exact
-single-Case runtime admission, temporal governance, cancellation/closure or
-historical replay. Worker pools, quotas, priorities, backpressure and recovery
-sweeps require independent executable consumers; Wave 12 does not authorize
-shared-resource fencing or provider governance.
+Wave 14 must begin with fresh resource/carrier archaeology, prove a
+Case-independent owner is necessary, acquire resource authority atomically with
+PREPARE and make each physical carrier revalidate the current epoch. It must
+preserve H10 authority, Wave-11 time/termination, Wave-12 Tenant isolation and
+Wave-13/H13 runtime recovery. It may add one cohesive resource-control owner
+and one narrow second carrier, but no Workflow, provider-governance plane,
+distributed lease or YVEX-specific authority path.

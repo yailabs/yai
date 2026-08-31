@@ -1,0 +1,6 @@
+future object	may own ResourceLease	reason
+WorkflowDefinition	no	immutable progression description
+WorkflowRun	no	candidate derived/materialized progress
+WorkflowNode	no	readiness is not physical authority
+RuntimeWorkItem	no	noncanonical scheduling intent
+Case PREPARE	acquisition boundary	Decision+Grant authority immediately precedes physical admission

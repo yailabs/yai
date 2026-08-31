@@ -1,0 +1,6 @@
+property	contract
+initial acquisition	epoch 1
+later acquisition/reclaim	checked monotonic increment
+clock role	lease freshness only; never substitutes for epoch
+rollback	cannot make an older epoch current
+historical replay	historical fence remains embedded; current carrier uses current state

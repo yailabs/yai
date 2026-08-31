@@ -1,0 +1,4 @@
+path A	path B	shared boundary	verdict
+RuntimeInstance worker	direct case run	LMDB resource state+carrier validation	scheduler visibility is not required
+direct case run	direct case run	LMDB resource state+carrier validation	exactly one PREPARE may acquire
+old dead owner	new recovery process	same-effect reclaim+new epoch	old result becomes stale

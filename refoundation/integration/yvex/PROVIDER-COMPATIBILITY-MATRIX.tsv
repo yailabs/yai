@@ -1,0 +1,11 @@
+contract	generic_requirement	wave14_deterministic_status	yvex_live_status	verdict
+base_url	configurable OpenAI-compatible base URL	proven	endpoint unreachable	blocked_external_dependency
+model_id	exact configured or discovered model identity	proven	no installed model	blocked_external_dependency
+system_user_content	typed ContextFrame rendered to portable system/user messages	proven	not exercised	not_live_qualified
+chat_completions	non-stream POST /v1/chat/completions	proven by generic fixtures	not exercised	not_live_qualified
+assistant_text	choices[0].message.content is candidate material	proven	not exercised	not_live_qualified
+usage	optional usage tolerated	proven	not exercised	not_live_qualified
+response_extensions	unknown additional response fields tolerated	proven	not exercised	not_live_qualified
+strict_request_subset	no unnecessary provider-brand fields	proven by request fixtures	not exercised	not_live_qualified
+provider_authority	provider/model IDs confer zero Case authority	proven	not exercised	not_live_qualified
+continuation	YAI continuity reconstructs from Case state	proven	not exercised	not_live_qualified

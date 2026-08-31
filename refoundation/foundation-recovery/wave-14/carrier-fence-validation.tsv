@@ -1,0 +1,6 @@
+check	failure
+integrity	invalid_resource_fence_integrity
+current resource/epoch/domain	stale_resource_fence
+active exact Case/Operation/Grant/effect	carrier_resource_not_owned or stale_resource_fence
+current process PID/birth	resource_fence_owner_process_mismatch
+physical attachment target	binding/observation mismatch;zero mutation

@@ -8,8 +8,10 @@
 use crate::case_policy::CasePolicyBinding;
 use crate::effect::{
     digest_bytes, Decision, DecisionOutcome, EffectOutcome, EffectReceipt, ExecutionGrant,
-    FilesystemObservation, NormalizationFailure, Operation, OperationOrigin, PreparedEffect,
-    ReconciliationConclusion, EFFECT_RECEIPT_SCHEMA, OBSERVATION_SCHEMA, PREPARED_EFFECT_SCHEMA,
+    FilesystemObservation, NormalizationFailure, Operation, OperationKind, OperationOrigin,
+    PreparedEffect, PreparedProcessEffect, ProcessEffectReceipt, ProcessObservation,
+    ProcessSignalAction, ReconciliationConclusion, EFFECT_RECEIPT_SCHEMA, OBSERVATION_SCHEMA,
+    PREPARED_EFFECT_SCHEMA, PREPARED_EFFECT_SCHEMA_V1,
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,7 +22,8 @@ pub const TRANSITION_SCHEMA_V4: &str = "yai.transition.v4";
 pub const TRANSITION_SCHEMA_V5: &str = "yai.transition.v5";
 pub const TRANSITION_SCHEMA_V6: &str = "yai.transition.v6";
 pub const TRANSITION_SCHEMA_V7: &str = "yai.transition.v7";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v8";
+pub const TRANSITION_SCHEMA_V8: &str = "yai.transition.v8";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v9";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
@@ -28,7 +31,8 @@ pub const CASE_STATE_SCHEMA_V4: &str = "yai.case_state.v4";
 pub const CASE_STATE_SCHEMA_V5: &str = "yai.case_state.v5";
 pub const CASE_STATE_SCHEMA_V6: &str = "yai.case_state.v6";
 pub const CASE_STATE_SCHEMA_V7: &str = "yai.case_state.v7";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v8";
+pub const CASE_STATE_SCHEMA_V8: &str = "yai.case_state.v8";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v9";
 pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v2";
 pub const REVIEW_REQUEST_SCHEMA_V1: &str = "yai.review_request.v1";
 pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v2";
@@ -269,6 +273,9 @@ pub enum TransitionPayload {
     EffectPrepared {
         prepared: PreparedEffect,
     },
+    ProcessEffectPrepared {
+        prepared: PreparedProcessEffect,
+    },
     EffectFinalized {
         effect_id: String,
         post_observation: FilesystemObservation,
@@ -279,6 +286,17 @@ pub enum TransitionPayload {
         reason: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         observation: Option<FilesystemObservation>,
+    },
+    ProcessEffectFinalized {
+        effect_id: String,
+        observation: ProcessObservation,
+        receipt: ProcessEffectReceipt,
+    },
+    ProcessEffectIndeterminate {
+        effect_id: String,
+        reason: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        observation: Option<ProcessObservation>,
     },
     EffectReconciled {
         effect_id: String,
@@ -351,8 +369,11 @@ impl TransitionPayload {
             Self::DecisionRecorded { .. } => "decision_recorded",
             Self::ExecutionGrantIssued { .. } => "execution_grant_issued",
             Self::EffectPrepared { .. } => "effect_prepared",
+            Self::ProcessEffectPrepared { .. } => "process_effect_prepared",
             Self::EffectFinalized { .. } => "effect_finalized",
+            Self::ProcessEffectFinalized { .. } => "process_effect_finalized",
             Self::EffectIndeterminate { .. } => "effect_indeterminate",
+            Self::ProcessEffectIndeterminate { .. } => "process_effect_indeterminate",
             Self::EffectReconciled { .. } => "effect_reconciled",
             Self::ReviewRequested { .. } => "review_requested",
             Self::ReviewActionRecorded { .. } => "review_action_recorded",
@@ -850,6 +871,7 @@ pub struct ReviewState {
 #[serde(rename_all = "snake_case")]
 pub enum ResourceKind {
     Filesystem,
+    Process,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -870,6 +892,8 @@ pub struct ResourceAttachmentState {
     pub policy_owner_participant_id: String,
     #[serde(default)]
     pub review_requirement: ReviewRequirement,
+    #[serde(default)]
+    pub process_signal_actions: Vec<ProcessSignalAction>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -886,6 +910,8 @@ pub struct OperationState {
     pub resource_attachment_id: String,
     pub relative_path: String,
     pub intended_content_digest: String,
+    #[serde(default)]
+    pub kind: OperationKind,
     pub origin: OperationOrigin,
     pub recorded_at_generation: u64,
 }
@@ -957,6 +983,8 @@ pub struct EffectState {
     pub resource_attachment_id: String,
     pub relative_path: String,
     pub intended_content_digest: String,
+    #[serde(default)]
+    pub kind: OperationKind,
     pub pre_observation_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub post_observation_id: Option<String>,
@@ -1273,8 +1301,9 @@ impl CaseState {
                     operation_digest: operation.operation_digest.clone(),
                     participant_id: operation.participant_id.clone(),
                     resource_attachment_id: operation.resource_attachment_id.clone(),
-                    relative_path: operation.filesystem_write.relative_path.clone(),
-                    intended_content_digest: operation.filesystem_write.content_digest.clone(),
+                    relative_path: operation.normalized_target()?,
+                    intended_content_digest: operation.intended_effect_digest()?,
+                    kind: operation.kind.clone(),
                     origin: operation.origin.clone(),
                     recorded_at_generation: transition.sequence,
                 });
@@ -1469,6 +1498,58 @@ impl CaseState {
                     resource_attachment_id: prepared.resource_attachment_id.clone(),
                     relative_path: prepared.relative_path.clone(),
                     intended_content_digest: prepared.intended_content_digest.clone(),
+                    kind: OperationKind::FilesystemWrite,
+                    pre_observation_id: prepared.expected_pre_observation.observation_id.clone(),
+                    post_observation_id: None,
+                    receipt_id: None,
+                    outcome: None,
+                    status: EffectLifecycle::Prepared,
+                    prepared_at_generation: transition.sequence,
+                    updated_at_generation: transition.sequence,
+                });
+            }
+            TransitionPayload::ProcessEffectPrepared { prepared } => {
+                prepared.validate()?;
+                let Some(operation) = next.last_operation.as_ref() else {
+                    return Err("process_prepare_without_operation".to_string());
+                };
+                let Some(decision) = next.last_decision.as_ref() else {
+                    return Err("process_prepare_without_decision".to_string());
+                };
+                let grant_index = next
+                    .grants
+                    .iter()
+                    .position(|grant| grant.grant_id == prepared.grant_id)
+                    .ok_or_else(|| "process_prepare_without_grant".to_string())?;
+                let grant = &next.grants[grant_index];
+                if grant.status != GrantLifecycle::Issued
+                    || grant.issued_at_generation != next.generation
+                    || operation.kind != OperationKind::ProcessSignal
+                    || prepared.operation_id != operation.operation_id
+                    || prepared.decision_id != decision.decision_id
+                    || prepared.resource_attachment_id != operation.resource_attachment_id
+                    || prepared.action.as_str() != operation.relative_path
+                    || prepared.idempotency_key != grant.idempotency_key
+                    || next.effects.iter().any(|effect| {
+                        effect.effect_id == prepared.effect_id
+                            || effect.grant_id == prepared.grant_id
+                            || effect.operation_id == prepared.operation_id
+                            || effect.pre_observation_id
+                                == prepared.expected_pre_observation.observation_id
+                    })
+                {
+                    return Err("process_prepare_chain_or_one_time_grant_mismatch".to_string());
+                }
+                next.grants[grant_index].status = GrantLifecycle::Prepared;
+                next.effects.push(EffectState {
+                    effect_id: prepared.effect_id.clone(),
+                    operation_id: prepared.operation_id.clone(),
+                    decision_id: prepared.decision_id.clone(),
+                    grant_id: prepared.grant_id.clone(),
+                    resource_attachment_id: prepared.resource_attachment_id.clone(),
+                    relative_path: prepared.action.as_str().to_string(),
+                    intended_content_digest: prepared.target_identity_digest.clone(),
+                    kind: OperationKind::ProcessSignal,
                     pre_observation_id: prepared.expected_pre_observation.observation_id.clone(),
                     post_observation_id: None,
                     receipt_id: None,
@@ -1536,6 +1617,74 @@ impl CaseState {
                 }
                 effect.status = EffectLifecycle::Indeterminate;
                 effect.outcome = Some(EffectOutcome::Indeterminate);
+                effect.updated_at_generation = transition.sequence;
+            }
+            TransitionPayload::ProcessEffectFinalized {
+                effect_id,
+                observation,
+                receipt,
+            } => {
+                receipt.validate(observation)?;
+                let effect_index = next
+                    .effects
+                    .iter()
+                    .position(|effect| effect.effect_id == *effect_id)
+                    .ok_or_else(|| "process_finalize_without_prepared_effect".to_string())?;
+                let effect = &next.effects[effect_index];
+                if effect.kind != OperationKind::ProcessSignal
+                    || !matches!(
+                        effect.status,
+                        EffectLifecycle::Prepared | EffectLifecycle::Indeterminate
+                    )
+                    || receipt.operation_id != effect.operation_id
+                    || receipt.decision_id != effect.decision_id
+                    || receipt.grant_id != effect.grant_id
+                    || receipt.resource_attachment_id != effect.resource_attachment_id
+                    || receipt.pre_observation_id != effect.pre_observation_id
+                {
+                    return Err("process_finalize_chain_mismatch".to_string());
+                }
+                let grant = next
+                    .grants
+                    .iter_mut()
+                    .find(|grant| grant.grant_id == effect.grant_id)
+                    .ok_or_else(|| "process_finalize_grant_not_materialized".to_string())?;
+                if grant.status != GrantLifecycle::Prepared {
+                    return Err("process_finalize_requires_prepared_grant".to_string());
+                }
+                grant.status = GrantLifecycle::Finalized;
+                let effect = &mut next.effects[effect_index];
+                effect.status = EffectLifecycle::Finalized;
+                effect.outcome = Some(receipt.outcome.clone());
+                effect.post_observation_id = Some(observation.observation_id.clone());
+                effect.receipt_id = Some(receipt.receipt_id.clone());
+                effect.updated_at_generation = transition.sequence;
+            }
+            TransitionPayload::ProcessEffectIndeterminate {
+                effect_id,
+                reason,
+                observation,
+            } => {
+                require_value("process_effect_id", effect_id)?;
+                require_value("process_indeterminate_reason", reason)?;
+                if let Some(observation) = observation {
+                    observation.validate()?;
+                }
+                let effect = next
+                    .effects
+                    .iter_mut()
+                    .find(|effect| effect.effect_id == *effect_id)
+                    .ok_or_else(|| "process_indeterminate_without_prepared_effect".to_string())?;
+                if effect.kind != OperationKind::ProcessSignal
+                    || effect.status == EffectLifecycle::Finalized
+                {
+                    return Err("process_finalized_effect_cannot_become_indeterminate".to_string());
+                }
+                effect.status = EffectLifecycle::Indeterminate;
+                effect.outcome = Some(EffectOutcome::Indeterminate);
+                if let Some(observation) = observation {
+                    effect.post_observation_id = Some(observation.observation_id.clone());
+                }
                 effect.updated_at_generation = transition.sequence;
             }
             TransitionPayload::EffectReconciled {
@@ -1870,6 +2019,7 @@ impl CaseState {
             || state.schema == CASE_STATE_SCHEMA_V5
             || state.schema == CASE_STATE_SCHEMA_V6
             || state.schema == CASE_STATE_SCHEMA_V7
+            || state.schema == CASE_STATE_SCHEMA_V8
         {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
@@ -1882,6 +2032,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V8
             && self.schema != TRANSITION_SCHEMA_V7
             && self.schema != TRANSITION_SCHEMA_V6
             && self.schema != TRANSITION_SCHEMA_V5
@@ -1913,13 +2064,16 @@ impl Transition {
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V7
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V8 | TRANSITION_SCHEMA_V7
         ) && self.payload.is_wave11_kind()
         {
             return Err("wave11_contract_requires_yai_transition_v7".to_string());
         }
         if self.schema != TRANSITION_SCHEMA && self.payload.is_wave12_kind() {
             return Err("wave12_contract_requires_yai_transition_v8".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave14_kind() {
+            return Err("wave14_contract_requires_yai_transition_v9".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -2128,6 +2282,26 @@ impl Transition {
                     "pre_observation",
                 )?;
             }
+            TransitionPayload::ProcessEffectPrepared { prepared } => {
+                prepared.validate()?;
+                require_causal_ref(&self.causal_refs, &prepared.operation_id, "operation")?;
+                require_causal_ref(&self.causal_refs, &prepared.decision_id, "decision")?;
+                require_causal_ref(&self.causal_refs, &prepared.grant_id, "execution_grant")?;
+                require_causal_ref(
+                    &self.causal_refs,
+                    &prepared.expected_pre_observation.observation_id,
+                    "pre_observation",
+                )?;
+                require_causal_ref(
+                    &self.causal_refs,
+                    prepared
+                        .resource_fence
+                        .as_ref()
+                        .map(|fence| fence.fence_id.as_str())
+                        .unwrap_or_default(),
+                    "resource_fence",
+                )?;
+            }
             TransitionPayload::EffectFinalized {
                 effect_id,
                 post_observation,
@@ -2144,6 +2318,27 @@ impl Transition {
             } => {
                 require_value("effect_id", effect_id)?;
                 require_value("indeterminate_reason", reason)?;
+                if let Some(observation) = observation {
+                    observation.validate()?;
+                }
+                require_causal_ref(&self.causal_refs, effect_id, "prepared_effect")?;
+            }
+            TransitionPayload::ProcessEffectFinalized {
+                effect_id,
+                observation,
+                receipt,
+            } => {
+                receipt.validate(observation)?;
+                require_causal_ref(&self.causal_refs, effect_id, "prepared_effect")?;
+                require_causal_ref(&self.causal_refs, &receipt.receipt_id, "effect_receipt")?;
+            }
+            TransitionPayload::ProcessEffectIndeterminate {
+                effect_id,
+                reason,
+                observation,
+            } => {
+                require_value("process_effect_id", effect_id)?;
+                require_value("process_indeterminate_reason", reason)?;
                 if let Some(observation) = observation {
                     observation.validate()?;
                 }
@@ -2588,12 +2783,30 @@ impl TransitionPayload {
             Self::ReviewActionRecorded { action } if action.schema == REVIEW_ACTION_SCHEMA
         )
     }
+
+    fn is_wave14_kind(&self) -> bool {
+        matches!(
+            self,
+            Self::ProcessEffectPrepared { .. }
+                | Self::ProcessEffectFinalized { .. }
+                | Self::ProcessEffectIndeterminate { .. }
+        ) || matches!(
+            self,
+            Self::OperationRecorded { operation }
+                if operation.schema == crate::effect::OPERATION_SCHEMA
+        ) || matches!(
+            self,
+            Self::ResourceAttached { attachment }
+                if attachment.kind == ResourceKind::Process
+        )
+    }
 }
 
 fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V8
             | TRANSITION_SCHEMA_V7
             | TRANSITION_SCHEMA_V6
             | TRANSITION_SCHEMA_V5
@@ -2604,14 +2817,18 @@ fn supports_wave7_contract(schema: &str) -> bool {
 fn supports_wave9_contract(schema: &str) -> bool {
     matches!(
         schema,
-        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V7 | TRANSITION_SCHEMA_V6 | TRANSITION_SCHEMA_V5
+        TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V8
+            | TRANSITION_SCHEMA_V7
+            | TRANSITION_SCHEMA_V6
+            | TRANSITION_SCHEMA_V5
     )
 }
 
 fn supports_wave10_contract(schema: &str) -> bool {
     matches!(
         schema,
-        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V7 | TRANSITION_SCHEMA_V6
+        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V8 | TRANSITION_SCHEMA_V7 | TRANSITION_SCHEMA_V6
     )
 }
 
@@ -2649,17 +2866,36 @@ fn provider_lineage_matches(
 impl ResourceAttachmentState {
     pub fn validate(&self) -> Result<(), String> {
         require_value("attachment_id", &self.attachment_id)?;
-        require_value("allowed_write_prefix", &self.allowed_write_prefix)?;
         require_value("policy_id", &self.policy_id)?;
         require_value(
             "policy_owner_participant_id",
             &self.policy_owner_participant_id,
         )?;
-        if crate::effect::normalize_write_prefix(&self.allowed_write_prefix)?
-            != self.allowed_write_prefix
-            || self.max_write_bytes == 0
-        {
-            return Err("invalid_resource_attachment_contract".to_string());
+        match self.kind {
+            ResourceKind::Filesystem => {
+                require_value("allowed_write_prefix", &self.allowed_write_prefix)?;
+                if crate::effect::normalize_write_prefix(&self.allowed_write_prefix)?
+                    != self.allowed_write_prefix
+                    || self.max_write_bytes == 0
+                    || !self.process_signal_actions.is_empty()
+                {
+                    return Err("invalid_filesystem_resource_attachment_contract".to_string());
+                }
+            }
+            ResourceKind::Process => {
+                if !self.allowed_write_prefix.is_empty()
+                    || self.max_write_bytes != 0
+                    || self.process_signal_actions.is_empty()
+                {
+                    return Err("invalid_process_resource_attachment_contract".to_string());
+                }
+                let mut actions = self.process_signal_actions.clone();
+                actions.sort_by_key(|action| action.as_str());
+                actions.dedup();
+                if actions != self.process_signal_actions {
+                    return Err("process_signal_actions_not_canonical".to_string());
+                }
+            }
         }
         Ok(())
     }
@@ -2693,7 +2929,7 @@ impl FilesystemObservation {
 
 impl PreparedEffect {
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != PREPARED_EFFECT_SCHEMA {
+        if self.schema != PREPARED_EFFECT_SCHEMA && self.schema != PREPARED_EFFECT_SCHEMA_V1 {
             return Err("unsupported_prepared_effect_schema".to_string());
         }
         for (field, value) in [
@@ -2722,6 +2958,26 @@ impl PreparedEffect {
             || self.expected_pre_observation.relative_path != self.relative_path
         {
             return Err("prepared_effect_observation_target_mismatch".to_string());
+        }
+        match (&*self.schema, &self.resource_fence) {
+            (PREPARED_EFFECT_SCHEMA, Some(fence)) => {
+                fence.validate_integrity()?;
+                if fence.case_id != self.case_id
+                    || fence.operation_id != self.operation_id
+                    || fence.grant_id != self.grant_id
+                    || fence.effect_id != self.effect_id
+                {
+                    return Err("prepared_effect_resource_fence_chain_mismatch".to_string());
+                }
+            }
+            (PREPARED_EFFECT_SCHEMA, None) => {
+                return Err("prepared_effect_resource_fence_required".to_string())
+            }
+            (PREPARED_EFFECT_SCHEMA_V1, None) => {}
+            (PREPARED_EFFECT_SCHEMA_V1, Some(_)) => {
+                return Err("legacy_prepared_effect_cannot_claim_resource_fence".to_string())
+            }
+            _ => unreachable!(),
         }
         Ok(())
     }

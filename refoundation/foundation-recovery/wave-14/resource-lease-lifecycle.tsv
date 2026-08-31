@@ -1,0 +1,6 @@
+from	action	to	release
+absent	valid PREPARE acquisition	active epoch N	no
+active live owner	unrelated acquisition	resource_temporarily_owned	no
+active dead owner	same-effect reclaim	active epoch N+1	no
+active	INDETERMINATE	active unchanged	no
+active	FINALIZE or terminal reconciliation	inactive	yes;atomic with Case terminal transition

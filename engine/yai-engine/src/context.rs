@@ -13,9 +13,9 @@ use crate::transition::{
 };
 use serde::{Deserialize, Serialize};
 
-pub const PROJECTION_SCHEMA: &str = "yai.projection.v4";
-pub const CONTEXT_FRAME_SCHEMA: &str = "yai.context_frame.v4";
-pub const RENDERED_INPUT_SCHEMA: &str = "yai.rendered_input.v4";
+pub const PROJECTION_SCHEMA: &str = "yai.projection.v5";
+pub const CONTEXT_FRAME_SCHEMA: &str = "yai.context_frame.v5";
+pub const RENDERED_INPUT_SCHEMA: &str = "yai.rendered_input.v5";
 pub const DEFAULT_MAX_PROJECTION_ITEMS: usize = 48;
 pub const DEFAULT_MAX_PROVIDER_CLAIMS: usize = 6;
 pub const DEFAULT_MAX_INTERACTION_TURNS: usize = 8;
@@ -26,6 +26,7 @@ pub const DEFAULT_MAX_CLAIM_CHARS: usize = 320;
 pub enum ProjectionPurpose {
     Conversation,
     FilesystemWriteProposal,
+    ProcessSignalProposal,
     EffectConsequence,
     Inspection,
 }
@@ -35,6 +36,7 @@ impl ProjectionPurpose {
         match self {
             Self::Conversation => "conversation",
             Self::FilesystemWriteProposal => "filesystem_write_proposal",
+            Self::ProcessSignalProposal => "process_signal_proposal",
             Self::EffectConsequence => "effect_consequence",
             Self::Inspection => "inspection",
         }
@@ -80,6 +82,9 @@ pub enum ProjectedValue {
     CaseLifecycle {
         lifecycle: CaseLifecycle,
     },
+    TenantSecurityDomain {
+        tenant_id: String,
+    },
     ParticipantBinding {
         participant_id: String,
         roles: Vec<String>,
@@ -97,6 +102,8 @@ pub enum ProjectedValue {
         allowed_write_prefix: String,
         max_write_bytes: usize,
         review_requirement: ReviewRequirement,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        process_signal_actions: Vec<crate::effect::ProcessSignalAction>,
     },
     DecisionOutcome {
         operation_id: String,
@@ -255,6 +262,11 @@ pub enum InvocationOutputContract {
         allowed_write_prefix: String,
         max_write_bytes: usize,
     },
+    ProcessSignalProposal {
+        schema: String,
+        attachment_id: String,
+        allowed_actions: Vec<String>,
+    },
     CaseRuntimeTurn {
         schema: String,
         operation_schema: String,
@@ -399,6 +411,18 @@ pub fn compile_projection(
             )
         }),
     });
+    if let Some(tenant_id) = &state.tenant_id {
+        mandatory.push(ProjectionEntry {
+            entry_id: "case:tenant-security-domain".to_string(),
+            posture: AuthorityPosture::CommittedOperationalFact,
+            value: ProjectedValue::TenantSecurityDomain {
+                tenant_id: tenant_id.clone(),
+            },
+            provenance: provenance_for_latest(transitions, |payload| {
+                matches!(payload, TransitionPayload::TenantCaseOpened { tenant_id: opened, .. } if opened == tenant_id)
+            }),
+        });
+    }
     mandatory.push(ProjectionEntry {
         entry_id: format!("participant:{}", request.participant_id),
         posture: AuthorityPosture::CommittedOperationalFact,
@@ -444,6 +468,7 @@ pub fn compile_projection(
                 allowed_write_prefix: resource.allowed_write_prefix.clone(),
                 max_write_bytes: resource.max_write_bytes,
                 review_requirement: resource.review_requirement.clone(),
+                process_signal_actions: resource.process_signal_actions.clone(),
             },
             provenance: provenance_for_latest(transitions, |payload| {
                 matches!(payload, TransitionPayload::ResourceAttached { attachment } if attachment.attachment_id == resource.attachment_id)
@@ -535,8 +560,13 @@ pub fn compile_projection(
             TransitionPayload::EffectPrepared { prepared } => {
                 prepared.effect_id == effect.effect_id
             }
+            TransitionPayload::ProcessEffectPrepared { prepared } => {
+                prepared.effect_id == effect.effect_id
+            }
             TransitionPayload::EffectFinalized { effect_id, .. }
             | TransitionPayload::EffectIndeterminate { effect_id, .. }
+            | TransitionPayload::ProcessEffectFinalized { effect_id, .. }
+            | TransitionPayload::ProcessEffectIndeterminate { effect_id, .. }
             | TransitionPayload::EffectReconciled { effect_id, .. } => {
                 effect_id == &effect.effect_id
             }
@@ -1220,6 +1250,7 @@ mod tests {
                 post_observation_id: Some(format!("observation:{index}:post")),
                 receipt_id: Some(format!("receipt:{index}")),
                 outcome: Some(EffectOutcome::Applied),
+                kind: crate::effect::OperationKind::FilesystemWrite,
                 status: EffectLifecycle::Finalized,
                 prepared_at_generation: index,
                 updated_at_generation: index,
@@ -1327,6 +1358,7 @@ mod tests {
             post_observation_id: None,
             receipt_id: None,
             outcome: None,
+            kind: crate::effect::OperationKind::FilesystemWrite,
             status: EffectLifecycle::Indeterminate,
             prepared_at_generation: 1,
             updated_at_generation: 1,

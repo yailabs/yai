@@ -1,0 +1,5 @@
+commit	paths	observed executable property	verdict
+03b72f5d40d8171c510b3440202577c7f49cc0c7	include/yai/case/execution/process_watch.h;kernel/yai/case/execution/process_watch.c	process watch state;observation;automatic enforcement loop	recover observation/property only
+4e4fa4ebd04d32c52836c7369948afea6842ab2d	usr/libexec/yai/supervisor/bridge/runtime_bridge.c	real host-kernel signal application	finite signal mapping recovered;Supervisor rejected
+3e6c93e65	runtime/execution/controlled_action.c;include/runtime/execution/controlled_action.h	controlled action validation/result spine	separation of proposal/control/effect recovered
+final-tree	src/case/attachments/process_map.c;src/case/attachments/process_watch.c;src/runtime/carriers/host_mediated_carrier.c;src/runtime/execution/runtime_control_bridge.c	PID/start observation;SIGTERM/SIGSTOP/SIGCONT;result evidence	no executable resource epoch or stale-writer fence found

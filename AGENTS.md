@@ -107,3 +107,33 @@ implementation
 - A failed or rejected push leaves the wave blocked at publication; do not
   declare it complete and do not automatically pull, merge, rebase, or force
   push through an unexpected remote divergence.
+
+## YVEX external consumer qualification
+
+From Wave 14 onward, a YAI wave that materially changes provider integration,
+Projection/ContextFrame, model execution, Case runtime, workflow execution,
+provider continuity or execution evidence uses YVEX as the primary owned
+external provider pressure test when an executable YVEX checkout and server are
+available.
+
+- YVEX is an external read-only repository from YAI development work. Never
+  edit, format, generate tracked files, clean, checkout, reset, stash, commit or
+  fix YVEX from the YAI worktree/session.
+- Every attempted qualification records the YAI SHA, YVEX checkout path and
+  SHA, exact model, endpoint and run ID. An unavailable executable/model/server
+  is reported as a blocked external dependency, never as a fabricated pass.
+- Basic YAI↔YVEX invocation uses the same generic OpenAI-compatible provider
+  boundary intended for llama.cpp, vLLM and other compatible providers. Core
+  authority, Case, projection, workflow and provider semantics must never
+  branch on `provider == "yvex"`.
+- A future YVEX-native inspection/evidence lane may be optional. Generic YAI
+  semantic correctness must never require it.
+- Performance is informational unless explicitly qualified. Slow generation
+  is not a failure when transport and semantics are correct.
+- Every final implementation-wave handoff includes `YVEX EXTERNAL FINDINGS`
+  with new findings, an explicit no-new-findings statement, or the exact reason
+  live qualification was not executed.
+- Findings are classified as `YAI_DEFECT`, `YVEX_CANDIDATE`,
+  `GENERIC_PROVIDER_CONTRACT_GAP`, `DEPLOYMENT_LIMITATION`, `MODEL_BEHAVIOR`,
+  `EXPECTED_LIMITATION`, or `NO_ISSUE`. Never silently compensate for an
+  external defect with a provider-brand special case.

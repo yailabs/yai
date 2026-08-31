@@ -1,0 +1,8 @@
+area	remaining pressure
+forgery	recomputed valid-looking fence/lease injection at lowest writer
+death races	owner death between carrier validation and syscall
+contention	many independent YAI processes on equal/overlapping aliases
+release	crash injection around FINALIZE+release transaction
+process retry	ambiguous signal delivery/reconciliation policy
+rebuild	resource event history→current state independent rebuild
+paths	symlink/mount/bind/rename adversarial aliases and relation unknown

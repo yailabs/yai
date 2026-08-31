@@ -1,0 +1,3 @@
+kind	identity	alias rule	Tenant rule
+filesystem	canonical absolute attachment root	equal;ancestor;descendant;unknown conflict	Tenant-bound;cross-Tenant alias remains forbidden
+process	Linux boot_id+PID+proc start_ticks	exact birth identity only	Tenant-bound attachment

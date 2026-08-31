@@ -1006,14 +1006,16 @@ fn rank_memory(
         }
     }
     let purpose_score = match qualification.purpose {
-        ProjectionPurpose::FilesystemWriteProposal => match entry.semantic_kind {
-            OperationalMemoryKind::Review => 65,
-            OperationalMemoryKind::Decision => 60,
-            OperationalMemoryKind::ResourceEffect => 50,
-            OperationalMemoryKind::NormalizationFailure => 40,
-            OperationalMemoryKind::UnresolvedEffect => 35,
-            OperationalMemoryKind::ProviderClaim => 5,
-        },
+        ProjectionPurpose::FilesystemWriteProposal | ProjectionPurpose::ProcessSignalProposal => {
+            match entry.semantic_kind {
+                OperationalMemoryKind::Review => 65,
+                OperationalMemoryKind::Decision => 60,
+                OperationalMemoryKind::ResourceEffect => 50,
+                OperationalMemoryKind::NormalizationFailure => 40,
+                OperationalMemoryKind::UnresolvedEffect => 35,
+                OperationalMemoryKind::ProviderClaim => 5,
+            }
+        }
         ProjectionPurpose::EffectConsequence => match entry.semantic_kind {
             OperationalMemoryKind::UnresolvedEffect => 70,
             OperationalMemoryKind::Review => 60,
@@ -1503,6 +1505,7 @@ mod tests {
             policy_id: "policy:workspace".to_string(),
             policy_owner_participant_id: PARTICIPANT_A.to_string(),
             review_requirement: crate::transition::ReviewRequirement::Automatic,
+            process_signal_actions: Vec::new(),
         }
     }
 
@@ -1742,6 +1745,7 @@ mod tests {
                     intended_content_digest: "digest:observed".to_string(),
                     idempotency_key: "effect-key:reconcile".to_string(),
                     carrier_backend: FILESYSTEM_CARRIER_BACKEND.to_string(),
+                    resource_fence: None,
                 },
             },
         ));

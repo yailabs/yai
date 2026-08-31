@@ -111,7 +111,7 @@ fn print_info() {
         "ownership: Rust operational CLI plus Rust data engine\n",
         "canonical_state: LMDB yai.transition.v8 plus atomically materialized yai.case_state.v8\n",
         "effect_paths: typed filesystem.write with Case-native human review and no product review bypass\n",
-        "semantic_context: typed yai.projection.v4 plus yai.context_frame.v4 derived from CaseState, qualified memory, review posture and ResidencyPlan\n",
+        "semantic_context: typed yai.projection.v5 plus yai.context_frame.v5 derived from CaseState, Tenant domain, qualified memory, review posture and ResidencyPlan\n",
         "operational_memory: yai.operational_memory.v1 derived, provenance-bound, droppable and rebuildable\n",
         "governance_intake: immutable source content plus Tenant-scoped yai.policy_artifact.v5 lifecycle\n",
         "case_governance: Tenant-exact bindings plus yai.effective_policy.v3 and policy-bound authority admission\n",
@@ -271,6 +271,7 @@ fn print_usage() {
     println!("       yai case enter --case <case_ref> --subject <subject_ref> [--consumer model] [--kind model_context] [--shell zsh]");
     println!("       yai case attach-provider --case <case_ref> --subject <subject_ref> --base-url <url> --model <model> [--provider-id <id>] [--api-key-env <env>] [--shell zsh]");
     println!("       yai case attach-filesystem --case <case_ref> --attachment <id> --root <existing-dir> --allow-prefix <relative-dir> --policy-owner <participant> [--require-review] [--policy-id <id>] [--max-bytes <N>]");
+    println!("       yai case attach-process --case <case_ref> --attachment <id> --pid <test-owned-pid> --policy-owner <participant> [--actions terminate,suspend,resume] [--require-review] [--policy-id <id>]");
     println!("       yai case bind-participant-role --case <case_ref> --participant <participant> --role <role>");
     println!("       yai case policy bind --case <case_ref> --artifact <id> --expected-generation <N> [--reason <reason>]");
     println!("       yai case policy replace --case <case_ref> --binding <id> --artifact <id> --expected-generation <N> [--reason <reason>]");
@@ -288,6 +289,7 @@ fn print_usage() {
     println!("       yai policy retire|revoke <artifact-id> --reason <reason>");
     println!("       yai policy list --tenant <tenant:id>");
     println!("       yai effect filesystem-write --case <case_ref> --subject <provider-participant> --attachment <id> --prompt <text> --base-url <url> --model <model> [--failpoint <name>]");
+    println!("       yai effect process-signal --case <case_ref> --subject <provider-participant> --attachment <id> --prompt <text> --base-url <url> --model <model>");
     println!("       yai effect reconcile --case <case_ref> [--effect <effect-id>] [--retry]");
     println!("       yai effect inspect --case <case_ref> --effect <effect-id>");
     println!("       yai prompt [--once <text>] [--dry-run] [--language-mode auto|none] [--case <case_ref>] [--subject <subject_ref>]");
@@ -1589,6 +1591,12 @@ fn main() {
                 std::process::exit(2);
             }
         }
+        Some("case") if args.get(1).map(String::as_str) == Some("attach-process") => {
+            if let Err(error) = case_attach_process(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
         Some("case") if args.get(1).map(String::as_str) == Some("bind-participant-role") => {
             if let Err(error) = provider::case_bind_participant_role(&args[2..]) {
                 eprintln!("error: {error}");
@@ -1651,6 +1659,12 @@ fn main() {
         }
         Some("effect") if args.get(1).map(String::as_str) == Some("filesystem-write") => {
             if let Err(error) = controlled_filesystem_write(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("effect") if args.get(1).map(String::as_str) == Some("process-signal") => {
+            if let Err(error) = controlled_process_signal(&args[2..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }
