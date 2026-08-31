@@ -115,8 +115,10 @@ DAEMON_PID=""
   --organization organization:characterization >/dev/null
 start_provider direct
 start_provider scheduled
+start_provider direct-peer
 setup_case direct case:wave14-direct
 setup_case scheduled case:wave14-scheduled
+setup_case direct-peer case:wave14-direct-peer
 
 # The independent direct process wins PREPARE and then exits. Its unresolved
 # effect remains the resource owner even though its process is gone.
@@ -170,6 +172,19 @@ wait "$SERVICE_PID"
 SERVICE_PID=""
 wait "${PROVIDER_PIDS[1]}"
 
+# A third, separately invoked direct YAI process is subject to the same shared
+# owner. This proves exclusion does not depend on RuntimeInstance code at all.
+set +e
+run_direct direct-peer case:wave14-direct-peer \
+  >"$TEST_DIR/direct-peer.out" 2>&1
+direct_peer_exit=$?
+set -e
+[[ "$direct_peer_exit" -eq 2 ]]
+wait "${PROVIDER_PIDS[2]}"
+grep -Fq 'resource_temporarily_owned' "$TEST_DIR/direct-peer.out"
+[[ ! -e "$SHARED_ROOT/allowed/hello.txt" ]]
+[[ ! -e "$SHARED_ROOT/allowed/step-00.txt" ]]
+
 # Only the same unresolved effect may reclaim. Reconciliation advances its
 # fence epoch and commits the visible effect plus terminal resource release.
 effect_id=$(sed -n 's/^effect_id: //p' "$TEST_DIR/direct-prepare.out" | head -1)
@@ -186,5 +201,7 @@ sed -n -E '/^(resource_id|resource_epoch|resource_fence_id):/p' "$TEST_DIR/direc
 printf 'runtime_work_id: %s\n' "$work_id"
 printf 'runtime_work_state: %s\n' "$state"
 printf 'runtime_block_reason: resource_temporarily_owned\n'
+printf 'direct_peer_exit: %s\n' "$direct_peer_exit"
+printf 'direct_peer_block_reason: resource_temporarily_owned\n'
 printf 'physical_mutations_before_reconcile: 0\n'
 printf 'physical_mutations_after_reconcile: 1\n'
