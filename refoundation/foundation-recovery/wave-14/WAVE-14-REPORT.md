@@ -5,6 +5,11 @@ repository qualification and publication are recorded in `EXECUTION-EVIDENCE.md`
 The external YVEX lane is independently `blocked_external_dependency` because
 the exact read-only checkout exposes no installed model and no live server.
 
+Semantic commit: `f430624f547d65d090e94a18f92960a651ac5b5e`.
+`make check`, 122 engine tests, 9 CLI tests, H10/W11/W12/W13/H13
+characterizations, both Wave 14 smoke targets, formatting, repository docs and
+the baseline Clippy contract all passed on that exact commit.
+
 ## Verdict
 
 Wave 14 earns one Case-independent semantic owner: `resource_control.rs`.

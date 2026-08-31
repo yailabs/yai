@@ -7,7 +7,7 @@ authorize a YVEX patch from this repository.
 
 - finding_id: YVEX-W14-001
 - observed_at: 2026-08-31 Europe/Rome
-- YAI SHA: `7b2312a4675b8c0750f3530c4f142df690fc0ab5+wave14-working-tree`
+- YAI SHA: `f430624f547d65d090e94a18f92960a651ac5b5e`
 - YVEX SHA: `2df3b84cc840dfca8b38f6fc387a833169b5598e`
 - model: none installed (`MODELS count=0`)
 - endpoint: `http://127.0.0.1:8001/v1`
