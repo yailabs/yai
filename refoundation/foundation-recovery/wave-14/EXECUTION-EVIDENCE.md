@@ -47,28 +47,31 @@ YVEX, the shell, or another host process.
 ## W14-E03 — RuntimeInstance versus independent direct process
 
 - evidence_id: W14-E03
-- run_id: `/tmp/yai-wave14-cross-process.Uo1hUG`
+- run_id: `/tmp/yai-wave14-cross-process.srWuvh`
 - execution_order: 3
 - pre-state: two Cases in `tenant:wave14`, one exact shared root, valid independent policy/Grant paths
 - cwd: `/home/mothx/computer-science/projects/YAI/yai`
 - environment: isolated YAI_HOME; one local provider fixture per Case; RuntimeInstance workers=1
 - authenticated principal: kernel-authenticated catalog owner (ID retained inside isolated transcript)
 - exact command: `tests/characterization/shared-resource-fencing/test_cross_process_fencing.sh`
+- exact test commit: `7aa49b79f7abada34bf469aa7c7460d3f670a95a`
 - exit: 0
 - produced IDs: printed below
 - invariant: scheduler-local visibility is irrelevant; the shared resource owner rejects the second PREPARE and physical mutation remains zero
 
 ```text
 cross_process_resource_fencing: pass
-test_run_id: /tmp/yai-wave14-cross-process.Uo1hUG
+test_run_id: /tmp/yai-wave14-cross-process.srWuvh
 direct_exit: 85
-direct_effect_id: effect:8d8cfb16ef7aea9ec4af8afa0d00680c
-resource_id: resource-control:sha256:e64cdaf890270d169e9a124f6
+direct_effect_id: effect:068d7e584ed93591e582871470abe621
+resource_id: resource-control:sha256:42fecfb6b994c205fca143a0f
 resource_epoch: 1
-resource_fence_id: resource-fence:sha256:c4d80b80278c4d8e4e560cf6b
+resource_fence_id: resource-fence:sha256:d5df2399f25f03a3b61735778
 runtime_work_id: runtime-work:db0152067a521e7d
 runtime_work_state: Failed
 runtime_block_reason: resource_temporarily_owned
+direct_peer_exit: 2
+direct_peer_block_reason: resource_temporarily_owned
 physical_mutations_before_reconcile: 0
 physical_mutations_after_reconcile: 1
 ```
@@ -76,7 +79,8 @@ physical_mutations_after_reconcile: 1
 The operational WorkItem is terminal `Failed`, not a policy DENY. Its Case
 Decision remained ALLOW; physical admission failed at PREPARE. A future
 Workflow resolver may model this as retryable, but Wave 14 does not implement
-Workflow state.
+Workflow state. The independent direct peer was separately rejected at the
+same boundary, proving direct-run versus direct-run exclusion as well.
 
 ## W14-E04 — full engine and CLI unit suites during smoke
 

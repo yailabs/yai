@@ -47,6 +47,11 @@ same policy/Decision/review/Grant/PREPARE spine is used. A successful `kill(2)`
 records only kernel acceptance; observed process state is separate and no exit
 is fabricated.
 
+Cross-process product evidence covers both RuntimeInstance-worker versus
+direct-run and direct-run versus independent direct-run. In both cases the
+second physical admission returned `resource_temporarily_owned` and mutated
+nothing.
+
 ## Legacy verdict
 
 Direct inspection covered `03b72f5d4`, `4e4fa4ebd`, `3e6c93e65` and the final
