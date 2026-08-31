@@ -1,0 +1,6 @@
+property	algorithm	proof	limitation
+cross_tenant_fairness	round-robin over sorted eligible Tenant set using last dispatched Tenant	B1 dispatched before Tenant A backlog drained in product trace	unweighted local fairness only
+within_tenant_order	FIFO by monotonic enqueue_sequence	A2 precedes later A1-second in product dispatch trace	temporarily ineligible Case retains earlier place
+active_quota	configured max simultaneous active Cases/Tenant	A active concurrency remained one while B used second worker	no billing/entitlement meaning
+same_principal_multiple_tenants	each dispatch resolves exactly one Tenant membership	A and B advanced concurrently without catalog combination	no multi-Tenant aggregate authority
+starvation	eligible Tenant examined once per scheduling round	bounded test trace and deterministic unit test	blocked/ineligible work is intentionally parked

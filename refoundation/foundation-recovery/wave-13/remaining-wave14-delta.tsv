@@ -1,0 +1,8 @@
+family	wave13_boundary	exact_wave14_delta
+resource coordination	in-instance conservative overlap avoidance	canonical shared-resource lease owner
+fencing	none	resource generation/epoch and fencing token at carrier admission
+cross_process	RuntimeInstance and Case admission prevent scheduler/Case duplicates only	resource-level exclusion across independent processes
+resource mutation	immutable attachment envelope currently read by scheduler	lease lifecycle under attachment/change/owner crash
+carrier	filesystem.write remains only constitutional carrier	second real carrier selected by direct archaeology
+recovery	Prepared filesystem effect reconciliation retained	second-carrier PREPARE/effect/reconcile crash proof
+distribution	local LMDB/PID only	no distributed lock or remote fencing unless independently earned later

@@ -1,0 +1,12 @@
+concern	legacy_executable_truth	current_pre_wave13	wave13_direction
+runtime_lifecycle	file JSON plus PID and state epoch reconciliation	per-Case runtime admission/checkpoint only	one LMDB operational RuntimeInstance lease plus existing per-Case lease
+scan_many	bounded latest-process observation scan	no multi-Case operational sweep	bounded nonterminal WorkItem recovery sweep
+queue	shell/review notice files and separate source-ingest spool	no Case work queue	durable noncanonical bounded WorkItems with explicit idempotency
+worker_pool	none found	single foreground Case loop	finite in-process workers using the same Case loop
+fairness	none found	not applicable	deterministic Tenant round-robin and FIFO within Tenant
+quotas	global shared-memory energy counter only	per-Case semantic/runtime budgets	separate global queue, Tenant queue, and Tenant-active capacity bounds
+backpressure	pressure was observation in source spool	no multi-Case admission	typed rejection with zero Case mutation
+recovery	PID/lifecycle reconcile and source spool retry	single-Case checkpoint plus canonical provider/effect recovery	instance/work lease reclaim followed by canonical-first classification
+authority	Supervisor/root/arming strings were mixed with runtime topology	security, policy, Decision, Grant, temporal governance are canonical elsewhere	scheduler remains operational and revalidates Principal/Tenant at dispatch
+resource_concurrency	process observation/enforcement, no proven Case fencing	cross-Tenant root overlap rejected	conservative in-instance serialization for same/overlapping mutable roots
+process_global_context	environment/session-selected active Case	case loop mutates YAI_JOURNAL	journal path passed explicitly on worker execution

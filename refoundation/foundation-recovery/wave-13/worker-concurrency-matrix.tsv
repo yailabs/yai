@@ -1,0 +1,7 @@
+scenario	workers	active_limit	expected	observed
+Tenant A Case A + Tenant B Case B	2	1/Tenant	provider intervals overlap	start times equal within recorded millisecond and both end about 1500 ms later
+Case A work 1 + Case A work 2	2	2/Tenant	second starts only after first stops	max simultaneous active runs for Case A = 1
+Tenant A Case A1 + Tenant A Case A2	2	1/Tenant	no overlap despite disjoint roots	Tenant active maximum = 1
+Tenant A parent root + Tenant A nested root	2	2/Tenant	serialize due overlap	runtime_dispatch_blocked records conservative overlap reason
+waiting Review + unrelated Case	2	2/Tenant	review releases worker	unrelated Case completes while first item is waiting_review
+PREPARE crash + unrelated queue	restart	2/Tenant	reclaim/reconcile exact item	recovered item finalizes without duplicate provider/effect

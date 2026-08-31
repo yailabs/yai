@@ -100,6 +100,7 @@ def completion():
 
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
+        started_at_unix_ms = int(time.time() * 1000)
         length = int(self.headers.get("Content-Length", "0"))
         request = json.loads(self.rfile.read(length))
         frame = frame_from(request)
@@ -127,12 +128,14 @@ class Handler(BaseHTTPRequestHandler):
                     "entry_count": len(frame.get("entries", [])),
                     "valid": valid,
                     "transient_failure": True,
+                    "started_at_unix_ms": started_at_unix_ms,
+                    "completed_at_unix_ms": int(time.time() * 1000),
                 }
             )
             self.send_error(503, "deterministic transient provider failure")
             return
         if MODE == "delay_complete":
-            time.sleep(1.0)
+            time.sleep(int(os.environ.get("YAI_PROVIDER_DELAY_MS", "1000")) / 1000)
         if MODE == "proposal":
             content = (
                 proposal("allowed/step-00.txt", "runtime step 00\n")
@@ -203,6 +206,8 @@ class Handler(BaseHTTPRequestHandler):
                 "denied": denied,
                 "entry_count": len(frame.get("entries", [])),
                 "valid": valid,
+                "started_at_unix_ms": started_at_unix_ms,
+                "completed_at_unix_ms": int(time.time() * 1000),
             }
         )
         if not valid:

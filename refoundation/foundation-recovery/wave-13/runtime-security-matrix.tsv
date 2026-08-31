@@ -1,0 +1,11 @@
+attempt	boundary	result
+forged principal_id in WorkItem	submit/claim sealed Principal revalidation	rejected; knowing Principal ID is not authentication
+Tenant B metadata with Tenant A Case	transactional submission Case tenant check	runtime_work_security_domain_mismatch
+different Principal controls existing instance	instance acquisition/status/mutation	runtime_instance_principal_mismatch/not_visible
+member or role as scheduler authority	submission requires current Tenant owner	Case roles never imply runtime administration
+queued work after cancellation/closure	dispatch and periodic classification	terminal Cancelled, no provider
+policy blocked work	shared Case loop plus parked policy classifier	Blocked, no busy provider invocation
+manual direct Case owner	runtime worker CaseRuntimeAdmission	acquisition fails closed; item parks
+queue/status cross-Tenant	list filters through exact enrolled instance Principal and visible memberships	no prompt/detail leakage to unrelated Principal
+work_id knowledge	every mutation reauthenticates and verifies instance owner	no bearer authority
+scheduler data as Decision/Grant	no path from RuntimeWorkItem store to canonical admission	impossible without shared Case runtime producing canonical inputs

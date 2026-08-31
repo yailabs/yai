@@ -503,7 +503,8 @@ fn append_case_entry_record(
     kind: &str,
 ) -> Result<(), String> {
     let record_id = format!(
-        "case-entry:{}:{}",
+        "case-entry:{}:{}:{}",
+        canonical_id_component(case_ref),
         subject_ref.replace(':', "-"),
         journal.count() + 1
     );
@@ -1059,7 +1060,8 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
 
     let record = Record::from_parts(
         format!(
-            "provider-attachment:{}:{}",
+            "provider-attachment:{}:{}:{}",
+            canonical_id_component(&case_ref),
             subject_ref.replace(':', "-"),
             journal.count() + 1
         ),
@@ -1305,7 +1307,23 @@ fn render_thread_context(journal: &Journal, case_ref: &str, thread_id: &str) -> 
 }
 
 fn prompt_runtime_from_args(args: &[String]) -> Result<PromptRuntime, String> {
-    let journal_path = case_journal_path(args, "yai prompt")?;
+    prompt_runtime_from_args_with_journal(args, None)
+}
+
+fn prompt_runtime_from_args_with_journal(
+    args: &[String],
+    explicit_journal_path: Option<&Path>,
+) -> Result<PromptRuntime, String> {
+    let journal_path = match explicit_journal_path {
+        Some(path) if path.is_file() => path.to_path_buf(),
+        Some(path) => {
+            return Err(format!(
+                "explicit Case journal does not exist: {}",
+                path.display()
+            ));
+        }
+        None => case_journal_path(args, "yai prompt")?,
+    };
     let case_ref = optional_arg(args, "--case")
         .or_else(|| env_var("YAI_CASE_REF"))
         .ok_or_else(|| "YAI_CASE_REF is required; run `yai case enter` first".to_string())?;
@@ -2150,7 +2168,43 @@ pub(super) fn invoke_runtime_provider(
     output_contract: InvocationOutputContract,
     options: &RuntimeInvocationOptions,
 ) -> Result<ControlledProviderResult, String> {
-    let session = prompt_runtime_from_args(args)?;
+    invoke_runtime_provider_with_optional_journal(
+        args,
+        purpose,
+        task,
+        output_contract,
+        options,
+        None,
+    )
+}
+
+pub(super) fn invoke_runtime_provider_with_journal(
+    args: &[String],
+    purpose: ProjectionPurpose,
+    task: &str,
+    output_contract: InvocationOutputContract,
+    options: &RuntimeInvocationOptions,
+    journal_path: &Path,
+) -> Result<ControlledProviderResult, String> {
+    invoke_runtime_provider_with_optional_journal(
+        args,
+        purpose,
+        task,
+        output_contract,
+        options,
+        Some(journal_path),
+    )
+}
+
+fn invoke_runtime_provider_with_optional_journal(
+    args: &[String],
+    purpose: ProjectionPurpose,
+    task: &str,
+    output_contract: InvocationOutputContract,
+    options: &RuntimeInvocationOptions,
+    journal_path: Option<&Path>,
+) -> Result<ControlledProviderResult, String> {
+    let session = prompt_runtime_from_args_with_journal(args, journal_path)?;
     let semantic = compile_semantic_invocation(&session, purpose, task, output_contract, options)?;
     let requested_disposition = if session.provider.continuation_ref.is_some() {
         ContinuationDisposition::Used
@@ -2211,11 +2265,12 @@ fn append_model_prompt_attempt(
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
     let sequence = journal.count() + 1;
-    let attempt_id = format!("attempt:model-prompt-{sequence}");
-    let invocation_id = format!("invocation:model-prompt-{sequence}");
+    let case_component = canonical_id_component(&session.case_ref);
+    let attempt_id = format!("attempt:{case_component}:model-prompt-{sequence}");
+    let invocation_id = format!("invocation:{case_component}:model-prompt-{sequence}");
     let record = Record::from_parts(
         format!(
-            "model-prompt:{}:{sequence}",
+            "model-prompt:{case_component}:{}:{sequence}",
             session.subject_ref.replace(':', "-")
         ),
         &session.case_ref,
@@ -2269,11 +2324,12 @@ fn append_model_output_receipt(
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
     let sequence = journal.count() + 1;
-    let receipt_id = format!("receipt:model-output-{sequence}");
-    let result_id = format!("provider-result:model-output-{sequence}");
+    let case_component = canonical_id_component(&session.case_ref);
+    let receipt_id = format!("receipt:{case_component}:model-output-{sequence}");
+    let result_id = format!("provider-result:{case_component}:model-output-{sequence}");
     let record = Record::from_parts(
         format!(
-            "model-output:{}:{sequence}",
+            "model-output:{case_component}:{}:{sequence}",
             session.subject_ref.replace(':', "-")
         ),
         &session.case_ref,
@@ -2319,13 +2375,14 @@ fn append_model_interpretation_record(
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
     let sequence = journal.count() + 1;
+    let case_component = canonical_id_component(&session.case_ref);
     let summary = format!(
         "model_interpretation:observed source:provider_output authority:not_authoritative_state output_is:claim_or_proposal check_against:decisions_receipts_graph preview:{}",
         compact_text(output, 140)
     );
     let record = Record::from_parts(
         format!(
-            "model-interpretation:{}:{sequence}",
+            "model-interpretation:{case_component}:{}:{sequence}",
             session.subject_ref.replace(':', "-")
         ),
         &session.case_ref,
@@ -2370,8 +2427,9 @@ fn append_interaction_turn(
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
     let sequence = journal.count() + 1;
+    let case_component = canonical_id_component(&session.case_ref);
     let record_id = format!(
-        "interaction-turn:{}:{sequence}",
+        "interaction-turn:{case_component}:{}:{sequence}",
         session.active_thread_id.replace(':', "-")
     );
     let summary = format!(

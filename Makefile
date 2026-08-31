@@ -19,7 +19,7 @@
 .PHONY: smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33
 .PHONY: smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40
 .PHONY: smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47
-.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance smoke-tenant-security endurance-agentless-case-runtime characterization smoke check clean
+.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance smoke-tenant-security smoke-multi-case-runtime endurance-agentless-case-runtime characterization smoke check clean
 
 CC ?= cc
 AR ?= ar
@@ -169,6 +169,7 @@ CHARACTERIZATION_POLICY_AUTHORITY := tests/characterization/policy-authority-adm
 CHARACTERIZATION_POLICY_AUTHORITY_HARDENING := tests/characterization/policy-authority-hardening/test_policy_authority_hardening.sh
 CHARACTERIZATION_TEMPORAL_GOVERNANCE := tests/characterization/temporal-governance/test_temporal_governance.sh
 CHARACTERIZATION_TENANT_SECURITY := tests/characterization/tenant-security/test_tenant_security.sh
+CHARACTERIZATION_MULTI_CASE_RUNTIME := tests/characterization/multi-case-runtime/test_multi_case_runtime.sh
 
 info:
 	@printf "yai: admitted operational-state transition system with one controlled filesystem vertical\n"
@@ -589,6 +590,9 @@ smoke-temporal-governance: $(YAID) build-rust
 
 smoke-tenant-security: build-rust
 	@$(CHARACTERIZATION_TENANT_SECURITY)
+
+smoke-multi-case-runtime: $(YAID) build-rust
+	@$(CHARACTERIZATION_MULTI_CASE_RUNTIME)
 
 endurance-agentless-case-runtime: smoke-agentless-case-runtime
 

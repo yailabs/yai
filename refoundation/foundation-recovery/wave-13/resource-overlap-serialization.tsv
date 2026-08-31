@@ -1,0 +1,7 @@
+relation	dispatch_posture	reason
+canonical roots disjoint	concurrent allowed	scheduler can prove neither path starts with the other
+exact same canonical root	serialized	same mutable resource relation
+one canonical root is descendant of another	serialized	overlapping mutable namespace
+binding missing or relation unknown	serialized	unknown cannot prove disjointness
+cross-Tenant exact/overlap	attachment rejected before scheduler	Wave12 security-domain invariant remains stronger
+scope	in-process RuntimeInstance conflict avoidance	not a lease, fencing token, epoch or cross-process guarantee

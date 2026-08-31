@@ -1,0 +1,11 @@
+field_or_rule	contract	authority_posture	proof
+schema	yai.runtime_instance.v1	operational durable only	W13 focused store tests and product startup
+instance_id	runtime-instance:local-default; one catalog-local scheduler identity	not a bearer credential	split-brain product negative
+integrity_digest	digest of identity, Principal, owner, lifecycle, config, lease and diagnostics	content integrity only	W13-01 tamper/validation path
+principal_id	enrolled kernel-authenticated Principal captured at acquisition	re-observed at every dispatch	product output and store authentication
+owner	PID plus unguessable owner token	lease ownership, not Case authority	second instance rejected; dead PID reclaimed
+lifecycle	starting → running → draining → stopped	controls submit/dispatch/drain only	product serve/stop/restart
+lease	acquired/heartbeat/expiry times; 5-second local lease	PID death or expiry permits reclaim	stale restart proof
+configuration	workers, active/Tenant, queued/Tenant, queued/global; all finite	operational capacity only	config validation tests
+canonical_boundary	never appended to Case Transitions and never reduced into CaseState	no semantic authority	Case generation unchanged by instance operations
+scope	one local process/LMDB catalog; no remote identity or cluster lease	local trust model only	Wave14/later delta

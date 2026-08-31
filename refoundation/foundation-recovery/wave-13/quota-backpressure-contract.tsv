@@ -1,0 +1,8 @@
+capacity	measurement	rejection	Case_effect
+worker_count	threads created once at serve startup; 1..64 validation	invalid config rejected	none
+global_queue	count queued/waiting_review/waiting_effect/blocked across Tenants	runtime_global_queue_capacity_exhausted	zero Transition/provider/Operation/Decision/Grant
+tenant_queue	same capacity states for exact Tenant	runtime_tenant_queue_capacity_exhausted	zero Case mutation
+tenant_active	count Running WorkItems for exact Tenant	runtime_tenant_active_capacity_exhausted at claim	item remains queued; other Tenant eligible
+same_case	count earlier nonterminal/running WorkItems for Case	runtime_case_already_active	later item remains queued
+work_input	task 64 KiB; request ID 256 bytes; journal path 4096 bytes	invalid_runtime_work_submission	no queue or Case mutation
+Case_budgets	carried existing invocation/operation/context/runtime budgets	existing Case stop posture	scheduler does not duplicate semantic quotas

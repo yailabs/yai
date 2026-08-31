@@ -26,4 +26,8 @@ root/user Case separation	immutable Tenant security domain on every new Case	ref
 legacy principal/session role strings	Principal→Tenant membership→explicit Case Participant link→Case roles	refounded_proven	authentication, membership, participation and role remain four distinct facts	caller OPERATOR/arming and UserSession mega-context
 owner_ref governance namespace	Tenant+policy_key artifact lineage and Tenant-safe Case binding	refounded_proven	same source bytes/key remain authority-distinct across Tenants	string coincidence as migration/ownership
 organization metadata	immutable Tenant organization_ref projection	partially_refounded	Organization never merges Tenant isolation domains	Organization registry/plane without lifecycle consumer
+persisted runtime-machine state	yai.runtime_instance.v1 operational LMDB record	refounded_proven	PID/token lease, finite config and Starting/Running/Draining/Stopped lifecycle	Supervisor/daemon ownership
+process scan_all + PID probes	bounded startup recovery sweep plus dead-instance/work reclaim	refounded_proven	canonical Case effect/review/checkpoint truth outranks scheduler state	process attachment scan as Case scheduling
+source runtime durable spool	yai.runtime_work_item.v1 + idempotency index	refounded_proven	Tenant/Case/Principal-bound bounded work with scheduler-only posture	edge/source ownership topology
+shell queue gate	pure Tenant-filtered runtime queue/status views	refounded_proven	queue state cannot create Operation/Decision/Grant	equivalent-command strings as execution authority
 embedded law/overlay/compliance forest	governance tree/manifests	none	legacy_structure_rejected	future owner test per consumer	planes and scaffolding

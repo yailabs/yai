@@ -1,0 +1,14 @@
+field_or_rule	contract	failure_semantics
+schema	yai.runtime_work_item.v1	unknown/malformed record rejected
+identity	work_id derives from submitting Principal + Tenant + explicit request_id; request_digest binds all submission fields	same request repeats idempotently; altered repeat conflicts
+security	principal_id + tenant_id + case_id are revalidated against the security catalog at submit and dispatch	forged/cross-Tenant references rejected
+case_binding	Participant and resource attachment must exist in the exact open, noncancelled Case	mismatch rejected before queue mutation
+task	task is explicit operational input and bounded to 64 KiB	oversized work rejected
+request_id	nonempty and at most 256 bytes	unbounded idempotency keys rejected
+journal_path	explicit per-WorkItem path, at most 4096 bytes; never process-global	invalid/unbounded path rejected
+budgets	existing Case invocation/operation/context/runtime budgets carried exactly	Case runtime retains final enforcement
+failpoint	optional bounded characterization hook carried with Case execution arguments	not authority; used only for crash matrix proof
+enqueue_sequence	global monotonic operational sequence	FIFO uses this sequence, never lexical Case ID
+state	queued/running/waiting_review/waiting_effect/blocked/completed/denied/cancelled/failed	terminal state is replayable operational posture
+lease_binding	running item records RuntimeInstance, owner token, worker, attempt	attempt cannot mint Case authority
+canonical_boundary	submission/rejection/status creates zero Case Transition	WorkItem loss may lose unstarted intent but cannot corrupt Case truth

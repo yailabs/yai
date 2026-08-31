@@ -29,8 +29,11 @@ cancellation/Case closure	refounded_proven	atomic durable barrier, authority ter
 resource attachment	refounded_proven	filesystem hard envelope intersected with policy	shared-resource lifecycle/fencing	Wave14
 resource concurrency/fencing	missing	none	multi-Case conflict control	Wave14
 carrier model	partially_refounded	filesystem.write constitutional carrier	second real carrier	Wave14
-multi-Case runtime	missing	single Case runner/admission	quotas/fairness/backpressure/sweep	Wave13
-runtime instance lifecycle	missing	yaid process lifecycle only	archaeology/derived states	Wave13
+multi-Case runtime	refounded_proven	bounded local worker pool reusing the exact Case loop; one active WorkItem per Case	canonical shared-resource fencing/distributed workers	Wave14/later
+runtime instance lifecycle	refounded_proven	yai.runtime_instance.v1 Starting/Running/Draining/Stopped with PID/token/lease reclaim	system service integration/distributed lease	future only with consumer
+scheduler/fairness	refounded_proven for local runtime	deterministic Tenant round-robin and FIFO within Tenant; active Case quota	priorities/provider-aware scheduling	future only with consumer
+runtime quotas/backpressure	refounded_proven for local operational capacity	bounded workers/global queue/Tenant queue/Tenant active Cases; typed rejection before Case mutation	billing/entitlements	out of core
+runtime recovery sweep	refounded_proven	bounded nonterminal WorkItem scan with canonical cancellation/effect/review/checkpoint precedence	fleet recovery/distributed sweep	future distributed runtime
 provider descriptor/qualification	partially_refounded	Case provider/model profile	trust/qualification/lifecycle	Wave15
 provider governance	missing	none	policy-aware provider/model selection	Wave15
 provider health/failover	partially_refounded	bounded retry/replacement	shared health/circuit breaker	Wave15

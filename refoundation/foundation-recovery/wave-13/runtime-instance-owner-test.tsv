@@ -1,0 +1,9 @@
+question	verdict	evidence
+independent_lifecycle	yes	serves and drains across many Case work items
+survives_individual_case_completion	yes	instance lease and queue remain after one item terminates
+multiple_case_consumers	yes	bounded workers dispatch distinct eligible Cases
+owns_operational_worker_set	yes	worker bounds, leases, drain, and recovery are local operational concerns
+owns_queue_backpressure_config	yes	capacity and fairness do not belong to Case policy
+owns_canonical_case_truth	no	Case Transitions and CaseState remain authoritative
+owns_security_or_policy_authority	no	dispatch re-resolves enrolled Principal, Tenant membership, Case domain, lifecycle, and policy
+independent_owner_earned	yes	one cohesive runtime_instance.rs operational owner is justified; no engine semantic owner is added

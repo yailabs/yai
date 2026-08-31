@@ -1,0 +1,11 @@
+boundary	durable_before_crash	restart_rule	proof
+M1 before WorkItem lease	queued item	re-dispatch normally	store atomicity/unit characterization
+M2 Running before Case admission	Running item; no Case advance	reclaim item then acquire existing Case lease	product failpoint and sweep
+M3 after Case admission before provider	checkpoint + Case admission	dead PID reclaim; checkpoint identity must match	W6 admission regression + Wave13 binding
+M4 during provider invocation	no result if call incomplete	do not infer success; bounded retry semantics	existing provider failure contract
+M5 after ProviderResult commit	canonical ProviderResult	consume exact result without provider recall	W6 crash characterization retained
+M6 after Decision	canonical Decision	H10 write-time semantics and generation freshness	A1-A6 suite
+M7 after Grant	canonical Grant	revalidate/reuse exact chain; no duplicate Grant	A1-A6 suite
+M8 after PREPARE	PreparedEffect canonical	reconcile physical truth before provider	product crash exit 85 and exact WorkItem recovery
+M9 parked Review	WorkItem waiting_review + canonical ReviewRequest	remain parked across restart	review product phase
+M10 during sweep	operational updates individually atomic	next instance repeats classification idempotently	store updates + startup sweep

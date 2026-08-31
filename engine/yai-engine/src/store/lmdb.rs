@@ -73,6 +73,7 @@ use lmdb::{
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const DEFAULT_LMDB_MAP_SIZE: usize = 256 * 1024 * 1024;
@@ -85,6 +86,12 @@ pub const CANONICAL_AUTHORITY_BACKEND: &str = "lmdb_transaction_authority_v1";
 pub const LEGACY_COMPATIBILITY_SCHEMA: &str = "yai.legacy.compatibility.v1";
 pub const SEMANTIC_CONTEXT_ARTIFACT_SCHEMA: &str = "yai.semantic_context_artifact.v1";
 pub const CASE_RUNTIME_ADMISSION_SCHEMA: &str = "yai.case_runtime_admission.v1";
+pub const RUNTIME_INSTANCE_SCHEMA: &str = "yai.runtime_instance.v1";
+pub const RUNTIME_WORK_ITEM_SCHEMA: &str = "yai.runtime_work_item.v1";
+pub const RUNTIME_INSTANCE_ID: &str = "runtime-instance:local-default";
+pub const MAX_RUNTIME_WORK_TASK_BYTES: usize = 64 * 1024;
+pub const MAX_RUNTIME_WORK_REQUEST_ID_BYTES: usize = 256;
+pub const MAX_RUNTIME_WORK_JOURNAL_PATH_BYTES: usize = 4096;
 pub const AUTHORITY_TIME_FLOOR_KEY: &str = "meta:authority_time_floor_unix_ms";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -130,7 +137,7 @@ pub struct CanonicalAuthoritySummary {
 }
 
 pub struct LmdbRecordStore {
-    env: Environment,
+    env: Arc<Environment>,
     records_by_id: Database,
     records_by_case: Database,
     records_by_kind: Database,
@@ -148,6 +155,9 @@ pub struct LmdbRecordStore {
     operational_memory_by_id: Database,
     operational_memory_case_index: Database,
     case_runtime_admission: Database,
+    runtime_instances: Database,
+    runtime_work_items: Database,
+    runtime_work_idempotency: Database,
     policy_sources_by_id: Database,
     policy_artifacts_by_id: Database,
     policy_lifecycle_events_by_id: Database,
@@ -204,6 +214,210 @@ pub enum CaseRuntimeAdmissionOutcome {
     Acquired,
     Renewed,
     Reclaimed,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeInstanceLifecycle {
+    Starting,
+    Running,
+    Draining,
+    Stopped,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RuntimeInstanceConfig {
+    pub workers: usize,
+    pub max_active_per_tenant: usize,
+    pub max_queued_per_tenant: usize,
+    pub max_queued_total: usize,
+}
+
+impl RuntimeInstanceConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.workers == 0
+            || self.workers > 64
+            || self.max_active_per_tenant == 0
+            || self.max_active_per_tenant > self.workers
+            || self.max_queued_per_tenant == 0
+            || self.max_queued_total == 0
+            || self.max_queued_per_tenant > self.max_queued_total
+        {
+            return Err("invalid_runtime_instance_config".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RuntimeInstance {
+    pub schema: String,
+    pub instance_id: String,
+    pub integrity_digest: String,
+    pub principal_id: String,
+    pub owner_pid: u32,
+    pub owner_token: String,
+    pub lifecycle: RuntimeInstanceLifecycle,
+    pub config: RuntimeInstanceConfig,
+    pub acquired_at_unix_ms: u64,
+    pub heartbeat_at_unix_ms: u64,
+    pub lease_expires_at_unix_ms: u64,
+    pub recovered_items: usize,
+    pub last_detail: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RuntimeInstanceAcquireRequest {
+    pub owner_pid: u32,
+    pub owner_token: String,
+    pub now_unix_ms: u64,
+    pub lease_duration_ms: u64,
+    pub config: RuntimeInstanceConfig,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RuntimeInstanceAcquireOutcome {
+    Acquired,
+    Renewed,
+    Reclaimed,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RuntimeCaseBudgets {
+    pub max_invocations: usize,
+    pub max_operations: usize,
+    pub max_semantic_units: usize,
+    pub max_resident_items: usize,
+    pub max_estimated_input_units: usize,
+    pub max_provider_retries: usize,
+    pub max_runtime_ms: Option<u64>,
+    pub stop_on_deny: bool,
+    pub continue_after_malformed: bool,
+}
+
+impl RuntimeCaseBudgets {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.max_invocations == 0
+            || self.max_operations == 0
+            || self.max_semantic_units == 0
+            || self.max_resident_items == 0
+            || self.max_estimated_input_units == 0
+            || self.max_runtime_ms == Some(0)
+        {
+            return Err("invalid_runtime_case_budgets".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeWorkState {
+    Queued,
+    Running,
+    WaitingReview,
+    WaitingEffect,
+    Blocked,
+    Completed,
+    Denied,
+    Cancelled,
+    Failed,
+}
+
+impl RuntimeWorkState {
+    pub fn is_terminal(&self) -> bool {
+        matches!(
+            self,
+            Self::Completed | Self::Denied | Self::Cancelled | Self::Failed
+        )
+    }
+
+    pub fn is_queued_capacity(&self) -> bool {
+        matches!(
+            self,
+            Self::Queued | Self::WaitingReview | Self::WaitingEffect | Self::Blocked
+        )
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RuntimeWorkItem {
+    pub schema: String,
+    pub work_id: String,
+    pub integrity_digest: String,
+    pub request_id: String,
+    pub request_digest: String,
+    pub principal_id: String,
+    pub tenant_id: String,
+    pub case_id: String,
+    pub participant_id: String,
+    pub attachment_id: String,
+    pub journal_path: String,
+    pub task: String,
+    pub budgets: RuntimeCaseBudgets,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failpoint: Option<String>,
+    pub enqueue_sequence: u64,
+    pub state: RuntimeWorkState,
+    pub attempt_count: u32,
+    pub runtime_instance_id: Option<String>,
+    pub runtime_owner_token: Option<String>,
+    pub worker_id: Option<String>,
+    pub last_stop_reason: String,
+    pub enqueued_at_unix_ms: u64,
+    pub updated_at_unix_ms: u64,
+}
+
+impl RuntimeWorkItem {
+    pub fn validate_integrity(&self) -> Result<(), String> {
+        if self.schema != RUNTIME_WORK_ITEM_SCHEMA
+            || self.work_id.is_empty()
+            || self.request_id.is_empty()
+            || self.request_id.len() > MAX_RUNTIME_WORK_REQUEST_ID_BYTES
+            || self.request_digest.is_empty()
+            || self.principal_id.is_empty()
+            || self.tenant_id.is_empty()
+            || self.case_id.is_empty()
+            || self.participant_id.is_empty()
+            || self.attachment_id.is_empty()
+            || self.journal_path.is_empty()
+            || self.journal_path.len() > MAX_RUNTIME_WORK_JOURNAL_PATH_BYTES
+            || self.task.is_empty()
+            || self.task.len() > MAX_RUNTIME_WORK_TASK_BYTES
+            || self
+                .failpoint
+                .as_ref()
+                .is_some_and(|value| value.len() > 128)
+            || self.enqueue_sequence == 0
+        {
+            return Err("invalid_runtime_work_item".to_string());
+        }
+        self.budgets.validate()?;
+        if self.integrity_digest != runtime_work_integrity_digest(self)? {
+            return Err("runtime_work_item_integrity_mismatch".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RuntimeWorkSubmission {
+    pub request_id: String,
+    pub tenant_id: String,
+    pub case_id: String,
+    pub participant_id: String,
+    pub attachment_id: String,
+    pub journal_path: String,
+    pub task: String,
+    pub budgets: RuntimeCaseBudgets,
+    pub failpoint: Option<String>,
+    pub now_unix_ms: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RuntimeWorkSubmissionOutcome {
+    pub item: RuntimeWorkItem,
+    pub created: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -364,6 +578,41 @@ pub struct ReplayMetadata {
     pub compatibility: String,
 }
 
+fn lmdb_environment_cache() -> &'static Mutex<BTreeMap<PathBuf, Weak<Environment>>> {
+    static CACHE: OnceLock<Mutex<BTreeMap<PathBuf, Weak<Environment>>>> = OnceLock::new();
+    CACHE.get_or_init(|| Mutex::new(BTreeMap::new()))
+}
+
+fn lmdb_store_open_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+/// LMDB requires a process to open a filesystem environment once and share
+/// that handle across threads. The weak cache preserves normal test/store
+/// lifetimes while preventing concurrent Runtime workers from opening the same
+/// environment repeatedly.
+fn shared_lmdb_environment(path: &Path, map_size: usize) -> Result<Arc<Environment>, String> {
+    let key = fs::canonicalize(path)
+        .map_err(|error| format!("failed to canonicalize {}: {error}", path.display()))?;
+    let mut cache = lmdb_environment_cache()
+        .lock()
+        .map_err(|_| "LMDB environment cache lock poisoned".to_string())?;
+    if let Some(environment) = cache.get(&key).and_then(Weak::upgrade) {
+        return Ok(environment);
+    }
+    let environment = Arc::new(
+        Environment::new()
+            .set_max_dbs(40)
+            .set_map_size(map_size)
+            .set_flags(EnvironmentFlags::NO_TLS)
+            .open(&key)
+            .map_err(|error| format!("failed to open LMDB env {}: {error}", key.display()))?,
+    );
+    cache.insert(key, Arc::downgrade(&environment));
+    Ok(environment)
+}
+
 impl LmdbRecordStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, String> {
         Self::open_with_map_size(path, DEFAULT_LMDB_MAP_SIZE)
@@ -378,11 +627,10 @@ impl LmdbRecordStore {
         let path = path.as_ref();
         fs::create_dir_all(path)
             .map_err(|error| format!("failed to create {}: {error}", path.display()))?;
-        let env = Environment::new()
-            .set_max_dbs(40)
-            .set_map_size(map_size)
-            .open(path)
-            .map_err(|error| format!("failed to open LMDB env {}: {error}", path.display()))?;
+        let _open_guard = lmdb_store_open_lock()
+            .lock()
+            .map_err(|_| "LMDB store open lock poisoned".to_string())?;
+        let env = shared_lmdb_environment(path, map_size)?;
         let records_by_id = env
             .create_db(Some("records_by_id"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open records_by_id: {error}"))?;
@@ -440,6 +688,15 @@ impl LmdbRecordStore {
         let case_runtime_admission = env
             .create_db(Some("case_runtime_admission"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open case_runtime_admission: {error}"))?;
+        let runtime_instances = env
+            .create_db(Some("runtime_instances"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open runtime_instances: {error}"))?;
+        let runtime_work_items = env
+            .create_db(Some("runtime_work_items"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open runtime_work_items: {error}"))?;
+        let runtime_work_idempotency = env
+            .create_db(Some("runtime_work_idempotency"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open runtime_work_idempotency: {error}"))?;
         let policy_sources_by_id = env
             .create_db(Some("policy_sources_by_id"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open policy_sources_by_id: {error}"))?;
@@ -501,6 +758,9 @@ impl LmdbRecordStore {
             operational_memory_by_id,
             operational_memory_case_index,
             case_runtime_admission,
+            runtime_instances,
+            runtime_work_items,
+            runtime_work_idempotency,
             policy_sources_by_id,
             policy_artifacts_by_id,
             policy_lifecycle_events_by_id,
@@ -1299,6 +1559,628 @@ impl LmdbRecordStore {
         txn.commit()
             .map_err(|error| format!("failed to commit Case runtime admission release: {error}"))?;
         Ok(true)
+    }
+
+    /// Acquires the single local operational scheduler lease. This durable
+    /// record never enters Case Transition history.
+    pub fn acquire_runtime_instance(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        request: &RuntimeInstanceAcquireRequest,
+        allow_dead_owner_reclaim: bool,
+    ) -> Result<(RuntimeInstanceAcquireOutcome, RuntimeInstance), String> {
+        validate_runtime_instance_request(request)?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start RuntimeInstance acquisition: {error}"))?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let existing = get_json_txn::<RuntimeInstance, _>(
+            &txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            "runtime_instance",
+        )?;
+        let outcome = match &existing {
+            Some(current)
+                if current.owner_token == request.owner_token
+                    && current.owner_pid == request.owner_pid
+                    && current.principal_id == principal.principal_id =>
+            {
+                RuntimeInstanceAcquireOutcome::Renewed
+            }
+            Some(current) if current.principal_id != principal.principal_id => {
+                return Err("runtime_instance_principal_mismatch".to_string());
+            }
+            Some(current)
+                if matches!(current.lifecycle, RuntimeInstanceLifecycle::Stopped)
+                    || current.lease_expires_at_unix_ms <= request.now_unix_ms
+                    || (allow_dead_owner_reclaim
+                        && !runtime_owner_pid_alive(current.owner_pid)) =>
+            {
+                RuntimeInstanceAcquireOutcome::Reclaimed
+            }
+            Some(current) => {
+                return Err(format!(
+                    "runtime_instance_active: principal_id={} owner_pid={} lease_expires_at_unix_ms={}",
+                    current.principal_id, current.owner_pid, current.lease_expires_at_unix_ms
+                ));
+            }
+            None => RuntimeInstanceAcquireOutcome::Acquired,
+        };
+        let acquired_at = existing
+            .as_ref()
+            .filter(|_| matches!(outcome, RuntimeInstanceAcquireOutcome::Renewed))
+            .map(|current| current.acquired_at_unix_ms)
+            .unwrap_or(request.now_unix_ms);
+        let mut instance = RuntimeInstance {
+            schema: RUNTIME_INSTANCE_SCHEMA.to_string(),
+            instance_id: RUNTIME_INSTANCE_ID.to_string(),
+            integrity_digest: String::new(),
+            principal_id: principal.principal_id,
+            owner_pid: request.owner_pid,
+            owner_token: request.owner_token.clone(),
+            lifecycle: RuntimeInstanceLifecycle::Starting,
+            config: request.config.clone(),
+            acquired_at_unix_ms: acquired_at,
+            heartbeat_at_unix_ms: request.now_unix_ms,
+            lease_expires_at_unix_ms: request
+                .now_unix_ms
+                .checked_add(request.lease_duration_ms)
+                .ok_or_else(|| "runtime_instance_lease_overflow".to_string())?,
+            recovered_items: 0,
+            last_detail: match outcome {
+                RuntimeInstanceAcquireOutcome::Acquired => "instance_acquired",
+                RuntimeInstanceAcquireOutcome::Renewed => "instance_renewed",
+                RuntimeInstanceAcquireOutcome::Reclaimed => "stale_instance_reclaimed",
+            }
+            .to_string(),
+        };
+        instance.integrity_digest = runtime_instance_integrity_digest(&instance)?;
+        put_json_txn(
+            &mut txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            &instance,
+            WriteFlags::empty(),
+            "runtime instance",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit RuntimeInstance acquisition: {error}"))?;
+        Ok((outcome, instance))
+    }
+
+    pub fn activate_runtime_instance(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        owner_token: &str,
+        now_unix_ms: u64,
+        lease_duration_ms: u64,
+        recovered_items: usize,
+    ) -> Result<RuntimeInstance, String> {
+        self.update_runtime_instance_owner(
+            authenticated,
+            owner_token,
+            now_unix_ms,
+            lease_duration_ms,
+            Some(RuntimeInstanceLifecycle::Running),
+            Some(recovered_items),
+            "recovery_sweep_complete",
+        )
+    }
+
+    pub fn heartbeat_runtime_instance(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        owner_token: &str,
+        now_unix_ms: u64,
+        lease_duration_ms: u64,
+    ) -> Result<RuntimeInstance, String> {
+        self.update_runtime_instance_owner(
+            authenticated,
+            owner_token,
+            now_unix_ms,
+            lease_duration_ms,
+            None,
+            None,
+            "heartbeat",
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn update_runtime_instance_owner(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        owner_token: &str,
+        now_unix_ms: u64,
+        lease_duration_ms: u64,
+        lifecycle: Option<RuntimeInstanceLifecycle>,
+        recovered_items: Option<usize>,
+        detail: &str,
+    ) -> Result<RuntimeInstance, String> {
+        if owner_token.is_empty() || lease_duration_ms == 0 {
+            return Err("invalid_runtime_instance_owner_update".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start RuntimeInstance update: {error}"))?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let mut instance = get_json_txn::<RuntimeInstance, _>(
+            &txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            "runtime_instance",
+        )?
+        .ok_or_else(|| "runtime_instance_missing".to_string())?;
+        validate_runtime_instance(&instance)?;
+        if instance.owner_token != owner_token
+            || instance.principal_id != principal.principal_id
+            || instance.owner_pid != std::process::id()
+        {
+            return Err("runtime_instance_owner_mismatch".to_string());
+        }
+        if instance.lease_expires_at_unix_ms < now_unix_ms {
+            return Err("runtime_instance_lease_expired".to_string());
+        }
+        if let Some(lifecycle) = lifecycle {
+            instance.lifecycle = lifecycle;
+        }
+        if let Some(recovered_items) = recovered_items {
+            instance.recovered_items = recovered_items;
+        }
+        instance.heartbeat_at_unix_ms = now_unix_ms;
+        instance.lease_expires_at_unix_ms = now_unix_ms
+            .checked_add(lease_duration_ms)
+            .ok_or_else(|| "runtime_instance_lease_overflow".to_string())?;
+        instance.last_detail = detail.to_string();
+        instance.integrity_digest = runtime_instance_integrity_digest(&instance)?;
+        put_json_txn(
+            &mut txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            &instance,
+            WriteFlags::empty(),
+            "runtime instance",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit RuntimeInstance update: {error}"))?;
+        Ok(instance)
+    }
+
+    pub fn request_runtime_instance_drain(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        now_unix_ms: u64,
+    ) -> Result<RuntimeInstance, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start RuntimeInstance drain: {error}"))?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let mut instance = get_json_txn::<RuntimeInstance, _>(
+            &txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            "runtime_instance",
+        )?
+        .ok_or_else(|| "runtime_instance_missing".to_string())?;
+        validate_runtime_instance(&instance)?;
+        if instance.principal_id != principal.principal_id {
+            return Err("runtime_instance_not_visible".to_string());
+        }
+        if matches!(instance.lifecycle, RuntimeInstanceLifecycle::Stopped) {
+            return Ok(instance);
+        }
+        instance.lifecycle = RuntimeInstanceLifecycle::Draining;
+        instance.heartbeat_at_unix_ms = now_unix_ms;
+        instance.last_detail = "operator_requested_drain".to_string();
+        instance.integrity_digest = runtime_instance_integrity_digest(&instance)?;
+        put_json_txn(
+            &mut txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            &instance,
+            WriteFlags::empty(),
+            "runtime instance",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit RuntimeInstance drain: {error}"))?;
+        Ok(instance)
+    }
+
+    pub fn stop_runtime_instance(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        owner_token: &str,
+        now_unix_ms: u64,
+    ) -> Result<RuntimeInstance, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start RuntimeInstance stop: {error}"))?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let mut instance = get_json_txn::<RuntimeInstance, _>(
+            &txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            "runtime_instance",
+        )?
+        .ok_or_else(|| "runtime_instance_missing".to_string())?;
+        if instance.owner_token != owner_token || instance.principal_id != principal.principal_id {
+            return Err("runtime_instance_owner_mismatch".to_string());
+        }
+        instance.lifecycle = RuntimeInstanceLifecycle::Stopped;
+        instance.heartbeat_at_unix_ms = now_unix_ms;
+        instance.lease_expires_at_unix_ms = now_unix_ms;
+        instance.last_detail = "workers_drained".to_string();
+        instance.integrity_digest = runtime_instance_integrity_digest(&instance)?;
+        put_json_txn(
+            &mut txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            &instance,
+            WriteFlags::empty(),
+            "runtime instance",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit RuntimeInstance stop: {error}"))?;
+        Ok(instance)
+    }
+
+    pub fn get_runtime_instance_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+    ) -> Result<Option<RuntimeInstance>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start RuntimeInstance read: {error}"))?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let instance = get_json_txn::<RuntimeInstance, _>(
+            &txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            "runtime_instance",
+        )?;
+        if let Some(value) = &instance {
+            validate_runtime_instance(value)?;
+            if value.principal_id != principal.principal_id {
+                return Err("runtime_instance_not_visible".to_string());
+            }
+        }
+        Ok(instance)
+    }
+
+    pub fn submit_runtime_work(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        submission: &RuntimeWorkSubmission,
+    ) -> Result<RuntimeWorkSubmissionOutcome, String> {
+        validate_runtime_work_submission(submission)?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start runtime work submission: {error}"))?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let instance = get_json_txn::<RuntimeInstance, _>(
+            &txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            "runtime_instance",
+        )?
+        .ok_or_else(|| "runtime_instance_not_running".to_string())?;
+        validate_runtime_instance(&instance)?;
+        if !matches!(instance.lifecycle, RuntimeInstanceLifecycle::Running)
+            || instance.lease_expires_at_unix_ms <= submission.now_unix_ms
+        {
+            return Err("runtime_instance_not_accepting_work".to_string());
+        }
+        if instance.principal_id != principal.principal_id {
+            return Err("runtime_instance_principal_mismatch".to_string());
+        }
+        let context =
+            self.resolve_security_context_txn(&txn, authenticated, &submission.tenant_id)?;
+        context.require_owner()?;
+        let state = self
+            .get_case_state_txn(&txn, &submission.case_id)?
+            .ok_or_else(|| "runtime_work_case_not_visible".to_string())?;
+        if state.tenant_id.as_deref() != Some(submission.tenant_id.as_str()) {
+            return Err("runtime_work_security_domain_mismatch".to_string());
+        }
+        if state.lifecycle != CaseLifecycle::Open || state.cancellation.is_some() {
+            return Err("runtime_work_case_not_dispatchable".to_string());
+        }
+        if !state
+            .participants
+            .iter()
+            .any(|participant| participant.participant_id == submission.participant_id)
+            || !state
+                .resources
+                .iter()
+                .any(|resource| resource.attachment_id == submission.attachment_id)
+        {
+            return Err("runtime_work_case_binding_mismatch".to_string());
+        }
+        let request_digest = runtime_submission_digest(&principal.principal_id, submission)?;
+        let idempotency_key = runtime_work_idempotency_key(
+            &principal.principal_id,
+            &submission.tenant_id,
+            &submission.request_id,
+        );
+        if let Ok(raw_work_id) = txn.get(self.runtime_work_idempotency, &idempotency_key) {
+            let work_id = std::str::from_utf8(raw_work_id)
+                .map_err(|error| format!("runtime_work_idempotency_not_utf8: {error}"))?;
+            let existing = get_json_txn::<RuntimeWorkItem, _>(
+                &txn,
+                self.runtime_work_items,
+                work_id,
+                "runtime_work_item",
+            )?
+            .ok_or_else(|| "runtime_work_idempotency_dangling".to_string())?;
+            existing.validate_integrity()?;
+            if existing.request_digest != request_digest {
+                return Err("runtime_work_idempotency_conflict".to_string());
+            }
+            return Ok(RuntimeWorkSubmissionOutcome {
+                item: existing,
+                created: false,
+            });
+        }
+        let all = list_runtime_work_items_txn(&txn, self.runtime_work_items)?;
+        let total_queued = all
+            .iter()
+            .filter(|item| item.state.is_queued_capacity())
+            .count();
+        if total_queued >= instance.config.max_queued_total {
+            return Err("runtime_global_queue_capacity_exhausted".to_string());
+        }
+        let tenant_queued = all
+            .iter()
+            .filter(|item| {
+                item.tenant_id == submission.tenant_id && item.state.is_queued_capacity()
+            })
+            .count();
+        if tenant_queued >= instance.config.max_queued_per_tenant {
+            return Err("runtime_tenant_queue_capacity_exhausted".to_string());
+        }
+        let sequence = next_runtime_work_sequence(&mut txn, self.schema_meta)?;
+        let work_id = format!(
+            "runtime-work:{}",
+            crate::context::stable_digest(&format!(
+                "{}\0{}\0{}",
+                principal.principal_id, submission.tenant_id, submission.request_id
+            ))
+        );
+        let mut item = RuntimeWorkItem {
+            schema: RUNTIME_WORK_ITEM_SCHEMA.to_string(),
+            work_id: work_id.clone(),
+            integrity_digest: String::new(),
+            request_id: submission.request_id.clone(),
+            request_digest,
+            principal_id: principal.principal_id,
+            tenant_id: submission.tenant_id.clone(),
+            case_id: submission.case_id.clone(),
+            participant_id: submission.participant_id.clone(),
+            attachment_id: submission.attachment_id.clone(),
+            journal_path: submission.journal_path.clone(),
+            task: submission.task.clone(),
+            budgets: submission.budgets.clone(),
+            failpoint: submission.failpoint.clone(),
+            enqueue_sequence: sequence,
+            state: RuntimeWorkState::Queued,
+            attempt_count: 0,
+            runtime_instance_id: None,
+            runtime_owner_token: None,
+            worker_id: None,
+            last_stop_reason: "accepted".to_string(),
+            enqueued_at_unix_ms: submission.now_unix_ms,
+            updated_at_unix_ms: submission.now_unix_ms,
+        };
+        item.integrity_digest = runtime_work_integrity_digest(&item)?;
+        item.validate_integrity()?;
+        put_json_txn(
+            &mut txn,
+            self.runtime_work_items,
+            &work_id,
+            &item,
+            WriteFlags::NO_OVERWRITE,
+            "runtime work item",
+        )?;
+        txn.put(
+            self.runtime_work_idempotency,
+            &idempotency_key,
+            &work_id,
+            WriteFlags::NO_OVERWRITE,
+        )
+        .map_err(|error| format!("failed to index runtime work idempotency: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit runtime work submission: {error}"))?;
+        Ok(RuntimeWorkSubmissionOutcome {
+            item,
+            created: true,
+        })
+    }
+
+    pub fn list_runtime_work_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+    ) -> Result<Vec<RuntimeWorkItem>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start runtime work read: {error}"))?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let mut visible = Vec::new();
+        for item in list_runtime_work_items_txn(&txn, self.runtime_work_items)? {
+            if item.principal_id != principal.principal_id {
+                continue;
+            }
+            if self
+                .resolve_security_context_txn(&txn, authenticated, &item.tenant_id)
+                .is_ok()
+            {
+                visible.push(item);
+            }
+        }
+        visible.sort_by_key(|item| item.enqueue_sequence);
+        Ok(visible)
+    }
+
+    pub fn claim_runtime_work(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        owner_token: &str,
+        work_id: &str,
+        worker_id: &str,
+        now_unix_ms: u64,
+    ) -> Result<RuntimeWorkItem, String> {
+        if worker_id.is_empty() {
+            return Err("runtime_worker_id_missing".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start runtime work claim: {error}"))?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let instance = runtime_instance_owner_txn(
+            &txn,
+            self.runtime_instances,
+            &principal.principal_id,
+            owner_token,
+            now_unix_ms,
+        )?;
+        if !matches!(instance.lifecycle, RuntimeInstanceLifecycle::Running) {
+            return Err("runtime_instance_not_dispatching".to_string());
+        }
+        let mut item = get_json_txn::<RuntimeWorkItem, _>(
+            &txn,
+            self.runtime_work_items,
+            work_id,
+            "runtime_work_item",
+        )?
+        .ok_or_else(|| "runtime_work_item_missing".to_string())?;
+        item.validate_integrity()?;
+        if item.principal_id != principal.principal_id
+            || !matches!(item.state, RuntimeWorkState::Queued)
+        {
+            return Err("runtime_work_item_not_claimable".to_string());
+        }
+        let context = self.resolve_security_context_txn(&txn, authenticated, &item.tenant_id)?;
+        context.require_owner()?;
+        let state = self
+            .get_case_state_txn(&txn, &item.case_id)?
+            .ok_or_else(|| "runtime_work_case_not_visible".to_string())?;
+        if state.tenant_id.as_deref() != Some(item.tenant_id.as_str())
+            || state.lifecycle != CaseLifecycle::Open
+            || state.cancellation.is_some()
+        {
+            return Err("runtime_work_case_not_dispatchable".to_string());
+        }
+        let all = list_runtime_work_items_txn(&txn, self.runtime_work_items)?;
+        if all.iter().any(|other| {
+            other.work_id != item.work_id
+                && other.case_id == item.case_id
+                && (matches!(other.state, RuntimeWorkState::Running)
+                    || (!other.state.is_terminal()
+                        && other.enqueue_sequence < item.enqueue_sequence))
+        }) {
+            return Err("runtime_case_already_active".to_string());
+        }
+        let tenant_active = all
+            .iter()
+            .filter(|other| {
+                matches!(other.state, RuntimeWorkState::Running)
+                    && other.tenant_id == item.tenant_id
+            })
+            .count();
+        if tenant_active >= instance.config.max_active_per_tenant {
+            return Err("runtime_tenant_active_capacity_exhausted".to_string());
+        }
+        item.state = RuntimeWorkState::Running;
+        item.attempt_count = item
+            .attempt_count
+            .checked_add(1)
+            .ok_or_else(|| "runtime_work_attempt_overflow".to_string())?;
+        item.runtime_instance_id = Some(instance.instance_id.clone());
+        item.runtime_owner_token = Some(owner_token.to_string());
+        item.worker_id = Some(worker_id.to_string());
+        item.last_stop_reason = "dispatched".to_string();
+        item.updated_at_unix_ms = now_unix_ms;
+        item.integrity_digest = runtime_work_integrity_digest(&item)?;
+        put_json_txn(
+            &mut txn,
+            self.runtime_work_items,
+            work_id,
+            &item,
+            WriteFlags::empty(),
+            "runtime work item",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit runtime work claim: {error}"))?;
+        Ok(item)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn update_runtime_work_state(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        owner_token: &str,
+        work_id: &str,
+        expected_worker_id: Option<&str>,
+        state: RuntimeWorkState,
+        reason: &str,
+        now_unix_ms: u64,
+    ) -> Result<RuntimeWorkItem, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start runtime work update: {error}"))?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let _instance = runtime_instance_owner_txn(
+            &txn,
+            self.runtime_instances,
+            &principal.principal_id,
+            owner_token,
+            now_unix_ms,
+        )?;
+        let mut item = get_json_txn::<RuntimeWorkItem, _>(
+            &txn,
+            self.runtime_work_items,
+            work_id,
+            "runtime_work_item",
+        )?
+        .ok_or_else(|| "runtime_work_item_missing".to_string())?;
+        item.validate_integrity()?;
+        if item.principal_id != principal.principal_id || item.state.is_terminal() {
+            return Err("runtime_work_item_terminal_or_not_visible".to_string());
+        }
+        if let Some(expected_worker_id) = expected_worker_id {
+            if !matches!(item.state, RuntimeWorkState::Running)
+                || item.worker_id.as_deref() != Some(expected_worker_id)
+                || item.runtime_owner_token.as_deref() != Some(owner_token)
+            {
+                return Err("runtime_work_worker_lease_mismatch".to_string());
+            }
+        }
+        item.state = state;
+        item.last_stop_reason = reason.to_string();
+        item.updated_at_unix_ms = now_unix_ms;
+        item.runtime_instance_id = Some(RUNTIME_INSTANCE_ID.to_string());
+        item.runtime_owner_token = Some(owner_token.to_string());
+        item.worker_id = None;
+        item.integrity_digest = runtime_work_integrity_digest(&item)?;
+        put_json_txn(
+            &mut txn,
+            self.runtime_work_items,
+            work_id,
+            &item,
+            WriteFlags::empty(),
+            "runtime work item",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit runtime work update: {error}"))?;
+        Ok(item)
     }
 
     /// Atomically persists immutable source/compiler artifacts and registers
@@ -5080,6 +5962,20 @@ impl LmdbRecordStore {
         ensure_meta_upgradeable(
             &txn,
             self.schema_meta,
+            "meta:runtime_instance_schema",
+            RUNTIME_INSTANCE_SCHEMA,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:runtime_work_item_schema",
+            RUNTIME_WORK_ITEM_SCHEMA,
+            &[],
+        )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
             "meta:local_filesystem_binding_schema",
             LOCAL_FILESYSTEM_BINDING_SCHEMA,
             &[],
@@ -5218,6 +6114,8 @@ impl LmdbRecordStore {
                 "meta:case_runtime_admission_schema",
                 CASE_RUNTIME_ADMISSION_SCHEMA,
             ),
+            ("meta:runtime_instance_schema", RUNTIME_INSTANCE_SCHEMA),
+            ("meta:runtime_work_item_schema", RUNTIME_WORK_ITEM_SCHEMA),
             (
                 "meta:policy_source_artifact_schema",
                 POLICY_SOURCE_ARTIFACT_SCHEMA,
@@ -5636,12 +6534,7 @@ impl LmdbRecordStore {
     }
 
     fn schema_ready(path: &Path) -> Result<bool, ()> {
-        let mut builder = Environment::new();
-        builder
-            .set_max_dbs(32)
-            .set_map_size(DEFAULT_LMDB_MAP_SIZE)
-            .set_flags(EnvironmentFlags::READ_ONLY);
-        let env = builder.open(path).map_err(|_| ())?;
+        let env = shared_lmdb_environment(path, DEFAULT_LMDB_MAP_SIZE).map_err(|_| ())?;
         let Ok(schema_meta) = env.open_db(Some("schema_meta")) else {
             return Ok(false);
         };
@@ -6909,6 +7802,203 @@ fn decode_runtime_admission(value: &[u8]) -> Result<CaseRuntimeAdmission, String
         return Err("invalid_case_runtime_admission_record".to_string());
     }
     Ok(admission)
+}
+
+fn validate_runtime_instance_request(
+    request: &RuntimeInstanceAcquireRequest,
+) -> Result<(), String> {
+    request.config.validate()?;
+    if request.owner_pid == 0 || request.owner_token.is_empty() || request.lease_duration_ms == 0 {
+        return Err("invalid_runtime_instance_request".to_string());
+    }
+    Ok(())
+}
+
+fn validate_runtime_instance(instance: &RuntimeInstance) -> Result<(), String> {
+    instance.config.validate()?;
+    if instance.schema != RUNTIME_INSTANCE_SCHEMA
+        || instance.instance_id != RUNTIME_INSTANCE_ID
+        || instance.principal_id.is_empty()
+        || instance.owner_pid == 0
+        || instance.owner_token.is_empty()
+        || instance.heartbeat_at_unix_ms < instance.acquired_at_unix_ms
+        || instance.lease_expires_at_unix_ms < instance.heartbeat_at_unix_ms
+    {
+        return Err("invalid_runtime_instance_record".to_string());
+    }
+    if instance.integrity_digest != runtime_instance_integrity_digest(instance)? {
+        return Err("runtime_instance_integrity_mismatch".to_string());
+    }
+    Ok(())
+}
+
+fn runtime_instance_integrity_digest(instance: &RuntimeInstance) -> Result<String, String> {
+    let material = serde_json::to_string(&serde_json::json!({
+        "schema": instance.schema,
+        "instance_id": instance.instance_id,
+        "principal_id": instance.principal_id,
+        "owner_pid": instance.owner_pid,
+        "owner_token": instance.owner_token,
+        "lifecycle": instance.lifecycle,
+        "config": instance.config,
+        "acquired_at_unix_ms": instance.acquired_at_unix_ms,
+        "heartbeat_at_unix_ms": instance.heartbeat_at_unix_ms,
+        "lease_expires_at_unix_ms": instance.lease_expires_at_unix_ms,
+        "recovered_items": instance.recovered_items,
+        "last_detail": instance.last_detail,
+    }))
+    .map_err(|error| format!("runtime_instance_encode_failed: {error}"))?;
+    Ok(crate::context::stable_digest(&material))
+}
+
+#[cfg(unix)]
+fn runtime_owner_pid_alive(pid: u32) -> bool {
+    unsafe extern "C" {
+        fn kill(pid: i32, signal: i32) -> i32;
+    }
+    pid > 1 && unsafe { kill(pid as i32, 0) == 0 }
+}
+
+#[cfg(not(unix))]
+fn runtime_owner_pid_alive(_pid: u32) -> bool {
+    true
+}
+
+fn runtime_instance_owner_txn<T: Transaction>(
+    txn: &T,
+    database: Database,
+    principal_id: &str,
+    owner_token: &str,
+    now_unix_ms: u64,
+) -> Result<RuntimeInstance, String> {
+    let instance =
+        get_json_txn::<RuntimeInstance, _>(txn, database, RUNTIME_INSTANCE_ID, "runtime_instance")?
+            .ok_or_else(|| "runtime_instance_missing".to_string())?;
+    validate_runtime_instance(&instance)?;
+    if instance.principal_id != principal_id || instance.owner_token != owner_token {
+        return Err("runtime_instance_owner_mismatch".to_string());
+    }
+    if instance.lease_expires_at_unix_ms < now_unix_ms {
+        return Err("runtime_instance_lease_expired".to_string());
+    }
+    Ok(instance)
+}
+
+fn validate_runtime_work_submission(submission: &RuntimeWorkSubmission) -> Result<(), String> {
+    submission.budgets.validate()?;
+    if submission.request_id.is_empty()
+        || submission.request_id.len() > MAX_RUNTIME_WORK_REQUEST_ID_BYTES
+        || submission.request_id.len() > 256
+        || submission.tenant_id.is_empty()
+        || submission.case_id.is_empty()
+        || submission.participant_id.is_empty()
+        || submission.attachment_id.is_empty()
+        || submission.journal_path.is_empty()
+        || submission.journal_path.len() > MAX_RUNTIME_WORK_JOURNAL_PATH_BYTES
+        || submission.task.is_empty()
+        || submission.task.len() > MAX_RUNTIME_WORK_TASK_BYTES
+        || submission
+            .failpoint
+            .as_ref()
+            .is_some_and(|value| value.len() > 128)
+    {
+        return Err("invalid_runtime_work_submission".to_string());
+    }
+    Ok(())
+}
+
+fn runtime_submission_digest(
+    principal_id: &str,
+    submission: &RuntimeWorkSubmission,
+) -> Result<String, String> {
+    let material = serde_json::to_string(&serde_json::json!({
+        "schema": RUNTIME_WORK_ITEM_SCHEMA,
+        "request_id": submission.request_id,
+        "principal_id": principal_id,
+        "tenant_id": submission.tenant_id,
+        "case_id": submission.case_id,
+        "participant_id": submission.participant_id,
+        "attachment_id": submission.attachment_id,
+        "journal_path": submission.journal_path,
+        "task": submission.task,
+        "budgets": submission.budgets,
+        "failpoint": submission.failpoint,
+    }))
+    .map_err(|error| format!("runtime_work_submission_encode_failed: {error}"))?;
+    Ok(crate::context::stable_digest(&material))
+}
+
+fn runtime_work_integrity_digest(item: &RuntimeWorkItem) -> Result<String, String> {
+    let material = serde_json::to_string(&serde_json::json!({
+        "schema": item.schema,
+        "work_id": item.work_id,
+        "request_id": item.request_id,
+        "request_digest": item.request_digest,
+        "principal_id": item.principal_id,
+        "tenant_id": item.tenant_id,
+        "case_id": item.case_id,
+        "participant_id": item.participant_id,
+        "attachment_id": item.attachment_id,
+        "journal_path": item.journal_path,
+        "task": item.task,
+        "budgets": item.budgets,
+        "failpoint": item.failpoint,
+        "enqueue_sequence": item.enqueue_sequence,
+        "state": item.state,
+        "attempt_count": item.attempt_count,
+        "runtime_instance_id": item.runtime_instance_id,
+        "runtime_owner_token": item.runtime_owner_token,
+        "worker_id": item.worker_id,
+        "last_stop_reason": item.last_stop_reason,
+        "enqueued_at_unix_ms": item.enqueued_at_unix_ms,
+        "updated_at_unix_ms": item.updated_at_unix_ms,
+    }))
+    .map_err(|error| format!("runtime_work_item_encode_failed: {error}"))?;
+    Ok(crate::context::stable_digest(&material))
+}
+
+fn runtime_work_idempotency_key(principal_id: &str, tenant_id: &str, request_id: &str) -> String {
+    format!("runtime-work-idempotency:{principal_id}\0{tenant_id}\0{request_id}")
+}
+
+fn next_runtime_work_sequence(
+    txn: &mut RwTransaction<'_>,
+    schema_meta: Database,
+) -> Result<u64, String> {
+    let key = "meta:runtime_work_last_sequence";
+    let current = match txn.get(schema_meta, &key) {
+        Ok(value) => std::str::from_utf8(value)
+            .map_err(|error| format!("runtime_work_sequence_not_utf8: {error}"))?
+            .parse::<u64>()
+            .map_err(|error| format!("runtime_work_sequence_invalid: {error}"))?,
+        Err(Error::NotFound) => 0,
+        Err(error) => return Err(format!("failed to read runtime work sequence: {error}")),
+    };
+    let next = current
+        .checked_add(1)
+        .ok_or_else(|| "runtime_work_sequence_exhausted".to_string())?;
+    let encoded = next.to_string();
+    txn.put(schema_meta, &key, &encoded, WriteFlags::empty())
+        .map_err(|error| format!("failed to advance runtime work sequence: {error}"))?;
+    Ok(next)
+}
+
+fn list_runtime_work_items_txn<T: Transaction>(
+    txn: &T,
+    database: Database,
+) -> Result<Vec<RuntimeWorkItem>, String> {
+    let mut cursor = txn
+        .open_ro_cursor(database)
+        .map_err(|error| format!("failed to open runtime work cursor: {error}"))?;
+    let mut items = Vec::new();
+    for (_, raw) in cursor.iter() {
+        let item: RuntimeWorkItem = serde_json::from_slice(raw)
+            .map_err(|error| format!("runtime_work_item_decode_failed: {error}"))?;
+        item.validate_integrity()?;
+        items.push(item);
+    }
+    drop(cursor);
+    Ok(items)
 }
 
 fn semantic_context_artifact_key(artifact_id: &str) -> String {
@@ -12365,5 +13455,281 @@ mod tests {
         drop(store);
         fs::remove_dir_all(path).expect("remove root isolation store");
         fs::remove_dir_all(root).expect("remove root hierarchy");
+    }
+
+    fn setup_runtime_case(
+        store: &LmdbRecordStore,
+        owner: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        case_id: &str,
+        suffix: &str,
+    ) -> PathBuf {
+        let principal_id = owner.projected_principal_id();
+        store
+            .create_tenant_case(owner, tenant_id, case_id)
+            .expect("create runtime Case");
+        let participant = store
+            .commit_secured_transition(
+                owner,
+                tenant_id,
+                secured_pending(
+                    &format!("transition:runtime-participant:{suffix}"),
+                    case_id,
+                    1,
+                    &principal_id,
+                    TransitionPayload::ParticipantBound {
+                        participant_id: "participant:model".to_string(),
+                        role: "operation-proposer".to_string(),
+                    },
+                ),
+                true,
+            )
+            .expect("bind runtime participant");
+        let root = temp_store_path(&format!("runtime-root-{suffix}"));
+        fs::create_dir_all(&root).expect("create runtime resource root");
+        let attachment = ResourceAttachmentState {
+            attachment_id: "resource:workspace".to_string(),
+            kind: ResourceKind::Filesystem,
+            allowed_write_prefix: "allowed".to_string(),
+            max_write_bytes: 4096,
+            policy_id: "compatibility-only".to_string(),
+            policy_owner_participant_id: "participant:model".to_string(),
+            review_requirement: ReviewRequirement::Automatic,
+        };
+        let mut pending = secured_pending(
+            &format!("transition:runtime-resource:{suffix}"),
+            case_id,
+            participant.state.generation,
+            &principal_id,
+            TransitionPayload::ResourceAttached { attachment },
+        );
+        pending.causal_refs = vec!["participant:model".to_string()];
+        store
+            .commit_tenant_resource_attachment(
+                owner,
+                tenant_id,
+                pending,
+                &LocalFilesystemBinding::new(case_id, "resource:workspace", &root)
+                    .expect("runtime local binding"),
+            )
+            .expect("attach runtime resource");
+        root
+    }
+
+    fn runtime_budgets() -> RuntimeCaseBudgets {
+        RuntimeCaseBudgets {
+            max_invocations: 2,
+            max_operations: 2,
+            max_semantic_units: 128,
+            max_resident_items: 16,
+            max_estimated_input_units: 1024,
+            max_provider_retries: 0,
+            max_runtime_ms: Some(10_000),
+            stop_on_deny: true,
+            continue_after_malformed: false,
+        }
+    }
+
+    #[test]
+    fn wave13_runtime_instance_is_exclusive_reclaimable_and_noncanonical() {
+        let path = temp_store_path("wave13-runtime-instance");
+        let store = LmdbRecordStore::open(&path).expect("open runtime store");
+        let owner = AuthenticatedPrincipal::for_test(13001);
+        store
+            .bootstrap_local_security(&owner, "tenant:runtime", "organization:test", 1)
+            .expect("bootstrap runtime owner");
+        let config = RuntimeInstanceConfig {
+            workers: 2,
+            max_active_per_tenant: 1,
+            max_queued_per_tenant: 4,
+            max_queued_total: 8,
+        };
+        let first = RuntimeInstanceAcquireRequest {
+            owner_pid: std::process::id(),
+            owner_token: "runtime-owner:first".to_string(),
+            now_unix_ms: 100,
+            lease_duration_ms: 10,
+            config: config.clone(),
+        };
+        let (outcome, _) = store
+            .acquire_runtime_instance(&owner, &first, false)
+            .expect("acquire instance");
+        assert_eq!(outcome, RuntimeInstanceAcquireOutcome::Acquired);
+        let split = store
+            .acquire_runtime_instance(
+                &owner,
+                &RuntimeInstanceAcquireRequest {
+                    owner_token: "runtime-owner:split".to_string(),
+                    ..first.clone()
+                },
+                false,
+            )
+            .expect_err("second live instance rejected");
+        assert!(split.contains("runtime_instance_active"));
+        let (reclaimed, state) = store
+            .acquire_runtime_instance(
+                &owner,
+                &RuntimeInstanceAcquireRequest {
+                    owner_token: "runtime-owner:reclaimed".to_string(),
+                    now_unix_ms: 111,
+                    ..first
+                },
+                false,
+            )
+            .expect("expired lease reclaimed");
+        assert_eq!(reclaimed, RuntimeInstanceAcquireOutcome::Reclaimed);
+        assert_eq!(state.lifecycle, RuntimeInstanceLifecycle::Starting);
+        assert!(store.list_security_events().unwrap().len() >= 2);
+        assert!(store.list_case_transitions("case:none").unwrap().is_empty());
+        drop(store);
+        fs::remove_dir_all(path).expect("remove runtime store");
+    }
+
+    #[test]
+    fn wave13_one_process_shares_one_lmdb_environment_across_workers() {
+        let path = temp_store_path("wave13-shared-environment");
+        let store = LmdbRecordStore::open(&path).expect("open shared runtime store");
+        let mut workers = Vec::new();
+        for _ in 0..4 {
+            let worker_path = path.clone();
+            workers.push(std::thread::spawn(move || {
+                for _ in 0..25 {
+                    let worker_store =
+                        LmdbRecordStore::open(&worker_path).expect("reuse shared LMDB environment");
+                    worker_store
+                        .summary()
+                        .expect("read through shared environment");
+                }
+            }));
+        }
+        for worker in workers {
+            worker.join().expect("LMDB worker remains live");
+        }
+        drop(store);
+        fs::remove_dir_all(path).expect("remove shared environment store");
+    }
+
+    #[test]
+    fn wave13_work_items_are_idempotent_bounded_isolated_and_case_serialized() {
+        let path = temp_store_path("wave13-runtime-work");
+        let store = LmdbRecordStore::open(&path).expect("open runtime work store");
+        let owner = AuthenticatedPrincipal::for_test(13011);
+        let other = AuthenticatedPrincipal::for_test(13012);
+        store
+            .bootstrap_local_security(&owner, "tenant:runtime-a", "organization:test", 10)
+            .expect("bootstrap owner");
+        store
+            .bootstrap_local_security(&other, "tenant:runtime-b", "organization:test", 11)
+            .expect("bootstrap other owner");
+        let root = setup_runtime_case(&store, &owner, "tenant:runtime-a", "case:runtime-a", "a");
+        let config = RuntimeInstanceConfig {
+            workers: 2,
+            max_active_per_tenant: 1,
+            max_queued_per_tenant: 2,
+            max_queued_total: 2,
+        };
+        let token = "runtime-owner:work";
+        store
+            .acquire_runtime_instance(
+                &owner,
+                &RuntimeInstanceAcquireRequest {
+                    owner_pid: std::process::id(),
+                    owner_token: token.to_string(),
+                    now_unix_ms: 20,
+                    lease_duration_ms: 1_000,
+                    config,
+                },
+                false,
+            )
+            .expect("acquire instance");
+        store
+            .activate_runtime_instance(&owner, token, 20, 1_000, 0)
+            .expect("activate instance");
+        let submission = RuntimeWorkSubmission {
+            request_id: "request:one".to_string(),
+            tenant_id: "tenant:runtime-a".to_string(),
+            case_id: "case:runtime-a".to_string(),
+            participant_id: "participant:model".to_string(),
+            attachment_id: "resource:workspace".to_string(),
+            journal_path: "/tmp/runtime-journal.jsonl".to_string(),
+            task: "write first".to_string(),
+            budgets: runtime_budgets(),
+            failpoint: None,
+            now_unix_ms: 21,
+        };
+        let first = store
+            .submit_runtime_work(&owner, &submission)
+            .expect("submit first");
+        assert!(first.created);
+        let repeated = store
+            .submit_runtime_work(&owner, &submission)
+            .expect("repeat idempotently");
+        assert!(!repeated.created);
+        assert_eq!(first.item.work_id, repeated.item.work_id);
+        let second = store
+            .submit_runtime_work(
+                &owner,
+                &RuntimeWorkSubmission {
+                    request_id: "request:two".to_string(),
+                    task: "write first".to_string(),
+                    now_unix_ms: 22,
+                    ..submission.clone()
+                },
+            )
+            .expect("same prompt with different request stays distinct");
+        assert_ne!(first.item.work_id, second.item.work_id);
+        let capacity = store
+            .submit_runtime_work(
+                &owner,
+                &RuntimeWorkSubmission {
+                    request_id: "request:three".to_string(),
+                    now_unix_ms: 23,
+                    ..submission.clone()
+                },
+            )
+            .expect_err("Tenant queue capacity applies");
+        assert_eq!(capacity, "runtime_global_queue_capacity_exhausted");
+        let early_second = store
+            .claim_runtime_work(&owner, token, &second.item.work_id, "worker:1", 24)
+            .expect_err("same Case preserves FIFO and one active item");
+        assert_eq!(early_second, "runtime_case_already_active");
+        let running = store
+            .claim_runtime_work(&owner, token, &first.item.work_id, "worker:0", 24)
+            .expect("claim first");
+        assert_eq!(running.state, RuntimeWorkState::Running);
+        let mut forged = running.clone();
+        forged.task = "forged".to_string();
+        assert_eq!(
+            forged.validate_integrity().unwrap_err(),
+            "runtime_work_item_integrity_mismatch"
+        );
+        let cross_tenant = store
+            .submit_runtime_work(
+                &other,
+                &RuntimeWorkSubmission {
+                    request_id: "request:cross".to_string(),
+                    tenant_id: "tenant:runtime-b".to_string(),
+                    case_id: "case:runtime-a".to_string(),
+                    now_unix_ms: 25,
+                    ..submission
+                },
+            )
+            .expect_err("other Principal cannot inject work");
+        assert_eq!(cross_tenant, "runtime_instance_principal_mismatch");
+        let before = store
+            .get_case_state("case:runtime-a")
+            .unwrap()
+            .unwrap()
+            .generation;
+        assert_eq!(store.list_runtime_work_authorized(&owner).unwrap().len(), 2);
+        let after = store
+            .get_case_state("case:runtime-a")
+            .unwrap()
+            .unwrap()
+            .generation;
+        assert_eq!(before, after, "queue status is pure Case observation");
+        drop(store);
+        fs::remove_dir_all(path).expect("remove runtime work store");
+        fs::remove_dir_all(root).expect("remove runtime resource root");
     }
 }

@@ -264,6 +264,8 @@ fn print_usage() {
     println!("       yai identity whoami");
     println!("       yai tenant list|status [--tenant <tenant:id>]");
     println!("       yai tenant add-member --tenant <tenant:id> --principal <principal:id>");
+    println!("       yai runtime serve|status|queue|stop [runtime limits]");
+    println!("       yai runtime submit --tenant <tenant:id> --case <case:id> --subject <participant:id> --attachment <id> --prompt <task> [--idempotency-key <key>] [Case budgets]");
     println!("       yai case create --case <case:id> --tenant <tenant:id>");
     println!("       yai case principal link --case <case:id> --principal <principal:id> --participant <participant:id>");
     println!("       yai case enter --case <case_ref> --subject <subject_ref> [--consumer model] [--kind model_context] [--shell zsh]");
@@ -1210,6 +1212,8 @@ use controlled_effect::*;
 mod case_runtime;
 use case_runtime::*;
 
+mod runtime_instance;
+
 mod policy;
 use policy::policy_command;
 
@@ -1599,6 +1603,12 @@ fn main() {
         }
         Some("case") if args.get(1).map(String::as_str) == Some("run") => {
             if let Err(error) = case_runtime_run(&args[2..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("runtime") => {
+            if let Err(error) = runtime_instance::dispatch(&args[1..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }

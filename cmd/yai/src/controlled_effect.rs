@@ -159,14 +159,20 @@ pub(super) fn case_attach_filesystem(args: &[String]) -> Result<(), String> {
         println!("filesystem_attachment: already_attached");
     } else {
         let mut pending = PendingTransition::new(
-            format!("transition:resource-attached:{attachment_id}"),
+            format!(
+                "transition:resource-attached:{}:{attachment_id}",
+                yai_core_engine::context::stable_digest(&case_id)
+            ),
             &case_id,
             state.generation,
             TransitionSource {
                 component: CONTROLLED_EFFECT_COMPONENT.to_string(),
                 participant_id: None,
                 principal_id: Some(authenticated.projected_principal_id()),
-                source_ref: Some(format!("resource-attached:{attachment_id}")),
+                source_ref: Some(format!(
+                    "resource-attached:{}:{attachment_id}",
+                    yai_core_engine::context::stable_digest(&case_id)
+                )),
             },
             TransitionPayload::ResourceAttached {
                 attachment: attachment.clone(),

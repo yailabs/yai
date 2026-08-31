@@ -200,3 +200,38 @@ are `refounded_proven` within the local POSIX trust model. Organization is
 `partially_refounded` as projection-only. SSO/account identity, credential
 vaulting, membership removal, VM/container isolation, multi-Case scheduling
 and shared-resource fencing remain deferred.
+
+## Wave-13 verdict
+
+Wave 13 directly re-inspected the final runtime-machine, runtime-control,
+process-watch/Case-registry, Supervisor and source-runtime queue epochs. The
+legacy's strongest executable properties were a persisted process lifecycle
+with PID reconciliation, bounded scan-many observation, runtime-control
+admission distinct from Case authority, and a bounded durable source spool.
+It had no executing Case worker pool, Tenant fairness, per-Tenant quota or
+meaningful multi-Case scheduler. Supervisor/root-Case ownership, shell queue
+authority, energy/kernel scheduler analogies and edge/source topology remain
+rejected.
+
+The refounded `yai.runtime_instance.v1` is durable operational state with one
+live PID/token/lease owner and Starting, Running, Draining and Stopped states.
+`yai.runtime_work_item.v1` binds authenticated Principal, Tenant, Case,
+Participant, resource, bounded task, request identity, Case budgets and an
+operational lifecycle. A finite pool calls the same Case loop as direct run;
+checkpoint v2 binds the RuntimeInstance and WorkItem. Tenant round-robin plus
+FIFO, finite active/queue limits, same-Case exclusion and conservative
+same-runtime resource-overlap serialization control dispatch without becoming
+authority.
+
+Startup performs a bounded canonical-first recovery sweep. A real crash after
+PREPARE reclaimed the exact stale WorkItem and instance, reconciled the same
+effect and completed without duplicating provider or physical work. Real
+delayed providers proved two disjoint Cases overlap, while same-Case active
+count, Tenant active count and configured worker count remain bounded.
+
+RuntimeInstance lifecycle, local multi-Case execution, deterministic Tenant
+fairness, operational quotas/backpressure and recovery sweep are
+`refounded_proven` for the local runtime. Runtime state remains noncanonical:
+Case Transitions/CaseState and the existing security/governance histories own
+truth. Canonical resource leases, epochs/fencing, cross-process exclusion and
+a second real carrier remain Wave 14.

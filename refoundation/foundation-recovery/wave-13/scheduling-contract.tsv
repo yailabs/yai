@@ -1,0 +1,11 @@
+order	rule	deterministic_result
+1	re-read nonterminal WorkItems from LMDB	only queued items are candidates
+2	group candidates by tenant_id and sort by enqueue_sequence	FIFO within Tenant
+3	start after the Tenant selected on the preceding dispatch	round-robin across eligible Tenants
+4	skip Tenant at max_active_per_tenant	other Tenant may use capacity
+5	skip Case with active WorkItem or an earlier nonterminal WorkItem	one active item/Case and continuity-preserving FIFO
+6	resolve current filesystem binding relation	overlap or unknown relation serializes
+7	re-observe kernel Principal and revalidate Principal/Tenant/Case at transactional claim	queued metadata never becomes authority
+8	acquire existing CaseRuntimeAdmission	manual/direct live owner is never stolen
+9	execute shared case_runtime::run_loop boundary	no second Case runtime algorithm
+10	map existing CaseRuntimeStop to operational posture	no reinterpretation of Case outcome

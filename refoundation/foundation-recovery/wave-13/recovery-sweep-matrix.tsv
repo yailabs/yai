@@ -1,0 +1,11 @@
+observed_operational_state	canonical_first_check	recovery_classification	next_action
+queued	cancelled/closed Case	cancelled	never dispatch
+running	dead/stale RuntimeInstance; inspect Case state and checkpoint	reclaimed to queued	existing CaseRuntimeAdmission still decides ownership
+waiting_review	pending canonical Review remains	waiting_review	worker-free park
+waiting_review	Review no longer pending	queued	resume exact WorkItem/Operation
+waiting_effect	Prepared/Indeterminate canonical truth	queued for reconciliation	Case loop reconciles before provider
+blocked	policy still invalid	blocked	no busy retry/provider
+blocked	policy repaired	queued	re-evaluate under current governance
+blocked	live direct Case admission	blocked	requeue only after PID death/lease expiry
+any nonterminal	cancelled/closed	cancelled	settlement remains available only through existing Case lifecycle rules
+classification	no provider invocation	no semantic advancement	sweep is bounded by stored nonterminal WorkItems

@@ -38,3 +38,8 @@ canonical UserSession mega-context	do_not_port	no current independent login-sess
 Organization registry/plane	do_not_port	no executable independent Organization lifecycle or isolation consumer	organization_ref immutable Tenant projection
 string owner_ref as Tenant migration	do_not_port	metadata coincidence cannot prove authenticated security ownership	Tenant-scoped policy artifact v5 and explicit binding
 magic root/system Tenant	do_not_port	would recreate ambient authority and hide bootstrap provenance	kernel-authenticated atomic local bootstrap
+Supervisor as runtime/Case owner	do_not_port	observation/integration topology did not own Case semantic truth	leased operational RuntimeInstance plus canonical Case state
+root Case as scheduler owner	do_not_port	legacy runtime loop hard-coded a root Case and did not schedule independent Cases	Tenant-bound durable WorkItems
+kernel/energy scheduling analogies	do_not_port	global quota/authority-lock taxonomy had no Tenant-fair Case worker consumer	finite worker/queue/active limits
+shell queue as work authority	do_not_port	queue gate ordered notices/equivalent commands but never advanced Cases	operational WorkItem queue feeding existing Case runtime
+one process environment per worker	do_not_port	independent LMDB environments collided under real thread concurrency	one shared process LMDB Environment with NO_TLS
