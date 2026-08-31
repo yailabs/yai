@@ -1,0 +1,10 @@
+from	allowed_to	owner/check	invalid_examples
+queued	running;cancelled	claim transaction or cancellation convergence	queued->completed
+running	queued;waiting_review;waiting_effect;blocked;completed;denied;cancelled;failed	owner process + token + Principal; expected worker when supplied	arbitrary terminal resurrection
+waiting_review	queued;cancelled	canonical review resolution or cancellation	waiting_review->completed
+waiting_effect	queued;cancelled	reconciliation retry or cancellation	waiting_effect->completed
+blocked	queued;cancelled	explicit eligibility repair or cancellation	blocked->running
+completed	NONE	terminal	completed->queued
+denied	NONE	terminal	denied->running
+cancelled	NONE	terminal	cancelled->running
+failed	NONE	terminal	failed->running

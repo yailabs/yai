@@ -1310,6 +1310,29 @@ fn prompt_runtime_from_args(args: &[String]) -> Result<PromptRuntime, String> {
     prompt_runtime_from_args_with_journal(args, None)
 }
 
+fn validate_loaded_journal_case_binding(journal: &Journal, case_ref: &str) -> Result<(), String> {
+    let conflicting = journal
+        .records()
+        .iter()
+        .find(|record| record.case_ref != case_ref);
+    if let Some(record) = conflicting {
+        return Err(format!(
+            "journal_case_identity_mismatch: expected={case_ref} observed={} record_id={}",
+            record.case_ref, record.id
+        ));
+    }
+    Ok(())
+}
+
+pub(super) fn validate_journal_case_binding(
+    journal_path: &Path,
+    case_ref: &str,
+) -> Result<(), String> {
+    let journal = Journal::load_jsonl(journal_path)
+        .map_err(|error| format!("failed to load {}: {error}", journal_path.display()))?;
+    validate_loaded_journal_case_binding(&journal, case_ref)
+}
+
 fn prompt_runtime_from_args_with_journal(
     args: &[String],
     explicit_journal_path: Option<&Path>,
@@ -1373,6 +1396,7 @@ fn prompt_runtime_from_args_with_journal(
         });
     let journal = Journal::load_jsonl(&journal_path)
         .map_err(|error| format!("failed to load {}: {error}", journal_path.display()))?;
+    validate_loaded_journal_case_binding(&journal, &case_ref)?;
     let store = LmdbRecordStore::open(record_store_path())?;
     let state = promote_provider_compatibility_state(
         &store,

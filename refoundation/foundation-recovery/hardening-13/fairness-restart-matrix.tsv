@@ -1,0 +1,6 @@
+step	persisted_cursor	queue	selected	result
+initial dispatch	none/A predecessor	A1 A2 A3 A4 B1 B2	A1	claim atomically persists A
+restart after A claim	A	A1(recovered) A2 A3 A4 B1 B2	B1	no lexicographic reset
+restart after B claim	B	A1 A2 A3 A4 B1(recovered) B2	A1	bounded alternation continues
+product repeated restart	A then B	four real WorkItems across two Tenants	Tenant A then Tenant B	both crash exits 121; all four later complete
+deletion limitation	missing cursor	same queue	first deterministic eligible Tenant	only scheduling order changes; Case truth/authority unchanged

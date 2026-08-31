@@ -1,0 +1,7 @@
+item	h13_status	wave14_exact_delta
+same-RuntimeInstance root overlap	conservative scheduler serialization proven	canonical resource owner must replace scheduler-local observation
+direct run versus RuntimeInstance different Cases	not fenced across processes	ResourceLease/epoch/fencing token at carrier boundary
+PID/process ownership	closed for scheduler process	must not be reused as resource fencing identity
+filesystem carrier	one-shot local carrier preserved	make carrier validate canonical fencing token/generation
+second carrier	not started	recover and implement one real non-filesystem carrier with its own crash/fencing proof
+distributed locks	explicitly absent	remain out unless Wave14 direct archaeology earns them

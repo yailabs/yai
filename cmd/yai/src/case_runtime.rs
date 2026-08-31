@@ -7,12 +7,13 @@
 use super::*;
 use crate::security::authenticate_local;
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
 use yai_core_engine::effect::OPERATION_PROPOSAL_SCHEMA;
 use yai_core_engine::store::lmdb::{
-    CaseRuntimeAdmissionOutcome, CaseRuntimeAdmissionRequest, RuntimeWorkItem,
+    CaseRuntimeAdmissionOutcome, CaseRuntimeAdmissionRequest, RuntimeWorkItem, RuntimeWorkState,
 };
 
 const CASE_RUNTIME_CHECKPOINT_SCHEMA: &str = "yai.case_runtime_checkpoint.v2";
@@ -177,6 +178,69 @@ impl CaseRuntimeCheckpoint {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CheckpointResumeIntent {
+    DirectOperator,
+    RuntimeWork,
+}
+
+fn checkpoint_is_never_resumable(status: &CaseRuntimeStop) -> bool {
+    matches!(
+        status,
+        CaseRuntimeStop::Completed
+            | CaseRuntimeStop::Denied
+            | CaseRuntimeStop::Cancelled
+            | CaseRuntimeStop::Closed
+            | CaseRuntimeStop::FatalInvariantViolation
+    )
+}
+
+fn authorize_checkpoint_resume(
+    checkpoint: &mut CaseRuntimeCheckpoint,
+    intent: CheckpointResumeIntent,
+) -> Result<bool, String> {
+    if checkpoint_is_never_resumable(&checkpoint.status) {
+        return match intent {
+            CheckpointResumeIntent::DirectOperator => Err(format!(
+                "case_runtime_terminal_checkpoint_cannot_resume: {}",
+                checkpoint.status.as_str()
+            )),
+            CheckpointResumeIntent::RuntimeWork => Ok(false),
+        };
+    }
+    if intent == CheckpointResumeIntent::RuntimeWork
+        && matches!(
+            checkpoint.status,
+            CaseRuntimeStop::ProviderFailureBudgetExhausted
+                | CaseRuntimeStop::InvocationBudgetExhausted
+                | CaseRuntimeStop::OperationBudgetExhausted
+                | CaseRuntimeStop::ContextBudgetExhausted
+                | CaseRuntimeStop::CostBudgetExhausted
+                | CaseRuntimeStop::OperatorStopped
+                | CaseRuntimeStop::MalformedProviderResult
+        )
+    {
+        return Ok(false);
+    }
+    checkpoint.stop_requested = false;
+    checkpoint.status = CaseRuntimeStop::Running;
+    checkpoint.stop_detail.clear();
+    Ok(true)
+}
+
+fn validate_checkpoint_work_identity(
+    checkpoint: &CaseRuntimeCheckpoint,
+    item: &RuntimeWorkItem,
+) -> Result<(), String> {
+    if checkpoint.work_item_id.as_deref() != Some(item.work_id.as_str()) {
+        return Err("case_runtime_checkpoint_owned_by_other_work".to_string());
+    }
+    if checkpoint.runtime_instance_id.as_deref() != item.runtime_instance_id.as_deref() {
+        return Err("case_runtime_checkpoint_instance_mismatch".to_string());
+    }
+    Ok(())
+}
+
 fn parse_positive(args: &[String], name: &str, default: usize) -> Result<usize, String> {
     optional_arg(args, name)
         .map(|value| {
@@ -217,6 +281,10 @@ fn checkpoint_path(case_id: &str) -> PathBuf {
 
 fn write_checkpoint(checkpoint: &CaseRuntimeCheckpoint) -> Result<(), String> {
     let path = checkpoint_path(&checkpoint.case_id);
+    write_checkpoint_at(&path, checkpoint)
+}
+
+fn write_checkpoint_at(path: &Path, checkpoint: &CaseRuntimeCheckpoint) -> Result<(), String> {
     let parent = path
         .parent()
         .ok_or_else(|| "case runtime checkpoint has no parent".to_string())?;
@@ -229,17 +297,32 @@ fn write_checkpoint(checkpoint: &CaseRuntimeCheckpoint) -> Result<(), String> {
     ));
     let encoded = serde_json::to_vec_pretty(checkpoint)
         .map_err(|error| format!("failed to encode case runtime checkpoint: {error}"))?;
-    fs::write(&temporary, encoded)
+    let mut file = fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(&temporary)
+        .map_err(|error| format!("failed to create case runtime checkpoint: {error}"))?;
+    file.write_all(&encoded)
         .map_err(|error| format!("failed to write case runtime checkpoint: {error}"))?;
-    fs::rename(&temporary, &path)
+    file.sync_all()
+        .map_err(|error| format!("failed to sync case runtime checkpoint: {error}"))?;
+    drop(file);
+    fs::rename(&temporary, path)
         .map_err(|error| format!("failed to publish case runtime checkpoint: {error}"))?;
+    fs::File::open(parent)
+        .and_then(|directory| directory.sync_all())
+        .map_err(|error| format!("failed to sync case runtime directory: {error}"))?;
     Ok(())
 }
 
 fn read_checkpoint(case_id: &str) -> Result<CaseRuntimeCheckpoint, String> {
     let path = checkpoint_path(case_id);
+    read_checkpoint_at(&path, case_id)
+}
+
+fn read_checkpoint_at(path: &Path, case_id: &str) -> Result<CaseRuntimeCheckpoint, String> {
     let encoded =
-        fs::read(&path).map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+        fs::read(path).map_err(|error| format!("failed to read {}: {error}", path.display()))?;
     let checkpoint: CaseRuntimeCheckpoint = serde_json::from_slice(&encoded)
         .map_err(|error| format!("invalid case runtime checkpoint: {error}"))?;
     if (checkpoint.schema != CASE_RUNTIME_CHECKPOINT_SCHEMA
@@ -390,9 +473,6 @@ fn update_resume_budgets(
             .parse()
             .map_err(|error| format!("invalid --max-estimated-input-units: {error}"))?;
     }
-    checkpoint.stop_requested = false;
-    checkpoint.status = CaseRuntimeStop::Running;
-    checkpoint.stop_detail.clear();
     Ok(())
 }
 
@@ -1058,6 +1138,7 @@ pub(super) fn case_runtime_resume(args: &[String]) -> Result<(), String> {
         .require_owner()?;
     let mut checkpoint = read_checkpoint(&case_id)?;
     update_resume_budgets(&mut checkpoint, args)?;
+    authorize_checkpoint_resume(&mut checkpoint, CheckpointResumeIntent::DirectOperator)?;
     let checkpoint = run_with_admission(checkpoint, args)?;
     print_runtime_summary(&checkpoint)
 }
@@ -1119,6 +1200,9 @@ pub(super) fn execute_runtime_work(item: &RuntimeWorkItem) -> Result<CaseRuntime
             }
             update_resume_budgets(&mut existing, &args)?;
             existing.schema = CASE_RUNTIME_CHECKPOINT_SCHEMA.to_string();
+            if !authorize_checkpoint_resume(&mut existing, CheckpointResumeIntent::RuntimeWork)? {
+                return Ok(CaseRuntimeReport::from(&existing));
+            }
             existing
         }
         Ok(existing)
@@ -1150,6 +1234,72 @@ pub(super) fn execute_runtime_work(item: &RuntimeWorkItem) -> Result<CaseRuntime
     Ok(CaseRuntimeReport::from(&checkpoint))
 }
 
+/// Reconstructs operational WorkItem posture from the exact checkpoint owned
+/// by a stale Running item. This is recovery evidence, not Case authority.
+pub(super) fn recover_runtime_work_from_checkpoint(
+    item: &RuntimeWorkItem,
+) -> Result<Option<(RuntimeWorkState, String)>, String> {
+    let path = checkpoint_path(&item.case_id);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let checkpoint = read_checkpoint(&item.case_id)?;
+    checkpoint_recovery_posture(&checkpoint, item)
+}
+
+fn checkpoint_recovery_posture(
+    checkpoint: &CaseRuntimeCheckpoint,
+    item: &RuntimeWorkItem,
+) -> Result<Option<(RuntimeWorkState, String)>, String> {
+    if checkpoint.work_item_id.as_deref() != Some(item.work_id.as_str())
+        && checkpoint_is_never_resumable(&checkpoint.status)
+    {
+        // A newly claimed later WorkItem may crash before it publishes its own
+        // checkpoint. The old terminal checkpoint is not evidence for the new
+        // work; treat it exactly as no current-work checkpoint.
+        return Ok(None);
+    }
+    validate_checkpoint_work_identity(checkpoint, item)?;
+    let state = runtime_work_state_for_checkpoint(&checkpoint.status);
+    Ok(Some((
+        state,
+        format!(
+            "checkpoint_recovery: status={}; run_id={}; detail={}",
+            checkpoint.status.as_str(),
+            checkpoint.run_id,
+            checkpoint.stop_detail
+        ),
+    )))
+}
+
+fn runtime_work_state_for_checkpoint(status: &CaseRuntimeStop) -> RuntimeWorkState {
+    match status {
+        CaseRuntimeStop::Running => RuntimeWorkState::Queued,
+        CaseRuntimeStop::Completed => RuntimeWorkState::Completed,
+        CaseRuntimeStop::Denied => RuntimeWorkState::Denied,
+        CaseRuntimeStop::AwaitingReview => RuntimeWorkState::WaitingReview,
+        CaseRuntimeStop::IndeterminateEffect => RuntimeWorkState::WaitingEffect,
+        CaseRuntimeStop::NormativeUnconfigured
+        | CaseRuntimeStop::NormativeBlocked
+        | CaseRuntimeStop::PolicyNotYetValid
+        | CaseRuntimeStop::PolicyRefreshRequired
+        | CaseRuntimeStop::PolicyStale
+        | CaseRuntimeStop::PolicyExpired
+        | CaseRuntimeStop::PolicyRevoked
+        | CaseRuntimeStop::PolicyValidityUnavailable => RuntimeWorkState::Blocked,
+        CaseRuntimeStop::Cancelled | CaseRuntimeStop::Closed | CaseRuntimeStop::OperatorStopped => {
+            RuntimeWorkState::Cancelled
+        }
+        CaseRuntimeStop::ProviderFailureBudgetExhausted
+        | CaseRuntimeStop::InvocationBudgetExhausted
+        | CaseRuntimeStop::OperationBudgetExhausted
+        | CaseRuntimeStop::ContextBudgetExhausted
+        | CaseRuntimeStop::CostBudgetExhausted
+        | CaseRuntimeStop::MalformedProviderResult
+        | CaseRuntimeStop::FatalInvariantViolation => RuntimeWorkState::Failed,
+    }
+}
+
 pub(super) fn case_runtime_status(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let store = LmdbRecordStore::open(record_store_path())?;
@@ -1179,4 +1329,209 @@ pub(super) fn case_runtime_stop(args: &[String]) -> Result<(), String> {
     println!("case_runtime_stop: requested");
     println!("case_id: {case_id}");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn checkpoint(status: CaseRuntimeStop, run_id: &str, work_id: &str) -> CaseRuntimeCheckpoint {
+        CaseRuntimeCheckpoint {
+            schema: CASE_RUNTIME_CHECKPOINT_SCHEMA.to_string(),
+            run_id: run_id.to_string(),
+            runtime_instance_id: Some("runtime-instance:local-default".to_string()),
+            work_item_id: Some(work_id.to_string()),
+            case_id: "case:h13-checkpoint".to_string(),
+            participant_id: "participant:model".to_string(),
+            attachment_id: "resource:workspace".to_string(),
+            journal_path: "/tmp/h13-journal.jsonl".to_string(),
+            task: "bounded task".to_string(),
+            status,
+            stop_detail: "test posture".to_string(),
+            stop_requested: false,
+            invocations: 1,
+            operations: 1,
+            provider_failures: 0,
+            cumulative_estimated_input_units: 1,
+            actual_input_tokens: Some(1),
+            actual_output_tokens: Some(1),
+            actual_total_tokens: Some(2),
+            cumulative_provider_latency_ms: 1,
+            max_invocations: 2,
+            max_operations: 2,
+            max_semantic_units: 128,
+            max_resident_items: 16,
+            max_cumulative_estimated_input_units: 1024,
+            max_provider_retries: 1,
+            max_runtime_ms: Some(10_000),
+            stop_on_deny: true,
+            continue_after_malformed: false,
+            previous_item_ids: Vec::new(),
+            last_residency_plan_id: None,
+            last_projection_id: None,
+            last_context_frame_id: None,
+            last_projection_selected_items: 0,
+            last_projection_omitted_items: 0,
+            last_semantic_units: 0,
+            last_provider_result_id: None,
+            pending_provider_result_id: None,
+            last_operation_id: None,
+            last_decision_id: None,
+            last_review_id: None,
+            last_effect_id: None,
+            last_receipt_id: None,
+            last_effect_outcome: None,
+        }
+    }
+
+    fn work_item(work_id: &str) -> RuntimeWorkItem {
+        RuntimeWorkItem {
+            schema: yai_core_engine::store::lmdb::RUNTIME_WORK_ITEM_SCHEMA.to_string(),
+            work_id: work_id.to_string(),
+            integrity_digest: "not-used-by-identity-test".to_string(),
+            request_id: "request:h13".to_string(),
+            request_digest: "digest:h13".to_string(),
+            principal_id: "principal:h13".to_string(),
+            tenant_id: "tenant:h13".to_string(),
+            case_id: "case:h13-checkpoint".to_string(),
+            participant_id: "participant:model".to_string(),
+            attachment_id: "resource:workspace".to_string(),
+            journal_path: "/tmp/h13-journal.jsonl".to_string(),
+            task: "bounded task".to_string(),
+            budgets: yai_core_engine::store::lmdb::RuntimeCaseBudgets {
+                max_invocations: 2,
+                max_operations: 2,
+                max_semantic_units: 128,
+                max_resident_items: 16,
+                max_estimated_input_units: 1024,
+                max_provider_retries: 1,
+                max_runtime_ms: Some(10_000),
+                stop_on_deny: true,
+                continue_after_malformed: false,
+            },
+            failpoint: None,
+            enqueue_sequence: 1,
+            state: RuntimeWorkState::Running,
+            attempt_count: 1,
+            runtime_instance_id: Some("runtime-instance:local-default".to_string()),
+            runtime_owner_token: Some("owner:h13".to_string()),
+            worker_id: Some("worker:0".to_string()),
+            last_stop_reason: "dispatched".to_string(),
+            enqueued_at_unix_ms: 1,
+            updated_at_unix_ms: 2,
+        }
+    }
+
+    #[test]
+    fn h13_terminal_checkpoint_cannot_be_reset_to_running() {
+        for status in [
+            CaseRuntimeStop::Completed,
+            CaseRuntimeStop::Denied,
+            CaseRuntimeStop::Cancelled,
+            CaseRuntimeStop::Closed,
+            CaseRuntimeStop::FatalInvariantViolation,
+        ] {
+            let mut terminal = checkpoint(status.clone(), "run:terminal", "work:terminal");
+            assert!(!authorize_checkpoint_resume(
+                &mut terminal,
+                CheckpointResumeIntent::RuntimeWork
+            )
+            .unwrap());
+            assert_eq!(terminal.status, status);
+        }
+        let mut waiting = checkpoint(
+            CaseRuntimeStop::AwaitingReview,
+            "run:waiting",
+            "work:waiting",
+        );
+        assert!(
+            authorize_checkpoint_resume(&mut waiting, CheckpointResumeIntent::RuntimeWork).unwrap()
+        );
+        assert_eq!(waiting.status, CaseRuntimeStop::Running);
+    }
+
+    #[test]
+    fn h13_checkpoint_postures_map_to_operational_recovery_without_reinterpretation() {
+        assert_eq!(
+            runtime_work_state_for_checkpoint(&CaseRuntimeStop::Completed),
+            RuntimeWorkState::Completed
+        );
+        assert_eq!(
+            runtime_work_state_for_checkpoint(&CaseRuntimeStop::Denied),
+            RuntimeWorkState::Denied
+        );
+        assert_eq!(
+            runtime_work_state_for_checkpoint(&CaseRuntimeStop::AwaitingReview),
+            RuntimeWorkState::WaitingReview
+        );
+        assert_eq!(
+            runtime_work_state_for_checkpoint(&CaseRuntimeStop::IndeterminateEffect),
+            RuntimeWorkState::WaitingEffect
+        );
+        assert_eq!(
+            runtime_work_state_for_checkpoint(&CaseRuntimeStop::PolicyStale),
+            RuntimeWorkState::Blocked
+        );
+        assert_eq!(
+            runtime_work_state_for_checkpoint(&CaseRuntimeStop::OperatorStopped),
+            RuntimeWorkState::Cancelled
+        );
+        let exact = checkpoint(CaseRuntimeStop::Completed, "run:exact", "work:exact");
+        let exact_item = work_item("work:exact");
+        assert_eq!(
+            checkpoint_recovery_posture(&exact, &exact_item)
+                .unwrap()
+                .map(|value| value.0),
+            Some(RuntimeWorkState::Completed)
+        );
+    }
+
+    #[test]
+    fn h13_checkpoint_publish_is_atomic_and_stale_temp_is_ignored() {
+        let directory = std::env::temp_dir().join(format!(
+            "yai-h13-checkpoint-{}-{}",
+            std::process::id(),
+            runtime_now_millis()
+        ));
+        let path = directory.join("checkpoint.json");
+        let first = checkpoint(CaseRuntimeStop::Completed, "run:first", "work:first");
+        write_checkpoint_at(&path, &first).expect("publish first checkpoint");
+        fs::write(directory.join(".stale.tmp"), b"{partial")
+            .expect("materialize stale temp residue");
+        let loaded = read_checkpoint_at(&path, &first.case_id).expect("read final checkpoint");
+        assert_eq!(loaded.run_id, "run:first");
+
+        let second = checkpoint(CaseRuntimeStop::Denied, "run:second", "work:second");
+        let third = checkpoint(CaseRuntimeStop::AwaitingReview, "run:third", "work:third");
+        let path_two = path.clone();
+        let path_three = path.clone();
+        let writer_two = std::thread::spawn(move || write_checkpoint_at(&path_two, &second));
+        let writer_three = std::thread::spawn(move || write_checkpoint_at(&path_three, &third));
+        writer_two.join().unwrap().expect("second atomic writer");
+        writer_three.join().unwrap().expect("third atomic writer");
+        let loaded = read_checkpoint_at(&path, "case:h13-checkpoint")
+            .expect("concurrent publication leaves complete JSON");
+        assert!(matches!(
+            loaded.status,
+            CaseRuntimeStop::Denied | CaseRuntimeStop::AwaitingReview
+        ));
+        fs::remove_dir_all(directory).expect("remove checkpoint test directory");
+    }
+
+    #[test]
+    fn h13_checkpoint_from_another_work_is_rejected() {
+        let checkpoint = checkpoint(CaseRuntimeStop::AwaitingReview, "run:a", "work:a");
+        let item = work_item("work:b");
+        assert_eq!(
+            validate_checkpoint_work_identity(&checkpoint, &item).unwrap_err(),
+            "case_runtime_checkpoint_owned_by_other_work"
+        );
+    }
+
+    #[test]
+    fn h13_old_terminal_checkpoint_is_not_adopted_by_newly_claimed_work() {
+        let terminal = checkpoint(CaseRuntimeStop::Completed, "run:a", "work:a");
+        let item = work_item("work:b");
+        assert_eq!(checkpoint_recovery_posture(&terminal, &item).unwrap(), None);
+    }
 }

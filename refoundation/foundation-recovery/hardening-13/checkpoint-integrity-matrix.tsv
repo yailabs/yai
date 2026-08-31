@@ -1,0 +1,8 @@
+property	mechanism	result
+schema/Case identity	v1/v2 reader plus exact Case path	wrong schema/Case rejected
+RuntimeInstance identity	checkpoint v2 binds stable RuntimeInstance ID	process restarts remain recoverable
+WorkItem identity	exact work_item_id required for recovery evidence	different nonterminal WorkItem checkpoint rejected; old terminal checkpoint may only be replaced by a newly admitted later work
+publication	unique run/PID temp; write_all; file sync_all; atomic rename; directory sync_all	no partial final JSON after crash
+stale temp	reader opens only final Case path	ignored
+concurrent publication	per-Case admission is final owner; stress still yields one complete decodable final JSON	no mixed JSON
+terminal resume	semantic resume authorization is separate from budget override	budget edits cannot reopen Completed/Denied/Cancelled/Closed/Fatal

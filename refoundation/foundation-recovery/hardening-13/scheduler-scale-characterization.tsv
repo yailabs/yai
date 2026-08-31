@@ -1,0 +1,5 @@
+terminal_items	total_selector_items	selector_elapsed_us	LMDB_list_elapsed_us	idle_tick_ms	index_decision
+100	102	13	4711	50	no new DB
+1000	1002	63	46073	50	no new DB
+5000	5002	157	229537	50	linear scan is visible but bounded at characterized local scale; retention/index deferred
+verdict	N/A	N/A	N/A	20 wakes/sec	no active-work index added because it would consume scarce DB headroom without a demonstrated current operational breach

@@ -213,8 +213,12 @@ meaningful multi-Case scheduler. Supervisor/root-Case ownership, shell queue
 authority, energy/kernel scheduler analogies and edge/source topology remain
 rejected.
 
-The refounded `yai.runtime_instance.v1` is durable operational state with one
-live PID/token/lease owner and Starting, Running, Draining and Stopped states.
+The refounded RuntimeInstance is durable operational state. H13 evolves it to
+`yai.runtime_instance.v2`: one live owner is now bound by Principal, token, PID
+and Linux boot/start discriminator, not by PID/token/lease alone. A live exact
+process cannot be displaced merely because a heartbeat lease elapsed; a dead
+or PID-reused owner remains reclaimable. Starting, Running, Draining and
+Stopped remain operational states.
 `yai.runtime_work_item.v1` binds authenticated Principal, Tenant, Case,
 Participant, resource, bounded task, request identity, Case budgets and an
 operational lifecycle. A finite pool calls the same Case loop as direct run;
@@ -229,9 +233,23 @@ effect and completed without duplicating provider or physical work. Real
 delayed providers proved two disjoint Cases overlap, while same-Case active
 count, Tenant active count and configured worker count remain bounded.
 
-RuntimeInstance lifecycle, local multi-Case execution, deterministic Tenant
-fairness, operational quotas/backpressure and recovery sweep are
-`refounded_proven` for the local runtime. Runtime state remains noncanonical:
+H13 closed the scheduler acknowledgement window: an exact terminal Case
+checkpoint repairs a stale Running WorkItem directly and can never be reset to
+Running by a budget update. The WorkItem FSM is mechanically enforced and
+terminal states have no outbound edge. AwaitingReview and IndeterminateEffect
+reconstruct their parked states. Worker panic is caught, makes the instance
+fail closed without fabricating a Case outcome, and leaves recoverable
+operational evidence. The Tenant fairness cursor is integrity-bound and
+advanced atomically with the claim, so repeated restarts cannot reset service
+to the first Tenant. Checkpoint publication is file- and directory-synced,
+compatibility journals are Case-qualified, and shared-LMDB/map-size behavior is
+explicitly stressed. No new named DB or semantic owner was added.
+
+RuntimeInstance lifecycle is `refounded_proven + process-identity-qualified`;
+local multi-Case execution is `refounded_proven + crash-ack-qualified`;
+deterministic Tenant fairness is `refounded_proven + restart-stable`; worker
+failure containment and recovery sweep are `refounded_proven` for the local
+runtime. Runtime state remains noncanonical:
 Case Transitions/CaseState and the existing security/governance histories own
 truth. Canonical resource leases, epochs/fencing, cross-process exclusion and
 a second real carrier remain Wave 14.

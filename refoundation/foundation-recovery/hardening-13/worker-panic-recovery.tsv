@@ -1,0 +1,5 @@
+boundary	behavior	semantic_outcome	operational_result	recovery
+panic before Case runtime	catch_unwind at worker boundary	none fabricated	instance records Draining/fail-closed detail then process exits nonzero	dead-owner reclaim; Running without checkpoint -> Queued
+panic after partial canonical work	catch boundary preserves ledger/checkpoint	canonical truth unchanged	WorkItem remains Running	canonical-first checkpoint/Case recovery
+other workers	process fail closes rather than silently losing capacity	no false Completed/Failed	active worker state remains recoverable	next instance sweeps all nonterminal work
+product proof	worker:0 panic on runtime-work:76b9a8bfb6f2ce90	provider_count remained 1 after restart	panic exit 2; final Completed	P-H13-03

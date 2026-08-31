@@ -1,0 +1,6 @@
+scenario	workers	operations	result	interpretation
+shared open/read/write	1/2/4/8	480 unique short writes plus summaries and reopen	pass; no MDB_BAD_RSLOT; exact record total	Arc<Environment> + NO_TLS remains valid
+heartbeat contention	8	512 concurrent writes; owner heartbeats	pass; max heartbeat 1ms versus 5000ms lease in final focused run	5s lease retains large measured margin
+map size A then A	shared process environment	same canonical path/same size	pass	explicit reuse
+map size A then B	shared process environment	same canonical path/different requested size	rejected lmdb_environment_map_size_mismatch	second open never implies resize
+named DB headroom	N/A	32 of max 40 before and after H13	8 remaining	no H13 DB/index added

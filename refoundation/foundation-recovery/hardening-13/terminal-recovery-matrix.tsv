@@ -1,0 +1,9 @@
+checkpoint_status	semantic_posture	recovered_work_state	may_reenter_same_work	provider_reinvoke_on_repair	evidence
+running	incomplete operational attempt	queued	yes, after canonical-first checks	possible only if no canonical ProviderResult already exists	H13-C5 / existing Case recovery
+completed	terminal success	completed	no	no	H13-01; P-H13-01
+denied	terminal governed denial	denied	no	no	H13-02
+awaiting_review	parked on canonical ReviewRequest	waiting_review	only after canonical ReviewAction resolves	no initial-provider repeat	H13-03; P-H13-02
+indeterminate_effect	physical truth unresolved	waiting_effect	only through reconciliation	no provider before settlement	H13-04
+normative/policy blocked	current authority unusable	blocked	yes after explicit repair	no while blocked	H13 resume matrix
+operator_stopped/cancelled/closed	terminal operational barrier	cancelled	no	no	H13-05
+budget exhausted/malformed/fatal	terminal for RuntimeWorkItem	failed	no for same WorkItem	no automatic retry	H13-05

@@ -1,0 +1,5 @@
+question	verdict	mechanical rule	wave14_boundary
+does journal affect semantics?	yes, compatibility Projection/ContextFrame/provider input still reads it	every loaded Record.case_ref must equal target Case before submission and again at provider boundary	none
+can process YAI_JOURNAL select another Case journal?	no for RuntimeWork	explicit WorkItem path is Case-qualified; mismatching record fails journal_case_identity_mismatch	none
+is journal canonical Case truth?	no	Case Transitions/LMDB remain authority	compatibility journal removal may be future cleanup
+can direct Case run overlap RuntimeInstance on resource roots?	per-Case admission blocks same Case; different Cases/processes are not globally fenced	scheduler serialization covers only one RuntimeInstance view	canonical resource lease/fencing remains Wave14

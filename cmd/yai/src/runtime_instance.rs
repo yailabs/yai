@@ -4,18 +4,22 @@
 //! policy, security, Decisions, Grants, and effect truth remain downstream.
 
 use super::*;
-use crate::case_runtime::{execute_runtime_work, CaseRuntimeReport, CaseRuntimeStop};
+use crate::case_runtime::{
+    execute_runtime_work, recover_runtime_work_from_checkpoint, CaseRuntimeReport, CaseRuntimeStop,
+};
+use crate::provider::validate_journal_case_binding;
 use crate::security::authenticate_local;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
 use yai_core_engine::store::lmdb::{
-    RuntimeCaseBudgets, RuntimeInstanceAcquireOutcome, RuntimeInstanceAcquireRequest,
-    RuntimeInstanceConfig, RuntimeInstanceLifecycle, RuntimeWorkItem, RuntimeWorkState,
-    RuntimeWorkSubmission,
+    runtime_process_identity_is_live, RuntimeCaseBudgets, RuntimeInstanceAcquireOutcome,
+    RuntimeInstanceAcquireRequest, RuntimeInstanceConfig, RuntimeInstanceLifecycle,
+    RuntimeWorkItem, RuntimeWorkState, RuntimeWorkSubmission,
 };
 use yai_core_engine::transition::{CaseLifecycle, ReviewResolution};
 
@@ -149,6 +153,7 @@ fn runtime_submit(args: &[String]) -> Result<(), String> {
         )
     });
     let journal_path = case_journal_path(args, "yai runtime submit")?;
+    validate_journal_case_binding(&journal_path, &case_id)?;
     let authenticated = authenticate_local()?;
     let store = LmdbRecordStore::open(record_store_path())?;
     let outcome = store.submit_runtime_work(
@@ -209,8 +214,16 @@ fn runtime_status(_args: &[String]) -> Result<(), String> {
     println!("authenticated_principal_id: {}", instance.principal_id);
     println!("pid: {}", instance.owner_pid);
     println!(
+        "owner_process_identity: {}",
+        instance.owner_process_identity
+    );
+    println!(
         "owner_pid_alive: {}",
         local_process_alive(instance.owner_pid)
+    );
+    println!(
+        "owner_process_identity_live: {}",
+        runtime_process_identity_is_live(instance.owner_pid, &instance.owner_process_identity)
     );
     println!("state: {:?}", instance.lifecycle);
     println!("workers: {}", instance.config.workers);
@@ -229,6 +242,17 @@ fn runtime_status(_args: &[String]) -> Result<(), String> {
         instance.lease_expires_at_unix_ms
     );
     println!("recovered_items: {}", instance.recovered_items);
+    println!(
+        "last_dispatched_tenant: {}",
+        instance.last_dispatched_tenant.as_deref().unwrap_or("none")
+    );
+    println!(
+        "drain_requested_at_unix_ms: {}",
+        instance
+            .drain_requested_at_unix_ms
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "none".to_string())
+    );
     println!("work_items_total: {}", items.len());
     for (state, count) in by_state {
         println!("state_count: {state}={count}");
@@ -260,7 +284,7 @@ fn runtime_stop(_args: &[String]) -> Result<(), String> {
     let instance = store.request_runtime_instance_drain(&authenticated, now_unix_ms())?;
     println!("runtime_stop: drain_requested");
     println!("runtime_instance_id: {}", instance.instance_id);
-    println!("state: {:?}", instance.lifecycle);
+    println!("state: drain_requested");
     Ok(())
 }
 
@@ -306,19 +330,28 @@ fn recovery_sweep(
             .get_case_state(&item.case_id)?
             .ok_or_else(|| "runtime_work_case_missing".to_string())?;
         let target = if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
-            Some((RuntimeWorkState::Cancelled, "case_cancelled_or_closed"))
+            Some((
+                RuntimeWorkState::Cancelled,
+                "case_cancelled_or_closed".to_string(),
+            ))
         } else {
             match item.state {
                 RuntimeWorkState::Running => {
-                    Some((RuntimeWorkState::Queued, "stale_running_work_reclaimed"))
+                    recover_runtime_work_from_checkpoint(&item)?.or_else(|| {
+                        Some((
+                            RuntimeWorkState::Queued,
+                            "stale_running_work_without_checkpoint".to_string(),
+                        ))
+                    })
                 }
                 RuntimeWorkState::WaitingEffect => Some((
                     RuntimeWorkState::Queued,
-                    "canonical_effect_reconciliation_required",
+                    "canonical_effect_reconciliation_required".to_string(),
                 )),
-                RuntimeWorkState::WaitingReview if !has_pending_review(&item, &store)? => {
-                    Some((RuntimeWorkState::Queued, "review_resolved_requeue"))
-                }
+                RuntimeWorkState::WaitingReview if !has_pending_review(&item, &store)? => Some((
+                    RuntimeWorkState::Queued,
+                    "review_resolved_requeue".to_string(),
+                )),
                 RuntimeWorkState::Blocked if work_policy_is_usable(&item, &store)? => {
                     if item
                         .last_stop_reason
@@ -326,10 +359,13 @@ fn recovery_sweep(
                     {
                         case_runtime_admission_is_available(&item, &store)?.then_some((
                             RuntimeWorkState::Queued,
-                            "case_runtime_admission_available",
+                            "case_runtime_admission_available".to_string(),
                         ))
                     } else {
-                        Some((RuntimeWorkState::Queued, "policy_repaired_requeue"))
+                        Some((
+                            RuntimeWorkState::Queued,
+                            "policy_repaired_requeue".to_string(),
+                        ))
                     }
                 }
                 _ => None,
@@ -342,7 +378,7 @@ fn recovery_sweep(
                 &item.work_id,
                 None,
                 target,
-                reason,
+                &reason,
                 now_unix_ms(),
             )?;
             recovered += 1;
@@ -492,7 +528,12 @@ fn report_work_state(report: &CaseRuntimeReport) -> RuntimeWorkState {
 struct WorkerResult {
     worker_id: String,
     work_id: String,
-    result: Result<CaseRuntimeReport, String>,
+    outcome: WorkerOutcome,
+}
+
+enum WorkerOutcome {
+    Result(Result<CaseRuntimeReport, String>),
+    Panicked(String),
 }
 
 fn runtime_serve(args: &[String]) -> Result<(), String> {
@@ -517,6 +558,10 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
     println!("integrity_digest: {}", starting.integrity_digest);
     println!("authenticated_principal_id: {principal_id}");
     println!("pid: {}", starting.owner_pid);
+    println!(
+        "owner_process_identity: {}",
+        starting.owner_process_identity
+    );
     println!("state: starting");
     println!(
         "instance_admission: {}",
@@ -541,6 +586,10 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
     println!("max_queued_total: {}", config.max_queued_total);
     println!("recovered_items: {recovered}");
     println!("heartbeat_at_unix_ms: {}", running.heartbeat_at_unix_ms);
+    if let Some(delay_ms) = optional_positive_u64(args, "--startup-dispatch-delay-ms")? {
+        println!("startup_dispatch_delay_ms: {delay_ms}");
+        thread::sleep(Duration::from_millis(delay_ms));
+    }
 
     let (job_tx, job_rx) = mpsc::channel::<(String, RuntimeWorkItem)>();
     let job_rx = Arc::new(Mutex::new(job_rx));
@@ -549,6 +598,7 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
     for _ in 0..config.workers {
         let receiver = Arc::clone(&job_rx);
         let sender = result_tx.clone();
+        let worker_failpoint = optional_arg(args, "--failpoint");
         handles.push(thread::spawn(move || loop {
             let job = receiver.lock().ok().and_then(|rx| rx.recv().ok());
             let Some((worker_id, item)) = job else {
@@ -558,22 +608,38 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
                 "runtime_worker_event: started timestamp_unix_ms={} worker_id={} work_id={} tenant_id={} case_id={}",
                 now_unix_ms(), worker_id, item.work_id, item.tenant_id, item.case_id
             );
-            let result = execute_runtime_work(&item);
+            let result = catch_unwind(AssertUnwindSafe(|| {
+                if worker_failpoint.as_deref() == Some("worker_panic_before_case_runtime") {
+                    panic!("worker_panic_before_case_runtime");
+                }
+                execute_runtime_work(&item)
+            }));
+            let outcome = match result {
+                Ok(result) => WorkerOutcome::Result(result),
+                Err(payload) => WorkerOutcome::Panicked(
+                    payload
+                        .downcast_ref::<&str>()
+                        .map(|value| (*value).to_string())
+                        .or_else(|| payload.downcast_ref::<String>().cloned())
+                        .unwrap_or_else(|| "unknown_worker_panic".to_string()),
+                ),
+            };
             println!(
                 "runtime_worker_event: stopped timestamp_unix_ms={} worker_id={} work_id={} status={}",
                 now_unix_ms(),
                 worker_id,
                 item.work_id,
-                result
-                    .as_ref()
-                    .map(|report| report.status.as_str())
-                    .unwrap_or("worker_error")
+                match &outcome {
+                    WorkerOutcome::Result(Ok(report)) => report.status.as_str(),
+                    WorkerOutcome::Result(Err(_)) => "worker_error",
+                    WorkerOutcome::Panicked(_) => "worker_panicked",
+                }
             );
             if sender
                 .send(WorkerResult {
                     worker_id,
                     work_id: item.work_id,
-                    result,
+                    outcome,
                 })
                 .is_err()
             {
@@ -588,20 +654,51 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
         .collect();
     let mut active = HashMap::<String, ActiveWork>::new();
     let mut resource_block_diagnostics = HashSet::<String>::new();
-    let mut last_tenant: Option<String> = None;
+    let mut last_tenant = running.last_dispatched_tenant.clone();
     let mut last_heartbeat = now_unix_ms();
     let mut last_parked_check = now_unix_ms();
     loop {
         while let Ok(completion) = result_rx.try_recv() {
             active.remove(&completion.work_id);
             available.push_back(completion.worker_id.clone());
-            match completion.result {
-                Ok(report) => {
+            match completion.outcome {
+                WorkerOutcome::Result(Ok(report)) => {
                     debug_assert_eq!(
                         report.work_item_id.as_deref(),
                         Some(completion.work_id.as_str())
                     );
                     let state = report_work_state(&report);
+                    if optional_arg(args, "--failpoint").as_deref()
+                        == Some("after_case_runtime_terminal_before_workitem_terminal_commit")
+                        && state.is_terminal()
+                    {
+                        eprintln!(
+                            "runtime_instance_crash_injected: after_case_runtime_terminal_before_workitem_terminal_commit work_id={} checkpoint_status={}",
+                            completion.work_id,
+                            report.status.as_str()
+                        );
+                        std::process::exit(122);
+                    }
+                    if optional_arg(args, "--failpoint").as_deref()
+                        == Some("after_case_runtime_awaiting_review_before_workitem_state_commit")
+                        && state == RuntimeWorkState::WaitingReview
+                    {
+                        eprintln!(
+                            "runtime_instance_crash_injected: after_case_runtime_awaiting_review_before_workitem_state_commit work_id={}",
+                            completion.work_id
+                        );
+                        std::process::exit(123);
+                    }
+                    if optional_arg(args, "--failpoint").as_deref()
+                        == Some("after_case_runtime_waiting_effect_before_workitem_state_commit")
+                        && state == RuntimeWorkState::WaitingEffect
+                    {
+                        eprintln!(
+                            "runtime_instance_crash_injected: after_case_runtime_waiting_effect_before_workitem_state_commit work_id={}",
+                            completion.work_id
+                        );
+                        std::process::exit(124);
+                    }
                     store.update_runtime_work_state(
                         &authenticated,
                         &owner_token,
@@ -618,7 +715,7 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
                         now_unix_ms(),
                     )?;
                 }
-                Err(error) => {
+                WorkerOutcome::Result(Err(error)) => {
                     let blocked_by_case_owner = error.contains("case_runtime_admission_active");
                     store.update_runtime_work_state(
                         &authenticated,
@@ -633,6 +730,26 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
                         &format!("worker_error: {error}"),
                         now_unix_ms(),
                     )?;
+                }
+                WorkerOutcome::Panicked(detail) => {
+                    eprintln!(
+                        "runtime_worker_panic: worker_id={} work_id={} detail={}",
+                        completion.worker_id, completion.work_id, detail
+                    );
+                    store.fail_runtime_instance_closed(
+                        &authenticated,
+                        &owner_token,
+                        now_unix_ms(),
+                        INSTANCE_LEASE_MS,
+                        &format!(
+                            "worker_panic: worker_id={} work_id={}",
+                            completion.worker_id, completion.work_id
+                        ),
+                    )?;
+                    return Err(format!(
+                        "runtime_instance_degraded_by_worker_panic: worker_id={} work_id={}",
+                        completion.worker_id, completion.work_id
+                    ));
                 }
             }
         }
@@ -650,7 +767,16 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
         let instance = store
             .get_runtime_instance_authorized(&authenticated)?
             .ok_or_else(|| "runtime_instance_missing_during_serve".to_string())?;
-        let draining = matches!(instance.lifecycle, RuntimeInstanceLifecycle::Draining);
+        let draining = matches!(instance.lifecycle, RuntimeInstanceLifecycle::Draining)
+            || instance.drain_requested_at_unix_ms.is_some();
+        if draining && !matches!(instance.lifecycle, RuntimeInstanceLifecycle::Draining) {
+            store.begin_runtime_instance_drain(
+                &authenticated,
+                &owner_token,
+                now,
+                INSTANCE_LEASE_MS,
+            )?;
+        }
 
         if now.saturating_sub(last_parked_check) >= PARKED_RECHECK_MS {
             let items = store.list_runtime_work_authorized(&authenticated)?;
@@ -911,5 +1037,60 @@ mod tests {
         ));
         assert!(!resource_dispatchable(None, &active));
         assert!(resource_dispatchable(Some(Path::new("/other")), &active));
+    }
+
+    #[test]
+    fn h13_durable_cursor_prevents_restart_bias_and_repeated_crash_starvation() {
+        let items = vec![
+            item("tenant:a", "case:a1", 1),
+            item("tenant:a", "case:a2", 2),
+            item("tenant:a", "case:a3", 3),
+            item("tenant:a", "case:a4", 4),
+            item("tenant:b", "case:b1", 5),
+            item("tenant:b", "case:b2", 6),
+        ];
+        let active = HashMap::new();
+        let roots = |_item: &RuntimeWorkItem| Ok(Some(PathBuf::from("/tmp/disjoint")));
+        let after_a_restart =
+            select_fair_work_with_roots(&items, &active, Some("tenant:a"), 4, roots)
+                .unwrap()
+                .unwrap();
+        assert_eq!(after_a_restart.0.tenant_id, "tenant:b");
+        let after_b_restart =
+            select_fair_work_with_roots(&items, &active, Some("tenant:b"), 4, roots)
+                .unwrap()
+                .unwrap();
+        assert_eq!(after_b_restart.0.tenant_id, "tenant:a");
+    }
+
+    #[test]
+    fn h13_scheduler_terminal_history_scale_is_characterized() {
+        for terminal_count in [100usize, 1_000, 5_000] {
+            let mut items = Vec::with_capacity(terminal_count + 2);
+            for sequence in 1..=terminal_count {
+                let mut terminal = item("tenant:history", "case:history", sequence as u64);
+                terminal.state = RuntimeWorkState::Completed;
+                items.push(terminal);
+            }
+            items.push(item("tenant:a", "case:active-a", terminal_count as u64 + 1));
+            items.push(item("tenant:b", "case:active-b", terminal_count as u64 + 2));
+            let started = std::time::Instant::now();
+            let selected = select_fair_work_with_roots(
+                &items,
+                &HashMap::new(),
+                Some("tenant:a"),
+                2,
+                |_item| Ok(Some(PathBuf::from("/tmp/disjoint"))),
+            )
+            .unwrap()
+            .unwrap();
+            let elapsed = started.elapsed();
+            assert_eq!(selected.0.tenant_id, "tenant:b");
+            println!(
+                "h13_scheduler_scale: terminal_items={terminal_count} total_items={} selector_elapsed_us={} idle_tick_ms={SCHEDULER_TICK_MS}",
+                items.len(),
+                elapsed.as_micros()
+            );
+        }
     }
 }

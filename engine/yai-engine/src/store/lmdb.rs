@@ -86,7 +86,8 @@ pub const CANONICAL_AUTHORITY_BACKEND: &str = "lmdb_transaction_authority_v1";
 pub const LEGACY_COMPATIBILITY_SCHEMA: &str = "yai.legacy.compatibility.v1";
 pub const SEMANTIC_CONTEXT_ARTIFACT_SCHEMA: &str = "yai.semantic_context_artifact.v1";
 pub const CASE_RUNTIME_ADMISSION_SCHEMA: &str = "yai.case_runtime_admission.v1";
-pub const RUNTIME_INSTANCE_SCHEMA: &str = "yai.runtime_instance.v1";
+pub const RUNTIME_INSTANCE_SCHEMA: &str = "yai.runtime_instance.v2";
+const RUNTIME_INSTANCE_SCHEMA_V1: &str = "yai.runtime_instance.v1";
 pub const RUNTIME_WORK_ITEM_SCHEMA: &str = "yai.runtime_work_item.v1";
 pub const RUNTIME_INSTANCE_ID: &str = "runtime-instance:local-default";
 pub const MAX_RUNTIME_WORK_TASK_BYTES: usize = 64 * 1024;
@@ -256,6 +257,8 @@ pub struct RuntimeInstance {
     pub integrity_digest: String,
     pub principal_id: String,
     pub owner_pid: u32,
+    #[serde(default)]
+    pub owner_process_identity: String,
     pub owner_token: String,
     pub lifecycle: RuntimeInstanceLifecycle,
     pub config: RuntimeInstanceConfig,
@@ -263,6 +266,12 @@ pub struct RuntimeInstance {
     pub heartbeat_at_unix_ms: u64,
     pub lease_expires_at_unix_ms: u64,
     pub recovered_items: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_dispatched_tenant: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drain_requested_at_unix_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drain_requested_by_principal: Option<String>,
     pub last_detail: String,
 }
 
@@ -337,6 +346,29 @@ impl RuntimeWorkState {
             self,
             Self::Queued | Self::WaitingReview | Self::WaitingEffect | Self::Blocked
         )
+    }
+
+    /// Operational WorkItem FSM. Requeue is explicit recovery/parking
+    /// convergence; terminal states have no outbound edges.
+    pub fn permits_transition_to(&self, next: &Self) -> bool {
+        match self {
+            Self::Queued => matches!(next, Self::Running | Self::Cancelled),
+            Self::Running => matches!(
+                next,
+                Self::Queued
+                    | Self::WaitingReview
+                    | Self::WaitingEffect
+                    | Self::Blocked
+                    | Self::Completed
+                    | Self::Denied
+                    | Self::Cancelled
+                    | Self::Failed
+            ),
+            Self::WaitingReview | Self::WaitingEffect | Self::Blocked => {
+                matches!(next, Self::Queued | Self::Cancelled)
+            }
+            Self::Completed | Self::Denied | Self::Cancelled | Self::Failed => false,
+        }
     }
 }
 
@@ -578,8 +610,13 @@ pub struct ReplayMetadata {
     pub compatibility: String,
 }
 
-fn lmdb_environment_cache() -> &'static Mutex<BTreeMap<PathBuf, Weak<Environment>>> {
-    static CACHE: OnceLock<Mutex<BTreeMap<PathBuf, Weak<Environment>>>> = OnceLock::new();
+struct SharedEnvironmentCacheEntry {
+    environment: Weak<Environment>,
+    map_size: usize,
+}
+
+fn lmdb_environment_cache() -> &'static Mutex<BTreeMap<PathBuf, SharedEnvironmentCacheEntry>> {
+    static CACHE: OnceLock<Mutex<BTreeMap<PathBuf, SharedEnvironmentCacheEntry>>> = OnceLock::new();
     CACHE.get_or_init(|| Mutex::new(BTreeMap::new()))
 }
 
@@ -598,8 +635,16 @@ fn shared_lmdb_environment(path: &Path, map_size: usize) -> Result<Arc<Environme
     let mut cache = lmdb_environment_cache()
         .lock()
         .map_err(|_| "LMDB environment cache lock poisoned".to_string())?;
-    if let Some(environment) = cache.get(&key).and_then(Weak::upgrade) {
-        return Ok(environment);
+    if let Some(entry) = cache.get(&key) {
+        if let Some(environment) = entry.environment.upgrade() {
+            if entry.map_size != map_size {
+                return Err(format!(
+                    "lmdb_environment_map_size_mismatch: existing={} requested={map_size}",
+                    entry.map_size
+                ));
+            }
+            return Ok(environment);
+        }
     }
     let environment = Arc::new(
         Environment::new()
@@ -609,7 +654,13 @@ fn shared_lmdb_environment(path: &Path, map_size: usize) -> Result<Arc<Environme
             .open(&key)
             .map_err(|error| format!("failed to open LMDB env {}: {error}", key.display()))?,
     );
-    cache.insert(key, Arc::downgrade(&environment));
+    cache.insert(
+        key,
+        SharedEnvironmentCacheEntry {
+            environment: Arc::downgrade(&environment),
+            map_size,
+        },
+    );
     Ok(environment)
 }
 
@@ -1570,6 +1621,10 @@ impl LmdbRecordStore {
         allow_dead_owner_reclaim: bool,
     ) -> Result<(RuntimeInstanceAcquireOutcome, RuntimeInstance), String> {
         validate_runtime_instance_request(request)?;
+        if request.owner_pid != std::process::id() {
+            return Err("runtime_instance_owner_pid_not_current_process".to_string());
+        }
+        let owner_process_identity = runtime_process_identity(request.owner_pid)?;
         let mut txn = self
             .env
             .begin_rw_txn()
@@ -1581,10 +1636,14 @@ impl LmdbRecordStore {
             RUNTIME_INSTANCE_ID,
             "runtime_instance",
         )?;
+        if let Some(current) = &existing {
+            validate_runtime_instance(current)?;
+        }
         let outcome = match &existing {
             Some(current)
                 if current.owner_token == request.owner_token
                     && current.owner_pid == request.owner_pid
+                    && current.owner_process_identity == owner_process_identity
                     && current.principal_id == principal.principal_id =>
             {
                 RuntimeInstanceAcquireOutcome::Renewed
@@ -1592,18 +1651,25 @@ impl LmdbRecordStore {
             Some(current) if current.principal_id != principal.principal_id => {
                 return Err("runtime_instance_principal_mismatch".to_string());
             }
+            Some(current) if matches!(current.lifecycle, RuntimeInstanceLifecycle::Stopped) => {
+                RuntimeInstanceAcquireOutcome::Reclaimed
+            }
             Some(current)
-                if matches!(current.lifecycle, RuntimeInstanceLifecycle::Stopped)
-                    || current.lease_expires_at_unix_ms <= request.now_unix_ms
-                    || (allow_dead_owner_reclaim
-                        && !runtime_owner_pid_alive(current.owner_pid)) =>
+                if allow_dead_owner_reclaim && !runtime_owner_process_is_live(current) =>
             {
                 RuntimeInstanceAcquireOutcome::Reclaimed
             }
             Some(current) => {
                 return Err(format!(
-                    "runtime_instance_active: principal_id={} owner_pid={} lease_expires_at_unix_ms={}",
-                    current.principal_id, current.owner_pid, current.lease_expires_at_unix_ms
+                    "runtime_instance_active: principal_id={} owner_pid={} owner_process_identity={} lease_expires_at_unix_ms={}",
+                    current.principal_id,
+                    current.owner_pid,
+                    if current.owner_process_identity.is_empty() {
+                        "legacy_unqualified"
+                    } else {
+                        &current.owner_process_identity
+                    },
+                    current.lease_expires_at_unix_ms
                 ));
             }
             None => RuntimeInstanceAcquireOutcome::Acquired,
@@ -1619,6 +1685,7 @@ impl LmdbRecordStore {
             integrity_digest: String::new(),
             principal_id: principal.principal_id,
             owner_pid: request.owner_pid,
+            owner_process_identity,
             owner_token: request.owner_token.clone(),
             lifecycle: RuntimeInstanceLifecycle::Starting,
             config: request.config.clone(),
@@ -1629,6 +1696,11 @@ impl LmdbRecordStore {
                 .checked_add(request.lease_duration_ms)
                 .ok_or_else(|| "runtime_instance_lease_overflow".to_string())?,
             recovered_items: 0,
+            last_dispatched_tenant: existing
+                .as_ref()
+                .and_then(|current| current.last_dispatched_tenant.clone()),
+            drain_requested_at_unix_ms: None,
+            drain_requested_by_principal: None,
             last_detail: match outcome {
                 RuntimeInstanceAcquireOutcome::Acquired => "instance_acquired",
                 RuntimeInstanceAcquireOutcome::Renewed => "instance_renewed",
@@ -1714,14 +1786,11 @@ impl LmdbRecordStore {
         )?
         .ok_or_else(|| "runtime_instance_missing".to_string())?;
         validate_runtime_instance(&instance)?;
-        if instance.owner_token != owner_token
-            || instance.principal_id != principal.principal_id
-            || instance.owner_pid != std::process::id()
-        {
+        if instance.owner_token != owner_token || instance.principal_id != principal.principal_id {
             return Err("runtime_instance_owner_mismatch".to_string());
         }
-        if instance.lease_expires_at_unix_ms < now_unix_ms {
-            return Err("runtime_instance_lease_expired".to_string());
+        if !runtime_instance_owned_by_current_process(&instance)? {
+            return Err("runtime_instance_owner_process_mismatch".to_string());
         }
         if let Some(lifecycle) = lifecycle {
             instance.lifecycle = lifecycle;
@@ -1772,8 +1841,8 @@ impl LmdbRecordStore {
         if matches!(instance.lifecycle, RuntimeInstanceLifecycle::Stopped) {
             return Ok(instance);
         }
-        instance.lifecycle = RuntimeInstanceLifecycle::Draining;
-        instance.heartbeat_at_unix_ms = now_unix_ms;
+        instance.drain_requested_at_unix_ms = Some(now_unix_ms);
+        instance.drain_requested_by_principal = Some(principal.principal_id);
         instance.last_detail = "operator_requested_drain".to_string();
         instance.integrity_digest = runtime_instance_integrity_digest(&instance)?;
         put_json_txn(
@@ -1787,6 +1856,43 @@ impl LmdbRecordStore {
         txn.commit()
             .map_err(|error| format!("failed to commit RuntimeInstance drain: {error}"))?;
         Ok(instance)
+    }
+
+    pub fn begin_runtime_instance_drain(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        owner_token: &str,
+        now_unix_ms: u64,
+        lease_duration_ms: u64,
+    ) -> Result<RuntimeInstance, String> {
+        self.update_runtime_instance_owner(
+            authenticated,
+            owner_token,
+            now_unix_ms,
+            lease_duration_ms,
+            Some(RuntimeInstanceLifecycle::Draining),
+            None,
+            "owner_observed_drain_request",
+        )
+    }
+
+    pub fn fail_runtime_instance_closed(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        owner_token: &str,
+        now_unix_ms: u64,
+        lease_duration_ms: u64,
+        detail: &str,
+    ) -> Result<RuntimeInstance, String> {
+        self.update_runtime_instance_owner(
+            authenticated,
+            owner_token,
+            now_unix_ms,
+            lease_duration_ms,
+            Some(RuntimeInstanceLifecycle::Draining),
+            None,
+            detail,
+        )
     }
 
     pub fn stop_runtime_instance(
@@ -1809,6 +1915,9 @@ impl LmdbRecordStore {
         .ok_or_else(|| "runtime_instance_missing".to_string())?;
         if instance.owner_token != owner_token || instance.principal_id != principal.principal_id {
             return Err("runtime_instance_owner_mismatch".to_string());
+        }
+        if !runtime_instance_owned_by_current_process(&instance)? {
+            return Err("runtime_instance_owner_process_mismatch".to_string());
         }
         instance.lifecycle = RuntimeInstanceLifecycle::Stopped;
         instance.heartbeat_at_unix_ms = now_unix_ms;
@@ -2043,7 +2152,7 @@ impl LmdbRecordStore {
             .begin_rw_txn()
             .map_err(|error| format!("failed to start runtime work claim: {error}"))?;
         let principal = self.authenticated_principal_txn(&txn, authenticated)?;
-        let instance = runtime_instance_owner_txn(
+        let mut instance = runtime_instance_owner_txn(
             &txn,
             self.runtime_instances,
             &principal.principal_id,
@@ -2097,6 +2206,11 @@ impl LmdbRecordStore {
         if tenant_active >= instance.config.max_active_per_tenant {
             return Err("runtime_tenant_active_capacity_exhausted".to_string());
         }
+        if !item.state.permits_transition_to(&RuntimeWorkState::Running) {
+            return Err(
+                "runtime_work_invalid_state_transition: queued_to_running_required".to_string(),
+            );
+        }
         item.state = RuntimeWorkState::Running;
         item.attempt_count = item
             .attempt_count
@@ -2115,6 +2229,17 @@ impl LmdbRecordStore {
             &item,
             WriteFlags::empty(),
             "runtime work item",
+        )?;
+        instance.last_dispatched_tenant = Some(item.tenant_id.clone());
+        instance.last_detail = format!("dispatched_work:{}", item.work_id);
+        instance.integrity_digest = runtime_instance_integrity_digest(&instance)?;
+        put_json_txn(
+            &mut txn,
+            self.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            &instance,
+            WriteFlags::empty(),
+            "runtime instance",
         )?;
         txn.commit()
             .map_err(|error| format!("failed to commit runtime work claim: {error}"))?;
@@ -2162,6 +2287,12 @@ impl LmdbRecordStore {
             {
                 return Err("runtime_work_worker_lease_mismatch".to_string());
             }
+        }
+        if !item.state.permits_transition_to(&state) {
+            return Err(format!(
+                "runtime_work_invalid_state_transition: {:?}_to_{state:?}",
+                item.state
+            ));
         }
         item.state = state;
         item.last_stop_reason = reason.to_string();
@@ -5964,7 +6095,7 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:runtime_instance_schema",
             RUNTIME_INSTANCE_SCHEMA,
-            &[],
+            &[RUNTIME_INSTANCE_SCHEMA_V1],
         )?;
         ensure_meta_upgradeable(
             &txn,
@@ -7816,11 +7947,13 @@ fn validate_runtime_instance_request(
 
 fn validate_runtime_instance(instance: &RuntimeInstance) -> Result<(), String> {
     instance.config.validate()?;
-    if instance.schema != RUNTIME_INSTANCE_SCHEMA
+    if (instance.schema != RUNTIME_INSTANCE_SCHEMA && instance.schema != RUNTIME_INSTANCE_SCHEMA_V1)
         || instance.instance_id != RUNTIME_INSTANCE_ID
         || instance.principal_id.is_empty()
         || instance.owner_pid == 0
         || instance.owner_token.is_empty()
+        || (instance.schema == RUNTIME_INSTANCE_SCHEMA
+            && instance.owner_process_identity.is_empty())
         || instance.heartbeat_at_unix_ms < instance.acquired_at_unix_ms
         || instance.lease_expires_at_unix_ms < instance.heartbeat_at_unix_ms
     {
@@ -7833,35 +7966,120 @@ fn validate_runtime_instance(instance: &RuntimeInstance) -> Result<(), String> {
 }
 
 fn runtime_instance_integrity_digest(instance: &RuntimeInstance) -> Result<String, String> {
-    let material = serde_json::to_string(&serde_json::json!({
-        "schema": instance.schema,
-        "instance_id": instance.instance_id,
-        "principal_id": instance.principal_id,
-        "owner_pid": instance.owner_pid,
-        "owner_token": instance.owner_token,
-        "lifecycle": instance.lifecycle,
-        "config": instance.config,
-        "acquired_at_unix_ms": instance.acquired_at_unix_ms,
-        "heartbeat_at_unix_ms": instance.heartbeat_at_unix_ms,
-        "lease_expires_at_unix_ms": instance.lease_expires_at_unix_ms,
-        "recovered_items": instance.recovered_items,
-        "last_detail": instance.last_detail,
-    }))
-    .map_err(|error| format!("runtime_instance_encode_failed: {error}"))?;
+    let material_value = if instance.schema == RUNTIME_INSTANCE_SCHEMA_V1 {
+        serde_json::json!({
+            "schema": instance.schema,
+            "instance_id": instance.instance_id,
+            "principal_id": instance.principal_id,
+            "owner_pid": instance.owner_pid,
+            "owner_token": instance.owner_token,
+            "lifecycle": instance.lifecycle,
+            "config": instance.config,
+            "acquired_at_unix_ms": instance.acquired_at_unix_ms,
+            "heartbeat_at_unix_ms": instance.heartbeat_at_unix_ms,
+            "lease_expires_at_unix_ms": instance.lease_expires_at_unix_ms,
+            "recovered_items": instance.recovered_items,
+            "last_detail": instance.last_detail,
+        })
+    } else {
+        serde_json::json!({
+            "schema": instance.schema,
+            "instance_id": instance.instance_id,
+            "principal_id": instance.principal_id,
+            "owner_pid": instance.owner_pid,
+            "owner_process_identity": instance.owner_process_identity,
+            "owner_token": instance.owner_token,
+            "lifecycle": instance.lifecycle,
+            "config": instance.config,
+            "acquired_at_unix_ms": instance.acquired_at_unix_ms,
+            "heartbeat_at_unix_ms": instance.heartbeat_at_unix_ms,
+            "lease_expires_at_unix_ms": instance.lease_expires_at_unix_ms,
+            "recovered_items": instance.recovered_items,
+            "last_dispatched_tenant": instance.last_dispatched_tenant,
+            "drain_requested_at_unix_ms": instance.drain_requested_at_unix_ms,
+            "drain_requested_by_principal": instance.drain_requested_by_principal,
+            "last_detail": instance.last_detail,
+        })
+    };
+    let material = serde_json::to_string(&material_value)
+        .map_err(|error| format!("runtime_instance_encode_failed: {error}"))?;
     Ok(crate::context::stable_digest(&material))
 }
 
-#[cfg(unix)]
-fn runtime_owner_pid_alive(pid: u32) -> bool {
-    unsafe extern "C" {
-        fn kill(pid: i32, signal: i32) -> i32;
+#[cfg(target_os = "linux")]
+fn runtime_process_identity(pid: u32) -> Result<String, String> {
+    if pid <= 1 {
+        return Err("runtime_process_identity_invalid_pid".to_string());
     }
-    pid > 1 && unsafe { kill(pid as i32, 0) == 0 }
+    let stat = fs::read_to_string(format!("/proc/{pid}/stat")).map_err(|error| {
+        format!("runtime_process_identity_unavailable: pid={pid} error={error}")
+    })?;
+    let command_end = stat
+        .rfind(')')
+        .ok_or_else(|| "runtime_process_identity_stat_malformed".to_string())?;
+    let fields = stat[command_end + 1..]
+        .split_whitespace()
+        .collect::<Vec<_>>();
+    let start_ticks = fields
+        .get(19)
+        .ok_or_else(|| "runtime_process_identity_stat_missing_starttime".to_string())?;
+    start_ticks
+        .parse::<u64>()
+        .map_err(|error| format!("runtime_process_identity_starttime_invalid: {error}"))?;
+    let boot_id = fs::read_to_string("/proc/sys/kernel/random/boot_id")
+        .map_err(|error| format!("runtime_process_identity_boot_id_unavailable: {error}"))?;
+    let boot_id = boot_id.trim();
+    if boot_id.is_empty() {
+        return Err("runtime_process_identity_boot_id_empty".to_string());
+    }
+    Ok(format!("linux-proc-v1:{boot_id}:{start_ticks}"))
 }
 
-#[cfg(not(unix))]
-fn runtime_owner_pid_alive(_pid: u32) -> bool {
-    true
+#[cfg(not(target_os = "linux"))]
+fn runtime_process_identity(_pid: u32) -> Result<String, String> {
+    Err("runtime_process_identity_unsupported_platform".to_string())
+}
+
+fn process_identity_matches(
+    stored_pid: u32,
+    stored_identity: &str,
+    observed_pid: u32,
+    observed_identity: &str,
+) -> bool {
+    stored_pid == observed_pid
+        && !stored_identity.is_empty()
+        && stored_identity == observed_identity
+}
+
+fn runtime_owner_process_is_live(instance: &RuntimeInstance) -> bool {
+    runtime_process_identity(instance.owner_pid).is_ok_and(|observed| {
+        if instance.owner_process_identity.is_empty() {
+            true
+        } else {
+            process_identity_matches(
+                instance.owner_pid,
+                &instance.owner_process_identity,
+                instance.owner_pid,
+                &observed,
+            )
+        }
+    })
+}
+
+pub fn runtime_process_identity_is_live(pid: u32, expected_identity: &str) -> bool {
+    runtime_process_identity(pid)
+        .is_ok_and(|observed| process_identity_matches(pid, expected_identity, pid, &observed))
+}
+
+fn runtime_instance_owned_by_current_process(instance: &RuntimeInstance) -> Result<bool, String> {
+    let current_pid = std::process::id();
+    let current_identity = runtime_process_identity(current_pid)?;
+    Ok(process_identity_matches(
+        instance.owner_pid,
+        &instance.owner_process_identity,
+        current_pid,
+        &current_identity,
+    ))
 }
 
 fn runtime_instance_owner_txn<T: Transaction>(
@@ -7878,9 +8096,10 @@ fn runtime_instance_owner_txn<T: Transaction>(
     if instance.principal_id != principal_id || instance.owner_token != owner_token {
         return Err("runtime_instance_owner_mismatch".to_string());
     }
-    if instance.lease_expires_at_unix_ms < now_unix_ms {
-        return Err("runtime_instance_lease_expired".to_string());
+    if !runtime_instance_owned_by_current_process(&instance)? {
+        return Err("runtime_instance_owner_process_mismatch".to_string());
     }
+    let _ = now_unix_ms;
     Ok(instance)
 }
 
@@ -10024,6 +10243,40 @@ mod tests {
             Err(error) => error,
         };
         assert!(error.contains("unsupported_persisted_schema"));
+        fs::remove_dir_all(path).expect("remove LMDB test store");
+    }
+
+    #[test]
+    fn h13_wave13_runtime_instance_schema_marker_upgrades_without_rejecting_store() {
+        let path = temp_store_path("runtime-instance-v1-schema-marker");
+        let store = LmdbRecordStore::open(&path).expect("open LMDB test store");
+        let mut txn = store
+            .env
+            .begin_rw_txn()
+            .expect("schema mutation transaction");
+        txn.put(
+            store.schema_meta,
+            &"meta:runtime_instance_schema",
+            &RUNTIME_INSTANCE_SCHEMA_V1,
+            WriteFlags::empty(),
+        )
+        .expect("write Wave13 schema marker");
+        txn.commit().expect("commit Wave13 schema marker");
+        drop(store);
+
+        let reopened =
+            LmdbRecordStore::open(&path).expect("Wave13 runtime instance schema remains readable");
+        let txn = reopened
+            .env
+            .begin_ro_txn()
+            .expect("schema read transaction");
+        assert_eq!(
+            txn.get(reopened.schema_meta, &"meta:runtime_instance_schema")
+                .expect("upgraded runtime instance schema marker"),
+            RUNTIME_INSTANCE_SCHEMA.as_bytes()
+        );
+        drop(txn);
+        drop(reopened);
         fs::remove_dir_all(path).expect("remove LMDB test store");
     }
 
@@ -13566,17 +13819,32 @@ mod tests {
             )
             .expect_err("second live instance rejected");
         assert!(split.contains("runtime_instance_active"));
-        let (reclaimed, state) = store
+        let live_after_lease = store
             .acquire_runtime_instance(
                 &owner,
                 &RuntimeInstanceAcquireRequest {
                     owner_token: "runtime-owner:reclaimed".to_string(),
                     now_unix_ms: 111,
+                    ..first.clone()
+                },
+                true,
+            )
+            .expect_err("live process identity prevents lease-only reclaim");
+        assert!(live_after_lease.contains("runtime_instance_active"));
+        store
+            .stop_runtime_instance(&owner, &first.owner_token, 111)
+            .expect("live owner may stop after a delayed heartbeat");
+        let (reclaimed, state) = store
+            .acquire_runtime_instance(
+                &owner,
+                &RuntimeInstanceAcquireRequest {
+                    owner_token: "runtime-owner:reclaimed".to_string(),
+                    now_unix_ms: 112,
                     ..first
                 },
-                false,
+                true,
             )
-            .expect("expired lease reclaimed");
+            .expect("stopped instance reclaimed");
         assert_eq!(reclaimed, RuntimeInstanceAcquireOutcome::Reclaimed);
         assert_eq!(state.lifecycle, RuntimeInstanceLifecycle::Starting);
         assert!(store.list_security_events().unwrap().len() >= 2);
@@ -13697,12 +13965,33 @@ mod tests {
             .claim_runtime_work(&owner, token, &first.item.work_id, "worker:0", 24)
             .expect("claim first");
         assert_eq!(running.state, RuntimeWorkState::Running);
+        assert_eq!(
+            store
+                .get_runtime_instance_authorized(&owner)
+                .unwrap()
+                .unwrap()
+                .last_dispatched_tenant
+                .as_deref(),
+            Some("tenant:runtime-a")
+        );
         let mut forged = running.clone();
         forged.task = "forged".to_string();
         assert_eq!(
             forged.validate_integrity().unwrap_err(),
             "runtime_work_item_integrity_mismatch"
         );
+        let invalid_queued_terminal = store
+            .update_runtime_work_state(
+                &owner,
+                token,
+                &second.item.work_id,
+                None,
+                RuntimeWorkState::Completed,
+                "forged direct completion",
+                25,
+            )
+            .expect_err("Queued cannot jump directly to Completed");
+        assert!(invalid_queued_terminal.contains("runtime_work_invalid_state_transition"));
         let cross_tenant = store
             .submit_runtime_work(
                 &other,
@@ -13728,8 +14017,374 @@ mod tests {
             .unwrap()
             .generation;
         assert_eq!(before, after, "queue status is pure Case observation");
+        store
+            .update_runtime_work_state(
+                &owner,
+                token,
+                &first.item.work_id,
+                Some("worker:0"),
+                RuntimeWorkState::Completed,
+                "first work completed",
+                26,
+            )
+            .expect("Running may complete");
+        store
+            .claim_runtime_work(&owner, token, &second.item.work_id, "worker:1", 27)
+            .expect("second work becomes Running after first terminalizes");
+        store
+            .stop_runtime_instance(&owner, token, 28)
+            .expect("old process owner stops operational instance");
+        let new_token = "runtime-owner:new-epoch";
+        store
+            .acquire_runtime_instance(
+                &owner,
+                &RuntimeInstanceAcquireRequest {
+                    owner_pid: std::process::id(),
+                    owner_token: new_token.to_string(),
+                    now_unix_ms: 29,
+                    lease_duration_ms: 1_000,
+                    config: RuntimeInstanceConfig {
+                        workers: 2,
+                        max_active_per_tenant: 1,
+                        max_queued_per_tenant: 2,
+                        max_queued_total: 2,
+                    },
+                },
+                true,
+            )
+            .expect("new owner epoch reclaims stopped instance");
+        store
+            .activate_runtime_instance(&owner, new_token, 29, 1_000, 0)
+            .expect("activate new owner epoch");
+        let stale_owner = store
+            .update_runtime_work_state(
+                &owner,
+                token,
+                &second.item.work_id,
+                Some("worker:1"),
+                RuntimeWorkState::Completed,
+                "stale old-worker result",
+                30,
+            )
+            .expect_err("old owner epoch cannot report completion");
+        assert!(stale_owner.contains("runtime_instance_owner_mismatch"));
+        let stale_worker = store
+            .update_runtime_work_state(
+                &owner,
+                new_token,
+                &second.item.work_id,
+                Some("worker:1"),
+                RuntimeWorkState::Completed,
+                "new owner cannot adopt old worker result",
+                30,
+            )
+            .expect_err("new owner epoch cannot adopt stale worker result");
+        assert_eq!(stale_worker, "runtime_work_worker_lease_mismatch");
         drop(store);
         fs::remove_dir_all(path).expect("remove runtime work store");
         fs::remove_dir_all(root).expect("remove runtime resource root");
+    }
+
+    #[test]
+    fn h13_runtime_work_fsm_is_explicit_and_terminal_states_are_closed() {
+        use RuntimeWorkState::*;
+        let valid = [
+            (Queued, Running),
+            (Queued, Cancelled),
+            (Running, Queued),
+            (Running, WaitingReview),
+            (Running, WaitingEffect),
+            (Running, Blocked),
+            (Running, Completed),
+            (Running, Denied),
+            (Running, Cancelled),
+            (Running, Failed),
+            (WaitingReview, Queued),
+            (WaitingReview, Cancelled),
+            (WaitingEffect, Queued),
+            (WaitingEffect, Cancelled),
+            (Blocked, Queued),
+            (Blocked, Cancelled),
+        ];
+        for (from, to) in valid {
+            assert!(from.permits_transition_to(&to), "{from:?} -> {to:?}");
+        }
+        let invalid = [
+            (Queued, Completed),
+            (WaitingReview, Completed),
+            (Blocked, Running),
+            (Completed, Queued),
+            (Denied, Running),
+            (Cancelled, Running),
+            (Failed, Running),
+        ];
+        for (from, to) in invalid {
+            assert!(!from.permits_transition_to(&to), "{from:?} -> {to:?}");
+        }
+    }
+
+    #[test]
+    fn h13_pid_reuse_discriminator_and_current_process_identity_are_explicit() {
+        let current = runtime_process_identity(std::process::id())
+            .expect("Linux process identity is observable");
+        assert!(current.starts_with("linux-proc-v1:"));
+        assert!(process_identity_matches(123, "birth:A", 123, "birth:A"));
+        assert!(!process_identity_matches(123, "birth:A", 123, "birth:B"));
+        assert!(!process_identity_matches(123, "birth:A", 124, "birth:A"));
+    }
+
+    #[test]
+    fn h13_owner_token_cannot_impersonate_another_process_identity() {
+        let path = temp_store_path("h13-process-owner");
+        let store = LmdbRecordStore::open(&path).expect("open owner store");
+        let owner = AuthenticatedPrincipal::for_test(13101);
+        store
+            .bootstrap_local_security(&owner, "tenant:h13-owner", "organization:test", 1)
+            .expect("bootstrap owner");
+        let token = "runtime-owner:known-token";
+        store
+            .acquire_runtime_instance(
+                &owner,
+                &RuntimeInstanceAcquireRequest {
+                    owner_pid: std::process::id(),
+                    owner_token: token.to_string(),
+                    now_unix_ms: 10,
+                    lease_duration_ms: 1_000,
+                    config: RuntimeInstanceConfig {
+                        workers: 1,
+                        max_active_per_tenant: 1,
+                        max_queued_per_tenant: 1,
+                        max_queued_total: 1,
+                    },
+                },
+                false,
+            )
+            .expect("acquire owner");
+        let mut txn = store.env.begin_rw_txn().expect("owner mutation txn");
+        let mut instance = get_json_txn::<RuntimeInstance, _>(
+            &txn,
+            store.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            "runtime_instance",
+        )
+        .unwrap()
+        .unwrap();
+        instance.owner_process_identity = "linux-proc-v1:forged:999".to_string();
+        instance.integrity_digest = runtime_instance_integrity_digest(&instance).unwrap();
+        put_json_txn(
+            &mut txn,
+            store.runtime_instances,
+            RUNTIME_INSTANCE_ID,
+            &instance,
+            WriteFlags::empty(),
+            "runtime instance",
+        )
+        .unwrap();
+        txn.commit().unwrap();
+        let error = store
+            .heartbeat_runtime_instance(&owner, token, 20, 1_000)
+            .expect_err("token plus Principal cannot replace process identity");
+        assert_eq!(error, "runtime_instance_owner_process_mismatch");
+        drop(store);
+        fs::remove_dir_all(path).expect("remove owner store");
+    }
+
+    #[test]
+    fn h13_shared_environment_map_size_contract_is_explicit() {
+        let path = temp_store_path("h13-map-size");
+        let store = LmdbRecordStore::open_with_map_size(&path, MINIMUM_LMDB_MAP_SIZE)
+            .expect("open constrained shared environment");
+        LmdbRecordStore::open_with_map_size(&path, MINIMUM_LMDB_MAP_SIZE)
+            .expect("same requested map size reuses environment");
+        let error = match LmdbRecordStore::open_with_map_size(&path, DEFAULT_LMDB_MAP_SIZE) {
+            Ok(_) => panic!("different map size silently reused environment"),
+            Err(error) => error,
+        };
+        assert!(error.contains("lmdb_environment_map_size_mismatch"));
+        drop(store);
+        fs::remove_dir_all(path).expect("remove map-size store");
+    }
+
+    #[test]
+    fn h13_shared_lmdb_environment_survives_read_write_thread_stress() {
+        let path = temp_store_path("h13-shared-environment-stress");
+        let store = LmdbRecordStore::open(&path).expect("open stress store");
+        for worker_count in [1usize, 2, 4, 8] {
+            let mut workers = Vec::new();
+            for worker in 0..worker_count {
+                let worker_path = path.clone();
+                workers.push(std::thread::spawn(move || {
+                    for iteration in 0..32 {
+                        let worker_store = LmdbRecordStore::open(&worker_path)
+                            .expect("reuse shared LMDB environment");
+                        let record = Record::from_parts(
+                            format!("record:h13:{worker_count}:{worker}:{iteration}"),
+                            "case:h13-lmdb-stress",
+                            RecordKind::InteractionTurn,
+                            format!("subject:worker-{worker}"),
+                            "",
+                            "",
+                            "",
+                            "bounded concurrent LMDB write",
+                        );
+                        worker_store
+                            .append_record(&record, "h13-lmdb-stress")
+                            .expect("short concurrent write");
+                        worker_store.summary().expect("concurrent read");
+                    }
+                }));
+            }
+            for worker in workers {
+                worker.join().expect("LMDB worker does not panic");
+            }
+        }
+        assert_eq!(store.summary().unwrap().records_total, (1 + 2 + 4 + 8) * 32);
+        drop(store);
+        let reopened = LmdbRecordStore::open(&path).expect("reopen after all worker drops");
+        assert_eq!(
+            reopened.summary().unwrap().records_total,
+            (1 + 2 + 4 + 8) * 32
+        );
+        drop(reopened);
+        fs::remove_dir_all(path).expect("remove stress store");
+    }
+
+    #[test]
+    fn h13_runtime_work_historical_scan_scale_is_characterized() {
+        let path = temp_store_path("h13-runtime-work-scale");
+        let store = LmdbRecordStore::open(&path).expect("open scale store");
+        let mut inserted = 0usize;
+        for target in [100usize, 1_000, 5_000] {
+            let mut txn = store.env.begin_rw_txn().expect("scale write txn");
+            for sequence in inserted + 1..=target {
+                let mut item = RuntimeWorkItem {
+                    schema: RUNTIME_WORK_ITEM_SCHEMA.to_string(),
+                    work_id: format!("runtime-work:scale-{sequence:05}"),
+                    integrity_digest: String::new(),
+                    request_id: format!("request:scale-{sequence:05}"),
+                    request_digest: format!("digest:scale-{sequence:05}"),
+                    principal_id: "principal:scale".to_string(),
+                    tenant_id: "tenant:scale".to_string(),
+                    case_id: format!("case:scale-{sequence:05}"),
+                    participant_id: "participant:model".to_string(),
+                    attachment_id: "resource:workspace".to_string(),
+                    journal_path: "/tmp/scale-journal.jsonl".to_string(),
+                    task: "terminal historical work".to_string(),
+                    budgets: runtime_budgets(),
+                    failpoint: None,
+                    enqueue_sequence: sequence as u64,
+                    state: RuntimeWorkState::Completed,
+                    attempt_count: 1,
+                    runtime_instance_id: Some(RUNTIME_INSTANCE_ID.to_string()),
+                    runtime_owner_token: None,
+                    worker_id: None,
+                    last_stop_reason: "completed".to_string(),
+                    enqueued_at_unix_ms: sequence as u64,
+                    updated_at_unix_ms: sequence as u64,
+                };
+                item.integrity_digest = runtime_work_integrity_digest(&item).unwrap();
+                put_json_txn(
+                    &mut txn,
+                    store.runtime_work_items,
+                    &item.work_id,
+                    &item,
+                    WriteFlags::empty(),
+                    "runtime work scale item",
+                )
+                .unwrap();
+            }
+            txn.commit().expect("commit scale records");
+            inserted = target;
+            let started = std::time::Instant::now();
+            let txn = store.env.begin_ro_txn().expect("scale read txn");
+            let items = list_runtime_work_items_txn(&txn, store.runtime_work_items)
+                .expect("list terminal history");
+            let elapsed = started.elapsed();
+            assert_eq!(items.len(), target);
+            println!(
+                "h13_runtime_work_list_scale: terminal_items={target} elapsed_us={}",
+                elapsed.as_micros()
+            );
+        }
+        drop(store);
+        fs::remove_dir_all(path).expect("remove scale store");
+    }
+
+    #[test]
+    fn h13_runtime_heartbeat_stays_inside_lease_margin_under_eight_writer_contention() {
+        let path = temp_store_path("h13-heartbeat-stress");
+        let store = LmdbRecordStore::open(&path).expect("open heartbeat store");
+        let owner = AuthenticatedPrincipal::for_test(13131);
+        store
+            .bootstrap_local_security(&owner, "tenant:h13-heartbeat", "organization:test", 1)
+            .expect("bootstrap heartbeat owner");
+        let token = "runtime-owner:heartbeat";
+        store
+            .acquire_runtime_instance(
+                &owner,
+                &RuntimeInstanceAcquireRequest {
+                    owner_pid: std::process::id(),
+                    owner_token: token.to_string(),
+                    now_unix_ms: 1,
+                    lease_duration_ms: 5_000,
+                    config: RuntimeInstanceConfig {
+                        workers: 8,
+                        max_active_per_tenant: 8,
+                        max_queued_per_tenant: 64,
+                        max_queued_total: 128,
+                    },
+                },
+                false,
+            )
+            .expect("acquire heartbeat instance");
+        store
+            .activate_runtime_instance(&owner, token, 1, 5_000, 0)
+            .expect("activate heartbeat instance");
+        let completed = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut workers = Vec::new();
+        for worker in 0..8usize {
+            let worker_path = path.clone();
+            let completed = std::sync::Arc::clone(&completed);
+            workers.push(std::thread::spawn(move || {
+                let worker_store = LmdbRecordStore::open(&worker_path).unwrap();
+                for iteration in 0..64usize {
+                    let record = Record::from_parts(
+                        format!("record:h13-heartbeat:{worker}:{iteration}"),
+                        "case:h13-heartbeat",
+                        RecordKind::InteractionTurn,
+                        format!("subject:worker-{worker}"),
+                        "",
+                        "",
+                        "",
+                        "heartbeat contention write",
+                    );
+                    worker_store
+                        .append_record(&record, "h13-heartbeat-stress")
+                        .unwrap();
+                }
+                completed.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            }));
+        }
+        let mut heartbeat_sequence = 2u64;
+        let mut max_heartbeat_ms = 0u128;
+        while completed.load(std::sync::atomic::Ordering::SeqCst) < 8 {
+            let started = std::time::Instant::now();
+            store
+                .heartbeat_runtime_instance(&owner, token, heartbeat_sequence, 5_000)
+                .expect("heartbeat under write contention");
+            max_heartbeat_ms = max_heartbeat_ms.max(started.elapsed().as_millis());
+            heartbeat_sequence += 1;
+            std::thread::yield_now();
+        }
+        for worker in workers {
+            worker.join().expect("contention worker remains live");
+        }
+        println!(
+            "h13_heartbeat_stress: workers=8 writes={} max_heartbeat_ms={max_heartbeat_ms} lease_margin_ms=5000",
+            8 * 64
+        );
+        assert!(max_heartbeat_ms < 5_000);
+        drop(store);
+        fs::remove_dir_all(path).expect("remove heartbeat store");
     }
 }

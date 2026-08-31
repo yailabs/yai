@@ -1,0 +1,9 @@
+property	contract	failure
+schema	yai.runtime_instance.v2; v1 is readable and conservatively live-qualified	unknown/invalid integrity rejected
+stable instance identity	runtime-instance:local-default survives scheduler restart	not a process credential
+process identity	owner_pid + Linux boot_id + /proc/PID/stat starttime + random owner_token + Principal	unsupported platform fails conservatively
+PID reuse	same PID with different boot/start marker is a different process	never treated as renewal
+mutating owner	activate;heartbeat;begin-drain;panic-fail-close;stop;claim;WorkItem update/recovery require current PID/fingerprint + token + Principal	owner/process mismatch
+lease expiry	live matching process cannot be reclaimed solely because wall time crossed lease; same owner may renew after delayed heartbeat	second scheduler rejected
+dead owner	missing/mismatched observed process identity permits authenticated reclaim	stale record never permanent
+drain command	admin process appends only drain-request intent; owner process performs lifecycle transition	request is not owner impersonation
