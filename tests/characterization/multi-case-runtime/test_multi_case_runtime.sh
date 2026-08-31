@@ -354,7 +354,10 @@ stop_service
 for pid in "${PROVIDER_PIDS[@]}"; do wait "$pid"; done
 PROVIDER_PIDS=()
 
+recovery_effect_id=$(sed -n 's/^effect_id: //p' "$TEST_DIR/recovery-crash.service.log" | head -1)
+[[ "$recovery_effect_id" == effect:* ]]
 printf 'multi_case_runtime_characterization: pass\n'
+printf 'test_run_id: %s\n' "$TEST_DIR"
 printf 'principal_id: %s\n' "$principal_id"
 printf 'runtime_instance_id: runtime-instance:local-default\n'
 printf 'workers_max_observed: 2\n'
@@ -363,4 +366,7 @@ printf 'global_queue_rejection_count: 1\n'
 printf 'cross_tenant_rejection_count: 1\n'
 printf 'split_brain_exit: %s\n' "$split_brain_exit"
 printf 'crash_exit: %s\n' "$crash_exit"
+printf 'review_id: %s\n' "$review_id"
+printf 'review_work_id: %s\n' "$work_review"
 printf 'recovered_work_id: %s\n' "$work_recovery"
+printf 'recovery_effect_id: %s\n' "$recovery_effect_id"

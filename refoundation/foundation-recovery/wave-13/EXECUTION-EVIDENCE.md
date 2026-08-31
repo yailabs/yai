@@ -46,7 +46,7 @@ exit: 0
 ## E13-02 — real bounded concurrency, same-Case exclusion and fairness
 
 - evidence_id: E13-02
-- run_id: `/tmp/yai-multi-case-runtime.NKSHNe`
+- run_id: `/tmp/yai-multi-case-runtime.03dUb1`
 - execution_order: 2
 - pre-state: three Ready+Valid Cases; disjoint roots; no queued work
 - cwd/environment/authentication/Tenants/instance: same as E13-01
@@ -59,10 +59,10 @@ exit: 0
 Bounded raw output from the unchanged scenario rerun:
 
 ```text
-tenant_a.started_at_unix_ms: 1788174021017
-tenant_a.completed_at_unix_ms: 1788174022517
-tenant_b.started_at_unix_ms: 1788174021017
-tenant_b.completed_at_unix_ms: 1788174022517
+tenant_a.started_at_unix_ms: 1788175241701
+tenant_a.completed_at_unix_ms: 1788175243201
+tenant_b.started_at_unix_ms: 1788175241701
+tenant_b.completed_at_unix_ms: 1788175243201
 dispatch_order: runtime-work:4f46edeb97a1452e runtime-work:97339c40e799b5ae runtime-work:0c6f83bb7c9bb52f runtime-work:26d696ac1200653c runtime-work:f739dbb52ed93bbc
 same_case_max_active: 1
 tenant_active_limit_observed: 1
@@ -75,7 +75,7 @@ provider calls began in the same millisecond and each remained live for 1500ms.
 ## E13-03 — split-brain, isolation and backpressure negatives
 
 - evidence_id: E13-03
-- run_id: `/tmp/yai-multi-case-runtime.NKSHNe`
+- run_id: `/tmp/yai-multi-case-runtime.03dUb1`
 - execution_order: 3
 - pre-state: first instance Running; queue bounds active
 - exact commands:
@@ -105,7 +105,7 @@ and observes no Transition, provider invocation, Operation, Decision or Grant.
 ## E13-04 — conservative overlapping-root serialization
 
 - evidence_id: E13-04
-- run_id: `/tmp/yai-multi-case-runtime.NKSHNe`
+- run_id: `/tmp/yai-multi-case-runtime.03dUb1`
 - execution_order: 4
 - pre-state: two same-Tenant Cases with parent/child canonical roots; two workers; Tenant active limit 2
 - exact service command: `yai runtime serve --workers 2 --max-active-per-tenant 2 --max-queued-per-tenant 4 --max-queued-total 8`
@@ -116,32 +116,33 @@ Bounded raw output:
 
 ```text
 runtime_dispatch: ... resource_relation=no_active_conflict
-runtime_scheduler_skip: ... serialized_due_to_resource_overlap_or_unknown_relation
+runtime_dispatch_blocked: work_id=runtime-work:fe726a31085648b9 reason=serialized_due_to_resource_overlap_or_unknown_relation
 ```
 
 ## E13-05 — Review parks and resumes exact work
 
 - evidence_id: E13-05
-- run_id: `/tmp/yai-multi-case-runtime.NKSHNe`
+- run_id: `/tmp/yai-multi-case-runtime.03dUb1`
 - execution_order: 5
 - pre-state: review-required Case plus unrelated Tenant-B Case
-- exact human command: `yai review approve <review_id> --case case:w13-review --reason 'authenticated scheduler review qualification'`
+- exact human command: `yai review approve review:2b098fc480a80ede4a095ad02fe8b768 --case case:w13-review --reason 'authenticated scheduler review qualification'`
 - actual exit: 0
+- produced IDs: Review `review:2b098fc480a80ede4a095ad02fe8b768`; WorkItem `runtime-work:5bbc121f3bc50fa3`; ReviewAction `review-action:sha256:198c6778d222b829101c0fa49`
 - invariant: review WorkItem reaches `WaitingReview` and releases its worker; peer completes; authenticated approval resumes the same Operation/WorkItem without repeating its initial provider call.
 
 Observed state sequence:
 
 ```text
-runtime_work: Queued -> Running -> WaitingReview
-peer_runtime_work: Queued -> Running -> Completed
+runtime-work:5bbc121f3bc50fa3 started=1788175248574 -> WaitingReview=1788175248647
+peer runtime-work:3e7dc6bac959989c started=1788175248576 -> Completed=1788175249091
 review_approve: committed
-runtime_work: WaitingReview -> Running -> Completed
+runtime-work:5bbc121f3bc50fa3 resumed=1788175249559 -> Completed=1788175249696
 ```
 
 ## E13-06 — crash after PREPARE and durable recovery sweep
 
 - evidence_id: E13-06
-- run_id: `/tmp/yai-multi-case-runtime.NKSHNe`
+- run_id: `/tmp/yai-multi-case-runtime.03dUb1`
 - execution_order: 6
 - pre-state: `case:w13-recovery` Ready+Valid; WorkItem queued with `after_prepare_before_effect`
 - authenticated principal/Tenant/instance: `principal:72cc156b82060120eac8f7e234dbfcef`, `tenant:w13-b`, `runtime-instance:local-default`
@@ -149,7 +150,7 @@ runtime_work: WaitingReview -> Running -> Completed
 - exact serve command: `yai runtime serve --workers 2 --max-active-per-tenant 2 --max-queued-per-tenant 4 --max-queued-total 8`
 - first instance exit: 85
 - restarted instance exit: 0
-- produced IDs: WorkItem `runtime-work:2ccaf1494370823f`; Operation `operation:07755c0e7fed5951cd642c24a03d869d`; DecisionBasis `decision-basis:5fdd3666c337b8d4816eea3cbef342d4`; Decision `decision:665c42af53d442ebd714c6658503ee5e`; Grant/effect `43aa7252c6a9fd83b8521f5aaba20939`
+- produced IDs: WorkItem `runtime-work:2ccaf1494370823f`; Operation `operation:07755c0e7fed5951cd642c24a03d869d`; DecisionBasis `decision-basis:f56cae9a0a961b7dd9030aa09f3a72a8`; Decision `decision:f3c2bacfadffa332f82e53f215d8ff3d`; Grant/effect `e10f91bd9dee7a1867583835a83e3d67`
 - invariant: PREPARE remains canonical truth across total RuntimeInstance death; restart reclaims one stale item, reconciles the same effect and performs one physical write.
 
 Bounded raw output before crash:
@@ -157,12 +158,12 @@ Bounded raw output before crash:
 ```text
 instance_admission: reclaimed_stale
 runtime_dispatch: work_id=runtime-work:2ccaf1494370823f worker_id=worker:0
-runtime_worker_event: started timestamp_unix_ms=1788174074602
+runtime_worker_event: started timestamp_unix_ms=1788175249940
 operation_id: operation:07755c0e7fed5951cd642c24a03d869d
-decision_id: decision:665c42af53d442ebd714c6658503ee5e
-decision_basis_id: decision-basis:5fdd3666c337b8d4816eea3cbef342d4
-execution_grant_id: grant:43aa7252c6a9fd83b8521f5aaba20939
-effect_id: effect:43aa7252c6a9fd83b8521f5aaba20939
+decision_id: decision:f3c2bacfadffa332f82e53f215d8ff3d
+decision_basis_id: decision-basis:f56cae9a0a961b7dd9030aa09f3a72a8
+execution_grant_id: grant:e10f91bd9dee7a1867583835a83e3d67
+effect_id: effect:e10f91bd9dee7a1867583835a83e3d67
 effect_state: prepared_durable_before_mutation
 controlled_effect_crash_injected: after_prepare_before_effect
 exit: 85
@@ -176,12 +177,12 @@ recovered_items: 1
 runtime_dispatch: work_id=runtime-work:2ccaf1494370823f worker_id=worker:0
 runtime_admission: reclaimed_stale
 reconciliation: EffectObserved
-effect_id: effect:43aa7252c6a9fd83b8521f5aaba20939
+effect_id: effect:e10f91bd9dee7a1867583835a83e3d67
 effect_state: Some(Finalized)
 operation_id: operation:07755c0e7fed5951cd642c24a03d869d
-decision_id: decision:665c42af53d442ebd714c6658503ee5e
-execution_grant_id: grant:43aa7252c6a9fd83b8521f5aaba20939
-runtime_worker_event: stopped timestamp_unix_ms=1788174074751 ... status=completed
+decision_id: decision:f3c2bacfadffa332f82e53f215d8ff3d
+execution_grant_id: grant:e10f91bd9dee7a1867583835a83e3d67
+runtime_worker_event: stopped timestamp_unix_ms=1788175250089 ... status=completed
 state: stopped
 exit: 0
 ```
@@ -189,7 +190,7 @@ exit: 0
 ## E13-07 — drain/stop/restart
 
 - evidence_id: E13-07
-- run_id: `/tmp/yai-multi-case-runtime.NKSHNe`
+- run_id: `/tmp/yai-multi-case-runtime.03dUb1`
 - execution_order: 7
 - pre-state: service Running after each bounded phase
 - exact command: `yai runtime stop`
