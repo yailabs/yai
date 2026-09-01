@@ -1,0 +1,6 @@
+visibility	count	default_help	advanced_help	meaning
+product	50	yes	yes	supported ordinary product surface
+advanced	9	no	yes	supported developer/operator convenience
+plumbing	45	no	yes	exact engineering inspection/qualification
+compatibility	16	no	yes	bounded old interface behavior
+removed	1	no	yes	refusal with migration successor

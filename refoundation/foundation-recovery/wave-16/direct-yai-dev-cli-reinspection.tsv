@@ -1,0 +1,7 @@
+source	path_or_commit	executable_property	verdict	target_owner
+yai-dev	73e87be6e9c32539c5b902ac49548da583c1f5cb	pins the historical generated command catalog epoch	navigation confirmed; catalog itself is not current authority	archaeology only
+yai-cli	e9ae6a (historical pin resolved from yai-dev)	command definitions generated help/dispatch metadata from one catalog	recover single-source interface metadata	cli/registry.rs
+yai-law	44bad9 (historical pin resolved from yai-dev)	central command taxonomy and legality metadata	metadata authority leaked toward product/semantic ownership; reject	no target owner
+yai-cli	generated registry corpus	2800 commands across 14 groups	naming density overwhelmed memorable product grammar; reject taxonomy explosion	default help remains product-first
+yai-dev	apps/cli and registry history	stable command IDs and generated discovery were useful	recover IDs/discovery, not source tree or shell runtime	cli registry/help
+yai-dev	historical handlers	command catalog encoded semantic ownership and synchronized law/SDK/CLI	command metadata is syntax/projection only	domain owners remain unchanged

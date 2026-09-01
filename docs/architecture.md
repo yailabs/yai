@@ -1,9 +1,8 @@
 # Current executable architecture
 
-Authority: implementation truth. Foundation-recovery baseline:
-`0e9cccd6391ba624e7cbae9312cdfa74d74bb1df` (the published Wave-11
-checkpoint). This document describes the resulting
-`YAI.SOURCE.REFOUNDATION.12` worktree.
+Authority: implementation truth. This edition covers the published H15
+baseline and the Wave-16 command refoundation. Historical checkpoints and
+exact executable evidence remain in `refoundation/foundation-recovery/`.
 
 This document includes current contradictions. It does not claim that the
 [Constitution](constitution.md) is implemented. Target changes and sequencing
@@ -39,9 +38,12 @@ operator
         +-- restartable hot-state snapshot
 ```
 
-[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is a 1,985-line command
-parser, dispatcher, common CLI support surface, and compatibility shell. The
-current domain implementation is grouped by demonstrated boundary in
+[`cmd/yai/src/main.rs`](../cmd/yai/src/main.rs) is a small process bootstrap.
+The compiled command registry, centralized parser, help and output boundary are
+owned by [`cmd/yai/src/cli/`](../cmd/yai/src/cli/); stable command adapters are
+isolated in
+[`cmd/yai/src/command_adapters.rs`](../cmd/yai/src/command_adapters.rs). The
+domain implementation remains grouped by demonstrated boundary in
 [`provider.rs`](../cmd/yai/src/provider.rs),
 [`case_runtime.rs`](../cmd/yai/src/case_runtime.rs),
 [`policy.rs`](../cmd/yai/src/policy.rs),
@@ -112,10 +114,11 @@ verticals/tests.
 
 Rust owns one canonical semantic write path in
 [`transition.rs`](../engine/yai-engine/src/transition.rs) and
-[`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). Its serialized contracts
-are `yai.transition.v8` and `yai.case_state.v8`; readers retain v1-v7 state
-and transition compatibility while rejecting unknown future contracts.
-Version 3 added provider identity, semantic-frame/render lineage and typed
+[`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). The current serialized
+contracts are `yai.transition.v10` and
+`yai.case_state.v10`; readers retain the supported historical contracts while
+rejecting unknown future versions. Version 3 added provider identity,
+semantic-frame/render lineage and typed
 interaction turns. Version 4 adds Operation-bound ReviewRequest,
 integrity-bound ReviewAction, effective Decision refs and resource review
 posture. Version 5 adds exact Case PolicyBinding bind/replace/unbind payloads
@@ -123,7 +126,9 @@ and their compact current CaseState materialization. It does not make derived
 EffectivePolicy or context canonical. Version 6 adds policy-bound authority,
 version 7 temporal invalidation/cancellation/closure, and version 8 adds
 immutable Case Tenant ownership, authenticated transition provenance and
-Principal-to-Participant links. One bounded LMDB write
+Principal-to-Participant links. Versions 9 and 10 add shared ResourceControl
+and exact Case-bound Workflow progression while keeping their derived views
+non-canonical. One bounded LMDB write
 transaction:
 
 1. validates typed payload closure and global Transition identity;

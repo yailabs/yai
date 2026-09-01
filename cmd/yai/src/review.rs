@@ -5,7 +5,7 @@
 //! Decision; it never invokes a carrier or performs an external effect.
 
 use super::*;
-use crate::security::authenticate_local;
+use crate::command_adapters::security::authenticate_local;
 use yai_core_engine::admission::reviewer_is_eligible;
 use yai_core_engine::case_policy::NormativeReadiness;
 use yai_core_engine::effect::{DecisionOutcome, Operation};
@@ -158,6 +158,9 @@ fn print_review(review: &ReviewState, case_id: &str) {
     );
     println!("reason: {}", review.policy_reason);
     println!("status: {}", review_status_label(&review.status));
+    if let Some(reason) = &review.invalidation_reason {
+        println!("invalidation_reason: {reason:?}");
+    }
     println!(
         "latest_action_id: {}",
         review.latest_action_id.as_deref().unwrap_or("none")

@@ -1,0 +1,16 @@
+property	YVEX_current_property	YAI_final_property	aligned	intentional_difference_and_rationale
+registry authority	one versioned declarative source compiled to descriptors	one typed static Rust registry compiled in	yes	representation follows language/build size
+registry identity	content identity	deterministic SHA-256 digest	yes	different schema/protocol
+operation identity	stable ID separate from path	yai.* ID separate from path/aliases	yes	domain namespace differs
+path resolution	longest exact path	longest exact canonical/alias path once	yes	none
+parser	central syntax admission	central typed Invocation	yes	domain parsing remains with YAI owner
+lane selection	one descriptor/one lane	same	yes	YAI lane names reflect RuntimeInstance
+visibility	explicit product/engineering	explicit five classes	yes	YAI needs compatibility/removed visibility
+help/advanced/JSON	registry consumers	registry consumers	yes	presentation differs
+completion	registry-derived	bash/zsh/fish registry-derived	yes	generated text differs
+aliases/removals	explicit	explicit same-ID aliases/refusal successors	yes	none
+human/machine output	typed boundary	typed CliData/CliError boundary	yes	different schemas
+TTY/non-TTY/NO_COLOR	disciplined	disciplined	yes	no source-code copying
+errors/stdout/stderr	bounded typed behavior	0/2/3/4 classes; JSON error stderr	yes	exit taxonomy is YAI-specific
+environment	configuration only	configuration only	yes	YAI_HOME remains local config
+plumbing exposure	separate from product	advanced help retains engineering roots	yes	domain nouns differ

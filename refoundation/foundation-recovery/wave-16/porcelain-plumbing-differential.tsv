@@ -1,0 +1,9 @@
+porcelain	old_exact_path	canonical_consequence	differential
+init --tenant T --organization O	security bootstrap-local --tenant T --organization O	same authenticated Principal/Tenant security records	adapter delegates; no new authority
+case show CASE	case status --case CASE	same canonical CaseState; new overlay treats absent checkpoint as never_started	canonical truth strengthened
+case participant role add CASE	case bind-participant-role --case CASE	same Case Transition payload	equivalent
+case provider attach CASE	case attach-provider --case CASE	same ProviderAttached transition and local binding	equivalent vocabulary
+case resource attach filesystem CASE	case attach-filesystem --case CASE	same ResourceAttachment transition/local binding	equivalent vocabulary
+case policy bind CASE	case policy bind --case CASE --expected-generation G	same generation-checked transition	porcelain loads G then store rechecks
+policy show POLICY	policy inspect POLICY	same immutable policy read	equivalent
+workflow operations	same H15 paths with flag selectors	same Definition/binding/Case history	presentation-only

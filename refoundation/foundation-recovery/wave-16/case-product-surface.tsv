@@ -1,0 +1,9 @@
+operation	selector	truth_owner	product_contract
+case create	CASE + --tenant	Case transition writer	compact exact create
+case list	optional --tenant	bounded authorized CaseState query	table/JSON
+case show	CASE	canonical CaseState + derived overlays	works before runtime; no God status enum
+case run/resume	CASE	bounded Case runtime	provider/resource from Case state
+case stop	CASE	operational checkpoint	idempotent no_active_execution when never run
+case cancel	CASE	Case lifecycle transition	durable advancement barrier
+case close	CASE	Case lifecycle transition	terminal non-destructive; distinct from cancel
+case participant/provider/resource/policy	CASE	respective existing owner	discoverable nested porcelain

@@ -1,0 +1,13 @@
+property	current_yvex_models1_evidence	yai_final_property	verdict
+checkpoint	e6f8ac71ac862945b9dd500fb9d6043e21147064 inspected read-only	W16 baseline reference	verified
+registry authority	config/operator/registry.json + generated immutable descriptors	compiled typed Rust REGISTRY	aligned property; representation intentionally differs
+decision record	docs/decisions/0002-command-operation-registry.md	docs/commands.md	aligned architecture
+path vs identity	stable operation ID distinct from command spelling	yai.* operation IDs distinct from canonical/alias paths	aligned
+parser	src/cli/input central syntax admission	cli/parser.rs central syntax admission	aligned
+lane	one descriptor selects one lane	one Descriptor selects LocalDomain/RuntimeHost/RuntimeControl/Inspection/Compatibility/LocalInteractive	aligned
+visibility	explicit product/engineering projection	Product/Advanced/Plumbing/Compatibility/Removed	aligned with YAI vocabulary
+help/discovery	derived from registry	human help + deterministic JSON from REGISTRY	aligned
+completion	registry derived	bash/zsh/fish generated from REGISTRY	aligned
+output	typed human/machine boundary	CliData -> human or yai.cli.result.v1	aligned
+tty	NO_COLOR and non-TTY discipline	same behavioral discipline	aligned
+domain nouns	model infrastructure vocabulary	Case-first governed work vocabulary	intentionally different

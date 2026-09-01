@@ -1,0 +1,25 @@
+{
+  "schema": "yai.workflow_definition.v1",
+  "tenant_id": "tenant:cli-product",
+  "workflow_key": "cli-product-governed",
+  "declared_version": "1",
+  "name": "CLI product governed change",
+  "description": "One deterministic governed filesystem consequence through product porcelain.",
+  "nodes": [
+    {
+      "node_id": "apply-change",
+      "kind": "deterministic_work",
+      "proposer_slot": "operator",
+      "operation": {
+        "operation": "filesystem_write",
+        "resource_slot": "workspace",
+        "relative_path": "allowed/porcelain.txt",
+        "content": "product porcelain reached governed reality\n"
+      },
+      "completion": {
+        "predicate": "execution_effect_finalized"
+      }
+    }
+  ],
+  "edges": []
+}

@@ -1,7 +1,7 @@
 //! Case-native policy binding and derived normative-state CLI.
 
 use super::*;
-use crate::security::{authenticate_local, reject_spoofed_as};
+use crate::command_adapters::security::{authenticate_local, reject_spoofed_as};
 use yai_core_engine::case_policy::{
     EffectivePolicyRule, NormativeReadiness, NormativeStatus, PolicyCatalogDrift,
 };

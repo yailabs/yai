@@ -1,0 +1,7 @@
+lane	count	process_contract	examples
+local_domain	49	finite operation against local semantic owners	case create/show; workflow; review; policy
+runtime_host	1	long-running foreground RuntimeInstance host	runtime serve
+runtime_control	4	finite control/inspection of persistent RuntimeInstance	runtime status/queue/stop; advanced submit
+inspection	47	finite read-only/derived engineering inspection	doctor; graph; facts; store; process observe
+compatibility	18	finite old journal/daemon/hot/info contract	journal; daemon; hot; info
+local_interactive	2	bounded explicit developer interaction	case enter; prompt

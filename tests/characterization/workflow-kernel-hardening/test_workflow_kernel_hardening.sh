@@ -48,8 +48,8 @@ trace_product 01 "./yai workflow define --tenant tenant:workflow-hardening --fil
 export YAI_TEST_TENANT_ID="tenant:workflow-product"
 yai_bootstrap_tenant_case "$YAI_BIN" "$YAI_HOME" \
   case:h15-deterministic "$YAI_TEST_TENANT_ID" organization:characterization
-principal_id=$(YAI_HOME="$YAI_HOME" "$YAI_BIN" identity whoami |
-  sed -n 's/^principal_id: //p' | head -1)
+principal_id=$(YAI_HOME="$YAI_HOME" "$YAI_BIN" identity whoami --json |
+  python3 -c 'import json,sys; print(next(field["value"] for field in json.load(sys.stdin)["data"]["fields"] if field["name"] == "Principal"))')
 YAI_HOME="$YAI_HOME" "$YAI_BIN" case bind-participant-role \
   --case case:h15-deterministic --participant participant:operator \
   --role operation-proposer >/dev/null

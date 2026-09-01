@@ -1,0 +1,6 @@
+surface	schema	stdout	stderr	ansi	truncation
+human success	typed CliData rendered	result	warnings none by default	TTY only and NO_COLOR-aware	safe human-only width truncation
+human error	typed CliError	Empty	problem + hint	TTY only and NO_COLOR-aware	not applicable
+JSON success	yai.cli.result.v1	exact single object	empty	never	never
+JSON error	yai.cli.error.v1	empty	exact single object	never	never
+discovery	yai.cli.command_discovery.v1	exact registry projection	empty	never	never

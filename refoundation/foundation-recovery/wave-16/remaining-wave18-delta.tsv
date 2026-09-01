@@ -1,0 +1,7 @@
+future_contract	W16_substrate	remaining_W18_work
+provider qualification	case provider attach uses endpoint/model generic contract	qualification lifecycle and evidence owner test
+capabilities	provider is attachment data plane	typed capability claims and verification
+trust	CLI registry carries no trust truth	policy-bound trust semantics
+health	no CLI/provider health registry	derived health observation and expiry
+selection	Workflow binds Participant, not provider selector	governed selection/failover semantics
+YVEX native extension	black-box generic provider remains sufficient	optional inspection/evidence lane that never becomes core authority

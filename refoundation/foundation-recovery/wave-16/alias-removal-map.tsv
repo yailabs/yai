@@ -1,0 +1,10 @@
+old_path	old_flags	operation_id	canonical_path	classification	replacement_or_equivalence
+case status	--case CASE	yai.case.show	case show CASE	alias	same canonical Case + derived overlay
+tenant status	--tenant TENANT	yai.tenant.show	tenant show TENANT	alias	same Tenant query
+case bind-participant-role	--case/--participant/--role	yai.case.participant.role.add	case participant role add CASE	alias	same transition writer
+case principal link	--case/--principal/--participant	yai.case.participant.link_principal	case participant link-principal CASE	alias	same transition writer
+case attach-provider	--case/--subject/--base-url	yai.case.provider.attach	case provider attach CASE	alias	same ProviderAttachment writer
+case attach-filesystem	--case/--attachment	yai.case.resource.attach_filesystem	case resource attach filesystem CASE	alias	same ResourceAttachment writer
+case attach-process	--case/--attachment	yai.case.resource.attach_process	case resource attach process CASE	alias	same ResourceAttachment writer
+policy inspect	POLICY	yai.policy.show	policy show POLICY	alias	same policy inspection
+observe process	--pid PID	yai.removed.observe_process	process observe	removed	refuses without mutation and prints successor

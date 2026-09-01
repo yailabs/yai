@@ -1,0 +1,10 @@
+operation_id	canonical_path	compatibility_or_old_path	identity_result
+yai.case.show	case show CASE	case status --case CASE	same descriptor/owner
+yai.tenant.show	tenant show TENANT	tenant status --tenant TENANT	same descriptor/owner
+yai.case.participant.role.add	case participant role add CASE	case bind-participant-role --case CASE	same descriptor/owner
+yai.case.participant.link_principal	case participant link-principal CASE	case principal link --case CASE	same descriptor/owner
+yai.case.provider.attach	case provider attach CASE	case attach-provider --case CASE	same descriptor/owner
+yai.case.resource.attach_filesystem	case resource attach filesystem CASE	case attach-filesystem --case CASE	same descriptor/owner
+yai.case.resource.attach_process	case resource attach process CASE	case attach-process --case CASE	same descriptor/owner
+yai.policy.show	policy show POLICY	policy inspect POLICY	same descriptor/owner
+yai.process.observe	process observe	observe process is removed	one canonical operation

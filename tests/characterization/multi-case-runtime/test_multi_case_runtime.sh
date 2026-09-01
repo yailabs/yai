@@ -95,8 +95,8 @@ setup_case() {
       "$YAI_BIN" "$YAI_HOME" "$case_id" "w13-$name" 1 allow \
       subject:llm-provider subject:policy-pack >/dev/null
     local principal_id whoami
-    whoami=$("$YAI_BIN" identity whoami)
-    principal_id=$(sed -n 's/^principal_id: //p' <<<"$whoami")
+    whoami=$("$YAI_BIN" identity whoami --json)
+    principal_id=$(python3 -c 'import json,sys; print(next(field["value"] for field in json.load(sys.stdin)["data"]["fields"] if field["name"] == "Principal"))' <<<"$whoami")
     "$YAI_BIN" case principal link --case "$case_id" \
       --principal "$principal_id" --participant subject:policy-pack >/dev/null
   else

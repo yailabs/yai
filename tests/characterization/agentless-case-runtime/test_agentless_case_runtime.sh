@@ -100,11 +100,24 @@ setup_case() {
 }
 
 run_case() {
+  local include_default_invocations=1
+  local argument
+  for argument in "$@"; do
+    if [[ "$argument" == "--max-invocations" ]]; then
+      include_default_invocations=0
+    fi
+  done
+  local -a budget_args=(
+    --max-operations 30 --max-resident-items 12
+    --max-semantic-units 6000 --max-estimated-input-units 200000
+  )
+  if [[ "$include_default_invocations" -eq 1 ]]; then
+    budget_args+=(--max-invocations 30)
+  fi
   YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" case run \
     --case case:new12-filesystem --subject subject:llm-provider --attachment workspace \
     --prompt "advance the bounded Case from observed reality" \
-    --max-invocations 30 --max-operations 30 --max-resident-items 12 \
-    --max-semantic-units 6000 --max-estimated-input-units 200000 "$@"
+    "${budget_args[@]}" "$@"
 }
 
 # A process crash after the canonical ProviderResult is followed by provider

@@ -1,0 +1,10 @@
+id	pre_W16_command	pre_exit_and_behavior	post_W16_command	post_behavior	verdict
+A	case status --case case:w16-pre	exit 2; leaked missing /run/case-runtime checkpoint	case show case:w16-product	exit 0; canonical Case shown with execution=never_started	fixed
+B	case stop --case case:w16-pre	exit 2; same missing checkpoint leak	case stop case:w16-product	exit 0; no_active_execution	fixed
+C	tenant status	help implied optional; handler failed --tenant is required	tenant show TENANT	exact positional required in registry/help/parser	fixed
+D	case enter --case ... --subject participant:model	exit 2; no normal onboarding path	case participant role add/list + provider attach	deliberate Participant path; no hidden escalation	fixed product path; enter remains advanced
+E	process observe and observe process	both dispatched different-looking observations	process observe canonical; observe process removed	duplicate closed
+F	process signal vs effect process-signal	both appeared in giant default usage	both plumbing/advanced; neither in product help	visibility fixed; authority distinction retained
+G	effect filesystem-write required --base-url/--model on direct helper	provider configuration repeated for engineering helper	case provider attach then case run/workflow	ordinary work consumes Case attachment; helper remains advanced	fixed product flow
+H	doctor in empty home	printed yai doctor: ok while every layout path was missing	doctor	NOT_INITIALIZED + hint yai init	fixed
+I	bare yai	exit 2 new_live_case_requires_security_bootstrap...	bare yai	exit 0 compact product map; no mutation	fixed

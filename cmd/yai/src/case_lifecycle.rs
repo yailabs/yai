@@ -1,7 +1,7 @@
 //! CLI-only surface for durable Case cancellation and terminal closure.
 
 use super::*;
-use crate::security::{authenticate_local, reject_spoofed_as};
+use crate::command_adapters::security::{authenticate_local, reject_spoofed_as};
 use yai_core_engine::transition::{EffectLifecycle, GrantLifecycle, ReviewResolution};
 
 fn print_terminal_posture(store: &LmdbRecordStore, case_id: &str) -> Result<(), String> {

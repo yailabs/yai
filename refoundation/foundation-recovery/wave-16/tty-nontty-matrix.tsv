@@ -1,0 +1,6 @@
+mode	color	interaction	machine_integrity
+wide TTY	restrained semantic ANSI unless NO_COLOR	bounded selector only where explicitly implemented	human renderer
+narrow TTY	same; safe table truncation	no alternate screen/cursor UI	exact IDs can continue on secondary line
+redirected stdout	no ANSI	never waits for hidden input	line-oriented stable human output
+NO_COLOR=1	no ANSI	semantics unchanged	color carries no unique meaning
+JSON	no ANSI	never interactive	UTF-8 deterministic and untruncated

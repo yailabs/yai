@@ -1,7 +1,7 @@
 //! Case-scoped projection construction and OpenAI-compatible provider invocation.
 
 use super::*;
-use crate::security::{authenticate_local, reject_spoofed_as};
+use crate::command_adapters::security::{authenticate_local, reject_spoofed_as};
 use std::time::Instant;
 
 pub(super) fn projection_summary(args: &[String]) -> Result<(), String> {
@@ -598,11 +598,18 @@ pub(super) fn case_enter(args: &[String]) -> Result<(), String> {
     let journal = Journal::load_jsonl(&path)
         .map_err(|error| format!("failed to load {}: {error}", path.display()))?;
 
-    let subject_bound = journal.records().iter().any(|record| {
-        record.case_ref == case_ref
-            && record.kind == RecordKind::SubjectBinding
-            && record.subject_ref == subject_ref
-    });
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let authenticated = authenticate_local()?;
+    let state = ensure_canonical_case(&store, &journal, &path, &case_ref)?;
+    let subject_bound = state
+        .participants
+        .iter()
+        .any(|participant| participant.participant_id == subject_ref)
+        || journal.records().iter().any(|record| {
+            record.case_ref == case_ref
+                && record.kind == RecordKind::SubjectBinding
+                && record.subject_ref == subject_ref
+        });
     if !subject_bound {
         return Err(format!(
             "subject {subject_ref} is not bound to case {case_ref}"
@@ -622,9 +629,7 @@ pub(super) fn case_enter(args: &[String]) -> Result<(), String> {
         ));
     }
 
-    let store = LmdbRecordStore::open(record_store_path())?;
-    let authenticated = authenticate_local()?;
-    let mut state = ensure_canonical_case(&store, &journal, &path, &case_ref)?;
+    let mut state = state;
     let tenant_id = state
         .tenant_id
         .clone()
@@ -1019,11 +1024,18 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
     let journal = Journal::load_jsonl(&path)
         .map_err(|error| format!("failed to load {}: {error}", path.display()))?;
 
-    let subject_bound = journal.records().iter().any(|record| {
-        record.case_ref == case_ref
-            && record.kind == RecordKind::SubjectBinding
-            && record.subject_ref == subject_ref
-    });
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let authenticated = authenticate_local()?;
+    let state = ensure_canonical_case(&store, &journal, &path, &case_ref)?;
+    let subject_bound = state
+        .participants
+        .iter()
+        .any(|participant| participant.participant_id == subject_ref)
+        || journal.records().iter().any(|record| {
+            record.case_ref == case_ref
+                && record.kind == RecordKind::SubjectBinding
+                && record.subject_ref == subject_ref
+        });
     if !subject_bound {
         return Err(format!(
             "subject {subject_ref} is not bound to case {case_ref}"
@@ -1033,9 +1045,6 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
     let provider_summary = format!(
         "provider_attachment:attached provider_id:{provider_id} provider:openai_compatible base_url:{base_url} model:{model} api_key_env:{api_key_env} prompt_surface:vendored_linenoise context:typed_projection_context_frame"
     );
-    let store = LmdbRecordStore::open(record_store_path())?;
-    let authenticated = authenticate_local()?;
-    let state = ensure_canonical_case(&store, &journal, &path, &case_ref)?;
     let tenant_id = state
         .tenant_id
         .clone()

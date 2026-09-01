@@ -1,8 +1,8 @@
 # Workflow Refoundation Plan
 
-Status: architecture synchronized during Wave 14; the bounded Wave 15 kernel is
-published. H15 is the current adversarial closure. Wave 16 through Wave 18
-remain forward design boundaries, not current runtime claims.
+Status: the bounded Wave-15 kernel and H15 adversarial closure are published.
+Wave 16 is the current CLI product refoundation. Waves 17 and 18 remain forward
+design boundaries, not current runtime claims.
 
 ## Constitutional ownership
 
@@ -79,10 +79,10 @@ cross-Tenant federation is not authorized.
 - Wave 15: complete — immutable WorkflowDefinition,
   exact Case binding, deterministic resolver, completion predicates,
   ReadyWorkSet and the six initial node families.
-- H15: current — predicate type safety, concurrent progression, definition
+- H15: complete — predicate type safety, concurrent progression, definition
   integrity/retention, deterministic replay, crash recovery and authority
   isolation.
-- Wave 16: CLI Product Refoundation: porcelain/plumbing separation, canonical
+- Wave 16: current — CLI Product Refoundation: porcelain/plumbing separation, canonical
   command registry, parser lanes and output-family alignment.
 - Wave 17: typed PlanPatch, bounded subflows, adaptive evolution and
   same-Tenant handoff/reconciliation.

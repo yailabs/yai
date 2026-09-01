@@ -1,0 +1,16 @@
+metric	value	evidence
+registry schema	yai.cli.registry.v1	yai help --json
+registry digest	sha256:8f40be2da9ab2d94f0ab832d6d687f206c2755d9134c70adcb5d015a889163d9	yai help --json
+canonical operations	121	audit_registry.py
+product	50	audit_registry.py
+advanced	9	audit_registry.py
+plumbing	45	audit_registry.py
+compatibility	16	audit_registry.py
+removed	1	audit_registry.py
+flags	282	machine-discovery count
+aliases	9	machine-discovery count
+canonical help paths passing	121/121	audit_registry.py
+source-resolvable handlers	120/120 non-removed	audit_registry.py handler_failures=0
+old default roots	31	H15 print_usage extraction including doctor/info
+new default roots	12	product help registry projection
+raw dispatch paths outside registry	0	parser source inspection + coverage test

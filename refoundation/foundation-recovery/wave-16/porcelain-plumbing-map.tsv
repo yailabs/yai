@@ -1,0 +1,10 @@
+user_intent	product_porcelain	retained_plumbing	semantic_owner
+initialize	yai init	security bootstrap-local	security/Tenant store
+inspect work	yai case show	store/projection/context/graph/facts inspections	CaseState + derived overlays
+execute work	yai case run/resume	runtime submit; direct effect helpers	Case runtime
+provider configuration	yai case provider attach	qualification flags on direct effect helpers	Case ProviderAttachment
+resource configuration	yai case resource attach filesystem/process	carrier/process diagnostics	Case ResourceAttachment
+policy	yai policy + yai case policy	decision/control inspection	governance + Case binding
+workflow	yai workflow	no WorkflowRun plumbing	WorkflowDefinition + Case history
+review	yai review	decision/receipt inspection	Review owner
+runtime	yai runtime	legacy daemon/hot	RuntimeInstance

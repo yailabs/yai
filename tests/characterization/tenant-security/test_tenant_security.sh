@@ -37,8 +37,8 @@ bootstrap_b=$("$YAI_BIN" security bootstrap-local \
 trace_product 02 "YAI_HOME=$YAI_HOME $YAI_BIN security bootstrap-local --tenant tenant:product-b --organization organization:shared" "$bootstrap_b" 0
 whoami=$("$YAI_BIN" identity whoami)
 trace_product 03 "YAI_HOME=$YAI_HOME $YAI_BIN identity whoami" "$whoami" 0
-require_text "$whoami" "authenticated: true"
-require_text "$whoami" "tenant_relations: 2"
+require_text "$whoami" "Authentication local_posix_effective_credential"
+require_text "$whoami" "tenant:product-a, tenant:product-b"
 
 case_a=$("$YAI_BIN" case create --case case:product-a --tenant tenant:product-a)
 case_b=$("$YAI_BIN" case create --case case:product-b --tenant tenant:product-b)

@@ -71,7 +71,8 @@ setup_case() {
     YAI_TEST_TENANT_ID="$tenant_id" yai_configure_governed_filesystem_case \
       "$YAI_BIN" "$YAI_HOME" "$case_id" "h13-$name" 1 allow \
       subject:llm-provider subject:policy-pack >/dev/null
-    principal_id=$($YAI_BIN identity whoami | sed -n 's/^principal_id: //p')
+    principal_id=$($YAI_BIN identity whoami --json | \
+      python3 -c 'import json,sys; print(next(field["value"] for field in json.load(sys.stdin)["data"]["fields"] if field["name"] == "Principal"))')
     "$YAI_BIN" case principal link --case "$case_id" --principal "$principal_id" \
       --participant subject:policy-pack >/dev/null
   else

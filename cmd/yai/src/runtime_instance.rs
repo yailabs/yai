@@ -4,12 +4,12 @@
 //! policy, security, Decisions, Grants, and effect truth remain downstream.
 
 use super::*;
-use crate::case_runtime::{
+use crate::command_adapters::case_runtime::{
     execute_runtime_work, recover_runtime_work_from_checkpoint,
     repair_workflow_checkpoint_completed, CaseRuntimeReport, CaseRuntimeStop,
 };
-use crate::provider::validate_journal_case_binding;
-use crate::security::authenticate_local;
+use crate::command_adapters::provider::validate_journal_case_binding;
+use crate::command_adapters::security::authenticate_local;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fs::{self, OpenOptions};
 use std::panic::{catch_unwind, AssertUnwindSafe};

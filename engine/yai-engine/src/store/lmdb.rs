@@ -5836,6 +5836,49 @@ impl LmdbRecordStore {
         Ok(case_ids)
     }
 
+    /// Lists canonical CaseState materializations visible to the authenticated
+    /// Principal. This is a bounded read projection for product inspection; it
+    /// does not create a second Case index or source of truth.
+    pub fn list_case_states_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_filter: Option<&str>,
+        limit: usize,
+    ) -> Result<Vec<CaseState>, String> {
+        if limit == 0 || limit > 1024 {
+            return Err("case_scan_bound_invalid".to_string());
+        }
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start Case scan: {error}"))?;
+        self.authenticated_principal_txn(&txn, authenticated)?;
+        let mut cursor = txn
+            .open_ro_cursor(self.case_state)
+            .map_err(|error| format!("failed to open CaseState cursor: {error}"))?;
+        let mut states = Vec::new();
+        for (_, value) in cursor.iter() {
+            let json = std::str::from_utf8(value)
+                .map_err(|error| format!("invalid CaseState utf8: {error}"))?;
+            let state = CaseState::from_json(json)?;
+            let Some(tenant_id) = state.tenant_id.as_deref() else {
+                continue;
+            };
+            if tenant_filter.is_some_and(|filter| filter != tenant_id) {
+                continue;
+            }
+            if self
+                .resolve_security_context_txn(&txn, authenticated, tenant_id)
+                .is_ok()
+            {
+                states.push(state);
+            }
+        }
+        states.sort_by(|left, right| left.case_id.cmp(&right.case_id));
+        states.truncate(limit);
+        Ok(states)
+    }
+
     pub fn materialize_workflow_ready_work(
         &self,
         authenticated: &AuthenticatedPrincipal,

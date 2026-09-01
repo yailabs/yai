@@ -1,0 +1,6 @@
+concept	canonical_command	invariant
+Participant role	case participant role add CASE --participant P --role R	does not link Principal or grant Review implicitly
+Principal link	case participant link-principal CASE --principal P --participant C	authenticated Principal distinct from Case Participant
+inspection	case participant list CASE	roles and links derive from canonical CaseState
+provider attachment	case provider attach CASE --participant P --endpoint URL --model ID	Participant must genuinely exist/admit; no hidden role escalation
+old subject vocabulary	--subject compatibility alias only	canonical help names Participant

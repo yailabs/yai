@@ -37,10 +37,9 @@ info=$("$YAI_BIN" info)
 require_line "$info" "status: SPINE.51 Fact Plane Freeze"
 
 doctor_missing=$("$YAI_BIN" doctor)
-require_line "$doctor_missing" "hot_state_path: $HOT"
-require_line "$doctor_missing" "hot_state_status: unavailable"
-require_line "$doctor_missing" "hot_state_schema_status: missing"
-require_line "$doctor_missing" "hot_state_readable: no"
+require_line "$doctor_missing" "Posture            NOT_INITIALIZED"
+require_line "$doctor_missing" "YAI_HOME        $YAI_HOME"
+require_line "$doctor_missing" "Local identity  not_enrolled"
 
 missing=$("$YAI_BIN" hot status)
 require_line "$missing" "hot_state: unavailable"
@@ -105,13 +104,10 @@ require_line "$projection_model" "freshness_source: hot_state"
 printf 'hot_cli:projection freshness inspect ok\n'
 
 doctor_valid=$("$YAI_BIN" doctor)
-require_line "$doctor_valid" "hot_state_path: $HOT"
-require_line "$doctor_valid" "hot_state_status: active"
-require_line "$doctor_valid" "hot_state_schema_status: valid"
-require_line "$doctor_valid" "hot_state_readable: yes"
-require_line "$doctor_valid" "projection_freshness: fresh"
-require_line "$doctor_valid" "freshness_policy: usable"
-printf 'hot_cli:doctor hot state ok\n'
+require_line "$doctor_valid" "Posture            NOT_INITIALIZED"
+require_line "$doctor_valid" "YAI_HOME        $YAI_HOME"
+require_line "$doctor_valid" "Local identity  not_enrolled"
+printf 'hot_cli:doctor keeps legacy hot state nonauthoritative\n'
 
 "$YAI_BIN" daemon shutdown --socket "$SOCKET" >/dev/null
 wait "$PID" 2>/dev/null || true

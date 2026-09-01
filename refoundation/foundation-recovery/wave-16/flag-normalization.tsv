@@ -1,0 +1,11 @@
+current	canonical	compatibility	rationale
+--subject	--participant	accepted alias and re-emitted to stable adapter	object is exact Case Participant
+--attachment	--resource	accepted alias	product addresses logical Resource; persisted owner remains ResourceAttachment
+--base-url	--endpoint	accepted alias	generic provider data-plane noun
+--case	positional Case on one-object porcelain	accepted selector alias	one obvious primary object
+--tenant	positional Tenant for tenant show; flag retained for filtering/configuration	accepted selector alias	unambiguous object vs filter
+--expected-generation	automatically loaded for ordinary case policy mutations	advanced optional flag retained	store optimistic concurrency remains exact
+--provider-id	--provider	accepted alias	short product noun preserves provider identity
+workflow --executor	--executor SLOT=PARTICIPANT	unchanged repeatable	exact binding semantics
+workflow --resource	--resource SLOT=RESOURCE	unchanged repeatable	exact binding semantics
+runtime submit --tenant	advanced compatibility surface retained	no Product exposure	RuntimeWorkItem is not ordinary semantic truth

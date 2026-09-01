@@ -41,9 +41,9 @@ require_line "$missing" "schema: yai.record.v1"
 reject_line "$missing" "record_store_status: ready"
 
 doctor_missing=$("$YAI_BIN" doctor)
-require_line "$doctor_missing" "record_store_backend: lmdb"
-require_line "$doctor_missing" "record_store_status: missing"
-require_line "$doctor_missing" "record_store_path: $RECORD_STORE"
+require_line "$doctor_missing" "Posture            NOT_INITIALIZED"
+require_line "$doctor_missing" "Storage         missing"
+require_line "$doctor_missing" "Storage backend lmdb"
 
 mkdir -p "$RECORD_STORE"
 
@@ -52,7 +52,8 @@ require_line "$not_initialized" "record_store_status: not_initialized"
 reject_line "$not_initialized" "record_store_status: ready"
 
 doctor_not_initialized=$("$YAI_BIN" doctor)
-require_line "$doctor_not_initialized" "record_store_status: not_initialized"
-require_line "$doctor_not_initialized" "record_store_backend: lmdb"
+require_line "$doctor_not_initialized" "Posture            NOT_INITIALIZED"
+require_line "$doctor_not_initialized" "Storage         not_initialized"
+require_line "$doctor_not_initialized" "Storage backend lmdb"
 
 printf 'record_store_cli:spine29 ok\n'

@@ -2,7 +2,7 @@
 //! engine workflow owner; this module parses, dispatches, and renders only.
 
 use super::*;
-use crate::security::authenticate_local;
+use crate::command_adapters::security::authenticate_local;
 use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::workflow::{
     WorkflowDefinitionInput, WorkflowExecutorBinding, WorkflowResourceBinding,

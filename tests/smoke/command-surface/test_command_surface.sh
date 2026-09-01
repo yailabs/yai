@@ -47,7 +47,7 @@ printf 'command_surface:foundation-check ok\n'
 info=$("$YAI_BIN" info)
 require_line "$info" "yai: technical YAI control command"
 doctor_missing=$("$YAI_BIN" doctor)
-require_line "$doctor_missing" "hot_state_status: unavailable"
+require_line "$doctor_missing" "NOT_INITIALIZED"
 printf 'command_surface:runtime-info ok\n'
 
 missing=$("$YAI_BIN" hot status)

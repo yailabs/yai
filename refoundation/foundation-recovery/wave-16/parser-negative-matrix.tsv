@@ -1,0 +1,14 @@
+attack	expected	proof
+unknown command	usage exit 2 + bounded unique suggestion	parser tests + P16-19
+unknown flag	usage exit 2	parser_negative_contract_is_centralized
+duplicate nonrepeatable	usage exit 2	duplicate_nonrepeatable_flag_is_rejected
+missing flag value	usage exit 2	parser negative test
+invalid enum	usage exit 2	completion shell choices test
+invalid integer/overflow	usage exit 2	parser negative test
+missing/extra positional	usage exit 2	parser negative test
+positional plus legacy selector	usage exit 2	parser negative test
+conflicting selectors	usage exit 2	descriptor_requires_and_conflicts_are_enforced
+missing dependent flag	usage exit 2	descriptor_requires_and_conflicts_are_enforced
+ambiguous/duplicate path	registry validation failure	registry_is_self_consistent
+removed path	usage exit 2 + successor; no dispatch	removed_path_refuses_with_successor
+help every descriptor	exit 0 and descriptor identity	audit_registry.py: 121/121

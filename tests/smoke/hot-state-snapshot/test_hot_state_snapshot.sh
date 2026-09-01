@@ -57,11 +57,10 @@ require_line "$valid" "case_context: active"
 printf 'snapshot:valid handled\n'
 
 doctor=$("$YAI_BIN" doctor)
-require_line "$doctor" "hot_state_path: $HOT"
-require_line "$doctor" "hot_state_status: active"
-require_line "$doctor" "hot_state_schema_status: valid"
-require_line "$doctor" "hot_state_readable: yes"
-printf 'doctor:hot-state snapshot reported\n'
+require_line "$doctor" "Posture            NOT_INITIALIZED"
+require_line "$doctor" "YAI_HOME        $YAI_HOME"
+require_line "$doctor" "Local identity  not_enrolled"
+printf 'doctor:legacy snapshot does not masquerade as initialization\n'
 
 if [ -e "$HOT.tmp" ]; then
   printf 'unexpected temp snapshot left behind: %s.tmp\n' "$HOT" >&2

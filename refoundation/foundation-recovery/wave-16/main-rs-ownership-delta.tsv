@@ -1,0 +1,9 @@
+metric	before_67fbf2a9	W16_candidate	result
+main.rs lines	2024	12	bootstrap only
+print_usage block lines	121	0	registry-driven help
+hard-coded usage println lines	109	0	removed
+top-level manual dispatch branches	approximately 100	0	one parse/one descriptor/one dispatch
+main direct println/eprintln	407 across mixed command implementation	0	output boundary
+command adapter lines	not isolated	1317	operation-ID adapters and stable implementations; no path parser
+CLI cohesive modules	0	6	registry/parser/help/output/product/mod
+semantic owners introduced	0	0	interface owners only

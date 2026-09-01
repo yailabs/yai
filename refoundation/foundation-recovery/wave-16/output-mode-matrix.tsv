@@ -1,0 +1,8 @@
+operation_family	human	json	error_json	credentials
+init/doctor	message or check table	typed state/checks	typed	not present
+case list/show/mutations	table/sections/concise	nested exact IDs and overlays	typed	credential reference/value omitted
+participant/provider/resource	rows/concise	typed identities	typed	credential content omitted
+workflow	compact/native semantic detail	typed envelope retaining exact definition/binding/evidence	typed	none
+review/policy	object/table/concise	typed envelope	typed	none
+runtime	status/table/stream host	typed finite controls; host emits at termination	typed	none
+advanced/plumbing	compatibility line or native JSON where declared	explicit per descriptor	when structured	command-specific redaction retained

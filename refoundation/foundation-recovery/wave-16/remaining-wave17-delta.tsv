@@ -1,0 +1,7 @@
+future_owner_or_contract	W16_substrate	remaining_W17_work
+PlanPatch	exact operation identity/output only	typed bounded proposal and authority-free validation
+Definition amendment	immutable WorkflowDefinition remains exact	amendment lineage; no in-place mutation
+graph mutation	H15 resolver remains static DAG	bounded insertion/deletion rules and replay closure
+subflow	Case-first CLI leaves concept absent	exact parent/child progression contract
+same-Tenant handoff	Principal/Tenant/Case selectors are explicit	HandoffOffered/Accepted/Result with independent Case authority
+multi-Case process	Runtime fairness unchanged	owner test and reconciliation without WorkflowRun mega-owner

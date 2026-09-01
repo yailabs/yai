@@ -1,0 +1,8 @@
+operation	mutation	contract
+workflow define	yes	immutable exact Tenant-bound Definition owner unchanged
+workflow list	no	deterministic Tenant-filtered Definitions
+workflow show	no	exact immutable definition view
+workflow bind	yes	exact Definition/Case/slot binding
+workflow status	no	pure H15-qualified derived resolution; inspection never progresses
+workflow input	yes	bounded HumanInput distinct from Review
+all product output	n/a	human and yai.cli.result.v1 from one execution result

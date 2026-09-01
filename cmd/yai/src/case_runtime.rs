@@ -5,10 +5,10 @@
 //! resumes from the Transition ledger and materialized CaseState.
 
 use super::*;
-use crate::controlled_effect::{
+use crate::command_adapters::controlled_effect::{
     advance_controlled_workflow_deterministic, ControlledEffectTurnStatus,
 };
-use crate::security::authenticate_local;
+use crate::command_adapters::security::authenticate_local;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::time::{Duration, Instant};
@@ -1471,7 +1471,18 @@ pub(super) fn case_runtime_status(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let store = LmdbRecordStore::open(record_store_path())?;
     let authenticated = authenticate_local()?;
-    store.get_case_state_authorized(&authenticated, &case_id)?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    if !checkpoint_path(&case_id).is_file() {
+        println!("case_id: {case_id}");
+        println!("case_generation: {}", state.generation);
+        println!("case_lifecycle: {:?}", state.lifecycle);
+        println!("runtime_status: NeverStarted");
+        println!("runtime_admission_status: none");
+        println!("stop_requested: false");
+        println!("invocations: 0");
+        println!("operations: 0");
+        return Ok(());
+    }
     let checkpoint = read_checkpoint(&case_id)?;
     print_runtime_summary(&checkpoint)
 }
@@ -1489,7 +1500,13 @@ pub(super) fn case_runtime_stop(args: &[String]) -> Result<(), String> {
             })?,
         )?
         .require_owner()?;
-    let mut checkpoint = read_checkpoint(&case_id)?;
+    let path = checkpoint_path(&case_id);
+    if !path.is_file() {
+        println!("case_runtime_stop: no_active_execution");
+        println!("case_id: {case_id}");
+        return Ok(());
+    }
+    let mut checkpoint = read_checkpoint_at(&path, &case_id)?;
     checkpoint.stop_requested = true;
     checkpoint.stop_detail = "operator stop requested".to_string();
     write_checkpoint(&checkpoint)?;

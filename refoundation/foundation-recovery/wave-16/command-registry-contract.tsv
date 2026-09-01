@@ -1,0 +1,12 @@
+property	contract	evidence
+schema	yai.cli.registry.v1	cli/registry.rs REGISTRY_SCHEMA
+runtime mutability	compiled descriptors; no startup registry file read	registry.rs static REGISTRY
+identity	SHA-256 over deterministic descriptor serialization	yai version and help --json
+operation identity	unique stable yai.* ID independent from path	registry self-check
+path	unique canonical path; alias points to same descriptor	parser + alias test
+syntax	positionals/flags/required/repeatable/choices/conflicts/requires	Descriptor metadata + parser tests
+authority boundary	registry contains no roles/policy/provider-health/Grant truth	source inspection
+coverage	every descriptor handler resolves; no raw path fallthrough	validate + operation-ID dispatch
+output	all Product descriptors Structured	product_operations_are_structured
+result	121 operations; 282 flag descriptors; 9 aliases	registry audit
+digest	sha256:8f40be2da9ab2d94f0ab832d6d687f206c2755d9134c70adcb5d015a889163d9	real help JSON

@@ -6,7 +6,7 @@
 //! It is deliberately not a generic carrier registry or policy engine.
 
 use super::*;
-use crate::security::authenticate_local;
+use crate::command_adapters::security::authenticate_local;
 use yai_core_engine::admission::build_policy_review_request;
 use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
 use yai_core_engine::effect::{

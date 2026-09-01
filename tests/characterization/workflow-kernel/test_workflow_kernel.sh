@@ -31,7 +31,8 @@ mkdir -p "$YAI_HOME" "$TEST_DIR/resource/allowed"
 mkdir -p "$TEST_DIR/resource-b/allowed"
 yai_bootstrap_tenant_case "$YAI_BIN" "$YAI_HOME" \
   "case:workflow-product" "$YAI_TEST_TENANT_ID" "organization:characterization"
-principal_id=$(YAI_HOME="$YAI_HOME" "$YAI_BIN" identity whoami | sed -n 's/^principal_id: //p' | head -1)
+principal_id=$(YAI_HOME="$YAI_HOME" "$YAI_BIN" identity whoami --json | \
+  python3 -c 'import json,sys; print(next(field["value"] for field in json.load(sys.stdin)["data"]["fields"] if field["name"] == "Principal"))')
 
 YAI_HOME="$YAI_HOME" "$YAI_BIN" case bind-participant-role \
   --case case:workflow-product --participant participant:operator \

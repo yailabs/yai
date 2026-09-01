@@ -1,0 +1,46 @@
+{
+  "schema": "yai.policy_source_input.v4",
+  "policy_key": "cli.product.governed",
+  "source_version": "1",
+  "owner_ref": "organization:cli-product",
+  "source_origin": {
+    "source_system": "characterization",
+    "source_uri": "test://wave16/porcelain"
+  },
+  "validity": {"mode": "unbounded"},
+  "rules": [
+    {
+      "kind": "operation_restriction",
+      "rule_id": "filesystem-posture",
+      "operation_kind": "filesystem.write",
+      "resource_kind": "filesystem",
+      "effect": "allow",
+      "reason": "explicit Wave 16 product posture"
+    },
+    {
+      "kind": "authority_requirement",
+      "rule_id": "filesystem-proposer",
+      "operation_kind": "filesystem.write",
+      "resource_kind": "filesystem",
+      "subject": "proposer",
+      "required_role": "operation-proposer",
+      "reason": "proposer must be a Case-bound participant"
+    },
+    {
+      "kind": "evidence_obligation",
+      "rule_id": "filesystem-source",
+      "operation_kind": "filesystem.write",
+      "resource_kind": "filesystem",
+      "obligation": "source_provenance",
+      "reason": "candidate lineage must be canonical"
+    },
+    {
+      "kind": "evidence_obligation",
+      "rule_id": "filesystem-post",
+      "operation_kind": "filesystem.write",
+      "resource_kind": "filesystem",
+      "obligation": "post_observation",
+      "reason": "final consequence must be observed"
+    }
+  ]
+}

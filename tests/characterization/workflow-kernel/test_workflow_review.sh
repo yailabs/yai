@@ -29,7 +29,8 @@ trace_product() {
 mkdir -p "$YAI_HOME" "$TEST_DIR/resource/allowed"
 yai_bootstrap_tenant_case "$YAI_BIN" "$YAI_HOME" case:wave15-review \
   "$YAI_TEST_TENANT_ID" organization:characterization
-principal_id=$("$YAI_BIN" identity whoami | sed -n 's/^principal_id: //p' | head -1)
+principal_id=$("$YAI_BIN" identity whoami --json | \
+  python3 -c 'import json,sys; print(next(field["value"] for field in json.load(sys.stdin)["data"]["fields"] if field["name"] == "Principal"))')
 "$YAI_BIN" case bind-participant-role --case case:wave15-review \
   --participant participant:operator --role operation-proposer >/dev/null
 "$YAI_BIN" case bind-participant-role --case case:wave15-review \

@@ -4,7 +4,7 @@
 //! artifacts/lifecycle events. It never binds a Case or emits authority.
 
 use super::*;
-use crate::security::{authenticate_local, reject_spoofed_as};
+use crate::command_adapters::security::{authenticate_local, reject_spoofed_as};
 use yai_core_engine::governance::{
     compile_policy_source, scope_policy_compilation, NormalizedPolicyRule, ParsedPolicyFact,
     PolicyArtifactView, PolicyLifecycleState, PolicySourceArtifact, PolicyValidationStatus,
