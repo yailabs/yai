@@ -24,3 +24,26 @@ authorize a YVEX patch from this repository.
 - status: open external dependency
 
 No YVEX-side defect was established at this checkpoint.
+
+## YVEX-H14-001 — black-box endpoint unavailable
+
+- finding_id: YVEX-H14-001
+- observed_at: 2026-09-01 Europe/Rome
+- YAI SHA: `bdda5a707e1286c4586f3e3ce2b3ef315342c6b0` (pre-publication probe)
+- YVEX SHA: not inspected; H14 is black-box only
+- model: not exposed
+- endpoint: `http://127.0.0.1:8001/v1`
+- layer: deployment/runtime availability
+- classification: `DEPLOYMENT_LIMITATION`
+- severity: informational / qualification-blocking
+- observed: `/v1/models` refused the loopback connection; no endpoint/model configuration was supplied
+- expected generic contract: operator-supplied reachable OpenAI-compatible endpoint and provider-exposed model ID
+- reproduction: `tests/integration/yvex/qualification_yvex_provider.sh`
+- YAI impact: deterministic generic-provider tests pass; live transport and X/Y/Z Case epistemic flows remain unexecuted
+- YVEX impact: none; no server was administered or inspected and no defect is inferred
+- recommended owning repository: deployment/operator environment
+- recommendation: supply `YAI_EXTERNAL_PROVIDER_BASE_URL` and `YAI_EXTERNAL_PROVIDER_MODEL`, then rerun the same black-box harness
+- status: open external dependency
+
+H14 introduced no new YVEX-side finding. Normal YAI integration requires no
+YVEX source/artifact/profile/engine/session identity or CLI operation.

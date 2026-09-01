@@ -9,3 +9,5 @@ response_extensions	unknown additional response fields tolerated	proven	not exer
 strict_request_subset	no unnecessary provider-brand fields	proven by request fixtures	not exercised	not_live_qualified
 provider_authority	provider/model IDs confer zero Case authority	proven	not exercised	not_live_qualified
 continuation	YAI continuity reconstructs from Case state	proven	not exercised	not_live_qualified
+black_box_boundary	endpoint plus provider-exposed model; no provider CLI/plumbing identity	proven by H14 harness	endpoint unreachable	blocked_external_dependency
+response_model_identity	optional response model accepted/reported; request attachment remains exact	proven by generic fixture	not exercised	not_live_qualified

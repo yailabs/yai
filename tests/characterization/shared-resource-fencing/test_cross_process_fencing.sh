@@ -43,7 +43,7 @@ start_provider() {
   local name="$1"
   local port_file="$TEST_DIR/$1.port"
   if [[ "$name" == scheduled ]]; then
-    python3 "$RUNTIME_FIXTURE" proposal 1 >"$port_file" &
+    python3 "$RUNTIME_FIXTURE" proposal 2 >"$port_file" &
   else
     python3 "$FIXTURE" allow_once >"$port_file" &
   fi
@@ -151,7 +151,7 @@ submit=$(YAI_JOURNAL="${JOURNALS[scheduled]}" "$YAI_BIN" runtime submit \
   --subject subject:llm-provider --attachment workspace \
   --prompt "attempt the same shared resource" \
   --idempotency-key request:wave14-cross-process \
-  --max-invocations 1 --max-operations 1)
+  --max-invocations 2 --max-operations 2)
 work_id=$(sed -n 's/^work_id: //p' <<<"$submit")
 [[ "$work_id" == runtime-work:* ]]
 for _ in $(seq 1 300); do
@@ -160,17 +160,14 @@ for _ in $(seq 1 300); do
     $1 == "work_id:" { found = ($2 == wanted) }
     found && $1 == "state:" { print $2; exit }
   ' <<<"$queue")
-  [[ "$state" == Failed ]] && break
+  [[ "$state" == Blocked ]] && break
   sleep 0.02
 done
-[[ "$state" == Failed ]]
+[[ "$state" == Blocked ]]
+blocked_state="$state"
 grep -Fq 'resource_temporarily_owned' <<<"$queue"
 [[ ! -e "$SHARED_ROOT/allowed/hello.txt" ]]
 [[ ! -e "$SHARED_ROOT/allowed/step-00.txt" ]]
-"$YAI_BIN" runtime stop >/dev/null
-wait "$SERVICE_PID"
-SERVICE_PID=""
-wait "${PROVIDER_PIDS[1]}"
 
 # A third, separately invoked direct YAI process is subject to the same shared
 # owner. This proves exclusion does not depend on RuntimeInstance code at all.
@@ -193,14 +190,34 @@ reconcile=$("$YAI_BIN" effect reconcile --case case:wave14-direct \
 grep -Fq 'reconciliation: EffectObserved' <<<"$reconcile"
 [[ "$(cat "$SHARED_ROOT/allowed/hello.txt")" == "hello from controlled YAI" ]]
 
+# Resource release is a meaningful retry trigger. The parked WorkItem retains
+# its identity, revalidates current authority and completes without busy spin.
+for _ in $(seq 1 500); do
+  queue=$("$YAI_BIN" runtime queue)
+  state=$(awk -v wanted="$work_id" '
+    $1 == "work_id:" { found = ($2 == wanted) }
+    found && $1 == "state:" { print $2; exit }
+  ' <<<"$queue")
+  [[ "$state" == Completed ]] && break
+  sleep 0.02
+done
+[[ "$state" == Completed ]]
+[[ "$(cat "$SHARED_ROOT/allowed/step-00.txt")" == "runtime step 00" ]]
+"$YAI_BIN" runtime stop >/dev/null
+wait "$SERVICE_PID"
+SERVICE_PID=""
+wait "${PROVIDER_PIDS[1]}"
+
 printf 'cross_process_resource_fencing: pass\n'
 printf 'test_run_id: %s\n' "$TEST_DIR"
 printf 'direct_exit: %s\n' "$direct_exit"
 printf 'direct_effect_id: %s\n' "$effect_id"
 sed -n -E '/^(resource_id|resource_epoch|resource_fence_id):/p' "$TEST_DIR/direct-prepare.out"
 printf 'runtime_work_id: %s\n' "$work_id"
-printf 'runtime_work_state: %s\n' "$state"
+printf 'runtime_work_initial_state: %s\n' "$blocked_state"
+printf 'runtime_work_final_state: %s\n' "$state"
 printf 'runtime_block_reason: resource_temporarily_owned\n'
+printf 'runtime_retry_trigger: terminal_resource_release\n'
 printf 'direct_peer_exit: %s\n' "$direct_peer_exit"
 printf 'direct_peer_block_reason: resource_temporarily_owned\n'
 printf 'physical_mutations_before_reconcile: 0\n'

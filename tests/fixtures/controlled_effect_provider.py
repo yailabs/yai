@@ -135,13 +135,16 @@ class Handler(BaseHTTPRequestHandler):
                 )
         else:
             if SCENARIO == "allow":
-                valid = frame_has(
-                    frame,
-                    posture="observed_resource_state",
-                    kind="resource_consequence",
-                    lifecycle="finalized",
-                    outcome="applied",
-                    relative_path="allowed/hello.txt",
+                valid = any(
+                    frame_has(
+                        frame,
+                        posture="observed_resource_state",
+                        kind="resource_consequence",
+                        lifecycle="finalized",
+                        outcome=outcome,
+                        relative_path="allowed/hello.txt",
+                    )
+                    for outcome in ("applied", "already_applied")
                 )
                 content = "fixture observed the committed filesystem consequence"
             elif SCENARIO == "carrier_failure":

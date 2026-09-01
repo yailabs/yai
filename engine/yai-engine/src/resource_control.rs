@@ -11,8 +11,10 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
-pub const RESOURCE_CONTROL_STATE_SCHEMA: &str = "yai.resource_control_state.v1";
-pub const RESOURCE_CONTROL_EVENT_SCHEMA: &str = "yai.resource_control_event.v1";
+pub const RESOURCE_CONTROL_STATE_SCHEMA_V1: &str = "yai.resource_control_state.v1";
+pub const RESOURCE_CONTROL_STATE_SCHEMA: &str = "yai.resource_control_state.v2";
+pub const RESOURCE_CONTROL_EVENT_SCHEMA_V1: &str = "yai.resource_control_event.v1";
+pub const RESOURCE_CONTROL_EVENT_SCHEMA: &str = "yai.resource_control_event.v2";
 pub const RESOURCE_FENCE_SCHEMA: &str = "yai.resource_fence.v1";
 pub const PROCESS_IDENTITY_SCHEMA: &str = "yai.local_process_identity.v1";
 
@@ -282,17 +284,28 @@ pub struct ResourceControlState {
     pub resource_epoch: u64,
     pub event_sequence: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_event_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_event_digest: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub active_lease: Option<ActiveResourceLease>,
 }
 
 impl ResourceControlState {
     pub fn validate(&self) -> Result<(), String> {
         self.identity.validate()?;
-        if self.schema != RESOURCE_CONTROL_STATE_SCHEMA
+        if (self.schema != RESOURCE_CONTROL_STATE_SCHEMA
+            && self.schema != RESOURCE_CONTROL_STATE_SCHEMA_V1)
             || self.resource_epoch == 0
             || self.event_sequence == 0
         {
             return Err("invalid_resource_control_state".to_string());
+        }
+        if self.schema == RESOURCE_CONTROL_STATE_SCHEMA
+            && (self.last_event_id.as_deref().is_none_or(str::is_empty)
+                || self.last_event_digest.as_deref().is_none_or(str::is_empty))
+        {
+            return Err("resource_control_state_event_head_missing".to_string());
         }
         if let Some(active) = &self.active_lease {
             active.fence.validate_integrity()?;
@@ -331,17 +344,34 @@ pub struct ResourceControlEvent {
     pub effect_id: String,
     pub owner_process_identity: String,
     pub committed_at_unix_ms: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_identity: Option<ResourceIdentity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fence: Option<ResourceFence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_event_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_event_digest: Option<String>,
     pub integrity_digest: String,
 }
 
 impl ResourceControlEvent {
     pub(crate) fn build(
         action: ResourceControlAction,
+        identity: &ResourceIdentity,
         fence: &ResourceFence,
         sequence: u64,
         committed_at_unix_ms: u64,
+        previous: Option<&ResourceControlEvent>,
     ) -> Result<Self, String> {
+        identity.validate()?;
         fence.validate_integrity()?;
+        if identity.resource_id != fence.resource_id
+            || identity.tenant_id != fence.tenant_id
+            || identity.resource_kind != fence.resource_kind
+        {
+            return Err("resource_event_identity_fence_mismatch".to_string());
+        }
         let mut event = Self {
             schema: RESOURCE_CONTROL_EVENT_SCHEMA.to_string(),
             event_id: String::new(),
@@ -356,6 +386,10 @@ impl ResourceControlEvent {
             effect_id: fence.effect_id.clone(),
             owner_process_identity: fence.owner_process_identity.clone(),
             committed_at_unix_ms,
+            resource_identity: Some(identity.clone()),
+            fence: Some(fence.clone()),
+            previous_event_id: previous.map(|event| event.event_id.clone()),
+            previous_event_digest: previous.map(|event| event.integrity_digest.clone()),
             integrity_digest: String::new(),
         };
         event.integrity_digest = event.digest();
@@ -365,25 +399,47 @@ impl ResourceControlEvent {
     }
 
     fn digest(&self) -> String {
-        let value = serde_json::json!({
-            "schema": self.schema,
-            "resource_id": self.resource_id,
-            "resource_epoch": self.resource_epoch,
-            "sequence": self.sequence,
-            "action": self.action,
-            "fence_id": self.fence_id,
-            "case_id": self.case_id,
-            "operation_id": self.operation_id,
-            "grant_id": self.grant_id,
-            "effect_id": self.effect_id,
-            "owner_process_identity": self.owner_process_identity,
-            "committed_at_unix_ms": self.committed_at_unix_ms,
-        });
+        let value = if self.schema == RESOURCE_CONTROL_EVENT_SCHEMA_V1 {
+            serde_json::json!({
+                "schema": self.schema,
+                "resource_id": self.resource_id,
+                "resource_epoch": self.resource_epoch,
+                "sequence": self.sequence,
+                "action": self.action,
+                "fence_id": self.fence_id,
+                "case_id": self.case_id,
+                "operation_id": self.operation_id,
+                "grant_id": self.grant_id,
+                "effect_id": self.effect_id,
+                "owner_process_identity": self.owner_process_identity,
+                "committed_at_unix_ms": self.committed_at_unix_ms,
+            })
+        } else {
+            serde_json::json!({
+                "schema": self.schema,
+                "resource_id": self.resource_id,
+                "resource_epoch": self.resource_epoch,
+                "sequence": self.sequence,
+                "action": self.action,
+                "fence_id": self.fence_id,
+                "case_id": self.case_id,
+                "operation_id": self.operation_id,
+                "grant_id": self.grant_id,
+                "effect_id": self.effect_id,
+                "owner_process_identity": self.owner_process_identity,
+                "committed_at_unix_ms": self.committed_at_unix_ms,
+                "resource_identity": self.resource_identity,
+                "fence": self.fence,
+                "previous_event_id": self.previous_event_id,
+                "previous_event_digest": self.previous_event_digest,
+            })
+        };
         digest_bytes(value.to_string().as_bytes())
     }
 
     pub fn validate_integrity(&self) -> Result<(), String> {
-        if self.schema != RESOURCE_CONTROL_EVENT_SCHEMA
+        if (self.schema != RESOURCE_CONTROL_EVENT_SCHEMA
+            && self.schema != RESOURCE_CONTROL_EVENT_SCHEMA_V1)
             || self.resource_id.is_empty()
             || self.resource_epoch == 0
             || self.sequence == 0
@@ -394,6 +450,38 @@ impl ResourceControlEvent {
         {
             return Err("invalid_resource_control_event".to_string());
         }
+        if self.schema == RESOURCE_CONTROL_EVENT_SCHEMA {
+            let identity = self
+                .resource_identity
+                .as_ref()
+                .ok_or_else(|| "resource_event_identity_missing".to_string())?;
+            let fence = self
+                .fence
+                .as_ref()
+                .ok_or_else(|| "resource_event_fence_missing".to_string())?;
+            identity.validate()?;
+            fence.validate_integrity()?;
+            if identity.resource_id != self.resource_id
+                || identity.resource_id != fence.resource_id
+                || self.resource_epoch != fence.resource_epoch
+                || self.fence_id != fence.fence_id
+                || self.case_id != fence.case_id
+                || self.operation_id != fence.operation_id
+                || self.grant_id != fence.grant_id
+                || self.effect_id != fence.effect_id
+                || self.owner_process_identity != fence.owner_process_identity
+                || (self.sequence == 1
+                    && (self.previous_event_id.is_some() || self.previous_event_digest.is_some()))
+                || (self.sequence > 1
+                    && (self.previous_event_id.as_deref().is_none_or(str::is_empty)
+                        || self
+                            .previous_event_digest
+                            .as_deref()
+                            .is_none_or(str::is_empty)))
+            {
+                return Err("resource_control_event_semantic_mismatch".to_string());
+            }
+        }
         let digest = self.digest();
         if digest != self.integrity_digest
             || self.event_id != format!("resource-event:{}", &digest[..32])
@@ -402,6 +490,130 @@ impl ResourceControlEvent {
         }
         Ok(())
     }
+}
+
+/// Rebuilds one exact current resource-control view solely from authoritative
+/// v2 events.  Events may arrive in arbitrary LMDB key order; sequence and the
+/// predecessor digest chain define their only accepted order.
+pub fn rebuild_resource_control_state(
+    events: &[ResourceControlEvent],
+) -> Result<ResourceControlState, String> {
+    if events.is_empty() {
+        return Err("resource_history_empty".to_string());
+    }
+    let mut ordered = events.to_vec();
+    ordered.sort_by_key(|event| event.sequence);
+    let mut state: Option<ResourceControlState> = None;
+    let mut previous: Option<ResourceControlEvent> = None;
+    let mut last_committed_at = 0u64;
+
+    for event in ordered {
+        event.validate_integrity()?;
+        if event.schema != RESOURCE_CONTROL_EVENT_SCHEMA {
+            return Err("resource_history_v1_not_rebuildable".to_string());
+        }
+        let identity = event
+            .resource_identity
+            .as_ref()
+            .ok_or_else(|| "resource_event_identity_missing".to_string())?;
+        let fence = event
+            .fence
+            .as_ref()
+            .ok_or_else(|| "resource_event_fence_missing".to_string())?;
+        let expected_sequence = previous.as_ref().map_or(1, |prior| prior.sequence + 1);
+        if event.sequence != expected_sequence {
+            return Err("resource_history_sequence_gap_or_duplicate".to_string());
+        }
+        match previous.as_ref() {
+            None if event.previous_event_id.is_some() || event.previous_event_digest.is_some() => {
+                return Err("resource_history_unexpected_predecessor".to_string())
+            }
+            Some(prior)
+                if event.previous_event_id.as_deref() != Some(prior.event_id.as_str())
+                    || event.previous_event_digest.as_deref()
+                        != Some(prior.integrity_digest.as_str()) =>
+            {
+                return Err("resource_history_predecessor_mismatch".to_string())
+            }
+            _ => {}
+        }
+        if event.committed_at_unix_ms < last_committed_at {
+            return Err("resource_history_authority_time_regression".to_string());
+        }
+
+        match (&mut state, &event.action) {
+            (None, ResourceControlAction::Acquired) if event.resource_epoch == 1 => {
+                state = Some(ResourceControlState {
+                    schema: RESOURCE_CONTROL_STATE_SCHEMA.to_string(),
+                    identity: identity.clone(),
+                    resource_epoch: 1,
+                    event_sequence: event.sequence,
+                    last_event_id: Some(event.event_id.clone()),
+                    last_event_digest: Some(event.integrity_digest.clone()),
+                    active_lease: Some(ActiveResourceLease {
+                        fence: fence.clone(),
+                    }),
+                });
+            }
+            (None, _) => {
+                return Err("resource_history_must_begin_with_acquired_epoch_one".to_string())
+            }
+            (Some(current), ResourceControlAction::Acquired) => {
+                if current.identity != *identity
+                    || current.active_lease.is_some()
+                    || event.resource_epoch != current.resource_epoch.saturating_add(1)
+                {
+                    return Err("resource_history_invalid_acquisition".to_string());
+                }
+                current.resource_epoch = event.resource_epoch;
+                current.active_lease = Some(ActiveResourceLease {
+                    fence: fence.clone(),
+                });
+            }
+            (Some(current), ResourceControlAction::Reclaimed) => {
+                let active = current
+                    .active_lease
+                    .as_ref()
+                    .ok_or_else(|| "resource_history_reclaim_without_active_lease".to_string())?;
+                if current.identity != *identity
+                    || event.resource_epoch != current.resource_epoch.saturating_add(1)
+                    || active.fence.case_id != fence.case_id
+                    || active.fence.operation_id != fence.operation_id
+                    || active.fence.grant_id != fence.grant_id
+                    || active.fence.effect_id != fence.effect_id
+                    || active.fence.fence_id == fence.fence_id
+                {
+                    return Err("resource_history_invalid_reclaim".to_string());
+                }
+                current.resource_epoch = event.resource_epoch;
+                current.active_lease = Some(ActiveResourceLease {
+                    fence: fence.clone(),
+                });
+            }
+            (Some(current), ResourceControlAction::Released) => {
+                let active = current
+                    .active_lease
+                    .as_ref()
+                    .ok_or_else(|| "resource_history_release_without_active_lease".to_string())?;
+                if current.identity != *identity
+                    || event.resource_epoch != current.resource_epoch
+                    || active.fence != *fence
+                {
+                    return Err("resource_history_invalid_release".to_string());
+                }
+                current.active_lease = None;
+            }
+        }
+        let current = state.as_mut().expect("state initialized by first event");
+        current.event_sequence = event.sequence;
+        current.last_event_id = Some(event.event_id.clone());
+        current.last_event_digest = Some(event.integrity_digest.clone());
+        current.validate()?;
+        last_committed_at = event.committed_at_unix_ms;
+        previous = Some(event);
+    }
+
+    state.ok_or_else(|| "resource_history_empty".to_string())
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -462,5 +674,203 @@ mod tests {
             ..first.clone()
         };
         assert_ne!(first.canonical_identity(), reused.canonical_identity());
+    }
+
+    fn test_fence(
+        identity: &ResourceIdentity,
+        epoch: u64,
+        suffix: &str,
+        effect_id: &str,
+    ) -> ResourceFence {
+        ResourceFence::issue(
+            identity,
+            epoch,
+            &format!("case:{suffix}"),
+            &format!("operation:{suffix}"),
+            &format!("grant:{suffix}"),
+            effect_id,
+            42,
+            &format!("process:{suffix}"),
+            1_000 + epoch,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn h14_resource_event_fsm_rebuilds_exact_state() {
+        let identity = ResourceIdentity::filesystem("tenant:h14", "/tmp/h14-resource").unwrap();
+        let first = test_fence(&identity, 1, "first", "effect:first");
+        let acquired = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &identity,
+            &first,
+            1,
+            2_001,
+            None,
+        )
+        .unwrap();
+        let released = ResourceControlEvent::build(
+            ResourceControlAction::Released,
+            &identity,
+            &first,
+            2,
+            2_002,
+            Some(&acquired),
+        )
+        .unwrap();
+        let second = test_fence(&identity, 2, "second", "effect:second");
+        let acquired_again = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &identity,
+            &second,
+            3,
+            2_003,
+            Some(&released),
+        )
+        .unwrap();
+        let rebuilt = rebuild_resource_control_state(&[
+            acquired_again.clone(),
+            acquired.clone(),
+            released.clone(),
+        ])
+        .unwrap();
+        assert_eq!(rebuilt.identity, identity);
+        assert_eq!(rebuilt.resource_epoch, 2);
+        assert_eq!(rebuilt.event_sequence, 3);
+        assert_eq!(
+            rebuilt.active_lease.as_ref().map(|lease| &lease.fence),
+            Some(&second)
+        );
+        assert_eq!(
+            rebuilt.last_event_id.as_deref(),
+            Some(acquired_again.event_id.as_str())
+        );
+        assert_eq!(
+            rebuilt.last_event_digest.as_deref(),
+            Some(acquired_again.integrity_digest.as_str())
+        );
+    }
+
+    #[test]
+    fn h14_resource_event_fsm_rejects_impossible_content_valid_histories() {
+        let identity = ResourceIdentity::filesystem("tenant:h14", "/tmp/h14-invalid").unwrap();
+        let first = test_fence(&identity, 1, "first", "effect:first");
+        let acquired = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &identity,
+            &first,
+            1,
+            3_001,
+            None,
+        )
+        .unwrap();
+        let release_first = ResourceControlEvent::build(
+            ResourceControlAction::Released,
+            &identity,
+            &first,
+            1,
+            3_001,
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            rebuild_resource_control_state(&[release_first]).unwrap_err(),
+            "resource_history_must_begin_with_acquired_epoch_one"
+        );
+
+        let second = test_fence(&identity, 2, "second", "effect:second");
+        let double_acquire = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &identity,
+            &second,
+            2,
+            3_002,
+            Some(&acquired),
+        )
+        .unwrap();
+        assert_eq!(
+            rebuild_resource_control_state(&[acquired.clone(), double_acquire]).unwrap_err(),
+            "resource_history_invalid_acquisition"
+        );
+        assert_eq!(
+            rebuild_resource_control_state(&[acquired.clone(), acquired.clone()]).unwrap_err(),
+            "resource_history_sequence_gap_or_duplicate"
+        );
+
+        let released = ResourceControlEvent::build(
+            ResourceControlAction::Released,
+            &identity,
+            &first,
+            2,
+            3_002,
+            Some(&acquired),
+        )
+        .unwrap();
+        let wrong_effect = test_fence(&identity, 2, "first", "effect:wrong");
+        let wrong_reclaim = ResourceControlEvent::build(
+            ResourceControlAction::Reclaimed,
+            &identity,
+            &wrong_effect,
+            2,
+            3_002,
+            Some(&acquired),
+        )
+        .unwrap();
+        assert_eq!(
+            rebuild_resource_control_state(&[acquired.clone(), wrong_reclaim]).unwrap_err(),
+            "resource_history_invalid_reclaim"
+        );
+
+        let regressed = test_fence(&identity, 1, "regressed", "effect:regressed");
+        let regressed_acquire = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &identity,
+            &regressed,
+            3,
+            3_003,
+            Some(&released),
+        )
+        .unwrap();
+        assert_eq!(
+            rebuild_resource_control_state(&[
+                acquired.clone(),
+                released.clone(),
+                regressed_acquire,
+            ])
+            .unwrap_err(),
+            "resource_history_invalid_acquisition"
+        );
+
+        let other_identity =
+            ResourceIdentity::filesystem("tenant:other", "/tmp/h14-invalid").unwrap();
+        let other_fence = test_fence(&other_identity, 2, "other", "effect:other");
+        let identity_switch = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &other_identity,
+            &other_fence,
+            3,
+            3_003,
+            Some(&released),
+        )
+        .unwrap();
+        assert_eq!(
+            rebuild_resource_control_state(&[acquired.clone(), released.clone(), identity_switch])
+                .unwrap_err(),
+            "resource_history_invalid_acquisition"
+        );
+
+        let gap = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &identity,
+            &second,
+            3,
+            3_003,
+            Some(&released),
+        )
+        .unwrap();
+        assert_eq!(
+            rebuild_resource_control_state(&[acquired, gap]).unwrap_err(),
+            "resource_history_sequence_gap_or_duplicate"
+        );
     }
 }

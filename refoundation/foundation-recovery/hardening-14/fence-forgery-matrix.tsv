@@ -1,0 +1,9 @@
+attack	integrity_valid	canonical_presence	expected	observed	physical_mutation
+freshly recomputed exact resource/epoch but never acquired	yes	no	stale_resource_fence	stale_resource_fence	0
+correct epoch wrong Case	yes	no	carrier reject	stale_resource_fence/resource binding mismatch	0
+correct Case wrong Operation	yes	no	carrier reject	stale_resource_fence/resource binding mismatch	0
+correct Operation wrong Grant	yes	no	carrier reject	stale_resource_fence/resource binding mismatch	0
+correct Grant wrong Effect	yes	no	carrier reject	stale_resource_fence/resource binding mismatch	0
+exact semantic IDs wrong owner process	yes	no	resource_fence_owner_process_mismatch	resource_fence_owner_process_mismatch	0
+released or old epoch fence	yes	historical only	stale_resource_fence	stale_resource_fence	0
+canonical current exact fence	yes	yes	accept only from exact carrier process	accepted	one admitted carrier call

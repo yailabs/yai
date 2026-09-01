@@ -3,44 +3,22 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 YAI_BIN="${YAI_BIN:-$ROOT/target/debug/yai}"
-YVEX_BASE_URL="${YVEX_BASE_URL:-http://127.0.0.1:8001/v1}"
-YVEX_TEST_TIMEOUT_MS="${YVEX_TEST_TIMEOUT_MS:-900000}"
+PROVIDER_BASE_URL="${YAI_EXTERNAL_PROVIDER_BASE_URL:-${YVEX_BASE_URL:-http://127.0.0.1:8001/v1}}"
+PROVIDER_MODEL="${YAI_EXTERNAL_PROVIDER_MODEL:-${YVEX_MODEL:-}}"
+PROVIDER_TIMEOUT_MS="${YAI_EXTERNAL_PROVIDER_TIMEOUT_MS:-${YVEX_TEST_TIMEOUT_MS:-900000}}"
+RUN_ID="yvex-black-box-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+YAI_SHA="$(git -C "$ROOT" rev-parse HEAD)"
 
-resolve_yvex_repo() {
-  if [[ -n "${YVEX_REPO:-}" ]]; then
-    printf '%s\n' "$YVEX_REPO"
-    return
-  fi
-  for candidate in "$ROOT/../yvex" /tmp/yvex-research.*/repo; do
-    if [[ -d "$candidate/.git" ]]; then
-      printf '%s\n' "$candidate"
-      return
-    fi
-  done
-  return 1
-}
+printf 'run_id: %s\n' "$RUN_ID"
+printf 'yai_sha: %s\n' "$YAI_SHA"
+printf 'qualification_mode: black_box_openai_compatible_provider\n'
+printf 'yvex_repository_accessed: false\n'
+printf 'yvex_cli_used: false\n'
+printf 'provider_endpoint: %s\n' "$PROVIDER_BASE_URL"
 
-if ! YVEX_REPO_RESOLVED=$(resolve_yvex_repo); then
-  printf 'yvex_external_qualification_state: blocked_external_dependency\n'
-  printf 'reason: YVEX repository not found; set YVEX_REPO\n'
-  exit 3
-fi
-
-branch=$(git -C "$YVEX_REPO_RESOLVED" branch --show-current)
-sha=$(git -C "$YVEX_REPO_RESOLVED" rev-parse HEAD)
-origin=$(git -C "$YVEX_REPO_RESOLVED" rev-parse --verify origin/main 2>/dev/null || \
-  git -C "$YVEX_REPO_RESOLVED" rev-parse --verify origin/master 2>/dev/null || printf 'unavailable')
-dirty=$(git -C "$YVEX_REPO_RESOLVED" status --short)
-printf 'yvex_repository: %s\n' "$YVEX_REPO_RESOLVED"
-printf 'yvex_branch: %s\n' "$branch"
-printf 'yvex_sha: %s\n' "$sha"
-printf 'yvex_origin: %s\n' "$origin"
-printf 'yvex_dirty: %s\n' "${dirty:-clean}"
-printf 'yvex_endpoint: %s\n' "$YVEX_BASE_URL"
-
-timeout_seconds=$(( (YVEX_TEST_TIMEOUT_MS + 999) / 1000 ))
-models_url="${YVEX_BASE_URL%/}/models"
-health_url="${YVEX_BASE_URL%/v1}/health"
+timeout_seconds=$(( (PROVIDER_TIMEOUT_MS + 999) / 1000 ))
+models_url="${PROVIDER_BASE_URL%/}/models"
+health_url="${PROVIDER_BASE_URL%/v1}/health"
 health=$(curl -fsS --connect-timeout 2 --max-time 10 "$health_url" 2>&1 || true)
 printf 'yvex_health: %s\n' "${health:-unavailable_optional_extension}"
 if ! models=$(curl -fsS --connect-timeout 2 --max-time 10 "$models_url" 2>&1); then
@@ -50,8 +28,8 @@ if ! models=$(curl -fsS --connect-timeout 2 --max-time 10 "$models_url" 2>&1); t
   exit 3
 fi
 
-if [[ -n "${YVEX_MODEL:-}" ]]; then
-  model="$YVEX_MODEL"
+if [[ -n "$PROVIDER_MODEL" ]]; then
+  model="$PROVIDER_MODEL"
   if ! jq -e --arg model "$model" '.data[]? | select(.id == $model)' <<<"$models" >/dev/null; then
     printf 'yvex_external_qualification_state: failed\n'
     printf 'reason: explicitly requested model is not exposed exactly: %s\n' "$model"
@@ -61,6 +39,7 @@ else
   model=$(jq -er '.data[0].id' <<<"$models")
 fi
 printf 'yvex_model: %s\n' "$model"
+printf 'discovered_model_id: %s\n' "$model"
 printf 'provider_kind: openai_compatible\n'
 
 TEST_DIR=$(mktemp -d /tmp/yai-yvex-qualification.XXXXXX)
@@ -88,7 +67,7 @@ journal="$TEST_DIR/case-yvex.jsonl"
   --case case:yvex-qualification \
   --subject participant:model-yvex \
   --provider-id provider:external-openai-compatible \
-  --base-url "${YVEX_BASE_URL%/}/chat/completions" \
+  --base-url "${PROVIDER_BASE_URL%/}/chat/completions" \
   --model "$model" >/dev/null
 
 started=$(date +%s%3N)
@@ -101,7 +80,7 @@ output=$(timeout "${timeout_seconds}s" env \
   --case case:yvex-qualification \
   --subject participant:model-yvex \
   --provider-id provider:external-openai-compatible \
-  --base-url "${YVEX_BASE_URL%/}/chat/completions" \
+  --base-url "${PROVIDER_BASE_URL%/}/chat/completions" \
   --model "$model" 2>&1)
 exit_code=$?
 set -e
@@ -114,7 +93,17 @@ if [[ "$exit_code" -ne 0 ]]; then
   exit "$exit_code"
 fi
 grep -F 'provider_kind: openai_compatible' <<<"$output" >/dev/null
-grep -E '^provider_invocation: provider-invocation:' <<<"$output" >/dev/null
-grep -E '^provider_result: provider-result:' <<<"$output" >/dev/null
+grep -E '^provider_invocation_id: invocation:' <<<"$output" >/dev/null
+grep -E '^provider_result_id: provider-result:' <<<"$output" >/dev/null
 grep -E '^context_frame_id: context-frame:' <<<"$output" >/dev/null
+response_model=$(sed -n 's/^provider_response_model_id: //p' <<<"$output")
+[[ "$response_model" == not_returned ]] && response_model=""
+if [[ -n "$response_model" && "$response_model" != "$model" ]]; then
+  printf 'yvex_external_qualification_state: failed\n'
+  printf 'reason: provider response model identity mismatch requested=%s response=%s\n' \
+    "$model" "$response_model"
+  exit 2
+fi
+printf 'model_identity_chain: discovered=%s requested=%s response=%s\n' \
+  "$model" "$model" "${response_model:-not_returned}"
 printf 'yvex_external_qualification_state: passed\n'

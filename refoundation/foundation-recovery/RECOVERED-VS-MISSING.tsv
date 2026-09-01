@@ -27,14 +27,14 @@ evidence obligations	refounded_proven	canonical source/review evidence plus pre/
 ExecutionGrant lifecycle	refounded_proven for local filesystem carrier	finite v3 Grant; exact adjacency; Expired/Revoked/Abandoned before PREPARE; historical replay	second carrier/distributed leases	future carrier wave
 cancellation/Case closure	refounded_proven	atomic durable barrier, authority terminalization and safe terminal close	authenticated admin/archive/reopen	Wave12/future archaeology
 resource attachment	refounded_proven	filesystem hard envelope intersected with policy	shared-resource lifecycle/fencing	Wave14
-resource concurrency/fencing	missing	none	multi-Case conflict control	Wave14
-carrier model	partially_refounded	filesystem.write constitutional carrier	second real carrier	Wave14
+resource concurrency/fencing	refounded_proven + adversarially_qualified	Tenant-bound ResourceControl v2; monotonic epochs; exact canonical non-bearer fence; carrier process binding; event-FSM rebuild; 8-process contention	arbitrary non-YAI writers/distributed fencing	explicit non-claim
+carrier model	refounded_proven + Linux-TOCTOU/uncertainty-qualified	filesystem.write uses descriptor-relative Linux confinement; process.signal uses birth identity and observation-only uncertain recovery	portable equivalent and non-YAI host exclusion	future only with consumer
 multi-Case runtime	refounded_proven + crash-ack-qualified	bounded local worker pool reusing the exact Case loop; terminal checkpoint repairs lost scheduler acknowledgement; one active WorkItem per Case	canonical shared-resource fencing/distributed workers	Wave14/later
 runtime instance lifecycle	refounded_proven	yai.runtime_instance.v1 Starting/Running/Draining/Stopped with PID/token/lease reclaim	system service integration/distributed lease	future only with consumer
 scheduler/fairness	refounded_proven + restart-stable for local runtime	durable cursor advances atomically with claim; deterministic Tenant round-robin and FIFO within Tenant; active Case quota	priorities/provider-aware scheduling	future only with consumer
 runtime quotas/backpressure	refounded_proven for local operational capacity	bounded workers/global queue/Tenant queue/Tenant active Cases; typed rejection before Case mutation	billing/entitlements	out of core
 runtime recovery sweep	refounded_proven + terminal-ack-qualified	bounded nonterminal WorkItem scan with canonical cancellation/effect/review/checkpoint precedence; caught panic remains recoverable	fleet recovery/distributed sweep	future distributed runtime
-provider descriptor/qualification	partially_refounded	Case provider/model profile	trust/qualification/lifecycle	Wave15
+provider descriptor/qualification	partially_refounded	Case provider/model profile plus black-box generic OpenAI-compatible endpoint/model harness	live external endpoint unavailable; trust/qualification/lifecycle	Wave17
 provider governance	missing	none	policy-aware provider/model selection	Wave15
 provider health/failover	partially_refounded	bounded retry/replacement	shared health/circuit breaker	Wave15
 Projection/disclosure governance	partially_refounded	participant visibility and policy DENY/review posture before render	policy/provider confidentiality	Wave15

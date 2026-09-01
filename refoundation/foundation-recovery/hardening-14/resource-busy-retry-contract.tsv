@@ -1,0 +1,7 @@
+stage	old_wave14	H14	invariant
+PREPARE conflict	resource_temporarily_owned	resource_temporarily_owned	Decision remains ALLOW; no PREPARE/effect
+WorkItem mapping	Failed terminal	Blocked nonterminal	worker released; semantic request not lost
+retry trigger	none	observed active lease release/state change	no busy polling
+identity	would require new submission	same RuntimeWorkItem/Case/request	no duplicated intent
+authority	old issued Grant could be selected without an operational retry path	exact issued adjacent Grant is canonically revalidated; stale Grant invalidates and later retry rederives	policy/time/current generation remain mandatory
+future workflow	ambiguous terminal failure	physical admission wait distinct from policy/review/effect uncertainty	Workflow node never owns lease

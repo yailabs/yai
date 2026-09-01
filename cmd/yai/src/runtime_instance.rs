@@ -306,6 +306,45 @@ fn work_policy_is_usable(item: &RuntimeWorkItem, store: &LmdbRecordStore) -> Res
         && status.validity == PolicyValidityPosture::Valid)
 }
 
+fn resource_block_reference(reason: &str) -> Option<(&str, u64)> {
+    if !reason.contains("resource_temporarily_owned") {
+        return None;
+    }
+    let resource_id = reason
+        .split_whitespace()
+        .find_map(|part| part.strip_prefix("resource_id="))?;
+    let epoch = reason
+        .split_whitespace()
+        .find_map(|part| part.strip_prefix("epoch="))?
+        .parse::<u64>()
+        .ok()?;
+    Some((resource_id, epoch))
+}
+
+fn resource_block_is_released(
+    item: &RuntimeWorkItem,
+    store: &LmdbRecordStore,
+) -> Result<bool, String> {
+    let Some((resource_id, _observed_epoch)) = resource_block_reference(&item.last_stop_reason)
+    else {
+        return Ok(false);
+    };
+    Ok(store
+        .get_resource_control_state(resource_id)?
+        .is_some_and(|state| state.active_lease.is_none()))
+}
+
+fn worker_error_state(error: &str) -> RuntimeWorkState {
+    if error.contains("case_runtime_admission_active")
+        || error.contains("resource_temporarily_owned")
+        || error.contains("execution_grant_invalidated_before_prepare")
+    {
+        RuntimeWorkState::Blocked
+    } else {
+        RuntimeWorkState::Failed
+    }
+}
+
 fn case_runtime_admission_is_available(
     item: &RuntimeWorkItem,
     store: &LmdbRecordStore,
@@ -353,7 +392,12 @@ fn recovery_sweep(
                     "review_resolved_requeue".to_string(),
                 )),
                 RuntimeWorkState::Blocked if work_policy_is_usable(&item, &store)? => {
-                    if item
+                    if resource_block_reference(&item.last_stop_reason).is_some() {
+                        resource_block_is_released(&item, &store)?.then_some((
+                            RuntimeWorkState::Queued,
+                            "resource_control_release_observed_requeue".to_string(),
+                        ))
+                    } else if item
                         .last_stop_reason
                         .contains("case_runtime_admission_active")
                     {
@@ -716,17 +760,13 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
                     )?;
                 }
                 WorkerOutcome::Result(Err(error)) => {
-                    let blocked_by_case_owner = error.contains("case_runtime_admission_active");
+                    let state = worker_error_state(&error);
                     store.update_runtime_work_state(
                         &authenticated,
                         &owner_token,
                         &completion.work_id,
                         Some(&completion.worker_id),
-                        if blocked_by_case_owner {
-                            RuntimeWorkState::Blocked
-                        } else {
-                            RuntimeWorkState::Failed
-                        },
+                        state,
                         &format!("worker_error: {error}"),
                         now_unix_ms(),
                     )?;
@@ -807,7 +847,12 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
                             Some((RuntimeWorkState::Queued, "effect_reconciliation_retry"))
                         }
                         RuntimeWorkState::Blocked if work_policy_is_usable(&item, &store)? => {
-                            if item
+                            if resource_block_reference(&item.last_stop_reason).is_some() {
+                                resource_block_is_released(&item, &store)?.then_some((
+                                    RuntimeWorkState::Queued,
+                                    "resource_control_release_observed_requeue",
+                                ))
+                            } else if item
                                 .last_stop_reason
                                 .contains("case_runtime_admission_active")
                             {
@@ -1092,5 +1137,26 @@ mod tests {
                 elapsed.as_micros()
             );
         }
+    }
+
+    #[test]
+    fn h14_resource_busy_is_retryable_operational_block_not_terminal_failure() {
+        let reason = "worker_error: resource_temporarily_owned: resource_id=resource-control:abc epoch=7 case_id=case:a effect_id=effect:a";
+        assert_eq!(
+            resource_block_reference(reason),
+            Some(("resource-control:abc", 7))
+        );
+        assert_eq!(worker_error_state(reason), RuntimeWorkState::Blocked);
+        assert!(!worker_error_state(reason).is_terminal());
+        assert_eq!(
+            worker_error_state(
+                "worker_error: execution_grant_invalidated_before_prepare: generation=42"
+            ),
+            RuntimeWorkState::Blocked
+        );
+        assert_eq!(
+            worker_error_state("worker_error: malformed provider response"),
+            RuntimeWorkState::Failed
+        );
     }
 }

@@ -1,0 +1,11 @@
+entry_condition	H14_answer	evidence	wave15_consequence
+resource busy distinct from DENY	YES	ALLOW plus resource_temporarily_owned and Blocked WorkItem	resolver can represent physical wait
+retry preserves semantic work identity	YES	same WorkItem moves Blocked to Completed	node need not duplicate request
+Workflow node can wait without lease	YES	lease acquired only at PREPARE	WorkflowDefinition/Run/Node remain non-authority
+same Case resumes under fresh authority	YES	canonical PREPARE revalidates an exact issued Grant; stale authority invalidates and must be rederived	current policy/time/generation apply
+stale YAI writer cannot escape fencing	YES within local Linux YAI-mediated trust boundary	canonical presence + epoch + carrier process + fd confinement	no resource authority in workflow
+resource state reconstructible	YES for v2 history	full chained event replay exactly reconstructs state	resolver may observe derived current state
+filesystem races mechanically bounded	YES on Linux	openat2 plus trusted dirfds/root inode	unsupported platforms fail conservatively
+process uncertainty explicit	YES	observation-only recovery and retained lease	resolver sees Indeterminate, never blind retry
+generic provider avoids YVEX plumbing	YES	harness consumes endpoint + exposed model only	ModelWork remains provider-portable
+remaining W15 implementation	PENDING	WorkflowDefinition exact Case/Tenant binding; predicates; deterministic resolver; ReadyWorkSet; ModelWork; DeterministicWork; HumanInput; Condition/Wait; EffectGoal; derived replay	W15 not implemented by H14

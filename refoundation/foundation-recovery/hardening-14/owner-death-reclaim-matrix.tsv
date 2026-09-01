@@ -1,0 +1,6 @@
+owner_state	effect_state	request	result
+exact owner alive	Prepared or Indeterminate	time-only reclaim	reject; process birth identity outranks expiry
+exact owner dead	Prepared or Indeterminate	same Case/Operation/Grant/Effect reclaim	one transaction advances epoch and replaces fence
+exact owner dead	Prepared or Indeterminate	unrelated effect	reject resource_temporarily_owned
+old owner after reclaim	any	old fence carrier call	reject stale epoch before mutation
+concurrent same-Effect recovery	Prepared	multiple processes	one LMDB commit winner; same Effect preserved

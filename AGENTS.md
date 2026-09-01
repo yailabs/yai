@@ -113,15 +113,16 @@ implementation
 From Wave 14 onward, a YAI wave that materially changes provider integration,
 Projection/ContextFrame, model execution, Case runtime, workflow execution,
 provider continuity or execution evidence uses YVEX as the primary owned
-external provider pressure test when an executable YVEX checkout and server are
+external provider pressure test when a live YVEX provider endpoint is
 available.
 
-- YVEX is an external read-only repository from YAI development work. Never
-  edit, format, generate tracked files, clean, checkout, reset, stash, commit or
-  fix YVEX from the YAI worktree/session.
-- Every attempted qualification records the YAI SHA, YVEX checkout path and
-  SHA, exact model, endpoint and run ID. An unavailable executable/model/server
-  is reported as a blocked external dependency, never as a fabricated pass.
+- YVEX qualification is black-box provider consumption. YAI development does
+  not inspect or administer YVEX source, repositories, CLI, profiles, engines,
+  artifacts, sessions, or model-loading workflows. The YVEX operator supplies
+  an endpoint and its provider-exposed model identity.
+- Every attempted qualification records the YAI SHA, exact exposed model,
+  endpoint and run ID. An unavailable endpoint/model is reported as a blocked
+  external dependency, never as a fabricated pass.
 - Basic YAI↔YVEX invocation uses the same generic OpenAI-compatible provider
   boundary intended for llama.cpp, vLLM and other compatible providers. Core
   authority, Case, projection, workflow and provider semantics must never

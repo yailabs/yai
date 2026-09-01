@@ -1,0 +1,6 @@
+boundary	committed_truth	resource_state	restart
+before terminal LMDB transaction	Prepared/Indeterminate	active exact lease	reconcile same Effect; unrelated work remains blocked
+abort during terminal transaction	Prepared/Indeterminate	active exact lease	atomic rollback; no visible partial release
+after terminal+release commit	Finalized	released	already_finalized; no carrier/release replay
+repeat terminal recovery	Finalized	released	idempotent; epoch unchanged; no second release
+immediate competitor after commit	Finalized prior Effect	new acquisition allowed	new monotonic epoch

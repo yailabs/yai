@@ -1,0 +1,5 @@
+test	attack_point	expected	actual
+h14_descriptor_relative_carrier_rejects_final_symlink_and_preserves_outside	final component already symlink	filesystem_final_symlink_rejected; outside unchanged	pass
+h14_post_prepare_parent_swap_cannot_escape_open_directory_descriptor	after trusted parent open, rename parent and install outside symlink	write original opened directory only; outside unchanged	pass
+observation_fails_closed_on_symlink_parent_escape	intermediate symlink during observation	observation error; no admission	pass
+h14_atomic_replace_does_not_mutate_an_outside_hard_link_inode	existing inside hard link points to outside inode	outside inode unchanged after atomic replacement	pass

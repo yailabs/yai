@@ -14,11 +14,19 @@ use crate::transition::{
     REVIEW_REQUEST_SCHEMA_V1,
 };
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "linux")]
+use std::ffi::CString;
 use std::fmt::Write as FmtWrite;
 use std::fs::{self, File, OpenOptions};
-use std::io::Write;
+use std::io::{Read, Write};
+#[cfg(target_os = "linux")]
+use std::os::fd::{AsRawFd, FromRawFd};
 #[cfg(unix)]
 use std::os::raw::c_int;
+#[cfg(target_os = "linux")]
+use std::os::unix::ffi::OsStrExt;
+#[cfg(target_os = "linux")]
+use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -41,8 +49,9 @@ pub const OBSERVATION_SCHEMA: &str = "yai.observation.filesystem.v1";
 pub const PREPARED_EFFECT_SCHEMA_V1: &str = "yai.prepared_effect.v1";
 pub const PREPARED_EFFECT_SCHEMA: &str = "yai.prepared_effect.v2";
 pub const EFFECT_RECEIPT_SCHEMA: &str = "yai.effect_receipt.v1";
-pub const LOCAL_FILESYSTEM_BINDING_SCHEMA: &str = "yai.local_filesystem_binding.v1";
-pub const FILESYSTEM_CARRIER_BACKEND: &str = "rust.filesystem.atomic_replace.v1";
+pub const LOCAL_FILESYSTEM_BINDING_SCHEMA_V1: &str = "yai.local_filesystem_binding.v1";
+pub const LOCAL_FILESYSTEM_BINDING_SCHEMA: &str = "yai.local_filesystem_binding.v2";
+pub const FILESYSTEM_CARRIER_BACKEND: &str = "rust.filesystem.openat2_atomic_replace.v2";
 pub const PROCESS_OBSERVATION_SCHEMA: &str = "yai.observation.process.v1";
 pub const PREPARED_PROCESS_EFFECT_SCHEMA: &str = "yai.prepared_process_effect.v1";
 pub const PROCESS_EFFECT_RECEIPT_SCHEMA: &str = "yai.process_effect_receipt.v1";
@@ -148,6 +157,23 @@ pub enum ProcessSignalAction {
     Terminate,
     Suspend,
     Resume,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProcessEffectRetryPosture {
+    SafeToRepeat,
+    ObservationOnlyRecovery,
+    UnsafeOrAmbiguousToRepeat,
+}
+
+pub fn process_signal_retry_posture(action: &ProcessSignalAction) -> ProcessEffectRetryPosture {
+    match action {
+        ProcessSignalAction::Terminate => ProcessEffectRetryPosture::UnsafeOrAmbiguousToRepeat,
+        ProcessSignalAction::Suspend | ProcessSignalAction::Resume => {
+            ProcessEffectRetryPosture::ObservationOnlyRecovery
+        }
+    }
 }
 
 impl ProcessSignalAction {
@@ -478,6 +504,10 @@ pub struct LocalFilesystemBinding {
     pub case_id: String,
     pub attachment_id: String,
     pub canonical_root: String,
+    #[serde(default)]
+    pub root_device: u64,
+    #[serde(default)]
+    pub root_inode: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -1869,23 +1899,51 @@ impl LocalFilesystemBinding {
         if !canonical.is_dir() {
             return Err("filesystem binding root must be a directory".to_string());
         }
+        #[cfg(target_os = "linux")]
+        let (root_device, root_inode) = {
+            let metadata = fs::metadata(&canonical)
+                .map_err(|error| format!("failed to identify binding root: {error}"))?;
+            (metadata.dev(), metadata.ino())
+        };
+        #[cfg(not(target_os = "linux"))]
+        let (root_device, root_inode) = (0, 0);
         Ok(Self {
             schema: LOCAL_FILESYSTEM_BINDING_SCHEMA.to_string(),
             case_id: case_id.into(),
             attachment_id: attachment_id.into(),
             canonical_root: canonical.to_string_lossy().into_owned(),
+            root_device,
+            root_inode,
         })
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != LOCAL_FILESYSTEM_BINDING_SCHEMA
+        if (self.schema != LOCAL_FILESYSTEM_BINDING_SCHEMA
+            && self.schema != LOCAL_FILESYSTEM_BINDING_SCHEMA_V1)
             || self.case_id.is_empty()
             || self.attachment_id.is_empty()
             || !Path::new(&self.canonical_root).is_absolute()
+            || (self.schema == LOCAL_FILESYSTEM_BINDING_SCHEMA
+                && (self.root_device == 0 || self.root_inode == 0))
         {
             return Err("invalid_local_filesystem_binding".to_string());
         }
         Ok(())
+    }
+
+    fn validate_secure_carrier(&self) -> Result<(), String> {
+        self.validate()?;
+        if self.schema != LOCAL_FILESYSTEM_BINDING_SCHEMA {
+            return Err("filesystem_binding_requires_inode_identity_v2".to_string());
+        }
+        #[cfg(target_os = "linux")]
+        {
+            Ok(())
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            Err("filesystem_secure_resolution_unsupported_platform".to_string())
+        }
     }
 }
 
@@ -1896,6 +1954,18 @@ pub fn observe_filesystem(
     observation_id: impl Into<String>,
 ) -> FilesystemObservation {
     let observation_id = observation_id.into();
+    if binding.schema == LOCAL_FILESYSTEM_BINDING_SCHEMA {
+        return observe_filesystem_secure(binding, resource, relative_path, observation_id);
+    }
+    observe_filesystem_legacy(binding, resource, relative_path, observation_id)
+}
+
+fn observe_filesystem_legacy(
+    binding: &LocalFilesystemBinding,
+    resource: &ResourceAttachmentState,
+    relative_path: &str,
+    observation_id: String,
+) -> FilesystemObservation {
     let normalized = match normalize_relative_path(relative_path) {
         Ok(value) => value,
         Err(error) => {
@@ -1994,6 +2064,241 @@ pub fn observe_filesystem(
     }
 }
 
+#[cfg(target_os = "linux")]
+#[repr(C)]
+struct OpenHow {
+    flags: u64,
+    mode: u64,
+    resolve: u64,
+}
+
+#[cfg(target_os = "linux")]
+const RESOLVE_NO_MAGICLINKS: u64 = 0x02;
+#[cfg(target_os = "linux")]
+const RESOLVE_NO_SYMLINKS: u64 = 0x04;
+#[cfg(target_os = "linux")]
+const RESOLVE_BENEATH: u64 = 0x08;
+
+#[cfg(target_os = "linux")]
+fn open_verified_filesystem_root(binding: &LocalFilesystemBinding) -> Result<File, String> {
+    binding.validate_secure_carrier()?;
+    let root = CString::new(Path::new(&binding.canonical_root).as_os_str().as_bytes())
+        .map_err(|_| "filesystem_binding_root_contains_nul".to_string())?;
+    let fd = unsafe {
+        libc::open(
+            root.as_ptr(),
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+        )
+    };
+    if fd < 0 {
+        return Err(format!(
+            "filesystem_binding_root_open_failed: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    let file = unsafe { File::from_raw_fd(fd) };
+    let metadata = file
+        .metadata()
+        .map_err(|error| format!("filesystem_binding_root_fstat_failed: {error}"))?;
+    if !metadata.is_dir()
+        || metadata.dev() != binding.root_device
+        || metadata.ino() != binding.root_inode
+    {
+        return Err("filesystem_binding_root_birth_identity_mismatch".to_string());
+    }
+    Ok(file)
+}
+
+#[cfg(target_os = "linux")]
+fn open_beneath(root: &File, path: &Path, flags: i32, mode: u32) -> std::io::Result<File> {
+    let path = CString::new(path.as_os_str().as_bytes())
+        .map_err(|_| std::io::Error::from_raw_os_error(libc::EINVAL))?;
+    let how = OpenHow {
+        flags: flags as u64,
+        mode: u64::from(mode),
+        resolve: RESOLVE_BENEATH | RESOLVE_NO_MAGICLINKS | RESOLVE_NO_SYMLINKS,
+    };
+    let fd = unsafe {
+        libc::syscall(
+            libc::SYS_openat2,
+            root.as_raw_fd(),
+            path.as_ptr(),
+            &how as *const OpenHow,
+            std::mem::size_of::<OpenHow>(),
+        ) as i32
+    };
+    if fd < 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(unsafe { File::from_raw_fd(fd) })
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn observe_filesystem_secure(
+    binding: &LocalFilesystemBinding,
+    resource: &ResourceAttachmentState,
+    relative_path: &str,
+    observation_id: String,
+) -> FilesystemObservation {
+    let normalized = match normalize_relative_path(relative_path) {
+        Ok(value) => value,
+        Err(error) => {
+            return unavailable_observation(
+                observation_id,
+                &resource.attachment_id,
+                relative_path,
+                error,
+            )
+        }
+    };
+    if binding.attachment_id != resource.attachment_id
+        || !path_within_prefix(&resource.allowed_write_prefix, &normalized)
+    {
+        return unavailable_observation(
+            observation_id,
+            &resource.attachment_id,
+            &normalized,
+            "filesystem_secure_attachment_or_prefix_mismatch".to_string(),
+        );
+    }
+    let root = match open_verified_filesystem_root(binding) {
+        Ok(root) => root,
+        Err(error) => {
+            return unavailable_observation(
+                observation_id,
+                &resource.attachment_id,
+                &normalized,
+                error,
+            )
+        }
+    };
+    let mut components = normalized.split('/').collect::<Vec<_>>();
+    let target_name = components.pop().expect("normalized path is non-empty");
+    let parent = if components.is_empty() {
+        match root.try_clone() {
+            Ok(parent) => parent,
+            Err(error) => {
+                return unavailable_observation(
+                    observation_id,
+                    &resource.attachment_id,
+                    &normalized,
+                    format!("filesystem_root_clone_failed: {error}"),
+                )
+            }
+        }
+    } else {
+        match open_beneath(
+            &root,
+            Path::new(&components.join("/")),
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+            0,
+        ) {
+            Ok(parent) => parent,
+            Err(error) => {
+                return unavailable_observation(
+                    observation_id,
+                    &resource.attachment_id,
+                    &normalized,
+                    format!("filesystem_secure_parent_resolution_rejected: {error}"),
+                )
+            }
+        }
+    };
+    let mut target = match open_beneath(
+        &parent,
+        Path::new(target_name),
+        libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+        0,
+    ) {
+        Ok(target) => target,
+        Err(error) if error.raw_os_error() == Some(libc::ENOENT) => {
+            return FilesystemObservation {
+                schema: OBSERVATION_SCHEMA.to_string(),
+                observation_id,
+                resource_attachment_id: resource.attachment_id.clone(),
+                relative_path: normalized,
+                state: ResourceState::Absent,
+                content_digest: None,
+                size_bytes: None,
+                error: None,
+                observed_at_unix_ms: unix_time_ms(),
+            }
+        }
+        Err(error) => {
+            return unavailable_observation(
+                observation_id,
+                &resource.attachment_id,
+                &normalized,
+                format!("filesystem_secure_resolution_rejected: {error}"),
+            )
+        }
+    };
+    let metadata = match target.metadata() {
+        Ok(metadata) => metadata,
+        Err(error) => {
+            return unavailable_observation(
+                observation_id,
+                &resource.attachment_id,
+                &normalized,
+                format!("filesystem_secure_fstat_failed: {error}"),
+            )
+        }
+    };
+    if metadata.is_file() {
+        let mut bytes = Vec::new();
+        return match target.read_to_end(&mut bytes) {
+            Ok(_) => FilesystemObservation {
+                schema: OBSERVATION_SCHEMA.to_string(),
+                observation_id,
+                resource_attachment_id: resource.attachment_id.clone(),
+                relative_path: normalized,
+                state: ResourceState::File,
+                content_digest: Some(digest_bytes(&bytes)),
+                size_bytes: Some(bytes.len() as u64),
+                error: None,
+                observed_at_unix_ms: unix_time_ms(),
+            },
+            Err(error) => unavailable_observation(
+                observation_id,
+                &resource.attachment_id,
+                &normalized,
+                format!("filesystem_secure_read_failed: {error}"),
+            ),
+        };
+    }
+    FilesystemObservation {
+        schema: OBSERVATION_SCHEMA.to_string(),
+        observation_id,
+        resource_attachment_id: resource.attachment_id.clone(),
+        relative_path: normalized,
+        state: if metadata.is_dir() {
+            ResourceState::Directory
+        } else {
+            ResourceState::Other
+        },
+        content_digest: None,
+        size_bytes: Some(metadata.len()),
+        error: None,
+        observed_at_unix_ms: unix_time_ms(),
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn observe_filesystem_secure(
+    _binding: &LocalFilesystemBinding,
+    resource: &ResourceAttachmentState,
+    relative_path: &str,
+    observation_id: String,
+) -> FilesystemObservation {
+    unavailable_observation(
+        observation_id,
+        &resource.attachment_id,
+        relative_path,
+        "filesystem_secure_resolution_unsupported_platform".to_string(),
+    )
+}
+
 pub fn execute_filesystem_write(
     operation: &Operation,
     decision: &Decision,
@@ -2033,6 +2338,7 @@ pub fn execute_fenced_filesystem_write<A: ResourceFenceAuthority>(
     resource: &ResourceAttachmentState,
     failpoint: CarrierFailpoint,
 ) -> Result<CarrierResult, String> {
+    binding.validate_secure_carrier()?;
     let prepared_fence = prepared
         .resource_fence
         .as_ref()
@@ -2162,13 +2468,23 @@ fn execute_filesystem_write_inner<F: Fn() -> Result<(), String>>(
         });
     }
 
-    let target = resolve_target(binding, resource, &prepared.relative_path)?;
     validate_immediately_before_mutation()?;
-    atomic_replace(
-        &target,
-        operation.filesystem_write.content.as_bytes(),
-        &prepared.effect_id,
-    )?;
+    if binding.schema == LOCAL_FILESYSTEM_BINDING_SCHEMA {
+        secure_atomic_replace(
+            binding,
+            resource,
+            &prepared.relative_path,
+            operation.filesystem_write.content.as_bytes(),
+            &prepared.effect_id,
+        )?;
+    } else {
+        let target = resolve_target(binding, resource, &prepared.relative_path)?;
+        atomic_replace_legacy(
+            &target,
+            operation.filesystem_write.content.as_bytes(),
+            &prepared.effect_id,
+        )?;
+    }
     if failpoint == CarrierFailpoint::CrashAfterVisibleEffect {
         return Ok(CarrierResult {
             outcome: EffectOutcome::Indeterminate,
@@ -2698,7 +3014,7 @@ fn resolve_target(
     Ok(target)
 }
 
-fn atomic_replace(target: &Path, content: &[u8], effect_id: &str) -> Result<(), String> {
+fn atomic_replace_legacy(target: &Path, content: &[u8], effect_id: &str) -> Result<(), String> {
     let parent = target
         .parent()
         .ok_or_else(|| "filesystem target has no parent".to_string())?;
@@ -2727,6 +3043,163 @@ fn atomic_replace(target: &Path, content: &[u8], effect_id: &str) -> Result<(), 
         .and_then(|directory| directory.sync_all())
         .map_err(|error| format!("failed to sync target directory: {error}"))?;
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn secure_atomic_replace(
+    binding: &LocalFilesystemBinding,
+    resource: &ResourceAttachmentState,
+    relative_path: &str,
+    content: &[u8],
+    effect_id: &str,
+) -> Result<(), String> {
+    secure_atomic_replace_with_hook(binding, resource, relative_path, content, effect_id, || {
+        Ok(())
+    })
+}
+
+#[cfg(target_os = "linux")]
+fn secure_atomic_replace_with_hook<F: FnOnce() -> Result<(), String>>(
+    binding: &LocalFilesystemBinding,
+    resource: &ResourceAttachmentState,
+    relative_path: &str,
+    content: &[u8],
+    effect_id: &str,
+    after_parent_open: F,
+) -> Result<(), String> {
+    binding.validate_secure_carrier()?;
+    if binding.attachment_id != resource.attachment_id {
+        return Err("binding_attachment_mismatch".to_string());
+    }
+    let normalized = normalize_relative_path(relative_path)?;
+    if !path_within_prefix(&resource.allowed_write_prefix, &normalized) {
+        return Err("filesystem_target_outside_allowed_prefix".to_string());
+    }
+    let mut components = normalized.split('/').collect::<Vec<_>>();
+    let target_name = components
+        .pop()
+        .ok_or_else(|| "filesystem_target_name_missing".to_string())?;
+    let root = open_verified_filesystem_root(binding)?;
+    let parent = if components.is_empty() {
+        root.try_clone()
+            .map_err(|error| format!("filesystem_root_clone_failed: {error}"))?
+    } else {
+        open_beneath(
+            &root,
+            Path::new(&components.join("/")),
+            libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+            0,
+        )
+        .map_err(|error| format!("filesystem_secure_parent_resolution_rejected: {error}"))?
+    };
+
+    // Tests use this seam to replace the pathname after the trusted parent
+    // directory descriptor has been opened. All subsequent operations remain
+    // descriptor-relative and cannot follow the replacement outside the root.
+    after_parent_open()?;
+
+    let target_name = CString::new(target_name.as_bytes())
+        .map_err(|_| "filesystem_target_name_contains_nul".to_string())?;
+    let mut target_stat = std::mem::MaybeUninit::<libc::stat>::uninit();
+    let stat_result = unsafe {
+        libc::fstatat(
+            parent.as_raw_fd(),
+            target_name.as_ptr(),
+            target_stat.as_mut_ptr(),
+            libc::AT_SYMLINK_NOFOLLOW,
+        )
+    };
+    if stat_result == 0 {
+        let target_stat = unsafe { target_stat.assume_init() };
+        let file_type = target_stat.st_mode & libc::S_IFMT;
+        if file_type == libc::S_IFLNK {
+            return Err("filesystem_final_symlink_rejected".to_string());
+        }
+        if file_type != libc::S_IFREG {
+            return Err("filesystem_target_type_not_replaceable".to_string());
+        }
+    } else {
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() != Some(libc::ENOENT) {
+            return Err(format!("filesystem_target_fstatat_failed: {error}"));
+        }
+    }
+
+    let safe_effect = effect_id
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '_' })
+        .collect::<String>();
+    let temp_name = CString::new(format!(".yai-{safe_effect}.tmp"))
+        .map_err(|_| "filesystem_temp_name_contains_nul".to_string())?;
+    let unlink_result = unsafe { libc::unlinkat(parent.as_raw_fd(), temp_name.as_ptr(), 0) };
+    if unlink_result != 0 {
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() != Some(libc::ENOENT) {
+            return Err(format!("failed to remove stale effect temp file: {error}"));
+        }
+    }
+    let temp_fd = unsafe {
+        libc::openat(
+            parent.as_raw_fd(),
+            temp_name.as_ptr(),
+            libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+            0o600,
+        )
+    };
+    if temp_fd < 0 {
+        return Err(format!(
+            "failed to create descriptor-relative effect temp file: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    let mut temp = unsafe { File::from_raw_fd(temp_fd) };
+    let write_result = temp
+        .write_all(content)
+        .and_then(|()| temp.sync_all())
+        .map_err(|error| format!("failed to write/sync effect temp file: {error}"));
+    drop(temp);
+    if let Err(error) = write_result {
+        unsafe {
+            libc::unlinkat(parent.as_raw_fd(), temp_name.as_ptr(), 0);
+        }
+        return Err(error);
+    }
+    let rename_result = unsafe {
+        libc::renameat(
+            parent.as_raw_fd(),
+            temp_name.as_ptr(),
+            parent.as_raw_fd(),
+            target_name.as_ptr(),
+        )
+    };
+    if rename_result != 0 {
+        let error = std::io::Error::last_os_error();
+        unsafe {
+            libc::unlinkat(parent.as_raw_fd(), temp_name.as_ptr(), 0);
+        }
+        return Err(format!(
+            "failed to atomically replace descriptor-relative target: {error}"
+        ));
+    }
+    let sync_result = unsafe { libc::fsync(parent.as_raw_fd()) };
+    if sync_result != 0 {
+        return Err(format!(
+            "failed to sync descriptor-relative target directory: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "linux"))]
+fn secure_atomic_replace(
+    _binding: &LocalFilesystemBinding,
+    _resource: &ResourceAttachmentState,
+    _relative_path: &str,
+    _content: &[u8],
+    _effect_id: &str,
+) -> Result<(), String> {
+    Err("filesystem_secure_resolution_unsupported_platform".to_string())
 }
 
 fn observations_equivalent(left: &FilesystemObservation, right: &FilesystemObservation) -> bool {
@@ -2920,6 +3393,22 @@ mod tests {
                 "accepted {invalid}"
             );
         }
+    }
+
+    #[test]
+    fn h14_process_signal_retry_matrix_defaults_to_observation_not_repetition() {
+        assert_eq!(
+            process_signal_retry_posture(&ProcessSignalAction::Terminate),
+            ProcessEffectRetryPosture::UnsafeOrAmbiguousToRepeat
+        );
+        assert_eq!(
+            process_signal_retry_posture(&ProcessSignalAction::Suspend),
+            ProcessEffectRetryPosture::ObservationOnlyRecovery
+        );
+        assert_eq!(
+            process_signal_retry_posture(&ProcessSignalAction::Resume),
+            ProcessEffectRetryPosture::ObservationOnlyRecovery
+        );
     }
 
     #[test]
@@ -3121,7 +3610,7 @@ mod tests {
         fs::remove_dir_all(root).expect("remove fixture");
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn observation_fails_closed_on_symlink_parent_escape() {
         use std::os::unix::fs::symlink;
@@ -3148,8 +3637,115 @@ mod tests {
             .error
             .as_deref()
             .unwrap_or_default()
-            .contains("symlink escape"));
+            .contains("secure_parent_resolution_rejected"));
         fs::remove_dir_all(root).expect("remove root");
         fs::remove_dir_all(outside).expect("remove outside");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn h14_descriptor_relative_carrier_rejects_final_symlink_and_preserves_outside() {
+        use std::os::unix::fs::symlink;
+        let unique = format!(
+            "yai-h14-final-symlink-{}-{}",
+            std::process::id(),
+            unix_time_ms()
+        );
+        let root = std::env::temp_dir().join(&unique);
+        let outside = std::env::temp_dir().join(format!("{unique}-outside"));
+        fs::create_dir_all(root.join("allowed")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("victim.txt"), b"outside-before").unwrap();
+        symlink(outside.join("victim.txt"), root.join("allowed/link.txt")).unwrap();
+        let binding = LocalFilesystemBinding::new("case:h14", "workspace", &root).unwrap();
+        let error = secure_atomic_replace(
+            &binding,
+            &resource("allowed", 1024),
+            "allowed/link.txt",
+            b"attacker-content",
+            "effect:h14-final-symlink",
+        )
+        .expect_err("final symlink must be rejected");
+        assert_eq!(error, "filesystem_final_symlink_rejected");
+        assert_eq!(
+            fs::read(outside.join("victim.txt")).unwrap(),
+            b"outside-before"
+        );
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn h14_post_prepare_parent_swap_cannot_escape_open_directory_descriptor() {
+        use std::os::unix::fs::symlink;
+        let unique = format!(
+            "yai-h14-parent-swap-{}-{}",
+            std::process::id(),
+            unix_time_ms()
+        );
+        let root = std::env::temp_dir().join(&unique);
+        let outside = std::env::temp_dir().join(format!("{unique}-outside"));
+        fs::create_dir_all(root.join("allowed/safe")).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        let binding = LocalFilesystemBinding::new("case:h14", "workspace", &root).unwrap();
+        secure_atomic_replace_with_hook(
+            &binding,
+            &resource("allowed", 1024),
+            "allowed/safe/result.txt",
+            b"contained",
+            "effect:h14-parent-swap",
+            || {
+                fs::rename(
+                    root.join("allowed/safe"),
+                    root.join("allowed/safe-original"),
+                )
+                .map_err(|error| error.to_string())?;
+                symlink(&outside, root.join("allowed/safe")).map_err(|error| error.to_string())?;
+                Ok(())
+            },
+        )
+        .expect("descriptor-relative write remains on the already-open safe directory");
+        assert!(!outside.join("result.txt").exists());
+        assert_eq!(
+            fs::read(root.join("allowed/safe-original/result.txt")).unwrap(),
+            b"contained"
+        );
+        let observation = observe_filesystem(
+            &binding,
+            &resource("allowed", 1024),
+            "allowed/safe/result.txt",
+            "observation:h14-parent-swap",
+        );
+        assert_eq!(observation.state, ResourceState::Unavailable);
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn h14_atomic_replace_does_not_mutate_an_outside_hard_link_inode() {
+        let unique = format!("yai-h14-hardlink-{}-{}", std::process::id(), unix_time_ms());
+        let root = std::env::temp_dir().join(&unique);
+        let outside = std::env::temp_dir().join(format!("{unique}-outside.txt"));
+        fs::create_dir_all(root.join("allowed")).unwrap();
+        fs::write(&outside, b"shared-before").unwrap();
+        fs::hard_link(&outside, root.join("allowed/linked.txt")).unwrap();
+        let binding = LocalFilesystemBinding::new("case:h14", "workspace", &root).unwrap();
+        secure_atomic_replace(
+            &binding,
+            &resource("allowed", 1024),
+            "allowed/linked.txt",
+            b"inside-after",
+            "effect:h14-hardlink",
+        )
+        .unwrap();
+        assert_eq!(fs::read(&outside).unwrap(), b"shared-before");
+        assert_eq!(
+            fs::read(root.join("allowed/linked.txt")).unwrap(),
+            b"inside-after"
+        );
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_file(outside).unwrap();
     }
 }

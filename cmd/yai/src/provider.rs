@@ -1746,8 +1746,17 @@ fn decode_chunked_body(body: &[u8]) -> Result<Vec<u8>, String> {
 
 struct ProviderTransportResult {
     output: String,
+    response_model_id: Option<String>,
     continuation_disposition: ContinuationDisposition,
     usage: ProviderUsageTelemetry,
+}
+
+struct DecodedProviderResponse {
+    output: String,
+    response_model_id: Option<String>,
+    input_tokens: Option<u64>,
+    output_tokens: Option<u64>,
+    total_tokens: Option<u64>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -1758,9 +1767,7 @@ pub(super) struct ProviderUsageTelemetry {
     pub latency_ms: u64,
 }
 
-fn decode_provider_response(
-    body: &str,
-) -> Result<(String, Option<u64>, Option<u64>, Option<u64>), String> {
+fn decode_provider_response(body: &str) -> Result<DecodedProviderResponse, String> {
     let value: serde_json::Value = serde_json::from_str(body).map_err(|error| {
         format!(
             "provider response was not valid JSON: {error}; {}",
@@ -1778,6 +1785,10 @@ fn decode_provider_response(
         })?
         .to_string();
     let usage = value.get("usage");
+    let response_model_id = value
+        .get("model")
+        .and_then(|value| value.as_str())
+        .map(ToString::to_string);
     let input_tokens = usage.and_then(|usage| {
         usage
             .get("prompt_tokens")
@@ -1793,7 +1804,13 @@ fn decode_provider_response(
     let total_tokens = usage
         .and_then(|usage| usage.get("total_tokens"))
         .and_then(|value| value.as_u64());
-    Ok((output, input_tokens, output_tokens, total_tokens))
+    Ok(DecodedProviderResponse {
+        output,
+        response_model_id,
+        input_tokens,
+        output_tokens,
+        total_tokens,
+    })
 }
 
 fn provider_http_request(
@@ -1897,14 +1914,15 @@ fn provider_chat_completion(
             compact_text(&body_text, 240)
         ));
     };
-    let (output, input_tokens, output_tokens, total_tokens) = decode_provider_response(&body_text)?;
+    let decoded = decode_provider_response(&body_text)?;
     Ok(ProviderTransportResult {
-        output,
+        output: decoded.output,
+        response_model_id: decoded.response_model_id,
         continuation_disposition: disposition,
         usage: ProviderUsageTelemetry {
-            input_tokens,
-            output_tokens,
-            total_tokens,
+            input_tokens: decoded.input_tokens,
+            output_tokens: decoded.output_tokens,
+            total_tokens: decoded.total_tokens,
             latency_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
         },
     })
@@ -2622,7 +2640,7 @@ fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> 
         invocation_lineage(&semantic, requested_disposition),
     )?;
     let transport = provider_chat_completion(&session.provider, &semantic.rendered)?;
-    let output = transport.output;
+    let output = transport.output.clone();
     println!();
     print_cli_section(colors, "MODEL", &session.provider.model, ANSI_MAGENTA);
     print_model_output(colors, &output);
@@ -2646,6 +2664,18 @@ fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> 
     )?;
     println!("projection_id: {}", semantic.projection.projection_id);
     println!("context_frame_id: {}", semantic.frame.frame_id);
+    println!("provider_invocation_id: {}", invocation.invocation_id);
+    println!("provider_result_id: {result_id}");
+    println!("provider_id: {}", session.provider.provider_id);
+    println!("provider_kind: openai_compatible");
+    println!("provider_model_id: {}", session.provider.model);
+    println!(
+        "provider_response_model_id: {}",
+        transport
+            .response_model_id
+            .as_deref()
+            .unwrap_or("not_returned")
+    );
     println!(
         "continuation_disposition: {}",
         continuation_disposition_label(&transport.continuation_disposition)
@@ -2959,4 +2989,34 @@ pub(super) fn prompt_repl(args: &[String]) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::decode_provider_response;
+
+    #[test]
+    fn h14_generic_provider_tolerates_extensions_and_reports_response_model() {
+        let body = r#"{
+          "id":"completion:black-box",
+          "model":"provider-exposed-model",
+          "choices":[{"message":{"role":"assistant","content":"candidate"}}],
+          "usage":{"prompt_tokens":3,"completion_tokens":2,"total_tokens":5},
+          "provider_optional_metrics":{"ttft_ms":17,"engine_generation":"not-case-authority"}
+        }"#;
+        let decoded = decode_provider_response(body).unwrap();
+        assert_eq!(decoded.output, "candidate");
+        assert_eq!(
+            decoded.response_model_id.as_deref(),
+            Some("provider-exposed-model")
+        );
+        assert_eq!(
+            (
+                decoded.input_tokens,
+                decoded.output_tokens,
+                decoded.total_tokens
+            ),
+            (Some(3), Some(2), Some(5))
+        );
+    }
 }

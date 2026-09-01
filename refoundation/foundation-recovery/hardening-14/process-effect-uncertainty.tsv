@@ -1,0 +1,6 @@
+action	syscall_fact	observation	retry_posture	recovery
+terminate	kill(SIGTERM)=0 is delivery acceptance	exact birth absent/present/reused	UNSAFE_OR_AMBIGUOUS_TO_REPEAT	observe only; never signal reused PID
+suspend	kill(SIGSTOP)=0 is delivery acceptance	stopped/running/unknown exact birth	OBSERVATION_ONLY_RECOVERY	observe; no blind repeat
+resume	kill(SIGCONT)=0 is delivery acceptance	running/stopped/unknown exact birth	OBSERVATION_ONLY_RECOVERY	observe; no blind repeat
+all	carrier crash after successful syscall	Case remains Prepared and resource active	observation only	commit Indeterminate when causality cannot be proven
+all	birth fingerprint mismatch	PID may identify different process	forbidden	zero signal

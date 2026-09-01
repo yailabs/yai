@@ -1,0 +1,2 @@
+run_id	contenders	acquisition_winners	blocked	first_epoch	reclaim_epoch	next_epoch	terminal_epoch	post_terminal_epoch	mutations_per_effect
+/tmp/yai-h14-contention.SQJk2C	8	1	7	1	2	3	4	5	1

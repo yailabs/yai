@@ -14,7 +14,7 @@ use yai_core_engine::effect::{
     execute_fenced_filesystem_write, execute_fenced_process_signal, execute_filesystem_write,
     issue_policy_execution_grant, normalize_filesystem_write_candidate,
     normalize_process_signal_candidate, normalize_write_prefix, observe_filesystem,
-    observe_process, prepare_fenced_effect, prepare_process_effect,
+    observe_process, prepare_fenced_effect, prepare_process_effect, process_signal_retry_posture,
     validate_finalized_effect_chain, CarrierFailpoint, CarrierResult, Decision, DecisionOutcome,
     EffectOutcome, ExecutionGrant, FilesystemObservation, LocalFilesystemBinding,
     LocalProcessBinding, NormalizationContext, Operation, OperationKind, PreparedEffect,
@@ -1062,7 +1062,14 @@ pub(super) fn advance_controlled_filesystem_candidate(
             TransitionPayload::ExecutionGrantIssued { grant }
                 if grant.operation_id == operation.operation_id =>
             {
-                Some(grant.clone())
+                state_after_decision
+                    .grants
+                    .iter()
+                    .find(|current| {
+                        current.grant_id == grant.grant_id
+                            && current.status == yai_core_engine::transition::GrantLifecycle::Issued
+                    })
+                    .map(|_| grant.clone())
             }
             _ => None,
         });
@@ -1304,6 +1311,9 @@ pub(super) fn advance_controlled_filesystem_candidate(
         exit_at_failpoint("after_receipt_before_finalize", 87);
     }
     commit_finalize(&store, &prepared, &result)?;
+    if failpoint(args).as_deref() == Some("after_terminal_resource_release_commit") {
+        exit_at_failpoint("after_terminal_resource_release_commit", 89);
+    }
     println!("effect_receipt_id: {}", receipt.receipt_id);
     println!("effect_outcome: {:?}", result.outcome);
     println!("effect_state: finalized");
@@ -1378,6 +1388,37 @@ fn advance_process_signal_after_grant(
                     outcome: effect.outcome.clone(),
                 });
             }
+            if effect.status == EffectLifecycle::Prepared {
+                let observation = observe_process(
+                    &binding,
+                    format!("observation:{}:uncertain-recovery", prepared.effect_id),
+                );
+                let posture = process_signal_retry_posture(&prepared.action);
+                let state = commit_process_indeterminate(
+                    store,
+                    &prepared,
+                    format!(
+                        "process_signal_acknowledgement_missing: retry_posture={posture:?}; observation_only_recovery"
+                    ),
+                    Some(observation),
+                )?;
+                println!("process_retry_posture: {posture:?}");
+                println!("process_signal_repeated: false");
+                println!("effect_state: indeterminate");
+                return Ok(ControlledEffectTurnResult {
+                    status: ControlledEffectTurnStatus::Indeterminate,
+                    operation_id: Some(operation.operation_id.clone()),
+                    decision_id: Some(decision.decision_id.clone()),
+                    review_id: None,
+                    effect_id: Some(prepared.effect_id),
+                    receipt_id: None,
+                    outcome: state
+                        .effects
+                        .iter()
+                        .find(|candidate| candidate.operation_id == operation.operation_id)
+                        .and_then(|candidate| candidate.outcome.clone()),
+                });
+            }
         }
         (prepared, current)
     } else {
@@ -1414,6 +1455,11 @@ fn advance_process_signal_after_grant(
         &state_after_prepare,
         &binding,
     )?;
+    if failpoint(args).as_deref() == Some("after_process_signal_before_finalize") {
+        eprintln!("kernel_signal: {}", result.kernel_signal);
+        eprintln!("kernel_syscall_accepted: {}", result.syscall_accepted);
+        exit_at_failpoint("after_process_signal_before_finalize", 88);
+    }
     if matches!(
         result.outcome,
         EffectOutcome::Conflict | EffectOutcome::Indeterminate
@@ -1439,6 +1485,9 @@ fn advance_process_signal_after_grant(
     }
     let receipt = build_process_effect_receipt(&prepared, &result);
     commit_process_finalize(store, &prepared, &result)?;
+    if failpoint(args).as_deref() == Some("after_terminal_resource_release_commit") {
+        exit_at_failpoint("after_terminal_resource_release_commit", 89);
+    }
     println!("kernel_signal: {}", result.kernel_signal);
     println!("kernel_syscall_accepted: {}", result.syscall_accepted);
     println!(
@@ -1885,13 +1934,49 @@ pub(super) fn controlled_effect_reconcile(args: &[String]) -> Result<(), String>
         );
         return Ok(());
     }
-    if effect_state.kind == OperationKind::ProcessSignal {
-        return Err(
-            "process_effect_reconciliation_requires_explicit_observation; physical signal retry is unsafe"
-                .to_string(),
-        );
-    }
     let transitions = store.list_case_transitions(&case_id)?;
+    if effect_state.kind == OperationKind::ProcessSignal {
+        let prepared = transitions
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::ProcessEffectPrepared { prepared }
+                    if prepared.effect_id == effect_state.effect_id =>
+                {
+                    Some(prepared.clone())
+                }
+                _ => None,
+            })
+            .ok_or_else(|| "prepared process effect missing".to_string())?;
+        let binding = store
+            .get_local_process_binding(&case_id, &prepared.resource_attachment_id)?
+            .ok_or_else(|| "local process binding unavailable for reconciliation".to_string())?;
+        let observation = observe_process(
+            &binding,
+            format!("observation:{}:reconcile", prepared.effect_id),
+        );
+        let posture = process_signal_retry_posture(&prepared.action);
+        if effect_state.status == EffectLifecycle::Prepared {
+            commit_process_indeterminate(
+                &store,
+                &prepared,
+                format!(
+                    "process_signal_uncertain_after_prepare: retry_posture={posture:?}; syscall_not_repeated"
+                ),
+                Some(observation.clone()),
+            )?;
+        }
+        println!("reconciliation: StillIndeterminate");
+        println!("process_recovery_mode: observation_only");
+        println!("process_retry_posture: {posture:?}");
+        println!("process_signal_repeated: false");
+        println!("observed_process_state: {:?}", observation.state);
+        println!(
+            "process_observation_error: {}",
+            observation.error.as_deref().unwrap_or("none")
+        );
+        println!("effect_id: {}", prepared.effect_id);
+        return Ok(());
+    }
     let chain = load_effect_chain(&transitions, &effect_state.effect_id)?;
     let resource = resource_for_case(&state, &chain.prepared.resource_attachment_id)?;
     let binding = store

@@ -1,0 +1,5 @@
+scenario	processes	winner	losers	epochs	physical_result
+simultaneous first acquisition	8	1	7 resource_temporarily_owned	1	zero loser mutations
+same-Effect dead-owner reclaim	2	1	1 observes/rejects winner	2	one reconciliation effect
+post-release next Case	1	1	0	3	one mutation
+terminal failpoint then competitor	2	terminal commit already released	old recovery already_finalized	4 then 5	no orphan lease; one next mutation

@@ -1,0 +1,6 @@
+stale_source	current_state	admission	mutation
+epoch E1 after same-Effect reclaim E2	active E2	stale_resource_fence	0
+released E1 after Case B acquires E2	active E2	stale_resource_fence	0
+content-valid fence never stored	active exact canonical fence	exact canonical-presence mismatch	0
+wrong live process with copied token	active exact canonical fence	owner process mismatch	0
+PID reused with different start_ticks	attached birth absent	process identity mismatch	0 signals

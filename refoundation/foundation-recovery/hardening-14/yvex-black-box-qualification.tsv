@@ -1,0 +1,2 @@
+run_id	mode	repository_accessed	cli_used	endpoint	model	exit	state	classification
+yvex-black-box-20260901T104023Z-1605952	black_box_openai_compatible_provider	false	false	http://127.0.0.1:8001/v1	not exposed	3	blocked_external_dependency	DEPLOYMENT_LIMITATION

@@ -1,0 +1,9 @@
+predecessor	action	constraints	result
+none	Acquired	epoch=1 sequence=1 no predecessor	valid initial state
+none	Released/Reclaimed	any	reject resource_history_must_begin_with_acquired_epoch_one
+active	Acquired	any	reject resource_history_invalid_acquisition
+active	Reclaimed	epoch+1; same Case/Operation/Grant/Effect; new exact fence	valid same-Effect recovery
+active	Released	same epoch and exact active fence	valid terminal release
+released	Acquired	epoch+1 same ResourceIdentity	valid next effect
+released	Reclaimed/Released	any	reject missing active lease
+terminal history	duplicate/gap/decreasing epoch/wrong predecessor digest	content-valid event bytes	reject; never choose by timestamp

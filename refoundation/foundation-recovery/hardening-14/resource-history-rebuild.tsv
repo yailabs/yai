@@ -1,0 +1,7 @@
+property	mechanism	proof	compatibility
+authoritative history	yai.resource_control_event.v2 carries full ResourceIdentity, full fence and previous ID/digest	pure ordered FSM replay	v1 remains readable but is honestly not standalone-rebuildable
+materialized view	yai.resource_control_state.v2 records event head	delete view in isolated test then rebuild	new v2 histories rebuild exactly
+ordering	sequence plus exact predecessor digest chain	duplicate/gap/order forgery negatives	no latest-timestamp repair
+epoch	logical monotonically increasing acquisition/reclaim generation	regression and double-acquire rejected	independent of Case/Grant/runtime generations
+Case isolation	rebuild reads/writes only resource-control stores	Case generation unchanged	no Transition/Decision/Grant/Effect emitted
+corruption	invalid event aborts rebuild	wrong Effect reclaim, identity switch, sequence gap, regression rejected	no partial replacement

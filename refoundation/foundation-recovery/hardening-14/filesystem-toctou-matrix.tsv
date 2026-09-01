@@ -1,0 +1,9 @@
+case	baseline_path_behavior	h14_mechanism	result
+final symlink	canonical root plus later pathname resolution	O_NOFOLLOW final fstatat and descriptor-relative replace	rejected; outside unchanged
+intermediate symlink	pathname could be swapped after PREPARE	openat2 RESOLVE_BENEATH|RESOLVE_NO_MAGICLINKS|RESOLVE_NO_SYMLINKS	rejected
+post-PREPARE parent swap	carrier re-resolved mutable path	trusted parent directory fd opened before swap	write stays in original directory; replacement symlink/outside unchanged
+rename/recreate parent	pathname identity changed during carrier	directory fd pins opened object	cannot redirect the admitted write outside root
+dot/dot-dot/repeated separators	lexical ambiguity	normalize_relative_path rejects non-normal form	rejected before carrier
+missing intermediate	unproven parent	secure openat2 parent resolution	rejected
+root replacement	canonical pathname may now name another inode	binding v2 verifies root device+inode after O_NOFOLLOW open	rejected
+hard link	tree confinement does not imply inode exclusivity	atomic rename replaces directory entry rather than writing linked inode	outside inode unchanged; no general hard-link ownership claim

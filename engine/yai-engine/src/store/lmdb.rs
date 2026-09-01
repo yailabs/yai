@@ -33,6 +33,7 @@ use crate::effect::{
     issue_policy_execution_grant, validate_execution_obligation_closure,
     validate_execution_obligation_preparation, Decision, LocalFilesystemBinding,
     LocalProcessBinding, Operation, OperationOrigin, LOCAL_FILESYSTEM_BINDING_SCHEMA,
+    LOCAL_FILESYSTEM_BINDING_SCHEMA_V1,
 };
 use crate::governance::{
     build_lifecycle_event, compile_policy_source, lifecycle_from_events, scope_policy_compilation,
@@ -53,9 +54,10 @@ use crate::memory::{
 };
 use crate::record::Record;
 use crate::resource_control::{
-    filesystem_relation, ActiveResourceLease, FilesystemRelation, LocalProcessIdentity,
-    ResourceControlAction, ResourceControlEvent, ResourceControlState, ResourceFence,
-    ResourceFenceAuthority, ResourceIdentity, RESOURCE_CONTROL_STATE_SCHEMA,
+    filesystem_relation, rebuild_resource_control_state as replay_resource_control_state,
+    ActiveResourceLease, FilesystemRelation, LocalProcessIdentity, ResourceControlAction,
+    ResourceControlEvent, ResourceControlState, ResourceFence, ResourceFenceAuthority,
+    ResourceIdentity, RESOURCE_CONTROL_EVENT_SCHEMA, RESOURCE_CONTROL_STATE_SCHEMA,
 };
 use crate::security::{
     AuthenticatedPrincipal, SecurityContext, SecurityEvent, SecurityEventAction, SecurityPrincipal,
@@ -4641,17 +4643,26 @@ impl LmdbRecordStore {
             &owner_process_identity,
             authority_time,
         )?;
+        let previous = self.resource_control_event_at_sequence_txn(
+            &txn,
+            &identity.resource_id,
+            prior.as_ref().map(|state| state.event_sequence),
+        )?;
         let event = ResourceControlEvent::build(
             ResourceControlAction::Acquired,
+            &identity,
             &fence,
             next_sequence,
             authority_time,
+            previous.as_ref(),
         )?;
         let control = ResourceControlState {
             schema: RESOURCE_CONTROL_STATE_SCHEMA.to_string(),
             identity,
             resource_epoch: next_epoch,
             event_sequence: next_sequence,
+            last_event_id: Some(event.event_id.clone()),
+            last_event_digest: Some(event.integrity_digest.clone()),
             active_lease: Some(ActiveResourceLease {
                 fence: fence.clone(),
             }),
@@ -4838,17 +4849,26 @@ impl LmdbRecordStore {
             &owner_process_identity,
             authority_time,
         )?;
+        let previous = self.resource_control_event_at_sequence_txn(
+            &txn,
+            &identity.resource_id,
+            prior.as_ref().map(|state| state.event_sequence),
+        )?;
         let event = ResourceControlEvent::build(
             ResourceControlAction::Acquired,
+            &identity,
             &fence,
             next_sequence,
             authority_time,
+            previous.as_ref(),
         )?;
         let control = ResourceControlState {
             schema: RESOURCE_CONTROL_STATE_SCHEMA.to_string(),
             identity,
             resource_epoch: next_epoch,
             event_sequence: next_sequence,
+            last_event_id: Some(event.event_id.clone()),
+            last_event_digest: Some(event.integrity_digest.clone()),
             active_lease: Some(ActiveResourceLease {
                 fence: fence.clone(),
             }),
@@ -4913,13 +4933,23 @@ impl LmdbRecordStore {
             .ok_or_else(|| "resource_event_sequence_exhausted".to_string())?;
         let released_at =
             self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let previous = self.resource_control_event_at_sequence_txn(
+            &txn,
+            &fence.resource_id,
+            Some(state.event_sequence - 1),
+        )?;
         let event = ResourceControlEvent::build(
             ResourceControlAction::Released,
+            &state.identity,
             fence,
             state.event_sequence,
             released_at,
+            previous.as_ref(),
         )?;
         state.active_lease = None;
+        state.schema = RESOURCE_CONTROL_STATE_SCHEMA.to_string();
+        state.last_event_id = Some(event.event_id.clone());
+        state.last_event_digest = Some(event.integrity_digest.clone());
         state.validate()?;
         self.put_resource_control_event_txn(&mut txn, &event)?;
         self.put_resource_control_state_txn(&mut txn, &state)?;
@@ -4987,13 +5017,23 @@ impl LmdbRecordStore {
         state.active_lease = Some(ActiveResourceLease {
             fence: fence.clone(),
         });
-        state.validate()?;
+        let previous = self.resource_control_event_at_sequence_txn(
+            &txn,
+            &state.identity.resource_id,
+            Some(state.event_sequence - 1),
+        )?;
         let event = ResourceControlEvent::build(
             ResourceControlAction::Reclaimed,
+            &state.identity,
             &fence,
             state.event_sequence,
             now,
+            previous.as_ref(),
         )?;
+        state.schema = RESOURCE_CONTROL_STATE_SCHEMA.to_string();
+        state.last_event_id = Some(event.event_id.clone());
+        state.last_event_digest = Some(event.integrity_digest.clone());
+        state.validate()?;
         self.put_resource_control_event_txn(&mut txn, &event)?;
         self.put_resource_control_state_txn(&mut txn, &state)?;
         txn.commit()
@@ -5020,20 +5060,29 @@ impl LmdbRecordStore {
             .env
             .begin_ro_txn()
             .map_err(|error| format!("failed to read resource control history: {error}"))?;
-        let mut cursor = txn
-            .open_ro_cursor(self.resource_control_events_by_id)
-            .map_err(|error| format!("failed to open resource event cursor: {error}"))?;
-        let mut events = Vec::new();
-        for (_, raw) in cursor.iter() {
-            let event: ResourceControlEvent = serde_json::from_slice(raw)
-                .map_err(|error| format!("resource_control_event_decode_failed: {error}"))?;
-            event.validate_integrity()?;
-            if event.resource_id == resource_id {
-                events.push(event);
-            }
+        self.resource_control_events_txn(&txn, resource_id)
+    }
+
+    /// Rebuilds only shared resource current authority from its append-only
+    /// v2 event chain. No Case transition, Decision, Grant, Effect, or Case
+    /// generation is read or changed by this recovery operation.
+    pub fn rebuild_resource_control_state(
+        &self,
+        resource_id: &str,
+    ) -> Result<ResourceControlState, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start resource history rebuild: {error}"))?;
+        let events = self.resource_control_events_txn(&txn, resource_id)?;
+        let rebuilt = replay_resource_control_state(&events)?;
+        if rebuilt.identity.resource_id != resource_id {
+            return Err("resource_history_rebuild_identity_mismatch".to_string());
         }
-        events.sort_by_key(|event| event.sequence);
-        Ok(events)
+        self.put_resource_control_state_txn(&mut txn, &rebuilt)?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit resource history rebuild: {error}"))?;
+        Ok(rebuilt)
     }
 
     pub fn commit_transition(&self, pending: PendingTransition) -> Result<CanonicalCommit, String> {
@@ -6191,9 +6240,10 @@ impl LmdbRecordStore {
         for (_, raw) in cursor.iter() {
             let envelope: serde_json::Value = serde_json::from_slice(raw)
                 .map_err(|error| format!("local_binding_decode_failed: {error}"))?;
-            if envelope.get("schema").and_then(serde_json::Value::as_str)
-                != Some(LOCAL_FILESYSTEM_BINDING_SCHEMA)
-            {
+            if !matches!(
+                envelope.get("schema").and_then(serde_json::Value::as_str),
+                Some(LOCAL_FILESYSTEM_BINDING_SCHEMA | LOCAL_FILESYSTEM_BINDING_SCHEMA_V1)
+            ) {
                 continue;
             }
             let value: LocalFilesystemBinding = serde_json::from_slice(raw)
@@ -6321,12 +6371,135 @@ impl LmdbRecordStore {
         )
     }
 
+    fn resource_control_events_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        resource_id: &str,
+    ) -> Result<Vec<ResourceControlEvent>, String> {
+        let mut cursor = txn
+            .open_ro_cursor(self.resource_control_events_by_id)
+            .map_err(|error| format!("failed to open resource event cursor: {error}"))?;
+        let mut events = Vec::new();
+        for (_, raw) in cursor.iter() {
+            let event: ResourceControlEvent = serde_json::from_slice(raw)
+                .map_err(|error| format!("resource_control_event_decode_failed: {error}"))?;
+            event.validate_integrity()?;
+            if event.resource_id == resource_id {
+                events.push(event);
+            }
+        }
+        events.sort_by_key(|event| event.sequence);
+        Ok(events)
+    }
+
+    fn resource_control_event_at_sequence_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        resource_id: &str,
+        sequence: Option<u64>,
+    ) -> Result<Option<ResourceControlEvent>, String> {
+        let Some(sequence) = sequence else {
+            return Ok(None);
+        };
+        let matches = self
+            .resource_control_events_txn(txn, resource_id)?
+            .into_iter()
+            .filter(|event| event.sequence == sequence)
+            .collect::<Vec<_>>();
+        match matches.as_slice() {
+            [] => Err("resource_history_predecessor_missing".to_string()),
+            [event] => Ok(Some(event.clone())),
+            _ => Err("resource_history_duplicate_sequence".to_string()),
+        }
+    }
+
+    fn validate_resource_event_append_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        event: &ResourceControlEvent,
+    ) -> Result<(), String> {
+        event.validate_integrity()?;
+        let mut events = self.resource_control_events_txn(txn, &event.resource_id)?;
+        if events
+            .iter()
+            .any(|current| current.sequence == event.sequence)
+        {
+            return Err("resource_history_duplicate_sequence".to_string());
+        }
+        if events
+            .iter()
+            .all(|current| current.schema == RESOURCE_CONTROL_EVENT_SCHEMA)
+        {
+            events.push(event.clone());
+            replay_resource_control_state(&events)?;
+            return Ok(());
+        }
+
+        // Compatibility posture for an already-persisted v1 prefix. The v1
+        // event lacks a full identity/fence and cannot support from-zero
+        // rebuild, but new appends still require its exact head and the
+        // materialized state predecessor. Historical bytes are not rewritten.
+        let prior = events
+            .last()
+            .ok_or_else(|| "resource_history_predecessor_missing".to_string())?;
+        if event.sequence != prior.sequence.saturating_add(1)
+            || event.previous_event_id.as_deref() != Some(prior.event_id.as_str())
+            || event.previous_event_digest.as_deref() != Some(prior.integrity_digest.as_str())
+        {
+            return Err("resource_history_predecessor_mismatch".to_string());
+        }
+        let current = self
+            .resource_control_state_txn(txn, &event.resource_id)?
+            .ok_or_else(|| "resource_control_state_missing_for_event_append".to_string())?;
+        let identity = event
+            .resource_identity
+            .as_ref()
+            .ok_or_else(|| "resource_event_identity_missing".to_string())?;
+        let fence = event
+            .fence
+            .as_ref()
+            .ok_or_else(|| "resource_event_fence_missing".to_string())?;
+        if current.identity != *identity {
+            return Err("resource_history_identity_changed".to_string());
+        }
+        match event.action {
+            ResourceControlAction::Acquired => {
+                if current.active_lease.is_some()
+                    || event.resource_epoch != current.resource_epoch.saturating_add(1)
+                {
+                    return Err("resource_history_invalid_acquisition".to_string());
+                }
+            }
+            ResourceControlAction::Reclaimed => {
+                let active = current
+                    .active_lease
+                    .as_ref()
+                    .ok_or_else(|| "resource_history_reclaim_without_active_lease".to_string())?;
+                if event.resource_epoch != current.resource_epoch.saturating_add(1)
+                    || active.fence.effect_id != fence.effect_id
+                    || active.fence.case_id != fence.case_id
+                    || active.fence.grant_id != fence.grant_id
+                {
+                    return Err("resource_history_invalid_reclaim".to_string());
+                }
+            }
+            ResourceControlAction::Released => {
+                if event.resource_epoch != current.resource_epoch
+                    || current.active_lease.as_ref().map(|lease| &lease.fence) != Some(fence)
+                {
+                    return Err("resource_history_invalid_release".to_string());
+                }
+            }
+        }
+        Ok(())
+    }
+
     fn put_resource_control_event_txn(
         &self,
         txn: &mut RwTransaction<'_>,
         event: &ResourceControlEvent,
     ) -> Result<(), String> {
-        event.validate_integrity()?;
+        self.validate_resource_event_append_txn(txn, event)?;
         put_json_txn(
             txn,
             self.resource_control_events_by_id,
@@ -6941,7 +7114,7 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:local_filesystem_binding_schema",
             LOCAL_FILESYSTEM_BINDING_SCHEMA,
-            &[],
+            &[LOCAL_FILESYSTEM_BINDING_SCHEMA_V1],
         )?;
         ensure_meta_upgradeable(
             &txn,
@@ -15284,6 +15457,7 @@ mod tests {
         fs::remove_dir_all(path).expect("remove heartbeat store");
     }
 
+    #[derive(Clone)]
     struct Wave14FilesystemAuthority {
         resource: ResourceAttachmentState,
         operation: Operation,
@@ -15773,6 +15947,255 @@ mod tests {
     }
 
     #[test]
+    fn h14_content_valid_fence_requires_exact_canonical_presence() {
+        let path = temp_store_path("h14-forged-fence");
+        let root = temp_store_path("h14-forged-fence-root");
+        fs::create_dir_all(root.join("allowed")).unwrap();
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(14101);
+        store
+            .bootstrap_local_security(&owner, "tenant:h14", "organization:wave14", 1_410_001)
+            .unwrap();
+        let chain = setup_wave14_filesystem_authority(
+            &store,
+            &owner,
+            "tenant:h14",
+            "case:h14-forgery",
+            "forgery",
+            &root,
+            "must-not-be-written",
+        );
+        let commit = match store
+            .commit_fenced_effect_prepared(
+                wave14_prepare_pending(&store, "forgery", &chain),
+                std::process::id(),
+            )
+            .unwrap()
+        {
+            PreparedCommitOutcome::Prepared(commit) => commit,
+            PreparedCommitOutcome::GrantInvalidated(_) => panic!("Grant invalidated"),
+        };
+        let prepared = match &commit.transition.payload {
+            TransitionPayload::EffectPrepared { prepared } => prepared.clone(),
+            _ => unreachable!(),
+        };
+        let current = prepared.resource_fence.clone().unwrap();
+        let control = store
+            .get_resource_control_state(&current.resource_id)
+            .unwrap()
+            .unwrap();
+        let identity = control.identity.clone();
+        let process = LocalProcessIdentity::capture(std::process::id()).unwrap();
+        let forged = ResourceFence::issue(
+            &identity,
+            current.resource_epoch,
+            &current.case_id,
+            &current.operation_id,
+            &current.grant_id,
+            &current.effect_id,
+            std::process::id(),
+            &process.canonical_identity(),
+            current.issued_at_unix_ms + 1,
+        )
+        .unwrap();
+        forged.validate_integrity().unwrap();
+        assert_ne!(forged.fence_id, current.fence_id);
+        let binding = store
+            .get_local_filesystem_binding("case:h14-forgery", "resource:shared")
+            .unwrap()
+            .unwrap();
+        let error = execute_fenced_filesystem_write(
+            &store,
+            &forged,
+            &chain.operation,
+            &chain.decision,
+            &chain.grant,
+            &prepared,
+            &commit.state,
+            &binding,
+            &chain.resource,
+            CarrierFailpoint::None,
+        )
+        .expect_err("content-valid absent fence cannot become carrier authority");
+        assert!(error.contains("stale_resource_fence"));
+        assert!(!root.join("allowed/shared.txt").exists());
+
+        for (case_id, operation_id, grant_id, effect_id, owner_identity) in [
+            (
+                "case:wrong",
+                current.operation_id.as_str(),
+                current.grant_id.as_str(),
+                current.effect_id.as_str(),
+                process.canonical_identity(),
+            ),
+            (
+                current.case_id.as_str(),
+                "operation:wrong",
+                current.grant_id.as_str(),
+                current.effect_id.as_str(),
+                process.canonical_identity(),
+            ),
+            (
+                current.case_id.as_str(),
+                current.operation_id.as_str(),
+                "grant:wrong",
+                current.effect_id.as_str(),
+                process.canonical_identity(),
+            ),
+            (
+                current.case_id.as_str(),
+                current.operation_id.as_str(),
+                current.grant_id.as_str(),
+                "effect:wrong",
+                process.canonical_identity(),
+            ),
+            (
+                current.case_id.as_str(),
+                current.operation_id.as_str(),
+                current.grant_id.as_str(),
+                current.effect_id.as_str(),
+                "linux-process-v1:wrong:999:1".to_string(),
+            ),
+        ] {
+            let candidate = ResourceFence::issue(
+                &identity,
+                current.resource_epoch,
+                case_id,
+                operation_id,
+                grant_id,
+                effect_id,
+                std::process::id(),
+                &owner_identity,
+                current.issued_at_unix_ms + 2,
+            )
+            .unwrap();
+            candidate.validate_integrity().unwrap();
+            assert!(store.validate_carrier_fence(&candidate).is_err());
+        }
+        println!(
+            "h14_fence_forgery: canonical_fence={} forged_fence={} result={} physical_mutations=0",
+            current.fence_id, forged.fence_id, error
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h14_resource_history_rebuild_is_exact_and_rejects_invalid_append() {
+        let path = temp_store_path("h14-resource-rebuild");
+        let root = temp_store_path("h14-resource-rebuild-root");
+        fs::create_dir_all(root.join("allowed")).unwrap();
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(14102);
+        store
+            .bootstrap_local_security(
+                &owner,
+                "tenant:h14-rebuild",
+                "organization:wave14",
+                1_410_002,
+            )
+            .unwrap();
+        let chain = setup_wave14_filesystem_authority(
+            &store,
+            &owner,
+            "tenant:h14-rebuild",
+            "case:h14-rebuild",
+            "rebuild",
+            &root,
+            "rebuild-content",
+        );
+        let commit = match store
+            .commit_fenced_effect_prepared(
+                wave14_prepare_pending(&store, "rebuild", &chain),
+                std::process::id(),
+            )
+            .unwrap()
+        {
+            PreparedCommitOutcome::Prepared(commit) => commit,
+            PreparedCommitOutcome::GrantInvalidated(_) => panic!("Grant invalidated"),
+        };
+        let prepared = match &commit.transition.payload {
+            TransitionPayload::EffectPrepared { prepared } => prepared.clone(),
+            _ => unreachable!(),
+        };
+        let fence = prepared.resource_fence.clone().unwrap();
+        let expected = store
+            .get_resource_control_state(&fence.resource_id)
+            .unwrap()
+            .unwrap();
+        let case_generation = commit.state.generation;
+
+        let first_event = store
+            .list_resource_control_events(&fence.resource_id)
+            .unwrap()
+            .pop()
+            .unwrap();
+        let forged_fence = ResourceFence::issue(
+            &expected.identity,
+            expected.resource_epoch + 1,
+            "case:unrelated",
+            "operation:unrelated",
+            "grant:unrelated",
+            "effect:unrelated",
+            std::process::id(),
+            &LocalProcessIdentity::capture(std::process::id())
+                .unwrap()
+                .canonical_identity(),
+            first_event.committed_at_unix_ms + 1,
+        )
+        .unwrap();
+        let impossible = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &expected.identity,
+            &forged_fence,
+            first_event.sequence + 1,
+            first_event.committed_at_unix_ms + 1,
+            Some(&first_event),
+        )
+        .unwrap();
+        let mut invalid_txn = store.env.begin_rw_txn().unwrap();
+        let invalid = store
+            .put_resource_control_event_txn(&mut invalid_txn, &impossible)
+            .expect_err("second acquisition while active is impossible");
+        assert_eq!(invalid, "resource_history_invalid_acquisition");
+        invalid_txn.abort();
+
+        let mut delete_txn = store.env.begin_rw_txn().unwrap();
+        delete_txn
+            .del(
+                store.resource_control_states_by_id,
+                &resource_control_state_key(&fence.resource_id),
+                None,
+            )
+            .unwrap();
+        delete_txn.commit().unwrap();
+        assert!(store
+            .get_resource_control_state(&fence.resource_id)
+            .unwrap()
+            .is_none());
+        let rebuilt = store
+            .rebuild_resource_control_state(&fence.resource_id)
+            .unwrap();
+        assert_eq!(rebuilt, expected);
+        assert_eq!(
+            store
+                .get_case_state("case:h14-rebuild")
+                .unwrap()
+                .unwrap()
+                .generation,
+            case_generation
+        );
+        println!(
+            "h14_resource_rebuild: resource={} events=1 epoch={} active=true case_generation_unchanged={} invalid_append={}",
+            fence.resource_id, rebuilt.resource_epoch, case_generation, invalid
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn wave14_process_signal_uses_same_authority_spine_and_exact_birth_fence() {
         let path = temp_store_path("wave14-process-carrier");
         let store = LmdbRecordStore::open(&path).unwrap();
@@ -16010,6 +16433,22 @@ mod tests {
             _ => unreachable!(),
         };
         let fence = prepared.resource_fence.clone().unwrap();
+        let mut reused_pid_binding = binding.clone();
+        reused_pid_binding.process.start_ticks += 1;
+        let reused = execute_fenced_process_signal(
+            &store,
+            &fence,
+            &operation,
+            &decision,
+            &grant,
+            &prepared,
+            &prepare_commit.state,
+            &reused_pid_binding,
+        )
+        .unwrap();
+        assert_eq!(reused.outcome, EffectOutcome::Conflict);
+        assert!(!reused.signal_attempted);
+        assert!(!reused.syscall_accepted);
         let result = execute_fenced_process_signal(
             &store,
             &fence,
@@ -16023,11 +16462,30 @@ mod tests {
         .unwrap();
         assert!(result.signal_attempted);
         assert!(result.syscall_accepted);
+        let indeterminate = commit_typed(
+            &store,
+            "transition:w14:process:indeterminate",
+            case_id,
+            prepare_commit.state.generation,
+            TransitionPayload::ProcessEffectIndeterminate {
+                effect_id: prepared.effect_id.clone(),
+                reason: "crash acknowledgement window under qualification".to_string(),
+                observation: Some(result.post_observation.clone()),
+            },
+            Some(operation.scope.clone()),
+            vec![prepared.effect_id.clone()],
+        );
+        assert!(store
+            .get_resource_control_state(&fence.resource_id)
+            .unwrap()
+            .unwrap()
+            .active_lease
+            .is_some());
         let receipt = build_process_effect_receipt(&prepared, &result);
         let mut final_transition = PendingTransition::new(
             "transition:w14:process:final",
             case_id,
-            prepare_commit.state.generation,
+            indeterminate.state.generation,
             TransitionSource::component("wave14-test"),
             TransitionPayload::ProcessEffectFinalized {
                 effect_id: prepared.effect_id.clone(),
@@ -16041,7 +16499,7 @@ mod tests {
             .unwrap();
         assert!(store.verify_case_state(case_id).unwrap());
         println!(
-            "wave14_process_carrier: fixture_pid={} boot_id={} start_ticks={} operation={} decision={} grant={} resource={} epoch={} fence={} signal={} syscall_accepted={} observed_state={:?} receipt={} finalized=true",
+            "wave14_process_carrier: fixture_pid={} boot_id={} start_ticks={} operation={} decision={} grant={} resource={} epoch={} fence={} signal={} syscall_accepted={} pid_reuse_signal_attempted=false indeterminate_retained_lease=true observed_state={:?} receipt={} finalized=true",
             binding.process.pid,
             binding.process.boot_id,
             binding.process.start_ticks,

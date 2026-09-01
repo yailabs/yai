@@ -300,3 +300,40 @@ policy and has a first-class external harness. The exact read-only YVEX checkout
 was clean at `2df3b84cc840dfca8b38f6fc387a833169b5598e`, but exposed no live server or
 installed model. YVEX external compatibility therefore remains
 `blocked_external_dependency`; no live pass or YVEX-side defect is claimed.
+
+## Hardening-14 verdict
+
+H14 re-ran the direct legacy carrier archaeology and found no executable
+resource epoch, carrier fence, fd-bound filesystem resolution, reconstructible
+resource authority history or explicit recovery contract for an uncertain
+process signal. The retained legacy properties remain the exact process-birth
+identity, finite signal mapping, real kernel application and truthful
+observation. The refounded mechanism is stronger than the inspected legacy.
+
+ResourceControlState/Event v2 make new shared-resource history independently
+rebuildable through a full identity/fence predecessor chain and a strict
+acquire/reclaim/release FSM. Carrier admission now proves exact canonical
+presence rather than digest validity alone. Eight competing processes produced
+one epoch-1 winner, seven physical non-writers and one later same-Effect reclaim
+at epoch 2; subsequent terminal releases produced unique epochs through 5.
+
+On Linux, the Tenant-scoped filesystem carrier verifies the bound root inode,
+uses `openat2` beneath it with symlink/magic-link prohibition, and completes the
+atomic replacement relative to an opened parent directory descriptor. A
+post-PREPARE parent rename and outside-symlink replacement cannot redirect the
+write. This is a precise Linux claim, not portable or arbitrary-host-process
+fencing, and it does not claim unique hard-link inode ownership.
+
+Terminal Case truth plus resource release remains one idempotent LMDB commit.
+Process-signal uncertainty is observation-only and never blindly resends a
+signal or targets a reused PID. `resource_temporarily_owned` is now an
+operational `Blocked` posture: it releases the worker, waits for resource state
+change, then resumes the same WorkItem only after policy/time/generation and
+Grant freshness are revalidated at the canonical PREPARE boundary.
+
+Shared resource authority is now `refounded_proven + adversarially_qualified`;
+resource history is `rebuild_qualified`; the Linux filesystem carrier is
+`TOCTOU_qualified`; the process carrier is `uncertainty_qualified`. The black-
+box provider harness requires only an endpoint and exposed model identity. No
+live endpoint/model was supplied, so external YVEX qualification remains
+`blocked_external_dependency` without a YVEX-side finding.
