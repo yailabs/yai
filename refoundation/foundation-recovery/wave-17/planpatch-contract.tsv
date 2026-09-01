@@ -1,0 +1,9 @@
+field_or_rule	contract	writer_validation
+schema	yai.workflow_plan_patch.v1	strict deny-unknown typed JSON
+identity	content-bound patch ID/integrity digest	recomputed at canonical writer
+scope	Tenant+Case+binding+base Definition+base topology digest	exact current values
+origin	authenticated_human or exact ModelWork ProviderResult	Principal context or causal execution/result re-resolved
+parent	last amendment ID and derived revision	exact current CaseState
+size	256 KiB;32 ops;16 added nodes;64 added edges	pre-persistence bounds
+adoption	Tenant Owner; quiescent; open; not cancelled/completed	same LMDB transaction as Amendment
+stale	no rebase or merge	workflow_patch_stale

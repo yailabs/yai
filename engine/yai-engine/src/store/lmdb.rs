@@ -48,6 +48,10 @@ use crate::governance::{
     POLICY_SOURCE_ARTIFACT_SCHEMA_V1, POLICY_SOURCE_ARTIFACT_SCHEMA_V2,
     POLICY_SOURCE_ARTIFACT_SCHEMA_V3,
 };
+use crate::handoff::{
+    HandoffAcceptance, HandoffData, HandoffDecline, HandoffOffer, HandoffOutcome,
+    HandoffReconciliation, HandoffResult,
+};
 use crate::journal::Journal;
 use crate::memory::{
     OperationalMemoryBuild, OperationalMemoryEntry, OperationalMemoryManifest,
@@ -69,27 +73,30 @@ use crate::transition::{
     CaseLifecycle, CaseState, ExecutionGrantInvalidation, GrantInvalidationDisposition,
     GrantLifecycle, PendingTransition, ReviewInvalidation, ReviewResolution, Transition,
     TransitionPayload, TransitionSource, CASE_STATE_SCHEMA, CASE_STATE_SCHEMA_V1,
-    CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5,
-    CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7, CASE_STATE_SCHEMA_V8, CASE_STATE_SCHEMA_V9,
-    TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3,
-    TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7,
-    TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
+    CASE_STATE_SCHEMA_V10, CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4,
+    CASE_STATE_SCHEMA_V5, CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7, CASE_STATE_SCHEMA_V8,
+    CASE_STATE_SCHEMA_V9, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V10,
+    TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5,
+    TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7, TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
 };
 use crate::workflow::{
-    evaluate_predicate, node_completion_predicate, resolve_workflow, CaseWorkflowBinding,
-    DeterministicOperationTemplate, HumanInputKind, WorkflowConditionResolution,
-    WorkflowDefinition, WorkflowDefinitionInput, WorkflowDeterministicProposalRecord,
-    WorkflowExecutorBinding, WorkflowHumanInputRecord, WorkflowNodeExecution, WorkflowNodeKind,
-    WorkflowNodePosture, WorkflowNodeSatisfaction, WorkflowPredicate, WorkflowResolution,
-    WorkflowResourceBinding, MAX_WORKFLOW_INPUT_BYTES, WORKFLOW_CONDITION_RESOLUTION_SCHEMA,
-    WORKFLOW_DEFINITION_SCHEMA, WORKFLOW_HUMAN_INPUT_SCHEMA, WORKFLOW_NODE_EXECUTION_SCHEMA,
+    derive_effective_workflow_topology, evaluate_predicate, node_completion_predicate,
+    preview_workflow_patch, resolve_workflow_with_definitions, CaseWorkflowBinding,
+    DeterministicOperationTemplate, HumanInputKind, WorkflowAmendment, WorkflowCaseBinding,
+    WorkflowConditionResolution, WorkflowDefinition, WorkflowDefinitionInput,
+    WorkflowDeterministicProposalRecord, WorkflowExecutorBinding, WorkflowHumanInputRecord,
+    WorkflowNodeExecution, WorkflowNodeKind, WorkflowNodePosture, WorkflowNodeSatisfaction,
+    WorkflowPatchOperation, WorkflowPlanPatch, WorkflowPlanPatchInput, WorkflowPlanPatchOrigin,
+    WorkflowPredicate, WorkflowResolution, WorkflowResourceBinding, MAX_WORKFLOW_AMENDMENTS,
+    MAX_WORKFLOW_INPUT_BYTES, WORKFLOW_CONDITION_RESOLUTION_SCHEMA, WORKFLOW_DEFINITION_SCHEMA,
+    WORKFLOW_DEFINITION_SCHEMA_V1, WORKFLOW_HUMAN_INPUT_SCHEMA, WORKFLOW_NODE_EXECUTION_SCHEMA,
     WORKFLOW_NODE_SATISFACTION_SCHEMA,
 };
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
     RwTransaction, Transaction, WriteFlags,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, Weak};
@@ -5303,6 +5310,7 @@ impl LmdbRecordStore {
         let context = self.resolve_security_context_txn(&txn, authenticated, &input.tenant_id)?;
         context.require_owner()?;
         let definition = WorkflowDefinition::build(input, context.principal_id(), now_unix_ms)?;
+        self.validate_definition_composition_txn(&txn, &definition)?;
         let version_key = workflow_definition_version_key(
             &definition.tenant_id,
             &definition.workflow_key,
@@ -5402,6 +5410,28 @@ impl LmdbRecordStore {
         resource_bindings: Vec<WorkflowResourceBinding>,
         now_unix_ms: u64,
     ) -> Result<CanonicalCommit, String> {
+        self.bind_case_workflow_composed(
+            authenticated,
+            case_id,
+            workflow_definition_id,
+            executor_bindings,
+            resource_bindings,
+            Vec::new(),
+            now_unix_ms,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn bind_case_workflow_composed(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        workflow_definition_id: &str,
+        executor_bindings: Vec<WorkflowExecutorBinding>,
+        resource_bindings: Vec<WorkflowResourceBinding>,
+        case_bindings: Vec<WorkflowCaseBinding>,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
         let mut txn = self
             .env
             .begin_rw_txn()
@@ -5442,16 +5472,45 @@ impl LmdbRecordStore {
                 return Err("workflow_resource_not_in_case".to_string());
             }
         }
-        let binding = CaseWorkflowBinding::build(
-            tenant_id,
-            case_id,
+        for binding in &case_bindings {
+            let target = self
+                .get_case_state_txn(&txn, &binding.case_id)?
+                .ok_or_else(|| "workflow_target_case_not_visible".to_string())?;
+            if target.tenant_id.as_deref() != Some(tenant_id) || target.case_id == state.case_id {
+                return Err("workflow_cross_tenant_or_self_case_binding_rejected".to_string());
+            }
+        }
+        let binding = if case_bindings.is_empty() {
+            CaseWorkflowBinding::build(
+                tenant_id,
+                case_id,
+                &definition,
+                executor_bindings,
+                resource_bindings,
+                state.generation + 1,
+                context.principal_id(),
+                now_unix_ms,
+            )?
+        } else {
+            CaseWorkflowBinding::build_with_case_bindings(
+                tenant_id,
+                case_id,
+                &definition,
+                executor_bindings,
+                resource_bindings,
+                case_bindings,
+                state.generation + 1,
+                context.principal_id(),
+                now_unix_ms,
+            )?
+        };
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
             &definition,
-            executor_bindings,
-            resource_bindings,
-            state.generation + 1,
-            context.principal_id(),
-            now_unix_ms,
+            &state.workflow_amendments,
+            &[],
         )?;
+        derive_effective_workflow_topology(&definition, &binding, &[], &definitions)?;
         let mut pending = PendingTransition::new(
             format!("transition:workflow-bind:{}", binding.binding_id),
             case_id,
@@ -5502,8 +5561,902 @@ impl LmdbRecordStore {
         if definition.integrity_digest != binding.workflow_definition_digest {
             return Err("bound_workflow_definition_digest_mismatch".to_string());
         }
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
         let history = self.list_case_transitions_txn(&txn, case_id)?;
-        resolve_workflow(&definition, binding, &state, &history)
+        resolve_workflow_with_definitions(&definition, binding, &state, &history, &definitions)
+    }
+
+    pub fn workflow_model_output_contract_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        workflow_execution_id: &str,
+    ) -> Result<(crate::workflow::ModelWorkOutputContract, String), String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start workflow output-contract read: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "workflow_requires_tenant_case".to_string())?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)
+            .map_err(|_| "case_not_visible".to_string())?;
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or_else(|| "case_workflow_not_bound".to_string())?;
+        let definition = self
+            .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
+            .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
+        let topology = derive_effective_workflow_topology(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            &definitions,
+        )?;
+        let execution = state
+            .workflow_executions
+            .iter()
+            .find(|execution| execution.execution_id == workflow_execution_id)
+            .ok_or_else(|| "workflow_execution_not_found".to_string())?;
+        let node = topology
+            .node(&execution.node_id)
+            .map(|value| &value.node)
+            .ok_or_else(|| "workflow_node_not_found".to_string())?;
+        match &node.kind {
+            WorkflowNodeKind::ModelWork {
+                output_contract, ..
+            } => Ok((output_contract.clone(), topology.topology_digest)),
+            _ => Err("workflow_execution_is_not_model_work".to_string()),
+        }
+    }
+
+    pub fn propose_workflow_plan_patch_human(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        input: WorkflowPlanPatchInput,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start Workflow PlanPatch proposal: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "workflow_patch_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        let commit = self.propose_workflow_plan_patch_txn(
+            &mut txn,
+            &state,
+            &context,
+            input,
+            WorkflowPlanPatchOrigin::AuthenticatedHuman {
+                principal_id: context.principal_id().to_string(),
+            },
+            now_unix_ms,
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit Workflow PlanPatch proposal: {error}"))?;
+        Ok(commit)
+    }
+
+    pub fn propose_workflow_plan_patch_from_provider_result(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        provider_result_id: &str,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self.env.begin_rw_txn().map_err(|error| {
+            format!("failed to start model Workflow PlanPatch proposal: {error}")
+        })?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "workflow_patch_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or_else(|| "case_workflow_not_bound".to_string())?;
+        let definition = self
+            .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
+            .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
+        let topology = derive_effective_workflow_topology(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            &definitions,
+        )?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let result_transition = history
+            .iter()
+            .find(|transition| {
+                matches!(
+                    &transition.payload,
+                    TransitionPayload::ProviderResultRecorded { result_id, .. }
+                        if result_id == provider_result_id
+                )
+            })
+            .ok_or_else(|| "workflow_plan_patch_provider_result_missing".to_string())?;
+        let execution = state
+            .workflow_executions
+            .iter()
+            .find(|execution| {
+                result_transition
+                    .causal_refs
+                    .iter()
+                    .any(|value| value == &execution.execution_id)
+            })
+            .ok_or_else(|| "workflow_plan_patch_provider_execution_missing".to_string())?;
+        if let Some(existing) = state.workflow_plan_patches.iter().find(|patch| {
+            matches!(
+                &patch.origin,
+                WorkflowPlanPatchOrigin::ModelProviderResult {
+                    provider_result_id: existing_result_id,
+                    workflow_execution_id: existing_execution_id,
+                } if existing_result_id == provider_result_id
+                    && existing_execution_id == &execution.execution_id
+            )
+        }) {
+            let transition = history
+                .into_iter()
+                .find(|transition| {
+                    matches!(
+                        &transition.payload,
+                        TransitionPayload::WorkflowPlanPatchProposed { patch }
+                            if patch.patch_id == existing.patch_id
+                    )
+                })
+                .ok_or_else(|| "workflow_plan_patch_transition_missing".to_string())?;
+            return Ok(CanonicalCommit { transition, state });
+        }
+        let node = topology
+            .node(&execution.node_id)
+            .map(|value| &value.node)
+            .ok_or_else(|| "workflow_node_not_found".to_string())?;
+        if !matches!(
+            node.kind,
+            WorkflowNodeKind::ModelWork {
+                output_contract: crate::workflow::ModelWorkOutputContract::PlanPatch,
+                ..
+            }
+        ) {
+            return Err("workflow_model_output_contract_is_not_plan_patch".to_string());
+        }
+        let output = match &result_transition.payload {
+            TransitionPayload::ProviderResultRecorded { output, .. } => output,
+            _ => unreachable!(),
+        };
+        let strict = crate::governance::parse_strict_json(output.as_bytes())
+            .map_err(|error| format!("workflow_model_plan_patch_invalid: {error}"))?;
+        let input: WorkflowPlanPatchInput = serde_json::from_value(strict)
+            .map_err(|error| format!("workflow_model_plan_patch_invalid: {error}"))?;
+        let commit = self.propose_workflow_plan_patch_txn(
+            &mut txn,
+            &state,
+            &context,
+            input,
+            WorkflowPlanPatchOrigin::ModelProviderResult {
+                provider_result_id: provider_result_id.to_string(),
+                workflow_execution_id: execution.execution_id.clone(),
+            },
+            now_unix_ms,
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit model Workflow PlanPatch: {error}"))?;
+        Ok(commit)
+    }
+
+    fn propose_workflow_plan_patch_txn(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        state: &CaseState,
+        context: &SecurityContext,
+        input: WorkflowPlanPatchInput,
+        origin: WorkflowPlanPatchOrigin,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
+            return Err("workflow_patch_case_terminal".to_string());
+        }
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or_else(|| "case_workflow_not_bound".to_string())?;
+        let definition = self
+            .workflow_definition_txn(txn, &binding.workflow_definition_id)?
+            .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
+        let topology = derive_effective_workflow_topology(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            &definitions,
+        )?;
+        if input.base_effective_topology_digest != topology.topology_digest {
+            return Err("workflow_patch_stale".to_string());
+        }
+        let patch = WorkflowPlanPatch::build(
+            input,
+            context.tenant_id(),
+            &state.case_id,
+            binding,
+            state
+                .workflow_amendments
+                .last()
+                .map(|value| value.amendment_id.clone()),
+            topology.revision,
+            origin,
+            state.generation + 1,
+            now_unix_ms,
+        )?;
+        let mut causal_refs = vec![binding.binding_id.clone()];
+        match &patch.origin {
+            WorkflowPlanPatchOrigin::AuthenticatedHuman { principal_id } => {
+                causal_refs.push(principal_id.clone())
+            }
+            WorkflowPlanPatchOrigin::ModelProviderResult {
+                provider_result_id,
+                workflow_execution_id,
+            } => {
+                causal_refs.extend([provider_result_id.clone(), workflow_execution_id.clone()]);
+            }
+        }
+        let pending = PendingTransition {
+            transition_id: format!("transition:workflow-patch:{}", patch.patch_id),
+            case_id: state.case_id.clone(),
+            expected_generation: state.generation,
+            source: TransitionSource {
+                component: "yai.workflow".to_string(),
+                participant_id: None,
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(patch.patch_id.clone()),
+            },
+            scope: None,
+            causal_refs,
+            payload: TransitionPayload::WorkflowPlanPatchProposed { patch },
+            provenance: Vec::new(),
+            summary: None,
+        };
+        self.commit_transition_txn_at(txn, pending, false, None, Some(context))
+    }
+
+    pub fn validate_workflow_plan_patch_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        patch_id: &str,
+    ) -> Result<crate::workflow::EffectiveWorkflowTopology, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start Workflow PlanPatch validation: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "workflow_patch_requires_tenant_case".to_string())?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or_else(|| "case_workflow_not_bound".to_string())?;
+        let definition = self
+            .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
+            .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        let patch = state
+            .workflow_plan_patches
+            .iter()
+            .find(|patch| patch.patch_id == patch_id)
+            .ok_or_else(|| "workflow_plan_patch_not_found".to_string())?;
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
+            &definition,
+            &state.workflow_amendments,
+            &patch.operations,
+        )?;
+        workflow_patch_frozen_history_barrier(&state, patch)?;
+        preview_workflow_patch(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            patch,
+            &definitions,
+        )
+    }
+
+    pub fn adopt_workflow_plan_patch(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        patch_id: &str,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start Workflow amendment adoption: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "workflow_patch_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
+            return Err("workflow_patch_case_terminal".to_string());
+        }
+        if state.workflow_amendments.len() >= MAX_WORKFLOW_AMENDMENTS {
+            return Err("workflow_amendment_count_bound_exceeded".to_string());
+        }
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or_else(|| "case_workflow_not_bound".to_string())?;
+        let definition = self
+            .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
+            .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        let mut definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let resolution = resolve_workflow_with_definitions(
+            &definition,
+            binding,
+            &state,
+            &history,
+            &definitions,
+        )?;
+        if resolution.completed {
+            return Err("workflow_completed_cannot_be_amended".to_string());
+        }
+        if resolution.active_count != 0 {
+            return Err("workflow_amendment_requires_quiescent_boundary".to_string());
+        }
+        let patch = state
+            .workflow_plan_patches
+            .iter()
+            .find(|patch| patch.patch_id == patch_id)
+            .ok_or_else(|| "workflow_plan_patch_not_found".to_string())?;
+        definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
+            &definition,
+            &state.workflow_amendments,
+            &patch.operations,
+        )?;
+        if state
+            .workflow_amendments
+            .iter()
+            .any(|amendment| amendment.patch_id == patch_id)
+        {
+            return Err("workflow_plan_patch_already_adopted".to_string());
+        }
+        workflow_patch_frozen_history_barrier(&state, patch)?;
+        let preview = preview_workflow_patch(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            patch,
+            &definitions,
+        )?;
+        let amendment = WorkflowAmendment::build(
+            patch,
+            &preview.topology_digest,
+            context.principal_id(),
+            state.generation + 1,
+            now_unix_ms,
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:workflow-amendment:{}", amendment.amendment_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.workflow".to_string(),
+                participant_id: None,
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(amendment.amendment_id.clone()),
+            },
+            TransitionPayload::WorkflowAmendmentAdopted {
+                amendment: amendment.clone(),
+            },
+        );
+        pending.causal_refs = vec![patch.patch_id.clone()];
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit Workflow amendment: {error}"))?;
+        Ok(commit)
+    }
+
+    pub fn offer_case_handoff(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        source_case_id: &str,
+        target_case_id: &str,
+        request: HandoffData,
+        required_target_roles: Vec<String>,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        self.offer_case_handoff_for_node(
+            authenticated,
+            source_case_id,
+            target_case_id,
+            "case-handoff:manual",
+            "manual",
+            request,
+            required_target_roles,
+            now_unix_ms,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn offer_case_handoff_for_node(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        source_case_id: &str,
+        target_case_id: &str,
+        source_binding_id: &str,
+        source_node_id: &str,
+        request: HandoffData,
+        required_target_roles: Vec<String>,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start HandoffOffer: {error}"))?;
+        let source = self
+            .get_case_state_txn(&txn, source_case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = source
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "handoff_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        if source_binding_id == "case-handoff:manual" {
+            context.require_owner()?;
+        }
+        let offer = HandoffOffer::build(
+            tenant_id,
+            source_case_id,
+            target_case_id,
+            source_binding_id,
+            source_node_id,
+            request,
+            required_target_roles,
+            context.principal_id(),
+            source.generation + 1,
+            now_unix_ms,
+        )?;
+        if let Some(existing) = source.handoff_offers.iter().find(|current| {
+            current.source_binding_id == source_binding_id
+                && current.source_node_id == source_node_id
+        }) {
+            if existing == &offer {
+                let transition = self
+                    .list_case_transitions_txn(&txn, source_case_id)?
+                    .into_iter()
+                    .find(|transition| {
+                        matches!(
+                            &transition.payload,
+                            TransitionPayload::HandoffOffered { offer }
+                                if offer.handoff_id == existing.handoff_id
+                        )
+                    })
+                    .ok_or_else(|| "handoff_offer_transition_missing".to_string())?;
+                return Ok(CanonicalCommit {
+                    transition,
+                    state: source,
+                });
+            }
+            return Err("handoff_offer_already_exists".to_string());
+        }
+        let mut pending = PendingTransition::new(
+            format!("transition:handoff-offer:{}", offer.handoff_id),
+            source_case_id,
+            source.generation,
+            TransitionSource {
+                component: "yai.handoff".to_string(),
+                participant_id: None,
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(offer.handoff_id.clone()),
+            },
+            TransitionPayload::HandoffOffered {
+                offer: offer.clone(),
+            },
+        );
+        pending.causal_refs = vec![source_binding_id.to_string(), source_node_id.to_string()];
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit HandoffOffer: {error}"))?;
+        Ok(commit)
+    }
+
+    pub fn accept_case_handoff(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_case_id: &str,
+        source_case_id: &str,
+        handoff_id: &str,
+        participant_id: &str,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start HandoffAcceptance: {error}"))?;
+        let target = self
+            .get_case_state_txn(&txn, target_case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = target
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "handoff_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let source = self
+            .get_case_state_txn(&txn, source_case_id)?
+            .ok_or_else(|| "handoff_source_case_missing".to_string())?;
+        let offer = source
+            .handoff_offers
+            .iter()
+            .find(|offer| offer.handoff_id == handoff_id)
+            .ok_or_else(|| "handoff_offer_not_found".to_string())?;
+        let acceptance = HandoffAcceptance::build(
+            offer,
+            context.principal_id(),
+            participant_id,
+            target.generation + 1,
+            now_unix_ms,
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:handoff-acceptance:{}", acceptance.acceptance_id),
+            target_case_id,
+            target.generation,
+            TransitionSource {
+                component: "yai.handoff".to_string(),
+                participant_id: Some(participant_id.to_string()),
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(acceptance.acceptance_id.clone()),
+            },
+            TransitionPayload::HandoffAccepted {
+                acceptance: acceptance.clone(),
+            },
+        );
+        pending.causal_refs = vec![handoff_id.to_string()];
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit HandoffAcceptance: {error}"))?;
+        Ok(commit)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn decline_case_handoff(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_case_id: &str,
+        source_case_id: &str,
+        handoff_id: &str,
+        participant_id: &str,
+        reason: &str,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start HandoffDecline: {error}"))?;
+        let target = self
+            .get_case_state_txn(&txn, target_case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = target
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "handoff_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let source = self
+            .get_case_state_txn(&txn, source_case_id)?
+            .ok_or_else(|| "handoff_source_case_missing".to_string())?;
+        let offer = source
+            .handoff_offers
+            .iter()
+            .find(|offer| offer.handoff_id == handoff_id)
+            .ok_or_else(|| "handoff_offer_not_found".to_string())?;
+        let decline = HandoffDecline::build(
+            offer,
+            context.principal_id(),
+            participant_id,
+            reason,
+            target.generation + 1,
+            now_unix_ms,
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:handoff-decline:{}", decline.decline_id),
+            target_case_id,
+            target.generation,
+            TransitionSource {
+                component: "yai.handoff".to_string(),
+                participant_id: Some(participant_id.to_string()),
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(decline.decline_id.clone()),
+            },
+            TransitionPayload::HandoffDeclined {
+                decline: decline.clone(),
+            },
+        );
+        pending.causal_refs = vec![handoff_id.to_string()];
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit HandoffDecline: {error}"))?;
+        Ok(commit)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_case_handoff_result(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_case_id: &str,
+        handoff_id: &str,
+        outcome: HandoffOutcome,
+        result: HandoffData,
+        evidence_refs: Vec<String>,
+        participant_id: &str,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start HandoffResult: {error}"))?;
+        let target = self
+            .get_case_state_txn(&txn, target_case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = target
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "handoff_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let acceptance = target
+            .handoff_acceptances
+            .iter()
+            .find(|acceptance| acceptance.handoff_id == handoff_id)
+            .ok_or_else(|| "handoff_acceptance_not_found".to_string())?;
+        let result = HandoffResult::build(
+            acceptance,
+            outcome,
+            result,
+            evidence_refs,
+            context.principal_id(),
+            participant_id,
+            target.generation + 1,
+            now_unix_ms,
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:handoff-result:{}", result.result_id),
+            target_case_id,
+            target.generation,
+            TransitionSource {
+                component: "yai.handoff".to_string(),
+                participant_id: Some(participant_id.to_string()),
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(result.result_id.clone()),
+            },
+            TransitionPayload::HandoffResultRecorded {
+                result: result.clone(),
+            },
+        );
+        pending.causal_refs = std::iter::once(result.acceptance_id.clone())
+            .chain(result.evidence_refs.iter().cloned())
+            .collect();
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit HandoffResult: {error}"))?;
+        Ok(commit)
+    }
+
+    pub fn reconcile_case_handoff(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        source_case_id: &str,
+        handoff_id: &str,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start HandoffReconciliation: {error}"))?;
+        let source = self
+            .get_case_state_txn(&txn, source_case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = source
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "handoff_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        if let Some(existing) = source
+            .handoff_reconciliations
+            .iter()
+            .find(|value| value.handoff_id == handoff_id)
+        {
+            let transition = self
+                .list_case_transitions_txn(&txn, source_case_id)?
+                .into_iter()
+                .find(|transition| {
+                    matches!(
+                        &transition.payload,
+                        TransitionPayload::HandoffReconciled { reconciliation }
+                            if reconciliation.reconciliation_id == existing.reconciliation_id
+                    )
+                })
+                .ok_or_else(|| "handoff_reconciliation_transition_missing".to_string())?;
+            return Ok(CanonicalCommit {
+                transition,
+                state: source,
+            });
+        }
+        let offer = source
+            .handoff_offers
+            .iter()
+            .find(|offer| offer.handoff_id == handoff_id)
+            .ok_or_else(|| "handoff_offer_not_found".to_string())?;
+        let target = self
+            .get_case_state_txn(&txn, &offer.target_case_id)?
+            .ok_or_else(|| "handoff_target_case_missing".to_string())?;
+        let reconciliation = if let Some(result) = target
+            .handoff_results
+            .iter()
+            .find(|result| result.handoff_id == handoff_id)
+        {
+            HandoffReconciliation::build(
+                result,
+                context.principal_id(),
+                source.generation + 1,
+                now_unix_ms,
+            )?
+        } else if let Some(decline) = target
+            .handoff_declines
+            .iter()
+            .find(|decline| decline.handoff_id == handoff_id)
+        {
+            HandoffReconciliation::build_declined(
+                decline,
+                context.principal_id(),
+                source.generation + 1,
+                now_unix_ms,
+            )?
+        } else if let Some(cancellation) = &target.cancellation {
+            let acceptance_id = target
+                .handoff_acceptances
+                .iter()
+                .find(|value| value.handoff_id == handoff_id)
+                .map(|value| value.acceptance_id.clone());
+            HandoffReconciliation::build_target_terminal(
+                handoff_id,
+                acceptance_id,
+                &cancellation.transition_id,
+                HandoffOutcome::Cancelled,
+                context.principal_id(),
+                source.generation + 1,
+                now_unix_ms,
+            )?
+        } else if let Some(closure) = &target.closure {
+            let acceptance_id = target
+                .handoff_acceptances
+                .iter()
+                .find(|value| value.handoff_id == handoff_id)
+                .map(|value| value.acceptance_id.clone());
+            HandoffReconciliation::build_target_terminal(
+                handoff_id,
+                acceptance_id,
+                &closure.transition_id,
+                HandoffOutcome::Failed,
+                context.principal_id(),
+                source.generation + 1,
+                now_unix_ms,
+            )?
+        } else {
+            return Err("handoff_target_disposition_missing".to_string());
+        };
+        let mut pending = PendingTransition::new(
+            format!(
+                "transition:handoff-reconciliation:{}",
+                reconciliation.reconciliation_id
+            ),
+            source_case_id,
+            source.generation,
+            TransitionSource {
+                component: "yai.handoff".to_string(),
+                participant_id: None,
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(reconciliation.reconciliation_id.clone()),
+            },
+            TransitionPayload::HandoffReconciled {
+                reconciliation: reconciliation.clone(),
+            },
+        );
+        pending.causal_refs = vec![reconciliation.target_disposition_id().to_string()];
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit HandoffReconciliation: {error}"))?;
+        Ok(commit)
+    }
+
+    pub fn list_pending_case_handoffs_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_case_id: &str,
+    ) -> Result<Vec<HandoffOffer>, String> {
+        let target = self.get_case_state_authorized(authenticated, target_case_id)?;
+        let tenant_id = target
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "handoff_requires_tenant_case".to_string())?;
+        let cases = self.list_case_states_authorized(authenticated, Some(tenant_id), 1024)?;
+        let terminal = target
+            .handoff_acceptances
+            .iter()
+            .map(|value| value.handoff_id.clone())
+            .chain(
+                target
+                    .handoff_declines
+                    .iter()
+                    .map(|value| value.handoff_id.clone()),
+            )
+            .collect::<BTreeSet<_>>();
+        let mut offers = cases
+            .into_iter()
+            .flat_map(|state| state.handoff_offers)
+            .filter(|offer| offer.target_case_id == target_case_id)
+            .filter(|offer| !terminal.contains(&offer.handoff_id))
+            .collect::<Vec<_>>();
+        offers.sort_by(|left, right| left.handoff_id.cmp(&right.handoff_id));
+        Ok(offers)
     }
 
     pub fn record_workflow_human_input(
@@ -5536,8 +6489,26 @@ impl LmdbRecordStore {
         let definition = self
             .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
             .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
+        let topology = derive_effective_workflow_topology(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            &definitions,
+        )?;
         let history = self.list_case_transitions_txn(&txn, case_id)?;
-        let resolution = resolve_workflow(&definition, binding, &state, &history)?;
+        let resolution = resolve_workflow_with_definitions(
+            &definition,
+            binding,
+            &state,
+            &history,
+            &definitions,
+        )?;
         let node_view = resolution
             .nodes
             .iter()
@@ -5546,8 +6517,9 @@ impl LmdbRecordStore {
         if node_view.posture != WorkflowNodePosture::WaitingHumanInput {
             return Err("workflow_human_input_node_not_ready".to_string());
         }
-        let node = definition
+        let node = topology
             .node(node_id)
+            .map(|value| &value.node)
             .ok_or_else(|| "workflow_node_not_found".to_string())?;
         let WorkflowNodeKind::HumanInput {
             actor_slot,
@@ -5661,12 +6633,31 @@ impl LmdbRecordStore {
             let definition = self
                 .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
                 .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+            let definitions = self.workflow_definition_graph_for_operations_txn(
+                &txn,
+                &definition,
+                &state.workflow_amendments,
+                &[],
+            )?;
+            let topology = derive_effective_workflow_topology(
+                &definition,
+                binding,
+                &state.workflow_amendments,
+                &definitions,
+            )?;
             let history = self.list_case_transitions_txn(&txn, case_id)?;
-            let resolution = resolve_workflow(&definition, binding, &state, &history)?;
+            let resolution = resolve_workflow_with_definitions(
+                &definition,
+                binding,
+                &state,
+                &history,
+                &definitions,
+            )?;
             let mut next: Option<PendingTransition> = None;
             for node_view in &resolution.nodes {
-                let node = definition
+                let node = topology
                     .node(&node_view.node_id)
+                    .map(|value| &value.node)
                     .ok_or_else(|| "workflow_node_not_found".to_string())?;
                 match (&node.kind, &node_view.posture, node_view.reason.as_str()) {
                     (
@@ -5716,7 +6707,11 @@ impl LmdbRecordStore {
                     }
                     (
                         WorkflowNodeKind::Wait { predicate }
-                        | WorkflowNodeKind::EffectGoal { predicate },
+                        | WorkflowNodeKind::EffectGoal { predicate }
+                        | WorkflowNodeKind::Handoff {
+                            completion: predicate,
+                            ..
+                        },
                         WorkflowNodePosture::WaitingEffect,
                         "passive_predicate_satisfied_pending_commit",
                     ) => {
@@ -5738,6 +6733,68 @@ impl LmdbRecordStore {
                             None,
                             predicate,
                             evaluation.evidence_refs,
+                            context.principal_id(),
+                        )?);
+                    }
+                    (
+                        WorkflowNodeKind::Handoff {
+                            target_case_slot,
+                            request,
+                            required_target_roles,
+                            ..
+                        },
+                        WorkflowNodePosture::WaitingEffect,
+                        "passive_predicate_not_satisfied",
+                    ) if !state
+                        .handoff_offers
+                        .iter()
+                        .any(|offer| offer.source_node_id == node_view.node_id) =>
+                    {
+                        let target_case_id = binding
+                            .case_for_slot(target_case_slot)
+                            .ok_or_else(|| "workflow_handoff_case_slot_unbound".to_string())?;
+                        let offer = HandoffOffer::build(
+                            tenant_id,
+                            case_id,
+                            target_case_id,
+                            &binding.binding_id,
+                            &node_view.node_id,
+                            request.clone(),
+                            required_target_roles.clone(),
+                            context.principal_id(),
+                            state.generation + 1,
+                            u64::try_from(unix_time_ms()).unwrap_or(u64::MAX),
+                        )?;
+                        let mut pending = PendingTransition::new(
+                            format!("transition:handoff-offer:{}", offer.handoff_id),
+                            case_id,
+                            state.generation,
+                            workflow_transition_source(context.principal_id(), &offer.handoff_id),
+                            TransitionPayload::HandoffOffered {
+                                offer: offer.clone(),
+                            },
+                        );
+                        pending.causal_refs =
+                            vec![binding.binding_id.clone(), node_view.node_id.clone()];
+                        next = Some(pending);
+                    }
+                    (
+                        WorkflowNodeKind::Subflow { .. },
+                        WorkflowNodePosture::WaitingEffect,
+                        "subflow_children_complete_pending_satisfaction",
+                    ) => {
+                        let evidence_refs = workflow_subflow_completion_evidence(
+                            &topology,
+                            &state,
+                            &node_view.node_id,
+                        )?;
+                        next = Some(workflow_subflow_satisfaction_pending(
+                            case_id,
+                            &state,
+                            binding,
+                            &definition,
+                            &node_view.node_id,
+                            evidence_refs,
                             context.principal_id(),
                         )?);
                     }
@@ -5926,16 +6983,35 @@ impl LmdbRecordStore {
         let definition = self
             .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
             .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
+        let topology = derive_effective_workflow_topology(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            &definitions,
+        )?;
         let history = self.list_case_transitions_txn(&txn, case_id)?;
-        let resolution = resolve_workflow(&definition, binding, &state, &history)?;
+        let resolution = resolve_workflow_with_definitions(
+            &definition,
+            binding,
+            &state,
+            &history,
+            &definitions,
+        )?;
         let Some(ready) = resolution.ready_work.first() else {
             return Ok(None);
         };
         if resolution.active_count != 0 {
             return Ok(None);
         }
-        let node = definition
+        let node = topology
             .node(&ready.node_id)
+            .map(|value| &value.node)
             .ok_or_else(|| "workflow_node_not_found".to_string())?;
         let execution_id = workflow_execution_identity(binding, &node.node_id);
         let all = list_runtime_work_items_txn(&txn, self.runtime_work_items)?;
@@ -6198,8 +7274,21 @@ impl LmdbRecordStore {
             let definition = self
                 .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
                 .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
-            let node = definition
+            let definitions = self.workflow_definition_graph_for_operations_txn(
+                &txn,
+                &definition,
+                &state.workflow_amendments,
+                &[],
+            )?;
+            let topology = derive_effective_workflow_topology(
+                &definition,
+                binding,
+                &state.workflow_amendments,
+                &definitions,
+            )?;
+            let node = topology
                 .node(&workflow.workflow_node_id)
+                .map(|value| &value.node)
                 .ok_or_else(|| "workflow_node_not_found".to_string())?;
             let WorkflowNodeKind::DeterministicWork {
                 proposer_slot,
@@ -6356,8 +7445,25 @@ impl LmdbRecordStore {
             .ok_or_else(|| "case_workflow_not_bound".to_string())?;
         let definition = self
             .get_workflow_definition_authorized(authenticated, &binding.workflow_definition_id)?;
-        let node = definition
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start workflow topology read: {error}"))?;
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
+        let topology = derive_effective_workflow_topology(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            &definitions,
+        )?;
+        let node = topology
             .node(&workflow.workflow_node_id)
+            .map(|value| &value.node)
             .ok_or_else(|| "workflow_node_not_found".to_string())?;
         let WorkflowNodeKind::DeterministicWork {
             operation: template,
@@ -6657,6 +7763,7 @@ impl LmdbRecordStore {
                 | TransitionPayload::CaseCancellationRequested { .. }
                 | TransitionPayload::CaseClosed { .. }
                 | TransitionPayload::CaseWorkflowBound { .. }
+                | TransitionPayload::WorkflowAmendmentAdopted { .. }
         );
         if owner_protected {
             let context = security_context
@@ -6710,6 +7817,298 @@ impl LmdbRecordStore {
         Ok(())
     }
 
+    fn validate_case_handoff_progression_txn(
+        &self,
+        txn: &RwTransaction<'_>,
+        state: &CaseState,
+        pending: &PendingTransition,
+        context: &SecurityContext,
+    ) -> Result<(), String> {
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "handoff_requires_tenant_case".to_string())?;
+        match &pending.payload {
+            TransitionPayload::HandoffOffered { offer } => {
+                offer.validate()?;
+                if offer.source_binding_id == "case-handoff:manual" {
+                    context.require_owner()?;
+                }
+                let target = self
+                    .get_case_state_txn(txn, &offer.target_case_id)?
+                    .ok_or_else(|| "handoff_target_case_missing".to_string())?;
+                if offer.source_case_id != state.case_id
+                    || offer.tenant_id != tenant_id
+                    || target.tenant_id.as_deref() != Some(tenant_id)
+                    || target.lifecycle == CaseLifecycle::Closed
+                    || target.cancellation.is_some()
+                    || offer.offered_by_principal_id != context.principal_id()
+                    || offer.offered_at_generation != state.generation + 1
+                    || state
+                        .handoff_offers
+                        .iter()
+                        .any(|value| value.handoff_id == offer.handoff_id)
+                    || self.handoff_would_create_cycle_txn(
+                        txn,
+                        &offer.source_case_id,
+                        &offer.target_case_id,
+                    )?
+                {
+                    return Err("handoff_offer_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::HandoffAccepted { acceptance } => {
+                let source = self
+                    .get_case_state_txn(txn, &acceptance.source_case_id)?
+                    .ok_or_else(|| "handoff_source_case_missing".to_string())?;
+                let offer = source
+                    .handoff_offers
+                    .iter()
+                    .find(|offer| offer.handoff_id == acceptance.handoff_id)
+                    .ok_or_else(|| "handoff_offer_not_found".to_string())?;
+                let participant = state
+                    .participants
+                    .iter()
+                    .find(|value| value.participant_id == acceptance.accepted_by_participant_id)
+                    .ok_or_else(|| "handoff_accepting_participant_missing".to_string())?;
+                let linked = state.principal_participant_links.iter().any(|link| {
+                    link.principal_id == context.principal_id()
+                        && link.participant_id == acceptance.accepted_by_participant_id
+                        && link.tenant_id == tenant_id
+                });
+                let expected = HandoffAcceptance::build(
+                    offer,
+                    context.principal_id(),
+                    &acceptance.accepted_by_participant_id,
+                    state.generation + 1,
+                    acceptance.accepted_at_unix_ms,
+                )?;
+                if source.tenant_id.as_deref() != Some(tenant_id)
+                    || source.cancellation.is_some()
+                    || source.lifecycle == CaseLifecycle::Closed
+                    || offer.target_case_id != state.case_id
+                    || acceptance.accepted_by_principal_id != context.principal_id()
+                    || acceptance.accepted_at_generation != state.generation + 1
+                    || !linked
+                    || offer
+                        .required_target_roles
+                        .iter()
+                        .any(|role| !participant.roles.contains(role))
+                    || state
+                        .handoff_acceptances
+                        .iter()
+                        .any(|value| value.handoff_id == acceptance.handoff_id)
+                    || state
+                        .handoff_declines
+                        .iter()
+                        .any(|value| value.handoff_id == acceptance.handoff_id)
+                    || acceptance != &expected
+                {
+                    return Err("handoff_acceptance_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::HandoffDeclined { decline } => {
+                let source = self
+                    .get_case_state_txn(txn, &decline.source_case_id)?
+                    .ok_or_else(|| "handoff_source_case_missing".to_string())?;
+                let offer = source
+                    .handoff_offers
+                    .iter()
+                    .find(|offer| offer.handoff_id == decline.handoff_id)
+                    .ok_or_else(|| "handoff_offer_not_found".to_string())?;
+                let linked = state.principal_participant_links.iter().any(|link| {
+                    link.principal_id == context.principal_id()
+                        && link.participant_id == decline.declined_by_participant_id
+                        && link.tenant_id == tenant_id
+                });
+                let expected = HandoffDecline::build(
+                    offer,
+                    context.principal_id(),
+                    &decline.declined_by_participant_id,
+                    &decline.reason,
+                    state.generation + 1,
+                    decline.declined_at_unix_ms,
+                )?;
+                if source.tenant_id.as_deref() != Some(tenant_id)
+                    || offer.target_case_id != state.case_id
+                    || decline.declined_by_principal_id != context.principal_id()
+                    || decline.declined_at_generation != state.generation + 1
+                    || !linked
+                    || state
+                        .handoff_acceptances
+                        .iter()
+                        .any(|value| value.handoff_id == decline.handoff_id)
+                    || state
+                        .handoff_declines
+                        .iter()
+                        .any(|value| value.handoff_id == decline.handoff_id)
+                    || decline != &expected
+                {
+                    return Err("handoff_decline_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::HandoffResultRecorded { result } => {
+                let acceptance = state
+                    .handoff_acceptances
+                    .iter()
+                    .find(|value| value.acceptance_id == result.acceptance_id)
+                    .ok_or_else(|| "handoff_acceptance_not_found".to_string())?;
+                let linked = state.principal_participant_links.iter().any(|link| {
+                    link.principal_id == context.principal_id()
+                        && link.participant_id == result.recorded_by_participant_id
+                        && link.tenant_id == tenant_id
+                });
+                let expected = HandoffResult::build(
+                    acceptance,
+                    result.outcome.clone(),
+                    result.result.clone(),
+                    result.evidence_refs.clone(),
+                    context.principal_id(),
+                    &result.recorded_by_participant_id,
+                    state.generation + 1,
+                    result.recorded_at_unix_ms,
+                )?;
+                if acceptance.handoff_id != result.handoff_id
+                    || result.target_case_id != state.case_id
+                    || result.recorded_by_principal_id != context.principal_id()
+                    || result.recorded_at_generation != state.generation + 1
+                    || !linked
+                    || state
+                        .handoff_results
+                        .iter()
+                        .any(|value| value.handoff_id == result.handoff_id)
+                    || result != &expected
+                {
+                    return Err("handoff_result_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::HandoffReconciled { reconciliation } => {
+                let offer = state
+                    .handoff_offers
+                    .iter()
+                    .find(|value| value.handoff_id == reconciliation.handoff_id)
+                    .ok_or_else(|| "handoff_offer_not_found".to_string())?;
+                let target = self
+                    .get_case_state_txn(txn, &offer.target_case_id)?
+                    .ok_or_else(|| "handoff_target_case_missing".to_string())?;
+                let expected = self.expected_handoff_reconciliation(
+                    offer,
+                    &target,
+                    context.principal_id(),
+                    state.generation + 1,
+                    reconciliation.reconciled_at_unix_ms,
+                )?;
+                if reconciliation != &expected {
+                    return Err("handoff_reconciliation_rederivation_mismatch".to_string());
+                }
+            }
+            _ => return Err("not_a_handoff_transition".to_string()),
+        }
+        Ok(())
+    }
+
+    fn expected_handoff_reconciliation(
+        &self,
+        offer: &HandoffOffer,
+        target: &CaseState,
+        principal_id: &str,
+        generation: u64,
+        now_unix_ms: u64,
+    ) -> Result<HandoffReconciliation, String> {
+        if let Some(result) = target
+            .handoff_results
+            .iter()
+            .find(|value| value.handoff_id == offer.handoff_id)
+        {
+            return HandoffReconciliation::build(result, principal_id, generation, now_unix_ms);
+        }
+        if let Some(decline) = target
+            .handoff_declines
+            .iter()
+            .find(|value| value.handoff_id == offer.handoff_id)
+        {
+            return HandoffReconciliation::build_declined(
+                decline,
+                principal_id,
+                generation,
+                now_unix_ms,
+            );
+        }
+        let acceptance_id = target
+            .handoff_acceptances
+            .iter()
+            .find(|value| value.handoff_id == offer.handoff_id)
+            .map(|value| value.acceptance_id.clone());
+        if let Some(cancellation) = &target.cancellation {
+            return HandoffReconciliation::build_target_terminal(
+                &offer.handoff_id,
+                acceptance_id,
+                &cancellation.transition_id,
+                HandoffOutcome::Cancelled,
+                principal_id,
+                generation,
+                now_unix_ms,
+            );
+        }
+        if let Some(closure) = &target.closure {
+            return HandoffReconciliation::build_target_terminal(
+                &offer.handoff_id,
+                acceptance_id,
+                &closure.transition_id,
+                HandoffOutcome::Failed,
+                principal_id,
+                generation,
+                now_unix_ms,
+            );
+        }
+        Err("handoff_target_disposition_missing".to_string())
+    }
+
+    fn handoff_would_create_cycle_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        source_case_id: &str,
+        target_case_id: &str,
+    ) -> Result<bool, String> {
+        let mut cursor = txn
+            .open_ro_cursor(self.case_state)
+            .map_err(|error| format!("failed to inspect Handoff wait graph: {error}"))?;
+        let mut adjacency = BTreeMap::<String, BTreeSet<String>>::new();
+        for (_, value) in cursor.iter() {
+            let json = std::str::from_utf8(value)
+                .map_err(|error| format!("invalid CaseState utf8: {error}"))?;
+            let case = CaseState::from_json(json)?;
+            let reconciled = case
+                .handoff_reconciliations
+                .iter()
+                .map(|value| value.handoff_id.as_str())
+                .collect::<BTreeSet<_>>();
+            for offer in &case.handoff_offers {
+                if !reconciled.contains(offer.handoff_id.as_str()) {
+                    adjacency
+                        .entry(offer.source_case_id.clone())
+                        .or_default()
+                        .insert(offer.target_case_id.clone());
+                }
+            }
+        }
+        drop(cursor);
+        let mut pending = vec![target_case_id.to_string()];
+        let mut seen = BTreeSet::new();
+        while let Some(case_id) = pending.pop() {
+            if case_id == source_case_id {
+                return Ok(true);
+            }
+            if !seen.insert(case_id.clone()) {
+                continue;
+            }
+            if let Some(targets) = adjacency.get(&case_id) {
+                pending.extend(targets.iter().cloned());
+            }
+        }
+        Ok(false)
+    }
+
     fn validate_workflow_progression_txn(
         &self,
         txn: &RwTransaction<'_>,
@@ -6725,6 +8124,13 @@ impl LmdbRecordStore {
                 | TransitionPayload::WorkflowConditionResolved { .. }
                 | TransitionPayload::WorkflowHumanInputRecorded { .. }
                 | TransitionPayload::WorkflowDeterministicProposalRecorded { .. }
+                | TransitionPayload::WorkflowPlanPatchProposed { .. }
+                | TransitionPayload::WorkflowAmendmentAdopted { .. }
+                | TransitionPayload::HandoffOffered { .. }
+                | TransitionPayload::HandoffAccepted { .. }
+                | TransitionPayload::HandoffDeclined { .. }
+                | TransitionPayload::HandoffResultRecorded { .. }
+                | TransitionPayload::HandoffReconciled { .. }
         ) || matches!(
             &pending.payload,
             TransitionPayload::OperationRecorded { operation }
@@ -6745,6 +8151,21 @@ impl LmdbRecordStore {
             || pending.source.principal_id.as_deref() != Some(context.principal_id())
         {
             return Err("workflow_progression_security_context_mismatch".to_string());
+        }
+
+        let case_level_handoff = matches!(
+            &pending.payload,
+            TransitionPayload::HandoffAccepted { .. }
+                | TransitionPayload::HandoffDeclined { .. }
+                | TransitionPayload::HandoffResultRecorded { .. }
+                | TransitionPayload::HandoffReconciled { .. }
+        ) || matches!(
+            &pending.payload,
+            TransitionPayload::HandoffOffered { offer }
+                if offer.source_binding_id == "case-handoff:manual"
+        );
+        if case_level_handoff {
+            return self.validate_case_handoff_progression_txn(txn, state, pending, context);
         }
 
         if let TransitionPayload::CaseWorkflowBound { binding } = &pending.payload {
@@ -6771,13 +8192,31 @@ impl LmdbRecordStore {
         if definition.integrity_digest != binding.workflow_definition_digest {
             return Err("bound_workflow_definition_digest_mismatch".to_string());
         }
+        let extra_operations = match &pending.payload {
+            TransitionPayload::WorkflowPlanPatchProposed { patch } => patch.operations.as_slice(),
+            _ => &[],
+        };
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            txn,
+            &definition,
+            &state.workflow_amendments,
+            extra_operations,
+        )?;
+        let topology = derive_effective_workflow_topology(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            &definitions,
+        )?;
         let history = self.list_case_transitions_txn(txn, &state.case_id)?;
-        let resolution = resolve_workflow(&definition, binding, state, &history)?;
+        let resolution =
+            resolve_workflow_with_definitions(&definition, binding, state, &history, &definitions)?;
 
         match &pending.payload {
             TransitionPayload::WorkflowNodeExecutionStarted { execution } => {
-                let node = definition
+                let node = topology
                     .node(&execution.node_id)
+                    .map(|value| &value.node)
                     .ok_or_else(|| "workflow_node_not_found".to_string())?;
                 let ready = resolution
                     .ready_work
@@ -6795,8 +8234,9 @@ impl LmdbRecordStore {
                 }
             }
             TransitionPayload::WorkflowConditionResolved { resolution: fact } => {
-                let node = definition
+                let node = topology
                     .node(&fact.node_id)
+                    .map(|value| &value.node)
                     .ok_or_else(|| "workflow_node_not_found".to_string())?;
                 let WorkflowNodeKind::Condition { predicate } = &node.kind else {
                     return Err("workflow_condition_node_kind_mismatch".to_string());
@@ -6835,14 +8275,49 @@ impl LmdbRecordStore {
                 }
             }
             TransitionPayload::WorkflowNodeSatisfied { satisfaction } => {
-                let node = definition
+                let node = topology
                     .node(&satisfaction.node_id)
+                    .map(|value| &value.node)
                     .ok_or_else(|| "workflow_node_not_found".to_string())?;
                 if matches!(
                     node.kind,
                     WorkflowNodeKind::Condition { .. } | WorkflowNodeKind::HumanInput { .. }
                 ) {
                     return Err("workflow_node_kind_has_dedicated_satisfaction_fact".to_string());
+                }
+                if matches!(node.kind, WorkflowNodeKind::Subflow { .. }) {
+                    let node_view = resolution
+                        .nodes
+                        .iter()
+                        .find(|value| value.node_id == satisfaction.node_id)
+                        .ok_or_else(|| "workflow_node_not_found".to_string())?;
+                    let evidence_refs = workflow_subflow_completion_evidence(
+                        &topology,
+                        state,
+                        &satisfaction.node_id,
+                    )?;
+                    let predicate_digest = workflow_subflow_predicate_digest(&satisfaction.node_id);
+                    let expected_id = workflow_fact_identity(
+                        "satisfaction",
+                        &binding.binding_id,
+                        &satisfaction.node_id,
+                        &predicate_digest,
+                        &evidence_refs,
+                    );
+                    if node_view.reason != "subflow_children_complete_pending_satisfaction"
+                        || satisfaction.satisfaction_id != expected_id
+                        || satisfaction.binding_id != binding.binding_id
+                        || satisfaction.workflow_definition_id != definition.workflow_definition_id
+                        || satisfaction.execution_id.is_some()
+                        || satisfaction.predicate_digest != predicate_digest
+                        || satisfaction.evidence_refs != evidence_refs
+                        || satisfaction.evaluated_at_generation != state.generation + 1
+                    {
+                        return Err(
+                            "workflow_subflow_satisfaction_rederivation_mismatch".to_string()
+                        );
+                    }
+                    return Ok(());
                 }
                 let predicate = node_completion_predicate(node)
                     .ok_or_else(|| "workflow_node_has_no_completion_predicate".to_string())?;
@@ -6885,8 +8360,9 @@ impl LmdbRecordStore {
                     .iter()
                     .find(|node| node.node_id == input.node_id)
                     .ok_or_else(|| "workflow_node_not_found".to_string())?;
-                let node = definition
+                let node = topology
                     .node(&input.node_id)
+                    .map(|value| &value.node)
                     .ok_or_else(|| "workflow_node_not_found".to_string())?;
                 let WorkflowNodeKind::HumanInput {
                     actor_slot,
@@ -6936,8 +8412,9 @@ impl LmdbRecordStore {
                 }
             }
             TransitionPayload::WorkflowDeterministicProposalRecorded { proposal } => {
-                let node = definition
+                let node = topology
                     .node(&proposal.node_id)
+                    .map(|value| &value.node)
                     .ok_or_else(|| "workflow_node_not_found".to_string())?;
                 let WorkflowNodeKind::DeterministicWork {
                     proposer_slot,
@@ -6996,8 +8473,9 @@ impl LmdbRecordStore {
                     .ok_or_else(|| {
                         "workflow_deterministic_operation_proposal_missing".to_string()
                     })?;
-                let node = definition
+                let node = topology
                     .node(&proposal.node_id)
+                    .map(|value| &value.node)
                     .ok_or_else(|| "workflow_node_not_found".to_string())?;
                 let WorkflowNodeKind::DeterministicWork {
                     operation: template,
@@ -7050,6 +8528,281 @@ impl LmdbRecordStore {
                     return Err(
                         "workflow_deterministic_operation_rederivation_mismatch".to_string()
                     );
+                }
+            }
+            TransitionPayload::WorkflowPlanPatchProposed { patch } => {
+                patch.validate(binding)?;
+                if patch.case_id != state.case_id
+                    || patch.tenant_id != tenant_id
+                    || patch.proposed_at_generation != state.generation + 1
+                    || patch.base_effective_topology_digest != topology.topology_digest
+                    || patch.base_revision != topology.revision
+                    || patch.parent_amendment_id.as_deref()
+                        != state
+                            .workflow_amendments
+                            .last()
+                            .map(|value| value.amendment_id.as_str())
+                {
+                    return Err("workflow_plan_patch_rederivation_mismatch".to_string());
+                }
+                match &patch.origin {
+                    WorkflowPlanPatchOrigin::AuthenticatedHuman { principal_id } => {
+                        context.require_owner()?;
+                        if principal_id != context.principal_id() {
+                            return Err("workflow_plan_patch_human_origin_mismatch".to_string());
+                        }
+                    }
+                    WorkflowPlanPatchOrigin::ModelProviderResult {
+                        provider_result_id,
+                        workflow_execution_id,
+                    } => {
+                        let result = history.iter().find(|transition| {
+                            transition
+                                .causal_refs
+                                .iter()
+                                .any(|value| value == workflow_execution_id)
+                                && matches!(
+                                    &transition.payload,
+                                    TransitionPayload::ProviderResultRecorded { result_id, .. }
+                                        if result_id == provider_result_id
+                                )
+                        });
+                        let execution = state
+                            .workflow_executions
+                            .iter()
+                            .find(|execution| execution.execution_id == *workflow_execution_id);
+                        let node = execution
+                            .and_then(|execution| topology.node(&execution.node_id))
+                            .map(|effective| &effective.node);
+                        if result.is_none()
+                            || !matches!(
+                                node.map(|value| &value.kind),
+                                Some(WorkflowNodeKind::ModelWork {
+                                    output_contract:
+                                        crate::workflow::ModelWorkOutputContract::PlanPatch,
+                                    ..
+                                })
+                            )
+                        {
+                            return Err("workflow_plan_patch_model_origin_mismatch".to_string());
+                        }
+                    }
+                }
+                workflow_patch_frozen_history_barrier(state, patch)?;
+                preview_workflow_patch(
+                    &definition,
+                    binding,
+                    &state.workflow_amendments,
+                    patch,
+                    &definitions,
+                )?;
+            }
+            TransitionPayload::WorkflowAmendmentAdopted { amendment } => {
+                context.require_owner()?;
+                let patch = state
+                    .workflow_plan_patches
+                    .iter()
+                    .find(|patch| patch.patch_id == amendment.patch_id)
+                    .ok_or_else(|| "workflow_amendment_patch_missing".to_string())?;
+                if resolution.completed
+                    || resolution.active_count != 0
+                    || amendment.adopted_at_generation != state.generation + 1
+                    || state
+                        .workflow_amendments
+                        .iter()
+                        .any(|value| value.patch_id == patch.patch_id)
+                {
+                    return Err("workflow_amendment_admission_rejected".to_string());
+                }
+                workflow_patch_frozen_history_barrier(state, patch)?;
+                let preview = preview_workflow_patch(
+                    &definition,
+                    binding,
+                    &state.workflow_amendments,
+                    patch,
+                    &definitions,
+                )?;
+                let expected = WorkflowAmendment::build(
+                    patch,
+                    &preview.topology_digest,
+                    context.principal_id(),
+                    state.generation + 1,
+                    amendment.adopted_at_unix_ms,
+                )?;
+                if amendment != &expected {
+                    return Err("workflow_amendment_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::HandoffOffered { offer } => {
+                let effective = topology
+                    .node(&offer.source_node_id)
+                    .ok_or_else(|| "workflow_handoff_node_missing".to_string())?;
+                let WorkflowNodeKind::Handoff {
+                    target_case_slot,
+                    request,
+                    required_target_roles,
+                    ..
+                } = &effective.node.kind
+                else {
+                    return Err("workflow_handoff_node_kind_mismatch".to_string());
+                };
+                let target_case_id = binding
+                    .case_for_slot(target_case_slot)
+                    .ok_or_else(|| "workflow_handoff_case_slot_unbound".to_string())?;
+                let target = self
+                    .get_case_state_txn(txn, target_case_id)?
+                    .ok_or_else(|| "handoff_target_case_missing".to_string())?;
+                let node_view = resolution
+                    .nodes
+                    .iter()
+                    .find(|node| node.node_id == offer.source_node_id)
+                    .ok_or_else(|| "workflow_handoff_node_missing".to_string())?;
+                if offer.source_case_id != state.case_id
+                    || offer.target_case_id != target_case_id
+                    || target.tenant_id.as_deref() != Some(tenant_id)
+                    || target.lifecycle == CaseLifecycle::Closed
+                    || target.cancellation.is_some()
+                    || offer.source_binding_id != binding.binding_id
+                    || offer.request != *request
+                    || offer.required_target_roles != *required_target_roles
+                    || offer.offered_by_principal_id != context.principal_id()
+                    || offer.offered_at_generation != state.generation + 1
+                    || node_view.posture != WorkflowNodePosture::WaitingEffect
+                    || state
+                        .handoff_offers
+                        .iter()
+                        .any(|current| current.source_node_id == offer.source_node_id)
+                    || self.handoff_would_create_cycle_txn(
+                        txn,
+                        &offer.source_case_id,
+                        &offer.target_case_id,
+                    )?
+                {
+                    return Err("workflow_handoff_offer_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::HandoffAccepted { acceptance } => {
+                let source = self
+                    .get_case_state_txn(txn, &acceptance.source_case_id)?
+                    .ok_or_else(|| "handoff_source_case_missing".to_string())?;
+                let offer = source
+                    .handoff_offers
+                    .iter()
+                    .find(|offer| offer.handoff_id == acceptance.handoff_id)
+                    .ok_or_else(|| "handoff_offer_not_found".to_string())?;
+                let participant = state
+                    .participants
+                    .iter()
+                    .find(|value| value.participant_id == acceptance.accepted_by_participant_id)
+                    .ok_or_else(|| "handoff_accepting_participant_missing".to_string())?;
+                let linked = state.principal_participant_links.iter().any(|link| {
+                    link.principal_id == context.principal_id()
+                        && link.participant_id == acceptance.accepted_by_participant_id
+                        && link.tenant_id == tenant_id
+                });
+                let expected = HandoffAcceptance::build(
+                    offer,
+                    context.principal_id(),
+                    &acceptance.accepted_by_participant_id,
+                    state.generation + 1,
+                    acceptance.accepted_at_unix_ms,
+                )?;
+                if source.tenant_id.as_deref() != Some(tenant_id)
+                    || source.cancellation.is_some()
+                    || source.lifecycle == CaseLifecycle::Closed
+                    || offer.target_case_id != state.case_id
+                    || acceptance.accepted_by_principal_id != context.principal_id()
+                    || acceptance.accepted_at_generation != state.generation + 1
+                    || !linked
+                    || offer
+                        .required_target_roles
+                        .iter()
+                        .any(|role| !participant.roles.contains(role))
+                    || acceptance != &expected
+                {
+                    return Err("handoff_acceptance_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::HandoffDeclined { decline } => {
+                let source = self
+                    .get_case_state_txn(txn, &decline.source_case_id)?
+                    .ok_or_else(|| "handoff_source_case_missing".to_string())?;
+                let offer = source
+                    .handoff_offers
+                    .iter()
+                    .find(|offer| offer.handoff_id == decline.handoff_id)
+                    .ok_or_else(|| "handoff_offer_not_found".to_string())?;
+                let linked = state.principal_participant_links.iter().any(|link| {
+                    link.principal_id == context.principal_id()
+                        && link.participant_id == decline.declined_by_participant_id
+                        && link.tenant_id == tenant_id
+                });
+                let expected = HandoffDecline::build(
+                    offer,
+                    context.principal_id(),
+                    &decline.declined_by_participant_id,
+                    &decline.reason,
+                    state.generation + 1,
+                    decline.declined_at_unix_ms,
+                )?;
+                if offer.target_case_id != state.case_id
+                    || decline.declined_by_principal_id != context.principal_id()
+                    || decline.declined_at_generation != state.generation + 1
+                    || !linked
+                    || decline != &expected
+                {
+                    return Err("handoff_decline_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::HandoffResultRecorded { result } => {
+                let acceptance = state
+                    .handoff_acceptances
+                    .iter()
+                    .find(|value| value.acceptance_id == result.acceptance_id)
+                    .ok_or_else(|| "handoff_acceptance_not_found".to_string())?;
+                let linked = state.principal_participant_links.iter().any(|link| {
+                    link.principal_id == context.principal_id()
+                        && link.participant_id == result.recorded_by_participant_id
+                        && link.tenant_id == tenant_id
+                });
+                let expected = HandoffResult::build(
+                    acceptance,
+                    result.outcome.clone(),
+                    result.result.clone(),
+                    result.evidence_refs.clone(),
+                    context.principal_id(),
+                    &result.recorded_by_participant_id,
+                    state.generation + 1,
+                    result.recorded_at_unix_ms,
+                )?;
+                if acceptance.handoff_id != result.handoff_id
+                    || result.target_case_id != state.case_id
+                    || result.recorded_by_principal_id != context.principal_id()
+                    || result.recorded_at_generation != state.generation + 1
+                    || !linked
+                    || result != &expected
+                {
+                    return Err("handoff_result_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::HandoffReconciled { reconciliation } => {
+                let offer = state
+                    .handoff_offers
+                    .iter()
+                    .find(|value| value.handoff_id == reconciliation.handoff_id)
+                    .ok_or_else(|| "handoff_offer_not_found".to_string())?;
+                let target = self
+                    .get_case_state_txn(txn, &offer.target_case_id)?
+                    .ok_or_else(|| "handoff_target_case_missing".to_string())?;
+                let expected = self.expected_handoff_reconciliation(
+                    offer,
+                    &target,
+                    context.principal_id(),
+                    state.generation + 1,
+                    reconciliation.reconciled_at_unix_ms,
+                )?;
+                if reconciliation != &expected {
+                    return Err("handoff_reconciliation_rederivation_mismatch".to_string());
                 }
             }
             TransitionPayload::CaseWorkflowBound { .. } => unreachable!(),
@@ -8666,6 +10419,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V10,
                 TRANSITION_SCHEMA_V9,
                 TRANSITION_SCHEMA_V8,
                 TRANSITION_SCHEMA_V7,
@@ -8683,6 +10437,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                CASE_STATE_SCHEMA_V10,
                 CASE_STATE_SCHEMA_V9,
                 CASE_STATE_SCHEMA_V8,
                 CASE_STATE_SCHEMA_V7,
@@ -8840,7 +10595,7 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:workflow_definition_schema",
             WORKFLOW_DEFINITION_SCHEMA,
-            &[],
+            &[WORKFLOW_DEFINITION_SCHEMA_V1],
         )?;
         for (key, value) in [
             ("meta:canonical_transition_schema", TRANSITION_SCHEMA),
@@ -9006,6 +10761,132 @@ impl LmdbRecordStore {
             definition.validate_integrity()?;
         }
         Ok(definition)
+    }
+
+    fn workflow_definition_graph_for_operations_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        root: &WorkflowDefinition,
+        amendments: &[WorkflowAmendment],
+        extra_operations: &[WorkflowPatchOperation],
+    ) -> Result<BTreeMap<String, WorkflowDefinition>, String> {
+        let mut definitions = BTreeMap::new();
+        let mut pending = vec![root.clone()];
+        let operation_refs = amendments
+            .iter()
+            .flat_map(|amendment| amendment.operations.iter())
+            .chain(extra_operations.iter())
+            .filter_map(|operation| match operation {
+                WorkflowPatchOperation::AddNode {
+                    node:
+                        crate::workflow::WorkflowNode {
+                            kind:
+                                WorkflowNodeKind::Subflow {
+                                    workflow_definition_id,
+                                    workflow_definition_digest,
+                                    ..
+                                },
+                            ..
+                        },
+                } => Some((
+                    workflow_definition_id.clone(),
+                    workflow_definition_digest.clone(),
+                )),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        for (definition_id, digest) in operation_refs {
+            let child = self
+                .workflow_definition_txn(txn, &definition_id)?
+                .ok_or_else(|| "workflow_subflow_definition_missing".to_string())?;
+            if child.tenant_id != root.tenant_id || child.integrity_digest != digest {
+                return Err("workflow_subflow_definition_identity_mismatch".to_string());
+            }
+            pending.push(child);
+        }
+        while let Some(definition) = pending.pop() {
+            if definitions.contains_key(&definition.workflow_definition_id) {
+                continue;
+            }
+            if definitions.len() >= crate::workflow::MAX_REFERENCED_WORKFLOW_DEFINITIONS {
+                return Err("workflow_definition_reference_bound_exceeded".to_string());
+            }
+            for node in &definition.nodes {
+                if let WorkflowNodeKind::Subflow {
+                    workflow_definition_id,
+                    workflow_definition_digest,
+                    ..
+                } = &node.kind
+                {
+                    let child = self
+                        .workflow_definition_txn(txn, workflow_definition_id)?
+                        .ok_or_else(|| "workflow_subflow_definition_missing".to_string())?;
+                    if child.tenant_id != root.tenant_id
+                        || child.integrity_digest != *workflow_definition_digest
+                    {
+                        return Err("workflow_subflow_definition_identity_mismatch".to_string());
+                    }
+                    pending.push(child);
+                }
+            }
+            definitions.insert(definition.workflow_definition_id.clone(), definition);
+        }
+        Ok(definitions)
+    }
+
+    fn validate_definition_composition_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        definition: &WorkflowDefinition,
+    ) -> Result<(), String> {
+        let mut definitions = BTreeMap::from([(
+            definition.workflow_definition_id.clone(),
+            definition.clone(),
+        )]);
+        let mut pending = definition
+            .nodes
+            .iter()
+            .filter_map(|node| match &node.kind {
+                WorkflowNodeKind::Subflow {
+                    workflow_definition_id,
+                    workflow_definition_digest,
+                    ..
+                } => Some((
+                    workflow_definition_id.clone(),
+                    workflow_definition_digest.clone(),
+                )),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let mut visiting = BTreeSet::from([definition.workflow_definition_id.clone()]);
+        while let Some((definition_id, digest)) = pending.pop() {
+            if definition_id == definition.workflow_definition_id {
+                return Err("workflow_subflow_recursion_cycle".to_string());
+            }
+            let child = self
+                .workflow_definition_txn(txn, &definition_id)?
+                .ok_or_else(|| "workflow_subflow_definition_missing".to_string())?;
+            if child.tenant_id != definition.tenant_id || child.integrity_digest != digest {
+                return Err("workflow_subflow_definition_identity_mismatch".to_string());
+            }
+            if visiting.insert(definition_id.clone()) {
+                for node in &child.nodes {
+                    if let WorkflowNodeKind::Subflow {
+                        workflow_definition_id,
+                        workflow_definition_digest,
+                        ..
+                    } = &node.kind
+                    {
+                        pending.push((
+                            workflow_definition_id.clone(),
+                            workflow_definition_digest.clone(),
+                        ));
+                    }
+                }
+                definitions.insert(definition_id, child);
+            }
+        }
+        Ok(())
     }
 
     fn last_case_sequence_txn<T: Transaction>(
@@ -10017,6 +11898,90 @@ fn derive_graph_relations_from_transition(
                 &proposal.execution_id,
             );
         }
+        TransitionPayload::WorkflowPlanPatchProposed { patch } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "workflow_patch_targets_binding",
+                "workflow_plan_patch",
+                &patch.patch_id,
+                "case_workflow_binding",
+                &patch.binding_id,
+            );
+        }
+        TransitionPayload::WorkflowAmendmentAdopted { amendment } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "workflow_amendment_adopts_patch",
+                "workflow_amendment",
+                &amendment.amendment_id,
+                "workflow_plan_patch",
+                &amendment.patch_id,
+            );
+        }
+        TransitionPayload::HandoffOffered { offer } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "handoff_offer_targets_case",
+                "handoff_offer",
+                &offer.handoff_id,
+                "case",
+                &offer.target_case_id,
+            );
+        }
+        TransitionPayload::HandoffAccepted { acceptance } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "handoff_acceptance_accepts_offer",
+                "handoff_acceptance",
+                &acceptance.acceptance_id,
+                "handoff_offer",
+                &acceptance.handoff_id,
+            );
+        }
+        TransitionPayload::HandoffDeclined { decline } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "handoff_decline_declines_offer",
+                "handoff_decline",
+                &decline.decline_id,
+                "handoff_offer",
+                &decline.handoff_id,
+            );
+        }
+        TransitionPayload::HandoffResultRecorded { result } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "handoff_result_from_acceptance",
+                "handoff_result",
+                &result.result_id,
+                "handoff_acceptance",
+                &result.acceptance_id,
+            );
+        }
+        TransitionPayload::HandoffReconciled { reconciliation } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "handoff_reconciliation_uses_result",
+                "handoff_reconciliation",
+                &reconciliation.reconciliation_id,
+                "handoff_result",
+                reconciliation.target_disposition_id(),
+            );
+        }
         TransitionPayload::ReviewResolved {
             review_id,
             decision_ref,
@@ -10566,6 +12531,59 @@ fn workflow_definition_version_key(
     format!("version:{tenant_id}\0{workflow_key}\0{declared_version}")
 }
 
+fn workflow_patch_frozen_history_barrier(
+    state: &CaseState,
+    patch: &WorkflowPlanPatch,
+) -> Result<(), String> {
+    let mut frozen = BTreeSet::new();
+    frozen.extend(
+        state
+            .workflow_executions
+            .iter()
+            .map(|value| value.node_id.clone()),
+    );
+    frozen.extend(
+        state
+            .workflow_satisfactions
+            .iter()
+            .map(|value| value.node_id.clone()),
+    );
+    frozen.extend(
+        state
+            .workflow_conditions
+            .iter()
+            .map(|value| value.node_id.clone()),
+    );
+    frozen.extend(
+        state
+            .workflow_human_inputs
+            .iter()
+            .map(|value| value.node_id.clone()),
+    );
+    frozen.extend(
+        state
+            .workflow_deterministic_proposals
+            .iter()
+            .map(|value| value.node_id.clone()),
+    );
+    for operation in &patch.operations {
+        let touches_frozen = match operation {
+            WorkflowPatchOperation::AddNode { .. } => false,
+            WorkflowPatchOperation::AddEdge { edge } => {
+                frozen.contains(&edge.from) || frozen.contains(&edge.to)
+            }
+            WorkflowPatchOperation::DisableNode { node_id } => frozen.contains(node_id),
+            WorkflowPatchOperation::DisableEdge { from, to, .. } => {
+                frozen.contains(from) || frozen.contains(to)
+            }
+        };
+        if touches_frozen {
+            return Err("workflow_patch_frozen_history_barrier".to_string());
+        }
+    }
+    Ok(())
+}
+
 fn workflow_execution_identity(binding: &CaseWorkflowBinding, node_id: &str) -> String {
     let digest = crate::context::stable_digest(&format!(
         "{}\0{}\0{}\0{}",
@@ -10643,6 +12661,98 @@ fn workflow_satisfaction_pending(
     pending
         .causal_refs
         .extend(satisfaction.evidence_refs.clone());
+    Ok(pending)
+}
+
+fn workflow_subflow_predicate_digest(node_id: &str) -> String {
+    crate::effect::digest_bytes(format!("yai.workflow.subflow.complete.v1\0{node_id}").as_bytes())
+}
+
+fn workflow_subflow_completion_evidence(
+    topology: &crate::workflow::EffectiveWorkflowTopology,
+    state: &CaseState,
+    node_id: &str,
+) -> Result<Vec<String>, String> {
+    let dependencies = topology
+        .edges
+        .iter()
+        .filter(|edge| edge.to == node_id)
+        .map(|edge| edge.from.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut evidence = Vec::new();
+    for dependency in dependencies {
+        if let Some(value) = state
+            .workflow_satisfactions
+            .iter()
+            .find(|value| value.node_id == dependency)
+        {
+            evidence.push(value.satisfaction_id.clone());
+            continue;
+        }
+        if let Some(value) = state
+            .workflow_conditions
+            .iter()
+            .find(|value| value.node_id == dependency)
+        {
+            evidence.push(value.resolution_id.clone());
+            continue;
+        }
+        if let Some(value) = state
+            .workflow_human_inputs
+            .iter()
+            .find(|value| value.node_id == dependency)
+        {
+            evidence.push(value.input_id.clone());
+        }
+    }
+    evidence.sort();
+    evidence.dedup();
+    if evidence.is_empty() {
+        return Err("workflow_subflow_completion_evidence_missing".to_string());
+    }
+    Ok(evidence)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn workflow_subflow_satisfaction_pending(
+    case_id: &str,
+    state: &CaseState,
+    binding: &CaseWorkflowBinding,
+    definition: &WorkflowDefinition,
+    node_id: &str,
+    evidence_refs: Vec<String>,
+    principal_id: &str,
+) -> Result<PendingTransition, String> {
+    let predicate_digest = workflow_subflow_predicate_digest(node_id);
+    let satisfaction = WorkflowNodeSatisfaction {
+        schema: WORKFLOW_NODE_SATISFACTION_SCHEMA.to_string(),
+        satisfaction_id: workflow_fact_identity(
+            "satisfaction",
+            &binding.binding_id,
+            node_id,
+            &predicate_digest,
+            &evidence_refs,
+        ),
+        binding_id: binding.binding_id.clone(),
+        workflow_definition_id: definition.workflow_definition_id.clone(),
+        node_id: node_id.to_string(),
+        execution_id: None,
+        predicate_digest,
+        evaluated_at_generation: state.generation + 1,
+        evidence_refs,
+    };
+    let mut pending = PendingTransition::new(
+        format!("transition:{}", satisfaction.satisfaction_id),
+        case_id,
+        state.generation,
+        workflow_transition_source(principal_id, &satisfaction.satisfaction_id),
+        TransitionPayload::WorkflowNodeSatisfied {
+            satisfaction: satisfaction.clone(),
+        },
+    );
+    pending.causal_refs = std::iter::once(binding.binding_id.clone())
+        .chain(satisfaction.evidence_refs.iter().cloned())
+        .collect();
     Ok(pending)
 }
 
@@ -11179,9 +13289,7 @@ fn json_usize_field(content: &str, key: &str) -> usize {
         return 0;
     };
     let rest = &content[start..];
-    let end = rest
-        .find(|ch: char| matches!(ch, ',' | '}'))
-        .unwrap_or(rest.len());
+    let end = rest.find([',', '}']).unwrap_or(rest.len());
     rest[..end].trim().parse::<usize>().unwrap_or(0)
 }
 
@@ -11191,9 +13299,7 @@ fn json_u128_field(content: &str, key: &str) -> u128 {
         return 0;
     };
     let rest = &content[start..];
-    let end = rest
-        .find(|ch: char| matches!(ch, ',' | '}'))
-        .unwrap_or(rest.len());
+    let end = rest.find([',', '}']).unwrap_or(rest.len());
     rest[..end].trim().parse::<u128>().unwrap_or(0)
 }
 
@@ -18505,7 +20611,7 @@ mod tests {
         let history = store
             .list_case_transitions("case:wave15-workflow")
             .expect("read workflow history");
-        let rebuilt = resolve_workflow(
+        let rebuilt = crate::workflow::resolve_workflow(
             &definition,
             rebuilt_state.workflow_binding.as_ref().unwrap(),
             &rebuilt_state,
@@ -18564,6 +20670,7 @@ mod tests {
                 kind: WorkflowNodeKind::ModelWork {
                     executor_slot: "model".to_string(),
                     task: "analyze canonical Case state".to_string(),
+                    output_contract: Default::default(),
                     completion: WorkflowPredicate::ExecutionProviderResult,
                     budgets: WorkflowBudgets::default(),
                     resource_slot: Some("workspace".to_string()),
@@ -19566,5 +21673,1197 @@ mod tests {
         drop(store);
         fs::remove_dir_all(path).unwrap();
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn wave17_planpatch_adoption_is_case_local_stale_safe_and_replayable() {
+        let path = temp_store_path("wave17-planpatch");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(17001);
+        let tenant_id = "tenant:wave17-patch";
+        store
+            .bootstrap_local_security(&owner, tenant_id, "organization:wave17", 1)
+            .unwrap();
+        let root = h15_setup_case(&store, &owner, tenant_id, "case:wave17-patch", "w17-patch");
+        let definition = store
+            .define_workflow(
+                &owner,
+                WorkflowDefinitionInput {
+                    schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                    tenant_id: tenant_id.to_string(),
+                    workflow_key: "adaptive".to_string(),
+                    declared_version: "2".to_string(),
+                    name: "Adaptive fixture".to_string(),
+                    description: String::new(),
+                    nodes: vec![WorkflowNode {
+                        node_id: "human-boundary".to_string(),
+                        kind: WorkflowNodeKind::HumanInput {
+                            actor_slot: "model".to_string(),
+                            prompt: "keep the workflow quiescent".to_string(),
+                            required_roles: vec![],
+                            input_kind: HumanInputKind::Text,
+                            max_bytes: 64,
+                        },
+                    }],
+                    edges: vec![],
+                },
+                1_700_010,
+            )
+            .unwrap();
+        store
+            .bind_case_workflow(
+                &owner,
+                "case:wave17-patch",
+                &definition.workflow_definition_id,
+                vec![WorkflowExecutorBinding {
+                    slot: "model".to_string(),
+                    participant_id: "participant:model".to_string(),
+                }],
+                vec![WorkflowResourceBinding {
+                    slot: "workspace".to_string(),
+                    attachment_id: "resource:workspace".to_string(),
+                }],
+                1_700_011,
+            )
+            .unwrap();
+        let initial = store
+            .workflow_status_authorized(&owner, "case:wave17-patch")
+            .unwrap();
+        let patch_a = store
+            .propose_workflow_plan_patch_human(
+                &owner,
+                "case:wave17-patch",
+                WorkflowPlanPatchInput {
+                    schema: crate::workflow::WORKFLOW_PLAN_PATCH_SCHEMA.to_string(),
+                    base_effective_topology_digest: initial.effective_topology_digest.clone(),
+                    operations: vec![WorkflowPatchOperation::AddNode {
+                        node: WorkflowNode {
+                            node_id: "future-wait-a".to_string(),
+                            kind: WorkflowNodeKind::Wait {
+                                predicate: WorkflowPredicate::CaseLifecycle {
+                                    lifecycle: CaseLifecycle::Open,
+                                },
+                            },
+                        },
+                    }],
+                },
+                1_700_012,
+            )
+            .unwrap()
+            .state
+            .workflow_plan_patches
+            .last()
+            .unwrap()
+            .clone();
+        let patch_b = store
+            .propose_workflow_plan_patch_human(
+                &owner,
+                "case:wave17-patch",
+                WorkflowPlanPatchInput {
+                    schema: crate::workflow::WORKFLOW_PLAN_PATCH_SCHEMA.to_string(),
+                    base_effective_topology_digest: initial.effective_topology_digest,
+                    operations: vec![WorkflowPatchOperation::AddNode {
+                        node: WorkflowNode {
+                            node_id: "future-wait-b".to_string(),
+                            kind: WorkflowNodeKind::Wait {
+                                predicate: WorkflowPredicate::CaseLifecycle {
+                                    lifecycle: CaseLifecycle::Open,
+                                },
+                            },
+                        },
+                    }],
+                },
+                1_700_013,
+            )
+            .unwrap()
+            .state
+            .workflow_plan_patches
+            .last()
+            .unwrap()
+            .clone();
+        store
+            .validate_workflow_plan_patch_authorized(&owner, "case:wave17-patch", &patch_a.patch_id)
+            .unwrap();
+        store
+            .adopt_workflow_plan_patch(&owner, "case:wave17-patch", &patch_a.patch_id, 1_700_014)
+            .unwrap();
+        assert_eq!(
+            store
+                .adopt_workflow_plan_patch(
+                    &owner,
+                    "case:wave17-patch",
+                    &patch_b.patch_id,
+                    1_700_015,
+                )
+                .unwrap_err(),
+            "workflow_patch_stale"
+        );
+        let final_resolution = store
+            .workflow_status_authorized(&owner, "case:wave17-patch")
+            .unwrap();
+        assert_eq!(final_resolution.effective_revision, 1);
+        assert!(final_resolution
+            .nodes
+            .iter()
+            .any(|node| node.node_id == "future-wait-a"));
+        assert!(!final_resolution
+            .nodes
+            .iter()
+            .any(|node| node.node_id == "future-wait-b"));
+        let rebuilt = store.rebuild_case_state("case:wave17-patch").unwrap();
+        assert_eq!(rebuilt.workflow_amendments.len(), 1);
+        assert_eq!(
+            final_resolution,
+            store
+                .workflow_status_authorized(&owner, "case:wave17-patch")
+                .unwrap()
+        );
+        println!(
+            "w17_planpatch: proposals=2 adopted=1 stale=1 revision={} topology_digest={}",
+            final_resolution.effective_revision, final_resolution.effective_topology_digest
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn wave17_same_tenant_handoff_moves_data_without_authority() {
+        let path = temp_store_path("wave17-handoff");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(17002);
+        let tenant_id = "tenant:wave17-handoff";
+        store
+            .bootstrap_local_security(&owner, tenant_id, "organization:wave17", 1)
+            .unwrap();
+        let root_a = h15_setup_case(&store, &owner, tenant_id, "case:handoff-a", "w17-ha");
+        let root_b = h15_setup_case(&store, &owner, tenant_id, "case:handoff-b", "w17-hb");
+        let offer_commit = store
+            .offer_case_handoff(
+                &owner,
+                "case:handoff-a",
+                "case:handoff-b",
+                HandoffData {
+                    kind: crate::handoff::HandoffDataKind::Json,
+                    value: "{\"task\":\"inspect\"}".to_string(),
+                },
+                vec!["operation-proposer".to_string()],
+                1_700_100,
+            )
+            .unwrap();
+        let offer = offer_commit.state.handoff_offers.last().unwrap().clone();
+        assert_eq!(
+            store
+                .list_pending_case_handoffs_authorized(&owner, "case:handoff-b")
+                .unwrap()
+                .len(),
+            1
+        );
+        let barrier = Arc::new(Barrier::new(8));
+        let mut contenders = Vec::new();
+        for index in 0..8 {
+            let path = path.clone();
+            let owner = owner.clone();
+            let barrier = barrier.clone();
+            let handoff_id = offer.handoff_id.clone();
+            contenders.push(thread::spawn(move || {
+                let store = LmdbRecordStore::open(&path).unwrap();
+                barrier.wait();
+                store.accept_case_handoff(
+                    &owner,
+                    "case:handoff-b",
+                    "case:handoff-a",
+                    &handoff_id,
+                    "participant:model",
+                    1_700_101 + index,
+                )
+            }));
+        }
+        let acceptances = contenders
+            .into_iter()
+            .map(|thread| thread.join().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            acceptances.iter().filter(|result| result.is_ok()).count(),
+            1
+        );
+        store
+            .record_case_handoff_result(
+                &owner,
+                "case:handoff-b",
+                &offer.handoff_id,
+                HandoffOutcome::Succeeded,
+                HandoffData {
+                    kind: crate::handoff::HandoffDataKind::Json,
+                    value: "{\"finding\":\"bounded\"}".to_string(),
+                },
+                vec![],
+                "participant:model",
+                1_700_102,
+            )
+            .unwrap();
+        let reconciled = store
+            .reconcile_case_handoff(&owner, "case:handoff-a", &offer.handoff_id, 1_700_103)
+            .unwrap();
+        assert_eq!(reconciled.state.handoff_reconciliations.len(), 1);
+        assert!(reconciled.state.grants.is_empty());
+        assert!(reconciled.state.effects.is_empty());
+        let target = store.get_case_state("case:handoff-b").unwrap().unwrap();
+        assert_eq!(target.handoff_acceptances.len(), 1);
+        assert_eq!(target.handoff_results.len(), 1);
+        assert!(target.handoff_reconciliations.is_empty());
+        assert!(store.verify_case_state("case:handoff-a").unwrap());
+        assert!(store.verify_case_state("case:handoff-b").unwrap());
+        println!(
+            "w17_handoff: handoff_id={} acceptance_contenders=8 acceptance_winners=1 source_facts=offer,reconciliation target_facts=acceptance,result source_grants=0 source_effects=0",
+            offer.handoff_id
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root_a).unwrap();
+        fs::remove_dir_all(root_b).unwrap();
+    }
+
+    #[test]
+    fn wave17_model_planpatch_is_strict_candidate_and_cannot_self_adopt() {
+        let path = temp_store_path("wave17-model-planpatch");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(17003);
+        let tenant_id = "tenant:wave17-model";
+        let case_id = "case:wave17-model";
+        store
+            .bootstrap_local_security(&owner, tenant_id, "organization:wave17", 1)
+            .unwrap();
+        let root = h15_setup_case(&store, &owner, tenant_id, case_id, "w17-model");
+        let definition = store
+            .define_workflow(
+                &owner,
+                WorkflowDefinitionInput {
+                    schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                    tenant_id: tenant_id.to_string(),
+                    workflow_key: "model-adaptation".to_string(),
+                    declared_version: "2".to_string(),
+                    name: "Model adaptation".to_string(),
+                    description: String::new(),
+                    nodes: vec![
+                        WorkflowNode {
+                            node_id: "propose-plan".to_string(),
+                            kind: WorkflowNodeKind::ModelWork {
+                                executor_slot: "model".to_string(),
+                                task: "return one strict PlanPatch JSON value".to_string(),
+                                completion: WorkflowPredicate::ExecutionProviderResult,
+                                budgets: WorkflowBudgets::default(),
+                                resource_slot: Some("workspace".to_string()),
+                                output_contract:
+                                    crate::workflow::ModelWorkOutputContract::PlanPatch,
+                            },
+                        },
+                        WorkflowNode {
+                            node_id: "owner-boundary".to_string(),
+                            kind: WorkflowNodeKind::HumanInput {
+                                actor_slot: "model".to_string(),
+                                prompt: "owner-controlled continuation".to_string(),
+                                required_roles: vec![],
+                                input_kind: HumanInputKind::Text,
+                                max_bytes: 64,
+                            },
+                        },
+                    ],
+                    edges: vec![WorkflowEdge {
+                        from: "propose-plan".to_string(),
+                        to: "owner-boundary".to_string(),
+                        kind: WorkflowEdgeKind::Always,
+                    }],
+                },
+                1_700_200,
+            )
+            .unwrap();
+        h15_bind_model_workflow(&store, &owner, case_id, &definition);
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        store
+            .commit_secured_transition(
+                &owner,
+                tenant_id,
+                secured_pending(
+                    "transition:w17:model-provider",
+                    case_id,
+                    state.generation,
+                    &owner.projected_principal_id(),
+                    TransitionPayload::ProviderAttached {
+                        participant_id: "participant:model".to_string(),
+                        provider_id: "provider:fixture".to_string(),
+                        provider_kind: "openai_compatible".to_string(),
+                        base_url: "http://127.0.0.1:1".to_string(),
+                        model_id: "model:fixture".to_string(),
+                        credential_ref: "env:W17_TEST".to_string(),
+                    },
+                ),
+                true,
+            )
+            .unwrap();
+        let base = store.workflow_status_authorized(&owner, case_id).unwrap();
+        h15_start_runtime(&store, &owner, "runtime-owner:w17-model", 4);
+        let work = store
+            .materialize_workflow_ready_work(
+                &owner,
+                "runtime-owner:w17-model",
+                case_id,
+                "/tmp/w17-model-planpatch.jsonl",
+                None,
+                1_700_201,
+            )
+            .unwrap()
+            .unwrap()
+            .item;
+        let execution_id = work
+            .workflow
+            .as_ref()
+            .unwrap()
+            .workflow_execution_id
+            .clone();
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let malformed_invocation_id = "provider-invocation:w17-model-malformed";
+        let malformed_lineage = test_provider_lineage(state.generation);
+        commit_typed(
+            &store,
+            "transition:w17:model-malformed-invocation",
+            case_id,
+            state.generation,
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: malformed_invocation_id.to_string(),
+                participant_id: "participant:model".to_string(),
+                provider_id: "provider:fixture".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:fixture".to_string(),
+                semantic_lineage: Some(malformed_lineage.clone()),
+            },
+            None,
+            vec![execution_id.clone()],
+        );
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let malformed_result_id = "provider-result:w17-model-malformed";
+        commit_typed(
+            &store,
+            "transition:w17:model-malformed-result",
+            case_id,
+            state.generation,
+            TransitionPayload::ProviderResultRecorded {
+                result_id: malformed_result_id.to_string(),
+                invocation_id: malformed_invocation_id.to_string(),
+                provider_id: "provider:fixture".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:fixture".to_string(),
+                semantic_lineage: Some(malformed_lineage),
+                output: "I think we should add a node".to_string(),
+            },
+            None,
+            vec![malformed_invocation_id.to_string(), execution_id.clone()],
+        );
+        assert!(store
+            .propose_workflow_plan_patch_from_provider_result(
+                &owner,
+                case_id,
+                malformed_result_id,
+                1_700_201,
+            )
+            .unwrap_err()
+            .starts_with("workflow_model_plan_patch_invalid"));
+        assert!(store
+            .get_case_state(case_id)
+            .unwrap()
+            .unwrap()
+            .workflow_plan_patches
+            .is_empty());
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let invocation_id = "provider-invocation:w17-model";
+        let lineage = test_provider_lineage(state.generation);
+        commit_typed(
+            &store,
+            "transition:w17:model-invocation",
+            case_id,
+            state.generation,
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: invocation_id.to_string(),
+                participant_id: "participant:model".to_string(),
+                provider_id: "provider:fixture".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:fixture".to_string(),
+                semantic_lineage: Some(lineage.clone()),
+            },
+            None,
+            vec![execution_id.clone()],
+        );
+        let patch_output = serde_json::to_string(&WorkflowPlanPatchInput {
+            schema: crate::workflow::WORKFLOW_PLAN_PATCH_SCHEMA.to_string(),
+            base_effective_topology_digest: base.effective_topology_digest,
+            operations: vec![WorkflowPatchOperation::AddNode {
+                node: WorkflowNode {
+                    node_id: "model-added-wait".to_string(),
+                    kind: WorkflowNodeKind::Wait {
+                        predicate: WorkflowPredicate::CaseLifecycle {
+                            lifecycle: CaseLifecycle::Open,
+                        },
+                    },
+                },
+            }],
+        })
+        .unwrap();
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let result_id = "provider-result:w17-model";
+        commit_typed(
+            &store,
+            "transition:w17:model-result",
+            case_id,
+            state.generation,
+            TransitionPayload::ProviderResultRecorded {
+                result_id: result_id.to_string(),
+                invocation_id: invocation_id.to_string(),
+                provider_id: "provider:fixture".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:fixture".to_string(),
+                semantic_lineage: Some(lineage),
+                output: patch_output,
+            },
+            None,
+            vec![invocation_id.to_string(), execution_id.clone()],
+        );
+        let proposed = store
+            .propose_workflow_plan_patch_from_provider_result(&owner, case_id, result_id, 1_700_202)
+            .unwrap();
+        let patch = proposed.state.workflow_plan_patches.last().unwrap().clone();
+        let (output_contract, output_topology_digest) = store
+            .workflow_model_output_contract_authorized(&owner, case_id, &execution_id)
+            .unwrap();
+        assert_eq!(
+            output_contract,
+            crate::workflow::ModelWorkOutputContract::PlanPatch
+        );
+        assert_eq!(output_topology_digest, patch.base_effective_topology_digest);
+        let repeated = store
+            .propose_workflow_plan_patch_from_provider_result(&owner, case_id, result_id, 1_700_299)
+            .unwrap();
+        assert_eq!(
+            repeated.transition.transition_id,
+            proposed.transition.transition_id
+        );
+        assert_eq!(repeated.state.workflow_plan_patches.len(), 1);
+        assert!(matches!(
+            patch.origin,
+            WorkflowPlanPatchOrigin::ModelProviderResult { .. }
+        ));
+        assert!(proposed.state.workflow_amendments.is_empty());
+        assert_eq!(
+            store
+                .adopt_workflow_plan_patch(&owner, case_id, &patch.patch_id, 1_700_203)
+                .unwrap_err(),
+            "workflow_amendment_requires_quiescent_boundary"
+        );
+        store
+            .advance_workflow_passive_progress(&owner, case_id, 4)
+            .unwrap();
+        store
+            .adopt_workflow_plan_patch(&owner, case_id, &patch.patch_id, 1_700_204)
+            .unwrap();
+        let final_state = store.get_case_state(case_id).unwrap().unwrap();
+        assert_eq!(final_state.workflow_plan_patches.len(), 1);
+        assert_eq!(final_state.workflow_amendments.len(), 1);
+        println!(
+            "w17_model_patch: provider_results=2 malformed_candidates=0 valid_candidates=1 duplicate_candidates=0 auto_adoptions=0 owner_adoptions=1 patch_id={}",
+            patch.patch_id
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn wave17_eight_way_amendment_adoption_has_one_winner() {
+        let path = temp_store_path("wave17-patch-race");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(17004);
+        let tenant_id = "tenant:wave17-race";
+        let case_id = "case:wave17-race";
+        store
+            .bootstrap_local_security(&owner, tenant_id, "organization:wave17", 1)
+            .unwrap();
+        store
+            .create_tenant_case(&owner, tenant_id, case_id)
+            .unwrap();
+        let definition = store
+            .define_workflow(
+                &owner,
+                WorkflowDefinitionInput {
+                    schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                    tenant_id: tenant_id.to_string(),
+                    workflow_key: "race".to_string(),
+                    declared_version: "2".to_string(),
+                    name: "Patch race".to_string(),
+                    description: String::new(),
+                    nodes: vec![WorkflowNode {
+                        node_id: "wait-close".to_string(),
+                        kind: WorkflowNodeKind::Wait {
+                            predicate: WorkflowPredicate::CaseLifecycle {
+                                lifecycle: CaseLifecycle::Closed,
+                            },
+                        },
+                    }],
+                    edges: vec![],
+                },
+                1_700_300,
+            )
+            .unwrap();
+        store
+            .bind_case_workflow(
+                &owner,
+                case_id,
+                &definition.workflow_definition_id,
+                vec![],
+                vec![],
+                1_700_301,
+            )
+            .unwrap();
+        let base = store
+            .workflow_status_authorized(&owner, case_id)
+            .unwrap()
+            .effective_topology_digest;
+        let mut patch_ids = Vec::new();
+        for index in 0..8 {
+            let commit = store
+                .propose_workflow_plan_patch_human(
+                    &owner,
+                    case_id,
+                    WorkflowPlanPatchInput {
+                        schema: crate::workflow::WORKFLOW_PLAN_PATCH_SCHEMA.to_string(),
+                        base_effective_topology_digest: base.clone(),
+                        operations: vec![WorkflowPatchOperation::AddNode {
+                            node: WorkflowNode {
+                                node_id: format!("candidate-{index}"),
+                                kind: WorkflowNodeKind::Wait {
+                                    predicate: WorkflowPredicate::CaseLifecycle {
+                                        lifecycle: CaseLifecycle::Open,
+                                    },
+                                },
+                            },
+                        }],
+                    },
+                    1_700_310 + index,
+                )
+                .unwrap();
+            patch_ids.push(
+                commit
+                    .state
+                    .workflow_plan_patches
+                    .last()
+                    .unwrap()
+                    .patch_id
+                    .clone(),
+            );
+        }
+        let barrier = Arc::new(Barrier::new(8));
+        let mut contenders = Vec::new();
+        for (index, patch_id) in patch_ids.into_iter().enumerate() {
+            let path = path.clone();
+            let owner = owner.clone();
+            let barrier = barrier.clone();
+            contenders.push(thread::spawn(move || {
+                let store = LmdbRecordStore::open(&path).unwrap();
+                barrier.wait();
+                store.adopt_workflow_plan_patch(
+                    &owner,
+                    case_id,
+                    &patch_id,
+                    1_700_400 + index as u64,
+                )
+            }));
+        }
+        let outcomes = contenders
+            .into_iter()
+            .map(|thread| thread.join().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(outcomes.iter().filter(|result| result.is_ok()).count(), 1);
+        assert!(outcomes
+            .iter()
+            .filter_map(|result| result.as_ref().err())
+            .all(|error| error == "workflow_patch_stale"));
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        assert_eq!(state.workflow_amendments.len(), 1);
+        assert_eq!(
+            store
+                .workflow_status_authorized(&owner, case_id)
+                .unwrap()
+                .effective_revision,
+            1
+        );
+        println!(
+            "w17_patch_race: contenders=8 winners=1 stale=7 amendments={} revision=1",
+            state.workflow_amendments.len()
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn wave17_handoff_cycle_and_cross_tenant_edges_fail_closed() {
+        let path = temp_store_path("wave17-handoff-negative");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(17005);
+        store
+            .bootstrap_local_security(&owner, "tenant:w17-a", "organization:a", 1)
+            .unwrap();
+        store
+            .create_tenant_case(&owner, "tenant:w17-a", "case:cycle-a")
+            .unwrap();
+        store
+            .create_tenant_case(&owner, "tenant:w17-a", "case:cycle-b")
+            .unwrap();
+        store
+            .offer_case_handoff(
+                &owner,
+                "case:cycle-a",
+                "case:cycle-b",
+                HandoffData {
+                    kind: crate::handoff::HandoffDataKind::Text,
+                    value: "A waits for B".to_string(),
+                },
+                vec![],
+                1_700_500,
+            )
+            .unwrap();
+        assert_eq!(
+            store
+                .offer_case_handoff(
+                    &owner,
+                    "case:cycle-b",
+                    "case:cycle-a",
+                    HandoffData {
+                        kind: crate::handoff::HandoffDataKind::Text,
+                        value: "B waits for A".to_string(),
+                    },
+                    vec![],
+                    1_700_501,
+                )
+                .unwrap_err(),
+            "handoff_offer_rederivation_mismatch"
+        );
+        store
+            .bootstrap_local_security(&owner, "tenant:w17-b", "organization:b", 2)
+            .unwrap();
+        store
+            .create_tenant_case(&owner, "tenant:w17-a", "case:cross-source")
+            .unwrap();
+        store
+            .create_tenant_case(&owner, "tenant:w17-b", "case:other-tenant")
+            .unwrap();
+        assert_eq!(
+            store
+                .offer_case_handoff(
+                    &owner,
+                    "case:cross-source",
+                    "case:other-tenant",
+                    HandoffData {
+                        kind: crate::handoff::HandoffDataKind::Text,
+                        value: "must not cross Tenant".to_string(),
+                    },
+                    vec![],
+                    1_700_502,
+                )
+                .unwrap_err(),
+            "handoff_offer_rederivation_mismatch"
+        );
+        assert!(store
+            .get_case_state("case:other-tenant")
+            .unwrap()
+            .unwrap()
+            .handoff_acceptances
+            .is_empty());
+        println!(
+            "w17_handoff_negative: active_cycle=rejected cross_tenant=rejected target_payloads=0"
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn wave17_subflow_progresses_inside_one_case_and_replays_without_run_owner() {
+        let path = temp_store_path("wave17-subflow-progress");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(17006);
+        let tenant_id = "tenant:wave17-subflow";
+        let case_id = "case:wave17-subflow";
+        store
+            .bootstrap_local_security(&owner, tenant_id, "organization:wave17", 1)
+            .unwrap();
+        store
+            .create_tenant_case(&owner, tenant_id, case_id)
+            .unwrap();
+        let child = store
+            .define_workflow(
+                &owner,
+                WorkflowDefinitionInput {
+                    schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                    tenant_id: tenant_id.to_string(),
+                    workflow_key: "child-passive".to_string(),
+                    declared_version: "2".to_string(),
+                    name: "Child passive".to_string(),
+                    description: String::new(),
+                    nodes: vec![WorkflowNode {
+                        node_id: "child-ready".to_string(),
+                        kind: WorkflowNodeKind::Wait {
+                            predicate: WorkflowPredicate::CaseLifecycle {
+                                lifecycle: CaseLifecycle::Open,
+                            },
+                        },
+                    }],
+                    edges: vec![],
+                },
+                1_700_600,
+            )
+            .unwrap();
+        let parent = store
+            .define_workflow(
+                &owner,
+                WorkflowDefinitionInput {
+                    schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                    tenant_id: tenant_id.to_string(),
+                    workflow_key: "parent-passive".to_string(),
+                    declared_version: "2".to_string(),
+                    name: "Parent passive".to_string(),
+                    description: String::new(),
+                    nodes: vec![WorkflowNode {
+                        node_id: "child-instance".to_string(),
+                        kind: WorkflowNodeKind::Subflow {
+                            workflow_definition_id: child.workflow_definition_id.clone(),
+                            workflow_definition_digest: child.integrity_digest.clone(),
+                            executor_slot_mapping: vec![],
+                            resource_slot_mapping: vec![],
+                            case_slot_mapping: vec![],
+                        },
+                    }],
+                    edges: vec![],
+                },
+                1_700_601,
+            )
+            .unwrap();
+        store
+            .bind_case_workflow(
+                &owner,
+                case_id,
+                &parent.workflow_definition_id,
+                vec![],
+                vec![],
+                1_700_602,
+            )
+            .unwrap();
+        let before = store.workflow_status_authorized(&owner, case_id).unwrap();
+        assert_eq!(before.nodes.len(), 2);
+        assert_eq!(before.ready_work.len(), 0);
+        let complete = store
+            .advance_workflow_passive_progress(&owner, case_id, 4)
+            .unwrap();
+        assert!(complete.completed);
+        assert_eq!(complete.satisfied_count, 2);
+        assert!(complete
+            .nodes
+            .iter()
+            .any(|node| node.node_id == "root/child-instance/child-ready"));
+        let before_rebuild_digest = complete.effective_topology_digest.clone();
+        let rebuilt = store.rebuild_case_state(case_id).unwrap();
+        assert_eq!(rebuilt.workflow_satisfactions.len(), 2);
+        let replayed = store.workflow_status_authorized(&owner, case_id).unwrap();
+        assert_eq!(complete, replayed);
+        assert_eq!(replayed.effective_topology_digest, before_rebuild_digest);
+        assert!(store
+            .list_runtime_work_authorized(&owner)
+            .unwrap()
+            .is_empty());
+        println!(
+            "w17_subflow_progress: cases=1 definitions=2 qualified_nodes=2 work_items=0 completed=true digest={}",
+            replayed.effective_topology_digest
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn wave17_workflow_handoff_waits_worker_free_until_source_reconciliation() {
+        let path = temp_store_path("wave17-workflow-handoff");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(17007);
+        let tenant_id = "tenant:wave17-workflow-handoff";
+        let source_case = "case:workflow-handoff-source";
+        let target_case = "case:workflow-handoff-target";
+        store
+            .bootstrap_local_security(&owner, tenant_id, "organization:wave17", 1)
+            .unwrap();
+        let root_source = h15_setup_case(&store, &owner, tenant_id, source_case, "w17-whs");
+        let root_target = h15_setup_case(&store, &owner, tenant_id, target_case, "w17-wht");
+        let definition = store
+            .define_workflow(
+                &owner,
+                WorkflowDefinitionInput {
+                    schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                    tenant_id: tenant_id.to_string(),
+                    workflow_key: "handoff-node".to_string(),
+                    declared_version: "2".to_string(),
+                    name: "Handoff node".to_string(),
+                    description: String::new(),
+                    nodes: vec![WorkflowNode {
+                        node_id: "delegate".to_string(),
+                        kind: WorkflowNodeKind::Handoff {
+                            target_case_slot: "target".to_string(),
+                            request: HandoffData {
+                                kind: crate::handoff::HandoffDataKind::Json,
+                                value: "{\"task\":\"target-local-work\"}".to_string(),
+                            },
+                            required_target_roles: vec!["operation-proposer".to_string()],
+                            completion: WorkflowPredicate::HandoffReconciled { outcome: None },
+                        },
+                    }],
+                    edges: vec![],
+                },
+                1_700_700,
+            )
+            .unwrap();
+        store
+            .bind_case_workflow_composed(
+                &owner,
+                source_case,
+                &definition.workflow_definition_id,
+                vec![],
+                vec![],
+                vec![WorkflowCaseBinding {
+                    slot: "target".to_string(),
+                    case_id: target_case.to_string(),
+                }],
+                1_700_701,
+            )
+            .unwrap();
+        let waiting = store
+            .advance_workflow_passive_progress(&owner, source_case, 4)
+            .unwrap();
+        assert!(!waiting.completed);
+        let source = store.get_case_state(source_case).unwrap().unwrap();
+        assert_eq!(source.handoff_offers.len(), 1);
+        assert!(store
+            .list_runtime_work_authorized(&owner)
+            .unwrap()
+            .is_empty());
+        let handoff_id = source.handoff_offers[0].handoff_id.clone();
+        store
+            .accept_case_handoff(
+                &owner,
+                target_case,
+                source_case,
+                &handoff_id,
+                "participant:model",
+                1_700_702,
+            )
+            .unwrap();
+        store
+            .record_case_handoff_result(
+                &owner,
+                target_case,
+                &handoff_id,
+                HandoffOutcome::Succeeded,
+                HandoffData {
+                    kind: crate::handoff::HandoffDataKind::Text,
+                    value: "target-local result".to_string(),
+                },
+                vec![],
+                "participant:model",
+                1_700_703,
+            )
+            .unwrap();
+        assert!(
+            !store
+                .workflow_status_authorized(&owner, source_case)
+                .unwrap()
+                .completed
+        );
+        store
+            .reconcile_case_handoff(&owner, source_case, &handoff_id, 1_700_704)
+            .unwrap();
+        let completed = store
+            .advance_workflow_passive_progress(&owner, source_case, 4)
+            .unwrap();
+        assert!(completed.completed);
+        assert_eq!(completed.satisfied_count, 1);
+        assert!(store
+            .list_runtime_work_authorized(&owner)
+            .unwrap()
+            .is_empty());
+        assert!(store.verify_case_state(source_case).unwrap());
+        assert!(store.verify_case_state(target_case).unwrap());
+        println!(
+            "w17_workflow_handoff: offer=1 accept=1 result=1 reconcile=1 source_satisfaction=1 workers_held=0 handoff_id={handoff_id}"
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root_source).unwrap();
+        fs::remove_dir_all(root_target).unwrap();
+    }
+
+    #[test]
+    fn wave17_handoff_terminal_case_matrix_preserves_both_histories() {
+        let path = temp_store_path("wave17-handoff-terminal");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(17008);
+        let tenant_id = "tenant:wave17-handoff-terminal";
+        store
+            .bootstrap_local_security(&owner, tenant_id, "organization:wave17", 1)
+            .unwrap();
+
+        let before_source = h15_setup_case(
+            &store,
+            &owner,
+            tenant_id,
+            "case:handoff-before-source",
+            "w17-hbs",
+        );
+        let before_target = h15_setup_case(
+            &store,
+            &owner,
+            tenant_id,
+            "case:handoff-before-target",
+            "w17-hbt",
+        );
+        let offer = store
+            .offer_case_handoff(
+                &owner,
+                "case:handoff-before-source",
+                "case:handoff-before-target",
+                HandoffData {
+                    kind: crate::handoff::HandoffDataKind::Text,
+                    value: "not accepted before source cancellation".to_string(),
+                },
+                vec!["operation-proposer".to_string()],
+                1_700_800,
+            )
+            .unwrap()
+            .state
+            .handoff_offers[0]
+            .clone();
+        store
+            .cancel_tenant_case(
+                &owner,
+                "case:handoff-before-source",
+                "source cancelled before acceptance",
+            )
+            .unwrap();
+        assert!(store
+            .accept_case_handoff(
+                &owner,
+                "case:handoff-before-target",
+                "case:handoff-before-source",
+                &offer.handoff_id,
+                "participant:model",
+                1_700_801,
+            )
+            .unwrap_err()
+            .contains("handoff_acceptance_rederivation_mismatch"));
+
+        let after_source = h15_setup_case(
+            &store,
+            &owner,
+            tenant_id,
+            "case:handoff-after-source",
+            "w17-has",
+        );
+        let after_target = h15_setup_case(
+            &store,
+            &owner,
+            tenant_id,
+            "case:handoff-after-target",
+            "w17-hat",
+        );
+        let accepted_offer = store
+            .offer_case_handoff(
+                &owner,
+                "case:handoff-after-source",
+                "case:handoff-after-target",
+                HandoffData {
+                    kind: crate::handoff::HandoffDataKind::Text,
+                    value: "accepted target later cancelled".to_string(),
+                },
+                vec!["operation-proposer".to_string()],
+                1_700_802,
+            )
+            .unwrap()
+            .state
+            .handoff_offers[0]
+            .clone();
+        store
+            .accept_case_handoff(
+                &owner,
+                "case:handoff-after-target",
+                "case:handoff-after-source",
+                &accepted_offer.handoff_id,
+                "participant:model",
+                1_700_803,
+            )
+            .unwrap();
+        store
+            .cancel_tenant_case(
+                &owner,
+                "case:handoff-after-target",
+                "target cancelled after acceptance",
+            )
+            .unwrap();
+        let reconciliation = store
+            .reconcile_case_handoff(
+                &owner,
+                "case:handoff-after-source",
+                &accepted_offer.handoff_id,
+                1_700_804,
+            )
+            .unwrap();
+        assert_eq!(
+            reconciliation.state.handoff_reconciliations[0].outcome,
+            HandoffOutcome::Cancelled
+        );
+        assert!(store
+            .get_case_state("case:handoff-after-target")
+            .unwrap()
+            .unwrap()
+            .handoff_results
+            .is_empty());
+        assert!(store
+            .verify_case_state("case:handoff-before-source")
+            .unwrap());
+        assert!(store
+            .verify_case_state("case:handoff-before-target")
+            .unwrap());
+        assert!(store
+            .verify_case_state("case:handoff-after-source")
+            .unwrap());
+        assert!(store
+            .verify_case_state("case:handoff-after-target")
+            .unwrap());
+        println!(
+            "w17_handoff_terminal: source_cancel_before_accept=rejected target_cancel_after_accept=reconciled_cancelled target_results=0 histories_verified=4"
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        for root in [before_source, before_target, after_source, after_target] {
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn wave17_four_case_handoff_chain_replays_without_process_owner() {
+        let path = temp_store_path("wave17-handoff-chain");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(17009);
+        let tenant_id = "tenant:wave17-chain";
+        store
+            .bootstrap_local_security(&owner, tenant_id, "organization:wave17", 1)
+            .unwrap();
+        let cases = [
+            "case:chain-a",
+            "case:chain-b",
+            "case:chain-c",
+            "case:chain-d",
+        ];
+        let roots = cases
+            .iter()
+            .enumerate()
+            .map(|(index, case_id)| {
+                h15_setup_case(
+                    &store,
+                    &owner,
+                    tenant_id,
+                    case_id,
+                    &format!("w17-chain-{index}"),
+                )
+            })
+            .collect::<Vec<_>>();
+        let mut offers = Vec::new();
+        for index in 0..3 {
+            let offer = store
+                .offer_case_handoff(
+                    &owner,
+                    cases[index],
+                    cases[index + 1],
+                    HandoffData {
+                        kind: crate::handoff::HandoffDataKind::Json,
+                        value: format!("{{\"step\":{index}}}"),
+                    },
+                    vec![],
+                    1_701_000 + index as u64,
+                )
+                .unwrap()
+                .state
+                .handoff_offers
+                .last()
+                .unwrap()
+                .clone();
+            store
+                .accept_case_handoff(
+                    &owner,
+                    cases[index + 1],
+                    cases[index],
+                    &offer.handoff_id,
+                    "participant:model",
+                    1_701_010 + index as u64,
+                )
+                .unwrap();
+            offers.push(offer);
+        }
+        for index in (0..3).rev() {
+            store
+                .record_case_handoff_result(
+                    &owner,
+                    cases[index + 1],
+                    &offers[index].handoff_id,
+                    HandoffOutcome::Succeeded,
+                    HandoffData {
+                        kind: crate::handoff::HandoffDataKind::Json,
+                        value: format!("{{\"completed_step\":{index}}}"),
+                    },
+                    vec![],
+                    "participant:model",
+                    1_701_020 + (2 - index) as u64,
+                )
+                .unwrap();
+            store
+                .reconcile_case_handoff(
+                    &owner,
+                    cases[index],
+                    &offers[index].handoff_id,
+                    1_701_030 + (2 - index) as u64,
+                )
+                .unwrap();
+        }
+        for case_id in cases {
+            assert!(store.verify_case_state(case_id).unwrap());
+            let rebuilt = store.rebuild_case_state(case_id).unwrap();
+            assert_eq!(
+                rebuilt,
+                store.get_case_state(case_id).unwrap().unwrap(),
+                "each Case must replay independently"
+            );
+        }
+        let source = store.get_case_state(cases[0]).unwrap().unwrap();
+        let middle_b = store.get_case_state(cases[1]).unwrap().unwrap();
+        let middle_c = store.get_case_state(cases[2]).unwrap().unwrap();
+        let target = store.get_case_state(cases[3]).unwrap().unwrap();
+        assert_eq!(source.handoff_reconciliations.len(), 1);
+        assert_eq!(middle_b.handoff_reconciliations.len(), 1);
+        assert_eq!(middle_c.handoff_reconciliations.len(), 1);
+        assert!(target.handoff_reconciliations.is_empty());
+        assert!(cases.iter().all(|case_id| store
+            .get_case_state(case_id)
+            .unwrap()
+            .unwrap()
+            .grants
+            .is_empty()));
+        println!(
+            "w17_handoff_chain: cases=4 edges=3 accepts=3 results=3 reconciliations=3 histories_replayed=4 process_owners=0 imported_grants=0"
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        for root in roots {
+            fs::remove_dir_all(root).unwrap();
+        }
     }
 }

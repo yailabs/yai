@@ -1,0 +1,7 @@
+edge_attempt	active_wait_graph	result	rationale
+A→B	A waits B	accepted graph edge	acyclic
+A→B then B→A	cycle	second offer rejected	prevents mutual passive deadlock
+A→B→C→D	acyclic chain	admitted	each Case independently replayable
+self A→A	self-cycle	rejected	no W17 self-handoff consumer
+cross-Tenant A→X	not in same security graph	rejected	no federation
+terminal reconciled edge	removed from active wait graph	future unrelated edge may proceed	graph is derived from unresolved handoffs

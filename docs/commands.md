@@ -85,3 +85,20 @@ always passes through the typed envelope.
 This registry is not a public SDK or network API authority. It does not add CLI
 state, an ambient selected Case, a WorkflowRun owner, an Agent, a scheduler or
 an LMDB database.
+
+## Adaptive Workflow and Case handoff
+
+Wave 17 extends the same registry; it does not add a parser or dispatch path.
+`workflow patch propose` records a bounded candidate and `workflow patch
+adopt` is a separate Tenant-Owner mutation. Model-originated candidates are
+parsed from one exact ProviderResult with `workflow patch propose-model`; they
+never self-adopt. `workflow status` remains a read-only projection of the base
+Definition plus Case-local amendments and reports the effective revision and
+topology digest.
+
+Same-Tenant work transfer is Case-centric under `case handoff`. Offer,
+accept/decline, target-local result and source reconciliation are separate
+typed operations. The target receives only the bounded offer payload and keeps
+its own Participants, policy, resources, provider, Decisions, Grants and
+Effects. A waiting Workflow Handoff node occupies neither a runtime worker nor
+a ResourceFence.

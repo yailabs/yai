@@ -1,8 +1,9 @@
 # Workflow Refoundation Plan
 
-Status: the bounded Wave-15 kernel and H15 adversarial closure are published.
-Wave 16 is the current CLI product refoundation. Waves 17 and 18 remain forward
-design boundaries, not current runtime claims.
+Status: the bounded Wave-15 kernel, H15 adversarial closure and Wave-16 CLI
+product boundary are published. Wave 17 implements the current adaptive
+composition boundary. Wave 18 remains forward design, not a current runtime
+claim.
 
 ## Constitutional ownership
 
@@ -72,7 +73,29 @@ Case A: HandoffOffered
 ```
 
 Every Case retains its own history and authority. Initial scope is same-Tenant;
-cross-Tenant federation is not authorized.
+cross-Tenant federation is not authorized. Source Workflow progression uses a
+source-local `HandoffReconciled` fact and never reads target history as live
+Workflow truth.
+
+## Case-local adaptation
+
+The implemented composition is:
+
+```text
+immutable root WorkflowDefinition
+  + exact CaseWorkflowBinding
+  + ordered WorkflowAmendment facts in the Case Transition history
+  + exact immutable child WorkflowDefinitions
+  -> derived EffectiveWorkflowTopology
+  -> existing deterministic resolver and RuntimeInstance
+```
+
+PlanPatch is bounded candidate material. Human or model proposal is distinct
+from Tenant-Owner adoption; the current topology digest provides optimistic
+concurrency and there is no rebase or merge. Frozen progression cannot be
+rewritten. Subflow expands an exact same-Tenant Definition inside the same
+Case using qualified instance paths; it creates no child Case, worker pool or
+authority owner.
 
 ## Planned delivery sequence
 
@@ -82,14 +105,14 @@ cross-Tenant federation is not authorized.
 - H15: complete — predicate type safety, concurrent progression, definition
   integrity/retention, deterministic replay, crash recovery and authority
   isolation.
-- Wave 16: current — CLI Product Refoundation: porcelain/plumbing separation, canonical
-  command registry, parser lanes and output-family alignment.
-- Wave 17: typed PlanPatch, bounded subflows, adaptive evolution and
-  same-Tenant handoff/reconciliation.
+- Wave 16: complete — CLI Product Refoundation: porcelain/plumbing separation,
+  canonical command registry, parser lanes and output-family alignment.
+- Wave 17: current — typed PlanPatch, Case-local immutable amendment lineage,
+  bounded exact Subflow composition and same-Tenant handoff/reconciliation.
 - Wave 18: provider governance and optional provider-native qualification,
   without making provider capability the source of Workflow or Case authority.
 
-The Wave 16 reservation does not make CLI parsing or output a Workflow owner.
-The Wave 17 reservation does not authorize mutable definitions, subflows or
-handoffs in H15. The Wave 18 reservation does not authorize provider selection,
-health or failover semantics in the Workflow kernel.
+Wave 17 does not make the CLI, PlanPatch, EffectiveTopology, Subflow or a
+multi-Case process into new authority owners. The Wave 18 reservation does not
+authorize provider selection, health or failover semantics in this Workflow
+kernel.

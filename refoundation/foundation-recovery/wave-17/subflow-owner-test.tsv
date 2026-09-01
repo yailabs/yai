@@ -1,0 +1,6 @@
+question	answer	evidence
+new Case required	no	all qualified progression remains in parent Case transitions
+new runtime required	no	child executable nodes use existing ReadyWorkSet/RuntimeInstance
+new authority required	no	child operation uses parent Case owners and exact slot mappings
+new ledger required	no	qualified node path fits v11 Case progression payloads
+independent owner verdict	no	same-Case exact composition only

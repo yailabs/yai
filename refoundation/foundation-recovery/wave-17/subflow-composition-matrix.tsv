@@ -1,0 +1,8 @@
+scenario	result	proof
+basic parent→child→parent	child qualified nodes progress in one Case	focused store replay test
+same child twice	independent qualified identities	pure topology test: 4 nodes/3 edges
+slot maps	executor/resource/case child slots resolve exact parent slots	definition validation
+cross-Tenant child	rejected	definition admission/composition validation
+direct/indirect recursion	rejected	combined Definition reference graph
+depth/expansion	max depth 4;512 nodes;2048 edges;32 Definitions	hard bounds
+patch child internals	rejected	patch targets root topology only

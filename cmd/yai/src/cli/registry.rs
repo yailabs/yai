@@ -443,11 +443,40 @@ const WORKFLOW_BIND: &[FlagSpec] = &[
     flag("--definition", Some("DEFINITION"), true),
     repeat_flag("--executor", "SLOT=PARTICIPANT"),
     repeat_flag("--resource", "SLOT=RESOURCE"),
+    repeat_flag("--case-slot", "SLOT=CASE"),
 ];
 const WORKFLOW_INPUT: &[FlagSpec] = &[
     flag("--node", Some("NODE"), true),
     flag("--value", Some("VALUE"), true),
 ];
+const WORKFLOW_PATCH_PROPOSE: &[FlagSpec] = &[flag("--file", Some("FILE"), true)];
+const HANDOFF_OFFER: &[FlagSpec] = &[
+    flag("--target", Some("CASE"), true),
+    flag("--value", Some("VALUE"), true),
+    choice_flag("--kind", &["text", "json"], false),
+    repeat_flag("--role", "ROLE"),
+];
+const HANDOFF_ACCEPT: &[FlagSpec] = &[
+    flag("--source", Some("CASE"), true),
+    flag("--handoff", Some("HANDOFF"), true),
+    flag("--participant", Some("PARTICIPANT"), true),
+];
+const HANDOFF_DECLINE: &[FlagSpec] = &[
+    flag("--source", Some("CASE"), true),
+    flag("--handoff", Some("HANDOFF"), true),
+    flag("--participant", Some("PARTICIPANT"), true),
+    flag("--reason", Some("REASON"), true),
+];
+const HANDOFF_RESULT: &[FlagSpec] = &[
+    flag("--handoff", Some("HANDOFF"), true),
+    flag("--participant", Some("PARTICIPANT"), true),
+    choice_flag("--outcome", &["succeeded", "failed", "cancelled"], true),
+    flag("--value", Some("VALUE"), true),
+    choice_flag("--kind", &["text", "json"], false),
+    repeat_flag("--evidence", "REF"),
+];
+const HANDOFF_ID: &[FlagSpec] = &[flag("--handoff", Some("HANDOFF"), true)];
+const WORKFLOW_PATCH_ID: &[FlagSpec] = &[flag("--patch", Some("PATCH"), true)];
 const REVIEW_CASE: &[FlagSpec] = &[flag("--case", Some("CASE"), true)];
 const REVIEW_RESOLVE: &[FlagSpec] = &[
     flag("--case", Some("CASE"), true),
@@ -837,6 +866,83 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         &[flag("--case", Some("CASE"), true)]
     ),
     op!(
+        "yai.case.handoff.offer",
+        ["case", "handoff", "offer"],
+        "Offer bounded work information to a same-Tenant Case",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        HANDOFF_OFFER
+    ),
+    op!(
+        "yai.case.handoff.pending",
+        ["case", "handoff", "pending"],
+        "List Handoff offers addressed to a Case",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.case.handoff.show",
+        ["case", "handoff", "show"],
+        "Show one visible Handoff protocol posture",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        HANDOFF_ID
+    ),
+    op!(
+        "yai.case.handoff.accept",
+        ["case", "handoff", "accept"],
+        "Accept a Handoff using an eligible target Participant",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        HANDOFF_ACCEPT
+    ),
+    op!(
+        "yai.case.handoff.decline",
+        ["case", "handoff", "decline"],
+        "Decline a Handoff without granting authority",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        HANDOFF_DECLINE
+    ),
+    op!(
+        "yai.case.handoff.result",
+        ["case", "handoff", "result"],
+        "Record one bounded terminal target result",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        HANDOFF_RESULT
+    ),
+    op!(
+        "yai.case.handoff.reconcile",
+        ["case", "handoff", "reconcile"],
+        "Reconcile a target disposition into source-local truth",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        HANDOFF_ID
+    ),
+    op!(
         "yai.workflow.define",
         ["workflow", "define"],
         "Admit an immutable WorkflowDefinition",
@@ -901,6 +1007,72 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         Structured,
         &[pos("case", Some("--case"))],
         WORKFLOW_INPUT
+    ),
+    op!(
+        "yai.workflow.patch.propose",
+        ["workflow", "patch", "propose"],
+        "Propose a bounded Case-local PlanPatch",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        WORKFLOW_PATCH_PROPOSE
+    ),
+    op!(
+        "yai.workflow.patch.list",
+        ["workflow", "patch", "list"],
+        "List Case-local PlanPatch candidates",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.workflow.patch.propose_model",
+        ["workflow", "patch", "propose-model"],
+        "Parse a strict PlanPatch candidate from one exact ModelWork result",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[flag("--provider-result", Some("PROVIDER_RESULT"), true)]
+    ),
+    op!(
+        "yai.workflow.patch.show",
+        ["workflow", "patch", "show"],
+        "Show one Case-local PlanPatch candidate",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        WORKFLOW_PATCH_ID
+    ),
+    op!(
+        "yai.workflow.patch.validate",
+        ["workflow", "patch", "validate"],
+        "Validate a PlanPatch against current effective topology",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        WORKFLOW_PATCH_ID
+    ),
+    op!(
+        "yai.workflow.patch.adopt",
+        ["workflow", "patch", "adopt"],
+        "Adopt a valid PlanPatch as Tenant Owner",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        WORKFLOW_PATCH_ID
     ),
     op!(
         "yai.review.pending",

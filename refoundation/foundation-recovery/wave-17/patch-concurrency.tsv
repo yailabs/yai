@@ -1,0 +1,5 @@
+scenario	contenders	winner	losers	canonical_result
+different valid same-base patches	8	1	7 workflow_patch_stale	one amendment; revision 1; one digest
+same model ProviderResult repeated	2 sequential	idempotent same transition	0 duplicate candidate	one patch
+proposal crash before adoption	1	candidate retained	n/a	topology revision unchanged
+adoption commit before scheduling	1	amendment retained	n/a	ReadyWork rederived after restart

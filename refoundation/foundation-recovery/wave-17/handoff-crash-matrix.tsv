@@ -1,0 +1,7 @@
+window	canonical_fact_after_crash	recovery	duplicate_semantic_fact
+H17-H1 after offer	HandoffOffered	pending discovery/source passive wait	0
+H17-H2 concurrent accept	one HandoffAccepted	losers re-read/refuse	0
+H17-H3 after accept before target work	HandoffAccepted	target work remains ordinary schedulable Case work	0
+H17-H4 after result before reconcile	HandoffResultRecorded	source reconcile re-resolves target exact result	0
+H17-H5 after reconcile before satisfaction	HandoffReconciled	passive source progression repairs satisfaction	0
+repeated reconcile	HandoffReconciled	returns existing transition/state	0 generation churn

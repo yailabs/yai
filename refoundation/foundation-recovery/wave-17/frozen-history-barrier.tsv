@@ -1,0 +1,7 @@
+canonical_fact	mutation_blocked	reason
+WorkflowNodeExecutionStarted	disable node; remove justifying dependency	historical readiness cannot be reinterpreted
+WorkflowNodeSatisfied	disable node; add retroactive prerequisite	completion remains frozen
+WorkflowConditionResolved	disable/replace node or outgoing meaning	branch selection remains frozen
+WorkflowHumanInputRecorded	disable owning node	accepted human data cannot disappear
+WorkflowDeterministicProposalRecorded	disable owning node	causal Operation source remains exact
+child qualified progression	disable Subflow container	started child instance is frozen

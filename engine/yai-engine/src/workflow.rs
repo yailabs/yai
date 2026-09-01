@@ -8,20 +8,26 @@
 use crate::effect::{
     digest_bytes, normalize_relative_path, DecisionOutcome, OperationKind, ProcessSignalAction,
 };
+use crate::handoff::{HandoffData, HandoffOutcome};
 use crate::transition::{
     CaseLifecycle, CaseState, EffectLifecycle, ReviewResolution, Transition, TransitionPayload,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-pub const WORKFLOW_DEFINITION_SCHEMA: &str = "yai.workflow_definition.v1";
-pub const CASE_WORKFLOW_BINDING_SCHEMA: &str = "yai.case_workflow_binding.v1";
+pub const WORKFLOW_DEFINITION_SCHEMA_V1: &str = "yai.workflow_definition.v1";
+pub const WORKFLOW_DEFINITION_SCHEMA: &str = "yai.workflow_definition.v2";
+pub const CASE_WORKFLOW_BINDING_SCHEMA_V1: &str = "yai.case_workflow_binding.v1";
+pub const CASE_WORKFLOW_BINDING_SCHEMA: &str = "yai.case_workflow_binding.v2";
 pub const WORKFLOW_NODE_EXECUTION_SCHEMA: &str = "yai.workflow_node_execution.v1";
 pub const WORKFLOW_NODE_SATISFACTION_SCHEMA: &str = "yai.workflow_node_satisfaction.v1";
 pub const WORKFLOW_CONDITION_RESOLUTION_SCHEMA: &str = "yai.workflow_condition_resolution.v1";
 pub const WORKFLOW_HUMAN_INPUT_SCHEMA: &str = "yai.workflow_human_input.v1";
 pub const WORKFLOW_DETERMINISTIC_PROPOSAL_SCHEMA: &str = "yai.workflow_deterministic_proposal.v1";
-pub const WORKFLOW_RESOLUTION_SCHEMA: &str = "yai.workflow_resolution.v1";
+pub const WORKFLOW_PLAN_PATCH_SCHEMA: &str = "yai.workflow_plan_patch.v1";
+pub const WORKFLOW_AMENDMENT_SCHEMA: &str = "yai.workflow_amendment.v1";
+pub const EFFECTIVE_WORKFLOW_TOPOLOGY_SCHEMA: &str = "yai.effective_workflow_topology.v1";
+pub const WORKFLOW_RESOLUTION_SCHEMA: &str = "yai.workflow_resolution.v2";
 
 pub const MAX_WORKFLOW_NODES: usize = 128;
 pub const MAX_WORKFLOW_EDGES: usize = 512;
@@ -31,6 +37,15 @@ pub const MAX_WORKFLOW_TASK_BYTES: usize = 64 * 1024;
 pub const MAX_WORKFLOW_INPUT_BYTES: usize = 16 * 1024;
 pub const MAX_WORKFLOW_OPERATION_CONTENT_BYTES: usize = 64 * 1024;
 pub const MAX_WORKFLOW_DEFINITION_BYTES: usize = 2 * 1024 * 1024;
+pub const MAX_WORKFLOW_PATCH_BYTES: usize = 256 * 1024;
+pub const MAX_WORKFLOW_PATCH_OPERATIONS: usize = 32;
+pub const MAX_WORKFLOW_PATCH_ADDED_NODES: usize = 16;
+pub const MAX_WORKFLOW_PATCH_ADDED_EDGES: usize = 64;
+pub const MAX_WORKFLOW_AMENDMENTS: usize = 32;
+pub const MAX_EFFECTIVE_WORKFLOW_NODES: usize = 512;
+pub const MAX_EFFECTIVE_WORKFLOW_EDGES: usize = 2048;
+pub const MAX_SUBFLOW_DEPTH: usize = 4;
+pub const MAX_REFERENCED_WORKFLOW_DEFINITIONS: usize = 32;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -97,7 +112,7 @@ impl WorkflowDefinition {
             return Err("workflow_definition_creator_invalid".to_string());
         }
         let semantic = DefinitionSemanticMaterial {
-            schema: WORKFLOW_DEFINITION_SCHEMA,
+            schema: &input.schema,
             tenant_id: &input.tenant_id,
             workflow_key: &input.workflow_key,
             declared_version: &input.declared_version,
@@ -110,7 +125,7 @@ impl WorkflowDefinition {
         let workflow_definition_id =
             format!("workflow-definition:{}", digest_component(&content_digest));
         let mut definition = Self {
-            schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+            schema: input.schema,
             workflow_definition_id,
             content_digest,
             integrity_digest: String::new(),
@@ -191,7 +206,10 @@ impl WorkflowDefinition {
 
 impl WorkflowDefinitionInput {
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != WORKFLOW_DEFINITION_SCHEMA {
+        if !matches!(
+            self.schema.as_str(),
+            WORKFLOW_DEFINITION_SCHEMA | WORKFLOW_DEFINITION_SCHEMA_V1
+        ) {
             return Err("unsupported_workflow_definition_schema".to_string());
         }
         let encoded_bytes = serde_json::to_vec(self)
@@ -215,6 +233,25 @@ impl WorkflowDefinitionInput {
         let mut ids = BTreeSet::new();
         for node in &self.nodes {
             node.validate()?;
+            if self.schema == WORKFLOW_DEFINITION_SCHEMA_V1
+                && matches!(
+                    &node.kind,
+                    WorkflowNodeKind::Subflow { .. } | WorkflowNodeKind::Handoff { .. }
+                )
+            {
+                return Err("workflow_composition_node_requires_definition_v2".to_string());
+            }
+            if self.schema == WORKFLOW_DEFINITION_SCHEMA_V1
+                && matches!(
+                    &node.kind,
+                    WorkflowNodeKind::ModelWork {
+                        output_contract: ModelWorkOutputContract::PlanPatch,
+                        ..
+                    }
+                )
+            {
+                return Err("workflow_plan_patch_output_requires_definition_v2".to_string());
+            }
             if !ids.insert(node.node_id.clone()) {
                 return Err("workflow_duplicate_node_id".to_string());
             }
@@ -226,7 +263,8 @@ impl WorkflowDefinitionInput {
                 WorkflowNodeKind::Condition { predicate }
                 | WorkflowNodeKind::Wait { predicate }
                 | WorkflowNodeKind::EffectGoal { predicate } => Some(predicate),
-                WorkflowNodeKind::HumanInput { .. } => None,
+                WorkflowNodeKind::Handoff { completion, .. } => Some(completion),
+                WorkflowNodeKind::HumanInput { .. } | WorkflowNodeKind::Subflow { .. } => None,
             };
             if let Some(WorkflowPredicate::NodeSatisfied { node_id }) = predicate {
                 if !ids.contains(node_id) || node_id == &node.node_id {
@@ -287,6 +325,7 @@ impl WorkflowNode {
                 completion,
                 budgets,
                 resource_slot,
+                output_contract: _,
             } => {
                 require_slot(executor_slot)?;
                 if task.is_empty() || task.len() > MAX_WORKFLOW_TASK_BYTES {
@@ -328,6 +367,39 @@ impl WorkflowNode {
             WorkflowNodeKind::Condition { predicate }
             | WorkflowNodeKind::Wait { predicate }
             | WorkflowNodeKind::EffectGoal { predicate } => predicate.validate()?,
+            WorkflowNodeKind::Subflow {
+                workflow_definition_id,
+                workflow_definition_digest,
+                executor_slot_mapping,
+                resource_slot_mapping,
+                case_slot_mapping,
+            } => {
+                if !workflow_definition_id.starts_with("workflow-definition:")
+                    || !workflow_definition_digest.starts_with("sha256:")
+                {
+                    return Err("workflow_subflow_reference_invalid".to_string());
+                }
+                validate_slot_mapping(executor_slot_mapping)?;
+                validate_slot_mapping(resource_slot_mapping)?;
+                validate_slot_mapping(case_slot_mapping)?;
+            }
+            WorkflowNodeKind::Handoff {
+                target_case_slot,
+                request,
+                required_target_roles,
+                completion,
+            } => {
+                require_slot(target_case_slot)?;
+                request.validate()?;
+                if required_target_roles.len() > crate::handoff::MAX_HANDOFF_ROLE_REQUIREMENTS
+                    || required_target_roles.iter().any(|role| !valid_id(role))
+                {
+                    return Err("workflow_handoff_contract_invalid".to_string());
+                }
+                if !matches!(completion, WorkflowPredicate::HandoffReconciled { .. }) {
+                    return Err("workflow_handoff_completion_invalid".to_string());
+                }
+            }
         }
         validate_predicate_placement(&self.kind)?;
         Ok(())
@@ -352,6 +424,8 @@ pub enum WorkflowNodeKind {
         budgets: WorkflowBudgets,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         resource_slot: Option<String>,
+        #[serde(default, skip_serializing_if = "ModelWorkOutputContract::is_text")]
+        output_contract: ModelWorkOutputContract,
     },
     DeterministicWork {
         proposer_slot: String,
@@ -377,6 +451,61 @@ pub enum WorkflowNodeKind {
     EffectGoal {
         predicate: WorkflowPredicate,
     },
+    Subflow {
+        workflow_definition_id: String,
+        workflow_definition_digest: String,
+        #[serde(default)]
+        executor_slot_mapping: Vec<WorkflowSlotMapping>,
+        #[serde(default)]
+        resource_slot_mapping: Vec<WorkflowSlotMapping>,
+        #[serde(default)]
+        case_slot_mapping: Vec<WorkflowSlotMapping>,
+    },
+    Handoff {
+        target_case_slot: String,
+        request: HandoffData,
+        #[serde(default)]
+        required_target_roles: Vec<String>,
+        #[serde(default = "default_handoff_completion")]
+        completion: WorkflowPredicate,
+    },
+}
+
+fn default_handoff_completion() -> WorkflowPredicate {
+    WorkflowPredicate::HandoffReconciled { outcome: None }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelWorkOutputContract {
+    #[default]
+    Text,
+    PlanPatch,
+}
+
+impl ModelWorkOutputContract {
+    fn is_text(&self) -> bool {
+        *self == Self::Text
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowSlotMapping {
+    pub child_slot: String,
+    pub parent_slot: String,
+}
+
+fn validate_slot_mapping(mapping: &[WorkflowSlotMapping]) -> Result<(), String> {
+    let mut children = BTreeSet::new();
+    for item in mapping {
+        require_slot(&item.child_slot)?;
+        require_slot(&item.parent_slot)?;
+        if !children.insert(item.child_slot.clone()) {
+            return Err("workflow_subflow_slot_mapping_duplicate".to_string());
+        }
+    }
+    Ok(())
 }
 
 fn default_human_input_bytes() -> usize {
@@ -542,6 +671,10 @@ pub enum WorkflowPredicate {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         operation_kind: Option<OperationKind>,
     },
+    HandoffReconciled {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        outcome: Option<HandoffOutcome>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -591,6 +724,7 @@ impl WorkflowPredicate {
             Self::CaseLifecycle { .. } | Self::FinalizedEffect { .. } => {
                 WorkflowPredicateScope::Case
             }
+            Self::HandoffReconciled { .. } => WorkflowPredicateScope::Node,
             Self::NodeSatisfied { .. } => WorkflowPredicateScope::Progression,
         }
     }
@@ -614,6 +748,11 @@ fn validate_predicate_placement(kind: &WorkflowNodeKind) -> Result<(), String> {
         WorkflowNodeKind::EffectGoal { predicate } => (
             Some(predicate),
             matches!(predicate, WorkflowPredicate::FinalizedEffect { .. }),
+        ),
+        WorkflowNodeKind::Subflow { .. } => (None, true),
+        WorkflowNodeKind::Handoff { completion, .. } => (
+            Some(completion),
+            matches!(completion, WorkflowPredicate::HandoffReconciled { .. }),
         ),
     };
     if permitted {
@@ -641,6 +780,13 @@ pub struct WorkflowResourceBinding {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct WorkflowCaseBinding {
+    pub slot: String,
+    pub case_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CaseWorkflowBinding {
     pub schema: String,
     pub binding_id: String,
@@ -651,6 +797,8 @@ pub struct CaseWorkflowBinding {
     pub workflow_definition_digest: String,
     pub executor_bindings: Vec<WorkflowExecutorBinding>,
     pub resource_bindings: Vec<WorkflowResourceBinding>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub case_bindings: Vec<WorkflowCaseBinding>,
     pub bound_at_generation: u64,
     pub bound_by_principal_id: String,
     pub bound_at_unix_ms: u64,
@@ -668,21 +816,91 @@ impl CaseWorkflowBinding {
         bound_by_principal_id: &str,
         bound_at_unix_ms: u64,
     ) -> Result<Self, String> {
+        Self::build_with_schema(
+            CASE_WORKFLOW_BINDING_SCHEMA_V1,
+            tenant_id,
+            case_id,
+            definition,
+            executor_bindings,
+            resource_bindings,
+            Vec::new(),
+            bound_at_generation,
+            bound_by_principal_id,
+            bound_at_unix_ms,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn build_with_case_bindings(
+        tenant_id: &str,
+        case_id: &str,
+        definition: &WorkflowDefinition,
+        executor_bindings: Vec<WorkflowExecutorBinding>,
+        resource_bindings: Vec<WorkflowResourceBinding>,
+        case_bindings: Vec<WorkflowCaseBinding>,
+        bound_at_generation: u64,
+        bound_by_principal_id: &str,
+        bound_at_unix_ms: u64,
+    ) -> Result<Self, String> {
+        Self::build_with_schema(
+            CASE_WORKFLOW_BINDING_SCHEMA,
+            tenant_id,
+            case_id,
+            definition,
+            executor_bindings,
+            resource_bindings,
+            case_bindings,
+            bound_at_generation,
+            bound_by_principal_id,
+            bound_at_unix_ms,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn build_with_schema(
+        schema: &str,
+        tenant_id: &str,
+        case_id: &str,
+        definition: &WorkflowDefinition,
+        executor_bindings: Vec<WorkflowExecutorBinding>,
+        resource_bindings: Vec<WorkflowResourceBinding>,
+        case_bindings: Vec<WorkflowCaseBinding>,
+        bound_at_generation: u64,
+        bound_by_principal_id: &str,
+        bound_at_unix_ms: u64,
+    ) -> Result<Self, String> {
         let material = serde_json::json!({
-            "schema": CASE_WORKFLOW_BINDING_SCHEMA,
+            "schema": schema,
             "tenant_id": tenant_id,
             "case_id": case_id,
             "workflow_definition_id": definition.workflow_definition_id,
             "workflow_definition_digest": definition.integrity_digest,
             "executor_bindings": executor_bindings,
             "resource_bindings": resource_bindings,
+            "case_bindings": if schema == CASE_WORKFLOW_BINDING_SCHEMA { Some(&case_bindings) } else { None },
             "bound_at_generation": bound_at_generation,
             "bound_by_principal_id": bound_by_principal_id,
             "bound_at_unix_ms": bound_at_unix_ms,
         });
+        let material = if schema == CASE_WORKFLOW_BINDING_SCHEMA_V1 {
+            serde_json::json!({
+                "schema": schema,
+                "tenant_id": tenant_id,
+                "case_id": case_id,
+                "workflow_definition_id": definition.workflow_definition_id,
+                "workflow_definition_digest": definition.integrity_digest,
+                "executor_bindings": executor_bindings,
+                "resource_bindings": resource_bindings,
+                "bound_at_generation": bound_at_generation,
+                "bound_by_principal_id": bound_by_principal_id,
+                "bound_at_unix_ms": bound_at_unix_ms,
+            })
+        } else {
+            material
+        };
         let integrity_digest = digest_serializable(&material)?;
         let result = Self {
-            schema: CASE_WORKFLOW_BINDING_SCHEMA.to_string(),
+            schema: schema.to_string(),
             binding_id: format!(
                 "case-workflow-binding:{}",
                 digest_component(&integrity_digest)
@@ -694,6 +912,7 @@ impl CaseWorkflowBinding {
             workflow_definition_digest: definition.integrity_digest.clone(),
             executor_bindings,
             resource_bindings,
+            case_bindings,
             bound_at_generation,
             bound_by_principal_id: bound_by_principal_id.to_string(),
             bound_at_unix_ms,
@@ -703,8 +922,10 @@ impl CaseWorkflowBinding {
     }
 
     pub fn validate(&self, definition: &WorkflowDefinition) -> Result<(), String> {
-        if self.schema != CASE_WORKFLOW_BINDING_SCHEMA
-            || self.tenant_id != definition.tenant_id
+        if !matches!(
+            self.schema.as_str(),
+            CASE_WORKFLOW_BINDING_SCHEMA | CASE_WORKFLOW_BINDING_SCHEMA_V1
+        ) || self.tenant_id != definition.tenant_id
             || self.workflow_definition_id != definition.workflow_definition_id
             || self.workflow_definition_digest != definition.integrity_digest
             || !self.tenant_id.starts_with("tenant:")
@@ -726,6 +947,19 @@ impl CaseWorkflowBinding {
             if binding.attachment_id.is_empty() || !resource_slots.insert(binding.slot.clone()) {
                 return Err("workflow_resource_binding_invalid".to_string());
             }
+        }
+        let mut case_slots = BTreeSet::new();
+        for binding in &self.case_bindings {
+            require_slot(&binding.slot)?;
+            if !binding.case_id.starts_with("case:")
+                || binding.case_id == self.case_id
+                || !case_slots.insert(binding.slot.clone())
+            {
+                return Err("workflow_case_binding_invalid".to_string());
+            }
+        }
+        if self.schema == CASE_WORKFLOW_BINDING_SCHEMA_V1 && !self.case_bindings.is_empty() {
+            return Err("workflow_case_binding_requires_v2".to_string());
         }
         for node in &definition.nodes {
             match &node.kind {
@@ -771,20 +1005,44 @@ impl CaseWorkflowBinding {
                         }
                     }
                 }
+                WorkflowNodeKind::Subflow { .. } => {}
+                WorkflowNodeKind::Handoff {
+                    target_case_slot, ..
+                } => {
+                    if !case_slots.contains(target_case_slot) {
+                        return Err("workflow_handoff_case_slot_unbound".to_string());
+                    }
+                }
             }
         }
-        let material = serde_json::json!({
-            "schema": self.schema,
-            "tenant_id": self.tenant_id,
-            "case_id": self.case_id,
-            "workflow_definition_id": self.workflow_definition_id,
-            "workflow_definition_digest": self.workflow_definition_digest,
-            "executor_bindings": self.executor_bindings,
-            "resource_bindings": self.resource_bindings,
-            "bound_at_generation": self.bound_at_generation,
-            "bound_by_principal_id": self.bound_by_principal_id,
-            "bound_at_unix_ms": self.bound_at_unix_ms,
-        });
+        let material = if self.schema == CASE_WORKFLOW_BINDING_SCHEMA_V1 {
+            serde_json::json!({
+                "schema": self.schema,
+                "tenant_id": self.tenant_id,
+                "case_id": self.case_id,
+                "workflow_definition_id": self.workflow_definition_id,
+                "workflow_definition_digest": self.workflow_definition_digest,
+                "executor_bindings": self.executor_bindings,
+                "resource_bindings": self.resource_bindings,
+                "bound_at_generation": self.bound_at_generation,
+                "bound_by_principal_id": self.bound_by_principal_id,
+                "bound_at_unix_ms": self.bound_at_unix_ms,
+            })
+        } else {
+            serde_json::json!({
+                "schema": self.schema,
+                "tenant_id": self.tenant_id,
+                "case_id": self.case_id,
+                "workflow_definition_id": self.workflow_definition_id,
+                "workflow_definition_digest": self.workflow_definition_digest,
+                "executor_bindings": self.executor_bindings,
+                "resource_bindings": self.resource_bindings,
+                "case_bindings": self.case_bindings,
+                "bound_at_generation": self.bound_at_generation,
+                "bound_by_principal_id": self.bound_by_principal_id,
+                "bound_at_unix_ms": self.bound_at_unix_ms,
+            })
+        };
         let digest = digest_serializable(&material)?;
         if self.integrity_digest != digest
             || self.binding_id != format!("case-workflow-binding:{}", digest_component(&digest))
@@ -806,6 +1064,13 @@ impl CaseWorkflowBinding {
             .iter()
             .find(|binding| binding.slot == slot)
             .map(|binding| binding.attachment_id.as_str())
+    }
+
+    pub fn case_for_slot(&self, slot: &str) -> Option<&str> {
+        self.case_bindings
+            .iter()
+            .find(|binding| binding.slot == slot)
+            .map(|binding| binding.case_id.as_str())
     }
 }
 
@@ -883,6 +1148,868 @@ pub struct WorkflowDeterministicProposalRecord {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "origin", rename_all = "snake_case", deny_unknown_fields)]
+pub enum WorkflowPlanPatchOrigin {
+    AuthenticatedHuman {
+        principal_id: String,
+    },
+    ModelProviderResult {
+        provider_result_id: String,
+        workflow_execution_id: String,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "operation", rename_all = "snake_case", deny_unknown_fields)]
+pub enum WorkflowPatchOperation {
+    AddNode {
+        node: WorkflowNode,
+    },
+    AddEdge {
+        edge: WorkflowEdge,
+    },
+    DisableNode {
+        node_id: String,
+    },
+    DisableEdge {
+        from: String,
+        to: String,
+        #[serde(default)]
+        kind: WorkflowEdgeKind,
+    },
+}
+
+impl WorkflowPatchOperation {
+    fn validate(&self) -> Result<(), String> {
+        match self {
+            Self::AddNode { node } => node.validate(),
+            Self::AddEdge { edge } => edge.validate(),
+            Self::DisableNode { node_id } => {
+                if valid_id(node_id) {
+                    Ok(())
+                } else {
+                    Err("workflow_patch_node_id_invalid".to_string())
+                }
+            }
+            Self::DisableEdge { from, to, .. } => {
+                if valid_id(from) && valid_id(to) && from != to {
+                    Ok(())
+                } else {
+                    Err("workflow_patch_edge_id_invalid".to_string())
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowPlanPatchInput {
+    pub schema: String,
+    pub base_effective_topology_digest: String,
+    #[serde(default)]
+    pub operations: Vec<WorkflowPatchOperation>,
+}
+
+impl WorkflowPlanPatchInput {
+    pub fn validate(&self) -> Result<(), String> {
+        let bytes = serde_json::to_vec(self)
+            .map_err(|error| format!("workflow_plan_patch_encode_failed: {error}"))?
+            .len();
+        if self.schema != WORKFLOW_PLAN_PATCH_SCHEMA
+            || !self.base_effective_topology_digest.starts_with("sha256:")
+            || self.operations.is_empty()
+            || self.operations.len() > MAX_WORKFLOW_PATCH_OPERATIONS
+            || bytes > MAX_WORKFLOW_PATCH_BYTES
+        {
+            return Err("workflow_plan_patch_bounds_invalid".to_string());
+        }
+        let mut added_nodes = 0usize;
+        let mut added_edges = 0usize;
+        for operation in &self.operations {
+            operation.validate()?;
+            match operation {
+                WorkflowPatchOperation::AddNode { .. } => added_nodes += 1,
+                WorkflowPatchOperation::AddEdge { .. } => added_edges += 1,
+                _ => {}
+            }
+        }
+        if added_nodes > MAX_WORKFLOW_PATCH_ADDED_NODES
+            || added_edges > MAX_WORKFLOW_PATCH_ADDED_EDGES
+        {
+            return Err("workflow_plan_patch_growth_bound_invalid".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowPlanPatch {
+    pub schema: String,
+    pub patch_id: String,
+    pub integrity_digest: String,
+    pub tenant_id: String,
+    pub case_id: String,
+    pub binding_id: String,
+    pub base_workflow_definition_id: String,
+    pub base_workflow_definition_digest: String,
+    pub base_effective_topology_digest: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_amendment_id: Option<String>,
+    pub base_revision: u32,
+    pub origin: WorkflowPlanPatchOrigin,
+    pub operations: Vec<WorkflowPatchOperation>,
+    pub proposed_at_generation: u64,
+    pub proposed_at_unix_ms: u64,
+}
+
+impl WorkflowPlanPatch {
+    #[allow(clippy::too_many_arguments)]
+    pub fn build(
+        input: WorkflowPlanPatchInput,
+        tenant_id: &str,
+        case_id: &str,
+        binding: &CaseWorkflowBinding,
+        parent_amendment_id: Option<String>,
+        base_revision: u32,
+        origin: WorkflowPlanPatchOrigin,
+        proposed_at_generation: u64,
+        proposed_at_unix_ms: u64,
+    ) -> Result<Self, String> {
+        input.validate()?;
+        let material = serde_json::json!({
+            "schema": WORKFLOW_PLAN_PATCH_SCHEMA,
+            "tenant_id": tenant_id,
+            "case_id": case_id,
+            "binding_id": binding.binding_id,
+            "base_workflow_definition_id": binding.workflow_definition_id,
+            "base_workflow_definition_digest": binding.workflow_definition_digest,
+            "base_effective_topology_digest": input.base_effective_topology_digest,
+            "parent_amendment_id": parent_amendment_id,
+            "base_revision": base_revision,
+            "origin": origin,
+            "operations": input.operations,
+            "proposed_at_generation": proposed_at_generation,
+            "proposed_at_unix_ms": proposed_at_unix_ms,
+        });
+        let integrity_digest = digest_serializable(&material)?;
+        let value = Self {
+            schema: WORKFLOW_PLAN_PATCH_SCHEMA.to_string(),
+            patch_id: format!(
+                "workflow-plan-patch:{}",
+                digest_component(&integrity_digest)
+            ),
+            integrity_digest,
+            tenant_id: tenant_id.to_string(),
+            case_id: case_id.to_string(),
+            binding_id: binding.binding_id.clone(),
+            base_workflow_definition_id: binding.workflow_definition_id.clone(),
+            base_workflow_definition_digest: binding.workflow_definition_digest.clone(),
+            base_effective_topology_digest: input.base_effective_topology_digest,
+            parent_amendment_id,
+            base_revision,
+            origin,
+            operations: input.operations,
+            proposed_at_generation,
+            proposed_at_unix_ms,
+        };
+        value.validate(binding)?;
+        Ok(value)
+    }
+
+    pub fn validate(&self, binding: &CaseWorkflowBinding) -> Result<(), String> {
+        WorkflowPlanPatchInput {
+            schema: self.schema.clone(),
+            base_effective_topology_digest: self.base_effective_topology_digest.clone(),
+            operations: self.operations.clone(),
+        }
+        .validate()?;
+        if self.tenant_id != binding.tenant_id
+            || self.case_id != binding.case_id
+            || self.binding_id != binding.binding_id
+            || self.base_workflow_definition_id != binding.workflow_definition_id
+            || self.base_workflow_definition_digest != binding.workflow_definition_digest
+            || self.parent_amendment_id.is_some() != (self.base_revision > 0)
+        {
+            return Err("workflow_plan_patch_binding_invalid".to_string());
+        }
+        match &self.origin {
+            WorkflowPlanPatchOrigin::AuthenticatedHuman { principal_id }
+                if !principal_id.starts_with("principal:") =>
+            {
+                return Err("workflow_plan_patch_human_origin_invalid".to_string())
+            }
+            WorkflowPlanPatchOrigin::ModelProviderResult {
+                provider_result_id,
+                workflow_execution_id,
+            } if !provider_result_id.starts_with("provider-result:")
+                || !workflow_execution_id.starts_with("workflow-execution:") =>
+            {
+                return Err("workflow_plan_patch_model_origin_invalid".to_string())
+            }
+            _ => {}
+        }
+        let material = serde_json::json!({
+            "schema": self.schema,
+            "tenant_id": self.tenant_id,
+            "case_id": self.case_id,
+            "binding_id": self.binding_id,
+            "base_workflow_definition_id": self.base_workflow_definition_id,
+            "base_workflow_definition_digest": self.base_workflow_definition_digest,
+            "base_effective_topology_digest": self.base_effective_topology_digest,
+            "parent_amendment_id": self.parent_amendment_id,
+            "base_revision": self.base_revision,
+            "origin": self.origin,
+            "operations": self.operations,
+            "proposed_at_generation": self.proposed_at_generation,
+            "proposed_at_unix_ms": self.proposed_at_unix_ms,
+        });
+        let digest = digest_serializable(&material)?;
+        if digest != self.integrity_digest
+            || self.patch_id != format!("workflow-plan-patch:{}", digest_component(&digest))
+        {
+            return Err("workflow_plan_patch_integrity_mismatch".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowAmendment {
+    pub schema: String,
+    pub amendment_id: String,
+    pub patch_id: String,
+    pub patch_integrity_digest: String,
+    pub binding_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_amendment_id: Option<String>,
+    pub revision: u32,
+    pub previous_topology_digest: String,
+    pub resulting_topology_digest: String,
+    pub operations: Vec<WorkflowPatchOperation>,
+    pub adopted_by_principal_id: String,
+    pub adopted_at_generation: u64,
+    pub adopted_at_unix_ms: u64,
+}
+
+impl WorkflowAmendment {
+    #[allow(clippy::too_many_arguments)]
+    pub fn build(
+        patch: &WorkflowPlanPatch,
+        resulting_topology_digest: &str,
+        adopted_by_principal_id: &str,
+        adopted_at_generation: u64,
+        adopted_at_unix_ms: u64,
+    ) -> Result<Self, String> {
+        let revision = patch.base_revision + 1;
+        let material = serde_json::json!({
+            "schema": WORKFLOW_AMENDMENT_SCHEMA,
+            "patch_id": patch.patch_id,
+            "patch_integrity_digest": patch.integrity_digest,
+            "binding_id": patch.binding_id,
+            "parent_amendment_id": patch.parent_amendment_id,
+            "revision": revision,
+            "previous_topology_digest": patch.base_effective_topology_digest,
+            "resulting_topology_digest": resulting_topology_digest,
+            "operations": patch.operations,
+            "adopted_by_principal_id": adopted_by_principal_id,
+            "adopted_at_generation": adopted_at_generation,
+            "adopted_at_unix_ms": adopted_at_unix_ms,
+        });
+        let digest = digest_serializable(&material)?;
+        Ok(Self {
+            schema: WORKFLOW_AMENDMENT_SCHEMA.to_string(),
+            amendment_id: format!("workflow-amendment:{}", digest_component(&digest)),
+            patch_id: patch.patch_id.clone(),
+            patch_integrity_digest: patch.integrity_digest.clone(),
+            binding_id: patch.binding_id.clone(),
+            parent_amendment_id: patch.parent_amendment_id.clone(),
+            revision,
+            previous_topology_digest: patch.base_effective_topology_digest.clone(),
+            resulting_topology_digest: resulting_topology_digest.to_string(),
+            operations: patch.operations.clone(),
+            adopted_by_principal_id: adopted_by_principal_id.to_string(),
+            adopted_at_generation,
+            adopted_at_unix_ms,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct EffectiveWorkflowNode {
+    pub node_id: String,
+    pub instance_path: String,
+    pub workflow_definition_id: String,
+    pub local_node_id: String,
+    pub node: WorkflowNode,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct EffectiveWorkflowEdge {
+    pub from: String,
+    pub to: String,
+    pub kind: WorkflowEdgeKind,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct EffectiveWorkflowTopology {
+    pub schema: String,
+    pub binding_id: String,
+    pub base_workflow_definition_id: String,
+    pub revision: u32,
+    pub topology_digest: String,
+    pub amendment_ids: Vec<String>,
+    pub referenced_definition_ids: Vec<String>,
+    pub nodes: Vec<EffectiveWorkflowNode>,
+    pub edges: Vec<EffectiveWorkflowEdge>,
+}
+
+impl EffectiveWorkflowTopology {
+    pub fn node(&self, node_id: &str) -> Option<&EffectiveWorkflowNode> {
+        self.nodes.iter().find(|node| node.node_id == node_id)
+    }
+}
+
+#[derive(Default)]
+struct ExpandedSubgraph {
+    nodes: Vec<EffectiveWorkflowNode>,
+    edges: Vec<EffectiveWorkflowEdge>,
+    roots: Vec<String>,
+    leaves: Vec<String>,
+    definitions: BTreeSet<String>,
+}
+
+pub fn derive_effective_workflow_topology(
+    definition: &WorkflowDefinition,
+    binding: &CaseWorkflowBinding,
+    amendments: &[WorkflowAmendment],
+    definitions: &BTreeMap<String, WorkflowDefinition>,
+) -> Result<EffectiveWorkflowTopology, String> {
+    definition.validate_integrity()?;
+    binding.validate(definition)?;
+    if amendments.len() > MAX_WORKFLOW_AMENDMENTS {
+        return Err("workflow_amendment_count_bound_exceeded".to_string());
+    }
+    let mut root_nodes = definition.nodes.clone();
+    let mut root_edges = definition.edges.clone();
+    let mut topology = expand_root_topology(
+        definition,
+        binding,
+        &root_nodes,
+        &root_edges,
+        0,
+        Vec::new(),
+        definitions,
+    )?;
+    for (index, amendment) in amendments.iter().enumerate() {
+        let expected_revision = index as u32 + 1;
+        let expected_parent = if index == 0 {
+            None
+        } else {
+            Some(amendments[index - 1].amendment_id.as_str())
+        };
+        if amendment.schema != WORKFLOW_AMENDMENT_SCHEMA
+            || amendment.binding_id != binding.binding_id
+            || amendment.revision != expected_revision
+            || amendment.parent_amendment_id.as_deref() != expected_parent
+            || amendment.previous_topology_digest != topology.topology_digest
+        {
+            return Err("workflow_amendment_lineage_invalid".to_string());
+        }
+        apply_patch_operations(&mut root_nodes, &mut root_edges, &amendment.operations)?;
+        topology = expand_root_topology(
+            definition,
+            binding,
+            &root_nodes,
+            &root_edges,
+            expected_revision,
+            amendments[..=index]
+                .iter()
+                .map(|value| value.amendment_id.clone())
+                .collect(),
+            definitions,
+        )?;
+        if amendment.resulting_topology_digest != topology.topology_digest {
+            return Err("workflow_amendment_resulting_digest_mismatch".to_string());
+        }
+    }
+    Ok(topology)
+}
+
+pub fn preview_workflow_patch(
+    definition: &WorkflowDefinition,
+    binding: &CaseWorkflowBinding,
+    amendments: &[WorkflowAmendment],
+    patch: &WorkflowPlanPatch,
+    definitions: &BTreeMap<String, WorkflowDefinition>,
+) -> Result<EffectiveWorkflowTopology, String> {
+    patch.validate(binding)?;
+    let current = derive_effective_workflow_topology(definition, binding, amendments, definitions)?;
+    if patch.base_effective_topology_digest != current.topology_digest
+        || patch.base_revision != current.revision
+        || patch.parent_amendment_id.as_deref()
+            != amendments.last().map(|value| value.amendment_id.as_str())
+    {
+        return Err("workflow_patch_stale".to_string());
+    }
+    let synthetic = WorkflowAmendment {
+        schema: WORKFLOW_AMENDMENT_SCHEMA.to_string(),
+        amendment_id: "workflow-amendment:preview".to_string(),
+        patch_id: patch.patch_id.clone(),
+        patch_integrity_digest: patch.integrity_digest.clone(),
+        binding_id: binding.binding_id.clone(),
+        parent_amendment_id: patch.parent_amendment_id.clone(),
+        revision: patch.base_revision + 1,
+        previous_topology_digest: current.topology_digest,
+        resulting_topology_digest: "sha256:preview".to_string(),
+        operations: patch.operations.clone(),
+        adopted_by_principal_id: "principal:preview".to_string(),
+        adopted_at_generation: 0,
+        adopted_at_unix_ms: 0,
+    };
+    let mut root_nodes = definition.nodes.clone();
+    let mut root_edges = definition.edges.clone();
+    for amendment in amendments {
+        apply_patch_operations(&mut root_nodes, &mut root_edges, &amendment.operations)?;
+    }
+    apply_patch_operations(&mut root_nodes, &mut root_edges, &synthetic.operations)?;
+    let mut ids = amendments
+        .iter()
+        .map(|value| value.amendment_id.clone())
+        .collect::<Vec<_>>();
+    ids.push(synthetic.amendment_id);
+    expand_root_topology(
+        definition,
+        binding,
+        &root_nodes,
+        &root_edges,
+        synthetic.revision,
+        ids,
+        definitions,
+    )
+}
+
+fn apply_patch_operations(
+    nodes: &mut Vec<WorkflowNode>,
+    edges: &mut Vec<WorkflowEdge>,
+    operations: &[WorkflowPatchOperation],
+) -> Result<(), String> {
+    for operation in operations {
+        operation.validate()?;
+        match operation {
+            WorkflowPatchOperation::AddNode { node } => {
+                if nodes.iter().any(|current| current.node_id == node.node_id) {
+                    return Err("workflow_patch_duplicate_node".to_string());
+                }
+                nodes.push(node.clone());
+            }
+            WorkflowPatchOperation::AddEdge { edge } => {
+                if edges.iter().any(|current| {
+                    current.from == edge.from && current.to == edge.to && current.kind == edge.kind
+                }) {
+                    return Err("workflow_patch_duplicate_edge".to_string());
+                }
+                edges.push(edge.clone());
+            }
+            WorkflowPatchOperation::DisableNode { node_id } => {
+                let before = nodes.len();
+                nodes.retain(|node| node.node_id != *node_id);
+                if nodes.len() == before {
+                    return Err("workflow_patch_disable_node_missing".to_string());
+                }
+                edges.retain(|edge| edge.from != *node_id && edge.to != *node_id);
+            }
+            WorkflowPatchOperation::DisableEdge { from, to, kind } => {
+                let before = edges.len();
+                edges.retain(|edge| !(edge.from == *from && edge.to == *to && edge.kind == *kind));
+                if edges.len() == before {
+                    return Err("workflow_patch_disable_edge_missing".to_string());
+                }
+            }
+        }
+    }
+    let validation = WorkflowDefinitionInput {
+        schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+        tenant_id: "tenant:effective".to_string(),
+        workflow_key: "effective".to_string(),
+        declared_version: "derived".to_string(),
+        name: "Effective workflow".to_string(),
+        description: String::new(),
+        nodes: nodes.clone(),
+        edges: edges.clone(),
+    };
+    validation.validate()?;
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn expand_root_topology(
+    definition: &WorkflowDefinition,
+    binding: &CaseWorkflowBinding,
+    nodes: &[WorkflowNode],
+    edges: &[WorkflowEdge],
+    revision: u32,
+    amendment_ids: Vec<String>,
+    definitions: &BTreeMap<String, WorkflowDefinition>,
+) -> Result<EffectiveWorkflowTopology, String> {
+    let mut root = definition.clone();
+    root.nodes = nodes.to_vec();
+    root.edges = edges.to_vec();
+    let mut stack = Vec::new();
+    let mut expanded = expand_definition(
+        &root,
+        "root",
+        true,
+        definitions,
+        0,
+        &mut stack,
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+        &BTreeMap::new(),
+    )?;
+    expanded
+        .nodes
+        .sort_by(|left, right| left.node_id.cmp(&right.node_id));
+    expanded.edges.sort_by(|left, right| {
+        left.from
+            .cmp(&right.from)
+            .then_with(|| left.to.cmp(&right.to))
+            .then_with(|| left.kind.cmp(&right.kind))
+    });
+    expanded.edges.dedup();
+    if expanded.nodes.len() > MAX_EFFECTIVE_WORKFLOW_NODES
+        || expanded.edges.len() > MAX_EFFECTIVE_WORKFLOW_EDGES
+        || expanded.definitions.len() > MAX_REFERENCED_WORKFLOW_DEFINITIONS
+    {
+        return Err("effective_workflow_topology_bound_exceeded".to_string());
+    }
+    validate_effective_binding(binding, &expanded.nodes)?;
+    let referenced_definition_ids = expanded.definitions.into_iter().collect::<Vec<_>>();
+    let material = serde_json::json!({
+        "schema": EFFECTIVE_WORKFLOW_TOPOLOGY_SCHEMA,
+        "binding_id": binding.binding_id,
+        "base_workflow_definition_id": definition.workflow_definition_id,
+        "revision": revision,
+        "referenced_definition_ids": referenced_definition_ids,
+        "nodes": expanded.nodes,
+        "edges": expanded.edges,
+    });
+    let topology_digest = digest_serializable(&material)?;
+    Ok(EffectiveWorkflowTopology {
+        schema: EFFECTIVE_WORKFLOW_TOPOLOGY_SCHEMA.to_string(),
+        binding_id: binding.binding_id.clone(),
+        base_workflow_definition_id: definition.workflow_definition_id.clone(),
+        revision,
+        topology_digest,
+        amendment_ids,
+        referenced_definition_ids,
+        nodes: expanded.nodes,
+        edges: expanded.edges,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn expand_definition(
+    definition: &WorkflowDefinition,
+    instance_path: &str,
+    root: bool,
+    definitions: &BTreeMap<String, WorkflowDefinition>,
+    depth: usize,
+    stack: &mut Vec<String>,
+    executor_mapping: &BTreeMap<String, String>,
+    resource_mapping: &BTreeMap<String, String>,
+    case_mapping: &BTreeMap<String, String>,
+) -> Result<ExpandedSubgraph, String> {
+    if depth > MAX_SUBFLOW_DEPTH {
+        return Err("workflow_subflow_depth_bound_exceeded".to_string());
+    }
+    if stack.contains(&definition.workflow_definition_id) {
+        return Err("workflow_subflow_recursion_cycle".to_string());
+    }
+    stack.push(definition.workflow_definition_id.clone());
+    let mut graph = ExpandedSubgraph::default();
+    graph
+        .definitions
+        .insert(definition.workflow_definition_id.clone());
+    let mut boundaries = BTreeMap::<String, (Vec<String>, Vec<String>)>::new();
+    for original in &definition.nodes {
+        let mut node = remap_node(original, executor_mapping, resource_mapping, case_mapping)?;
+        let qualified = if root {
+            node.node_id.clone()
+        } else {
+            format!("{instance_path}/{}", node.node_id)
+        };
+        qualify_node_predicate_references(&mut node, instance_path, root);
+        match &node.kind {
+            WorkflowNodeKind::Subflow {
+                workflow_definition_id,
+                workflow_definition_digest,
+                executor_slot_mapping,
+                resource_slot_mapping,
+                case_slot_mapping,
+            } => {
+                let child = definitions
+                    .get(workflow_definition_id)
+                    .ok_or_else(|| "workflow_subflow_definition_missing".to_string())?;
+                child.validate_integrity()?;
+                if child.tenant_id != definition.tenant_id
+                    || child.integrity_digest != *workflow_definition_digest
+                {
+                    return Err("workflow_subflow_definition_identity_mismatch".to_string());
+                }
+                let child_path = if root {
+                    format!("root/{}", node.node_id)
+                } else {
+                    format!("{instance_path}/{}", node.node_id)
+                };
+                let child_executor = mapping_map(executor_slot_mapping);
+                let child_resource = mapping_map(resource_slot_mapping);
+                let child_case = mapping_map(case_slot_mapping);
+                let child_graph = expand_definition(
+                    child,
+                    &child_path,
+                    false,
+                    definitions,
+                    depth + 1,
+                    stack,
+                    &child_executor,
+                    &child_resource,
+                    &child_case,
+                )?;
+                if child_graph.roots.is_empty() || child_graph.leaves.is_empty() {
+                    return Err("workflow_subflow_empty_definition".to_string());
+                }
+                for leaf in &child_graph.leaves {
+                    graph.edges.push(EffectiveWorkflowEdge {
+                        from: leaf.clone(),
+                        to: qualified.clone(),
+                        kind: WorkflowEdgeKind::Always,
+                    });
+                }
+                boundaries.insert(
+                    original.node_id.clone(),
+                    (child_graph.roots.clone(), vec![qualified.clone()]),
+                );
+                graph.nodes.extend(child_graph.nodes);
+                graph.edges.extend(child_graph.edges);
+                graph.definitions.extend(child_graph.definitions);
+                node.node_id = original.node_id.clone();
+                graph.nodes.push(EffectiveWorkflowNode {
+                    node_id: qualified,
+                    instance_path: child_path,
+                    workflow_definition_id: definition.workflow_definition_id.clone(),
+                    local_node_id: original.node_id.clone(),
+                    node,
+                });
+            }
+            _ => {
+                boundaries.insert(
+                    original.node_id.clone(),
+                    (vec![qualified.clone()], vec![qualified.clone()]),
+                );
+                node.node_id = original.node_id.clone();
+                graph.nodes.push(EffectiveWorkflowNode {
+                    node_id: qualified,
+                    instance_path: instance_path.to_string(),
+                    workflow_definition_id: definition.workflow_definition_id.clone(),
+                    local_node_id: original.node_id.clone(),
+                    node,
+                });
+            }
+        }
+    }
+    for edge in &definition.edges {
+        let (_, from_leaves) = boundaries
+            .get(&edge.from)
+            .ok_or_else(|| "workflow_dangling_edge".to_string())?;
+        let (to_roots, _) = boundaries
+            .get(&edge.to)
+            .ok_or_else(|| "workflow_dangling_edge".to_string())?;
+        for from in from_leaves {
+            for to in to_roots {
+                graph.edges.push(EffectiveWorkflowEdge {
+                    from: from.clone(),
+                    to: to.clone(),
+                    kind: edge.kind.clone(),
+                });
+            }
+        }
+    }
+    let incoming = graph
+        .edges
+        .iter()
+        .map(|edge| edge.to.clone())
+        .collect::<BTreeSet<_>>();
+    let outgoing = graph
+        .edges
+        .iter()
+        .map(|edge| edge.from.clone())
+        .collect::<BTreeSet<_>>();
+    graph.roots = graph
+        .nodes
+        .iter()
+        .filter(|node| !incoming.contains(&node.node_id))
+        .map(|node| node.node_id.clone())
+        .collect();
+    graph.leaves = graph
+        .nodes
+        .iter()
+        .filter(|node| !outgoing.contains(&node.node_id))
+        .map(|node| node.node_id.clone())
+        .collect();
+    stack.pop();
+    Ok(graph)
+}
+
+fn mapping_map(mapping: &[WorkflowSlotMapping]) -> BTreeMap<String, String> {
+    mapping
+        .iter()
+        .map(|value| (value.child_slot.clone(), value.parent_slot.clone()))
+        .collect()
+}
+
+fn remap_slot(slot: &mut String, mapping: &BTreeMap<String, String>) {
+    if let Some(parent) = mapping.get(slot) {
+        *slot = parent.clone();
+    }
+}
+
+fn remap_node(
+    node: &WorkflowNode,
+    executor_mapping: &BTreeMap<String, String>,
+    resource_mapping: &BTreeMap<String, String>,
+    case_mapping: &BTreeMap<String, String>,
+) -> Result<WorkflowNode, String> {
+    let mut node = node.clone();
+    match &mut node.kind {
+        WorkflowNodeKind::ModelWork {
+            executor_slot,
+            resource_slot,
+            ..
+        } => {
+            remap_slot(executor_slot, executor_mapping);
+            if let Some(slot) = resource_slot {
+                remap_slot(slot, resource_mapping);
+            }
+        }
+        WorkflowNodeKind::DeterministicWork {
+            proposer_slot,
+            operation,
+            ..
+        } => {
+            remap_slot(proposer_slot, executor_mapping);
+            match operation {
+                DeterministicOperationTemplate::FilesystemWrite { resource_slot, .. }
+                | DeterministicOperationTemplate::ProcessSignal { resource_slot, .. } => {
+                    remap_slot(resource_slot, resource_mapping)
+                }
+            }
+        }
+        WorkflowNodeKind::HumanInput { actor_slot, .. } => remap_slot(actor_slot, executor_mapping),
+        WorkflowNodeKind::Condition { predicate }
+        | WorkflowNodeKind::Wait { predicate }
+        | WorkflowNodeKind::EffectGoal { predicate } => {
+            if let WorkflowPredicate::FinalizedEffect {
+                resource_slot: Some(slot),
+                ..
+            } = predicate
+            {
+                remap_slot(slot, resource_mapping);
+            }
+        }
+        WorkflowNodeKind::Subflow {
+            executor_slot_mapping,
+            resource_slot_mapping,
+            case_slot_mapping,
+            ..
+        } => {
+            for item in executor_slot_mapping {
+                remap_slot(&mut item.parent_slot, executor_mapping);
+            }
+            for item in resource_slot_mapping {
+                remap_slot(&mut item.parent_slot, resource_mapping);
+            }
+            for item in case_slot_mapping {
+                remap_slot(&mut item.parent_slot, case_mapping);
+            }
+        }
+        WorkflowNodeKind::Handoff {
+            target_case_slot, ..
+        } => remap_slot(target_case_slot, case_mapping),
+    }
+    node.validate()?;
+    Ok(node)
+}
+
+fn qualify_node_predicate_references(node: &mut WorkflowNode, instance_path: &str, root: bool) {
+    if root {
+        return;
+    }
+    let predicate = match &mut node.kind {
+        WorkflowNodeKind::ModelWork { completion, .. }
+        | WorkflowNodeKind::DeterministicWork { completion, .. } => Some(completion),
+        WorkflowNodeKind::Condition { predicate }
+        | WorkflowNodeKind::Wait { predicate }
+        | WorkflowNodeKind::EffectGoal { predicate } => Some(predicate),
+        WorkflowNodeKind::Handoff { completion, .. } => Some(completion),
+        WorkflowNodeKind::HumanInput { .. } | WorkflowNodeKind::Subflow { .. } => None,
+    };
+    if let Some(WorkflowPredicate::NodeSatisfied { node_id }) = predicate {
+        *node_id = format!("{instance_path}/{node_id}");
+    }
+}
+
+fn validate_effective_binding(
+    binding: &CaseWorkflowBinding,
+    nodes: &[EffectiveWorkflowNode],
+) -> Result<(), String> {
+    for effective in nodes {
+        match &effective.node.kind {
+            WorkflowNodeKind::ModelWork {
+                executor_slot,
+                resource_slot,
+                ..
+            } => {
+                if binding.participant_for_slot(executor_slot).is_none()
+                    || resource_slot
+                        .as_ref()
+                        .is_some_and(|slot| binding.attachment_for_slot(slot).is_none())
+                {
+                    return Err("effective_workflow_model_slot_unbound".to_string());
+                }
+            }
+            WorkflowNodeKind::DeterministicWork {
+                proposer_slot,
+                operation,
+                ..
+            } => {
+                if binding.participant_for_slot(proposer_slot).is_none()
+                    || binding
+                        .attachment_for_slot(operation.resource_slot())
+                        .is_none()
+                {
+                    return Err("effective_workflow_deterministic_slot_unbound".to_string());
+                }
+            }
+            WorkflowNodeKind::HumanInput { actor_slot, .. }
+                if binding.participant_for_slot(actor_slot).is_none() =>
+            {
+                return Err("effective_workflow_human_slot_unbound".to_string())
+            }
+            WorkflowNodeKind::Handoff {
+                target_case_slot, ..
+            } if binding.case_for_slot(target_case_slot).is_none() => {
+                return Err("effective_workflow_handoff_case_slot_unbound".to_string())
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkflowNodePosture {
     PendingDependency,
@@ -922,6 +2049,10 @@ pub struct WorkflowResolution {
     pub case_generation: u64,
     pub workflow_definition_id: String,
     pub workflow_binding_id: String,
+    pub effective_revision: u32,
+    pub effective_topology_digest: String,
+    pub amendment_ids: Vec<String>,
+    pub referenced_definition_ids: Vec<String>,
     pub nodes: Vec<WorkflowNodeResolution>,
     pub ready_work: Vec<ReadyWorkflowWork>,
     pub satisfied_count: usize,
@@ -943,6 +2074,20 @@ pub fn resolve_workflow(
     state: &CaseState,
     history: &[Transition],
 ) -> Result<WorkflowResolution, String> {
+    let definitions = BTreeMap::from([(
+        definition.workflow_definition_id.clone(),
+        definition.clone(),
+    )]);
+    resolve_workflow_with_definitions(definition, binding, state, history, &definitions)
+}
+
+pub fn resolve_workflow_with_definitions(
+    definition: &WorkflowDefinition,
+    binding: &CaseWorkflowBinding,
+    state: &CaseState,
+    history: &[Transition],
+    definitions: &BTreeMap<String, WorkflowDefinition>,
+) -> Result<WorkflowResolution, String> {
     definition.validate_integrity()?;
     binding.validate(definition)?;
     validate_history_snapshot(state, history)?;
@@ -952,7 +2097,31 @@ pub fn resolve_workflow(
     {
         return Err("workflow_resolution_binding_case_mismatch".to_string());
     }
-    let order = topological_order(&definition.nodes, &definition.edges)?;
+    let topology = derive_effective_workflow_topology(
+        definition,
+        binding,
+        &state.workflow_amendments,
+        definitions,
+    )?;
+    let effective_nodes = topology
+        .nodes
+        .iter()
+        .map(|effective| {
+            let mut node = effective.node.clone();
+            node.node_id = effective.node_id.clone();
+            node
+        })
+        .collect::<Vec<_>>();
+    let effective_edges = topology
+        .edges
+        .iter()
+        .map(|edge| WorkflowEdge {
+            from: edge.from.clone(),
+            to: edge.to.clone(),
+            kind: edge.kind.clone(),
+        })
+        .collect::<Vec<_>>();
+    let order = topological_order(&effective_nodes, &effective_edges)?;
     let rank: BTreeMap<String, usize> = order
         .iter()
         .enumerate()
@@ -986,13 +2155,22 @@ pub fn resolve_workflow(
         .map(|execution| (execution.node_id.clone(), execution))
         .collect();
     let mut skipped_nodes = BTreeSet::new();
-    let mut nodes = Vec::with_capacity(definition.nodes.len());
+    let mut nodes = Vec::with_capacity(effective_nodes.len());
     let mut ready_work = Vec::new();
     for node_id in &order {
-        let node = definition.node(node_id).expect("topological node exists");
+        let node = effective_nodes
+            .iter()
+            .find(|node| node.node_id == *node_id)
+            .expect("topological node exists");
         let execution = executions.get(node_id).copied();
-        let (dependencies_ready, skipped, dependency_reason) =
-            dependency_posture(node_id, definition, &satisfied, &conditions, &skipped_nodes);
+        let (dependencies_ready, skipped, dependency_reason) = dependency_posture(
+            node_id,
+            &effective_nodes,
+            &effective_edges,
+            &satisfied,
+            &conditions,
+            &skipped_nodes,
+        );
         let (posture, reason, evidence_refs) = if state.lifecycle == CaseLifecycle::Closed {
             (
                 WorkflowNodePosture::Closed,
@@ -1103,7 +2281,11 @@ pub fn resolve_workflow(
                     )
                 }
                 WorkflowNodeKind::Wait { predicate }
-                | WorkflowNodeKind::EffectGoal { predicate } => {
+                | WorkflowNodeKind::EffectGoal { predicate }
+                | WorkflowNodeKind::Handoff {
+                    completion: predicate,
+                    ..
+                } => {
                     let evaluation = evaluate_predicate(
                         definition, binding, state, history, node_id, None, predicate,
                     )?;
@@ -1118,6 +2300,15 @@ pub fn resolve_workflow(
                         evaluation.evidence_refs,
                     )
                 }
+                WorkflowNodeKind::Subflow { .. } => (
+                    WorkflowNodePosture::WaitingEffect,
+                    "subflow_children_complete_pending_satisfaction".to_string(),
+                    effective_edges
+                        .iter()
+                        .filter(|edge| edge.to == *node_id)
+                        .map(|edge| edge.from.clone())
+                        .collect(),
+                ),
             }
         };
         nodes.push(WorkflowNodeResolution {
@@ -1169,6 +2360,10 @@ pub fn resolve_workflow(
         case_generation: state.generation,
         workflow_definition_id: definition.workflow_definition_id.clone(),
         workflow_binding_id: binding.binding_id.clone(),
+        effective_revision: topology.revision,
+        effective_topology_digest: topology.topology_digest,
+        amendment_ids: topology.amendment_ids,
+        referenced_definition_ids: topology.referenced_definition_ids,
         nodes,
         ready_work,
         satisfied_count,
@@ -1346,6 +2541,28 @@ pub fn evaluate_predicate(
                 matches
             })
         }
+        WorkflowPredicate::HandoffReconciled { outcome } => {
+            state.handoff_reconciliations.iter().any(|reconciliation| {
+                let offer_matches = state.handoff_offers.iter().any(|offer| {
+                    offer.handoff_id == reconciliation.handoff_id
+                        && offer.source_node_id == node_id
+                        && offer.source_binding_id == binding.binding_id
+                });
+                let matches = offer_matches
+                    && outcome
+                        .as_ref()
+                        .map(|expected| reconciliation.outcome == *expected)
+                        .unwrap_or(true);
+                if matches {
+                    evidence_refs.extend([
+                        reconciliation.handoff_id.clone(),
+                        reconciliation.target_disposition_id().to_string(),
+                        reconciliation.reconciliation_id.clone(),
+                    ]);
+                }
+                matches
+            })
+        }
     };
     evidence_refs.sort();
     evidence_refs.dedup();
@@ -1452,10 +2669,11 @@ pub fn node_completion_predicate(node: &WorkflowNode) -> Option<&WorkflowPredica
     match &node.kind {
         WorkflowNodeKind::ModelWork { completion, .. }
         | WorkflowNodeKind::DeterministicWork { completion, .. } => Some(completion),
-        WorkflowNodeKind::HumanInput { .. } => None,
+        WorkflowNodeKind::HumanInput { .. } | WorkflowNodeKind::Subflow { .. } => None,
         WorkflowNodeKind::Condition { predicate }
         | WorkflowNodeKind::Wait { predicate }
         | WorkflowNodeKind::EffectGoal { predicate } => Some(predicate),
+        WorkflowNodeKind::Handoff { completion, .. } => Some(completion),
     }
 }
 
@@ -1467,25 +2685,30 @@ pub fn node_kind_name(kind: &WorkflowNodeKind) -> &'static str {
         WorkflowNodeKind::Condition { .. } => "condition",
         WorkflowNodeKind::Wait { .. } => "wait",
         WorkflowNodeKind::EffectGoal { .. } => "effect_goal",
+        WorkflowNodeKind::Subflow { .. } => "subflow",
+        WorkflowNodeKind::Handoff { .. } => "handoff",
     }
 }
 
 fn dependency_posture(
     node_id: &str,
-    definition: &WorkflowDefinition,
+    nodes: &[WorkflowNode],
+    edges: &[WorkflowEdge],
     satisfied: &BTreeSet<String>,
     conditions: &BTreeMap<String, bool>,
     skipped: &BTreeSet<String>,
 ) -> (bool, bool, String) {
-    let mut incoming: Vec<(String, WorkflowEdgeKind)> = definition
-        .edges
+    let mut incoming: Vec<(String, WorkflowEdgeKind)> = edges
         .iter()
         .filter(|edge| edge.to == node_id)
         .map(|edge| (edge.from.clone(), edge.kind.clone()))
         .collect();
     if let Some(WorkflowPredicate::NodeSatisfied {
         node_id: dependency,
-    }) = definition.node(node_id).and_then(node_completion_predicate)
+    }) = nodes
+        .iter()
+        .find(|node| node.node_id == node_id)
+        .and_then(node_completion_predicate)
     {
         if !incoming.iter().any(|(source, _)| source == dependency) {
             incoming.push((dependency.clone(), WorkflowEdgeKind::Always));
@@ -1694,6 +2917,7 @@ mod tests {
                 completion: WorkflowPredicate::ExecutionProviderResult,
                 budgets: WorkflowBudgets::default(),
                 resource_slot: None,
+                output_contract: ModelWorkOutputContract::Text,
             },
         }
     }
@@ -2520,5 +3744,270 @@ mod tests {
             vec!["z-join"]
         );
         assert!(!resolution.completed);
+    }
+
+    #[test]
+    fn wave17_same_child_definition_twice_has_qualified_instance_identity() {
+        let child = WorkflowDefinition::build(
+            WorkflowDefinitionInput {
+                schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                tenant_id: "tenant:test".to_string(),
+                workflow_key: "child".to_string(),
+                declared_version: "2".to_string(),
+                name: "Child".to_string(),
+                description: String::new(),
+                nodes: vec![model("child-work")],
+                edges: vec![],
+            },
+            "principal:p",
+            1,
+        )
+        .unwrap();
+        let subflow = |node_id: &str| WorkflowNode {
+            node_id: node_id.to_string(),
+            kind: WorkflowNodeKind::Subflow {
+                workflow_definition_id: child.workflow_definition_id.clone(),
+                workflow_definition_digest: child.integrity_digest.clone(),
+                executor_slot_mapping: vec![WorkflowSlotMapping {
+                    child_slot: "model".to_string(),
+                    parent_slot: "model".to_string(),
+                }],
+                resource_slot_mapping: vec![],
+                case_slot_mapping: vec![],
+            },
+        };
+        let parent = WorkflowDefinition::build(
+            WorkflowDefinitionInput {
+                schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                tenant_id: "tenant:test".to_string(),
+                workflow_key: "parent".to_string(),
+                declared_version: "2".to_string(),
+                name: "Parent".to_string(),
+                description: String::new(),
+                nodes: vec![subflow("left"), subflow("right")],
+                edges: vec![WorkflowEdge {
+                    from: "left".to_string(),
+                    to: "right".to_string(),
+                    kind: WorkflowEdgeKind::Always,
+                }],
+            },
+            "principal:p",
+            2,
+        )
+        .unwrap();
+        let binding = CaseWorkflowBinding::build(
+            "tenant:test",
+            "case:test",
+            &parent,
+            vec![WorkflowExecutorBinding {
+                slot: "model".to_string(),
+                participant_id: "participant:model".to_string(),
+            }],
+            vec![],
+            1,
+            "principal:p",
+            3,
+        )
+        .unwrap();
+        let definitions = BTreeMap::from([
+            (parent.workflow_definition_id.clone(), parent.clone()),
+            (child.workflow_definition_id.clone(), child.clone()),
+        ]);
+        let topology =
+            derive_effective_workflow_topology(&parent, &binding, &[], &definitions).unwrap();
+        let ids = topology
+            .nodes
+            .iter()
+            .map(|node| node.node_id.as_str())
+            .collect::<BTreeSet<_>>();
+        assert!(ids.contains("root/left/child-work"));
+        assert!(ids.contains("root/right/child-work"));
+        assert!(ids.contains("left"));
+        assert!(ids.contains("right"));
+        assert_eq!(ids.len(), 4);
+        assert!(topology
+            .edges
+            .iter()
+            .any(|edge| { edge.from == "root/left/child-work" && edge.to == "left" }));
+        assert!(topology
+            .edges
+            .iter()
+            .any(|edge| edge.from == "left" && edge.to == "root/right/child-work"));
+        println!(
+            "w17_subflow: instances=2 expanded_nodes={} expanded_edges={} digest={}",
+            topology.nodes.len(),
+            topology.edges.len(),
+            topology.topology_digest
+        );
+    }
+
+    #[test]
+    fn wave17_amendment_and_expanded_subflow_bounds_are_operational() {
+        let wait = |node_id: String| WorkflowNode {
+            node_id,
+            kind: WorkflowNodeKind::Wait {
+                predicate: WorkflowPredicate::CaseLifecycle {
+                    lifecycle: CaseLifecycle::Open,
+                },
+            },
+        };
+        let base = WorkflowDefinition::build(
+            WorkflowDefinitionInput {
+                schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                tenant_id: "tenant:scale".to_string(),
+                workflow_key: "amendment-scale".to_string(),
+                declared_version: "2".to_string(),
+                name: "Amendment scale".to_string(),
+                description: String::new(),
+                nodes: vec![wait("base".to_string())],
+                edges: vec![],
+            },
+            "principal:scale",
+            1,
+        )
+        .unwrap();
+        let binding = CaseWorkflowBinding::build(
+            "tenant:scale",
+            "case:scale",
+            &base,
+            vec![],
+            vec![],
+            1,
+            "principal:scale",
+            2,
+        )
+        .unwrap();
+        let definitions = BTreeMap::from([(base.workflow_definition_id.clone(), base.clone())]);
+        let mut amendments = Vec::new();
+        for index in 0..MAX_WORKFLOW_AMENDMENTS {
+            let current =
+                derive_effective_workflow_topology(&base, &binding, &amendments, &definitions)
+                    .unwrap();
+            let patch = WorkflowPlanPatch::build(
+                WorkflowPlanPatchInput {
+                    schema: WORKFLOW_PLAN_PATCH_SCHEMA.to_string(),
+                    base_effective_topology_digest: current.topology_digest,
+                    operations: vec![WorkflowPatchOperation::AddNode {
+                        node: wait(format!("amended-{index:02}")),
+                    }],
+                },
+                "tenant:scale",
+                "case:scale",
+                &binding,
+                amendments
+                    .last()
+                    .map(|value: &WorkflowAmendment| value.amendment_id.clone()),
+                index as u32,
+                WorkflowPlanPatchOrigin::AuthenticatedHuman {
+                    principal_id: "principal:scale".to_string(),
+                },
+                index as u64 + 2,
+                index as u64 + 2,
+            )
+            .unwrap();
+            let preview =
+                preview_workflow_patch(&base, &binding, &amendments, &patch, &definitions).unwrap();
+            amendments.push(
+                WorkflowAmendment::build(
+                    &patch,
+                    &preview.topology_digest,
+                    "principal:scale",
+                    index as u64 + 2,
+                    index as u64 + 2,
+                )
+                .unwrap(),
+            );
+        }
+        let amendment_rebuild_started = std::time::Instant::now();
+        let amended =
+            derive_effective_workflow_topology(&base, &binding, &amendments, &definitions).unwrap();
+        let amendment_rebuild_us = amendment_rebuild_started.elapsed().as_micros();
+        assert_eq!(amended.revision as usize, MAX_WORKFLOW_AMENDMENTS);
+        assert_eq!(amended.nodes.len(), MAX_WORKFLOW_AMENDMENTS + 1);
+        let amendment_bytes = serde_json::to_vec(&amendments).unwrap().len();
+
+        let child = WorkflowDefinition::build(
+            WorkflowDefinitionInput {
+                schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                tenant_id: "tenant:scale".to_string(),
+                workflow_key: "expanded-child".to_string(),
+                declared_version: "2".to_string(),
+                name: "Expanded child".to_string(),
+                description: String::new(),
+                nodes: (0..3).map(|index| wait(format!("child-{index}"))).collect(),
+                edges: vec![],
+            },
+            "principal:scale",
+            3,
+        )
+        .unwrap();
+        let containers = (0..MAX_WORKFLOW_NODES)
+            .map(|index| WorkflowNode {
+                node_id: format!("subflow-{index:03}"),
+                kind: WorkflowNodeKind::Subflow {
+                    workflow_definition_id: child.workflow_definition_id.clone(),
+                    workflow_definition_digest: child.integrity_digest.clone(),
+                    executor_slot_mapping: vec![],
+                    resource_slot_mapping: vec![],
+                    case_slot_mapping: vec![],
+                },
+            })
+            .collect::<Vec<_>>();
+        let container_edges = (1..MAX_WORKFLOW_NODES)
+            .map(|index| WorkflowEdge {
+                from: format!("subflow-{:03}", index - 1),
+                to: format!("subflow-{index:03}"),
+                kind: WorkflowEdgeKind::Always,
+            })
+            .collect::<Vec<_>>();
+        let parent = WorkflowDefinition::build(
+            WorkflowDefinitionInput {
+                schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                tenant_id: "tenant:scale".to_string(),
+                workflow_key: "expanded-parent".to_string(),
+                declared_version: "2".to_string(),
+                name: "Expanded parent".to_string(),
+                description: String::new(),
+                nodes: containers,
+                edges: container_edges,
+            },
+            "principal:scale",
+            4,
+        )
+        .unwrap();
+        let parent_binding = CaseWorkflowBinding::build(
+            "tenant:scale",
+            "case:expanded-scale",
+            &parent,
+            vec![],
+            vec![],
+            1,
+            "principal:scale",
+            5,
+        )
+        .unwrap();
+        let definitions = BTreeMap::from([
+            (parent.workflow_definition_id.clone(), parent.clone()),
+            (child.workflow_definition_id.clone(), child),
+        ]);
+        let expanded_started = std::time::Instant::now();
+        let expanded =
+            derive_effective_workflow_topology(&parent, &parent_binding, &[], &definitions)
+                .unwrap();
+        let expanded_us = expanded_started.elapsed().as_micros();
+        assert_eq!(expanded.nodes.len(), MAX_EFFECTIVE_WORKFLOW_NODES);
+        assert!(expanded.edges.len() <= MAX_EFFECTIVE_WORKFLOW_EDGES);
+        assert_eq!(expanded.referenced_definition_ids.len(), 2);
+        println!(
+            "w17_scale: amendments={} amendment_bytes={} amendment_nodes={} amendment_rebuild_us={} subflow_instances={} expanded_nodes={} expanded_edges={} expanded_rebuild_us={}",
+            amendments.len(),
+            amendment_bytes,
+            amended.nodes.len(),
+            amendment_rebuild_us,
+            MAX_WORKFLOW_NODES,
+            expanded.nodes.len(),
+            expanded.edges.len(),
+            expanded_us
+        );
     }
 }

@@ -27,6 +27,7 @@ pub enum ProjectionPurpose {
     Conversation,
     FilesystemWriteProposal,
     ProcessSignalProposal,
+    WorkflowPlanPatchProposal,
     EffectConsequence,
     Inspection,
 }
@@ -37,6 +38,7 @@ impl ProjectionPurpose {
             Self::Conversation => "conversation",
             Self::FilesystemWriteProposal => "filesystem_write_proposal",
             Self::ProcessSignalProposal => "process_signal_proposal",
+            Self::WorkflowPlanPatchProposal => "workflow_plan_patch_proposal",
             Self::EffectConsequence => "effect_consequence",
             Self::Inspection => "inspection",
         }
@@ -273,6 +275,11 @@ pub enum InvocationOutputContract {
         attachment_id: String,
         allowed_write_prefix: String,
         max_write_bytes: usize,
+    },
+    WorkflowPlanPatch {
+        schema: String,
+        base_effective_topology_digest: String,
+        max_operations: usize,
     },
 }
 

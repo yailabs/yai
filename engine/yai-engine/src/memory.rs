@@ -1024,14 +1024,16 @@ fn rank_memory(
             OperationalMemoryKind::NormalizationFailure => 20,
             OperationalMemoryKind::ProviderClaim => 5,
         },
-        ProjectionPurpose::Conversation => match entry.semantic_kind {
-            OperationalMemoryKind::ResourceEffect => 50,
-            OperationalMemoryKind::Review => 45,
-            OperationalMemoryKind::Decision => 35,
-            OperationalMemoryKind::UnresolvedEffect => 35,
-            OperationalMemoryKind::NormalizationFailure => 20,
-            OperationalMemoryKind::ProviderClaim => 5,
-        },
+        ProjectionPurpose::Conversation | ProjectionPurpose::WorkflowPlanPatchProposal => {
+            match entry.semantic_kind {
+                OperationalMemoryKind::ResourceEffect => 50,
+                OperationalMemoryKind::Review => 45,
+                OperationalMemoryKind::Decision => 35,
+                OperationalMemoryKind::UnresolvedEffect => 35,
+                OperationalMemoryKind::NormalizationFailure => 20,
+                OperationalMemoryKind::ProviderClaim => 5,
+            }
+        }
         ProjectionPurpose::Inspection => 30,
     };
     score += purpose_score;

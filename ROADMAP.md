@@ -302,20 +302,21 @@ The current dependency order is:
 4. Wave 15: complete — immutable Tenant-bound
    WorkflowDefinitions, exact Case adoption, deterministic resolution, bounded
    ready work, ModelWork and deterministic/passive progression.
-5. H15: current hardening boundary — workflow determinism, replay, crash,
+5. H15: complete — workflow determinism, replay, crash,
    predicate type safety, definition integrity and authority-isolation closure.
-6. Wave 16 — CLI Product Refoundation: porcelain/plumbing separation,
+6. Wave 16: complete — CLI Product Refoundation: porcelain/plumbing separation,
    canonical command registry, parser lanes and output-family alignment.
-7. Wave 17 — adaptive workflow evolution, typed same-Tenant multi-Case handoff,
-   PlanPatch, bounded subflow and reconciliation.
+7. Wave 17: current — adaptive workflow evolution, typed same-Tenant multi-Case
+   handoff, PlanPatch, bounded exact Subflow and reconciliation.
 8. Wave 18 — provider governance, qualification/trust/capability selection,
    health, and an optional YVEX-native extension lane.
 
 Numbering after Wave 18 is provisional and must be re-evaluated from executable
 evidence. Workflow design is recorded in
 `refoundation/foundation-recovery/WORKFLOW-REFOUNDATION-PLAN.md`; Wave 15 owns
-the first executable kernel while H15 owns its adversarial closure. Wave 16,
-Wave 17 and Wave 18 are reserved only; none is implemented by H15.
+the first executable kernel, H15 its adversarial closure, Wave 16 the product
+CLI boundary and Wave 17 the current adaptive composition boundary. Wave 18 is
+reserved only.
 
 The sequence may change only when repository evidence establishes a stronger
 dependency. Every wave is incomplete until its isolated commit is pushed and
@@ -385,7 +386,7 @@ The remaining physical gap is cross-process shared-resource exclusion. Current
 scheduler-local root overlap serialization cannot stop a separate direct Case
 runner from reaching the same mutable resource.
 
-## Active boundary — shared-resource fencing and second carrier
+## Completed boundary — shared-resource fencing and second carrier
 
 Wave 14 owns one Tenant-bound shared-resource authority, monotonic resource
 epochs, PREPARE-atomic fence acquisition, carrier-side current-fence
@@ -412,3 +413,12 @@ preserve H10 authority, Wave-11 time/termination, Wave-12 Tenant isolation and
 Wave-13/H13 runtime recovery. It may add one cohesive resource-control owner
 and one narrow second carrier, but no Workflow, provider-governance plane,
 distributed lease or YVEX-specific authority path.
+
+## Active boundary — adaptive Workflow composition
+
+Wave 17 adds typed bounded PlanPatch candidates, authenticated Case-local
+amendment adoption, deterministic EffectiveWorkflowTopology derivation, exact
+same-Case Subflow expansion and same-Tenant Case Handoff. It keeps immutable
+Definitions, existing policy/Decision/Grant/ResourceFence authority and the
+existing RuntimeInstance. It adds no Agent, Orchestrator, WorkflowRun,
+multi-Case Process owner or provider governance.

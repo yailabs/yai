@@ -20,6 +20,7 @@ pub mod context;
 pub mod effect;
 pub mod governance;
 pub mod graph;
+pub mod handoff;
 pub mod journal;
 pub mod memory;
 pub mod projection;

@@ -1,0 +1,5 @@
+attempt	admitted_data	blocked_data	mechanism
+target reads offer	request+source/target/handoff IDs+requested roles	source memory/context/resources/policy/raw history	bounded typed HandoffOffer only
+source reconciles result	outcome+bounded result+exact acceptance/result refs	target memory/context/policy/resources/raw history	bounded typed HandoffReconciliation
+cross-Tenant discovery	none	target existence/payload	Tenant-gated read and same-Tenant writer validation
+result cites evidence	bounded exact refs	imported target authority	refs remain provenance only

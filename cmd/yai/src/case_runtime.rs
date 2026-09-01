@@ -606,6 +606,32 @@ fn current_workflow_execution_id(
     Ok(item.workflow.map(|workflow| workflow.workflow_execution_id))
 }
 
+fn current_workflow_plan_patch_contract(
+    checkpoint: &CaseRuntimeCheckpoint,
+) -> Result<Option<(String, InvocationOutputContract)>, String> {
+    let Some(execution_id) = current_workflow_execution_id(checkpoint)? else {
+        return Ok(None);
+    };
+    let authenticated = authenticate_local()?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let (contract, topology_digest) = store.workflow_model_output_contract_authorized(
+        &authenticated,
+        &checkpoint.case_id,
+        &execution_id,
+    )?;
+    if contract != yai_core_engine::workflow::ModelWorkOutputContract::PlanPatch {
+        return Ok(None);
+    }
+    Ok(Some((
+        execution_id,
+        InvocationOutputContract::WorkflowPlanPatch {
+            schema: yai_core_engine::workflow::WORKFLOW_PLAN_PATCH_SCHEMA.to_string(),
+            base_effective_topology_digest: topology_digest,
+            max_operations: yai_core_engine::workflow::MAX_WORKFLOW_PATCH_OPERATIONS,
+        },
+    )))
+}
+
 fn advance_and_check_workflow_completion(
     case_id: &str,
     workflow_execution_id: &str,
@@ -870,6 +896,7 @@ fn run_loop(
             let remaining_cost = checkpoint
                 .max_cumulative_estimated_input_units
                 .saturating_sub(checkpoint.cumulative_estimated_input_units);
+            let plan_patch_contract = current_workflow_plan_patch_contract(&checkpoint)?;
             let options = RuntimeInvocationOptions {
                 max_resident_items: checkpoint.max_resident_items,
                 max_semantic_units: checkpoint.max_semantic_units,
@@ -890,17 +917,27 @@ fn run_loop(
             let provider_args = provider_args(&checkpoint)?;
             let mut attempt = 0usize;
             let result = loop {
+                let (purpose, output_contract) = match &plan_patch_contract {
+                    Some((_, contract)) => (
+                        ProjectionPurpose::WorkflowPlanPatchProposal,
+                        contract.clone(),
+                    ),
+                    None => (
+                        ProjectionPurpose::FilesystemWriteProposal,
+                        InvocationOutputContract::CaseRuntimeTurn {
+                            schema: CASE_RUNTIME_OUTPUT_SCHEMA.to_string(),
+                            operation_schema: OPERATION_PROPOSAL_SCHEMA.to_string(),
+                            attachment_id: resource.attachment_id.clone(),
+                            allowed_write_prefix: resource.allowed_write_prefix.clone(),
+                            max_write_bytes: resource.max_write_bytes,
+                        },
+                    ),
+                };
                 match invoke_runtime_provider_with_journal(
                     &provider_args,
-                    ProjectionPurpose::FilesystemWriteProposal,
+                    purpose,
                     &checkpoint.task,
-                    InvocationOutputContract::CaseRuntimeTurn {
-                        schema: CASE_RUNTIME_OUTPUT_SCHEMA.to_string(),
-                        operation_schema: OPERATION_PROPOSAL_SCHEMA.to_string(),
-                        attachment_id: resource.attachment_id.clone(),
-                        allowed_write_prefix: resource.allowed_write_prefix.clone(),
-                        max_write_bytes: resource.max_write_bytes,
-                    },
+                    output_contract,
                     &options,
                     Path::new(&checkpoint.journal_path),
                 ) {
@@ -967,6 +1004,58 @@ fn run_loop(
             }
             result
         };
+
+        if let Some((workflow_execution_id, _)) = current_workflow_plan_patch_contract(&checkpoint)?
+        {
+            let authenticated = authenticate_local()?;
+            let store = LmdbRecordStore::open(record_store_path())?;
+            let proposal = store.propose_workflow_plan_patch_from_provider_result(
+                &authenticated,
+                &checkpoint.case_id,
+                &provider_result.result_id,
+                runtime_now_millis().min(u64::MAX as u128) as u64,
+            );
+            checkpoint.pending_provider_result_id = None;
+            let satisfied =
+                advance_and_check_workflow_completion(&checkpoint.case_id, &workflow_execution_id)?;
+            match proposal {
+                Ok(commit) if satisfied => checkpoint.stop(
+                    CaseRuntimeStop::Completed,
+                    format!(
+                        "strict Workflow PlanPatch candidate recorded; patch_id={}",
+                        commit
+                            .state
+                            .workflow_plan_patches
+                            .last()
+                            .map(|patch| patch.patch_id.as_str())
+                            .unwrap_or("unknown")
+                    ),
+                ),
+                Ok(_) => {
+                    checkpoint.stop_detail =
+                        "strict Workflow PlanPatch candidate recorded; completion predicate remains false"
+                            .to_string();
+                }
+                Err(error) if error.starts_with("workflow_model_plan_patch_invalid") => {
+                    if satisfied {
+                        checkpoint.stop(
+                            CaseRuntimeStop::Completed,
+                            format!(
+                                "ProviderResult satisfied Workflow but strict PlanPatch candidate was rejected: {error}"
+                            ),
+                        );
+                    } else {
+                        checkpoint.stop(CaseRuntimeStop::MalformedProviderResult, error);
+                    }
+                }
+                Err(error) => return Err(error),
+            }
+            write_checkpoint(&checkpoint)?;
+            if checkpoint.status != CaseRuntimeStop::Running {
+                break;
+            }
+            continue;
+        }
 
         if completion_response(&provider_result.raw_output) {
             checkpoint.pending_provider_result_id = None;

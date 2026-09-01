@@ -126,6 +126,36 @@ HumanInput is recorded with `yai workflow input`; authority is resolved with
 the separate `yai review` family. Runtime hosting and control are under
 `yai runtime`.
 
+When future progression must change, propose and adopt it explicitly:
+
+```sh
+./yai workflow patch propose case:demo --file plan-patch.json
+./yai workflow patch validate case:demo --patch workflow-plan-patch-id
+./yai workflow patch adopt case:demo --patch workflow-plan-patch-id
+./yai workflow status case:demo
+```
+
+The patch file names the current effective-topology digest. Adoption is a
+Tenant-Owner action at a quiescent boundary; a model-produced candidate uses
+the same validation and cannot adopt itself.
+
+Bounded same-Tenant work information can cross Case boundaries without
+sharing authority:
+
+```sh
+./yai case handoff offer case:source --target case:target \
+  --value 'inspect the bounded request' --role operation-proposer
+./yai case handoff pending case:target
+./yai case handoff accept case:target --source case:source \
+  --handoff handoff-id --participant participant:operator
+./yai case handoff result case:target --handoff handoff-id \
+  --participant participant:operator --outcome succeeded --value 'result'
+./yai case handoff reconcile case:source --handoff handoff-id
+```
+
+The target performs ordinary work under its own Case owners. Reconciliation
+copies no Decision, Grant, resource authority or Effect truth into the source.
+
 ## Discover exact syntax
 
 ```sh

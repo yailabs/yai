@@ -1,0 +1,6 @@
+question	answer	evidence
+independent Handoff ledger needed	no	offer/reconcile are source Case facts; accept/decline/result target facts
+global transaction needed	no	each step validates exact referenced committed fact
+shared authority needed	no	acceptance and target work use target Tenant/Principal/Participant/policy/resources
+shared WorkflowRun needed	no	source waits passively for source-local reconciliation
+Process owner needed	no	derived same-Tenant cross-reference graph reconstructs choreography

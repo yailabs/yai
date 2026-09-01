@@ -42,6 +42,9 @@ pub(crate) struct WorkflowView {
     pub active: usize,
     pub waiting: usize,
     pub ready_nodes: Vec<String>,
+    pub effective_revision: u32,
+    pub effective_topology_digest: String,
+    pub amendment_count: usize,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -59,6 +62,10 @@ pub(crate) struct CaseView {
     pub pending_reviews: usize,
     pub unresolved_effects: usize,
     pub finalized_effects: usize,
+    pub open_handoff_offers: usize,
+    pub handoff_acceptances: usize,
+    pub handoff_results: usize,
+    pub handoff_reconciliations: usize,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -326,6 +333,18 @@ fn render_case(case: &CaseView, styled: bool) {
                     value: workflow.completed.to_string(),
                 },
                 Field {
+                    name: "Revision".to_string(),
+                    value: workflow.effective_revision.to_string(),
+                },
+                Field {
+                    name: "Topology digest".to_string(),
+                    value: workflow.effective_topology_digest.clone(),
+                },
+                Field {
+                    name: "Amendments".to_string(),
+                    value: workflow.amendment_count.to_string(),
+                },
+                Field {
                     name: "Satisfied".to_string(),
                     value: workflow.satisfied.to_string(),
                 },
@@ -404,6 +423,34 @@ fn render_case(case: &CaseView, styled: bool) {
         ],
         styled,
     );
+    if case.open_handoff_offers != 0
+        || case.handoff_acceptances != 0
+        || case.handoff_results != 0
+        || case.handoff_reconciliations != 0
+    {
+        println!("\n{}", heading("HANDOFFS", styled));
+        render_fields(
+            &[
+                Field {
+                    name: "Open offers".to_string(),
+                    value: case.open_handoff_offers.to_string(),
+                },
+                Field {
+                    name: "Accepted".to_string(),
+                    value: case.handoff_acceptances.to_string(),
+                },
+                Field {
+                    name: "Results".to_string(),
+                    value: case.handoff_results.to_string(),
+                },
+                Field {
+                    name: "Reconciled".to_string(),
+                    value: case.handoff_reconciliations.to_string(),
+                },
+            ],
+            styled,
+        );
+    }
 }
 
 fn render_fields(fields: &[Field], styled: bool) {

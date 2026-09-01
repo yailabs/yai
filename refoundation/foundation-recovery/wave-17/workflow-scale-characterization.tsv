@@ -1,0 +1,9 @@
+dimension	admitted_bound	focused_observation	optimization
+patch bytes	262144	strict pre-persistence serialization bound	none
+patch operations	32	linear ordered application	none
+amendments per Case	32	32 amendments / 28028 serialized bytes / 33 nodes / 15471 us full rebuild	no new index/DB; H17 hostile long-chain pressure remains
+effective nodes	512	128 exact Subflow instances expanded to 512 qualified nodes in 42154 us	no new index/DB
+effective edges	2048	765 actual expanded edges validated below the 2048 bound	no new index/DB
+Subflow depth	4	combined reference recursion validation	no flatten/cache
+referenced Definitions	32	exact retained Definition graph	one existing Definition DB
+Handoff chain	A→B→C→D: 4 Cases / 3 offers+acceptances+results+reconciliations / 4 independent replays	no shared mutable process state	no Process DB

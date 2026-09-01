@@ -1,0 +1,8 @@
+future_contract	W17_non_claim	Wave18_work
+provider qualification	generic endpoint/model only	qualified provider lifecycle and evidence
+capabilities	no provider capability registry	typed supported capability model with real consumers
+trust	provider output remains candidate	provider/model trust posture and provenance
+health	per-invocation transport behavior only	health/circuit semantics if justified
+selection	Case-attached exact provider used	policy-aware selection without Workflow authority
+failover	no automatic provider switch	continuity/failover contract if evidence supports
+YVEX native extension	black-box OpenAI-compatible only	optional non-required inspection/evidence lane

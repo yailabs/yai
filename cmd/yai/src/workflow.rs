@@ -5,7 +5,8 @@ use super::*;
 use crate::command_adapters::security::authenticate_local;
 use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::workflow::{
-    WorkflowDefinitionInput, WorkflowExecutorBinding, WorkflowResourceBinding,
+    WorkflowCaseBinding, WorkflowDefinitionInput, WorkflowExecutorBinding, WorkflowPlanPatchInput,
+    WorkflowResourceBinding,
 };
 
 fn now_unix_ms() -> u64 {
@@ -131,14 +132,19 @@ fn bind(args: &[String]) -> Result<(), String> {
             attachment_id,
         })
         .collect();
+    let case_bindings = repeated_slot_bindings(args, "--case-slot")?
+        .into_iter()
+        .map(|(slot, case_id)| WorkflowCaseBinding { slot, case_id })
+        .collect();
     let authenticated = authenticate_local()?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let commit = store.bind_case_workflow(
+    let commit = store.bind_case_workflow_composed(
         &authenticated,
         &case_id,
         &definition_id,
         executor_bindings,
         resource_bindings,
+        case_bindings,
         now_unix_ms(),
     )?;
     let binding = commit
@@ -171,6 +177,12 @@ fn status(args: &[String]) -> Result<(), String> {
     println!("workflow_binding_id: {}", resolution.workflow_binding_id);
     println!("case_id: {}", resolution.case_id);
     println!("case_generation: {}", resolution.case_generation);
+    println!("effective_revision: {}", resolution.effective_revision);
+    println!(
+        "effective_topology_digest: {}",
+        resolution.effective_topology_digest
+    );
+    println!("amendments: {}", resolution.amendment_ids.len());
     println!("completed: {}", resolution.completed);
     println!("satisfied: {}", resolution.satisfied_count);
     println!("active: {}", resolution.active_count);
@@ -188,6 +200,151 @@ fn status(args: &[String]) -> Result<(), String> {
         );
     }
     Ok(())
+}
+
+fn patch_command(args: &[String]) -> Result<(), String> {
+    let operation = args.first().map(String::as_str).ok_or_else(|| {
+        "usage: yai workflow patch <propose|list|show|validate|adopt>".to_string()
+    })?;
+    let args = &args[1..];
+    let case_id = named_arg(args, "--case")?;
+    let authenticated = authenticate_local()?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    match operation {
+        "propose" => {
+            let path = PathBuf::from(named_arg(args, "--file")?);
+            let raw = fs::read_to_string(&path)
+                .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+            let input: WorkflowPlanPatchInput = serde_json::from_str(&raw)
+                .map_err(|error| format!("invalid WorkflowPlanPatch JSON: {error}"))?;
+            let commit = store.propose_workflow_plan_patch_human(
+                &authenticated,
+                &case_id,
+                input,
+                now_unix_ms(),
+            )?;
+            let patch = commit
+                .state
+                .workflow_plan_patches
+                .last()
+                .ok_or_else(|| "workflow_plan_patch_missing_after_commit".to_string())?;
+            if args.iter().any(|arg| arg == "--json") {
+                print_json(patch)
+            } else {
+                println!("workflow_plan_patch: proposed");
+                println!("patch_id: {}", patch.patch_id);
+                println!("base_revision: {}", patch.base_revision);
+                println!(
+                    "base_topology_digest: {}",
+                    patch.base_effective_topology_digest
+                );
+                println!("operations: {}", patch.operations.len());
+                Ok(())
+            }
+        }
+        "propose-model" => {
+            let provider_result_id = named_arg(args, "--provider-result")?;
+            let commit = store.propose_workflow_plan_patch_from_provider_result(
+                &authenticated,
+                &case_id,
+                &provider_result_id,
+                now_unix_ms(),
+            )?;
+            let patch = commit
+                .state
+                .workflow_plan_patches
+                .last()
+                .ok_or_else(|| "workflow_plan_patch_missing_after_commit".to_string())?;
+            if args.iter().any(|arg| arg == "--json") {
+                print_json(patch)
+            } else {
+                println!("workflow_plan_patch: proposed_by_model_result");
+                println!("patch_id: {}", patch.patch_id);
+                println!("provider_result_id: {provider_result_id}");
+                println!("adopted: false");
+                Ok(())
+            }
+        }
+        "list" => {
+            let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+            if args.iter().any(|arg| arg == "--json") {
+                return print_json(&state.workflow_plan_patches);
+            }
+            println!(
+                "workflow_plan_patches: {}",
+                state.workflow_plan_patches.len()
+            );
+            for patch in state.workflow_plan_patches {
+                let adopted = state
+                    .workflow_amendments
+                    .iter()
+                    .any(|amendment| amendment.patch_id == patch.patch_id);
+                println!(
+                    "patch: {} base_revision={} operations={} adopted={}",
+                    patch.patch_id,
+                    patch.base_revision,
+                    patch.operations.len(),
+                    adopted
+                );
+            }
+            Ok(())
+        }
+        "show" => {
+            let patch_id = named_arg(args, "--patch")?;
+            let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+            let patch = state
+                .workflow_plan_patches
+                .iter()
+                .find(|patch| patch.patch_id == patch_id)
+                .ok_or_else(|| "workflow_plan_patch_not_found".to_string())?;
+            print_json(patch)
+        }
+        "validate" => {
+            let patch_id = named_arg(args, "--patch")?;
+            let topology = store.validate_workflow_plan_patch_authorized(
+                &authenticated,
+                &case_id,
+                &patch_id,
+            )?;
+            if args.iter().any(|arg| arg == "--json") {
+                print_json(&topology)
+            } else {
+                println!("workflow_plan_patch: valid");
+                println!("patch_id: {patch_id}");
+                println!("resulting_revision: {}", topology.revision);
+                println!("resulting_topology_digest: {}", topology.topology_digest);
+                Ok(())
+            }
+        }
+        "adopt" => {
+            let patch_id = named_arg(args, "--patch")?;
+            let commit = store.adopt_workflow_plan_patch(
+                &authenticated,
+                &case_id,
+                &patch_id,
+                now_unix_ms(),
+            )?;
+            let amendment = commit
+                .state
+                .workflow_amendments
+                .last()
+                .ok_or_else(|| "workflow_amendment_missing_after_commit".to_string())?;
+            if args.iter().any(|arg| arg == "--json") {
+                print_json(amendment)
+            } else {
+                println!("workflow_amendment: adopted");
+                println!("amendment_id: {}", amendment.amendment_id);
+                println!("patch_id: {}", amendment.patch_id);
+                println!("revision: {}", amendment.revision);
+                println!("topology_digest: {}", amendment.resulting_topology_digest);
+                Ok(())
+            }
+        }
+        _ => Err(
+            "usage: yai workflow patch <propose|propose-model|list|show|validate|adopt>"
+                .to_string(),
+        ),
+    }
 }
 
 fn input(args: &[String]) -> Result<(), String> {
@@ -219,6 +376,7 @@ pub(super) fn workflow_command(args: &[String]) -> Result<(), String> {
         Some("bind") => bind(&args[1..]),
         Some("status") => status(&args[1..]),
         Some("input") => input(&args[1..]),
-        _ => Err("usage: yai workflow <define|list|show|bind|status|input> ...".to_string()),
+        Some("patch") => patch_command(&args[1..]),
+        _ => Err("usage: yai workflow <define|list|show|bind|status|input|patch> ...".to_string()),
     }
 }

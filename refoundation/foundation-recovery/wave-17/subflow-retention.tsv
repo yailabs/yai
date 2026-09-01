@@ -1,0 +1,6 @@
+required_for_replay	retention_contract	missing_behavior
+root WorkflowDefinition	exact ID/digest retained	fail closed
+every referenced child Definition	exact ID/digest retained	fail closed; no flatten-from-history
+CaseWorkflowBinding	exact root and slot mappings retained	fail closed
+WorkflowAmendments	full ordered Case facts retained	lineage cannot rebuild
+Case Transitions	qualified progression retained	Case replay fails

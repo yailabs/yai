@@ -1,0 +1,8 @@
+area	W17_substrate	H17_remaining_attack
+amendment concurrency	8-way one-winner	larger process races and repeated adjacent revisions
+lineage replay	exact parent/digest chain	long-chain corruption/retention/upgrade pressure
+Subflow crash	qualified Case facts reuse H15	deep nested ModelWork/effect crash windows
+Handoff acceptance/result	first-writer and rederivation	multi-process result forgery/reconciliation race extremes
+cancellation	terminal barriers and settlement	start/accept/result/reconcile transactional race matrix
+derived graph	active-cycle rejection	drop/rebuild and large same-Tenant graph pressure
+software upgrades	frozen facts dominate	unresolved effective-topology compatibility policy

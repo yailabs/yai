@@ -1,0 +1,5 @@
+instance	child_definition	child_node	qualified_identity	collision
+root/subflow-A	workflow-definition:child	C1	root/subflow-A/C1	no
+root/subflow-B	workflow-definition:child	C1	root/subflow-B/C1	no
+root/subflow-A nested child	workflow-definition:nested	N1	root/subflow-A/nested/N1	no
+identity_material	definition+instance path+local node	immutable qualified path	deterministic digest/reference	no HashMap/order identity

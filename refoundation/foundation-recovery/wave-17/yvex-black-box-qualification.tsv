@@ -1,0 +1,3 @@
+run_id	provider_boundary	endpoint	model	state	reason	finding
+wave17-black-box-prepublication	generic OpenAI-compatible	not_supplied	not_supplied	blocked_external_dependency	YAI_EXTERNAL_PROVIDER_BASE_URL and YAI_EXTERNAL_PROVIDER_MODEL absent	no_new_external_finding
+local-contract	WorkflowPlanPatch output contract	n/a	n/a	qualified_locally	strict schema+base digest+operation bound; exact ProviderResult origin; no auto-adoption	not a YVEX claim

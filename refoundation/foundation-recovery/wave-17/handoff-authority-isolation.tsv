@@ -1,0 +1,9 @@
+target_material	may_source_use_as_authority	actual_source_material
+Decision	no	exact target reference may be evidence only
+Review approval	no	no source ReviewAction/Decision created
+ExecutionGrant	no	never copied and cannot authorize source carrier
+EffectReceipt	no	result is not source Effect truth
+Participant role	no	source keeps independent Participants/roles
+provider/model	no	source provider attachment unchanged
+ResourceFence	no	no lease held or transferred
+bounded result payload	yes as handoff evidence only	HandoffReconciled result+digest

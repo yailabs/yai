@@ -1,0 +1,15 @@
+operation_id	canonical_path	visibility	lane	output
+yai.workflow.patch.propose	workflow patch propose CASE	PRODUCT	LOCAL_DOMAIN	human+JSON
+yai.workflow.patch.propose_model	workflow patch propose-model CASE	PRODUCT	LOCAL_DOMAIN	human+JSON
+yai.workflow.patch.list	workflow patch list CASE	PRODUCT	INSPECTION	human+JSON
+yai.workflow.patch.show	workflow patch show CASE	PRODUCT	INSPECTION	human+JSON
+yai.workflow.patch.validate	workflow patch validate CASE	PRODUCT	INSPECTION	human+JSON
+yai.workflow.patch.adopt	workflow patch adopt CASE	PRODUCT	LOCAL_DOMAIN	human+JSON
+yai.case.handoff.offer	case handoff offer CASE	PRODUCT	LOCAL_DOMAIN	human+JSON
+yai.case.handoff.pending	case handoff pending CASE	PRODUCT	INSPECTION	human+JSON
+yai.case.handoff.show	case handoff show CASE	PRODUCT	INSPECTION	human+JSON
+yai.case.handoff.accept	case handoff accept CASE	PRODUCT	LOCAL_DOMAIN	human+JSON
+yai.case.handoff.decline	case handoff decline CASE	PRODUCT	LOCAL_DOMAIN	human+JSON
+yai.case.handoff.result	case handoff result CASE	PRODUCT	LOCAL_DOMAIN	human+JSON
+yai.case.handoff.reconcile	case handoff reconcile CASE	PRODUCT	LOCAL_DOMAIN	human+JSON
+yai.workflow.bind	workflow bind CASE --case-slot SLOT=CASE	PRODUCT	LOCAL_DOMAIN	human+JSON

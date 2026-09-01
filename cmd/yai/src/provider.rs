@@ -2025,7 +2025,8 @@ fn compile_semantic_invocation(
         | InvocationOutputContract::CaseRuntimeTurn { attachment_id, .. } => {
             vec![attachment_id.clone()]
         }
-        InvocationOutputContract::NaturalLanguage => Vec::new(),
+        InvocationOutputContract::NaturalLanguage
+        | InvocationOutputContract::WorkflowPlanPatch { .. } => Vec::new(),
     };
     let memory_entries = match store.operational_memory_manifest(&session.case_ref) {
         Ok(Some(manifest)) if manifest.is_current(&session.case_ref, state.generation) => {
@@ -2120,6 +2121,7 @@ fn compile_semantic_invocation(
             InvocationOutputContract::FilesystemWriteProposal { .. }
                 | InvocationOutputContract::ProcessSignalProposal { .. }
                 | InvocationOutputContract::CaseRuntimeTurn { .. }
+                | InvocationOutputContract::WorkflowPlanPatch { .. }
         ),
         continuation_supported: session.provider.continuation_supported,
     };

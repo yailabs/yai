@@ -1,0 +1,7 @@
+stage	input	output	failure
+1_load_root	exact binding Definition ID/digest	immutable root graph	missing/corrupt fails closed
+2_apply_amendments	Case-sequenced adopted amendments	root effective graph	lineage/digest/frozen barrier mismatch
+3_resolve_subflows	exact child IDs/digests and slot maps	qualified instance graph	missing/cross-Tenant/recursive reference
+4_validate	combined expanded nodes/edges	bounded DAG	H15 structural/semantic/conditional/type/slot checks
+5_digest	canonical expanded material	yai.effective_workflow_topology.v1 digest	serialization failure
+6_resolve	topology+CaseState+history	WorkflowResolution/ReadyWorkSet	malformed history

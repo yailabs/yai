@@ -1,0 +1,5 @@
+window	canonical_pre_crash	restart_behavior	duplicate_verdict
+after ProviderResult before patch proposal	ProviderResult	strict parse/proposal from same result	idempotent by exact result+execution
+after patch proposal before adoption	PlanPatch candidate	topology unchanged; candidate inspectable	no amendment
+after amendment commit before scheduling	Amendment	rebuild exact topology; derive ReadyWork	no second amendment
+after new-node work result before satisfaction	canonical lower-wave result	H15 canonical-first repair	no duplicate provider/effect when result exists

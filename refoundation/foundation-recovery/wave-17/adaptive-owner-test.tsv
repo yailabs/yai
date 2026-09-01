@@ -1,0 +1,7 @@
+concept	independent_lifecycle	canonical_owner	verdict	reason
+PlanPatch	no	Case Transition candidate	no_new_owner	cannot exist meaningfully without exact Case binding/effective digest
+WorkflowAmendment	no	Case Transition	case_canonical	ordered adopted structural fact changes one Case only
+EffectiveWorkflowTopology	no	pure derivation	derived_no_owner	rebuildable from exact Definitions+binding+amendments
+Subflow	no	WorkflowDefinition composition	no_new_owner	same Case/history/runtime/authority
+Handoff	protocol only	source and target Case Transitions	no_global_owner	exact cross-references are sufficient
+MultiCaseProcess	no	derived Handoff graph	derived_no_owner	no unreconstructible lifecycle discovered

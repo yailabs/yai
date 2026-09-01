@@ -1,0 +1,4 @@
+revision	parent	previous_digest	result_digest	canonical_location	replay_rule
+0	none	base Definition digest-derived topology	base effective topology digest	derived	load exact base
+N	N-1 amendment ID	exact prior EffectiveTopology digest	rederived preview digest	WorkflowAmendmentAdopted Case Transition	apply in Case sequence order
+corrupt	missing/wrong	mismatch	mismatch	refused	fail closed; no repair/merge

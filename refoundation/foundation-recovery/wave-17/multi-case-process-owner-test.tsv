@@ -1,0 +1,6 @@
+fact_source	reconstructible_value	independent_missing_fact	verdict
+source HandoffOffered	source,target,request,node/binding	none	Case-owned
+target Accepted/Declined/Result	participation and terminal target disposition	none	Case-owned
+source HandoffReconciled	source-local terminal outcome/material	none	Case-owned
+derived graph	A→handoff→B→result→reconcile	none	derived_no_owner
+owner conclusion	complete process/choreography view	none	no Process/Choreography/WorkflowRun owner

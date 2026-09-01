@@ -1,0 +1,8 @@
+from	event	owner	to	invalid_next
+none	HandoffOffered	source Case	offered	cross-Tenant/self/terminal target/cycle
+offered	HandoffAccepted	target Case	accepted	wrong target; source terminal; missing role/link; duplicate/declined
+offered	HandoffDeclined	target Case	declined	accepted/duplicate
+accepted	ordinary governed target work	target owners	accepted	no source authority inherited
+accepted	HandoffResultRecorded	target Case	result_terminal	before acceptance; conflicting second result
+declined/result/target terminal	HandoffReconciled	source Case	reconciled	missing disposition
+reconciled	WorkflowNodeSatisfied	source Workflow resolver	satisfied	offer/accept/result alone never complete

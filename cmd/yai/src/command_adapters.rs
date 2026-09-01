@@ -948,6 +948,10 @@ mod runtime_instance;
 mod workflow;
 use workflow::workflow_command;
 
+#[path = "handoff.rs"]
+mod handoff;
+use handoff::handoff_command;
+
 #[path = "policy.rs"]
 mod policy;
 use policy::policy_command;
@@ -1197,6 +1201,7 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
         "yai.case.provider.attach" => case_attach_provider(&args[2..]),
         "yai.case.resource.attach_filesystem" => case_attach_filesystem(&args[2..]),
         "yai.case.resource.attach_process" => case_attach_process(&args[2..]),
+        operation if operation.starts_with("yai.case.handoff.") => handoff_command(&args[2..]),
         operation if operation.starts_with("yai.case.policy.") => case_policy_porcelain(&args[2..]),
         "yai.case.run" => case_runtime_run(&args[2..]),
         "yai.case.resume" => case_runtime_resume(&args[2..]),

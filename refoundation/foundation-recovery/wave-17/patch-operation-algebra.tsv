@@ -1,0 +1,6 @@
+operation	meaning	allowed_region	forbidden
+AddNode	append immutable future node	unfrozen root effective topology	authority fields; unknown kind; bounds overflow
+AddEdge	append progression dependency	future root nodes/instances	cycle; semantic dependency cycle; frozen-history reinterpretation
+DisableNode	remove untouched node from future effective topology	no canonical progression facts	started/satisfied/condition/input/proposal/subflow child progress
+DisableEdge	remove untouched future dependency	no historical start justified by it	frozen dependency or branch rewrite
+Edit/Rename/Replace	not admitted	none	must disable future structure and add replacement

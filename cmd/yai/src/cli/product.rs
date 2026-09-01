@@ -51,11 +51,11 @@ fn version() -> Result<CliData, CliError> {
     fields.insert("Registry digest".to_string(), registry_digest());
     fields.insert(
         "Transition schema".to_string(),
-        "yai.transition.v10".to_string(),
+        yai_core_engine::transition::TRANSITION_SCHEMA.to_string(),
     );
     fields.insert(
         "CaseState schema".to_string(),
-        "yai.case_state.v10".to_string(),
+        yai_core_engine::transition::CASE_STATE_SCHEMA.to_string(),
     );
     Ok(CliData::Object {
         title: "YAI VERSION".to_string(),
@@ -285,6 +285,9 @@ fn case_show(invocation: &Invocation) -> Result<CliData, CliError> {
             .workflow_status_authorized(&authenticated, case_id)
             .map_err(|error| domain_error("workflow_resolution_failed", error))?;
         Some(WorkflowView {
+            effective_revision: resolution.effective_revision,
+            effective_topology_digest: resolution.effective_topology_digest.clone(),
+            amendment_count: resolution.amendment_ids.len(),
             definition_id: resolution.workflow_definition_id,
             binding_id: resolution.workflow_binding_id,
             completed: resolution.completed,
@@ -315,6 +318,16 @@ fn case_show(invocation: &Invocation) -> Result<CliData, CliError> {
         .effects
         .iter()
         .filter(|effect| effect.receipt_id.is_some())
+        .count();
+    let reconciled_handoffs = state
+        .handoff_reconciliations
+        .iter()
+        .map(|value| value.handoff_id.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let open_handoff_offers = state
+        .handoff_offers
+        .iter()
+        .filter(|offer| !reconciled_handoffs.contains(offer.handoff_id.as_str()))
         .count();
     let case = CaseView {
         case_id: state.case_id,
@@ -357,6 +370,10 @@ fn case_show(invocation: &Invocation) -> Result<CliData, CliError> {
         pending_reviews,
         unresolved_effects,
         finalized_effects,
+        open_handoff_offers,
+        handoff_acceptances: state.handoff_acceptances.len(),
+        handoff_results: state.handoff_results.len(),
+        handoff_reconciliations: state.handoff_reconciliations.len(),
     };
     Ok(CliData::Case {
         case: Box::new(case),
@@ -470,8 +487,8 @@ fn execute_structured_legacy(
     }
     let mut args = invocation.legacy_args();
     let native_json = invocation.json
-        && operation_id.starts_with("yai.workflow.")
-        && operation_id != "yai.workflow.input";
+        && ((operation_id.starts_with("yai.workflow.") && operation_id != "yai.workflow.input")
+            || operation_id.starts_with("yai.case.handoff."));
     if native_json {
         args.push("--json".to_string());
     }

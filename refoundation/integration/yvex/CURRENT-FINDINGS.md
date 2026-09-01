@@ -80,3 +80,21 @@ study of the YVEX `models1` CLI at
 `e6f8ac71ac862945b9dd500fb9d6043e21147064` informed only the YAILabs CLI-family
 architecture; it did not inspect or administer a provider deployment and is not
 external-provider qualification evidence.
+
+## W17 — adaptive ModelWork qualification not executed
+
+- observed_at: 2026-09-01 Europe/Rome
+- YAI SHA: pre-publication Wave-17 candidate based on
+  `ab9dace4250bfd2e259468569917d74791b640a5`
+- endpoint: not supplied (`YAI_EXTERNAL_PROVIDER_BASE_URL` absent)
+- model: not supplied (`YAI_EXTERNAL_PROVIDER_MODEL` absent)
+- state: `blocked_external_dependency`
+- classification: no new external-provider finding; the black-box
+  qualification precondition was absent
+- reproduction: supply both documented environment variables and run
+  `make qualification-yvex-provider`
+
+No YVEX-side finding was established by W17. The local generic-provider output
+contract now carries strict PlanPatch schema/topology identity, but no live
+transport claim is made and no YVEX source, CLI, profile, artifact, engine or
+session was inspected or administered.

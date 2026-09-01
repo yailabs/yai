@@ -5,3 +5,4 @@ yvex-black-box-20260901T110023Z-1655196	2026-09-01T13:00:23+02:00	0b48edee499f7b
 wave15-black-box-6cfa7f1	2026-09-01T15:27:29+02:00	6cfa7f12dbb783d21179b85dd8003cb80bb3b7cc	not_inspected	black_box	not_inspected	not_supplied	not_supplied	not_executed	blocked_external_dependency	none
 h15-black-box-184a329	2026-09-01T17:08:52+02:00	184a32987958fa49a9098908721eb54410246a8c	not_inspected	black_box	not_inspected	not_supplied	not_supplied	not_executed	blocked_external_dependency	none
 wave16-black-box-301fd86	2026-09-01T21:15:02+02:00	301fd86c720e25a9b28df52435ae59525e644eb4	not_inspected	black_box	not_inspected	not_supplied	not_supplied	not_executed	blocked_external_dependency	none
+wave17-black-box-prepublication	2026-09-01	prepublication-ab9dace-base	not_inspected	black_box	not_inspected	not_supplied	not_supplied	not_executed	blocked_external_dependency	none

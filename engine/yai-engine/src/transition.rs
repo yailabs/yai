@@ -13,9 +13,13 @@ use crate::effect::{
     ProcessSignalAction, ReconciliationConclusion, EFFECT_RECEIPT_SCHEMA, OBSERVATION_SCHEMA,
     PREPARED_EFFECT_SCHEMA, PREPARED_EFFECT_SCHEMA_V1,
 };
+use crate::handoff::{
+    HandoffAcceptance, HandoffDecline, HandoffOffer, HandoffReconciliation, HandoffResult,
+};
 use crate::workflow::{
-    CaseWorkflowBinding, WorkflowConditionResolution, WorkflowDeterministicProposalRecord,
-    WorkflowHumanInputRecord, WorkflowNodeExecution, WorkflowNodeSatisfaction,
+    CaseWorkflowBinding, WorkflowAmendment, WorkflowConditionResolution,
+    WorkflowDeterministicProposalRecord, WorkflowHumanInputRecord, WorkflowNodeExecution,
+    WorkflowNodeSatisfaction, WorkflowPlanPatch,
 };
 use serde::{Deserialize, Serialize};
 
@@ -28,7 +32,8 @@ pub const TRANSITION_SCHEMA_V6: &str = "yai.transition.v6";
 pub const TRANSITION_SCHEMA_V7: &str = "yai.transition.v7";
 pub const TRANSITION_SCHEMA_V8: &str = "yai.transition.v8";
 pub const TRANSITION_SCHEMA_V9: &str = "yai.transition.v9";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v10";
+pub const TRANSITION_SCHEMA_V10: &str = "yai.transition.v10";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v11";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
@@ -38,7 +43,8 @@ pub const CASE_STATE_SCHEMA_V6: &str = "yai.case_state.v6";
 pub const CASE_STATE_SCHEMA_V7: &str = "yai.case_state.v7";
 pub const CASE_STATE_SCHEMA_V8: &str = "yai.case_state.v8";
 pub const CASE_STATE_SCHEMA_V9: &str = "yai.case_state.v9";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v10";
+pub const CASE_STATE_SCHEMA_V10: &str = "yai.case_state.v10";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v11";
 pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v2";
 pub const REVIEW_REQUEST_SCHEMA_V1: &str = "yai.review_request.v1";
 pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v2";
@@ -360,6 +366,27 @@ pub enum TransitionPayload {
     WorkflowDeterministicProposalRecorded {
         proposal: WorkflowDeterministicProposalRecord,
     },
+    WorkflowPlanPatchProposed {
+        patch: WorkflowPlanPatch,
+    },
+    WorkflowAmendmentAdopted {
+        amendment: WorkflowAmendment,
+    },
+    HandoffOffered {
+        offer: HandoffOffer,
+    },
+    HandoffAccepted {
+        acceptance: HandoffAcceptance,
+    },
+    HandoffDeclined {
+        decline: HandoffDecline,
+    },
+    HandoffResultRecorded {
+        result: HandoffResult,
+    },
+    HandoffReconciled {
+        reconciliation: HandoffReconciliation,
+    },
     /// Input compatibility for pre-Wave-7 fixture review history. New writers
     /// use `ReviewActionRecorded` followed by an effective `DecisionRecorded`.
     ReviewResolved {
@@ -416,6 +443,13 @@ impl TransitionPayload {
             Self::WorkflowDeterministicProposalRecorded { .. } => {
                 "workflow_deterministic_proposal_recorded"
             }
+            Self::WorkflowPlanPatchProposed { .. } => "workflow_plan_patch_proposed",
+            Self::WorkflowAmendmentAdopted { .. } => "workflow_amendment_adopted",
+            Self::HandoffOffered { .. } => "handoff_offered",
+            Self::HandoffAccepted { .. } => "handoff_accepted",
+            Self::HandoffDeclined { .. } => "handoff_declined",
+            Self::HandoffResultRecorded { .. } => "handoff_result_recorded",
+            Self::HandoffReconciled { .. } => "handoff_reconciled",
             Self::ReviewResolved { .. } => "review_resolved",
         }
     }
@@ -753,6 +787,20 @@ pub struct CaseState {
     #[serde(default)]
     pub workflow_deterministic_proposals: Vec<WorkflowDeterministicProposalRecord>,
     #[serde(default)]
+    pub workflow_plan_patches: Vec<WorkflowPlanPatch>,
+    #[serde(default)]
+    pub workflow_amendments: Vec<WorkflowAmendment>,
+    #[serde(default)]
+    pub handoff_offers: Vec<HandoffOffer>,
+    #[serde(default)]
+    pub handoff_acceptances: Vec<HandoffAcceptance>,
+    #[serde(default)]
+    pub handoff_declines: Vec<HandoffDecline>,
+    #[serde(default)]
+    pub handoff_results: Vec<HandoffResult>,
+    #[serde(default)]
+    pub handoff_reconciliations: Vec<HandoffReconciliation>,
+    #[serde(default)]
     pub resources: Vec<ResourceAttachmentState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_normalization_failure: Option<NormalizationFailureState>,
@@ -1065,6 +1113,13 @@ impl CaseState {
             workflow_conditions: Vec::new(),
             workflow_human_inputs: Vec::new(),
             workflow_deterministic_proposals: Vec::new(),
+            workflow_plan_patches: Vec::new(),
+            workflow_amendments: Vec::new(),
+            handoff_offers: Vec::new(),
+            handoff_acceptances: Vec::new(),
+            handoff_declines: Vec::new(),
+            handoff_results: Vec::new(),
+            handoff_reconciliations: Vec::new(),
             resources: Vec::new(),
             last_normalization_failure: None,
             last_operation: None,
@@ -1100,6 +1155,8 @@ impl CaseState {
                     | TransitionPayload::EffectFinalized { .. }
                     | TransitionPayload::EffectIndeterminate { .. }
                     | TransitionPayload::EffectReconciled { .. }
+                    | TransitionPayload::HandoffResultRecorded { .. }
+                    | TransitionPayload::HandoffReconciled { .. }
                     | TransitionPayload::CaseClosed { .. }
             )
         {
@@ -2157,6 +2214,132 @@ impl CaseState {
                 }
                 next.workflow_deterministic_proposals.push(proposal.clone());
             }
+            TransitionPayload::WorkflowPlanPatchProposed { patch } => {
+                let Some(binding) = next.workflow_binding.as_ref() else {
+                    return Err("workflow_plan_patch_without_binding".to_string());
+                };
+                patch.validate(binding)?;
+                if patch.proposed_at_generation != transition.sequence
+                    || next
+                        .workflow_plan_patches
+                        .iter()
+                        .any(|current| current.patch_id == patch.patch_id)
+                {
+                    return Err("workflow_plan_patch_case_contract_invalid".to_string());
+                }
+                next.workflow_plan_patches.push(patch.clone());
+            }
+            TransitionPayload::WorkflowAmendmentAdopted { amendment } => {
+                let Some(binding) = next.workflow_binding.as_ref() else {
+                    return Err("workflow_amendment_without_binding".to_string());
+                };
+                let Some(patch) = next
+                    .workflow_plan_patches
+                    .iter()
+                    .find(|patch| patch.patch_id == amendment.patch_id)
+                else {
+                    return Err("workflow_amendment_patch_missing".to_string());
+                };
+                if amendment.schema != crate::workflow::WORKFLOW_AMENDMENT_SCHEMA
+                    || amendment.binding_id != binding.binding_id
+                    || amendment.patch_integrity_digest != patch.integrity_digest
+                    || amendment.adopted_at_generation != transition.sequence
+                    || amendment.revision != next.workflow_amendments.len() as u32 + 1
+                    || amendment.parent_amendment_id.as_deref()
+                        != next
+                            .workflow_amendments
+                            .last()
+                            .map(|value| value.amendment_id.as_str())
+                    || next
+                        .workflow_amendments
+                        .iter()
+                        .any(|current| current.patch_id == amendment.patch_id)
+                {
+                    return Err("workflow_amendment_case_contract_invalid".to_string());
+                }
+                next.workflow_amendments.push(amendment.clone());
+            }
+            TransitionPayload::HandoffOffered { offer } => {
+                offer.validate()?;
+                if offer.source_case_id != next.case_id
+                    || next.tenant_id.as_deref() != Some(offer.tenant_id.as_str())
+                    || offer.offered_at_generation != transition.sequence
+                    || next
+                        .handoff_offers
+                        .iter()
+                        .any(|current| current.handoff_id == offer.handoff_id)
+                {
+                    return Err("handoff_offer_case_contract_invalid".to_string());
+                }
+                next.handoff_offers.push(offer.clone());
+            }
+            TransitionPayload::HandoffAccepted { acceptance } => {
+                acceptance.validate()?;
+                if acceptance.target_case_id != next.case_id
+                    || acceptance.accepted_at_generation != transition.sequence
+                    || next
+                        .handoff_acceptances
+                        .iter()
+                        .any(|current| current.handoff_id == acceptance.handoff_id)
+                    || next
+                        .handoff_declines
+                        .iter()
+                        .any(|current| current.handoff_id == acceptance.handoff_id)
+                {
+                    return Err("handoff_acceptance_case_contract_invalid".to_string());
+                }
+                next.handoff_acceptances.push(acceptance.clone());
+            }
+            TransitionPayload::HandoffDeclined { decline } => {
+                decline.validate()?;
+                if decline.target_case_id != next.case_id
+                    || decline.declined_at_generation != transition.sequence
+                    || next
+                        .handoff_acceptances
+                        .iter()
+                        .any(|current| current.handoff_id == decline.handoff_id)
+                    || next
+                        .handoff_declines
+                        .iter()
+                        .any(|current| current.handoff_id == decline.handoff_id)
+                {
+                    return Err("handoff_decline_case_contract_invalid".to_string());
+                }
+                next.handoff_declines.push(decline.clone());
+            }
+            TransitionPayload::HandoffResultRecorded { result } => {
+                result.validate()?;
+                if result.target_case_id != next.case_id
+                    || result.recorded_at_generation != transition.sequence
+                    || !next.handoff_acceptances.iter().any(|acceptance| {
+                        acceptance.acceptance_id == result.acceptance_id
+                            && acceptance.handoff_id == result.handoff_id
+                    })
+                    || next
+                        .handoff_results
+                        .iter()
+                        .any(|current| current.handoff_id == result.handoff_id)
+                {
+                    return Err("handoff_result_case_contract_invalid".to_string());
+                }
+                next.handoff_results.push(result.clone());
+            }
+            TransitionPayload::HandoffReconciled { reconciliation } => {
+                reconciliation.validate()?;
+                if reconciliation.reconciled_at_generation != transition.sequence
+                    || !next
+                        .handoff_offers
+                        .iter()
+                        .any(|offer| offer.handoff_id == reconciliation.handoff_id)
+                    || next
+                        .handoff_reconciliations
+                        .iter()
+                        .any(|current| current.handoff_id == reconciliation.handoff_id)
+                {
+                    return Err("handoff_reconciliation_case_contract_invalid".to_string());
+                }
+                next.handoff_reconciliations.push(reconciliation.clone());
+            }
             TransitionPayload::ReviewResolved {
                 review_id,
                 attempt_id,
@@ -2207,6 +2390,7 @@ impl CaseState {
             || state.schema == CASE_STATE_SCHEMA_V7
             || state.schema == CASE_STATE_SCHEMA_V8
             || state.schema == CASE_STATE_SCHEMA_V9
+            || state.schema == CASE_STATE_SCHEMA_V10
         {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
@@ -2219,6 +2403,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V10
             && self.schema != TRANSITION_SCHEMA_V9
             && self.schema != TRANSITION_SCHEMA_V8
             && self.schema != TRANSITION_SCHEMA_V7
@@ -2252,27 +2437,38 @@ impl Transition {
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V9 | TRANSITION_SCHEMA_V8 | TRANSITION_SCHEMA_V7
+            TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V10
+                | TRANSITION_SCHEMA_V9
+                | TRANSITION_SCHEMA_V8
+                | TRANSITION_SCHEMA_V7
         ) && self.payload.is_wave11_kind()
         {
             return Err("wave11_contract_requires_yai_transition_v7".to_string());
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V9
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V10 | TRANSITION_SCHEMA_V9
         ) && self.payload.is_wave12_kind()
         {
             return Err("wave12_contract_requires_yai_transition_v8".to_string());
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V9
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V10 | TRANSITION_SCHEMA_V9
         ) && self.payload.is_wave14_kind()
         {
             return Err("wave14_contract_requires_yai_transition_v9".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave15_kind() {
+        if !matches!(
+            self.schema.as_str(),
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V10
+        ) && self.payload.is_wave15_kind()
+        {
             return Err("wave15_contract_requires_yai_transition_v10".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave17_kind() {
+            return Err("wave17_contract_requires_yai_transition_v11".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -2692,8 +2888,11 @@ impl Transition {
                     "workflow_binding.definition_id",
                     &binding.workflow_definition_id,
                 )?;
-                if binding.schema != crate::workflow::CASE_WORKFLOW_BINDING_SCHEMA
-                    || binding.case_id != self.case_id
+                if !matches!(
+                    binding.schema.as_str(),
+                    crate::workflow::CASE_WORKFLOW_BINDING_SCHEMA
+                        | crate::workflow::CASE_WORKFLOW_BINDING_SCHEMA_V1
+                ) || binding.case_id != self.case_id
                     || binding.bound_at_generation != self.sequence
                     || self.source.principal_id.as_deref()
                         != Some(binding.bound_by_principal_id.as_str())
@@ -2825,6 +3024,73 @@ impl Transition {
                     &self.causal_refs,
                     &proposal.execution_id,
                     "workflow_execution",
+                )?;
+            }
+            TransitionPayload::WorkflowPlanPatchProposed { patch } => {
+                if patch.schema != crate::workflow::WORKFLOW_PLAN_PATCH_SCHEMA
+                    || patch.case_id != self.case_id
+                    || patch.proposed_at_generation != self.sequence
+                {
+                    return Err("workflow_plan_patch_transition_mismatch".to_string());
+                }
+                require_causal_ref(&self.causal_refs, &patch.binding_id, "workflow_binding")?;
+            }
+            TransitionPayload::WorkflowAmendmentAdopted { amendment } => {
+                if amendment.schema != crate::workflow::WORKFLOW_AMENDMENT_SCHEMA
+                    || amendment.adopted_at_generation != self.sequence
+                {
+                    return Err("workflow_amendment_transition_mismatch".to_string());
+                }
+                require_causal_ref(&self.causal_refs, &amendment.patch_id, "workflow_patch")?;
+            }
+            TransitionPayload::HandoffOffered { offer } => {
+                offer.validate()?;
+                if offer.source_case_id != self.case_id
+                    || offer.offered_at_generation != self.sequence
+                {
+                    return Err("handoff_offer_transition_mismatch".to_string());
+                }
+            }
+            TransitionPayload::HandoffAccepted { acceptance } => {
+                acceptance.validate()?;
+                if acceptance.target_case_id != self.case_id
+                    || acceptance.accepted_at_generation != self.sequence
+                {
+                    return Err("handoff_acceptance_transition_mismatch".to_string());
+                }
+                require_causal_ref(&self.causal_refs, &acceptance.handoff_id, "handoff_offer")?;
+            }
+            TransitionPayload::HandoffDeclined { decline } => {
+                decline.validate()?;
+                if decline.target_case_id != self.case_id
+                    || decline.declined_at_generation != self.sequence
+                {
+                    return Err("handoff_decline_transition_mismatch".to_string());
+                }
+                require_causal_ref(&self.causal_refs, &decline.handoff_id, "handoff_offer")?;
+            }
+            TransitionPayload::HandoffResultRecorded { result } => {
+                result.validate()?;
+                if result.target_case_id != self.case_id
+                    || result.recorded_at_generation != self.sequence
+                {
+                    return Err("handoff_result_transition_mismatch".to_string());
+                }
+                require_causal_ref(
+                    &self.causal_refs,
+                    &result.acceptance_id,
+                    "handoff_acceptance",
+                )?;
+            }
+            TransitionPayload::HandoffReconciled { reconciliation } => {
+                reconciliation.validate()?;
+                if reconciliation.reconciled_at_generation != self.sequence {
+                    return Err("handoff_reconciliation_transition_mismatch".to_string());
+                }
+                require_causal_ref(
+                    &self.causal_refs,
+                    reconciliation.target_disposition_id(),
+                    "handoff_disposition",
                 )?;
             }
             TransitionPayload::ReviewResolved {
@@ -3152,12 +3418,26 @@ impl TransitionPayload {
                 | Self::WorkflowDeterministicProposalRecorded { .. }
         )
     }
+
+    fn is_wave17_kind(&self) -> bool {
+        matches!(
+            self,
+            Self::WorkflowPlanPatchProposed { .. }
+                | Self::WorkflowAmendmentAdopted { .. }
+                | Self::HandoffOffered { .. }
+                | Self::HandoffAccepted { .. }
+                | Self::HandoffDeclined { .. }
+                | Self::HandoffResultRecorded { .. }
+                | Self::HandoffReconciled { .. }
+        )
+    }
 }
 
 fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V10
             | TRANSITION_SCHEMA_V9
             | TRANSITION_SCHEMA_V8
             | TRANSITION_SCHEMA_V7
@@ -3171,6 +3451,7 @@ fn supports_wave9_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V10
             | TRANSITION_SCHEMA_V9
             | TRANSITION_SCHEMA_V8
             | TRANSITION_SCHEMA_V7
@@ -3183,6 +3464,7 @@ fn supports_wave10_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V10
             | TRANSITION_SCHEMA_V9
             | TRANSITION_SCHEMA_V8
             | TRANSITION_SCHEMA_V7
