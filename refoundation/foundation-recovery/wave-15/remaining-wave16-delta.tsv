@@ -1,0 +1,8 @@
+feature	remaining_work
+PlanPatch	typed proposal/admission for graph amendment
+definition evolution	new immutable definition plus explicit Case adoption semantics
+dynamic nodes	bounded insertion without rewriting old progress
+subflow	exact parent/child Case-local semantics
+handoff	HandoffOffered/Accepted/Result same-Tenant contracts
+multi-Case process	no shared mutable WorkflowRun; explicit reconciliation
+cross-Tenant federation	not authorized

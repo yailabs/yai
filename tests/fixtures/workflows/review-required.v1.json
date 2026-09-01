@@ -1,0 +1,25 @@
+{
+  "schema": "yai.workflow_definition.v1",
+  "tenant_id": "tenant:wave15-review",
+  "workflow_key": "review-required-change",
+  "declared_version": "1",
+  "name": "Review-required deterministic change",
+  "description": "Proves Human Review remains the existing authority owner for deterministic workflow work.",
+  "nodes": [
+    {
+      "node_id": "reviewed-write",
+      "kind": "deterministic_work",
+      "proposer_slot": "operator",
+      "operation": {
+        "operation": "filesystem_write",
+        "resource_slot": "workspace",
+        "relative_path": "allowed/reviewed.txt",
+        "content": "approved deterministic workflow effect\n"
+      },
+      "completion": {
+        "predicate": "execution_effect_finalized"
+      }
+    }
+  ],
+  "edges": []
+}

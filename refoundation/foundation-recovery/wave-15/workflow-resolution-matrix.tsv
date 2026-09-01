@@ -1,0 +1,11 @@
+condition	posture	canonical
+dependency missing	PendingDependency	no
+executable ready	Ready	no
+execution started	Active	yes for start fact
+human input absent	WaitingHumanInput	no
+passive predicate false	WaitingEffect	no
+satisfaction recorded	Satisfied	yes
+inactive frozen branch	Skipped	no; derived
+join after frozen branch	Ready when all selected incoming branches satisfy	no; derived
+completion proof before acknowledgement	Active/completion_proven_pending_canonical_satisfaction	ProviderResult/Effect truth canonical; posture derived
+Case cancelled/closed	Cancelled/Closed	Case lifecycle is canonical

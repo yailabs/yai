@@ -846,6 +846,12 @@ pub(super) fn advance_controlled_filesystem_candidate(
                         provider_result_id,
                         ..
                     } if provider_result_id == &provider_result.result_id
+                ) || matches!(
+                    &operation.origin,
+                    yai_core_engine::effect::OperationOrigin::WorkflowDeterministicProposal {
+                        proposal_id,
+                        ..
+                    } if proposal_id == &provider_result.result_id
                 ) =>
             {
                 Some(operation.clone())
@@ -1330,6 +1336,43 @@ pub(super) fn advance_controlled_filesystem_candidate(
         receipt_id: Some(receipt.receipt_id),
         outcome: Some(result.outcome),
     })
+}
+
+pub(super) fn advance_controlled_workflow_deterministic(
+    args: &[String],
+    item: &yai_core_engine::store::lmdb::RuntimeWorkItem,
+) -> Result<ControlledEffectTurnResult, String> {
+    let authenticated = authenticate_local()?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let (proposal, _operation) =
+        store.record_workflow_deterministic_operation(&authenticated, item)?;
+    let source = ControlledProviderResult {
+        invocation_id: item
+            .workflow
+            .as_ref()
+            .map(|workflow| workflow.workflow_execution_id.clone())
+            .ok_or_else(|| "runtime_workflow_context_missing".to_string())?,
+        result_id: proposal.proposal_id,
+        raw_output: String::new(),
+        provider_id: "provider:none".to_string(),
+        model_id: "model:none".to_string(),
+        projection_id: String::new(),
+        context_frame_id: String::new(),
+        residency_plan_id: String::new(),
+        resident_item_ids: Vec::new(),
+        projection_selected_items: 0,
+        projection_omitted_items: 0,
+        semantic_units: 0,
+        estimated_input_units: 0,
+        usage: Default::default(),
+    };
+    advance_controlled_filesystem_candidate(
+        args,
+        &item.case_id,
+        &item.participant_id,
+        &item.attachment_id,
+        &source,
+    )
 }
 
 fn advance_process_signal_after_grant(

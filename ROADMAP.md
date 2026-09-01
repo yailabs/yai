@@ -296,23 +296,23 @@ The current dependency order is:
 2. Wave 13 and H13: complete — local multi-Case RuntimeInstance, bounded
    workers, Tenant-fair scheduling/backpressure, canonical-first recovery,
    process-bound operational ownership and terminal-ack closure.
-3. Wave 14: active — shared resource authority, monotonic resource epochs,
-   carrier-enforced fencing, a second physical carrier, and the first permanent
-   external YAI↔YVEX qualification baseline.
-4. H14: next only after independent review — adversarial stale-writer,
-   reclaim, forgery, alias and cross-process carrier qualification.
-5. Wave 15 — Case-Bound Workflow Kernel: immutable Tenant-bound definitions,
-   exact Case adoption, deterministic resolution and bounded ready work.
-6. H15 — workflow determinism, replay, crash and authority-isolation closure.
-7. Wave 16 — adaptive workflow evolution, typed same-Tenant multi-Case handoff,
+3. Wave 14 and H14: complete — shared resource authority, monotonic epochs,
+   carrier-enforced fencing, a second physical carrier, and adversarial
+   stale-writer, rebuild, TOCTOU and process-uncertainty qualification.
+4. Wave 15: implemented, pending publication closure — immutable Tenant-bound
+   WorkflowDefinitions, exact Case adoption, deterministic resolution, bounded
+   ready work, ModelWork and deterministic/passive progression.
+5. H15: next only after Wave 15 publication — workflow determinism, replay,
+   crash and authority-isolation closure.
+6. Wave 16 — adaptive workflow evolution, typed same-Tenant multi-Case handoff,
    PlanPatch, bounded subflow and reconciliation.
-8. Wave 17 — provider governance, qualification/trust/capability selection,
+7. Wave 17 — provider governance, qualification/trust/capability selection,
    health, and an optional YVEX-native extension lane.
 
 Numbering after Wave 17 is provisional and must be re-evaluated from executable
 evidence. Workflow design is recorded in
-`refoundation/foundation-recovery/WORKFLOW-REFOUNDATION-PLAN.md`; Wave 14 does
-not implement it.
+`refoundation/foundation-recovery/WORKFLOW-REFOUNDATION-PLAN.md`; Wave 15 owns
+the first executable kernel while H15 remains its adversarial closure.
 
 The sequence may change only when repository evidence establishes a stronger
 dependency. Every wave is incomplete until its isolated commit is pushed and

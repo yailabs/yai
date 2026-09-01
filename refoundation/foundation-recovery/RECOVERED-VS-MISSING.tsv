@@ -1,4 +1,10 @@
 foundation_family	status	current_evidence	remaining_gap	target_recheck
+WorkflowDefinition	refounded_proven pending publication	immutable Tenant-bound content identity and exact version pinning	lifecycle beyond immutable admission	future only with consumer
+Case workflow binding/progression	refounded_proven pending publication	exact Transition v10 binding and evidence-derived monotonic facts	H15 adversarial crash/concurrent resolver closure	H15
+WorkflowRun	derived_no_owner	pure WorkflowResolution from Definition+Case history	materialized cache only if characterized	future performance evidence
+ModelWork	refounded_proven pending publication	existing bounded Case runtime; provider completion checked against canonical predicate	live external YVEX endpoint qualification	when supplied
+DeterministicWork	refounded_proven pending publication	zero-provider typed proposal through same Decision/Grant/Fence/carrier	additional operation families only with consumers	future
+adaptive workflow/handoff	missing	static acyclic W15 substrate	PlanPatch/subflow/same-Tenant Handoff	Wave16
 Transition/ref replay	refounded_proven	yai.transition.v7 + LMDB tests; v1-v6 readable	compaction/migration	Wave18
 CaseState	refounded_proven	yai.case_state.v7 replay including temporal authority/cancel/close refs	archive/retention/reopen only with a recovered consumer	future direct archaeology
 Case identity/lifecycle	refounded_proven	open + durable cancellation + terminal non-destructive close	archive/retention/reopen	future direct archaeology

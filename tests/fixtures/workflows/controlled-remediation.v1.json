@@ -1,0 +1,80 @@
+{
+  "schema": "yai.workflow_definition.v1",
+  "tenant_id": "tenant:workflow-product",
+  "workflow_key": "controlled-remediation",
+  "declared_version": "1",
+  "name": "Controlled remediation",
+  "description": "Collect a change ticket, freeze a branch, apply a governed deterministic change, prove its effect, and leave a model-only exception branch available.",
+  "nodes": [
+    {
+      "node_id": "change-ticket",
+      "kind": "human_input",
+      "actor_slot": "input-actor",
+      "prompt": "Enter the approved change ticket identifier",
+      "required_roles": ["workflow-input"],
+      "input_kind": "text",
+      "max_bytes": 128
+    },
+    {
+      "node_id": "ticket-present",
+      "kind": "condition",
+      "predicate": {
+        "predicate": "node_satisfied",
+        "node_id": "change-ticket"
+      }
+    },
+    {
+      "node_id": "apply-remediation",
+      "kind": "deterministic_work",
+      "proposer_slot": "operator",
+      "operation": {
+        "operation": "filesystem_write",
+        "resource_slot": "workspace",
+        "relative_path": "allowed/remediation.txt",
+        "content": "controlled remediation applied\n"
+      },
+      "completion": {
+        "predicate": "execution_effect_finalized"
+      }
+    },
+    {
+      "node_id": "manual-analysis-exception",
+      "kind": "model_work",
+      "executor_slot": "analyst-model",
+      "task": "Analyze why the change ticket is absent. Do not claim an external effect.",
+      "completion": {
+        "predicate": "execution_provider_result"
+      },
+      "budgets": {
+        "max_turns": 1,
+        "max_operations": 1,
+        "max_semantic_units": 2000
+      },
+      "resource_slot": "workspace"
+    },
+    {
+      "node_id": "effect-proven",
+      "kind": "effect_goal",
+      "predicate": {
+        "predicate": "finalized_effect",
+        "resource_slot": "workspace",
+        "operation_kind": "filesystem_write"
+      }
+    },
+    {
+      "node_id": "case-still-open",
+      "kind": "wait",
+      "predicate": {
+        "predicate": "case_lifecycle",
+        "lifecycle": "open"
+      }
+    }
+  ],
+  "edges": [
+    {"from": "change-ticket", "to": "ticket-present", "kind": "always"},
+    {"from": "ticket-present", "to": "apply-remediation", "kind": "on_true"},
+    {"from": "ticket-present", "to": "manual-analysis-exception", "kind": "on_false"},
+    {"from": "apply-remediation", "to": "effect-proven", "kind": "always"},
+    {"from": "effect-proven", "to": "case-still-open", "kind": "always"}
+  ]
+}

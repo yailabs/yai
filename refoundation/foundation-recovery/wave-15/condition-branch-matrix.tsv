@@ -1,0 +1,6 @@
+state	result
+predicate true	frozen true fact; on_true active; on_false skipped
+predicate false	frozen false fact; on_false active; on_true skipped
+restart	reuses canonical frozen result
+later Case change	does not flip historical branch
+join	depends on active incoming branches only

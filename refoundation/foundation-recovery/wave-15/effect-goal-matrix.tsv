@@ -1,0 +1,7 @@
+input	qualifies
+provider says effect succeeded	no
+Operation/Decision/Grant only	no
+PREPARED/INDETERMINATE effect	no
+finalized exact execution effect	yes for execution_effect_finalized
+finalized broad matching Case effect	yes only for explicit finalized_effect goal
+unrelated effect	no for execution-scoped node

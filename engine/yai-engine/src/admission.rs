@@ -1001,6 +1001,51 @@ pub(crate) fn resolve_canonical_evidence(
                 ]);
             }
         }
+    } else if let OperationOrigin::WorkflowDeterministicProposal {
+        proposal_id,
+        workflow_execution_id,
+    } = &operation.origin
+    {
+        let executions = history
+            .iter()
+            .enumerate()
+            .filter_map(|(index, transition)| match &transition.payload {
+                TransitionPayload::WorkflowNodeExecutionStarted { execution }
+                    if execution.execution_id == *workflow_execution_id =>
+                {
+                    Some((index, execution))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let proposals = history
+            .iter()
+            .enumerate()
+            .filter_map(|(index, transition)| match &transition.payload {
+                TransitionPayload::WorkflowDeterministicProposalRecorded { proposal }
+                    if proposal.proposal_id == *proposal_id =>
+                {
+                    Some((index, proposal))
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if let ([(execution_index, execution)], [(proposal_index, proposal)]) =
+            (executions.as_slice(), proposals.as_slice())
+        {
+            if *execution_index < *proposal_index
+                && *proposal_index < operation_index
+                && execution.case_id == operation.case_id
+                && proposal.execution_id == execution.execution_id
+                && proposal.node_id == execution.node_id
+                && proposal.participant_id == operation.participant_id
+                && proposal.resource_attachment_id == operation.resource_attachment_id
+                && proposal.operation_kind == operation.kind
+            {
+                resolved.source_provenance_refs =
+                    Some(vec![proposal_id.clone(), workflow_execution_id.clone()]);
+            }
+        }
     }
 
     if let Some(action_id) = review_action_ref {

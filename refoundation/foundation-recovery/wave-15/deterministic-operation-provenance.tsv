@@ -1,0 +1,6 @@
+stage	canonical_evidence	writer_check
+ready node	Definition+Binding+Case history	resolver rederived in LMDB snapshot
+proposal	WorkflowDeterministicProposalRecorded	exact execution/node/template/participant/resource
+Operation	WorkflowDeterministicProposal origin	canonical proposal reloaded and operation rebuilt
+DecisionBasis	resolved source provenance	fake content-valid source cannot satisfy obligation
+effect	Grant+PREPARE+ResourceFence	unchanged H10/H14 admission

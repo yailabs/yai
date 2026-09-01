@@ -1,0 +1,6 @@
+commit	path_or_symbol	executable_strength	recovered_or_rejected	current_owner
+94ba627091afbf1100ab386ac1de3d4fb1d2502c	core/orchestration/flow/model/flow.c;include/orchestration/planning.h;apps/cli/cmd/flow/*	mostly topology plus explicit definition/component vocabulary	recover identity/dependency/gate properties; reject capability/plane topology	workflow.rs
+cffb318b9	core/orchestration/substrate/flow_substrate.c	real file-backed definition/components/dependencies/progress/gates/interactions/Case links	recover deterministic progression/evidence refs/human blockers; reject mega-owner	workflow.rs + Case transitions
+001752f52545fe84a30017ec735794a8f04d189c	orch/*;cognition/*	structural absorption with many stubs	reject global Orchestrator/Agent ownership	none
+840aee9464211e7af6d6811de32320faea14806e	include/yai/orchestration;lib/orchestration	topology canonicalization, limited workflow consumer	reject runtime/daemon/orchestration topology	none
+68095595327a6ea11024c044ac9205496701a854	final workflow/current-work/runtime paths	current-work projection and runtime linkage only	recover bounded current-work view, not truth	RuntimeInstance derived view

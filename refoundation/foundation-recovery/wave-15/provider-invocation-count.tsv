@@ -1,0 +1,7 @@
+scenario	total_nodes	modelwork_executed	deterministic_or_passive_executed	provider_invocations
+controlled_remediation	6	0	5	0
+controlled_remediation_two_cases	12	0	10	0
+bounded_model_analysis	1	1	0	1
+iterative_governed_remediation	1	1	0	2
+false_effect_completion	1	1	0	1
+note	-	-	-	actual counts only; no universal savings claim

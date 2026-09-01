@@ -1,0 +1,8 @@
+attack	result
+caller-supplied NodeSatisfied	writer rederives predicate/evidence
+node start with unmet dependency	writer re-resolves and rejects
+fake deterministic proposal	canonical proposal/execution/template lookup rejects
+workflow ALLOW declaration	not representable; Policy decides
+node owns fence	not representable; PREPARE owns acquisition
+provider complete claim	cannot satisfy effect predicate
+HumanInput yes approves Review	no ReviewAction produced

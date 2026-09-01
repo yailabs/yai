@@ -1,0 +1,8 @@
+input	required	canonical
+WorkflowDefinition	yes	yes, Case-independent immutable object
+CaseWorkflowBinding	yes	yes, Case Transition
+Case Transition history	yes	yes
+CaseState	optional rebuildable cache	materialized
+RuntimeWorkItems	no	operational
+RuntimeInstance memory	no	operational
+WorkflowRun DB	no	not created

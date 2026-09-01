@@ -36,9 +36,30 @@ later governance/law cutovers, neutral-sample cleanup and final drain residue.
   consumer after Wave 11.
 - Local Tenant/Principal security-domain ownership and Case/policy/read
   isolation: refounded proven within the documented POSIX/filesystem trust
-  model. Multi-Case runtime, resource fencing/second carrier, provider
-  governance, external SSO/account identity, build lifecycle and data longevity
-  remain future recovery families.
+  model.
+- Local multi-Case scheduling, process-bound recovery and carrier-enforced
+  shared-resource fencing: refounded proven and adversarially qualified through
+  H14 within their explicit local/Linux boundaries.
+- The Case-bound Workflow Kernel is implemented pending Wave 15 publication:
+  immutable definitions, exact binding, pure resolution, ModelWork,
+  deterministic work and passive node families. WorkflowRun remains derived.
+  Provider governance, external SSO/account identity, build lifecycle and data
+  longevity remain future recovery families.
+
+## Wave-15 pre-publication verdict
+
+Direct workflow archaeology recovered only the useful executable properties of
+legacy flow identity, dependencies, gates, evidence-linked progression, human
+interaction and Case linkage. It rejected the historical flow mega-owner,
+Agent/capability/routing planes, module/mount registries and flow-owned policy,
+review, Operation and reconciliation state.
+
+Current YAI introduces one bounded WorkflowDefinition owner. Exact binding and
+progression live in Transition/CaseState v10; the pure WorkflowResolution and
+ReadyWorkSet are rebuildable. RuntimeInstance pumps ready nodes into the
+existing Tenant-fair queue. Deterministic work reaches the unchanged authority,
+resource-fence and carrier spine with zero provider calls; ModelWork reuses the
+existing Case runtime and cannot turn model prose into completion proof.
 
 ## Wave-8 constitutional verdict
 

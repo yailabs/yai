@@ -1,0 +1,10 @@
+predicate	scope	proof source
+execution_provider_result	execution	exact causal ProviderResult Transition
+execution_effect_finalized	execution	exact execution→proposal→Operation→Effect→Receipt chain
+execution_filesystem_effect_finalized	execution	exact execution chain plus normalized relative path
+human_input_recorded	node	authenticated typed HumanInput fact
+case_lifecycle	Case	CaseState lifecycle at evaluated generation
+node_satisfied	definition	canonical prior progression fact
+decision_outcome	execution	exact causally linked Decision
+review_terminal	execution	exact terminal Review posture
+finalized_effect	broad explicit goal	canonical finalized Effect optionally filtered by resource/operation

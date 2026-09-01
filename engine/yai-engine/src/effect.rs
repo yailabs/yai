@@ -126,6 +126,10 @@ pub enum OperationOrigin {
         review_id: String,
         attempt_id: String,
     },
+    WorkflowDeterministicProposal {
+        proposal_id: String,
+        workflow_execution_id: String,
+    },
 }
 
 impl OperationOrigin {
@@ -139,6 +143,10 @@ impl OperationOrigin {
                 review_id,
                 attempt_id,
             } => vec![review_id.clone(), attempt_id.clone()],
+            Self::WorkflowDeterministicProposal {
+                proposal_id,
+                workflow_execution_id,
+            } => vec![proposal_id.clone(), workflow_execution_id.clone()],
         }
     }
 }
@@ -830,6 +838,52 @@ fn build_filesystem_write_operation(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn build_workflow_deterministic_filesystem_operation(
+    case_id: &str,
+    participant_id: &str,
+    case_generation: u64,
+    resource: &ResourceAttachmentState,
+    relative_path: &str,
+    content: &str,
+    proposal_id: &str,
+    workflow_execution_id: &str,
+) -> Result<Operation, String> {
+    let relative_path = normalize_relative_path(relative_path)?;
+    if resource.kind != crate::transition::ResourceKind::Filesystem
+        || content.is_empty()
+        || content.len() > resource.max_write_bytes
+        || proposal_id.is_empty()
+        || workflow_execution_id.is_empty()
+    {
+        return Err("workflow_deterministic_filesystem_operation_invalid".to_string());
+    }
+    let filesystem_write = FilesystemWritePayload {
+        relative_path: relative_path.clone(),
+        content: content.to_string(),
+        content_digest: digest_bytes(content.as_bytes()),
+        content_bytes: content.len(),
+    };
+    let scope = TransitionScope {
+        case_id: case_id.to_string(),
+        participant_refs: vec![participant_id.to_string()],
+        resource_refs: vec![resource.attachment_id.clone()],
+        policy_refs: vec![resource.policy_id.clone()],
+    };
+    Ok(build_filesystem_write_operation(
+        case_id,
+        participant_id,
+        case_generation,
+        resource,
+        scope,
+        filesystem_write,
+        OperationOrigin::WorkflowDeterministicProposal {
+            proposal_id: proposal_id.to_string(),
+            workflow_execution_id: workflow_execution_id.to_string(),
+        },
+    ))
+}
+
 pub fn normalize_process_signal_candidate(
     raw_provider_output: &str,
     context: &NormalizationContext<'_>,
@@ -913,6 +967,67 @@ pub fn normalize_process_signal_candidate(
         process_signal: Some(payload),
         origin,
         expected_case_generation: context.case_generation,
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn build_workflow_deterministic_process_operation(
+    case_id: &str,
+    participant_id: &str,
+    case_generation: u64,
+    resource: &ResourceAttachmentState,
+    process: &LocalProcessIdentity,
+    action: ProcessSignalAction,
+    proposal_id: &str,
+    workflow_execution_id: &str,
+) -> Result<Operation, String> {
+    process.validate()?;
+    if resource.kind != crate::transition::ResourceKind::Process
+        || !resource.process_signal_actions.contains(&action)
+        || proposal_id.is_empty()
+        || workflow_execution_id.is_empty()
+    {
+        return Err("workflow_deterministic_process_operation_invalid".to_string());
+    }
+    let payload = ProcessSignalPayload {
+        action,
+        target_identity_digest: digest_bytes(process.canonical_identity().as_bytes()),
+    };
+    let scope = TransitionScope {
+        case_id: case_id.to_string(),
+        participant_refs: vec![participant_id.to_string()],
+        resource_refs: vec![resource.attachment_id.clone()],
+        policy_refs: vec![resource.policy_id.clone()],
+    };
+    let origin = OperationOrigin::WorkflowDeterministicProposal {
+        proposal_id: proposal_id.to_string(),
+        workflow_execution_id: workflow_execution_id.to_string(),
+    };
+    let material = OperationDigestMaterialV2 {
+        schema: OPERATION_SCHEMA,
+        case_id,
+        participant_id,
+        scope: &scope,
+        kind: &OperationKind::ProcessSignal,
+        resource_attachment_id: &resource.attachment_id,
+        process_signal: &payload,
+        origin: &origin,
+        expected_case_generation: case_generation,
+    };
+    let operation_digest = digest_serialized(&material);
+    Ok(Operation {
+        schema: OPERATION_SCHEMA.to_string(),
+        operation_id: format!("operation:{}", digest_suffix(&operation_digest, 32)),
+        operation_digest,
+        case_id: case_id.to_string(),
+        participant_id: participant_id.to_string(),
+        scope,
+        kind: OperationKind::ProcessSignal,
+        resource_attachment_id: resource.attachment_id.clone(),
+        filesystem_write: FilesystemWritePayload::default(),
+        process_signal: Some(payload),
+        origin,
+        expected_case_generation: case_generation,
     })
 }
 

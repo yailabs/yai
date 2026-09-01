@@ -1968,6 +1968,7 @@ pub(super) struct RuntimeInvocationOptions {
     pub max_estimated_input_units: usize,
     pub retrieval_limit: usize,
     pub previous_item_ids: Vec<String>,
+    pub workflow_execution_id: Option<String>,
 }
 
 impl Default for RuntimeInvocationOptions {
@@ -1978,6 +1979,7 @@ impl Default for RuntimeInvocationOptions {
             max_estimated_input_units: DEFAULT_SEMANTIC_UNIT_BUDGET * 2,
             retrieval_limit: DEFAULT_RETRIEVAL_LIMIT,
             previous_item_ids: Vec::new(),
+            workflow_execution_id: None,
         }
     }
 }
@@ -2259,6 +2261,7 @@ fn invoke_runtime_provider_with_optional_journal(
         &session,
         task,
         invocation_lineage(&semantic, requested_disposition),
+        options.workflow_execution_id.as_deref(),
     )?;
     let transport = provider_chat_completion(&session.provider, &semantic.rendered)?;
     let result_lineage = invocation_lineage(&semantic, transport.continuation_disposition.clone());
@@ -2268,6 +2271,7 @@ fn invoke_runtime_provider_with_optional_journal(
         &invocation.invocation_id,
         &transport.output,
         result_lineage,
+        options.workflow_execution_id.as_deref(),
     )?;
     append_model_interpretation_record(
         &session,
@@ -2305,6 +2309,7 @@ fn append_model_prompt_attempt(
     session: &PromptRuntime,
     prompt: &str,
     semantic_lineage: ProviderInvocationLineage,
+    workflow_execution_id: Option<&str>,
 ) -> Result<ProviderInvocationRefs, String> {
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
@@ -2349,6 +2354,9 @@ fn append_model_prompt_attempt(
             semantic_lineage: Some(semantic_lineage.clone()),
         },
     );
+    if let Some(execution_id) = workflow_execution_id {
+        pending.causal_refs.push(execution_id.to_string());
+    }
     pending.summary = Some(prompt_attempt_summary(session, prompt));
     store.commit_transition(pending)?;
     append_record_to_journal(&session.journal_path, &record)?;
@@ -2364,6 +2372,7 @@ fn append_model_output_receipt(
     invocation_id: &str,
     output: &str,
     semantic_lineage: ProviderInvocationLineage,
+    workflow_execution_id: Option<&str>,
 ) -> Result<String, String> {
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
@@ -2404,6 +2413,9 @@ fn append_model_output_receipt(
         },
     );
     pending.causal_refs.push(invocation_id.to_string());
+    if let Some(execution_id) = workflow_execution_id {
+        pending.causal_refs.push(execution_id.to_string());
+    }
     pending.summary = Some(model_output_summary(session, output));
     store.commit_transition(pending)?;
     append_record_to_journal(&session.journal_path, &record)?;
@@ -2638,6 +2650,7 @@ fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> 
         session,
         prompt,
         invocation_lineage(&semantic, requested_disposition),
+        None,
     )?;
     let transport = provider_chat_completion(&session.provider, &semantic.rendered)?;
     let output = transport.output.clone();
@@ -2651,6 +2664,7 @@ fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> 
         &invocation.invocation_id,
         &output,
         invocation_lineage(&semantic, transport.continuation_disposition.clone()),
+        None,
     )?;
     let interpretation_summary =
         append_model_interpretation_record(session, &invocation.attempt_id, &result_id, &output)?;

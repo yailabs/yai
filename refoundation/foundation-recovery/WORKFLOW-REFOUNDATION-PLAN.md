@@ -1,7 +1,8 @@
 # Workflow Refoundation Plan
 
-Status: future architecture synchronized during Wave 14; no Workflow runtime is
-implemented by this document.
+Status: architecture synchronized during Wave 14; the bounded Wave 15 kernel is
+now implemented pending publication closure. H15/W16 items below remain design
+boundaries, not current runtime claims.
 
 ## Constitutional ownership
 
@@ -18,18 +19,17 @@ Carrier          changes external reality
 Agent is not restored as a runtime owner. A Case remains legal without a
 Workflow.
 
-`CaseBlueprint`, `WorkflowDefinition` and `Case` are distinct. A future
+`CaseBlueprint`, `WorkflowDefinition` and `Case` are distinct. The implemented
 WorkflowDefinition is immutable, versioned, Tenant-bound and adopted by exactly
-one Case through an explicit identity-bearing relationship. Candidate node
+one Case through an explicit identity-bearing relationship. Its initial node
 kinds are `ModelWork`, `DeterministicWork`, `HumanInput`, `Condition`, `Wait`
-and `EffectGoal`; these names describe future design pressure, not Wave-14
-implementation.
+and `EffectGoal`.
 
 `ModelWork` means bounded adaptive Case execution until a canonical completion
 predicate is satisfied. A model statement that work is complete is provider
 candidate material, not proof that the node predicate is satisfied.
 
-`WorkflowRun` begins as a candidate derived/materialized projection. It earns
+`WorkflowRun` remains a derived/materialized projection. It earns
 independent canonical ownership only if a future owner test proves a lifecycle
 that cannot be reconstructed from WorkflowDefinition, Case Transitions and
 current resolution rules.
@@ -76,8 +76,9 @@ cross-Tenant federation is not authorized.
 
 ## Planned delivery sequence
 
-- Wave 15: immutable WorkflowDefinition, exact Case binding, deterministic
-  resolver, completion predicates, ReadyWorkSet and initial node families.
+- Wave 15: implemented pending publication — immutable WorkflowDefinition,
+  exact Case binding, deterministic resolver, completion predicates,
+  ReadyWorkSet and the six initial node families.
 - H15: determinism, replay, crash recovery and authority isolation.
 - Wave 16: typed PlanPatch, bounded subflows, adaptive evolution and
   same-Tenant handoff/reconciliation.

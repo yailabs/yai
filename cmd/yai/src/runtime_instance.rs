@@ -5,11 +5,13 @@
 
 use super::*;
 use crate::case_runtime::{
-    execute_runtime_work, recover_runtime_work_from_checkpoint, CaseRuntimeReport, CaseRuntimeStop,
+    execute_runtime_work, recover_runtime_work_from_checkpoint,
+    repair_workflow_checkpoint_completed, CaseRuntimeReport, CaseRuntimeStop,
 };
 use crate::provider::validate_journal_case_binding;
 use crate::security::authenticate_local;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::fs::{self, OpenOptions};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
@@ -357,6 +359,21 @@ fn case_runtime_admission_is_available(
         }))
 }
 
+fn workflow_work_is_canonically_satisfied(
+    item: &RuntimeWorkItem,
+    state: &yai_core_engine::transition::CaseState,
+) -> bool {
+    let Some(workflow) = item.workflow.as_ref() else {
+        return false;
+    };
+    state.workflow_satisfactions.iter().any(|satisfaction| {
+        satisfaction.binding_id == workflow.workflow_binding_id
+            && satisfaction.workflow_definition_id == workflow.workflow_definition_id
+            && satisfaction.node_id == workflow.workflow_node_id
+            && satisfaction.execution_id.as_deref() == Some(workflow.workflow_execution_id.as_str())
+    })
+}
+
 fn recovery_sweep(
     authenticated: &yai_core_engine::security::AuthenticatedPrincipal,
     owner_token: &str,
@@ -368,6 +385,17 @@ fn recovery_sweep(
         let state = store
             .get_case_state(&item.case_id)?
             .ok_or_else(|| "runtime_work_case_missing".to_string())?;
+        if workflow_work_is_canonically_satisfied(&item, &state) {
+            store.complete_runtime_work_from_workflow_satisfaction(
+                authenticated,
+                owner_token,
+                &item.work_id,
+                now_unix_ms(),
+            )?;
+            repair_workflow_checkpoint_completed(&item)?;
+            recovered += 1;
+            continue;
+        }
         let target = if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
             Some((
                 RuntimeWorkState::Cancelled,
@@ -436,6 +464,62 @@ struct ActiveWork {
     case_id: String,
     tenant_id: String,
     resource_root: Option<PathBuf>,
+    workflow_case: bool,
+}
+
+fn workflow_journal_path(case_id: &str) -> PathBuf {
+    yai_home()
+        .join("run")
+        .join("workflow-journals")
+        .join(format!(
+            "{}.jsonl",
+            yai_core_engine::context::stable_digest(case_id)
+        ))
+}
+
+fn ensure_workflow_journal(case_id: &str) -> Result<PathBuf, String> {
+    let path = workflow_journal_path(case_id);
+    let parent = path
+        .parent()
+        .ok_or_else(|| "workflow_journal_parent_missing".to_string())?;
+    fs::create_dir_all(parent)
+        .map_err(|error| format!("failed to create workflow journal directory: {error}"))?;
+    OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|error| format!("failed to initialize workflow journal: {error}"))?;
+    Ok(path)
+}
+
+fn pump_workflows(
+    store: &LmdbRecordStore,
+    authenticated: &yai_core_engine::security::AuthenticatedPrincipal,
+    owner_token: &str,
+    work_failpoint: Option<&str>,
+) -> Result<usize, String> {
+    let mut materialized = 0usize;
+    for case_id in store.list_workflow_case_ids_authorized(authenticated, 64)? {
+        let resolution = store.advance_workflow_passive_progress(authenticated, &case_id, 128)?;
+        if resolution.ready_work.is_empty() || resolution.active_count != 0 {
+            continue;
+        }
+        let journal = ensure_workflow_journal(&case_id)?;
+        if store
+            .materialize_workflow_ready_work(
+                authenticated,
+                owner_token,
+                &case_id,
+                &journal.display().to_string(),
+                work_failpoint,
+                now_unix_ms(),
+            )?
+            .is_some_and(|outcome| outcome.created)
+        {
+            materialized += 1;
+        }
+    }
+    Ok(materialized)
 }
 
 fn roots_overlap(left: &Path, right: &Path) -> bool {
@@ -615,6 +699,11 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
             RuntimeInstanceAcquireOutcome::Reclaimed => "reclaimed_stale",
         }
     );
+    let workflow_work_failpoint = optional_arg(args, "--workflow-work-failpoint");
+    // Recover passive canonical progression before classifying stale
+    // WorkItems. A ProviderResult/effect may already prove NodeSatisfied even
+    // though the previous scheduler died before acknowledging its WorkItem.
+    let _ = pump_workflows(&store, &authenticated, &owner_token, None)?;
     let recovered = recovery_sweep(&authenticated, &owner_token)?;
     let running = store.activate_runtime_instance(
         &authenticated,
@@ -630,6 +719,13 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
     println!("max_queued_total: {}", config.max_queued_total);
     println!("recovered_items: {recovered}");
     println!("heartbeat_at_unix_ms: {}", running.heartbeat_at_unix_ms);
+    let initial_workflow_work = pump_workflows(
+        &store,
+        &authenticated,
+        &owner_token,
+        workflow_work_failpoint.as_deref(),
+    )?;
+    println!("workflow_work_materialized: {initial_workflow_work}");
     if let Some(delay_ms) = optional_positive_u64(args, "--startup-dispatch-delay-ms")? {
         println!("startup_dispatch_delay_ms: {delay_ms}");
         thread::sleep(Duration::from_millis(delay_ms));
@@ -703,7 +799,7 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
     let mut last_parked_check = now_unix_ms();
     loop {
         while let Ok(completion) = result_rx.try_recv() {
-            active.remove(&completion.work_id);
+            let completed_active = active.remove(&completion.work_id);
             available.push_back(completion.worker_id.clone());
             match completion.outcome {
                 WorkerOutcome::Result(Ok(report)) => {
@@ -758,6 +854,18 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
                         ),
                         now_unix_ms(),
                     )?;
+                    if completed_active
+                        .as_ref()
+                        .is_some_and(|active| active.workflow_case)
+                    {
+                        if let Some(active) = &completed_active {
+                            store.advance_workflow_passive_progress(
+                                &authenticated,
+                                &active.case_id,
+                                128,
+                            )?;
+                        }
+                    }
                 }
                 WorkerOutcome::Result(Err(error)) => {
                     let state = worker_error_state(&error);
@@ -819,6 +927,15 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
         }
 
         if now.saturating_sub(last_parked_check) >= PARKED_RECHECK_MS {
+            let materialized = pump_workflows(
+                &store,
+                &authenticated,
+                &owner_token,
+                workflow_work_failpoint.as_deref(),
+            )?;
+            if materialized > 0 {
+                println!("workflow_work_materialized: {materialized}");
+            }
             let items = store.list_runtime_work_authorized(&authenticated)?;
             for item in items.into_iter().filter(|item| {
                 matches!(
@@ -946,6 +1063,7 @@ fn runtime_serve(args: &[String]) -> Result<(), String> {
                         case_id: claimed.case_id.clone(),
                         tenant_id: claimed.tenant_id.clone(),
                         resource_root: root,
+                        workflow_case: claimed.workflow.is_some(),
                     },
                 );
                 if optional_arg(args, "--failpoint").as_deref()
@@ -1019,6 +1137,7 @@ mod tests {
                 continue_after_malformed: false,
             },
             failpoint: None,
+            workflow: None,
             enqueue_sequence: sequence,
             state: RuntimeWorkState::Queued,
             attempt_count: 0,
@@ -1057,6 +1176,7 @@ mod tests {
                 case_id: "case:a0".to_string(),
                 tenant_id: "tenant:a".to_string(),
                 resource_root: Some(PathBuf::from("/tmp/case-a0")),
+                workflow_case: false,
             },
         );
         let selected = select_fair_work_with_roots(&items, &tenant_limited, None, 1, roots)
@@ -1074,6 +1194,7 @@ mod tests {
                 case_id: "case:a".to_string(),
                 tenant_id: "tenant:a".to_string(),
                 resource_root: Some(PathBuf::from("/data")),
+                workflow_case: false,
             },
         );
         assert!(!resource_dispatchable(

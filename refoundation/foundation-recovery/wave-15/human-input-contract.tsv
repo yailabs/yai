@@ -1,0 +1,7 @@
+property	contract
+meaning	workflow data, never ReviewAction
+authentication	kernel Principal→Tenant→Case Participant link
+eligibility	exact actor slot plus required Case roles
+payload	bounded text or JSON value
+write	exact ready node; input fact mechanically satisfies node
+negative	wrong Principal/role/node/Case/Tenant rejected

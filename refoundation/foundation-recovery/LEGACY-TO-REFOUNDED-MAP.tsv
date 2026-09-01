@@ -1,4 +1,7 @@
 legacy_property	legacy_evidence	refounded_equivalent	status	stronger_current_property	intentional_rejection
+legacy file-backed flow definition/progress	cffb318b9 flow_substrate.c	WorkflowDefinition + Case workflow transitions	refounded_proven pending publication	immutable Tenant version; deterministic evidence-based progression	flow mega-owner and filesystem scope hierarchy
+legacy flow current work	680955953 current-work projection	WorkflowResolution + ReadyWorkSet	refounded_proven pending publication	pure rebuildable view and existing RuntimeInstance queue	independent WorkflowRun ledger/scheduler
+legacy flow interactions	cffb318b9 interaction records	HumanInput node fact	refounded_proven pending publication	authenticated Participant/role input distinct from Review	flow-owned review authority
 deterministic RULE parser	45c36bd0c tools/gen/deterministic_governance_ingestion.py	compile_policy_source constrained JSON	refounded_proven	exact bytes/digests/strict known fields	Markdown/YAML breadth
 parsed fact source line	parsed/*.json raw_statement_ref	fact source_id + JSON location	refounded_proven	cryptographic source identity	confidence copied from manifest
 normalized candidates	normalized/*.json	PolicyIr	refounded_proven	deterministic digest + typed conflict/unresolved	large candidate topology metadata

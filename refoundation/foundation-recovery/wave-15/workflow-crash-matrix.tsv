@@ -1,0 +1,7 @@
+boundary	W15 recovery contract	qualification
+after start before worker	stable execution identity and atomic WorkItem	engine/store contract; H15 adversarial expansion
+after ProviderResult before satisfaction	resolver reuses canonical result; repairs WorkItem/checkpoint/admission without semantic duplicate	product failpoint exit 91; restart provider count remains one
+after effect FINALIZE before satisfaction	resolver reuses canonical receipt	deterministic resolver path implemented; failpoint expansion H15
+after condition	frozen result selects same branch	unit/product replay plus conditional-join test
+after human input	input remains canonical; passive repair progresses	store transaction/replay test
+operational WorkItems dropped	resolution remains Definition+Case history	unit/store replay test

@@ -1,0 +1,6 @@
+property	contract
+input	bounded filesystem.write or process.signal template
+execution	candidate proposal only; no script/plugin/shell
+authority	common DecisionBasis/Decision/Review/Grant path
+resource	PREPARE-time ResourceFence only
+proof	controlled remediation finalized with provider_invocations=0

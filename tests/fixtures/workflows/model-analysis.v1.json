@@ -1,0 +1,26 @@
+{
+  "schema": "yai.workflow_definition.v1",
+  "tenant_id": "tenant:workflow-model",
+  "workflow_key": "bounded-model-analysis",
+  "declared_version": "1",
+  "name": "Bounded model analysis",
+  "description": "Obtain one execution-scoped provider result through the existing Case runtime.",
+  "nodes": [
+    {
+      "node_id": "analyze",
+      "kind": "model_work",
+      "executor_slot": "analyst",
+      "task": "Produce one bounded analysis of the admitted Case context.",
+      "completion": {
+        "predicate": "execution_provider_result"
+      },
+      "budgets": {
+        "max_turns": 1,
+        "max_operations": 1,
+        "max_semantic_units": 2000
+      },
+      "resource_slot": "workspace"
+    }
+  ],
+  "edges": []
+}

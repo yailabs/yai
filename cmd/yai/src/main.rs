@@ -109,7 +109,7 @@ fn print_info() {
         "yai: technical YAI control command\n",
         "status: SPINE.51 Fact Plane Freeze\n",
         "ownership: Rust operational CLI plus Rust data engine\n",
-        "canonical_state: LMDB yai.transition.v8 plus atomically materialized yai.case_state.v8\n",
+        "canonical_state: LMDB yai.transition.v10 plus atomically materialized yai.case_state.v10\n",
         "effect_paths: typed filesystem.write with Case-native human review and no product review bypass\n",
         "semantic_context: typed yai.projection.v5 plus yai.context_frame.v5 derived from CaseState, Tenant domain, qualified memory, review posture and ResidencyPlan\n",
         "operational_memory: yai.operational_memory.v1 derived, provenance-bound, droppable and rebuildable\n",
@@ -266,6 +266,12 @@ fn print_usage() {
     println!("       yai tenant add-member --tenant <tenant:id> --principal <principal:id>");
     println!("       yai runtime serve|status|queue|stop [runtime limits]");
     println!("       yai runtime submit --tenant <tenant:id> --case <case:id> --subject <participant:id> --attachment <id> --prompt <task> [--idempotency-key <key>] [Case budgets]");
+    println!("       yai workflow define --tenant <tenant:id> --file <definition.json> [--json]");
+    println!("       yai workflow list --tenant <tenant:id> [--json]");
+    println!("       yai workflow show <definition-id> [--json]");
+    println!("       yai workflow bind --case <case:id> --definition <id> [--executor <slot>=<participant>]... [--resource <slot>=<attachment>]... [--json]");
+    println!("       yai workflow status --case <case:id> [--json]");
+    println!("       yai workflow input --case <case:id> --node <node-id> --value <value>");
     println!("       yai case create --case <case:id> --tenant <tenant:id>");
     println!("       yai case principal link --case <case:id> --principal <principal:id> --participant <participant:id>");
     println!("       yai case enter --case <case_ref> --subject <subject_ref> [--consumer model] [--kind model_context] [--shell zsh]");
@@ -1216,6 +1222,9 @@ use case_runtime::*;
 
 mod runtime_instance;
 
+mod workflow;
+use workflow::workflow_command;
+
 mod policy;
 use policy::policy_command;
 
@@ -1617,6 +1626,12 @@ fn main() {
         }
         Some("runtime") => {
             if let Err(error) = runtime_instance::dispatch(&args[1..]) {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        }
+        Some("workflow") => {
+            if let Err(error) = workflow_command(&args[1..]) {
                 eprintln!("{error}");
                 std::process::exit(2);
             }

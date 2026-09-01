@@ -5,6 +5,9 @@
 //! resumes from the Transition ledger and materialized CaseState.
 
 use super::*;
+use crate::controlled_effect::{
+    advance_controlled_workflow_deterministic, ControlledEffectTurnStatus,
+};
 use crate::security::authenticate_local;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
@@ -584,6 +587,38 @@ fn load_canonical_provider_result(
         .ok_or_else(|| format!("canonical ProviderResult not found: {result_id}"))
 }
 
+fn current_workflow_execution_id(
+    checkpoint: &CaseRuntimeCheckpoint,
+) -> Result<Option<String>, String> {
+    let Some(work_item_id) = checkpoint.work_item_id.as_deref() else {
+        return Ok(None);
+    };
+    let authenticated = authenticate_local()?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let items = store.list_runtime_work_authorized(&authenticated)?;
+    let item = items
+        .into_iter()
+        .find(|item| item.work_id == work_item_id)
+        .ok_or_else(|| "runtime_work_item_missing_for_checkpoint".to_string())?;
+    if item.case_id != checkpoint.case_id {
+        return Err("runtime_work_checkpoint_case_mismatch".to_string());
+    }
+    Ok(item.workflow.map(|workflow| workflow.workflow_execution_id))
+}
+
+fn advance_and_check_workflow_completion(
+    case_id: &str,
+    workflow_execution_id: &str,
+) -> Result<bool, String> {
+    let authenticated = authenticate_local()?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let resolution = store.advance_workflow_passive_progress(&authenticated, case_id, 128)?;
+    Ok(resolution.nodes.iter().any(|node| {
+        node.execution_id.as_deref() == Some(workflow_execution_id)
+            && node.posture == yai_core_engine::workflow::WorkflowNodePosture::Satisfied
+    }))
+}
+
 struct RuntimeAdmissionOwner {
     case_id: String,
     run_id: String,
@@ -662,17 +697,19 @@ fn renew_runtime_admission(owner: &RuntimeAdmissionOwner) -> Result<(), String> 
     Ok(())
 }
 
+fn release_runtime_admission(owner: &RuntimeAdmissionOwner) -> Result<(), String> {
+    LmdbRecordStore::open(record_store_path())?
+        .release_case_runtime_admission(&owner.case_id, &owner.run_id, &owner.owner_token)
+        .map(|_| ())
+}
+
 fn run_with_admission(
     checkpoint: CaseRuntimeCheckpoint,
     args: &[String],
 ) -> Result<CaseRuntimeCheckpoint, String> {
     let owner = acquire_runtime_admission(&checkpoint)?;
     let result = run_loop(checkpoint, args, &owner);
-    let release = LmdbRecordStore::open(record_store_path()).and_then(|store| {
-        store
-            .release_case_runtime_admission(&owner.case_id, &owner.run_id, &owner.owner_token)
-            .map(|_| ())
-    });
+    let release = release_runtime_admission(&owner);
     match (result, release) {
         (Err(error), _) => Err(error),
         (Ok(_), Err(error)) => Err(error),
@@ -839,6 +876,7 @@ fn run_loop(
                 max_estimated_input_units: remaining_cost,
                 retrieval_limit: checkpoint.max_resident_items.saturating_mul(4).max(1),
                 previous_item_ids: checkpoint.previous_item_ids.clone(),
+                workflow_execution_id: current_workflow_execution_id(&checkpoint)?,
             };
             let store = LmdbRecordStore::open(record_store_path())?;
             let state = store.get_case_state(&checkpoint.case_id)?.ok_or_else(|| {
@@ -930,12 +968,32 @@ fn run_loop(
 
         if completion_response(&provider_result.raw_output) {
             checkpoint.pending_provider_result_id = None;
-            checkpoint.stop(
-                CaseRuntimeStop::Completed,
-                "provider returned typed completion",
-            );
+            let workflow_execution_id = current_workflow_execution_id(&checkpoint)?;
+            if let Some(workflow_execution_id) = workflow_execution_id {
+                if advance_and_check_workflow_completion(
+                    &checkpoint.case_id,
+                    &workflow_execution_id,
+                )? {
+                    checkpoint.stop(
+                        CaseRuntimeStop::Completed,
+                        "canonical workflow completion predicate satisfied",
+                    );
+                } else {
+                    checkpoint.stop_detail =
+                        "provider claimed completion but workflow predicate remains false"
+                            .to_string();
+                }
+            } else {
+                checkpoint.stop(
+                    CaseRuntimeStop::Completed,
+                    "provider returned typed completion",
+                );
+            }
             write_checkpoint(&checkpoint)?;
-            break;
+            if checkpoint.status != CaseRuntimeStop::Running {
+                break;
+            }
+            continue;
         }
         let outcome = advance_controlled_filesystem_candidate(
             args,
@@ -987,6 +1045,20 @@ fn run_loop(
                     CaseRuntimeStop::IndeterminateEffect,
                     "effect outcome remains unresolved",
                 );
+            }
+        }
+        if checkpoint.status == CaseRuntimeStop::Running {
+            let workflow_execution_id = current_workflow_execution_id(&checkpoint)?;
+            if let Some(workflow_execution_id) = workflow_execution_id {
+                if advance_and_check_workflow_completion(
+                    &checkpoint.case_id,
+                    &workflow_execution_id,
+                )? {
+                    checkpoint.stop(
+                        CaseRuntimeStop::Completed,
+                        "canonical workflow completion predicate satisfied",
+                    );
+                }
             }
         }
         write_checkpoint(&checkpoint)?;
@@ -1187,6 +1259,13 @@ fn runtime_work_args(item: &RuntimeWorkItem) -> Vec<String> {
 /// multi-Case RuntimeInstance. It is the only Case advancement algorithm.
 pub(super) fn execute_runtime_work(item: &RuntimeWorkItem) -> Result<CaseRuntimeReport, String> {
     item.validate_integrity()?;
+    if item
+        .workflow
+        .as_ref()
+        .is_some_and(|workflow| workflow.workflow_node_kind == "deterministic_work")
+    {
+        return execute_deterministic_runtime_work(item);
+    }
     let runtime_instance_id = item
         .runtime_instance_id
         .clone()
@@ -1234,6 +1313,64 @@ pub(super) fn execute_runtime_work(item: &RuntimeWorkItem) -> Result<CaseRuntime
     Ok(CaseRuntimeReport::from(&checkpoint))
 }
 
+fn execute_deterministic_runtime_work(item: &RuntimeWorkItem) -> Result<CaseRuntimeReport, String> {
+    let runtime_instance_id = item
+        .runtime_instance_id
+        .clone()
+        .ok_or_else(|| "runtime_work_not_bound_to_instance".to_string())?;
+    let args = runtime_work_args(item);
+    let mut checkpoint = initial_checkpoint_with_journal(
+        &args,
+        PathBuf::from(&item.journal_path),
+        Some(runtime_instance_id),
+        Some(item.work_id.clone()),
+    )?;
+    checkpoint.task = item.task.clone();
+    write_checkpoint(&checkpoint)?;
+    let owner = acquire_runtime_admission(&checkpoint)?;
+    let result = (|| {
+        renew_runtime_admission(&owner)?;
+        let outcome = advance_controlled_workflow_deterministic(&args, item)?;
+        checkpoint.operations = usize::from(outcome.operation_id.is_some());
+        checkpoint.last_operation_id = outcome.operation_id;
+        checkpoint.last_decision_id = outcome.decision_id;
+        checkpoint.last_review_id = outcome.review_id;
+        checkpoint.last_effect_id = outcome.effect_id;
+        checkpoint.last_receipt_id = outcome.receipt_id;
+        checkpoint.last_effect_outcome = outcome.outcome.map(|value| format!("{value:?}"));
+        match outcome.status {
+            ControlledEffectTurnStatus::Finalized => checkpoint.stop(
+                CaseRuntimeStop::Completed,
+                "workflow deterministic effect finalized; provider_invocations=0",
+            ),
+            ControlledEffectTurnStatus::Denied => checkpoint.stop(
+                CaseRuntimeStop::Denied,
+                "workflow deterministic operation denied; provider_invocations=0",
+            ),
+            ControlledEffectTurnStatus::AwaitingReview => checkpoint.stop(
+                CaseRuntimeStop::AwaitingReview,
+                "workflow deterministic operation awaiting existing Review",
+            ),
+            ControlledEffectTurnStatus::Indeterminate => checkpoint.stop(
+                CaseRuntimeStop::IndeterminateEffect,
+                "workflow deterministic effect truth indeterminate",
+            ),
+            ControlledEffectTurnStatus::NormalizationRejected => checkpoint.stop(
+                CaseRuntimeStop::FatalInvariantViolation,
+                "canonical deterministic template normalization rejected",
+            ),
+        }
+        write_checkpoint(&checkpoint)?;
+        Ok(CaseRuntimeReport::from(&checkpoint))
+    })();
+    let release = release_runtime_admission(&owner);
+    match (result, release) {
+        (Err(error), _) => Err(error),
+        (Ok(_), Err(error)) => Err(error),
+        (Ok(report), Ok(())) => Ok(report),
+    }
+}
+
 /// Reconstructs operational WorkItem posture from the exact checkpoint owned
 /// by a stale Running item. This is recovery evidence, not Case authority.
 pub(super) fn recover_runtime_work_from_checkpoint(
@@ -1245,6 +1382,34 @@ pub(super) fn recover_runtime_work_from_checkpoint(
     }
     let checkpoint = read_checkpoint(&item.case_id)?;
     checkpoint_recovery_posture(&checkpoint, item)
+}
+
+/// Converges the noncanonical checkpoint after the store has mechanically
+/// proven the exact workflow execution satisfied. The store proof must happen
+/// first; this helper never decides workflow truth itself.
+pub(super) fn repair_workflow_checkpoint_completed(item: &RuntimeWorkItem) -> Result<bool, String> {
+    if item.workflow.is_none() {
+        return Err("runtime_work_is_not_workflow_attributed".to_string());
+    }
+    let path = checkpoint_path(&item.case_id);
+    if !path.exists() {
+        return Ok(false);
+    }
+    let mut checkpoint = read_checkpoint(&item.case_id)?;
+    validate_checkpoint_work_identity(&checkpoint, item)?;
+    if checkpoint.status == CaseRuntimeStop::Completed {
+        return Ok(false);
+    }
+    let admission = acquire_runtime_admission(&checkpoint)?;
+    checkpoint.stop(
+        CaseRuntimeStop::Completed,
+        "canonical workflow satisfaction recovered without Case re-execution",
+    );
+    let write_result = write_checkpoint(&checkpoint);
+    let release_result = release_runtime_admission(&admission);
+    write_result?;
+    release_result?;
+    Ok(true)
 }
 
 fn checkpoint_recovery_posture(
@@ -1410,6 +1575,7 @@ mod tests {
                 continue_after_malformed: false,
             },
             failpoint: None,
+            workflow: None,
             enqueue_sequence: 1,
             state: RuntimeWorkState::Running,
             attempt_count: 1,

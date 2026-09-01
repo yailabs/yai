@@ -1,0 +1,25 @@
+{
+  "schema": "yai.workflow_definition.v1",
+  "tenant_id": "tenant:wave15-busy",
+  "workflow_key": "resource-busy-retry",
+  "declared_version": "1",
+  "name": "Resource busy retry",
+  "description": "A deterministic governed effect that must park while another Effect owns the same physical resource.",
+  "nodes": [
+    {
+      "node_id": "write-after-release",
+      "kind": "deterministic_work",
+      "proposer_slot": "operator",
+      "operation": {
+        "operation": "filesystem_write",
+        "resource_slot": "workspace",
+        "relative_path": "allowed/workflow.txt",
+        "content": "workflow resumed after resource release\n"
+      },
+      "completion": {
+        "predicate": "execution_effect_finalized"
+      }
+    }
+  ],
+  "edges": []
+}

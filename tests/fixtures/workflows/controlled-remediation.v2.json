@@ -1,0 +1,20 @@
+{
+  "schema": "yai.workflow_definition.v1",
+  "tenant_id": "tenant:workflow-product",
+  "workflow_key": "controlled-remediation",
+  "declared_version": "2",
+  "name": "Controlled Remediation v2",
+  "description": "A separately versioned future definition used to prove exact Case pinning.",
+  "nodes": [
+    {
+      "node_id": "change-ticket-v2",
+      "kind": "human_input",
+      "actor_slot": "input-actor",
+      "prompt": "Enter the v2 change ticket.",
+      "required_roles": ["workflow-input"],
+      "input_kind": "text",
+      "max_bytes": 256
+    }
+  ],
+  "edges": []
+}

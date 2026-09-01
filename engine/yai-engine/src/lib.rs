@@ -31,6 +31,7 @@ pub mod resource_control;
 pub mod security;
 pub mod store;
 pub mod transition;
+pub mod workflow;
 
 #[cfg(test)]
 mod tests {

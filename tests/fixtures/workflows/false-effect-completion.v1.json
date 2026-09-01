@@ -1,0 +1,26 @@
+{
+  "schema": "yai.workflow_definition.v1",
+  "tenant_id": "tenant:workflow-false-completion",
+  "workflow_key": "effect-required-modelwork",
+  "declared_version": "1",
+  "name": "Effect-required ModelWork",
+  "description": "A provider completion claim is insufficient because the node requires an execution-scoped finalized effect.",
+  "nodes": [
+    {
+      "node_id": "effect-required",
+      "kind": "model_work",
+      "executor_slot": "analyst",
+      "task": "Cause the governed effect; prose completion is not sufficient.",
+      "completion": {
+        "predicate": "execution_effect_finalized"
+      },
+      "budgets": {
+        "max_turns": 1,
+        "max_operations": 1,
+        "max_semantic_units": 2000
+      },
+      "resource_slot": "workspace"
+    }
+  ],
+  "edges": []
+}

@@ -1,0 +1,7 @@
+kind	executes_worker	semantic_completion
+ModelWork	yes	bounded Case runtime plus typed predicate
+DeterministicWork	yes	typed proposal through full authority/effect spine
+HumanInput	no	authenticated bounded input fact
+Condition	no	frozen typed predicate result
+Wait	no	passive canonical predicate
+EffectGoal	no	canonical finalized Effect/Receipt only

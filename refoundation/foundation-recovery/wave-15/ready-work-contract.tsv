@@ -1,0 +1,7 @@
+property	contract
+derivation	pure Definition+Binding+CaseState+history
+order	topological rank then stable node ID
+Case concurrency	one active workflow execution per Case
+admission	queue bounds checked before canonical start
+enqueue	NodeExecutionStarted and WorkItem created in one LMDB transaction
+scheduler	existing Tenant-fair RuntimeInstance only

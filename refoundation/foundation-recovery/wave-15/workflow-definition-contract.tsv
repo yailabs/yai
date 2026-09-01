@@ -1,0 +1,7 @@
+property	contract
+schema	yai.workflow_definition.v1
+identity	content-bound workflow_definition_id and integrity digest
+namespace	Tenant + workflow_key + declared_version immutable collision domain
+topology	bounded DAG; cycles, dangling edges and duplicates rejected
+bounds	128 nodes;512 edges;128-byte IDs;64KiB tasks/content;16KiB input
+storage	one workflow_definitions LMDB database with namespaced ID/version keys

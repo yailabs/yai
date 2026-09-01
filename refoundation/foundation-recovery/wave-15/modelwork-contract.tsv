@@ -1,0 +1,8 @@
+property	contract
+executor	Case Participant slot; ProviderAttachment resolved by existing runtime
+loop	existing bounded Case runtime, no Agent/WorkflowModelLoop
+completion	canonical workflow predicate; provider complete is insufficient when false
+iteration	the same execution may invoke repeatedly; later ContextFrame includes prior canonical consequences
+budgets	turns/operations/semantic units bounded by current runtime machinery
+review/resource/effect	existing WaitingReview/Blocked/WaitingEffect postures
+provider identity	generic attachment model ID; no provider brand in Definition

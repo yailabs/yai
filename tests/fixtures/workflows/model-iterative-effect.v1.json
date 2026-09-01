@@ -1,0 +1,27 @@
+{
+  "schema": "yai.workflow_definition.v1",
+  "tenant_id": "tenant:workflow-iterative",
+  "workflow_key": "iterative-governed-remediation",
+  "declared_version": "1",
+  "name": "Iterative governed remediation",
+  "description": "One ModelWork execution must observe its first governed effect before producing the exact second effect that satisfies completion.",
+  "nodes": [
+    {
+      "node_id": "remediate",
+      "kind": "model_work",
+      "executor_slot": "analyst",
+      "task": "Advance the governed remediation one observed step at a time until allowed/step-01.txt is finalized.",
+      "completion": {
+        "predicate": "execution_filesystem_effect_finalized",
+        "relative_path": "allowed/step-01.txt"
+      },
+      "budgets": {
+        "max_turns": 3,
+        "max_operations": 3,
+        "max_semantic_units": 12000
+      },
+      "resource_slot": "workspace"
+    }
+  ],
+  "edges": []
+}

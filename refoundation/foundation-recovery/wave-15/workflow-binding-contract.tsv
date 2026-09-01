@@ -1,0 +1,7 @@
+property	contract
+cardinality	zero or one exact workflow per Case
+identity	definition ID and integrity digest pinned
+security	Tenant Owner authenticated; Definition Tenant equals Case Tenant
+executors	explicit slot to existing Case Participant; no role grant
+resources	explicit slot to canonical Case attachment; no lease ownership
+mutation	second bind/replacement/unbind rejected in W15

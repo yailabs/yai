@@ -1,0 +1,6 @@
+question	verdict	evidence
+independent reusable identity	yes	one Tenant definition binds multiple Cases
+immutable/versioned	yes	content ID plus Tenant/key/version collision check
+owns Case state	no	binding/progression are Case Transitions
+owns authority/resources/provider	no	existing Decision/Grant/ResourceControl/ProviderAttachment remain final
+WorkflowRun owner earned	no	resolution rebuilds from Definition+Case history

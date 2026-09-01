@@ -13,6 +13,10 @@ use crate::effect::{
     ProcessSignalAction, ReconciliationConclusion, EFFECT_RECEIPT_SCHEMA, OBSERVATION_SCHEMA,
     PREPARED_EFFECT_SCHEMA, PREPARED_EFFECT_SCHEMA_V1,
 };
+use crate::workflow::{
+    CaseWorkflowBinding, WorkflowConditionResolution, WorkflowDeterministicProposalRecord,
+    WorkflowHumanInputRecord, WorkflowNodeExecution, WorkflowNodeSatisfaction,
+};
 use serde::{Deserialize, Serialize};
 
 pub const TRANSITION_SCHEMA_V1: &str = "yai.transition.v1";
@@ -23,7 +27,8 @@ pub const TRANSITION_SCHEMA_V5: &str = "yai.transition.v5";
 pub const TRANSITION_SCHEMA_V6: &str = "yai.transition.v6";
 pub const TRANSITION_SCHEMA_V7: &str = "yai.transition.v7";
 pub const TRANSITION_SCHEMA_V8: &str = "yai.transition.v8";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v9";
+pub const TRANSITION_SCHEMA_V9: &str = "yai.transition.v9";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v10";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
@@ -32,7 +37,8 @@ pub const CASE_STATE_SCHEMA_V5: &str = "yai.case_state.v5";
 pub const CASE_STATE_SCHEMA_V6: &str = "yai.case_state.v6";
 pub const CASE_STATE_SCHEMA_V7: &str = "yai.case_state.v7";
 pub const CASE_STATE_SCHEMA_V8: &str = "yai.case_state.v8";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v9";
+pub const CASE_STATE_SCHEMA_V9: &str = "yai.case_state.v9";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v10";
 pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v2";
 pub const REVIEW_REQUEST_SCHEMA_V1: &str = "yai.review_request.v1";
 pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v2";
@@ -336,6 +342,24 @@ pub enum TransitionPayload {
         actor_ref: String,
         reason: String,
     },
+    CaseWorkflowBound {
+        binding: CaseWorkflowBinding,
+    },
+    WorkflowNodeExecutionStarted {
+        execution: WorkflowNodeExecution,
+    },
+    WorkflowNodeSatisfied {
+        satisfaction: WorkflowNodeSatisfaction,
+    },
+    WorkflowConditionResolved {
+        resolution: WorkflowConditionResolution,
+    },
+    WorkflowHumanInputRecorded {
+        input: WorkflowHumanInputRecord,
+    },
+    WorkflowDeterministicProposalRecorded {
+        proposal: WorkflowDeterministicProposalRecord,
+    },
     /// Input compatibility for pre-Wave-7 fixture review history. New writers
     /// use `ReviewActionRecorded` followed by an effective `DecisionRecorded`.
     ReviewResolved {
@@ -384,6 +408,14 @@ impl TransitionPayload {
             Self::CasePolicyBound { .. } => "case_policy_bound",
             Self::CasePolicyReplaced { .. } => "case_policy_replaced",
             Self::CasePolicyUnbound { .. } => "case_policy_unbound",
+            Self::CaseWorkflowBound { .. } => "case_workflow_bound",
+            Self::WorkflowNodeExecutionStarted { .. } => "workflow_node_execution_started",
+            Self::WorkflowNodeSatisfied { .. } => "workflow_node_satisfied",
+            Self::WorkflowConditionResolved { .. } => "workflow_condition_resolved",
+            Self::WorkflowHumanInputRecorded { .. } => "workflow_human_input_recorded",
+            Self::WorkflowDeterministicProposalRecorded { .. } => {
+                "workflow_deterministic_proposal_recorded"
+            }
             Self::ReviewResolved { .. } => "review_resolved",
         }
     }
@@ -708,6 +740,18 @@ pub struct CaseState {
     pub reviews: Vec<ReviewState>,
     #[serde(default)]
     pub policy_bindings: Vec<CasePolicyBinding>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_binding: Option<CaseWorkflowBinding>,
+    #[serde(default)]
+    pub workflow_executions: Vec<WorkflowNodeExecution>,
+    #[serde(default)]
+    pub workflow_satisfactions: Vec<WorkflowNodeSatisfaction>,
+    #[serde(default)]
+    pub workflow_conditions: Vec<WorkflowConditionResolution>,
+    #[serde(default)]
+    pub workflow_human_inputs: Vec<WorkflowHumanInputRecord>,
+    #[serde(default)]
+    pub workflow_deterministic_proposals: Vec<WorkflowDeterministicProposalRecord>,
     #[serde(default)]
     pub resources: Vec<ResourceAttachmentState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1015,6 +1059,12 @@ impl CaseState {
             last_model_interpretation: None,
             reviews: Vec::new(),
             policy_bindings: Vec::new(),
+            workflow_binding: None,
+            workflow_executions: Vec::new(),
+            workflow_satisfactions: Vec::new(),
+            workflow_conditions: Vec::new(),
+            workflow_human_inputs: Vec::new(),
+            workflow_deterministic_proposals: Vec::new(),
             resources: Vec::new(),
             last_normalization_failure: None,
             last_operation: None,
@@ -1293,6 +1343,25 @@ impl CaseState {
                                 && review.status == ReviewResolution::PendingOperator
                         }) {
                             return Err("operation_review_lineage_mismatch".to_string());
+                        }
+                    }
+                    OperationOrigin::WorkflowDeterministicProposal {
+                        proposal_id,
+                        workflow_execution_id,
+                    } => {
+                        if !next
+                            .workflow_deterministic_proposals
+                            .iter()
+                            .any(|proposal| {
+                                proposal.proposal_id == *proposal_id
+                                    && proposal.execution_id == *workflow_execution_id
+                                    && proposal.participant_id == operation.participant_id
+                                    && proposal.resource_attachment_id
+                                        == operation.resource_attachment_id
+                                    && proposal.operation_kind == operation.kind
+                            })
+                        {
+                            return Err("operation_workflow_proposal_lineage_mismatch".to_string());
                         }
                     }
                 }
@@ -1971,6 +2040,123 @@ impl CaseState {
                 };
                 next.policy_bindings.remove(index);
             }
+            TransitionPayload::CaseWorkflowBound { binding } => {
+                if next.workflow_binding.is_some()
+                    || binding.case_id != next.case_id
+                    || next.tenant_id.as_deref() != Some(binding.tenant_id.as_str())
+                    || binding.bound_at_generation != transition.sequence
+                {
+                    return Err("case_workflow_binding_case_contract_invalid".to_string());
+                }
+                next.workflow_binding = Some(binding.clone());
+            }
+            TransitionPayload::WorkflowNodeExecutionStarted { execution } => {
+                let Some(binding) = next.workflow_binding.as_ref() else {
+                    return Err("workflow_execution_without_binding".to_string());
+                };
+                if execution.schema != crate::workflow::WORKFLOW_NODE_EXECUTION_SCHEMA
+                    || execution.case_id != next.case_id
+                    || execution.binding_id != binding.binding_id
+                    || execution.workflow_definition_id != binding.workflow_definition_id
+                    || execution.started_at_generation != transition.sequence
+                    || next
+                        .workflow_executions
+                        .iter()
+                        .any(|current| current.node_id == execution.node_id)
+                    || next
+                        .workflow_satisfactions
+                        .iter()
+                        .any(|current| current.node_id == execution.node_id)
+                {
+                    return Err("workflow_execution_case_contract_invalid".to_string());
+                }
+                next.workflow_executions.push(execution.clone());
+            }
+            TransitionPayload::WorkflowNodeSatisfied { satisfaction } => {
+                let Some(binding) = next.workflow_binding.as_ref() else {
+                    return Err("workflow_satisfaction_without_binding".to_string());
+                };
+                if satisfaction.schema != crate::workflow::WORKFLOW_NODE_SATISFACTION_SCHEMA
+                    || satisfaction.binding_id != binding.binding_id
+                    || satisfaction.workflow_definition_id != binding.workflow_definition_id
+                    || satisfaction.evaluated_at_generation != transition.sequence
+                    || satisfaction.predicate_digest.is_empty()
+                    || satisfaction.evidence_refs.is_empty()
+                    || next
+                        .workflow_satisfactions
+                        .iter()
+                        .any(|current| current.node_id == satisfaction.node_id)
+                    || satisfaction
+                        .execution_id
+                        .as_ref()
+                        .is_some_and(|execution_id| {
+                            !next.workflow_executions.iter().any(|execution| {
+                                execution.execution_id == *execution_id
+                                    && execution.node_id == satisfaction.node_id
+                            })
+                        })
+                {
+                    return Err("workflow_satisfaction_case_contract_invalid".to_string());
+                }
+                next.workflow_satisfactions.push(satisfaction.clone());
+            }
+            TransitionPayload::WorkflowConditionResolved { resolution } => {
+                let Some(binding) = next.workflow_binding.as_ref() else {
+                    return Err("workflow_condition_without_binding".to_string());
+                };
+                if resolution.schema != crate::workflow::WORKFLOW_CONDITION_RESOLUTION_SCHEMA
+                    || resolution.binding_id != binding.binding_id
+                    || resolution.workflow_definition_id != binding.workflow_definition_id
+                    || resolution.evaluated_at_generation != transition.sequence
+                    || resolution.predicate_digest.is_empty()
+                    || next
+                        .workflow_conditions
+                        .iter()
+                        .any(|current| current.node_id == resolution.node_id)
+                {
+                    return Err("workflow_condition_case_contract_invalid".to_string());
+                }
+                next.workflow_conditions.push(resolution.clone());
+            }
+            TransitionPayload::WorkflowHumanInputRecorded { input } => {
+                let Some(binding) = next.workflow_binding.as_ref() else {
+                    return Err("workflow_human_input_without_binding".to_string());
+                };
+                if input.schema != crate::workflow::WORKFLOW_HUMAN_INPUT_SCHEMA
+                    || input.binding_id != binding.binding_id
+                    || input.workflow_definition_id != binding.workflow_definition_id
+                    || input.recorded_at_generation != transition.sequence
+                    || input.value_digest != digest_bytes(input.value.as_bytes())
+                    || next
+                        .workflow_human_inputs
+                        .iter()
+                        .any(|current| current.node_id == input.node_id)
+                {
+                    return Err("workflow_human_input_case_contract_invalid".to_string());
+                }
+                next.workflow_human_inputs.push(input.clone());
+            }
+            TransitionPayload::WorkflowDeterministicProposalRecorded { proposal } => {
+                let Some(binding) = next.workflow_binding.as_ref() else {
+                    return Err("workflow_deterministic_proposal_without_binding".to_string());
+                };
+                if proposal.schema != crate::workflow::WORKFLOW_DETERMINISTIC_PROPOSAL_SCHEMA
+                    || proposal.binding_id != binding.binding_id
+                    || proposal.workflow_definition_id != binding.workflow_definition_id
+                    || proposal.recorded_at_generation != transition.sequence
+                    || !next.workflow_executions.iter().any(|execution| {
+                        execution.execution_id == proposal.execution_id
+                            && execution.node_id == proposal.node_id
+                    })
+                    || next
+                        .workflow_deterministic_proposals
+                        .iter()
+                        .any(|current| current.execution_id == proposal.execution_id)
+                {
+                    return Err("workflow_deterministic_proposal_case_contract_invalid".to_string());
+                }
+                next.workflow_deterministic_proposals.push(proposal.clone());
+            }
             TransitionPayload::ReviewResolved {
                 review_id,
                 attempt_id,
@@ -2020,6 +2206,7 @@ impl CaseState {
             || state.schema == CASE_STATE_SCHEMA_V6
             || state.schema == CASE_STATE_SCHEMA_V7
             || state.schema == CASE_STATE_SCHEMA_V8
+            || state.schema == CASE_STATE_SCHEMA_V9
         {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
@@ -2032,6 +2219,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V9
             && self.schema != TRANSITION_SCHEMA_V8
             && self.schema != TRANSITION_SCHEMA_V7
             && self.schema != TRANSITION_SCHEMA_V6
@@ -2064,16 +2252,27 @@ impl Transition {
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V8 | TRANSITION_SCHEMA_V7
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V9 | TRANSITION_SCHEMA_V8 | TRANSITION_SCHEMA_V7
         ) && self.payload.is_wave11_kind()
         {
             return Err("wave11_contract_requires_yai_transition_v7".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave12_kind() {
+        if !matches!(
+            self.schema.as_str(),
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V9
+        ) && self.payload.is_wave12_kind()
+        {
             return Err("wave12_contract_requires_yai_transition_v8".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave14_kind() {
+        if !matches!(
+            self.schema.as_str(),
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V9
+        ) && self.payload.is_wave14_kind()
+        {
             return Err("wave14_contract_requires_yai_transition_v9".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave15_kind() {
+            return Err("wave15_contract_requires_yai_transition_v10".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -2487,6 +2686,147 @@ impl Transition {
                 require_value("reason", reason)?;
                 require_causal_ref(&self.causal_refs, binding_id, "policy_binding")?;
             }
+            TransitionPayload::CaseWorkflowBound { binding } => {
+                require_value("workflow_binding.binding_id", &binding.binding_id)?;
+                require_value(
+                    "workflow_binding.definition_id",
+                    &binding.workflow_definition_id,
+                )?;
+                if binding.schema != crate::workflow::CASE_WORKFLOW_BINDING_SCHEMA
+                    || binding.case_id != self.case_id
+                    || binding.bound_at_generation != self.sequence
+                    || self.source.principal_id.as_deref()
+                        != Some(binding.bound_by_principal_id.as_str())
+                {
+                    return Err("case_workflow_binding_transition_mismatch".to_string());
+                }
+                require_causal_ref(
+                    &self.causal_refs,
+                    &binding.workflow_definition_id,
+                    "workflow_definition",
+                )?;
+            }
+            TransitionPayload::WorkflowNodeExecutionStarted { execution } => {
+                for (field, value) in [
+                    (
+                        "workflow_execution.execution_id",
+                        execution.execution_id.as_str(),
+                    ),
+                    (
+                        "workflow_execution.binding_id",
+                        execution.binding_id.as_str(),
+                    ),
+                    (
+                        "workflow_execution.definition_id",
+                        execution.workflow_definition_id.as_str(),
+                    ),
+                    ("workflow_execution.node_id", execution.node_id.as_str()),
+                ] {
+                    require_value(field, value)?;
+                }
+                if execution.schema != crate::workflow::WORKFLOW_NODE_EXECUTION_SCHEMA
+                    || execution.case_id != self.case_id
+                    || execution.started_at_generation != self.sequence
+                {
+                    return Err("workflow_execution_transition_mismatch".to_string());
+                }
+                require_causal_ref(&self.causal_refs, &execution.binding_id, "workflow_binding")?;
+                require_causal_ref(&self.causal_refs, &execution.node_id, "workflow_node")?;
+            }
+            TransitionPayload::WorkflowNodeSatisfied { satisfaction } => {
+                for (field, value) in [
+                    (
+                        "workflow_satisfaction.satisfaction_id",
+                        satisfaction.satisfaction_id.as_str(),
+                    ),
+                    (
+                        "workflow_satisfaction.binding_id",
+                        satisfaction.binding_id.as_str(),
+                    ),
+                    (
+                        "workflow_satisfaction.definition_id",
+                        satisfaction.workflow_definition_id.as_str(),
+                    ),
+                    (
+                        "workflow_satisfaction.node_id",
+                        satisfaction.node_id.as_str(),
+                    ),
+                    (
+                        "workflow_satisfaction.predicate_digest",
+                        satisfaction.predicate_digest.as_str(),
+                    ),
+                ] {
+                    require_value(field, value)?;
+                }
+                if satisfaction.schema != crate::workflow::WORKFLOW_NODE_SATISFACTION_SCHEMA
+                    || satisfaction.evaluated_at_generation != self.sequence
+                    || satisfaction.evidence_refs.is_empty()
+                {
+                    return Err("workflow_satisfaction_transition_mismatch".to_string());
+                }
+                require_causal_ref(
+                    &self.causal_refs,
+                    &satisfaction.binding_id,
+                    "workflow_binding",
+                )?;
+                for evidence in &satisfaction.evidence_refs {
+                    require_causal_ref(&self.causal_refs, evidence, "workflow_evidence")?;
+                }
+            }
+            TransitionPayload::WorkflowConditionResolved { resolution } => {
+                if resolution.schema != crate::workflow::WORKFLOW_CONDITION_RESOLUTION_SCHEMA
+                    || resolution.binding_id.is_empty()
+                    || resolution.workflow_definition_id.is_empty()
+                    || resolution.node_id.is_empty()
+                    || resolution.predicate_digest.is_empty()
+                    || resolution.evaluated_at_generation != self.sequence
+                {
+                    return Err("workflow_condition_transition_mismatch".to_string());
+                }
+                require_causal_ref(
+                    &self.causal_refs,
+                    &resolution.binding_id,
+                    "workflow_binding",
+                )?;
+            }
+            TransitionPayload::WorkflowHumanInputRecorded { input } => {
+                if input.schema != crate::workflow::WORKFLOW_HUMAN_INPUT_SCHEMA
+                    || input.binding_id.is_empty()
+                    || input.workflow_definition_id.is_empty()
+                    || input.node_id.is_empty()
+                    || !input.principal_id.starts_with("principal:")
+                    || input.participant_id.is_empty()
+                    || input.value.is_empty()
+                    || input.value.len() > crate::workflow::MAX_WORKFLOW_INPUT_BYTES
+                    || input.value_digest != digest_bytes(input.value.as_bytes())
+                    || input.recorded_at_generation != self.sequence
+                    || self.source.principal_id.as_deref() != Some(input.principal_id.as_str())
+                {
+                    return Err("workflow_human_input_transition_mismatch".to_string());
+                }
+                require_causal_ref(&self.causal_refs, &input.binding_id, "workflow_binding")?;
+                require_causal_ref(&self.causal_refs, &input.node_id, "workflow_node")?;
+            }
+            TransitionPayload::WorkflowDeterministicProposalRecorded { proposal } => {
+                if proposal.schema != crate::workflow::WORKFLOW_DETERMINISTIC_PROPOSAL_SCHEMA
+                    || proposal.proposal_id.is_empty()
+                    || proposal.binding_id.is_empty()
+                    || proposal.workflow_definition_id.is_empty()
+                    || proposal.node_id.is_empty()
+                    || proposal.execution_id.is_empty()
+                    || proposal.participant_id.is_empty()
+                    || proposal.resource_attachment_id.is_empty()
+                    || proposal.template_digest.is_empty()
+                    || proposal.recorded_at_generation != self.sequence
+                {
+                    return Err("workflow_deterministic_proposal_transition_mismatch".to_string());
+                }
+                require_causal_ref(
+                    &self.causal_refs,
+                    &proposal.execution_id,
+                    "workflow_execution",
+                )?;
+            }
             TransitionPayload::ReviewResolved {
                 review_id,
                 attempt_id,
@@ -2800,12 +3140,25 @@ impl TransitionPayload {
                 if attachment.kind == ResourceKind::Process
         )
     }
+
+    fn is_wave15_kind(&self) -> bool {
+        matches!(
+            self,
+            Self::CaseWorkflowBound { .. }
+                | Self::WorkflowNodeExecutionStarted { .. }
+                | Self::WorkflowNodeSatisfied { .. }
+                | Self::WorkflowConditionResolved { .. }
+                | Self::WorkflowHumanInputRecorded { .. }
+                | Self::WorkflowDeterministicProposalRecorded { .. }
+        )
+    }
 }
 
 fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V9
             | TRANSITION_SCHEMA_V8
             | TRANSITION_SCHEMA_V7
             | TRANSITION_SCHEMA_V6
@@ -2818,6 +3171,7 @@ fn supports_wave9_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V9
             | TRANSITION_SCHEMA_V8
             | TRANSITION_SCHEMA_V7
             | TRANSITION_SCHEMA_V6
@@ -2828,7 +3182,11 @@ fn supports_wave9_contract(schema: &str) -> bool {
 fn supports_wave10_contract(schema: &str) -> bool {
     matches!(
         schema,
-        TRANSITION_SCHEMA | TRANSITION_SCHEMA_V8 | TRANSITION_SCHEMA_V7 | TRANSITION_SCHEMA_V6
+        TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V9
+            | TRANSITION_SCHEMA_V8
+            | TRANSITION_SCHEMA_V7
+            | TRANSITION_SCHEMA_V6
     )
 }
 

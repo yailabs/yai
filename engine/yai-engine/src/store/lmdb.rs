@@ -30,10 +30,11 @@ use crate::compatibility::{
 };
 use crate::context::SemanticContextArtifact;
 use crate::effect::{
-    issue_policy_execution_grant, validate_execution_obligation_closure,
-    validate_execution_obligation_preparation, Decision, LocalFilesystemBinding,
-    LocalProcessBinding, Operation, OperationOrigin, LOCAL_FILESYSTEM_BINDING_SCHEMA,
-    LOCAL_FILESYSTEM_BINDING_SCHEMA_V1,
+    build_workflow_deterministic_filesystem_operation,
+    build_workflow_deterministic_process_operation, issue_policy_execution_grant,
+    validate_execution_obligation_closure, validate_execution_obligation_preparation, Decision,
+    LocalFilesystemBinding, LocalProcessBinding, Operation, OperationOrigin,
+    LOCAL_FILESYSTEM_BINDING_SCHEMA, LOCAL_FILESYSTEM_BINDING_SCHEMA_V1,
 };
 use crate::governance::{
     build_lifecycle_event, compile_policy_source, lifecycle_from_events, scope_policy_compilation,
@@ -69,9 +70,20 @@ use crate::transition::{
     GrantLifecycle, PendingTransition, ReviewInvalidation, ReviewResolution, Transition,
     TransitionPayload, TransitionSource, CASE_STATE_SCHEMA, CASE_STATE_SCHEMA_V1,
     CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5,
-    CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7, CASE_STATE_SCHEMA_V8, TRANSITION_SCHEMA,
-    TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4,
-    TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7, TRANSITION_SCHEMA_V8,
+    CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7, CASE_STATE_SCHEMA_V8, CASE_STATE_SCHEMA_V9,
+    TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3,
+    TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7,
+    TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
+};
+use crate::workflow::{
+    evaluate_predicate, node_completion_predicate, resolve_workflow, CaseWorkflowBinding,
+    DeterministicOperationTemplate, HumanInputKind, WorkflowConditionResolution,
+    WorkflowDefinition, WorkflowDefinitionInput, WorkflowDeterministicProposalRecord,
+    WorkflowExecutorBinding, WorkflowHumanInputRecord, WorkflowNodeExecution, WorkflowNodeKind,
+    WorkflowNodePosture, WorkflowNodeSatisfaction, WorkflowPredicate, WorkflowResolution,
+    WorkflowResourceBinding, MAX_WORKFLOW_INPUT_BYTES, WORKFLOW_CONDITION_RESOLUTION_SCHEMA,
+    WORKFLOW_DEFINITION_SCHEMA, WORKFLOW_HUMAN_INPUT_SCHEMA, WORKFLOW_NODE_EXECUTION_SCHEMA,
+    WORKFLOW_NODE_SATISFACTION_SCHEMA,
 };
 use lmdb::{
     Cursor, Database, DatabaseFlags, Environment, EnvironmentFlags, Error, RoTransaction,
@@ -95,7 +107,8 @@ pub const SEMANTIC_CONTEXT_ARTIFACT_SCHEMA: &str = "yai.semantic_context_artifac
 pub const CASE_RUNTIME_ADMISSION_SCHEMA: &str = "yai.case_runtime_admission.v1";
 pub const RUNTIME_INSTANCE_SCHEMA: &str = "yai.runtime_instance.v2";
 const RUNTIME_INSTANCE_SCHEMA_V1: &str = "yai.runtime_instance.v1";
-pub const RUNTIME_WORK_ITEM_SCHEMA: &str = "yai.runtime_work_item.v1";
+pub const RUNTIME_WORK_ITEM_SCHEMA_V1: &str = "yai.runtime_work_item.v1";
+pub const RUNTIME_WORK_ITEM_SCHEMA: &str = "yai.runtime_work_item.v2";
 pub const RUNTIME_INSTANCE_ID: &str = "runtime-instance:local-default";
 pub const MAX_RUNTIME_WORK_TASK_BYTES: usize = 64 * 1024;
 pub const MAX_RUNTIME_WORK_REQUEST_ID_BYTES: usize = 256;
@@ -179,6 +192,7 @@ pub struct LmdbRecordStore {
     security_events_by_id: Database,
     resource_control_states_by_id: Database,
     resource_control_events_by_id: Database,
+    workflow_definitions: Database,
     schema_meta: Database,
 }
 
@@ -382,6 +396,32 @@ impl RuntimeWorkState {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RuntimeWorkflowContext {
+    pub workflow_binding_id: String,
+    pub workflow_definition_id: String,
+    pub workflow_node_id: String,
+    pub workflow_execution_id: String,
+    pub workflow_node_kind: String,
+}
+
+impl RuntimeWorkflowContext {
+    fn validate(&self) -> Result<(), String> {
+        if self.workflow_binding_id.is_empty()
+            || self.workflow_definition_id.is_empty()
+            || self.workflow_node_id.is_empty()
+            || self.workflow_execution_id.is_empty()
+            || !matches!(
+                self.workflow_node_kind.as_str(),
+                "model_work" | "deterministic_work"
+            )
+        {
+            return Err("runtime_workflow_context_invalid".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RuntimeWorkItem {
     pub schema: String,
     pub work_id: String,
@@ -398,6 +438,8 @@ pub struct RuntimeWorkItem {
     pub budgets: RuntimeCaseBudgets,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failpoint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<RuntimeWorkflowContext>,
     pub enqueue_sequence: u64,
     pub state: RuntimeWorkState,
     pub attempt_count: u32,
@@ -411,8 +453,10 @@ pub struct RuntimeWorkItem {
 
 impl RuntimeWorkItem {
     pub fn validate_integrity(&self) -> Result<(), String> {
-        if self.schema != RUNTIME_WORK_ITEM_SCHEMA
-            || self.work_id.is_empty()
+        if !matches!(
+            self.schema.as_str(),
+            RUNTIME_WORK_ITEM_SCHEMA | RUNTIME_WORK_ITEM_SCHEMA_V1
+        ) || self.work_id.is_empty()
             || self.request_id.is_empty()
             || self.request_id.len() > MAX_RUNTIME_WORK_REQUEST_ID_BYTES
             || self.request_digest.is_empty()
@@ -432,6 +476,12 @@ impl RuntimeWorkItem {
             || self.enqueue_sequence == 0
         {
             return Err("invalid_runtime_work_item".to_string());
+        }
+        if self.schema == RUNTIME_WORK_ITEM_SCHEMA_V1 && self.workflow.is_some() {
+            return Err("runtime_workflow_context_requires_work_item_v2".to_string());
+        }
+        if let Some(workflow) = &self.workflow {
+            workflow.validate()?;
         }
         self.budgets.validate()?;
         if self.integrity_digest != runtime_work_integrity_digest(self)? {
@@ -808,6 +858,9 @@ impl LmdbRecordStore {
                 DatabaseFlags::empty(),
             )
             .map_err(|error| format!("failed to open resource_control_events_by_id: {error}"))?;
+        let workflow_definitions = env
+            .create_db(Some("workflow_definitions"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open workflow_definitions: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -846,6 +899,7 @@ impl LmdbRecordStore {
             security_events_by_id,
             resource_control_states_by_id,
             resource_control_events_by_id,
+            workflow_definitions,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -2099,6 +2153,7 @@ impl LmdbRecordStore {
             task: submission.task.clone(),
             budgets: submission.budgets.clone(),
             failpoint: submission.failpoint.clone(),
+            workflow: None,
             enqueue_sequence: sequence,
             state: RuntimeWorkState::Queued,
             attempt_count: 0,
@@ -2334,6 +2389,80 @@ impl LmdbRecordStore {
         )?;
         txn.commit()
             .map_err(|error| format!("failed to commit runtime work update: {error}"))?;
+        Ok(item)
+    }
+
+    /// Repairs noncanonical workflow bookkeeping from an exact canonical
+    /// NodeSatisfied fact. This is deliberately narrower than the ordinary
+    /// WorkItem FSM: the caller cannot choose a terminal outcome, and no
+    /// workflow/Case transition is created here.
+    pub fn complete_runtime_work_from_workflow_satisfaction(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        owner_token: &str,
+        work_id: &str,
+        now_unix_ms: u64,
+    ) -> Result<RuntimeWorkItem, String> {
+        let mut txn = self.env.begin_rw_txn().map_err(|error| {
+            format!("failed to start workflow WorkItem completion repair: {error}")
+        })?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let _instance = runtime_instance_owner_txn(
+            &txn,
+            self.runtime_instances,
+            &principal.principal_id,
+            owner_token,
+            now_unix_ms,
+        )?;
+        let mut item = get_json_txn::<RuntimeWorkItem, _>(
+            &txn,
+            self.runtime_work_items,
+            work_id,
+            "runtime_work_item",
+        )?
+        .ok_or_else(|| "runtime_work_item_missing".to_string())?;
+        item.validate_integrity()?;
+        if item.principal_id != principal.principal_id || item.state.is_terminal() {
+            return Err("runtime_work_item_terminal_or_not_visible".to_string());
+        }
+        let workflow = item
+            .workflow
+            .as_ref()
+            .ok_or_else(|| "runtime_work_is_not_workflow_attributed".to_string())?;
+        let case_state = self
+            .get_case_state_txn(&txn, &item.case_id)?
+            .ok_or_else(|| "runtime_work_case_missing".to_string())?;
+        let exact_satisfaction = case_state
+            .workflow_satisfactions
+            .iter()
+            .any(|satisfaction| {
+                satisfaction.binding_id == workflow.workflow_binding_id
+                    && satisfaction.workflow_definition_id == workflow.workflow_definition_id
+                    && satisfaction.node_id == workflow.workflow_node_id
+                    && satisfaction.execution_id.as_deref()
+                        == Some(workflow.workflow_execution_id.as_str())
+            });
+        if !exact_satisfaction {
+            return Err("workflow_work_completion_not_canonically_proven".to_string());
+        }
+        item.state = RuntimeWorkState::Completed;
+        item.last_stop_reason = "canonical_workflow_satisfaction_recovered".to_string();
+        item.updated_at_unix_ms = now_unix_ms;
+        item.runtime_instance_id = Some(RUNTIME_INSTANCE_ID.to_string());
+        item.runtime_owner_token = Some(owner_token.to_string());
+        item.worker_id = None;
+        item.integrity_digest = runtime_work_integrity_digest(&item)?;
+        put_json_txn(
+            &mut txn,
+            self.runtime_work_items,
+            work_id,
+            &item,
+            WriteFlags::empty(),
+            "runtime work item",
+        )?;
+        txn.commit().map_err(|error| {
+            format!("failed to commit workflow WorkItem completion repair: {error}")
+        })?;
         Ok(item)
     }
 
@@ -5161,6 +5290,1040 @@ impl LmdbRecordStore {
         Ok(state)
     }
 
+    pub fn define_workflow(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        input: WorkflowDefinitionInput,
+        now_unix_ms: u64,
+    ) -> Result<WorkflowDefinition, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start WorkflowDefinition write: {error}"))?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, &input.tenant_id)?;
+        context.require_owner()?;
+        let definition = WorkflowDefinition::build(input, context.principal_id(), now_unix_ms)?;
+        let version_key = workflow_definition_version_key(
+            &definition.tenant_id,
+            &definition.workflow_key,
+            &definition.declared_version,
+        );
+        if let Ok(existing_id) = txn.get(self.workflow_definitions, &version_key) {
+            let existing_id = std::str::from_utf8(existing_id)
+                .map_err(|error| format!("workflow version index is not utf8: {error}"))?;
+            let existing = self
+                .workflow_definition_txn(&txn, existing_id)?
+                .ok_or_else(|| "workflow_definition_version_index_dangling".to_string())?;
+            if existing.content_digest != definition.content_digest {
+                return Err("workflow_definition_version_collision".to_string());
+            }
+            return Ok(existing);
+        }
+        put_json_txn(
+            &mut txn,
+            self.workflow_definitions,
+            &workflow_definition_key(&definition.workflow_definition_id),
+            &definition,
+            WriteFlags::NO_OVERWRITE,
+            "WorkflowDefinition",
+        )?;
+        txn.put(
+            self.workflow_definitions,
+            &version_key,
+            &definition.workflow_definition_id,
+            WriteFlags::NO_OVERWRITE,
+        )
+        .map_err(|error| format!("failed to index WorkflowDefinition version: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit WorkflowDefinition: {error}"))?;
+        Ok(definition)
+    }
+
+    pub fn get_workflow_definition_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        workflow_definition_id: &str,
+    ) -> Result<WorkflowDefinition, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start WorkflowDefinition read: {error}"))?;
+        let definition = self
+            .workflow_definition_txn(&txn, workflow_definition_id)?
+            .ok_or_else(|| "workflow_definition_not_visible".to_string())?;
+        self.resolve_security_context_txn(&txn, authenticated, &definition.tenant_id)
+            .map_err(|_| "workflow_definition_not_visible".to_string())?;
+        Ok(definition)
+    }
+
+    pub fn list_workflow_definitions_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+    ) -> Result<Vec<WorkflowDefinition>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start WorkflowDefinition list: {error}"))?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let mut cursor = txn
+            .open_ro_cursor(self.workflow_definitions)
+            .map_err(|error| format!("failed to open WorkflowDefinition cursor: {error}"))?;
+        let mut definitions = Vec::new();
+        for (key, value) in cursor.iter() {
+            if !key.starts_with(b"definition:") {
+                continue;
+            }
+            let definition: WorkflowDefinition = serde_json::from_slice(value)
+                .map_err(|error| format!("invalid WorkflowDefinition JSON: {error}"))?;
+            definition.validate_integrity()?;
+            if definition.tenant_id == tenant_id {
+                definitions.push(definition);
+            }
+        }
+        definitions.sort_by(|left, right| {
+            left.workflow_key
+                .cmp(&right.workflow_key)
+                .then_with(|| left.declared_version.cmp(&right.declared_version))
+                .then_with(|| {
+                    left.workflow_definition_id
+                        .cmp(&right.workflow_definition_id)
+                })
+        });
+        Ok(definitions)
+    }
+
+    pub fn bind_case_workflow(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        workflow_definition_id: &str,
+        executor_bindings: Vec<WorkflowExecutorBinding>,
+        resource_bindings: Vec<WorkflowResourceBinding>,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start Case workflow bind: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "workflow_binding_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        if state.workflow_binding.is_some() {
+            return Err("case_workflow_already_bound".to_string());
+        }
+        let definition = self
+            .workflow_definition_txn(&txn, workflow_definition_id)?
+            .ok_or_else(|| "workflow_definition_not_visible".to_string())?;
+        if definition.tenant_id != tenant_id {
+            return Err("cross_tenant_workflow_binding_rejected".to_string());
+        }
+        for binding in &executor_bindings {
+            if !state
+                .participants
+                .iter()
+                .any(|participant| participant.participant_id == binding.participant_id)
+            {
+                return Err("workflow_executor_participant_not_in_case".to_string());
+            }
+        }
+        for binding in &resource_bindings {
+            if !state
+                .resources
+                .iter()
+                .any(|resource| resource.attachment_id == binding.attachment_id)
+            {
+                return Err("workflow_resource_not_in_case".to_string());
+            }
+        }
+        let binding = CaseWorkflowBinding::build(
+            tenant_id,
+            case_id,
+            &definition,
+            executor_bindings,
+            resource_bindings,
+            state.generation + 1,
+            context.principal_id(),
+            now_unix_ms,
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:workflow-bind:{}", binding.binding_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.workflow".to_string(),
+                participant_id: None,
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(definition.workflow_definition_id.clone()),
+            },
+            TransitionPayload::CaseWorkflowBound {
+                binding: binding.clone(),
+            },
+        );
+        pending.causal_refs = vec![definition.workflow_definition_id.clone()];
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit Case workflow binding: {error}"))?;
+        Ok(commit)
+    }
+
+    pub fn workflow_status_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+    ) -> Result<WorkflowResolution, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start workflow status read: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "workflow_requires_tenant_case".to_string())?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)
+            .map_err(|_| "case_not_visible".to_string())?;
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or_else(|| "case_workflow_not_bound".to_string())?;
+        let definition = self
+            .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
+            .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        if definition.integrity_digest != binding.workflow_definition_digest {
+            return Err("bound_workflow_definition_digest_mismatch".to_string());
+        }
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        resolve_workflow(&definition, binding, &state, &history)
+    }
+
+    pub fn record_workflow_human_input(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        node_id: &str,
+        value: &str,
+        now_unix_ms: u64,
+    ) -> Result<CanonicalCommit, String> {
+        if value.is_empty() || value.len() > MAX_WORKFLOW_INPUT_BYTES {
+            return Err("workflow_human_input_bounds_invalid".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start workflow input write: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "workflow_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or_else(|| "case_workflow_not_bound".to_string())?;
+        let definition = self
+            .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
+            .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let resolution = resolve_workflow(&definition, binding, &state, &history)?;
+        let node_view = resolution
+            .nodes
+            .iter()
+            .find(|node| node.node_id == node_id)
+            .ok_or_else(|| "workflow_node_not_found".to_string())?;
+        if node_view.posture != WorkflowNodePosture::WaitingHumanInput {
+            return Err("workflow_human_input_node_not_ready".to_string());
+        }
+        let node = definition
+            .node(node_id)
+            .ok_or_else(|| "workflow_node_not_found".to_string())?;
+        let WorkflowNodeKind::HumanInput {
+            actor_slot,
+            required_roles,
+            input_kind,
+            max_bytes,
+            ..
+        } = &node.kind
+        else {
+            return Err("workflow_node_is_not_human_input".to_string());
+        };
+        if value.len() > *max_bytes {
+            return Err("workflow_human_input_bounds_invalid".to_string());
+        }
+        if *input_kind == HumanInputKind::Json {
+            let parsed: serde_json::Value = serde_json::from_str(value)
+                .map_err(|_| "workflow_human_input_json_invalid".to_string())?;
+            if parsed.is_array() || parsed.is_null() {
+                return Err("workflow_human_input_json_kind_invalid".to_string());
+            }
+        }
+        let participant_id = binding
+            .participant_for_slot(actor_slot)
+            .ok_or_else(|| "workflow_human_actor_slot_unbound".to_string())?;
+        let linked = state.principal_participant_links.iter().any(|link| {
+            link.principal_id == context.principal_id()
+                && link.participant_id == participant_id
+                && link.tenant_id == tenant_id
+        });
+        let participant = state
+            .participants
+            .iter()
+            .find(|participant| participant.participant_id == participant_id)
+            .ok_or_else(|| "workflow_human_participant_missing".to_string())?;
+        if !linked
+            || required_roles
+                .iter()
+                .any(|role| !participant.roles.contains(role))
+        {
+            return Err("workflow_human_input_principal_or_role_rejected".to_string());
+        }
+        let value_digest = crate::effect::digest_bytes(value.as_bytes());
+        let identity = crate::context::stable_digest(&format!(
+            "{}\0{}\0{}\0{}",
+            binding.binding_id,
+            node_id,
+            context.principal_id(),
+            value_digest
+        ));
+        let input = WorkflowHumanInputRecord {
+            schema: WORKFLOW_HUMAN_INPUT_SCHEMA.to_string(),
+            input_id: format!("workflow-input:{identity}"),
+            binding_id: binding.binding_id.clone(),
+            workflow_definition_id: definition.workflow_definition_id.clone(),
+            node_id: node_id.to_string(),
+            principal_id: context.principal_id().to_string(),
+            participant_id: participant_id.to_string(),
+            value: value.to_string(),
+            value_digest,
+            recorded_at_generation: state.generation + 1,
+            recorded_at_unix_ms: now_unix_ms,
+        };
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", input.input_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.workflow".to_string(),
+                participant_id: Some(participant_id.to_string()),
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(input.input_id.clone()),
+            },
+            TransitionPayload::WorkflowHumanInputRecorded {
+                input: input.clone(),
+            },
+        );
+        pending.causal_refs = vec![binding.binding_id.clone(), node_id.to_string()];
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit workflow human input: {error}"))?;
+        Ok(commit)
+    }
+
+    pub fn advance_workflow_passive_progress(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        max_steps: usize,
+    ) -> Result<WorkflowResolution, String> {
+        if max_steps == 0 || max_steps > crate::workflow::MAX_WORKFLOW_NODES {
+            return Err("workflow_progress_bound_invalid".to_string());
+        }
+        for _ in 0..max_steps {
+            let mut txn = self
+                .env
+                .begin_rw_txn()
+                .map_err(|error| format!("failed to start workflow progression: {error}"))?;
+            let state = self
+                .get_case_state_txn(&txn, case_id)?
+                .ok_or_else(|| "case_not_visible".to_string())?;
+            let tenant_id = state
+                .tenant_id
+                .as_deref()
+                .ok_or_else(|| "workflow_requires_tenant_case".to_string())?;
+            let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+            let binding = state
+                .workflow_binding
+                .as_ref()
+                .ok_or_else(|| "case_workflow_not_bound".to_string())?;
+            let definition = self
+                .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
+                .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+            let history = self.list_case_transitions_txn(&txn, case_id)?;
+            let resolution = resolve_workflow(&definition, binding, &state, &history)?;
+            let mut next: Option<PendingTransition> = None;
+            for node_view in &resolution.nodes {
+                let node = definition
+                    .node(&node_view.node_id)
+                    .ok_or_else(|| "workflow_node_not_found".to_string())?;
+                match (&node.kind, &node_view.posture, node_view.reason.as_str()) {
+                    (
+                        WorkflowNodeKind::Condition { predicate },
+                        WorkflowNodePosture::WaitingCondition,
+                        _,
+                    ) => {
+                        let evaluation = evaluate_predicate(
+                            &definition,
+                            binding,
+                            &state,
+                            &history,
+                            &node_view.node_id,
+                            None,
+                            predicate,
+                        )?;
+                        let predicate_digest = predicate.digest()?;
+                        let fact = WorkflowConditionResolution {
+                            schema: WORKFLOW_CONDITION_RESOLUTION_SCHEMA.to_string(),
+                            resolution_id: workflow_fact_identity(
+                                "condition",
+                                &binding.binding_id,
+                                &node_view.node_id,
+                                &predicate_digest,
+                                &evaluation.evidence_refs,
+                            ),
+                            binding_id: binding.binding_id.clone(),
+                            workflow_definition_id: definition.workflow_definition_id.clone(),
+                            node_id: node_view.node_id.clone(),
+                            result: evaluation.value,
+                            predicate_digest,
+                            evaluated_at_generation: state.generation + 1,
+                            evidence_refs: evaluation.evidence_refs,
+                        };
+                        let mut pending = PendingTransition::new(
+                            format!("transition:{}", fact.resolution_id),
+                            case_id,
+                            state.generation,
+                            workflow_transition_source(context.principal_id(), &fact.resolution_id),
+                            TransitionPayload::WorkflowConditionResolved {
+                                resolution: fact.clone(),
+                            },
+                        );
+                        pending.causal_refs = vec![binding.binding_id.clone()];
+                        pending.causal_refs.extend(fact.evidence_refs.clone());
+                        next = Some(pending);
+                    }
+                    (
+                        WorkflowNodeKind::Wait { predicate }
+                        | WorkflowNodeKind::EffectGoal { predicate },
+                        WorkflowNodePosture::WaitingEffect,
+                        "passive_predicate_satisfied_pending_commit",
+                    ) => {
+                        let evaluation = evaluate_predicate(
+                            &definition,
+                            binding,
+                            &state,
+                            &history,
+                            &node_view.node_id,
+                            None,
+                            predicate,
+                        )?;
+                        next = Some(workflow_satisfaction_pending(
+                            case_id,
+                            &state,
+                            binding,
+                            &definition,
+                            &node_view.node_id,
+                            None,
+                            predicate,
+                            evaluation.evidence_refs,
+                            context.principal_id(),
+                        )?);
+                    }
+                    (
+                        WorkflowNodeKind::ModelWork {
+                            completion: predicate,
+                            ..
+                        }
+                        | WorkflowNodeKind::DeterministicWork {
+                            completion: predicate,
+                            ..
+                        },
+                        WorkflowNodePosture::Active,
+                        "completion_proven_pending_canonical_satisfaction",
+                    ) => {
+                        let execution_id = node_view
+                            .execution_id
+                            .as_deref()
+                            .ok_or_else(|| "workflow_active_node_execution_missing".to_string())?;
+                        let evaluation = evaluate_predicate(
+                            &definition,
+                            binding,
+                            &state,
+                            &history,
+                            &node_view.node_id,
+                            Some(execution_id),
+                            predicate,
+                        )?;
+                        next = Some(workflow_satisfaction_pending(
+                            case_id,
+                            &state,
+                            binding,
+                            &definition,
+                            &node_view.node_id,
+                            Some(execution_id),
+                            predicate,
+                            evaluation.evidence_refs,
+                            context.principal_id(),
+                        )?);
+                    }
+                    _ => {}
+                }
+                if next.is_some() {
+                    break;
+                }
+            }
+            let Some(pending) = next else {
+                drop(txn);
+                return self.workflow_status_authorized(authenticated, case_id);
+            };
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+            txn.commit()
+                .map_err(|error| format!("failed to commit workflow progression: {error}"))?;
+        }
+        self.workflow_status_authorized(authenticated, case_id)
+    }
+
+    pub fn list_workflow_case_ids_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        limit: usize,
+    ) -> Result<Vec<String>, String> {
+        if limit == 0 || limit > 1024 {
+            return Err("workflow_case_scan_bound_invalid".to_string());
+        }
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start workflow Case scan: {error}"))?;
+        self.authenticated_principal_txn(&txn, authenticated)?;
+        let mut cursor = txn
+            .open_ro_cursor(self.case_state)
+            .map_err(|error| format!("failed to open CaseState cursor: {error}"))?;
+        let mut case_ids = Vec::new();
+        for (_, value) in cursor.iter() {
+            let json = std::str::from_utf8(value)
+                .map_err(|error| format!("invalid CaseState utf8: {error}"))?;
+            let state = CaseState::from_json(json)?;
+            let Some(tenant_id) = state.tenant_id.as_deref() else {
+                continue;
+            };
+            if state.workflow_binding.is_some()
+                && state.lifecycle == CaseLifecycle::Open
+                && state.cancellation.is_none()
+                && self
+                    .resolve_security_context_txn(&txn, authenticated, tenant_id)
+                    .is_ok()
+            {
+                case_ids.push(state.case_id);
+                if case_ids.len() == limit {
+                    break;
+                }
+            }
+        }
+        case_ids.sort();
+        Ok(case_ids)
+    }
+
+    pub fn materialize_workflow_ready_work(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        runtime_owner_token: &str,
+        case_id: &str,
+        journal_path: &str,
+        work_failpoint: Option<&str>,
+        now_unix_ms: u64,
+    ) -> Result<Option<RuntimeWorkSubmissionOutcome>, String> {
+        if journal_path.is_empty() || journal_path.len() > MAX_RUNTIME_WORK_JOURNAL_PATH_BYTES {
+            return Err("workflow_runtime_journal_path_invalid".to_string());
+        }
+        if work_failpoint.is_some_and(|value| value.is_empty() || value.len() > 128) {
+            return Err("workflow_runtime_failpoint_invalid".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start workflow ReadyWork write: {error}"))?;
+        let principal = self.authenticated_principal_txn(&txn, authenticated)?;
+        let instance = runtime_instance_owner_txn(
+            &txn,
+            self.runtime_instances,
+            &principal.principal_id,
+            runtime_owner_token,
+            now_unix_ms,
+        )?;
+        if instance.lifecycle != RuntimeInstanceLifecycle::Running
+            || instance.drain_requested_at_unix_ms.is_some()
+        {
+            return Ok(None);
+        }
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "workflow_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or_else(|| "case_workflow_not_bound".to_string())?;
+        let definition = self
+            .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
+            .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let resolution = resolve_workflow(&definition, binding, &state, &history)?;
+        let Some(ready) = resolution.ready_work.first() else {
+            return Ok(None);
+        };
+        if resolution.active_count != 0 {
+            return Ok(None);
+        }
+        let node = definition
+            .node(&ready.node_id)
+            .ok_or_else(|| "workflow_node_not_found".to_string())?;
+        let execution_id = workflow_execution_identity(binding, &node.node_id);
+        let all = list_runtime_work_items_txn(&txn, self.runtime_work_items)?;
+        if let Some(existing) = all.iter().find(|item| {
+            item.workflow
+                .as_ref()
+                .is_some_and(|workflow| workflow.workflow_execution_id == execution_id)
+        }) {
+            return Ok(Some(RuntimeWorkSubmissionOutcome {
+                item: existing.clone(),
+                created: false,
+            }));
+        }
+        let total_queued = all
+            .iter()
+            .filter(|item| item.state.is_queued_capacity())
+            .count();
+        if total_queued >= instance.config.max_queued_total {
+            return Ok(None);
+        }
+        let tenant_queued = all
+            .iter()
+            .filter(|item| item.tenant_id == tenant_id && item.state.is_queued_capacity())
+            .count();
+        if tenant_queued >= instance.config.max_queued_per_tenant {
+            return Ok(None);
+        }
+
+        let (participant_id, attachment_id, task, budgets, node_kind) = match &node.kind {
+            WorkflowNodeKind::ModelWork {
+                executor_slot,
+                task,
+                budgets,
+                resource_slot,
+                ..
+            } => {
+                let participant = binding
+                    .participant_for_slot(executor_slot)
+                    .ok_or_else(|| "workflow_model_executor_slot_unbound".to_string())?;
+                let attachment = resource_slot
+                    .as_ref()
+                    .and_then(|slot| binding.attachment_for_slot(slot))
+                    .or_else(|| {
+                        state
+                            .resources
+                            .first()
+                            .map(|resource| resource.attachment_id.as_str())
+                    })
+                    .ok_or_else(|| "workflow_modelwork_requires_case_resource".to_string())?;
+                (
+                    participant.to_string(),
+                    attachment.to_string(),
+                    task.clone(),
+                    RuntimeCaseBudgets {
+                        max_invocations: budgets.max_turns,
+                        max_operations: budgets.max_operations,
+                        max_semantic_units: budgets.max_semantic_units,
+                        max_resident_items: 64,
+                        max_estimated_input_units: budgets.max_semantic_units.saturating_mul(16),
+                        max_provider_retries: 1,
+                        max_runtime_ms: None,
+                        stop_on_deny: false,
+                        continue_after_malformed: false,
+                    },
+                    "model_work".to_string(),
+                )
+            }
+            WorkflowNodeKind::DeterministicWork {
+                proposer_slot,
+                operation,
+                ..
+            } => (
+                binding
+                    .participant_for_slot(proposer_slot)
+                    .ok_or_else(|| "workflow_deterministic_proposer_slot_unbound".to_string())?
+                    .to_string(),
+                binding
+                    .attachment_for_slot(operation.resource_slot())
+                    .ok_or_else(|| "workflow_deterministic_resource_slot_unbound".to_string())?
+                    .to_string(),
+                serde_json::to_string(operation).map_err(|error| {
+                    format!("workflow_deterministic_template_encode_failed: {error}")
+                })?,
+                RuntimeCaseBudgets {
+                    max_invocations: 1,
+                    max_operations: 1,
+                    max_semantic_units: 1,
+                    max_resident_items: 1,
+                    max_estimated_input_units: 1,
+                    max_provider_retries: 0,
+                    max_runtime_ms: None,
+                    stop_on_deny: true,
+                    continue_after_malformed: false,
+                },
+                "deterministic_work".to_string(),
+            ),
+            _ => return Err("workflow_ready_work_node_not_executable".to_string()),
+        };
+        budgets.validate()?;
+        if !state
+            .participants
+            .iter()
+            .any(|participant| participant.participant_id == participant_id)
+            || !state
+                .resources
+                .iter()
+                .any(|resource| resource.attachment_id == attachment_id)
+        {
+            return Err("workflow_ready_work_case_binding_mismatch".to_string());
+        }
+
+        let execution = WorkflowNodeExecution {
+            schema: WORKFLOW_NODE_EXECUTION_SCHEMA.to_string(),
+            execution_id: execution_id.clone(),
+            binding_id: binding.binding_id.clone(),
+            workflow_definition_id: definition.workflow_definition_id.clone(),
+            node_id: node.node_id.clone(),
+            case_id: case_id.to_string(),
+            started_at_generation: state.generation + 1,
+            started_at_unix_ms: now_unix_ms,
+        };
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", execution.execution_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.workflow".to_string(),
+                participant_id: Some(participant_id.clone()),
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(execution.execution_id.clone()),
+            },
+            TransitionPayload::WorkflowNodeExecutionStarted {
+                execution: execution.clone(),
+            },
+        );
+        pending.causal_refs = vec![binding.binding_id.clone(), node.node_id.clone()];
+
+        let request_id = format!("workflow-request:{}", execution.execution_id);
+        let work_id = format!(
+            "runtime-work:{}",
+            crate::context::stable_digest(&format!(
+                "{}\0{}\0{}",
+                principal.principal_id, tenant_id, request_id
+            ))
+        );
+        let workflow = RuntimeWorkflowContext {
+            workflow_binding_id: binding.binding_id.clone(),
+            workflow_definition_id: definition.workflow_definition_id.clone(),
+            workflow_node_id: node.node_id.clone(),
+            workflow_execution_id: execution.execution_id.clone(),
+            workflow_node_kind: node_kind,
+        };
+        let request_digest = crate::context::stable_digest(
+            &serde_json::to_string(&serde_json::json!({
+                "schema": RUNTIME_WORK_ITEM_SCHEMA,
+                "request_id": request_id,
+                "principal_id": principal.principal_id,
+                "tenant_id": tenant_id,
+                "case_id": case_id,
+                "participant_id": participant_id,
+                "attachment_id": attachment_id,
+                "task": task,
+                "budgets": budgets,
+                "workflow": workflow,
+            }))
+            .map_err(|error| format!("workflow WorkItem request encode failed: {error}"))?,
+        );
+        let sequence = next_runtime_work_sequence(&mut txn, self.schema_meta)?;
+        let mut item = RuntimeWorkItem {
+            schema: RUNTIME_WORK_ITEM_SCHEMA.to_string(),
+            work_id: work_id.clone(),
+            integrity_digest: String::new(),
+            request_id: request_id.clone(),
+            request_digest,
+            principal_id: principal.principal_id.clone(),
+            tenant_id: tenant_id.to_string(),
+            case_id: case_id.to_string(),
+            participant_id,
+            attachment_id,
+            journal_path: journal_path.to_string(),
+            task,
+            budgets,
+            failpoint: work_failpoint.map(str::to_string),
+            workflow: Some(workflow),
+            enqueue_sequence: sequence,
+            state: RuntimeWorkState::Queued,
+            attempt_count: 0,
+            runtime_instance_id: None,
+            runtime_owner_token: None,
+            worker_id: None,
+            last_stop_reason: "workflow_ready_work_accepted".to_string(),
+            enqueued_at_unix_ms: now_unix_ms,
+            updated_at_unix_ms: now_unix_ms,
+        };
+        item.integrity_digest = runtime_work_integrity_digest(&item)?;
+        item.validate_integrity()?;
+
+        self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        put_json_txn(
+            &mut txn,
+            self.runtime_work_items,
+            &work_id,
+            &item,
+            WriteFlags::NO_OVERWRITE,
+            "workflow runtime work item",
+        )?;
+        txn.put(
+            self.runtime_work_idempotency,
+            &runtime_work_idempotency_key(&principal.principal_id, tenant_id, &request_id),
+            &work_id,
+            WriteFlags::NO_OVERWRITE,
+        )
+        .map_err(|error| format!("failed to index workflow WorkItem: {error}"))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit workflow ReadyWork: {error}"))?;
+        Ok(Some(RuntimeWorkSubmissionOutcome {
+            item,
+            created: true,
+        }))
+    }
+
+    pub fn record_workflow_deterministic_operation(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        item: &RuntimeWorkItem,
+    ) -> Result<(WorkflowDeterministicProposalRecord, Operation), String> {
+        item.validate_integrity()?;
+        let workflow = item
+            .workflow
+            .as_ref()
+            .filter(|workflow| workflow.workflow_node_kind == "deterministic_work")
+            .ok_or_else(|| "runtime_work_is_not_deterministic_workflow".to_string())?;
+
+        let proposal = {
+            let mut txn = self.env.begin_rw_txn().map_err(|error| {
+                format!("failed to start deterministic workflow proposal: {error}")
+            })?;
+            let state = self
+                .get_case_state_txn(&txn, &item.case_id)?
+                .ok_or_else(|| "case_not_visible".to_string())?;
+            let tenant_id = state
+                .tenant_id
+                .as_deref()
+                .ok_or_else(|| "workflow_requires_tenant_case".to_string())?;
+            let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+            if item.principal_id != context.principal_id()
+                || item.tenant_id != tenant_id
+                || state.workflow_binding.as_ref().is_none_or(|binding| {
+                    binding.binding_id != workflow.workflow_binding_id
+                        || binding.workflow_definition_id != workflow.workflow_definition_id
+                })
+            {
+                return Err("workflow_runtime_security_or_binding_mismatch".to_string());
+            }
+            let binding = state.workflow_binding.as_ref().expect("checked");
+            let definition = self
+                .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
+                .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+            let node = definition
+                .node(&workflow.workflow_node_id)
+                .ok_or_else(|| "workflow_node_not_found".to_string())?;
+            let WorkflowNodeKind::DeterministicWork {
+                proposer_slot,
+                operation,
+                ..
+            } = &node.kind
+            else {
+                return Err("workflow_deterministic_node_kind_mismatch".to_string());
+            };
+            let execution_exists = state.workflow_executions.iter().any(|execution| {
+                execution.execution_id == workflow.workflow_execution_id
+                    && execution.node_id == workflow.workflow_node_id
+            });
+            if !execution_exists
+                || binding.participant_for_slot(proposer_slot) != Some(item.participant_id.as_str())
+                || binding.attachment_for_slot(operation.resource_slot())
+                    != Some(item.attachment_id.as_str())
+            {
+                return Err("workflow_deterministic_execution_binding_mismatch".to_string());
+            }
+            let template_digest =
+                crate::context::stable_digest(&serde_json::to_string(operation).map_err(
+                    |error| format!("workflow_deterministic_template_encode_failed: {error}"),
+                )?);
+            let proposal_digest = crate::context::stable_digest(&format!(
+                "{}\0{}\0{}\0{}",
+                binding.binding_id,
+                workflow.workflow_execution_id,
+                workflow.workflow_node_id,
+                template_digest
+            ));
+            let expected = WorkflowDeterministicProposalRecord {
+                schema: crate::workflow::WORKFLOW_DETERMINISTIC_PROPOSAL_SCHEMA.to_string(),
+                proposal_id: format!("workflow-proposal:{proposal_digest}"),
+                binding_id: binding.binding_id.clone(),
+                workflow_definition_id: definition.workflow_definition_id.clone(),
+                node_id: node.node_id.clone(),
+                execution_id: workflow.workflow_execution_id.clone(),
+                participant_id: item.participant_id.clone(),
+                operation_kind: operation.operation_kind(),
+                resource_attachment_id: item.attachment_id.clone(),
+                template_digest,
+                recorded_at_generation: state.generation + 1,
+            };
+            if let Some(existing) = state
+                .workflow_deterministic_proposals
+                .iter()
+                .find(|proposal| proposal.execution_id == workflow.workflow_execution_id)
+            {
+                let mut expected_existing = expected.clone();
+                expected_existing.recorded_at_generation = existing.recorded_at_generation;
+                if existing != &expected_existing {
+                    return Err("workflow_deterministic_proposal_existing_mismatch".to_string());
+                }
+                drop(txn);
+                existing.clone()
+            } else {
+                let mut pending = PendingTransition::new(
+                    format!("transition:{}", expected.proposal_id),
+                    &item.case_id,
+                    state.generation,
+                    TransitionSource {
+                        component: "yai.workflow".to_string(),
+                        participant_id: Some(item.participant_id.clone()),
+                        principal_id: Some(context.principal_id().to_string()),
+                        source_ref: Some(expected.proposal_id.clone()),
+                    },
+                    TransitionPayload::WorkflowDeterministicProposalRecorded {
+                        proposal: expected.clone(),
+                    },
+                );
+                pending.causal_refs = vec![workflow.workflow_execution_id.clone()];
+                self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+                txn.commit().map_err(|error| {
+                    format!("failed to commit deterministic workflow proposal: {error}")
+                })?;
+                expected
+            }
+        };
+
+        let state = self.get_case_state_authorized(authenticated, &item.case_id)?;
+        let history = self.list_case_transitions(&item.case_id)?;
+        if let Some(operation) = history
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::OperationRecorded { operation }
+                    if matches!(
+                        &operation.origin,
+                        OperationOrigin::WorkflowDeterministicProposal { proposal_id, .. }
+                            if proposal_id == &proposal.proposal_id
+                    ) =>
+                {
+                    Some(operation.clone())
+                }
+                _ => None,
+            })
+        {
+            return Ok((proposal, operation));
+        }
+        let resource = state
+            .resources
+            .iter()
+            .find(|resource| resource.attachment_id == item.attachment_id)
+            .ok_or_else(|| "workflow_deterministic_resource_missing".to_string())?;
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or_else(|| "case_workflow_not_bound".to_string())?;
+        let definition = self
+            .get_workflow_definition_authorized(authenticated, &binding.workflow_definition_id)?;
+        let node = definition
+            .node(&workflow.workflow_node_id)
+            .ok_or_else(|| "workflow_node_not_found".to_string())?;
+        let WorkflowNodeKind::DeterministicWork {
+            operation: template,
+            ..
+        } = &node.kind
+        else {
+            return Err("workflow_deterministic_node_kind_mismatch".to_string());
+        };
+        let operation = match template {
+            DeterministicOperationTemplate::FilesystemWrite {
+                relative_path,
+                content,
+                ..
+            } => build_workflow_deterministic_filesystem_operation(
+                &item.case_id,
+                &item.participant_id,
+                state.generation,
+                resource,
+                relative_path,
+                content,
+                &proposal.proposal_id,
+                &workflow.workflow_execution_id,
+            )?,
+            DeterministicOperationTemplate::ProcessSignal { action, .. } => {
+                let process = self
+                    .get_local_process_binding(&item.case_id, &item.attachment_id)?
+                    .ok_or_else(|| "local_process_binding_missing".to_string())?;
+                build_workflow_deterministic_process_operation(
+                    &item.case_id,
+                    &item.participant_id,
+                    state.generation,
+                    resource,
+                    &process.process,
+                    action.clone(),
+                    &proposal.proposal_id,
+                    &workflow.workflow_execution_id,
+                )?
+            }
+        };
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", operation.operation_id),
+            &item.case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.workflow".to_string(),
+                participant_id: Some(item.participant_id.clone()),
+                principal_id: Some(authenticated.projected_principal_id()),
+                source_ref: Some(proposal.proposal_id.clone()),
+            },
+            TransitionPayload::OperationRecorded {
+                operation: operation.clone(),
+            },
+        );
+        pending.scope = Some(operation.scope.clone());
+        pending.causal_refs = operation.origin.causal_refs();
+        self.commit_secured_transition(authenticated, &item.tenant_id, pending, false)?;
+        Ok((proposal, operation))
+    }
+
     fn commit_transition_inner(
         &self,
         pending: PendingTransition,
@@ -5259,6 +6422,12 @@ impl LmdbRecordStore {
             ));
         }
         self.validate_case_security_write_txn(
+            txn,
+            current_state.as_ref(),
+            &pending,
+            security_context,
+        )?;
+        self.validate_workflow_progression_txn(
             txn,
             current_state.as_ref(),
             &pending,
@@ -5394,6 +6563,7 @@ impl LmdbRecordStore {
                 | TransitionPayload::CasePolicyUnbound { .. }
                 | TransitionPayload::CaseCancellationRequested { .. }
                 | TransitionPayload::CaseClosed { .. }
+                | TransitionPayload::CaseWorkflowBound { .. }
         );
         if owner_protected {
             let context = security_context
@@ -5443,6 +6613,354 @@ impl LmdbRecordStore {
             if !linked {
                 return Err("authenticated_principal_participant_link_required".to_string());
             }
+        }
+        Ok(())
+    }
+
+    fn validate_workflow_progression_txn(
+        &self,
+        txn: &RwTransaction<'_>,
+        current_state: Option<&CaseState>,
+        pending: &PendingTransition,
+        security_context: Option<&SecurityContext>,
+    ) -> Result<(), String> {
+        let is_workflow = matches!(
+            &pending.payload,
+            TransitionPayload::CaseWorkflowBound { .. }
+                | TransitionPayload::WorkflowNodeExecutionStarted { .. }
+                | TransitionPayload::WorkflowNodeSatisfied { .. }
+                | TransitionPayload::WorkflowConditionResolved { .. }
+                | TransitionPayload::WorkflowHumanInputRecorded { .. }
+                | TransitionPayload::WorkflowDeterministicProposalRecorded { .. }
+        ) || matches!(
+            &pending.payload,
+            TransitionPayload::OperationRecorded { operation }
+                if matches!(operation.origin, OperationOrigin::WorkflowDeterministicProposal { .. })
+        );
+        if !is_workflow {
+            return Ok(());
+        }
+        let state = current_state
+            .ok_or_else(|| "workflow_progression_requires_existing_case".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "workflow_progression_requires_tenant_case".to_string())?;
+        let context = security_context
+            .ok_or_else(|| "authenticated_workflow_progression_required".to_string())?;
+        if context.tenant_id() != tenant_id
+            || pending.source.principal_id.as_deref() != Some(context.principal_id())
+        {
+            return Err("workflow_progression_security_context_mismatch".to_string());
+        }
+
+        if let TransitionPayload::CaseWorkflowBound { binding } = &pending.payload {
+            let definition = self
+                .workflow_definition_txn(txn, &binding.workflow_definition_id)?
+                .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+            binding.validate(&definition)?;
+            if binding.tenant_id != tenant_id
+                || binding.case_id != state.case_id
+                || binding.bound_at_generation != state.generation + 1
+            {
+                return Err("workflow_binding_rederivation_mismatch".to_string());
+            }
+            return Ok(());
+        }
+
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or_else(|| "workflow_progression_without_binding".to_string())?;
+        let definition = self
+            .workflow_definition_txn(txn, &binding.workflow_definition_id)?
+            .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        if definition.integrity_digest != binding.workflow_definition_digest {
+            return Err("bound_workflow_definition_digest_mismatch".to_string());
+        }
+        let history = self.list_case_transitions_txn(txn, &state.case_id)?;
+        let resolution = resolve_workflow(&definition, binding, state, &history)?;
+
+        match &pending.payload {
+            TransitionPayload::WorkflowNodeExecutionStarted { execution } => {
+                let node = definition
+                    .node(&execution.node_id)
+                    .ok_or_else(|| "workflow_node_not_found".to_string())?;
+                let ready = resolution
+                    .ready_work
+                    .iter()
+                    .any(|work| work.node_id == execution.node_id && node.is_executable());
+                let expected_id = workflow_execution_identity(binding, &execution.node_id);
+                if !ready
+                    || execution.execution_id != expected_id
+                    || execution.binding_id != binding.binding_id
+                    || execution.workflow_definition_id != definition.workflow_definition_id
+                    || execution.case_id != state.case_id
+                    || execution.started_at_generation != state.generation + 1
+                {
+                    return Err("workflow_execution_readiness_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::WorkflowConditionResolved { resolution: fact } => {
+                let node = definition
+                    .node(&fact.node_id)
+                    .ok_or_else(|| "workflow_node_not_found".to_string())?;
+                let WorkflowNodeKind::Condition { predicate } = &node.kind else {
+                    return Err("workflow_condition_node_kind_mismatch".to_string());
+                };
+                let node_view = resolution
+                    .nodes
+                    .iter()
+                    .find(|node| node.node_id == fact.node_id)
+                    .ok_or_else(|| "workflow_node_not_found".to_string())?;
+                let evaluation = evaluate_predicate(
+                    &definition,
+                    binding,
+                    state,
+                    &history,
+                    &fact.node_id,
+                    None,
+                    predicate,
+                )?;
+                let expected_id = workflow_fact_identity(
+                    "condition",
+                    &binding.binding_id,
+                    &fact.node_id,
+                    &predicate.digest()?,
+                    &evaluation.evidence_refs,
+                );
+                if node_view.posture != WorkflowNodePosture::WaitingCondition
+                    || fact.resolution_id != expected_id
+                    || fact.binding_id != binding.binding_id
+                    || fact.workflow_definition_id != definition.workflow_definition_id
+                    || fact.result != evaluation.value
+                    || fact.predicate_digest != predicate.digest()?
+                    || fact.evidence_refs != evaluation.evidence_refs
+                    || fact.evaluated_at_generation != state.generation + 1
+                {
+                    return Err("workflow_condition_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::WorkflowNodeSatisfied { satisfaction } => {
+                let node = definition
+                    .node(&satisfaction.node_id)
+                    .ok_or_else(|| "workflow_node_not_found".to_string())?;
+                if matches!(
+                    node.kind,
+                    WorkflowNodeKind::Condition { .. } | WorkflowNodeKind::HumanInput { .. }
+                ) {
+                    return Err("workflow_node_kind_has_dedicated_satisfaction_fact".to_string());
+                }
+                let predicate = node_completion_predicate(node)
+                    .ok_or_else(|| "workflow_node_has_no_completion_predicate".to_string())?;
+                let execution_id = state
+                    .workflow_executions
+                    .iter()
+                    .find(|execution| execution.node_id == satisfaction.node_id)
+                    .map(|execution| execution.execution_id.as_str());
+                let evaluation = evaluate_predicate(
+                    &definition,
+                    binding,
+                    state,
+                    &history,
+                    &satisfaction.node_id,
+                    execution_id,
+                    predicate,
+                )?;
+                let expected_id = workflow_fact_identity(
+                    "satisfaction",
+                    &binding.binding_id,
+                    &satisfaction.node_id,
+                    &predicate.digest()?,
+                    &evaluation.evidence_refs,
+                );
+                if !evaluation.value
+                    || satisfaction.satisfaction_id != expected_id
+                    || satisfaction.binding_id != binding.binding_id
+                    || satisfaction.workflow_definition_id != definition.workflow_definition_id
+                    || satisfaction.execution_id.as_deref() != execution_id
+                    || satisfaction.predicate_digest != predicate.digest()?
+                    || satisfaction.evidence_refs != evaluation.evidence_refs
+                    || satisfaction.evaluated_at_generation != state.generation + 1
+                {
+                    return Err("workflow_satisfaction_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::WorkflowHumanInputRecorded { input } => {
+                let node_view = resolution
+                    .nodes
+                    .iter()
+                    .find(|node| node.node_id == input.node_id)
+                    .ok_or_else(|| "workflow_node_not_found".to_string())?;
+                let node = definition
+                    .node(&input.node_id)
+                    .ok_or_else(|| "workflow_node_not_found".to_string())?;
+                let WorkflowNodeKind::HumanInput {
+                    actor_slot,
+                    required_roles,
+                    input_kind,
+                    max_bytes,
+                    ..
+                } = &node.kind
+                else {
+                    return Err("workflow_human_input_node_kind_mismatch".to_string());
+                };
+                let expected_participant = binding
+                    .participant_for_slot(actor_slot)
+                    .ok_or_else(|| "workflow_human_actor_slot_unbound".to_string())?;
+                let participant = state
+                    .participants
+                    .iter()
+                    .find(|participant| participant.participant_id == expected_participant)
+                    .ok_or_else(|| "workflow_human_participant_missing".to_string())?;
+                let linked = state.principal_participant_links.iter().any(|link| {
+                    link.principal_id == context.principal_id()
+                        && link.participant_id == expected_participant
+                        && link.tenant_id == tenant_id
+                });
+                if node_view.posture != WorkflowNodePosture::WaitingHumanInput
+                    || input.binding_id != binding.binding_id
+                    || input.workflow_definition_id != definition.workflow_definition_id
+                    || input.principal_id != context.principal_id()
+                    || input.participant_id != expected_participant
+                    || input.value.is_empty()
+                    || input.value.len() > *max_bytes
+                    || input.value_digest != crate::effect::digest_bytes(input.value.as_bytes())
+                    || input.recorded_at_generation != state.generation + 1
+                    || !linked
+                    || required_roles
+                        .iter()
+                        .any(|role| !participant.roles.contains(role))
+                {
+                    return Err("workflow_human_input_rederivation_mismatch".to_string());
+                }
+                if *input_kind == HumanInputKind::Json {
+                    let parsed: serde_json::Value = serde_json::from_str(&input.value)
+                        .map_err(|_| "workflow_human_input_json_invalid".to_string())?;
+                    if parsed.is_array() || parsed.is_null() {
+                        return Err("workflow_human_input_json_kind_invalid".to_string());
+                    }
+                }
+            }
+            TransitionPayload::WorkflowDeterministicProposalRecorded { proposal } => {
+                let node = definition
+                    .node(&proposal.node_id)
+                    .ok_or_else(|| "workflow_node_not_found".to_string())?;
+                let WorkflowNodeKind::DeterministicWork {
+                    proposer_slot,
+                    operation,
+                    ..
+                } = &node.kind
+                else {
+                    return Err("workflow_deterministic_node_kind_mismatch".to_string());
+                };
+                let expected_participant = binding
+                    .participant_for_slot(proposer_slot)
+                    .ok_or_else(|| "workflow_deterministic_proposer_slot_unbound".to_string())?;
+                let expected_attachment = binding
+                    .attachment_for_slot(operation.resource_slot())
+                    .ok_or_else(|| "workflow_deterministic_resource_slot_unbound".to_string())?;
+                let expected_template_digest =
+                    crate::context::stable_digest(&serde_json::to_string(operation).map_err(
+                        |error| format!("workflow_deterministic_template_encode_failed: {error}"),
+                    )?);
+                let execution = state.workflow_executions.iter().find(|execution| {
+                    execution.node_id == proposal.node_id
+                        && execution.execution_id == proposal.execution_id
+                });
+                if execution.is_none()
+                    || proposal.binding_id != binding.binding_id
+                    || proposal.workflow_definition_id != definition.workflow_definition_id
+                    || proposal.participant_id != expected_participant
+                    || proposal.resource_attachment_id != expected_attachment
+                    || proposal.operation_kind != operation.operation_kind()
+                    || proposal.template_digest != expected_template_digest
+                    || proposal.recorded_at_generation != state.generation + 1
+                {
+                    return Err("workflow_deterministic_proposal_rederivation_mismatch".to_string());
+                }
+            }
+            TransitionPayload::OperationRecorded { operation }
+                if matches!(
+                    operation.origin,
+                    OperationOrigin::WorkflowDeterministicProposal { .. }
+                ) =>
+            {
+                let OperationOrigin::WorkflowDeterministicProposal {
+                    proposal_id,
+                    workflow_execution_id,
+                } = &operation.origin
+                else {
+                    unreachable!()
+                };
+                let proposal = state
+                    .workflow_deterministic_proposals
+                    .iter()
+                    .find(|proposal| {
+                        proposal.proposal_id == *proposal_id
+                            && proposal.execution_id == *workflow_execution_id
+                    })
+                    .ok_or_else(|| {
+                        "workflow_deterministic_operation_proposal_missing".to_string()
+                    })?;
+                let node = definition
+                    .node(&proposal.node_id)
+                    .ok_or_else(|| "workflow_node_not_found".to_string())?;
+                let WorkflowNodeKind::DeterministicWork {
+                    operation: template,
+                    ..
+                } = &node.kind
+                else {
+                    return Err("workflow_deterministic_node_kind_mismatch".to_string());
+                };
+                let resource = state
+                    .resources
+                    .iter()
+                    .find(|resource| resource.attachment_id == proposal.resource_attachment_id)
+                    .ok_or_else(|| "workflow_deterministic_resource_missing".to_string())?;
+                let expected = match template {
+                    DeterministicOperationTemplate::FilesystemWrite {
+                        relative_path,
+                        content,
+                        ..
+                    } => build_workflow_deterministic_filesystem_operation(
+                        &state.case_id,
+                        &proposal.participant_id,
+                        state.generation,
+                        resource,
+                        relative_path,
+                        content,
+                        proposal_id,
+                        workflow_execution_id,
+                    )?,
+                    DeterministicOperationTemplate::ProcessSignal { action, .. } => {
+                        let binding = self
+                            .local_process_binding_txn(
+                                txn,
+                                &state.case_id,
+                                &proposal.resource_attachment_id,
+                            )?
+                            .ok_or_else(|| "local_process_binding_missing".to_string())?;
+                        build_workflow_deterministic_process_operation(
+                            &state.case_id,
+                            &proposal.participant_id,
+                            state.generation,
+                            resource,
+                            &binding.process,
+                            action.clone(),
+                            proposal_id,
+                            workflow_execution_id,
+                        )?
+                    }
+                };
+                if operation != &expected {
+                    return Err(
+                        "workflow_deterministic_operation_rederivation_mismatch".to_string()
+                    );
+                }
+            }
+            TransitionPayload::CaseWorkflowBound { .. } => unreachable!(),
+            _ => {}
         }
         Ok(())
     }
@@ -7055,6 +8573,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V9,
                 TRANSITION_SCHEMA_V8,
                 TRANSITION_SCHEMA_V7,
                 TRANSITION_SCHEMA_V6,
@@ -7071,6 +8590,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                CASE_STATE_SCHEMA_V9,
                 CASE_STATE_SCHEMA_V8,
                 CASE_STATE_SCHEMA_V7,
                 CASE_STATE_SCHEMA_V6,
@@ -7107,7 +8627,7 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:runtime_work_item_schema",
             RUNTIME_WORK_ITEM_SCHEMA,
-            &[],
+            &[RUNTIME_WORK_ITEM_SCHEMA_V1],
         )?;
         ensure_meta_upgradeable(
             &txn,
@@ -7222,6 +8742,13 @@ impl LmdbRecordStore {
             SECURITY_EVENT_SCHEMA,
             &[],
         )?;
+        ensure_meta_upgradeable(
+            &txn,
+            self.schema_meta,
+            "meta:workflow_definition_schema",
+            WORKFLOW_DEFINITION_SCHEMA,
+            &[],
+        )?;
         for (key, value) in [
             ("meta:canonical_transition_schema", TRANSITION_SCHEMA),
             ("meta:case_state_schema", CASE_STATE_SCHEMA),
@@ -7273,6 +8800,10 @@ impl LmdbRecordStore {
             ("meta:security_principal_schema", SECURITY_PRINCIPAL_SCHEMA),
             ("meta:tenant_schema", TENANT_SCHEMA),
             ("meta:security_event_schema", SECURITY_EVENT_SCHEMA),
+            (
+                "meta:workflow_definition_schema",
+                WORKFLOW_DEFINITION_SCHEMA,
+            ),
         ] {
             txn.put(self.schema_meta, &key, &value, WriteFlags::empty())
                 .map_err(|error| format!("failed to write persisted schema {key}: {error}"))?;
@@ -7365,6 +8896,23 @@ impl LmdbRecordStore {
             Err(Error::NotFound) => Ok(None),
             Err(error) => Err(format!("failed to read CaseState {case_id}: {error}")),
         }
+    }
+
+    fn workflow_definition_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        workflow_definition_id: &str,
+    ) -> Result<Option<WorkflowDefinition>, String> {
+        let definition = get_json_txn::<WorkflowDefinition, _>(
+            txn,
+            self.workflow_definitions,
+            &workflow_definition_key(workflow_definition_id),
+            "WorkflowDefinition",
+        )?;
+        if let Some(definition) = &definition {
+            definition.validate_integrity()?;
+        }
+        Ok(definition)
     }
 
     fn last_case_sequence_txn<T: Transaction>(
@@ -7986,6 +9534,18 @@ fn derive_graph_relations_from_transition(
                     "review_request",
                     review_id,
                 ),
+                OperationOrigin::WorkflowDeterministicProposal { proposal_id, .. } => {
+                    add_transition_relation(
+                        &mut relations,
+                        skipped,
+                        transition,
+                        "operation_from_workflow_proposal",
+                        "operation",
+                        &operation.operation_id,
+                        "workflow_deterministic_proposal",
+                        proposal_id,
+                    )
+                }
             }
             add_transition_relation(
                 &mut relations,
@@ -8282,6 +9842,88 @@ fn derive_graph_relations_from_transition(
             "case_policy_binding",
             binding_id,
         ),
+        TransitionPayload::CaseWorkflowBound { binding } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "case_bound_to_workflow_definition",
+                "case",
+                &transition.case_id,
+                "workflow_definition",
+                &binding.workflow_definition_id,
+            );
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "case_has_workflow_binding",
+                "case",
+                &transition.case_id,
+                "case_workflow_binding",
+                &binding.binding_id,
+            );
+        }
+        TransitionPayload::WorkflowNodeExecutionStarted { execution } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "workflow_execution_runs_node",
+                "workflow_execution",
+                &execution.execution_id,
+                "workflow_node",
+                &execution.node_id,
+            );
+        }
+        TransitionPayload::WorkflowNodeSatisfied { satisfaction } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "workflow_satisfaction_proves_node",
+                "workflow_satisfaction",
+                &satisfaction.satisfaction_id,
+                "workflow_node",
+                &satisfaction.node_id,
+            );
+        }
+        TransitionPayload::WorkflowConditionResolved { resolution } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "workflow_condition_resolves_node",
+                "workflow_condition_resolution",
+                &resolution.resolution_id,
+                "workflow_node",
+                &resolution.node_id,
+            );
+        }
+        TransitionPayload::WorkflowHumanInputRecorded { input } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "workflow_human_input_satisfies_node",
+                "workflow_human_input",
+                &input.input_id,
+                "workflow_node",
+                &input.node_id,
+            );
+        }
+        TransitionPayload::WorkflowDeterministicProposalRecorded { proposal } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "workflow_proposal_from_execution",
+                "workflow_deterministic_proposal",
+                &proposal.proposal_id,
+                "workflow_execution",
+                &proposal.execution_id,
+            );
+        }
         TransitionPayload::ReviewResolved {
             review_id,
             decision_ref,
@@ -8819,6 +10461,98 @@ fn case_state_key(case_id: &str) -> String {
     format!("case_state:{case_id}")
 }
 
+fn workflow_definition_key(workflow_definition_id: &str) -> String {
+    format!("definition:{workflow_definition_id}")
+}
+
+fn workflow_definition_version_key(
+    tenant_id: &str,
+    workflow_key: &str,
+    declared_version: &str,
+) -> String {
+    format!("version:{tenant_id}\0{workflow_key}\0{declared_version}")
+}
+
+fn workflow_execution_identity(binding: &CaseWorkflowBinding, node_id: &str) -> String {
+    let digest = crate::context::stable_digest(&format!(
+        "{}\0{}\0{}\0{}",
+        binding.case_id, binding.binding_id, binding.workflow_definition_id, node_id
+    ));
+    format!("workflow-execution:{digest}")
+}
+
+fn workflow_fact_identity(
+    kind: &str,
+    binding_id: &str,
+    node_id: &str,
+    predicate_digest: &str,
+    evidence_refs: &[String],
+) -> String {
+    let digest = crate::context::stable_digest(&format!(
+        "{kind}\0{binding_id}\0{node_id}\0{predicate_digest}\0{}",
+        evidence_refs.join("\0")
+    ));
+    format!("workflow-{kind}:{digest}")
+}
+
+fn workflow_transition_source(principal_id: &str, source_ref: &str) -> TransitionSource {
+    TransitionSource {
+        component: "yai.workflow".to_string(),
+        participant_id: None,
+        principal_id: Some(principal_id.to_string()),
+        source_ref: Some(source_ref.to_string()),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn workflow_satisfaction_pending(
+    case_id: &str,
+    state: &CaseState,
+    binding: &CaseWorkflowBinding,
+    definition: &WorkflowDefinition,
+    node_id: &str,
+    execution_id: Option<&str>,
+    predicate: &WorkflowPredicate,
+    evidence_refs: Vec<String>,
+    principal_id: &str,
+) -> Result<PendingTransition, String> {
+    if evidence_refs.is_empty() {
+        return Err("workflow_satisfaction_requires_canonical_evidence".to_string());
+    }
+    let predicate_digest = predicate.digest()?;
+    let satisfaction = WorkflowNodeSatisfaction {
+        schema: WORKFLOW_NODE_SATISFACTION_SCHEMA.to_string(),
+        satisfaction_id: workflow_fact_identity(
+            "satisfaction",
+            &binding.binding_id,
+            node_id,
+            &predicate_digest,
+            &evidence_refs,
+        ),
+        binding_id: binding.binding_id.clone(),
+        workflow_definition_id: definition.workflow_definition_id.clone(),
+        node_id: node_id.to_string(),
+        execution_id: execution_id.map(str::to_string),
+        predicate_digest,
+        evaluated_at_generation: state.generation + 1,
+        evidence_refs,
+    };
+    let mut pending = PendingTransition::new(
+        format!("transition:{}", satisfaction.satisfaction_id),
+        case_id,
+        state.generation,
+        workflow_transition_source(principal_id, &satisfaction.satisfaction_id),
+        TransitionPayload::WorkflowNodeSatisfied {
+            satisfaction: satisfaction.clone(),
+        },
+    );
+    pending.causal_refs = vec![binding.binding_id.clone()];
+    pending
+        .causal_refs
+        .extend(satisfaction.evidence_refs.clone());
+    Ok(pending)
+}
+
 fn tenant_membership_key(tenant_id: &str, principal_id: &str) -> String {
     format!("{tenant_id}\0{principal_id}")
 }
@@ -9185,7 +10919,7 @@ fn runtime_submission_digest(
 }
 
 fn runtime_work_integrity_digest(item: &RuntimeWorkItem) -> Result<String, String> {
-    let material = serde_json::to_string(&serde_json::json!({
+    let mut material_value = serde_json::json!({
         "schema": item.schema,
         "work_id": item.work_id,
         "request_id": item.request_id,
@@ -9208,8 +10942,13 @@ fn runtime_work_integrity_digest(item: &RuntimeWorkItem) -> Result<String, Strin
         "last_stop_reason": item.last_stop_reason,
         "enqueued_at_unix_ms": item.enqueued_at_unix_ms,
         "updated_at_unix_ms": item.updated_at_unix_ms,
-    }))
-    .map_err(|error| format!("runtime_work_item_encode_failed: {error}"))?;
+    });
+    if item.schema != RUNTIME_WORK_ITEM_SCHEMA_V1 {
+        material_value["workflow"] = serde_json::to_value(&item.workflow)
+            .map_err(|error| format!("runtime_workflow_context_encode_failed: {error}"))?;
+    }
+    let material = serde_json::to_string(&material_value)
+        .map_err(|error| format!("runtime_work_item_encode_failed: {error}"))?;
     Ok(crate::context::stable_digest(&material))
 }
 
@@ -9533,6 +11272,10 @@ mod tests {
         build_review_action, CaseLifecycle, InterpretationAuthority, PendingTransition,
         ProviderInvocationLineage, ResourceAttachmentState, ResourceKind, ReviewActionKind,
         ReviewRequirement, ReviewResolution, TransitionPayload, TransitionScope, TransitionSource,
+    };
+    use crate::workflow::{
+        HumanInputKind, WorkflowEdge, WorkflowEdgeKind, WorkflowNode, WorkflowNodeKind,
+        WorkflowPredicate, WORKFLOW_DEFINITION_SCHEMA,
     };
     use std::sync::{Arc, Barrier};
     use std::thread;
@@ -15341,6 +17084,7 @@ mod tests {
                     task: "terminal historical work".to_string(),
                     budgets: runtime_budgets(),
                     failpoint: None,
+                    workflow: None,
                     enqueue_sequence: sequence as u64,
                     state: RuntimeWorkState::Completed,
                     attempt_count: 1,
@@ -16516,6 +18260,165 @@ mod tests {
         );
         child.kill().ok();
         child.wait().ok();
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn wave15_definition_binding_human_input_condition_and_replay_are_deterministic() {
+        let path = temp_store_path("wave15-workflow-kernel");
+        let store = LmdbRecordStore::open(&path).expect("open workflow store");
+        let owner = AuthenticatedPrincipal::for_test(15001);
+        let bootstrap = store
+            .bootstrap_local_security(&owner, "tenant:wave15", "organization:wave15", 1_500_001)
+            .expect("bootstrap workflow Tenant");
+        let opened = store
+            .create_tenant_case(&owner, "tenant:wave15", "case:wave15-workflow")
+            .expect("create workflow Case");
+        let actor = store
+            .commit_secured_transition(
+                &owner,
+                "tenant:wave15",
+                secured_pending(
+                    "transition:wave15-actor",
+                    "case:wave15-workflow",
+                    opened.state.generation,
+                    &bootstrap.principal.principal_id,
+                    TransitionPayload::ParticipantBound {
+                        participant_id: "participant:operator".to_string(),
+                        role: "workflow-input".to_string(),
+                    },
+                ),
+                true,
+            )
+            .expect("bind workflow input participant");
+        let link = crate::transition::PrincipalParticipantLink::new(
+            "case:wave15-workflow",
+            "tenant:wave15",
+            &bootstrap.principal.principal_id,
+            "participant:operator",
+            &bootstrap.principal.principal_id,
+            1_500_002,
+        )
+        .expect("build actor link");
+        let mut link_pending = secured_pending(
+            "transition:wave15-actor-link",
+            "case:wave15-workflow",
+            actor.state.generation,
+            &bootstrap.principal.principal_id,
+            TransitionPayload::ParticipantPrincipalLinked { link },
+        );
+        link_pending.causal_refs = vec![
+            bootstrap.principal.principal_id.clone(),
+            "participant:operator".to_string(),
+        ];
+        store
+            .commit_secured_transition(&owner, "tenant:wave15", link_pending, true)
+            .expect("link authenticated actor");
+
+        let input = WorkflowDefinitionInput {
+            schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+            tenant_id: "tenant:wave15".to_string(),
+            workflow_key: "controlled-remediation".to_string(),
+            declared_version: "1".to_string(),
+            name: "Controlled remediation".to_string(),
+            description: "Human data followed by a frozen branch".to_string(),
+            nodes: vec![
+                WorkflowNode {
+                    node_id: "supplier-code".to_string(),
+                    kind: WorkflowNodeKind::HumanInput {
+                        actor_slot: "operator".to_string(),
+                        prompt: "Enter supplier code".to_string(),
+                        required_roles: vec!["workflow-input".to_string()],
+                        input_kind: HumanInputKind::Text,
+                        max_bytes: 64,
+                    },
+                },
+                WorkflowNode {
+                    node_id: "has-input".to_string(),
+                    kind: WorkflowNodeKind::Condition {
+                        predicate: WorkflowPredicate::NodeSatisfied {
+                            node_id: "supplier-code".to_string(),
+                        },
+                    },
+                },
+            ],
+            edges: vec![WorkflowEdge {
+                from: "supplier-code".to_string(),
+                to: "has-input".to_string(),
+                kind: WorkflowEdgeKind::Always,
+            }],
+        };
+        let definition = store
+            .define_workflow(&owner, input.clone(), 1_500_003)
+            .expect("define immutable workflow");
+        let exact_retry = store
+            .define_workflow(&owner, input.clone(), 1_500_004)
+            .expect("exact semantic definition retry");
+        assert_eq!(
+            definition.workflow_definition_id,
+            exact_retry.workflow_definition_id
+        );
+        let mut collision = input;
+        collision.description = "changed bytes under same version".to_string();
+        assert_eq!(
+            store
+                .define_workflow(&owner, collision, 1_500_005)
+                .expect_err("changed same version must fail"),
+            "workflow_definition_version_collision"
+        );
+        let bound = store
+            .bind_case_workflow(
+                &owner,
+                "case:wave15-workflow",
+                &definition.workflow_definition_id,
+                vec![WorkflowExecutorBinding {
+                    slot: "operator".to_string(),
+                    participant_id: "participant:operator".to_string(),
+                }],
+                Vec::new(),
+                1_500_006,
+            )
+            .expect("bind exact workflow");
+        assert!(bound.state.workflow_binding.is_some());
+        assert_eq!(
+            store
+                .workflow_status_authorized(&owner, "case:wave15-workflow")
+                .unwrap()
+                .nodes[0]
+                .posture,
+            WorkflowNodePosture::WaitingHumanInput
+        );
+        let input_commit = store
+            .record_workflow_human_input(
+                &owner,
+                "case:wave15-workflow",
+                "supplier-code",
+                "SUP-42",
+                1_500_007,
+            )
+            .expect("record authenticated human input");
+        assert!(input_commit.state.reviews.is_empty());
+        let complete = store
+            .advance_workflow_passive_progress(&owner, "case:wave15-workflow", 8)
+            .expect("resolve frozen Condition");
+        assert!(complete.completed);
+        assert_eq!(complete.satisfied_count, 2);
+        let rebuilt_state = store
+            .rebuild_case_state("case:wave15-workflow")
+            .expect("rebuild Case workflow state");
+        let history = store
+            .list_case_transitions("case:wave15-workflow")
+            .expect("read workflow history");
+        let rebuilt = resolve_workflow(
+            &definition,
+            rebuilt_state.workflow_binding.as_ref().unwrap(),
+            &rebuilt_state,
+            &history,
+        )
+        .expect("re-resolve from definition, binding, and Case history");
+        assert_eq!(complete, rebuilt);
+        assert!(store.verify_case_state("case:wave15-workflow").unwrap());
         drop(store);
         fs::remove_dir_all(path).unwrap();
     }
