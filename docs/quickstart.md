@@ -39,18 +39,20 @@ operator store:
 export YAI_HOME=/tmp/yai-evaluation-home
 ```
 
-The current command surface can then report local paths and state:
+The repository-root `./yai` launcher is the public local-development entrypoint.
+It delegates to the built Rust product without exposing Cargo's internal output
+path. The current command surface can then report local paths and state:
 
 ```sh
-build/bin/yai doctor
-build/bin/yai hot status
-build/bin/yai store status
-build/bin/yai store summary
+./yai doctor
+./yai hot status
+./yai store status
+./yai store summary
 ```
 
-Depending on the build target, the Rust binary may instead be under Cargo's
-target directory or installed by `make install-local`. Use `make
-print-install-paths` to inspect configured install locations.
+Installed deployments may invoke `yai` through `PATH` after `make
+install-local`. Use `make print-install-paths` to inspect configured install
+locations.
 
 These status commands do not require a provider. Provider commands require an
 explicit endpoint/model and may make real network requests. Controlled
@@ -65,10 +67,10 @@ Governance authoring also needs no Case, provider or carrier. With a constrained
 `source_origin` provenance):
 
 ```sh
-target/debug/yai policy ingest ./policy.json --as participant:policy-admin
-target/debug/yai policy validate <artifact-id> --as participant:policy-admin
-target/debug/yai policy publish <artifact-id> --as participant:policy-admin
-target/debug/yai policy inspect <artifact-id>
+./yai policy ingest ./policy.json --as participant:policy-admin
+./yai policy validate <artifact-id> --as participant:policy-admin
+./yai policy publish <artifact-id> --as participant:policy-admin
+./yai policy inspect <artifact-id>
 ```
 
 Publication makes the immutable qualified artifact eligible for an exact Case

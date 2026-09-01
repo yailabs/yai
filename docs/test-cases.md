@@ -64,10 +64,10 @@ worktree, missing native dependency, or absent provider.
 With built binaries and an isolated `YAI_HOME`:
 
 ```sh
-target/debug/yai doctor
-target/debug/yai hot status
-target/debug/yai store status
-target/debug/yai store summary
+./yai doctor
+./yai hot status
+./yai store status
+./yai store summary
 ```
 
 Detailed public test wrappers remain under `tests/cases/`:
