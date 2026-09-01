@@ -1,0 +1,7 @@
+order	boundary	status_or_scope
+1	W15 Case-Bound Workflow Kernel	complete/published baseline
+2	H15 Workflow Semantic Closure	this hardening only
+3	W16 CLI Product Refoundation	reserved; porcelain/plumbing, command registry, parser lanes, output families
+4	W17 Adaptive Workflow	reserved; PlanPatch, amendment, bounded subflow, same-Tenant typed handoff
+5	W18 Provider Governance	reserved; qualification, capabilities, trust, health, selection, optional native extension
+later	post-W18 numbering	provisional and evidence-driven

@@ -1,0 +1,8 @@
+area	current_substrate	remaining_W16_work	H15_non_claim
+launcher	repository-local ./yai launcher	mature install/discovery/diagnostics contract	H15 does not redesign launcher
+command inventory	manual parse/dispatch surfaces	canonical command registry and ownership map	no registry added
+porcelain/plumbing	mixed current CLI families	explicit stable user vs low-level technical lanes	no parser-wide change
+parser	per-command argument handling	cohesive parser lanes/error grammar	H15 changes no global parser
+output	plain + selected JSON	normalized output families and machine contracts	H15 only emits existing workflow output
+YVEX alignment	generic provider endpoint/model	align product vocabulary without plumbing identity leaks	no YVEX-specific CLI
+help/maturity	current large usage surface	coherent discoverability and maturity posture	no Product Refoundation begun

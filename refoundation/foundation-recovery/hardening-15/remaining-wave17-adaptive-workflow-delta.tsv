@@ -1,0 +1,9 @@
+area	H15_substrate	remaining_W17_work
+Definition	immutable exact DAG	PlanPatch/amendment semantics without mutating historical Definition
+progression	frozen typed Case facts	bounded dynamic node/edge adoption and replay rules
+subflow	static single Definition	bounded subflow identity/ownership and completion
+multi-Case	shared Definition, isolated bindings/histories	typed same-Tenant HandoffOffered/Accepted/Result/reconciliation
+authority	Operation/Decision/Grant/Fence remains external to Workflow	preserve same authority path for adaptive proposals
+concurrency	exact one active node per Case	define safe adaptive amendment races
+scope	single Case, no shared mutable run state	prove no global multi-Case mutable Workflow state
+excluded	no cross-Tenant federation	cross-Tenant remains unauthorized

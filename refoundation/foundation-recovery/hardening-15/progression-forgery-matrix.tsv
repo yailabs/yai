@@ -1,0 +1,11 @@
+attack	canonical_writer_check	result
+start dependencies unsatisfied	pure resolver posture must be Ready	rejected
+start skipped/already satisfied/cancelled/closed	current exact Case resolution/lifecycle	rejected
+start wrong Case/Tenant/Definition/binding	security context + binding/Definition identity	rejected
+satisfaction with caller-selected evidence	predicate re-evaluation + exact sorted refs	rejected
+satisfaction while predicate false	evaluation.value must be true	rejected
+caller-selected Condition result	result must equal canonical evaluation	rejected
+fake/unrelated ProviderResult/Effect/Decision/Review	execution causal refs must match	rejected
+deterministic proposal without canonical ready execution	exact execution/binding/slot/template rederivation	rejected
+content-valid proposal absent from CaseState	canonical presence equality before Operation	rejected
+duplicate start/satisfaction	static semantic identity/current resolution	one fact; loser observes/refuses

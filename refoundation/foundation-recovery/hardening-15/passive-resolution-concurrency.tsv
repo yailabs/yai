@@ -1,0 +1,5 @@
+fact	contenders	winner_count	generation_churn	result
+ConditionResolved	8	1	one semantic generation	frozen canonical result
+Wait satisfaction	bounded pump/repeated resolution	1	losers no write	idempotent
+EffectGoal satisfaction	bounded pump/repeated resolution	1	losers no write	idempotent
+status inspection	repeated direct reads	0 writes	zero	pure

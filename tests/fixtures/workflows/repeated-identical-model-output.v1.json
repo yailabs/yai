@@ -1,0 +1,26 @@
+{
+  "schema": "yai.workflow_definition.v1",
+  "tenant_id": "tenant:workflow-repeated-output",
+  "workflow_key": "repeated-identical-model-output",
+  "declared_version": "1",
+  "name": "Repeated identical model output",
+  "description": "Identical provider bytes remain distinct turns and cannot satisfy effect truth.",
+  "nodes": [
+    {
+      "node_id": "effect-required",
+      "kind": "model_work",
+      "executor_slot": "analyst",
+      "task": "Produce the governed effect; prose-only completion is insufficient.",
+      "completion": {
+        "predicate": "execution_effect_finalized"
+      },
+      "budgets": {
+        "max_turns": 2,
+        "max_operations": 2,
+        "max_semantic_units": 4000
+      },
+      "resource_slot": "workspace"
+    }
+  ],
+  "edges": []
+}

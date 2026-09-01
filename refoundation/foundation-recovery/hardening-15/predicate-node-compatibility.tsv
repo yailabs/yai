@@ -1,0 +1,7 @@
+node_kind	execution_scope	case_scope	progression_scope	node_human_input	result
+ModelWork	allow	deny	deny	deny	executable completion remains execution-scoped
+DeterministicWork	allow	deny	deny	deny	executable completion remains execution-scoped
+HumanInput	n/a	n/a	n/a	dedicated record	no configurable predicate
+Condition	deny	allow	allow	deny	invalid execution predicate rejected at define
+Wait	deny	allow	allow	deny	invalid execution predicate rejected at define
+EffectGoal	deny	FinalizedEffect only	deny	deny	broad canonical Effect goal only

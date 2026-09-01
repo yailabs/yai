@@ -960,7 +960,9 @@ fn run_loop(
             checkpoint.last_provider_result_id = Some(result.result_id.clone());
             checkpoint.pending_provider_result_id = Some(result.result_id.clone());
             write_checkpoint(&checkpoint)?;
-            if runtime_failpoint(args).as_deref() == Some("runtime_after_provider_result") {
+            if runtime_failpoint(args).as_deref() == Some("runtime_after_provider_result")
+                && checkpoint.invocations == 1
+            {
                 exit_runtime_failpoint("runtime_after_provider_result", 91);
             }
             result

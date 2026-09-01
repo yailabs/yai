@@ -1,0 +1,8 @@
+boundary	crash_or_wait	accounting
+max_turns exact	canonical ProviderResult count/checkpoint	no invocation max+1
+last unsatisfying result then crash	restart	InvocationBudgetExhausted; no recovery bonus turn
+Review wait	park/resume	no provider turn consumed by waiting cycles
+resource busy	Blocked/requeue	no provider turn consumed by availability wait
+max_operations	canonical operations/checkpoint	no operation max+1
+semantic units	persisted checkpoint	no reset across runtime restart
+budget exhaustion	predicate false	node remains incomplete; never converted to satisfaction

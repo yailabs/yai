@@ -1,0 +1,7 @@
+scenario	attempts	invocation_started	provider_results	duplicate_prior_turns	node_result
+one-turn cognitive completion	1	1	1	0	satisfied
+unsatisfying result crash then next turn	2	2	2	0	satisfied only after governed consequence
+satisfying result crash before satisfaction	1	1	1	0	satisfaction repaired
+identical output twice	2	2	2 distinct IDs	0	incomplete when effect predicate false
+repeated done/success claim	bounded	causally distinct	claims only	0	no effect completion
+request left YAI before result commit	unknown remote delivery	started may exist	absent	unknown	provider indeterminacy retained

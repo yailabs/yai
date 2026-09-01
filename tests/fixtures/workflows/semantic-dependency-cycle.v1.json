@@ -1,0 +1,33 @@
+{
+  "schema": "yai.workflow_definition.v1",
+  "tenant_id": "tenant:workflow-hardening",
+  "workflow_key": "semantic-dependency-cycle",
+  "declared_version": "1",
+  "name": "Semantic dependency cycle adversary",
+  "description": "The explicit edge is acyclic but NodeSatisfied creates the inverse dependency.",
+  "nodes": [
+    {
+      "node_id": "condition-a",
+      "kind": "condition",
+      "predicate": {
+        "predicate": "node_satisfied",
+        "node_id": "wait-b"
+      }
+    },
+    {
+      "node_id": "wait-b",
+      "kind": "wait",
+      "predicate": {
+        "predicate": "case_lifecycle",
+        "lifecycle": "open"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "condition-a",
+      "to": "wait-b",
+      "kind": "always"
+    }
+  ]
+}

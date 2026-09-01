@@ -189,6 +189,80 @@ trace_product 05 "./yai case status --case case:new12-filesystem" \
   "$iterative_case_status" 0
 trace_product 06 "./yai runtime stop" "$stop_output" 0
 
+# A crash after an unsatisfying first ProviderResult must resume by consuming
+# that canonical result, then issue only the next required turn. The persisted
+# failpoint is deliberately one-shot for the WorkItem execution.
+start_provider 2 adaptive
+UNSAT_CRASH_HOME="$TEST_DIR/unsatisfying-crash-home"
+unsatisfying_crash_definition=$(setup_model_case "$UNSAT_CRASH_HOME" \
+  tenant:workflow-iterative case:new12-filesystem \
+  "$ROOT/tests/fixtures/workflows/model-iterative-effect.v1.json" allow)
+YAI_HOME="$UNSAT_CRASH_HOME" "$YAI_BIN" runtime serve \
+  --workers 1 --max-active-per-tenant 1 --max-queued-per-tenant 4 \
+  --max-queued-total 4 \
+  --workflow-work-failpoint runtime_after_provider_result \
+  >"$TEST_DIR/unsatisfying-crash-runtime.log" 2>&1 &
+RUNTIME_PID=$!
+set +e
+wait "$RUNTIME_PID"
+unsatisfying_crash_exit=$?
+set -e
+RUNTIME_PID=""
+[[ "$unsatisfying_crash_exit" == "91" ]]
+unsatisfying_crash_status=$(YAI_HOME="$UNSAT_CRASH_HOME" "$YAI_BIN" workflow status \
+  --case case:new12-filesystem)
+grep -Fq "completed: false" <<<"$unsatisfying_crash_status"
+grep -Fq "posture=Active reason=workflow_execution_active" \
+  <<<"$unsatisfying_crash_status"
+trace_product 07 "./yai runtime serve --workflow-work-failpoint runtime_after_provider_result" \
+  "$(sed -n '1,160p' "$TEST_DIR/unsatisfying-crash-runtime.log")" \
+  "$unsatisfying_crash_exit"
+
+run_runtime_until_terminal "$UNSAT_CRASH_HOME" case:new12-filesystem "completed: true"
+unsatisfying_recovered_status="$WORKFLOW_STATUS"
+unsatisfying_recovered_case=$(YAI_HOME="$UNSAT_CRASH_HOME" "$YAI_BIN" case status \
+  --case case:new12-filesystem)
+grep -Fq "invocations: 2" <<<"$unsatisfying_recovered_case"
+grep -Fq "operations: 2" <<<"$unsatisfying_recovered_case"
+stop_output=$(YAI_HOME="$UNSAT_CRASH_HOME" "$YAI_BIN" runtime stop)
+wait "$RUNTIME_PID"
+RUNTIME_PID=""
+wait "$PROVIDER_PID"
+PROVIDER_PID=""
+[[ "$(jq 'length' "$TEST_DIR/provider.log.json")" == "2" ]]
+trace_product 08 "./yai workflow status --case case:new12-filesystem" \
+  "$unsatisfying_recovered_status" 0
+trace_product 09 "./yai case status --case case:new12-filesystem" \
+  "$unsatisfying_recovered_case" 0
+
+# Two byte-identical provider outputs retain distinct invocation/result
+# identities. Neither textual completion satisfies an effect predicate.
+start_provider 2 complete
+REPEATED_HOME="$TEST_DIR/repeated-output-home"
+repeated_definition=$(setup_model_case "$REPEATED_HOME" \
+  tenant:workflow-repeated-output case:new12-filesystem \
+  "$ROOT/tests/fixtures/workflows/repeated-identical-model-output.v1.json")
+run_runtime_until_terminal "$REPEATED_HOME" case:new12-filesystem \
+  "reason=workflow_execution_active"
+repeated_status="$WORKFLOW_STATUS"
+wait_case_runtime_status "$REPEATED_HOME" case:new12-filesystem \
+  "runtime_status: InvocationBudgetExhausted"
+repeated_case_status="$CASE_RUNTIME_STATUS"
+grep -Fq "invocations: 2" <<<"$repeated_case_status"
+grep -Fq "operations: 0" <<<"$repeated_case_status"
+grep -Fq "completed: false" <<<"$repeated_status"
+stop_output=$(YAI_HOME="$REPEATED_HOME" "$YAI_BIN" runtime stop)
+wait "$RUNTIME_PID"
+RUNTIME_PID=""
+wait "$PROVIDER_PID"
+PROVIDER_PID=""
+[[ "$(jq 'length' "$TEST_DIR/provider.log.json")" == "2" ]]
+[[ "$(jq '[.[].frame_id] | unique | length' "$TEST_DIR/provider.log.json")" == "2" ]]
+trace_product 10 "./yai workflow status --case case:new12-filesystem" \
+  "$repeated_status" 0
+trace_product 11 "./yai case status --case case:new12-filesystem" \
+  "$repeated_case_status" 0
+
 # A model's typed completion claim cannot satisfy an effect-required node.
 start_provider 1
 FALSE_HOME="$TEST_DIR/false-home"
@@ -211,9 +285,9 @@ wait "$RUNTIME_PID"
 RUNTIME_PID=""
 wait "$PROVIDER_PID"
 PROVIDER_PID=""
-trace_product 07 "./yai workflow status --case case:new12-filesystem" "$false_status" 0
-trace_product 08 "./yai case status --case case:new12-filesystem" "$false_case_status" 0
-trace_product 09 "./yai runtime stop" "$stop_output" 0
+trace_product 12 "./yai workflow status --case case:new12-filesystem" "$false_status" 0
+trace_product 13 "./yai case status --case case:new12-filesystem" "$false_case_status" 0
+trace_product 14 "./yai runtime stop" "$stop_output" 0
 
 # ProviderResult is canonical, but the RuntimeInstance dies before the
 # workflow satisfaction writer runs. Restart must consume the same result and
@@ -241,9 +315,9 @@ crash_status=$(YAI_HOME="$CRASH_HOME" "$YAI_BIN" workflow status \
   --case case:new12-filesystem)
 grep -Fq "completed: false" <<<"$crash_status"
 grep -Fq "reason=completion_proven_pending_canonical_satisfaction" <<<"$crash_status"
-trace_product 10 "./yai runtime serve --workflow-work-failpoint runtime_after_provider_result" \
+trace_product 15 "./yai runtime serve --workflow-work-failpoint runtime_after_provider_result" \
   "$(sed -n '1,160p' "$TEST_DIR/crash-runtime.log")" "$crash_exit"
-trace_product 11 "./yai workflow status --case case:new12-filesystem" "$crash_status" 0
+trace_product 16 "./yai workflow status --case case:new12-filesystem" "$crash_status" 0
 
 run_runtime_until_terminal "$CRASH_HOME" case:new12-filesystem "completed: true"
 recovered_status="$WORKFLOW_STATUS"
@@ -261,10 +335,10 @@ grep -Fq "operations: 0" <<<"$recovered_case_status"
 stop_output=$(YAI_HOME="$CRASH_HOME" "$YAI_BIN" runtime stop)
 wait "$RUNTIME_PID"
 RUNTIME_PID=""
-trace_product 12 "./yai workflow status --case case:new12-filesystem" "$recovered_status" 0
-trace_product 13 "./yai case status --case case:new12-filesystem" "$recovered_case_status" 0
-trace_product 14 "./yai runtime queue --all" "$recovered_queue" 0
-trace_product 15 "./yai runtime stop" "$stop_output" 0
+trace_product 17 "./yai workflow status --case case:new12-filesystem" "$recovered_status" 0
+trace_product 18 "./yai case status --case case:new12-filesystem" "$recovered_case_status" 0
+trace_product 19 "./yai runtime queue --all" "$recovered_queue" 0
+trace_product 20 "./yai runtime stop" "$stop_output" 0
 
 printf 'workflow_modelwork_characterization: pass\n'
 printf 'model_definition_id: %s\n' "$model_definition"
@@ -275,6 +349,12 @@ printf 'modelwork_provider_invocations: 1\n'
 printf 'iterative_modelwork_provider_invocations: 2\n'
 printf 'iterative_modelwork_operations: 2\n'
 printf 'second_turn_observed_first_effect: true\n'
+printf 'unsatisfying_provider_result_crash_exit: %s\n' "$unsatisfying_crash_exit"
+printf 'unsatisfying_provider_result_recovery_invocations: 2\n'
+printf 'unsatisfying_provider_result_duplicate_prior_turns: 0\n'
+printf 'repeated_identical_output_invocations: 2\n'
+printf 'repeated_identical_output_distinct_results: 2\n'
+printf 'repeated_identical_output_node_satisfied: false\n'
 printf 'false_completion_provider_invocations: 1\n'
 printf 'false_completion_node_satisfied: false\n'
 printf 'provider_result_crash_exit: %s\n' "$crash_exit"

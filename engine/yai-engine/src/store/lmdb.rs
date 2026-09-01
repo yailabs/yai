@@ -6090,6 +6090,10 @@ impl LmdbRecordStore {
         item.integrity_digest = runtime_work_integrity_digest(&item)?;
         item.validate_integrity()?;
 
+        if work_failpoint == Some("workflow_before_start_commit") {
+            return Err("workflow_failpoint_before_start_commit".to_string());
+        }
+
         self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
         put_json_txn(
             &mut txn,
@@ -6114,11 +6118,11 @@ impl LmdbRecordStore {
         }))
     }
 
-    pub fn record_workflow_deterministic_operation(
+    pub fn record_workflow_deterministic_proposal(
         &self,
         authenticated: &AuthenticatedPrincipal,
         item: &RuntimeWorkItem,
-    ) -> Result<(WorkflowDeterministicProposalRecord, Operation), String> {
+    ) -> Result<WorkflowDeterministicProposalRecord, String> {
         item.validate_integrity()?;
         let workflow = item
             .workflow
@@ -6232,8 +6236,54 @@ impl LmdbRecordStore {
                 expected
             }
         };
+        Ok(proposal)
+    }
+
+    pub fn record_workflow_deterministic_operation(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        item: &RuntimeWorkItem,
+    ) -> Result<(WorkflowDeterministicProposalRecord, Operation), String> {
+        let proposal = self.record_workflow_deterministic_proposal(authenticated, item)?;
+        let operation = self.record_workflow_deterministic_operation_from_proposal(
+            authenticated,
+            item,
+            &proposal,
+        )?;
+        Ok((proposal, operation))
+    }
+
+    pub fn record_workflow_deterministic_operation_from_proposal(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        item: &RuntimeWorkItem,
+        proposal: &WorkflowDeterministicProposalRecord,
+    ) -> Result<Operation, String> {
+        item.validate_integrity()?;
+        let workflow = item
+            .workflow
+            .as_ref()
+            .filter(|workflow| workflow.workflow_node_kind == "deterministic_work")
+            .ok_or_else(|| "runtime_work_is_not_deterministic_workflow".to_string())?;
+        if proposal.execution_id != workflow.workflow_execution_id
+            || proposal.binding_id != workflow.workflow_binding_id
+            || proposal.workflow_definition_id != workflow.workflow_definition_id
+            || proposal.node_id != workflow.workflow_node_id
+            || proposal.participant_id != item.participant_id
+            || proposal.resource_attachment_id != item.attachment_id
+        {
+            return Err("workflow_deterministic_proposal_work_mismatch".to_string());
+        }
 
         let state = self.get_case_state_authorized(authenticated, &item.case_id)?;
+        let canonical_proposal = state
+            .workflow_deterministic_proposals
+            .iter()
+            .find(|candidate| candidate.execution_id == workflow.workflow_execution_id)
+            .ok_or_else(|| "workflow_deterministic_proposal_not_canonical".to_string())?;
+        if canonical_proposal != proposal {
+            return Err("workflow_deterministic_proposal_canonical_mismatch".to_string());
+        }
         let history = self.list_case_transitions(&item.case_id)?;
         if let Some(operation) = history
             .iter()
@@ -6250,7 +6300,7 @@ impl LmdbRecordStore {
                 _ => None,
             })
         {
-            return Ok((proposal, operation));
+            return Ok(operation);
         }
         let resource = state
             .resources
@@ -6321,7 +6371,7 @@ impl LmdbRecordStore {
         pending.scope = Some(operation.scope.clone());
         pending.causal_refs = operation.origin.causal_refs();
         self.commit_secured_transition(authenticated, &item.tenant_id, pending, false)?;
-        Ok((proposal, operation))
+        Ok(operation)
     }
 
     fn commit_transition_inner(
@@ -6835,8 +6885,8 @@ impl LmdbRecordStore {
                     return Err("workflow_human_input_rederivation_mismatch".to_string());
                 }
                 if *input_kind == HumanInputKind::Json {
-                    let parsed: serde_json::Value = serde_json::from_str(&input.value)
-                        .map_err(|_| "workflow_human_input_json_invalid".to_string())?;
+                    let parsed = crate::governance::parse_strict_json(input.value.as_bytes())
+                        .map_err(|error| format!("workflow_human_input_json_invalid: {error}"))?;
                     if parsed.is_array() || parsed.is_null() {
                         return Err("workflow_human_input_json_kind_invalid".to_string());
                     }
@@ -11274,13 +11324,15 @@ mod tests {
         ReviewRequirement, ReviewResolution, TransitionPayload, TransitionScope, TransitionSource,
     };
     use crate::workflow::{
-        HumanInputKind, WorkflowEdge, WorkflowEdgeKind, WorkflowNode, WorkflowNodeKind,
-        WorkflowPredicate, WORKFLOW_DEFINITION_SCHEMA,
+        HumanInputKind, WorkflowBudgets, WorkflowDefinition, WorkflowDefinitionInput, WorkflowEdge,
+        WorkflowEdgeKind, WorkflowExecutorBinding, WorkflowNode, WorkflowNodeKind,
+        WorkflowPredicate, WorkflowResourceBinding, WORKFLOW_DEFINITION_SCHEMA,
     };
+    use std::collections::BTreeSet;
     use std::sync::{Arc, Barrier};
     use std::thread;
     use std::time::Instant;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     fn secured_pending(
         id: &str,
@@ -18421,5 +18473,1055 @@ mod tests {
         assert!(store.verify_case_state("case:wave15-workflow").unwrap());
         drop(store);
         fs::remove_dir_all(path).unwrap();
+    }
+
+    fn h15_setup_case(
+        store: &LmdbRecordStore,
+        owner: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        case_id: &str,
+        suffix: &str,
+    ) -> PathBuf {
+        let root = setup_runtime_case(store, owner, tenant_id, case_id, suffix);
+        let principal_id = owner.projected_principal_id();
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let link = crate::transition::PrincipalParticipantLink::new(
+            case_id,
+            tenant_id,
+            &principal_id,
+            "participant:model",
+            &principal_id,
+            1_515_000,
+        )
+        .unwrap();
+        let mut pending = secured_pending(
+            &format!("transition:h15-link:{suffix}"),
+            case_id,
+            state.generation,
+            &principal_id,
+            TransitionPayload::ParticipantPrincipalLinked { link },
+        );
+        pending.causal_refs = vec![principal_id, "participant:model".to_string()];
+        store
+            .commit_secured_transition(owner, tenant_id, pending, true)
+            .unwrap();
+        root
+    }
+
+    fn h15_model_definition(tenant_id: &str, key: &str) -> WorkflowDefinitionInput {
+        WorkflowDefinitionInput {
+            schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+            tenant_id: tenant_id.to_string(),
+            workflow_key: key.to_string(),
+            declared_version: "1".to_string(),
+            name: "H15 concurrent model work".to_string(),
+            description: String::new(),
+            nodes: vec![WorkflowNode {
+                node_id: "analyze".to_string(),
+                kind: WorkflowNodeKind::ModelWork {
+                    executor_slot: "model".to_string(),
+                    task: "analyze canonical Case state".to_string(),
+                    completion: WorkflowPredicate::ExecutionProviderResult,
+                    budgets: WorkflowBudgets::default(),
+                    resource_slot: Some("workspace".to_string()),
+                },
+            }],
+            edges: Vec::new(),
+        }
+    }
+
+    fn h15_bind_model_workflow(
+        store: &LmdbRecordStore,
+        owner: &AuthenticatedPrincipal,
+        case_id: &str,
+        definition: &WorkflowDefinition,
+    ) {
+        store
+            .bind_case_workflow(
+                owner,
+                case_id,
+                &definition.workflow_definition_id,
+                vec![WorkflowExecutorBinding {
+                    slot: "model".to_string(),
+                    participant_id: "participant:model".to_string(),
+                }],
+                vec![WorkflowResourceBinding {
+                    slot: "workspace".to_string(),
+                    attachment_id: "resource:workspace".to_string(),
+                }],
+                1_515_100,
+            )
+            .unwrap();
+    }
+
+    fn h15_start_runtime(
+        store: &LmdbRecordStore,
+        owner: &AuthenticatedPrincipal,
+        token: &str,
+        max_queued_total: usize,
+    ) {
+        store
+            .acquire_runtime_instance(
+                owner,
+                &RuntimeInstanceAcquireRequest {
+                    owner_pid: std::process::id(),
+                    owner_token: token.to_string(),
+                    now_unix_ms: 1_515_200,
+                    lease_duration_ms: 60_000,
+                    config: RuntimeInstanceConfig {
+                        workers: 8,
+                        max_active_per_tenant: 8,
+                        max_queued_per_tenant: max_queued_total,
+                        max_queued_total,
+                    },
+                },
+                false,
+            )
+            .unwrap();
+        store
+            .activate_runtime_instance(owner, token, 1_515_201, 60_000, 0)
+            .unwrap();
+    }
+
+    #[test]
+    fn h15_eight_way_same_node_start_is_atomic_and_exactly_once() {
+        let path = temp_store_path("h15-same-node-start");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(15101);
+        store
+            .bootstrap_local_security(&owner, "tenant:h15-start", "organization:h15", 1)
+            .unwrap();
+        let root = h15_setup_case(
+            &store,
+            &owner,
+            "tenant:h15-start",
+            "case:h15-start",
+            "same-node",
+        );
+        let definition = store
+            .define_workflow(
+                &owner,
+                h15_model_definition("tenant:h15-start", "same-node"),
+                1_515_010,
+            )
+            .unwrap();
+        h15_bind_model_workflow(&store, &owner, "case:h15-start", &definition);
+        let token = "runtime-owner:h15-start";
+        h15_start_runtime(&store, &owner, token, 16);
+
+        let barrier = Arc::new(Barrier::new(8));
+        let mut contenders = Vec::new();
+        for index in 0..8 {
+            let contender_path = path.clone();
+            let contender_owner = owner.clone();
+            let contender_barrier = Arc::clone(&barrier);
+            contenders.push(thread::spawn(move || {
+                let contender_store = LmdbRecordStore::open(&contender_path).unwrap();
+                contender_barrier.wait();
+                contender_store
+                    .materialize_workflow_ready_work(
+                        &contender_owner,
+                        "runtime-owner:h15-start",
+                        "case:h15-start",
+                        "/tmp/h15-same-node.jsonl",
+                        None,
+                        1_515_300 + index,
+                    )
+                    .unwrap()
+            }));
+        }
+        let outcomes = contenders
+            .into_iter()
+            .map(|contender| contender.join().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            outcomes
+                .iter()
+                .filter_map(Option::as_ref)
+                .filter(|outcome| outcome.created)
+                .count(),
+            1
+        );
+        assert_eq!(
+            outcomes
+                .iter()
+                .filter_map(Option::as_ref)
+                .map(|outcome| outcome.item.work_id.as_str())
+                .collect::<BTreeSet<_>>()
+                .len(),
+            1
+        );
+        let state = store.get_case_state("case:h15-start").unwrap().unwrap();
+        assert_eq!(state.workflow_executions.len(), 1);
+        let work = store.list_runtime_work_authorized(&owner).unwrap();
+        assert_eq!(work.len(), 1);
+        let transitions_before = store.list_case_transitions("case:h15-start").unwrap();
+        for _ in 0..8 {
+            store
+                .workflow_status_authorized(&owner, "case:h15-start")
+                .unwrap();
+        }
+        assert_eq!(
+            transitions_before,
+            store.list_case_transitions("case:h15-start").unwrap()
+        );
+        println!(
+            "h15_same_node_start: contenders=8 canonical_starts={} work_items={} unique_work_ids=1 status_writes=0",
+            state.workflow_executions.len(),
+            work.len()
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h15_queue_backpressure_prevents_orphan_workflow_start() {
+        let path = temp_store_path("h15-workflow-backpressure");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(15102);
+        store
+            .bootstrap_local_security(&owner, "tenant:h15-backpressure", "organization:h15", 1)
+            .unwrap();
+        let root = h15_setup_case(
+            &store,
+            &owner,
+            "tenant:h15-backpressure",
+            "case:h15-backpressure",
+            "backpressure",
+        );
+        let definition = store
+            .define_workflow(
+                &owner,
+                h15_model_definition("tenant:h15-backpressure", "backpressure"),
+                1_515_020,
+            )
+            .unwrap();
+        h15_bind_model_workflow(&store, &owner, "case:h15-backpressure", &definition);
+        h15_start_runtime(&store, &owner, "runtime-owner:h15-backpressure", 1);
+        assert_eq!(
+            store
+                .materialize_workflow_ready_work(
+                    &owner,
+                    "runtime-owner:h15-backpressure",
+                    "case:h15-backpressure",
+                    "/tmp/h15-before-start.jsonl",
+                    Some("workflow_before_start_commit"),
+                    1_515_209,
+                )
+                .unwrap_err(),
+            "workflow_failpoint_before_start_commit"
+        );
+        assert!(store
+            .get_case_state("case:h15-backpressure")
+            .unwrap()
+            .unwrap()
+            .workflow_executions
+            .is_empty());
+        assert!(store
+            .list_runtime_work_authorized(&owner)
+            .unwrap()
+            .is_empty());
+        store
+            .submit_runtime_work(
+                &owner,
+                &RuntimeWorkSubmission {
+                    request_id: "request:h15-capacity-holder".to_string(),
+                    tenant_id: "tenant:h15-backpressure".to_string(),
+                    case_id: "case:h15-backpressure".to_string(),
+                    participant_id: "participant:model".to_string(),
+                    attachment_id: "resource:workspace".to_string(),
+                    journal_path: "/tmp/h15-capacity.jsonl".to_string(),
+                    task: "capacity holder".to_string(),
+                    budgets: runtime_budgets(),
+                    failpoint: None,
+                    now_unix_ms: 1_515_210,
+                },
+            )
+            .unwrap();
+        let result = store
+            .materialize_workflow_ready_work(
+                &owner,
+                "runtime-owner:h15-backpressure",
+                "case:h15-backpressure",
+                "/tmp/h15-backpressure.jsonl",
+                None,
+                1_515_211,
+            )
+            .unwrap();
+        assert!(result.is_none());
+        let state = store
+            .get_case_state("case:h15-backpressure")
+            .unwrap()
+            .unwrap();
+        assert!(state.workflow_executions.is_empty());
+        assert_eq!(
+            store
+                .workflow_status_authorized(&owner, "case:h15-backpressure")
+                .unwrap()
+                .ready_work
+                .len(),
+            1
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h15_conflicting_human_input_and_passive_resolution_are_first_writer_wins() {
+        let path = temp_store_path("h15-human-condition-race");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(15103);
+        store
+            .bootstrap_local_security(&owner, "tenant:h15-human", "organization:h15", 1)
+            .unwrap();
+        let root = h15_setup_case(
+            &store,
+            &owner,
+            "tenant:h15-human",
+            "case:h15-human",
+            "human",
+        );
+        let definition = store
+            .define_workflow(
+                &owner,
+                WorkflowDefinitionInput {
+                    schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                    tenant_id: "tenant:h15-human".to_string(),
+                    workflow_key: "human-race".to_string(),
+                    declared_version: "1".to_string(),
+                    name: "Human race".to_string(),
+                    description: String::new(),
+                    nodes: vec![
+                        WorkflowNode {
+                            node_id: "input".to_string(),
+                            kind: WorkflowNodeKind::HumanInput {
+                                actor_slot: "model".to_string(),
+                                prompt: "Supply bounded JSON".to_string(),
+                                required_roles: vec!["operation-proposer".to_string()],
+                                input_kind: HumanInputKind::Json,
+                                max_bytes: 256,
+                            },
+                        },
+                        WorkflowNode {
+                            node_id: "condition".to_string(),
+                            kind: WorkflowNodeKind::Condition {
+                                predicate: WorkflowPredicate::NodeSatisfied {
+                                    node_id: "input".to_string(),
+                                },
+                            },
+                        },
+                    ],
+                    edges: vec![WorkflowEdge {
+                        from: "input".to_string(),
+                        to: "condition".to_string(),
+                        kind: WorkflowEdgeKind::Always,
+                    }],
+                },
+                1_515_030,
+            )
+            .unwrap();
+        store
+            .bind_case_workflow(
+                &owner,
+                "case:h15-human",
+                &definition.workflow_definition_id,
+                vec![WorkflowExecutorBinding {
+                    slot: "model".to_string(),
+                    participant_id: "participant:model".to_string(),
+                }],
+                Vec::new(),
+                1_515_031,
+            )
+            .unwrap();
+        let malformed_generation = store
+            .get_case_state("case:h15-human")
+            .unwrap()
+            .unwrap()
+            .generation;
+        assert!(
+            store
+                .record_workflow_human_input(
+                    &owner,
+                    "case:h15-human",
+                    "input",
+                    "{malformed",
+                    1_515_032,
+                )
+                .unwrap_err()
+                .contains("workflow_human_input_json_invalid")
+        );
+        assert!(store
+            .record_workflow_human_input(
+                &owner,
+                "case:h15-human",
+                "input",
+                r#"{"key":1,"key":2}"#,
+                1_515_033,
+            )
+            .unwrap_err()
+            .contains("duplicate_json_key"));
+        assert_eq!(
+            store
+                .get_case_state("case:h15-human")
+                .unwrap()
+                .unwrap()
+                .generation,
+            malformed_generation
+        );
+
+        let barrier = Arc::new(Barrier::new(8));
+        let mut contenders = Vec::new();
+        for index in 0..8 {
+            let contender_path = path.clone();
+            let contender_owner = owner.clone();
+            let contender_barrier = Arc::clone(&barrier);
+            contenders.push(thread::spawn(move || {
+                let contender_store = LmdbRecordStore::open(&contender_path).unwrap();
+                contender_barrier.wait();
+                contender_store.record_workflow_human_input(
+                    &contender_owner,
+                    "case:h15-human",
+                    "input",
+                    if index % 2 == 0 {
+                        r#"{"value":"A"}"#
+                    } else {
+                        r#"{"value":"B"}"#
+                    },
+                    1_515_100 + index,
+                )
+            }));
+        }
+        let results = contenders
+            .into_iter()
+            .map(|contender| contender.join().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+        let state_after_input = store.get_case_state("case:h15-human").unwrap().unwrap();
+        assert_eq!(state_after_input.workflow_human_inputs.len(), 1);
+        assert!(state_after_input.reviews.is_empty());
+
+        let passive_barrier = Arc::new(Barrier::new(8));
+        let mut passive = Vec::new();
+        for _ in 0..8 {
+            let contender_path = path.clone();
+            let contender_owner = owner.clone();
+            let contender_barrier = Arc::clone(&passive_barrier);
+            passive.push(thread::spawn(move || {
+                let contender_store = LmdbRecordStore::open(&contender_path).unwrap();
+                contender_barrier.wait();
+                contender_store.advance_workflow_passive_progress(
+                    &contender_owner,
+                    "case:h15-human",
+                    8,
+                )
+            }));
+        }
+        for contender in passive {
+            assert!(contender.join().unwrap().unwrap().completed);
+        }
+        let state = store.get_case_state("case:h15-human").unwrap().unwrap();
+        assert_eq!(state.workflow_human_inputs.len(), 1);
+        assert_eq!(state.workflow_conditions.len(), 1);
+        assert!(state.workflow_conditions[0].result);
+        println!(
+            "h15_human_condition_race: contenders=8 accepted_inputs=1 conflicting_inputs_rejected=7 condition_results=1 review_actions=0"
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h15_definition_publication_integrity_retention_and_restoration_are_exact() {
+        let path = temp_store_path("h15-definition-integrity");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(15104);
+        store
+            .bootstrap_local_security(&owner, "tenant:h15-definition", "organization:h15", 1)
+            .unwrap();
+        let input = h15_model_definition("tenant:h15-definition", "concurrent-definition");
+        let barrier = Arc::new(Barrier::new(8));
+        let mut publishers = Vec::new();
+        for index in 0..8 {
+            let publisher_path = path.clone();
+            let publisher_owner = owner.clone();
+            let publisher_input = input.clone();
+            let publisher_barrier = Arc::clone(&barrier);
+            publishers.push(thread::spawn(move || {
+                let publisher_store = LmdbRecordStore::open(&publisher_path).unwrap();
+                publisher_barrier.wait();
+                publisher_store.define_workflow(
+                    &publisher_owner,
+                    publisher_input,
+                    1_515_400 + index,
+                )
+            }));
+        }
+        let definitions = publishers
+            .into_iter()
+            .map(|publisher| publisher.join().unwrap().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            definitions
+                .iter()
+                .map(|definition| definition.workflow_definition_id.as_str())
+                .collect::<BTreeSet<_>>()
+                .len(),
+            1
+        );
+        assert_eq!(
+            store
+                .list_workflow_definitions_authorized(&owner, "tenant:h15-definition")
+                .unwrap()
+                .len(),
+            1
+        );
+        let definition = definitions[0].clone();
+
+        let collision_barrier = Arc::new(Barrier::new(2));
+        let mut collisions = Vec::new();
+        for index in 0..2 {
+            let collision_path = path.clone();
+            let collision_owner = owner.clone();
+            let collision_barrier = Arc::clone(&collision_barrier);
+            let mut collision_input = input.clone();
+            collision_input.declared_version = "2".to_string();
+            collision_input.description = format!("competing-content-{index}");
+            collisions.push(thread::spawn(move || {
+                let collision_store = LmdbRecordStore::open(&collision_path).unwrap();
+                collision_barrier.wait();
+                collision_store.define_workflow(
+                    &collision_owner,
+                    collision_input,
+                    1_515_500 + index,
+                )
+            }));
+        }
+        let collision_results = collisions
+            .into_iter()
+            .map(|publisher| publisher.join().unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            collision_results
+                .iter()
+                .filter(|result| result.is_ok())
+                .count(),
+            1
+        );
+        assert_eq!(
+            collision_results
+                .iter()
+                .filter(|result| {
+                    result
+                        .as_ref()
+                        .err()
+                        .is_some_and(|error| error == "workflow_definition_version_collision")
+                })
+                .count(),
+            1
+        );
+
+        let root = h15_setup_case(
+            &store,
+            &owner,
+            "tenant:h15-definition",
+            "case:h15-definition",
+            "definition",
+        );
+        h15_bind_model_workflow(&store, &owner, "case:h15-definition", &definition);
+        let expected = store
+            .workflow_status_authorized(&owner, "case:h15-definition")
+            .unwrap();
+        let key = workflow_definition_key(&definition.workflow_definition_id);
+        let original = {
+            let txn = store.env.begin_ro_txn().unwrap();
+            txn.get(store.workflow_definitions, &key).unwrap().to_vec()
+        };
+        {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            txn.del(store.workflow_definitions, &key, None).unwrap();
+            txn.commit().unwrap();
+        }
+        assert_eq!(
+            store
+                .workflow_status_authorized(&owner, "case:h15-definition")
+                .unwrap_err(),
+            "bound_workflow_definition_missing"
+        );
+        {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            txn.put(
+                store.workflow_definitions,
+                &key,
+                &original,
+                WriteFlags::NO_OVERWRITE,
+            )
+            .unwrap();
+            txn.commit().unwrap();
+        }
+        assert_eq!(
+            expected,
+            store
+                .workflow_status_authorized(&owner, "case:h15-definition")
+                .unwrap()
+        );
+
+        let mut corrupt = definition.clone();
+        corrupt.description = "tampered without resealing".to_string();
+        {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            let bytes = serde_json::to_vec(&corrupt).unwrap();
+            txn.put(
+                store.workflow_definitions,
+                &key,
+                &bytes,
+                WriteFlags::empty(),
+            )
+            .unwrap();
+            txn.commit().unwrap();
+        }
+        assert_eq!(
+            store
+                .workflow_status_authorized(&owner, "case:h15-definition")
+                .unwrap_err(),
+            "workflow_definition_content_identity_mismatch"
+        );
+        {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            txn.put(
+                store.workflow_definitions,
+                &key,
+                &original,
+                WriteFlags::empty(),
+            )
+            .unwrap();
+            txn.commit().unwrap();
+        }
+        assert_eq!(
+            expected,
+            store
+                .workflow_status_authorized(&owner, "case:h15-definition")
+                .unwrap()
+        );
+        println!(
+            "h15_definition_integrity: concurrent_exact_publishers=8 stored=1 version_collision_winners=1 missing=fail_closed corrupt=fail_closed exact_restore=equal"
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h15_deterministic_proposal_and_operation_recovery_are_exactly_once() {
+        let path = temp_store_path("h15-deterministic-recovery");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(15105);
+        store
+            .bootstrap_local_security(&owner, "tenant:h15-deterministic", "organization:h15", 1)
+            .unwrap();
+        let root = h15_setup_case(
+            &store,
+            &owner,
+            "tenant:h15-deterministic",
+            "case:h15-deterministic",
+            "deterministic",
+        );
+        let definition = store
+            .define_workflow(
+                &owner,
+                WorkflowDefinitionInput {
+                    schema: WORKFLOW_DEFINITION_SCHEMA.to_string(),
+                    tenant_id: "tenant:h15-deterministic".to_string(),
+                    workflow_key: "deterministic-recovery".to_string(),
+                    declared_version: "1".to_string(),
+                    name: "Deterministic recovery".to_string(),
+                    description: String::new(),
+                    nodes: vec![WorkflowNode {
+                        node_id: "apply".to_string(),
+                        kind: WorkflowNodeKind::DeterministicWork {
+                            proposer_slot: "model".to_string(),
+                            operation: DeterministicOperationTemplate::FilesystemWrite {
+                                resource_slot: "workspace".to_string(),
+                                relative_path: "allowed/h15-recovery.txt".to_string(),
+                                content: "one canonical deterministic proposal\n".to_string(),
+                            },
+                            completion: WorkflowPredicate::ExecutionEffectFinalized,
+                        },
+                    }],
+                    edges: Vec::new(),
+                },
+                1_515_600,
+            )
+            .unwrap();
+        h15_bind_model_workflow(&store, &owner, "case:h15-deterministic", &definition);
+        h15_start_runtime(&store, &owner, "runtime-owner:h15-deterministic", 4);
+        let work = store
+            .materialize_workflow_ready_work(
+                &owner,
+                "runtime-owner:h15-deterministic",
+                "case:h15-deterministic",
+                "/tmp/h15-deterministic.jsonl",
+                None,
+                1_515_601,
+            )
+            .unwrap()
+            .unwrap()
+            .item;
+
+        let first_proposal = store
+            .record_workflow_deterministic_proposal(&owner, &work)
+            .unwrap();
+        let recovered_proposal = store
+            .record_workflow_deterministic_proposal(&owner, &work)
+            .unwrap();
+        assert_eq!(first_proposal, recovered_proposal);
+        let first_operation = store
+            .record_workflow_deterministic_operation_from_proposal(&owner, &work, &first_proposal)
+            .unwrap();
+        let recovered_operation = store
+            .record_workflow_deterministic_operation_from_proposal(
+                &owner,
+                &work,
+                &recovered_proposal,
+            )
+            .unwrap();
+        assert_eq!(first_operation, recovered_operation);
+        let history = store
+            .list_case_transitions("case:h15-deterministic")
+            .unwrap();
+        assert_eq!(
+            history
+                .iter()
+                .filter(|transition| matches!(
+                    &transition.payload,
+                    TransitionPayload::WorkflowDeterministicProposalRecorded { .. }
+                ))
+                .count(),
+            1
+        );
+        assert_eq!(
+            history
+                .iter()
+                .filter(|transition| matches!(
+                    &transition.payload,
+                    TransitionPayload::OperationRecorded { .. }
+                ))
+                .count(),
+            1
+        );
+        println!(
+            "h15_deterministic_recovery: proposal_id={} operation_id={} proposal_count=1 operation_count=1 provider_invocations=0",
+            first_proposal.proposal_id, first_operation.operation_id
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h15_process_workflow_start_contender() {
+        let Ok(store_path) = std::env::var("H15_WORKFLOW_CONTENDER_STORE") else {
+            return;
+        };
+        let index = std::env::var("H15_WORKFLOW_CONTENDER_INDEX").unwrap();
+        let control = PathBuf::from(std::env::var("H15_WORKFLOW_CONTENDER_CONTROL").unwrap());
+        fs::write(control.join(format!("ready-{index}")), b"ready").unwrap();
+        for _ in 0..2_000 {
+            if control.join("go").exists() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(2));
+        }
+        assert!(control.join("go").exists());
+        let store = LmdbRecordStore::open(store_path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(15106);
+        let contender_number = index.parse::<u64>().unwrap();
+        let owner_token = format!("runtime-owner:h15-process-start:{index}");
+        let acquired = store.acquire_runtime_instance(
+            &owner,
+            &RuntimeInstanceAcquireRequest {
+                owner_pid: std::process::id(),
+                owner_token: owner_token.clone(),
+                now_unix_ms: 1_515_710 + contender_number,
+                lease_duration_ms: 60_000,
+                config: RuntimeInstanceConfig {
+                    workers: 1,
+                    max_active_per_tenant: 1,
+                    max_queued_per_tenant: 16,
+                    max_queued_total: 16,
+                },
+            },
+            false,
+        );
+        let (result, winner) = match acquired {
+            Ok(_) => {
+                store
+                    .activate_runtime_instance(
+                        &owner,
+                        &owner_token,
+                        1_515_810 + contender_number,
+                        60_000,
+                        0,
+                    )
+                    .unwrap();
+                let outcome = store
+                    .materialize_workflow_ready_work(
+                        &owner,
+                        &owner_token,
+                        "case:h15-process-start",
+                        "/tmp/h15-process-start.jsonl",
+                        None,
+                        1_515_910 + contender_number,
+                    )
+                    .unwrap();
+                (
+                    outcome.as_ref().map_or_else(
+                        || "created=false\nwork_id=none\n".to_string(),
+                        |submission| {
+                            format!(
+                                "created={}\nwork_id={}\n",
+                                submission.created, submission.item.work_id
+                            )
+                        },
+                    ),
+                    true,
+                )
+            }
+            Err(error) if error.contains("runtime_instance_active") => (
+                format!("created=false\nwork_id=none\nadmission={error}\n"),
+                false,
+            ),
+            Err(error) => panic!("unexpected contender admission error: {error}"),
+        };
+        fs::write(control.join(format!("result-{index}")), result).unwrap();
+        if winner {
+            for _ in 0..2_000 {
+                if control.join("finish").exists() {
+                    break;
+                }
+                thread::sleep(Duration::from_millis(2));
+            }
+            assert!(control.join("finish").exists());
+        }
+    }
+
+    #[test]
+    fn h15_eight_process_same_node_start_is_atomic_and_exactly_once() {
+        let path = temp_store_path("h15-process-same-node-start");
+        let control = temp_store_path("h15-process-same-node-control");
+        fs::create_dir_all(&control).unwrap();
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(15106);
+        store
+            .bootstrap_local_security(&owner, "tenant:h15-process-start", "organization:h15", 1)
+            .unwrap();
+        let root = h15_setup_case(
+            &store,
+            &owner,
+            "tenant:h15-process-start",
+            "case:h15-process-start",
+            "process-start",
+        );
+        let definition = store
+            .define_workflow(
+                &owner,
+                h15_model_definition("tenant:h15-process-start", "process-start"),
+                1_515_700,
+            )
+            .unwrap();
+        h15_bind_model_workflow(&store, &owner, "case:h15-process-start", &definition);
+
+        let executable = std::env::current_exe().unwrap();
+        let mut contenders = Vec::new();
+        for index in 0..8 {
+            contenders.push(
+                std::process::Command::new(&executable)
+                    .arg("--exact")
+                    .arg("store::lmdb::tests::h15_process_workflow_start_contender")
+                    .arg("--nocapture")
+                    .env("H15_WORKFLOW_CONTENDER_STORE", &path)
+                    .env("H15_WORKFLOW_CONTENDER_CONTROL", &control)
+                    .env("H15_WORKFLOW_CONTENDER_INDEX", index.to_string())
+                    .spawn()
+                    .unwrap(),
+            );
+        }
+        for _ in 0..2_000 {
+            let ready = fs::read_dir(&control)
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|entry| entry.file_name().to_string_lossy().starts_with("ready-"))
+                .count();
+            if ready == 8 {
+                break;
+            }
+            thread::sleep(Duration::from_millis(2));
+        }
+        assert_eq!(
+            fs::read_dir(&control)
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|entry| entry.file_name().to_string_lossy().starts_with("ready-"))
+                .count(),
+            8
+        );
+        fs::write(control.join("go"), b"go").unwrap();
+        for _ in 0..2_000 {
+            let results = fs::read_dir(&control)
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|entry| entry.file_name().to_string_lossy().starts_with("result-"))
+                .count();
+            if results == 8 {
+                break;
+            }
+            thread::sleep(Duration::from_millis(2));
+        }
+        assert_eq!(
+            fs::read_dir(&control)
+                .unwrap()
+                .filter_map(Result::ok)
+                .filter(|entry| entry.file_name().to_string_lossy().starts_with("result-"))
+                .count(),
+            8
+        );
+        fs::write(control.join("finish"), b"finish").unwrap();
+        for contender in contenders {
+            assert!(contender.wait_with_output().unwrap().status.success());
+        }
+        let results = (0..8)
+            .map(|index| fs::read_to_string(control.join(format!("result-{index}"))).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| result.contains("created=true"))
+                .count(),
+            1
+        );
+        let state = store
+            .get_case_state("case:h15-process-start")
+            .unwrap()
+            .unwrap();
+        assert_eq!(state.workflow_executions.len(), 1);
+        assert_eq!(store.list_runtime_work_authorized(&owner).unwrap().len(), 1);
+        println!(
+            "h15_process_same_node_start: processes=8 canonical_starts=1 work_items=1 provider_invocations=0"
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(control).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h15_content_valid_progression_objects_cannot_bypass_rederivation() {
+        let path = temp_store_path("h15-progression-forgery");
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(15107);
+        let tenant_id = "tenant:h15-forgery";
+        let case_id = "case:h15-forgery";
+        store
+            .bootstrap_local_security(&owner, tenant_id, "organization:h15", 1)
+            .unwrap();
+        let root = h15_setup_case(&store, &owner, tenant_id, case_id, "forgery");
+        let definition = store
+            .define_workflow(
+                &owner,
+                h15_model_definition(tenant_id, "forgery"),
+                1_515_800,
+            )
+            .unwrap();
+        h15_bind_model_workflow(&store, &owner, case_id, &definition);
+        h15_start_runtime(&store, &owner, "runtime-owner:h15-forgery", 4);
+        let work = store
+            .materialize_workflow_ready_work(
+                &owner,
+                "runtime-owner:h15-forgery",
+                case_id,
+                "/tmp/h15-forgery.jsonl",
+                None,
+                1_515_801,
+            )
+            .unwrap()
+            .unwrap()
+            .item;
+        let workflow = work.workflow.as_ref().unwrap();
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let principal_id = owner.projected_principal_id();
+        let duplicate_execution = WorkflowNodeExecution {
+            schema: WORKFLOW_NODE_EXECUTION_SCHEMA.to_string(),
+            execution_id: workflow.workflow_execution_id.clone(),
+            binding_id: workflow.workflow_binding_id.clone(),
+            workflow_definition_id: workflow.workflow_definition_id.clone(),
+            node_id: workflow.workflow_node_id.clone(),
+            case_id: case_id.to_string(),
+            started_at_generation: state.generation + 1,
+            started_at_unix_ms: 1_515_802,
+        };
+        let duplicate_error = store
+            .commit_secured_transition(
+                &owner,
+                tenant_id,
+                secured_pending(
+                    "transition:h15:forged-duplicate-start",
+                    case_id,
+                    state.generation,
+                    &principal_id,
+                    TransitionPayload::WorkflowNodeExecutionStarted {
+                        execution: duplicate_execution,
+                    },
+                ),
+                true,
+            )
+            .unwrap_err();
+        assert_eq!(
+            duplicate_error,
+            "workflow_execution_readiness_rederivation_mismatch"
+        );
+
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let forged_satisfaction = WorkflowNodeSatisfaction {
+            schema: WORKFLOW_NODE_SATISFACTION_SCHEMA.to_string(),
+            satisfaction_id: "workflow-satisfaction:content-valid-forgery".to_string(),
+            binding_id: workflow.workflow_binding_id.clone(),
+            workflow_definition_id: workflow.workflow_definition_id.clone(),
+            node_id: workflow.workflow_node_id.clone(),
+            execution_id: Some(workflow.workflow_execution_id.clone()),
+            predicate_digest: WorkflowPredicate::ExecutionProviderResult.digest().unwrap(),
+            evaluated_at_generation: state.generation + 1,
+            evidence_refs: vec!["provider-result:unrelated".to_string()],
+        };
+        let satisfaction_error = store
+            .commit_secured_transition(
+                &owner,
+                tenant_id,
+                secured_pending(
+                    "transition:h15:forged-satisfaction",
+                    case_id,
+                    state.generation,
+                    &principal_id,
+                    TransitionPayload::WorkflowNodeSatisfied {
+                        satisfaction: forged_satisfaction,
+                    },
+                ),
+                true,
+            )
+            .unwrap_err();
+        assert_eq!(
+            satisfaction_error,
+            "workflow_satisfaction_rederivation_mismatch"
+        );
+        let final_state = store.get_case_state(case_id).unwrap().unwrap();
+        assert_eq!(final_state.generation, state.generation);
+        assert!(final_state.workflow_satisfactions.is_empty());
+        println!(
+            "h15_progression_forgery: duplicate_start=rejected false_satisfaction=rejected fake_evidence=rejected generation_unchanged=true"
+        );
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
     }
 }

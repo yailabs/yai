@@ -826,7 +826,7 @@ impl<'de> Visitor<'de> for StrictJsonVisitor {
     }
 }
 
-fn parse_strict_json(bytes: &[u8]) -> Result<Value, String> {
+pub(crate) fn parse_strict_json(bytes: &[u8]) -> Result<Value, String> {
     let mut deserializer = serde_json::Deserializer::from_slice(bytes);
     let value = StrictJsonSeed { depth: 0 }
         .deserialize(&mut deserializer)

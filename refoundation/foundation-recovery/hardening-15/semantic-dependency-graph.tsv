@@ -1,0 +1,6 @@
+case	explicit_edges	semantic_edges	combined_result
+valid prior reference	A->B	A->B because B waits NodeSatisfied(A)	accepted deterministic order A,B
+simple hidden cycle	A->B	B->A because A waits NodeSatisfied(B)	rejected workflow_cycle_rejected
+long hidden cycle	A->B;B->C	C->A because A waits NodeSatisfied(C)	rejected workflow_cycle_rejected
+self reference	none	A->A	rejected workflow_predicate_node_reference_invalid
+unknown reference	none	unknown->A	rejected workflow_predicate_node_reference_invalid

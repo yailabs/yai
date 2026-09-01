@@ -1,0 +1,6 @@
+commit	path	observed_executable_property	h15_disposition
+94ba627091afbf1100ab386ac1de3d4fb1d2502c	core/orchestration/flow/model/flow.c;include/orchestration/planning.h	explicit flow identity/dependencies/gates and current-work vocabulary	recover typed dependency/blocker/inspection properties only
+001752f52545fe84a30017ec735794a8f04d189c	orchestration absorption;Case progression and workflow headers	flow state redistributed into orchestration/cognition/runtime planes	reject duplicated planes and global owner
+840aee9464211e7af6d6811de32320faea14806e	include/yai/orchestrator/workflow/workflow.h;src/orchestrator/workflow/flow.c	later workflow/controller surface and filesystem persistence	inspect stronger era; reject mutable controller ownership
+cffb318b980456f2671a297e14a6b05f5ac68320	src/orchestrator/workflow/flow.c;current JSON/append paths	current files, append records, timestamp-derived identities, separate writes	no concurrent same-node/replay/ack proof; H15 exceeds legacy
+adjacent later history	flow_substrate.c;interaction/current-work/progress/gate records	explicit blockers, evidence refs and interaction distinction	recovered as typed Case facts/derived resolution; no old topology ported

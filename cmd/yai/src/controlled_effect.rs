@@ -1344,8 +1344,55 @@ pub(super) fn advance_controlled_workflow_deterministic(
 ) -> Result<ControlledEffectTurnResult, String> {
     let authenticated = authenticate_local()?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let (proposal, _operation) =
-        store.record_workflow_deterministic_operation(&authenticated, item)?;
+    let proposal_existed = store
+        .get_case_state_authorized(&authenticated, &item.case_id)?
+        .workflow_deterministic_proposals
+        .iter()
+        .any(|proposal| {
+            item.workflow
+                .as_ref()
+                .is_some_and(|workflow| proposal.execution_id == workflow.workflow_execution_id)
+        });
+    let proposal = store.record_workflow_deterministic_proposal(&authenticated, item)?;
+    if !proposal_existed
+        && failpoint(args).as_deref() == Some("after_workflow_deterministic_proposal")
+    {
+        eprintln!(
+            "workflow_deterministic_proposal_id: {}",
+            proposal.proposal_id
+        );
+        exit_at_failpoint("after_workflow_deterministic_proposal", 90);
+    }
+    let operation_existed = store
+        .list_case_transitions(&item.case_id)?
+        .iter()
+        .any(|transition| {
+            matches!(
+                &transition.payload,
+                TransitionPayload::OperationRecorded { operation }
+                    if matches!(
+                        &operation.origin,
+                        yai_core_engine::effect::OperationOrigin::WorkflowDeterministicProposal {
+                            proposal_id,
+                            ..
+                        } if proposal_id == &proposal.proposal_id
+                    )
+            )
+        });
+    let operation = store.record_workflow_deterministic_operation_from_proposal(
+        &authenticated,
+        item,
+        &proposal,
+    )?;
+    if !operation_existed
+        && failpoint(args).as_deref() == Some("after_workflow_deterministic_operation")
+    {
+        eprintln!(
+            "workflow_deterministic_operation_id: {}",
+            operation.operation_id
+        );
+        exit_at_failpoint("after_workflow_deterministic_operation", 92);
+    }
     let source = ControlledProviderResult {
         invocation_id: item
             .workflow

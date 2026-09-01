@@ -1,0 +1,7 @@
+crash_window	canonical_pre_crash	recovery_result	provider_invocations
+after proposal before Operation	one WorkflowDeterministicProposalRecorded	same proposal; one Operation	0
+after Operation before Decision	one proposal + one Operation	operation found by canonical proposal origin; Decision derived once	0
+after Decision/Grant before PREPARE	existing authority facts	normal H10/W11 freshness and adjacency rules	0
+after terminal Effect before NodeSatisfied	one terminal Effect	no carrier repeat; predicate repairs satisfaction	0
+forged proposal bytes absent from canonical state	none	workflow_deterministic_proposal_not_canonical	0
+proposal fields differ from canonical	one canonical proposal	workflow_deterministic_proposal_canonical_mismatch	0

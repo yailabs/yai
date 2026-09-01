@@ -1,0 +1,10 @@
+predicate	scope	meaning	evidence_selection
+execution_provider_result	execution	at least one result causally linked to exact Workflow execution	first canonical matching result; frozen satisfaction never rewritten
+execution_effect_finalized	execution	at least one finalized effect causally linked to exact execution	first canonical matching terminal effect
+execution_filesystem_effect_finalized	execution	exact execution-linked finalized filesystem effect matching relative path	first canonical exact match
+decision_outcome	execution	at least one execution-linked Decision with requested outcome	first canonical matching Decision
+review_terminal	execution	at least one execution-linked Review has terminal resolution	first canonical terminal Review
+human_input_recorded	node	dedicated HumanInput node owns the exact input	not admitted as free completion predicate
+case_lifecycle	Case	current canonical Case lifecycle equals typed posture	Case lifecycle evidence
+node_satisfied	progression	exact referenced node has frozen canonical satisfaction	referenced satisfaction/condition/input fact
+finalized_effect	Case	deliberately broad Case goal, optionally narrowed by resource/operation	first canonical match after deterministic scan

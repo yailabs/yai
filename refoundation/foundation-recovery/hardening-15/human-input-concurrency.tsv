@@ -1,0 +1,7 @@
+case	input	contenders	accepted	rejected	other_authority_effect
+same value	valid bounded JSON	covered by first-writer idempotency contract	one canonical value	later already-satisfied	0 Review/Decision/Grant
+different values	alternating valid JSON objects	8	1	7 conflicting values	0 Review/Decision/Grant
+malformed JSON	{malformed	1	0	1; generation unchanged	0
+duplicate JSON key	{"key":1,"key":2}	1	0	1 duplicate_json_key	0
+JSON object/scalar	strict JSON	1 each where node ready	accepted by contract	n/a	data only
+JSON array/null	strict JSON	1	0	workflow_human_input_json_kind_invalid	0

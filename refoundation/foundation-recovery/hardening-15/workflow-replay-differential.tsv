@@ -1,0 +1,9 @@
+input_or_state	live_resolution	fresh_replay	verdict
+completed Workflow Case	materialized CaseState + exact Definition	rebuilt CaseState from ordered Transitions + exact Definition	semantically equal
+RuntimeWorkItems removed/ignored	unchanged	unchanged	operational state not semantic input
+RuntimeInstance/checkpoint removed/ignored	unchanged	unchanged	canonical progression outranks checkpoint
+frozen Condition after Case mutation	stored branch	stored branch	no flip
+missing transition/history gap	fails snapshot validation	fails snapshot validation	closed
+duplicate/out-of-order/wrong-Case history	fails snapshot validation	fails snapshot validation	closed
+CaseState generation mismatch	fails snapshot validation	fails snapshot validation	closed
+bound Definition missing/corrupt	fails closed	fails closed	no fallback

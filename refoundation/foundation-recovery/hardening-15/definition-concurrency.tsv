@@ -1,0 +1,6 @@
+attack	processes_or_threads	outcome
+same Tenant/key/version/exact content	8 concurrent publishers	one stored Definition ID; all return same immutable object
+same Tenant/key/version/different content	2 concurrent publishers	one winner; one workflow_definition_version_collision
+v1 then v2	sequential	separate immutable IDs; bound v1 unchanged
+reordered node/edge arrays	characterization	ordering intentionally identity-bearing in v1
+reordered JSON object keys	typed parse	semantic identity stable

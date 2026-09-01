@@ -1,10 +1,10 @@
 foundation_family	status	current_evidence	remaining_gap	target_recheck
-WorkflowDefinition	refounded_proven pending publication	immutable Tenant-bound content identity and exact version pinning	lifecycle beyond immutable admission	future only with consumer
-Case workflow binding/progression	refounded_proven pending publication	exact Transition v10 binding and evidence-derived monotonic facts	H15 adversarial crash/concurrent resolver closure	H15
+WorkflowDefinition	refounded_proven + integrity/concurrency-qualified pending publication	immutable Tenant-bound content identity; concurrent exact publication; missing/corrupt fail-closed; exact retention/recovery	lifecycle beyond immutable admission	future only with consumer
+Case workflow binding/progression	refounded_proven + adversarially-qualified pending publication	exact Transition v10 binding; typed predicate placement; semantic-cycle rejection; one-winner progression	software-version compatibility for unresolved future work	future release engineering
 WorkflowRun	derived_no_owner	pure WorkflowResolution from Definition+Case history	materialized cache only if characterized	future performance evidence
-ModelWork	refounded_proven pending publication	existing bounded Case runtime; provider completion checked against canonical predicate	live external YVEX endpoint qualification	when supplied
-DeterministicWork	refounded_proven pending publication	zero-provider typed proposal through same Decision/Grant/Fence/carrier	additional operation families only with consumers	future
-adaptive workflow/handoff	missing	static acyclic W15 substrate	PlanPatch/subflow/same-Tenant Handoff	Wave16
+ModelWork	refounded_proven + recovery-qualified pending publication	existing bounded Case runtime; unsatisfying/satisfying result crash recovery; repeated-output causal isolation; budgets preserved	live external YVEX endpoint qualification	when supplied
+DeterministicWork	refounded_proven + recovery-qualified pending publication	canonical-presence proposal seam; exactly-once Operation recovery; zero-provider Decision/Grant/Fence/carrier	additional operation families only with consumers	future
+adaptive workflow/handoff	missing	static acyclic W15 substrate	PlanPatch/subflow/same-Tenant Handoff	Wave17
 Transition/ref replay	refounded_proven	yai.transition.v7 + LMDB tests; v1-v6 readable	compaction/migration	Wave18
 CaseState	refounded_proven	yai.case_state.v7 replay including temporal authority/cancel/close refs	archive/retention/reopen only with a recovered consumer	future direct archaeology
 Case identity/lifecycle	refounded_proven	open + durable cancellation + terminal non-destructive close	archive/retention/reopen	future direct archaeology
@@ -40,10 +40,10 @@ runtime instance lifecycle	refounded_proven	yai.runtime_instance.v1 Starting/Run
 scheduler/fairness	refounded_proven + restart-stable for local runtime	durable cursor advances atomically with claim; deterministic Tenant round-robin and FIFO within Tenant; active Case quota	priorities/provider-aware scheduling	future only with consumer
 runtime quotas/backpressure	refounded_proven for local operational capacity	bounded workers/global queue/Tenant queue/Tenant active Cases; typed rejection before Case mutation	billing/entitlements	out of core
 runtime recovery sweep	refounded_proven + terminal-ack-qualified	bounded nonterminal WorkItem scan with canonical cancellation/effect/review/checkpoint precedence; caught panic remains recoverable	fleet recovery/distributed sweep	future distributed runtime
-provider descriptor/qualification	partially_refounded	Case provider/model profile plus black-box generic OpenAI-compatible endpoint/model harness	live external endpoint unavailable; trust/qualification/lifecycle	Wave17
-provider governance	missing	none	policy-aware provider/model selection	Wave15
-provider health/failover	partially_refounded	bounded retry/replacement	shared health/circuit breaker	Wave15
-Projection/disclosure governance	partially_refounded	participant visibility and policy DENY/review posture before render	policy/provider confidentiality	Wave15
+provider descriptor/qualification	partially_refounded	Case provider/model profile plus black-box generic OpenAI-compatible endpoint/model harness	live external endpoint unavailable; trust/qualification/lifecycle	Wave18
+provider governance	missing	none	policy-aware provider/model selection	Wave18
+provider health/failover	partially_refounded	bounded retry/replacement	shared health/circuit breaker	Wave18
+Projection/disclosure governance	partially_refounded	participant visibility and policy DENY/review posture before render	policy/provider confidentiality	Wave18
 Residency	refounded_proven	yai.residency_plan.v1	policy invalidation/native telemetry	Wave10/15
 operational memory	refounded_proven	yai.operational_memory.v1	retention/advanced compression	future
 graph/lineage	partially_refounded	derived Operation→Decision→Basis→EffectivePolicy/artifact→Grant/effect edges	full source/fact causal query	future
@@ -51,7 +51,7 @@ analytics	partially_refounded	derived DuckDB facts	policy/runtime/cost coverage	
 data longevity	partially_refounded	replay/rebuild	compaction/archive/backup/restore	Wave18
 API/SDK/product boundary	missing/partial	local CLI/Rust crate	stable policy/review/runtime APIs	future
 distributed/edge YAI	defer_no_consumer	none	fresh archaeology later	Wave19+
-native YVEX integration	future_research	OpenAI-compatible boundary only	native identity/telemetry study	Wave15
+native YVEX integration	future_research	OpenAI-compatible boundary only	native identity/telemetry study	Wave18
 qualification/release discipline	refounded_proven	wave tests+commit/push contract	keep per-wave evidence	all waves
 policy revocation	refounded_proven	append-only Revoked event consumed by Decision/review/Grant/runtime	remote fanout/authenticated admin	Wave12+
 review invalidation	refounded_proven	typed terminal invalidation for policy/cancel basis	additional review lifecycles only with consumers	future

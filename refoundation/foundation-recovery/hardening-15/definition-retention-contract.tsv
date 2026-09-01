@@ -1,0 +1,6 @@
+property	owner	contract	non_claim
+Definition bytes	WorkflowDefinition DB	bound exact immutable object retained for active and historical replay	cannot rebuild full Definition from binding
+Definition identity	WorkflowDefinition	content-bound ID/digest and exact Tenant/key/version	no latest-at-runtime
+binding	Case Transition	stores exact Definition ID/digest and slots	does not duplicate Definition content
+progression replay	pure resolver	exact retained Definition + binding + ordered Case history	not replayable from Case history alone
+future longevity	future data platform	backup/archive must preserve bound Definitions	H15 adds no archive system

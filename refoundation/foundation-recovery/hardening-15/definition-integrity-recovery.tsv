@@ -1,0 +1,7 @@
+condition	behavior	progression
+exact bound Definition present	digest/content/Tenant/version validation succeeds	allowed by current Case truth
+Definition missing	bound_workflow_definition_missing	fail closed; no latest/free-run fallback
+semantic bytes tampered without reseal	workflow_definition_content_identity_mismatch	fail closed
+digest/Tenant/version tampered	integrity/binding validation failure	fail closed
+unknown schema/node/predicate/edge	strict serde/typed validation failure	fail closed
+exact original bytes restored	previous WorkflowResolution returns exactly	resume permitted

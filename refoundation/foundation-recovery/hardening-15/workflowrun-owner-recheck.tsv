@@ -1,0 +1,8 @@
+owner_test	finding	verdict
+independent lifecycle	no lifecycle beyond Case progression facts	no owner
+canonical facts unavailable elsewhere	all frozen facts are Case Transitions	no owner
+replay input	exact Definition + binding + ordered Case history sufficient	derived_no_owner
+concurrency lock need	LMDB Case write transaction and RuntimeInstance owner close races	no workflow lock
+crash acknowledgement need	WorkItem/checkpoint repaired from canonical progression	operational only
+cache need	128-node evidence acceptable without cache	no DB/index
+final	no H15 semantic fact requires WorkflowRun storage	derived_no_owner

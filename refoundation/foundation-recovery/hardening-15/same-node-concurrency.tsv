@@ -1,0 +1,5 @@
+run	contenders	isolation	canonical_starts	work_items	provider_invocations	verdict
+H15 unit handles	8	independent LMDB environment handles	1	1	0	pass
+H15 OS processes	8	independent PIDs racing RuntimeInstance ownership	1	1	0	pass; seven observe active owner
+status purity	8 repeated reads	read-only workflow status	0 additional	0 additional	0	pass
+queue backpressure	1 start with full queue	atomic start+enqueue	0	0 new	0	node remains Ready

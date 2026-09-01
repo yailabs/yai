@@ -1,0 +1,11 @@
+write	caller	store_owner	transaction	canonical_rederivation	idempotency	crash_or_concurrency_result
+WorkflowDefinition create	workflow define	define_workflow	one LMDB RW txn	Tenant owner + typed Definition validation + content identity	exact content idempotent; lineage/version divergence rejected	one immutable record or no record
+CaseWorkflowBinding	workflow bind	bind_case_workflow	one Case Transition txn	Tenant/Case/Definition digest/slots/roles	second binding rejected	binding and Case generation atomic
+NodeExecutionStarted + WorkItem	RuntimeInstance pump	materialize_workflow_ready_work	one LMDB RW txn	pure resolution Ready + open Case + exact runtime owner	static execution identity; existing start observed	both visible or neither; queue-full leaves Ready
+NodeSatisfied	RuntimeInstance/passive or runtime completion	advance_workflow_passive_progress + progression validator	one Case Transition txn	predicate re-evaluated from exact Definition/Case/history	already satisfied creates no write	one generation advance
+ConditionResolved	RuntimeInstance passive pump	advance_workflow_passive_progress	one Case Transition txn	current predicate/result/evidence rederived	frozen existing result wins	one result; conflicting caller rejected
+HumanInputRecorded	workflow input	record_workflow_human_input	one Case Transition txn	authenticated Principal link/roles/readiness/type/value digest	first canonical value wins	conflicting concurrent value rejected
+DeterministicProposalRecorded	deterministic WorkItem	record_workflow_deterministic_proposal	one Case Transition txn	exact execution/binding/slots/template	stable proposal identity	restart returns exact canonical proposal
+OperationRecorded	deterministic WorkItem	record_workflow_deterministic_operation_from_proposal	one Case Transition txn	exact canonical proposal presence + template rederivation	stable Operation identity	restart returns one Operation
+WorkItem recovery	RuntimeInstance recovery sweep	recover_runtime_work_items	operational LMDB update	canonical Workflow/Case truth outranks checkpoint	terminal/parked posture repair	no semantic progression rewrite
+passive Condition/Wait/EffectGoal	RuntimeInstance pump	advance_workflow_passive_progress	bounded repeated Case txns	exact predicate/evidence each snapshot	already frozen facts skipped	crash resumes at first absent fact

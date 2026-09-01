@@ -1,0 +1,10 @@
+topology	frozen_result	derived_behavior	verdict
+simple diamond	true	false branch skipped; join waits selected true branch	pass
+simple diamond	false	true branch skipped; join waits selected false branch	pass
+nested condition	outer selects nested branch	nested evaluates only when reachable	pass
+condition inside skipped branch	outer rejects branch	nested derived Skipped, not WaitingCondition	pass
+multiple conditions into join	all combinations	join reduces only inactive incoming branches	pass
+all incoming branches skipped	n/a	downstream unreachable/Skipped	pass
+always plus selected conditional edge	typed unique targets	deterministic reachability	pass
+same source/target differing kinds	n/a	rejected workflow_ambiguous_parallel_edge	pass
+later Case predicate flip	opposite live value	stored Condition result remains authoritative	pass

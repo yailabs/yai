@@ -30,6 +30,7 @@ pub const MAX_WORKFLOW_LABEL_BYTES: usize = 512;
 pub const MAX_WORKFLOW_TASK_BYTES: usize = 64 * 1024;
 pub const MAX_WORKFLOW_INPUT_BYTES: usize = 16 * 1024;
 pub const MAX_WORKFLOW_OPERATION_CONTENT_BYTES: usize = 64 * 1024;
+pub const MAX_WORKFLOW_DEFINITION_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -47,6 +48,7 @@ pub struct WorkflowDefinitionInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorkflowDefinition {
     pub schema: String,
     pub workflow_definition_id: String,
@@ -192,6 +194,12 @@ impl WorkflowDefinitionInput {
         if self.schema != WORKFLOW_DEFINITION_SCHEMA {
             return Err("unsupported_workflow_definition_schema".to_string());
         }
+        let encoded_bytes = serde_json::to_vec(self)
+            .map_err(|error| format!("workflow_definition_encode_failed: {error}"))?
+            .len();
+        if encoded_bytes > MAX_WORKFLOW_DEFINITION_BYTES {
+            return Err("workflow_definition_aggregate_bounds_invalid".to_string());
+        }
         if !self.tenant_id.starts_with("tenant:")
             || !valid_id(&self.workflow_key)
             || !valid_id(&self.declared_version)
@@ -227,6 +235,7 @@ impl WorkflowDefinitionInput {
             }
         }
         let mut edge_ids = BTreeSet::new();
+        let mut edge_pairs = BTreeSet::new();
         for edge in &self.edges {
             edge.validate()?;
             if !ids.contains(&edge.from) || !ids.contains(&edge.to) {
@@ -237,6 +246,9 @@ impl WorkflowDefinitionInput {
             }
             if !edge_ids.insert((edge.from.clone(), edge.to.clone(), edge.kind.clone())) {
                 return Err("workflow_duplicate_edge".to_string());
+            }
+            if !edge_pairs.insert((edge.from.clone(), edge.to.clone())) {
+                return Err("workflow_ambiguous_parallel_edge".to_string());
             }
             let source = self
                 .nodes
@@ -317,6 +329,7 @@ impl WorkflowNode {
             | WorkflowNodeKind::Wait { predicate }
             | WorkflowNodeKind::EffectGoal { predicate } => predicate.validate()?,
         }
+        validate_predicate_placement(&self.kind)?;
         Ok(())
     }
 
@@ -531,6 +544,14 @@ pub enum WorkflowPredicate {
     },
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WorkflowPredicateScope {
+    Execution,
+    Node,
+    Case,
+    Progression,
+}
+
 impl WorkflowPredicate {
     pub fn validate(&self) -> Result<(), String> {
         match self {
@@ -558,21 +579,68 @@ impl WorkflowPredicate {
     pub fn digest(&self) -> Result<String, String> {
         digest_serializable(self)
     }
+
+    pub fn scope(&self) -> WorkflowPredicateScope {
+        match self {
+            Self::ExecutionProviderResult
+            | Self::ExecutionEffectFinalized
+            | Self::ExecutionFilesystemEffectFinalized { .. }
+            | Self::DecisionOutcome { .. }
+            | Self::ReviewTerminal => WorkflowPredicateScope::Execution,
+            Self::HumanInputRecorded => WorkflowPredicateScope::Node,
+            Self::CaseLifecycle { .. } | Self::FinalizedEffect { .. } => {
+                WorkflowPredicateScope::Case
+            }
+            Self::NodeSatisfied { .. } => WorkflowPredicateScope::Progression,
+        }
+    }
+}
+
+fn validate_predicate_placement(kind: &WorkflowNodeKind) -> Result<(), String> {
+    let (predicate, permitted) = match kind {
+        WorkflowNodeKind::ModelWork { completion, .. }
+        | WorkflowNodeKind::DeterministicWork { completion, .. } => (
+            Some(completion),
+            completion.scope() == WorkflowPredicateScope::Execution,
+        ),
+        WorkflowNodeKind::HumanInput { .. } => (None, true),
+        WorkflowNodeKind::Condition { predicate } | WorkflowNodeKind::Wait { predicate } => (
+            Some(predicate),
+            matches!(
+                predicate.scope(),
+                WorkflowPredicateScope::Case | WorkflowPredicateScope::Progression
+            ),
+        ),
+        WorkflowNodeKind::EffectGoal { predicate } => (
+            Some(predicate),
+            matches!(predicate, WorkflowPredicate::FinalizedEffect { .. }),
+        ),
+    };
+    if permitted {
+        return Ok(());
+    }
+    if predicate.is_some_and(|value| value.scope() == WorkflowPredicateScope::Node) {
+        return Err("workflow_human_input_predicate_placement_invalid".to_string());
+    }
+    Err("workflow_predicate_node_kind_incompatible".to_string())
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorkflowExecutorBinding {
     pub slot: String,
     pub participant_id: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorkflowResourceBinding {
     pub slot: String,
     pub attachment_id: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CaseWorkflowBinding {
     pub schema: String,
     pub binding_id: String,
@@ -742,6 +810,7 @@ impl CaseWorkflowBinding {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorkflowNodeExecution {
     pub schema: String,
     pub execution_id: String,
@@ -754,6 +823,7 @@ pub struct WorkflowNodeExecution {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorkflowNodeSatisfaction {
     pub schema: String,
     pub satisfaction_id: String,
@@ -767,6 +837,7 @@ pub struct WorkflowNodeSatisfaction {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorkflowConditionResolution {
     pub schema: String,
     pub resolution_id: String,
@@ -780,6 +851,7 @@ pub struct WorkflowConditionResolution {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorkflowHumanInputRecord {
     pub schema: String,
     pub input_id: String,
@@ -795,6 +867,7 @@ pub struct WorkflowHumanInputRecord {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct WorkflowDeterministicProposalRecord {
     pub schema: String,
     pub proposal_id: String,
@@ -872,6 +945,7 @@ pub fn resolve_workflow(
 ) -> Result<WorkflowResolution, String> {
     definition.validate_integrity()?;
     binding.validate(definition)?;
+    validate_history_snapshot(state, history)?;
     if binding.case_id != state.case_id
         || state.tenant_id.as_deref() != Some(binding.tenant_id.as_str())
         || state.workflow_binding.as_ref() != Some(binding)
@@ -1103,6 +1177,21 @@ pub fn resolve_workflow(
         waiting_count,
         completed,
     })
+}
+
+fn validate_history_snapshot(state: &CaseState, history: &[Transition]) -> Result<(), String> {
+    if history.len() as u64 != state.generation {
+        return Err("workflow_history_generation_mismatch".to_string());
+    }
+    for (index, transition) in history.iter().enumerate() {
+        if transition.case_id != state.case_id {
+            return Err("workflow_history_case_mismatch".to_string());
+        }
+        if transition.sequence != index as u64 + 1 {
+            return Err("workflow_history_sequence_invalid".to_string());
+        }
+    }
+    Ok(())
 }
 
 pub fn evaluate_predicate(
@@ -1388,30 +1477,40 @@ fn dependency_posture(
     conditions: &BTreeMap<String, bool>,
     skipped: &BTreeSet<String>,
 ) -> (bool, bool, String) {
-    let incoming: Vec<&WorkflowEdge> = definition
+    let mut incoming: Vec<(String, WorkflowEdgeKind)> = definition
         .edges
         .iter()
         .filter(|edge| edge.to == node_id)
+        .map(|edge| (edge.from.clone(), edge.kind.clone()))
         .collect();
+    if let Some(WorkflowPredicate::NodeSatisfied {
+        node_id: dependency,
+    }) = definition.node(node_id).and_then(node_completion_predicate)
+    {
+        if !incoming.iter().any(|(source, _)| source == dependency) {
+            incoming.push((dependency.clone(), WorkflowEdgeKind::Always));
+        }
+    }
+    incoming.sort();
     if incoming.is_empty() {
         return (true, false, "root_node".to_string());
     }
     let mut active = Vec::new();
     let mut unresolved_condition = false;
-    for edge in incoming {
-        if skipped.contains(&edge.from) {
+    for (source, edge_kind) in incoming {
+        if skipped.contains(&source) {
             continue;
         }
-        let selected = match edge.kind {
+        let selected = match edge_kind {
             WorkflowEdgeKind::Always => true,
-            WorkflowEdgeKind::OnTrue => match conditions.get(&edge.from) {
+            WorkflowEdgeKind::OnTrue => match conditions.get(&source) {
                 Some(result) => *result,
                 None => {
                     unresolved_condition = true;
                     false
                 }
             },
-            WorkflowEdgeKind::OnFalse => match conditions.get(&edge.from) {
+            WorkflowEdgeKind::OnFalse => match conditions.get(&source) {
                 Some(result) => !*result,
                 None => {
                     unresolved_condition = true;
@@ -1420,7 +1519,7 @@ fn dependency_posture(
             },
         };
         if selected {
-            active.push(edge.from.as_str());
+            active.push(source);
         }
     }
     if unresolved_condition {
@@ -1429,7 +1528,7 @@ fn dependency_posture(
     if active.is_empty() {
         return (false, true, "conditional_branch_not_selected".to_string());
     }
-    if active.iter().all(|source| satisfied.contains(*source)) {
+    if active.iter().all(|source| satisfied.contains(source)) {
         (true, false, "dependencies_satisfied".to_string())
     } else {
         (false, false, "dependency_not_satisfied".to_string())
@@ -1445,14 +1544,21 @@ fn topological_order(
         .map(|node| (node.node_id.clone(), 0usize))
         .collect();
     let mut outgoing = BTreeMap::<String, Vec<String>>::new();
-    for edge in edges {
+    let mut dependencies = edges
+        .iter()
+        .map(|edge| (edge.from.clone(), edge.to.clone()))
+        .collect::<BTreeSet<_>>();
+    for node in nodes {
+        if let Some(WorkflowPredicate::NodeSatisfied { node_id }) = node_completion_predicate(node)
+        {
+            dependencies.insert((node_id.clone(), node.node_id.clone()));
+        }
+    }
+    for (from, to) in dependencies {
         *indegree
-            .get_mut(&edge.to)
+            .get_mut(&to)
             .ok_or_else(|| "workflow_dangling_edge".to_string())? += 1;
-        outgoing
-            .entry(edge.from.clone())
-            .or_default()
-            .push(edge.to.clone());
+        outgoing.entry(from).or_default().push(to);
     }
     for values in outgoing.values_mut() {
         values.sort();
@@ -1524,6 +1630,38 @@ fn digest_component(digest: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn history_for_state(state: &CaseState) -> Vec<Transition> {
+        (1..=state.generation)
+            .map(|sequence| Transition {
+                schema: crate::transition::TRANSITION_SCHEMA.to_string(),
+                transition_id: format!("transition:history:{sequence}"),
+                case_id: state.case_id.clone(),
+                sequence,
+                committed_at_unix_ms: sequence,
+                source: crate::transition::TransitionSource::component("workflow-test"),
+                scope: None,
+                causal_refs: Vec::new(),
+                payload: if sequence == 1 {
+                    TransitionPayload::CaseOpened {
+                        lifecycle: CaseLifecycle::Open,
+                    }
+                } else {
+                    TransitionPayload::ProviderResultRecorded {
+                        result_id: format!("provider-result:history:{sequence}"),
+                        invocation_id: format!("provider-invocation:history:{sequence}"),
+                        provider_id: "provider:history".to_string(),
+                        provider_kind: "fixture".to_string(),
+                        model_id: "model:history".to_string(),
+                        semantic_lineage: None,
+                        output: "history filler".to_string(),
+                    }
+                },
+                provenance: Vec::new(),
+                summary: None,
+            })
+            .collect()
+    }
 
     fn bound_state(definition: &WorkflowDefinition) -> (CaseWorkflowBinding, CaseState) {
         let binding = CaseWorkflowBinding::build(
@@ -1625,8 +1763,9 @@ mod tests {
         )
         .unwrap();
         let (binding, state) = bound_state(&definition);
-        let first = resolve_workflow(&definition, &binding, &state, &[]).unwrap();
-        let second = resolve_workflow(&definition, &binding, &state, &[]).unwrap();
+        let history = history_for_state(&state);
+        let first = resolve_workflow(&definition, &binding, &state, &history).unwrap();
+        let second = resolve_workflow(&definition, &binding, &state, &history).unwrap();
         assert_eq!(first, second);
         assert_eq!(
             first
@@ -1685,7 +1824,8 @@ mod tests {
             evidence_refs: vec!["case:case:test:generation:1".to_string()],
         });
         state.generation = 3;
-        let resolution = resolve_workflow(&definition, &binding, &state, &[]).unwrap();
+        let resolution =
+            resolve_workflow(&definition, &binding, &state, &history_for_state(&state)).unwrap();
         assert_eq!(
             resolution
                 .ready_work
@@ -1779,7 +1919,8 @@ mod tests {
         });
         state.generation = 3;
 
-        let resolution = resolve_workflow(&definition, &binding, &state, &[]).unwrap();
+        let resolution =
+            resolve_workflow(&definition, &binding, &state, &history_for_state(&state)).unwrap();
         assert_eq!(
             resolution
                 .ready_work
@@ -1841,8 +1982,9 @@ mod tests {
             provenance: Vec::new(),
             summary: None,
         };
-        let resolution =
-            resolve_workflow(&definition, &binding, &state, &[provider_claim]).unwrap();
+        let mut history = history_for_state(&state);
+        history[2] = provider_claim;
+        let resolution = resolve_workflow(&definition, &binding, &state, &history).unwrap();
         let node = resolution
             .nodes
             .iter()
@@ -1872,5 +2014,511 @@ mod tests {
             .unwrap_err(),
             "parent traversal is not allowed"
         );
+    }
+
+    #[test]
+    fn h15_predicate_scope_and_node_compatibility_are_mechanical() {
+        let passive_execution = WorkflowNode {
+            node_id: "condition".to_string(),
+            kind: WorkflowNodeKind::Condition {
+                predicate: WorkflowPredicate::ExecutionProviderResult,
+            },
+        };
+        assert_eq!(
+            input(vec![passive_execution], vec![])
+                .validate()
+                .unwrap_err(),
+            "workflow_predicate_node_kind_incompatible"
+        );
+
+        let misplaced_human = WorkflowNode {
+            node_id: "wait".to_string(),
+            kind: WorkflowNodeKind::Wait {
+                predicate: WorkflowPredicate::HumanInputRecorded,
+            },
+        };
+        assert_eq!(
+            input(vec![misplaced_human], vec![]).validate().unwrap_err(),
+            "workflow_human_input_predicate_placement_invalid"
+        );
+
+        let invalid_goal = WorkflowNode {
+            node_id: "goal".to_string(),
+            kind: WorkflowNodeKind::EffectGoal {
+                predicate: WorkflowPredicate::CaseLifecycle {
+                    lifecycle: CaseLifecycle::Open,
+                },
+            },
+        };
+        assert_eq!(
+            input(vec![invalid_goal], vec![]).validate().unwrap_err(),
+            "workflow_predicate_node_kind_incompatible"
+        );
+
+        let valid = input(
+            vec![
+                model("model"),
+                WorkflowNode {
+                    node_id: "condition".to_string(),
+                    kind: WorkflowNodeKind::Condition {
+                        predicate: WorkflowPredicate::CaseLifecycle {
+                            lifecycle: CaseLifecycle::Open,
+                        },
+                    },
+                },
+                WorkflowNode {
+                    node_id: "wait".to_string(),
+                    kind: WorkflowNodeKind::Wait {
+                        predicate: WorkflowPredicate::NodeSatisfied {
+                            node_id: "model".to_string(),
+                        },
+                    },
+                },
+                WorkflowNode {
+                    node_id: "goal".to_string(),
+                    kind: WorkflowNodeKind::EffectGoal {
+                        predicate: WorkflowPredicate::FinalizedEffect {
+                            resource_slot: None,
+                            operation_kind: None,
+                        },
+                    },
+                },
+            ],
+            vec![],
+        );
+        valid.validate().unwrap();
+        assert_eq!(
+            WorkflowPredicate::ExecutionEffectFinalized.scope(),
+            WorkflowPredicateScope::Execution
+        );
+        assert_eq!(
+            WorkflowPredicate::NodeSatisfied {
+                node_id: "model".to_string()
+            }
+            .scope(),
+            WorkflowPredicateScope::Progression
+        );
+    }
+
+    #[test]
+    fn h15_semantic_dependency_cycles_are_rejected_before_persistence() {
+        let waits_for_b = WorkflowNode {
+            node_id: "a".to_string(),
+            kind: WorkflowNodeKind::Condition {
+                predicate: WorkflowPredicate::NodeSatisfied {
+                    node_id: "b".to_string(),
+                },
+            },
+        };
+        let hidden_cycle = input(
+            vec![waits_for_b.clone(), model("b")],
+            vec![WorkflowEdge {
+                from: "a".to_string(),
+                to: "b".to_string(),
+                kind: WorkflowEdgeKind::Always,
+            }],
+        );
+        assert_eq!(
+            hidden_cycle.validate().unwrap_err(),
+            "workflow_cycle_rejected"
+        );
+
+        let mut waits_for_c = waits_for_b;
+        if let WorkflowNodeKind::Condition { predicate } = &mut waits_for_c.kind {
+            *predicate = WorkflowPredicate::NodeSatisfied {
+                node_id: "c".to_string(),
+            };
+        }
+        let longer_cycle = input(
+            vec![waits_for_c, model("b"), model("c")],
+            vec![
+                WorkflowEdge {
+                    from: "a".to_string(),
+                    to: "b".to_string(),
+                    kind: WorkflowEdgeKind::Always,
+                },
+                WorkflowEdge {
+                    from: "b".to_string(),
+                    to: "c".to_string(),
+                    kind: WorkflowEdgeKind::Always,
+                },
+            ],
+        );
+        assert_eq!(
+            longer_cycle.validate().unwrap_err(),
+            "workflow_cycle_rejected"
+        );
+
+        let valid_prior = input(
+            vec![
+                model("a"),
+                WorkflowNode {
+                    node_id: "b".to_string(),
+                    kind: WorkflowNodeKind::Wait {
+                        predicate: WorkflowPredicate::NodeSatisfied {
+                            node_id: "a".to_string(),
+                        },
+                    },
+                },
+            ],
+            vec![],
+        );
+        valid_prior.validate().unwrap();
+        assert_eq!(
+            topological_order(&valid_prior.nodes, &valid_prior.edges).unwrap(),
+            vec!["a", "b"]
+        );
+    }
+
+    #[test]
+    fn h15_history_snapshot_rejects_generation_sequence_and_case_mismatch() {
+        let definition =
+            WorkflowDefinition::build(input(vec![model("a")], vec![]), "principal:p", 1).unwrap();
+        let (binding, state) = bound_state(&definition);
+        assert_eq!(
+            resolve_workflow(&definition, &binding, &state, &[]).unwrap_err(),
+            "workflow_history_generation_mismatch"
+        );
+        let mut history = history_for_state(&state);
+        history[0].case_id = "case:other".to_string();
+        assert_eq!(
+            resolve_workflow(&definition, &binding, &state, &history).unwrap_err(),
+            "workflow_history_case_mismatch"
+        );
+        let mut history = history_for_state(&state);
+        history[0].sequence = 2;
+        assert_eq!(
+            resolve_workflow(&definition, &binding, &state, &history).unwrap_err(),
+            "workflow_history_sequence_invalid"
+        );
+    }
+
+    #[test]
+    fn h15_definition_ordering_contract_is_explicit_and_json_keys_are_normalized() {
+        let first = WorkflowDefinition::build(
+            input(vec![model("a"), model("b")], vec![]),
+            "principal:p",
+            1,
+        )
+        .unwrap();
+        let reordered = WorkflowDefinition::build(
+            input(vec![model("b"), model("a")], vec![]),
+            "principal:p",
+            1,
+        )
+        .unwrap();
+        assert_ne!(
+            first.workflow_definition_id, reordered.workflow_definition_id,
+            "node array order is intentionally identity-bearing in v1"
+        );
+
+        let left = r#"{"schema":"yai.workflow_definition.v1","tenant_id":"tenant:test","workflow_key":"json-order","declared_version":"1","name":"JSON order","description":"","nodes":[{"node_id":"a","kind":"model_work","executor_slot":"model","task":"analyze","completion":{"predicate":"execution_provider_result"}}],"edges":[]}"#;
+        let right = r#"{"edges":[],"nodes":[{"completion":{"predicate":"execution_provider_result"},"task":"analyze","executor_slot":"model","kind":"model_work","node_id":"a"}],"description":"","name":"JSON order","declared_version":"1","workflow_key":"json-order","tenant_id":"tenant:test","schema":"yai.workflow_definition.v1"}"#;
+        let left: WorkflowDefinitionInput = serde_json::from_str(left).unwrap();
+        let right: WorkflowDefinitionInput = serde_json::from_str(right).unwrap();
+        assert_eq!(left, right);
+        let left = WorkflowDefinition::build(left, "principal:p", 1).unwrap();
+        let right = WorkflowDefinition::build(right, "principal:p", 2).unwrap();
+        assert_eq!(left.workflow_definition_id, right.workflow_definition_id);
+    }
+
+    #[test]
+    fn h15_unknown_definition_algebra_and_ambiguous_edges_fail_closed() {
+        let unknown_node = r#"{"schema":"yai.workflow_definition.v1","tenant_id":"tenant:test","workflow_key":"unknown","declared_version":"1","name":"Unknown","nodes":[{"node_id":"a","kind":"agent_node"}],"edges":[]}"#;
+        assert!(serde_json::from_str::<WorkflowDefinitionInput>(unknown_node).is_err());
+        let unknown_predicate = r#"{"schema":"yai.workflow_definition.v1","tenant_id":"tenant:test","workflow_key":"unknown","declared_version":"1","name":"Unknown","nodes":[{"node_id":"a","kind":"wait","predicate":{"predicate":"free_form"}}],"edges":[]}"#;
+        assert!(serde_json::from_str::<WorkflowDefinitionInput>(unknown_predicate).is_err());
+        let unknown_edge = r#"{"schema":"yai.workflow_definition.v1","tenant_id":"tenant:test","workflow_key":"unknown","declared_version":"1","name":"Unknown","nodes":[{"node_id":"a","kind":"condition","predicate":{"predicate":"case_lifecycle","lifecycle":"open"}},{"node_id":"b","kind":"model_work","executor_slot":"model","task":"analyze","completion":{"predicate":"execution_provider_result"}}],"edges":[{"from":"a","to":"b","kind":"sometimes"}]}"#;
+        assert!(serde_json::from_str::<WorkflowDefinitionInput>(unknown_edge).is_err());
+
+        let ambiguous = input(
+            vec![
+                WorkflowNode {
+                    node_id: "condition".to_string(),
+                    kind: WorkflowNodeKind::Condition {
+                        predicate: WorkflowPredicate::CaseLifecycle {
+                            lifecycle: CaseLifecycle::Open,
+                        },
+                    },
+                },
+                model("target"),
+            ],
+            vec![
+                WorkflowEdge {
+                    from: "condition".to_string(),
+                    to: "target".to_string(),
+                    kind: WorkflowEdgeKind::OnTrue,
+                },
+                WorkflowEdge {
+                    from: "condition".to_string(),
+                    to: "target".to_string(),
+                    kind: WorkflowEdgeKind::OnFalse,
+                },
+            ],
+        );
+        assert_eq!(
+            ambiguous.validate().unwrap_err(),
+            "workflow_ambiguous_parallel_edge"
+        );
+    }
+
+    #[test]
+    fn h15_repeated_identical_provider_outputs_remain_causally_distinct() {
+        let definition =
+            WorkflowDefinition::build(input(vec![model("a")], vec![]), "principal:p", 1).unwrap();
+        let (binding, mut state) = bound_state(&definition);
+        let execution_id = "workflow-execution:a".to_string();
+        state.workflow_executions.push(WorkflowNodeExecution {
+            schema: WORKFLOW_NODE_EXECUTION_SCHEMA.to_string(),
+            execution_id: execution_id.clone(),
+            binding_id: binding.binding_id.clone(),
+            workflow_definition_id: definition.workflow_definition_id.clone(),
+            node_id: "a".to_string(),
+            case_id: state.case_id.clone(),
+            started_at_generation: 2,
+            started_at_unix_ms: 2,
+        });
+        state.generation = 3;
+        let mut history = history_for_state(&state);
+        for (index, result_id) in ["provider-result:turn-1", "provider-result:turn-2"]
+            .into_iter()
+            .enumerate()
+        {
+            history[index + 1].causal_refs = vec![execution_id.clone()];
+            history[index + 1].payload = TransitionPayload::ProviderResultRecorded {
+                result_id: result_id.to_string(),
+                invocation_id: format!("provider-invocation:turn-{}", index + 1),
+                provider_id: "provider:fixture".to_string(),
+                provider_kind: "fixture".to_string(),
+                model_id: "model:fixture".to_string(),
+                semantic_lineage: None,
+                output: "identical output".to_string(),
+            };
+        }
+        let evaluation = evaluate_predicate(
+            &definition,
+            &binding,
+            &state,
+            &history,
+            "a",
+            Some(&execution_id),
+            &WorkflowPredicate::ExecutionProviderResult,
+        )
+        .unwrap();
+        assert!(evaluation.value);
+        assert_eq!(evaluation.evidence_refs, vec!["provider-result:turn-1"]);
+
+        let other = evaluate_predicate(
+            &definition,
+            &binding,
+            &state,
+            &history,
+            "a",
+            Some("workflow-execution:other"),
+            &WorkflowPredicate::ExecutionProviderResult,
+        )
+        .unwrap();
+        assert!(!other.value);
+    }
+
+    #[test]
+    fn h15_maximum_definition_scale_is_bounded_and_deterministic() {
+        let nodes = (0..MAX_WORKFLOW_NODES)
+            .map(|index| model(&format!("node-{index:03}")))
+            .collect::<Vec<_>>();
+        let mut edges = Vec::new();
+        'outer: for from in 0..MAX_WORKFLOW_NODES {
+            for to in (from + 1)..MAX_WORKFLOW_NODES {
+                edges.push(WorkflowEdge {
+                    from: format!("node-{from:03}"),
+                    to: format!("node-{to:03}"),
+                    kind: WorkflowEdgeKind::Always,
+                });
+                if edges.len() == MAX_WORKFLOW_EDGES {
+                    break 'outer;
+                }
+            }
+        }
+        let scale_input = input(nodes, edges);
+        let serialized_bytes = serde_json::to_vec(&scale_input).unwrap().len();
+        assert!(serialized_bytes < MAX_WORKFLOW_DEFINITION_BYTES);
+        let definition = WorkflowDefinition::build(scale_input, "principal:p", 1).unwrap();
+        assert_eq!(definition.nodes.len(), 128);
+        assert_eq!(definition.edges.len(), 512);
+        let (binding, state) = bound_state(&definition);
+        let history = history_for_state(&state);
+        let first = resolve_workflow(&definition, &binding, &state, &history).unwrap();
+        let second = resolve_workflow(&definition, &binding, &state, &history).unwrap();
+        assert_eq!(first, second);
+
+        let oversized_nodes = (0..MAX_WORKFLOW_NODES)
+            .map(|index| {
+                let mut node = model(&format!("node-{index:03}"));
+                if let WorkflowNodeKind::ModelWork { task, .. } = &mut node.kind {
+                    *task = "x".repeat(MAX_WORKFLOW_TASK_BYTES);
+                }
+                node
+            })
+            .collect();
+        assert_eq!(
+            input(oversized_nodes, vec![]).validate().unwrap_err(),
+            "workflow_definition_aggregate_bounds_invalid"
+        );
+    }
+
+    fn condition_fact(
+        definition: &WorkflowDefinition,
+        binding: &CaseWorkflowBinding,
+        node_id: &str,
+        result: bool,
+        generation: u64,
+    ) -> WorkflowConditionResolution {
+        let predicate = match &definition.node(node_id).unwrap().kind {
+            WorkflowNodeKind::Condition { predicate } => predicate,
+            _ => panic!("condition fixture node kind"),
+        };
+        WorkflowConditionResolution {
+            schema: WORKFLOW_CONDITION_RESOLUTION_SCHEMA.to_string(),
+            resolution_id: format!("workflow-condition:{node_id}"),
+            binding_id: binding.binding_id.clone(),
+            workflow_definition_id: definition.workflow_definition_id.clone(),
+            node_id: node_id.to_string(),
+            result,
+            predicate_digest: predicate.digest().unwrap(),
+            evaluated_at_generation: generation,
+            evidence_refs: vec![format!("evidence:{node_id}")],
+        }
+    }
+
+    fn satisfaction_fact(
+        definition: &WorkflowDefinition,
+        binding: &CaseWorkflowBinding,
+        node_id: &str,
+        generation: u64,
+    ) -> WorkflowNodeSatisfaction {
+        WorkflowNodeSatisfaction {
+            schema: WORKFLOW_NODE_SATISFACTION_SCHEMA.to_string(),
+            satisfaction_id: format!("workflow-satisfaction:{node_id}"),
+            binding_id: binding.binding_id.clone(),
+            workflow_definition_id: definition.workflow_definition_id.clone(),
+            node_id: node_id.to_string(),
+            execution_id: Some(format!("workflow-execution:{node_id}")),
+            predicate_digest: WorkflowPredicate::ExecutionProviderResult.digest().unwrap(),
+            evaluated_at_generation: generation,
+            evidence_refs: vec![format!("provider-result:{node_id}")],
+        }
+    }
+
+    #[test]
+    fn h15_nested_and_multi_condition_joins_reduce_only_selected_dependencies() {
+        let condition = |node_id: &str| WorkflowNode {
+            node_id: node_id.to_string(),
+            kind: WorkflowNodeKind::Condition {
+                predicate: WorkflowPredicate::CaseLifecycle {
+                    lifecycle: CaseLifecycle::Open,
+                },
+            },
+        };
+        let definition = WorkflowDefinition::build(
+            input(
+                vec![
+                    condition("a-outer"),
+                    condition("b-inner"),
+                    condition("b-skipped-condition"),
+                    model("c-inner-true"),
+                    model("c-inner-false"),
+                    model("c-outer-false"),
+                    model("z-join"),
+                ],
+                vec![
+                    WorkflowEdge {
+                        from: "a-outer".to_string(),
+                        to: "b-inner".to_string(),
+                        kind: WorkflowEdgeKind::OnTrue,
+                    },
+                    WorkflowEdge {
+                        from: "a-outer".to_string(),
+                        to: "b-skipped-condition".to_string(),
+                        kind: WorkflowEdgeKind::OnFalse,
+                    },
+                    WorkflowEdge {
+                        from: "b-skipped-condition".to_string(),
+                        to: "c-outer-false".to_string(),
+                        kind: WorkflowEdgeKind::OnTrue,
+                    },
+                    WorkflowEdge {
+                        from: "b-inner".to_string(),
+                        to: "c-inner-true".to_string(),
+                        kind: WorkflowEdgeKind::OnTrue,
+                    },
+                    WorkflowEdge {
+                        from: "b-inner".to_string(),
+                        to: "c-inner-false".to_string(),
+                        kind: WorkflowEdgeKind::OnFalse,
+                    },
+                    WorkflowEdge {
+                        from: "c-inner-true".to_string(),
+                        to: "z-join".to_string(),
+                        kind: WorkflowEdgeKind::Always,
+                    },
+                    WorkflowEdge {
+                        from: "c-inner-false".to_string(),
+                        to: "z-join".to_string(),
+                        kind: WorkflowEdgeKind::Always,
+                    },
+                    WorkflowEdge {
+                        from: "c-outer-false".to_string(),
+                        to: "z-join".to_string(),
+                        kind: WorkflowEdgeKind::Always,
+                    },
+                ],
+            ),
+            "principal:p",
+            1,
+        )
+        .unwrap();
+        let (binding, mut state) = bound_state(&definition);
+        state
+            .workflow_conditions
+            .push(condition_fact(&definition, &binding, "a-outer", true, 2));
+        state
+            .workflow_conditions
+            .push(condition_fact(&definition, &binding, "b-inner", false, 3));
+        state.workflow_satisfactions.push(satisfaction_fact(
+            &definition,
+            &binding,
+            "c-inner-false",
+            4,
+        ));
+        state.generation = 4;
+        let resolution =
+            resolve_workflow(&definition, &binding, &state, &history_for_state(&state)).unwrap();
+        assert_eq!(
+            resolution
+                .nodes
+                .iter()
+                .find(|node| node.node_id == "b-skipped-condition")
+                .unwrap()
+                .posture,
+            WorkflowNodePosture::Skipped
+        );
+        assert_eq!(
+            resolution
+                .nodes
+                .iter()
+                .find(|node| node.node_id == "c-inner-true")
+                .unwrap()
+                .posture,
+            WorkflowNodePosture::Skipped
+        );
+        assert_eq!(
+            resolution
+                .ready_work
+                .iter()
+                .map(|work| work.node_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["z-join"]
+        );
+        assert!(!resolution.completed);
     }
 }

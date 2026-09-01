@@ -1,8 +1,8 @@
 # Workflow Refoundation Plan
 
 Status: architecture synchronized during Wave 14; the bounded Wave 15 kernel is
-now implemented pending publication closure. H15/W16 items below remain design
-boundaries, not current runtime claims.
+published. H15 is the current adversarial closure. Wave 16 through Wave 18
+remain forward design boundaries, not current runtime claims.
 
 ## Constitutional ownership
 
@@ -76,11 +76,20 @@ cross-Tenant federation is not authorized.
 
 ## Planned delivery sequence
 
-- Wave 15: implemented pending publication — immutable WorkflowDefinition,
+- Wave 15: complete — immutable WorkflowDefinition,
   exact Case binding, deterministic resolver, completion predicates,
   ReadyWorkSet and the six initial node families.
-- H15: determinism, replay, crash recovery and authority isolation.
-- Wave 16: typed PlanPatch, bounded subflows, adaptive evolution and
+- H15: current — predicate type safety, concurrent progression, definition
+  integrity/retention, deterministic replay, crash recovery and authority
+  isolation.
+- Wave 16: CLI Product Refoundation: porcelain/plumbing separation, canonical
+  command registry, parser lanes and output-family alignment.
+- Wave 17: typed PlanPatch, bounded subflows, adaptive evolution and
   same-Tenant handoff/reconciliation.
-- Wave 17: provider governance and optional provider-native qualification,
+- Wave 18: provider governance and optional provider-native qualification,
   without making provider capability the source of Workflow or Case authority.
+
+The Wave 16 reservation does not make CLI parsing or output a Workflow owner.
+The Wave 17 reservation does not authorize mutable definitions, subflows or
+handoffs in H15. The Wave 18 reservation does not authorize provider selection,
+health or failover semantics in the Workflow kernel.

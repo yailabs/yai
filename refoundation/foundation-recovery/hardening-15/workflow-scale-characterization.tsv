@@ -1,0 +1,5 @@
+run	nodes	edges	definition_bytes	case_transitions_or_generation	resolver_or_progression_ms	work_items	provider_invocations	physical_effects	result
+unit maximum DAG	128	512	bounded under 2MiB	synthetic history	bounded deterministic	0	0	0	pass
+product passive chain	128	127	31704	Case generation 130	2798 progression	0	0	0	pass/replay equal
+pre-bound worst payload	128	0	8414131	n/a	n/a	0	0	0	rejected by new 2MiB aggregate bound
+resolver size series	1/16/64/128	bounded DAG variants	within bound	synthetic	no algorithmic cliff observed	0	0	0	no index justified
