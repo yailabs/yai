@@ -1,3 +1,4 @@
 run_id	observed_at	yai_sha	yvex_sha	branch	dirty	endpoint	model	exit	state	finding_ids
 yvex-probe-20260831-01	2026-08-31T20:44:05+02:00	f430624f547d65d090e94a18f92960a651ac5b5e	2df3b84cc840dfca8b38f6fc387a833169b5598e	main	clean	http://127.0.0.1:8001/v1	none	3	blocked_external_dependency	YVEX-W14-001
 yvex-black-box-20260901T104023Z-1605952	2026-09-01T12:40:23+02:00	bdda5a707e1286c4586f3e3ce2b3ef315342c6b0	not_inspected	black_box	not_inspected	http://127.0.0.1:8001/v1	not_exposed	3	blocked_external_dependency	YVEX-H14-001
+yvex-black-box-20260901T110023Z-1655196	2026-09-01T13:00:23+02:00	0b48edee499f7b74b3a529f728af7912a24d0e5a	not_inspected	black_box	not_inspected	http://127.0.0.1:8001/v1	not_exposed	3	blocked_external_dependency	YVEX-H14-001

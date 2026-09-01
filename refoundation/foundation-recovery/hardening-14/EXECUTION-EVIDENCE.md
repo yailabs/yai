@@ -1,8 +1,8 @@
 # H14 execution evidence
 
-These are bounded raw excerpts from actual pre-publication executions on
-2026-09-01. A publication-bound evidence run is appended after the semantic
-commit; outputs are never reconstructed.
+These are bounded raw excerpts from actual executions on 2026-09-01. The final
+blocks are bound to semantic commit
+`0b48edee499f7b74b3a529f728af7912a24d0e5a`; outputs are never reconstructed.
 
 ## H14-E01 — content-valid forgery and history rebuild
 
@@ -199,3 +199,107 @@ Clippy reported only the repository's pre-existing baseline warning families
 (14 engine, 16 CLI after removing H14's new response tuple warning) and exited
 0 under the existing contract. `-D warnings` is not the repository baseline and
 was recorded only as a stricter diagnostic, not misreported as a gate.
+
+## H14-P01 — publication-bound focused authority proof
+
+- evidence_id: H14-P01
+- run_id: cargo-h14-focused-20260901-published
+- execution_order: 9
+- pre-state: clean H14 semantic commit plus the 13 preserved historical entries
+- cwd: `/home/mothx/computer-science/projects/YAI/yai/engine`
+- exact YAI SHA: `0b48edee499f7b74b3a529f728af7912a24d0e5a`
+- exact command: `cargo test -p yai-engine h14_ -- --nocapture`
+- exit: 0
+- invariant: exact semantic commit rejects content-valid forgery and rebuilds exact state
+
+```text
+h14_fence_forgery: canonical_fence=resource-fence:sha256:f5b35e32473c6df829ac7821b forged_fence=resource-fence:sha256:ad1ac67b30b7477be045e8083 result=stale_resource_fence: requested_epoch=1 current_epoch=1 physical_mutations=0
+h14_resource_rebuild: resource=resource-control:sha256:3bb4cc8cc40348e8207ccd84b events=1 epoch=1 active=true case_generation_unchanged=11 invalid_append=resource_history_invalid_acquisition
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 122 filtered out
+```
+
+## H14-P02 — publication-bound contention and uncertainty
+
+- evidence_id: H14-P02
+- run_id: `/tmp/yai-h14-contention.GENZY0`; `/tmp/yai-h14-process-uncertainty.RmXH36`
+- execution_order: 10
+- pre-state: isolated fixture stores and test-owned process
+- cwd: `/home/mothx/computer-science/projects/YAI/yai`
+- exact YAI SHA: `0b48edee499f7b74b3a529f728af7912a24d0e5a`
+- exact command: `make smoke-shared-resource-fencing-hardening`
+- exit: 0
+- invariant: one of eight acquisition winners; one reclaim; no blind process retry
+
+```text
+h14_multiprocess_contention: pass
+test_run_id: /tmp/yai-h14-contention.GENZY0
+contender_processes: 8
+acquisition_winners: 1
+acquisition_blocked: 7
+resource_id: resource-control:sha256:9e3c129cdb46de55427245243
+first_epoch: 1
+same_effect_reclaim_epoch: 2
+next_acquisition_epoch: 3
+terminal_commit_epoch: 4
+post_terminal_acquisition_epoch: 5
+terminal_recovery_posture: already_finalized
+physical_mutations_per_effect: 1
+h14_process_uncertainty: pass
+test_run_id: /tmp/yai-h14-process-uncertainty.RmXH36
+fixture_pid: 1654372
+signal_carrier_exit: 88
+effect_id: effect:4163c7a908b0d91000601abf8d2284cf
+resource_id: resource-control:sha256:15e9dc6cdd13eb8c8f378c9af
+recovery_mode: observation_only
+signal_repeated_during_recovery: false
+effect_posture: indeterminate
+```
+
+## H14-P03 — publication-bound retryable cross-process admission
+
+- evidence_id: H14-P03
+- run_id: `/tmp/yai-wave14-cross-process.LrKi04`
+- execution_order: 11
+- pre-state: one direct Prepared effect and one RuntimeInstance WorkItem share a root
+- cwd: `/home/mothx/computer-science/projects/YAI/yai`
+- exact YAI SHA: `0b48edee499f7b74b3a529f728af7912a24d0e5a`
+- exact command: `tests/characterization/shared-resource-fencing/test_cross_process_fencing.sh`
+- exit: 0
+- invariant: external direct run cannot bypass shared authority; same WorkItem parks and resumes
+
+```text
+cross_process_resource_fencing: pass
+test_run_id: /tmp/yai-wave14-cross-process.LrKi04
+resource_id: resource-control:sha256:778fd6ae487741b7878af1a09
+resource_epoch: 1
+resource_fence_id: resource-fence:sha256:e4c41bf544af3aaa6efdf3ccf
+runtime_work_id: runtime-work:db0152067a521e7d
+runtime_work_initial_state: Blocked
+runtime_work_final_state: Completed
+runtime_block_reason: resource_temporarily_owned
+runtime_retry_trigger: terminal_resource_release
+direct_peer_exit: 2
+physical_mutations_before_reconcile: 0
+physical_mutations_after_reconcile: 1
+```
+
+## H14-Y02 — publication-bound black-box provider block
+
+- evidence_id: H14-Y02
+- run_id: `yvex-black-box-20260901T110023Z-1655196`
+- execution_order: 12
+- pre-state: no provider endpoint/model supplied or reachable
+- cwd: `/home/mothx/computer-science/projects/YAI/yai`
+- exact YAI SHA: `0b48edee499f7b74b3a529f728af7912a24d0e5a`
+- exact command: `tests/integration/yvex/qualification_yvex_provider.sh`
+- exit: 3
+- invariant: black-box-only qualification does not inspect provider plumbing or claim a pass
+
+```text
+qualification_mode: black_box_openai_compatible_provider
+yvex_repository_accessed: false
+yvex_cli_used: false
+provider_endpoint: http://127.0.0.1:8001/v1
+yvex_external_qualification_state: blocked_external_dependency
+reason: no reachable YVEX OpenAI-compatible models endpoint at http://127.0.0.1:8001/v1/models
+```

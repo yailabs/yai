@@ -1,7 +1,8 @@
 # Foundation Hardening 14 report
 
-State: implementation and full pre-publication qualification complete;
-publication-bound evidence/commit/push pending.
+State: semantic implementation and publication-bound qualification complete at
+`0b48edee499f7b74b3a529f728af7912a24d0e5a`; remote push verification is the
+only remaining publication step.
 
 Baseline: `bdda5a707e1286c4586f3e3ce2b3ef315342c6b0`.
 
