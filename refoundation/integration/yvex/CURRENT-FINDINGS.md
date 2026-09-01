@@ -62,3 +62,21 @@ YVEX source/artifact/profile/engine/session identity or CLI operation.
 
 No new YVEX-side finding was established by H15. YVEX source, CLI, profiles,
 artifacts, engines, sessions and administration were not inspected or used.
+
+## W16 — provider-attachment qualification not executed
+
+- observed_at: 2026-09-01T21:15:02+02:00
+- YAI SHA: `301fd86c720e25a9b28df52435ae59525e644eb4`
+- endpoint: not supplied (`YAI_EXTERNAL_PROVIDER_BASE_URL` absent)
+- model: not supplied (`YAI_EXTERNAL_PROVIDER_MODEL` absent)
+- state: `blocked_external_dependency`
+- classification: no new external-provider finding; the black-box qualification
+  precondition was absent
+- reproduction: supply both documented environment variables and run
+  `make qualification-yvex-provider`
+
+No YVEX-side provider finding was established by W16. The separate read-only
+study of the YVEX `models1` CLI at
+`e6f8ac71ac862945b9dd500fb9d6043e21147064` informed only the YAILabs CLI-family
+architecture; it did not inspect or administer a provider deployment and is not
+external-provider qualification evidence.
