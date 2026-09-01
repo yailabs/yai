@@ -47,3 +47,18 @@ No YVEX-side defect was established at this checkpoint.
 
 H14 introduced no new YVEX-side finding. Normal YAI integration requires no
 YVEX source/artifact/profile/engine/session identity or CLI operation.
+
+## H15 — black-box qualification not executed
+
+- observed_at: 2026-09-01T17:08:52+02:00
+- YAI SHA: `184a32987958fa49a9098908721eb54410246a8c`
+- endpoint: not supplied (`YAI_EXTERNAL_PROVIDER_BASE_URL` absent)
+- model: not supplied (`YAI_EXTERNAL_PROVIDER_MODEL` absent)
+- state: `blocked_external_dependency`
+- classification: no new finding; the external qualification precondition was
+  absent
+- reproduction: supply both documented environment variables and run
+  `make qualification-yvex-provider`
+
+No new YVEX-side finding was established by H15. YVEX source, CLI, profiles,
+artifacts, engines, sessions and administration were not inspected or used.

@@ -100,3 +100,38 @@ scale_replay_equal: true
 
 Invariant: canonical proposal survives process death; same WorkItem resumes to
 one governed Effect. Maximum passive progression is bounded and model-free.
+
+## H15-PUBLISHED-20260901-04 — post-semantic-publication verification
+
+- run ID: `h15-published-184a329-20260901T1708+0200`
+- execution order: 4
+- pre-state: semantic commit `184a32987958fa49a9098908721eb54410246a8c`
+  published with `HEAD == origin/master`
+- cwd: `/home/mothx/computer-science/projects/YAI/yai`
+- environment: isolated test homes under `/tmp`; fixture providers only; no
+  external provider variables or secrets
+- commands: `(cd engine/yai-engine && cargo test --lib h15_ -- --nocapture)`;
+  `make smoke-workflow-kernel-hardening`
+- exit: 0; 0
+
+```text
+h15_progression_forgery: duplicate_start=rejected false_satisfaction=rejected fake_evidence=rejected generation_unchanged=true
+h15_definition_integrity: concurrent_exact_publishers=8 stored=1 version_collision_winners=1 missing=fail_closed corrupt=fail_closed exact_restore=equal
+h15_process_same_node_start: processes=8 canonical_starts=1 work_items=1 provider_invocations=0
+h15_same_node_start: contenders=8 canonical_starts=1 work_items=1 unique_work_ids=1 status_writes=0
+h15_human_condition_race: contenders=8 accepted_inputs=1 conflicting_inputs_rejected=7 condition_results=1 review_actions=0
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 138 filtered out
+workflow_kernel_hardening_characterization: pass
+deterministic_provider_invocations: 0
+deterministic_operations: 1
+scale_nodes: 128
+scale_edges: 127
+scale_definition_bytes: 31704
+scale_case_generation: 130
+scale_progression_ms: 2815
+scale_replay_equal: true
+```
+
+Invariant: the exact published semantic tree reproduces progression forgery
+rejection, one-winner multi-process progression, deterministic crash recovery
+and maximum-scale replay.

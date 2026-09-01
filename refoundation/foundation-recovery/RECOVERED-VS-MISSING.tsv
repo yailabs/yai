@@ -1,9 +1,9 @@
 foundation_family	status	current_evidence	remaining_gap	target_recheck
-WorkflowDefinition	refounded_proven + integrity/concurrency-qualified pending publication	immutable Tenant-bound content identity; concurrent exact publication; missing/corrupt fail-closed; exact retention/recovery	lifecycle beyond immutable admission	future only with consumer
-Case workflow binding/progression	refounded_proven + adversarially-qualified pending publication	exact Transition v10 binding; typed predicate placement; semantic-cycle rejection; one-winner progression	software-version compatibility for unresolved future work	future release engineering
+WorkflowDefinition	refounded_proven + integrity/concurrency-qualified	immutable Tenant-bound content identity; concurrent exact publication; missing/corrupt fail-closed; exact retention/recovery	lifecycle beyond immutable admission	future only with consumer
+Case workflow binding/progression	refounded_proven + adversarially-qualified	exact Transition v10 binding; typed predicate placement; semantic-cycle rejection; one-winner progression	software-version compatibility for unresolved future work	future release engineering
 WorkflowRun	derived_no_owner	pure WorkflowResolution from Definition+Case history	materialized cache only if characterized	future performance evidence
-ModelWork	refounded_proven + recovery-qualified pending publication	existing bounded Case runtime; unsatisfying/satisfying result crash recovery; repeated-output causal isolation; budgets preserved	live external YVEX endpoint qualification	when supplied
-DeterministicWork	refounded_proven + recovery-qualified pending publication	canonical-presence proposal seam; exactly-once Operation recovery; zero-provider Decision/Grant/Fence/carrier	additional operation families only with consumers	future
+ModelWork	refounded_proven + recovery-qualified	existing bounded Case runtime; unsatisfying/satisfying result crash recovery; repeated-output causal isolation; budgets preserved	live external YVEX endpoint qualification	when supplied
+DeterministicWork	refounded_proven + recovery-qualified	canonical-presence proposal seam; exactly-once Operation recovery; zero-provider Decision/Grant/Fence/carrier	additional operation families only with consumers	future
 adaptive workflow/handoff	missing	static acyclic W15 substrate	PlanPatch/subflow/same-Tenant Handoff	Wave17
 Transition/ref replay	refounded_proven	yai.transition.v7 + LMDB tests; v1-v6 readable	compaction/migration	Wave18
 CaseState	refounded_proven	yai.case_state.v7 replay including temporal authority/cancel/close refs	archive/retention/reopen only with a recovered consumer	future direct archaeology
