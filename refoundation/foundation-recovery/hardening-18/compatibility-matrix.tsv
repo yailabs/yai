@@ -2,7 +2,7 @@ artifact	current	read compatibility	result
 ProviderTarget	v1	v1	unchanged immutable identity
 ProviderQualification	v2	v1/v2	v1 digest/revision-zero semantics preserved
 ProviderTrust	v1	v1	unchanged
-ProviderHealth	v2	v1/v2	v1 validates; admitted writes upgrade
+ProviderHealth	v2	v1/v2	v1 remains readable but unsealed Healthy degrades to Unknown; Open gets a fresh cooldown anchored at the authority-time floor; admitted writes upgrade to sealed v2
 ProviderCredentialRevision	v1	v1 new shared family	no Case schema effect
 CaseProviderBinding	v1	v1	unchanged
 ProviderRequirement	v1	v1	unchanged

@@ -763,7 +763,7 @@ fn h18_independent_process_trust_probe_and_selection_are_serialized() {
 
 #[test]
 fn h18_health_and_circuit_time_do_not_resurrect_on_rollback() {
-    let (path, store, _owner, target) = setup("h18-health-time");
+    let (path, store, owner, target) = setup("h18-health-time");
     let mut forged = ProviderHealthState::unknown(&target);
     forged.posture = ProviderHealthPosture::Healthy;
     forged.source = "caller_claim".to_string();
@@ -786,7 +786,73 @@ fn h18_health_and_circuit_time_do_not_resurrect_on_rollback() {
         state.circuit_at(110_000),
         crate::provider_governance::ProviderCircuitPosture::HalfOpen
     );
-    println!("h18_health_rollback: observed=100000 floor=200000 rollback_now=110000 healthy_resurrected=false cooldown_rewound=false forged_healthy=fail_closed");
+
+    let mut legacy_v1 = ProviderHealthState::unknown(&target);
+    legacy_v1.schema = crate::provider_governance::PROVIDER_HEALTH_SCHEMA_V1.to_string();
+    legacy_v1.integrity_digest.clear();
+    legacy_v1.posture = ProviderHealthPosture::Healthy;
+    legacy_v1.observed_at_unix_ms = authority_wall_time_unix_ms();
+    legacy_v1.source = "legacy_probe".to_string();
+    let mut txn = store.env.begin_rw_txn().unwrap();
+    put_json_txn(
+        &mut txn,
+        store.provider_runtime_health,
+        &target.target_id,
+        &legacy_v1,
+        WriteFlags::empty(),
+        "h18 legacy v1 health",
+    )
+    .unwrap();
+    txn.commit().unwrap();
+    let (_, _, _, upgraded) = store
+        .provider_posture_authorized(&owner, &target.target_id)
+        .unwrap();
+    assert_eq!(
+        upgraded.schema,
+        crate::provider_governance::PROVIDER_HEALTH_SCHEMA
+    );
+    assert_eq!(upgraded.posture, ProviderHealthPosture::Unknown);
+    assert_eq!(upgraded.source, "legacy_v1_unsealed_observation");
+    upgraded.validate(&target).unwrap();
+
+    legacy_v1.circuit = crate::provider_governance::ProviderCircuitPosture::Open;
+    legacy_v1.circuit_opened_at_unix_ms = Some(u64::MAX);
+    let mut txn = store.env.begin_rw_txn().unwrap();
+    put_json_txn(
+        &mut txn,
+        store.provider_runtime_health,
+        &target.target_id,
+        &legacy_v1,
+        WriteFlags::empty(),
+        "h18 legacy v1 open circuit",
+    )
+    .unwrap();
+    txn.commit().unwrap();
+    let (_, _, _, upgraded_open) = store
+        .provider_posture_authorized(&owner, &target.target_id)
+        .unwrap();
+    assert_eq!(
+        upgraded_open.circuit,
+        crate::provider_governance::ProviderCircuitPosture::Open
+    );
+    assert_eq!(
+        upgraded_open.circuit_opened_at_unix_ms,
+        Some(upgraded_open.effective_time_floor_unix_ms)
+    );
+    assert_eq!(
+        upgraded_open.circuit_at(upgraded_open.effective_time_floor_unix_ms),
+        crate::provider_governance::ProviderCircuitPosture::Open
+    );
+    assert_eq!(
+        upgraded_open.circuit_at(
+            upgraded_open
+                .effective_time_floor_unix_ms
+                .saturating_add(PROVIDER_CIRCUIT_COOLDOWN_MS)
+        ),
+        crate::provider_governance::ProviderCircuitPosture::HalfOpen
+    );
+    upgraded_open.validate(&target).unwrap();
+    println!("h18_health_rollback: observed=100000 floor=200000 rollback_now=110000 healthy_resurrected=false cooldown_rewound=false forged_healthy=fail_closed legacy_v1_healthy_promoted=false legacy_v1_open_retained=true legacy_v1_unsealed_time_trusted=false");
     drop(store);
     fs::remove_dir_all(path).unwrap();
 }

@@ -81,6 +81,31 @@ semantic_continuity:unsafe_continuation_retry_refused_and_restart ok
 
 Classification: superseded test contract, not a regression to unsafe retry.
 
+### F-H18-06 — published v1 health compatibility trusted unsealed posture
+
+Command:
+`git show af98a2f:engine/yai-engine/src/store/lmdb.rs | sed -n '13195,13225p'`
+
+```text
+        state.validate(target)?;
+        state.effective_time_floor_unix_ms = state
+            .effective_time_floor_unix_ms
+            .max(self.authority_time_floor_txn(txn)?);
+        Ok(state)
+```
+
+The published H18 reader deliberately accepted historical health v1, whose
+schema predates the v2 integrity seal, but then returned its posture and
+circuit timestamp as current operational input. A persisted v1 `Healthy` could
+therefore bypass the intended v2 downgrade boundary; an unsealed circuit time
+could also shorten or indefinitely extend cooldown.
+
+The correction creates sealed v2 `Unknown` on every v1 read. It retains only a
+legacy `Open` posture conservatively and replaces the unsealed timestamp with
+the store-owned authority-time floor. H18-RUN-009 proves both properties.
+Classification: `YAI_DEFECT`, found in post-publication review and corrected
+before any subsequent wave.
+
 No secret leak, duplicate result, unsafe failover, trust fork, forged
 capability, stale-health resurrection, DNS locality escape, TLS downgrade or
 extension-to-authority promotion remained after correction.

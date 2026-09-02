@@ -13206,9 +13206,30 @@ impl LmdbRecordStore {
         )?
         .unwrap_or_else(|| ProviderHealthState::unknown(target));
         state.validate(target)?;
-        state.effective_time_floor_unix_ms = state
-            .effective_time_floor_unix_ms
-            .max(self.authority_time_floor_txn(txn)?);
+        let authority_floor = self.authority_time_floor_txn(txn)?;
+        if state.schema == crate::provider_governance::PROVIDER_HEALTH_SCHEMA_V1 {
+            // Historical v1 health had no integrity seal. Keep it readable for
+            // upgrade, but never let an unsealed Healthy claim outrank current
+            // observations. An open circuit is retained conservatively until
+            // an admitted probe or invocation writes sealed v2 state.
+            let mut upgraded = ProviderHealthState::unknown(target);
+            upgraded.effective_time_floor_unix_ms = authority_floor;
+            upgraded.source = "legacy_v1_unsealed_observation".to_string();
+            if state.circuit == crate::provider_governance::ProviderCircuitPosture::Open {
+                upgraded.circuit = crate::provider_governance::ProviderCircuitPosture::Open;
+                // The unsealed legacy timestamp cannot shorten or indefinitely
+                // extend cooldown. Start one full conservative cooldown at the
+                // store-owned authority floor.
+                upgraded.circuit_opened_at_unix_ms = Some(authority_floor);
+            }
+            upgraded.reseal()?;
+            return Ok(upgraded);
+        }
+        let effective_floor = state.effective_time_floor_unix_ms.max(authority_floor);
+        if effective_floor != state.effective_time_floor_unix_ms {
+            state.effective_time_floor_unix_ms = effective_floor;
+            state.reseal()?;
+        }
         Ok(state)
     }
 

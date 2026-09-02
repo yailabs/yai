@@ -1,7 +1,9 @@
 # Foundation Hardening 18 report
 
-State: implementation, full repository qualification and characterization are
-complete; publication remains pending at the time this report is committed.
+State: H18 was published in semantic commit `731a229c` and evidence commit
+`af98a2f0`. A post-publication legacy-health correction and its full repository
+qualification are complete; publication of that isolated follow-up remains
+pending at the time this report revision is committed.
 
 Authored W18 final baseline: `4b41b81440becace100748b229a0e84bc63c2c7c`.
 Actual clean published H18 baseline:
@@ -13,6 +15,15 @@ runtime semantic change.
 
 Intended commit: `harden: close provider trust health and failover boundaries`.
 This report does not predict the SHA of the commit containing itself.
+
+Post-publication follow-up baseline:
+`af98a2f0d2451ec928da75fab6a07a69cf59ebb9`. Direct review found that the v1
+compatibility reader validated the historical unsealed shape but then returned
+its `Healthy` posture and circuit timestamp as current operational input. The
+follow-up degrades v1 posture to sealed v2 `Unknown`; it retains only the
+conservative fact that a circuit was `Open`, with a new cooldown anchored at
+the store-owned time floor. Intended follow-up commit:
+`fix: fail closed on legacy provider health`.
 
 ## Archaeology
 
@@ -69,6 +80,10 @@ new revision. Changing the reference itself still creates a new ProviderTarget.
 
 `yai.provider_health.v2` binds an integrity digest, effective-time floor and
 exact probe owner. A direct forged current posture therefore fails on read.
+Historical unsealed v1 health remains readable but cannot promote a target to
+Healthy: it projects to sealed v2 Unknown, while an existing Open circuit is
+retained with a fresh cooldown anchored at the store-owned authority-time floor;
+its unsealed timestamp can neither shorten nor indefinitely extend cooldown.
 Healthy freshness and circuit cooldown use the monotonic persisted floor, so
 wall-clock rollback cannot resurrect stale health or move a circuit backward.
 Observation time is store-derived. Half-open admission is one cross-process
