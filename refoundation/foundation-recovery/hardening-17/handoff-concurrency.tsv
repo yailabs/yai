@@ -1,0 +1,5 @@
+operation	processes	canonical_facts	observer_or_conflict_behavior	generation_delta
+Result mixed outcomes	32	1	16 identical observers same ID;16 conflicts refused	1
+Reconcile same disposition	32	1	32 idempotent observers same ID	1
+Result/Reconcile race	2	0-or-pending then retry; or exact result+reconcile	never future truth	one per committed fact
+Accept same offer	W17 8 + H17 lifecycle race	1	losers observe/refuse	1

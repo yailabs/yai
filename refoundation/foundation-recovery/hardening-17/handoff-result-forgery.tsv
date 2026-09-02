@@ -1,0 +1,9 @@
+attack	validation	result
+wrong handoff ID	exact target acceptance and source offer	refused
+wrong acceptance	result binds content-bound acceptance ID	refused
+wrong target/source/Tenant	all IDs rederived from accepted offer	refused
+no acceptance	acceptance required	refused
+declined/already terminal	protocol terminality	refused
+source cancelled before acceptance	acceptance cannot exist	refused
+tampered outcome with old result ID	result content identity recomputed	integrity refused
+target cancelled before result	target lifecycle rechecked in result txn	refused

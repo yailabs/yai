@@ -306,17 +306,20 @@ The current dependency order is:
    predicate type safety, definition integrity and authority-isolation closure.
 6. Wave 16: complete — CLI Product Refoundation: porcelain/plumbing separation,
    canonical command registry, parser lanes and output-family alignment.
-7. Wave 17: current — adaptive workflow evolution, typed same-Tenant multi-Case
-   handoff, PlanPatch, bounded exact Subflow and reconciliation.
-8. Wave 18 — provider governance, qualification/trust/capability selection,
+7. Wave 17: complete — adaptive workflow evolution, typed same-Tenant
+   multi-Case handoff, PlanPatch, bounded exact Subflow and reconciliation.
+8. H17: current — amendment lineage/concurrency, effective-topology replay and
+   upgrade closure, nested recovery, Handoff forgery/race resistance and
+   derived multi-Case graph rebuild.
+9. Wave 18 — provider governance, qualification/trust/capability selection,
    health, and an optional YVEX-native extension lane.
 
 Numbering after Wave 18 is provisional and must be re-evaluated from executable
 evidence. Workflow design is recorded in
 `refoundation/foundation-recovery/WORKFLOW-REFOUNDATION-PLAN.md`; Wave 15 owns
 the first executable kernel, H15 its adversarial closure, Wave 16 the product
-CLI boundary and Wave 17 the current adaptive composition boundary. Wave 18 is
-reserved only.
+CLI boundary, Wave 17 adaptive composition and H17 its current adversarial
+closure. Wave 18 is reserved only.
 
 The sequence may change only when repository evidence establishes a stronger
 dependency. Every wave is incomplete until its isolated commit is pushed and
@@ -414,11 +417,14 @@ Wave-13/H13 runtime recovery. It may add one cohesive resource-control owner
 and one narrow second carrier, but no Workflow, provider-governance plane,
 distributed lease or YVEX-specific authority path.
 
-## Active boundary — adaptive Workflow composition
+## Active boundary — adaptive Workflow semantic closure
 
-Wave 17 adds typed bounded PlanPatch candidates, authenticated Case-local
+Wave 17 added typed bounded PlanPatch candidates, authenticated Case-local
 amendment adoption, deterministic EffectiveWorkflowTopology derivation, exact
-same-Case Subflow expansion and same-Tenant Case Handoff. It keeps immutable
-Definitions, existing policy/Decision/Grant/ResourceFence authority and the
-existing RuntimeInstance. It adds no Agent, Orchestrator, WorkflowRun,
-multi-Case Process owner or provider governance.
+same-Case Subflow expansion and same-Tenant Case Handoff. H17 closes long
+lineage, concurrent mutation, nested recovery, cross-Case forgery,
+cancellation/close ordering, concurrent cycle admission and software-upgrade
+digest drift. Immutable Definitions and the existing
+policy/Decision/Grant/ResourceFence/RuntimeInstance boundaries remain intact.
+No Agent, Orchestrator, WorkflowRun, multi-Case Process owner or provider
+governance is added.

@@ -4,7 +4,7 @@ Case workflow binding/progression	refounded_proven + adversarially-qualified	exa
 WorkflowRun	derived_no_owner	pure WorkflowResolution from Definition+Case history	materialized cache only if characterized	future performance evidence
 ModelWork	refounded_proven + recovery-qualified	existing bounded Case runtime; unsatisfying/satisfying result crash recovery; repeated-output causal isolation; budgets preserved	live external YVEX endpoint qualification	when supplied
 DeterministicWork	refounded_proven + recovery-qualified	canonical-presence proposal seam; exactly-once Operation recovery; zero-provider Decision/Grant/Fence/carrier	additional operation families only with consumers	future
-adaptive workflow/handoff	refounded_proven candidate	bounded typed PlanPatch; Case-local amendments; derived EffectiveTopology; same-Case Subflow; same-Tenant Case Handoff	H17 adversarial extremes	H17
+adaptive workflow/handoff	refounded_proven + adversarially-qualified	bounded typed PlanPatch with exact causal origin; Case-local 32-link one-winner amendment chain; derived digest-guarded EffectiveTopology; depth-4 qualified Subflow recovery; target-local evidence-bound same-Tenant Handoff; 64-Case derived graph rebuild	provider governance remains separate	Wave18
 Transition/ref replay	refounded_proven	yai.transition.v7 + LMDB tests; v1-v6 readable	compaction/migration	Wave18
 CaseState	refounded_proven	yai.case_state.v7 replay including temporal authority/cancel/close refs	archive/retention/reopen only with a recovered consumer	future direct archaeology
 Case identity/lifecycle	refounded_proven	open + durable cancellation + terminal non-destructive close	archive/retention/reopen	future direct archaeology

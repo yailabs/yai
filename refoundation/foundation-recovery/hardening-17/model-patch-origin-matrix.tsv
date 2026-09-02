@@ -1,0 +1,9 @@
+origin_attack	mechanical_requirement	result
+another Case/Tenant	ProviderResult and invocation in exact Case history	refused
+another Workflow/node	exact qualified Workflow execution causal ref	refused
+ordinary text output	ModelWork output_contract=plan_patch	refused
+result without matching invocation	matching invocation ID and semantic lineage	refused
+ambiguous/missing execution causal ref	exactly one execution referenced by invocation and result	refused
+prior completed execution	execution not already satisfied before first proposal	refused
+identical bytes from distinct executions	origin includes result+execution	causally distinct candidates
+stale candidate	base topology digest equals current at adoption	remains history; adoption refused

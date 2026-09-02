@@ -1,0 +1,6 @@
+concept	independent_lifecycle_found	canonical_location	verdict	reason
+Amendment	no	Case Transition history	Case-canonical	cannot exist outside exact binding/topology lineage
+EffectiveTopology	no	pure derivation	derived_no_owner	exact Definitions+binding+amendments fully reconstruct it
+Subflow	no	qualified nodes inside same Case	same-Case composition	no child Case/resource/runtime lifecycle
+Handoff	no independent global lifecycle	source and target Case Transitions	split Case protocol	every protocol fact is local and exact-cross-referenced
+MultiCaseProcess	no	derived active/terminal Handoff graph	derived_no_owner	64-Case graph rebuilt with no missing fact

@@ -1,0 +1,9 @@
+artifact	current_schema	compatibility_result
+WorkflowDefinition	yai.workflow_definition.v2	v1 and v2 exact readers retained
+CaseWorkflowBinding	yai.case_workflow_binding.v2	v1 static bindings remain operable
+PlanPatch	yai.workflow_plan_patch.v1	unknown v99 fails closed
+Amendment	yai.workflow_amendment.v1	existing bytes gain integrity revalidation; no meaning change
+EffectiveTopology	yai.effective_workflow_topology.v1	digest replay guard; no DB/cache authority
+WorkflowResolution	yai.workflow_resolution.v2	v1 static behavior retained through existing reader path
+Handoff family	v1	content IDs revalidated; no version bump
+Transition/CaseState	v11	v1-v10 readers preserved; no H17 bump

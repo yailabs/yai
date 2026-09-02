@@ -1,0 +1,6 @@
+scenario	processes	winner	losers	generation_delta	lineage
+same revision different valid patches	32	1	31 workflow_patch_stale	1	one revision/one digest
+exact proposal repeat	sequential retry	original transition	0 new facts	0	one candidate identity
+exact adoption repeat	sequential retry	already-adopted posture	0 new facts	0	no second amendment
+adjacent revision	A commits N+1; C derives N+2; stale B returns	A then C	B stale	one per valid adoption	linear; no fork
+repeated adjacent revisions	8 consecutive winner/late pairs	8 winners	8 workflow_patch_stale	8 valid adoptions only	final revision 8; no forks

@@ -1,0 +1,11 @@
+attack	position	expected	observed
+missing link	middle	fail first broken revision	fail closed
+reordered links	middle	parent/revision refusal	fail closed
+parent ID	middle	integrity/lineage refusal	fail closed
+revision	middle	integrity/sequence refusal	fail closed
+previous digest	middle	digest refusal	fail closed
+resulting digest	middle	integrity/materializer-drift refusal	fail closed
+patch ID/digest	middle	content identity refusal	fail closed
+binding	middle	binding/integrity refusal	fail closed
+operations	middle	amendment ID mismatch	fail closed
+amendment ID	middle	content identity refusal	fail closed

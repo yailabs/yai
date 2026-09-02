@@ -1,0 +1,7 @@
+input_or_environment	identity_requirement	observed
+live CaseState + exact Definitions	committed revision/digest	equal
+fresh CaseState replay + exact Definitions	same amendment bytes/order	equal
+runtime state absent	no runtime dependency	equal
+derived graph rebuilt	no graph authority	equal
+32 amendment prefixes	each committed resulting digest	all equal
+depth-4 exact child restore	exact child ID/digest	prior resolution equal

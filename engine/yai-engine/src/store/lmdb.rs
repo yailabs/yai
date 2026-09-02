@@ -4462,7 +4462,10 @@ impl LmdbRecordStore {
             .cancellation
             .as_ref()
             .ok_or_else(|| "case_close_requires_cancellation".to_string())?;
-        let blockers = closure_blockers(&state);
+        let mut blockers = closure_blockers(&state);
+        blockers.extend(self.handoff_close_blockers_txn(&txn, &state)?);
+        blockers.sort();
+        blockers.dedup();
         if !blockers.is_empty() {
             return Err(format!("case_close_blocked: {}", blockers.join(",")));
         }
@@ -5709,16 +5712,60 @@ impl LmdbRecordStore {
                 )
             })
             .ok_or_else(|| "workflow_plan_patch_provider_result_missing".to_string())?;
-        let execution = state
+        let (invocation_id, result_lineage) = match &result_transition.payload {
+            TransitionPayload::ProviderResultRecorded {
+                invocation_id,
+                semantic_lineage,
+                ..
+            } => (invocation_id, semantic_lineage),
+            _ => unreachable!(),
+        };
+        let invocation_transition = history
+            .iter()
+            .find(|transition| {
+                matches!(
+                    &transition.payload,
+                    TransitionPayload::ProviderInvocationStarted {
+                        invocation_id: candidate,
+                        ..
+                    } if candidate == invocation_id
+                )
+            })
+            .ok_or_else(|| "workflow_plan_patch_provider_invocation_missing".to_string())?;
+        let invocation_lineage = match &invocation_transition.payload {
+            TransitionPayload::ProviderInvocationStarted {
+                semantic_lineage, ..
+            } => semantic_lineage,
+            _ => unreachable!(),
+        };
+        if result_lineage != invocation_lineage {
+            return Err("workflow_plan_patch_provider_lineage_mismatch".to_string());
+        }
+        let eligible_executions = state
             .workflow_executions
             .iter()
-            .find(|execution| {
-                result_transition
+            .filter(|execution| {
+                invocation_transition
                     .causal_refs
                     .iter()
                     .any(|value| value == &execution.execution_id)
+                    && result_transition
+                        .causal_refs
+                        .iter()
+                        .any(|value| value == &execution.execution_id)
             })
-            .ok_or_else(|| "workflow_plan_patch_provider_execution_missing".to_string())?;
+            .collect::<Vec<_>>();
+        if eligible_executions.len() != 1 {
+            return Err("workflow_plan_patch_provider_execution_ambiguous".to_string());
+        }
+        let execution = eligible_executions[0];
+        if !result_transition
+            .causal_refs
+            .iter()
+            .any(|value| value == invocation_id)
+        {
+            return Err("workflow_plan_patch_provider_invocation_mismatch".to_string());
+        }
         if let Some(existing) = state.workflow_plan_patches.iter().find(|patch| {
             matches!(
                 &patch.origin,
@@ -5740,6 +5787,11 @@ impl LmdbRecordStore {
                 })
                 .ok_or_else(|| "workflow_plan_patch_transition_missing".to_string())?;
             return Ok(CanonicalCommit { transition, state });
+        }
+        if state.workflow_satisfactions.iter().any(|satisfaction| {
+            satisfaction.execution_id.as_deref() == Some(execution.execution_id.as_str())
+        }) {
+            return Err("workflow_plan_patch_provider_execution_completed".to_string());
         }
         let node = topology
             .node(&execution.node_id)
@@ -5787,6 +5839,28 @@ impl LmdbRecordStore {
         origin: WorkflowPlanPatchOrigin,
         now_unix_ms: u64,
     ) -> Result<CanonicalCommit, String> {
+        input.validate()?;
+        if let Some(existing) = state.workflow_plan_patches.iter().find(|patch| {
+            patch.base_effective_topology_digest == input.base_effective_topology_digest
+                && patch.operations == input.operations
+                && patch.origin == origin
+        }) {
+            let transition = self
+                .list_case_transitions_txn(txn, &state.case_id)?
+                .into_iter()
+                .find(|transition| {
+                    matches!(
+                        &transition.payload,
+                        TransitionPayload::WorkflowPlanPatchProposed { patch }
+                            if patch.patch_id == existing.patch_id
+                    )
+                })
+                .ok_or_else(|| "workflow_plan_patch_transition_missing".to_string())?;
+            return Ok(CanonicalCommit {
+                transition,
+                state: state.clone(),
+            });
+        }
         if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
             return Err("workflow_patch_case_terminal".to_string());
         }
@@ -5923,6 +5997,18 @@ impl LmdbRecordStore {
             .ok_or_else(|| "workflow_patch_requires_tenant_case".to_string())?;
         let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
         context.require_owner()?;
+        let patch = state
+            .workflow_plan_patches
+            .iter()
+            .find(|patch| patch.patch_id == patch_id)
+            .ok_or_else(|| "workflow_plan_patch_not_found".to_string())?;
+        if state
+            .workflow_amendments
+            .iter()
+            .any(|amendment| amendment.patch_id == patch_id)
+        {
+            return Err("workflow_plan_patch_already_adopted".to_string());
+        }
         if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
             return Err("workflow_patch_case_terminal".to_string());
         }
@@ -5956,24 +6042,12 @@ impl LmdbRecordStore {
         if resolution.active_count != 0 {
             return Err("workflow_amendment_requires_quiescent_boundary".to_string());
         }
-        let patch = state
-            .workflow_plan_patches
-            .iter()
-            .find(|patch| patch.patch_id == patch_id)
-            .ok_or_else(|| "workflow_plan_patch_not_found".to_string())?;
         definitions = self.workflow_definition_graph_for_operations_txn(
             &txn,
             &definition,
             &state.workflow_amendments,
             &patch.operations,
         )?;
-        if state
-            .workflow_amendments
-            .iter()
-            .any(|amendment| amendment.patch_id == patch_id)
-        {
-            return Err("workflow_plan_patch_already_adopted".to_string());
-        }
         workflow_patch_frozen_history_barrier(&state, patch)?;
         let preview = preview_workflow_patch(
             &definition,
@@ -6264,6 +6338,43 @@ impl LmdbRecordStore {
             .iter()
             .find(|acceptance| acceptance.handoff_id == handoff_id)
             .ok_or_else(|| "handoff_acceptance_not_found".to_string())?;
+        result.validate()?;
+        let mut evidence_refs = evidence_refs;
+        evidence_refs.sort();
+        evidence_refs.dedup();
+        if let Some(existing) = target
+            .handoff_results
+            .iter()
+            .find(|candidate| candidate.handoff_id == handoff_id)
+        {
+            if existing.outcome == outcome
+                && existing.result == result
+                && existing.evidence_refs == evidence_refs
+                && existing.recorded_by_principal_id == context.principal_id()
+                && existing.recorded_by_participant_id == participant_id
+            {
+                let transition = self
+                    .list_case_transitions_txn(&txn, target_case_id)?
+                    .into_iter()
+                    .find(|transition| {
+                        matches!(
+                            &transition.payload,
+                            TransitionPayload::HandoffResultRecorded { result }
+                                if result.result_id == existing.result_id
+                        )
+                    })
+                    .ok_or_else(|| "handoff_result_transition_missing".to_string())?;
+                return Ok(CanonicalCommit {
+                    transition,
+                    state: target,
+                });
+            }
+            return Err("handoff_result_already_terminal".to_string());
+        }
+        if target.lifecycle == CaseLifecycle::Closed || target.cancellation.is_some() {
+            return Err("handoff_result_target_case_terminal".to_string());
+        }
+        self.validate_handoff_evidence_refs_txn(&txn, target_case_id, &evidence_refs)?;
         let result = HandoffResult::build(
             acceptance,
             outcome,
@@ -7009,11 +7120,11 @@ impl LmdbRecordStore {
         if resolution.active_count != 0 {
             return Ok(None);
         }
-        let node = topology
+        let effective = topology
             .node(&ready.node_id)
-            .map(|value| &value.node)
             .ok_or_else(|| "workflow_node_not_found".to_string())?;
-        let execution_id = workflow_execution_identity(binding, &node.node_id);
+        let node = &effective.node;
+        let execution_id = workflow_execution_identity(binding, &ready.node_id);
         let all = list_runtime_work_items_txn(&txn, self.runtime_work_items)?;
         if let Some(existing) = all.iter().find(|item| {
             item.workflow
@@ -7128,7 +7239,7 @@ impl LmdbRecordStore {
             execution_id: execution_id.clone(),
             binding_id: binding.binding_id.clone(),
             workflow_definition_id: definition.workflow_definition_id.clone(),
-            node_id: node.node_id.clone(),
+            node_id: ready.node_id.clone(),
             case_id: case_id.to_string(),
             started_at_generation: state.generation + 1,
             started_at_unix_ms: now_unix_ms,
@@ -7147,7 +7258,7 @@ impl LmdbRecordStore {
                 execution: execution.clone(),
             },
         );
-        pending.causal_refs = vec![binding.binding_id.clone(), node.node_id.clone()];
+        pending.causal_refs = vec![binding.binding_id.clone(), ready.node_id.clone()];
 
         let request_id = format!("workflow-request:{}", execution.execution_id);
         let work_id = format!(
@@ -7160,7 +7271,7 @@ impl LmdbRecordStore {
         let workflow = RuntimeWorkflowContext {
             workflow_binding_id: binding.binding_id.clone(),
             workflow_definition_id: definition.workflow_definition_id.clone(),
-            workflow_node_id: node.node_id.clone(),
+            workflow_node_id: ready.node_id.clone(),
             workflow_execution_id: execution.execution_id.clone(),
             workflow_node_kind: node_kind,
         };
@@ -7325,7 +7436,7 @@ impl LmdbRecordStore {
                 proposal_id: format!("workflow-proposal:{proposal_digest}"),
                 binding_id: binding.binding_id.clone(),
                 workflow_definition_id: definition.workflow_definition_id.clone(),
-                node_id: node.node_id.clone(),
+                node_id: workflow.workflow_node_id.clone(),
                 execution_id: workflow.workflow_execution_id.clone(),
                 participant_id: item.participant_id.clone(),
                 operation_kind: operation.operation_kind(),
@@ -7930,6 +8041,8 @@ impl LmdbRecordStore {
                     decline.declined_at_unix_ms,
                 )?;
                 if source.tenant_id.as_deref() != Some(tenant_id)
+                    || source.cancellation.is_some()
+                    || source.lifecycle == CaseLifecycle::Closed
                     || offer.target_case_id != state.case_id
                     || decline.declined_by_principal_id != context.principal_id()
                     || decline.declined_at_generation != state.generation + 1
@@ -7968,7 +8081,14 @@ impl LmdbRecordStore {
                     state.generation + 1,
                     result.recorded_at_unix_ms,
                 )?;
-                if acceptance.handoff_id != result.handoff_id
+                self.validate_handoff_evidence_refs_txn(
+                    txn,
+                    &state.case_id,
+                    &result.evidence_refs,
+                )?;
+                if state.lifecycle == CaseLifecycle::Closed
+                    || state.cancellation.is_some()
+                    || acceptance.handoff_id != result.handoff_id
                     || result.target_case_id != state.case_id
                     || result.recorded_by_principal_id != context.principal_id()
                     || result.recorded_at_generation != state.generation + 1
@@ -8064,6 +8184,69 @@ impl LmdbRecordStore {
         Err("handoff_target_disposition_missing".to_string())
     }
 
+    fn validate_handoff_evidence_refs_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        target_case_id: &str,
+        evidence_refs: &[String],
+    ) -> Result<(), String> {
+        if evidence_refs.is_empty() {
+            return Ok(());
+        }
+        let history = self.list_case_transitions_txn(txn, target_case_id)?;
+        for reference in evidence_refs {
+            if !history
+                .iter()
+                .any(|transition| transition_contains_canonical_fact_ref(transition, reference))
+            {
+                return Err(format!(
+                    "handoff_result_evidence_not_target_local: {reference}"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn handoff_close_blockers_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        source: &CaseState,
+    ) -> Result<Vec<String>, String> {
+        let reconciled = source
+            .handoff_reconciliations
+            .iter()
+            .map(|value| value.handoff_id.as_str())
+            .collect::<BTreeSet<_>>();
+        let mut blockers = Vec::new();
+        for offer in &source.handoff_offers {
+            if reconciled.contains(offer.handoff_id.as_str()) {
+                continue;
+            }
+            let target = self
+                .get_case_state_txn(txn, &offer.target_case_id)?
+                .ok_or_else(|| "handoff_target_case_missing".to_string())?;
+            let accepted = target
+                .handoff_acceptances
+                .iter()
+                .any(|value| value.handoff_id == offer.handoff_id);
+            let disposition = target
+                .handoff_results
+                .iter()
+                .any(|value| value.handoff_id == offer.handoff_id)
+                || target
+                    .handoff_declines
+                    .iter()
+                    .any(|value| value.handoff_id == offer.handoff_id)
+                || (accepted && (target.cancellation.is_some() || target.closure.is_some()));
+            if disposition {
+                blockers.push(format!("handoff_settlement_required:{}", offer.handoff_id));
+            } else if accepted {
+                blockers.push(format!("accepted_handoff_unresolved:{}", offer.handoff_id));
+            }
+        }
+        Ok(blockers)
+    }
+
     fn handoff_would_create_cycle_txn<T: Transaction>(
         &self,
         txn: &T,
@@ -8073,18 +8256,42 @@ impl LmdbRecordStore {
         let mut cursor = txn
             .open_ro_cursor(self.case_state)
             .map_err(|error| format!("failed to inspect Handoff wait graph: {error}"))?;
-        let mut adjacency = BTreeMap::<String, BTreeSet<String>>::new();
+        let mut cases = Vec::new();
         for (_, value) in cursor.iter() {
             let json = std::str::from_utf8(value)
                 .map_err(|error| format!("invalid CaseState utf8: {error}"))?;
-            let case = CaseState::from_json(json)?;
-            let reconciled = case
-                .handoff_reconciliations
-                .iter()
-                .map(|value| value.handoff_id.as_str())
-                .collect::<BTreeSet<_>>();
+            cases.push(CaseState::from_json(json)?);
+        }
+        drop(cursor);
+        let mut terminal = BTreeSet::new();
+        for case in &cases {
+            terminal.extend(
+                case.handoff_reconciliations
+                    .iter()
+                    .map(|value| value.handoff_id.clone()),
+            );
+            terminal.extend(
+                case.handoff_declines
+                    .iter()
+                    .map(|value| value.handoff_id.clone()),
+            );
+            terminal.extend(
+                case.handoff_results
+                    .iter()
+                    .map(|value| value.handoff_id.clone()),
+            );
+            if case.cancellation.is_some() || case.closure.is_some() {
+                terminal.extend(
+                    case.handoff_acceptances
+                        .iter()
+                        .map(|value| value.handoff_id.clone()),
+                );
+            }
+        }
+        let mut adjacency = BTreeMap::<String, BTreeSet<String>>::new();
+        for case in &cases {
             for offer in &case.handoff_offers {
-                if !reconciled.contains(offer.handoff_id.as_str()) {
+                if !terminal.contains(&offer.handoff_id) {
                     adjacency
                         .entry(offer.source_case_id.clone())
                         .or_default()
@@ -8092,7 +8299,6 @@ impl LmdbRecordStore {
                 }
             }
         }
-        drop(cursor);
         let mut pending = vec![target_case_id.to_string()];
         let mut seen = BTreeSet::new();
         while let Some(case_id) = pending.pop() {
@@ -8745,7 +8951,9 @@ impl LmdbRecordStore {
                     state.generation + 1,
                     decline.declined_at_unix_ms,
                 )?;
-                if offer.target_case_id != state.case_id
+                if source.cancellation.is_some()
+                    || source.lifecycle == CaseLifecycle::Closed
+                    || offer.target_case_id != state.case_id
                     || decline.declined_by_principal_id != context.principal_id()
                     || decline.declined_at_generation != state.generation + 1
                     || !linked
@@ -8775,7 +8983,14 @@ impl LmdbRecordStore {
                     state.generation + 1,
                     result.recorded_at_unix_ms,
                 )?;
-                if acceptance.handoff_id != result.handoff_id
+                self.validate_handoff_evidence_refs_txn(
+                    txn,
+                    &state.case_id,
+                    &result.evidence_refs,
+                )?;
+                if state.lifecycle == CaseLifecycle::Closed
+                    || state.cancellation.is_some()
+                    || acceptance.handoff_id != result.handoff_id
                     || result.target_case_id != state.case_id
                     || result.recorded_by_principal_id != context.principal_id()
                     || result.recorded_at_generation != state.generation + 1
@@ -11971,14 +12186,21 @@ fn derive_graph_relations_from_transition(
             );
         }
         TransitionPayload::HandoffReconciled { reconciliation } => {
+            let disposition_kind = if reconciliation.target_result_id.is_some() {
+                "handoff_result"
+            } else if reconciliation.target_decline_id.is_some() {
+                "handoff_decline"
+            } else {
+                "transition"
+            };
             add_transition_relation(
                 &mut relations,
                 skipped,
                 transition,
-                "handoff_reconciliation_uses_result",
+                "handoff_reconciliation_uses_disposition",
                 "handoff_reconciliation",
                 &reconciliation.reconciliation_id,
-                "handoff_result",
+                disposition_kind,
                 reconciliation.target_disposition_id(),
             );
         }
@@ -13430,6 +13652,112 @@ fn closure_blockers(state: &CaseState) -> Vec<String> {
     }
     blockers.sort();
     blockers
+}
+
+/// Returns whether a reference names canonical truth committed in this exact
+/// Transition. Handoff evidence uses this closed projection so a syntactically
+/// plausible identifier from another Case can never become target-local proof.
+fn transition_contains_canonical_fact_ref(transition: &Transition, reference: &str) -> bool {
+    if transition.transition_id == reference {
+        return true;
+    }
+    match &transition.payload {
+        TransitionPayload::ParticipantBound { participant_id, .. }
+        | TransitionPayload::ParticipantAdmitted { participant_id, .. }
+        | TransitionPayload::ProviderAttached { participant_id, .. } => participant_id == reference,
+        TransitionPayload::ParticipantPrincipalLinked { link } => link.link_id == reference,
+        TransitionPayload::ProviderInvocationStarted { invocation_id, .. } => {
+            invocation_id == reference
+        }
+        TransitionPayload::ProviderResultRecorded {
+            result_id,
+            invocation_id,
+            ..
+        } => result_id == reference || invocation_id == reference,
+        TransitionPayload::InteractionTurnRecorded {
+            turn_id,
+            invocation_id,
+            result_id,
+            ..
+        } => turn_id == reference || invocation_id == reference || result_id == reference,
+        TransitionPayload::ModelInterpretationRecorded {
+            interpretation_id,
+            result_id,
+            ..
+        } => interpretation_id == reference || result_id == reference,
+        TransitionPayload::ResourceAttached { attachment } => attachment.attachment_id == reference,
+        TransitionPayload::OperationNormalizationFailed {
+            provider_result_id, ..
+        } => provider_result_id == reference,
+        TransitionPayload::OperationRecorded { operation } => operation.operation_id == reference,
+        TransitionPayload::DecisionRecorded { decision } => {
+            decision.decision_id == reference
+                || decision
+                    .decision_basis
+                    .as_ref()
+                    .is_some_and(|basis| basis.basis_id == reference)
+        }
+        TransitionPayload::ExecutionGrantIssued { grant } => grant.grant_id == reference,
+        TransitionPayload::EffectPrepared { prepared } => prepared.effect_id == reference,
+        TransitionPayload::ProcessEffectPrepared { prepared } => prepared.effect_id == reference,
+        TransitionPayload::EffectFinalized {
+            effect_id, receipt, ..
+        } => effect_id == reference || receipt.receipt_id == reference,
+        TransitionPayload::ProcessEffectFinalized {
+            effect_id, receipt, ..
+        } => effect_id == reference || receipt.receipt_id == reference,
+        TransitionPayload::EffectIndeterminate { effect_id, .. }
+        | TransitionPayload::ProcessEffectIndeterminate { effect_id, .. } => effect_id == reference,
+        TransitionPayload::EffectReconciled {
+            effect_id, receipt, ..
+        } => {
+            effect_id == reference
+                || receipt
+                    .as_ref()
+                    .is_some_and(|value| value.receipt_id == reference)
+        }
+        TransitionPayload::ReviewRequested { review } => review.review_id == reference,
+        TransitionPayload::ReviewActionRecorded { action } => action.action_id == reference,
+        TransitionPayload::ReviewInvalidated { invalidation } => {
+            invalidation.review_id == reference
+        }
+        TransitionPayload::ExecutionGrantInvalidated { invalidation } => {
+            invalidation.grant_id == reference
+        }
+        TransitionPayload::CasePolicyBound { binding }
+        | TransitionPayload::CasePolicyReplaced { binding, .. } => binding.binding_id == reference,
+        TransitionPayload::CasePolicyUnbound { binding_id, .. } => binding_id == reference,
+        TransitionPayload::CaseWorkflowBound { binding } => binding.binding_id == reference,
+        TransitionPayload::WorkflowNodeExecutionStarted { execution } => {
+            execution.execution_id == reference
+        }
+        TransitionPayload::WorkflowNodeSatisfied { satisfaction } => {
+            satisfaction.satisfaction_id == reference
+        }
+        TransitionPayload::WorkflowConditionResolved { resolution } => {
+            resolution.resolution_id == reference
+        }
+        TransitionPayload::WorkflowHumanInputRecorded { input } => input.input_id == reference,
+        TransitionPayload::WorkflowDeterministicProposalRecorded { proposal } => {
+            proposal.proposal_id == reference
+        }
+        TransitionPayload::WorkflowPlanPatchProposed { patch } => patch.patch_id == reference,
+        TransitionPayload::WorkflowAmendmentAdopted { amendment } => {
+            amendment.amendment_id == reference
+        }
+        TransitionPayload::HandoffOffered { offer } => offer.handoff_id == reference,
+        TransitionPayload::HandoffAccepted { acceptance } => acceptance.acceptance_id == reference,
+        TransitionPayload::HandoffDeclined { decline } => decline.decline_id == reference,
+        TransitionPayload::HandoffResultRecorded { result } => result.result_id == reference,
+        TransitionPayload::HandoffReconciled { reconciliation } => {
+            reconciliation.reconciliation_id == reference
+        }
+        TransitionPayload::CaseOpened { .. }
+        | TransitionPayload::TenantCaseOpened { .. }
+        | TransitionPayload::CaseCancellationRequested { .. }
+        | TransitionPayload::CaseClosed { .. }
+        | TransitionPayload::ReviewResolved { .. } => false,
+    }
 }
 
 impl ResourceFenceAuthority for LmdbRecordStore {
@@ -21887,6 +22215,31 @@ mod tests {
             acceptances.iter().filter(|result| result.is_ok()).count(),
             1
         );
+        assert_eq!(
+            store
+                .record_case_handoff_result(
+                    &owner,
+                    "case:handoff-b",
+                    &offer.handoff_id,
+                    HandoffOutcome::Succeeded,
+                    HandoffData {
+                        kind: crate::handoff::HandoffDataKind::Json,
+                        value: "{\"finding\":\"bounded\"}".to_string(),
+                    },
+                    vec!["transition:nonexistent-target-evidence".to_string()],
+                    "participant:model",
+                    1_700_102,
+                )
+                .unwrap_err(),
+            "handoff_result_evidence_not_target_local: transition:nonexistent-target-evidence"
+        );
+        let acceptance_id = store
+            .get_case_state("case:handoff-b")
+            .unwrap()
+            .unwrap()
+            .handoff_acceptances[0]
+            .acceptance_id
+            .clone();
         store
             .record_case_handoff_result(
                 &owner,
@@ -21897,7 +22250,7 @@ mod tests {
                     kind: crate::handoff::HandoffDataKind::Json,
                     value: "{\"finding\":\"bounded\"}".to_string(),
                 },
-                vec![],
+                vec![acceptance_id],
                 "participant:model",
                 1_700_102,
             )
@@ -22075,6 +22428,55 @@ mod tests {
             .workflow_plan_patches
             .is_empty());
         let state = store.get_case_state(case_id).unwrap().unwrap();
+        let forged_invocation_id = "provider-invocation:w17-model-forged-origin";
+        let forged_lineage = test_provider_lineage(state.generation);
+        commit_typed(
+            &store,
+            "transition:w17:model-forged-origin-invocation",
+            case_id,
+            state.generation,
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: forged_invocation_id.to_string(),
+                participant_id: "participant:model".to_string(),
+                provider_id: "provider:fixture".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:fixture".to_string(),
+                semantic_lineage: Some(forged_lineage.clone()),
+            },
+            None,
+            vec![],
+        );
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        let forged_result_id = "provider-result:w17-model-forged-origin";
+        commit_typed(
+            &store,
+            "transition:w17:model-forged-origin-result",
+            case_id,
+            state.generation,
+            TransitionPayload::ProviderResultRecorded {
+                result_id: forged_result_id.to_string(),
+                invocation_id: forged_invocation_id.to_string(),
+                provider_id: "provider:fixture".to_string(),
+                provider_kind: "openai_compatible".to_string(),
+                model_id: "model:fixture".to_string(),
+                semantic_lineage: Some(forged_lineage),
+                output: "{}".to_string(),
+            },
+            None,
+            vec![forged_invocation_id.to_string(), execution_id.clone()],
+        );
+        assert_eq!(
+            store
+                .propose_workflow_plan_patch_from_provider_result(
+                    &owner,
+                    case_id,
+                    forged_result_id,
+                    1_700_201,
+                )
+                .unwrap_err(),
+            "workflow_plan_patch_provider_execution_ambiguous"
+        );
+        let state = store.get_case_state(case_id).unwrap().unwrap();
         let invocation_id = "provider-invocation:w17-model";
         let lineage = test_provider_lineage(state.generation);
         commit_typed(
@@ -22168,7 +22570,7 @@ mod tests {
         assert_eq!(final_state.workflow_plan_patches.len(), 1);
         assert_eq!(final_state.workflow_amendments.len(), 1);
         println!(
-            "w17_model_patch: provider_results=2 malformed_candidates=0 valid_candidates=1 duplicate_candidates=0 auto_adoptions=0 owner_adoptions=1 patch_id={}",
+            "w17_model_patch: provider_results=3 malformed_candidates=0 forged_origin_candidates=0 valid_candidates=1 duplicate_candidates=0 auto_adoptions=0 owner_adoptions=1 patch_id={}",
             patch.patch_id
         );
         drop(store);
@@ -22709,6 +23111,23 @@ mod tests {
                 "target cancelled after acceptance",
             )
             .unwrap();
+        let post_cancel_result = store.record_case_handoff_result(
+            &owner,
+            "case:handoff-after-target",
+            &accepted_offer.handoff_id,
+            HandoffOutcome::Succeeded,
+            HandoffData {
+                kind: crate::handoff::HandoffDataKind::Text,
+                value: "forged success after cancellation".to_string(),
+            },
+            vec![],
+            "participant:model",
+            1_700_803,
+        );
+        assert_eq!(
+            post_cancel_result.unwrap_err(),
+            "handoff_result_target_case_terminal"
+        );
         let reconciliation = store
             .reconcile_case_handoff(
                 &owner,
@@ -22866,4 +23285,7 @@ mod tests {
             fs::remove_dir_all(root).unwrap();
         }
     }
+
+    #[path = "hardening17_tests.rs"]
+    mod hardening17_tests;
 }

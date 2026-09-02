@@ -1419,7 +1419,7 @@ impl WorkflowAmendment {
             "adopted_at_unix_ms": adopted_at_unix_ms,
         });
         let digest = digest_serializable(&material)?;
-        Ok(Self {
+        let value = Self {
             schema: WORKFLOW_AMENDMENT_SCHEMA.to_string(),
             amendment_id: format!("workflow-amendment:{}", digest_component(&digest)),
             patch_id: patch.patch_id.clone(),
@@ -1433,7 +1433,65 @@ impl WorkflowAmendment {
             adopted_by_principal_id: adopted_by_principal_id.to_string(),
             adopted_at_generation,
             adopted_at_unix_ms,
-        })
+        };
+        value.validate_against_patch(patch)?;
+        Ok(value)
+    }
+
+    pub fn validate_integrity(&self) -> Result<(), String> {
+        WorkflowPlanPatchInput {
+            schema: WORKFLOW_PLAN_PATCH_SCHEMA.to_string(),
+            base_effective_topology_digest: self.previous_topology_digest.clone(),
+            operations: self.operations.clone(),
+        }
+        .validate()?;
+        if self.schema != WORKFLOW_AMENDMENT_SCHEMA
+            || !self.amendment_id.starts_with("workflow-amendment:")
+            || !self.patch_id.starts_with("workflow-plan-patch:")
+            || !self.patch_integrity_digest.starts_with("sha256:")
+            || self.binding_id.is_empty()
+            || self.revision == 0
+            || self.previous_topology_digest == self.resulting_topology_digest
+            || !self.resulting_topology_digest.starts_with("sha256:")
+            || !self.adopted_by_principal_id.starts_with("principal:")
+            || self.parent_amendment_id.is_some() != (self.revision > 1)
+        {
+            return Err("workflow_amendment_contract_invalid".to_string());
+        }
+        let material = serde_json::json!({
+            "schema": self.schema,
+            "patch_id": self.patch_id,
+            "patch_integrity_digest": self.patch_integrity_digest,
+            "binding_id": self.binding_id,
+            "parent_amendment_id": self.parent_amendment_id,
+            "revision": self.revision,
+            "previous_topology_digest": self.previous_topology_digest,
+            "resulting_topology_digest": self.resulting_topology_digest,
+            "operations": self.operations,
+            "adopted_by_principal_id": self.adopted_by_principal_id,
+            "adopted_at_generation": self.adopted_at_generation,
+            "adopted_at_unix_ms": self.adopted_at_unix_ms,
+        });
+        let digest = digest_serializable(&material)?;
+        if self.amendment_id != format!("workflow-amendment:{}", digest_component(&digest)) {
+            return Err("workflow_amendment_integrity_mismatch".to_string());
+        }
+        Ok(())
+    }
+
+    pub fn validate_against_patch(&self, patch: &WorkflowPlanPatch) -> Result<(), String> {
+        self.validate_integrity()?;
+        if self.patch_id != patch.patch_id
+            || self.patch_integrity_digest != patch.integrity_digest
+            || self.binding_id != patch.binding_id
+            || self.parent_amendment_id != patch.parent_amendment_id
+            || self.revision != patch.base_revision + 1
+            || self.previous_topology_digest != patch.base_effective_topology_digest
+            || self.operations != patch.operations
+        {
+            return Err("workflow_amendment_patch_mismatch".to_string());
+        }
+        Ok(())
     }
 }
 
@@ -1504,6 +1562,7 @@ pub fn derive_effective_workflow_topology(
         definitions,
     )?;
     for (index, amendment) in amendments.iter().enumerate() {
+        amendment.validate_integrity()?;
         let expected_revision = index as u32 + 1;
         let expected_parent = if index == 0 {
             None

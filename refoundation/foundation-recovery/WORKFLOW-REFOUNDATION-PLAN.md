@@ -107,12 +107,15 @@ authority owner.
   isolation.
 - Wave 16: complete — CLI Product Refoundation: porcelain/plumbing separation,
   canonical command registry, parser lanes and output-family alignment.
-- Wave 17: current — typed PlanPatch, Case-local immutable amendment lineage,
+- Wave 17: complete — typed PlanPatch, Case-local immutable amendment lineage,
   bounded exact Subflow composition and same-Tenant handoff/reconciliation.
+- H17: current — long-lineage/concurrency, nested crash recovery, Handoff
+  forgery/cancellation/cycle closure, derived-graph rebuild and topology
+  software-upgrade integrity.
 - Wave 18: provider governance and optional provider-native qualification,
   without making provider capability the source of Workflow or Case authority.
 
-Wave 17 does not make the CLI, PlanPatch, EffectiveTopology, Subflow or a
+Wave 17 and H17 do not make the CLI, PlanPatch, EffectiveTopology, Subflow or a
 multi-Case process into new authority owners. The Wave 18 reservation does not
 authorize provider selection, health or failover semantics in this Workflow
 kernel.

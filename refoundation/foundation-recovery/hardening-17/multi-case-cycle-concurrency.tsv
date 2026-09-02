@@ -1,0 +1,5 @@
+scenario	writers	maximum_commits	observed	final_active_graph
+A→B and B→A	2	1	1 commit/1 refusal	acyclic
+A→B;B→C;C→A	3	2	2 commits/1 refusal	acyclic
+terminal A→B then B→A	sequential	2 total, first inactive	reverse admitted after decline	acyclic active graph
+64-Case chain closing edge	64 offers	63 active	closing cycle refused	acyclic

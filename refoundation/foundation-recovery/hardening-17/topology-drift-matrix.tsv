@@ -1,0 +1,7 @@
+simulated_drift	bound_identity	result
+operation application differs	amendment resulting digest	fail closed
+disable semantics differs	amendment resulting digest	fail closed
+child expansion differs	effective topology digest	fail closed
+qualified path normalization differs	node identity + topology digest	fail closed
+edge construction/order differs	topology digest	fail closed
+unknown plan_patch.v99	schema discriminator	fail closed

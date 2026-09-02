@@ -1,0 +1,5 @@
+derived_structure	authoritative_input	rebuild_result	authority_verdict
+graph relations	Case Transitions	254 relations; second rebuild identical	derived
+active Handoff wait edges	CaseState replay from Transitions	63 exact edges	derived
+source/target/terminality	offer+target disposition+source reconciliation	no duplicates	derived
+process/choreography projection	exact cross refs across independently replayed Cases	fully reconstructible	derived_no_owner

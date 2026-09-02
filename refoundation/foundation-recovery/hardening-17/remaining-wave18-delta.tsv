@@ -1,0 +1,8 @@
+future_contract	H17_non_claim	Wave18_work
+provider qualification	generic fixture/external harness only	canonical qualification lifecycle if owner test proves it
+capabilities	no catalog	bounded provider/model capability truth
+trust	no provider trust authority	trust posture and governance
+health	no shared health owner	observed health/circuit semantics
+selection	Case-attached exact provider only	policy-compatible selection/routing
+failover	remote ambiguity explicitly retained	justified failover/idempotency contract
+YVEX native extension	generic OpenAI-compatible boundary only	optional non-required evidence/telemetry plane

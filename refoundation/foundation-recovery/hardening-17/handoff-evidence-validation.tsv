@@ -1,0 +1,8 @@
+evidence_ref	admission	meaning
+exact target transition ID	admitted	target-local canonical provenance
+exact typed fact ID in target transition	admitted	target-local canonical provenance
+nonexistent syntactically valid ID	refused	not canonical truth
+source Case fact	refused	wrong Case
+third Case/another Tenant fact	refused	wrong Case/security domain
+zero refs with no evidence requirement	admitted	succeeded remains target contract report only
+target Effect Indeterminate/Denied plus succeeded report	does not promote	no source EffectReceipt/Grant/Decision

@@ -1,0 +1,6 @@
+attack	depth	fallback_forbidden	observed
+missing child C	4	latest/key lookup	fail closed
+child digest mismatch	4	same-key newer version	fail closed
+child Tenant mismatch	any	cross-Tenant substitution	fail closed
+swapped instance target	repeated child	path-local inference	fail closed
+exact original bytes restored	4	repair mutation	exact prior resolution restored

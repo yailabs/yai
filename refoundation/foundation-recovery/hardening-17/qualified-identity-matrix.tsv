@@ -1,0 +1,6 @@
+attack_or_case	identity_rule	result
+depth-4 child	root/s1/s2/s3/s4/node	one exact execution
+same child twice	root/left/x distinct from root/right/x	isolated progression/checkpoint/evidence
+real child ID wrong path	qualified effective node must exist	refused
+separator in Definition node ID	Definition IDs cannot contain slash	workflow_node_id_invalid
+wrong child Definition at instance	exact ID+digest reference	fail closed

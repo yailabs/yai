@@ -20,7 +20,7 @@ run_engine_proof \
   'w17_planpatch: proposals=2 adopted=1 stale=1 revision=1'
 run_engine_proof \
   store::lmdb::tests::wave17_model_planpatch_is_strict_candidate_and_cannot_self_adopt \
-  'malformed_candidates=0 valid_candidates=1 duplicate_candidates=0 auto_adoptions=0 owner_adoptions=1'
+  'malformed_candidates=0 forged_origin_candidates=0 valid_candidates=1 duplicate_candidates=0 auto_adoptions=0 owner_adoptions=1'
 run_engine_proof \
   store::lmdb::tests::wave17_eight_way_amendment_adoption_has_one_winner \
   'w17_patch_race: contenders=8 winners=1 stale=7 amendments=1 revision=1'

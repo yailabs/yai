@@ -1155,7 +1155,6 @@ impl CaseState {
                     | TransitionPayload::EffectFinalized { .. }
                     | TransitionPayload::EffectIndeterminate { .. }
                     | TransitionPayload::EffectReconciled { .. }
-                    | TransitionPayload::HandoffResultRecorded { .. }
                     | TransitionPayload::HandoffReconciled { .. }
                     | TransitionPayload::CaseClosed { .. }
             )
@@ -2240,9 +2239,8 @@ impl CaseState {
                 else {
                     return Err("workflow_amendment_patch_missing".to_string());
                 };
-                if amendment.schema != crate::workflow::WORKFLOW_AMENDMENT_SCHEMA
-                    || amendment.binding_id != binding.binding_id
-                    || amendment.patch_integrity_digest != patch.integrity_digest
+                amendment.validate_against_patch(patch)?;
+                if amendment.binding_id != binding.binding_id
                     || amendment.adopted_at_generation != transition.sequence
                     || amendment.revision != next.workflow_amendments.len() as u32 + 1
                     || amendment.parent_amendment_id.as_deref()

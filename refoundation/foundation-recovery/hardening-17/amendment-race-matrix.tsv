@@ -1,0 +1,8 @@
+race	first_order	second_order	invariant
+adoption vs passive	passive freezes truth; incompatible patch refuses	adoption commits; passive resolves new topology	one LMDB serial order
+adoption vs HumanInput	input freezes node; mutation refuses	adoption commits; input targets exact resulting node	no reinterpretation
+executed HumanInput race	HumanInput or adoption commits first	the incompatible writer refuses	exactly one canonical input/amendment fact; zero write-skew
+executed passive Wait race	Wait satisfaction or adoption commits first	the incompatible writer observes exact new truth	exactly one canonical satisfaction/amendment fact; zero write-skew
+adoption vs cancel	cancel then refusal	amendment then durable cancellation	no half adoption
+adoption vs close	close then refusal	adoption then close only if closure contract permits	closed Case never amended
+stale N vs N+2	N+1/N+2 chain commits	old N-based candidate refuses	no fork or auto-rebase

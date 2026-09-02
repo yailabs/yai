@@ -1,0 +1,6 @@
+race	ordering_A	ordering_B	convergence
+source cancel / target accept	cancel commits; accept refused	accept commits; later cancel preserves acceptance	serializable shared-store truth
+target cancel / result	cancel commits; success refused	result commits; later cancel cannot erase result	first terminal ordering preserved
+source cancel / reconcile	cancel then audit reconcile permitted	reconcile then cancel	cancellation always blocks progression
+source close / unsettled handoff	close blocked	settle reconciliation then close allowed	no erased cross-Case truth
+target close / result	close-first result refused	result-first remains historical; close prerequisites apply	no manufactured success after close

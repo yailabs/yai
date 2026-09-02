@@ -1,0 +1,11 @@
+current	write	result
+offered	accept	accepted
+offered	decline	declined terminal
+declined	accept/result	refused
+accepted	result	one terminal target report
+accepted	target cancel/close	terminal target disposition; source may reconcile
+result	second identical result	idempotent observer
+result	conflicting result	refused
+offer/accept without disposition	reconcile	pending/refused
+result/decline/target-terminal	reconcile	one source-local terminal fact
+reconciled	reconcile again	idempotent; no generation churn

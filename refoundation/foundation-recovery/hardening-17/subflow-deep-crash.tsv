@@ -1,0 +1,6 @@
+boundary	qualified_node	canonical_counts_after_reopen	result
+execution start	root/s1/s2/s3/s4/deep-model	executions=1	exact identity retained
+ProviderResult satisfying	root/s1/s2/s3/s4/deep-model	invocations=1;results=1;completed duplicates=0	replay equal
+deterministic proposal	root/s1/s2/s3/s4/deep-deterministic	proposals=1	idempotent after reopen
+Operation	root/s1/s2/s3/s4/deep-deterministic	operations=1	no duplicate
+review/resource posture	qualified child WorkItem	existing H13/H14 state machine	worker released; no root collision

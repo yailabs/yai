@@ -1,0 +1,5 @@
+revision	parent	previous_digest	result_digest	nodes	edges	result
+0	-	-	base	1	0	base Definition
+1	base	exact revision 0	exact committed digest	2	0	replayed equal
+2..31	immediately prior amendment	exact prior digest	exact committed digest	3..32	0	every prefix replayed equal
+32	revision 31 amendment	exact revision 31	exact committed sha256:78413b6bb75dea1bdf7dd1a86b9d9bea4274e480b07a43ea5e24a11c83f103f3	33	0	replayed equal; 29097 bytes; 66 transitions; rebuild 17827 us; resolution 20506 us; limit reached

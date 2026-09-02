@@ -245,6 +245,20 @@ impl HandoffAcceptance {
         {
             return Err("handoff_acceptance_contract_invalid".to_string());
         }
+        let material = serde_json::json!({
+            "schema": self.schema,
+            "handoff_id": self.handoff_id,
+            "source_case_id": self.source_case_id,
+            "target_case_id": self.target_case_id,
+            "accepted_by_principal_id": self.accepted_by_principal_id,
+            "accepted_by_participant_id": self.accepted_by_participant_id,
+            "accepted_at_generation": self.accepted_at_generation,
+            "accepted_at_unix_ms": self.accepted_at_unix_ms,
+        });
+        let digest = digest_json(&material)?;
+        if self.acceptance_id != format!("handoff-acceptance:{}", digest_component(&digest)) {
+            return Err("handoff_acceptance_integrity_mismatch".to_string());
+        }
         Ok(())
     }
 }
@@ -323,6 +337,21 @@ impl HandoffDecline {
             || !bounded_identifier(&self.declined_by_participant_id)
         {
             return Err("handoff_decline_contract_invalid".to_string());
+        }
+        let material = serde_json::json!({
+            "schema": self.schema,
+            "handoff_id": self.handoff_id,
+            "source_case_id": self.source_case_id,
+            "target_case_id": self.target_case_id,
+            "declined_by_principal_id": self.declined_by_principal_id,
+            "declined_by_participant_id": self.declined_by_participant_id,
+            "reason": self.reason,
+            "declined_at_generation": self.declined_at_generation,
+            "declined_at_unix_ms": self.declined_at_unix_ms,
+        });
+        let digest = digest_json(&material)?;
+        if self.decline_id != format!("handoff-decline:{}", digest_component(&digest)) {
+            return Err("handoff_decline_integrity_mismatch".to_string());
         }
         Ok(())
     }
@@ -427,6 +456,24 @@ impl HandoffResult {
         refs.dedup();
         if refs != self.evidence_refs {
             return Err("handoff_result_evidence_not_canonical".to_string());
+        }
+        let material = serde_json::json!({
+            "schema": self.schema,
+            "handoff_id": self.handoff_id,
+            "acceptance_id": self.acceptance_id,
+            "source_case_id": self.source_case_id,
+            "target_case_id": self.target_case_id,
+            "outcome": self.outcome,
+            "result": self.result,
+            "evidence_refs": self.evidence_refs,
+            "recorded_by_principal_id": self.recorded_by_principal_id,
+            "recorded_by_participant_id": self.recorded_by_participant_id,
+            "recorded_at_generation": self.recorded_at_generation,
+            "recorded_at_unix_ms": self.recorded_at_unix_ms,
+        });
+        let digest = digest_json(&material)?;
+        if self.result_id != format!("handoff-result:{}", digest_component(&digest)) {
+            return Err("handoff_result_integrity_mismatch".to_string());
         }
         Ok(())
     }
@@ -643,6 +690,25 @@ impl HandoffReconciliation {
         {
             return Err("handoff_reconciliation_disposition_invalid".to_string());
         }
+        let material = serde_json::json!({
+            "schema": self.schema,
+            "handoff_id": self.handoff_id,
+            "target_acceptance_id": self.target_acceptance_id,
+            "target_result_id": self.target_result_id,
+            "target_decline_id": self.target_decline_id,
+            "target_terminal_transition_id": self.target_terminal_transition_id,
+            "outcome": self.outcome,
+            "result": self.result,
+            "result_digest": self.result_digest,
+            "reconciled_by_principal_id": self.reconciled_by_principal_id,
+            "reconciled_at_generation": self.reconciled_at_generation,
+            "reconciled_at_unix_ms": self.reconciled_at_unix_ms,
+        });
+        let digest = digest_json(&material)?;
+        if self.reconciliation_id != format!("handoff-reconciliation:{}", digest_component(&digest))
+        {
+            return Err("handoff_reconciliation_integrity_mismatch".to_string());
+        }
         Ok(())
     }
 
@@ -709,5 +775,119 @@ mod tests {
             10,
         )
         .is_err());
+    }
+
+    #[test]
+    fn hardening17_payload_role_evidence_and_json_bounds_are_exact() {
+        HandoffData {
+            kind: HandoffDataKind::Text,
+            value: "x".repeat(MAX_HANDOFF_DATA_BYTES),
+        }
+        .validate()
+        .unwrap();
+        assert_eq!(
+            HandoffData {
+                kind: HandoffDataKind::Text,
+                value: "x".repeat(MAX_HANDOFF_DATA_BYTES + 1),
+            }
+            .validate()
+            .unwrap_err(),
+            "handoff_data_bounds_invalid"
+        );
+        assert!(HandoffData {
+            kind: HandoffDataKind::Json,
+            value: "{\"key\":1,\"key\":2}".to_string(),
+        }
+        .validate()
+        .unwrap_err()
+        .contains("duplicate"));
+
+        let roles = (0..MAX_HANDOFF_ROLE_REQUIREMENTS)
+            .map(|index| format!("role-{index}"))
+            .collect::<Vec<_>>();
+        let offer = HandoffOffer::build(
+            "tenant:h17-bounds",
+            "case:h17-bounds-source",
+            "case:h17-bounds-target",
+            "binding:h17-bounds",
+            "handoff-node",
+            HandoffData {
+                kind: HandoffDataKind::Text,
+                value: "bounded request".to_string(),
+            },
+            roles.clone(),
+            "principal:h17-bounds",
+            1,
+            1,
+        )
+        .unwrap();
+        let mut too_many_roles = roles;
+        too_many_roles.push("role-over".to_string());
+        assert_eq!(
+            HandoffOffer::build(
+                "tenant:h17-bounds",
+                "case:h17-bounds-source",
+                "case:h17-bounds-target",
+                "binding:h17-bounds",
+                "handoff-node",
+                HandoffData {
+                    kind: HandoffDataKind::Text,
+                    value: "bounded request".to_string(),
+                },
+                too_many_roles,
+                "principal:h17-bounds",
+                1,
+                1,
+            )
+            .unwrap_err(),
+            "handoff_offer_contract_invalid"
+        );
+        let acceptance = HandoffAcceptance::build(
+            &offer,
+            "principal:h17-bounds",
+            "participant:h17-bounds",
+            2,
+            2,
+        )
+        .unwrap();
+        let evidence = (0..MAX_HANDOFF_EVIDENCE_REFS)
+            .map(|index| format!("transition:evidence-{index}"))
+            .collect::<Vec<_>>();
+        HandoffResult::build(
+            &acceptance,
+            HandoffOutcome::Succeeded,
+            HandoffData {
+                kind: HandoffDataKind::Text,
+                value: "bounded result".to_string(),
+            },
+            evidence.clone(),
+            "principal:h17-bounds",
+            "participant:h17-bounds",
+            3,
+            3,
+        )
+        .unwrap();
+        let mut too_many_evidence = evidence;
+        too_many_evidence.push("transition:evidence-over".to_string());
+        assert_eq!(
+            HandoffResult::build(
+                &acceptance,
+                HandoffOutcome::Succeeded,
+                HandoffData {
+                    kind: HandoffDataKind::Text,
+                    value: "bounded result".to_string(),
+                },
+                too_many_evidence,
+                "principal:h17-bounds",
+                "participant:h17-bounds",
+                3,
+                3,
+            )
+            .unwrap_err(),
+            "handoff_result_evidence_bounds_invalid"
+        );
+        println!(
+            "h17_handoff_bounds: request_bytes=16384 accepted request_bytes=16385 rejected result_bytes=16384 accepted evidence_refs=32 accepted evidence_refs=33 rejected role_requirements=16 accepted role_requirements=17 rejected duplicate_json_keys=rejected"
+        );
     }
 }
