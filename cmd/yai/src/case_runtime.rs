@@ -566,6 +566,13 @@ fn provider_route(
         };
         let (target, _, _, _) =
             store.provider_posture_authorized(&authenticated, &selection.selected_target_id)?;
+        let locality = match target.locality {
+            yai_core_engine::provider_governance::ProviderLocality::Loopback => "loopback",
+            yai_core_engine::provider_governance::ProviderLocality::PrivateNetwork => {
+                "private_network"
+            }
+            yai_core_engine::provider_governance::ProviderLocality::Remote => "remote",
+        };
         let mut args = vec![
             "--case".to_string(),
             checkpoint.case_id.clone(),
@@ -585,10 +592,13 @@ fn provider_route(
             selection.logical_turn_id.clone(),
             "--attempt-number".to_string(),
             selection.attempt_number.to_string(),
+            "--provider-locality".to_string(),
+            locality.to_string(),
         ];
         if let Some(environment) = target.credential_ref.strip_prefix("env:") {
             args.push("--api-key-env".to_string());
             args.push(environment.to_string());
+            args.push("--credential-required".to_string());
         }
         return Ok(Some(RuntimeProviderRoute {
             args,
@@ -635,6 +645,10 @@ fn governed_attempt_outcome(
                 .and_then(|value| value.split(':').next())
                 .and_then(|value| value.parse::<u64>().ok())
         });
+    let error_status = error
+        .and_then(|value| value.split("status=").nth(1))
+        .and_then(|value| value.split(|ch: char| !ch.is_ascii_digit()).next())
+        .and_then(|value| value.parse::<u16>().ok());
     let (delivery, stage, bytes, status, failure) = match error {
         None => (
             ProviderDeliveryClass::ResultReceived,
@@ -663,20 +677,32 @@ fn governed_attempt_outcome(
                 .nth(1)
                 .and_then(|value| value.parse::<u16>().ok());
             (
-                ProviderDeliveryClass::DefinitivelyRejected,
+                // A generic HTTP status proves that a response arrived, not
+                // that model execution never occurred. It is therefore never
+                // safe_only failover evidence by itself.
+                ProviderDeliveryClass::DeliveryIndeterminate,
                 ProviderTransportStage::ResponseBody,
                 error_bytes.unwrap_or(1),
                 status,
                 Some("remote_response_rejected".to_string()),
             )
         }
-        Some(error) if error.starts_with("provider_response_invalid:") => (
-            ProviderDeliveryClass::ResponseInvalid,
-            ProviderTransportStage::JsonParse,
-            error_bytes.unwrap_or(1),
-            Some(200),
-            Some("response_schema_invalid".to_string()),
-        ),
+        Some(error) if error.starts_with("provider_response_invalid:") => {
+            let stage = if error.contains("header") || error.contains("content_length") {
+                ProviderTransportStage::ResponseHeaders
+            } else if error.contains("body") || error.contains("transfer_encoding") {
+                ProviderTransportStage::ResponseBody
+            } else {
+                ProviderTransportStage::JsonParse
+            };
+            (
+                ProviderDeliveryClass::ResponseInvalid,
+                stage,
+                error_bytes.unwrap_or(1),
+                error_status,
+                Some("response_schema_invalid".to_string()),
+            )
+        }
         Some(error) if error.starts_with("provider_delivery_indeterminate:") => (
             ProviderDeliveryClass::DeliveryIndeterminate,
             ProviderTransportStage::ResponseBody,

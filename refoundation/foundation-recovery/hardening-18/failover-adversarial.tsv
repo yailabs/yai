@@ -1,0 +1,8 @@
+attack	result
+connect refused before bytes	alternate may be selected under safe_only
+accept then drop	delivery_indeterminate; alternate forbidden
+generic 429/500	response does not prove no model execution; alternate forbidden
+malformed 200	response_invalid; alternate forbidden
+provider body says invalid_continuation	no implicit second request
+attempt budget	binding maximum 3; bounded independently of semantic turn
+late/stale result	exact selection/invocation/attempt barriers; cannot overwrite accepted result

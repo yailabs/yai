@@ -1,0 +1,5 @@
+scenario	contenders	facts	result
+same logical turn/attempt	64 independent processes	ProviderSelection	one selection identity; no duplicate network work
+health/trust/qualification race	concurrent	current eligibility read inside start transaction	commit order decides
+credential revision race	concurrent	current revision and qualification rechecked	stale selection is no bearer authority
+32 exclusions	repeated	exact binding order and stable reason codes	deterministic bounded output

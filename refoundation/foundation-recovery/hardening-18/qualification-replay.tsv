@@ -1,0 +1,6 @@
+case	attack	result	invariant
+H18-Q01	corrupt qualification-current cache	exact immutable-history result returned	cache non-authoritative
+H18-Q02	equal timestamp/reversed insertion	max(time,qualification_id) deterministically selected	DB order irrelevant
+H18-Q05	capability bytes changed without digest	provider_qualification_integrity_mismatch	fail closed
+H18-Q06	exact historical qualification absent	exact lookup missing; no substitute	no latest-by-model fallback
+H18-Q10	unknown v99 schema	provider_qualification_schema_invalid	fail closed

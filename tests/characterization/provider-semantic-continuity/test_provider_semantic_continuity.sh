@@ -161,20 +161,27 @@ require_text "$model_switch" "effect_outcome: Applied"
 grep -Fq '"model": "model-a"' "$TEST_DIR/model-switch.log.json"
 grep -Fq '"model": "model-b"' "$TEST_DIR/model-switch.log.json"
 
-# Invalid provider continuation causes one full-frame retry. A provider runtime
-# restart then consumes a freshly rebuilt frame without any opaque reference.
+# A generic invalid-continuation response is not proof that cognition did not
+# execute, so it cannot trigger an automatic retry. A later explicit provider
+# restart consumes a freshly rebuilt frame without the opaque reference.
 start_provider invalid-continuation invalid-continuation
 port_invalid="$LAST_PROVIDER_PORT"
 setup_case continuation provider:continuation continuation-model "$port_invalid"
+set +e
 continuation_output=$(YAI_HOME="$CASE_HOME" YAI_JOURNAL="$CASE_JOURNAL" "$YAI_BIN" prompt \
   --case case:new12-filesystem --subject subject:llm-provider \
   --provider-id provider:continuation \
   --base-url "http://127.0.0.1:$port_invalid/v1/chat/completions" --model continuation-model \
   --continuation-capable --provider-runtime-id runtime:old \
-  --continuation-ref opaque-missing-state --once "continue after KV loss")
+  --continuation-ref opaque-missing-state --once "continue after KV loss" 2>&1)
+continuation_exit=$?
+set -e
 wait_providers
-require_text "$continuation_output" "continuation_disposition: invalidated_and_retried"
-first_frame=$(sed -n 's/^context_frame_id: //p' <<<"$continuation_output" | tail -1)
+[[ "$continuation_exit" -ne 0 ]]
+require_text "$continuation_output" "provider_remote_response:409"
+first_frame=$(sed -n 's/.*"frame_id": "\([^"]*\)".*/\1/p' \
+  "$TEST_DIR/invalid-continuation.log.json" | head -1)
+[[ -n "$first_frame" ]]
 
 start_provider fresh-restart fresh-restart
 port_restart="$LAST_PROVIDER_PORT"
@@ -196,5 +203,5 @@ second_frame=$(sed -n 's/^context_frame_id: //p' <<<"$restart_output" | tail -1)
 
 printf 'semantic_continuity:provider_replacement ok\n'
 printf 'semantic_continuity:model_replacement ok\n'
-printf 'semantic_continuity:continuation_loss_and_restart ok\n'
+printf 'semantic_continuity:unsafe_continuation_retry_refused_and_restart ok\n'
 printf 'semantic_continuity:memory_inspect_drop_rebuild ok\n'

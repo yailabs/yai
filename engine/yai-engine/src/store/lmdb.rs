@@ -59,10 +59,10 @@ use crate::memory::{
 };
 use crate::provider_governance::{
     select_provider, CaseProviderBinding, ProviderAttemptOutcome, ProviderCandidateSnapshot,
-    ProviderFailoverPolicy, ProviderHealthPosture, ProviderHealthState, ProviderProbeEvidence,
-    ProviderQualification, ProviderRequirement, ProviderSelection, ProviderTarget,
-    ProviderTargetInput, ProviderTrustEvent, ProviderTrustPosture, MAX_PROVIDER_TARGETS_PER_TENANT,
-    PROVIDER_CIRCUIT_FAILURE_THRESHOLD,
+    ProviderCredentialRevision, ProviderFailoverPolicy, ProviderHealthPosture, ProviderHealthState,
+    ProviderProbeEvidence, ProviderProbeOwner, ProviderQualification, ProviderRequirement,
+    ProviderSelection, ProviderTarget, ProviderTargetInput, ProviderTrustEvent,
+    ProviderTrustPosture, MAX_PROVIDER_TARGETS_PER_TENANT, PROVIDER_CIRCUIT_FAILURE_THRESHOLD,
 };
 use crate::record::Record;
 use crate::resource_control::{
@@ -13086,12 +13086,46 @@ impl LmdbRecordStore {
         txn: &T,
         target_id: &str,
     ) -> Result<Option<ProviderQualification>, String> {
-        get_json_txn(
-            txn,
-            self.provider_governance,
-            &format!("qualification-current:{target_id}"),
-            "provider_qualification",
-        )
+        let target = self
+            .provider_target_txn(txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        let credential_revision = self
+            .provider_credential_revision_current_txn(txn, &target)?
+            .map_or(0, |revision| revision.sequence);
+        let mut cursor = txn
+            .open_ro_cursor(self.provider_governance)
+            .map_err(|error| format!("failed to scan provider qualifications: {error}"))?;
+        let mut current: Option<ProviderQualification> = None;
+        for (key, value) in cursor.iter() {
+            if !std::str::from_utf8(key)
+                .ok()
+                .is_some_and(|key| key.starts_with("qualification:"))
+            {
+                continue;
+            }
+            let qualification: ProviderQualification = serde_json::from_slice(value)
+                .map_err(|error| format!("provider_qualification_decode_failed: {error}"))?;
+            if qualification.target_id != target_id {
+                continue;
+            }
+            qualification.validate(&target)?;
+            if qualification.credential_revision != credential_revision {
+                continue;
+            }
+            let replaces = current.as_ref().is_none_or(|existing| {
+                (
+                    qualification.qualified_at_unix_ms,
+                    qualification.qualification_id.as_str(),
+                ) > (
+                    existing.qualified_at_unix_ms,
+                    existing.qualification_id.as_str(),
+                )
+            });
+            if replaces {
+                current = Some(qualification);
+            }
+        }
+        Ok(current)
     }
 
     fn provider_trust_current_txn<T: Transaction>(
@@ -13099,12 +13133,64 @@ impl LmdbRecordStore {
         txn: &T,
         target_id: &str,
     ) -> Result<Option<ProviderTrustEvent>, String> {
-        get_json_txn(
-            txn,
-            self.provider_governance,
-            &format!("trust-current:{target_id}"),
-            "provider_trust_event",
-        )
+        let target = self
+            .provider_target_txn(txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        let prefix = format!("trust:{target_id}:");
+        let mut cursor = txn
+            .open_ro_cursor(self.provider_governance)
+            .map_err(|error| format!("failed to scan provider trust: {error}"))?;
+        let mut events = Vec::new();
+        for (key, value) in cursor.iter() {
+            if !std::str::from_utf8(key)
+                .ok()
+                .is_some_and(|key| key.starts_with(&prefix))
+            {
+                continue;
+            }
+            let event: ProviderTrustEvent = serde_json::from_slice(value)
+                .map_err(|error| format!("provider_trust_event_decode_failed: {error}"))?;
+            event.validate(&target)?;
+            events.push(event);
+        }
+        events.sort_by_key(|event| event.sequence);
+        for (index, event) in events.iter().enumerate() {
+            if event.sequence != index as u64 + 1 {
+                return Err("provider_trust_sequence_corrupt".to_string());
+            }
+        }
+        Ok(events.pop())
+    }
+
+    fn provider_credential_revision_current_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        target: &ProviderTarget,
+    ) -> Result<Option<ProviderCredentialRevision>, String> {
+        let prefix = format!("credential-revision:{}:", target.target_id);
+        let mut cursor = txn
+            .open_ro_cursor(self.provider_governance)
+            .map_err(|error| format!("failed to scan provider credential revisions: {error}"))?;
+        let mut revisions = Vec::new();
+        for (key, value) in cursor.iter() {
+            if !std::str::from_utf8(key)
+                .ok()
+                .is_some_and(|key| key.starts_with(&prefix))
+            {
+                continue;
+            }
+            let revision: ProviderCredentialRevision = serde_json::from_slice(value)
+                .map_err(|error| format!("provider_credential_revision_decode_failed: {error}"))?;
+            revision.validate(target)?;
+            revisions.push(revision);
+        }
+        revisions.sort_by_key(|revision| revision.sequence);
+        for (index, revision) in revisions.iter().enumerate() {
+            if revision.sequence != index as u64 + 1 {
+                return Err("provider_credential_revision_sequence_corrupt".to_string());
+            }
+        }
+        Ok(revisions.pop())
     }
 
     fn provider_health_txn<T: Transaction>(
@@ -13112,17 +13198,22 @@ impl LmdbRecordStore {
         txn: &T,
         target: &ProviderTarget,
     ) -> Result<ProviderHealthState, String> {
-        let state = get_json_txn::<ProviderHealthState, _>(
+        let mut state = get_json_txn::<ProviderHealthState, _>(
             txn,
             self.provider_runtime_health,
             &target.target_id,
             "provider_health",
         )?
         .unwrap_or_else(|| ProviderHealthState::unknown(target));
-        if state.target_id != target.target_id || state.target_digest != target.integrity_digest {
-            return Err("provider_health_target_integrity_mismatch".to_string());
-        }
+        state.validate(target)?;
+        state.effective_time_floor_unix_ms = state
+            .effective_time_floor_unix_ms
+            .max(self.authority_time_floor_txn(txn)?);
         Ok(state)
+    }
+
+    fn provider_effective_time_txn(&self, txn: &mut RwTransaction<'_>) -> Result<u64, String> {
+        self.advance_authority_time_txn(txn, authority_wall_time_unix_ms())
     }
 
     pub fn register_provider_target_authorized(
@@ -13247,12 +13338,20 @@ impl LmdbRecordStore {
             .ok_or_else(|| "provider_target_not_found".to_string())?;
         let context = self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?;
         context.require_owner()?;
-        let qualification = ProviderQualification::from_evidence(
+        let effective_now = self.provider_effective_time_txn(&mut txn)?;
+        if evidence.completed_at_unix_ms > effective_now.saturating_add(60_000) {
+            return Err("provider_qualification_future_timestamp_rejected".to_string());
+        }
+        let credential_revision = self
+            .provider_credential_revision_current_txn(&txn, &target)?
+            .map_or(0, |revision| revision.sequence);
+        let qualification = ProviderQualification::from_evidence_at_credential_revision(
             &target,
             evidence,
             suite_id,
             context.principal_id(),
             valid_until_unix_ms,
+            credential_revision,
         )?;
         let key = format!("qualification:{}", qualification.qualification_id);
         if let Some(existing) = get_json_txn::<ProviderQualification, _>(
@@ -13306,7 +13405,7 @@ impl LmdbRecordStore {
         authenticated: &AuthenticatedPrincipal,
         target_id: &str,
         posture: ProviderTrustPosture,
-        now_unix_ms: u64,
+        _now_unix_ms: u64,
     ) -> Result<ProviderTrustEvent, String> {
         let mut txn = self
             .env
@@ -13317,6 +13416,7 @@ impl LmdbRecordStore {
             .ok_or_else(|| "provider_target_not_found".to_string())?;
         let context = self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?;
         context.require_owner()?;
+        let now_unix_ms = self.provider_effective_time_txn(&mut txn)?;
         let previous = self.provider_trust_current_txn(&txn, target_id)?;
         if let Some(previous) = &previous {
             previous.validate(&target)?;
@@ -13354,6 +13454,83 @@ impl LmdbRecordStore {
         txn.commit()
             .map_err(|error| format!("failed to commit provider trust: {error}"))?;
         Ok(event)
+    }
+
+    pub fn rotate_provider_credential_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_id: &str,
+        revision_label: &str,
+    ) -> Result<ProviderCredentialRevision, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start provider credential rotation: {error}"))?;
+        let target = self
+            .provider_target_txn(&txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?;
+        context.require_owner()?;
+        if target.credential_ref == "none" {
+            return Err("provider_credential_rotation_not_applicable".to_string());
+        }
+        let previous = self.provider_credential_revision_current_txn(&txn, &target)?;
+        if previous
+            .as_ref()
+            .is_some_and(|revision| revision.revision_label == revision_label)
+        {
+            return Ok(previous.expect("checked above"));
+        }
+        let recorded_at_unix_ms = self.provider_effective_time_txn(&mut txn)?;
+        let sequence = previous
+            .as_ref()
+            .map_or(1, |revision| revision.sequence + 1);
+        let revision = ProviderCredentialRevision::new(
+            &target,
+            sequence,
+            revision_label,
+            context.principal_id(),
+            recorded_at_unix_ms,
+        )?;
+        put_json_txn(
+            &mut txn,
+            self.provider_governance,
+            &format!("credential-revision:{target_id}:{sequence:020}"),
+            &revision,
+            WriteFlags::NO_OVERWRITE,
+            "provider credential revision",
+        )?;
+        let mut health = ProviderHealthState::unknown(&target);
+        health.effective_time_floor_unix_ms = recorded_at_unix_ms;
+        health.source = "credential_rotation".to_string();
+        health.reseal()?;
+        put_json_txn(
+            &mut txn,
+            self.provider_runtime_health,
+            target_id,
+            &health,
+            WriteFlags::empty(),
+            "provider health after credential rotation",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit provider credential rotation: {error}"))?;
+        Ok(revision)
+    }
+
+    pub fn provider_credential_revision_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_id: &str,
+    ) -> Result<Option<ProviderCredentialRevision>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to read provider credential revision: {error}"))?;
+        let target = self
+            .provider_target_txn(&txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?;
+        self.provider_credential_revision_current_txn(&txn, &target)
     }
 
     pub fn provider_posture_authorized(
@@ -13467,7 +13644,7 @@ impl LmdbRecordStore {
         successful: bool,
         source: &str,
         failure_class: Option<&str>,
-        now_unix_ms: u64,
+        _now_unix_ms: u64,
     ) -> Result<ProviderHealthState, String> {
         if source.is_empty()
             || source.len() > 128
@@ -13483,7 +13660,11 @@ impl LmdbRecordStore {
             .provider_target_txn(&txn, target_id)?
             .ok_or_else(|| "provider_target_not_found".to_string())?;
         let mut state = self.provider_health_txn(&txn, &target)?;
+        let now_unix_ms = self.provider_effective_time_txn(&mut txn)?;
+        state.schema = crate::provider_governance::PROVIDER_HEALTH_SCHEMA.to_string();
         state.observed_at_unix_ms = now_unix_ms;
+        state.effective_time_floor_unix_ms = now_unix_ms;
+        state.probe_owner = None;
         state.source = source.to_string();
         state.failure_class = failure_class.map(str::to_string);
         if successful {
@@ -13503,6 +13684,7 @@ impl LmdbRecordStore {
                 state.circuit_opened_at_unix_ms = Some(now_unix_ms);
             }
         }
+        state.reseal()?;
         put_json_txn(
             &mut txn,
             self.provider_runtime_health,
@@ -13522,23 +13704,128 @@ impl LmdbRecordStore {
         target_id: &str,
         evidence: &ProviderProbeEvidence,
     ) -> Result<ProviderHealthState, String> {
+        let token = format!("probe:{}", evidence.run_id);
+        let owner = self.begin_provider_probe_authorized(authenticated, target_id, &token)?;
+        self.complete_provider_probe_authorized(authenticated, target_id, &owner, evidence)
+    }
+
+    pub fn begin_provider_probe_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_id: &str,
+        token: &str,
+    ) -> Result<ProviderProbeOwner, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start provider probe admission: {error}"))?;
         let target = self
-            .get_provider_target(target_id)?
+            .provider_target_txn(&txn, target_id)?
             .ok_or_else(|| "provider_target_not_found".to_string())?;
-        let context = self.resolve_security_context(authenticated, &target.tenant_id)?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?;
         context.require_owner()?;
+        let now_unix_ms = self.provider_effective_time_txn(&mut txn)?;
+        let mut state = self.provider_health_txn(&txn, &target)?;
+        if let Some(existing) = &state.probe_owner {
+            if existing.is_live() {
+                return Err("provider_probe_already_in_flight".to_string());
+            }
+        }
+        if state.circuit_at(now_unix_ms) == crate::provider_governance::ProviderCircuitPosture::Open
+        {
+            return Err("provider_probe_circuit_cooldown_active".to_string());
+        }
+        let owner = ProviderProbeOwner::capture(token, now_unix_ms)?;
+        state.schema = crate::provider_governance::PROVIDER_HEALTH_SCHEMA.to_string();
+        state.effective_time_floor_unix_ms = now_unix_ms;
+        state.probe_epoch = state.probe_epoch.saturating_add(1);
+        state.probe_owner = Some(owner.clone());
+        state.reseal()?;
+        put_json_txn(
+            &mut txn,
+            self.provider_runtime_health,
+            target_id,
+            &state,
+            WriteFlags::empty(),
+            "provider half-open probe admission",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit provider probe admission: {error}"))?;
+        Ok(owner)
+    }
+
+    pub fn complete_provider_probe_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_id: &str,
+        owner: &ProviderProbeOwner,
+        evidence: &ProviderProbeEvidence,
+    ) -> Result<ProviderHealthState, String> {
         evidence.validate()?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start provider probe completion: {error}"))?;
+        let target = self
+            .provider_target_txn(&txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?;
+        context.require_owner()?;
         if evidence.target_id != target.target_id {
             return Err("provider_probe_health_target_mismatch".to_string());
         }
+        let now_unix_ms = self.provider_effective_time_txn(&mut txn)?;
+        let mut state = self.provider_health_txn(&txn, &target)?;
+        if state.probe_owner.as_ref() != Some(owner) {
+            return Err("provider_probe_owner_mismatch".to_string());
+        }
+        if evidence.completed_at_unix_ms > now_unix_ms.saturating_add(60_000) {
+            state.probe_owner = None;
+            state.effective_time_floor_unix_ms = now_unix_ms;
+            state.reseal()?;
+            put_json_txn(
+                &mut txn,
+                self.provider_runtime_health,
+                target_id,
+                &state,
+                WriteFlags::empty(),
+                "provider rejected future probe observation",
+            )?;
+            txn.commit().map_err(|error| {
+                format!("failed to clear rejected provider probe admission: {error}")
+            })?;
+            return Err("provider_health_future_timestamp_rejected".to_string());
+        }
         let successful = evidence.chat_text_envelope_valid && evidence.exact_model_addressed;
-        self.record_provider_health_observation_internal(
+        state.schema = crate::provider_governance::PROVIDER_HEALTH_SCHEMA.to_string();
+        state.observed_at_unix_ms = now_unix_ms;
+        state.effective_time_floor_unix_ms = now_unix_ms;
+        state.source = "synthetic_provider_probe".to_string();
+        state.probe_owner = None;
+        state.failure_class = (!successful).then(|| "qualification_probe_failed".to_string());
+        if successful {
+            state.posture = ProviderHealthPosture::Healthy;
+            state.circuit = crate::provider_governance::ProviderCircuitPosture::Closed;
+            state.consecutive_failures = 0;
+            state.circuit_opened_at_unix_ms = None;
+        } else {
+            state.consecutive_failures = state.consecutive_failures.saturating_add(1);
+            state.posture = ProviderHealthPosture::Unavailable;
+            state.circuit = crate::provider_governance::ProviderCircuitPosture::Open;
+            state.circuit_opened_at_unix_ms = Some(now_unix_ms);
+        }
+        state.reseal()?;
+        put_json_txn(
+            &mut txn,
+            self.provider_runtime_health,
             target_id,
-            successful,
-            "synthetic_provider_probe",
-            (!successful).then_some("qualification_probe_failed"),
-            evidence.completed_at_unix_ms,
-        )
+            &state,
+            WriteFlags::empty(),
+            "provider probe completion",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit provider probe completion: {error}"))?;
+        Ok(state)
     }
 
     pub fn record_provider_attempt_health_authorized(
@@ -13645,7 +13932,7 @@ impl LmdbRecordStore {
         attempted_targets: &BTreeSet<String>,
         prior_attempt_retry_safe: bool,
         available_credential_refs: &BTreeSet<String>,
-        now_unix_ms: u64,
+        _now_unix_ms: u64,
     ) -> Result<ProviderSelectionStoreOutcome, String> {
         requirement.validate()?;
         let mut txn = self
@@ -13660,6 +13947,7 @@ impl LmdbRecordStore {
             .as_deref()
             .ok_or_else(|| "legacy_case_has_no_governed_provider_binding".to_string())?;
         let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let effective_now_unix_ms = self.provider_effective_time_txn(&mut txn)?;
         if state.lifecycle != CaseLifecycle::Open || state.cancellation.is_some() {
             return Err("provider_selection_case_not_open".to_string());
         }
@@ -13723,7 +14011,7 @@ impl LmdbRecordStore {
             &snapshots,
             attempted_targets,
             prior_attempt_retry_safe,
-            now_unix_ms,
+            effective_now_unix_ms,
         );
         if preview.selected_target_id.is_none() {
             return Ok(ProviderSelectionStoreOutcome::Waiting {
@@ -13737,7 +14025,7 @@ impl LmdbRecordStore {
             logical_turn_id,
             attempt_number,
             preview,
-            now_unix_ms,
+            effective_now_unix_ms,
         )?;
         let mut pending = PendingTransition::new(
             format!("transition:{}", selection.selection_id),
@@ -13780,6 +14068,43 @@ impl LmdbRecordStore {
             .tenant_id
             .clone()
             .ok_or_else(|| "legacy_case_cannot_record_governed_provider_attempt".to_string())?;
+        let selection = state
+            .provider_selections
+            .iter()
+            .find(|selection| selection.selection_id == outcome.selection_id)
+            .ok_or_else(|| "provider_attempt_outcome_selection_mismatch".to_string())?;
+        outcome.validate(selection)?;
+        let invocation = state
+            .last_provider_invocation
+            .as_ref()
+            .and_then(|invocation| {
+                invocation
+                    .governance
+                    .as_ref()
+                    .map(|governance| (invocation, governance))
+            })
+            .filter(|(_, governance)| {
+                governance.selection_id == outcome.selection_id
+                    && governance.target_id == outcome.target_id
+                    && governance.logical_turn_id == outcome.logical_turn_id
+                    && governance.attempt_number == outcome.attempt_number
+            });
+        if outcome.delivery != crate::provider_governance::ProviderDeliveryClass::NotDispatched
+            && invocation.is_none()
+        {
+            return Err("provider_attempt_outcome_invocation_mismatch".to_string());
+        }
+        if outcome.delivery == crate::provider_governance::ProviderDeliveryClass::ResultReceived {
+            let invocation = invocation.expect("required above");
+            let result = state
+                .last_provider_result
+                .as_ref()
+                .filter(|result| result.invocation_id == invocation.0.invocation_id)
+                .ok_or_else(|| "provider_attempt_result_received_without_result".to_string())?;
+            if result.provider_id != outcome.target_id {
+                return Err("provider_attempt_result_target_mismatch".to_string());
+            }
+        }
         if let Some(existing) = state
             .provider_attempt_outcomes
             .iter()
@@ -24161,6 +24486,8 @@ mod tests {
 
     #[path = "hardening17_tests.rs"]
     mod hardening17_tests;
+    #[path = "hardening18_tests.rs"]
+    mod hardening18_tests;
     #[path = "wave18_tests.rs"]
     mod wave18_tests;
 }

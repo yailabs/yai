@@ -1,0 +1,2 @@
+cycles	failure_path	probe_path	final	worker
+20	failure threshold/Open/cooldown	one half-open owner each cycle	Healthy/Closed at epoch 21	no retained worker

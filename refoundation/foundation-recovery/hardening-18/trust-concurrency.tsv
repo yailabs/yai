@@ -1,0 +1,5 @@
+scenario	writers	result	invariant
+approve/deny same target	64 independent processes	35 unique contiguous committed sequences in final focused run; repeats idempotent	LMDB writer serialization; no fork
+derived cache corruption	1	immutable sequence reconstructs posture	pointer non-authority
+missing sequence	1	replay fails provider_trust_sequence_corrupt	no gap inference
+revoke/invocation start	concurrent	transaction order decides; prior start remains history	no stale trust bearer

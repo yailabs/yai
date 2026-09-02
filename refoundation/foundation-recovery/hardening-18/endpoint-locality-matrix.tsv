@@ -1,0 +1,5 @@
+declared	admitted	refused
+Loopback	127/8; ::1; mapped loopback	private; public; link-local; unspecified; multicast
+PrivateNetwork	RFC1918; IPv6 ULA	loopback; public; link-local; unspecified; multicast
+Remote	public unicast	loopback; RFC1918; ULA; link-local; unspecified; multicast
+any hostname	all resolved addresses must be in class	mixed answer fails closed

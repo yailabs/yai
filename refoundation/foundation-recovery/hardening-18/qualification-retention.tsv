@@ -1,0 +1,3 @@
+records	retained	current_projection	lookup	observed
+256	256 immutable IDs	deterministic maximum by time then ID	exact historical lookup	~5.1 seconds in focused development run; no deletion
+1024	not run	bounded contract remains 256 evidence target for H18	N/A	no performance claim

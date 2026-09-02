@@ -54,6 +54,40 @@ fn w18_target_input(
     }
 }
 
+fn w18_start_invocation(
+    store: &LmdbRecordStore,
+    owner: &AuthenticatedPrincipal,
+    tenant_id: &str,
+    case_id: &str,
+    selection: &ProviderSelection,
+) {
+    let state = store.get_case_state(case_id).unwrap().unwrap();
+    let mut pending = secured_pending(
+        &format!("transition:{}:invocation", selection.selection_id),
+        case_id,
+        state.generation,
+        &owner.projected_principal_id(),
+        TransitionPayload::ProviderInvocationStarted {
+            invocation_id: format!("invocation:{}", selection.selection_id),
+            participant_id: selection.participant_id.clone(),
+            provider_id: selection.selected_target_id.clone(),
+            provider_kind: "openai_compatible".to_string(),
+            model_id: selection.selected_model_id.clone(),
+            semantic_lineage: Some(test_provider_lineage(state.generation)),
+            governance: Some(crate::transition::ProviderInvocationGovernance {
+                selection_id: selection.selection_id.clone(),
+                target_id: selection.selected_target_id.clone(),
+                logical_turn_id: selection.logical_turn_id.clone(),
+                attempt_number: selection.attempt_number,
+            }),
+        },
+    );
+    pending.causal_refs.push(selection.selection_id.clone());
+    store
+        .commit_secured_transition(owner, tenant_id, pending, false)
+        .unwrap();
+}
+
 fn w18_qualify(
     store: &LmdbRecordStore,
     owner: &AuthenticatedPrincipal,
@@ -347,6 +381,13 @@ fn wave18_circuit_and_delivery_contract_forbid_indeterminate_failover() {
         other => panic!("unexpected selection outcome: {other:?}"),
     };
     assert_eq!(selection.selected_target_id, secondary.target_id);
+    w18_start_invocation(
+        &store,
+        &owner,
+        "tenant:w18",
+        "case:w18-delivery",
+        &selection,
+    );
     let indeterminate = ProviderAttemptOutcome::new(
         &selection,
         ProviderDeliveryClass::DeliveryIndeterminate,
@@ -530,14 +571,23 @@ fn wave18_concurrent_selection_and_attempt_outcome_have_one_case_truth() {
         })
         .unwrap();
 
+    let store = LmdbRecordStore::open(&path).unwrap();
+    w18_start_invocation(
+        &store,
+        &owner,
+        "tenant:w18-concurrency",
+        "case:w18-concurrency",
+        &selection,
+    );
+    drop(store);
     let outcome = ProviderAttemptOutcome::new(
         &selection,
-        ProviderDeliveryClass::ResultReceived,
-        ProviderTransportStage::Completed,
-        512,
-        Some(200),
-        false,
+        ProviderDeliveryClass::NotDispatched,
+        ProviderTransportStage::Connect,
+        0,
         None,
+        false,
+        Some("connect_refused".to_string()),
         52,
     )
     .unwrap();
@@ -574,7 +624,7 @@ fn wave18_concurrent_selection_and_attempt_outcome_have_one_case_truth() {
         .unwrap();
     assert_eq!(state.provider_selections.len(), 1);
     assert_eq!(state.provider_attempt_outcomes, vec![outcome]);
-    assert_eq!(state.generation, before + 2);
+    assert_eq!(state.generation, before + 3);
     assert!(store.verify_case_state("case:w18-concurrency").unwrap());
     println!(
         "w18_concurrency: contenders=16 selections=1 outcomes=1 generation={} replay=true",

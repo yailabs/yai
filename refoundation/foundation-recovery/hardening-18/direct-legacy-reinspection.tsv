@@ -1,0 +1,9 @@
+commit	paths	strongest_property	disposition	target_owner
+f8bad7fe3c443f056029780ac6a27a1979092715	providers/registry; routing; profiles	provider/model distinction and layered selection intent	recover property, reject registry plane	provider governance
+51a40e11f703cc7fe522df38a225a86c51ccc8c9	routing/selection; runtime consumers	explicit selection lifecycle	recover causal selection, reject recursion	Case Transition
+46794683e9761041da7901f224c229c2de0e48a8	knowledge/reasoning/capabilities.c	capability-first candidate filtering	recover mechanical requirement intent, reject subjective flags	derived capability
+e89ee42a6522f52caee1a52503aa67bbd515eff5	provider registry/runtime lifecycle	provider availability distinct from model profile	recover separation, reject fake ready state	operational health
+94ba627091afbf1100ab386ac1de3d4fb1d2502c	routing/admissibility; orchestration	candidate/exclusion lineage	recover exclusions, reject orchestrator	Case selection
+cffb318b980456f2671a297e14a6b05f5ac68320	provider/model planes	coarse provider boundary	recover boundary, reject copied plane	provider governance
+2a4018147219044dfe1fad2268759b1f2a585945	drained provider surfaces	removal evidence	reject resurrecting Agent/router ownership	none
+95bffa030fe0899ca76233ac0c187b89c49baead	kernel/yai/providers/remote/lan_rpc.c;lan_store.c	bounded TLS/framing/timeouts	recover bounds only; reject no-hostname TLS, persisted token, discovery trust	provider transport

@@ -1,0 +1,6 @@
+boundary	contract	proof
+future completion	writer rejects more than 60000 ms beyond effective store time	H18-Q03
+now < valid_until	current	unit boundary
+now == valid_until	expired	H18-Q05 focused output boundary=exclusive
+now > valid_until	expired	unit boundary
+wall rollback	max(wall, persisted authority high-watermark)	rollback_resurrection=false

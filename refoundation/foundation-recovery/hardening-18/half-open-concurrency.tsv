@@ -1,0 +1,7 @@
+scenario	contenders	result
+cooldown reached	64 independent processes	1 admitted exact probe owner; 63 refused
+live owner	multiple	provider_probe_already_in_flight
+dead PID/start/boot identity	1 reclaim	reclaimed with incremented probe epoch
+successful completion	1	Healthy/Closed; failures reset; owner cleared
+failed completion	1	Unavailable/Open; open time updated; owner cleared
+restart	state integrity read; exact live owner retained, dead owner reclaimable	no PID-only theft

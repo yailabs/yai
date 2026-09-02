@@ -1,0 +1,12 @@
+artifact	current	read compatibility	result
+ProviderTarget	v1	v1	unchanged immutable identity
+ProviderQualification	v2	v1/v2	v1 digest/revision-zero semantics preserved
+ProviderTrust	v1	v1	unchanged
+ProviderHealth	v2	v1/v2	v1 validates; admitted writes upgrade
+ProviderCredentialRevision	v1	v1 new shared family	no Case schema effect
+CaseProviderBinding	v1	v1	unchanged
+ProviderRequirement	v1	v1	unchanged
+ProviderSelection	v1 + selector v1	known selector v1	future unknown fails closed
+ProviderAttemptOutcome	v1	v1 validation tightened without byte reinterpretation	unchanged schema
+Transition/CaseState	v12	v1-v12	no v13 bump
+ProviderAttached legacy	pre-v12 exact pin	historical exact semantics	no governance/failover migration

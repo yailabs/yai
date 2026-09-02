@@ -732,6 +732,17 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         NO_FLAGS
     ),
     op!(
+        "yai.provider.credential.rotate",
+        ["provider", "credential", "rotate"],
+        "Record a non-secret credential revision and require requalification",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("target", Some("--target"))],
+        &[flag("--revision", Some("REVISION"), true)]
+    ),
+    op!(
         "yai.case.create",
         ["case", "create"],
         "Create a canonical Case",

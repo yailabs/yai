@@ -5,9 +5,7 @@ use serde::de::{Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde_json::{Map, Value};
 use std::collections::HashSet;
 use std::fmt;
-use std::io::{Read, Write};
-use std::net::TcpStream;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::provider_governance::{
     ProviderAdapterKind, ProviderFailoverPolicy, ProviderLocality, ProviderProbeEvidence,
     ProviderTargetInput, ProviderTrustPosture,
@@ -15,7 +13,6 @@ use yai_core_engine::provider_governance::{
 use yai_core_engine::security::AuthenticatedPrincipal;
 
 const QUALIFICATION_SUITE: &str = "yai.openai_compatible.synthetic.v1";
-const PROBE_TIMEOUT: Duration = Duration::from_secs(10);
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -122,6 +119,14 @@ fn provider_show(args: &[String]) -> Result<(), String> {
     println!("configuration_model: {}", target.model_id);
     println!("configuration_locality: {:?}", target.locality);
     println!("configuration_credential_ref: {}", target.credential_ref);
+    let credential_revision =
+        store.provider_credential_revision_authorized(&authenticated, &target_id)?;
+    println!(
+        "configuration_credential_revision: {}",
+        credential_revision
+            .as_ref()
+            .map_or(0, |value| value.sequence)
+    );
     println!(
         "qualification: {}",
         qualification.as_ref().map_or("missing", |qualification| {
@@ -266,43 +271,14 @@ fn strict_json(body: &[u8]) -> Result<Value, String> {
     Ok(value.0)
 }
 
-struct ParsedEndpoint {
-    host: String,
-    port: u16,
-    base_path: String,
-}
+type ParsedEndpoint = super::provider_transport::ProviderEndpoint;
 
 fn parse_http_endpoint(endpoint: &str) -> Result<ParsedEndpoint, String> {
-    let remainder = endpoint
-        .strip_prefix("http://")
-        .ok_or_else(|| "provider_probe_transport_not_available_for_endpoint_scheme".to_string())?;
-    let (authority, path) = remainder.split_once('/').unwrap_or((remainder, ""));
-    let (host, port) = authority
-        .rsplit_once(':')
-        .map(|(host, port)| {
-            port.parse::<u16>()
-                .map(|port| (host.to_string(), port))
-                .map_err(|_| "provider_endpoint_port_invalid".to_string())
-        })
-        .transpose()?
-        .unwrap_or_else(|| (authority.to_string(), 80));
-    if host.is_empty() {
-        return Err("provider_endpoint_host_invalid".to_string());
-    }
-    Ok(ParsedEndpoint {
-        host,
-        port,
-        base_path: path.trim_matches('/').to_string(),
-    })
+    super::provider_transport::parse_provider_endpoint(endpoint)
 }
 
 fn api_path(endpoint: &ParsedEndpoint, suffix: &str) -> String {
-    let prefix = if endpoint.base_path.is_empty() {
-        "v1".to_string()
-    } else {
-        endpoint.base_path.clone()
-    };
-    format!("/{}/{}", prefix.trim_matches('/'), suffix.trim_matches('/'))
+    endpoint.api_path(suffix)
 }
 
 struct ProbeHttpResponse {
@@ -312,77 +288,23 @@ struct ProbeHttpResponse {
 
 fn probe_http(
     endpoint: &ParsedEndpoint,
+    locality: &ProviderLocality,
     method: &str,
     path: &str,
     body: Option<&[u8]>,
     api_key: Option<&str>,
 ) -> Result<ProbeHttpResponse, String> {
-    let mut stream = TcpStream::connect((endpoint.host.as_str(), endpoint.port))
-        .map_err(|error| format!("connect_not_dispatched:{error}"))?;
-    stream
-        .set_read_timeout(Some(PROBE_TIMEOUT))
-        .map_err(|error| format!("provider_probe_timeout_config_failed:{error}"))?;
-    stream
-        .set_write_timeout(Some(PROBE_TIMEOUT))
-        .map_err(|error| format!("provider_probe_timeout_config_failed:{error}"))?;
-    let body = body.unwrap_or_default();
-    let auth = api_key
-        .filter(|value| !value.is_empty())
-        .map(|_| "Authorization: Bearer [credential]\r\n")
-        .unwrap_or_default();
-    let mut request = format!(
-        "{method} {path} HTTP/1.1\r\nHost: {}\r\nAccept: application/json\r\nConnection: close\r\n",
-        endpoint.host
-    );
-    if !auth.is_empty() {
-        let value = api_key.expect("checked above");
-        request.push_str(&format!("Authorization: Bearer {value}\r\n"));
-    }
-    if !body.is_empty() {
-        request.push_str("Content-Type: application/json\r\n");
-        request.push_str(&format!("Content-Length: {}\r\n", body.len()));
-    }
-    request.push_str("\r\n");
-    let mut request = request.into_bytes();
-    request.extend_from_slice(body);
-    let mut written = 0usize;
-    while written < request.len() {
-        match stream.write(&request[written..]) {
-            Ok(0) => {
-                return Err(if written == 0 {
-                    "write_not_dispatched:zero_write".to_string()
-                } else {
-                    format!("delivery_indeterminate:partial_write:{written}")
-                })
-            }
-            Ok(count) => written += count,
-            Err(error) => {
-                return Err(if written == 0 {
-                    format!("write_not_dispatched:{error}")
-                } else {
-                    format!("delivery_indeterminate:partial_write:{written}:{error}")
-                })
-            }
-        }
-    }
-    let mut response = Vec::new();
-    stream
-        .read_to_end(&mut response)
-        .map_err(|error| format!("delivery_indeterminate:response_read:{error}"))?;
-    let split = response
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .ok_or_else(|| "delivery_indeterminate:malformed_http".to_string())?;
-    let headers = String::from_utf8_lossy(&response[..split]);
-    let status = headers
-        .lines()
-        .next()
-        .and_then(|line| line.split_whitespace().nth(1))
-        .and_then(|value| value.parse::<u16>().ok())
-        .ok_or_else(|| "delivery_indeterminate:malformed_http_status".to_string())?;
+    let response = super::provider_transport::provider_http(
+        endpoint,
+        Some(locality),
+        method,
+        path,
+        body.unwrap_or_default(),
+        api_key,
+    )?;
     Ok(ProbeHttpResponse {
-        status,
-        body: response[split + 4..].to_vec(),
+        status: response.status,
+        body: response.body,
     })
 }
 
@@ -434,6 +356,7 @@ fn run_synthetic_probe(
 
     match probe_http(
         &endpoint,
+        &target.locality,
         "GET",
         &api_path(&endpoint, "models"),
         None,
@@ -480,6 +403,7 @@ fn run_synthetic_probe(
     .expect("synthetic probe serializes");
     match probe_http(
         &endpoint,
+        &target.locality,
         "POST",
         &api_path(&endpoint, "chat/completions"),
         Some(&text_body),
@@ -533,6 +457,7 @@ fn run_synthetic_probe(
     .expect("synthetic JSON probe serializes");
     if let Ok(response) = probe_http(
         &endpoint,
+        &target.locality,
         "POST",
         &api_path(&endpoint, "chat/completions"),
         Some(&json_body),
@@ -550,7 +475,14 @@ fn run_synthetic_probe(
     }
 
     if target.extension_adapter_id.as_deref() == Some("yvex.http.v1") {
-        if let Ok(response) = probe_http(&endpoint, "GET", "/health", None, api_key.as_deref()) {
+        if let Ok(response) = probe_http(
+            &endpoint,
+            &target.locality,
+            "GET",
+            "/health",
+            None,
+            api_key.as_deref(),
+        ) {
             evidence.health_endpoint_observed =
                 (200..300).contains(&response.status) && strict_json(&response.body).is_ok();
         }
@@ -576,7 +508,7 @@ fn print_probe(evidence: &ProviderProbeEvidence) {
     println!("usage_accounting: {}", evidence.usage_accounting_observed);
     println!("health_probe: {}", evidence.health_endpoint_observed);
     println!(
-        "first_party_telemetry: {}",
+        "extension_compatible_telemetry: {}",
         evidence.extension_telemetry_observed
     );
     println!("synthetic_input_only: true");
@@ -587,8 +519,19 @@ fn provider_probe(args: &[String], persist_qualification: bool) -> Result<(), St
     let target_id = named_arg(args, "--target")?;
     let (authenticated, store) = authenticated_store()?;
     let (target, _, _, _) = store.provider_posture_authorized(&authenticated, &target_id)?;
+    let admission_token = format!("probe-admission:{}:{}", std::process::id(), now_ms());
+    let probe_owner = store.begin_provider_probe_authorized(
+        &authenticated,
+        &target.target_id,
+        &admission_token,
+    )?;
     let evidence = run_synthetic_probe(&target);
-    store.record_provider_probe_health_authorized(&authenticated, &target.target_id, &evidence)?;
+    store.complete_provider_probe_authorized(
+        &authenticated,
+        &target.target_id,
+        &probe_owner,
+        &evidence,
+    )?;
     print_probe(&evidence);
     if persist_qualification {
         let valid_until = optional_arg(args, "--valid-for-ms")
@@ -633,6 +576,21 @@ fn provider_trust(args: &[String], posture: ProviderTrustPosture) -> Result<(), 
     println!("posture: {:?}", event.posture);
     println!("sequence: {}", event.sequence);
     println!("principal_id: {}", event.principal_id);
+    Ok(())
+}
+
+fn provider_credential_rotate(args: &[String]) -> Result<(), String> {
+    let target_id = named_arg(args, "--target")?;
+    let revision_label = named_arg(args, "--revision")?;
+    let (authenticated, store) = authenticated_store()?;
+    let revision =
+        store.rotate_provider_credential_authorized(&authenticated, &target_id, &revision_label)?;
+    println!("provider_credential_rotation: recorded");
+    println!("revision_id: {}", revision.revision_id);
+    println!("target_id: {}", revision.target_id);
+    println!("credential_revision: {}", revision.sequence);
+    println!("revision_label: {}", revision.revision_label);
+    println!("secret_persisted: false");
     Ok(())
 }
 
@@ -713,6 +671,7 @@ pub(super) fn provider_governance_command(
         "yai.provider.qualify" => provider_probe(args, true),
         "yai.provider.trust.approve" => provider_trust(args, ProviderTrustPosture::Approved),
         "yai.provider.trust.deny" => provider_trust(args, ProviderTrustPosture::Denied),
+        "yai.provider.credential.rotate" => provider_credential_rotate(args),
         "yai.case.provider.bind" => case_provider_bind(args),
         "yai.case.provider.show" => case_provider_show(args),
         _ => Err(format!(

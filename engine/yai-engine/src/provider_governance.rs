@@ -9,11 +9,14 @@
 use crate::effect::digest_bytes;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 pub const PROVIDER_TARGET_SCHEMA: &str = "yai.provider_target.v1";
-pub const PROVIDER_QUALIFICATION_SCHEMA: &str = "yai.provider_qualification.v1";
+pub const PROVIDER_QUALIFICATION_SCHEMA_V1: &str = "yai.provider_qualification.v1";
+pub const PROVIDER_QUALIFICATION_SCHEMA: &str = "yai.provider_qualification.v2";
 pub const PROVIDER_TRUST_EVENT_SCHEMA: &str = "yai.provider_trust_event.v1";
-pub const PROVIDER_HEALTH_SCHEMA: &str = "yai.provider_health.v1";
+pub const PROVIDER_HEALTH_SCHEMA_V1: &str = "yai.provider_health.v1";
+pub const PROVIDER_HEALTH_SCHEMA: &str = "yai.provider_health.v2";
 pub const CASE_PROVIDER_BINDING_SCHEMA: &str = "yai.case_provider_binding.v1";
 pub const PROVIDER_REQUIREMENT_SCHEMA: &str = "yai.provider_requirement.v1";
 pub const PROVIDER_SELECTION_SCHEMA: &str = "yai.provider_selection.v1";
@@ -175,9 +178,10 @@ pub fn normalize_provider_endpoint(
     let (scheme, authority, path) = endpoint_authority(trimmed)?;
     let authority = authority.to_ascii_lowercase();
     let host = normalized_endpoint_host(&authority)?;
-    let loopback = host == "localhost" || host == "::1" || host.starts_with("127.");
-    if *locality == ProviderLocality::Loopback && !loopback {
-        return Err("provider_loopback_locality_endpoint_mismatch".to_string());
+    if let Ok(address) = host.parse::<IpAddr>() {
+        if !provider_address_admitted(locality, address) {
+            return Err("provider_endpoint_literal_locality_mismatch".to_string());
+        }
     }
     if *locality == ProviderLocality::Remote && scheme != "https" {
         return Err("provider_remote_plain_http_not_admitted".to_string());
@@ -188,6 +192,50 @@ pub fn normalize_provider_endpoint(
         format!("/{path}")
     };
     Ok(format!("{scheme}://{authority}{suffix}"))
+}
+
+fn ipv4_private(address: Ipv4Addr) -> bool {
+    let octets = address.octets();
+    octets[0] == 10
+        || (octets[0] == 172 && (16..=31).contains(&octets[1]))
+        || (octets[0] == 192 && octets[1] == 168)
+}
+
+fn ipv6_unique_local(address: Ipv6Addr) -> bool {
+    address.segments()[0] & 0xfe00 == 0xfc00
+}
+
+fn ipv6_link_local(address: Ipv6Addr) -> bool {
+    address.segments()[0] & 0xffc0 == 0xfe80
+}
+
+/// Dispatch-time locality predicate. Callers must apply it to every resolved
+/// address and refuse a mixed answer set.
+pub fn provider_address_admitted(locality: &ProviderLocality, address: IpAddr) -> bool {
+    if let IpAddr::V6(address_v6) = address {
+        if let Some(mapped) = address_v6.to_ipv4_mapped() {
+            return provider_address_admitted(locality, IpAddr::V4(mapped));
+        }
+    }
+    match (locality, address) {
+        (ProviderLocality::Loopback, address) => address.is_loopback(),
+        (ProviderLocality::PrivateNetwork, IpAddr::V4(address)) => ipv4_private(address),
+        (ProviderLocality::PrivateNetwork, IpAddr::V6(address)) => ipv6_unique_local(address),
+        (ProviderLocality::Remote, IpAddr::V4(address)) => {
+            !address.is_loopback()
+                && !address.is_unspecified()
+                && !address.is_multicast()
+                && !address.is_link_local()
+                && !ipv4_private(address)
+        }
+        (ProviderLocality::Remote, IpAddr::V6(address)) => {
+            !address.is_loopback()
+                && !address.is_unspecified()
+                && !address.is_multicast()
+                && !ipv6_link_local(address)
+                && !ipv6_unique_local(address)
+        }
+    }
 }
 
 impl ProviderTarget {
@@ -294,7 +342,10 @@ pub enum ProviderCapability {
     ModelExactAddressing,
     UsageAccounting,
     HealthProbe,
+    /// Historical v1 name. It means only that extension-shaped telemetry was
+    /// observed; it never authenticated a first-party implementation.
     FirstPartyTelemetry,
+    ExtensionCompatibleTelemetry,
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -303,18 +354,9 @@ pub enum CapabilityProvenance {
     Configured,
     Observed,
     Qualified,
+    /// Historical v1 name. It is not a cryptographic attestation.
     ExtensionAttested,
-}
-
-impl CapabilityProvenance {
-    pub fn rank(&self) -> u8 {
-        match self {
-            Self::Configured => 0,
-            Self::Observed => 1,
-            Self::Qualified => 2,
-            Self::ExtensionAttested => 3,
-        }
-    }
+    ExtensionObserved,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -360,7 +402,10 @@ impl ProviderProbeEvidence {
     }
 }
 
-fn derived_capabilities(evidence: &ProviderProbeEvidence) -> Vec<ProviderCapabilityEvidence> {
+fn derived_capabilities(
+    evidence: &ProviderProbeEvidence,
+    schema: &str,
+) -> Vec<ProviderCapabilityEvidence> {
     let mut capabilities = Vec::new();
     let mut add = |capability, proof: &str| {
         capabilities.push(ProviderCapabilityEvidence {
@@ -392,9 +437,20 @@ fn derived_capabilities(evidence: &ProviderProbeEvidence) -> Vec<ProviderCapabil
         add(ProviderCapability::HealthProbe, "health_probe");
     }
     if evidence.extension_telemetry_observed {
+        let (capability, provenance) = if schema == PROVIDER_QUALIFICATION_SCHEMA_V1 {
+            (
+                ProviderCapability::FirstPartyTelemetry,
+                CapabilityProvenance::ExtensionAttested,
+            )
+        } else {
+            (
+                ProviderCapability::ExtensionCompatibleTelemetry,
+                CapabilityProvenance::ExtensionObserved,
+            )
+        };
         capabilities.push(ProviderCapabilityEvidence {
-            capability: ProviderCapability::FirstPartyTelemetry,
-            provenance: CapabilityProvenance::ExtensionAttested,
+            capability,
+            provenance,
             evidence_refs: vec![format!("probe:{}:extension_telemetry", evidence.run_id)],
             verified_minimum: None,
         });
@@ -411,6 +467,10 @@ pub struct ProviderQualification {
     pub tenant_id: String,
     pub target_id: String,
     pub target_digest: String,
+    /// Non-secret credential generation used by this qualification. Historical
+    /// v1 records decode as generation zero.
+    #[serde(default)]
+    pub credential_revision: u64,
     pub suite_id: String,
     pub run_id: String,
     pub qualified_at_unix_ms: u64,
@@ -435,6 +495,14 @@ struct QualificationIdentity<'a> {
     operator_principal_id: &'a str,
 }
 
+#[derive(Serialize)]
+struct QualificationIdentityV2<'a> {
+    schema: &'a str,
+    credential_revision: u64,
+    #[serde(flatten)]
+    identity: QualificationIdentity<'a>,
+}
+
 impl ProviderQualification {
     pub fn from_evidence(
         target: &ProviderTarget,
@@ -442,6 +510,24 @@ impl ProviderQualification {
         suite_id: &str,
         operator_principal_id: &str,
         valid_until_unix_ms: Option<u64>,
+    ) -> Result<Self, String> {
+        Self::from_evidence_at_credential_revision(
+            target,
+            evidence,
+            suite_id,
+            operator_principal_id,
+            valid_until_unix_ms,
+            0,
+        )
+    }
+
+    pub fn from_evidence_at_credential_revision(
+        target: &ProviderTarget,
+        evidence: ProviderProbeEvidence,
+        suite_id: &str,
+        operator_principal_id: &str,
+        valid_until_unix_ms: Option<u64>,
+        credential_revision: u64,
     ) -> Result<Self, String> {
         target.validate()?;
         evidence.validate()?;
@@ -457,7 +543,7 @@ impl ProviderQualification {
         if valid_until_unix_ms.is_some_and(|until| until <= evidence.completed_at_unix_ms) {
             return Err("provider_qualification_validity_invalid".to_string());
         }
-        let capabilities = derived_capabilities(&evidence);
+        let capabilities = derived_capabilities(&evidence, PROVIDER_QUALIFICATION_SCHEMA);
         let identity = QualificationIdentity {
             tenant_id: &target.tenant_id,
             target_id: &target.target_id,
@@ -470,7 +556,14 @@ impl ProviderQualification {
             capabilities: &capabilities,
             operator_principal_id,
         };
-        let digest = digest_of(&identity, "provider_qualification_identity")?;
+        let digest = digest_of(
+            &QualificationIdentityV2 {
+                schema: PROVIDER_QUALIFICATION_SCHEMA,
+                credential_revision,
+                identity,
+            },
+            "provider_qualification_identity",
+        )?;
         let qualification = Self {
             schema: PROVIDER_QUALIFICATION_SCHEMA.to_string(),
             qualification_id: short_identity("provider-qualification", &digest),
@@ -478,6 +571,7 @@ impl ProviderQualification {
             tenant_id: target.tenant_id.clone(),
             target_id: target.target_id.clone(),
             target_digest: target.integrity_digest.clone(),
+            credential_revision,
             suite_id: suite_id.to_string(),
             run_id: evidence.run_id.clone(),
             qualified_at_unix_ms: evidence.completed_at_unix_ms,
@@ -491,7 +585,9 @@ impl ProviderQualification {
     }
 
     pub fn validate(&self, target: &ProviderTarget) -> Result<(), String> {
-        if self.schema != PROVIDER_QUALIFICATION_SCHEMA {
+        if self.schema != PROVIDER_QUALIFICATION_SCHEMA
+            && self.schema != PROVIDER_QUALIFICATION_SCHEMA_V1
+        {
             return Err("unsupported_provider_qualification_schema".to_string());
         }
         target.validate()?;
@@ -500,8 +596,9 @@ impl ProviderQualification {
             || self.target_id != target.target_id
             || self.target_digest != target.integrity_digest
             || self.evidence.target_id != target.target_id
-            || self.capabilities != derived_capabilities(&self.evidence)
+            || self.capabilities != derived_capabilities(&self.evidence, &self.schema)
             || self.capabilities.len() > MAX_PROVIDER_CAPABILITIES
+            || (self.schema == PROVIDER_QUALIFICATION_SCHEMA_V1 && self.credential_revision != 0)
         {
             return Err("provider_qualification_integrity_mismatch".to_string());
         }
@@ -517,7 +614,18 @@ impl ProviderQualification {
             capabilities: &self.capabilities,
             operator_principal_id: &self.operator_principal_id,
         };
-        let digest = digest_of(&identity, "provider_qualification_identity")?;
+        let digest = if self.schema == PROVIDER_QUALIFICATION_SCHEMA_V1 {
+            digest_of(&identity, "provider_qualification_identity")?
+        } else {
+            digest_of(
+                &QualificationIdentityV2 {
+                    schema: &self.schema,
+                    credential_revision: self.credential_revision,
+                    identity,
+                },
+                "provider_qualification_identity",
+            )?
+        };
         if self.integrity_digest != digest
             || self.qualification_id != short_identity("provider-qualification", &digest)
         {
@@ -528,7 +636,7 @@ impl ProviderQualification {
 
     pub fn is_current(&self, now_unix_ms: u64) -> bool {
         self.valid_until_unix_ms
-            .is_none_or(|until| now_unix_ms <= until)
+            .is_none_or(|until| now_unix_ms < until)
     }
 
     pub fn capability_at_least(
@@ -537,8 +645,100 @@ impl ProviderQualification {
         minimum: &CapabilityProvenance,
     ) -> bool {
         self.capabilities.iter().any(|capability| {
-            &capability.capability == required && capability.provenance.rank() >= minimum.rank()
+            if &capability.capability != required {
+                return false;
+            }
+            match minimum {
+                CapabilityProvenance::Configured => matches!(
+                    capability.provenance,
+                    CapabilityProvenance::Configured
+                        | CapabilityProvenance::Observed
+                        | CapabilityProvenance::Qualified
+                ),
+                CapabilityProvenance::Observed => matches!(
+                    capability.provenance,
+                    CapabilityProvenance::Observed | CapabilityProvenance::Qualified
+                ),
+                CapabilityProvenance::Qualified => {
+                    capability.provenance == CapabilityProvenance::Qualified
+                }
+                CapabilityProvenance::ExtensionAttested => {
+                    *required == ProviderCapability::FirstPartyTelemetry
+                        && capability.provenance == CapabilityProvenance::ExtensionAttested
+                }
+                CapabilityProvenance::ExtensionObserved => {
+                    *required == ProviderCapability::ExtensionCompatibleTelemetry
+                        && capability.provenance == CapabilityProvenance::ExtensionObserved
+                }
+            }
         })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ProviderCredentialRevision {
+    pub schema: String,
+    pub revision_id: String,
+    pub integrity_digest: String,
+    pub tenant_id: String,
+    pub target_id: String,
+    pub target_digest: String,
+    pub sequence: u64,
+    pub revision_label: String,
+    pub principal_id: String,
+    pub recorded_at_unix_ms: u64,
+}
+
+impl ProviderCredentialRevision {
+    pub fn new(
+        target: &ProviderTarget,
+        sequence: u64,
+        revision_label: &str,
+        principal_id: &str,
+        recorded_at_unix_ms: u64,
+    ) -> Result<Self, String> {
+        if sequence == 0 {
+            return Err("provider_credential_revision_sequence_invalid".to_string());
+        }
+        require_identifier("provider_credential_revision_label", revision_label, 128)?;
+        require_identifier("provider_credential_revision_principal", principal_id, 256)?;
+        let material = (
+            "yai.provider_credential_revision.v1",
+            &target.tenant_id,
+            &target.target_id,
+            &target.integrity_digest,
+            sequence,
+            revision_label,
+            principal_id,
+            recorded_at_unix_ms,
+        );
+        let digest = digest_of(&material, "provider_credential_revision_identity")?;
+        Ok(Self {
+            schema: "yai.provider_credential_revision.v1".to_string(),
+            revision_id: short_identity("provider-credential-revision", &digest),
+            integrity_digest: digest,
+            tenant_id: target.tenant_id.clone(),
+            target_id: target.target_id.clone(),
+            target_digest: target.integrity_digest.clone(),
+            sequence,
+            revision_label: revision_label.to_string(),
+            principal_id: principal_id.to_string(),
+            recorded_at_unix_ms,
+        })
+    }
+
+    pub fn validate(&self, target: &ProviderTarget) -> Result<(), String> {
+        let rebuilt = Self::new(
+            target,
+            self.sequence,
+            &self.revision_label,
+            &self.principal_id,
+            self.recorded_at_unix_ms,
+        )?;
+        if rebuilt != *self {
+            return Err("provider_credential_revision_integrity_mismatch".to_string());
+        }
+        Ok(())
     }
 }
 
@@ -641,6 +841,8 @@ pub enum ProviderCircuitPosture {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ProviderHealthState {
     pub schema: String,
+    #[serde(default)]
+    pub integrity_digest: String,
     pub target_id: String,
     pub target_digest: String,
     pub posture: ProviderHealthPosture,
@@ -652,12 +854,69 @@ pub struct ProviderHealthState {
     pub source: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_class: Option<String>,
+    #[serde(default)]
+    pub effective_time_floor_unix_ms: u64,
+    #[serde(default)]
+    pub probe_epoch: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub probe_owner: Option<ProviderProbeOwner>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ProviderProbeOwner {
+    pub boot_id: String,
+    pub pid: u32,
+    pub process_start_ticks: u64,
+    pub token: String,
+    pub started_at_unix_ms: u64,
+}
+
+#[derive(Serialize)]
+struct ProviderHealthIdentity<'a> {
+    schema: &'a str,
+    target_id: &'a str,
+    target_digest: &'a str,
+    posture: &'a ProviderHealthPosture,
+    circuit: &'a ProviderCircuitPosture,
+    consecutive_failures: u32,
+    observed_at_unix_ms: u64,
+    circuit_opened_at_unix_ms: Option<u64>,
+    source: &'a str,
+    failure_class: &'a Option<String>,
+    effective_time_floor_unix_ms: u64,
+    probe_epoch: u64,
+    probe_owner: &'a Option<ProviderProbeOwner>,
+}
+
+impl ProviderProbeOwner {
+    pub fn capture(token: &str, started_at_unix_ms: u64) -> Result<Self, String> {
+        require_identifier("provider_probe_owner_token", token, 256)?;
+        let process = crate::resource_control::LocalProcessIdentity::capture(std::process::id())?;
+        Ok(Self {
+            boot_id: process.boot_id,
+            pid: process.pid,
+            process_start_ticks: process.start_ticks,
+            token: token.to_string(),
+            started_at_unix_ms,
+        })
+    }
+
+    pub fn is_live(&self) -> bool {
+        crate::resource_control::LocalProcessIdentity {
+            schema: crate::resource_control::PROCESS_IDENTITY_SCHEMA.to_string(),
+            pid: self.pid,
+            boot_id: self.boot_id.clone(),
+            start_ticks: self.process_start_ticks,
+        }
+        .is_live()
+    }
 }
 
 impl ProviderHealthState {
     pub fn unknown(target: &ProviderTarget) -> Self {
-        Self {
+        let mut state = Self {
             schema: PROVIDER_HEALTH_SCHEMA.to_string(),
+            integrity_digest: String::new(),
             target_id: target.target_id.clone(),
             target_digest: target.integrity_digest.clone(),
             posture: ProviderHealthPosture::Unknown,
@@ -667,10 +926,18 @@ impl ProviderHealthState {
             circuit_opened_at_unix_ms: None,
             source: "no_observation".to_string(),
             failure_class: None,
-        }
+            effective_time_floor_unix_ms: 0,
+            probe_epoch: 0,
+            probe_owner: None,
+        };
+        state
+            .reseal()
+            .expect("provider health identity serialization is infallible");
+        state
     }
 
     pub fn effective_posture(&self, now_unix_ms: u64) -> ProviderHealthPosture {
+        let now_unix_ms = now_unix_ms.max(self.effective_time_floor_unix_ms);
         if self.observed_at_unix_ms == 0
             || now_unix_ms.saturating_sub(self.observed_at_unix_ms) > PROVIDER_HEALTH_FRESHNESS_MS
         {
@@ -681,6 +948,7 @@ impl ProviderHealthState {
     }
 
     pub fn circuit_at(&self, now_unix_ms: u64) -> ProviderCircuitPosture {
+        let now_unix_ms = now_unix_ms.max(self.effective_time_floor_unix_ms);
         if self.circuit == ProviderCircuitPosture::Open
             && self.circuit_opened_at_unix_ms.is_some_and(|opened| {
                 now_unix_ms.saturating_sub(opened) >= PROVIDER_CIRCUIT_COOLDOWN_MS
@@ -690,6 +958,67 @@ impl ProviderHealthState {
         } else {
             self.circuit.clone()
         }
+    }
+
+    pub fn validate(&self, target: &ProviderTarget) -> Result<(), String> {
+        if (self.schema != PROVIDER_HEALTH_SCHEMA && self.schema != PROVIDER_HEALTH_SCHEMA_V1)
+            || self.target_id != target.target_id
+            || self.target_digest != target.integrity_digest
+            || self.source.len() > 128
+            || self
+                .failure_class
+                .as_ref()
+                .is_some_and(|value| value.len() > 128)
+            || (self.schema == PROVIDER_HEALTH_SCHEMA_V1
+                && (!self.integrity_digest.is_empty()
+                    || self.effective_time_floor_unix_ms != 0
+                    || self.probe_epoch != 0
+                    || self.probe_owner.is_some()))
+        {
+            return Err("provider_health_integrity_invalid".to_string());
+        }
+        if let Some(owner) = &self.probe_owner {
+            require_identifier("provider_probe_owner_boot_id", &owner.boot_id, 128)?;
+            require_identifier("provider_probe_owner_token", &owner.token, 256)?;
+            if owner.pid <= 1 || owner.process_start_ticks == 0 {
+                return Err("provider_probe_owner_identity_invalid".to_string());
+            }
+        }
+        if self.schema == PROVIDER_HEALTH_SCHEMA
+            && self.integrity_digest != self.computed_digest()?
+        {
+            return Err("provider_health_integrity_invalid".to_string());
+        }
+        Ok(())
+    }
+
+    pub fn reseal(&mut self) -> Result<(), String> {
+        if self.schema != PROVIDER_HEALTH_SCHEMA {
+            return Err("provider_health_schema_invalid".to_string());
+        }
+        self.integrity_digest = self.computed_digest()?;
+        Ok(())
+    }
+
+    fn computed_digest(&self) -> Result<String, String> {
+        digest_of(
+            &ProviderHealthIdentity {
+                schema: &self.schema,
+                target_id: &self.target_id,
+                target_digest: &self.target_digest,
+                posture: &self.posture,
+                circuit: &self.circuit,
+                consecutive_failures: self.consecutive_failures,
+                observed_at_unix_ms: self.observed_at_unix_ms,
+                circuit_opened_at_unix_ms: self.circuit_opened_at_unix_ms,
+                source: &self.source,
+                failure_class: &self.failure_class,
+                effective_time_floor_unix_ms: self.effective_time_floor_unix_ms,
+                probe_epoch: self.probe_epoch,
+                probe_owner: &self.probe_owner,
+            },
+            "provider_health_identity",
+        )
     }
 }
 
@@ -1181,7 +1510,7 @@ impl ProviderSelection {
 
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != PROVIDER_SELECTION_SCHEMA
-            || self.selector_version != PROVIDER_SELECTOR_VERSION
+            || !matches!(self.selector_version.as_str(), "yai.provider_selector.v1")
             || self.candidate_target_ids.is_empty()
             || self.candidate_target_ids.len() > MAX_PROVIDER_TARGETS_PER_CASE
             || self.exclusions.len() > MAX_PROVIDER_EXCLUSIONS
@@ -1272,9 +1601,36 @@ impl ProviderAttemptOutcome {
         failure_class: Option<String>,
         recorded_at_unix_ms: u64,
     ) -> Result<Self, String> {
+        let delivery_contract_valid = match delivery {
+            ProviderDeliveryClass::NotDispatched | ProviderDeliveryClass::Cancelled => {
+                request_bytes_written == 0 && response_status.is_none() && !no_execution_proven
+            }
+            ProviderDeliveryClass::DefinitivelyRejected => {
+                request_bytes_written > 0 && response_status.is_some() && no_execution_proven
+            }
+            ProviderDeliveryClass::DeliveryIndeterminate => {
+                request_bytes_written > 0 && !no_execution_proven
+            }
+            ProviderDeliveryClass::ResponseInvalid => {
+                request_bytes_written > 0
+                    && matches!(
+                        stage,
+                        ProviderTransportStage::ResponseHeaders
+                            | ProviderTransportStage::ResponseBody
+                            | ProviderTransportStage::JsonParse
+                    )
+                    && !no_execution_proven
+            }
+            ProviderDeliveryClass::ResultReceived => {
+                request_bytes_written > 0
+                    && response_status.is_some_and(|status| (200..300).contains(&status))
+                    && stage == ProviderTransportStage::Completed
+                    && !no_execution_proven
+                    && failure_class.is_none()
+            }
+        };
         if selection.schema != PROVIDER_SELECTION_SCHEMA
-            || (delivery == ProviderDeliveryClass::NotDispatched && request_bytes_written != 0)
-            || (no_execution_proven && delivery != ProviderDeliveryClass::DefinitivelyRejected)
+            || !delivery_contract_valid
             || failure_class
                 .as_ref()
                 .is_some_and(|value| value.len() > 128)
@@ -1445,6 +1801,60 @@ mod tests {
     }
 
     #[test]
+    fn historical_qualification_v1_remains_valid_without_extension_promotion() {
+        let target = target(ProviderLocality::Loopback, "http://127.0.0.1:8080");
+        let evidence = ProviderProbeEvidence {
+            run_id: "qualification-run:historical-v1".to_string(),
+            target_id: target.target_id.clone(),
+            started_at_unix_ms: 10,
+            completed_at_unix_ms: 11,
+            transport_connected: true,
+            exact_model_addressed: true,
+            chat_text_envelope_valid: true,
+            structured_json_object_valid: false,
+            usage_accounting_observed: false,
+            health_endpoint_observed: false,
+            extension_telemetry_observed: true,
+            failure_codes: vec![],
+        };
+        let capabilities = derived_capabilities(&evidence, PROVIDER_QUALIFICATION_SCHEMA_V1);
+        let identity = QualificationIdentity {
+            tenant_id: &target.tenant_id,
+            target_id: &target.target_id,
+            target_digest: &target.integrity_digest,
+            suite_id: "yai.openai_compatible.synthetic.v1",
+            run_id: &evidence.run_id,
+            qualified_at_unix_ms: evidence.completed_at_unix_ms,
+            valid_until_unix_ms: None,
+            evidence: &evidence,
+            capabilities: &capabilities,
+            operator_principal_id: "principal:test",
+        };
+        let digest = digest_of(&identity, "provider_qualification_identity").unwrap();
+        let qualification = ProviderQualification {
+            schema: PROVIDER_QUALIFICATION_SCHEMA_V1.to_string(),
+            qualification_id: short_identity("provider-qualification", &digest),
+            integrity_digest: digest,
+            tenant_id: target.tenant_id.clone(),
+            target_id: target.target_id.clone(),
+            target_digest: target.integrity_digest.clone(),
+            credential_revision: 0,
+            suite_id: "yai.openai_compatible.synthetic.v1".to_string(),
+            run_id: evidence.run_id.clone(),
+            qualified_at_unix_ms: evidence.completed_at_unix_ms,
+            valid_until_unix_ms: None,
+            evidence,
+            capabilities,
+            operator_principal_id: "principal:test".to_string(),
+        };
+        qualification.validate(&target).unwrap();
+        assert!(!qualification.capability_at_least(
+            &ProviderCapability::ChatText,
+            &CapabilityProvenance::ExtensionAttested
+        ));
+    }
+
+    #[test]
     fn selector_filters_then_uses_health_and_explicit_order() {
         let first = target(ProviderLocality::Loopback, "http://127.0.0.1:8001");
         let second = target(ProviderLocality::Loopback, "http://127.0.0.1:8002");
@@ -1478,12 +1888,11 @@ mod tests {
         )
         .unwrap();
         let unknown = ProviderHealthState::unknown(&first);
-        let healthy = ProviderHealthState {
-            posture: ProviderHealthPosture::Healthy,
-            observed_at_unix_ms: 25,
-            source: "probe".to_string(),
-            ..ProviderHealthState::unknown(&second)
-        };
+        let mut healthy = ProviderHealthState::unknown(&second);
+        healthy.posture = ProviderHealthPosture::Healthy;
+        healthy.observed_at_unix_ms = 25;
+        healthy.source = "probe".to_string();
+        healthy.reseal().unwrap();
         let snapshots = BTreeMap::from([
             (
                 first.target_id.clone(),

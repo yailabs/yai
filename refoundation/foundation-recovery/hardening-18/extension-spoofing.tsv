@@ -1,0 +1,7 @@
+scenario	result
+generic target emits yvex_completion_metrics	ignored as generic extra; no extension capability
+target configured yvex.http.v1 and fields match	ExtensionCompatibleTelemetry@ExtensionObserved only
+configured extension mimics YVEX	compatibility observed; no binary/provider authenticity claim
+extension says healthy	cannot directly write ProviderHealthState
+extension says trusted	cannot write ProviderTrustEvent
+extension evidence used for ChatText/JSON/exact address	mechanically refused

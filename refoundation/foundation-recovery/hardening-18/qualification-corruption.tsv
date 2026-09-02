@@ -1,0 +1,9 @@
+field	validation	result
+target_id	exact target identity and digest	fail_closed
+target_digest	recomputed target binding	fail_closed
+tenant_id	exact target Tenant	fail_closed
+suite/run/timestamps	bounded identifiers/time and qualification digest	fail_closed
+evidence	validated synthetic probe and digest	fail_closed
+capabilities	rederived from evidence and exact provenance	fail_closed
+operator/integrity	bounded principal and content digest	fail_closed
+credential_revision	exact current revision for current projection	historical readable; current ineligible

@@ -12,7 +12,7 @@ import sys
 
 
 MODE = sys.argv[1]
-EXPECTED = 2 if MODE in {"model-switch", "invalid-continuation"} else 1
+EXPECTED = 2 if MODE == "model-switch" else 1
 REQUESTS = []
 
 
@@ -155,28 +155,28 @@ class Handler(BaseHTTPRequestHandler):
                 content = "The replacement model observed canonical state."
         elif MODE == "invalid-continuation":
             continuation = request.get("yai_provider_continuation")
-            if turn == 1:
-                valid = continuation is not None
-                if not valid:
-                    self.send_error(400)
-                    return
-                body = json.dumps({"error": "invalid_continuation"}).encode()
-                self.send_response(409)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+            valid = continuation is not None
+            if not valid:
+                self.send_error(400)
                 return
-            valid = continuation is None and (
-                REQUESTS[0]["frame"]["frame_id"] == frame["frame_id"]
-            )
-            content = "Fresh full-frame rendering recovered from continuation loss."
+            body = json.dumps({"error": "invalid_continuation"}).encode()
+            self.send_response(409)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         elif MODE == "fresh-restart":
             valid = (
                 request.get("model") == "continuation-model"
                 and "yai_provider_continuation" not in request
-                and frame_has(frame, kind="interaction_turn")
-                and frame_has(frame, posture="provider_claim", kind="provider_claim")
+                and frame_has(
+                    frame,
+                    posture="committed_operational_fact",
+                    kind="provider_binding",
+                    provider_id="provider:continuation",
+                    model_id="continuation-model",
+                )
             )
             content = "Provider restart preserved semantic continuity."
         else:

@@ -510,18 +510,20 @@ provider.
 An optional `ProviderContinuationReference` is accepted only as an opaque,
 provider-bound, runtime-bound transport optimization. Its value is never put in
 CaseState, canonical Transition history, Projection/Frame identity, or the
-derived artifact store. Only `not_provided`, `used`, or
-`invalidated_and_retried` disposition is recorded in invocation lineage. An
-`invalid_continuation` response triggers one retry of the same complete rendered
-frame without the reference.
+derived artifact store. Historical `invalidated_and_retried` dispositions
+remain readable, but a generic `invalid_continuation` HTTP response is not
+proof that cognition did not execute and therefore cannot trigger an automatic
+retry. A later explicit invocation rebuilds context from canonical Case state
+without reusing the incompatible reference.
 
 Product tests prove that Provider A can propose a real Wave-3 filesystem write,
 Provider B can replace its binding after FINALIZE and observe both the current
 typed resource consequence and its selected derived memory with Transition,
 Observation and Receipt provenance, and a model ID can change under one provider
-ID without changing Case identity. A separate fixture loses
-continuation state, retries a full frame, restarts on a new endpoint, rebuilds a
-new Projection/Frame from Case state, and preserves typed interaction/result
+ID without changing Case identity. A separate fixture loses continuation state,
+proves that the ambiguous response does not retry, then restarts on a new
+endpoint, rebuilds a new Projection/Frame from Case state, and preserves typed
+interaction/result
 continuity. Loss of the derived context-artifact database likewise leaves
 ledger and CaseState unchanged. OpenAI-compatible usage fields are captured
 when supplied; token counts and latency are invocation telemetry rather than

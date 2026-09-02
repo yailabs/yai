@@ -1,0 +1,5 @@
+phase	answer	result
+qualification	address A in declared class	may qualify exact target
+later dispatch	any address B outside declared class	provider_not_dispatched:dns_locality_violation; zero request bytes
+remote public A to public B	all answers Remote and TLS hostname valid	admitted; ephemeral IP is not target identity
+resolution failure	no authoritative address	provider_not_dispatched:dns_resolution_failed

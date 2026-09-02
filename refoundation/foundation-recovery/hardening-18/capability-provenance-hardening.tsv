@@ -1,0 +1,8 @@
+capability	admitted provenance	minimum rule	non-claim
+ChatText	Qualified; legacy exact v1 validation	qualified evidence required for governed text	extension cannot promote
+StructuredJsonObject	Qualified	qualified JSON probe required for PlanPatch	extension cannot promote
+ModelExactAddressing	Qualified	exact model probe	naming/config alone insufficient
+UsageAccounting	Qualified	valid usage envelope observed	telemetry extension insufficient
+HealthProbe	Qualified only when exact probe evidence says so	exact capability family	provider body cannot write health
+ExtensionCompatibleTelemetry	ExtensionObserved	explicit configured extension plus matching bounded fields	no provider/YVEX authenticity
+legacy FirstPartyTelemetry	legacy ExtensionAttested v1 only	read compatibility	wording not emitted for v2

@@ -1,0 +1,12 @@
+boundary	classification	automatic safe_only failover
+URL/DNS/connect failure before application bytes	not_dispatched	allowed
+TLS handshake failure	not_dispatched	allowed
+plain zero-byte write failure	not_dispatched	allowed
+TLS application write ambiguity	delivery_indeterminate	forbidden
+partial/full request then reset/timeout	delivery_indeterminate	forbidden
+partial headers/truncated body	delivery_indeterminate	forbidden
+oversize/duplicate framing/invalid UTF/trailing body	response_invalid	forbidden
+200 malformed JSON/output contract	response_invalid	forbidden
+redirect	response received and redirect refused; no follow	forbidden
+generic 429/5xx	delivery_indeterminate response posture	forbidden
+valid accepted ProviderResult	result_received	not applicable; one accepted result

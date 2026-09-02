@@ -1149,6 +1149,7 @@ struct ProviderConfig {
     continuation_supported: bool,
     continuation_ref: Option<ProviderContinuationReference>,
     governance: Option<ProviderInvocationGovernance>,
+    governed_locality: Option<ProviderLocality>,
 }
 
 struct PromptRuntime {
@@ -1416,6 +1417,21 @@ fn prompt_runtime_from_args_with_journal(
             })
         })
         .transpose()?;
+    let governed_locality = optional_arg(args, "--provider-locality")
+        .map(|value| match value.as_str() {
+            "loopback" => Ok(ProviderLocality::Loopback),
+            "private_network" => Ok(ProviderLocality::PrivateNetwork),
+            "remote" => Ok(ProviderLocality::Remote),
+            _ => Err("provider_locality_invalid".to_string()),
+        })
+        .transpose()?;
+    if governance.is_some() && governed_locality.is_none() {
+        return Err("governed_provider_locality_missing".to_string());
+    }
+    let credential_required = args.iter().any(|value| value == "--credential-required");
+    if governance.is_some() && credential_required && api_key.is_none() {
+        return Err("provider_not_dispatched:credential_unavailable".to_string());
+    }
     let continuation_ref = if governance.is_some() {
         None
     } else {
@@ -1483,6 +1499,7 @@ fn prompt_runtime_from_args_with_journal(
             continuation_supported,
             continuation_ref,
             governance,
+            governed_locality,
         },
         active_thread_id: active_thread_id.clone(),
         legacy_status_notes: render_thread_context(&journal, &case_ref, &active_thread_id),
@@ -1731,58 +1748,6 @@ pub(super) fn extract_json_string_field(source: &str, field: &str) -> Option<Str
     None
 }
 
-struct HttpUrl {
-    host: String,
-    port: u16,
-    path: String,
-}
-
-fn parse_http_url(url: &str) -> Result<HttpUrl, String> {
-    let rest = url
-        .strip_prefix("http://")
-        .ok_or_else(|| "only http:// provider URLs are supported in this carrier".to_string())?;
-    let (authority, path) = rest
-        .split_once('/')
-        .map(|(authority, path)| (authority, format!("/{path}")))
-        .unwrap_or((rest, "/".to_string()));
-    let (host, port) = authority
-        .rsplit_once(':')
-        .map(|(host, port)| {
-            port.parse::<u16>()
-                .map(|port| (host.to_string(), port))
-                .map_err(|error| format!("invalid provider port: {error}"))
-        })
-        .transpose()?
-        .unwrap_or_else(|| (authority.to_string(), 80));
-    Ok(HttpUrl { host, port, path })
-}
-
-fn decode_chunked_body(body: &[u8]) -> Result<Vec<u8>, String> {
-    let mut index = 0usize;
-    let mut decoded = Vec::new();
-    loop {
-        let Some(line_end) = body[index..].windows(2).position(|pair| pair == b"\r\n") else {
-            return Err("invalid chunked response".to_string());
-        };
-        let size_line = std::str::from_utf8(&body[index..index + line_end])
-            .map_err(|error| format!("invalid chunk header: {error}"))?;
-        let size_text = size_line.split(';').next().unwrap_or(size_line).trim();
-        let size = usize::from_str_radix(size_text, 16)
-            .map_err(|error| format!("invalid chunk size: {error}"))?;
-        index += line_end + 2;
-        if size == 0 {
-            break;
-        }
-        let chunk_end = index + size;
-        if chunk_end + 2 > body.len() {
-            return Err("truncated chunked response".to_string());
-        }
-        decoded.extend_from_slice(&body[index..chunk_end]);
-        index = chunk_end + 2;
-    }
-    Ok(decoded)
-}
-
 struct ProviderTransportResult {
     output: String,
     response_model_id: Option<String>,
@@ -1849,7 +1814,7 @@ fn provider_http_request(
     rendered: &RenderedInput,
     continuation: Option<&ProviderContinuationReference>,
 ) -> Result<(u16, String, usize), String> {
-    let url = parse_http_url(&config.base_url)?;
+    let endpoint = super::provider_transport::parse_provider_endpoint(&config.base_url)?;
     if let Some(reference) = continuation {
         if reference.provider_id != config.provider_id {
             return Err("provider_continuation_provider_mismatch".to_string());
@@ -1874,74 +1839,23 @@ fn provider_http_request(
         json_escape(&rendered.user_content),
         continuation_field
     );
-    let auth = config
-        .api_key
-        .as_deref()
-        .map(|key| format!("Authorization: Bearer {key}\r\n"))
-        .unwrap_or_default();
-    let request = format!(
-        "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\n{}Content-Length: {}\r\nConnection: close\r\n\r\n{}",
-        url.path,
-        url.host,
-        auth,
-        body.len(),
-        body
-    );
-    let mut stream = TcpStream::connect((url.host.as_str(), url.port))
-        .map_err(|error| format!("provider_not_dispatched:connect:{error}"))?;
-    let request = request.as_bytes();
-    let mut written = 0usize;
-    while written < request.len() {
-        match stream.write(&request[written..]) {
-            Ok(0) => {
-                return Err(if written == 0 {
-                    "provider_not_dispatched:zero_write".to_string()
-                } else {
-                    format!("provider_delivery_indeterminate:partial_write:{written}")
-                })
-            }
-            Ok(count) => written += count,
-            Err(error) => {
-                return Err(if written == 0 {
-                    format!("provider_not_dispatched:write:{error}")
-                } else {
-                    format!("provider_delivery_indeterminate:partial_write:{written}:{error}")
-                })
-            }
-        }
-    }
-    let mut response = Vec::new();
-    stream.read_to_end(&mut response).map_err(|error| {
-        format!("provider_delivery_indeterminate:response_read:bytes={written}:{error}")
-    })?;
-    let split = response
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .ok_or_else(|| {
-            format!("provider_delivery_indeterminate:invalid_http_response:bytes={written}")
-        })?;
-    let headers = String::from_utf8_lossy(&response[..split]).to_string();
-    let body_bytes = &response[split + 4..];
-    let status = headers
-        .lines()
-        .next()
-        .and_then(|line| line.split_whitespace().nth(1))
-        .and_then(|value| value.parse::<u16>().ok())
-        .ok_or_else(|| {
-            format!("provider_delivery_indeterminate:invalid_http_status:bytes={written}")
-        })?;
-    let lower_headers = headers.to_ascii_lowercase();
-    let body_bytes = if lower_headers.contains("transfer-encoding: chunked") {
-        decode_chunked_body(body_bytes).map_err(|error| {
-            format!("provider_delivery_indeterminate:response_body:bytes={written}:{error}")
-        })?
-    } else {
-        body_bytes.to_vec()
-    };
+    let response = super::provider_transport::provider_http(
+        &endpoint,
+        config.governed_locality.as_ref(),
+        "POST",
+        &endpoint.path,
+        body.as_bytes(),
+        config.api_key.as_deref(),
+    )?;
     Ok((
-        status,
-        String::from_utf8_lossy(&body_bytes).to_string(),
-        written,
+        response.status,
+        String::from_utf8(response.body).map_err(|_| {
+            format!(
+                "provider_response_invalid:body_utf8:status={}:bytes={}",
+                response.status, response.request_bytes_written
+            )
+        })?,
+        response.request_bytes_written,
     ))
 }
 
@@ -1951,7 +1865,7 @@ fn provider_chat_completion(
 ) -> Result<ProviderTransportResult, String> {
     let started = Instant::now();
     let continuation = config.continuation_ref.as_ref();
-    let (status, mut body_text, mut request_bytes_written) =
+    let (status, body_text, request_bytes_written) =
         provider_http_request(config, rendered, continuation)?;
     let success = (200..300).contains(&status);
     let disposition = if success {
@@ -1960,28 +1874,13 @@ fn provider_chat_completion(
         } else {
             ContinuationDisposition::NotProvided
         }
-    } else if continuation.is_some()
-        && body_text
-            .to_ascii_lowercase()
-            .contains("invalid_continuation")
-    {
-        let (retry_status, retry_body, retry_bytes_written) =
-            provider_http_request(config, rendered, None)?;
-        if !(200..300).contains(&retry_status) {
-            return Err(format!(
-                "provider_remote_response:{retry_status}:bytes={retry_bytes_written}:continuation_retry"
-            ));
-        }
-        body_text = retry_body;
-        request_bytes_written = retry_bytes_written;
-        ContinuationDisposition::InvalidatedAndRetried
     } else {
         return Err(format!(
             "provider_remote_response:{status}:bytes={request_bytes_written}"
         ));
     };
     let decoded = decode_provider_response(&body_text).map_err(|error| {
-        format!("provider_response_invalid:bytes={request_bytes_written}:{error}")
+        format!("provider_response_invalid:status={status}:bytes={request_bytes_written}:{error}")
     })?;
     Ok(ProviderTransportResult {
         output: decoded.output,
@@ -3141,6 +3040,7 @@ mod tests {
             continuation_supported: false,
             continuation_ref: None,
             governance: None,
+            governed_locality: None,
         }
     }
 

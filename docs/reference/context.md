@@ -305,11 +305,13 @@ is retired; historical `MemoryCandidate` remains compatibility input only.
 
 The provider adapter accepts an optional opaque, provider/runtime-bound
 continuation reference in memory for one invocation. It persists only the use/
-invalidation disposition. An invalid-continuation response retries the same
-complete frame without the reference. Product tests replace provider and model
-identity after a real controlled effect, restart the provider fixture, and show
-that the next frame contains the current observed consequence plus selected
-operational memory carrying Transition, Observation and Receipt provenance.
+invalidation disposition. A generic invalid-continuation response cannot prove
+non-execution and is not retried automatically; an explicit later invocation
+rebuilds a complete frame without the incompatible reference. Product tests
+replace provider and model identity after a real controlled effect, restart the
+provider fixture, and show that the next frame contains the current observed
+consequence plus selected operational memory carrying Transition, Observation
+and Receipt provenance.
 
 `yai.residency_plan.v1` now sits between broad candidate compilation and the
 final Projection used for one invocation. The plan binds current generation,

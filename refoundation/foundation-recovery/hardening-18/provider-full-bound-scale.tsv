@@ -1,0 +1,9 @@
+dimension	exact_limit	tested	observed
+targets per Tenant	128	128 accepted; 129 rejected	bound exact
+targets per Case binding	32	32 accepted; 33 rejected	bound exact
+selections	N/A	1000 over 32-target pool	min_us=32929;max_us=134253;mean_us=83285;deterministic=true
+LMDB bytes	map bounded	15310848 after final focused characterization	host-specific characterization
+qualifications retained	at least 256 pressure	256 unique immutable/current exact	no deletion
+trust contention	64	unique contiguous committed sequence	no fork
+half-open contention	64	one admitted	no stampede
+outage cycles	20	20 + recovery	no owner/worker leak

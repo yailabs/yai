@@ -1,0 +1,5 @@
+record	validator	result
+historical yai.provider_selector.v1	known v1 structural/digest contract	valid and immutable even if a future algorithm would choose another target
+new unresolved turn	current compatible selector	may choose differently without rewriting history
+yai.provider_selector.v99	no known validator	fail closed
+selector version	provenance only	never Policy/Decision/Grant authority

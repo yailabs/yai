@@ -1,0 +1,7 @@
+claim	H18 verdict
+generic Idempotency-Key or response request ID	not YAI proof
+same string on two targets	no shared authority
+target B proves target A did not execute	impossible generically
+generic 429/5xx is non-execution proof	false
+cross-provider exactly once	not claimed
+extension-specific idempotency	absent; no capability emitted

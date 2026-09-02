@@ -1,0 +1,10 @@
+property	implementation
+stack	rustls 0.23 plus webpki-roots
+chain	WebPKI trust-root validation
+hostname/SNI	rustls ServerName; both mandatory
+versions	secure rustls defaults (TLS 1.2/1.3)
+timeouts	30-second connect/read/write/handshake bound
+downgrade	none
+skip verification	no product flag; test roots are private test-only input
+redirect	refused; no credential forwarding
+byte boundary	TLS handshake bytes excluded; application plaintext accepted into TLS is conservatively potentially delivered

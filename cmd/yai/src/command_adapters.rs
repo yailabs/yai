@@ -20,7 +20,6 @@ use std::ffi::{CStr, CString};
 use std::fmt::Write as FmtWrite;
 use std::fs::{self, OpenOptions};
 use std::io::{IsTerminal, Read, Write};
-use std::net::TcpStream;
 use std::os::raw::{c_char, c_int, c_void};
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
@@ -43,6 +42,7 @@ use yai_core_engine::memory::{
     OperationalMemoryLifecycle, RetrievalQualification, DEFAULT_RETRIEVAL_LIMIT,
 };
 use yai_core_engine::projection::ProjectionSummary;
+use yai_core_engine::provider_governance::ProviderLocality;
 use yai_core_engine::query::{QueryFilter, QueryResult};
 use yai_core_engine::reconcile::ReconcileSummary;
 use yai_core_engine::record::{Record, RecordKind};
@@ -931,6 +931,9 @@ use replay::*;
 #[path = "review.rs"]
 mod review;
 use review::*;
+
+#[path = "provider_transport.rs"]
+mod provider_transport;
 
 #[path = "provider.rs"]
 mod provider;

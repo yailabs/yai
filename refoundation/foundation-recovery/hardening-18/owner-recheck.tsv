@@ -1,0 +1,6 @@
+concept	independent_lifecycle	owner_verdict	DB
+ProviderTarget/Qualification/Trust/CredentialRevision	yes; reusable Tenant administration and immutable evidence	shared Tenant provider-governance owner family	existing provider_governance
+Capability	no; value is valid only with exact evidence/provenance	derived_no_owner	0
+Health	yes operational multi-process current state; not semantic authority	shared operational non-authority	existing provider_runtime_health
+Selection/Attempt	no independent cross-Case lifecycle	Case-canonical Transition	Case Transition DB
+Credential secret	external secret lifecycle	external owner; only ref/revision in YAI	0

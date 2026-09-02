@@ -1,0 +1,6 @@
+attack	contract	result
+Healthy ages beyond freshness then wall rolls back	effective_time=max(wall,persisted_floor)	remains Unknown
+Open cooldown advances then wall rolls back	effective_time floor	no premature HalfOpen/Closed
+future caller observation	store owns time; future probe evidence bounded	rejected and owner released
+old v1 state	validated exact legacy bytes; upgraded on admitted writer	compatibility retained
+direct forged Healthy v2	integrity digest recomputed only by admitted writer	provider_health_integrity_invalid

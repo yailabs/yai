@@ -1,0 +1,7 @@
+failure	request_bytes_posture	delivery	retry_safe
+unknown CA	0 application bytes	not_dispatched	yes under safe_only
+hostname mismatch	0 application bytes	not_dispatched	yes under safe_only
+handshake abort	0 application bytes	not_dispatched	yes under safe_only
+post-handshake before application write	0 application bytes	not_dispatched only when plain/socket evidence proves zero; TLS write ambiguity is conservative	conditional
+TLS application write error	may have entered TLS record	delivery_indeterminate	no
+response failure after request write	>0	delivery_indeterminate	no

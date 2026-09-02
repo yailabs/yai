@@ -30,12 +30,15 @@ operational database: it is fresh, multi-process routing input, not Case truth,
 qualification or trust. Binding, selection and attempt outcomes are Case
 Transitions and replay through CaseState v12.
 
-Capabilities are derived from synthetic probe evidence. The v1 mechanical
+Capabilities are derived from synthetic probe evidence. The mechanical
 vocabulary is `chat_text`, `structured_json_object`,
 `model_exact_addressing`, `usage_accounting`, optional `health_probe`, and
-optional first-party telemetry. It makes no statement about model quality.
-Every selected capability carries provenance; normal text and PlanPatch
-requirements demand qualified evidence.
+optional `extension_compatible_telemetry`. It makes no statement about model
+quality or provider authenticity. Every selected capability carries
+capability-specific provenance; extension-observed telemetry cannot satisfy a
+qualified chat, structured-output, exact-addressing or usage requirement.
+Historical v1 `first_party_telemetry` remains readable as its original claim,
+but new qualification records use the narrower compatibility wording.
 
 Trust has three projections: `unreviewed`, `approved`, and `denied`. Only the
 Tenant Owner can write approval or denial. Approval means the Tenant admits
@@ -45,9 +48,20 @@ those.
 
 Health begins `unknown`, becomes fresh only through an authenticated synthetic
 probe or a canonical provider-attempt outcome, and expires back to effective
-`unknown`. Three consecutive failures open the shared circuit for 30 seconds;
-the next posture is half-open until a real observation closes or reopens it.
-Provider/model text cannot write health.
+`unknown`. Qualification, trust and health use YAI's persisted effective-time
+floor, so wall-clock rollback cannot resurrect expired eligibility or stale
+health. Three consecutive failures open the shared circuit for 30 seconds.
+After cooldown, one exact boot-ID/PID/process-start identity owns the half-open
+probe; live ownership excludes concurrent probes and dead ownership is
+reclaimable. Provider/model text cannot write health.
+
+The target stores a credential reference, never credential material. Rotating
+the secret behind the same reference records a non-secret monotonically
+ordered credential revision in the existing governance owner. It preserves the
+immutable target and trust history, invalidates credential-dependent current
+qualification, resets operational health to unknown, and requires a new
+qualification at that revision. Changing the credential reference itself
+creates a new target identity.
 
 ## Selection and delivery
 
@@ -65,13 +79,24 @@ ambient interactive view: invocation start revalidates the binding, target,
 qualification, trust and circuit in its Case transaction before any network
 dispatch.
 
+Endpoint locality is revalidated against every resolved address before each
+new governed connection. Mixed address classes fail closed. Loopback and
+private targets cannot drift to public addresses, while remote targets cannot
+resolve to loopback, private, link-local, multicast or unspecified addresses.
+Remote targets use real TLS 1.2/1.3 through rustls with certificate-chain,
+hostname and SNI validation. There is no product skip-verification switch and
+redirects are refused rather than forwarding credentials to another authority.
+
 One logical ModelWork turn may have at most three provider attempts. Failover
 policy is only `none` or `safe_only`. A connect or write failure before any
-request byte is safe to route to the next eligible target. Once bytes may have
-left YAI, missing or invalid response truth is `delivery_indeterminate` or
-`response_invalid`; `safe_only` forbids automatic alternate invocation. A
-generic HTTP status is not treated as proof that model work did not execute.
-Exactly one canonical attempt outcome is admitted per turn/attempt.
+application HTTP request byte is safe to route to the next eligible target.
+DNS and TLS handshake bytes do not count as provider request delivery. Once
+application bytes may have left YAI, missing or invalid response truth is
+`delivery_indeterminate` or `response_invalid`; `safe_only` forbids automatic
+alternate invocation. Generic 429/5xx responses, malformed 200 responses and
+provider-supplied idempotency strings are not treated as proof that model work
+did not execute. Exactly one canonical attempt outcome is admitted per
+turn/attempt.
 
 Provider continuation/KV references remain optional acceleration. A governed
 selection clears them, so changing target or model rebuilds input from
@@ -87,12 +112,12 @@ bind` through the compiled CLI registry.
 The normal data plane is generic OpenAI-compatible HTTP with exact endpoint and
 model identity. The optional `yvex.http.v1` extension may observe documented
 `/health`, model visibility and bounded `yvex_completion_metrics`. Those facts
-are operational telemetry only. YAI does not use or administer YVEX Source,
-Artifact, Profile, Engine, Session, loaded-model state, or its private local
-protocol.
+prove only extension-contract compatibility, not cryptographic YVEX identity.
+They are operational telemetry only. YAI does not use or administer YVEX
+Source, Artifact, Profile, Engine, Session, loaded-model state, or its private
+local protocol.
 
-W18's repository transport qualifies loopback/private plain HTTP fixtures. A
-remote target must be declared HTTPS, but this dependency-minimal binary does
-not yet implement TLS transport; it remains configured but cannot qualify and
-therefore cannot be selected. This is an explicit deployment limitation, not
-a silent downgrade to remote HTTP.
+Historical `yai.provider_selector.v1` records are validated by their known
+historical selector contract. A future selector may choose differently for new
+unresolved work without rewriting the target or exclusion reasoning recorded
+for an earlier Case selection.
