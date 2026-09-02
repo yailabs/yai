@@ -1,6 +1,12 @@
 #ifndef YAI_CONTROL_DECISION_H
 #define YAI_CONTROL_DECISION_H
 
+/*
+ * Research traceability:
+ * YAI-RI-I4 - Gated side effects.
+ * See docs/operational-state-mathematics.md#yai-ri-i4-gated-side-effects
+ */
+
 #include "yai/base/error.h"
 #include "yai/base/id.h"
 #include "yai/case/case_ref.h"

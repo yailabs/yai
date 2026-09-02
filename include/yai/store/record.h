@@ -1,6 +1,15 @@
 #ifndef YAI_STORE_RECORD_H
 #define YAI_STORE_RECORD_H
 
+/*
+ * Research traceability:
+ * YAI-RI-I1 - Ordered history / filtration preservation.
+ * See docs/operational-state-mathematics.md#yai-ri-i1-ordered-history
+ *
+ * YAI-RI-I2 - State provenance.
+ * See docs/operational-state-mathematics.md#yai-ri-i2-state-provenance
+ */
+
 #include "yai/base/error.h"
 #include "yai/base/id.h"
 #include "yai/case/case_ref.h"

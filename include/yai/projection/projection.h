@@ -1,6 +1,12 @@
 #ifndef YAI_PROJECTION_PROJECTION_H
 #define YAI_PROJECTION_PROJECTION_H
 
+/*
+ * Research traceability:
+ * YAI-RI-I7 - Context inclusion and omission disclosure.
+ * See docs/operational-state-mathematics.md#yai-ri-i7-context-omission-disclosure
+ */
+
 #include <stddef.h>
 
 #include "yai/base/error.h"

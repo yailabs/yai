@@ -72,7 +72,7 @@ stabilizes the manual command surface for `yai hot status`, `yai doctor` and
 cache before durable LMDB record-plane work begins. SPINE.28A renames the
 canonical core repository to `yai` and the old concept-mine repository to
 `yai-dev`. SPINE.28B removes local virtualenv roots, archives README-only
-ingest placeholders and marks transitional C data shims as temporary engine
+ingest stubs and marks transitional C data shims as temporary engine
 drain surfaces. SPINE.29 defines LMDB as durable indexed record lookup under
 `YAI_HOME/store/lmdb`, adds `yai store status` and keeps hot state, journal,
 graph, facts and memory separate before the write path begins. SPINE.30 adds
@@ -152,6 +152,18 @@ curated architecture documentation only, `labs/` owns experiments, runbooks,
 outputs and reports, and `work/` owns spines, waves, inventories, agent notes
 and archives. CLORI did not execute in this slot and remains out of scope for
 this delivery.
+
+Research Lab bridge exists at docs/research-lab-bridge.md and governs how external
+Obsidian research material may be promoted into YAI repo canon.
+Research index exists at docs/research-index.md as the repo-side hub for promoted
+research links and future math/source traceability.
+The research-derived alpha sequence is frozen by the repo math spine and the
+external YAI Research and Implementation Delivery Spine:
+
+```text
+work/spines/research-math-spine.md
+obsidian://open?vault=YAI%20Research%20Lab&file=00_Index%2FYAI%20Research%20and%20Implementation%20Program
+```
 
 SPINE.45B rebases the roadmap before DuckDB facts so facts, retrieval,
 compiled context, model-session state, graph revision and counterfactual

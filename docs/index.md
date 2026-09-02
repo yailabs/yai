@@ -31,8 +31,8 @@ does not replace these owners.
 | Operations | [quickstart.md](quickstart.md), [test-cases.md](test-cases.md) | executable procedures and validation labels | semantic doctrine |
 | Audit/evidence | `refoundation/audits/`, `labs/`, tests | frozen findings, experiments, and behavior proof | current architectural authority |
 | Migration | `../refoundation/doc-refoundation/` from the YAI repository root, later migration records | a bounded before/after transition | permanent doctrine |
-| Research | explicitly labeled research notes | non-canonical hypotheses, provenance, and promoted design input | runtime truth without implementation evidence |
-| Development instructions | [CONTRIBUTING](../CONTRIBUTING.md), `.agents/AGENTS.md` | contribution and automation rules | product/runtime semantics |
+| Research | [research index](research-index.md), [research bridge](research-lab-bridge.md), [operational-state mathematics](operational-state-mathematics.md) | non-canonical hypotheses, provenance, and promoted design input | runtime truth without implementation evidence |
+| Development instructions | [CONTRIBUTING](../CONTRIBUTING.md), [AGENTS](../AGENTS.md) | contribution and automation rules | product/runtime semantics |
 
 The [legal posture](legal.md), license, security policy, and notices remain
 authoritative for their own non-architectural subjects.
@@ -74,7 +74,13 @@ The historical `yai-dev` repository is a semantic mine, not a migration tree.
 Valid historical properties are already represented in the canon or Roadmap;
 reading `yai-dev` is not required to discover current YAI.
 
-## Operations
+## Operations and research
 
 - [Quickstart](quickstart.md)
 - [Validation guide](test-cases.md)
+- [Research Lab bridge](research-lab-bridge.md)
+- [Research index](research-index.md)
+- [Operational State Mathematics](operational-state-mathematics.md)
+
+Research links are retained from the pre-existing worktree. They are design
+inputs only unless an explicit constitutional/reference decision adopts them.

@@ -5,6 +5,17 @@ It applies to the entire repository. Claude-specific project settings are not
 supported; `.claude/` must not be introduced or treated as a compatibility
 surface.
 
+## Root README boundary
+
+Do not modify the root `README.md` unless Francesco explicitly requests that
+exact edit in the current turn. Wave instructions, delivery notes, checklists,
+roadmaps, acceptance criteria, guards, validation steps, and generated task
+lists do not override this boundary. Put incidental operational detail in the
+canonical engineering or architecture documentation instead.
+
+The root README is the principal public entry document. Do not add, remove,
+rewrite, compress, expand, modernize, or roadmap-update it as incidental work.
+
 ## Evidence and authority
 
 - Executable source, tests, persisted fixtures, and observed behavior outrank

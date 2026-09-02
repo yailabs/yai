@@ -1,0 +1,1121 @@
+{
+  "schema_version": "yai.research-link-map.v1",
+  "source_wave": "PROMOTION.1",
+  "status": "promoted-design-invariants",
+  "implementation_claim": false,
+  "canonical_repo_doc": "docs/operational-state-mathematics.md",
+  "repo_spine": "work/spines/research-math-spine.md",
+  "vault_spine": {
+    "name": "Mathematical Research Spine",
+    "vault_uri": "obsidian://open?vault=YAI%20Research%20Lab&file=00_Index%2FMathematical%20Research%20Spine"
+  },
+  "invariants": [
+    {
+      "id": "YAI-RI-I1",
+      "title": "Ordered history",
+      "status": "promoted-design-invariant",
+      "repo_doc": "docs/operational-state-mathematics.md#yai-ri-i1-ordered-history",
+      "repo_surfaces": [
+        "include/yai/store/record.h"
+      ],
+      "vault_note": "H_t Raw Case History",
+      "vault_uri": "obsidian://open?vault=YAI%20Research%20Lab&file=15_Formal_Bindings%2FH_t%20Raw%20Case%20History",
+      "implementation_claim": false,
+      "ac0a_d1_surface_map": {
+        "delivery_id": "AC0A-D1",
+        "status": "mapped",
+        "repo_surfaces": [
+          {
+            "path": "include/yai/store/record.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_store_record_t",
+            "field_names": [
+              "record_id",
+              "case_ref",
+              "record_kind",
+              "subject_ref",
+              "attempt_id",
+              "decision_id",
+              "receipt_id",
+              "summary"
+            ],
+            "relation_semantics": [
+              "Case-scoped record envelope for history elements.",
+              "Links history entries to attempt, decision and receipt identifiers where present.",
+              "Record kind names event categories used by store, projection, graph, memory and participant-view surfaces."
+            ],
+            "source_owner": "include/yai public C ABI / store record",
+            "storage_classification": "durable",
+            "evidence_refs": [
+              "YAI-EVID-0008",
+              "YAI-EVID-0019"
+            ]
+          },
+          {
+            "path": "include/yai/store/journal.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_journal_t",
+            "field_names": [
+              "records",
+              "count",
+              "capacity"
+            ],
+            "relation_semantics": [
+              "Index-addressed collection of yai_store_record_t entries.",
+              "yai_journal_get exposes records by index for replay, projection and derivation readers."
+            ],
+            "source_owner": "include/yai public C ABI / store journal",
+            "storage_classification": "cached",
+            "evidence_refs": [
+              "YAI-EVID-0008",
+              "YAI-EVID-0019"
+            ]
+          },
+          {
+            "path": "system/store/journal.c",
+            "symbol_type": "function",
+            "symbol_name": "yai_journal_append",
+            "field_names": [],
+            "relation_semantics": [
+              "Copies the input record into records[count].",
+              "Increments count after append."
+            ],
+            "source_owner": "system/store C implementation",
+            "storage_classification": "cached",
+            "evidence_refs": [
+              "YAI-EVID-0009",
+              "YAI-EVID-0019"
+            ]
+          },
+          {
+            "path": "engine/yai-engine/src/record.rs",
+            "symbol_type": "struct",
+            "symbol_name": "Record",
+            "field_names": [
+              "id",
+              "case_ref",
+              "kind",
+              "subject_ref",
+              "attempt_id",
+              "decision_id",
+              "receipt_id",
+              "summary"
+            ],
+            "relation_semantics": [
+              "Rust record envelope mirrors the store record identifiers and refs.",
+              "to_jsonl serializes schema yai.store.record.v0 for journal interchange."
+            ],
+            "source_owner": "engine/yai-engine Rust operational data engine / record model",
+            "storage_classification": "durable",
+            "evidence_refs": [
+              "YAI-EVID-0010",
+              "YAI-EVID-0020"
+            ]
+          },
+          {
+            "path": "engine/yai-engine/src/journal.rs",
+            "symbol_type": "struct",
+            "symbol_name": "Journal",
+            "field_names": [
+              "records"
+            ],
+            "relation_semantics": [
+              "append stores Record entries in Vec order.",
+              "from_jsonl_str and load_jsonl traverse JSONL line order into Journal.",
+              "inspect_jsonl_str records line_number diagnostics for replay inspection."
+            ],
+            "source_owner": "engine/yai-engine Rust operational data engine / journal model",
+            "storage_classification": "durable",
+            "evidence_refs": [
+              "YAI-EVID-0010",
+              "YAI-EVID-0020"
+            ]
+          }
+        ],
+        "mapping_notes": [
+          "AC0A-D1 records inspected record and journal surfaces for ordered history mapping only.",
+          "Durable classification is attached to record envelopes and JSONL journal persistence surfaces; cached classification is attached to in-memory C journal storage."
+        ],
+        "non_claims": [
+          "No representability verdict is made by AC0A-D1.",
+          "No contract gap is registered by AC0A-D1.",
+          "No fixture or validator target is selected by AC0A-D1."
+        ]
+      },
+      "ac0a_d2_representability": {
+        "delivery_id": "AC0A-D2",
+        "status": "verdict-recorded",
+        "verdict": "partially-represented",
+        "verdict_basis": "AC0A-D1 mapped record and journal surfaces expose case-scoped record identity, event categories, append/index traversal and JSONL journal order; the filtration relation depends on ordering semantics across journal and record-plane interpretation.",
+        "surface_map_delivery": "AC0A-D1",
+        "deferred_to": "AC0A-D3",
+        "non_claims": [
+          "This verdict is not a runtime guarantee.",
+          "This verdict is not an enforcement claim.",
+          "Exact contract gaps are deferred to AC0A-D3.",
+          "Fixture and validator targets are deferred to AC0A-D4."
+        ]
+      },
+      "ac0a_d3_contract_gaps": {
+        "delivery_id": "AC0A-D3",
+        "status": "gaps-recorded",
+        "gap_items": [
+          {
+            "gap_id": "YAI-RI-I1-G1",
+            "category": "field-level",
+            "statement": "yai_store_record_t and Rust Record do not expose a stable sequence, cursor, or monotonic event-order field independent of in-memory vector index or JSONL line position.",
+            "candidate_affected_surfaces": [
+              "include/yai/store/record.h",
+              "include/yai/store/journal.h",
+              "engine/yai-engine/src/record.rs",
+              "engine/yai-engine/src/journal.rs"
+            ],
+            "abi_header_change_may_be_needed": "yes",
+            "source_runtime_change_may_be_needed": "yes",
+            "deferred_to": "ALPHA.CORE.0C"
+          },
+          {
+            "gap_id": "YAI-RI-I1-G2",
+            "category": "relation-level",
+            "statement": "The mapped surfaces do not define a named filtration relation from a case-scoped ordered journal prefix to the records visible to replay, projection, memory and graph derivation.",
+            "candidate_affected_surfaces": [
+              "include/yai/store/journal.h",
+              "system/store/journal.c",
+              "engine/yai-engine/src/journal.rs",
+              "include/yai/projection/projection.h",
+              "include/yai/memory/memory_candidate.h",
+              "include/yai/graph/reconstruct.h"
+            ],
+            "abi_header_change_may_be_needed": "unknown",
+            "source_runtime_change_may_be_needed": "yes",
+            "deferred_to": "ALPHA.CORE.0C"
+          },
+          {
+            "gap_id": "YAI-RI-I1-G3",
+            "category": "validation-level",
+            "statement": "AC0A-D1 mapped surfaces expose append, load and inspection paths, but no conformance-level check over ordered prefix preservation, repeated record multiplicity and duplicate handling across C and Rust journal surfaces.",
+            "candidate_affected_surfaces": [
+              "system/store/journal.c",
+              "engine/yai-engine/src/journal.rs"
+            ],
+            "abi_header_change_may_be_needed": "no",
+            "source_runtime_change_may_be_needed": "unknown",
+            "deferred_to": "ALPHA.CORE.0B"
+          }
+        ],
+        "non_claims": [
+          "AC0A-D3 records contract gaps only.",
+          "AC0A-D3 does not select fixture or validator targets.",
+          "AC0A-D3 does not implement contract or runtime changes.",
+          "AC0A-D3 does not mark any gap resolved."
+        ]
+      }
+    },
+    {
+      "id": "YAI-RI-I2",
+      "title": "State provenance",
+      "status": "promoted-design-invariant",
+      "repo_doc": "docs/operational-state-mathematics.md#yai-ri-i2-state-provenance",
+      "repo_surfaces": [
+        "include/yai/store/record.h"
+      ],
+      "vault_note": "Z_t Operational State",
+      "vault_uri": "obsidian://open?vault=YAI%20Research%20Lab&file=15_Formal_Bindings%2FZ_t%20Operational%20State",
+      "implementation_claim": false,
+      "ac0a_d1_surface_map": {
+        "delivery_id": "AC0A-D1",
+        "status": "mapped",
+        "repo_surfaces": [
+          {
+            "path": "include/yai/store/record.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_store_record_t",
+            "field_names": [
+              "record_id",
+              "case_ref",
+              "record_kind",
+              "subject_ref",
+              "attempt_id",
+              "decision_id",
+              "receipt_id",
+              "summary"
+            ],
+            "relation_semantics": [
+              "Record fields carry case, subject, attempt, decision and receipt refs for state provenance readers.",
+              "record_kind distinguishes state-bearing records, receipt records, projection records, graph records and memory records."
+            ],
+            "source_owner": "include/yai public C ABI / store record",
+            "storage_classification": "durable",
+            "evidence_refs": [
+              "YAI-EVID-0008",
+              "YAI-EVID-0019"
+            ]
+          },
+          {
+            "path": "include/yai/subject/subject_state.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_subject_state_t",
+            "field_names": [
+              "subject_ref",
+              "case_ref",
+              "state_kind",
+              "last_receipt_id",
+              "last_decision_id",
+              "last_observed_at",
+              "content_or_status_hash",
+              "summary"
+            ],
+            "relation_semantics": [
+              "Subject state surface carries last decision and receipt refs.",
+              "case_ref and subject_ref scope the state to the source case and subject."
+            ],
+            "source_owner": "include/yai public C ABI / subject state",
+            "storage_classification": "derived",
+            "evidence_refs": [
+              "YAI-EVID-0015",
+              "YAI-EVID-0019"
+            ]
+          },
+          {
+            "path": "system/subject/subject_state.c",
+            "symbol_type": "function",
+            "symbol_name": "yai_subject_state_apply_record",
+            "field_names": [],
+            "relation_semantics": [
+              "Applies matching case and subject records to a subject state.",
+              "Receipt record kinds update last_receipt_id, last_decision_id, last_observed_at and summary."
+            ],
+            "source_owner": "system/subject C implementation",
+            "storage_classification": "derived",
+            "evidence_refs": [
+              "YAI-EVID-0009",
+              "YAI-EVID-0015",
+              "YAI-EVID-0019"
+            ]
+          },
+          {
+            "path": "include/yai/memory/memory_candidate.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_memory_candidate_t",
+            "field_names": [
+              "memory_id",
+              "case_ref",
+              "memory_kind",
+              "scope_kind",
+              "basis_record_count",
+              "basis_receipt_count",
+              "basis_edge_count",
+              "subject_ref",
+              "decision_ref",
+              "receipt_ref",
+              "freshness",
+              "confidence",
+              "summary"
+            ],
+            "relation_semantics": [
+              "Derived memory candidate records basis counts for records, receipts and graph edges.",
+              "decision_ref and receipt_ref attach candidate memory to source decision and receipt refs."
+            ],
+            "source_owner": "include/yai public C ABI / memory candidate",
+            "storage_classification": "derived",
+            "evidence_refs": [
+              "YAI-EVID-0023"
+            ]
+          },
+          {
+            "path": "include/yai/projection/projection_result.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_projection_result_t",
+            "field_names": [
+              "projection_id",
+              "request_id",
+              "case_ref",
+              "consumer_kind",
+              "projection_kind",
+              "source_record_count",
+              "source_receipt_count",
+              "source_memory_count",
+              "source_divergence_count",
+              "redaction_posture",
+              "freshness",
+              "summary"
+            ],
+            "relation_semantics": [
+              "Projection result surface records source counts for records, receipts, memory and divergences.",
+              "request_id and case_ref bind the derived view to request and case provenance."
+            ],
+            "source_owner": "include/yai public C ABI / projection result",
+            "storage_classification": "derived",
+            "evidence_refs": [
+              "YAI-EVID-0022"
+            ]
+          }
+        ],
+        "mapping_notes": [
+          "AC0A-D1 maps provenance through record refs, derived subject state, derived memory candidates and projection source counts.",
+          "Derived classification is used for state surfaces computed from journal or reconstruction input."
+        ],
+        "non_claims": [
+          "No representability verdict is made by AC0A-D1.",
+          "No contract gap is registered by AC0A-D1.",
+          "No fixture or validator target is selected by AC0A-D1."
+        ]
+      },
+      "ac0a_d2_representability": {
+        "delivery_id": "AC0A-D2",
+        "status": "verdict-recorded",
+        "verdict": "partially-represented",
+        "verdict_basis": "AC0A-D1 mapped surfaces expose provenance refs on records plus derived subject state, memory candidate basis counts and projection result source counts; the state-provenance relation is distributed across derived and durable surfaces.",
+        "surface_map_delivery": "AC0A-D1",
+        "deferred_to": "AC0A-D3",
+        "non_claims": [
+          "This verdict is not a runtime guarantee.",
+          "This verdict is not an enforcement claim.",
+          "Exact contract gaps are deferred to AC0A-D3.",
+          "Fixture and validator targets are deferred to AC0A-D4."
+        ]
+      },
+      "ac0a_d3_contract_gaps": {
+        "delivery_id": "AC0A-D3",
+        "status": "gaps-recorded",
+        "gap_items": [
+          {
+            "gap_id": "YAI-RI-I2-G1",
+            "category": "field-level",
+            "statement": "Derived surfaces expose counts or last refs, but they do not expose a structured list of source record refs for the derived subject state, memory candidate or projection result.",
+            "candidate_affected_surfaces": [
+              "include/yai/subject/subject_state.h",
+              "include/yai/memory/memory_candidate.h",
+              "include/yai/projection/projection_result.h"
+            ],
+            "abi_header_change_may_be_needed": "yes",
+            "source_runtime_change_may_be_needed": "yes",
+            "deferred_to": "ALPHA.CORE.0C"
+          },
+          {
+            "gap_id": "YAI-RI-I2-G2",
+            "category": "relation-level",
+            "statement": "The mapped surfaces do not define one named derivation relation linking yai_store_record_t history to yai_subject_state_t, yai_memory_candidate_t and yai_projection_result_t outputs.",
+            "candidate_affected_surfaces": [
+              "include/yai/store/record.h",
+              "include/yai/subject/subject_state.h",
+              "system/subject/subject_state.c",
+              "include/yai/memory/memory_candidate.h",
+              "system/memory/memory_candidate.c",
+              "include/yai/projection/projection_result.h",
+              "system/projection/projection_result.c"
+            ],
+            "abi_header_change_may_be_needed": "unknown",
+            "source_runtime_change_may_be_needed": "yes",
+            "deferred_to": "ALPHA.CORE.0C"
+          },
+          {
+            "gap_id": "YAI-RI-I2-G3",
+            "category": "metadata-level",
+            "statement": "The mapped derived state surfaces do not expose derivation version, derivation input boundary, or derivation freshness source as contract fields across all mapped state-bearing outputs.",
+            "candidate_affected_surfaces": [
+              "include/yai/subject/subject_state.h",
+              "include/yai/memory/memory_candidate.h",
+              "include/yai/projection/projection_result.h"
+            ],
+            "abi_header_change_may_be_needed": "yes",
+            "source_runtime_change_may_be_needed": "unknown",
+            "deferred_to": "AC0A-D4"
+          }
+        ],
+        "non_claims": [
+          "AC0A-D3 records contract gaps only.",
+          "AC0A-D3 does not select fixture or validator targets.",
+          "AC0A-D3 does not implement contract or runtime changes.",
+          "AC0A-D3 does not mark any gap resolved."
+        ]
+      }
+    },
+    {
+      "id": "YAI-RI-I4",
+      "title": "Gated side effects",
+      "status": "promoted-design-invariant",
+      "repo_doc": "docs/operational-state-mathematics.md#yai-ri-i4-gated-side-effects",
+      "repo_surfaces": [
+        "include/yai/control/gate.h",
+        "include/yai/control/decision.h"
+      ],
+      "vault_note": "G Decision Gate Function",
+      "vault_uri": "obsidian://open?vault=YAI%20Research%20Lab&file=15_Formal_Bindings%2FG%20Decision%20Gate%20Function",
+      "implementation_claim": false,
+      "ac0a_d1_surface_map": {
+        "delivery_id": "AC0A-D1",
+        "status": "mapped",
+        "repo_surfaces": [
+          {
+            "path": "include/yai/control/gate.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_gate_result_t",
+            "field_names": [
+              "gate_id",
+              "case_ref",
+              "attempt_id",
+              "rule_id",
+              "gate_kind",
+              "result",
+              "reason"
+            ],
+            "relation_semantics": [
+              "Gate result links case, attempt, policy rule, gate kind, result kind and reason.",
+              "yai_gate_evaluate_attempt produces this boundary object from an attempt and policy rule."
+            ],
+            "source_owner": "include/yai public C ABI / control gate",
+            "storage_classification": "control",
+            "evidence_refs": [
+              "YAI-EVID-0008",
+              "YAI-EVID-0016"
+            ]
+          },
+          {
+            "path": "include/yai/control/decision.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_control_decision_t",
+            "field_names": [
+              "decision_id",
+              "case_ref",
+              "attempt_id",
+              "basis_id",
+              "gate_id",
+              "rule_id",
+              "obligation_id",
+              "receipt_requirement_id",
+              "outcome",
+              "reason",
+              "receipt_required"
+            ],
+            "relation_semantics": [
+              "Decision object links an attempt to gate, rule, basis, obligation and receipt requirement refs.",
+              "outcome and receipt_required carry control posture for downstream effect and receipt surfaces."
+            ],
+            "source_owner": "include/yai public C ABI / control decision",
+            "storage_classification": "control",
+            "evidence_refs": [
+              "YAI-EVID-0008",
+              "YAI-EVID-0016"
+            ]
+          },
+          {
+            "path": "system/control/decision.c",
+            "symbol_type": "function",
+            "symbol_name": "yai_control_decide",
+            "field_names": [],
+            "relation_semantics": [
+              "Calls yai_policy_rule_for_attempt, yai_gate_evaluate_attempt, yai_decision_basis_from_gate and yai_control_decide_from_gate.",
+              "Connects attempted operation material to gate and decision material."
+            ],
+            "source_owner": "system/control C implementation",
+            "storage_classification": "control",
+            "evidence_refs": [
+              "YAI-EVID-0009",
+              "YAI-EVID-0016"
+            ]
+          },
+          {
+            "path": "include/yai/control/policy_rule.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_policy_rule_t",
+            "field_names": [
+              "rule_id",
+              "case_ref",
+              "scope_kind",
+              "effect_class",
+              "condition_kind",
+              "effect",
+              "failure_mode",
+              "summary"
+            ],
+            "relation_semantics": [
+              "Policy rule surface supplies scope, condition and effect material used by gate evaluation.",
+              "yai_policy_rule_for_attempt derives a rule from attempt fields."
+            ],
+            "source_owner": "include/yai public C ABI / control policy rule",
+            "storage_classification": "control",
+            "evidence_refs": [
+              "YAI-EVID-0016"
+            ]
+          },
+          {
+            "path": "include/yai/control/authority_scope.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_authority_scope_t",
+            "field_names": [
+              "authority_scope_ref",
+              "can_claim",
+              "can_propose",
+              "can_dispatch",
+              "can_execute",
+              "can_review",
+              "can_approve",
+              "can_deny",
+              "can_defer",
+              "can_quarantine",
+              "can_mutate_decision",
+              "can_create_receipt",
+              "can_display",
+              "source"
+            ],
+            "relation_semantics": [
+              "Authority scope surface names permission posture fields around dispatch, execution, review, decision mutation and receipt creation.",
+              "source records the origin label for the scope initializer."
+            ],
+            "source_owner": "include/yai public C ABI / control authority scope",
+            "storage_classification": "control",
+            "evidence_refs": [
+              "YAI-EVID-0014",
+              "YAI-EVID-0041"
+            ]
+          },
+          {
+            "path": "include/yai/control/capability_lease.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_capability_lease_t",
+            "field_names": [
+              "capability_lease_id",
+              "case_ref",
+              "subject_ref",
+              "operation_family",
+              "carrier_family",
+              "resource_scope_id",
+              "lease_status",
+              "allowed_actions",
+              "constraints",
+              "requires_review",
+              "receipt_required",
+              "expires_at_unix_ms",
+              "policy_basis",
+              "authority_basis",
+              "visibility_basis"
+            ],
+            "relation_semantics": [
+              "Capability lease surface binds case, subject, operation family, carrier family and resource scope.",
+              "requires_review and receipt_required expose control posture fields for operation permission material."
+            ],
+            "source_owner": "include/yai public C ABI / control capability lease",
+            "storage_classification": "control",
+            "evidence_refs": [
+              "YAI-EVID-0014"
+            ]
+          }
+        ],
+        "mapping_notes": [
+          "AC0A-D1 maps the gate-to-decision path and adjacent policy, authority and capability lease surfaces.",
+          "Control classification is used for decision, gate, policy, authority and lease surfaces."
+        ],
+        "non_claims": [
+          "No representability verdict is made by AC0A-D1.",
+          "No contract gap is registered by AC0A-D1.",
+          "No fixture or validator target is selected by AC0A-D1."
+        ]
+      },
+      "ac0a_d2_representability": {
+        "delivery_id": "AC0A-D2",
+        "status": "verdict-recorded",
+        "verdict": "represented",
+        "verdict_basis": "AC0A-D1 mapped gate, decision, policy, authority and capability lease surfaces expose the control terms needed to name an attempt-to-gate-to-decision relation and a deterministic future predicate over decision/gate posture.",
+        "surface_map_delivery": "AC0A-D1",
+        "deferred_to": "AC0A-D3",
+        "non_claims": [
+          "This verdict is not a runtime guarantee.",
+          "This verdict is not an enforcement claim.",
+          "Exact contract gaps are deferred to AC0A-D3.",
+          "Fixture and validator targets are deferred to AC0A-D4."
+        ]
+      },
+      "ac0a_d3_contract_gaps": {
+        "delivery_id": "AC0A-D3",
+        "status": "gaps-recorded",
+        "gap_items": [
+          {
+            "gap_id": "YAI-RI-I4-G1",
+            "category": "validation-level",
+            "statement": "The mapped gate, decision and policy surfaces expose the control relation terms, but AC0A-D1 does not identify a conformance-level coverage record for policy-to-gate-to-decision outcomes and receipt_required posture across allowed, denied, deferred and review outcomes.",
+            "candidate_affected_surfaces": [
+              "include/yai/control/gate.h",
+              "include/yai/control/decision.h",
+              "include/yai/control/policy_rule.h",
+              "system/control/gate.c",
+              "system/control/decision.c",
+              "system/control/policy_rule.c"
+            ],
+            "abi_header_change_may_be_needed": "no",
+            "source_runtime_change_may_be_needed": "unknown",
+            "deferred_to": "ALPHA.CORE.0B"
+          }
+        ],
+        "non_claims": [
+          "AC0A-D3 records contract gaps only.",
+          "AC0A-D3 does not select fixture or validator targets.",
+          "AC0A-D3 does not implement contract or runtime changes.",
+          "AC0A-D3 does not mark any gap resolved."
+        ]
+      }
+    },
+    {
+      "id": "YAI-RI-I5",
+      "title": "Receipt coupling",
+      "status": "promoted-design-invariant",
+      "repo_doc": "docs/operational-state-mathematics.md#yai-ri-i5-receipt-coupling",
+      "repo_surfaces": [
+        "include/yai/effect/receipt.h"
+      ],
+      "vault_note": "Rho Receipt Evidence",
+      "vault_uri": "obsidian://open?vault=YAI%20Research%20Lab&file=15_Formal_Bindings%2FRho%20Receipt%20Evidence",
+      "implementation_claim": false,
+      "ac0a_d1_surface_map": {
+        "delivery_id": "AC0A-D1",
+        "status": "mapped",
+        "repo_surfaces": [
+          {
+            "path": "include/yai/effect/receipt.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_effect_receipt_t",
+            "field_names": [
+              "receipt_id",
+              "case_ref",
+              "attempt_id",
+              "decision_id",
+              "target_subject_ref",
+              "status",
+              "carrier_kind",
+              "effect_kind",
+              "path_or_locator",
+              "bytes_affected",
+              "before_hash",
+              "after_hash",
+              "summary"
+            ],
+            "relation_semantics": [
+              "Effect receipt links receipt, case, attempt, decision and target subject refs.",
+              "Carrier, effect, status, affected bytes, hashes and summary expose effect evidence fields."
+            ],
+            "source_owner": "include/yai public C ABI / effect receipt",
+            "storage_classification": "boundary",
+            "evidence_refs": [
+              "YAI-EVID-0008",
+              "YAI-EVID-0017"
+            ]
+          },
+          {
+            "path": "system/effect/receipt.c",
+            "symbol_type": "function",
+            "symbol_name": "yai_effect_receipt_from_decision",
+            "field_names": [],
+            "relation_semantics": [
+              "Copies attempt case, attempt id and target subject refs into the receipt.",
+              "Copies decision_id from yai_control_decision_t.",
+              "Maps decision outcome to receipt status and summary text."
+            ],
+            "source_owner": "system/effect C implementation",
+            "storage_classification": "boundary",
+            "evidence_refs": [
+              "YAI-EVID-0009",
+              "YAI-EVID-0017"
+            ]
+          },
+          {
+            "path": "include/yai/effect/carrier_outcome.h",
+            "symbol_type": "enum",
+            "symbol_name": "yai_carrier_outcome_t",
+            "field_names": [],
+            "relation_semantics": [
+              "Names controlled carrier realization outcomes such as executed, blocked, deferred, observed, failed and quarantined.",
+              "String conversion functions expose the outcome vocabulary."
+            ],
+            "source_owner": "include/yai public C ABI / effect carrier outcome",
+            "storage_classification": "boundary",
+            "evidence_refs": [
+              "YAI-EVID-0017"
+            ]
+          },
+          {
+            "path": "include/yai/store/record.h",
+            "symbol_type": "enum",
+            "symbol_name": "yai_record_kind_t",
+            "field_names": [],
+            "relation_semantics": [
+              "Record kind includes receipt, receipt_requirement, effect_receipt and filesystem_receipt categories.",
+              "yai_store_record_t carries decision_id and receipt_id fields for record-level coupling."
+            ],
+            "source_owner": "include/yai public C ABI / store record",
+            "storage_classification": "durable",
+            "evidence_refs": [
+              "YAI-EVID-0019"
+            ]
+          },
+          {
+            "path": "include/yai/graph/reconstruct.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_reconstruction_t",
+            "field_names": [
+              "reconstruction_id",
+              "receipt_id",
+              "case_id",
+              "attempt_id",
+              "decision_id",
+              "subject_id",
+              "edge_count",
+              "summary"
+            ],
+            "relation_semantics": [
+              "Receipt-chain reconstruction surface names receipt, case, attempt, decision and subject refs.",
+              "edge_count records graph edge basis size."
+            ],
+            "source_owner": "include/yai public C ABI / graph reconstruction",
+            "storage_classification": "derived",
+            "evidence_refs": [
+              "YAI-EVID-0024"
+            ]
+          },
+          {
+            "path": "system/graph/reconstruct.c",
+            "symbol_type": "function",
+            "symbol_name": "yai_reconstruct_receipt_chain",
+            "field_names": [],
+            "relation_semantics": [
+              "Scans journal records for matching receipt_id.",
+              "Copies case, attempt, decision and subject identifiers into reconstruction output.",
+              "Builds graph edge count from journal graph edge records."
+            ],
+            "source_owner": "system/graph C implementation",
+            "storage_classification": "derived",
+            "evidence_refs": [
+              "YAI-EVID-0009",
+              "YAI-EVID-0024"
+            ]
+          }
+        ],
+        "mapping_notes": [
+          "AC0A-D1 maps receipt coupling surfaces across effect receipt, carrier outcome, store record and receipt-chain reconstruction.",
+          "Boundary classification is used for effect/carrier surfaces; durable classification is used for store records; derived classification is used for reconstruction."
+        ],
+        "non_claims": [
+          "No representability verdict is made by AC0A-D1.",
+          "No contract gap is registered by AC0A-D1.",
+          "No fixture or validator target is selected by AC0A-D1."
+        ]
+      },
+      "ac0a_d2_representability": {
+        "delivery_id": "AC0A-D2",
+        "status": "verdict-recorded",
+        "verdict": "partially-represented",
+        "verdict_basis": "AC0A-D1 mapped receipt, carrier outcome, store record and reconstruction surfaces expose receipt, attempt, decision, subject, carrier/effect and chain refs; the coupling relation spans boundary, durable and derived surfaces.",
+        "surface_map_delivery": "AC0A-D1",
+        "deferred_to": "AC0A-D3",
+        "non_claims": [
+          "This verdict is not a runtime guarantee.",
+          "This verdict is not an enforcement claim.",
+          "Exact contract gaps are deferred to AC0A-D3.",
+          "Fixture and validator targets are deferred to AC0A-D4."
+        ]
+      },
+      "ac0a_d3_contract_gaps": {
+        "delivery_id": "AC0A-D3",
+        "status": "gaps-recorded",
+        "gap_items": [
+          {
+            "gap_id": "YAI-RI-I5-G1",
+            "category": "field-level",
+            "statement": "yai_effect_receipt_t exposes carrier, effect, status and evidence fields, but it does not expose a contract field that classifies whether the attempted effect is state-changing for receipt-coupling purposes.",
+            "candidate_affected_surfaces": [
+              "include/yai/effect/receipt.h",
+              "include/yai/effect/carrier_outcome.h",
+              "include/yai/store/record.h"
+            ],
+            "abi_header_change_may_be_needed": "yes",
+            "source_runtime_change_may_be_needed": "yes",
+            "deferred_to": "ALPHA.CORE.0C"
+          },
+          {
+            "gap_id": "YAI-RI-I5-G2",
+            "category": "cross-surface-linkage",
+            "statement": "The attempted-action to decision to receipt to state-update path is distributed across receipt, record and reconstruction surfaces without a single named linkage relation or durable chain identifier.",
+            "candidate_affected_surfaces": [
+              "include/yai/effect/receipt.h",
+              "system/effect/receipt.c",
+              "include/yai/store/record.h",
+              "include/yai/graph/reconstruct.h",
+              "system/graph/reconstruct.c"
+            ],
+            "abi_header_change_may_be_needed": "unknown",
+            "source_runtime_change_may_be_needed": "yes",
+            "deferred_to": "ALPHA.CORE.0C"
+          },
+          {
+            "gap_id": "YAI-RI-I5-G3",
+            "category": "metadata-level",
+            "statement": "Receipt surfaces expose status, hashes and summary, but do not expose machine-readable evidence sufficiency posture for the external effect relative to the decision and state update path.",
+            "candidate_affected_surfaces": [
+              "include/yai/effect/receipt.h",
+              "system/effect/receipt.c",
+              "include/yai/effect/carrier_outcome.h"
+            ],
+            "abi_header_change_may_be_needed": "yes",
+            "source_runtime_change_may_be_needed": "yes",
+            "deferred_to": "AC0A-D4"
+          }
+        ],
+        "non_claims": [
+          "AC0A-D3 records contract gaps only.",
+          "AC0A-D3 does not select fixture or validator targets.",
+          "AC0A-D3 does not implement contract or runtime changes.",
+          "AC0A-D3 does not mark any gap resolved."
+        ]
+      }
+    },
+    {
+      "id": "YAI-RI-I7",
+      "title": "Context omission disclosure",
+      "status": "promoted-design-invariant",
+      "repo_doc": "docs/operational-state-mathematics.md#yai-ri-i7-context-omission-disclosure",
+      "repo_surfaces": [
+        "include/yai/projection/projection.h"
+      ],
+      "vault_note": "C_t Context Projection",
+      "vault_uri": "obsidian://open?vault=YAI%20Research%20Lab&file=15_Formal_Bindings%2FC_t%20Context%20Projection",
+      "implementation_claim": false,
+      "ac0a_d1_surface_map": {
+        "delivery_id": "AC0A-D1",
+        "status": "mapped",
+        "repo_surfaces": [
+          {
+            "path": "include/yai/projection/projection.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_projection_t",
+            "field_names": [
+              "projection_id",
+              "case_ref",
+              "consumer_kind",
+              "summary",
+              "source_record_count",
+              "decision_count",
+              "policy_rule_count",
+              "gate_count",
+              "obligation_count",
+              "receipt_requirement_count",
+              "filesystem_receipt_count",
+              "subject_state_count",
+              "effect_count",
+              "graph_edge_count",
+              "reconstruction_count",
+              "memory_candidate_count",
+              "divergence_count",
+              "reconciliation_count",
+              "projection_request_count",
+              "projection_result_count",
+              "operator_projection_count",
+              "model_projection_count",
+              "audit_projection_count",
+              "limited_projection_count",
+              "query_result_count",
+              "projection_rule_count",
+              "authority_scope_count",
+              "model_interpretation_count",
+              "case_domain_count",
+              "case_attachment_count",
+              "case_binding_count",
+              "interaction_thread_count",
+              "interaction_turn_count",
+              "participant_view_frame_count"
+            ],
+            "relation_semantics": [
+              "Projection summary surface counts source records and selected record categories by consumer context.",
+              "limited_projection_count names limited projection material counted from projection result summaries."
+            ],
+            "source_owner": "include/yai public C ABI / projection",
+            "storage_classification": "derived",
+            "evidence_refs": [
+              "YAI-EVID-0008",
+              "YAI-EVID-0022"
+            ]
+          },
+          {
+            "path": "system/projection/projection.c",
+            "symbol_type": "function",
+            "symbol_name": "yai_projection_build",
+            "field_names": [],
+            "relation_semantics": [
+              "Builds projection counts by iterating journal records.",
+              "Counts decision, gate, receipt, subject state, graph, memory, divergence, projection request and projection result record kinds.",
+              "Detects limited projection summaries through redaction tokens."
+            ],
+            "source_owner": "system/projection C implementation",
+            "storage_classification": "derived",
+            "evidence_refs": [
+              "YAI-EVID-0009",
+              "YAI-EVID-0022"
+            ]
+          },
+          {
+            "path": "include/yai/projection/projection_request.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_projection_request_t",
+            "field_names": [
+              "request_id",
+              "case_ref",
+              "consumer_kind",
+              "projection_kind",
+              "scope",
+              "summary"
+            ],
+            "relation_semantics": [
+              "Projection request binds case, consumer, projection kind, scope and summary.",
+              "Request surface is an entry boundary for consumer-specific projection material."
+            ],
+            "source_owner": "include/yai public C ABI / projection request",
+            "storage_classification": "boundary",
+            "evidence_refs": [
+              "YAI-EVID-0022"
+            ]
+          },
+          {
+            "path": "include/yai/projection/projection_result.h",
+            "symbol_type": "struct",
+            "symbol_name": "yai_projection_result_t",
+            "field_names": [
+              "projection_id",
+              "request_id",
+              "case_ref",
+              "consumer_kind",
+              "projection_kind",
+              "source_record_count",
+              "source_receipt_count",
+              "source_memory_count",
+              "source_divergence_count",
+              "redaction_posture",
+              "freshness",
+              "summary"
+            ],
+            "relation_semantics": [
+              "Projection result records source counts and redaction posture.",
+              "freshness exposes projection freshness posture for the derived view."
+            ],
+            "source_owner": "include/yai public C ABI / projection result",
+            "storage_classification": "derived",
+            "evidence_refs": [
+              "YAI-EVID-0022"
+            ]
+          },
+          {
+            "path": "include/yai/projection/redaction.h",
+            "symbol_type": "enum",
+            "symbol_name": "yai_redaction_posture_t",
+            "field_names": [],
+            "relation_semantics": [
+              "Names projection redaction postures none, summary_only, refs_only, redacted and blocked.",
+              "String conversion functions expose redaction posture vocabulary."
+            ],
+            "source_owner": "include/yai public C ABI / projection redaction",
+            "storage_classification": "boundary",
+            "evidence_refs": [
+              "YAI-EVID-0022"
+            ]
+          },
+          {
+            "path": "cmd/yai/src/main.rs",
+            "symbol_type": "function",
+            "symbol_name": "projection_request",
+            "field_names": [],
+            "relation_semantics": [
+              "CLI projection request preview prints consumer, projection kind, redaction, source_records, source_receipts, source_memory and source_divergences.",
+              "Uses ProjectionSummary::from_journal as the command-facing projection source."
+            ],
+            "source_owner": "cmd/yai Rust CLI",
+            "storage_classification": "boundary",
+            "evidence_refs": [
+              "YAI-EVID-0022",
+              "YAI-EVID-0025"
+            ]
+          }
+        ],
+        "mapping_notes": [
+          "AC0A-D1 maps context projection through projection summary, request, result, redaction and CLI preview surfaces.",
+          "Derived classification is used for projection outputs computed from journal input; boundary classification is used for request and command-facing projection entry surfaces."
+        ],
+        "non_claims": [
+          "No representability verdict is made by AC0A-D1.",
+          "No contract gap is registered by AC0A-D1.",
+          "No fixture or validator target is selected by AC0A-D1."
+        ]
+      },
+      "ac0a_d2_representability": {
+        "delivery_id": "AC0A-D2",
+        "status": "verdict-recorded",
+        "verdict": "partially-represented",
+        "verdict_basis": "AC0A-D1 mapped projection, request, result, redaction and CLI preview surfaces expose consumer, source counts, limitation posture, freshness and redaction terms; disclosure semantics depend on projection summaries and derived counts.",
+        "surface_map_delivery": "AC0A-D1",
+        "deferred_to": "AC0A-D3",
+        "non_claims": [
+          "This verdict is not a runtime guarantee.",
+          "This verdict is not an enforcement claim.",
+          "Exact contract gaps are deferred to AC0A-D3.",
+          "Fixture and validator targets are deferred to AC0A-D4."
+        ]
+      },
+      "ac0a_d3_contract_gaps": {
+        "delivery_id": "AC0A-D3",
+        "status": "gaps-recorded",
+        "gap_items": [
+          {
+            "gap_id": "YAI-RI-I7-G1",
+            "category": "field-level",
+            "statement": "yai_projection_result_t exposes source counts, redaction posture and freshness, but it does not expose structured included-source refs, omitted-source refs, or omission reasons.",
+            "candidate_affected_surfaces": [
+              "include/yai/projection/projection.h",
+              "include/yai/projection/projection_result.h",
+              "include/yai/projection/redaction.h"
+            ],
+            "abi_header_change_may_be_needed": "yes",
+            "source_runtime_change_may_be_needed": "yes",
+            "deferred_to": "ALPHA.CORE.0C"
+          },
+          {
+            "gap_id": "YAI-RI-I7-G2",
+            "category": "metadata-level",
+            "statement": "Projection request and result surfaces do not expose a machine-readable selection policy, disclosure basis or consumer-specific omission policy beyond scope, summary, redaction and freshness fields.",
+            "candidate_affected_surfaces": [
+              "include/yai/projection/projection_request.h",
+              "include/yai/projection/projection_result.h",
+              "system/projection/projection_request.c",
+              "system/projection/projection_result.c"
+            ],
+            "abi_header_change_may_be_needed": "yes",
+            "source_runtime_change_may_be_needed": "unknown",
+            "deferred_to": "AC0A-D4"
+          },
+          {
+            "gap_id": "YAI-RI-I7-G3",
+            "category": "coverage-level",
+            "statement": "The CLI projection preview and projection summary expose counts and redaction, but AC0A-D1 does not identify coverage for distinguishing included state, unavailable state and intentionally omitted state across consumer kinds.",
+            "candidate_affected_surfaces": [
+              "cmd/yai/src/main.rs",
+              "include/yai/projection/projection.h",
+              "system/projection/projection.c"
+            ],
+            "abi_header_change_may_be_needed": "no",
+            "source_runtime_change_may_be_needed": "unknown",
+            "deferred_to": "ALPHA.CORE.0B"
+          }
+        ],
+        "non_claims": [
+          "AC0A-D3 records contract gaps only.",
+          "AC0A-D3 does not select fixture or validator targets.",
+          "AC0A-D3 does not implement contract or runtime changes.",
+          "AC0A-D3 does not mark any gap resolved."
+        ]
+      }
+    }
+  ],
+  "blocked_research": [
+    "decoder existence",
+    "contraction",
+    "bounded local update error",
+    "general receipt completeness",
+    "Context Compiler sufficiency",
+    "finite-case validation data"
+  ]
+}

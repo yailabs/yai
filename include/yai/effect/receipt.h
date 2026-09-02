@@ -1,6 +1,12 @@
 #ifndef YAI_EFFECT_RECEIPT_H
 #define YAI_EFFECT_RECEIPT_H
 
+/*
+ * Research traceability:
+ * YAI-RI-I5 - Receipt coupling for state-changing effects.
+ * See docs/operational-state-mathematics.md#yai-ri-i5-receipt-coupling
+ */
+
 #include <stddef.h>
 
 #include "yai/base/error.h"
