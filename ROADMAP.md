@@ -311,18 +311,23 @@ The current dependency order is:
 8. H17: complete — amendment lineage/concurrency, effective-topology replay and
    upgrade closure, nested recovery, Handoff forgery/race resistance and
    derived multi-Case graph rebuild.
-9. Wave 18: current — Tenant-scoped provider targets, evidence-bound
+9. Wave 18: complete — Tenant-scoped provider targets, evidence-bound
    qualification/capability provenance, explicit trust, shared health,
    deterministic Case-local selection and delivery-safe failover.
-10. H18: future — provider-governance corruption, lifecycle/concurrency,
-    endpoint/credential drift, extension spoofing and long-outage pressure.
+10. H18: complete — provider-governance corruption, lifecycle/concurrency,
+    endpoint/credential drift, extension spoofing, transport-boundary and
+    long-outage pressure qualification.
 
-Numbering after Wave 18 is provisional and must be re-evaluated from executable
-evidence. Workflow design is recorded in
+The post-H18 reassessment found no evidence for another semantic owner or an
+automatic numbered Foundation Wave. Subsequent work must be selected from
+observed deployment or product pressure and must reopen archaeology when it
+changes a load-bearing property. Workflow design is recorded in
 `refoundation/foundation-recovery/WORKFLOW-REFOUNDATION-PLAN.md`; Wave 15 owns
 the first executable kernel, H15 its adversarial closure, Wave 16 the product
 CLI boundary, Wave 17 adaptive composition, H17 its adversarial closure and
-Wave 18 the current provider-governance implementation. H18 is not started.
+Wave 18/H18 provider-governance implementation and adversarial closure. The
+selection record is
+`refoundation/foundation-recovery/hardening-18/post-h18-roadmap-reassessment.md`.
 
 The sequence may change only when repository evidence establishes a stronger
 dependency. Every wave is incomplete until its isolated commit is pushed and
@@ -388,9 +393,11 @@ fairness. Recovery derives terminal/parked WorkItem posture from exact Case
 checkpoint and canonical truth; lost scheduler acknowledgement cannot reopen a
 completed or denied Case attempt. This operational state is not Case authority.
 
-The remaining physical gap is cross-process shared-resource exclusion. Current
-scheduler-local root overlap serialization cannot stop a separate direct Case
-runner from reaching the same mutable resource.
+At the Wave-13 boundary, the remaining physical gap was cross-process
+shared-resource exclusion: scheduler-local root overlap serialization could
+not stop a separate direct Case runner from reaching the same mutable resource.
+Wave 14/H14 closed that local single-host gap through the fencing boundary
+described below; distributed cross-host exclusion remains unclaimed.
 
 ## Completed boundary — shared-resource fencing and second carrier
 
@@ -410,15 +417,15 @@ ContextDelta. It does
 not restore the historical Governance/Compliance/Authority planes, registry
 forest, Workflow, supervisor or embedded-law topology.
 
-## Exit criteria for the active source task
+## Post-H18 work-selection gate
 
-Wave 14 must begin with fresh resource/carrier archaeology, prove a
-Case-independent owner is necessary, acquire resource authority atomically with
-PREPARE and make each physical carrier revalidate the current epoch. It must
-preserve H10 authority, Wave-11 time/termination, Wave-12 Tenant isolation and
-Wave-13/H13 runtime recovery. It may add one cohesive resource-control owner
-and one narrow second carrier, but no Workflow, provider-governance plane,
-distributed lease or YVEX-specific authority path.
+There is no active numbered Foundation Wave. A next source task requires
+executable product, deployment or external-consumer evidence that identifies a
+specific missing property. Distributed consensus, production trust and
+credential provisioning, long-horizon observability, retention policy,
+performance optimization and richer diagnostics remain candidate pressure
+areas, not pre-authorized semantic owners. Their current classification and
+non-claims are maintained in the post-H18 reassessment linked above.
 
 ## Completed boundary — adaptive Workflow semantic closure
 
@@ -432,7 +439,7 @@ policy/Decision/Grant/ResourceFence/RuntimeInstance boundaries remain intact.
 No Agent, Orchestrator, WorkflowRun, multi-Case Process owner or provider
 governance is added.
 
-## Active boundary — provider governance
+## Completed boundary — provider governance and adversarial closure
 
 Wave 18 adds immutable Tenant-scoped ProviderTargets, synthetic evidence-bound
 qualification, derived capability provenance, Tenant-Owner approval/denial,
@@ -446,4 +453,8 @@ an authoritative result stops as `delivery_indeterminate`. Selection remains
 cognition routing, never Policy/Decision/Grant/Resource authority. The
 optional documented YVEX HTTP extension is observation-only; YAI does not
 administer YVEX or depend on its private local protocol. H18 adversarial
-hardening is not authorized in this wave.
+hardening subsequently closed qualification/trust replay, credential rotation,
+rollback-safe health, half-open concurrency, DNS/TLS transport, selector,
+delivery and extension-spoofing boundaries. Cross-host governance, deployment
+credential stores and external-provider availability remain explicit gaps, not
+provider-brand branches or evidence for a new owner.
