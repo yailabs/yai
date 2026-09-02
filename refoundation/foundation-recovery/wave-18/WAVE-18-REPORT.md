@@ -1,12 +1,13 @@
 # Wave 18 report
 
-State: implementation and pre-publication qualification complete; publication
-is recorded only by the post-commit handoff.
+State: semantic implementation and qualification published; evidence binding
+complete in the follow-up publication commit.
 
 Baseline: `8d6d9fe79f450e42f25324d4e80987e2873a1ae2` on `master`, equal to
 `origin/master` and `refs/heads/master` before editing. H17 semantic baseline:
 `2df9bb5c2bbd7efc53ed54527111522af329cf93`. Intended semantic commit:
-`feat: add provider governance and safe failover`.
+`feat: add provider governance and safe failover`. Published semantic SHA:
+`406a6b52c44e66c3506f63de5c7d10bb01a20c62`.
 
 All 13 historical dirty entries remain preserved and excluded from the W18
 whitelist. Their eight tracked paths retain checksum

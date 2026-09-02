@@ -1,8 +1,8 @@
 # Wave 18 execution evidence
 
-All blocks below are real, bounded excerpts. The final publication SHA is not
-known to the commit that contains this file; publication equality belongs in
-the post-commit handoff.
+All blocks below are real, bounded excerpts. The semantic SHA is bound by this
+follow-up evidence commit; the final publication equality belongs in the
+post-commit handoff.
 
 ## E18-BASELINE
 
@@ -225,3 +225,29 @@ check-doc-links: ok (30 files)
   `3fdb219654405e6fd40b5c0d1b02b94c04fadef5aa57a139aa5fb8fd6db7777e`.
 - invariant: formatting, docs, registry/help/handler conformance and diff
   whitespace are closed.
+
+## E18-SEMANTIC-PUBLICATION
+
+- run_id: `W18-SEMANTIC-PUBLISH-20260902`
+- order: 10
+- pre-state: W18 semantic whitelist staged; 13 historical dirty entries
+  excluded
+- cwd: repository root
+- commands: `git commit -m "feat: add provider governance and safe failover"`;
+  `git push origin master`; `git rev-parse HEAD`; `git rev-parse
+  origin/master`; `git ls-remote origin refs/heads/master`
+- exits: 0
+- stdout:
+
+```text
+[master 406a6b5] feat: add provider governance and safe failover
+56 files changed, 6269 insertions(+), 119 deletions(-)
+8d6d9fe..406a6b5  master -> master
+406a6b52c44e66c3506f63de5c7d10bb01a20c62
+406a6b52c44e66c3506f63de5c7d10bb01a20c62
+406a6b52c44e66c3506f63de5c7d10bb01a20c62 refs/heads/master
+```
+
+- invariant: the isolated W18 semantic implementation is published and exact
+  on local HEAD, local remote-tracking master and the remote branch before the
+  evidence-only binding commit.
