@@ -24,6 +24,20 @@ pub(crate) struct ProviderView {
 }
 
 #[derive(Clone, Debug, Serialize)]
+pub(crate) struct ProviderBindingView {
+    pub mode: String,
+    pub binding_id: String,
+    pub participant_id: String,
+    pub candidate_count: usize,
+    pub failover_policy: String,
+    pub last_selection_id: Option<String>,
+    pub last_selected_target: Option<String>,
+    pub last_selected_model: Option<String>,
+    pub last_attempt_posture: Option<String>,
+    pub delivery_indeterminate: bool,
+}
+
+#[derive(Clone, Debug, Serialize)]
 pub(crate) struct ResourceView {
     pub resource_id: String,
     pub kind: String,
@@ -56,6 +70,7 @@ pub(crate) struct CaseView {
     pub execution: String,
     pub participants: Vec<ParticipantView>,
     pub provider: Option<ProviderView>,
+    pub provider_binding: Option<ProviderBindingView>,
     pub resources: Vec<ResourceView>,
     pub workflow: Option<WorkflowView>,
     pub policy_bindings: usize,
@@ -355,6 +370,59 @@ fn render_case(case: &CaseView, styled: bool) {
                 Field {
                     name: "Waiting".to_string(),
                     value: workflow.waiting.to_string(),
+                },
+            ],
+            styled,
+        );
+    }
+    if let Some(binding) = &case.provider_binding {
+        println!("\n{}", heading("PROVIDER ROUTING", styled));
+        render_fields(
+            &[
+                Field {
+                    name: "Mode".to_string(),
+                    value: binding.mode.clone(),
+                },
+                Field {
+                    name: "Binding".to_string(),
+                    value: binding.binding_id.clone(),
+                },
+                Field {
+                    name: "Participant".to_string(),
+                    value: binding.participant_id.clone(),
+                },
+                Field {
+                    name: "Candidates".to_string(),
+                    value: binding.candidate_count.to_string(),
+                },
+                Field {
+                    name: "Failover".to_string(),
+                    value: binding.failover_policy.clone(),
+                },
+                Field {
+                    name: "Last target".to_string(),
+                    value: binding
+                        .last_selected_target
+                        .clone()
+                        .unwrap_or_else(|| "none".to_string()),
+                },
+                Field {
+                    name: "Last model".to_string(),
+                    value: binding
+                        .last_selected_model
+                        .clone()
+                        .unwrap_or_else(|| "none".to_string()),
+                },
+                Field {
+                    name: "Last attempt".to_string(),
+                    value: binding
+                        .last_attempt_posture
+                        .clone()
+                        .unwrap_or_else(|| "none".to_string()),
+                },
+                Field {
+                    name: "Delivery indeterminate".to_string(),
+                    value: binding.delivery_indeterminate.to_string(),
                 },
             ],
             styled,

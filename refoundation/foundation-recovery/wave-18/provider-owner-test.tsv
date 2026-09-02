@@ -1,0 +1,8 @@
+concept	independent_lifecycle	canonical_or_operational_truth	owner_verdict	storage
+ProviderTarget	yes; reused across Cases; immutable replacement	Tenant administrative configuration	shared Tenant provider-governance owner	provider_governance DB
+ProviderQualification	yes; requalification and validity independent of Cases	exact synthetic probe evidence	same provider-governance owner family	provider_governance DB
+Capability	no independent mutation	derived from exact qualification/config provenance	derived_no_owner	none
+Trust	yes; Tenant Owner approve/deny sequence	provider-governance event family	same provider-governance owner family	provider_governance DB
+Health	yes operational freshness/circuit across processes	non-authoritative shared operational state	provider runtime-health owner	provider_runtime_health DB
+ProviderSelection	no global lifecycle; one invocation attempt	Case Transition	Case-canonical	Transition/CaseState
+ProviderAttemptOutcome	no global lifecycle; closes exact Case attempt	Case Transition	Case-canonical	Transition/CaseState

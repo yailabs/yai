@@ -64,6 +64,25 @@ YAI needs no provider implementation profile, artifact or engine identity.
 Credential values are referenced through configuration and are never printed
 by `case show`.
 
+For a reusable Tenant-governed target, keep configuration, contract evidence,
+administrative approval, operational health and Case binding explicit:
+
+```sh
+./yai provider add --tenant tenant:demo --provider-key local-fixture \
+  --endpoint http://127.0.0.1:8080 --model exposed-model-id \
+  --locality loopback
+./yai provider qualify --target provider-target-id
+./yai provider trust approve --target provider-target-id
+./yai provider show --target provider-target-id
+./yai case provider bind case:demo --participant participant:model \
+  --target provider-target-id --failover safe_only --max-attempts 3
+./yai case provider show case:demo
+```
+
+Qualification sends fixed synthetic probes, never Case context. Binding does
+not imply qualification, approval, health or authority. With several repeated
+`--target` flags, their order is the deterministic preference order.
+
 ## Attach a governed Resource
 
 Use a disposable existing directory for this example:
@@ -161,6 +180,8 @@ copies no Decision, Grant, resource authority or Effect truth into the source.
 ```sh
 ./yai case --help
 ./yai case provider attach --help
+./yai provider --help
+./yai case provider bind --help
 ./yai help --advanced
 ./yai help --json
 ./yai completion zsh
@@ -178,4 +199,5 @@ human TTY output as well.
 - [Implementation roadmap](../ROADMAP.md)
 
 Passing local qualification does not imply a stable public SDK, distributed
-runtime, remote enterprise IAM, provider governance or adaptive Workflow.
+runtime, remote enterprise IAM, provider-governance adversarial hardening or a
+stable public API.

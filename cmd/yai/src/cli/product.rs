@@ -7,7 +7,8 @@ use yai_core_engine::security::AuthenticatedPrincipal;
 use yai_core_engine::store::lmdb::{LmdbRecordStore, RecordStoreStatusKind};
 
 use super::output::{
-    CaseView, CliData, CliError, Field, ParticipantView, ProviderView, ResourceView, WorkflowView,
+    CaseView, CliData, CliError, Field, ParticipantView, ProviderBindingView, ProviderView,
+    ResourceView, WorkflowView,
 };
 use super::parser::Invocation;
 use super::registry::{registry_digest, Visibility, REGISTRY_SCHEMA};
@@ -329,6 +330,27 @@ fn case_show(invocation: &Invocation) -> Result<CliData, CliError> {
         .iter()
         .filter(|offer| !reconciled_handoffs.contains(offer.handoff_id.as_str()))
         .count();
+    let provider_binding = state.provider_binding.as_ref().map(|binding| {
+        let last_selection = state.provider_selections.last();
+        let last_attempt = state.provider_attempt_outcomes.last();
+        ProviderBindingView {
+            mode: "governed_pool".to_string(),
+            binding_id: binding.binding_id.clone(),
+            participant_id: binding.participant_id.clone(),
+            candidate_count: binding.ordered_target_ids.len(),
+            failover_policy: enum_name(&binding.failover_policy),
+            last_selection_id: last_selection.map(|selection| selection.selection_id.clone()),
+            last_selected_target: last_selection
+                .map(|selection| selection.selected_target_id.clone()),
+            last_selected_model: last_selection
+                .map(|selection| selection.selected_model_id.clone()),
+            last_attempt_posture: last_attempt.map(|outcome| enum_name(&outcome.delivery)),
+            delivery_indeterminate: last_attempt.is_some_and(|outcome| {
+                outcome.delivery
+                    == yai_core_engine::provider_governance::ProviderDeliveryClass::DeliveryIndeterminate
+            }),
+        }
+    });
     let case = CaseView {
         case_id: state.case_id,
         tenant_id: state.tenant_id.unwrap_or_else(|| "unscoped".to_string()),
@@ -354,6 +376,7 @@ fn case_show(invocation: &Invocation) -> Result<CliData, CliError> {
             endpoint: provider.base_url,
             model_id: provider.model_id,
         }),
+        provider_binding,
         resources: state
             .resources
             .into_iter()

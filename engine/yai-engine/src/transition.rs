@@ -16,6 +16,10 @@ use crate::effect::{
 use crate::handoff::{
     HandoffAcceptance, HandoffDecline, HandoffOffer, HandoffReconciliation, HandoffResult,
 };
+use crate::provider_governance::{
+    CaseProviderBinding, ProviderAttemptOutcome, ProviderSelection, CASE_PROVIDER_BINDING_SCHEMA,
+    PROVIDER_ATTEMPT_OUTCOME_SCHEMA, PROVIDER_SELECTION_SCHEMA,
+};
 use crate::workflow::{
     CaseWorkflowBinding, WorkflowAmendment, WorkflowConditionResolution,
     WorkflowDeterministicProposalRecord, WorkflowHumanInputRecord, WorkflowNodeExecution,
@@ -33,7 +37,8 @@ pub const TRANSITION_SCHEMA_V7: &str = "yai.transition.v7";
 pub const TRANSITION_SCHEMA_V8: &str = "yai.transition.v8";
 pub const TRANSITION_SCHEMA_V9: &str = "yai.transition.v9";
 pub const TRANSITION_SCHEMA_V10: &str = "yai.transition.v10";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v11";
+pub const TRANSITION_SCHEMA_V11: &str = "yai.transition.v11";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v12";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
@@ -44,7 +49,8 @@ pub const CASE_STATE_SCHEMA_V7: &str = "yai.case_state.v7";
 pub const CASE_STATE_SCHEMA_V8: &str = "yai.case_state.v8";
 pub const CASE_STATE_SCHEMA_V9: &str = "yai.case_state.v9";
 pub const CASE_STATE_SCHEMA_V10: &str = "yai.case_state.v10";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v11";
+pub const CASE_STATE_SCHEMA_V11: &str = "yai.case_state.v11";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v12";
 pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v2";
 pub const REVIEW_REQUEST_SCHEMA_V1: &str = "yai.review_request.v1";
 pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v2";
@@ -232,6 +238,15 @@ pub enum TransitionPayload {
         model_id: String,
         credential_ref: String,
     },
+    CaseProviderBindingRecorded {
+        binding: CaseProviderBinding,
+    },
+    ProviderSelectionRecorded {
+        selection: ProviderSelection,
+    },
+    ProviderAttemptOutcomeRecorded {
+        outcome: ProviderAttemptOutcome,
+    },
     ProviderInvocationStarted {
         invocation_id: String,
         participant_id: String,
@@ -241,6 +256,8 @@ pub enum TransitionPayload {
         model_id: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         semantic_lineage: Option<ProviderInvocationLineage>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        governance: Option<ProviderInvocationGovernance>,
     },
     ProviderResultRecorded {
         result_id: String,
@@ -410,6 +427,9 @@ impl TransitionPayload {
             Self::ParticipantAdmitted { .. } => "participant_admitted",
             Self::ParticipantPrincipalLinked { .. } => "participant_principal_linked",
             Self::ProviderAttached { .. } => "provider_attached",
+            Self::CaseProviderBindingRecorded { .. } => "case_provider_binding_recorded",
+            Self::ProviderSelectionRecorded { .. } => "provider_selection_recorded",
+            Self::ProviderAttemptOutcomeRecorded { .. } => "provider_attempt_outcome_recorded",
             Self::ProviderInvocationStarted { .. } => "provider_invocation_started",
             Self::ProviderResultRecorded { .. } => "provider_result_recorded",
             Self::InteractionTurnRecorded { .. } => "interaction_turn_recorded",
@@ -765,6 +785,12 @@ pub struct CaseState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provider: Option<ProviderAttachmentState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_binding: Option<CaseProviderBinding>,
+    #[serde(default)]
+    pub provider_selections: Vec<ProviderSelection>,
+    #[serde(default)]
+    pub provider_attempt_outcomes: Vec<ProviderAttemptOutcome>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_provider_invocation: Option<ProviderInvocationState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_provider_result: Option<ProviderResultState>,
@@ -861,6 +887,16 @@ pub struct ProviderInvocationState {
     pub model_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub semantic_lineage: Option<ProviderInvocationLineage>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub governance: Option<ProviderInvocationGovernance>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ProviderInvocationGovernance {
+    pub selection_id: String,
+    pub target_id: String,
+    pub logical_turn_id: String,
+    pub attempt_number: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -1102,6 +1138,9 @@ impl CaseState {
             closure: None,
             participants: Vec::new(),
             provider: None,
+            provider_binding: None,
+            provider_selections: Vec::new(),
+            provider_attempt_outcomes: Vec::new(),
             last_provider_invocation: None,
             last_provider_result: None,
             last_model_interpretation: None,
@@ -1241,6 +1280,80 @@ impl CaseState {
                     credential_ref: credential_ref.clone(),
                 });
             }
+            TransitionPayload::CaseProviderBindingRecorded { binding } => {
+                binding.validate()?;
+                if binding.schema != CASE_PROVIDER_BINDING_SCHEMA
+                    || binding.case_id != next.case_id
+                    || next.tenant_id.as_deref() != Some(binding.tenant_id.as_str())
+                    || !next
+                        .participants
+                        .iter()
+                        .any(|participant| participant.participant_id == binding.participant_id)
+                    || binding.bound_at_generation != self.generation
+                {
+                    return Err("case_provider_binding_transition_invalid".to_string());
+                }
+                next.provider_binding = Some(binding.clone());
+            }
+            TransitionPayload::ProviderSelectionRecorded { selection } => {
+                selection.validate()?;
+                let Some(binding) = next.provider_binding.as_ref() else {
+                    return Err("provider_selection_without_governed_binding".to_string());
+                };
+                if selection.schema != PROVIDER_SELECTION_SCHEMA
+                    || selection.case_id != next.case_id
+                    || selection.tenant_id != binding.tenant_id
+                    || selection.participant_id != binding.participant_id
+                    || selection.binding_id != binding.binding_id
+                    || selection.case_generation != self.generation
+                    || !binding
+                        .ordered_target_ids
+                        .contains(&selection.selected_target_id)
+                    || next.provider_selections.iter().any(|prior| {
+                        prior.logical_turn_id == selection.logical_turn_id
+                            && prior.attempt_number == selection.attempt_number
+                            && prior.selection_id != selection.selection_id
+                    })
+                {
+                    return Err("provider_selection_case_contract_invalid".to_string());
+                }
+                if !next
+                    .provider_selections
+                    .iter()
+                    .any(|prior| prior.selection_id == selection.selection_id)
+                {
+                    next.provider_selections.push(selection.clone());
+                }
+            }
+            TransitionPayload::ProviderAttemptOutcomeRecorded { outcome } => {
+                let selection = next
+                    .provider_selections
+                    .iter()
+                    .find(|selection| {
+                        selection.selection_id == outcome.selection_id
+                            && selection.selected_target_id == outcome.target_id
+                            && selection.logical_turn_id == outcome.logical_turn_id
+                            && selection.attempt_number == outcome.attempt_number
+                    })
+                    .ok_or_else(|| "provider_attempt_outcome_selection_mismatch".to_string())?;
+                outcome.validate(selection)?;
+                if outcome.schema != PROVIDER_ATTEMPT_OUTCOME_SCHEMA
+                    || next.provider_attempt_outcomes.iter().any(|prior| {
+                        prior.logical_turn_id == outcome.logical_turn_id
+                            && prior.attempt_number == outcome.attempt_number
+                            && prior.outcome_id != outcome.outcome_id
+                    })
+                {
+                    return Err("provider_attempt_outcome_case_contract_invalid".to_string());
+                }
+                if !next
+                    .provider_attempt_outcomes
+                    .iter()
+                    .any(|prior| prior.outcome_id == outcome.outcome_id)
+                {
+                    next.provider_attempt_outcomes.push(outcome.clone());
+                }
+            }
             TransitionPayload::ProviderInvocationStarted {
                 invocation_id,
                 participant_id,
@@ -1248,18 +1361,35 @@ impl CaseState {
                 provider_kind,
                 model_id,
                 semantic_lineage,
+                governance,
             } => {
-                let Some(provider) = next.provider.as_ref() else {
-                    return Err("provider_not_attached".to_string());
-                };
-                if provider.participant_id != *participant_id
-                    || (!provider.provider_id.is_empty()
-                        && !provider_id.is_empty()
-                        && provider.provider_id != *provider_id)
-                    || provider.provider_kind != *provider_kind
-                    || provider.model_id != *model_id
-                {
-                    return Err("provider_invocation_attachment_mismatch".to_string());
+                if let Some(governance) = governance {
+                    let selection = next
+                        .provider_selections
+                        .iter()
+                        .find(|selection| selection.selection_id == governance.selection_id)
+                        .ok_or_else(|| "provider_invocation_selection_missing".to_string())?;
+                    if selection.selected_target_id != governance.target_id
+                        || selection.logical_turn_id != governance.logical_turn_id
+                        || selection.attempt_number != governance.attempt_number
+                        || selection.participant_id != *participant_id
+                        || selection.selected_model_id != *model_id
+                    {
+                        return Err("provider_invocation_selection_mismatch".to_string());
+                    }
+                } else {
+                    let Some(provider) = next.provider.as_ref() else {
+                        return Err("provider_not_attached".to_string());
+                    };
+                    if provider.participant_id != *participant_id
+                        || (!provider.provider_id.is_empty()
+                            && !provider_id.is_empty()
+                            && provider.provider_id != *provider_id)
+                        || provider.provider_kind != *provider_kind
+                        || provider.model_id != *model_id
+                    {
+                        return Err("provider_invocation_attachment_mismatch".to_string());
+                    }
                 }
                 next.last_provider_invocation = Some(ProviderInvocationState {
                     invocation_id: invocation_id.clone(),
@@ -1268,6 +1398,7 @@ impl CaseState {
                     provider_kind: provider_kind.clone(),
                     model_id: model_id.clone(),
                     semantic_lineage: semantic_lineage.clone(),
+                    governance: governance.clone(),
                 });
             }
             TransitionPayload::ProviderResultRecorded {
@@ -1282,6 +1413,11 @@ impl CaseState {
                 let Some(invocation) = next.last_provider_invocation.as_ref() else {
                     return Err("provider_result_without_invocation".to_string());
                 };
+                if next.last_provider_result.as_ref().is_some_and(|prior| {
+                    prior.invocation_id == *invocation_id && prior.result_id != *result_id
+                }) {
+                    return Err("provider_result_conflicts_with_accepted_result".to_string());
+                }
                 if invocation.invocation_id != *invocation_id
                     || (!invocation.provider_id.is_empty()
                         && !provider_id.is_empty()
@@ -2389,6 +2525,7 @@ impl CaseState {
             || state.schema == CASE_STATE_SCHEMA_V8
             || state.schema == CASE_STATE_SCHEMA_V9
             || state.schema == CASE_STATE_SCHEMA_V10
+            || state.schema == CASE_STATE_SCHEMA_V11
         {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
@@ -2401,6 +2538,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V11
             && self.schema != TRANSITION_SCHEMA_V10
             && self.schema != TRANSITION_SCHEMA_V9
             && self.schema != TRANSITION_SCHEMA_V8
@@ -2436,6 +2574,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V11
                 | TRANSITION_SCHEMA_V10
                 | TRANSITION_SCHEMA_V9
                 | TRANSITION_SCHEMA_V8
@@ -2446,27 +2585,40 @@ impl Transition {
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V10 | TRANSITION_SCHEMA_V9
+            TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V11
+                | TRANSITION_SCHEMA_V10
+                | TRANSITION_SCHEMA_V9
         ) && self.payload.is_wave12_kind()
         {
             return Err("wave12_contract_requires_yai_transition_v8".to_string());
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V10 | TRANSITION_SCHEMA_V9
+            TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V11
+                | TRANSITION_SCHEMA_V10
+                | TRANSITION_SCHEMA_V9
         ) && self.payload.is_wave14_kind()
         {
             return Err("wave14_contract_requires_yai_transition_v9".to_string());
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V10
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V11 | TRANSITION_SCHEMA_V10
         ) && self.payload.is_wave15_kind()
         {
             return Err("wave15_contract_requires_yai_transition_v10".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave17_kind() {
+        if !matches!(
+            self.schema.as_str(),
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V11
+        ) && self.payload.is_wave17_kind()
+        {
             return Err("wave17_contract_requires_yai_transition_v11".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave18_kind() {
+            return Err("wave18_contract_requires_yai_transition_v12".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -2545,6 +2697,38 @@ impl Transition {
                 require_value("model_id", model_id)?;
                 require_value("credential_ref", credential_ref)?;
             }
+            TransitionPayload::CaseProviderBindingRecorded { binding } => {
+                binding.validate()?;
+                if binding.schema != CASE_PROVIDER_BINDING_SCHEMA || binding.case_id != self.case_id
+                {
+                    return Err("case_provider_binding_transition_invalid".to_string());
+                }
+                require_causal_ref(&self.causal_refs, &binding.binding_id, "provider_binding")?;
+            }
+            TransitionPayload::ProviderSelectionRecorded { selection } => {
+                selection.validate()?;
+                if selection.schema != PROVIDER_SELECTION_SCHEMA
+                    || selection.case_id != self.case_id
+                {
+                    return Err("provider_selection_transition_invalid".to_string());
+                }
+                require_causal_ref(&self.causal_refs, &selection.binding_id, "provider_binding")?;
+                require_causal_ref(
+                    &self.causal_refs,
+                    &selection.requirement_id,
+                    "provider_requirement",
+                )?;
+            }
+            TransitionPayload::ProviderAttemptOutcomeRecorded { outcome } => {
+                if outcome.schema != PROVIDER_ATTEMPT_OUTCOME_SCHEMA {
+                    return Err("provider_attempt_outcome_transition_invalid".to_string());
+                }
+                require_causal_ref(
+                    &self.causal_refs,
+                    &outcome.selection_id,
+                    "provider_selection",
+                )?;
+            }
             TransitionPayload::ProviderInvocationStarted {
                 invocation_id,
                 participant_id,
@@ -2552,6 +2736,7 @@ impl Transition {
                 provider_kind,
                 model_id,
                 semantic_lineage,
+                governance,
             } => {
                 require_value("invocation_id", invocation_id)?;
                 require_value("participant_id", participant_id)?;
@@ -2561,6 +2746,19 @@ impl Transition {
                 }
                 require_value("provider_kind", provider_kind)?;
                 require_value("model_id", model_id)?;
+                if let Some(governance) = governance {
+                    require_value("provider_selection_id", &governance.selection_id)?;
+                    require_value("provider_target_id", &governance.target_id)?;
+                    require_value("provider_logical_turn_id", &governance.logical_turn_id)?;
+                    if governance.attempt_number == 0 {
+                        return Err("provider_attempt_number_invalid".to_string());
+                    }
+                    require_causal_ref(
+                        &self.causal_refs,
+                        &governance.selection_id,
+                        "provider_selection",
+                    )?;
+                }
             }
             TransitionPayload::ProviderResultRecorded {
                 result_id,
@@ -3429,12 +3627,22 @@ impl TransitionPayload {
                 | Self::HandoffReconciled { .. }
         )
     }
+
+    fn is_wave18_kind(&self) -> bool {
+        matches!(
+            self,
+            Self::CaseProviderBindingRecorded { .. }
+                | Self::ProviderSelectionRecorded { .. }
+                | Self::ProviderAttemptOutcomeRecorded { .. }
+        )
+    }
 }
 
 fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V11
             | TRANSITION_SCHEMA_V10
             | TRANSITION_SCHEMA_V9
             | TRANSITION_SCHEMA_V8
@@ -3449,6 +3657,7 @@ fn supports_wave9_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V11
             | TRANSITION_SCHEMA_V10
             | TRANSITION_SCHEMA_V9
             | TRANSITION_SCHEMA_V8
@@ -3462,6 +3671,7 @@ fn supports_wave10_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V11
             | TRANSITION_SCHEMA_V10
             | TRANSITION_SCHEMA_V9
             | TRANSITION_SCHEMA_V8

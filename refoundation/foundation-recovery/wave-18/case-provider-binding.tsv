@@ -1,0 +1,5 @@
+mode	canonical_contract	selection_behavior	compatibility
+legacy_exact	ProviderAttached v1-v11	pinned exact endpoint/model; no W18 governance requirement	unchanged
+governed_pool	yai.case_provider_binding.v1 Case Transition	1..32 exact same-Tenant targets in declared order	no silent reinterpretation of legacy
+failover none	exact binding field	no alternate attempt	stable
+failover safe_only	exact binding field	alternate only after mechanically retry-safe outcome	bounded max 3

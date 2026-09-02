@@ -57,6 +57,13 @@ use crate::memory::{
     OperationalMemoryBuild, OperationalMemoryEntry, OperationalMemoryManifest,
     OPERATIONAL_MEMORY_DERIVATION, OPERATIONAL_MEMORY_MANIFEST_SCHEMA, OPERATIONAL_MEMORY_SCHEMA,
 };
+use crate::provider_governance::{
+    select_provider, CaseProviderBinding, ProviderAttemptOutcome, ProviderCandidateSnapshot,
+    ProviderFailoverPolicy, ProviderHealthPosture, ProviderHealthState, ProviderProbeEvidence,
+    ProviderQualification, ProviderRequirement, ProviderSelection, ProviderTarget,
+    ProviderTargetInput, ProviderTrustEvent, ProviderTrustPosture, MAX_PROVIDER_TARGETS_PER_TENANT,
+    PROVIDER_CIRCUIT_FAILURE_THRESHOLD,
+};
 use crate::record::Record;
 use crate::resource_control::{
     filesystem_relation, rebuild_resource_control_state as replay_resource_control_state,
@@ -73,11 +80,12 @@ use crate::transition::{
     CaseLifecycle, CaseState, ExecutionGrantInvalidation, GrantInvalidationDisposition,
     GrantLifecycle, PendingTransition, ReviewInvalidation, ReviewResolution, Transition,
     TransitionPayload, TransitionSource, CASE_STATE_SCHEMA, CASE_STATE_SCHEMA_V1,
-    CASE_STATE_SCHEMA_V10, CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4,
-    CASE_STATE_SCHEMA_V5, CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7, CASE_STATE_SCHEMA_V8,
-    CASE_STATE_SCHEMA_V9, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V10,
-    TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5,
-    TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7, TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
+    CASE_STATE_SCHEMA_V10, CASE_STATE_SCHEMA_V11, CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3,
+    CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5, CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7,
+    CASE_STATE_SCHEMA_V8, CASE_STATE_SCHEMA_V9, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1,
+    TRANSITION_SCHEMA_V10, TRANSITION_SCHEMA_V11, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3,
+    TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7,
+    TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
 };
 use crate::workflow::{
     derive_effective_workflow_topology, evaluate_predicate, node_completion_predicate,
@@ -164,6 +172,24 @@ pub struct CanonicalAuthoritySummary {
     pub legacy_compatibility_payloads: usize,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ProviderSelectionStoreOutcome {
+    Selected {
+        selection: ProviderSelection,
+        commit: Box<CanonicalCommit>,
+    },
+    AlreadySelected(ProviderSelection),
+    Waiting {
+        exclusions: Vec<crate::provider_governance::ProviderExclusion>,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ProviderAttemptStoreOutcome {
+    Recorded(Box<CanonicalCommit>),
+    AlreadyRecorded(ProviderAttemptOutcome),
+}
+
 pub struct LmdbRecordStore {
     env: Arc<Environment>,
     records_by_id: Database,
@@ -200,6 +226,8 @@ pub struct LmdbRecordStore {
     resource_control_states_by_id: Database,
     resource_control_events_by_id: Database,
     workflow_definitions: Database,
+    provider_governance: Database,
+    provider_runtime_health: Database,
     schema_meta: Database,
 }
 
@@ -356,6 +384,8 @@ pub enum RuntimeWorkState {
     Running,
     WaitingReview,
     WaitingEffect,
+    WaitingProvider,
+    DeliveryIndeterminate,
     Blocked,
     Completed,
     Denied,
@@ -374,7 +404,12 @@ impl RuntimeWorkState {
     pub fn is_queued_capacity(&self) -> bool {
         matches!(
             self,
-            Self::Queued | Self::WaitingReview | Self::WaitingEffect | Self::Blocked
+            Self::Queued
+                | Self::WaitingReview
+                | Self::WaitingEffect
+                | Self::WaitingProvider
+                | Self::DeliveryIndeterminate
+                | Self::Blocked
         )
     }
 
@@ -388,15 +423,18 @@ impl RuntimeWorkState {
                 Self::Queued
                     | Self::WaitingReview
                     | Self::WaitingEffect
+                    | Self::WaitingProvider
+                    | Self::DeliveryIndeterminate
                     | Self::Blocked
                     | Self::Completed
                     | Self::Denied
                     | Self::Cancelled
                     | Self::Failed
             ),
-            Self::WaitingReview | Self::WaitingEffect | Self::Blocked => {
+            Self::WaitingReview | Self::WaitingEffect | Self::WaitingProvider | Self::Blocked => {
                 matches!(next, Self::Queued | Self::Cancelled)
             }
+            Self::DeliveryIndeterminate => matches!(next, Self::Cancelled),
             Self::Completed | Self::Denied | Self::Cancelled | Self::Failed => false,
         }
     }
@@ -868,6 +906,12 @@ impl LmdbRecordStore {
         let workflow_definitions = env
             .create_db(Some("workflow_definitions"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open workflow_definitions: {error}"))?;
+        let provider_governance = env
+            .create_db(Some("provider_governance"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open provider_governance: {error}"))?;
+        let provider_runtime_health = env
+            .create_db(Some("provider_runtime_health"), DatabaseFlags::empty())
+            .map_err(|error| format!("failed to open provider_runtime_health: {error}"))?;
         let schema_meta = env
             .create_db(Some("schema_meta"), DatabaseFlags::empty())
             .map_err(|error| format!("failed to open schema_meta: {error}"))?;
@@ -907,6 +951,8 @@ impl LmdbRecordStore {
             resource_control_states_by_id,
             resource_control_events_by_id,
             workflow_definitions,
+            provider_governance,
+            provider_runtime_health,
             schema_meta,
         };
         store.ensure_schema()?;
@@ -7747,6 +7793,12 @@ impl LmdbRecordStore {
             Some(authority_time) => authority_time,
             None => self.advance_authority_time_txn(txn, authority_wall_time_unix_ms())?,
         };
+        self.validate_provider_invocation_governance_txn(
+            txn,
+            current_state.as_ref(),
+            &pending.payload,
+            authority_time,
+        )?;
         self.validate_policy_authority_txn(
             txn,
             current_state.as_ref(),
@@ -7867,6 +7919,7 @@ impl LmdbRecordStore {
                 | TransitionPayload::ParticipantAdmitted { .. }
                 | TransitionPayload::ParticipantPrincipalLinked { .. }
                 | TransitionPayload::ProviderAttached { .. }
+                | TransitionPayload::CaseProviderBindingRecorded { .. }
                 | TransitionPayload::ResourceAttached { .. }
                 | TransitionPayload::CasePolicyBound { .. }
                 | TransitionPayload::CasePolicyReplaced { .. }
@@ -10634,6 +10687,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V11,
                 TRANSITION_SCHEMA_V10,
                 TRANSITION_SCHEMA_V9,
                 TRANSITION_SCHEMA_V8,
@@ -10652,6 +10706,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                CASE_STATE_SCHEMA_V11,
                 CASE_STATE_SCHEMA_V10,
                 CASE_STATE_SCHEMA_V9,
                 CASE_STATE_SCHEMA_V8,
@@ -11607,6 +11662,40 @@ fn derive_graph_relations_from_transition(
             participant_id,
             "model",
             model_id,
+        ),
+        TransitionPayload::CaseProviderBindingRecorded { binding } => {
+            for target_id in &binding.ordered_target_ids {
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "case_provider_binding_considers_target",
+                    "case_provider_binding",
+                    &binding.binding_id,
+                    "provider_target",
+                    target_id,
+                );
+            }
+        }
+        TransitionPayload::ProviderSelectionRecorded { selection } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "provider_selection_selects_target",
+            "provider_selection",
+            &selection.selection_id,
+            "provider_target",
+            &selection.selected_target_id,
+        ),
+        TransitionPayload::ProviderAttemptOutcomeRecorded { outcome } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "provider_attempt_closes_selection",
+            "provider_attempt_outcome",
+            &outcome.outcome_id,
+            "provider_selection",
+            &outcome.selection_id,
         ),
         TransitionPayload::ProviderInvocationStarted {
             invocation_id,
@@ -12978,6 +13067,764 @@ fn workflow_subflow_satisfaction_pending(
     Ok(pending)
 }
 
+impl LmdbRecordStore {
+    fn provider_target_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        target_id: &str,
+    ) -> Result<Option<ProviderTarget>, String> {
+        get_json_txn(
+            txn,
+            self.provider_governance,
+            &format!("target:{target_id}"),
+            "provider_target",
+        )
+    }
+
+    fn provider_qualification_current_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        target_id: &str,
+    ) -> Result<Option<ProviderQualification>, String> {
+        get_json_txn(
+            txn,
+            self.provider_governance,
+            &format!("qualification-current:{target_id}"),
+            "provider_qualification",
+        )
+    }
+
+    fn provider_trust_current_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        target_id: &str,
+    ) -> Result<Option<ProviderTrustEvent>, String> {
+        get_json_txn(
+            txn,
+            self.provider_governance,
+            &format!("trust-current:{target_id}"),
+            "provider_trust_event",
+        )
+    }
+
+    fn provider_health_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        target: &ProviderTarget,
+    ) -> Result<ProviderHealthState, String> {
+        let state = get_json_txn::<ProviderHealthState, _>(
+            txn,
+            self.provider_runtime_health,
+            &target.target_id,
+            "provider_health",
+        )?
+        .unwrap_or_else(|| ProviderHealthState::unknown(target));
+        if state.target_id != target.target_id || state.target_digest != target.integrity_digest {
+            return Err("provider_health_target_integrity_mismatch".to_string());
+        }
+        Ok(state)
+    }
+
+    pub fn register_provider_target_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        input: ProviderTargetInput,
+    ) -> Result<ProviderTarget, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start provider target transaction: {error}"))?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, &input.tenant_id)?;
+        context.require_owner()?;
+        if input.created_by_principal_id != context.principal_id() {
+            return Err("provider_target_creator_principal_mismatch".to_string());
+        }
+        let target = ProviderTarget::from_input(input)?;
+        let key = format!("target:{}", target.target_id);
+        if let Some(existing) = get_json_txn::<ProviderTarget, _>(
+            &txn,
+            self.provider_governance,
+            &key,
+            "provider_target",
+        )? {
+            existing.validate()?;
+            if !existing.same_configuration(&target) {
+                return Err("provider_target_identity_collision".to_string());
+            }
+            return Ok(existing);
+        }
+        let mut cursor = txn
+            .open_ro_cursor(self.provider_governance)
+            .map_err(|error| format!("failed to count provider targets: {error}"))?;
+        let prefix = "target:";
+        let mut tenant_count = 0usize;
+        for (raw_key, raw_value) in cursor.iter() {
+            if std::str::from_utf8(raw_key)
+                .ok()
+                .is_some_and(|value| value.starts_with(prefix))
+            {
+                let existing: ProviderTarget = serde_json::from_slice(raw_value)
+                    .map_err(|error| format!("provider_target_decode_failed: {error}"))?;
+                if existing.tenant_id == target.tenant_id {
+                    tenant_count += 1;
+                }
+            }
+        }
+        drop(cursor);
+        if tenant_count >= MAX_PROVIDER_TARGETS_PER_TENANT {
+            return Err("provider_target_tenant_limit_reached".to_string());
+        }
+        put_json_txn(
+            &mut txn,
+            self.provider_governance,
+            &key,
+            &target,
+            WriteFlags::NO_OVERWRITE,
+            "provider target",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit provider target: {error}"))?;
+        Ok(target)
+    }
+
+    fn get_provider_target(&self, target_id: &str) -> Result<Option<ProviderTarget>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to read provider target: {error}"))?;
+        let target = self.provider_target_txn(&txn, target_id)?;
+        if let Some(target) = &target {
+            target.validate()?;
+        }
+        Ok(target)
+    }
+
+    pub fn list_provider_targets_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+    ) -> Result<Vec<ProviderTarget>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to list provider targets: {error}"))?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let mut cursor = txn
+            .open_ro_cursor(self.provider_governance)
+            .map_err(|error| format!("failed to open provider target cursor: {error}"))?;
+        let mut targets = Vec::new();
+        for (key, value) in cursor.iter() {
+            if std::str::from_utf8(key)
+                .ok()
+                .is_some_and(|key| key.starts_with("target:"))
+            {
+                let target: ProviderTarget = serde_json::from_slice(value)
+                    .map_err(|error| format!("provider_target_decode_failed: {error}"))?;
+                target.validate()?;
+                if target.tenant_id == tenant_id {
+                    targets.push(target);
+                }
+            }
+        }
+        targets.sort_by(|left, right| left.target_id.cmp(&right.target_id));
+        Ok(targets)
+    }
+
+    pub fn qualify_provider_target_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_id: &str,
+        evidence: ProviderProbeEvidence,
+        suite_id: &str,
+        valid_until_unix_ms: Option<u64>,
+    ) -> Result<ProviderQualification, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start provider qualification: {error}"))?;
+        let target = self
+            .provider_target_txn(&txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?;
+        context.require_owner()?;
+        let qualification = ProviderQualification::from_evidence(
+            &target,
+            evidence,
+            suite_id,
+            context.principal_id(),
+            valid_until_unix_ms,
+        )?;
+        let key = format!("qualification:{}", qualification.qualification_id);
+        if let Some(existing) = get_json_txn::<ProviderQualification, _>(
+            &txn,
+            self.provider_governance,
+            &key,
+            "provider_qualification",
+        )? {
+            existing.validate(&target)?;
+            if existing != qualification {
+                return Err("provider_qualification_identity_collision".to_string());
+            }
+            return Ok(existing);
+        }
+        put_json_txn(
+            &mut txn,
+            self.provider_governance,
+            &key,
+            &qualification,
+            WriteFlags::NO_OVERWRITE,
+            "provider qualification",
+        )?;
+        let current_key = format!("qualification-current:{target_id}");
+        let current = self.provider_qualification_current_txn(&txn, target_id)?;
+        let replaces_current = current.as_ref().is_none_or(|current| {
+            (
+                qualification.qualified_at_unix_ms,
+                qualification.qualification_id.as_str(),
+            ) > (
+                current.qualified_at_unix_ms,
+                current.qualification_id.as_str(),
+            )
+        });
+        if replaces_current {
+            put_json_txn(
+                &mut txn,
+                self.provider_governance,
+                &current_key,
+                &qualification,
+                WriteFlags::empty(),
+                "current provider qualification",
+            )?;
+        }
+        txn.commit()
+            .map_err(|error| format!("failed to commit provider qualification: {error}"))?;
+        Ok(qualification)
+    }
+
+    pub fn set_provider_trust_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_id: &str,
+        posture: ProviderTrustPosture,
+        now_unix_ms: u64,
+    ) -> Result<ProviderTrustEvent, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start provider trust transaction: {error}"))?;
+        let target = self
+            .provider_target_txn(&txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?;
+        context.require_owner()?;
+        let previous = self.provider_trust_current_txn(&txn, target_id)?;
+        if let Some(previous) = &previous {
+            previous.validate(&target)?;
+        }
+        if previous
+            .as_ref()
+            .is_some_and(|event| event.posture == posture)
+        {
+            return Ok(previous.expect("checked above"));
+        }
+        let sequence = previous.as_ref().map_or(1, |event| event.sequence + 1);
+        let event = ProviderTrustEvent::new(
+            &target,
+            sequence,
+            posture,
+            context.principal_id(),
+            now_unix_ms,
+        )?;
+        put_json_txn(
+            &mut txn,
+            self.provider_governance,
+            &format!("trust:{}:{sequence:020}", target.target_id),
+            &event,
+            WriteFlags::NO_OVERWRITE,
+            "provider trust event",
+        )?;
+        put_json_txn(
+            &mut txn,
+            self.provider_governance,
+            &format!("trust-current:{}", target.target_id),
+            &event,
+            WriteFlags::empty(),
+            "current provider trust",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit provider trust: {error}"))?;
+        Ok(event)
+    }
+
+    pub fn provider_posture_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_id: &str,
+    ) -> Result<
+        (
+            ProviderTarget,
+            Option<ProviderQualification>,
+            Option<ProviderTrustEvent>,
+            ProviderHealthState,
+        ),
+        String,
+    > {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to read provider posture: {error}"))?;
+        let target = self
+            .provider_target_txn(&txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?;
+        let qualification = self.provider_qualification_current_txn(&txn, target_id)?;
+        if let Some(value) = &qualification {
+            value.validate(&target)?;
+        }
+        let trust = self.provider_trust_current_txn(&txn, target_id)?;
+        if let Some(value) = &trust {
+            value.validate(&target)?;
+        }
+        let health = self.provider_health_txn(&txn, &target)?;
+        Ok((target, qualification, trust, health))
+    }
+
+    fn validate_provider_invocation_governance_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        state: Option<&CaseState>,
+        payload: &TransitionPayload,
+        now_unix_ms: u64,
+    ) -> Result<(), String> {
+        let TransitionPayload::ProviderInvocationStarted {
+            participant_id,
+            provider_id,
+            provider_kind,
+            model_id,
+            governance: Some(governance),
+            ..
+        } = payload
+        else {
+            return Ok(());
+        };
+        let state = state.ok_or_else(|| "provider_invocation_case_missing".to_string())?;
+        let binding = state
+            .provider_binding
+            .as_ref()
+            .ok_or_else(|| "provider_invocation_binding_missing".to_string())?;
+        let selection = state
+            .provider_selections
+            .iter()
+            .find(|selection| selection.selection_id == governance.selection_id)
+            .ok_or_else(|| "provider_invocation_selection_missing".to_string())?;
+        if selection.binding_id != binding.binding_id
+            || selection.participant_id != *participant_id
+            || selection.selected_target_id != governance.target_id
+            || selection.selected_model_id != *model_id
+            || selection.logical_turn_id != governance.logical_turn_id
+            || selection.attempt_number != governance.attempt_number
+            || provider_id != &governance.target_id
+            || provider_kind != "openai_compatible"
+        {
+            return Err("provider_invocation_selection_stale_or_mismatched".to_string());
+        }
+        let target = self
+            .provider_target_txn(txn, &governance.target_id)?
+            .ok_or_else(|| "provider_invocation_target_missing".to_string())?;
+        target.validate()?;
+        if target.tenant_id != binding.tenant_id || target.model_id != *model_id {
+            return Err("provider_invocation_target_mismatch".to_string());
+        }
+        let qualification = self
+            .provider_qualification_current_txn(txn, &target.target_id)?
+            .ok_or_else(|| "provider_invocation_qualification_missing".to_string())?;
+        qualification.validate(&target)?;
+        if qualification.qualification_id != selection.qualification_id
+            || !qualification.is_current(now_unix_ms)
+        {
+            return Err("provider_invocation_qualification_stale".to_string());
+        }
+        let trust = self
+            .provider_trust_current_txn(txn, &target.target_id)?
+            .ok_or_else(|| "provider_invocation_trust_not_approved".to_string())?;
+        trust.validate(&target)?;
+        if trust.posture != ProviderTrustPosture::Approved {
+            return Err("provider_invocation_trust_not_approved".to_string());
+        }
+        let health = self.provider_health_txn(txn, &target)?;
+        if health.circuit_at(now_unix_ms)
+            != crate::provider_governance::ProviderCircuitPosture::Closed
+            || health.effective_posture(now_unix_ms) == ProviderHealthPosture::Unavailable
+        {
+            return Err("provider_invocation_target_unavailable".to_string());
+        }
+        Ok(())
+    }
+
+    fn record_provider_health_observation_internal(
+        &self,
+        target_id: &str,
+        successful: bool,
+        source: &str,
+        failure_class: Option<&str>,
+        now_unix_ms: u64,
+    ) -> Result<ProviderHealthState, String> {
+        if source.is_empty()
+            || source.len() > 128
+            || failure_class.is_some_and(|value| value.len() > 128)
+        {
+            return Err("provider_health_observation_invalid".to_string());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start provider health transaction: {error}"))?;
+        let target = self
+            .provider_target_txn(&txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        let mut state = self.provider_health_txn(&txn, &target)?;
+        state.observed_at_unix_ms = now_unix_ms;
+        state.source = source.to_string();
+        state.failure_class = failure_class.map(str::to_string);
+        if successful {
+            state.posture = ProviderHealthPosture::Healthy;
+            state.circuit = crate::provider_governance::ProviderCircuitPosture::Closed;
+            state.consecutive_failures = 0;
+            state.circuit_opened_at_unix_ms = None;
+        } else {
+            state.consecutive_failures = state.consecutive_failures.saturating_add(1);
+            state.posture = if state.consecutive_failures >= PROVIDER_CIRCUIT_FAILURE_THRESHOLD {
+                ProviderHealthPosture::Unavailable
+            } else {
+                ProviderHealthPosture::Degraded
+            };
+            if state.consecutive_failures >= PROVIDER_CIRCUIT_FAILURE_THRESHOLD {
+                state.circuit = crate::provider_governance::ProviderCircuitPosture::Open;
+                state.circuit_opened_at_unix_ms = Some(now_unix_ms);
+            }
+        }
+        put_json_txn(
+            &mut txn,
+            self.provider_runtime_health,
+            target_id,
+            &state,
+            WriteFlags::empty(),
+            "provider health",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit provider health: {error}"))?;
+        Ok(state)
+    }
+
+    pub fn record_provider_probe_health_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_id: &str,
+        evidence: &ProviderProbeEvidence,
+    ) -> Result<ProviderHealthState, String> {
+        let target = self
+            .get_provider_target(target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        let context = self.resolve_security_context(authenticated, &target.tenant_id)?;
+        context.require_owner()?;
+        evidence.validate()?;
+        if evidence.target_id != target.target_id {
+            return Err("provider_probe_health_target_mismatch".to_string());
+        }
+        let successful = evidence.chat_text_envelope_valid && evidence.exact_model_addressed;
+        self.record_provider_health_observation_internal(
+            target_id,
+            successful,
+            "synthetic_provider_probe",
+            (!successful).then_some("qualification_probe_failed"),
+            evidence.completed_at_unix_ms,
+        )
+    }
+
+    pub fn record_provider_attempt_health_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        outcome_id: &str,
+    ) -> Result<ProviderHealthState, String> {
+        let state = self.get_case_state_authorized(authenticated, case_id)?;
+        let outcome = state
+            .provider_attempt_outcomes
+            .iter()
+            .find(|outcome| outcome.outcome_id == outcome_id)
+            .ok_or_else(|| "provider_attempt_outcome_not_found".to_string())?;
+        let successful =
+            outcome.delivery == crate::provider_governance::ProviderDeliveryClass::ResultReceived;
+        let failure_class = outcome
+            .failure_class
+            .as_deref()
+            .or_else(|| (!successful).then_some("provider_attempt_failed"));
+        self.record_provider_health_observation_internal(
+            &outcome.target_id,
+            successful,
+            "canonical_provider_attempt_outcome",
+            failure_class,
+            outcome.recorded_at_unix_ms,
+        )
+    }
+
+    pub fn bind_case_provider_targets_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        ordered_target_ids: Vec<String>,
+        failover_policy: ProviderFailoverPolicy,
+        max_attempts_per_turn: u32,
+    ) -> Result<CaseProviderBinding, String> {
+        let state = self.get_case_state_authorized(authenticated, case_id)?;
+        let tenant_id = state
+            .tenant_id
+            .clone()
+            .ok_or_else(|| "legacy_unscoped_case_cannot_bind_governed_provider".to_string())?;
+        self.resolve_security_context(authenticated, &tenant_id)?
+            .require_owner()?;
+        if !state
+            .participants
+            .iter()
+            .any(|participant| participant.participant_id == participant_id)
+        {
+            return Err("case_provider_binding_participant_not_bound".to_string());
+        }
+        for target_id in &ordered_target_ids {
+            let target = self
+                .get_provider_target(target_id)?
+                .ok_or_else(|| format!("provider_target_not_found:{target_id}"))?;
+            if target.tenant_id != tenant_id {
+                return Err("cross_tenant_provider_target_binding_rejected".to_string());
+            }
+        }
+        let binding = CaseProviderBinding::new(
+            &tenant_id,
+            case_id,
+            participant_id,
+            ordered_target_ids,
+            failover_policy,
+            max_attempts_per_turn,
+            &authenticated.projected_principal_id(),
+            state.generation,
+        )?;
+        if state.provider_binding.as_ref() == Some(&binding) {
+            return Ok(binding);
+        }
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", binding.binding_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.provider_governance".to_string(),
+                participant_id: Some(participant_id.to_string()),
+                principal_id: Some(authenticated.projected_principal_id()),
+                source_ref: Some(binding.binding_id.clone()),
+            },
+            TransitionPayload::CaseProviderBindingRecorded {
+                binding: binding.clone(),
+            },
+        );
+        pending.causal_refs = std::iter::once(binding.binding_id.clone())
+            .chain(binding.ordered_target_ids.iter().cloned())
+            .collect();
+        self.commit_secured_transition(authenticated, &tenant_id, pending, true)?;
+        Ok(binding)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn select_case_provider_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        requirement: &ProviderRequirement,
+        logical_turn_id: &str,
+        attempt_number: u32,
+        attempted_targets: &BTreeSet<String>,
+        prior_attempt_retry_safe: bool,
+        available_credential_refs: &BTreeSet<String>,
+        now_unix_ms: u64,
+    ) -> Result<ProviderSelectionStoreOutcome, String> {
+        requirement.validate()?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start provider selection transaction: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "provider_selection_case_not_found".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "legacy_case_has_no_governed_provider_binding".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        if state.lifecycle != CaseLifecycle::Open || state.cancellation.is_some() {
+            return Err("provider_selection_case_not_open".to_string());
+        }
+        let binding = state
+            .provider_binding
+            .as_ref()
+            .ok_or_else(|| "case_has_no_governed_provider_binding".to_string())?;
+        binding.validate()?;
+        if binding.participant_id != participant_id {
+            return Err("provider_selection_participant_mismatch".to_string());
+        }
+        if let Some(existing) = state.provider_selections.iter().find(|selection| {
+            selection.logical_turn_id == logical_turn_id
+                && selection.attempt_number == attempt_number
+        }) {
+            return Ok(ProviderSelectionStoreOutcome::AlreadySelected(
+                existing.clone(),
+            ));
+        }
+        let mut targets = BTreeMap::new();
+        let mut qualifications = BTreeMap::new();
+        let mut trusts = BTreeMap::new();
+        let mut health = BTreeMap::new();
+        for target_id in &binding.ordered_target_ids {
+            if let Some(target) = self.provider_target_txn(&txn, target_id)? {
+                if let Some(value) = self.provider_qualification_current_txn(&txn, target_id)? {
+                    qualifications.insert(target_id.clone(), value);
+                }
+                if let Some(value) = self.provider_trust_current_txn(&txn, target_id)? {
+                    value.validate(&target)?;
+                    trusts.insert(target_id.clone(), value);
+                }
+                health.insert(target_id.clone(), self.provider_health_txn(&txn, &target)?);
+                targets.insert(target_id.clone(), target);
+            }
+        }
+        let snapshots = binding
+            .ordered_target_ids
+            .iter()
+            .map(|target_id| {
+                let target = targets.get(target_id);
+                let credential_available = target.is_some_and(|target| {
+                    target.credential_ref == "none"
+                        || available_credential_refs.contains(&target.credential_ref)
+                });
+                (
+                    target_id.clone(),
+                    ProviderCandidateSnapshot {
+                        target,
+                        qualification: qualifications.get(target_id),
+                        trust: trusts.get(target_id),
+                        health: health.get(target_id),
+                        credential_available,
+                    },
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        let preview = select_provider(
+            binding,
+            requirement,
+            &snapshots,
+            attempted_targets,
+            prior_attempt_retry_safe,
+            now_unix_ms,
+        );
+        if preview.selected_target_id.is_none() {
+            return Ok(ProviderSelectionStoreOutcome::Waiting {
+                exclusions: preview.exclusions,
+            });
+        }
+        let selection = ProviderSelection::from_preview(
+            binding,
+            requirement,
+            state.generation,
+            logical_turn_id,
+            attempt_number,
+            preview,
+            now_unix_ms,
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", selection.selection_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.provider_selector".to_string(),
+                participant_id: Some(participant_id.to_string()),
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(logical_turn_id.to_string()),
+            },
+            TransitionPayload::ProviderSelectionRecorded {
+                selection: selection.clone(),
+            },
+        );
+        pending.causal_refs = vec![
+            selection.binding_id.clone(),
+            selection.requirement_id.clone(),
+            selection.qualification_id.clone(),
+            selection.selected_target_id.clone(),
+        ];
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit provider selection: {error}"))?;
+        Ok(ProviderSelectionStoreOutcome::Selected {
+            selection,
+            commit: Box::new(commit),
+        })
+    }
+
+    pub fn record_provider_attempt_outcome_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        outcome: ProviderAttemptOutcome,
+    ) -> Result<ProviderAttemptStoreOutcome, String> {
+        let state = self.get_case_state_authorized(authenticated, case_id)?;
+        let tenant_id = state
+            .tenant_id
+            .clone()
+            .ok_or_else(|| "legacy_case_cannot_record_governed_provider_attempt".to_string())?;
+        if let Some(existing) = state
+            .provider_attempt_outcomes
+            .iter()
+            .find(|existing| existing.outcome_id == outcome.outcome_id)
+        {
+            if existing == &outcome {
+                return Ok(ProviderAttemptStoreOutcome::AlreadyRecorded(
+                    existing.clone(),
+                ));
+            }
+        }
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", outcome.outcome_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.provider_transport".to_string(),
+                participant_id: None,
+                principal_id: Some(authenticated.projected_principal_id()),
+                source_ref: Some(outcome.selection_id.clone()),
+            },
+            TransitionPayload::ProviderAttemptOutcomeRecorded {
+                outcome: outcome.clone(),
+            },
+        );
+        pending.causal_refs = vec![outcome.selection_id.clone()];
+        match self.commit_secured_transition(authenticated, &tenant_id, pending, false) {
+            Ok(commit) => Ok(ProviderAttemptStoreOutcome::Recorded(Box::new(commit))),
+            Err(error) => {
+                let current = self.get_case_state_authorized(authenticated, case_id)?;
+                match current.provider_attempt_outcomes.iter().find(|existing| {
+                    existing.logical_turn_id == outcome.logical_turn_id
+                        && existing.attempt_number == outcome.attempt_number
+                }) {
+                    Some(existing) if existing == &outcome => Ok(
+                        ProviderAttemptStoreOutcome::AlreadyRecorded(existing.clone()),
+                    ),
+                    Some(_) => Err("provider_attempt_outcome_conflict".to_string()),
+                    None => Err(error),
+                }
+            }
+        }
+    }
+}
+
 fn tenant_membership_key(tenant_id: &str, principal_id: &str) -> String {
     format!("{tenant_id}\0{principal_id}")
 }
@@ -13666,6 +14513,15 @@ fn transition_contains_canonical_fact_ref(transition: &Transition, reference: &s
         | TransitionPayload::ParticipantAdmitted { participant_id, .. }
         | TransitionPayload::ProviderAttached { participant_id, .. } => participant_id == reference,
         TransitionPayload::ParticipantPrincipalLinked { link } => link.link_id == reference,
+        TransitionPayload::CaseProviderBindingRecorded { binding } => {
+            binding.binding_id == reference
+        }
+        TransitionPayload::ProviderSelectionRecorded { selection } => {
+            selection.selection_id == reference
+        }
+        TransitionPayload::ProviderAttemptOutcomeRecorded { outcome } => {
+            outcome.outcome_id == reference
+        }
         TransitionPayload::ProviderInvocationStarted { invocation_id, .. } => {
             invocation_id == reference
         }
@@ -15134,6 +15990,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:test".to_string(),
                 semantic_lineage: Some(test_provider_lineage(4)),
+                governance: None,
             },
             None,
             vec![],
@@ -15342,6 +16199,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:test".to_string(),
                 semantic_lineage: Some(test_provider_lineage(12)),
+                governance: None,
             },
             None,
             vec![],
@@ -15644,6 +16502,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:test".to_string(),
                 semantic_lineage: Some(test_provider_lineage(3)),
+                governance: None,
             },
         ];
         for (index, payload) in payloads.into_iter().enumerate() {
@@ -16089,6 +16948,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:review".to_string(),
                 semantic_lineage: Some(lineage.clone()),
+                governance: None,
             },
             None,
             vec![],
@@ -16482,6 +17342,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:h10".to_string(),
                 semantic_lineage: Some(lineage.clone()),
+                governance: None,
             },
             None,
             vec![],
@@ -17701,6 +18562,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:wave10".to_string(),
                 semantic_lineage: Some(lineage.clone()),
+                governance: None,
             },
             None,
             vec![],
@@ -19435,6 +20297,8 @@ mod tests {
             (Running, Queued),
             (Running, WaitingReview),
             (Running, WaitingEffect),
+            (Running, WaitingProvider),
+            (Running, DeliveryIndeterminate),
             (Running, Blocked),
             (Running, Completed),
             (Running, Denied),
@@ -19444,6 +20308,9 @@ mod tests {
             (WaitingReview, Cancelled),
             (WaitingEffect, Queued),
             (WaitingEffect, Cancelled),
+            (WaitingProvider, Queued),
+            (WaitingProvider, Cancelled),
+            (DeliveryIndeterminate, Cancelled),
             (Blocked, Queued),
             (Blocked, Cancelled),
         ];
@@ -19453,6 +20320,7 @@ mod tests {
         let invalid = [
             (Queued, Completed),
             (WaitingReview, Completed),
+            (DeliveryIndeterminate, Queued),
             (Blocked, Running),
             (Completed, Queued),
             (Denied, Running),
@@ -19876,6 +20744,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:test".to_string(),
                 semantic_lineage: Some(lineage.clone()),
+                governance: None,
             },
             None,
             vec![],
@@ -20603,6 +21472,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:test".to_string(),
                 semantic_lineage: Some(lineage.clone()),
+                governance: None,
             },
             None,
             vec![],
@@ -22389,6 +23259,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:fixture".to_string(),
                 semantic_lineage: Some(malformed_lineage.clone()),
+                governance: None,
             },
             None,
             vec![execution_id.clone()],
@@ -22442,6 +23313,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:fixture".to_string(),
                 semantic_lineage: Some(forged_lineage.clone()),
+                governance: None,
             },
             None,
             vec![],
@@ -22491,6 +23363,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:fixture".to_string(),
                 semantic_lineage: Some(lineage.clone()),
+                governance: None,
             },
             None,
             vec![execution_id.clone()],
@@ -23288,4 +24161,6 @@ mod tests {
 
     #[path = "hardening17_tests.rs"]
     mod hardening17_tests;
+    #[path = "wave18_tests.rs"]
+    mod wave18_tests;
 }

@@ -1,0 +1,7 @@
+attack	guard	result
+Tenant A binds Tenant B target	binding transaction resolves exact target Tenant	cross_tenant_provider_target_binding_rejected
+Tenant A reads B posture	security context required	refused
+Tenant A qualification used by B	target ID/digest/Tenant exact	ineligible
+Tenant A approval used by B	trust event Tenant+target digest exact	ineligible
+same endpoint/model in A and B	Tenant in target identity	distinct target IDs/governance
+credential inheritance	credential ref bound into target identity	no cross-target migration

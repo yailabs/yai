@@ -1,0 +1,8 @@
+capability	proof	minimum_normal_consumer
+chat_text	valid assistant message envelope from actual request	qualified
+structured_json_object	actual response_format=json_object request and strictly parsed object	qualified for PlanPatch
+model_exact_addressing	/v1/models or exact response model match	qualified
+usage_accounting	bounded usage object observed	qualified when required
+health_probe	documented explicit health response	qualified/extension-specific
+first_party_telemetry	explicit extension metadata and bounded metrics	extension_attested
+context_capacity_at_least	not implemented; no honest evidence source	any explicit requirement fails closed

@@ -1,7 +1,7 @@
 # Current executable architecture
 
-Authority: implementation truth. This edition covers the published H15
-baseline and the Wave-16 command refoundation. Historical checkpoints and
+Authority: implementation truth. This edition covers the published H17
+baseline and the Wave-18 provider-governance implementation. Historical checkpoints and
 exact executable evidence remain in `refoundation/foundation-recovery/`.
 
 This document includes current contradictions. It does not claim that the
@@ -24,6 +24,8 @@ operator
   |     +-- durable single-Case runtime admission metadata
   |     +-- deterministic governance intake and immutable policy artifacts
   |     +-- local POSIX-authenticated Principal and Tenant security isolation
+  |     +-- Tenant-scoped provider targets, qualification, trust and shared health
+  |     +-- Case-canonical provider selection and delivery-safe attempt lineage
   |     +-- canonical Transition/CaseState authority in LMDB
   |     +-- legacy journal inspect/import/replay compatibility
   |     +-- LMDB graph materialization/query
@@ -58,6 +60,12 @@ domain implementation remains grouped by demonstrated boundary in
 future subsystems; they isolate existing behavior for the next semantic
 refoundation.
 
+Provider administration adapters are isolated in
+[`provider_governance_cli.rs`](../cmd/yai/src/provider_governance_cli.rs), while
+typed owner contracts and deterministic selection live in
+[`provider_governance.rs`](../engine/yai-engine/src/provider_governance.rs).
+See the current [provider governance contract](provider-governance.md).
+
 The normal CLI links [`yai-engine`](../engine/yai-engine/src/lib.rs) directly
 as Rust. There is no product C→Rust call edge or installed Rust C ABI. The
 former marker FFI crate and smoke bridge were removed.
@@ -76,6 +84,7 @@ mean constitutional, general, or production-ready.
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
 | Case-bound provider prompt | admitted participant + typed CaseState/history → qualified `yai.operational_memory.v1` retrieval → `yai.residency_plan.v1` → `yai.projection.v5` → `yai.context_frame.v5` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | HTTP is local/plain and non-streaming; ranking/residency are typed and deterministic; no learned compression or authoritative tokenizer |
+| Governed provider routing | immutable Tenant ProviderTarget → synthetic evidence-bound qualification → Tenant-Owner approval → shared fresh health/circuit → exact Case provider binding → mechanical requirement/filtering → canonical ProviderSelection and attempt outcome; local fixtures prove qualified capability differences, deterministic exclusions, pre-dispatch safe failover and indeterminate-delivery refusal | remote HTTPS transport, credential rotation, DNS drift and adversarial multi-process circuit hardening remain outside W18 |
 | Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | one synchronous single-host `filesystem.write` loop; no multi-Case scheduler, quotas, backpressure or distributed lease |
 | Controlled filesystem effect | Tenant-scoped attachment + Ready/Valid EffectivePolicy → real HTTP ProviderResult → exact Operation → DecisionBasis/Decision/finite ExecutionGrant → durable PREPARE → Rust atomic replacement → Observation/Receipt → FINALIZE/RECONCILE | only `filesystem.write`; exact/overlapping roots are rejected across Tenants, but hostile namespace fencing and a second carrier are absent |
 | Human-reviewed filesystem effect | policy-driven `REQUIRE_REVIEW` → v2 request → per-command POSIX Principal authentication → Tenant membership → explicit Principal/Participant link → Case-role eligibility → ReviewAction v2 → effective Decision → same Grant/carrier path | local POSIX identity only; no SSO, remote signer or membership removal lifecycle |
@@ -115,8 +124,8 @@ verticals/tests.
 Rust owns one canonical semantic write path in
 [`transition.rs`](../engine/yai-engine/src/transition.rs) and
 [`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). The current serialized
-contracts are `yai.transition.v10` and
-`yai.case_state.v10`; readers retain the supported historical contracts while
+contracts are `yai.transition.v12` and
+`yai.case_state.v12`; readers retain v1-v11 while
 rejecting unknown future versions. Version 3 added provider identity,
 semantic-frame/render lineage and typed
 interaction turns. Version 4 adds Operation-bound ReviewRequest,
@@ -127,8 +136,9 @@ EffectivePolicy or context canonical. Version 6 adds policy-bound authority,
 version 7 temporal invalidation/cancellation/closure, and version 8 adds
 immutable Case Tenant ownership, authenticated transition provenance and
 Principal-to-Participant links. Versions 9 and 10 add shared ResourceControl
-and exact Case-bound Workflow progression while keeping their derived views
-non-canonical. One bounded LMDB write
+and exact Case-bound Workflow progression; version 11 adds amendments,
+Subflow and Handoff; version 12 adds Case provider binding, selection and
+attempt outcomes while keeping derived views non-canonical. One bounded LMDB write
 transaction:
 
 1. validates typed payload closure and global Transition identity;
@@ -150,8 +160,9 @@ materialized CaseState == replay(ordered canonical Transitions)
 
 The reducer deliberately covers only current live fields: Case lifecycle and
 generation, immutable Tenant domain, Principal links, participant
-bindings/admitted views, one current provider/model
-attachment, latest provider invocation/result/interpretation lineage, typed
+bindings/admitted views, one current provider/model attachment or governed
+provider binding, historical provider selections/attempt outcomes, latest
+provider invocation/result/interpretation lineage, typed
 Operation-bound review state, logical filesystem attachments, latest Operation/Decision, Grant
 lifecycle, and compact prepared/finalized/indeterminate effect refs. Full
 content, Observations, and Receipts remain in immutable Transitions rather than

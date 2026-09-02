@@ -1,0 +1,7 @@
+race	serialization point	result
+same selection 16 writers	Case LMDB Transition transaction	one selection; 15 AlreadySelected; one generation advance
+same attempt outcome 16 writers	Case LMDB Transition transaction	one outcome; exact repeats AlreadyRecorded; one generation advance
+approve vs deny	provider-governance LMDB writer+monotonic sequence	explicit serial order
+trust revoke vs selection	same LMDB environment writer serialization	revoke-first excludes; selection-first remains historical
+qualification replacement vs selection	same LMDB environment writer serialization	selection records exact qualification actually used
+health observations	provider_runtime_health LMDB writer	one shared multiprocess posture; no process-local contradiction

@@ -940,6 +940,7 @@ pub(crate) fn resolve_canonical_evidence(
                     provider_kind,
                     model_id,
                     semantic_lineage,
+                    ..
                 } if invocation_id == provider_invocation_id => Some((
                     index,
                     participant_id,

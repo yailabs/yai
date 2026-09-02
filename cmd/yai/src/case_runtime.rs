@@ -10,13 +10,19 @@ use crate::command_adapters::controlled_effect::{
 };
 use crate::command_adapters::security::authenticate_local;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::io::Write;
 use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
 use yai_core_engine::effect::OPERATION_PROPOSAL_SCHEMA;
+use yai_core_engine::provider_governance::{
+    ProviderAttemptOutcome, ProviderDeliveryClass, ProviderRequirement, ProviderSelection,
+    ProviderTransportStage,
+};
 use yai_core_engine::store::lmdb::{
-    CaseRuntimeAdmissionOutcome, CaseRuntimeAdmissionRequest, RuntimeWorkItem, RuntimeWorkState,
+    CaseRuntimeAdmissionOutcome, CaseRuntimeAdmissionRequest, ProviderSelectionStoreOutcome,
+    RuntimeWorkItem, RuntimeWorkState,
 };
 
 const CASE_RUNTIME_CHECKPOINT_SCHEMA: &str = "yai.case_runtime_checkpoint.v2";
@@ -52,6 +58,8 @@ pub(super) enum CaseRuntimeStop {
     Denied,
     AwaitingReview,
     IndeterminateEffect,
+    WaitingProvider,
+    DeliveryIndeterminate,
     ProviderFailureBudgetExhausted,
     InvocationBudgetExhausted,
     OperationBudgetExhausted,
@@ -80,6 +88,8 @@ impl CaseRuntimeStop {
             Self::Denied => "denied",
             Self::AwaitingReview => "awaiting_review",
             Self::IndeterminateEffect => "indeterminate_effect",
+            Self::WaitingProvider => "waiting_provider",
+            Self::DeliveryIndeterminate => "delivery_indeterminate",
             Self::ProviderFailureBudgetExhausted => "provider_failure_budget_exhausted",
             Self::InvocationBudgetExhausted => "invocation_budget_exhausted",
             Self::OperationBudgetExhausted => "operation_budget_exhausted",
@@ -195,6 +205,7 @@ fn checkpoint_is_never_resumable(status: &CaseRuntimeStop) -> bool {
             | CaseRuntimeStop::Cancelled
             | CaseRuntimeStop::Closed
             | CaseRuntimeStop::FatalInvariantViolation
+            | CaseRuntimeStop::DeliveryIndeterminate
     )
 }
 
@@ -479,14 +490,114 @@ fn update_resume_budgets(
     Ok(())
 }
 
-fn provider_args(checkpoint: &CaseRuntimeCheckpoint) -> Result<Vec<String>, String> {
+#[derive(Clone, Debug)]
+struct RuntimeProviderRoute {
+    args: Vec<String>,
+    selection: Option<ProviderSelection>,
+}
+
+fn target_chat_endpoint(endpoint: &str) -> String {
+    let endpoint = endpoint.trim_end_matches('/');
+    if endpoint.ends_with("/v1") {
+        format!("{endpoint}/chat/completions")
+    } else {
+        format!("{endpoint}/v1/chat/completions")
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn provider_route(
+    checkpoint: &CaseRuntimeCheckpoint,
+    plan_patch: bool,
+    logical_turn_id: &str,
+    attempt_number: u32,
+    attempted_targets: &BTreeSet<String>,
+    prior_attempt_retry_safe: bool,
+) -> Result<Option<RuntimeProviderRoute>, String> {
     let store = LmdbRecordStore::open(record_store_path())?;
     let state = store
         .get_case_state(&checkpoint.case_id)?
         .ok_or_else(|| format!("canonical CaseState missing for {}", checkpoint.case_id))?;
-    let provider = state
-        .provider
-        .ok_or_else(|| "Case has no attached provider".to_string())?;
+    if let Some(binding) = state.provider_binding.as_ref() {
+        if binding.participant_id != checkpoint.participant_id {
+            return Err("case_provider_binding_participant_mismatch".to_string());
+        }
+        let authenticated = authenticate_local()?;
+        let requirement = if plan_patch {
+            ProviderRequirement::plan_patch()?
+        } else {
+            ProviderRequirement::text("case_runtime_turn")?
+        };
+        let mut available_credentials = BTreeSet::new();
+        for target_id in &binding.ordered_target_ids {
+            let (target, _, _, _) = store.provider_posture_authorized(&authenticated, target_id)?;
+            if target.credential_ref == "none"
+                || target
+                    .credential_ref
+                    .strip_prefix("env:")
+                    .is_some_and(|name| env_var(name).is_some())
+            {
+                available_credentials.insert(target.credential_ref.clone());
+            }
+        }
+        let selection = store.select_case_provider_authorized(
+            &authenticated,
+            &checkpoint.case_id,
+            &checkpoint.participant_id,
+            &requirement,
+            logical_turn_id,
+            attempt_number,
+            attempted_targets,
+            prior_attempt_retry_safe,
+            &available_credentials,
+            runtime_now_millis().try_into().unwrap_or(u64::MAX),
+        )?;
+        let selection = match selection {
+            ProviderSelectionStoreOutcome::Selected { selection, .. }
+            | ProviderSelectionStoreOutcome::AlreadySelected(selection) => selection,
+            ProviderSelectionStoreOutcome::Waiting { exclusions } => {
+                let reasons = exclusions
+                    .iter()
+                    .map(|entry| format!("{}:{:?}", entry.target_id, entry.code))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                return Err(format!("provider_waiting:{reasons}"));
+            }
+        };
+        let (target, _, _, _) =
+            store.provider_posture_authorized(&authenticated, &selection.selected_target_id)?;
+        let mut args = vec![
+            "--case".to_string(),
+            checkpoint.case_id.clone(),
+            "--subject".to_string(),
+            checkpoint.participant_id.clone(),
+            "--base-url".to_string(),
+            target_chat_endpoint(&target.endpoint),
+            "--provider-id".to_string(),
+            target.target_id,
+            "--model".to_string(),
+            target.model_id,
+            "--selection-id".to_string(),
+            selection.selection_id.clone(),
+            "--target-id".to_string(),
+            selection.selected_target_id.clone(),
+            "--logical-turn-id".to_string(),
+            selection.logical_turn_id.clone(),
+            "--attempt-number".to_string(),
+            selection.attempt_number.to_string(),
+        ];
+        if let Some(environment) = target.credential_ref.strip_prefix("env:") {
+            args.push("--api-key-env".to_string());
+            args.push(environment.to_string());
+        }
+        return Ok(Some(RuntimeProviderRoute {
+            args,
+            selection: Some(selection),
+        }));
+    }
+    let Some(provider) = state.provider else {
+        return Ok(None);
+    };
     let mut args = vec![
         "--case".to_string(),
         checkpoint.case_id.clone(),
@@ -503,7 +614,94 @@ fn provider_args(checkpoint: &CaseRuntimeCheckpoint) -> Result<Vec<String>, Stri
         args.push("--api-key-env".to_string());
         args.push(environment.to_string());
     }
-    Ok(args)
+    Ok(Some(RuntimeProviderRoute {
+        args,
+        selection: None,
+    }))
+}
+
+fn governed_attempt_outcome(
+    selection: &ProviderSelection,
+    error: Option<&str>,
+    successful_request_bytes: Option<u64>,
+) -> Result<ProviderAttemptOutcome, String> {
+    let error_bytes = error
+        .and_then(|value| value.split("bytes=").nth(1))
+        .and_then(|value| value.split(|ch: char| !ch.is_ascii_digit()).next())
+        .and_then(|value| value.parse::<u64>().ok())
+        .or_else(|| {
+            error
+                .and_then(|value| value.split("partial_write:").nth(1))
+                .and_then(|value| value.split(':').next())
+                .and_then(|value| value.parse::<u64>().ok())
+        });
+    let (delivery, stage, bytes, status, failure) = match error {
+        None => (
+            ProviderDeliveryClass::ResultReceived,
+            ProviderTransportStage::Completed,
+            successful_request_bytes.unwrap_or(1),
+            Some(200),
+            None,
+        ),
+        Some(error) if error.starts_with("provider_not_dispatched:connect") => (
+            ProviderDeliveryClass::NotDispatched,
+            ProviderTransportStage::Connect,
+            0,
+            None,
+            Some("connect_failure".to_string()),
+        ),
+        Some(error) if error.starts_with("provider_not_dispatched:") => (
+            ProviderDeliveryClass::NotDispatched,
+            ProviderTransportStage::RequestWriting,
+            0,
+            None,
+            Some("write_before_bytes_failure".to_string()),
+        ),
+        Some(error) if error.starts_with("provider_remote_response:") => {
+            let status = error
+                .split(':')
+                .nth(1)
+                .and_then(|value| value.parse::<u16>().ok());
+            (
+                ProviderDeliveryClass::DefinitivelyRejected,
+                ProviderTransportStage::ResponseBody,
+                error_bytes.unwrap_or(1),
+                status,
+                Some("remote_response_rejected".to_string()),
+            )
+        }
+        Some(error) if error.starts_with("provider_response_invalid:") => (
+            ProviderDeliveryClass::ResponseInvalid,
+            ProviderTransportStage::JsonParse,
+            error_bytes.unwrap_or(1),
+            Some(200),
+            Some("response_schema_invalid".to_string()),
+        ),
+        Some(error) if error.starts_with("provider_delivery_indeterminate:") => (
+            ProviderDeliveryClass::DeliveryIndeterminate,
+            ProviderTransportStage::ResponseBody,
+            error_bytes.unwrap_or(1),
+            None,
+            Some("delivery_or_response_unknown".to_string()),
+        ),
+        Some(_) => (
+            ProviderDeliveryClass::NotDispatched,
+            ProviderTransportStage::RequestWriting,
+            0,
+            None,
+            Some("local_pre_dispatch_failure".to_string()),
+        ),
+    };
+    ProviderAttemptOutcome::new(
+        selection,
+        delivery,
+        stage,
+        bytes,
+        status,
+        false,
+        failure,
+        runtime_now_millis().try_into().unwrap_or(u64::MAX),
+    )
 }
 
 fn ensure_memory_fresh(case_id: &str) -> Result<usize, String> {
@@ -581,6 +779,7 @@ fn load_canonical_provider_result(
                 semantic_units: 0,
                 estimated_input_units: 0,
                 usage: ProviderUsageTelemetry::default(),
+                request_bytes_written: 0,
             }),
             _ => None,
         })
@@ -914,8 +1113,15 @@ fn run_loop(
                 .iter()
                 .find(|resource| resource.attachment_id == checkpoint.attachment_id)
                 .ok_or_else(|| "runtime resource attachment missing".to_string())?;
-            let provider_args = provider_args(&checkpoint)?;
+            let logical_turn_id = format!(
+                "provider-turn:{}:{}:{}",
+                yai_core_engine::context::stable_digest(&checkpoint.case_id),
+                yai_core_engine::context::stable_digest(&checkpoint.run_id),
+                checkpoint.invocations + 1
+            );
             let mut attempt = 0usize;
+            let mut attempted_targets = BTreeSet::new();
+            let mut prior_attempt_retry_safe = true;
             let result = loop {
                 let (purpose, output_contract) = match &plan_patch_contract {
                     Some((_, contract)) => (
@@ -933,35 +1139,119 @@ fn run_loop(
                         },
                     ),
                 };
+                let route = match provider_route(
+                    &checkpoint,
+                    plan_patch_contract.is_some(),
+                    &logical_turn_id,
+                    (attempt + 1).try_into().unwrap_or(u32::MAX),
+                    &attempted_targets,
+                    prior_attempt_retry_safe,
+                ) {
+                    Ok(Some(route)) => route,
+                    Ok(None) => {
+                        checkpoint.stop(
+                            CaseRuntimeStop::ProviderFailureBudgetExhausted,
+                            "Case has no attached or governed provider",
+                        );
+                        write_checkpoint(&checkpoint)?;
+                        return Ok(checkpoint);
+                    }
+                    Err(error) if error.starts_with("provider_waiting:") => {
+                        checkpoint.stop(CaseRuntimeStop::WaitingProvider, error);
+                        write_checkpoint(&checkpoint)?;
+                        return Ok(checkpoint);
+                    }
+                    Err(error) => return Err(error),
+                };
                 match invoke_runtime_provider_with_journal(
-                    &provider_args,
+                    &route.args,
                     purpose,
                     &checkpoint.task,
                     output_contract,
                     &options,
                     Path::new(&checkpoint.journal_path),
                 ) {
-                    Ok(result) => break result,
-                    Err(error) if error.starts_with("residency_budget_below_mandatory_state") => {
+                    Ok(result) => {
+                        if let Some(selection) = &route.selection {
+                            let outcome = governed_attempt_outcome(
+                                selection,
+                                None,
+                                Some(result.request_bytes_written),
+                            )?;
+                            let authenticated = authenticate_local()?;
+                            let store = LmdbRecordStore::open(record_store_path())?;
+                            let outcome_id = outcome.outcome_id.clone();
+                            store.record_provider_attempt_outcome_authorized(
+                                &authenticated,
+                                &checkpoint.case_id,
+                                outcome,
+                            )?;
+                            store.record_provider_attempt_health_authorized(
+                                &authenticated,
+                                &checkpoint.case_id,
+                                &outcome_id,
+                            )?;
+                        }
+                        break result;
+                    }
+                    Err(error) if error.contains("residency_budget_below_mandatory_state") => {
                         checkpoint.stop(CaseRuntimeStop::ContextBudgetExhausted, error);
                         write_checkpoint(&checkpoint)?;
                         return Ok(checkpoint);
                     }
-                    Err(error) if error.starts_with("provider_input_budget_exceeded") => {
+                    Err(error) if error.contains("provider_input_budget_exceeded") => {
                         checkpoint.stop(CaseRuntimeStop::CostBudgetExhausted, error);
                         write_checkpoint(&checkpoint)?;
                         return Ok(checkpoint);
                     }
-                    Err(error) if attempt < checkpoint.max_provider_retries => {
-                        attempt += 1;
-                        checkpoint.provider_failures += 1;
-                        eprintln!(
-                            "provider_retry: {attempt} reason:{}",
-                            runtime_error_preview(&error)
-                        );
-                    }
                     Err(error) => {
                         checkpoint.provider_failures += 1;
+                        if let Some(selection) = &route.selection {
+                            let outcome = governed_attempt_outcome(selection, Some(&error), None)?;
+                            let retry_safe = outcome.retry_safe();
+                            let delivery_indeterminate =
+                                outcome.delivery == ProviderDeliveryClass::DeliveryIndeterminate;
+                            let authenticated = authenticate_local()?;
+                            let store = LmdbRecordStore::open(record_store_path())?;
+                            let outcome_id = outcome.outcome_id.clone();
+                            store.record_provider_attempt_outcome_authorized(
+                                &authenticated,
+                                &checkpoint.case_id,
+                                outcome,
+                            )?;
+                            store.record_provider_attempt_health_authorized(
+                                &authenticated,
+                                &checkpoint.case_id,
+                                &outcome_id,
+                            )?;
+                            attempted_targets.insert(selection.selected_target_id.clone());
+                            prior_attempt_retry_safe = retry_safe;
+                            if delivery_indeterminate {
+                                checkpoint.stop(CaseRuntimeStop::DeliveryIndeterminate, error);
+                                write_checkpoint(&checkpoint)?;
+                                return Ok(checkpoint);
+                            }
+                            if retry_safe && attempt < checkpoint.max_provider_retries {
+                                attempt += 1;
+                                eprintln!(
+                                    "provider_safe_failover: attempt={} reason:{}",
+                                    attempt + 1,
+                                    runtime_error_preview(&error)
+                                );
+                                continue;
+                            }
+                            checkpoint.stop(CaseRuntimeStop::ProviderFailureBudgetExhausted, error);
+                            write_checkpoint(&checkpoint)?;
+                            return Ok(checkpoint);
+                        }
+                        if attempt < checkpoint.max_provider_retries {
+                            attempt += 1;
+                            eprintln!(
+                                "provider_retry: {attempt} reason:{}",
+                                runtime_error_preview(&error)
+                            );
+                            continue;
+                        }
                         checkpoint.stop(CaseRuntimeStop::ProviderFailureBudgetExhausted, error);
                         write_checkpoint(&checkpoint)?;
                         return Ok(checkpoint);
@@ -1535,6 +1825,8 @@ fn runtime_work_state_for_checkpoint(status: &CaseRuntimeStop) -> RuntimeWorkSta
         CaseRuntimeStop::Denied => RuntimeWorkState::Denied,
         CaseRuntimeStop::AwaitingReview => RuntimeWorkState::WaitingReview,
         CaseRuntimeStop::IndeterminateEffect => RuntimeWorkState::WaitingEffect,
+        CaseRuntimeStop::WaitingProvider => RuntimeWorkState::WaitingProvider,
+        CaseRuntimeStop::DeliveryIndeterminate => RuntimeWorkState::DeliveryIndeterminate,
         CaseRuntimeStop::NormativeUnconfigured
         | CaseRuntimeStop::NormativeBlocked
         | CaseRuntimeStop::PolicyNotYetValid

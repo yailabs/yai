@@ -1148,6 +1148,7 @@ struct ProviderConfig {
     language_mode: String,
     continuation_supported: bool,
     continuation_ref: Option<ProviderContinuationReference>,
+    governance: Option<ProviderInvocationGovernance>,
 }
 
 struct PromptRuntime {
@@ -1403,6 +1404,23 @@ fn prompt_runtime_from_args_with_journal(
                 .unwrap_or_else(|| "runtime:unspecified".to_string()),
             opaque_reference,
         });
+    let governance = optional_arg(args, "--selection-id")
+        .map(|selection_id| {
+            Ok::<ProviderInvocationGovernance, String>(ProviderInvocationGovernance {
+                selection_id,
+                target_id: named_arg(args, "--target-id")?,
+                logical_turn_id: named_arg(args, "--logical-turn-id")?,
+                attempt_number: named_arg(args, "--attempt-number")?
+                    .parse::<u32>()
+                    .map_err(|_| "provider_attempt_number_invalid".to_string())?,
+            })
+        })
+        .transpose()?;
+    let continuation_ref = if governance.is_some() {
+        None
+    } else {
+        continuation_ref
+    };
     let journal = Journal::load_jsonl(&journal_path)
         .map_err(|error| format!("failed to load {}: {error}", journal_path.display()))?;
     validate_loaded_journal_case_binding(&journal, &case_ref)?;
@@ -1418,19 +1436,30 @@ fn prompt_runtime_from_args_with_journal(
         .participants
         .iter()
         .find(|participant| participant.participant_id == subject_ref)
-        .map(|participant| !participant.admitted_views.is_empty())
+        .map(|participant| governance.is_some() || !participant.admitted_views.is_empty())
         .unwrap_or(false);
     if !admitted {
         return Err(format!(
-            "{subject_ref} has not entered {case_ref}; run `yai case enter` first"
+            "{subject_ref} has not entered {case_ref}; run `yai case enter` first or bind a governed provider target"
         ));
     }
-    let attached = state.provider.as_ref().is_some_and(|provider| {
-        provider.participant_id == subject_ref
-            && (provider.provider_id.is_empty() || provider.provider_id == provider_id)
-            && provider.provider_kind == "openai_compatible"
-            && provider.model_id == model
-    });
+    let attached = if let Some(governance) = &governance {
+        state.provider_selections.iter().any(|selection| {
+            selection.selection_id == governance.selection_id
+                && selection.selected_target_id == governance.target_id
+                && selection.logical_turn_id == governance.logical_turn_id
+                && selection.attempt_number == governance.attempt_number
+                && selection.participant_id == subject_ref
+                && selection.selected_model_id == model
+        })
+    } else {
+        state.provider.as_ref().is_some_and(|provider| {
+            provider.participant_id == subject_ref
+                && (provider.provider_id.is_empty() || provider.provider_id == provider_id)
+                && provider.provider_kind == "openai_compatible"
+                && provider.model_id == model
+        })
+    };
     if !attached {
         return Err(format!(
             "{subject_ref} has no provider attachment in {case_ref}; run `yai case attach-provider` first"
@@ -1453,6 +1482,7 @@ fn prompt_runtime_from_args_with_journal(
             language_mode,
             continuation_supported,
             continuation_ref,
+            governance,
         },
         active_thread_id: active_thread_id.clone(),
         legacy_status_notes: render_thread_context(&journal, &case_ref, &active_thread_id),
@@ -1758,6 +1788,7 @@ struct ProviderTransportResult {
     response_model_id: Option<String>,
     continuation_disposition: ContinuationDisposition,
     usage: ProviderUsageTelemetry,
+    request_bytes_written: u64,
 }
 
 struct DecodedProviderResponse {
@@ -1777,21 +1808,12 @@ pub(super) struct ProviderUsageTelemetry {
 }
 
 fn decode_provider_response(body: &str) -> Result<DecodedProviderResponse, String> {
-    let value: serde_json::Value = serde_json::from_str(body).map_err(|error| {
-        format!(
-            "provider response was not valid JSON: {error}; {}",
-            compact_text(body, 240)
-        )
-    })?;
+    let value: serde_json::Value = serde_json::from_str(body)
+        .map_err(|error| format!("provider response was not valid JSON: {error}"))?;
     let output = value
         .pointer("/choices/0/message/content")
         .and_then(|value| value.as_str())
-        .ok_or_else(|| {
-            format!(
-                "provider response did not contain message content: {}",
-                compact_text(body, 240)
-            )
-        })?
+        .ok_or_else(|| "provider response did not contain message content".to_string())?
         .to_string();
     let usage = value.get("usage");
     let response_model_id = value
@@ -1826,7 +1848,7 @@ fn provider_http_request(
     config: &ProviderConfig,
     rendered: &RenderedInput,
     continuation: Option<&ProviderContinuationReference>,
-) -> Result<(bool, String), String> {
+) -> Result<(u16, String, usize), String> {
     let url = parse_http_url(&config.base_url)?;
     if let Some(reference) = continuation {
         if reference.provider_id != config.provider_id {
@@ -1866,28 +1888,61 @@ fn provider_http_request(
         body
     );
     let mut stream = TcpStream::connect((url.host.as_str(), url.port))
-        .map_err(|error| format!("failed to connect provider: {error}"))?;
-    stream
-        .write_all(request.as_bytes())
-        .map_err(|error| format!("failed to write provider request: {error}"))?;
+        .map_err(|error| format!("provider_not_dispatched:connect:{error}"))?;
+    let request = request.as_bytes();
+    let mut written = 0usize;
+    while written < request.len() {
+        match stream.write(&request[written..]) {
+            Ok(0) => {
+                return Err(if written == 0 {
+                    "provider_not_dispatched:zero_write".to_string()
+                } else {
+                    format!("provider_delivery_indeterminate:partial_write:{written}")
+                })
+            }
+            Ok(count) => written += count,
+            Err(error) => {
+                return Err(if written == 0 {
+                    format!("provider_not_dispatched:write:{error}")
+                } else {
+                    format!("provider_delivery_indeterminate:partial_write:{written}:{error}")
+                })
+            }
+        }
+    }
     let mut response = Vec::new();
-    stream
-        .read_to_end(&mut response)
-        .map_err(|error| format!("failed to read provider response: {error}"))?;
+    stream.read_to_end(&mut response).map_err(|error| {
+        format!("provider_delivery_indeterminate:response_read:bytes={written}:{error}")
+    })?;
     let split = response
         .windows(4)
         .position(|window| window == b"\r\n\r\n")
-        .ok_or_else(|| "invalid HTTP provider response".to_string())?;
+        .ok_or_else(|| {
+            format!("provider_delivery_indeterminate:invalid_http_response:bytes={written}")
+        })?;
     let headers = String::from_utf8_lossy(&response[..split]).to_string();
     let body_bytes = &response[split + 4..];
-    let success = headers.starts_with("HTTP/1.1 2") || headers.starts_with("HTTP/1.0 2");
+    let status = headers
+        .lines()
+        .next()
+        .and_then(|line| line.split_whitespace().nth(1))
+        .and_then(|value| value.parse::<u16>().ok())
+        .ok_or_else(|| {
+            format!("provider_delivery_indeterminate:invalid_http_status:bytes={written}")
+        })?;
     let lower_headers = headers.to_ascii_lowercase();
     let body_bytes = if lower_headers.contains("transfer-encoding: chunked") {
-        decode_chunked_body(body_bytes)?
+        decode_chunked_body(body_bytes).map_err(|error| {
+            format!("provider_delivery_indeterminate:response_body:bytes={written}:{error}")
+        })?
     } else {
         body_bytes.to_vec()
     };
-    Ok((success, String::from_utf8_lossy(&body_bytes).to_string()))
+    Ok((
+        status,
+        String::from_utf8_lossy(&body_bytes).to_string(),
+        written,
+    ))
 }
 
 fn provider_chat_completion(
@@ -1896,7 +1951,9 @@ fn provider_chat_completion(
 ) -> Result<ProviderTransportResult, String> {
     let started = Instant::now();
     let continuation = config.continuation_ref.as_ref();
-    let (success, mut body_text) = provider_http_request(config, rendered, continuation)?;
+    let (status, mut body_text, mut request_bytes_written) =
+        provider_http_request(config, rendered, continuation)?;
+    let success = (200..300).contains(&status);
     let disposition = if success {
         if continuation.is_some() {
             ContinuationDisposition::Used
@@ -1908,22 +1965,24 @@ fn provider_chat_completion(
             .to_ascii_lowercase()
             .contains("invalid_continuation")
     {
-        let (retry_success, retry_body) = provider_http_request(config, rendered, None)?;
-        if !retry_success {
+        let (retry_status, retry_body, retry_bytes_written) =
+            provider_http_request(config, rendered, None)?;
+        if !(200..300).contains(&retry_status) {
             return Err(format!(
-                "provider continuation retry returned non-2xx response: {}",
-                compact_text(&retry_body, 240)
+                "provider_remote_response:{retry_status}:bytes={retry_bytes_written}:continuation_retry"
             ));
         }
         body_text = retry_body;
+        request_bytes_written = retry_bytes_written;
         ContinuationDisposition::InvalidatedAndRetried
     } else {
         return Err(format!(
-            "provider returned non-2xx response: {}",
-            compact_text(&body_text, 240)
+            "provider_remote_response:{status}:bytes={request_bytes_written}"
         ));
     };
-    let decoded = decode_provider_response(&body_text)?;
+    let decoded = decode_provider_response(&body_text).map_err(|error| {
+        format!("provider_response_invalid:bytes={request_bytes_written}:{error}")
+    })?;
     Ok(ProviderTransportResult {
         output: decoded.output,
         response_model_id: decoded.response_model_id,
@@ -1934,6 +1993,7 @@ fn provider_chat_completion(
             total_tokens: decoded.total_tokens,
             latency_ms: started.elapsed().as_millis().try_into().unwrap_or(u64::MAX),
         },
+        request_bytes_written: request_bytes_written.try_into().unwrap_or(u64::MAX),
     })
 }
 
@@ -2009,11 +2069,35 @@ fn compile_semantic_invocation(
     options: &RuntimeInvocationOptions,
 ) -> Result<SemanticInvocation, String> {
     let store = LmdbRecordStore::open(record_store_path())?;
-    let state = store
+    let mut state = store
         .get_case_state(&session.case_ref)?
         .ok_or_else(|| format!("canonical CaseState missing for {}", session.case_ref))?;
     let transitions = store.list_case_transitions(&session.case_ref)?;
     let mut request = ProjectionRequest::model(&session.subject_ref, purpose);
+    if let Some(governance) = &session.provider.governance {
+        let selection_is_canonical = state.provider_selections.iter().any(|selection| {
+            selection.selection_id == governance.selection_id
+                && selection.selected_target_id == governance.target_id
+                && selection.logical_turn_id == governance.logical_turn_id
+                && selection.attempt_number == governance.attempt_number
+                && selection.participant_id == session.subject_ref
+        });
+        if !selection_is_canonical {
+            return Err("provider_selection_projection_admission_invalid".to_string());
+        }
+        let participant = state
+            .participants
+            .iter_mut()
+            .find(|participant| participant.participant_id == session.subject_ref)
+            .ok_or_else(|| "provider_selection_participant_not_bound".to_string())?;
+        let admitted = AdmittedView {
+            consumer: request.consumer.clone(),
+            view_kind: request.view_kind.clone(),
+        };
+        if !participant.admitted_views.contains(&admitted) {
+            participant.admitted_views.push(admitted);
+        }
+    }
     // Compile a broad but bounded qualified candidate view first. Residency is
     // the invocation-specific selector and owns the tighter budget.
     request.max_items = 256;
@@ -2201,6 +2285,7 @@ pub(super) struct ControlledProviderResult {
     pub semantic_units: usize,
     pub estimated_input_units: usize,
     pub usage: ProviderUsageTelemetry,
+    pub request_bytes_written: u64,
 }
 
 pub(super) fn invoke_controlled_provider(
@@ -2261,8 +2346,10 @@ fn invoke_runtime_provider_with_optional_journal(
     options: &RuntimeInvocationOptions,
     journal_path: Option<&Path>,
 ) -> Result<ControlledProviderResult, String> {
-    let session = prompt_runtime_from_args_with_journal(args, journal_path)?;
-    let semantic = compile_semantic_invocation(&session, purpose, task, output_contract, options)?;
+    let session = prompt_runtime_from_args_with_journal(args, journal_path)
+        .map_err(|error| format!("provider_not_dispatched:local_setup:{error}"))?;
+    let semantic = compile_semantic_invocation(&session, purpose, task, output_contract, options)
+        .map_err(|error| format!("provider_not_dispatched:local_projection:{error}"))?;
     let requested_disposition = if session.provider.continuation_ref.is_some() {
         ContinuationDisposition::Used
     } else {
@@ -2273,7 +2360,8 @@ fn invoke_runtime_provider_with_optional_journal(
         task,
         invocation_lineage(&semantic, requested_disposition),
         options.workflow_execution_id.as_deref(),
-    )?;
+    )
+    .map_err(|error| format!("provider_not_dispatched:invocation_start:{error}"))?;
     let transport = provider_chat_completion(&session.provider, &semantic.rendered)?;
     let result_lineage = invocation_lineage(&semantic, transport.continuation_disposition.clone());
     let result_id = append_model_output_receipt(
@@ -2283,21 +2371,31 @@ fn invoke_runtime_provider_with_optional_journal(
         &transport.output,
         result_lineage,
         options.workflow_execution_id.as_deref(),
-    )?;
-    append_model_interpretation_record(
+    )
+    .map_err(|error| {
+        format!(
+            "provider_delivery_indeterminate:result_commit:bytes={}:{}",
+            transport.request_bytes_written, error
+        )
+    })?;
+    if let Err(error) = append_model_interpretation_record(
         &session,
         &invocation.attempt_id,
         &result_id,
         &transport.output,
-    )?;
-    append_interaction_turn(
+    ) {
+        eprintln!("provider_post_result_projection_warning: {error}");
+    }
+    if let Err(error) = append_interaction_turn(
         &session,
         &invocation.attempt_id,
         &invocation.invocation_id,
         &result_id,
         task,
         &transport.output,
-    )?;
+    ) {
+        eprintln!("provider_post_result_interaction_warning: {error}");
+    }
     Ok(ControlledProviderResult {
         invocation_id: invocation.invocation_id,
         result_id,
@@ -2313,6 +2411,7 @@ fn invoke_runtime_provider_with_optional_journal(
         semantic_units: semantic.residency.selected_semantic_units,
         estimated_input_units: semantic.rendered.metadata.content_chars.div_ceil(4),
         usage: transport.usage,
+        request_bytes_written: transport.request_bytes_written,
     })
 }
 
@@ -2363,14 +2462,20 @@ fn append_model_prompt_attempt(
             provider_kind: "openai_compatible".to_string(),
             model_id: session.provider.model.clone(),
             semantic_lineage: Some(semantic_lineage.clone()),
+            governance: session.provider.governance.clone(),
         },
     );
+    if let Some(governance) = &session.provider.governance {
+        pending.causal_refs.push(governance.selection_id.clone());
+    }
     if let Some(execution_id) = workflow_execution_id {
         pending.causal_refs.push(execution_id.to_string());
     }
     pending.summary = Some(prompt_attempt_summary(session, prompt));
     store.commit_transition(pending)?;
-    append_record_to_journal(&session.journal_path, &record)?;
+    if let Err(error) = append_record_to_journal(&session.journal_path, &record) {
+        eprintln!("provider_invocation_journal_warning: {error}");
+    }
     Ok(ProviderInvocationRefs {
         attempt_id,
         invocation_id,
@@ -2429,7 +2534,9 @@ fn append_model_output_receipt(
     }
     pending.summary = Some(model_output_summary(session, output));
     store.commit_transition(pending)?;
-    append_record_to_journal(&session.journal_path, &record)?;
+    if let Err(error) = append_record_to_journal(&session.journal_path, &record) {
+        eprintln!("provider_result_journal_warning: {error}");
+    }
     Ok(result_id)
 }
 
@@ -3018,7 +3125,40 @@ pub(super) fn prompt_repl(args: &[String]) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::decode_provider_response;
+    use super::{decode_provider_response, provider_http_request, ProviderConfig};
+    use std::io::Read;
+    use std::net::TcpListener;
+    use std::thread;
+    use yai_core_engine::context::{RenderedInput, RenderedInputMetadata};
+
+    fn test_config(base_url: String) -> ProviderConfig {
+        ProviderConfig {
+            provider_id: "provider-target:test".to_string(),
+            base_url,
+            model: "model:test".to_string(),
+            api_key: None,
+            language_mode: "en".to_string(),
+            continuation_supported: false,
+            continuation_ref: None,
+            governance: None,
+        }
+    }
+
+    fn rendered_input() -> RenderedInput {
+        RenderedInput {
+            metadata: RenderedInputMetadata {
+                schema: "yai.rendered_input.v1".to_string(),
+                rendered_input_id: "rendered:test".to_string(),
+                context_frame_id: "context-frame:test".to_string(),
+                provider_id: "provider-target:test".to_string(),
+                model_id: "model:test".to_string(),
+                content_digest: "sha256:test".to_string(),
+                content_chars: 8,
+            },
+            system_content: "system".to_string(),
+            user_content: "user".to_string(),
+        }
+    }
 
     #[test]
     fn h14_generic_provider_tolerates_extensions_and_reports_response_model() {
@@ -3043,5 +3183,42 @@ mod tests {
             ),
             (Some(3), Some(2), Some(5))
         );
+    }
+
+    #[test]
+    #[ignore = "requires loopback sockets; exercised by smoke-provider-governance"]
+    fn wave18_connect_refused_is_provably_not_dispatched() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        drop(listener);
+        let error = provider_http_request(
+            &test_config(format!("http://{address}/v1/chat/completions")),
+            &rendered_input(),
+            None,
+        )
+        .unwrap_err();
+        assert!(error.starts_with("provider_not_dispatched:connect:"));
+    }
+
+    #[test]
+    #[ignore = "requires loopback sockets; exercised by smoke-provider-governance"]
+    fn wave18_accepted_request_then_drop_is_delivery_indeterminate() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut bytes = [0u8; 64];
+            let read = stream.read(&mut bytes).unwrap();
+            assert!(read > 0);
+        });
+        let error = provider_http_request(
+            &test_config(format!("http://{address}/v1/chat/completions")),
+            &rendered_input(),
+            None,
+        )
+        .unwrap_err();
+        server.join().unwrap();
+        assert!(error.starts_with("provider_delivery_indeterminate:"));
+        assert!(error.contains("bytes="));
     }
 }

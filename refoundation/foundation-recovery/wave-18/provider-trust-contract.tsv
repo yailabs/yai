@@ -1,0 +1,5 @@
+posture	selector_effect	writer	meaning
+unreviewed	ineligible	implicit absence	no Tenant administrative admission
+approved	eligible subject to all other filters	Tenant Owner	admitted for cognitive routing only
+denied	ineligible	Tenant Owner	explicit future-selection refusal
+revoked-via-deny	future selections refused	Tenant Owner	historical results/selections preserved

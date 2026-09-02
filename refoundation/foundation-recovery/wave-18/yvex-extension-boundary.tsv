@@ -1,0 +1,6 @@
+fact	optional_adapter	classification	non_claim
+/health	yvex.http.v1	health observation	not trust/qualification alone
+exact model visibility	yvex.http.v1	qualification evidence	not model administration
+yvex_completion_metrics	yvex.http.v1	first_party_telemetry	not ProviderResult/EffectReceipt/Decision evidence
+local protocol	none	rejected core dependency	no UID socket/version coupling
+Source/Artifact/Profile/Engine/Session	none	outside YAI provider ontology	no mirror/control plane

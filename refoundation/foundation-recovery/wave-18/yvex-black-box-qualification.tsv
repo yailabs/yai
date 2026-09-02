@@ -1,0 +1,2 @@
+state	YAI_SHA	endpoint_env	model_env	result	classification
+blocked_external_dependency	pre-publication	YAI_EXTERNAL_PROVIDER_BASE_URL missing	YAI_EXTERNAL_PROVIDER_MODEL missing	live run not executed	DEPLOYMENT_LIMITATION

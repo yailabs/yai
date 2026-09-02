@@ -1,0 +1,5 @@
+level	rank	meaning
+configured	0	Tenant/operator configuration only
+observed	1	one observation without full suite admission
+qualified	2	synthetic suite evidence bound to exact target/run
+extension_attested	3	explicit optional extension observation; scoped to exact fact

@@ -1,0 +1,5 @@
+YVEX_SHA	path	verified_property	YAI_use
+5b3aa34be8999ad8240403e884074833d80c301d	docs/openai-compatibility.md	/v1/models; /v1/chat/completions; json_object	generic OpenAI-compatible qualification
+5b3aa34be8999ad8240403e884074833d80c301d	docs/contracts/events-telemetry.md	yvex_completion_metrics are bounded execution telemetry	optional observation only
+5b3aa34be8999ad8240403e884074833d80c301d	docs/contracts/local-protocol.md	private UID Unix socket; pre-v0.1; strict version	not a core dependency
+5b3aa34be8999ad8240403e884074833d80c301d	src/server/openai/http.c	strict HTTP/JSON behavior and documented routes	read-only reference; no source coupling

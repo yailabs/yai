@@ -2021,6 +2021,7 @@ fn hardening17_depth_four_modelwork_recovery_preserves_qualified_identity() {
             provider_kind: "openai_compatible".to_string(),
             model_id: "model:fixture".to_string(),
             semantic_lineage: Some(lineage.clone()),
+            governance: None,
         },
         None,
         vec![execution_id.clone()],

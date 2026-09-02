@@ -1,0 +1,8 @@
+boundary	classification	evidence
+URL parse before connect	not_dispatched	no socket/request bytes
+connect refused	not_dispatched	TcpStream connect failure
+write returns error before bytes	not_dispatched	write counter zero
+partial/full write then missing response	delivery_indeterminate	write counter positive
+HTTP response received	definitive remote response; execution non-proof by default	status exact
+2xx malformed JSON	response_invalid	response received; no ProviderResult
+ProviderResult committed	result_received	canonical Case fact

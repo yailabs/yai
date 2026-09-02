@@ -1,0 +1,8 @@
+property	contract	failure
+schema	yai.provider_target.v1	unknown schema refused
+identity	Tenant+provider key+adapter+normalized endpoint+model+credential ref+locality+extension	configuration replacement creates new target ID
+integrity	full immutable record including creator/time	mismatch refused
+endpoint	http/https; no credentials/query/fragment; bounded canonical trailing slash	invalid endpoint refused
+remote transport	remote requires https	plain remote HTTP refused
+credential	credential_ref only; none or env:NAME	secret value never persisted
+limits	128 targets/Tenant; 2048 endpoint bytes; 256 model/ref bytes	one over refused

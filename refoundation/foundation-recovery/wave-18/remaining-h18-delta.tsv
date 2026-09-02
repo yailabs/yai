@@ -1,0 +1,9 @@
+area	W18_closure	H18_adversarial_delta
+qualification	evidence-derived exact target runs	corruption/current-pointer replay and long retention pressure
+target/trust	immutable target; serialized trust sequence	credential rotation and extreme lifecycle races
+health	shared bounded freshness/circuit	stale resurrection, multiprocess half-open contention, long outage/recovery
+endpoint	strict canonical URL/locality	DNS rebinding/drift and TLS transport hardening
+selection	16-writer one-winner proof	extreme process races and selector-upgrade attack matrix
+failover	byte-boundary connect/drop proofs	unusual HTTP/TLS boundaries and idempotency attacks
+extension	explicit optional yvex.http.v1 facts	extension spoofing and telemetry forgery
+scale	128 target/32 candidate bounds	full admitted-bound latency/storage endurance

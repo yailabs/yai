@@ -308,18 +308,21 @@ The current dependency order is:
    canonical command registry, parser lanes and output-family alignment.
 7. Wave 17: complete — adaptive workflow evolution, typed same-Tenant
    multi-Case handoff, PlanPatch, bounded exact Subflow and reconciliation.
-8. H17: current — amendment lineage/concurrency, effective-topology replay and
+8. H17: complete — amendment lineage/concurrency, effective-topology replay and
    upgrade closure, nested recovery, Handoff forgery/race resistance and
    derived multi-Case graph rebuild.
-9. Wave 18 — provider governance, qualification/trust/capability selection,
-   health, and an optional YVEX-native extension lane.
+9. Wave 18: current — Tenant-scoped provider targets, evidence-bound
+   qualification/capability provenance, explicit trust, shared health,
+   deterministic Case-local selection and delivery-safe failover.
+10. H18: future — provider-governance corruption, lifecycle/concurrency,
+    endpoint/credential drift, extension spoofing and long-outage pressure.
 
 Numbering after Wave 18 is provisional and must be re-evaluated from executable
 evidence. Workflow design is recorded in
 `refoundation/foundation-recovery/WORKFLOW-REFOUNDATION-PLAN.md`; Wave 15 owns
 the first executable kernel, H15 its adversarial closure, Wave 16 the product
-CLI boundary, Wave 17 adaptive composition and H17 its current adversarial
-closure. Wave 18 is reserved only.
+CLI boundary, Wave 17 adaptive composition, H17 its adversarial closure and
+Wave 18 the current provider-governance implementation. H18 is not started.
 
 The sequence may change only when repository evidence establishes a stronger
 dependency. Every wave is incomplete until its isolated commit is pushed and
@@ -417,7 +420,7 @@ Wave-13/H13 runtime recovery. It may add one cohesive resource-control owner
 and one narrow second carrier, but no Workflow, provider-governance plane,
 distributed lease or YVEX-specific authority path.
 
-## Active boundary — adaptive Workflow semantic closure
+## Completed boundary — adaptive Workflow semantic closure
 
 Wave 17 added typed bounded PlanPatch candidates, authenticated Case-local
 amendment adoption, deterministic EffectiveWorkflowTopology derivation, exact
@@ -428,3 +431,19 @@ digest drift. Immutable Definitions and the existing
 policy/Decision/Grant/ResourceFence/RuntimeInstance boundaries remain intact.
 No Agent, Orchestrator, WorkflowRun, multi-Case Process owner or provider
 governance is added.
+
+## Active boundary — provider governance
+
+Wave 18 adds immutable Tenant-scoped ProviderTargets, synthetic evidence-bound
+qualification, derived capability provenance, Tenant-Owner approval/denial,
+shared fresh operational health/circuit state, exact Case provider bindings,
+mechanical invocation requirements, deterministic Case-canonical selections
+and bounded attempt outcomes. Legacy ProviderAttached Cases remain exact pins.
+
+Failover is only `none` or `safe_only`: failure before any request byte may
+select another exact eligible target, while possible remote delivery without
+an authoritative result stops as `delivery_indeterminate`. Selection remains
+cognition routing, never Policy/Decision/Grant/Resource authority. The
+optional documented YVEX HTTP extension is observation-only; YAI does not
+administer YVEX or depend on its private local protocol. H18 adversarial
+hardening is not authorized in this wave.

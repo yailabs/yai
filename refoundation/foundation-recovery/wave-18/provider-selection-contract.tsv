@@ -1,0 +1,6 @@
+phase	inputs	result
+candidate set	exact Case binding ordered target refs	bounded deterministic candidates
+hard filters	Tenant/integrity/credential/trust/qualification/capabilities/context/circuit/failover	stable exclusion codes
+ranking	healthy before unknown before degraded; binding order; target ID	exact selected target/model/qualification
+commit	Case generation+Participant+turn+attempt+requirement+binding+snapshot refs	yai.provider_selection.v1 Transition
+freshness	selection and invocation admission recheck Case-canonical selection	selection is not bearer authority

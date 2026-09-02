@@ -81,6 +81,11 @@ pub(crate) const PRODUCT_ROOTS: &[ProductRoot] = &[
         section: ProductSection::Govern,
     },
     ProductRoot {
+        word: "provider",
+        description: "Govern qualified cognitive provider targets",
+        section: ProductSection::Govern,
+    },
+    ProductRoot {
         word: "runtime",
         description: "Host and control bounded RuntimeInstance work",
         section: ProductSection::Runtime,
@@ -275,6 +280,18 @@ const fn repeat_flag(name: &'static str, value_name: &'static str) -> FlagSpec {
     }
 }
 
+const fn required_repeat_flag(name: &'static str, value_name: &'static str) -> FlagSpec {
+    FlagSpec {
+        name,
+        aliases: EMPTY,
+        value_name: Some(value_name),
+        required: true,
+        repeatable: true,
+        choices: EMPTY,
+        legacy_name: None,
+    }
+}
+
 macro_rules! op {
     ($id:literal, [$($path:literal),+], $description:literal, $visibility:ident, $lane:ident, $mutation:ident, $output:ident, $pos:expr, $flags:expr) => {
         Descriptor {
@@ -386,6 +403,26 @@ const PROVIDER_ATTACH: &[FlagSpec] = &[
     flag("--provider-runtime-id", Some("ID"), false),
     flag("--continuation-ref", Some("REF"), false),
     bool_flag("--continuation-capable"),
+];
+const PROVIDER_ADD: &[FlagSpec] = &[
+    flag("--tenant", Some("TENANT"), true),
+    flag("--provider-key", Some("KEY"), true),
+    flag("--endpoint", Some("URL"), true),
+    flag("--model", Some("MODEL"), true),
+    flag("--credential-ref", Some("REF"), false),
+    choice_flag(
+        "--locality",
+        &["loopback", "private_network", "remote"],
+        true,
+    ),
+    flag("--extension-adapter", Some("ADAPTER"), false),
+];
+const PROVIDER_QUALIFY: &[FlagSpec] = &[flag("--valid-for-ms", Some("MS"), false)];
+const CASE_PROVIDER_BIND: &[FlagSpec] = &[
+    flag("--participant", Some("PARTICIPANT"), true),
+    required_repeat_flag("--target", "TARGET"),
+    choice_flag("--failover", &["none", "safe_only"], false),
+    flag("--max-attempts", Some("N"), false),
 ];
 const FILESYSTEM_ATTACH: &[FlagSpec] = &[
     aliased_flag(
@@ -618,6 +655,83 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         )
     },
     op!(
+        "yai.provider.add",
+        ["provider", "add"],
+        "Register an immutable Tenant provider target",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        NO_POS,
+        PROVIDER_ADD
+    ),
+    op!(
+        "yai.provider.list",
+        ["provider", "list"],
+        "List Tenant provider targets",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        NO_POS,
+        TENANT
+    ),
+    op!(
+        "yai.provider.show",
+        ["provider", "show"],
+        "Show configuration, qualification, governance, and health separately",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("target", Some("--target"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.provider.probe",
+        ["provider", "probe"],
+        "Run a bounded synthetic provider health probe",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("target", Some("--target"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.provider.qualify",
+        ["provider", "qualify"],
+        "Qualify substrate capabilities from synthetic evidence",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("target", Some("--target"))],
+        PROVIDER_QUALIFY
+    ),
+    op!(
+        "yai.provider.trust.approve",
+        ["provider", "trust", "approve"],
+        "Approve a provider target for future Tenant selections",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("target", Some("--target"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.provider.trust.deny",
+        ["provider", "trust", "deny"],
+        "Deny a provider target for future Tenant selections",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("target", Some("--target"))],
+        NO_FLAGS
+    ),
+    op!(
         "yai.case.create",
         ["case", "create"],
         "Create a canonical Case",
@@ -765,6 +879,28 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
             PROVIDER_ATTACH
         )
     },
+    op!(
+        "yai.case.provider.bind",
+        ["case", "provider", "bind"],
+        "Bind an ordered governed provider target pool to a Case Participant",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_PROVIDER_BIND
+    ),
+    op!(
+        "yai.case.provider.show",
+        ["case", "provider", "show"],
+        "Show the exact legacy pin or governed Case provider binding",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        NO_FLAGS
+    ),
     Descriptor {
         aliases: &[&["case", "attach-filesystem"]],
         legacy_path: &["case", "attach-filesystem"],

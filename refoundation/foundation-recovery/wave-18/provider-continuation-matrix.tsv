@@ -1,0 +1,6 @@
+change	continuation_behavior	semantic_continuity
+legacy exact same target	optional existing behavior	Case canonical context remains source
+governed selection	continuation cleared before invocation	canonical ContextFrame rebuilt
+target A to B	A reference invalidated	same Case/Workflow execution/turn lineage
+model A to B	old model reference invalidated	same Participant identity
+provider KV unavailable	no semantic loss	Case owns continuity

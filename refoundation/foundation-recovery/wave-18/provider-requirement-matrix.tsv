@@ -1,0 +1,5 @@
+invocation	capabilities	provenance	derivation
+normal Case turn	chat_text	qualified	output contract/purpose
+Workflow ModelWork text	chat_text	qualified	Workflow node output contract
+Workflow PlanPatch	chat_text+structured_json_object	qualified	typed plan_patch output contract
+explicit context minimum	unavailable in W18	fail closed	no model-name heuristic

@@ -1,0 +1,8 @@
+commit	paths_inspected	useful_property	rejected_property	W18_disposition
+f8bad7fe3c443f056029780ac6a27a1979092715	include/yai/providers/registry.h;src/providers/registry/registry.c	provider and model identities separated	global hard-coded catalog	identity recovered; catalog rejected
+51a40e11f703cc7fe522df38a225a86c51ccc8c9	src/providers/model/profile.c;src/providers/registry/profile_catalog.c	explicit model profile/capability vocabulary	subjective supports_coding/governance flags	mechanical evidence capabilities only
+46794683e9761041da7901f224c229c2de0e48a8	src/providers/routing/routing.c;admissibility.c;selection.c	explicit candidates and exclusions	name substring routing; environment defaults	deterministic hard filters recovered
+e89ee42a6522f52caee1a52503aa67bbd515eff5	src/knowledge/reasoning/capabilities.c;select.c	requirement-to-capability matching	prompt keyword inference and magic scoring	typed output-contract requirements only
+94ba627091afbf1100ab386ac1de3d4fb1d2502c	provider selection records and consumers	selection lineage intent	Agent/provider routing	Case-canonical selection; Agent rejected
+cffb318b980456f2671a297e14a6b05f5ac68320	src/models/registry/selection_engine.c;adjacent history	explicit candidate ordering	fake online/ready health and hard-coded trust	shared observed health and explicit trust
+2a4018147219044dfe1fad2268759b1f2a585945	provider/routing tests and surrounding history	fallback should be visible	implicit substitution	attempt lineage and safe_only failover

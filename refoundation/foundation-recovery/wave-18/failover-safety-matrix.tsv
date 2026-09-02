@@ -1,0 +1,8 @@
+failure	automatic_alternate_under_safe_only	rationale
+connect refused before request bytes	yes	remote execution impossible
+zero-byte write failure	yes	remote execution impossible
+partial/full request write then drop	no	delivery unknowable
+response timeout after write	no	delivery unknowable
+generic 4xx/429/5xx	no	generic contract does not prove no execution
+malformed success response	no	response parsing does not undo possible execution
+qualified explicit no-execution rejection	contract supports but no generic fixture promotion	must be exact target contract

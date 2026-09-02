@@ -1,0 +1,7 @@
+property	contract	non_claim
+schema	yai.provider_qualification.v1	no model-quality score
+input	fixed synthetic probes only	no Case context/memory/resource content
+evidence	transport/model/chat/json/usage/health/extension booleans plus bounded failure codes	caller booleans cannot add capabilities
+identity	exact target ID+digest; suite+run+time+operator+evidence	no model-name similarity
+validity	optional explicit valid_until	qualification does not imply approval or current health
+replacement	new exact run; old immutable qualification retained	no in-place overwrite of historical selection ref

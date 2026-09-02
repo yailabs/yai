@@ -663,6 +663,7 @@ mod tests {
                     provider_kind: "openai_compatible".to_string(),
                     model_id: "model:endurance".to_string(),
                     semantic_lineage: Some(invocation_lineage.clone()),
+                    governance: None,
                 },
                 Vec::new(),
             );

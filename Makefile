@@ -19,7 +19,7 @@
 .PHONY: smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33
 .PHONY: smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40
 .PHONY: smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47
-.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance smoke-tenant-security smoke-multi-case-runtime smoke-multi-case-runtime-hardening smoke-shared-resource-fencing smoke-shared-resource-fencing-hardening smoke-second-carrier smoke-workflow-kernel smoke-workflow-kernel-hardening smoke-cli-product-surface smoke-adaptive-workflow smoke-adaptive-workflow-hardening qualification-yvex-provider endurance-agentless-case-runtime characterization smoke check clean
+.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance smoke-tenant-security smoke-multi-case-runtime smoke-multi-case-runtime-hardening smoke-shared-resource-fencing smoke-shared-resource-fencing-hardening smoke-second-carrier smoke-workflow-kernel smoke-workflow-kernel-hardening smoke-cli-product-surface smoke-adaptive-workflow smoke-adaptive-workflow-hardening smoke-provider-governance qualification-yvex-provider endurance-agentless-case-runtime characterization smoke check clean
 
 CC ?= cc
 AR ?= ar
@@ -182,6 +182,7 @@ CHARACTERIZATION_WORKFLOW_KERNEL_HARDENING := tests/characterization/workflow-ke
 CHARACTERIZATION_CLI_PRODUCT_SURFACE := tests/characterization/cli-product-surface/test_cli_product_surface.sh
 CHARACTERIZATION_ADAPTIVE_WORKFLOW := tests/characterization/adaptive-workflow/test_adaptive_workflow.sh
 CHARACTERIZATION_ADAPTIVE_WORKFLOW_HARDENING := tests/characterization/adaptive-workflow-hardening/test_adaptive_workflow_hardening.sh
+CHARACTERIZATION_PROVIDER_GOVERNANCE := tests/characterization/provider-governance/test_provider_governance.sh
 QUALIFICATION_YVEX_PROVIDER := tests/integration/yvex/qualification_yvex_provider.sh
 
 info:
@@ -639,6 +640,9 @@ smoke-adaptive-workflow: build-rust
 smoke-adaptive-workflow-hardening: build-rust
 	@$(CHARACTERIZATION_ADAPTIVE_WORKFLOW_HARDENING)
 
+smoke-provider-governance: build-rust
+	@$(CHARACTERIZATION_PROVIDER_GOVERNANCE)
+
 qualification-yvex-provider: build-rust
 	@$(QUALIFICATION_YVEX_PROVIDER)
 
@@ -657,6 +661,7 @@ characterization: smoke-new4 smoke-new11 smoke-new12 smoke-spine39 smoke-spine45
 	@$(CHARACTERIZATION_CLI_PRODUCT_SURFACE)
 	@$(CHARACTERIZATION_ADAPTIVE_WORKFLOW)
 	@$(CHARACTERIZATION_ADAPTIVE_WORKFLOW_HARDENING)
+	@$(CHARACTERIZATION_PROVIDER_GOVERNANCE)
 
 check: check-layout check-docs build smoke
 

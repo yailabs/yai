@@ -1,0 +1,7 @@
+dimension	contract	authority_boundary
+initial	unknown	never defaults healthy
+source	authenticated synthetic probe or canonical Case attempt outcome only	provider text cannot write health
+freshness	60000 ms then effective unknown	old success not eternal
+failure	degraded then unavailable at threshold	no DENY or trust mutation
+success	healthy; failures reset; circuit closed	no qualification/approval mutation
+restart	persisted observation rechecked for freshness	stale state becomes effective unknown

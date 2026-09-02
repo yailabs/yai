@@ -1,0 +1,14 @@
+code	meaning
+target_missing	exact bound target absent
+target_integrity_invalid	target record fails integrity
+tenant_mismatch	target outside Case Tenant
+credential_unavailable	credential reference cannot resolve
+trust_not_approved	unreviewed or denied
+qualification_missing	no exact qualification
+qualification_invalid	integrity/validity mismatch
+required_capability_missing	qualified evidence below requirement
+context_capacity_insufficient	no sufficient honest capacity evidence
+circuit_open	shared operational circuit open
+provider_unavailable	fresh operational unavailable
+already_attempted	target used in same logical turn
+failover_not_safe	prior attempt or binding forbids alternate

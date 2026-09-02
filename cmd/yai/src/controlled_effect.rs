@@ -1412,6 +1412,7 @@ pub(super) fn advance_controlled_workflow_deterministic(
         semantic_units: 0,
         estimated_input_units: 0,
         usage: Default::default(),
+        request_bytes_written: 0,
     };
     advance_controlled_filesystem_candidate(
         args,

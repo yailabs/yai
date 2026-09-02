@@ -24,6 +24,7 @@ pub mod handoff;
 pub mod journal;
 pub mod memory;
 pub mod projection;
+pub mod provider_governance;
 pub mod query;
 pub mod reconcile;
 pub mod record;

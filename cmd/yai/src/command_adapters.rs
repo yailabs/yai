@@ -57,8 +57,9 @@ use yai_core_engine::store::lmdb::{
 };
 use yai_core_engine::store::Store;
 use yai_core_engine::transition::{
-    CaseLifecycle, InterpretationAuthority, PendingTransition, ProviderInvocationLineage,
-    ReviewActionKind, TransitionPayload, TransitionProvenance, TransitionSource,
+    AdmittedView, CaseLifecycle, InterpretationAuthority, PendingTransition,
+    ProviderInvocationGovernance, ProviderInvocationLineage, ReviewActionKind, TransitionPayload,
+    TransitionProvenance, TransitionSource,
 };
 
 const ANSI_RESET: &str = "\x1b[0m";
@@ -897,12 +898,14 @@ fn reject_journal_flag(args: &[String], command: &str) -> Result<(), String> {
 
 fn case_journal_path(args: &[String], command: &str) -> Result<PathBuf, String> {
     reject_journal_flag(args, command)?;
-    if let Some(path) = existing_env_path("YAI_JOURNAL").or_else(latest_filesystem_journal) {
+    if let Some(path) = existing_env_path("YAI_JOURNAL") {
         return Ok(path);
     }
-    let case_id = optional_arg(args, "--case").ok_or_else(|| {
-        format!("{command} requires an explicit Case when no compatibility journal is supplied")
-    })?;
+    let Some(case_id) = optional_arg(args, "--case") else {
+        return latest_filesystem_journal().ok_or_else(|| {
+            format!("{command} requires an explicit Case when no compatibility journal is supplied")
+        });
+    };
     let directory = yai_home()
         .join("cases")
         .join(yai_core_engine::context::stable_digest(&case_id));
@@ -932,6 +935,10 @@ use review::*;
 #[path = "provider.rs"]
 mod provider;
 use provider::*;
+
+#[path = "provider_governance_cli.rs"]
+mod provider_governance_cli;
+use provider_governance_cli::provider_governance_command;
 
 #[path = "controlled_effect.rs"]
 mod controlled_effect;
@@ -1199,6 +1206,9 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
         }
         "yai.case.participant.role.add" => provider::case_bind_participant_role(&args[2..]),
         "yai.case.provider.attach" => case_attach_provider(&args[2..]),
+        "yai.case.provider.bind" | "yai.case.provider.show" => {
+            provider_governance_command(operation_id, &args[2..])
+        }
         "yai.case.resource.attach_filesystem" => case_attach_filesystem(&args[2..]),
         "yai.case.resource.attach_process" => case_attach_process(&args[2..]),
         operation if operation.starts_with("yai.case.handoff.") => handoff_command(&args[2..]),
@@ -1216,6 +1226,9 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
         "yai.review.deny" => review_resolve(&args[2..], ReviewActionKind::Deny),
         "yai.review.defer" => review_resolve(&args[2..], ReviewActionKind::Defer),
         operation if operation.starts_with("yai.policy.") => policy_command(&args[1..]),
+        operation if operation.starts_with("yai.provider.") => {
+            provider_governance_command(operation_id, &args[1..])
+        }
         operation if operation.starts_with("yai.runtime.") => {
             runtime_instance::dispatch(&args[1..])
         }

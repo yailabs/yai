@@ -1,0 +1,7 @@
+precondition	observation	result	selection
+closed; failures 0..1	failure	degraded/closed	eligible after healthy/unknown candidates
+closed; failure 3	failure	unavailable/open	excluded circuit_open
+open before 30000 ms	read	open	excluded
+open after 30000 ms	read	half_open	eligible only through normal deterministic posture
+half/open	success	healthy/closed	eligible
+any	fresh failure	failure count advances	never grants trust

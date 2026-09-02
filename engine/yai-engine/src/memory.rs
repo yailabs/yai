@@ -1595,6 +1595,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:a".to_string(),
                 semantic_lineage: Some(lineage(7)),
+                governance: None,
             },
         ));
         history.push(transition(
@@ -1673,6 +1674,7 @@ mod tests {
                 provider_kind: "openai_compatible".to_string(),
                 model_id: "model:a".to_string(),
                 semantic_lineage: Some(lineage(7)),
+                governance: None,
             },
         ));
         history.push(transition(
@@ -1848,6 +1850,7 @@ mod tests {
                     provider_kind: "openai_compatible".to_string(),
                     model_id: "model:a".to_string(),
                     semantic_lineage: Some(lineage(sequence - 1)),
+                    governance: None,
                 },
             ));
             sequence += 1;

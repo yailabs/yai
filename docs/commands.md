@@ -6,7 +6,7 @@ how a user reaches those owners; it does not replace their truth.
 ## Product grammar
 
 Default help presents the memorable roots `init`, `doctor`, `case`, `workflow`,
-`review`, `policy`, `tenant`, `identity`, `runtime`, `help`, `version` and
+`review`, `policy`, `provider`, `tenant`, `identity`, `runtime`, `help`, `version` and
 `completion`. Case is the primary work object. Workflow is optional. Store,
 journal, projection, context, graph, facts, process and carrier diagnostics
 remain available through advanced help without being presented as ordinary
@@ -102,3 +102,18 @@ typed operations. The target receives only the bounded offer payload and keeps
 its own Participants, policy, resources, provider, Decisions, Grants and
 Effects. A waiting Workflow Handoff node occupies neither a runtime worker nor
 a ResourceFence.
+
+## Governed providers
+
+Wave 18 adds the `provider` administration family and `case provider bind/show`
+through the same compiled registry. Target registration, synthetic
+qualification, probe and Tenant-Owner approval remain separate operations.
+`provider show` deliberately renders configuration, qualification, governance
+and health as four dimensions. It never collapses them into a single `ready`
+label.
+
+`case provider bind` stores exact immutable target references and explicit
+preference/failover posture. Selection is an engine-owned deterministic
+operation recorded in Case history; it exposes bounded exclusion codes rather
+than a magic score. Existing `case provider attach` remains the legacy exact
+pin, not an alias for a governed pool.

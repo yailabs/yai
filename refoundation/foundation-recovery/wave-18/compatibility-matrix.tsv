@@ -1,0 +1,6 @@
+contract	old	W18	compatibility
+ProviderAttached	exact Case-local endpoint/model pin	reader/runtime unchanged	no qualification migration
+Transition/CaseState	v1-v11	yai.transition.v12/yai.case_state.v12	all prior readers retained
+WorkflowDefinition/Binding	v1/v2	unchanged	no W18 workflow semantic change
+CLI	W16 registry	9 new Product descriptors	no main.rs branch; help/JSON/completion derived
+provider generic data plane	OpenAI-compatible HTTP	still generic; optional extension explicit	no provider-name branch

@@ -1,0 +1,7 @@
+delivery	stage	bytes_semantics	retry_safe	Case/runtime_posture
+not_dispatched	url/connect/request-writing	0	yes	alternate allowed under safe_only/budget
+definitively_rejected	response	>0	only with exact no_execution_proven contract	otherwise stop
+delivery_indeterminate	request/response after possible bytes	>0	no	DeliveryIndeterminate; no automatic requeue
+response_invalid	JSON/schema after response	>0	no	failure; no fabricated ProviderResult
+result_received	completed	>0	n/a	one ProviderResult accepted
+cancelled	local lifecycle	exact observed bound	no	cancelled

@@ -631,6 +631,8 @@ fn report_work_state(report: &CaseRuntimeReport) -> RuntimeWorkState {
         CaseRuntimeStop::Denied => RuntimeWorkState::Denied,
         CaseRuntimeStop::AwaitingReview => RuntimeWorkState::WaitingReview,
         CaseRuntimeStop::IndeterminateEffect => RuntimeWorkState::WaitingEffect,
+        CaseRuntimeStop::WaitingProvider => RuntimeWorkState::WaitingProvider,
+        CaseRuntimeStop::DeliveryIndeterminate => RuntimeWorkState::DeliveryIndeterminate,
         CaseRuntimeStop::PolicyNotYetValid
         | CaseRuntimeStop::PolicyRefreshRequired
         | CaseRuntimeStop::PolicyStale

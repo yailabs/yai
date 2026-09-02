@@ -1,0 +1,7 @@
+dimension	bound	characterization	result
+targets/Tenant	128	transactional count before insert	one over refused
+targets/Case	32	selector ordered vector	bounded O(n log n) stable sort
+capabilities	16	sorted/deduplicated	bounded
+exclusions	32	one per bound candidate	bounded
+attempts/turn	3	binding+selector/runtime counter	bounded
+shared health	one record/target	reused by all same-store Cases	no Case duplication
