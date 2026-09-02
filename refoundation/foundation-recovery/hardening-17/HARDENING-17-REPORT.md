@@ -1,10 +1,14 @@
 # Foundation Hardening 17 — Adaptive Workflow Semantic Closure
 
-State: implementation and local qualification complete; publication pending.
+State: semantic implementation and qualification published; evidence binding
+pending.
 
 - Baseline: `e58b08996649a30ebe3446afc4ebbfe4ef2aadfd` on `master`, equal to
   `origin/master` and the published remote before H17.
-- Intended commit: `harden: close adaptive workflow composition semantics`.
+- Semantic commit: `2df9bb5c2bbd7efc53ed54527111522af329cf93`, published as
+  `harden: close adaptive workflow composition semantics` and verified equal
+  across `HEAD`, `origin/master` and `refs/heads/master` before this evidence
+  binding update.
 - Historical dirty work: all 13 entries remain preserved and excluded. Their
   tracked checksum is
   `3fdb219654405e6fd40b5c0d1b02b94c04fadef5aa57a139aa5fb8fd6db7777e`.
