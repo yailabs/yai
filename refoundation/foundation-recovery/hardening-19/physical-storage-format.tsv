@@ -1,6 +1,6 @@
 field	contract
 schema	yai.derived_memory_store.v2
-directory	$YAI_HOME/store/derived-memory/<tenant-hash>/<case-hash>/<profile-hash>/builds/<index-id>
+directory	$YAI_HOME/store/derived-memory/v2/<tenant-hash>/<case-hash>/profiles/<profile-hash>/builds/<index-id>
 seal	seal.json: schema, logical IDs, item count, dimension, element count, component exact lengths/checksums
 metadata	metadata.json: corpus/document metadata, BM25, embedding metadata without vector values, logical manifest
 vectors	vectors.f32le: float32 little-endian, row order equals embedding metadata, exact row count*dimension*4
