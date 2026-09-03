@@ -1,0 +1,6 @@
+documents	dimension	representation_ms	lexical_build_ms	fixture_encode_ms	physical_build_ms	storage_bytes	load_ms	deep_validation_us	load_validation_us	source_qualification_us	source_revalidation_us	bm25_us	exact_cosine_us	hybrid_cold_us	hybrid_warm_us
+1000	8	10	21	12	110	4592085	18	46663	813	568	9275	989	172	21845	21753
+10000	8	97	218	127	1272	45982164	208	586180	12606	9295	106182	19374	2451	236284	239587
+50000	8	516	1054	639	6411	226178047	937	2767752	46553	32913	486823	88464	12342	1182221	1179175
+W19 baseline 50000	8	n/a	n/a	n/a	n/a	n/a	n/a	n/a	n/a	n/a	n/a	n/a	n/a	~39400000	n/a
+interpretation	-	-	-	-	-	-	-	deep verify explicit only	sealed load uses structural/checksum validation	source revalidation retained	-	-	-	~32x lower than W19	no process cache benefit across CLI processes

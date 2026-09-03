@@ -1,0 +1,7 @@
+field	requester-visible contract	audit/operator contract
+source_count	qualified plane source count only	full physical counts available via index status/verify to authorized local operator
+qualified_count	eligible candidates only	deep verify item count
+omitted_count	qualified selected-set omission only	physical item count separate
+rejection details	no hidden IDs/counts/reasons	unit/adversarial evidence may record aggregate fixture facts
+BM25 score	statistics over admitted subset only	full-corpus score never exposed
+vector rank	filter before top-k	physical vector count only in operator status

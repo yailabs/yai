@@ -1,0 +1,10 @@
+test_id	boundary	accepted_restart_state	observed
+H19-C1	after component write before file fsync	old valid or none	old valid
+H19-C2	after file fsync before build-dir fsync	old valid or none	old valid
+H19-C3	after build rename before builds-parent fsync	old valid or new complete	old valid
+H19-C4	after builds fsync before pointer write	old valid	old valid
+H19-C5	during pointer temp write	old valid	old valid
+H19-C6	after pointer rename before profile fsync	old valid or new complete	new complete in process-visible restart characterization
+H19-C7	after final fsync before CLI acknowledgement	new valid	new valid
+ENOSPC/write error	component write failure	old current untouched	write path propagates error before pointer
+SIGKILL temp	abandoned .build.tmp	ignored/cleaned on next exclusive admitted build	bounded cleanup

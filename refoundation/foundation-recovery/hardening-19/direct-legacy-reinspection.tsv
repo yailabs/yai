@@ -1,0 +1,19 @@
+source_commit	path	observed_mechanism	verdict	current_target
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/retrieval/exact.c	explicit subject/decision/evidence/flow anchors	recover exact-anchor distinction	memory_index.rs qualification/exact plane
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/retrieval/structured.c	separate bounded structured candidates	recover plane separation only	current OperationalMemory retrieval
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/retrieval/graph.c	lineage candidates with provenance	recover provenance intent; no new graph	current graph contracts unchanged
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/retrieval/semantic.c	concept salience candidates	reject arbitrary semantic/salience authority	W20 boundary
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/retrieval/vector.c	8d byte text_to_vector plus L2	reject	fixture never product encoder
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/retrieval/hybrid.c	plane counts, dedup, bounded total	recover bounded dedup intent	RRF after qualification
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/retrieval/embedding_plane.c	bounded vector catalog with provenance	recover request/result metadata intent	profile/artifact v1
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/retrieval/embedding_runtime.c	global mutable vectors and raw L2	reject	content-addressed derived v2 store
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/retrieval/snapshot.c	one bounded multi-plane snapshot	recover complete snapshot property	shared-lock sealed load
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/memory/runtime.c	process-global vector/event arrays	reject	Transition-derived OperationalMemory
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/memory/episodic.c	global salience sorting plus time decay	reject in H19	W20 boundary
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/memory/semantic.c	substring concepts and fake 8d encoding	reject in H19	W20 boundary
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/memory/consolidation.c	legacy consolidation surface	reject in H19	W20 boundary
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/memory/decay.c	wall-clock score mutation	reject	W20 semantic retention contract
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/recall/rank.c	arbitrary additive salience/pin bonuses	reject	deterministic qualified RRF
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/models/embeddings/embedding_request.c	versioned request type name	recover explicit boundary	ProviderGovernance text_embedding
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/models/embeddings/embedding_result.c	versioned result type name	recover explicit boundary	strict indexed response validation
+2a4018147219044dfe1fad2268759b1f2a585945	src/knowledge/*	legacy plane removal	confirmed historical replacement	no wholesale resurrection

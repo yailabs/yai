@@ -1,0 +1,8 @@
+property	implementation	evidence
+admission timing	exclusive profile flock then recheck equivalent current before encoder	product 32-process rebuild
+single builder	waiters reuse valid same corpus/profile build	zero duplicate embedding requests after first build
+request binding	exact target/model/revision/dimension/input version	profile digest
+failover	none; one exact encoder identity	failure aborts build
+generation drift	generation checked after encoding, before publish, after publish	H19-S10; stale publication dropped/refused
+high churn	one synchronous build, bounded request batches, no auto-loop	fallback rather than unbounded refresh
+delivery indeterminate	abort current build; old current retained	no retry to alternate encoder

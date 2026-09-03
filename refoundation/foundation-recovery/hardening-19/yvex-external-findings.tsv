@@ -1,0 +1,6 @@
+classification	status	finding
+DEPLOYMENT_LIMITATION	blocked_external_dependency	YAI_EXTERNAL_PROVIDER_BASE_URL and YAI_EXTERNAL_PROVIDER_MODEL were absent; no real YVEX+DeepSeek invocation was fabricated
+DEPLOYMENT_LIMITATION	blocked_external_dependency	YAI_MEMORY_ENCODER_BASE_URL/MODEL/REVISION/DIMENSION were absent; separate real loopback encoder qualification pending
+NO_ISSUE	reference inspection	remote YVEX models1 e5c77060 explicitly refuses embeddings, consistent with separate local encoder architecture
+EXPECTED_LIMITATION	provider tools	YVEX exposes function/tool calls as provider output and does not execute application tools; future YAI normalization belongs to W22
+YAI_DEFECT	none observed	fixture-backed H19 tests found no brand-specific need or YVEX defect

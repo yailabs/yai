@@ -8,8 +8,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::memory_index::{
     acquire_memory_index_build_lock, derive_representation_corpus, drop_memory_index_locked,
     find_current_memory_index, hybrid_retrieve, list_memory_index_statuses,
-    load_current_memory_index, load_last_hybrid_retrieval, publish_memory_index_locked,
-    store_last_hybrid_retrieval, HybridRetrievalSet, MemoryIndexBundle,
+    load_current_memory_index, load_current_memory_index_locked, load_last_hybrid_retrieval,
+    publish_memory_index_locked, store_last_hybrid_retrieval, validate_memory_index_build_budget,
+    validate_memory_index_source, HybridRetrievalSet, MemoryIndexBundle,
     MemoryRepresentationProfile, RetrievalQueryDocument,
 };
 use yai_core_engine::provider_governance::{
@@ -304,11 +305,50 @@ fn credential_for_memory_encoder(target: &ProviderTarget) -> Result<Option<Strin
         .ok_or_else(|| "memory_encoder_credential_unavailable".to_string())
 }
 
+#[derive(Clone)]
+struct QualifiedMemoryEncoder {
+    target: ProviderTarget,
+    credential: Option<String>,
+    qualification_id: String,
+    credential_revision: u64,
+}
+
+impl QualifiedMemoryEncoder {
+    fn same_governed_identity(&self, other: &Self) -> bool {
+        self.target == other.target
+            && self.qualification_id == other.qualification_id
+            && self.credential_revision == other.credential_revision
+            && self.credential == other.credential
+    }
+}
+
+fn require_case_generation(expected: u64, current: u64, publication: bool) -> Result<(), String> {
+    if expected == current {
+        Ok(())
+    } else if publication {
+        Err("memory_index_case_generation_changed_during_publication".to_string())
+    } else {
+        Err("memory_index_case_generation_changed_during_build".to_string())
+    }
+}
+
+fn require_memory_encoder_snapshot(
+    admitted: &QualifiedMemoryEncoder,
+    current: Result<QualifiedMemoryEncoder, String>,
+) -> Result<(), String> {
+    let current = current?;
+    if admitted.same_governed_identity(&current) {
+        Ok(())
+    } else {
+        Err("memory_encoder_governance_changed_during_build".to_string())
+    }
+}
+
 fn qualified_memory_encoder(
     store: &LmdbRecordStore,
     tenant_id: &str,
     profile: &MemoryRepresentationProfile,
-) -> Result<(ProviderTarget, Option<String>), String> {
+) -> Result<QualifiedMemoryEncoder, String> {
     profile.validate()?;
     if profile.tenant_id != tenant_id {
         return Err("memory_encoder_profile_tenant_mismatch".to_string());
@@ -344,7 +384,12 @@ fn qualified_memory_encoder(
         return Err("memory_encoder_circuit_not_closed".to_string());
     }
     let credential = credential_for_memory_encoder(&target)?;
-    Ok((target, credential))
+    Ok(QualifiedMemoryEncoder {
+        target,
+        credential,
+        qualification_id: qualification.qualification_id,
+        credential_revision: qualification.credential_revision,
+    })
 }
 
 fn parse_embedding_response(
@@ -365,12 +410,12 @@ fn parse_embedding_response(
         return Err("memory_encoder_response_count_mismatch".to_string());
     }
     let mut indexed = BTreeMap::new();
-    for (fallback_index, item) in data.iter().enumerate() {
+    for item in data {
         let index = item
             .get("index")
             .and_then(Value::as_u64)
             .map(|value| value as usize)
-            .unwrap_or(fallback_index);
+            .ok_or_else(|| "memory_encoder_response_index_missing".to_string())?;
         if index >= expected_count || indexed.contains_key(&index) {
             return Err("memory_encoder_response_index_invalid".to_string());
         }
@@ -392,6 +437,13 @@ fn parse_embedding_response(
                     .ok_or_else(|| "memory_encoder_response_non_finite".to_string())
             })
             .collect::<Result<Vec<_>, _>>()?;
+        let norm_squared = vector
+            .iter()
+            .map(|value| f64::from(*value) * f64::from(*value))
+            .sum::<f64>();
+        if !norm_squared.is_finite() || norm_squared <= f64::EPSILON {
+            return Err("memory_encoder_response_zero_vector".to_string());
+        }
         indexed.insert(index, vector);
     }
     (0..expected_count)
@@ -412,23 +464,27 @@ fn encode_memory_texts(
     if texts.is_empty() {
         return Ok(Vec::new());
     }
-    let (target, credential) = qualified_memory_encoder(store, tenant_id, profile)?;
-    let endpoint = super::provider_transport::parse_provider_endpoint(&target.endpoint)?;
+    let admitted = qualified_memory_encoder(store, tenant_id, profile)?;
+    let endpoint = super::provider_transport::parse_provider_endpoint(&admitted.target.endpoint)?;
     let mut vectors = Vec::with_capacity(texts.len());
     for batch in texts.chunks(32) {
+        require_memory_encoder_snapshot(
+            &admitted,
+            qualified_memory_encoder(store, tenant_id, profile),
+        )?;
         let body = serde_json::to_vec(&serde_json::json!({
-            "model": target.model_id,
+            "model": admitted.target.model_id,
             "input": batch,
             "encoding_format": "float"
         }))
         .map_err(|error| format!("memory_encoder_request_encode_failed: {error}"))?;
         let response = super::provider_transport::provider_http(
             &endpoint,
-            Some(&target.locality),
+            Some(&admitted.target.locality),
             "POST",
             &endpoint.api_path("embeddings"),
             &body,
-            credential.as_deref(),
+            admitted.credential.as_deref(),
         )?;
         if !(200..300).contains(&response.status) {
             return Err(format!(
@@ -436,12 +492,17 @@ fn encode_memory_texts(
                 response.status, response.request_bytes_written
             ));
         }
-        vectors.extend(parse_embedding_response(
+        let parsed = parse_embedding_response(
             &response.body,
             &profile.encoder_model_id,
             batch.len(),
             profile.vector_dimension,
-        )?);
+        )?;
+        require_memory_encoder_snapshot(
+            &admitted,
+            qualified_memory_encoder(store, tenant_id, profile),
+        )?;
+        vectors.extend(parsed);
     }
     Ok(vectors)
 }
@@ -554,40 +615,19 @@ fn memory_index_build_or_rebuild(args: &[String], rebuild: bool) -> Result<(), S
     {
         return Err("memory_index_requested_profile_mismatch".to_string());
     }
+    validate_memory_index_build_budget(&corpus, &profile)?;
 
-    let before = load_current_memory_index(
-        &memory_index_root(),
-        tenant_id,
-        &case_id,
-        &profile.profile_id,
-    );
-    let before_id = before
-        .as_ref()
-        .ok()
-        .and_then(|value| value.as_ref())
-        .map(|bundle| bundle.manifest.index_id.clone());
     let lock = acquire_memory_index_build_lock(
         &memory_index_root(),
         tenant_id,
         &case_id,
         &profile.profile_id,
     )?;
-    let after = load_current_memory_index(
-        &memory_index_root(),
-        tenant_id,
-        &case_id,
-        &profile.profile_id,
-    );
+    let after = load_current_memory_index_locked(&lock);
     if after.is_err() {
         drop_memory_index_locked(&lock)?;
     } else if let Some(existing) = after? {
-        let another_builder_published = before_id
-            .as_deref()
-            .is_some_and(|before| before != existing.manifest.index_id)
-            || (before_id.is_none() && rebuild);
-        if existing.corpus.corpus_digest == corpus.manifest.corpus_digest
-            && (!rebuild || another_builder_published)
-        {
+        if existing.corpus.corpus_digest == corpus.manifest.corpus_digest {
             return emit_index_build_result(
                 args,
                 if rebuild { "rebuild" } else { "build" },
@@ -603,6 +643,11 @@ fn memory_index_build_or_rebuild(args: &[String], rebuild: bool) -> Result<(), S
         .map(|document| document.canonical_text.clone())
         .collect::<Vec<_>>();
     let encoded = encode_memory_texts(&store, tenant_id, &profile, &texts)?;
+    let current_generation = store
+        .get_case_state(&case_id)?
+        .ok_or_else(|| "memory_index_case_disappeared_during_build".to_string())?
+        .generation;
+    require_case_generation(corpus.manifest.source_generation, current_generation, false)?;
     let vectors = corpus
         .documents
         .iter()
@@ -610,7 +655,20 @@ fn memory_index_build_or_rebuild(args: &[String], rebuild: bool) -> Result<(), S
         .map(|(document, vector)| (document.document_id.clone(), vector))
         .collect::<BTreeMap<_, _>>();
     let bundle = MemoryIndexBundle::build(corpus, profile, &vectors)?;
+    let current_generation = store
+        .get_case_state(&case_id)?
+        .ok_or_else(|| "memory_index_case_disappeared_during_build".to_string())?
+        .generation;
+    require_case_generation(bundle.corpus.source_generation, current_generation, false)?;
     publish_memory_index_locked(&lock, &bundle, false)?;
+    let current_generation = store
+        .get_case_state(&case_id)?
+        .ok_or_else(|| "memory_index_case_disappeared_during_build".to_string())?
+        .generation;
+    if require_case_generation(bundle.corpus.source_generation, current_generation, true).is_err() {
+        drop_memory_index_locked(&lock)?;
+        return Err("memory_index_case_generation_changed_during_publication".to_string());
+    }
     emit_index_build_result(
         args,
         if rebuild { "rebuild" } else { "build" },
@@ -645,13 +703,16 @@ fn memory_index_status(args: &[String]) -> Result<(), String> {
     println!("indexes: {}", statuses.len());
     for status in statuses {
         println!(
-            "index: {} profile:{} posture:{} generation:{} items:{} dimension:{} ann:{:?} integrity_error:{}",
+            "index: {} profile:{} posture:{} generation:{} items:{} dimension:{} format:{} bytes:{} integrity:{} ann:{:?} integrity_error:{}",
             status.index_id,
             status.profile_id,
             status.posture,
             status.source_generation,
             status.item_count,
             status.dimension,
+            status.physical_format,
+            status.storage_bytes,
+            status.integrity_posture,
             status.ann_posture,
             status.integrity_error.as_deref().unwrap_or("none")
         );
@@ -659,6 +720,89 @@ fn memory_index_status(args: &[String]) -> Result<(), String> {
     println!("canonical_authority: transition_history");
     println!("lmdb_databases_added: 0");
     Ok(())
+}
+
+fn memory_index_verify(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let profile_id = named_arg(args, "--profile")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = security::authorize_case_read_if_scoped(&store, &case_id)?;
+    let tenant_id = state
+        .tenant_id
+        .as_deref()
+        .ok_or_else(|| "memory_index_requires_tenant_scoped_case".to_string())?;
+    let (memory, _) = derive_current_operational_memory(&store, &case_id)?;
+    let (posture, index_id, corpus_id, detail) =
+        match load_current_memory_index(&memory_index_root(), tenant_id, &case_id, &profile_id) {
+            Ok(None) => (
+                "missing",
+                "none".to_string(),
+                "none".to_string(),
+                "no current derived index".to_string(),
+            ),
+            Err(error) => (
+                "corrupt",
+                "unavailable".to_string(),
+                "unavailable".to_string(),
+                error,
+            ),
+            Ok(Some(index)) if !index.is_current(&case_id, state.generation) => (
+                "stale",
+                index.manifest.index_id,
+                index.corpus.manifest_id,
+                "source generation differs from current Case".to_string(),
+            ),
+            Ok(Some(index)) => {
+                let index_id = index.manifest.index_id.clone();
+                let corpus_id = index.corpus.manifest_id.clone();
+                match index
+                    .validate_deep()
+                    .and_then(|()| validate_memory_index_source(&index, &memory.entries))
+                {
+                    Ok(()) => (
+                        "current",
+                        index_id,
+                        corpus_id,
+                        "deep validation and canonical source revalidation passed".to_string(),
+                    ),
+                    Err(error) if error.contains("source_") => {
+                        ("source_divergent", index_id, corpus_id, error)
+                    }
+                    Err(error) => ("corrupt", index_id, corpus_id, error),
+                }
+            }
+        };
+    let result = serde_json::json!({
+        "schema": "yai.memory_index_verify.v1",
+        "case_id": case_id,
+        "case_generation": state.generation,
+        "profile_id": profile_id,
+        "index_manifest_id": index_id,
+        "corpus_manifest_id": corpus_id,
+        "posture": posture,
+        "physical_format": yai_core_engine::memory_index::DERIVED_MEMORY_PHYSICAL_SCHEMA,
+        "validation": "deep_plus_current_operational_memory_source",
+        "detail": detail,
+        "canonical_authority": "transition_history"
+    });
+    if args.iter().any(|value| value == "--json") {
+        emit_json(&result)
+    } else {
+        println!("case_id: {case_id}");
+        println!("case_generation: {}", state.generation);
+        println!("profile_id: {profile_id}");
+        println!("index_manifest_id: {index_id}");
+        println!("corpus_manifest_id: {corpus_id}");
+        println!("posture: {posture}");
+        println!(
+            "physical_format: {}",
+            yai_core_engine::memory_index::DERIVED_MEMORY_PHYSICAL_SCHEMA
+        );
+        println!("validation: deep_plus_current_operational_memory_source");
+        println!("detail: {detail}");
+        println!("canonical_authority: transition_history");
+        Ok(())
+    }
 }
 
 fn memory_case_show(args: &[String]) -> Result<(), String> {
@@ -772,27 +916,42 @@ fn execute_hybrid_retrieval(
         .tenant_id
         .as_deref()
         .ok_or_else(|| "memory_index_requires_tenant_scoped_case".to_string())?;
-    let index =
-        find_current_memory_index(&memory_index_root(), tenant_id, &state.case_id, profile_id)?;
+    let (index, mut derived_failure) = match find_current_memory_index(
+        &memory_index_root(),
+        tenant_id,
+        &state.case_id,
+        profile_id,
+    ) {
+        Ok(index) => (index, None),
+        Err(error) => (None, Some(error)),
+    };
     let query_document = RetrievalQueryDocument::new(query)?;
     let stale_index = index
         .as_ref()
         .is_some_and(|index| !index.is_current(&state.case_id, state.generation));
     let (usable_index, query_vector) = match index {
         Some(index) if index.is_current(&state.case_id, state.generation) => {
-            let vector = encode_memory_texts(
-                store,
-                tenant_id,
-                &index.profile,
-                std::slice::from_ref(&query_document.canonical_text),
-            )
-            .map(|mut vectors| vectors.pop());
-            (Some(index), vector)
+            match validate_memory_index_source(&index, entries) {
+                Ok(()) => {
+                    let vector = encode_memory_texts(
+                        store,
+                        tenant_id,
+                        &index.profile,
+                        std::slice::from_ref(&query_document.canonical_text),
+                    )
+                    .map(|mut vectors| vectors.pop());
+                    (Some(index), vector)
+                }
+                Err(error) => {
+                    derived_failure = Some(error);
+                    (None, Ok(None))
+                }
+            }
         }
-        Some(_) => (
-            None,
-            Err("memory_index_stale_for_case_generation".to_string()),
-        ),
+        Some(_) => {
+            derived_failure = Some("memory_index_stale_for_case_generation".to_string());
+            (None, Ok(None))
+        }
         None => (None, Ok(None)),
     };
     let mut retrieval = hybrid_retrieve(
@@ -803,10 +962,13 @@ fn execute_hybrid_retrieval(
         usable_index.as_ref(),
         query_vector,
     )?;
-    if stale_index {
+    if stale_index || derived_failure.is_some() {
+        let reason = derived_failure
+            .as_deref()
+            .unwrap_or("memory_index_stale_for_case_generation");
         for plane in &mut retrieval.planes {
             if plane.plane == "lexical_bm25" || plane.plane == "vector_exact_cosine" {
-                plane.reason = "index_stale_for_case_generation".to_string();
+                plane.reason = format!("derived_index_unavailable:{reason}");
             }
         }
     }
@@ -853,7 +1015,7 @@ fn refresh_runtime_index_if_stale(
         &state.case_id,
         profile_id,
     )?;
-    if load_current_memory_index(&memory_index_root(), tenant_id, &state.case_id, profile_id)?
+    if load_current_memory_index_locked(&lock)?
         .is_some_and(|bundle| bundle.is_current(&state.case_id, state.generation))
     {
         return Ok(());
@@ -864,6 +1026,11 @@ fn refresh_runtime_index_if_stale(
         .map(|document| document.canonical_text.clone())
         .collect::<Vec<_>>();
     let encoded = encode_memory_texts(store, tenant_id, &existing.profile, &texts)?;
+    let current_generation = store
+        .get_case_state(&state.case_id)?
+        .ok_or_else(|| "memory_index_case_disappeared_during_build".to_string())?
+        .generation;
+    require_case_generation(corpus.manifest.source_generation, current_generation, false)?;
     let vectors = corpus
         .documents
         .iter()
@@ -871,7 +1038,16 @@ fn refresh_runtime_index_if_stale(
         .map(|(document, vector)| (document.document_id.clone(), vector))
         .collect::<BTreeMap<_, _>>();
     let bundle = MemoryIndexBundle::build(corpus, existing.profile, &vectors)?;
-    publish_memory_index_locked(&lock, &bundle, false)
+    publish_memory_index_locked(&lock, &bundle, false)?;
+    let current_generation = store
+        .get_case_state(&state.case_id)?
+        .ok_or_else(|| "memory_index_case_disappeared_during_build".to_string())?
+        .generation;
+    if require_case_generation(bundle.corpus.source_generation, current_generation, true).is_err() {
+        drop_memory_index_locked(&lock)?;
+        return Err("memory_index_case_generation_changed_during_publication".to_string());
+    }
+    Ok(())
 }
 
 fn memory_search(args: &[String]) -> Result<(), String> {
@@ -1038,6 +1214,7 @@ pub(super) fn memory_case_command(operation_id: &str, args: &[String]) -> Result
         "yai.case.memory.show" => memory_case_show(args),
         "yai.case.memory.search" => memory_search(args),
         "yai.case.memory.index.status" => memory_index_status(args),
+        "yai.case.memory.index.verify" => memory_index_verify(args),
         "yai.case.memory.index.build" => memory_index_build_or_rebuild(args, false),
         "yai.case.memory.index.rebuild" => memory_index_build_or_rebuild(args, true),
         "yai.case.memory.index.drop" => memory_index_drop(args),
@@ -1048,7 +1225,29 @@ pub(super) fn memory_case_command(operation_id: &str, args: &[String]) -> Result
 
 #[cfg(test)]
 mod tests {
-    use super::parse_embedding_response;
+    use super::*;
+    use yai_core_engine::provider_governance::{ProviderAdapterKind, ProviderTargetInput};
+
+    fn encoder_snapshot() -> QualifiedMemoryEncoder {
+        QualifiedMemoryEncoder {
+            target: ProviderTarget::from_input(ProviderTargetInput {
+                tenant_id: "tenant:test".to_string(),
+                provider_key: "local-encoder".to_string(),
+                adapter: ProviderAdapterKind::OpenAiCompatible,
+                endpoint: "http://127.0.0.1:12345/v1".to_string(),
+                model_id: "encoder:model".to_string(),
+                credential_ref: "env:YAI_TEST_ENCODER_KEY".to_string(),
+                locality: ProviderLocality::Loopback,
+                extension_adapter_id: None,
+                created_by_principal_id: "principal:test".to_string(),
+                created_at_unix_ms: 1,
+            })
+            .unwrap(),
+            credential: Some("test-secret-a".to_string()),
+            qualification_id: "provider-qualification:test".to_string(),
+            credential_revision: 1,
+        }
+    }
 
     #[test]
     fn embedding_response_requires_exact_count_dimension_model_and_finite_values() {
@@ -1078,5 +1277,101 @@ mod tests {
         let overflow =
             br#"{"model":"encoder:model","data":[{"index":0,"embedding":[1e1000,0.0]}]}"#;
         assert!(parse_embedding_response(overflow, "encoder:model", 1, 2).is_err());
+    }
+
+    #[test]
+    fn h19_s10_case_generation_change_aborts_build_or_publication() {
+        assert!(require_case_generation(9, 9, false).is_ok());
+        assert_eq!(
+            require_case_generation(9, 10, false).unwrap_err(),
+            "memory_index_case_generation_changed_during_build"
+        );
+        assert_eq!(
+            require_case_generation(9, 10, true).unwrap_err(),
+            "memory_index_case_generation_changed_during_publication"
+        );
+    }
+
+    #[test]
+    fn h19_s11_trust_revocation_stops_encoder_recheck() {
+        let admitted = encoder_snapshot();
+        assert_eq!(
+            require_memory_encoder_snapshot(
+                &admitted,
+                Err("memory_encoder_trust_not_approved".to_string())
+            )
+            .unwrap_err(),
+            "memory_encoder_trust_not_approved"
+        );
+    }
+
+    #[test]
+    fn h19_s12_qualification_invalidation_stops_encoder_recheck() {
+        let admitted = encoder_snapshot();
+        assert_eq!(
+            require_memory_encoder_snapshot(
+                &admitted,
+                Err("memory_encoder_qualification_stale".to_string())
+            )
+            .unwrap_err(),
+            "memory_encoder_qualification_stale"
+        );
+    }
+
+    #[test]
+    fn h19_s13_credential_rotation_cannot_mix_one_build() {
+        let admitted = encoder_snapshot();
+        let mut rotated = admitted.clone();
+        rotated.credential_revision += 1;
+        rotated.credential = Some("test-secret-b".to_string());
+        assert_eq!(
+            require_memory_encoder_snapshot(&admitted, Ok(rotated)).unwrap_err(),
+            "memory_encoder_governance_changed_during_build"
+        );
+    }
+
+    #[test]
+    fn h19_s14_embedding_response_adversarial_matrix_fails_closed() {
+        let cases: &[(&[u8], &str)] = &[
+            (
+                br#"{"model":"wrong","data":[{"index":0,"embedding":[1.0,0.0]}]}"#,
+                "memory_encoder_response_model_mismatch",
+            ),
+            (
+                br#"{"model":"encoder:model","data":[]}"#,
+                "memory_encoder_response_count_mismatch",
+            ),
+            (
+                br#"{"model":"encoder:model","data":[{"embedding":[1.0,0.0]}]}"#,
+                "memory_encoder_response_index_missing",
+            ),
+            (
+                br#"{"model":"encoder:model","data":[{"index":0,"embedding":[]}]}"#,
+                "memory_encoder_response_dimension_mismatch",
+            ),
+            (
+                br#"{"model":"encoder:model","data":[{"index":0,"embedding":[0.0,0.0]}]}"#,
+                "memory_encoder_response_zero_vector",
+            ),
+            (
+                br#"{"model":"encoder:model","data":[{"index":1,"embedding":[1.0,0.0]}]}"#,
+                "memory_encoder_response_index_invalid",
+            ),
+            (
+                br#"{"model":"encoder:model","data":[{"index":0,"embedding":[1.0,0.0]},{"index":1,"embedding":[0.0,1.0]}]}"#,
+                "memory_encoder_response_count_mismatch",
+            ),
+            (
+                br#"{"model":"encoder:model","data":"invalid"}"#,
+                "memory_encoder_response_data_missing",
+            ),
+        ];
+        for (body, expected) in cases {
+            assert_eq!(
+                parse_embedding_response(body, "encoder:model", 1, 2).unwrap_err(),
+                *expected
+            );
+        }
+        assert!(parse_embedding_response(b"{", "encoder:model", 1, 2).is_err());
     }
 }

@@ -1,0 +1,8 @@
+test_id	change	boundary	result
+H19-S11	ProviderTrust becomes denied	pre/post each embedding batch	new request refused / build aborted
+H19-S12	ProviderQualification invalid/expired	pre/post each batch	TextEmbedding eligibility refused
+H19-S13	credential revision/value rotates	snapshot compared pre/post each batch	mixed build refused; secrets never persisted
+health/circuit	unhealthy/open	ProviderGovernance revalidation at batch boundary	new work stops; old current remains
+locality	DNS/locality no longer loopback	H18 target endpoint revalidation	remote encoding refused
+query vector	exact same governance checks per query	failure marks vector plane unavailable	lexical/exact continue
+encoder failure	no safe_only failover semantics	profile cannot mix targets	build/query vector plane unavailable

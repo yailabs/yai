@@ -23,7 +23,7 @@ python3 "$ROOT/tests/fixtures/provider_governance_server.py" \
   >"$RUN_ROOT/chat.out" 2>"$RUN_ROOT/chat.err" &
 CHAT_PID=$!
 python3 "$ROOT/tests/fixtures/memory_embedding_server.py" \
-  --model memory-fixture-encoder \
+  --model memory-fixture-encoder --count-file "$RUN_ROOT/embed.count" --delay-ms 25 \
   >"$RUN_ROOT/embed.out" 2>"$RUN_ROOT/embed.err" &
 EMBED_PID=$!
 for _ in $(seq 1 100); do
@@ -56,6 +56,7 @@ encoder_qualification=$("$YAI_BIN" provider qualify "$ENCODER_TARGET" --embeddin
 grep -Fq 'TextEmbedding' <<<"$encoder_qualification"
 grep -Fq 'embedding_dimension: 4' <<<"$encoder_qualification"
 "$YAI_BIN" provider trust approve "$ENCODER_TARGET" >/dev/null
+QUALIFICATION_ENCODER_REQUESTS=$(<"$RUN_ROOT/embed.count")
 
 "$YAI_BIN" case create case:w19-memory --tenant tenant:w19-smoke >/dev/null
 "$YAI_BIN" case participant role add case:w19-memory \
@@ -98,10 +99,37 @@ PROFILE_ID=$(sed -n 's/^representation_profile_id: //p' <<<"$build_output")
 INDEX_ID=$(sed -n 's/^index_manifest_id: //p' <<<"$build_output")
 [[ "$PROFILE_ID" == memory-profile:* && "$INDEX_ID" == memory-index:* ]]
 grep -Fq 'canonical_transition_mutated: no' <<<"$build_output"
+POST_BUILD_ENCODER_REQUESTS=$(<"$RUN_ROOT/embed.count")
+[[ "$POST_BUILD_ENCODER_REQUESTS" -eq $((QUALIFICATION_ENCODER_REQUESTS + 1)) ]]
 
 status_output=$("$YAI_BIN" case memory index status case:w19-memory)
 grep -Fq "index: $INDEX_ID" <<<"$status_output"
 grep -Fq 'posture:current' <<<"$status_output"
+grep -Fq 'format:yai.derived_memory_store.v2' <<<"$status_output"
+verify_output=$("$YAI_BIN" case memory index verify case:w19-memory --profile "$PROFILE_ID")
+grep -Fq 'posture: current' <<<"$verify_output"
+grep -Fq 'validation: deep_plus_current_operational_memory_source' <<<"$verify_output"
+
+# The profile lock and equivalent-build recheck happen before external work.
+# Thirty-two independent rebuild callers therefore reuse the sealed build and
+# must not issue another full-corpus embedding request.
+REBUILD_PIDS=()
+for worker in $(seq 1 32); do
+  "$YAI_BIN" case memory index rebuild case:w19-memory \
+    --encoder-target "$ENCODER_TARGET" \
+    --encoder-revision test-only-controlled-v1 --dimension 4 \
+    >"$RUN_ROOT/rebuild-$worker.out" 2>"$RUN_ROOT/rebuild-$worker.err" &
+  REBUILD_PIDS+=("$!")
+done
+for pid in "${REBUILD_PIDS[@]}"; do
+  wait "$pid"
+done
+for worker in $(seq 1 32); do
+  grep -Fq 'memory_index_rebuild: existing_equivalent' "$RUN_ROOT/rebuild-$worker.out"
+  grep -Fq "index_manifest_id: $INDEX_ID" "$RUN_ROOT/rebuild-$worker.out"
+done
+POST_STAMPEDE_ENCODER_REQUESTS=$(<"$RUN_ROOT/embed.count")
+[[ "$POST_STAMPEDE_ENCODER_REQUESTS" -eq "$POST_BUILD_ENCODER_REQUESTS" ]]
 
 search_output=$("$YAI_BIN" case memory search case:w19-memory \
   --participant participant:model --query 'provider model complete' \
@@ -130,6 +158,8 @@ grep -Fq 'semantic_continuity_preserved: yes' <<<"$drop_output"
 post_drop=$("$YAI_BIN" case memory show case:w19-memory)
 grep -Fq 'indexes: 0' <<<"$post_drop"
 grep -Eq 'operational_memory_entries: [1-9][0-9]*' <<<"$post_drop"
+missing_verify=$("$YAI_BIN" case memory index verify case:w19-memory --profile "$PROFILE_ID")
+grep -Fq 'posture: missing' <<<"$missing_verify"
 
 rebuild_output=$("$YAI_BIN" case memory index rebuild case:w19-memory \
   --encoder-target "$ENCODER_TARGET" \
@@ -167,3 +197,7 @@ printf 'cross_case_isolation: true\n'
 printf 'drop_preserved_case_truth: true\n'
 printf 'content_identical_rebuild: true\n'
 printf 'runtime_context_used_current_w19_index: true\n'
+printf 'physical_store: yai.derived_memory_store.v2\n'
+printf 'deep_source_verify: true\n'
+printf 'concurrent_rebuilders: 32\n'
+printf 'duplicate_embedding_requests: 0\n'

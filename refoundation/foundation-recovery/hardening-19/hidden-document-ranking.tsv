@@ -1,0 +1,5 @@
+scenario	hidden_count	visible_rank_score	visible_metadata	result
+visible-only baseline	0	captured BM25/cosine rank+micros	selected/source counts	baseline
+Participant-invisible same rare terms	10000	exactly equal to baseline	no hidden counts/rejections exposed	pass H19-S15
+hidden nearest vectors	10000	visible top-k unchanged	filter precedes truncation	pass H19-S15
+side-channel scope	10000	requester sees qualified candidates only	operator deep verify separate	pass

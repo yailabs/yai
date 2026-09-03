@@ -9,12 +9,28 @@ claim and are never reachable from product code.
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import argparse
 import json
+import threading
+import time
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", type=int, default=0)
 parser.add_argument("--model", default="memory-fixture-encoder")
+parser.add_argument("--count-file")
+parser.add_argument("--delay-ms", type=int, default=0)
 args = parser.parse_args()
+
+request_count = 0
+request_count_lock = threading.Lock()
+
+
+def record_request():
+    global request_count
+    with request_count_lock:
+        request_count += 1
+        if args.count_file:
+            with open(args.count_file, "w", encoding="utf-8") as handle:
+                handle.write(f"{request_count}\n")
 
 
 def controlled_vector(text):
@@ -70,6 +86,9 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(inputs, list) or not all(isinstance(item, str) for item in inputs):
             self.reply(400, {"error": {"type": "invalid_input"}})
             return
+        record_request()
+        if args.delay_ms:
+            time.sleep(args.delay_ms / 1000)
         self.reply(
             200,
             {
@@ -92,5 +111,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+if args.count_file:
+    with open(args.count_file, "w", encoding="utf-8") as handle:
+        handle.write("0\n")
 print(server.server_port, flush=True)
 server.serve_forever()

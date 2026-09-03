@@ -1039,6 +1039,17 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         NO_FLAGS
     ),
     op!(
+        "yai.case.memory.index.verify",
+        ["case", "memory", "index", "verify"],
+        "Deep-verify one derived memory index against current Case memory",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_PROFILE
+    ),
+    op!(
         "yai.case.memory.index.build",
         ["case", "memory", "index", "build"],
         "Build and atomically publish a derived hybrid memory index",

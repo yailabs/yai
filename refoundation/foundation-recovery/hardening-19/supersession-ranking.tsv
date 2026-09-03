@@ -1,0 +1,5 @@
+mode	included	statistics/top-k	result
+default active retrieval	Active only	BM25 df/avgdl and vector top-k over active eligible set	H19-S16 pass
+historical inspection	Superseded only when explicitly admitted by future/existing inspection contract	may rank within explicitly eligible historical set	no silent inclusion
+derived corpus	may physically retain both	physical presence cannot influence excluded lifecycle	qualification isolated
+semantic retention	unchanged	no decay/consolidation implemented	W20 boundary

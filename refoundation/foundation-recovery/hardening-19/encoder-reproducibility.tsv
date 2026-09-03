@@ -1,0 +1,5 @@
+encoder	runs	result	identity_effect
+deterministic fixture	repeated same input/profile	exact float bytes and vector digest equal	stable build/index identity
+real local operator encoder	0	unavailable: required environment absent	must be measured in external acceptance
+real nondeterminism contract	n/a	allowed only as honest characterization	same declared revision semantic drift is external profile-contract violation
+revision change	A to B	new profile namespace	old vectors never reinterpreted or compared

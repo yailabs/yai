@@ -1,0 +1,9 @@
+object	classification	owner_delta	reason
+MemoryRepresentationDocument	derived_no_owner	0	deterministic view of one OperationalMemoryEntry
+MemoryEmbedding	derived_no_owner	0	profile-bound disposable representation
+CorpusManifest	derived_no_owner	0	rebuildable corpus identity
+IndexManifest	derived_no_owner	0	rebuildable sealed-index identity
+lexical/vector indexes	derived_no_owner	0	disposable candidate accelerators
+RetrievalSet	derived_no_owner	0	derived selection record
+representation profile	immutable runtime/admin configuration	0	persistent identity does not create semantic lifecycle
+H19 total	no new semantic or operational owner	0	LMDB remains 37/40

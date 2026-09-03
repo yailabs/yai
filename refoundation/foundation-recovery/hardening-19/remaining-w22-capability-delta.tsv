@@ -1,0 +1,12 @@
+capability	current model-usable posture	future contract
+filesystem.write	implemented controlled Effect	preserve
+filesystem replace/modify	implemented atomic replacement when complete content known	typed patch remains future
+filesystem.read	missing	typed Resource read with authority and observation
+filesystem.list	missing	typed Resource list
+filesystem.stat	missing	typed Resource stat
+filesystem.search	missing	typed bounded Resource search
+process observation/inspect	missing	typed process inspect/observation
+process.signal	implemented controlled Effect	preserve
+generic shell	rejected	do not resurrect shell.exec
+YVEX function/tool call	provider-output candidate surface	ProviderResult -> typed CapabilityRequest/proposal -> current YAI authority/resource path
+direct provider tool execution	forbidden	never normalize into immediate effect

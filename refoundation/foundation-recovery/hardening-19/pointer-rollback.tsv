@@ -1,0 +1,6 @@
+scenario	validation	posture
+older internally valid generation	compare loaded corpus source_generation to current Case generation	stale; not used as current fuzzy retrieval
+same generation/different build	validate Case/profile/corpus digest/source document digests	accepted only if exact source compatible; selected payload still canonical
+profile substitution	profile ID/digest and namespace equality	profile mismatch refused
+missing pointer	bounded open returns none	missing; exact/operational fallback remains
+corrupt pointer	bounded parse/schema/scope validation	corrupt; never guessed

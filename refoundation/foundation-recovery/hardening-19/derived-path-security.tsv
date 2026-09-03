@@ -1,0 +1,9 @@
+surface	mechanism	guarantee	platform
+derived root	openat2 RESOLVE_BENEATH|RESOLVE_NO_SYMLINKS|RESOLVE_NO_MAGICLINKS plus O_DIRECTORY|O_NOFOLLOW	no symlink escape; exact owned root fd	Linux
+Tenant/Case/profile/builds	mkdirat/openat2 relative to retained parent fd	validated component grammar and no pathname re-resolution	Linux
+component files	openat2 O_NOFOLLOW; regular owner/mode/nlink/size checks	no symlink/device/FIFO/hardlink substitution	Linux
+build lock	openat2 O_CREAT|O_NOFOLLOW then flock	symlink lock substitution refused	Linux
+rename/drop/GC	renameat/unlinkat on anchored fds	cannot redirect outside opened namespace	Linux
+permissions	0700 directories; 0600 files; euid owner; group/other write refused	derived memory not public	Linux
+fallback	explicit memory_index_secure_derived_store_unsupported_on_this_platform	mutable/read operations fail closed	non-Linux
+same-Principal hardlinks	nlink must equal one for admitted files	known hardlink substitution refused; no claim against principal owning store	Linux

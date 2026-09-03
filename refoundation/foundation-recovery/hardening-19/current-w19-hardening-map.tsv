@@ -1,0 +1,17 @@
+stage	authority	input_identity	output_identity	persistence	validation	bound	concurrency	failure
+Transition history	canonical	Case+sequence	Transition	LMDB	commit/replay integrity	Case bounds	LMDB transaction	fail closed
+OperationalMemory	derived	Case generation	memory_id+source_digest	LMDB rebuildable	derivation/version/posture	bounded retrieval source	Case serialized	rederive/refuse
+representation	derived_no_owner	memory_id+source_digest	document_id	v2 metadata component	canonical contract+scrub+bound	50k docs	immutable build input	refuse invalid
+corpus manifest	derived_no_owner	ordered documents	corpus_manifest_id	v2 metadata component	case/generation/digest	50k docs	builder snapshot	stale on generation change
+lexical build	derived_no_owner	corpus digest	BM25 checksum	v2 metadata component	deep at publish; sealed at load	qualified top-k	profile writer lock	plane unavailable
+vector build	derived_no_owner	profile+documents	vector checksum	v2 binary component	shape/nonfinite/digest	25m float32 elements	one admitted builder	abort no failover
+publication	derived_no_owner	sealed components	index_manifest_id	atomic directory+pointer	fsync/rename order	384MiB envelope	exclusive flock	old or new current
+current load	derived_no_owner	current pointer	one bundle snapshot	read-only	bounded format/checksums/scope	component maxima	shared flock	missing/corrupt
+query document	derived_no_owner	operator task text	query_id	last retrieval only	stream normalization/token bounds	2048 chars/128 terms	request-local	refuse empty
+qualification	canonical-source recheck	Participant/view/resource/causal/lifecycle	admitted IDs	none	exact current OperationalMemory	50k scan	one generation snapshot	filtered
+BM25/cosine/anchors	derived ranking	admitted IDs	per-plane ranks	none	finite/shape/duplicates	bounded candidates	request-local	plane unavailable
+RRF	derived ranking	qualified ranks	fusion ranks	none	checked arithmetic/stable ID ties	bounded total	request-local	refuse invalid
+RetrievalSet v2	derived_no_owner	manifest+query+ranks	retrieval_id	bounded last-retrieval JSON	selected current-source payloads	bounded selections	immutable	degraded planes explicit
+Projection v5	derived_no_owner	DerivedProjectionInput	projection_id	derived context store	generation adjacency	context budget	Case runtime serialization	stale refused
+Residency	derived_no_owner	Projection+budget	residency plan	derived	mandatory before optional	fixed budget	deterministic	fail mandatory
+ContextFrame v5	derived_no_owner	Projection+task	context_frame_id	derived context store	generation/freshness	bounded rendering	Case runtime serialization	stale refused

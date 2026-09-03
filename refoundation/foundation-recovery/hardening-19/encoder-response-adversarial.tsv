@@ -1,0 +1,15 @@
+case	validation	posture
+wrong model ID	exact response model equality	build aborted
+wrong dimension	exact profile dimension	build aborted
+empty vector	non-empty and dimension check	build aborted
+zero vector	norm must be finite and positive	build aborted
+NaN/Inf	all values finite	build aborted
+duplicate index	unique exact response index	build aborted
+missing item	exact result count/index set	build aborted
+extra item	exact result count/index set	build aborted
+reordered response	explicit index binding, not array order	accepted when complete/unique
+oversized response	bounded HTTP/body JSON contract	build aborted
+malformed JSON	strict decode	build aborted
+HTTP success invalid envelope	typed object/model/data validation	build aborted
+connect failure	transport failure before valid result	build aborted
+accepted then drop	delivery indeterminate	build aborted; no alternate target

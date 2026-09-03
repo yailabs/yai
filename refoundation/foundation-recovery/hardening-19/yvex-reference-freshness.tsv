@@ -1,0 +1,10 @@
+observation	sha_or_value	method
+H19 start-time remote models1	e5c77060daae458f4b22664b910ed3582ec8a2a0	git ls-remote https://github.com/yailabs/yvex.git refs/heads/models1
+local YVEX HEAD	5b3aa34be8999ad8240403e884074833d80c301d	git -C /tmp/yvex-w18-readonly rev-parse HEAD
+local origin/models1	1f7ff1cd11ab8aec0976a9c8b0ee88ac5c73f010	git -C /tmp/yvex-w18-readonly rev-parse origin/models1
+drift	remote differs from both local references	remote temp clone inspected read-only
+compatibility profile	yvex.openai.compat.v2	remote docs/openai-compatibility.md
+supported	Chat Completions; Responses; structured JSON; typed function tools/calls; parallel tool calls; continuation	remote docs/source/tests
+refused	embeddings	remote compatibility contract
+files inspected	docs/openai-compatibility.md; src/server/openai/core.c; src/server/openai/json.c; src/provider/core.c; tests/integration/openai.sh	remote SHA e5c77060...
+mutation	none	YVEX remained read-only

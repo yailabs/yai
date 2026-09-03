@@ -15,13 +15,21 @@ use crate::memory::{
 use crate::transition::CaseState;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs::{self, File, OpenOptions};
+#[cfg(target_os = "linux")]
+use std::ffi::{CStr, CString};
+#[cfg(test)]
+use std::fs;
+use std::fs::File;
 use std::io::{Read, Write};
-#[cfg(unix)]
-use std::os::fd::AsRawFd;
-#[cfg(unix)]
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-use std::path::{Path, PathBuf};
+#[cfg(target_os = "linux")]
+use std::os::fd::{AsRawFd, FromRawFd};
+#[cfg(target_os = "linux")]
+use std::os::unix::ffi::OsStrExt;
+#[cfg(target_os = "linux")]
+use std::os::unix::fs::MetadataExt;
+use std::path::Path;
+#[cfg(test)]
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub const MEMORY_REPRESENTATION_DOCUMENT_SCHEMA: &str = "yai.memory_representation_document.v1";
@@ -37,13 +45,25 @@ pub const RETRIEVAL_QUERY_DOCUMENT_SCHEMA: &str = "yai.retrieval_query_document.
 pub const HYBRID_RETRIEVAL_SET_SCHEMA: &str = "yai.retrieval_set.v2";
 pub const MEMORY_INDEX_BUILD_VERSION: &str = "yai.memory_index.builder.v1";
 pub const HYBRID_FUSION_VERSION: &str = "yai.memory_rank_fusion.rrf.v1";
-pub const DERIVED_MEMORY_STORE_VERSION: &str = "v1";
+pub const DERIVED_MEMORY_STORE_VERSION: &str = "v2";
+pub const DERIVED_MEMORY_PHYSICAL_SCHEMA: &str = "yai.derived_memory_store.v2";
 
 pub const MAX_REPRESENTATION_CHARS: usize = 4096;
 pub const MAX_QUERY_CHARS: usize = 2048;
 pub const MAX_QUERY_TERMS: usize = 128;
 pub const MAX_VECTOR_DIMENSION: usize = 4096;
 pub const MAX_CORPUS_DOCUMENTS: usize = 50_000;
+/// The cross-product is the actual vector admission boundary. It admits, for
+/// example, 50k x 384 and 10k x 1536 while refusing 50k x 4096 before any
+/// encoder request or allocation.
+pub const MAX_VECTOR_ELEMENTS: usize = 25_000_000;
+pub const MAX_VECTOR_BYTES: usize = MAX_VECTOR_ELEMENTS * std::mem::size_of::<f32>();
+pub const MAX_DERIVED_METADATA_BYTES: usize = 256 * 1024 * 1024;
+pub const MAX_DERIVED_TOTAL_BYTES: usize = 384 * 1024 * 1024;
+pub const MAX_CURRENT_POINTER_BYTES: usize = 16 * 1024;
+pub const MAX_PHYSICAL_MANIFEST_BYTES: usize = 64 * 1024;
+pub const MAX_LAST_RETRIEVAL_BYTES: usize = 16 * 1024 * 1024;
+pub const MAX_RETAINED_BUILDS: usize = 2;
 pub const MAX_CANDIDATES_PER_PLANE: usize = 256;
 pub const MAX_TOTAL_CANDIDATES: usize = 512;
 const RRF_K: u64 = 60;
@@ -80,6 +100,89 @@ fn bounded(value: &str, limit: usize) -> String {
         .collect::<String>();
     output.push_str(suffix);
     output
+}
+
+fn canonicalize_query(value: &str) -> String {
+    let mut output = String::new();
+    let mut pending_space = false;
+    let mut count = 0usize;
+    for ch in value.chars() {
+        if count >= MAX_QUERY_CHARS {
+            break;
+        }
+        if ch.is_whitespace() || ch.is_control() {
+            pending_space = !output.is_empty();
+            continue;
+        }
+        if pending_space && count < MAX_QUERY_CHARS {
+            output.push(' ');
+            count += 1;
+        }
+        pending_space = false;
+        if count < MAX_QUERY_CHARS {
+            output.push(ch);
+            count += 1;
+        }
+    }
+    output
+}
+
+pub fn validate_memory_index_build_budget(
+    corpus: &MemoryRepresentationCorpus,
+    profile: &MemoryRepresentationProfile,
+) -> Result<(), String> {
+    validate_memory_index_build_budget_documents(&corpus.documents, profile)
+}
+
+fn validate_memory_index_build_budget_documents(
+    documents: &[MemoryRepresentationDocument],
+    profile: &MemoryRepresentationProfile,
+) -> Result<(), String> {
+    profile.validate()?;
+    if documents.len() > MAX_CORPUS_DOCUMENTS {
+        return Err("memory_index_document_budget_exceeded".to_string());
+    }
+    let vector_elements = validate_vector_shape_budget(documents.len(), profile.vector_dimension)?;
+    let vector_bytes = vector_elements
+        .checked_mul(std::mem::size_of::<f32>())
+        .ok_or_else(|| "memory_index_vector_byte_budget_overflow".to_string())?;
+    let representation_bytes = documents.iter().try_fold(0usize, |total, document| {
+        total
+            .checked_add(document.canonical_text.len())
+            .ok_or_else(|| "memory_index_representation_byte_budget_overflow".to_string())
+    })?;
+    let estimated_metadata = representation_bytes
+        .checked_mul(3)
+        .and_then(|value| value.checked_add(documents.len().checked_mul(4096)?))
+        .ok_or_else(|| "memory_index_metadata_budget_overflow".to_string())?;
+    let estimated_total = estimated_metadata
+        .checked_add(vector_bytes)
+        .and_then(|value| value.checked_add(MAX_PHYSICAL_MANIFEST_BYTES))
+        .ok_or_else(|| "memory_index_total_budget_overflow".to_string())?;
+    if estimated_metadata > MAX_DERIVED_METADATA_BYTES || estimated_total > MAX_DERIVED_TOTAL_BYTES
+    {
+        return Err("memory_index_serialized_budget_exceeded".to_string());
+    }
+    Ok(())
+}
+
+fn validate_vector_shape_budget(
+    document_count: usize,
+    vector_dimension: usize,
+) -> Result<usize, String> {
+    if document_count > MAX_CORPUS_DOCUMENTS
+        || vector_dimension == 0
+        || vector_dimension > MAX_VECTOR_DIMENSION
+    {
+        return Err("memory_index_vector_shape_invalid".to_string());
+    }
+    let vector_elements = document_count
+        .checked_mul(vector_dimension)
+        .ok_or_else(|| "memory_index_vector_element_budget_overflow".to_string())?;
+    if vector_elements > MAX_VECTOR_ELEMENTS {
+        return Err("memory_index_vector_element_budget_exceeded".to_string());
+    }
+    Ok(vector_elements)
 }
 
 fn scrub_sensitive(value: &str) -> String {
@@ -735,6 +838,20 @@ impl MemoryLexicalIndex {
     }
 
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<LexicalHit>, String> {
+        let all = self
+            .document_lengths
+            .keys()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        self.search_qualified(query, limit, &all)
+    }
+
+    pub fn search_qualified(
+        &self,
+        query: &str,
+        limit: usize,
+        admitted_document_ids: &BTreeSet<String>,
+    ) -> Result<Vec<LexicalHit>, String> {
         if limit == 0 || limit > MAX_CANDIDATES_PER_PLANE {
             return Err("memory_lexical_candidate_bound_invalid".to_string());
         }
@@ -744,20 +861,41 @@ impl MemoryLexicalIndex {
             .into_iter()
             .take(MAX_QUERY_TERMS)
             .collect::<Vec<_>>();
-        let n = self.document_count as f64;
-        let avg_len = if self.document_count == 0 {
+        if admitted_document_ids
+            .iter()
+            .any(|document_id| !self.document_lengths.contains_key(document_id))
+        {
+            return Err("memory_lexical_admitted_document_missing".to_string());
+        }
+        let admitted_document_count = admitted_document_ids.len();
+        let admitted_total_terms = admitted_document_ids.iter().try_fold(0u64, |total, id| {
+            total
+                .checked_add(u64::from(*self.document_lengths.get(id).ok_or_else(
+                    || "memory_lexical_admitted_document_missing".to_string(),
+                )?))
+                .ok_or_else(|| "memory_lexical_term_count_overflow".to_string())
+        })?;
+        let n = admitted_document_count as f64;
+        let avg_len = if admitted_document_count == 0 {
             1.0
         } else {
-            self.total_document_terms as f64 / self.document_count as f64
+            admitted_total_terms as f64 / admitted_document_count as f64
         };
         let mut scores = BTreeMap::<String, (f64, BTreeSet<String>)>::new();
         for term in query_terms {
             let Some(postings) = self.postings.get(&term) else {
                 continue;
             };
-            let df = postings.len() as f64;
+            let admitted_postings = postings
+                .iter()
+                .filter(|posting| admitted_document_ids.contains(&posting.document_id))
+                .collect::<Vec<_>>();
+            let df = admitted_postings.len() as f64;
+            if df == 0.0 {
+                continue;
+            }
             let idf = (1.0 + (n - df + 0.5) / (df + 0.5)).ln();
-            for posting in postings {
+            for posting in admitted_postings {
                 let dl = f64::from(
                     *self
                         .document_lengths
@@ -814,6 +952,13 @@ impl MemoryVectorIndex {
         vectors: &BTreeMap<String, Vec<f32>>,
     ) -> Result<Self, String> {
         profile.validate()?;
+        let vector_elements = documents
+            .len()
+            .checked_mul(profile.vector_dimension)
+            .ok_or_else(|| "memory_index_vector_element_budget_overflow".to_string())?;
+        if vector_elements > MAX_VECTOR_ELEMENTS {
+            return Err("memory_index_vector_element_budget_exceeded".to_string());
+        }
         if documents.len() != vectors.len() {
             return Err("memory_vector_corpus_cardinality_mismatch".to_string());
         }
@@ -896,6 +1041,20 @@ impl MemoryVectorIndex {
         query_vector: &[f32],
         limit: usize,
     ) -> Result<Vec<ExactVectorHit>, String> {
+        let all = self
+            .embeddings
+            .iter()
+            .map(|embedding| embedding.representation_document_id.clone())
+            .collect::<BTreeSet<_>>();
+        self.exact_search_qualified(query_vector, limit, &all)
+    }
+
+    pub fn exact_search_qualified(
+        &self,
+        query_vector: &[f32],
+        limit: usize,
+        admitted_document_ids: &BTreeSet<String>,
+    ) -> Result<Vec<ExactVectorHit>, String> {
         if limit == 0 || limit > MAX_CANDIDATES_PER_PLANE {
             return Err("memory_vector_candidate_bound_invalid".to_string());
         }
@@ -903,6 +1062,9 @@ impl MemoryVectorIndex {
         let mut hits = self
             .embeddings
             .iter()
+            .filter(|embedding| {
+                admitted_document_ids.contains(&embedding.representation_document_id)
+            })
             .map(|embedding| {
                 if embedding.dimension != self.dimension
                     || embedding.values.len() != self.dimension
@@ -977,6 +1139,18 @@ pub enum MemoryIndexBuildFailpoint {
     DuringVectorSerialization,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MemoryIndexPublicationFailpoint {
+    AfterComponentWriteBeforeFileSync,
+    AfterFileSyncBeforeBuildDirectorySync,
+    AfterBuildRenameBeforeBuildsParentSync,
+    AfterBuildsSyncBeforePointerWrite,
+    DuringPointerTempWrite,
+    AfterPointerRenameBeforeProfileDirectorySync,
+    AfterFinalSyncBeforeAcknowledgement,
+    AfterCompleteTempBeforePublish,
+}
+
 impl MemoryIndexBundle {
     pub fn build(
         corpus: MemoryRepresentationCorpus,
@@ -992,6 +1166,7 @@ impl MemoryIndexBundle {
         vectors: &BTreeMap<String, Vec<f32>>,
         failpoint: Option<MemoryIndexBuildFailpoint>,
     ) -> Result<Self, String> {
+        validate_memory_index_build_budget(&corpus, &profile)?;
         if failpoint == Some(MemoryIndexBuildFailpoint::AfterCorpusManifest) {
             return Err("memory_index_failpoint_after_corpus_manifest".to_string());
         }
@@ -1053,11 +1228,18 @@ impl MemoryIndexBundle {
             vector,
             manifest,
         };
-        bundle.validate()?;
+        bundle.validate_deep()?;
         Ok(bundle)
     }
 
     pub fn validate(&self) -> Result<(), String> {
+        self.validate_deep()
+    }
+
+    /// Bounded structural validation for a bundle whose physical components
+    /// were already length/checksum sealed. Deep reconstruction belongs to
+    /// publication and explicit verification, not the query hot path.
+    pub fn validate_loaded(&self) -> Result<(), String> {
         if self.schema != MEMORY_INDEX_BUNDLE_SCHEMA
             || self.corpus.schema != MEMORY_CORPUS_MANIFEST_SCHEMA
             || self.manifest.schema != MEMORY_INDEX_MANIFEST_SCHEMA
@@ -1110,6 +1292,62 @@ impl MemoryIndexBundle {
         {
             return Err("memory_corpus_manifest_integrity_mismatch".to_string());
         }
+        if self.lexical.schema != MEMORY_LEXICAL_INDEX_SCHEMA
+            || self.lexical.document_count != self.documents.len()
+            || self.lexical.document_lengths.len() != self.documents.len()
+            || self.lexical.checksum != self.manifest.lexical_checksum
+            || self.vector.schema != MEMORY_VECTOR_INDEX_SCHEMA
+            || self.vector.profile_id != self.profile.profile_id
+            || self.vector.dimension != self.profile.vector_dimension
+            || self.vector.embeddings.len() != self.documents.len()
+            || self.vector.checksum != self.manifest.vector_checksum
+        {
+            return Err("memory_index_loaded_component_mismatch".to_string());
+        }
+        let document_ids = self
+            .documents
+            .iter()
+            .map(|document| document.document_id.as_str())
+            .collect::<BTreeSet<_>>();
+        if document_ids.len() != self.documents.len()
+            || self
+                .lexical
+                .document_lengths
+                .keys()
+                .any(|id| !document_ids.contains(id.as_str()))
+        {
+            return Err("memory_index_loaded_document_identity_mismatch".to_string());
+        }
+        let mut previous = None;
+        for embedding in &self.vector.embeddings {
+            if previous
+                .is_some_and(|value: &str| value >= embedding.representation_document_id.as_str())
+                || !document_ids.contains(embedding.representation_document_id.as_str())
+                || embedding.dimension != self.profile.vector_dimension
+                || embedding.values.len() != self.profile.vector_dimension
+                || embedding.values.iter().any(|value| !value.is_finite())
+            {
+                return Err("memory_index_loaded_vector_mismatch".to_string());
+            }
+            previous = Some(embedding.representation_document_id.as_str());
+        }
+        if self.manifest.content_checksum.is_empty()
+            || self.manifest.index_id != short_id("memory-index", &self.manifest.content_checksum)
+            || self.manifest.case_id != self.corpus.case_id
+            || self.manifest.source_corpus_manifest_id != self.corpus.manifest_id
+            || self.manifest.source_corpus_digest != self.corpus.corpus_digest
+            || self.manifest.representation_profile_id != self.profile.profile_id
+            || self.manifest.representation_profile_digest != self.profile.integrity_digest
+            || self.manifest.dimension != self.profile.vector_dimension
+            || self.manifest.exact_build_version != MEMORY_INDEX_BUILD_VERSION
+        {
+            return Err("memory_index_content_integrity_mismatch".to_string());
+        }
+        Ok(())
+    }
+
+    pub fn validate_deep(&self) -> Result<(), String> {
+        self.validate_loaded()?;
         self.lexical.validate(&self.documents)?;
         self.vector.validate(&self.documents, &self.profile)?;
         let content_checksum = digest_json(
@@ -1147,6 +1385,36 @@ impl MemoryIndexBundle {
     }
 }
 
+pub fn validate_memory_index_source(
+    index: &MemoryIndexBundle,
+    entries: &[OperationalMemoryEntry],
+) -> Result<(), String> {
+    index.validate_loaded()?;
+    let scoped_entries = entries
+        .iter()
+        .filter(|entry| entry.case_id == index.corpus.case_id)
+        .collect::<Vec<_>>();
+    if scoped_entries.len() != index.documents.len() {
+        return Err("memory_index_source_cardinality_divergent".to_string());
+    }
+    let current = scoped_entries
+        .iter()
+        .map(|entry| (entry.memory_id.as_str(), *entry))
+        .collect::<BTreeMap<_, _>>();
+    if current.len() != scoped_entries.len() {
+        return Err("memory_index_source_memory_identity_duplicate".to_string());
+    }
+    for document in &index.documents {
+        let entry = current
+            .get(document.memory_id.as_str())
+            .ok_or_else(|| "memory_index_source_memory_missing".to_string())?;
+        document
+            .validate_against(entry)
+            .map_err(|_| "memory_index_source_divergent".to_string())?;
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RetrievalQueryDocument {
     pub schema: String,
@@ -1159,10 +1427,8 @@ pub struct RetrievalQueryDocument {
 impl RetrievalQueryDocument {
     pub fn new(query: &str) -> Result<Self, String> {
         require_nonempty("memory_retrieval_query", query)?;
-        let canonical_text = bounded(
-            &query.split_whitespace().collect::<Vec<_>>().join(" "),
-            MAX_QUERY_CHARS,
-        );
+        let canonical_text = canonicalize_query(query);
+        require_nonempty("memory_retrieval_query", &canonical_text)?;
         let text_digest = digest_bytes(canonical_text.as_bytes());
         let digest = digest_json(
             &(
@@ -1266,18 +1532,40 @@ fn add_rank(
     memory_id: &str,
     rank: CandidatePlaneRank,
     exact_anchor: bool,
-) {
+) -> Result<(), String> {
+    if rank.rank == 0 || rank.rank > MAX_CANDIDATES_PER_PLANE {
+        return Err("memory_hybrid_plane_rank_invalid".to_string());
+    }
     let candidate = candidates.entry(memory_id.to_string()).or_default();
+    if candidate
+        .plane_ranks
+        .iter()
+        .any(|existing| existing.plane == rank.plane)
+    {
+        return Err("memory_hybrid_duplicate_plane_candidate".to_string());
+    }
+    let rank_u64 =
+        u64::try_from(rank.rank).map_err(|_| "memory_hybrid_plane_rank_overflow".to_string())?;
+    let contribution = RRF_SCALE
+        .checked_div(
+            RRF_K
+                .checked_add(rank_u64)
+                .ok_or_else(|| "memory_hybrid_rank_denominator_overflow".to_string())?,
+        )
+        .ok_or_else(|| "memory_hybrid_rank_denominator_invalid".to_string())?;
     candidate.fusion_score_micros = candidate
         .fusion_score_micros
-        .saturating_add(RRF_SCALE / (RRF_K + rank.rank as u64));
+        .checked_add(contribution)
+        .ok_or_else(|| "memory_hybrid_fusion_score_overflow".to_string())?;
     if exact_anchor {
         candidate.fusion_score_micros = candidate
             .fusion_score_micros
-            .saturating_add(EXACT_ANCHOR_BONUS);
+            .checked_add(EXACT_ANCHOR_BONUS)
+            .ok_or_else(|| "memory_hybrid_anchor_score_overflow".to_string())?;
         candidate.exact_anchor = true;
     }
     candidate.plane_ranks.push(rank);
+    Ok(())
 }
 
 pub fn hybrid_retrieve(
@@ -1321,7 +1609,7 @@ pub fn hybrid_retrieve(
                 evidence: item.ranking_reasons.clone(),
             },
             direct_anchor,
-        );
+        )?;
     }
 
     let mut planes = vec![RetrievalPlaneStatus {
@@ -1339,27 +1627,43 @@ pub fn hybrid_retrieve(
     let mut index_manifest_id = None;
 
     if let Some(index) = index {
-        index.validate()?;
+        index.validate_loaded()?;
         if !index.is_current(&qualification.case_id, qualification.case_generation) {
             return Err("memory_index_stale_for_case_generation".to_string());
         }
+        validate_memory_index_source(index, entries)?;
         corpus_manifest_id = Some(index.corpus.manifest_id.clone());
         representation_profile_id = Some(index.profile.profile_id.clone());
         index_manifest_id = Some(index.manifest.index_id.clone());
-        let document_memory = index
+        let document_by_memory = index
             .documents
             .iter()
-            .map(|document| (document.document_id.as_str(), document.memory_id.as_str()))
+            .map(|document| (document.memory_id.as_str(), document))
             .collect::<BTreeMap<_, _>>();
-        let lexical = index.lexical.search(&query.canonical_text, candidate_cap)?;
+        let mut document_memory = BTreeMap::<String, String>::new();
+        let mut admitted_document_ids = BTreeSet::new();
+        for (memory_id, item) in &eligible {
+            let document = document_by_memory
+                .get(memory_id.as_str())
+                .ok_or_else(|| "memory_index_qualified_source_document_missing".to_string())?;
+            document
+                .validate_against(&item.memory)
+                .map_err(|_| "memory_index_source_divergent".to_string())?;
+            if !admitted_document_ids.insert(document.document_id.clone()) {
+                return Err("memory_index_qualified_document_duplicate".to_string());
+            }
+            document_memory.insert(document.document_id.clone(), (*memory_id).clone());
+        }
+        let lexical = index.lexical.search_qualified(
+            &query.canonical_text,
+            candidate_cap,
+            &admitted_document_ids,
+        )?;
         let mut lexical_count = 0usize;
         for hit in lexical {
             let Some(memory_id) = document_memory.get(hit.document_id.as_str()) else {
                 return Err("memory_lexical_candidate_document_missing".to_string());
             };
-            if !eligible.contains_key(*memory_id) {
-                continue;
-            }
             lexical_count += 1;
             add_rank(
                 &mut candidates,
@@ -1375,7 +1679,7 @@ pub fn hybrid_retrieve(
                         .collect(),
                 },
                 false,
-            );
+            )?;
         }
         planes.push(RetrievalPlaneStatus {
             plane: "lexical_bm25".to_string(),
@@ -1386,15 +1690,16 @@ pub fn hybrid_retrieve(
 
         match query_vector {
             Ok(Some(vector)) => {
-                let vector_hits = index.vector.exact_search(&vector, candidate_cap)?;
+                let vector_hits = index.vector.exact_search_qualified(
+                    &vector,
+                    candidate_cap,
+                    &admitted_document_ids,
+                )?;
                 let mut vector_count = 0usize;
                 for hit in vector_hits {
                     let Some(memory_id) = document_memory.get(hit.document_id.as_str()) else {
                         return Err("memory_vector_candidate_document_missing".to_string());
                     };
-                    if !eligible.contains_key(*memory_id) {
-                        continue;
-                    }
                     vector_count += 1;
                     add_rank(
                         &mut candidates,
@@ -1409,7 +1714,7 @@ pub fn hybrid_retrieve(
                             )],
                         },
                         false,
-                    );
+                    )?;
                 }
                 planes.push(RetrievalPlaneStatus {
                     plane: "vector_exact_cosine".to_string(),
@@ -1565,10 +1870,224 @@ pub fn hybrid_retrieve(
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 struct CurrentIndexPointer {
     schema: String,
+    storage_format: String,
     case_id: String,
     profile_id: String,
     index_id: String,
     content_checksum: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+struct PhysicalComponentSeal {
+    name: String,
+    size_bytes: usize,
+    checksum: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+struct PhysicalIndexSeal {
+    schema: String,
+    index_id: String,
+    content_checksum: String,
+    item_count: usize,
+    dimension: usize,
+    vector_elements: usize,
+    components: Vec<PhysicalComponentSeal>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+struct StoredEmbeddingMetadata {
+    schema: String,
+    embedding_id: String,
+    representation_document_id: String,
+    representation_document_digest: String,
+    profile_id: String,
+    profile_digest: String,
+    dimension: usize,
+    normalization: String,
+    vector_digest: String,
+    encoded_at_derivation: String,
+}
+
+#[derive(Serialize)]
+struct StoredEmbeddingMetadataRef<'a> {
+    schema: &'a str,
+    embedding_id: &'a str,
+    representation_document_id: &'a str,
+    representation_document_digest: &'a str,
+    profile_id: &'a str,
+    profile_digest: &'a str,
+    dimension: usize,
+    normalization: &'a str,
+    vector_digest: &'a str,
+    encoded_at_derivation: &'a str,
+}
+
+impl<'a> From<&'a MemoryEmbeddingArtifact> for StoredEmbeddingMetadataRef<'a> {
+    fn from(value: &'a MemoryEmbeddingArtifact) -> Self {
+        Self {
+            schema: &value.schema,
+            embedding_id: &value.embedding_id,
+            representation_document_id: &value.representation_document_id,
+            representation_document_digest: &value.representation_document_digest,
+            profile_id: &value.profile_id,
+            profile_digest: &value.profile_digest,
+            dimension: value.dimension,
+            normalization: &value.normalization,
+            vector_digest: &value.vector_digest,
+            encoded_at_derivation: &value.encoded_at_derivation,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+struct StoredVectorIndex {
+    schema: String,
+    profile_id: String,
+    dimension: usize,
+    embeddings: Vec<StoredEmbeddingMetadata>,
+    checksum: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+struct StoredIndexMetadata {
+    storage_schema: String,
+    logical_schema: String,
+    corpus: MemoryCorpusManifest,
+    profile: MemoryRepresentationProfile,
+    documents: Vec<MemoryRepresentationDocument>,
+    lexical: MemoryLexicalIndex,
+    vector: StoredVectorIndex,
+    manifest: MemoryIndexManifest,
+}
+
+impl StoredIndexMetadata {
+    fn into_bundle(self, vector_bytes: &[u8]) -> Result<MemoryIndexBundle, String> {
+        if self.storage_schema != DERIVED_MEMORY_PHYSICAL_SCHEMA
+            || self.logical_schema != MEMORY_INDEX_BUNDLE_SCHEMA
+        {
+            return Err("memory_index_physical_metadata_schema_mismatch".to_string());
+        }
+        let expected_elements = self
+            .vector
+            .embeddings
+            .len()
+            .checked_mul(self.vector.dimension)
+            .ok_or_else(|| "memory_index_vector_element_budget_overflow".to_string())?;
+        if expected_elements > MAX_VECTOR_ELEMENTS {
+            return Err("memory_index_vector_element_budget_exceeded".to_string());
+        }
+        let expected_bytes = expected_elements
+            .checked_mul(std::mem::size_of::<f32>())
+            .ok_or_else(|| "memory_index_vector_byte_budget_overflow".to_string())?;
+        if vector_bytes.len() != expected_bytes {
+            return Err("memory_index_vector_binary_length_mismatch".to_string());
+        }
+        let mut offset = 0usize;
+        let mut embeddings = Vec::with_capacity(self.vector.embeddings.len());
+        for metadata in self.vector.embeddings {
+            if metadata.dimension != self.vector.dimension {
+                return Err("memory_index_vector_binary_dimension_mismatch".to_string());
+            }
+            let mut values = Vec::with_capacity(self.vector.dimension);
+            for _ in 0..self.vector.dimension {
+                let end = offset
+                    .checked_add(std::mem::size_of::<f32>())
+                    .ok_or_else(|| "memory_index_vector_binary_offset_overflow".to_string())?;
+                let bytes: [u8; 4] = vector_bytes
+                    .get(offset..end)
+                    .ok_or_else(|| "memory_index_vector_binary_truncated".to_string())?
+                    .try_into()
+                    .map_err(|_| "memory_index_vector_binary_truncated".to_string())?;
+                let value = f32::from_le_bytes(bytes);
+                if !value.is_finite() {
+                    return Err("memory_index_vector_binary_non_finite".to_string());
+                }
+                values.push(value);
+                offset = end;
+            }
+            embeddings.push(MemoryEmbeddingArtifact {
+                schema: metadata.schema,
+                embedding_id: metadata.embedding_id,
+                representation_document_id: metadata.representation_document_id,
+                representation_document_digest: metadata.representation_document_digest,
+                profile_id: metadata.profile_id,
+                profile_digest: metadata.profile_digest,
+                dimension: metadata.dimension,
+                normalization: metadata.normalization,
+                vector_digest: metadata.vector_digest,
+                values,
+                encoded_at_derivation: metadata.encoded_at_derivation,
+            });
+        }
+        if offset != vector_bytes.len() {
+            return Err("memory_index_vector_binary_extra_bytes".to_string());
+        }
+        let bundle = MemoryIndexBundle {
+            schema: self.logical_schema,
+            corpus: self.corpus,
+            profile: self.profile,
+            documents: self.documents,
+            lexical: self.lexical,
+            vector: MemoryVectorIndex {
+                schema: self.vector.schema,
+                profile_id: self.vector.profile_id,
+                dimension: self.vector.dimension,
+                embeddings,
+                checksum: self.vector.checksum,
+            },
+            manifest: self.manifest,
+        };
+        bundle.validate_loaded()?;
+        Ok(bundle)
+    }
+}
+
+#[derive(Serialize)]
+struct StoredVectorIndexRef<'a> {
+    schema: &'a str,
+    profile_id: &'a str,
+    dimension: usize,
+    embeddings: Vec<StoredEmbeddingMetadataRef<'a>>,
+    checksum: &'a str,
+}
+
+#[derive(Serialize)]
+struct StoredIndexMetadataRef<'a> {
+    storage_schema: &'static str,
+    logical_schema: &'a str,
+    corpus: &'a MemoryCorpusManifest,
+    profile: &'a MemoryRepresentationProfile,
+    documents: &'a [MemoryRepresentationDocument],
+    lexical: &'a MemoryLexicalIndex,
+    vector: StoredVectorIndexRef<'a>,
+    manifest: &'a MemoryIndexManifest,
+}
+
+impl<'a> StoredIndexMetadataRef<'a> {
+    fn from_bundle(bundle: &'a MemoryIndexBundle) -> Self {
+        Self {
+            storage_schema: DERIVED_MEMORY_PHYSICAL_SCHEMA,
+            logical_schema: &bundle.schema,
+            corpus: &bundle.corpus,
+            profile: &bundle.profile,
+            documents: &bundle.documents,
+            lexical: &bundle.lexical,
+            vector: StoredVectorIndexRef {
+                schema: &bundle.vector.schema,
+                profile_id: &bundle.vector.profile_id,
+                dimension: bundle.vector.dimension,
+                embeddings: bundle
+                    .vector
+                    .embeddings
+                    .iter()
+                    .map(StoredEmbeddingMetadataRef::from)
+                    .collect(),
+                checksum: &bundle.vector.checksum,
+            },
+            manifest: &bundle.manifest,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -1582,6 +2101,9 @@ pub struct MemoryIndexStatus {
     pub dimension: usize,
     pub posture: String,
     pub ann_posture: AnnPosture,
+    pub physical_format: String,
+    pub storage_bytes: usize,
+    pub integrity_posture: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub integrity_error: Option<String>,
 }
@@ -1590,155 +2112,694 @@ fn storage_component(value: &str) -> String {
     stable_digest(value)
 }
 
+#[cfg(test)]
 fn case_directory(root: &Path, tenant_id: &str, case_id: &str) -> PathBuf {
     root.join(DERIVED_MEMORY_STORE_VERSION)
         .join(storage_component(tenant_id))
         .join(storage_component(case_id))
 }
 
+#[cfg(test)]
 fn profile_directory(root: &Path, tenant_id: &str, case_id: &str, profile_id: &str) -> PathBuf {
     case_directory(root, tenant_id, case_id)
         .join("profiles")
         .join(storage_component(profile_id))
 }
 
+#[cfg(test)]
 fn bundle_path(profile_directory: &Path, index_id: &str) -> PathBuf {
     profile_directory
         .join("builds")
         .join(storage_component(index_id))
-        .join("bundle.json")
-}
-
-#[cfg(unix)]
-fn set_directory_permissions(path: &Path) -> Result<(), String> {
-    fs::set_permissions(path, fs::Permissions::from_mode(0o700))
-        .map_err(|error| format!("memory_index_directory_permissions_failed: {error}"))
-}
-
-#[cfg(not(unix))]
-fn set_directory_permissions(_path: &Path) -> Result<(), String> {
-    Ok(())
-}
-
-fn ensure_secure_directory(path: &Path) -> Result<(), String> {
-    let mut current = PathBuf::new();
-    for component in path.components() {
-        current.push(component.as_os_str());
-        match fs::symlink_metadata(&current) {
-            Ok(metadata) => {
-                if metadata.file_type().is_symlink() || !metadata.is_dir() {
-                    return Err("memory_index_directory_not_secure".to_string());
-                }
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                match fs::create_dir(&current) {
-                    Ok(()) => {}
-                    Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
-                        let metadata = fs::symlink_metadata(&current).map_err(|error| {
-                            format!("memory_index_directory_metadata_failed: {error}")
-                        })?;
-                        if metadata.file_type().is_symlink() || !metadata.is_dir() {
-                            return Err("memory_index_directory_not_secure".to_string());
-                        }
-                    }
-                    Err(error) => {
-                        return Err(format!("memory_index_directory_create_failed: {error}"));
-                    }
-                }
-                set_directory_permissions(&current)?;
-            }
-            Err(error) => {
-                return Err(format!("memory_index_directory_metadata_failed: {error}"));
-            }
-        }
-    }
-    set_directory_permissions(path)
-}
-
-fn validate_existing_secure_directory(path: &Path) -> Result<bool, String> {
-    let mut current = PathBuf::new();
-    for component in path.components() {
-        current.push(component.as_os_str());
-        match fs::symlink_metadata(&current) {
-            Ok(metadata) => {
-                if metadata.file_type().is_symlink() || !metadata.is_dir() {
-                    return Err("memory_index_directory_not_secure".to_string());
-                }
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
-            Err(error) => {
-                return Err(format!("memory_index_directory_metadata_failed: {error}"));
-            }
-        }
-    }
-    Ok(true)
-}
-
-fn open_private_new(path: &Path) -> Result<File, String> {
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    options.mode(0o600);
-    options
-        .open(path)
-        .map_err(|error| format!("memory_index_file_create_failed: {error}"))
-}
-
-fn read_json<T: for<'de> Deserialize<'de>>(path: &Path, label: &str) -> Result<T, String> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| format!("{label}_parent_missing"))?;
-    if !validate_existing_secure_directory(parent)? {
-        return Err(format!("{label}_parent_missing"));
-    }
-    let metadata =
-        fs::symlink_metadata(path).map_err(|error| format!("{label}_metadata_failed: {error}"))?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err(format!("{label}_not_regular_file"));
-    }
-    let mut file = File::open(path).map_err(|error| format!("{label}_open_failed: {error}"))?;
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)
-        .map_err(|error| format!("{label}_read_failed: {error}"))?;
-    serde_json::from_slice(&bytes).map_err(|error| format!("{label}_decode_failed: {error}"))
-}
-
-fn write_json_file<T: Serialize>(path: &Path, value: &T) -> Result<(), String> {
-    let bytes = serde_json::to_vec(value)
-        .map_err(|error| format!("memory_index_json_encode_failed: {error}"))?;
-    let mut file = open_private_new(path)?;
-    file.write_all(&bytes)
-        .map_err(|error| format!("memory_index_file_write_failed: {error}"))?;
-    file.sync_all()
-        .map_err(|error| format!("memory_index_file_sync_failed: {error}"))
+        .join("metadata.json")
 }
 
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
-fn atomic_write_json<T: Serialize>(directory: &Path, name: &str, value: &T) -> Result<(), String> {
-    ensure_secure_directory(directory)?;
+#[cfg(target_os = "linux")]
+#[repr(C)]
+struct DerivedOpenHow {
+    flags: u64,
+    mode: u64,
+    resolve: u64,
+}
+
+#[cfg(target_os = "linux")]
+const DERIVED_RESOLVE_NO_MAGICLINKS: u64 = 0x02;
+#[cfg(target_os = "linux")]
+const DERIVED_RESOLVE_NO_SYMLINKS: u64 = 0x04;
+#[cfg(target_os = "linux")]
+const DERIVED_RESOLVE_BENEATH: u64 = 0x08;
+
+#[cfg(target_os = "linux")]
+fn derived_cstring(value: &[u8], label: &str) -> Result<CString, String> {
+    CString::new(value).map_err(|_| format!("{label}_contains_nul"))
+}
+
+#[cfg(target_os = "linux")]
+fn openat2_file(
+    directory_fd: i32,
+    path: &Path,
+    flags: i32,
+    mode: u32,
+    beneath: bool,
+) -> std::io::Result<File> {
+    let path = CString::new(path.as_os_str().as_bytes())
+        .map_err(|_| std::io::Error::from_raw_os_error(libc::EINVAL))?;
+    let mut resolve = DERIVED_RESOLVE_NO_MAGICLINKS | DERIVED_RESOLVE_NO_SYMLINKS;
+    if beneath {
+        resolve |= DERIVED_RESOLVE_BENEATH;
+    }
+    let how = DerivedOpenHow {
+        flags: flags as u64,
+        mode: u64::from(mode),
+        resolve,
+    };
+    let fd = unsafe {
+        libc::syscall(
+            libc::SYS_openat2,
+            directory_fd,
+            path.as_ptr(),
+            &how as *const DerivedOpenHow,
+            std::mem::size_of::<DerivedOpenHow>(),
+        ) as i32
+    };
+    if fd < 0 {
+        Err(std::io::Error::last_os_error())
+    } else {
+        Ok(unsafe { File::from_raw_fd(fd) })
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn validate_owned_directory(directory: &File) -> Result<(), String> {
+    let metadata = directory
+        .metadata()
+        .map_err(|error| format!("memory_index_directory_fstat_failed: {error}"))?;
+    if !metadata.is_dir()
+        || metadata.uid() != unsafe { libc::geteuid() }
+        || metadata.mode() & 0o022 != 0
+    {
+        return Err("memory_index_directory_not_secure".to_string());
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn validate_owned_regular(file: &File, label: &str) -> Result<u64, String> {
+    let metadata = file
+        .metadata()
+        .map_err(|error| format!("{label}_fstat_failed: {error}"))?;
+    if !metadata.is_file()
+        || metadata.uid() != unsafe { libc::geteuid() }
+        || metadata.mode() & 0o022 != 0
+        || metadata.nlink() != 1
+    {
+        return Err(format!("{label}_not_private_regular_file"));
+    }
+    Ok(metadata.len())
+}
+
+#[cfg(target_os = "linux")]
+fn open_derived_root(root: &Path, create: bool) -> Result<Option<File>, String> {
+    if !root.is_absolute() {
+        return Err("memory_index_root_must_be_absolute".to_string());
+    }
+    let parent = root
+        .parent()
+        .ok_or_else(|| "memory_index_root_parent_missing".to_string())?;
+    let name = root
+        .file_name()
+        .ok_or_else(|| "memory_index_root_name_missing".to_string())?;
+    let parent = match openat2_file(
+        libc::AT_FDCWD,
+        parent,
+        libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+        0,
+        false,
+    ) {
+        Ok(value) => value,
+        Err(error) if error.raw_os_error() == Some(libc::ENOENT) && !create => return Ok(None),
+        Err(error) => {
+            return Err(format!(
+                "memory_index_root_parent_resolution_rejected: {error}"
+            ))
+        }
+    };
+    let name_c = derived_cstring(name.as_bytes(), "memory_index_root_name")?;
+    if create {
+        let result = unsafe { libc::mkdirat(parent.as_raw_fd(), name_c.as_ptr(), 0o700) };
+        if result != 0 {
+            let error = std::io::Error::last_os_error();
+            if error.raw_os_error() != Some(libc::EEXIST) {
+                return Err(format!("memory_index_root_create_failed: {error}"));
+            }
+        }
+    }
+    let directory = match openat2_file(
+        parent.as_raw_fd(),
+        Path::new(name),
+        libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+        0,
+        true,
+    ) {
+        Ok(value) => value,
+        Err(error) if error.raw_os_error() == Some(libc::ENOENT) && !create => return Ok(None),
+        Err(error) => return Err(format!("memory_index_root_open_failed: {error}")),
+    };
+    validate_owned_directory(&directory)?;
+    Ok(Some(directory))
+}
+
+#[cfg(target_os = "linux")]
+fn open_child_directory(parent: &File, name: &str, create: bool) -> Result<Option<File>, String> {
+    if name.is_empty() || name == "." || name == ".." || name.contains('/') {
+        return Err("memory_index_directory_component_invalid".to_string());
+    }
+    let name_c = derived_cstring(name.as_bytes(), "memory_index_directory_component")?;
+    if create {
+        let result = unsafe { libc::mkdirat(parent.as_raw_fd(), name_c.as_ptr(), 0o700) };
+        if result != 0 {
+            let error = std::io::Error::last_os_error();
+            if error.raw_os_error() != Some(libc::EEXIST) {
+                return Err(format!("memory_index_directory_create_failed: {error}"));
+            }
+        }
+    }
+    let directory = match openat2_file(
+        parent.as_raw_fd(),
+        Path::new(name),
+        libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+        0,
+        true,
+    ) {
+        Ok(value) => value,
+        Err(error) if error.raw_os_error() == Some(libc::ENOENT) && !create => return Ok(None),
+        Err(error)
+            if matches!(
+                error.raw_os_error(),
+                Some(libc::ELOOP) | Some(libc::EXDEV) | Some(libc::ENOTDIR)
+            ) =>
+        {
+            return Err("memory_index_directory_not_secure".to_string())
+        }
+        Err(error) => return Err(format!("memory_index_directory_open_failed: {error}")),
+    };
+    validate_owned_directory(&directory)?;
+    Ok(Some(directory))
+}
+
+#[cfg(target_os = "linux")]
+fn open_profile_directory(
+    root: &Path,
+    tenant_id: &str,
+    case_id: &str,
+    profile_id: &str,
+    create: bool,
+) -> Result<Option<File>, String> {
+    let Some(mut directory) = open_derived_root(root, create)? else {
+        return Ok(None);
+    };
+    for component in [
+        DERIVED_MEMORY_STORE_VERSION.to_string(),
+        storage_component(tenant_id),
+        storage_component(case_id),
+        "profiles".to_string(),
+        storage_component(profile_id),
+    ] {
+        let Some(next) = open_child_directory(&directory, &component, create)? else {
+            return Ok(None);
+        };
+        directory = next;
+    }
+    Ok(Some(directory))
+}
+
+#[cfg(target_os = "linux")]
+fn open_profiles_directory(
+    root: &Path,
+    tenant_id: &str,
+    case_id: &str,
+) -> Result<Option<File>, String> {
+    let Some(mut directory) = open_derived_root(root, false)? else {
+        return Ok(None);
+    };
+    for component in [
+        DERIVED_MEMORY_STORE_VERSION.to_string(),
+        storage_component(tenant_id),
+        storage_component(case_id),
+        "profiles".to_string(),
+    ] {
+        let Some(next) = open_child_directory(&directory, &component, false)? else {
+            return Ok(None);
+        };
+        directory = next;
+    }
+    Ok(Some(directory))
+}
+
+#[cfg(target_os = "linux")]
+fn open_regular_at(directory: &File, name: &str, flags: i32, mode: u32) -> Result<File, String> {
+    let file = openat2_file(
+        directory.as_raw_fd(),
+        Path::new(name),
+        flags | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+        mode,
+        true,
+    )
+    .map_err(|error| format!("memory_index_file_open_failed:{name}:{error}"))?;
+    validate_owned_regular(&file, "memory_index_file")?;
+    Ok(file)
+}
+
+#[cfg(target_os = "linux")]
+fn exists_at(directory: &File, name: &str) -> Result<bool, String> {
+    let name = derived_cstring(name.as_bytes(), "memory_index_entry_name")?;
+    let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
+    let result = unsafe {
+        libc::fstatat(
+            directory.as_raw_fd(),
+            name.as_ptr(),
+            stat.as_mut_ptr(),
+            libc::AT_SYMLINK_NOFOLLOW,
+        )
+    };
+    if result == 0 {
+        Ok(true)
+    } else {
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() == Some(libc::ENOENT) {
+            Ok(false)
+        } else {
+            Err(format!("memory_index_entry_stat_failed: {error}"))
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn entry_mode_at(directory: &File, name: &str) -> Result<Option<libc::mode_t>, String> {
+    let name = derived_cstring(name.as_bytes(), "memory_index_entry_name")?;
+    let mut stat = std::mem::MaybeUninit::<libc::stat>::uninit();
+    let result = unsafe {
+        libc::fstatat(
+            directory.as_raw_fd(),
+            name.as_ptr(),
+            stat.as_mut_ptr(),
+            libc::AT_SYMLINK_NOFOLLOW,
+        )
+    };
+    if result == 0 {
+        Ok(Some(unsafe { stat.assume_init() }.st_mode))
+    } else {
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() == Some(libc::ENOENT) {
+            Ok(None)
+        } else {
+            Err(format!("memory_index_entry_stat_failed: {error}"))
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn list_directory_names(directory: &File) -> Result<Vec<String>, String> {
+    let duplicate = unsafe { libc::dup(directory.as_raw_fd()) };
+    if duplicate < 0 {
+        return Err(format!(
+            "memory_index_directory_dup_failed: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    let stream = unsafe { libc::fdopendir(duplicate) };
+    if stream.is_null() {
+        unsafe { libc::close(duplicate) };
+        return Err(format!(
+            "memory_index_directory_stream_failed: {}",
+            std::io::Error::last_os_error()
+        ));
+    }
+    let mut names = Vec::new();
+    loop {
+        let entry = unsafe { libc::readdir(stream) };
+        if entry.is_null() {
+            break;
+        }
+        let name = unsafe { CStr::from_ptr((*entry).d_name.as_ptr()) }
+            .to_str()
+            .map_err(|_| "memory_index_directory_entry_non_utf8".to_string())?;
+        if name != "." && name != ".." {
+            names.push(name.to_string());
+        }
+    }
+    unsafe { libc::closedir(stream) };
+    names.sort();
+    Ok(names)
+}
+
+#[cfg(target_os = "linux")]
+fn read_bounded_at(
+    directory: &File,
+    name: &str,
+    maximum: usize,
+    label: &str,
+) -> Result<Vec<u8>, String> {
+    let file = open_regular_at(directory, name, libc::O_RDONLY, 0)
+        .map_err(|error| format!("{label}_open_failed:{error}"))?;
+    let size = validate_owned_regular(&file, label)?;
+    let size = usize::try_from(size).map_err(|_| format!("{label}_size_overflow"))?;
+    if size > maximum {
+        return Err(format!("{label}_size_bound_exceeded"));
+    }
+    let mut bytes = Vec::with_capacity(size);
+    file.take((maximum as u64).saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("{label}_read_failed:{error}"))?;
+    if bytes.len() != size || bytes.len() > maximum {
+        return Err(format!("{label}_size_changed_or_exceeded"));
+    }
+    Ok(bytes)
+}
+
+#[cfg(target_os = "linux")]
+fn write_new_at(directory: &File, name: &str, bytes: &[u8], maximum: usize) -> Result<(), String> {
+    if bytes.len() > maximum {
+        return Err("memory_index_component_size_bound_exceeded".to_string());
+    }
+    let mut file = open_regular_at(
+        directory,
+        name,
+        libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
+        0o600,
+    )?;
+    file.write_all(bytes)
+        .and_then(|()| file.sync_all())
+        .map_err(|error| format!("memory_index_component_write_sync_failed: {error}"))
+}
+
+#[cfg(target_os = "linux")]
+fn write_new_without_sync_at(
+    directory: &File,
+    name: &str,
+    bytes: &[u8],
+    maximum: usize,
+) -> Result<(), String> {
+    if bytes.len() > maximum {
+        return Err("memory_index_component_size_bound_exceeded".to_string());
+    }
+    let mut file = open_regular_at(
+        directory,
+        name,
+        libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
+        0o600,
+    )?;
+    file.write_all(bytes)
+        .map_err(|error| format!("memory_index_component_write_failed: {error}"))
+}
+
+#[cfg(target_os = "linux")]
+fn sync_directory(directory: &File, label: &str) -> Result<(), String> {
+    let result = unsafe { libc::fsync(directory.as_raw_fd()) };
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(format!(
+            "{label}_sync_failed: {}",
+            std::io::Error::last_os_error()
+        ))
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn rename_at(directory: &File, source: &str, target: &str) -> Result<(), String> {
+    let source = derived_cstring(source.as_bytes(), "memory_index_rename_source")?;
+    let target = derived_cstring(target.as_bytes(), "memory_index_rename_target")?;
+    let result = unsafe {
+        libc::renameat(
+            directory.as_raw_fd(),
+            source.as_ptr(),
+            directory.as_raw_fd(),
+            target.as_ptr(),
+        )
+    };
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(format!(
+            "memory_index_rename_failed: {}",
+            std::io::Error::last_os_error()
+        ))
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn unlink_at(directory: &File, name: &str, flags: i32) -> Result<bool, String> {
+    let name = derived_cstring(name.as_bytes(), "memory_index_unlink_name")?;
+    let result = unsafe { libc::unlinkat(directory.as_raw_fd(), name.as_ptr(), flags) };
+    if result == 0 {
+        Ok(true)
+    } else {
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() == Some(libc::ENOENT) {
+            Ok(false)
+        } else {
+            Err(format!("memory_index_unlink_failed: {error}"))
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn remove_tree_at(parent: &File, name: &str) -> Result<bool, String> {
+    if !exists_at(parent, name)? {
+        return Ok(false);
+    }
+    match open_child_directory(parent, name, false) {
+        Ok(Some(directory)) => {
+            let identity = directory
+                .metadata()
+                .map_err(|error| format!("memory_index_remove_fstat_failed:{error}"))?;
+            for child in list_directory_names(&directory)? {
+                let mode = entry_mode_at(&directory, &child)?
+                    .ok_or_else(|| "memory_index_remove_child_missing".to_string())?;
+                if mode & libc::S_IFMT == libc::S_IFDIR {
+                    remove_tree_at(&directory, &child)?;
+                } else {
+                    unlink_at(&directory, &child, 0)?;
+                }
+            }
+            let name_c = derived_cstring(name.as_bytes(), "memory_index_remove_name")?;
+            let mut current = std::mem::MaybeUninit::<libc::stat>::uninit();
+            let result = unsafe {
+                libc::fstatat(
+                    parent.as_raw_fd(),
+                    name_c.as_ptr(),
+                    current.as_mut_ptr(),
+                    libc::AT_SYMLINK_NOFOLLOW,
+                )
+            };
+            if result != 0 {
+                return Err("memory_index_remove_identity_missing".to_string());
+            }
+            let current = unsafe { current.assume_init() };
+            if current.st_dev != identity.dev() || current.st_ino != identity.ino() {
+                return Err("memory_index_remove_identity_changed".to_string());
+            }
+            unlink_at(parent, name, libc::AT_REMOVEDIR)
+        }
+        Ok(None) => unlink_at(parent, name, 0),
+        Err(error) if error.contains("Not a directory") => unlink_at(parent, name, 0),
+        Err(error) => Err(error),
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn atomic_write_at(
+    directory: &File,
+    name: &str,
+    bytes: &[u8],
+    maximum: usize,
+) -> Result<(), String> {
     let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-    let temporary = directory.join(format!(".{name}.tmp.{}.{}", std::process::id(), sequence));
-    let target = directory.join(name);
-    write_json_file(&temporary, value)?;
-    fs::rename(&temporary, &target)
-        .map_err(|error| format!("memory_index_atomic_publish_failed: {error}"))?;
-    File::open(directory)
-        .and_then(|file| file.sync_all())
-        .map_err(|error| format!("memory_index_directory_sync_failed: {error}"))
+    let temporary = format!(".{name}.tmp.{}.{}", std::process::id(), sequence);
+    write_new_at(directory, &temporary, bytes, maximum)?;
+    if let Err(error) = rename_at(directory, &temporary, name) {
+        let _ = unlink_at(directory, &temporary, 0);
+        return Err(error);
+    }
+    sync_directory(directory, "memory_index_atomic_directory")
+}
+
+#[cfg(target_os = "linux")]
+fn json_bytes<T: Serialize>(value: &T, maximum: usize, label: &str) -> Result<Vec<u8>, String> {
+    let bytes =
+        serde_json::to_vec(value).map_err(|error| format!("{label}_encode_failed:{error}"))?;
+    if bytes.len() > maximum {
+        return Err(format!("{label}_size_bound_exceeded"));
+    }
+    Ok(bytes)
+}
+
+#[cfg(target_os = "linux")]
+fn parse_json<T: for<'de> Deserialize<'de>>(bytes: &[u8], label: &str) -> Result<T, String> {
+    serde_json::from_slice(bytes).map_err(|error| format!("{label}_decode_failed:{error}"))
+}
+
+#[cfg(target_os = "linux")]
+type PhysicalComponentBytes = (Vec<u8>, Vec<u8>, Vec<u8>);
+
+#[cfg(target_os = "linux")]
+fn physical_components(bundle: &MemoryIndexBundle) -> Result<PhysicalComponentBytes, String> {
+    bundle.validate_deep()?;
+    validate_memory_index_build_budget_documents(&bundle.documents, &bundle.profile)?;
+    let metadata = json_bytes(
+        &StoredIndexMetadataRef::from_bundle(bundle),
+        MAX_DERIVED_METADATA_BYTES,
+        "memory_index_metadata",
+    )?;
+    let vector_elements = bundle
+        .vector
+        .embeddings
+        .len()
+        .checked_mul(bundle.vector.dimension)
+        .ok_or_else(|| "memory_index_vector_element_budget_overflow".to_string())?;
+    if vector_elements > MAX_VECTOR_ELEMENTS {
+        return Err("memory_index_vector_element_budget_exceeded".to_string());
+    }
+    let vector_capacity = vector_elements
+        .checked_mul(std::mem::size_of::<f32>())
+        .ok_or_else(|| "memory_index_vector_byte_budget_overflow".to_string())?;
+    let mut vectors = Vec::with_capacity(vector_capacity);
+    for embedding in &bundle.vector.embeddings {
+        for value in &embedding.values {
+            if !value.is_finite() {
+                return Err("memory_index_vector_binary_non_finite".to_string());
+            }
+            vectors.extend_from_slice(&value.to_le_bytes());
+        }
+    }
+    if vectors.len() != vector_capacity || vectors.len() > MAX_VECTOR_BYTES {
+        return Err("memory_index_vector_binary_length_mismatch".to_string());
+    }
+    let total = metadata
+        .len()
+        .checked_add(vectors.len())
+        .and_then(|value| value.checked_add(MAX_PHYSICAL_MANIFEST_BYTES))
+        .ok_or_else(|| "memory_index_total_budget_overflow".to_string())?;
+    if total > MAX_DERIVED_TOTAL_BYTES {
+        return Err("memory_index_serialized_budget_exceeded".to_string());
+    }
+    let seal = PhysicalIndexSeal {
+        schema: DERIVED_MEMORY_PHYSICAL_SCHEMA.to_string(),
+        index_id: bundle.manifest.index_id.clone(),
+        content_checksum: bundle.manifest.content_checksum.clone(),
+        item_count: bundle.documents.len(),
+        dimension: bundle.vector.dimension,
+        vector_elements,
+        components: vec![
+            PhysicalComponentSeal {
+                name: "metadata.json".to_string(),
+                size_bytes: metadata.len(),
+                checksum: digest_bytes(&metadata),
+            },
+            PhysicalComponentSeal {
+                name: "vectors.f32le".to_string(),
+                size_bytes: vectors.len(),
+                checksum: digest_bytes(&vectors),
+            },
+        ],
+    };
+    let seal = json_bytes(
+        &seal,
+        MAX_PHYSICAL_MANIFEST_BYTES,
+        "memory_index_physical_manifest",
+    )?;
+    Ok((metadata, vectors, seal))
+}
+
+#[cfg(target_os = "linux")]
+fn read_bundle_from_build(build: &File) -> Result<(MemoryIndexBundle, usize), String> {
+    let seal_bytes = read_bounded_at(
+        build,
+        "seal.json",
+        MAX_PHYSICAL_MANIFEST_BYTES,
+        "memory_index_physical_manifest",
+    )?;
+    let seal: PhysicalIndexSeal = parse_json(&seal_bytes, "memory_index_physical_manifest")?;
+    if seal.schema != DERIVED_MEMORY_PHYSICAL_SCHEMA
+        || seal.components.len() != 2
+        || seal.components[0].name != "metadata.json"
+        || seal.components[1].name != "vectors.f32le"
+        || seal.item_count > MAX_CORPUS_DOCUMENTS
+        || seal.dimension == 0
+        || seal.dimension > MAX_VECTOR_DIMENSION
+        || seal.vector_elements > MAX_VECTOR_ELEMENTS
+    {
+        return Err("memory_index_physical_manifest_invalid".to_string());
+    }
+    let expected_elements = seal
+        .item_count
+        .checked_mul(seal.dimension)
+        .ok_or_else(|| "memory_index_vector_element_budget_overflow".to_string())?;
+    let expected_vector_bytes = expected_elements
+        .checked_mul(std::mem::size_of::<f32>())
+        .ok_or_else(|| "memory_index_vector_byte_budget_overflow".to_string())?;
+    if seal.vector_elements != expected_elements
+        || seal.components[0].size_bytes > MAX_DERIVED_METADATA_BYTES
+        || seal.components[1].size_bytes != expected_vector_bytes
+        || expected_vector_bytes > MAX_VECTOR_BYTES
+    {
+        return Err("memory_index_physical_size_contract_mismatch".to_string());
+    }
+    let total = seal_bytes
+        .len()
+        .checked_add(seal.components[0].size_bytes)
+        .and_then(|value| value.checked_add(seal.components[1].size_bytes))
+        .ok_or_else(|| "memory_index_total_budget_overflow".to_string())?;
+    if total > MAX_DERIVED_TOTAL_BYTES {
+        return Err("memory_index_physical_total_size_exceeded".to_string());
+    }
+    let metadata = read_bounded_at(
+        build,
+        "metadata.json",
+        seal.components[0].size_bytes,
+        "memory_index_metadata",
+    )?;
+    let vectors = read_bounded_at(
+        build,
+        "vectors.f32le",
+        seal.components[1].size_bytes,
+        "memory_index_vectors",
+    )?;
+    if metadata.len() != seal.components[0].size_bytes
+        || vectors.len() != seal.components[1].size_bytes
+        || digest_bytes(&metadata) != seal.components[0].checksum
+        || digest_bytes(&vectors) != seal.components[1].checksum
+    {
+        return Err("memory_index_physical_component_integrity_mismatch".to_string());
+    }
+    let stored: StoredIndexMetadata = parse_json(&metadata, "memory_index_metadata")?;
+    let bundle = stored.into_bundle(&vectors)?;
+    if bundle.manifest.index_id != seal.index_id
+        || bundle.manifest.content_checksum != seal.content_checksum
+        || bundle.documents.len() != seal.item_count
+        || bundle.profile.vector_dimension != seal.dimension
+    {
+        return Err("memory_index_physical_logical_identity_mismatch".to_string());
+    }
+    Ok((bundle, total))
 }
 
 pub struct MemoryIndexBuildLock {
+    #[cfg(target_os = "linux")]
     file: File,
-    profile_directory: PathBuf,
+    #[cfg(target_os = "linux")]
+    profile: File,
     tenant_id: String,
     case_id: String,
     profile_id: String,
 }
 
-#[cfg(unix)]
-fn lock_file(file: &File) -> Result<(), String> {
-    let result = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
+#[cfg(target_os = "linux")]
+fn lock_file(file: &File, mode: i32) -> Result<(), String> {
+    let result = unsafe { libc::flock(file.as_raw_fd(), mode) };
     if result == 0 {
         Ok(())
     } else {
@@ -1749,25 +2810,58 @@ fn lock_file(file: &File) -> Result<(), String> {
     }
 }
 
-#[cfg(not(unix))]
-fn lock_file(_file: &File) -> Result<(), String> {
-    Err("memory_index_lock_unsupported".to_string())
-}
-
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 fn unlock_file(file: &File) {
     unsafe {
         libc::flock(file.as_raw_fd(), libc::LOCK_UN);
     }
 }
 
-#[cfg(not(unix))]
-fn unlock_file(_file: &File) {}
-
 impl Drop for MemoryIndexBuildLock {
+    fn drop(&mut self) {
+        #[cfg(target_os = "linux")]
+        unlock_file(&self.file);
+    }
+}
+
+#[cfg(target_os = "linux")]
+struct MemoryIndexReadLock {
+    file: File,
+    profile: File,
+}
+
+#[cfg(target_os = "linux")]
+impl Drop for MemoryIndexReadLock {
     fn drop(&mut self) {
         unlock_file(&self.file);
     }
+}
+
+#[cfg(target_os = "linux")]
+fn acquire_read_lock(profile: File) -> Result<MemoryIndexReadLock, String> {
+    let file = open_regular_at(&profile, "build.lock", libc::O_RDONLY, 0)
+        .map_err(|_| "memory_index_lock_missing_or_invalid".to_string())?;
+    lock_file(&file, libc::LOCK_SH)?;
+    Ok(MemoryIndexReadLock { file, profile })
+}
+
+#[cfg(target_os = "linux")]
+fn cleanup_abandoned_builds(profile: &File) -> Result<(), String> {
+    let Some(builds) = open_child_directory(profile, "builds", false)? else {
+        return Ok(());
+    };
+    for name in list_directory_names(&builds)? {
+        if name.starts_with(".build.tmp.") {
+            remove_tree_at(&builds, &name)?;
+        }
+    }
+    sync_directory(&builds, "memory_index_abandoned_build_cleanup")?;
+    for name in list_directory_names(profile)? {
+        if name.starts_with(".current.json.tmp.") || name.starts_with(".last-retrieval.json.tmp.") {
+            unlink_at(profile, &name, 0)?;
+        }
+    }
+    sync_directory(profile, "memory_index_abandoned_pointer_cleanup")
 }
 
 pub fn acquire_memory_index_build_lock(
@@ -1783,20 +2877,25 @@ pub fn acquire_memory_index_build_lock(
     ] {
         require_nonempty(label, value)?;
     }
-    let profile_directory = profile_directory(root, tenant_id, case_id, profile_id);
-    ensure_secure_directory(&profile_directory)?;
-    let lock_path = profile_directory.join("build.lock");
-    let mut options = OpenOptions::new();
-    options.read(true).write(true).create(true);
-    #[cfg(unix)]
-    options.mode(0o600);
-    let file = options
-        .open(lock_path)
-        .map_err(|error| format!("memory_index_lock_open_failed: {error}"))?;
-    lock_file(&file)?;
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (root, tenant_id, case_id, profile_id);
+        return Err("memory_index_mutation_platform_unsupported".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    let profile = open_profile_directory(root, tenant_id, case_id, profile_id, true)?
+        .ok_or_else(|| "memory_index_profile_create_failed".to_string())?;
+    #[cfg(target_os = "linux")]
+    let file = open_regular_at(&profile, "build.lock", libc::O_RDWR | libc::O_CREAT, 0o600)?;
+    #[cfg(target_os = "linux")]
+    lock_file(&file, libc::LOCK_EX)?;
+    #[cfg(target_os = "linux")]
+    cleanup_abandoned_builds(&profile)?;
     Ok(MemoryIndexBuildLock {
+        #[cfg(target_os = "linux")]
         file,
-        profile_directory,
+        #[cfg(target_os = "linux")]
+        profile,
         tenant_id: tenant_id.to_string(),
         case_id: case_id.to_string(),
         profile_id: profile_id.to_string(),
@@ -1808,64 +2907,233 @@ pub fn publish_memory_index_locked(
     bundle: &MemoryIndexBundle,
     fail_after_temp: bool,
 ) -> Result<(), String> {
-    bundle.validate()?;
+    publish_memory_index_locked_with_failpoint(
+        lock,
+        bundle,
+        fail_after_temp.then_some(MemoryIndexPublicationFailpoint::AfterCompleteTempBeforePublish),
+    )
+}
+
+pub fn publish_memory_index_locked_with_failpoint(
+    lock: &MemoryIndexBuildLock,
+    bundle: &MemoryIndexBundle,
+    failpoint: Option<MemoryIndexPublicationFailpoint>,
+) -> Result<(), String> {
+    bundle.validate_deep()?;
     if bundle.profile.tenant_id != lock.tenant_id
         || bundle.corpus.case_id != lock.case_id
         || bundle.profile.profile_id != lock.profile_id
     {
         return Err("memory_index_publication_scope_mismatch".to_string());
     }
-    let builds = lock.profile_directory.join("builds");
-    ensure_secure_directory(&builds)?;
-    let target_directory = builds.join(storage_component(&bundle.manifest.index_id));
-    if target_directory.exists() {
-        let existing: MemoryIndexBundle = read_json(
-            &target_directory.join("bundle.json"),
-            "memory_index_existing_bundle",
-        )?;
-        existing.validate()?;
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (lock, bundle, failpoint);
+        return Err("memory_index_mutation_platform_unsupported".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    let builds = open_child_directory(&lock.profile, "builds", true)?
+        .ok_or_else(|| "memory_index_builds_create_failed".to_string())?;
+    #[cfg(target_os = "linux")]
+    let target_name = storage_component(&bundle.manifest.index_id);
+    #[cfg(target_os = "linux")]
+    if let Some(target) = open_child_directory(&builds, &target_name, false)? {
+        let (existing, _) = read_bundle_from_build(&target)?;
+        existing.validate_loaded()?;
         if existing != *bundle {
             return Err("memory_index_content_identity_collision".to_string());
         }
     } else {
+        #[cfg(target_os = "linux")]
         let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-        let temporary = builds.join(format!(".build.tmp.{}.{}", std::process::id(), sequence));
-        ensure_secure_directory(&temporary)?;
-        if let Err(error) = write_json_file(&temporary.join("bundle.json"), bundle) {
-            let _ = fs::remove_dir_all(&temporary);
+        #[cfg(target_os = "linux")]
+        let temporary_name = format!(".build.tmp.{}.{}", std::process::id(), sequence);
+        #[cfg(target_os = "linux")]
+        let temporary = open_child_directory(&builds, &temporary_name, true)?
+            .ok_or_else(|| "memory_index_temp_build_create_failed".to_string())?;
+        #[cfg(target_os = "linux")]
+        let (metadata, vectors, seal) = physical_components(bundle)?;
+        #[cfg(target_os = "linux")]
+        if failpoint == Some(MemoryIndexPublicationFailpoint::AfterComponentWriteBeforeFileSync) {
+            write_new_without_sync_at(
+                &temporary,
+                "metadata.json",
+                &metadata,
+                MAX_DERIVED_METADATA_BYTES,
+            )?;
+            return Err(
+                "memory_index_failpoint_after_component_write_before_file_sync".to_string(),
+            );
+        }
+        if let Err(error) = (|| {
+            write_new_at(
+                &temporary,
+                "metadata.json",
+                &metadata,
+                MAX_DERIVED_METADATA_BYTES,
+            )?;
+            write_new_at(&temporary, "vectors.f32le", &vectors, MAX_VECTOR_BYTES)?;
+            write_new_at(&temporary, "seal.json", &seal, MAX_PHYSICAL_MANIFEST_BYTES)?;
+            if failpoint
+                == Some(MemoryIndexPublicationFailpoint::AfterFileSyncBeforeBuildDirectorySync)
+            {
+                return Err(
+                    "memory_index_failpoint_after_file_sync_before_build_directory_sync"
+                        .to_string(),
+                );
+            }
+            sync_directory(&temporary, "memory_index_temp_build_directory")
+        })() {
+            if failpoint
+                != Some(MemoryIndexPublicationFailpoint::AfterFileSyncBeforeBuildDirectorySync)
+            {
+                let _ = remove_tree_at(&builds, &temporary_name);
+            }
             return Err(error);
         }
-        if fail_after_temp {
-            let _ = fs::remove_dir_all(&temporary);
+        if failpoint == Some(MemoryIndexPublicationFailpoint::AfterCompleteTempBeforePublish) {
+            #[cfg(target_os = "linux")]
+            let _ = remove_tree_at(&builds, &temporary_name);
             return Err("memory_index_failpoint_after_complete_temp".to_string());
         }
-        match fs::rename(&temporary, &target_directory) {
-            Ok(()) => {}
-            Err(_) if target_directory.exists() => {
-                let _ = fs::remove_dir_all(&temporary);
-                let existing: MemoryIndexBundle = read_json(
-                    &target_directory.join("bundle.json"),
-                    "memory_index_concurrent_bundle",
-                )?;
-                existing.validate()?;
-                if existing != *bundle {
-                    return Err("memory_index_concurrent_publication_conflict".to_string());
-                }
-            }
-            Err(error) => {
-                let _ = fs::remove_dir_all(&temporary);
-                return Err(format!("memory_index_build_publish_failed: {error}"));
-            }
+        #[cfg(target_os = "linux")]
+        if let Err(error) = rename_at(&builds, &temporary_name, &target_name) {
+            let _ = remove_tree_at(&builds, &temporary_name);
+            return Err(format!("memory_index_build_publish_failed:{error}"));
         }
+        if failpoint
+            == Some(MemoryIndexPublicationFailpoint::AfterBuildRenameBeforeBuildsParentSync)
+        {
+            return Err(
+                "memory_index_failpoint_after_build_rename_before_builds_parent_sync".to_string(),
+            );
+        }
+        #[cfg(target_os = "linux")]
+        sync_directory(&builds, "memory_index_builds_parent")?;
+    }
+    if failpoint == Some(MemoryIndexPublicationFailpoint::AfterBuildsSyncBeforePointerWrite) {
+        return Err("memory_index_failpoint_after_builds_sync_before_pointer_write".to_string());
     }
     let pointer = CurrentIndexPointer {
-        schema: "yai.memory_index_current.v1".to_string(),
+        schema: "yai.memory_index_current.v2".to_string(),
+        storage_format: DERIVED_MEMORY_PHYSICAL_SCHEMA.to_string(),
         case_id: bundle.corpus.case_id.clone(),
         profile_id: bundle.profile.profile_id.clone(),
         index_id: bundle.manifest.index_id.clone(),
         content_checksum: bundle.manifest.content_checksum.clone(),
     };
-    atomic_write_json(&lock.profile_directory, "current.json", &pointer)
+    #[cfg(target_os = "linux")]
+    {
+        let bytes = json_bytes(
+            &pointer,
+            MAX_CURRENT_POINTER_BYTES,
+            "memory_index_current_pointer",
+        )?;
+        let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let temporary = format!(".current.json.tmp.{}.{}", std::process::id(), sequence);
+        write_new_at(&lock.profile, &temporary, &bytes, MAX_CURRENT_POINTER_BYTES)?;
+        if failpoint == Some(MemoryIndexPublicationFailpoint::DuringPointerTempWrite) {
+            return Err("memory_index_failpoint_during_pointer_temp_write".to_string());
+        }
+        rename_at(&lock.profile, &temporary, "current.json")?;
+        if failpoint
+            == Some(MemoryIndexPublicationFailpoint::AfterPointerRenameBeforeProfileDirectorySync)
+        {
+            return Err(
+                "memory_index_failpoint_after_pointer_rename_before_profile_directory_sync"
+                    .to_string(),
+            );
+        }
+        sync_directory(&lock.profile, "memory_index_pointer_profile_directory")?;
+        gc_builds_locked(lock, &target_name)?;
+        sync_directory(&lock.profile, "memory_index_profile_directory")?;
+        if failpoint == Some(MemoryIndexPublicationFailpoint::AfterFinalSyncBeforeAcknowledgement) {
+            return Err(
+                "memory_index_failpoint_after_final_sync_before_acknowledgement".to_string(),
+            );
+        }
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn gc_builds_locked(lock: &MemoryIndexBuildLock, current: &str) -> Result<(), String> {
+    let Some(builds) = open_child_directory(&lock.profile, "builds", false)? else {
+        return Ok(());
+    };
+    let mut completed = list_directory_names(&builds)?
+        .into_iter()
+        .filter(|name| !name.starts_with('.'))
+        .collect::<Vec<_>>();
+    completed.sort();
+    let mut retained = BTreeSet::from([current.to_string()]);
+    for name in completed
+        .iter()
+        .rev()
+        .filter(|name| name.as_str() != current)
+        .take(MAX_RETAINED_BUILDS.saturating_sub(1))
+    {
+        retained.insert(name.clone());
+    }
+    for name in completed {
+        if !retained.contains(&name) {
+            remove_tree_at(&builds, &name)?;
+        }
+    }
+    sync_directory(&builds, "memory_index_gc_builds")
+}
+
+#[cfg(target_os = "linux")]
+fn load_from_locked_profile(
+    profile: &File,
+    tenant_id: &str,
+    case_id: &str,
+    profile_id: &str,
+) -> Result<Option<(MemoryIndexBundle, usize)>, String> {
+    if !exists_at(profile, "current.json")? {
+        return Ok(None);
+    }
+    let pointer_bytes = read_bounded_at(
+        profile,
+        "current.json",
+        MAX_CURRENT_POINTER_BYTES,
+        "memory_index_current_pointer",
+    )?;
+    let pointer: CurrentIndexPointer = parse_json(&pointer_bytes, "memory_index_current_pointer")?;
+    if pointer.schema != "yai.memory_index_current.v2"
+        || pointer.storage_format != DERIVED_MEMORY_PHYSICAL_SCHEMA
+        || pointer.case_id != case_id
+        || pointer.profile_id != profile_id
+    {
+        return Err("memory_index_current_pointer_integrity_mismatch".to_string());
+    }
+    let builds = open_child_directory(profile, "builds", false)?
+        .ok_or_else(|| "memory_index_builds_missing".to_string())?;
+    let build = open_child_directory(&builds, &storage_component(&pointer.index_id), false)?
+        .ok_or_else(|| "memory_index_current_build_missing".to_string())?;
+    let (bundle, bytes) = read_bundle_from_build(&build)?;
+    validate_pointer_bundle_scope(&pointer, &bundle, tenant_id, case_id)?;
+    Ok(Some((bundle, bytes.saturating_add(pointer_bytes.len()))))
+}
+
+pub fn load_current_memory_index_locked(
+    lock: &MemoryIndexBuildLock,
+) -> Result<Option<MemoryIndexBundle>, String> {
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = lock;
+        return Err("memory_index_read_platform_unsupported".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        load_from_locked_profile(
+            &lock.profile,
+            &lock.tenant_id,
+            &lock.case_id,
+            &lock.profile_id,
+        )
+        .map(|value| value.map(|(bundle, _)| bundle))
+    }
 }
 
 pub fn load_current_memory_index(
@@ -1874,35 +3142,24 @@ pub fn load_current_memory_index(
     case_id: &str,
     profile_id: &str,
 ) -> Result<Option<MemoryIndexBundle>, String> {
-    let directory = profile_directory(root, tenant_id, case_id, profile_id);
-    if !validate_existing_secure_directory(&directory)? {
-        return Ok(None);
-    }
-    let pointer_path = directory.join("current.json");
-    if !pointer_path.exists() {
-        return Ok(None);
-    }
-    let pointer: CurrentIndexPointer = read_json(&pointer_path, "memory_index_current_pointer")?;
-    if pointer.schema != "yai.memory_index_current.v1"
-        || pointer.case_id != case_id
-        || pointer.profile_id != profile_id
+    #[cfg(not(target_os = "linux"))]
     {
-        return Err("memory_index_current_pointer_integrity_mismatch".to_string());
+        let _ = (root, tenant_id, case_id, profile_id);
+        return Err("memory_index_read_platform_unsupported".to_string());
     }
-    let bundle: MemoryIndexBundle = read_json(
-        &bundle_path(&directory, &pointer.index_id),
-        "memory_index_bundle",
-    )?;
-    bundle.validate()?;
-    if bundle.manifest.index_id != pointer.index_id
-        || bundle.manifest.content_checksum != pointer.content_checksum
-        || bundle.corpus.case_id != case_id
-        || bundle.profile.profile_id != profile_id
-        || bundle.profile.tenant_id != tenant_id
+    #[cfg(target_os = "linux")]
     {
-        return Err("memory_index_pointer_bundle_mismatch".to_string());
+        let Some(profile) = open_profile_directory(root, tenant_id, case_id, profile_id, false)?
+        else {
+            return Ok(None);
+        };
+        if !exists_at(&profile, "current.json")? {
+            return Ok(None);
+        }
+        let read = acquire_read_lock(profile)?;
+        load_from_locked_profile(&read.profile, tenant_id, case_id, profile_id)
+            .map(|value| value.map(|(bundle, _)| bundle))
     }
-    Ok(Some(bundle))
 }
 
 fn validate_pointer_bundle_scope(
@@ -1911,7 +3168,8 @@ fn validate_pointer_bundle_scope(
     tenant_id: &str,
     case_id: &str,
 ) -> Result<(), String> {
-    if pointer.schema != "yai.memory_index_current.v1"
+    if pointer.schema != "yai.memory_index_current.v2"
+        || pointer.storage_format != DERIVED_MEMORY_PHYSICAL_SCHEMA
         || pointer.case_id != case_id
         || pointer.profile_id != bundle.profile.profile_id
         || pointer.index_id != bundle.manifest.index_id
@@ -1930,61 +3188,56 @@ pub fn list_memory_index_statuses(
     case_id: &str,
     current_generation: u64,
 ) -> Result<Vec<MemoryIndexStatus>, String> {
-    let profiles = case_directory(root, tenant_id, case_id).join("profiles");
-    if !validate_existing_secure_directory(&profiles)? {
-        return Ok(Vec::new());
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (root, tenant_id, case_id, current_generation);
+        return Err("memory_index_read_platform_unsupported".to_string());
     }
+    #[cfg(target_os = "linux")]
+    let Some(profiles) = open_profiles_directory(root, tenant_id, case_id)?
+    else {
+        return Ok(Vec::new());
+    };
     let mut statuses = Vec::new();
-    let mut entries = fs::read_dir(&profiles)
-        .map_err(|error| format!("memory_index_profiles_read_failed: {error}"))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("memory_index_profile_entry_failed: {error}"))?;
-    entries.sort_by_key(|entry| entry.file_name());
-    for entry in entries {
-        let file_type = entry
-            .file_type()
-            .map_err(|error| format!("memory_index_profile_type_failed: {error}"))?;
-        if file_type.is_symlink() || !file_type.is_dir() {
-            return Err("memory_index_profile_directory_not_secure".to_string());
-        }
-        let pointer_path = entry.path().join("current.json");
-        if !pointer_path.is_file() {
+    #[cfg(target_os = "linux")]
+    for profile_name in list_directory_names(&profiles)? {
+        let profile = open_child_directory(&profiles, &profile_name, false)?
+            .ok_or_else(|| "memory_index_profile_directory_not_secure".to_string())?;
+        if !exists_at(&profile, "current.json")? {
             continue;
         }
-        let pointer =
-            match read_json::<CurrentIndexPointer>(&pointer_path, "memory_index_current_pointer") {
-                Ok(pointer) => pointer,
-                Err(error) => {
-                    statuses.push(MemoryIndexStatus {
-                        case_id: case_id.to_string(),
-                        profile_id: format!("unreadable:{}", entry.file_name().to_string_lossy()),
-                        index_id: "unreadable".to_string(),
-                        corpus_manifest_id: "unreadable".to_string(),
-                        source_generation: 0,
-                        item_count: 0,
-                        dimension: 0,
-                        posture: "corrupt".to_string(),
-                        ann_posture: AnnPosture::DeferredExactScanWithinBound,
-                        integrity_error: Some(error),
-                    });
-                    continue;
-                }
-            };
-        let loaded = read_json::<MemoryIndexBundle>(
-            &bundle_path(&entry.path(), &pointer.index_id),
-            "memory_index_bundle",
-        )
-        .and_then(|bundle| {
-            bundle.validate()?;
-            validate_pointer_bundle_scope(&pointer, &bundle, tenant_id, case_id)?;
-            if entry.file_name().to_string_lossy() != storage_component(&bundle.profile.profile_id)
-            {
-                return Err("memory_index_profile_directory_mismatch".to_string());
+        let read = match acquire_read_lock(profile) {
+            Ok(read) => read,
+            Err(error) => {
+                statuses.push(corrupt_status(case_id, &profile_name, error));
+                continue;
             }
-            Ok(bundle)
-        });
+        };
+        let pointer = match read_bounded_at(
+            &read.profile,
+            "current.json",
+            MAX_CURRENT_POINTER_BYTES,
+            "memory_index_current_pointer",
+        )
+        .and_then(|bytes| parse_json::<CurrentIndexPointer>(&bytes, "memory_index_current_pointer"))
+        {
+            Ok(pointer) => pointer,
+            Err(error) => {
+                statuses.push(corrupt_status(case_id, &profile_name, error));
+                continue;
+            }
+        };
+        let loaded =
+            load_from_locked_profile(&read.profile, tenant_id, case_id, &pointer.profile_id)
+                .and_then(|value| value.ok_or_else(|| "memory_index_current_missing".to_string()))
+                .and_then(|(bundle, bytes)| {
+                    if profile_name != storage_component(&bundle.profile.profile_id) {
+                        return Err("memory_index_profile_directory_mismatch".to_string());
+                    }
+                    Ok((bundle, bytes))
+                });
         match loaded {
-            Ok(bundle) => statuses.push(MemoryIndexStatus {
+            Ok((bundle, bytes)) => statuses.push(MemoryIndexStatus {
                 case_id: case_id.to_string(),
                 profile_id: bundle.profile.profile_id.clone(),
                 index_id: bundle.manifest.index_id.clone(),
@@ -1998,24 +3251,34 @@ pub fn list_memory_index_statuses(
                     "stale".to_string()
                 },
                 ann_posture: bundle.manifest.ann_posture.clone(),
+                physical_format: DERIVED_MEMORY_PHYSICAL_SCHEMA.to_string(),
+                storage_bytes: bytes,
+                integrity_posture: "sealed_load_valid".to_string(),
                 integrity_error: None,
             }),
-            Err(error) => statuses.push(MemoryIndexStatus {
-                case_id: case_id.to_string(),
-                profile_id: pointer.profile_id,
-                index_id: pointer.index_id,
-                corpus_manifest_id: "unavailable".to_string(),
-                source_generation: 0,
-                item_count: 0,
-                dimension: 0,
-                posture: "corrupt".to_string(),
-                ann_posture: AnnPosture::DeferredExactScanWithinBound,
-                integrity_error: Some(error),
-            }),
+            Err(error) => statuses.push(corrupt_status(case_id, &pointer.profile_id, error)),
         }
     }
     statuses.sort_by(|left, right| left.profile_id.cmp(&right.profile_id));
     Ok(statuses)
+}
+
+fn corrupt_status(case_id: &str, profile_id: &str, error: String) -> MemoryIndexStatus {
+    MemoryIndexStatus {
+        case_id: case_id.to_string(),
+        profile_id: profile_id.to_string(),
+        index_id: "unavailable".to_string(),
+        corpus_manifest_id: "unavailable".to_string(),
+        source_generation: 0,
+        item_count: 0,
+        dimension: 0,
+        posture: "corrupt".to_string(),
+        ann_posture: AnnPosture::DeferredExactScanWithinBound,
+        physical_format: DERIVED_MEMORY_PHYSICAL_SCHEMA.to_string(),
+        storage_bytes: 0,
+        integrity_posture: "corrupt".to_string(),
+        integrity_error: Some(error),
+    }
 }
 
 pub fn find_current_memory_index(
@@ -2027,34 +3290,37 @@ pub fn find_current_memory_index(
     if let Some(profile_id) = profile_id {
         return load_current_memory_index(root, tenant_id, case_id, profile_id);
     }
-    let profiles = case_directory(root, tenant_id, case_id).join("profiles");
-    if !validate_existing_secure_directory(&profiles)? {
-        return Ok(None);
-    }
-    let mut found = Vec::new();
-    for entry in fs::read_dir(&profiles)
-        .map_err(|error| format!("memory_index_profiles_read_failed: {error}"))?
+    #[cfg(not(target_os = "linux"))]
     {
-        let entry = entry.map_err(|error| format!("memory_index_profile_entry_failed: {error}"))?;
-        let file_type = entry
-            .file_type()
-            .map_err(|error| format!("memory_index_profile_type_failed: {error}"))?;
-        if file_type.is_symlink() || !file_type.is_dir() {
-            return Err("memory_index_profile_directory_not_secure".to_string());
-        }
-        let pointer_path = entry.path().join("current.json");
-        if !pointer_path.is_file() {
+        let _ = (root, tenant_id, case_id);
+        return Err("memory_index_read_platform_unsupported".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    let Some(profiles) = open_profiles_directory(root, tenant_id, case_id)?
+    else {
+        return Ok(None);
+    };
+    let mut found = Vec::new();
+    #[cfg(target_os = "linux")]
+    for profile_name in list_directory_names(&profiles)? {
+        let profile = open_child_directory(&profiles, &profile_name, false)?
+            .ok_or_else(|| "memory_index_profile_directory_not_secure".to_string())?;
+        if !exists_at(&profile, "current.json")? {
             continue;
         }
-        let pointer: CurrentIndexPointer =
-            read_json(&pointer_path, "memory_index_current_pointer")?;
-        let bundle: MemoryIndexBundle = read_json(
-            &bundle_path(&entry.path(), &pointer.index_id),
-            "memory_index_bundle",
+        let read = acquire_read_lock(profile)?;
+        let pointer_bytes = read_bounded_at(
+            &read.profile,
+            "current.json",
+            MAX_CURRENT_POINTER_BYTES,
+            "memory_index_current_pointer",
         )?;
-        bundle.validate()?;
-        validate_pointer_bundle_scope(&pointer, &bundle, tenant_id, case_id)?;
-        if entry.file_name().to_string_lossy() != storage_component(&bundle.profile.profile_id) {
+        let pointer: CurrentIndexPointer =
+            parse_json(&pointer_bytes, "memory_index_current_pointer")?;
+        let (bundle, _) =
+            load_from_locked_profile(&read.profile, tenant_id, case_id, &pointer.profile_id)?
+                .ok_or_else(|| "memory_index_current_missing".to_string())?;
+        if profile_name != storage_component(&bundle.profile.profile_id) {
             return Err("memory_index_profile_directory_mismatch".to_string());
         }
         found.push(bundle);
@@ -2068,26 +3334,22 @@ pub fn find_current_memory_index(
 }
 
 pub fn drop_memory_index_locked(lock: &MemoryIndexBuildLock) -> Result<bool, String> {
-    let current = lock.profile_directory.join("current.json");
-    let builds = lock.profile_directory.join("builds");
-    let retrieval = lock.profile_directory.join("last-retrieval.json");
-    let existed = current.exists() || builds.exists() || retrieval.exists();
-    for file in [&current, &retrieval] {
-        match fs::remove_file(file) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(format!("memory_index_drop_failed: {error}")),
-        }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = lock;
+        return Err("memory_index_mutation_platform_unsupported".to_string());
     }
-    match fs::remove_dir_all(&builds) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => return Err(format!("memory_index_drop_failed: {error}")),
+    #[cfg(target_os = "linux")]
+    {
+        let existed = exists_at(&lock.profile, "current.json")?
+            || exists_at(&lock.profile, "builds")?
+            || exists_at(&lock.profile, "last-retrieval.json")?;
+        unlink_at(&lock.profile, "current.json", 0)?;
+        unlink_at(&lock.profile, "last-retrieval.json", 0)?;
+        remove_tree_at(&lock.profile, "builds")?;
+        sync_directory(&lock.profile, "memory_index_drop_profile")?;
+        Ok(existed)
     }
-    File::open(&lock.profile_directory)
-        .and_then(|file| file.sync_all())
-        .map_err(|error| format!("memory_index_drop_sync_failed: {error}"))?;
-    Ok(existed)
 }
 
 pub fn store_last_hybrid_retrieval(
@@ -2099,8 +3361,22 @@ pub fn store_last_hybrid_retrieval(
         .representation_profile_id
         .as_deref()
         .ok_or_else(|| "memory_retrieval_profile_missing".to_string())?;
-    let directory = profile_directory(root, tenant_id, &retrieval.case_id, profile_id);
-    atomic_write_json(&directory, "last-retrieval.json", retrieval)
+    let lock = acquire_memory_index_build_lock(root, tenant_id, &retrieval.case_id, profile_id)?;
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = lock;
+        return Err("memory_index_mutation_platform_unsupported".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let bytes = json_bytes(retrieval, MAX_LAST_RETRIEVAL_BYTES, "memory_last_retrieval")?;
+        atomic_write_at(
+            &lock.profile,
+            "last-retrieval.json",
+            &bytes,
+            MAX_LAST_RETRIEVAL_BYTES,
+        )
+    }
 }
 
 pub fn load_last_hybrid_retrieval(
@@ -2109,22 +3385,40 @@ pub fn load_last_hybrid_retrieval(
     case_id: &str,
     profile_id: &str,
 ) -> Result<Option<HybridRetrievalSet>, String> {
-    let directory = profile_directory(root, tenant_id, case_id, profile_id);
-    if !validate_existing_secure_directory(&directory)? {
-        return Ok(None);
-    }
-    let path = directory.join("last-retrieval.json");
-    if !path.exists() {
-        return Ok(None);
-    }
-    let retrieval: HybridRetrievalSet = read_json(&path, "memory_last_retrieval")?;
-    if retrieval.schema != HYBRID_RETRIEVAL_SET_SCHEMA
-        || retrieval.case_id != case_id
-        || retrieval.representation_profile_id.as_deref() != Some(profile_id)
+    #[cfg(not(target_os = "linux"))]
     {
-        return Err("memory_last_retrieval_integrity_mismatch".to_string());
+        let _ = (root, tenant_id, case_id, profile_id);
+        return Err("memory_index_read_platform_unsupported".to_string());
     }
-    Ok(Some(retrieval))
+    #[cfg(target_os = "linux")]
+    let Some(profile) = open_profile_directory(root, tenant_id, case_id, profile_id, false)?
+    else {
+        return Ok(None);
+    };
+    #[cfg(target_os = "linux")]
+    if !exists_at(&profile, "last-retrieval.json")? {
+        return Ok(None);
+    }
+    #[cfg(target_os = "linux")]
+    let read = acquire_read_lock(profile)?;
+    #[cfg(target_os = "linux")]
+    let bytes = read_bounded_at(
+        &read.profile,
+        "last-retrieval.json",
+        MAX_LAST_RETRIEVAL_BYTES,
+        "memory_last_retrieval",
+    )?;
+    #[cfg(target_os = "linux")]
+    {
+        let retrieval: HybridRetrievalSet = parse_json(&bytes, "memory_last_retrieval")?;
+        if retrieval.schema != HYBRID_RETRIEVAL_SET_SCHEMA
+            || retrieval.case_id != case_id
+            || retrieval.representation_profile_id.as_deref() != Some(profile_id)
+        {
+            return Err("memory_last_retrieval_integrity_mismatch".to_string());
+        }
+        Ok(Some(retrieval))
+    }
 }
 
 #[cfg(test)]
@@ -2145,8 +3439,12 @@ mod tests {
     static TEST_DIRECTORY_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
     fn test_directory(label: &str) -> PathBuf {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
         std::env::temp_dir().join(format!(
-            "yai-memory-index-{label}-{}-{}",
+            "yai-memory-index-{label}-{}-{}-{nonce}",
             std::process::id(),
             TEST_DIRECTORY_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ))
@@ -2553,7 +3851,7 @@ mod tests {
 
     #[cfg(unix)]
     #[test]
-    fn derived_store_rejects_intermediate_symlink_without_external_write() {
+    fn h19_s01_derived_parent_symlink_is_rejected_without_external_write() {
         use std::os::unix::fs::symlink;
 
         let base = test_directory("symlink-parent");
@@ -2850,13 +4148,14 @@ mod tests {
             "case:memory-index",
             &profile.profile_id,
         );
+        let pointer_path = directory.join("current.json");
         let mut pointer: CurrentIndexPointer =
-            read_json(&directory.join("current.json"), "test_pointer").unwrap();
+            serde_json::from_slice(&fs::read(&pointer_path).unwrap()).unwrap();
         pointer.case_id = "case:foreign".to_string();
-        atomic_write_json(&directory, "current.json", &pointer).unwrap();
+        fs::write(&pointer_path, serde_json::to_vec(&pointer).unwrap()).unwrap();
         assert_eq!(
             find_current_memory_index(&root, "tenant:test", "case:memory-index", None).unwrap_err(),
-            "memory_index_pointer_bundle_mismatch"
+            "memory_index_current_pointer_integrity_mismatch"
         );
         let statuses =
             list_memory_index_statuses(&root, "tenant:test", "case:memory-index", 3).unwrap();
@@ -2945,11 +4244,11 @@ mod tests {
     }
 
     #[test]
-    fn eight_process_concurrent_rebuilds_publish_one_equivalent_manifest() {
+    fn h19_s09_32_process_concurrent_rebuilds_publish_one_equivalent_manifest() {
         let root = test_directory("concurrent");
         let executable = std::env::current_exe().unwrap();
         let mut children = Vec::new();
-        for _ in 0..8 {
+        for _ in 0..32 {
             children.push(
                 Command::new(&executable)
                     .args([
@@ -3089,6 +4388,838 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn h19_s02_lock_symlink_substitution_fails_closed() {
+        use std::os::unix::fs::symlink;
+
+        let root = test_directory("h19-lock-symlink");
+        let (_, _, _, profile, _) = fixture();
+        let lock = acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap();
+        drop(lock);
+        let directory = profile_directory(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        );
+        let outside = root.parent().unwrap().join(format!(
+            "yai-memory-index-outside-lock-{}",
+            TEST_DIRECTORY_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::write(&outside, b"outside-lock").unwrap();
+        fs::remove_file(directory.join("build.lock")).unwrap();
+        symlink(&outside, directory.join("build.lock")).unwrap();
+        assert!(acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .is_err());
+        assert_eq!(fs::read(&outside).unwrap(), b"outside-lock");
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_file(outside).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn h19_s01_descriptor_anchored_profile_swap_cannot_redirect_publication() {
+        use std::os::unix::fs::symlink;
+
+        let (_, _, corpus, profile, vectors) = fixture();
+        let bundle = MemoryIndexBundle::build(corpus, profile.clone(), &vectors).unwrap();
+        let root = test_directory("h19-profile-swap");
+        let lock = acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap();
+        let profile_path = profile_directory(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        );
+        let anchored_path = profile_path.with_extension("anchored");
+        let outside = root.join("outside");
+        fs::create_dir(&outside).unwrap();
+        let marker = outside.join("marker");
+        fs::write(&marker, b"untouched").unwrap();
+        fs::rename(&profile_path, &anchored_path).unwrap();
+        symlink(&outside, &profile_path).unwrap();
+        publish_memory_index_locked(&lock, &bundle, false).unwrap();
+        assert_eq!(fs::read(&marker).unwrap(), b"untouched");
+        assert_eq!(fs::read_dir(&outside).unwrap().count(), 1);
+        assert!(anchored_path.join("current.json").is_file());
+        drop(lock);
+        assert!(load_current_memory_index(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id
+        )
+        .is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h19_s03_oversized_pointer_is_refused_before_json_decode() {
+        let (_, _, corpus, profile, vectors) = fixture();
+        let bundle = MemoryIndexBundle::build(corpus, profile.clone(), &vectors).unwrap();
+        let root = test_directory("h19-oversized-pointer");
+        let lock = acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap();
+        publish_memory_index_locked(&lock, &bundle, false).unwrap();
+        drop(lock);
+        let pointer = profile_directory(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .join("current.json");
+        fs::write(&pointer, vec![b'x'; MAX_CURRENT_POINTER_BYTES + 1]).unwrap();
+        let error = load_current_memory_index(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap_err();
+        assert!(error.contains("size_bound_exceeded"));
+        let lock = acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap();
+        publish_memory_index_locked(&lock, &bundle, false).unwrap();
+        drop(lock);
+        let metadata = bundle_path(
+            &profile_directory(
+                &root,
+                "tenant:test",
+                "case:memory-index",
+                &profile.profile_id,
+            ),
+            &bundle.manifest.index_id,
+        );
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(metadata)
+            .unwrap();
+        file.set_len((MAX_DERIVED_METADATA_BYTES as u64) + 1)
+            .unwrap();
+        let error = load_current_memory_index(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap_err();
+        assert!(error.contains("size_bound_exceeded"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn h19_hardlinked_pointer_and_insecure_root_are_refused() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (_, _, corpus, profile, vectors) = fixture();
+        let bundle = MemoryIndexBundle::build(corpus, profile.clone(), &vectors).unwrap();
+        let root = test_directory("h19-hardlink");
+        let lock = acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap();
+        publish_memory_index_locked(&lock, &bundle, false).unwrap();
+        drop(lock);
+
+        let profile_path = profile_directory(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        );
+        fs::hard_link(
+            profile_path.join("current.json"),
+            root.join("pointer-hardlink"),
+        )
+        .unwrap();
+        assert!(load_current_memory_index(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap_err()
+        .contains("not_private_regular_file"));
+        fs::remove_dir_all(&root).unwrap();
+
+        let insecure = test_directory("h19-insecure-root");
+        fs::create_dir_all(&insecure).unwrap();
+        fs::set_permissions(&insecure, fs::Permissions::from_mode(0o777)).unwrap();
+        assert_eq!(
+            acquire_memory_index_build_lock(
+                &insecure,
+                "tenant:test",
+                "case:memory-index",
+                &profile.profile_id,
+            )
+            .err()
+            .unwrap(),
+            "memory_index_directory_not_secure"
+        );
+        fs::set_permissions(&insecure, fs::Permissions::from_mode(0o700)).unwrap();
+        fs::remove_dir_all(insecure).unwrap();
+    }
+
+    #[test]
+    fn h19_s04_pointer_rollback_is_loaded_but_reported_stale() {
+        let (state, entries, _, profile, _) = fixture();
+        let build_at = |generation| {
+            let mut generation_entries = entries.clone();
+            for entry in &mut generation_entries {
+                entry.derived_at_generation = generation;
+                entry.provenance.generation_start = generation;
+                entry.provenance.generation_end = generation;
+            }
+            let corpus = derive_representation_corpus(&OperationalMemoryBuild {
+                manifest: OperationalMemoryManifest {
+                    schema: OPERATIONAL_MEMORY_MANIFEST_SCHEMA.to_string(),
+                    case_id: state.case_id.clone(),
+                    derivation_version: OPERATIONAL_MEMORY_DERIVATION.to_string(),
+                    source_generation: generation,
+                    memory_ids: generation_entries
+                        .iter()
+                        .map(|entry| entry.memory_id.clone())
+                        .collect(),
+                },
+                entries: generation_entries,
+            })
+            .unwrap();
+            let vectors = corpus
+                .documents
+                .iter()
+                .map(|document| (document.document_id.clone(), vec![1.0, 0.0, 0.0]))
+                .collect();
+            MemoryIndexBundle::build(corpus, profile.clone(), &vectors).unwrap()
+        };
+        let old = build_at(2);
+        let current = build_at(3);
+        let root = test_directory("h19-pointer-rollback");
+        let lock = acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap();
+        publish_memory_index_locked(&lock, &old, false).unwrap();
+        drop(lock);
+        let pointer_path = profile_directory(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .join("current.json");
+        let old_pointer = fs::read(&pointer_path).unwrap();
+        let lock = acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap();
+        publish_memory_index_locked(&lock, &current, false).unwrap();
+        drop(lock);
+        fs::write(&pointer_path, old_pointer).unwrap();
+        let statuses =
+            list_memory_index_statuses(&root, "tenant:test", "case:memory-index", 3).unwrap();
+        assert_eq!(statuses[0].posture, "stale");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h19_s05_self_consistent_source_divergent_document_is_rejected() {
+        let (state, entries, _, profile, _) = fixture();
+        let mut forged_entries = entries.clone();
+        forged_entries[0].value = OperationalMemoryValue::ProviderClaim {
+            result_id: "result:forged".to_string(),
+            invocation_id: "invocation:forged".to_string(),
+            provider_id: "provider:test".to_string(),
+            model_id: "model:test".to_string(),
+            preview: "forged representation payload".to_string(),
+        };
+        forged_entries[0].description = "forged representation payload".to_string();
+        let forged_corpus = derive_representation_corpus(&OperationalMemoryBuild {
+            manifest: OperationalMemoryManifest {
+                schema: OPERATIONAL_MEMORY_MANIFEST_SCHEMA.to_string(),
+                case_id: state.case_id.clone(),
+                derivation_version: OPERATIONAL_MEMORY_DERIVATION.to_string(),
+                source_generation: state.generation,
+                memory_ids: forged_entries
+                    .iter()
+                    .map(|entry| entry.memory_id.clone())
+                    .collect(),
+            },
+            entries: forged_entries,
+        })
+        .unwrap();
+        let vectors = forged_corpus
+            .documents
+            .iter()
+            .map(|document| (document.document_id.clone(), vec![1.0, 0.0, 0.0]))
+            .collect();
+        let forged = MemoryIndexBundle::build(forged_corpus, profile, &vectors).unwrap();
+        assert_eq!(
+            hybrid_retrieve(
+                &state,
+                &entries,
+                qualification(&state),
+                RetrievalQueryDocument::new("forged").unwrap(),
+                Some(&forged),
+                Ok(Some(vec![1.0, 0.0, 0.0])),
+            )
+            .unwrap_err(),
+            "memory_index_source_divergent"
+        );
+    }
+
+    #[test]
+    fn h19_s06_selected_payload_is_canonical_operational_memory() {
+        let (state, entries, corpus, profile, vectors) = fixture();
+        let bundle = MemoryIndexBundle::build(corpus, profile, &vectors).unwrap();
+        let result = hybrid_retrieve(
+            &state,
+            &entries,
+            qualification(&state),
+            RetrievalQueryDocument::new("amber filesystem").unwrap(),
+            Some(&bundle),
+            Ok(Some(vec![1.0, 0.0, 0.0])),
+        )
+        .unwrap();
+        let selected = result
+            .selected
+            .iter()
+            .find(|item| item.memory.memory_id == "memory:a")
+            .unwrap();
+        assert_eq!(selected.memory, entries[0]);
+        assert_ne!(
+            selected.memory.description, bundle.documents[0].canonical_text,
+            "representation text is never the projected payload"
+        );
+    }
+
+    #[test]
+    fn h19_self_consistent_vector_steering_can_change_rank_but_not_content() {
+        let (state, entries, corpus, profile, _) = fixture();
+        let vectors = corpus
+            .documents
+            .iter()
+            .map(|document| {
+                let vector = if document.memory_id == "memory:b" {
+                    vec![1.0, 0.0, 0.0]
+                } else {
+                    vec![0.0, 1.0, 0.0]
+                };
+                (document.document_id.clone(), vector)
+            })
+            .collect();
+        let steered = MemoryIndexBundle::build(corpus, profile, &vectors).unwrap();
+        let result = hybrid_retrieve(
+            &state,
+            &entries,
+            qualification(&state),
+            RetrievalQueryDocument::new("unmatched-vector-only-query").unwrap(),
+            Some(&steered),
+            Ok(Some(vec![1.0, 0.0, 0.0])),
+        )
+        .unwrap();
+        let selected = result
+            .selected
+            .iter()
+            .find(|item| item.memory.memory_id == "memory:b")
+            .unwrap();
+        assert_eq!(selected.memory, entries[1]);
+        assert_eq!(
+            selected.memory.posture,
+            OperationalMemoryPosture::ProviderOriginatedClaim
+        );
+    }
+
+    #[test]
+    fn h19_rrf_and_numeric_edges_are_checked_and_stably_tied() {
+        let mut candidates = BTreeMap::new();
+        add_rank(
+            &mut candidates,
+            "memory:a",
+            CandidatePlaneRank {
+                plane: "lexical_bm25".to_string(),
+                rank: MAX_CANDIDATES_PER_PLANE,
+                plane_score_micros: i64::MAX,
+                evidence: Vec::new(),
+            },
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            add_rank(
+                &mut candidates,
+                "memory:a",
+                CandidatePlaneRank {
+                    plane: "lexical_bm25".to_string(),
+                    rank: 1,
+                    plane_score_micros: 0,
+                    evidence: Vec::new(),
+                },
+                false,
+            )
+            .unwrap_err(),
+            "memory_hybrid_duplicate_plane_candidate"
+        );
+        assert_eq!(
+            add_rank(
+                &mut candidates,
+                "memory:b",
+                CandidatePlaneRank {
+                    plane: "vector_exact_cosine".to_string(),
+                    rank: 0,
+                    plane_score_micros: 0,
+                    evidence: Vec::new(),
+                },
+                false,
+            )
+            .unwrap_err(),
+            "memory_hybrid_plane_rank_invalid"
+        );
+        let (_, _, corpus, profile, mut vectors) = fixture();
+        for vector in vectors.values_mut() {
+            *vector = vec![f32::MIN_POSITIVE, 1.0, -f32::MIN_POSITIVE];
+        }
+        let index = MemoryVectorIndex::build(&corpus.documents, &profile, &vectors).unwrap();
+        let hits = index
+            .exact_search(&[f32::MIN_POSITIVE, 1.0, -f32::MIN_POSITIVE], 3)
+            .unwrap();
+        assert!(hits.iter().all(|hit| hit.similarity_micros == 1_000_000));
+        assert!(hits
+            .windows(2)
+            .all(|pair| pair[0].document_id < pair[1].document_id));
+    }
+
+    #[test]
+    fn h19_query_tokenization_is_bounded_and_control_safe() {
+        let query = RetrievalQueryDocument::new(&format!(
+            "  A\0e\u{301}\n{} tail",
+            "x".repeat(MAX_QUERY_CHARS * 4)
+        ))
+        .unwrap();
+        assert!(query.canonical_text.chars().count() <= MAX_QUERY_CHARS);
+        assert!(!query.canonical_text.contains('\0'));
+        assert!(!query.canonical_text.contains('\n'));
+        assert_eq!(
+            tokenize(&query.canonical_text)
+                .into_iter()
+                .collect::<BTreeSet<_>>()
+                .len(),
+            3
+        );
+        assert!(RetrievalQueryDocument::new("\0\n\t").is_err());
+    }
+
+    #[test]
+    fn h19_s07_drop_query_race_returns_snapshot_or_unavailable() {
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        let (_, _, corpus, profile, vectors) = fixture();
+        let bundle = MemoryIndexBundle::build(corpus, profile.clone(), &vectors).unwrap();
+        let root = test_directory("h19-drop-query");
+        let lock = acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap();
+        publish_memory_index_locked(&lock, &bundle, false).unwrap();
+        drop(lock);
+        let barrier = Arc::new(Barrier::new(17));
+        let mut readers = Vec::new();
+        for _ in 0..16 {
+            let barrier = barrier.clone();
+            let root = root.clone();
+            let profile_id = profile.profile_id.clone();
+            readers.push(thread::spawn(move || {
+                barrier.wait();
+                load_current_memory_index(&root, "tenant:test", "case:memory-index", &profile_id)
+            }));
+        }
+        barrier.wait();
+        let lock = acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap();
+        drop_memory_index_locked(&lock).unwrap();
+        drop(lock);
+        for reader in readers {
+            match reader.join().unwrap() {
+                Ok(Some(snapshot)) => {
+                    assert_eq!(snapshot.manifest.index_id, bundle.manifest.index_id)
+                }
+                Ok(None) => {}
+                Err(error) => panic!("partial reader state: {error}"),
+            }
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h19_s08_rebuild_query_race_never_mixes_components() {
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        let (_, _, corpus, profile, vectors) = fixture();
+        let old = MemoryIndexBundle::build(corpus.clone(), profile.clone(), &vectors).unwrap();
+        let changed_vectors = corpus
+            .documents
+            .iter()
+            .map(|document| (document.document_id.clone(), vec![0.0, 0.0, 1.0]))
+            .collect();
+        let new = MemoryIndexBundle::build(corpus, profile.clone(), &changed_vectors).unwrap();
+        let root = test_directory("h19-rebuild-query");
+        let lock = acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap();
+        publish_memory_index_locked(&lock, &old, false).unwrap();
+        drop(lock);
+        let barrier = Arc::new(Barrier::new(65));
+        let mut readers = Vec::new();
+        for _ in 0..64 {
+            let barrier = barrier.clone();
+            let root = root.clone();
+            let profile_id = profile.profile_id.clone();
+            readers.push(thread::spawn(move || {
+                barrier.wait();
+                load_current_memory_index(&root, "tenant:test", "case:memory-index", &profile_id)
+                    .unwrap()
+                    .unwrap()
+                    .manifest
+                    .index_id
+            }));
+        }
+        barrier.wait();
+        let lock = acquire_memory_index_build_lock(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .unwrap();
+        publish_memory_index_locked(&lock, &new, false).unwrap();
+        drop(lock);
+        for reader in readers {
+            let id = reader.join().unwrap();
+            assert!(id == old.manifest.index_id || id == new.manifest.index_id);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h19_s15_hidden_documents_do_not_change_visible_bm25_or_vector_rank() {
+        let (state, mut entries, _, profile, _) = fixture();
+        entries.truncate(1);
+        for index in 0..10_000 {
+            entries.push(entry(
+                &state.case_id,
+                &format!("memory:hidden-{index:05}"),
+                "participant:b",
+                "quasar rare hidden term",
+                OperationalMemoryPosture::ProviderOriginatedClaim,
+                3,
+            ));
+        }
+        let build = |values: Vec<OperationalMemoryEntry>| {
+            let corpus = derive_representation_corpus(&OperationalMemoryBuild {
+                manifest: OperationalMemoryManifest {
+                    schema: OPERATIONAL_MEMORY_MANIFEST_SCHEMA.to_string(),
+                    case_id: state.case_id.clone(),
+                    derivation_version: OPERATIONAL_MEMORY_DERIVATION.to_string(),
+                    source_generation: state.generation,
+                    memory_ids: values.iter().map(|entry| entry.memory_id.clone()).collect(),
+                },
+                entries: values,
+            })
+            .unwrap();
+            let vectors = corpus
+                .documents
+                .iter()
+                .map(|document| (document.document_id.clone(), vec![1.0, 0.0, 0.0]))
+                .collect();
+            MemoryIndexBundle::build(corpus, profile.clone(), &vectors).unwrap()
+        };
+        let full = build(entries.clone());
+        let visible_entries = vec![entries[0].clone()];
+        let visible = build(visible_entries.clone());
+        let run = |source: &[OperationalMemoryEntry], index: &MemoryIndexBundle| {
+            hybrid_retrieve(
+                &state,
+                source,
+                qualification(&state),
+                RetrievalQueryDocument::new("amber quasar").unwrap(),
+                Some(index),
+                Ok(Some(vec![1.0, 0.0, 0.0])),
+            )
+            .unwrap()
+        };
+        let full_result = run(&entries, &full);
+        let visible_result = run(&visible_entries, &visible);
+        let rank = |result: &HybridRetrievalSet, plane: &str| {
+            result.selected[0]
+                .plane_ranks
+                .iter()
+                .find(|rank| rank.plane == plane)
+                .map(|rank| (rank.rank, rank.plane_score_micros))
+        };
+        assert_eq!(
+            rank(&full_result, "lexical_bm25"),
+            rank(&visible_result, "lexical_bm25")
+        );
+        assert_eq!(
+            rank(&full_result, "vector_exact_cosine"),
+            rank(&visible_result, "vector_exact_cosine")
+        );
+        assert_eq!(full_result.qualified_count, visible_result.qualified_count);
+    }
+
+    #[test]
+    fn h19_s16_superseded_documents_do_not_change_active_ranking() {
+        let (state, mut entries, _, profile, _) = fixture();
+        entries.truncate(1);
+        for index in 0..128 {
+            let mut superseded = entry(
+                &state.case_id,
+                &format!("memory:superseded-{index:03}"),
+                "participant:a",
+                "amber filesystem",
+                OperationalMemoryPosture::ProviderOriginatedClaim,
+                3,
+            );
+            superseded.lifecycle = OperationalMemoryLifecycle::Superseded;
+            superseded.superseded_by = Some("memory:a".to_string());
+            entries.push(superseded);
+        }
+        let corpus = derive_representation_corpus(&OperationalMemoryBuild {
+            manifest: OperationalMemoryManifest {
+                schema: OPERATIONAL_MEMORY_MANIFEST_SCHEMA.to_string(),
+                case_id: state.case_id.clone(),
+                derivation_version: OPERATIONAL_MEMORY_DERIVATION.to_string(),
+                source_generation: state.generation,
+                memory_ids: entries
+                    .iter()
+                    .map(|entry| entry.memory_id.clone())
+                    .collect(),
+            },
+            entries: entries.clone(),
+        })
+        .unwrap();
+        let vectors = corpus
+            .documents
+            .iter()
+            .map(|document| (document.document_id.clone(), vec![1.0, 0.0, 0.0]))
+            .collect();
+        let bundle = MemoryIndexBundle::build(corpus, profile, &vectors).unwrap();
+        let result = hybrid_retrieve(
+            &state,
+            &entries,
+            qualification(&state),
+            RetrievalQueryDocument::new("amber filesystem").unwrap(),
+            Some(&bundle),
+            Ok(Some(vec![1.0, 0.0, 0.0])),
+        )
+        .unwrap();
+        assert_eq!(result.qualified_count, 1);
+        assert_eq!(result.selected[0].memory.memory_id, "memory:a");
+        assert!(result.selected[0]
+            .plane_ranks
+            .iter()
+            .all(|rank| rank.rank == 1));
+    }
+
+    #[test]
+    fn h19_s18_query_encoder_unavailable_degrades_to_qualified_planes() {
+        let (state, entries, corpus, profile, vectors) = fixture();
+        let bundle = MemoryIndexBundle::build(corpus, profile, &vectors).unwrap();
+        let result = hybrid_retrieve(
+            &state,
+            &entries,
+            qualification(&state),
+            RetrievalQueryDocument::new("amber filesystem").unwrap(),
+            Some(&bundle),
+            Err("fixture_encoder_unavailable".to_string()),
+        )
+        .unwrap();
+        assert!(result.planes.iter().any(|plane| {
+            plane.plane == "vector_exact_cosine"
+                && !plane.available
+                && plane.reason.contains("fixture_encoder_unavailable")
+        }));
+        assert!(result
+            .planes
+            .iter()
+            .any(|plane| plane.plane == "lexical_bm25" && plane.available));
+    }
+
+    #[test]
+    fn h19_s17_resource_and_causal_qualification_precede_fuzzy_rank() {
+        hybrid_fixture_exposes_distinct_lexical_vector_and_exact_causal_ranks();
+    }
+
+    #[test]
+    fn h19_s19_old_profile_remains_independent() {
+        profile_namespaces_are_independent_and_deletable();
+    }
+
+    #[test]
+    fn h19_s20_vector_cross_product_is_an_enforced_admission_bound() {
+        assert_eq!(
+            validate_vector_shape_budget(50_000, 384).unwrap(),
+            19_200_000
+        );
+        assert!(validate_vector_shape_budget(10_000, 1536).is_ok());
+        assert_eq!(
+            validate_vector_shape_budget(50_000, 768).unwrap_err(),
+            "memory_index_vector_element_budget_exceeded"
+        );
+        assert_eq!(
+            validate_vector_shape_budget(50_001, 8).unwrap_err(),
+            "memory_index_vector_shape_invalid"
+        );
+    }
+
+    #[test]
+    fn h19_s21_derived_gc_retains_a_bounded_number_of_builds() {
+        let (_, _, corpus, profile, _) = fixture();
+        let root = test_directory("h19-gc");
+        for generation in 0..6 {
+            let vectors = corpus
+                .documents
+                .iter()
+                .enumerate()
+                .map(|(index, document)| {
+                    let seed = (generation + 1 + index) as f32;
+                    (document.document_id.clone(), vec![seed, 1.0, 0.5])
+                })
+                .collect();
+            let bundle =
+                MemoryIndexBundle::build(corpus.clone(), profile.clone(), &vectors).unwrap();
+            let lock = acquire_memory_index_build_lock(
+                &root,
+                "tenant:test",
+                "case:memory-index",
+                &profile.profile_id,
+            )
+            .unwrap();
+            publish_memory_index_locked(&lock, &bundle, false).unwrap();
+        }
+        let builds = profile_directory(
+            &root,
+            "tenant:test",
+            "case:memory-index",
+            &profile.profile_id,
+        )
+        .join("builds");
+        assert!(fs::read_dir(builds).unwrap().count() <= MAX_RETAINED_BUILDS);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn h19_s22_crash_durability_boundaries_never_expose_partial_current() {
+        let (_, _, corpus, profile, vectors) = fixture();
+        let old = MemoryIndexBundle::build(corpus.clone(), profile.clone(), &vectors).unwrap();
+        let changed_vectors = corpus
+            .documents
+            .iter()
+            .map(|document| (document.document_id.clone(), vec![0.0, 0.0, 1.0]))
+            .collect();
+        let new = MemoryIndexBundle::build(corpus, profile.clone(), &changed_vectors).unwrap();
+        for failpoint in [
+            MemoryIndexPublicationFailpoint::AfterComponentWriteBeforeFileSync,
+            MemoryIndexPublicationFailpoint::AfterFileSyncBeforeBuildDirectorySync,
+            MemoryIndexPublicationFailpoint::AfterBuildRenameBeforeBuildsParentSync,
+            MemoryIndexPublicationFailpoint::AfterBuildsSyncBeforePointerWrite,
+            MemoryIndexPublicationFailpoint::DuringPointerTempWrite,
+            MemoryIndexPublicationFailpoint::AfterPointerRenameBeforeProfileDirectorySync,
+            MemoryIndexPublicationFailpoint::AfterFinalSyncBeforeAcknowledgement,
+        ] {
+            let root = test_directory("h19-crash-durability");
+            let lock = acquire_memory_index_build_lock(
+                &root,
+                "tenant:test",
+                "case:memory-index",
+                &profile.profile_id,
+            )
+            .unwrap();
+            publish_memory_index_locked(&lock, &old, false).unwrap();
+            assert!(
+                publish_memory_index_locked_with_failpoint(&lock, &new, Some(failpoint)).is_err()
+            );
+            drop(lock);
+            let current = load_current_memory_index(
+                &root,
+                "tenant:test",
+                "case:memory-index",
+                &profile.profile_id,
+            )
+            .unwrap()
+            .unwrap();
+            assert!(
+                current.manifest.index_id == old.manifest.index_id
+                    || current.manifest.index_id == new.manifest.index_id
+            );
+            current.validate_loaded().unwrap();
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn h19_s23_provider_claim_ranking_never_changes_posture() {
+        provider_claim_similarity_never_changes_authority_posture();
+    }
+
+    #[test]
+    fn h19_s24_historical_allow_remains_context_not_authority() {
+        hybrid_fixture_exposes_distinct_lexical_vector_and_exact_causal_ranks();
+    }
+
     #[test]
     #[ignore]
     fn memory_index_scale_characterization() {
@@ -3172,8 +5303,51 @@ mod tests {
             }];
             let mut retrieval_qualification = qualification(&state);
             retrieval_qualification.max_results = 32;
+            let mut all_qualification = retrieval_qualification.clone();
+            all_qualification.max_results = build.entries.len();
+            let qualification_start = Instant::now();
+            let qualified =
+                retrieve_operational_memory(&state, &build.entries, all_qualification).unwrap();
+            let qualification_micros = qualification_start.elapsed().as_micros();
+            let load_validation_start = Instant::now();
+            bundle.validate_loaded().unwrap();
+            let load_validation_micros = load_validation_start.elapsed().as_micros();
+            let source_validation_start = Instant::now();
+            validate_memory_index_source(&bundle, &build.entries).unwrap();
+            let source_validation_micros = source_validation_start.elapsed().as_micros();
+            let admitted = bundle
+                .documents
+                .iter()
+                .map(|document| document.document_id.clone())
+                .collect::<BTreeSet<_>>();
+            let qualified_lexical_start = Instant::now();
+            bundle
+                .lexical
+                .search_qualified("project codename bucket 42", 32, &admitted)
+                .unwrap();
+            let qualified_lexical_micros = qualified_lexical_start.elapsed().as_micros();
+            let qualified_vector_start = Instant::now();
+            bundle
+                .vector
+                .exact_search_qualified(&[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], 32, &admitted)
+                .unwrap();
+            let qualified_vector_micros = qualified_vector_start.elapsed().as_micros();
+            let deep_validation_start = Instant::now();
+            bundle.validate_deep().unwrap();
+            let deep_validation_micros = deep_validation_start.elapsed().as_micros();
             let hybrid_query_start = Instant::now();
             let hybrid = hybrid_retrieve(
+                &state,
+                &build.entries,
+                retrieval_qualification.clone(),
+                RetrievalQueryDocument::new("project codename bucket 42").unwrap(),
+                Some(&bundle),
+                Ok(Some(vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])),
+            )
+            .unwrap();
+            let hybrid_query_micros = hybrid_query_start.elapsed().as_micros();
+            let warm_query_start = Instant::now();
+            let warm = hybrid_retrieve(
                 &state,
                 &build.entries,
                 retrieval_qualification,
@@ -3182,14 +5356,139 @@ mod tests {
                 Ok(Some(vec![1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])),
             )
             .unwrap();
-            let hybrid_query_micros = hybrid_query_start.elapsed().as_micros();
-            let serialized_bytes = serde_json::to_vec(&bundle).unwrap().len();
+            let warm_hybrid_micros = warm_query_start.elapsed().as_micros();
+            let root = test_directory("scale-physical");
+            let physical_build_start = Instant::now();
+            let lock = acquire_memory_index_build_lock(
+                &root,
+                "tenant:scale",
+                "case:scale",
+                &bundle.profile.profile_id,
+            )
+            .unwrap();
+            publish_memory_index_locked(&lock, &bundle, false).unwrap();
+            drop(lock);
+            let physical_build_ms = physical_build_start.elapsed().as_millis();
+            let load_start = Instant::now();
+            let loaded = load_current_memory_index(
+                &root,
+                "tenant:scale",
+                "case:scale",
+                &bundle.profile.profile_id,
+            )
+            .unwrap()
+            .unwrap();
+            let physical_load_ms = load_start.elapsed().as_millis();
+            let storage_bytes =
+                list_memory_index_statuses(&root, "tenant:scale", "case:scale", size as u64)
+                    .unwrap()[0]
+                    .storage_bytes;
+            assert_eq!(loaded.manifest.index_id, bundle.manifest.index_id);
+            fs::remove_dir_all(root).unwrap();
             println!(
-                "memory_scale entries={size} representation_ms={representation_ms} lexical_build_ms={lexical_ms} fixture_embedding_build_ms={vector_ms} exact_query_us={exact_query_micros} lexical_query_us={lexical_query_micros} hybrid_query_us={hybrid_query_micros} exact_hits={} lexical_hits={} hybrid_hits={} serialized_bytes={serialized_bytes} peak_memory=not_observed ann=deferred",
+                "memory_scale entries={size} dimension=8 representation_ms={representation_ms} lexical_build_ms={lexical_ms} fixture_embedding_build_ms={vector_ms} physical_build_ms={physical_build_ms} storage_bytes={storage_bytes} physical_load_ms={physical_load_ms} deep_validation_us={deep_validation_micros} load_validation_us={load_validation_micros} source_qualification_us={qualification_micros} source_revalidation_us={source_validation_micros} bm25_us={qualified_lexical_micros} exact_cosine_us={qualified_vector_micros} hybrid_cold_us={hybrid_query_micros} hybrid_warm_us={warm_hybrid_micros} exact_reference_us={exact_query_micros} lexical_reference_us={lexical_query_micros} exact_hits={} lexical_hits={} qualified={} hybrid_hits={} warm_hits={} peak_memory=not_observed ann=deferred",
                 exact_hits.len(),
                 lexical_hits.len(),
-                hybrid.selected.len()
+                qualified.qualified_count,
+                hybrid.selected.len(),
+                warm.selected.len(),
             );
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn h19_realistic_vector_dimension_characterization() {
+        for (size, dimensions) in [
+            (1_000usize, vec![384usize, 768, 1024, 1536]),
+            (10_000usize, vec![384usize, 768, 1024, 1536]),
+            (50_000usize, vec![384usize, 768]),
+        ] {
+            let entries = (0..size)
+                .map(|index| {
+                    let mut value = entry(
+                        "case:vector-scale",
+                        &format!("memory:{index:05}"),
+                        "participant:a",
+                        "controlled vector scale document",
+                        OperationalMemoryPosture::ProviderOriginatedClaim,
+                        size as u64,
+                    );
+                    value.derived_at_generation = size as u64;
+                    value
+                })
+                .collect::<Vec<_>>();
+            let corpus = derive_representation_corpus(&OperationalMemoryBuild {
+                manifest: OperationalMemoryManifest {
+                    schema: OPERATIONAL_MEMORY_MANIFEST_SCHEMA.to_string(),
+                    case_id: "case:vector-scale".to_string(),
+                    derivation_version: OPERATIONAL_MEMORY_DERIVATION.to_string(),
+                    source_generation: size as u64,
+                    memory_ids: entries
+                        .iter()
+                        .map(|entry| entry.memory_id.clone())
+                        .collect(),
+                },
+                entries,
+            })
+            .unwrap();
+            for dimension in dimensions {
+                let admission = validate_vector_shape_budget(size, dimension);
+                if let Err(error) = admission {
+                    println!(
+                        "memory_vector_scale entries={size} dimension={dimension} posture=refused reason={error} max_elements={MAX_VECTOR_ELEMENTS}"
+                    );
+                    continue;
+                }
+                let profile = MemoryRepresentationProfile::new(
+                    "tenant:scale",
+                    "test-only:fixture-encoder",
+                    "fixture:model",
+                    &format!("scale-{dimension}"),
+                    dimension,
+                )
+                .unwrap();
+                let encode_start = Instant::now();
+                let vectors = corpus
+                    .documents
+                    .iter()
+                    .enumerate()
+                    .map(|(index, document)| {
+                        let mut vector = vec![0.0; dimension];
+                        vector[index % dimension] = 1.0;
+                        (document.document_id.clone(), vector)
+                    })
+                    .collect::<BTreeMap<_, _>>();
+                let fixture_encode_ms = encode_start.elapsed().as_millis();
+                let build_start = Instant::now();
+                let index =
+                    MemoryVectorIndex::build(&corpus.documents, &profile, &vectors).unwrap();
+                let vector_build_ms = build_start.elapsed().as_millis();
+                drop(vectors);
+                let mut query = vec![0.0; dimension];
+                query[0] = 1.0;
+                let query_start = Instant::now();
+                let hits = index.exact_search(&query, 32).unwrap();
+                let exact_query_us = query_start.elapsed().as_micros();
+                let raw_vector_bytes = size
+                    .checked_mul(dimension)
+                    .and_then(|value| value.checked_mul(std::mem::size_of::<f32>()))
+                    .unwrap();
+                let peak_rss = fs::read_to_string("/proc/self/status")
+                    .ok()
+                    .and_then(|status| {
+                        status
+                            .lines()
+                            .find(|line| line.starts_with("VmHWM:"))
+                            .map(str::to_string)
+                    })
+                    .unwrap_or_else(|| "not_observed".to_string());
+                println!(
+                    "memory_vector_scale entries={size} dimension={dimension} posture=admitted fixture_encode_ms={fixture_encode_ms} vector_build_ms={vector_build_ms} exact_query_us={exact_query_us} raw_vector_bytes={raw_vector_bytes} hits={} peak_rss={}",
+                    hits.len(),
+                    peak_rss.replace(' ', "_")
+                );
+            }
         }
     }
 }

@@ -1,0 +1,8 @@
+test_id	target	racing	result
+H19-S01a	derived parent is symlink	openat2 no-symlink resolution	refused; outside unchanged
+H19-S01b	profile path swapped after descriptor admission	publish through retained descriptor	published only into original inode; replacement target unchanged
+H19-S02	build.lock symlink	O_NOFOLLOW descriptor open	refused
+hardlink/permission	hardlinked current pointer; mode 0777 root	nlink/euid/mode validation	both refused
+H19-S07	build files during drop	shared/exclusive flock	complete open snapshot or unavailable
+H19-S08	current pointer during rebuild	one shared-lock pointer+directory+component load	old or new manifest only
+matrix coverage	profile/builds/target build/bundle components/current/lock	descriptor-relative traversal and file-type checks	no outside read/write/delete

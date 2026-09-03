@@ -1,0 +1,15 @@
+surface	version	H19 posture
+OperationalMemory	yai.operational_memory.v1	unchanged
+MemoryRepresentationDocument	yai.memory_representation_document.v1	unchanged
+MemoryRepresentationProfile	yai.memory_representation_profile.v1	unchanged
+MemoryEmbedding	yai.memory_embedding.v1	unchanged
+CorpusManifest	yai.memory_corpus_manifest.v1	unchanged
+IndexManifest	yai.memory_index_manifest.v1	unchanged
+QueryDocument	yai.retrieval_query_document.v1	unchanged
+RetrievalSet legacy	yai.retrieval_set.v1	reader/tests retained
+RetrievalSet hybrid	yai.retrieval_set.v2	compatible; payload source hardened
+ProviderQualification	yai.provider_qualification.v3	unchanged
+Projection	yai.projection.v5	unchanged
+ContextFrame	yai.context_frame.v5	unchanged
+derived physical store	yai.derived_memory_store.v2	advanced from disposable W19 v1; rebuild, no canonical migration
+LMDB databases	37/40	unchanged

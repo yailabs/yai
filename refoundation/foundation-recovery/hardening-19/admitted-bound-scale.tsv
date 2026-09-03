@@ -1,0 +1,9 @@
+bound	value	reason
+document maximum	50000	retained only with cross-product and byte-envelope enforcement
+dimension maximum	4096	profile identity maximum; not independently allocatable at 50k
+vector elements	25000000	100000000 raw float32 bytes maximum
+metadata bytes	268435456	bounded before read/parse
+total physical envelope	402653184	checked before component load/publication
+highest characterized realistic cross-product	50000x384 = 19200000 elements	exact scan 36.881ms; full 8d hybrid 1.182s cold
+50k interactive posture	admitted bounded local operation, no SLA claim	W19 pathological 39.4s reduced materially and phase explained
+unsafe cross-product	50000x768 and above refused	before encoder call or allocation

@@ -1,0 +1,10 @@
+type	maximum	preallocation_rule	failure
+current pointer	16384 bytes	fstat before read	memory_index_pointer_size_bound_exceeded
+physical seal	65536 bytes	fstat before read	physical manifest size refusal
+metadata/corpus/lexical	268435456 bytes	fstat before read	memory_index_metadata_size_bound_exceeded
+vector binary	100000000 bytes	exact rows*dimension*4 checked before read	physical size mismatch
+complete sealed store	402653184 bytes	checked component sum	physical total size exceeded
+last RetrievalSet	16777216 bytes	fstat before read	last retrieval size refusal
+documents	50000	checked before encoder/allocation	document budget exceeded
+dimensions	4096 independently; 25,000,000 total elements	checked multiplication	vector element budget exceeded
+query	2048 Unicode scalar values; 128 unique terms	streaming canonicalization/token cap	bounded or empty refusal

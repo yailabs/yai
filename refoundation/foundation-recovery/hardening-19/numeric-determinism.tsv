@@ -1,0 +1,7 @@
+surface	contract	claim_scope
+BM25	finite f64 score converted to bounded micros; stable ID tie	stable admitted Rust implementation/build; not canonical cross-architecture identity
+cosine	normalized finite vectors; [-1,+1], bounded micros; stable ID tie	stable admitted Rust implementation/build
+RRF	checked integer denominator/contribution/addition; duplicate IDs per plane refused	process/build stable
+exact bonus	fixed checked addition only from mechanically qualified exact plane	cannot be triggered by fuzzy string similarity
+edge vectors	near-zero finite, negative, +/-1, maximum admitted dimension	finite accepted; nonfinite/zero/wrong dimension refused
+Retrieval ID	derived identity, not Case authority	no stronger cross-architecture semantic claim

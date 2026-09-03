@@ -1,0 +1,7 @@
+property	contract	evidence
+retention	maximum two complete content-addressed builds per Case/profile	H19-S21 six publications leave current plus at most one older
+current	never GC current pointer target	ID explicitly protected
+publishing	GC runs only under exclusive profile flock after pointer durability	no temp/current deletion race
+readers	shared flock spans pointer and full component load	GC waits for reader snapshot
+abandoned temp	only exact internally generated .*.build.tmp names removed descriptor-relatively	next admitted build cleanup
+semantic retention	not implemented; GC deletes only derived indexes	W20 boundary preserved

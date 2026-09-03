@@ -1,0 +1,10 @@
+order	operation	durability boundary
+1	write metadata.json, vectors.f32le, seal.json with create_new	partial state remains temp-only
+2	fsync every component file	component bytes durable before naming build
+3	fsync temporary build directory	directory entries durable
+4	renameat temp build to content-addressed build ID	atomic build publication
+5	fsync builds parent	build rename durable before pointer
+6	write+fsync temporary current pointer	complete pointer bytes durable
+7	renameat pointer temp to current.json	atomic current selection
+8	fsync profile directory	pointer rename durable
+9	bounded GC then fsync profile/build directories	retention durable without deleting current

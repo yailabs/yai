@@ -1,0 +1,8 @@
+eligibility	filter_order	ranking_effect	evidence
+Case/Tenant	before any index adoption	cross-scope candidate impossible	W19 isolation plus source revalidation
+Participant/view	allowed document set before BM25/vector	ineligible docs cannot affect IDF/top-k	H19-S15
+lifecycle	active set before BM25/vector	superseded docs cannot affect IDF/top-k/RRF	H19-S16
+semantic kind	query requirement before ranking	excluded kind no score/count influence	qualified ID set
+Resource	exact current provenance before fuzzy planes	unrelated similar docs cannot displace anchor	H19-S17
+causal	exact current relationship before fuzzy planes	only mechanical exact candidate gets bonus	H19-S17
+authority posture	copied from current source after selection	similarity cannot promote ProviderClaim	H19-S23

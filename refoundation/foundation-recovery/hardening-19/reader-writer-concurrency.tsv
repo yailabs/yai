@@ -1,0 +1,7 @@
+test	opposition	processes/outcome	invariant
+H19-S07	query vs drop	16 readers; valid snapshot or missing	no partial/panic
+H19-S08	query vs rebuild	64 readers; each old or new exact manifest	no mixed components
+H19-S09	concurrent publish	32 child processes; one content identity	no corruption
+product stampede	current equivalent rebuild	32 CLI processes; zero additional embedding requests	admission precedes encoder work
+GC/query	shared reader vs exclusive writer	reader completes before deletion or observes missing	current snapshot retained
+pointer mutation after RetrievalSet	immutable retrieval manifest linkage	later queries may use new pointer	historical retrieval ID unchanged

@@ -1,0 +1,5 @@
+attack	internal_checksum	observed_result	threat_boundary
+alter canonical representation and recompute manifests	valid	memory_index_source_digest_mismatch	cannot reach RetrievalSet/Projection
+alter source digest and recompute manifests	valid	memory_index_source_digest_mismatch	cannot claim current corpus
+steer valid vector toward legitimate memory	valid	rank may change; payload/posture re-resolve from current memory	quality can be influenced by same-Principal derived tampering; Case truth cannot
+unkeyed checksum forgery	possible for same OS Principal	no authenticity claim	checksums provide integrity/consistency, not cryptographic principal isolation

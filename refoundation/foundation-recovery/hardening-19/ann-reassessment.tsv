@@ -1,0 +1,6 @@
+question	evidence	decision
+Was exact vector scan W19 bottleneck?	50k x 8 scan 12.342ms vs W19 total ~39.4s	no
+Does realistic scan dominate?	50k x 384 exact scan 36.881ms; v2 load/source/BM25 dominate full path	no at admitted maximum
+Would HNSW reduce main pathological work?	no; former query-time deep recomputation/serialization was removed	no
+H19 posture	ANN still deferred; exact cosine remains bounded reference	no dependency admitted
+future admission trigger	validated realistic scan becomes dominant under an evidence-backed larger budget	must review license, maintenance, serialization, corruption and recall

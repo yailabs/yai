@@ -1,0 +1,9 @@
+check	boundary	result
+memory_id exists	hybrid retrieval against current OperationalMemory	required
+source digest matches	all loaded index documents before ranking	required; source-divergent bundle rejected
+Case matches	manifest, document, current entry	required
+generation matches	pointer/load/retrieval/runtime dispatch	required
+lifecycle matches	before BM25/vector top-k	required; active default
+visibility matches	before BM25/vector top-k	required
+authority posture matches	current entry reconstructed and projected	required
+payload source	selected item returned from current OperationalMemory	index representation text never projected as authority
