@@ -1,0 +1,7 @@
+case	injected_boundary	exit_or_error	current_index_after	invariant
+M19-C1	after corpus manifest	memory_index_failpoint_after_corpus_manifest	old valid or none	no publication
+M19-C2	during lexical build	memory_index_failpoint_during_lexical_build	old valid or none	no publication
+M19-C3	during embedding generation	memory_index_failpoint_during_embedding_generation	old valid or none	no zero/partial vectors
+M19-C4	during vector serialization	memory_index_failpoint_during_vector_serialization	old valid or none	no partial bundle
+M19-C5	after complete temp index before publish	memory_index_failpoint_after_complete_temp	old valid or none	temp removed; pointer unchanged
+M19-C6	after atomic publish before acknowledgement	simulated successful publish then caller interruption	new complete valid	acknowledgement not required for content truth

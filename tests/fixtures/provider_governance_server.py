@@ -12,12 +12,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--port", type=int, default=0)
 parser.add_argument(
     "--mode",
-    choices=("full", "text_only", "reject", "malformed", "drop", "slow"),
+    choices=("full", "text_only", "reject", "malformed", "drop", "slow", "memory"),
     default="full",
 )
 parser.add_argument("--model", default="provider-governance-model")
 parser.add_argument("--requests", type=int, default=32)
 args = parser.parse_args()
+MEMORY_TURNS = 0
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -42,6 +43,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(404, {"error": {"type": "not_found"}})
 
     def do_POST(self):
+        global MEMORY_TURNS
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length)
         if args.mode == "drop":
@@ -74,14 +76,36 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
         wants_json = request.get("response_format") == {"type": "json_object"}
+        messages = request.get("messages", [])
+        is_case_runtime = any(
+            isinstance(message, dict)
+            and isinstance(message.get("content"), str)
+            and message["content"].startswith("YAI typed ContextFrame:\n")
+            for message in messages
+        )
         if wants_json and args.mode == "text_only":
             self.reply(400, {"error": {"type": "response_format_unsupported"}})
             return
-        content = (
-            '{"ok":true}'
-            if wants_json
-            else '{"schema":"yai.case_runtime_turn.v1","outcome":"complete"}'
-        )
+        if wants_json:
+            content = '{"ok":true}'
+        elif args.mode == "memory" and is_case_runtime and MEMORY_TURNS == 0:
+            MEMORY_TURNS += 1
+            content = json.dumps(
+                {
+                    "schema": "yai.operation_proposal.filesystem_write.v1",
+                    "operation": "filesystem.write",
+                    "resource": "resource:w19-memory",
+                    "path": "allowed/codename.txt",
+                    "content": "project codename ORCHID-731\n",
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        elif args.mode == "memory" and is_case_runtime:
+            MEMORY_TURNS += 1
+            content = '{"schema":"yai.case_runtime_turn.v1","outcome":"complete"}'
+        else:
+            content = '{"schema":"yai.case_runtime_turn.v1","outcome":"complete"}'
         self.reply(
             200,
             {

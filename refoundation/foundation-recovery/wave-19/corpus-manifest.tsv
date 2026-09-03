@@ -1,0 +1,11 @@
+field	contract	validation
+schema	yai.memory_corpus_manifest.v1	exact
+manifest_id	content-addressed short identity	recomputed
+corpus_digest	SHA-256 over Case/generation/derivation/representation/ordered items	recomputed
+case_id	exact Case	all documents equal
+source_generation	exact Case generation	any later Transition makes index stale
+operational_memory_derivation_version	yai.operational_memory.derivation.v1	exact
+representation_contract_version	yai.memory_representation.input.v1	exact
+ordered_items	memory_id/document_id/lifecycle sorted by memory ID	unique and exactly matches source manifest
+document_bound	50000 maximum	larger corpus refused
+supersession	active and superseded represented explicitly	default search qualifies active only

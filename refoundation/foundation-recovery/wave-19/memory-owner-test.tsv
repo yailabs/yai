@@ -1,0 +1,11 @@
+concept	independent_semantic_truth	lifecycle_source	verdict	owner_delta
+MemoryRepresentationDocument	no	exact OperationalMemoryEntry + representation contract	derived_no_owner	0
+embedding vector	no	document digest + immutable representation profile	derived_no_owner	0
+lexical index	no	corpus manifest + build version	derived_no_owner	0
+vector index	no	corpus manifest + profile + build version	derived_no_owner	0
+ANN graph	no	vector index + ANN algorithm/version	derived_accelerator_no_owner	0
+RetrievalSet	no	query + qualification + current indexes	determined_derived_selection	0
+MemoryRepresentationProfile	no independent authority; stable multi-Case shared configuration value	Tenant ID + exact encoder/contract identity	immutable_runtime_admin_configuration_value	0
+derived filesystem namespace	no	YAI_HOME + hashed Tenant/Case/profile identity	disposable_storage	0
+Case Transition history	yes	canonical commits	unchanged_existing_owner	0
+OperationalMemory	no	Transition replay	unchanged_derived_materialization	0

@@ -13,7 +13,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 pub const PROVIDER_TARGET_SCHEMA: &str = "yai.provider_target.v1";
 pub const PROVIDER_QUALIFICATION_SCHEMA_V1: &str = "yai.provider_qualification.v1";
-pub const PROVIDER_QUALIFICATION_SCHEMA: &str = "yai.provider_qualification.v2";
+pub const PROVIDER_QUALIFICATION_SCHEMA_V2: &str = "yai.provider_qualification.v2";
+pub const PROVIDER_QUALIFICATION_SCHEMA: &str = "yai.provider_qualification.v3";
 pub const PROVIDER_TRUST_EVENT_SCHEMA: &str = "yai.provider_trust_event.v1";
 pub const PROVIDER_HEALTH_SCHEMA_V1: &str = "yai.provider_health.v1";
 pub const PROVIDER_HEALTH_SCHEMA: &str = "yai.provider_health.v2";
@@ -338,6 +339,7 @@ impl ProviderTarget {
 #[serde(rename_all = "snake_case")]
 pub enum ProviderCapability {
     ChatText,
+    TextEmbedding,
     StructuredJsonObject,
     ModelExactAddressing,
     UsageAccounting,
@@ -381,6 +383,10 @@ pub struct ProviderProbeEvidence {
     pub usage_accounting_observed: bool,
     pub health_endpoint_observed: bool,
     pub extension_telemetry_observed: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub text_embedding_envelope_valid: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub embedding_dimension: Option<u64>,
     #[serde(default)]
     pub failure_codes: Vec<String>,
 }
@@ -397,6 +403,13 @@ impl ProviderProbeEvidence {
         }
         if self.structured_json_object_valid && !self.chat_text_envelope_valid {
             return Err("provider_probe_json_without_chat_evidence".to_string());
+        }
+        if self.text_embedding_envelope_valid {
+            if !matches!(self.embedding_dimension, Some(1..=4096)) {
+                return Err("provider_probe_embedding_dimension_invalid".to_string());
+            }
+        } else if self.embedding_dimension.is_some() {
+            return Err("provider_probe_embedding_dimension_without_evidence".to_string());
         }
         Ok(())
     }
@@ -435,6 +448,17 @@ fn derived_capabilities(
     }
     if evidence.health_endpoint_observed {
         add(ProviderCapability::HealthProbe, "health_probe");
+    }
+    if schema == PROVIDER_QUALIFICATION_SCHEMA
+        && evidence.text_embedding_envelope_valid
+        && evidence.exact_model_addressed
+    {
+        capabilities.push(ProviderCapabilityEvidence {
+            capability: ProviderCapability::TextEmbedding,
+            provenance: CapabilityProvenance::Qualified,
+            evidence_refs: vec![format!("probe:{}:text_embedding", evidence.run_id)],
+            verified_minimum: evidence.embedding_dimension,
+        });
     }
     if evidence.extension_telemetry_observed {
         let (capability, provenance) = if schema == PROVIDER_QUALIFICATION_SCHEMA_V1 {
@@ -586,6 +610,7 @@ impl ProviderQualification {
 
     pub fn validate(&self, target: &ProviderTarget) -> Result<(), String> {
         if self.schema != PROVIDER_QUALIFICATION_SCHEMA
+            && self.schema != PROVIDER_QUALIFICATION_SCHEMA_V2
             && self.schema != PROVIDER_QUALIFICATION_SCHEMA_V1
         {
             return Err("unsupported_provider_qualification_schema".to_string());
@@ -1728,6 +1753,8 @@ mod tests {
                 usage_accounting_observed: true,
                 health_endpoint_observed: false,
                 extension_telemetry_observed: false,
+                text_embedding_envelope_valid: false,
+                embedding_dimension: None,
                 failure_codes: vec![],
             },
             "yai.openai_compatible.synthetic.v1",
@@ -1801,6 +1828,101 @@ mod tests {
     }
 
     #[test]
+    fn embedding_capability_binds_observed_dimension_and_rejects_unsupported_vectors() {
+        let target = target(ProviderLocality::Loopback, "http://127.0.0.1:8080");
+        let qualification = ProviderQualification::from_evidence(
+            &target,
+            ProviderProbeEvidence {
+                run_id: "qualification-run:embedding".to_string(),
+                target_id: target.target_id.clone(),
+                started_at_unix_ms: 10,
+                completed_at_unix_ms: 11,
+                transport_connected: true,
+                exact_model_addressed: true,
+                chat_text_envelope_valid: false,
+                structured_json_object_valid: false,
+                usage_accounting_observed: false,
+                health_endpoint_observed: false,
+                extension_telemetry_observed: false,
+                text_embedding_envelope_valid: true,
+                embedding_dimension: Some(384),
+                failure_codes: vec![],
+            },
+            "yai.openai_compatible.embedding.synthetic.v1",
+            "principal:test",
+            Some(1000),
+        )
+        .unwrap();
+        assert_eq!(qualification.schema, PROVIDER_QUALIFICATION_SCHEMA);
+        let embedding = qualification
+            .capabilities
+            .iter()
+            .find(|capability| capability.capability == ProviderCapability::TextEmbedding)
+            .unwrap();
+        assert_eq!(embedding.provenance, CapabilityProvenance::Qualified);
+        assert_eq!(embedding.verified_minimum, Some(384));
+
+        let mut invalid = qualification.evidence.clone();
+        invalid.embedding_dimension = Some(0);
+        assert_eq!(
+            invalid.validate().unwrap_err(),
+            "provider_probe_embedding_dimension_invalid"
+        );
+        invalid.embedding_dimension = Some(4097);
+        assert_eq!(
+            invalid.validate().unwrap_err(),
+            "provider_probe_embedding_dimension_invalid"
+        );
+    }
+
+    #[test]
+    fn historical_qualification_v2_remains_valid_after_embedding_capability_versioning() {
+        let target = target(ProviderLocality::Loopback, "http://127.0.0.1:8080");
+        let mut qualification = qualification(&target, false);
+        qualification.schema = PROVIDER_QUALIFICATION_SCHEMA_V2.to_string();
+        let identity = QualificationIdentity {
+            tenant_id: &qualification.tenant_id,
+            target_id: &qualification.target_id,
+            target_digest: &qualification.target_digest,
+            suite_id: &qualification.suite_id,
+            run_id: &qualification.run_id,
+            qualified_at_unix_ms: qualification.qualified_at_unix_ms,
+            valid_until_unix_ms: qualification.valid_until_unix_ms,
+            evidence: &qualification.evidence,
+            capabilities: &qualification.capabilities,
+            operator_principal_id: &qualification.operator_principal_id,
+        };
+        let digest = digest_of(
+            &QualificationIdentityV2 {
+                schema: PROVIDER_QUALIFICATION_SCHEMA_V2,
+                credential_revision: qualification.credential_revision,
+                identity,
+            },
+            "provider_qualification_identity",
+        )
+        .unwrap();
+        qualification.integrity_digest = digest.clone();
+        qualification.qualification_id = short_identity("provider-qualification", &digest);
+        qualification.validate(&target).unwrap();
+        assert!(!qualification
+            .capabilities
+            .iter()
+            .any(|capability| capability.capability == ProviderCapability::TextEmbedding));
+
+        let mut forged = qualification.clone();
+        forged.capabilities.push(ProviderCapabilityEvidence {
+            capability: ProviderCapability::TextEmbedding,
+            provenance: CapabilityProvenance::Qualified,
+            evidence_refs: vec!["probe:historical:text_embedding".to_string()],
+            verified_minimum: Some(384),
+        });
+        assert_eq!(
+            forged.validate(&target).unwrap_err(),
+            "provider_qualification_integrity_mismatch"
+        );
+    }
+
+    #[test]
     fn historical_qualification_v1_remains_valid_without_extension_promotion() {
         let target = target(ProviderLocality::Loopback, "http://127.0.0.1:8080");
         let evidence = ProviderProbeEvidence {
@@ -1815,6 +1937,8 @@ mod tests {
             usage_accounting_observed: false,
             health_endpoint_observed: false,
             extension_telemetry_observed: true,
+            text_embedding_envelope_valid: false,
+            embedding_dimension: None,
             failure_codes: vec![],
         };
         let capabilities = derived_capabilities(&evidence, PROVIDER_QUALIFICATION_SCHEMA_V1);

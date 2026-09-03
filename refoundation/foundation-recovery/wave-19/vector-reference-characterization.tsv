@@ -1,0 +1,11 @@
+property	implementation	bound_or_result
+metric	cosine similarity over explicitly L2-normalized f32 vectors	exact profile identity
+oracle	full exact scan of current vector artifacts	correctness reference remains after future ANN
+dimension	1..4096 and exact equality	wrong dimension refused
+finite contract	NaN/Inf/empty/zero-norm refused	no fabricated vectors
+candidate bound	min(max_results*4,256,512/3)	maximum 170 from vector plane
+tie break	similarity descending then document ID ascending	deterministic
+fixture	controlled mathematical vectors	known neighbors and stable ties asserted
+1k scan	751 microseconds	observed development-host characterization; not a claim
+10k scan	7287 microseconds	observed development-host characterization; not a claim
+50k scan	42388 microseconds	observed development-host characterization; not a claim

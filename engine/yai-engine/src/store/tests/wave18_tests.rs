@@ -110,6 +110,8 @@ fn w18_qualify(
                 usage_accounting_observed: true,
                 health_endpoint_observed: true,
                 extension_telemetry_observed: false,
+                text_embedding_envelope_valid: false,
+                embedding_dimension: None,
                 failure_codes: vec![],
             },
             "yai.openai_compatible.synthetic.v1",
@@ -749,6 +751,8 @@ fn wave18_qualification_current_projection_never_rolls_back() {
         usage_accounting_observed: true,
         health_endpoint_observed: false,
         extension_telemetry_observed: false,
+        text_embedding_envelope_valid: false,
+        embedding_dimension: None,
         failure_codes: vec![],
     };
     let newer = store

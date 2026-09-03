@@ -1,0 +1,16 @@
+field	contract	corruption_or_staleness
+schema	yai.memory_index_manifest.v1	unknown/refused
+index_id	content-addressed from sealed bundle checksum	mismatch corrupt
+content_checksum	SHA-256 over corpus/profile/documents/indexes/build/ANN posture	mismatch corrupt
+case_id	exact Case	cross-Case refused
+source_corpus_manifest_id/digest	exact source corpus	mismatch corrupt
+representation_profile_id/digest	exact profile	mismatch corrupt; A/B never mixed
+index_types	lexical_bm25;vector_exact_cosine	exact implemented mechanisms only
+item_count	exact documents/postings/vector artifact count	mismatch corrupt
+dimension	exact profile and every artifact	mismatch corrupt
+exact_build_version	yai.memory_index.builder.v1	unknown/refused
+lexical_checksum	sealed BM25 checksum	mismatch corrupt
+vector_checksum	sealed exact-vector checksum	mismatch corrupt
+ann_posture	deferred_exact_scan_within_bound	no false ANN claim
+current pointer	case/profile/index/checksum	symlink/invalid/missing pointer refused or absent
+stale rule	bundle source generation must equal current Case generation	stale never served as current

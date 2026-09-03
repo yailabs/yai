@@ -469,9 +469,22 @@ Retrieval is a pure `qualify → filter → rank/select` algorithm. It filters C
 current generation, admitted participant/view, lifecycle, typed kind and direct
 resource/causal constraints before deterministic ranking by posture, purpose,
 direct match and recency. It defaults to eight entries and reports selection,
-omissions, rejections and machine-readable reasons. No embeddings, vector store,
-graph requirement or provider-specific input participates. Missing/stale memory
-falls back to canonical CaseState/history selection.
+omissions, rejections and machine-readable reasons. Wave 19 retains that v1
+path and adds content-addressed representation documents, a derived BM25 index,
+normalized profile-bound vectors, exact-cosine reference scan and v2 hybrid RRF
+after the same hard qualification barrier. Missing/stale/corrupt indexes or a
+failed local encoder degrade to qualified operational retrieval and then the
+canonical fallback; no graph requirement or provider-specific ontology enters
+core.
+
+[`memory_index.rs`](../engine/yai-engine/src/memory_index.rs) owns these pure
+derived algorithms, manifests, checksums and the disposable filesystem layout
+under `$YAI_HOME/store/derived-memory/v1`. It does not own memory truth. Builds
+are serialized per Case/profile, validated before atomic publication and
+content-idempotent under concurrent processes. Encoder profiles reuse W18
+ProviderGovernance and require an exact loopback `text_embedding`
+qualification. Exact scan is bounded to 50,000 documents; HNSW/ANN remains an
+explicit deferred accelerator after measured exact-query characterization.
 
 The compiler fails before rendering if the participant lacks the exact
 `model/model_context` admission. It includes the participant's own binding,
@@ -590,6 +603,7 @@ participates.
 | `engine/yai-engine/src/context.rs` | bounded typed Projection compilation, ContextFrame construction, provenance and the OpenAI-compatible render contract | product-reachable derived semantic compiler/render boundary |
 | `engine/yai-engine/src/residency.rs` | deterministic mandatory/retained/reintroduced/omitted semantic selection and budget accounting | product-reachable pure derived planner; no persistent authority |
 | `engine/yai-engine/src/memory.rs` | deterministic operational-memory derivation, provenance validation, supersession and qualified bounded retrieval; legacy MemoryCandidate summary compatibility | product-reachable derived algorithm/store contract; never canonical authority |
+| `engine/yai-engine/src/memory_index.rs` | deterministic memory representation/profile/embedding contracts, corpus/index manifests, BM25, exact cosine, hybrid RRF and atomic disposable index storage | product-reachable derived algorithm/store contract; no authority or independent owner |
 | `cmd/yai/src/controlled_effect.rs` + `engine/yai-engine/src/effect.rs` | controlled proposal/admission/recovery orchestration and the Grant-validating Rust filesystem carrier | product-reachable first constitutional effect family |
 | `cmd/yai/src/review.rs` | Case-native typed participant actions and effective Decision recording; never carrier execution | product-reachable human review boundary |
 | `engine/yai-engine/src/governance.rs` + `cmd/yai/src/policy.rs` | deterministic source compiler, immutable PolicyArtifact/lifecycle contracts and thin operator surface | product-reachable Case-independent governance authoring boundary; no Case authority |
@@ -623,10 +637,10 @@ from one checkout.
 | Case plus materialized CaseState | implemented and replayable for provider/review/resource/operation/grant/effect refs and exact policy bindings | extend only for demonstrated future consumers; migrate daemon hot/fixture state only if it becomes canonical input |
 | summary is presentation only | canonical reducers and migrated paths do not parse it; old projection/frame and analytics records use the compatibility decoder | migrate or retire remaining legacy-only producers and views |
 | Projection/Residency/ContextFrame/KV separation | typed Projection, pure `yai.residency_plan.v1`, independent ContextFrame and distinct render identity are implemented; opaque continuation is optional and tokens/KV are absent from canonical state | semantic units and rendered-size estimation are conservative rather than tokenizer-authoritative; no ContextDelta consumer |
-| provenance-bound operational memory | `yai.operational_memory.v1` is deterministically derived, participant-filtered before ranking, bounded, inspectable and droppable/rebuildable; the runtime repairs it automatically and current state/observed consequence retain precedence | no learned compression, embedding/reranker or global retention policy |
+| provenance-bound operational memory | `yai.operational_memory.v1` is deterministically derived; W19 content-addresses typed representation documents, keeps encoder/profile identity exact, builds disposable BM25/exact-cosine indexes, qualifies before deterministic RRF, and integrates selected entries through the existing Projection/ContextFrame path | ANN and learned reranking/consolidation remain deferred; no global retention policy |
 | agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops, typed human pause/resume, LMDB run admission and restart tests | generalized operation families, distributed admission and daemon scheduling are absent |
 | provider replacement preserves semantic continuity | real HTTP Provider A→filesystem FINALIZE→Provider B, same-provider model replacement, continuation invalidation and provider restart are deterministic product tests | generalized routing/economics and native runtime continuation protocols are deliberately absent |
-| derived data rebuilds from canonical state | graph rebuild consumes typed transitions and legacy compatibility; operational memory can be dropped/rebuilt with deterministic identity and canonical fallback; facts remain legacy-derived | adaptive invalidation/scheduling, compression and full typed analytics inputs |
+| derived data rebuilds from canonical state | graph and OperationalMemory rebuild from typed transitions; W19 corpus/index manifests are content-addressed, stale/corrupt-aware, atomically replaceable and add no LMDB DB; profile replacement creates an independent namespace | adaptive background scheduling, compression and full typed analytics inputs |
 | governance source/artifact history | exact-byte source identity, typed deterministic parse/IR, immutable v5 Tenant ownership/validity and append-only authenticated lifecycle/revoke share LMDB while remaining independent from Cases | external organization/SSO assertion, retention policy and distributed revoke |
 | Case policy configuration and admission | Tenant-safe exact artifacts bind canonically; `yai.transition.v8` records DecisionBasis v3, authenticated ReviewAction v2, temporal invalidation and finite Grant v3 under `yai.effective_policy.v3`; cancellation/closure are durable barriers and historical basis is never rewritten | multi-Case runtime, additional carriers and externally authenticated principals remain later |
 | authenticated Principal and Tenant isolation | kernel eUID projection, immutable Principal/Tenant catalog, Owner/Member admin checks, immutable Case Tenant, Principal/Participant links, Tenant-filtered reads and cross-Tenant filesystem-root alias rejection | local OS trust only; no SSO/account directory, membership removal, VM/container boundary or shared-resource fencing |

@@ -117,3 +117,21 @@ preference/failover posture. Selection is an engine-owned deterministic
 operation recorded in Case history; it exposes bounded exclusion codes rather
 than a magic score. Existing `case provider attach` remains the legacy exact
 pin, not an alias for a governed pool.
+
+## Case memory representation and retrieval
+
+Wave 19 keeps memory operations Case-first in the same registry:
+`case memory show/search`, `case memory index status/build/rebuild`, and
+`case memory retrieval show` are typed PRODUCT operations. The destructive,
+derived-only `case memory index drop` operation is ADVANCED. Human search
+prints rank, semantic kind, authority posture, source planes, description and
+provenance generation; JSON exposes manifests, per-plane ranks and fusion
+reasons without raw vectors.
+
+`case participant view admit` records the existing bounded
+`model/model_context` Case admission explicitly; role binding alone does not
+grant a view. Index build requires an exact Tenant-approved loopback target
+qualified with `provider qualify TARGET --embedding`, plus an
+operator-declared encoder revision and dimension. Index paths are generated
+from hashed identities under `$YAI_HOME/store/derived-memory/v1`, never from a
+caller-supplied path.

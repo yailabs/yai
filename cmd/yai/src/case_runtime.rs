@@ -1526,6 +1526,17 @@ fn print_runtime_summary(checkpoint: &CaseRuntimeCheckpoint) -> Result<(), Strin
             .as_deref()
             .unwrap_or("none")
     );
+    println!(
+        "projection_id: {}",
+        checkpoint.last_projection_id.as_deref().unwrap_or("none")
+    );
+    println!(
+        "context_frame_id: {}",
+        checkpoint
+            .last_context_frame_id
+            .as_deref()
+            .unwrap_or("none")
+    );
     println!("resident_items: {}", checkpoint.previous_item_ids.len());
     println!(
         "projection_selected_items: {}",

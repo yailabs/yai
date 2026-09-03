@@ -1,0 +1,11 @@
+property	contract	failure_posture
+provider stack	W18 ProviderGovernance reused	no EmbeddingProviderManager/registry/router
+capability	TextEmbedding with Qualified provenance and exact observed dimension	model/target names never imply support
+qualification probe	fixed synthetic non-Case input through OpenAI-compatible /embeddings	separate from cognition/YVEX test
+locality	ProviderTarget must be Loopback	private_network/remote refused
+credential	ProviderTarget env reference resolved at invocation	value never rendered
+response	exact response model required; exact count/index/dimension; finite floats	fail closed
+batching	maximum 32 documents/request	bounded
+failure	vector plane unavailable; exact/lexical remain	no zero-vector fabrication
+YVEX	cognitive provider only in W19	no embeddings endpoint added or assumed
+DeepSeek	cognitive model only in manual acceptance	no fake DeepSeek embedding

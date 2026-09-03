@@ -1,0 +1,8 @@
+boundary	physical_posture	logical_enforcement	proof
+Case	separate hashed Case namespace	qualification requires exact case_id	identical vector/text cannot cross Case test + product smoke
+Tenant	separate hashed Tenant namespace and profile Tenant	authorized Case lookup + exact profile Tenant	cross-Tenant path/profile mismatch refused
+Participant	one index may contain multiple visible sets	visibility qualification precedes BM25/vector candidate exposure	hidden memory absent from result/reasons/text
+view	index may contain document	consumer/view must equal admitted visibility	wrong view rejected
+count leakage	physical candidates may exist	restricted rejection counts redacted and hidden candidates omitted	JSON test asserts hidden ID/text absent
+ProviderClaim	may be semantically similar to observed consequence	posture/provenance preserved through fusion/Projection	attack fixture
+raw vector	stored only in private derived bundle	never normal CLI/ContextFrame	product JSON test/no-vector contract

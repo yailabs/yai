@@ -1,0 +1,11 @@
+capability	model_usable_typed_operation	operator_or_compatibility_surface	verified_current_posture	next_wave_candidate
+filesystem.write	yes	Case runtime + controlled effect	implemented through current Policy/Decision/Grant/PREPARE/carrier/FINALIZE chain	no
+filesystem modify/replace	yes through full-content filesystem.write	atomic replace when desired content is known	implemented; not an independent patch operation	patch semantics remain candidate
+filesystem.read	no	cmd/yai/src/filesystem.rs compatibility hash observation only	not a model OperationKind/Capability	yes
+filesystem.list	no	none model-usable	not implemented	yes
+filesystem.stat	no	internal carrier/precondition metadata only	not a model OperationKind/Capability	yes
+filesystem.search	no	none model-usable	not implemented	yes
+process observation	no	yai process observe plumbing + internal resource observation	read-only/operator/internal; not a model OperationKind/Capability	yes
+process.signal	yes through governed Case effect	direct plumbing command denies unsafe target	OperationKind::ProcessSignal implemented through authority spine	no
+shell.exec	no	no proposed surface	must remain rejected	no
+W19 action	none	matrix/report only	governed capability expansion explicitly not implemented	future Foundation wave decision

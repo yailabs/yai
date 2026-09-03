@@ -1,0 +1,15 @@
+field	v1_contract	model_replacement_behavior
+schema	yai.memory_representation_profile.v1	exact
+profile_id	content-addressed from full profile	A and B cannot collide unless identical
+tenant_id	exact Tenant	cross-Tenant reuse refused
+representation_contract_version	yai.memory_representation.input.v1	change creates new namespace
+encoder_target_id	exact ProviderTarget	change creates new namespace
+encoder_model_id	exact provider-exposed model	change creates new namespace
+encoder_revision	operator-declared non-empty revision/profile	change creates new namespace
+vector_dimension	1..4096	identity-bearing; mismatch refused
+numeric_representation	float32_le	identity-bearing
+normalization	l2_unit	vectors normalized and finite
+distance_metric	cosine_similarity	no incompatible metric comparison
+query_policy	same_profile_same_contract	query and documents use exact profile
+locality	qualified loopback only	remote/private target refused for automatic Case memory
+integrity_digest	SHA-256 of profile material	recomputed before use

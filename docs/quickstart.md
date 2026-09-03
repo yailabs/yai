@@ -47,6 +47,9 @@ Principal link.
 ./yai case participant role add case:demo \
   --participant participant:model --role operation-proposer
 
+./yai case participant view admit case:demo \
+  --participant participant:model --consumer model --view model_context
+
 ./yai case participant list case:demo
 ```
 
@@ -82,6 +85,26 @@ administrative approval, operational health and Case binding explicit:
 Qualification sends fixed synthetic probes, never Case context. Binding does
 not imply qualification, approval, health or authority. With several repeated
 `--target` flags, their order is the deterministic preference order.
+
+For derived hybrid memory, configure a separate loopback embedding target and
+use its observed dimension. The encoder may be independent from the cognitive
+provider:
+
+```sh
+./yai provider add --tenant tenant:demo --provider-key local-encoder \
+  --endpoint http://127.0.0.1:8081 --model exact-encoder-model \
+  --locality loopback
+./yai provider qualify encoder-target-id --embedding
+./yai provider trust approve encoder-target-id
+./yai case memory index build case:demo --encoder-target encoder-target-id \
+  --encoder-revision operator-declared-revision --dimension observed-dimension
+./yai case memory search case:demo --participant participant:model \
+  --query 'what happened to the governed file?'
+./yai case memory index status case:demo
+```
+
+These indexes are disposable. `yai help --advanced` exposes the explicit drop
+command; deleting one never deletes Transition history or OperationalMemory.
 
 ## Attach a governed Resource
 

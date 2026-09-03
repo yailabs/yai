@@ -13817,7 +13817,8 @@ impl LmdbRecordStore {
             })?;
             return Err("provider_health_future_timestamp_rejected".to_string());
         }
-        let successful = evidence.chat_text_envelope_valid && evidence.exact_model_addressed;
+        let successful = evidence.exact_model_addressed
+            && (evidence.chat_text_envelope_valid || evidence.text_embedding_envelope_valid);
         state.schema = crate::provider_governance::PROVIDER_HEALTH_SCHEMA.to_string();
         state.observed_at_unix_ms = now_unix_ms;
         state.effective_time_floor_unix_ms = now_unix_ms;

@@ -73,6 +73,8 @@ fn evidence(target: &ProviderTarget, run: &str, completed: u64) -> ProviderProbe
         usage_accounting_observed: true,
         health_endpoint_observed: false,
         extension_telemetry_observed: false,
+        text_embedding_envelope_valid: false,
+        embedding_dimension: None,
         failure_codes: vec![],
     }
 }

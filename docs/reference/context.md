@@ -45,8 +45,8 @@ authority. A trusted operational entry cites its source Transitions and, where
 applicable, Observation and EffectReceipt identities. Provider-originated
 material may be retained only with an explicit non-authoritative posture.
 
-The executable v1 contract derives five bounded kinds: resource effect,
-Decision, unresolved effect, normalization failure, and provider claim. Each
+The executable v1 contract derives six bounded kinds: resource effect,
+Decision, Review, unresolved effect, normalization failure, and provider claim. Each
 entry binds Case, derivation version, generation range, participant visibility,
 typed value, provenance and active/superseded lifecycle. Current CaseState and
 finalized observed consequence outrank derived memory; derived memory outranks
@@ -62,9 +62,39 @@ terminal/reconciled effect supersedes its prepared or indeterminate entry.
 Qualified retrieval accepts Case and generation, participant/admitted view,
 purpose, optional resource/kind/causal constraints, supersession posture and a
 hard result budget. It filters authority boundaries before deterministic
-ranking. Its `RetrievalSet` is ephemeral derived output with selected entries,
+ranking. Its v1 `RetrievalSet` remains readable derived output with selected entries,
 scores/reasons, rejection counts and omission counts. Missing memory or graph
 falls back to direct CaseState/canonical selection.
+
+Wave 19 adds a second, still-derived representation and candidate layer. One
+`yai.memory_representation_document.v1` is a deterministic typed rendering of
+one exact OperationalMemory entry, not presentation copy. It binds the source
+digest, derivation/version, semantic kind, posture, lifecycle, provenance and
+visibility. A corpus manifest binds ordered document identities to one Case
+generation. Canonical input is bounded and screens credential tokens before
+local encoding.
+
+`yai.memory_representation_profile.v1` is immutable value configuration. Its
+identity includes Tenant, representation contract, exact governed encoder
+target/model/operator revision, dimension, f32 representation, unit
+normalization, cosine metric and query policy. Automatic encoding is permitted
+only through a loopback target carrying synthetic `text_embedding`
+qualification for the exact dimension and Tenant approval. Any identity change
+creates another profile/index namespace; vectors never cross profiles.
+
+The filesystem store under `$YAI_HOME/store/derived-memory/v1` contains sealed,
+content-addressed corpus/profile/index bundles. BM25 postings, normalized
+vectors and current pointers are disposable derived files (0700 directories,
+0600 files on Unix), add no LMDB databases, and publish under one profile lock
+by temp-build, validation, rename and atomic current-pointer replacement.
+
+`yai.retrieval_set.v2` records an explicit query document, exact-operational,
+BM25 and exact-cosine planes, per-plane ranks/evidence and deterministic
+reciprocal-rank fusion (`k=60`). Case, generation, participant/view, lifecycle,
+kind, resource and causal qualification still precede fuzzy selection. Direct
+resource/causal matches remain privileged and restricted rejection counts are
+redacted. ANN is explicitly not admitted: exact scan remains the reference
+within the 50,000-document bound.
 
 ## Projection
 
@@ -302,6 +332,15 @@ memory, runs Case/participant/purpose-qualified retrieval with an eight-entry
 default, and passes only the selected typed material to Projection. Derivation
 or store failure uses canonical fallback. The former `/memory propose` command
 is retired; historical `MemoryCandidate` remains compatibility input only.
+
+When a current Wave-19 index exists, that same compiler locally encodes the
+explicit task query document, performs v2 hybrid retrieval and feeds only the
+selected typed OperationalMemory entries into the existing Projection →
+ResidencyPlan → ContextFrame path. Encoder/index failure degrades to qualified
+v1 retrieval. Provider render receives no vectors, postings, index paths,
+encoder credentials or ANN internals. Projection and ContextFrame remain v5:
+their serialized meaning already binds selected typed memory, retrieval
+identity, reasons and omissions, so no silent schema reinterpretation occurs.
 
 The provider adapter accepts an optional opaque, provider/runtime-bound
 continuation reference in memory for one invocation. It persists only the use/

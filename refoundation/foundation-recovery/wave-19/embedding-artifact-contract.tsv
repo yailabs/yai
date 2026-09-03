@@ -1,0 +1,12 @@
+field	contract	posture
+schema	yai.memory_embedding.v1	exact derived schema
+embedding_id	content addressed	document + profile + normalized vector digest
+document_id	MemoryRepresentationDocument identity	exact
+document_digest	source representation digest	recomputed
+profile_id	MemoryRepresentationProfile identity	exact
+profile_digest	full profile integrity digest	recomputed
+dimension	exact profile dimension	mismatch refused
+normalization_posture	l2_unit	zero/non-finite refused
+vector_digest	SHA-256 over normalized f32 little-endian bytes	recomputed
+vector_values	stored only inside disposable advanced bundle	never Transition/CaseState/product output/context
+encoded_derivation	profile-bound rebuild metadata	derived and deletable

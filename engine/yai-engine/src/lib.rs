@@ -23,6 +23,7 @@ pub mod graph;
 pub mod handoff;
 pub mod journal;
 pub mod memory;
+pub mod memory_index;
 pub mod projection;
 pub mod provider_governance;
 pub mod query;

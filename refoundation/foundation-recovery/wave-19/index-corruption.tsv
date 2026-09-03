@@ -1,0 +1,10 @@
+target	corruption_detection	search_posture	recovery
+current manifest schema/ID/checksum	full bundle validate	fail closed	rebuild/drop then rebuild
+corpus digest/manifest ID	recompute	fail closed	rederive corpus and rebuild
+profile digest/ID	recompute	fail closed	use exact immutable profile namespace
+item count/document IDs	exact cross-check	fail closed	rebuild
+vector dimension/non-finite/norm/digest	exact validation	fail closed	re-encode; never zero fill
+lexical postings/checksum/document refs	exact validation	fail closed	rebuild
+current pointer	regular-file/schema/case/profile/index/checksum validation	corrupt status or load error	drop/rebuild
+ANN bytes	not present in W19	not applicable	future implementation must exact-scan or mark unavailable
+source generation mismatch	currentness comparison	index planes unavailable or automatic loopback refresh	new manifest/index namespace

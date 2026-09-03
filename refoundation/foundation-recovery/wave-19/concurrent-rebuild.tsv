@@ -1,0 +1,5 @@
+run	processes	case_profile	publication_result	corruption	identity
+focused-unit	8	same exact Case/corpus/profile	all child builders succeeded	none	one equivalent current index manifest
+locking	8	per Tenant/Case/profile flock	serialized seal/pointer publication	none	content-identical builds idempotent
+collision posture	8	pre-existing content-addressed build	bytes validated before reuse	mismatch fails closed	no overwrite/reinterpretation
+command	1 parent + 8 ignored-test child processes	cargo test --manifest-path engine/Cargo.toml -p yai-engine memory_index::tests::eight_process_concurrent_rebuilds_publish_one_equivalent_manifest -- --nocapture	pass	none	deterministic

@@ -1,0 +1,17 @@
+stage	authority_posture	current_executable_source	storage	query_or_consumer	w19_result
+source authority	canonical	engine/yai-engine/src/transition.rs	LMDB transitions_by_id+case_transition_sequence	Case reducer/replay	unchanged
+derived memory	derived_rebuildable	engine/yai-engine/src/memory.rs	LMDB operational_memory_by_id+operational_memory_case_index	qualified operational retrieval	yai.operational_memory.v1 unchanged
+representation	deterministic_derived_no_owner	engine/yai-engine/src/memory_index.rs	disposable YAI_HOME/store/derived-memory/v1	index build	yai.memory_representation_document.v1
+corpus	derived_no_owner	engine/yai-engine/src/memory_index.rs	disposable bundle	index build	yai.memory_corpus_manifest.v1
+lexical index	derived_no_owner	engine/yai-engine/src/memory_index.rs	disposable bundle	BM25 candidate generation	implemented bounded BM25
+vector index	derived_no_owner	engine/yai-engine/src/memory_index.rs	disposable bundle	exact cosine candidate generation	implemented correctness oracle
+ANN	derived_accelerator_no_owner	engine/yai-engine/src/memory_index.rs	none	optional candidate acceleration	deferred after scale evidence
+query	deterministic_derived_no_owner	engine/yai-engine/src/memory_index.rs	none	hybrid retrieval	yai.retrieval_query_document.v1
+retrieval	derived_selection	engine/yai-engine/src/memory.rs;engine/yai-engine/src/memory_index.rs	last v2 result in disposable derived store	Projection compiler	v1 retained; yai.retrieval_set.v2 added
+ranking	derived_selection	engine/yai-engine/src/memory_index.rs	none	qualified candidates	RRF v1 after hard qualification; exact anchors privileged
+projection	derived	engine/yai-engine/src/context.rs	LMDB semantic_context_artifacts	ContextFrame	v5 bytes/meaning unchanged
+residency	derived	engine/yai-engine/src/residency.rs	LMDB semantic_context_artifacts	ContextFrame	unchanged bounded planner
+context	derived	engine/yai-engine/src/context.rs	LMDB semantic_context_artifacts	provider renderer	ContextFrame v5 unchanged; receives selected W19 memory
+provider invocation	canonical invocation/result residue plus derived render	cmd/yai/src/provider.rs;cmd/yai/src/case_runtime.rs	Transition history + derived context artifacts	OpenAI-compatible provider	W19 retrieval compiles before existing renderer
+provider governance	Tenant shared configuration and canonical Case selection	engine/yai-engine/src/provider_governance.rs;engine/yai-engine/src/store/lmdb.rs	provider_governance LMDB DB	cognition and local encoder qualification	text_embedding exact capability added; no second provider stack
+CLI	operator surface	cmd/yai/src/cli/registry.rs;cmd/yai/src/memory_cli.rs	none	Case-first product/advanced commands	show/search/status/build/rebuild/retrieval show/drop

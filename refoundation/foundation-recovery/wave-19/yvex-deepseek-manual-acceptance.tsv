@@ -1,0 +1,11 @@
+property	observed_value	classification	result
+YAI SHA	pre-publication working tree	DEPLOYMENT_LIMITATION	automated W19 qualification allowed
+YVEX reference path	/tmp/yvex-w18-readonly	NO_ISSUE	read-only reference reused
+YVEX branch	models1	NO_ISSUE	resolved locally
+YVEX SHA	5b3aa34be8999ad8240403e884074833d80c301d	NO_ISSUE	exact read-only SHA
+YAI_EXTERNAL_PROVIDER_BASE_URL	absent	DEPLOYMENT_LIMITATION	live endpoint unavailable
+YAI_EXTERNAL_PROVIDER_MODEL	absent	DEPLOYMENT_LIMITATION	exact DeepSeek identity unavailable
+live cognition qualification	not executed	DEPLOYMENT_LIMITATION	complete_published_external_acceptance_pending
+embedding live qualification	no operator endpoint/model supplied	DEPLOYMENT_LIMITATION	test-only deterministic loopback encoder proves mechanics only
+manual script	MANUAL-ACCEPTANCE.md	NO_ISSUE	exact CLI commands emitted for operator target
+external finding	no YVEX defect inferred	NO_ISSUE	absence is not defect

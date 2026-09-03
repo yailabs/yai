@@ -417,15 +417,17 @@ ContextDelta. It does
 not restore the historical Governance/Compliance/Authority planes, registry
 forest, Workflow, supervisor or embedded-law topology.
 
-## Post-H18 work-selection gate
+## Post-W19 work-selection gate
 
 There is no active numbered Foundation Wave. A next source task requires
 executable product, deployment or external-consumer evidence that identifies a
-specific missing property. Distributed consensus, production trust and
-credential provisioning, long-horizon observability, retention policy,
-performance optimization and richer diagnostics remain candidate pressure
-areas, not pre-authorized semantic owners. Their current classification and
-non-claims are maintained in the post-H18 reassessment linked above.
+specific missing property. W19 was admitted by explicit long-horizon memory
+product pressure after H18; it did not authorize H19. Distributed consensus,
+production trust and credential provisioning, higher-order memory
+consolidation, governed read/list/stat/search capabilities, retention policy,
+background indexing and richer diagnostics remain candidate pressure areas,
+not pre-authorized semantic owners. Their classifications and non-claims are
+maintained in the W19 dossier.
 
 ## Completed boundary — adaptive Workflow semantic closure
 
@@ -458,3 +460,27 @@ rollback-safe health, half-open concurrency, DNS/TLS transport, selector,
 delivery and extension-spoofing boundaries. Cross-host governance, deployment
 credential stores and external-provider availability remain explicit gaps, not
 provider-brand branches or evidence for a new owner.
+
+## Completed boundary — derived hybrid memory indexing
+
+Wave 19 preserves Transition history as memory authority and OperationalMemory
+as its rebuildable typed materialization. It adds deterministic
+`yai.memory_representation_document.v1` values, exact Tenant/encoder/profile
+identity, derived embedding artifacts and content-addressed corpus/index
+manifests without increasing the 37/40 LMDB database count.
+
+Disposable filesystem bundles provide BM25 and normalized exact-cosine
+candidate planes. Case/generation/Participant/view/lifecycle/resource/causal
+qualification remains ahead of deterministic reciprocal-rank fusion, so
+similarity cannot grant visibility, upgrade ProviderClaims or authorize an
+Operation. Builds are bounded, locked, corruption-detecting and atomically
+published; profile replacement creates a new namespace; drop/rebuild preserves
+Case truth. The existing Projection v5 → ResidencyPlan → ContextFrame v5 path
+consumes v2 RetrievalSet selections and degrades to v1/canonical retrieval.
+
+ANN is explicitly deferred after 1k/10k/50k exact-scan characterization; exact
+scan remains the oracle. Embedding calls are limited to separately qualified
+loopback targets under W18 ProviderGovernance. YVEX/DeepSeek remains the
+cognitive provider and gains no embedding endpoint or core special case.
+Learned reranking, contradiction/consolidation and governed filesystem/process
+capability expansion remain outside W19.

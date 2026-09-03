@@ -13,6 +13,7 @@ use yai_core_engine::provider_governance::{
 use yai_core_engine::security::AuthenticatedPrincipal;
 
 const QUALIFICATION_SUITE: &str = "yai.openai_compatible.synthetic.v1";
+const EMBEDDING_QUALIFICATION_SUITE: &str = "yai.openai_compatible.embedding.synthetic.v1";
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -130,7 +131,8 @@ fn provider_show(args: &[String]) -> Result<(), String> {
     println!(
         "qualification: {}",
         qualification.as_ref().map_or("missing", |qualification| {
-            if qualification.evidence.chat_text_envelope_valid
+            if (qualification.evidence.chat_text_envelope_valid
+                || qualification.evidence.text_embedding_envelope_valid)
                 && qualification.evidence.exact_model_addressed
             {
                 "qualified"
@@ -261,7 +263,7 @@ impl<'de> Deserialize<'de> for StrictValue {
     }
 }
 
-fn strict_json(body: &[u8]) -> Result<Value, String> {
+pub(super) fn strict_json(body: &[u8]) -> Result<Value, String> {
     let mut deserializer = serde_json::Deserializer::from_slice(body);
     let value = StrictValue::deserialize(&mut deserializer)
         .map_err(|error| format!("provider_response_json_invalid: {error}"))?;
@@ -315,8 +317,25 @@ fn credential_for(target: &yai_core_engine::provider_governance::ProviderTarget)
         .and_then(provider::env_var)
 }
 
+fn embedding_probe_shape(value: &Value, model_id: &str) -> (Option<u64>, bool) {
+    let dimension = value
+        .pointer("/data/0/embedding")
+        .and_then(Value::as_array)
+        .and_then(|values| {
+            (!values.is_empty()
+                && values.len() <= 4096
+                && values
+                    .iter()
+                    .all(|value| value.as_f64().is_some_and(f64::is_finite)))
+            .then_some(values.len() as u64)
+        });
+    let exact_response_model = value.get("model").and_then(Value::as_str) == Some(model_id);
+    (dimension, exact_response_model)
+}
+
 fn run_synthetic_probe(
     target: &yai_core_engine::provider_governance::ProviderTarget,
+    probe_embedding: bool,
 ) -> ProviderProbeEvidence {
     let started = now_ms();
     let run_id = format!(
@@ -335,6 +354,8 @@ fn run_synthetic_probe(
         usage_accounting_observed: false,
         health_endpoint_observed: false,
         extension_telemetry_observed: false,
+        text_embedding_envelope_valid: false,
+        embedding_dimension: None,
         failure_codes: Vec::new(),
     };
     let endpoint = match parse_http_endpoint(&target.endpoint) {
@@ -390,6 +411,60 @@ fn run_synthetic_probe(
                 .unwrap_or("transport_failure")
                 .to_string(),
         ),
+    }
+
+    if probe_embedding {
+        let embedding_body = serde_json::to_vec(&serde_json::json!({
+            "model": target.model_id,
+            "input": ["Synthetic YAI embedding contract probe. No Case data."],
+            "encoding_format": "float"
+        }))
+        .expect("synthetic embedding probe serializes");
+        match probe_http(
+            &endpoint,
+            &target.locality,
+            "POST",
+            &api_path(&endpoint, "embeddings"),
+            Some(&embedding_body),
+            api_key.as_deref(),
+        ) {
+            Ok(response) if (200..300).contains(&response.status) => {
+                match strict_json(&response.body) {
+                    Ok(value) => {
+                        let (dimension, exact_response_model) =
+                            embedding_probe_shape(&value, &target.model_id);
+                        evidence.text_embedding_envelope_valid = dimension.is_some();
+                        evidence.embedding_dimension = dimension;
+                        // Exact catalog membership alone is insufficient: the
+                        // embedding response must bind itself to the same model.
+                        evidence.exact_model_addressed &= exact_response_model;
+                        if !evidence.text_embedding_envelope_valid {
+                            evidence
+                                .failure_codes
+                                .push("embedding_response_invalid".to_string());
+                        }
+                    }
+                    Err(_) => evidence
+                        .failure_codes
+                        .push("embedding_response_invalid".to_string()),
+                }
+            }
+            Ok(response) => evidence
+                .failure_codes
+                .push(format!("embedding_http_{}", response.status)),
+            Err(error) => evidence.failure_codes.push(
+                error
+                    .split(':')
+                    .next()
+                    .unwrap_or("transport_failure")
+                    .to_string(),
+            ),
+        }
+        evidence.completed_at_unix_ms = now_ms().max(evidence.started_at_unix_ms);
+        evidence.failure_codes.sort();
+        evidence.failure_codes.dedup();
+        evidence.failure_codes.truncate(16);
+        return evidence;
     }
 
     let text_body = serde_json::to_vec(&serde_json::json!({
@@ -506,6 +581,13 @@ fn print_probe(evidence: &ProviderProbeEvidence) {
         evidence.structured_json_object_valid
     );
     println!("usage_accounting: {}", evidence.usage_accounting_observed);
+    println!("text_embedding: {}", evidence.text_embedding_envelope_valid);
+    println!(
+        "embedding_dimension: {}",
+        evidence
+            .embedding_dimension
+            .map_or_else(|| "none".to_string(), |value| value.to_string())
+    );
     println!("health_probe: {}", evidence.health_endpoint_observed);
     println!(
         "extension_compatible_telemetry: {}",
@@ -525,7 +607,8 @@ fn provider_probe(args: &[String], persist_qualification: bool) -> Result<(), St
         &target.target_id,
         &admission_token,
     )?;
-    let evidence = run_synthetic_probe(&target);
+    let probe_embedding = args.iter().any(|value| value == "--embedding");
+    let evidence = run_synthetic_probe(&target, probe_embedding);
     store.complete_provider_probe_authorized(
         &authenticated,
         &target.target_id,
@@ -546,7 +629,11 @@ fn provider_probe(args: &[String], persist_qualification: bool) -> Result<(), St
             &authenticated,
             &target.target_id,
             evidence,
-            QUALIFICATION_SUITE,
+            if probe_embedding {
+                EMBEDDING_QUALIFICATION_SUITE
+            } else {
+                QUALIFICATION_SUITE
+            },
             valid_until,
         )?;
         println!("qualification: recorded");
@@ -690,5 +777,34 @@ mod tests {
         assert!(strict_json(br#"{"ok":true,"ok":false}"#)
             .unwrap_err()
             .contains("duplicate JSON key"));
+    }
+
+    #[test]
+    fn embedding_probe_requires_exact_response_model_and_finite_bounded_vector() {
+        let exact = serde_json::json!({
+            "model": "encoder:exact",
+            "data": [{"embedding": [1.0, 2.0]}]
+        });
+        assert_eq!(
+            embedding_probe_shape(&exact, "encoder:exact"),
+            (Some(2), true)
+        );
+        assert_eq!(
+            embedding_probe_shape(&exact, "encoder:other"),
+            (Some(2), false)
+        );
+        let missing = serde_json::json!({"data": [{"embedding": [1.0, 2.0]}]});
+        assert_eq!(
+            embedding_probe_shape(&missing, "encoder:exact"),
+            (Some(2), false)
+        );
+        let invalid = serde_json::json!({
+            "model": "encoder:exact",
+            "data": [{"embedding": []}]
+        });
+        assert_eq!(
+            embedding_probe_shape(&invalid, "encoder:exact"),
+            (None, true)
+        );
     }
 }

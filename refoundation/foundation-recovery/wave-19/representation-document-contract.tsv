@@ -1,0 +1,14 @@
+field	contract	validation_or_identity
+schema	yai.memory_representation_document.v1	exact
+document_id	content-addressed short ID	digest of all contract material
+case_id	exact source Case	non-empty and equal to memory source
+memory_id	exact OperationalMemory identity	one document per exact memory item
+source_content_digest	SHA-256 of full serialized OperationalMemoryEntry	recomputed on validation
+operational_memory_derivation_version	yai.operational_memory.derivation.v1	exact
+representation_contract_version	yai.memory_representation.input.v1	exact; display copy is not input
+semantic_kind	resource_effect;decision;review;unresolved_effect;normalization_failure;provider_claim	preserved before text representation
+authority_posture	exact OperationalMemory posture	ProviderClaim cannot become observation
+lifecycle	active or superseded	exact source posture
+canonical_text	bounded deterministic typed representation	maximum 4096 characters; secrets scrubbed
+provenance	transition/observation/receipt/causal refs	preserved exactly
+visibility	participant IDs + consumer + view	preserved exactly and enforced before ranking

@@ -31,7 +31,7 @@ qualification or trust. Binding, selection and attempt outcomes are Case
 Transitions and replay through CaseState v12.
 
 Capabilities are derived from synthetic probe evidence. The mechanical
-vocabulary is `chat_text`, `structured_json_object`,
+vocabulary is `chat_text`, `text_embedding`, `structured_json_object`,
 `model_exact_addressing`, `usage_accounting`, optional `health_probe`, and
 optional `extension_compatible_telemetry`. It makes no statement about model
 quality or provider authenticity. Every selected capability carries
@@ -39,6 +39,11 @@ capability-specific provenance; extension-observed telemetry cannot satisfy a
 qualified chat, structured-output, exact-addressing or usage requirement.
 Historical v1 `first_party_telemetry` remains readable as its original claim,
 but new qualification records use the narrower compatibility wording.
+The v3 qualification contract binds a successfully parsed embedding envelope
+and its exact finite dimension; v1/v2 readers remain admitted. An embedding
+probe uses fixed synthetic non-Case text. W19 automatic memory encoding also
+requires loopback locality, the exact qualified profile dimension and Tenant
+approval, so generic provider approval alone cannot transmit Case memory.
 
 Trust has three projections: `unreviewed`, `approved`, and `denied`. Only the
 Tenant Owner can write approval or denial. Approval means the Tenant admits

@@ -1,0 +1,13 @@
+property	contract	evidence
+root	YAI_HOME/store/derived-memory/v1	outside LMDB canonical ownership
+namespace	SHA-256-safe components for Tenant/Case/profile/index	no user text becomes a path component
+layout	v1/TENANT_HASH/CASE_HASH/profiles/PROFILE_HASH/builds/INDEX_HASH/bundle.json	bounded fixed hierarchy
+permissions	0700 directories; 0600 files	set at creation on Unix
+symlinks	index directories/files must be real directories/regular files	refused
+publication	complete temp build -> validate/seal -> rename build -> atomic current.json	directory fsync
+locking	flock per exact Tenant/Case/profile	8-process equivalent rebuild proof
+deletion	advanced Case/profile drop under same lock	Transition count unchanged
+crash	old pointer or no pointer; never partial current	M19-C1..C6
+LMDB budget	no database added	37/40 unchanged
+garbage collection	old content-addressed builds may remain until explicit derived cleanup	never selected for a new profile
+incremental update	deferred; W19 rebuilds the complete bounded corpus/profile	stable IDs could permit reuse, but partial publication and real-encoder reproducibility need an explicit later contract

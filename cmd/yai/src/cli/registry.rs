@@ -371,6 +371,11 @@ const PARTICIPANT_ROLE: &[FlagSpec] = &[
     flag("--participant", Some("PARTICIPANT"), true),
     flag("--role", Some("ROLE"), true),
 ];
+const PARTICIPANT_VIEW: &[FlagSpec] = &[
+    flag("--participant", Some("PARTICIPANT"), true),
+    choice_flag("--consumer", &["model"], true),
+    choice_flag("--view", &["model_context"], true),
+];
 const PRINCIPAL_LINK: &[FlagSpec] = &[
     flag("--principal", Some("PRINCIPAL"), true),
     flag("--participant", Some("PARTICIPANT"), true),
@@ -417,13 +422,49 @@ const PROVIDER_ADD: &[FlagSpec] = &[
     ),
     flag("--extension-adapter", Some("ADAPTER"), false),
 ];
-const PROVIDER_QUALIFY: &[FlagSpec] = &[flag("--valid-for-ms", Some("MS"), false)];
+const PROVIDER_PROBE: &[FlagSpec] = &[bool_flag("--embedding")];
+const PROVIDER_QUALIFY: &[FlagSpec] = &[
+    flag("--valid-for-ms", Some("MS"), false),
+    bool_flag("--embedding"),
+];
 const CASE_PROVIDER_BIND: &[FlagSpec] = &[
     flag("--participant", Some("PARTICIPANT"), true),
     required_repeat_flag("--target", "TARGET"),
     choice_flag("--failover", &["none", "safe_only"], false),
     flag("--max-attempts", Some("N"), false),
 ];
+const CASE_MEMORY_SEARCH: &[FlagSpec] = &[
+    flag("--participant", Some("PARTICIPANT"), true),
+    flag("--query", Some("QUERY"), true),
+    flag("--profile", Some("PROFILE"), false),
+    choice_flag(
+        "--purpose",
+        &[
+            "conversation",
+            "filesystem_write_proposal",
+            "effect_consequence",
+            "inspection",
+        ],
+        false,
+    ),
+    flag("--resource", Some("RESOURCE"), false),
+    flag("--causal-ref", Some("REF"), false),
+    bool_flag("--include-superseded"),
+    flag("--limit", Some("N"), false),
+];
+const CASE_MEMORY_INDEX_BUILD: &[FlagSpec] = &[
+    flag("--encoder-target", Some("TARGET"), true),
+    flag("--encoder-revision", Some("REVISION"), true),
+    flag("--dimension", Some("N"), true),
+];
+const CASE_MEMORY_INDEX_REBUILD: &[FlagSpec] = &[
+    flag("--profile", Some("PROFILE"), false),
+    flag("--encoder-target", Some("TARGET"), false),
+    flag("--encoder-revision", Some("REVISION"), false),
+    flag("--dimension", Some("N"), false),
+];
+const CASE_MEMORY_PROFILE: &[FlagSpec] = &[flag("--profile", Some("PROFILE"), true)];
+const CASE_MEMORY_OPTIONAL_PROFILE: &[FlagSpec] = &[flag("--profile", Some("PROFILE"), false)];
 const FILESYSTEM_ATTACH: &[FlagSpec] = &[
     aliased_flag(
         "--resource",
@@ -696,7 +737,7 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         Mutating,
         Structured,
         &[pos("target", Some("--target"))],
-        NO_FLAGS
+        PROVIDER_PROBE
     ),
     op!(
         "yai.provider.qualify",
@@ -865,6 +906,17 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         )
     },
     op!(
+        "yai.case.participant.view.admit",
+        ["case", "participant", "view", "admit"],
+        "Admit a bounded Participant view for qualified Case context",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        PARTICIPANT_VIEW
+    ),
+    op!(
         "yai.case.participant.list",
         ["case", "participant", "list"],
         "List Case Participants and roles",
@@ -952,6 +1004,83 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         Structured,
         &[pos("case", Some("--case"))],
         NO_FLAGS
+    ),
+    op!(
+        "yai.case.memory.show",
+        ["case", "memory", "show"],
+        "Show canonical generation, derived memory, indexes, and last retrieval",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.case.memory.search",
+        ["case", "memory", "search"],
+        "Run qualified exact, lexical, and vector hybrid retrieval",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_SEARCH
+    ),
+    op!(
+        "yai.case.memory.index.status",
+        ["case", "memory", "index", "status"],
+        "Inspect current or stale derived memory indexes",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.case.memory.index.build",
+        ["case", "memory", "index", "build"],
+        "Build and atomically publish a derived hybrid memory index",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_INDEX_BUILD
+    ),
+    op!(
+        "yai.case.memory.index.rebuild",
+        ["case", "memory", "index", "rebuild"],
+        "Rebuild a derived memory index without changing Case truth",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_INDEX_REBUILD
+    ),
+    op!(
+        "yai.case.memory.retrieval.show",
+        ["case", "memory", "retrieval", "show"],
+        "Inspect the last persisted hybrid RetrievalSet",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_OPTIONAL_PROFILE
+    ),
+    op!(
+        "yai.case.memory.index.drop",
+        ["case", "memory", "index", "drop"],
+        "Drop one disposable derived memory index namespace",
+        Advanced,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_PROFILE
     ),
     op!(
         "yai.case.policy.bind",

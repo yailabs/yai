@@ -1,0 +1,5 @@
+entries	representation_ms	lexical_build_ms	fixture_embedding_vector_ms	exact_scan_us	lexical_query_us	hybrid_retrieval_us	ann_build_query	disk_bytes	peak_memory
+1000	156	247	190	610	3756	754754	deferred	4602183	not cheaply observed
+10000	1529	2553	1915	7374	48183	7767639	deferred	46091258	not cheaply observed
+50000	7745	13298	9776	43163	326008	39411645	deferred	226727138	not cheaply observed
+note	development-host synthetic controlled 8d vectors	not a product performance claim	fixture semantic quality not claimed	exact oracle	BM25 current implementation	full qualification plus three-plane fusion	ANN not admitted from evidence	serialized bundle bytes	no inferred number

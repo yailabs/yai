@@ -1,0 +1,5 @@
+scale	ann_implementation	ann_top_k	exact_top_k	recall	result
+1000	not_admitted	not_applicable	exact reference available	not_applicable	deferred from measured evidence
+10000	not_admitted	not_applicable	exact reference available	not_applicable	deferred from measured evidence
+50000	not_admitted	not_applicable	exact reference available	not_applicable	deferred from measured evidence
+future	manifest-bound accelerator required	bounded	mandatory comparison oracle	must be recorded	corrupt/missing ANN must exact-scan or declare plane unavailable

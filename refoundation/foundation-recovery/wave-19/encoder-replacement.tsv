@@ -1,0 +1,8 @@
+step	profile_A	profile_B	result
+build	encoder A/revision A/dimension A	absent	A namespace current
+build	retained	encoder B/revision B/dimension B	independent B namespace current
+query	A exact query dimension	B exact query dimension	both succeed only against matching profile
+incompatible query	A vector against B	B vector against A	wrong dimension/profile refused
+delete A	dropped	unchanged	B remains loadable/current
+rebuild A	content-identical re-publication	unchanged	B unaffected
+canonical memory	unchanged	unchanged	no Transition/CaseState vector bytes or schema bump

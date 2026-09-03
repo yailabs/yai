@@ -1,0 +1,12 @@
+invariant	qualification_point	failure_posture	attack_evidence
+Case equality	OperationalMemory qualification before plane ranking	reject	cross-Case identical text/vector test
+Tenant equality	derived path + profile + authorized Case lookup	refuse/load absent	Tenant-hashed path and profile Tenant validation
+Participant visibility	OperationalMemory visibility before plane ranking	reject and redact sensitive counts	two-participant fixture
+consumer/view	admitted model/model_context required	reject	explicit Participant view contract
+generation	entry derivation and index corpus generation equal Case generation	stale/unavailable	stale index test and runtime refresh smoke
+lifecycle	active by default; superseded explicit opt-in	reject	lifecycle test
+semantic kind	optional exact kind set	reject	qualification unit coverage
+Resource	exact resource ref for anchored invocation	reject	runtime smoke selects same-resource observed effect only
+causal	exact causal ref for anchored request	reject	hybrid causal fixture
+authority posture	carried unchanged into selection/Projection	never upgraded	ProviderClaim vs observed consequence similarity test
+current authority	never inferred from historical Decision/Review/Grant/retrieval	current admission runs again	lower-wave admission tests remain green

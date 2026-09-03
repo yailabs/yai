@@ -849,6 +849,77 @@ pub(super) fn case_bind_participant_role(args: &[String]) -> Result<(), String> 
     Ok(())
 }
 
+pub(super) fn case_admit_participant_view(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let consumer = named_arg(args, "--consumer")?;
+    let view_kind = named_arg(args, "--view")?;
+    if consumer != "model" || view_kind != "model_context" {
+        return Err("participant_view_contract_unsupported".to_string());
+    }
+    let authenticated = authenticate_local()?;
+    let actor_ref = authenticated.projected_principal_id();
+    reject_spoofed_as(args, &actor_ref)?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    let tenant_id = state
+        .tenant_id
+        .clone()
+        .ok_or_else(|| "legacy_unscoped_case_cannot_admit_participant_view".to_string())?;
+    let participant = state
+        .participants
+        .iter()
+        .find(|participant| participant.participant_id == participant_id)
+        .ok_or_else(|| "participant_view_requires_bound_participant".to_string())?;
+    if participant
+        .admitted_views
+        .iter()
+        .any(|view| view.consumer == consumer && view.view_kind == view_kind)
+    {
+        println!("participant_view_admission: already_admitted");
+        println!("case_id: {case_id}");
+        println!("participant_id: {participant_id}");
+        println!("consumer: {consumer}");
+        println!("view: {view_kind}");
+        return Ok(());
+    }
+    let mut pending = PendingTransition::new(
+        format!(
+            "transition:participant-view:{}:{}:{}:{}",
+            canonical_id_component(&case_id),
+            canonical_id_component(&participant_id),
+            canonical_id_component(&consumer),
+            canonical_id_component(&view_kind)
+        ),
+        &case_id,
+        state.generation,
+        TransitionSource {
+            component: "yai.local_case_participant_configuration".to_string(),
+            participant_id: None,
+            principal_id: Some(actor_ref.clone()),
+            source_ref: Some(format!(
+                "participant-view:{participant_id}:{consumer}:{view_kind}"
+            )),
+        },
+        TransitionPayload::ParticipantAdmitted {
+            participant_id: participant_id.clone(),
+            consumer: consumer.clone(),
+            view_kind: view_kind.clone(),
+        },
+    );
+    pending.causal_refs = vec![participant_id.clone()];
+    let commit = store.commit_secured_transition(&authenticated, &tenant_id, pending, true)?;
+    println!("participant_view_admission: committed");
+    println!("case_id: {case_id}");
+    println!("case_generation: {}", commit.state.generation);
+    println!("participant_id: {participant_id}");
+    println!("consumer: {consumer}");
+    println!("view: {view_kind}");
+    println!("actor_ref: {actor_ref}");
+    println!("actor_trust_boundary: kernel_authenticated_tenant_owner");
+    Ok(())
+}
+
 fn promote_provider_compatibility_state(
     store: &LmdbRecordStore,
     journal: &Journal,
@@ -2040,11 +2111,10 @@ fn compile_semantic_invocation(
             None
         }
     };
-    let retrieval = memory_entries.as_ref().and_then(|entries| {
-        match retrieve_operational_memory(
-            &state,
-            entries,
-            RetrievalQualification {
+    let derived = memory_entries
+        .as_ref()
+        .and_then(|entries| {
+            let qualification = RetrievalQualification {
                 case_id: session.case_ref.clone(),
                 participant_id: session.subject_ref.clone(),
                 consumer: request.consumer.clone(),
@@ -2056,41 +2126,74 @@ fn compile_semantic_invocation(
                 causal_refs: Vec::new(),
                 max_results: options.retrieval_limit,
                 include_superseded: false,
-            },
-        ) {
-            Ok(retrieval) => Some(retrieval),
-            Err(error) => {
-                eprintln!(
-                    "warning: qualified memory retrieval failed; using canonical fallback: {error}"
-                );
-                None
+            };
+            match super::memory_cli::runtime_hybrid_retrieve(
+                &store,
+                &state,
+                entries,
+                qualification.clone(),
+                task,
+            ) {
+                Ok(retrieval) => Some(DerivedProjectionInput {
+                    graph_available: false,
+                    memory_available: true,
+                    memory: retrieval
+                        .selected
+                        .iter()
+                        .map(|item| yai_core_engine::context::DerivedMemoryInput {
+                            memory_ref: item.memory.memory_id.clone(),
+                            semantic_kind: item.memory.semantic_kind.as_str().to_string(),
+                            memory_posture: item.memory.posture.as_str().to_string(),
+                            description: item.memory.description.clone(),
+                            lifecycle: item.memory.lifecycle.as_str().to_string(),
+                            score: i64::try_from(item.fusion_score_micros).unwrap_or(i64::MAX),
+                            ranking_reasons: item.ranking_reasons.clone(),
+                            transition_refs: item.memory.provenance.transition_ids.clone(),
+                            observation_refs: item.memory.provenance.observation_ids.clone(),
+                            receipt_refs: item.memory.provenance.effect_receipt_ids.clone(),
+                        })
+                        .collect(),
+                    retrieval_id: Some(retrieval.retrieval_id),
+                    retrieval_candidates: retrieval.qualified_count,
+                    retrieval_omitted: retrieval.omitted_count,
+                }),
+                Err(hybrid_error) => {
+                    eprintln!(
+                        "warning: hybrid memory retrieval unavailable; using qualified operational retrieval: {hybrid_error}"
+                    );
+                    match retrieve_operational_memory(&state, entries, qualification) {
+                        Ok(retrieval) => Some(DerivedProjectionInput {
+                            graph_available: false,
+                            memory_available: true,
+                            memory: retrieval
+                                .selected
+                                .iter()
+                                .map(|item| yai_core_engine::context::DerivedMemoryInput {
+                                    memory_ref: item.memory.memory_id.clone(),
+                                    semantic_kind: item.memory.semantic_kind.as_str().to_string(),
+                                    memory_posture: item.memory.posture.as_str().to_string(),
+                                    description: item.memory.description.clone(),
+                                    lifecycle: item.memory.lifecycle.as_str().to_string(),
+                                    score: item.score,
+                                    ranking_reasons: item.ranking_reasons.clone(),
+                                    transition_refs: item.memory.provenance.transition_ids.clone(),
+                                    observation_refs: item.memory.provenance.observation_ids.clone(),
+                                    receipt_refs: item.memory.provenance.effect_receipt_ids.clone(),
+                                })
+                                .collect(),
+                            retrieval_id: Some(retrieval.retrieval_id),
+                            retrieval_candidates: retrieval.qualified_count,
+                            retrieval_omitted: retrieval.omitted_count,
+                        }),
+                        Err(error) => {
+                            eprintln!(
+                                "warning: qualified memory retrieval failed; using canonical fallback: {error}"
+                            );
+                            None
+                        }
+                    }
+                }
             }
-        }
-    });
-    let derived = retrieval
-        .as_ref()
-        .map(|retrieval| DerivedProjectionInput {
-            graph_available: false,
-            memory_available: true,
-            memory: retrieval
-                .selected
-                .iter()
-                .map(|item| yai_core_engine::context::DerivedMemoryInput {
-                    memory_ref: item.memory.memory_id.clone(),
-                    semantic_kind: item.memory.semantic_kind.as_str().to_string(),
-                    memory_posture: item.memory.posture.as_str().to_string(),
-                    description: item.memory.description.clone(),
-                    lifecycle: item.memory.lifecycle.as_str().to_string(),
-                    score: item.score,
-                    ranking_reasons: item.ranking_reasons.clone(),
-                    transition_refs: item.memory.provenance.transition_ids.clone(),
-                    observation_refs: item.memory.provenance.observation_ids.clone(),
-                    receipt_refs: item.memory.provenance.effect_receipt_ids.clone(),
-                })
-                .collect(),
-            retrieval_id: Some(retrieval.retrieval_id.clone()),
-            retrieval_candidates: retrieval.qualified_count,
-            retrieval_omitted: retrieval.omitted_count,
         })
         .unwrap_or_default();
     let candidate_projection = compile_projection(&state, &transitions, &request, &derived)?;

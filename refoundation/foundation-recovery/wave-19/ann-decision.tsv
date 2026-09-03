@@ -1,0 +1,5 @@
+candidate	dependency_review	measured_need	decision	reason
+HNSW Rust crate	not admitted; therefore no license/serialization dependency added	exact scan 0.610ms at 1k;7.374ms at 10k;43.163ms at 50k controlled 8d vectors	defer	no meaningful W19 correctness need; dependency serialization/corruption/determinism surface would exceed observed benefit
+bespoke HNSW	rejected	not applicable	reject	brief forbids poor bespoke ANN for aesthetics
+exact scan	internal implementation; no added dependency	bounded through 50k	admit as current	stable oracle and acceptable controlled-scale posture
+future ANN seam	index types/build version/ANN posture are manifest-bound	not executed	architecturally permitted	future accelerator can be added without changing memory authority

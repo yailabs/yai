@@ -1,0 +1,12 @@
+property	implementation	bound_or_result
+algorithm	BM25 Okapi-style IDF + length normalization	real term-frequency/document-frequency ranking
+tokenization	deterministic lowercase alphanumeric Unicode tokens	presentation text not used
+index input	canonical representation document text	typed provenance/posture already bound to document
+candidate bound	min(max_results*4,256,512/3)	maximum 170 from lexical plane
+tie break	score descending then document ID ascending	deterministic
+evidence	matched term list + per-plane rank + integer score micros	exposed in RetrievalSet v2
+fixture	mechanically controlled term frequencies	ordering asserted in memory_index tests
+availability	sealed checksum-valid current bundle only	unavailable/stale/corrupt is explicit
+1k query	3867 microseconds	observed development-host characterization; not a claim
+10k query	47401 microseconds	observed development-host characterization; not a claim
+50k query	308494 microseconds	observed development-host characterization; not a claim

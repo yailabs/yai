@@ -1208,12 +1208,16 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
             case_security_command(&args[1..])
         }
         "yai.case.participant.role.add" => provider::case_bind_participant_role(&args[2..]),
+        "yai.case.participant.view.admit" => provider::case_admit_participant_view(&args[2..]),
         "yai.case.provider.attach" => case_attach_provider(&args[2..]),
         "yai.case.provider.bind" | "yai.case.provider.show" => {
             provider_governance_command(operation_id, &args[2..])
         }
         "yai.case.resource.attach_filesystem" => case_attach_filesystem(&args[2..]),
         "yai.case.resource.attach_process" => case_attach_process(&args[2..]),
+        operation if operation.starts_with("yai.case.memory.") => {
+            memory_case_command(operation, args)
+        }
         operation if operation.starts_with("yai.case.handoff.") => handoff_command(&args[2..]),
         operation if operation.starts_with("yai.case.policy.") => case_policy_porcelain(&args[2..]),
         "yai.case.run" => case_runtime_run(&args[2..]),

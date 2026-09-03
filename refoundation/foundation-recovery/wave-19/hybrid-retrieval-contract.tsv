@@ -1,0 +1,13 @@
+stage	contract	explainability
+query document	yai.retrieval_query_document.v1; bounded 2048 chars; explicit digest	query ID + representation contract
+hard qualification	Case/Participant/view/generation/lifecycle/kind/resource/causal before fuzzy ranking	public non-sensitive rejection classes
+exact operational plane	current qualified OperationalMemory ranking	per-plane rank and existing reasons
+lexical plane	BM25 over current sealed documents	terms/rank/score micros
+vector plane	exact cosine under one profile	rank/similarity micros
+ANN plane	unavailable/deferred	no fabricated candidates
+deduplication	memory ID across planes before fusion	all contributing ranks retained
+fusion	yai.memory_rank_fusion.rrf.v1; k=60; integer micros	no BM25/cosine score calibration fiction
+direct anchors	exact resource/causal qualified candidates sort before fuzzy-only candidates	direct_anchor_privileged reason
+selection	stable anchor/fusion/recency/memory-ID ordering; bounded result	selected IDs + omitted count
+output	yai.retrieval_set.v2	corpus/profile/index IDs; plane postures; ranks/reasons/provenance/posture
+compatibility	yai.retrieval_set.v1 remains implemented/readable	no deletion/reinterpretation
