@@ -302,3 +302,29 @@ check-source-surface-clean: ok
 check-doc-links: ok (30 files)
 {"handler_failures": 0, "help_failures": 0, "operation_count": 152, "registry_digest": "sha256:34cc09dbec03d809cbdb7ed2be593369c75043973b0eb418d5701bbb159ae547", "schema": "yai.cli.command_discovery.v1", "visibility_counts": {"advanced": 10, "compatibility": 16, "plumbing": 45, "product": 80, "removed": 1}}
 ```
+
+## W19-E13 — semantic publication
+
+- run ID: `W19-E13-20260903`
+- order: 13
+- environment: repository `master`; origin `https://github.com/yailabs/yai.git`
+- Tenant/Case/Participant/provider/model: not applicable
+- material pre-state: clean semantic commit based on
+  `b47a4261484d2cdbfd11836156b7a21da280efce`
+- commands: `git commit -m "feat: add derived hybrid memory indexing"`;
+  `git push origin master`; `git rev-parse HEAD`; `git rev-parse origin/master`;
+  `git ls-remote origin refs/heads/master`
+- exits: all 0; the first restricted `ls-remote` DNS attempt was followed by
+  the recorded network-enabled read below
+- produced semantic SHA: `34582f36fbe0093b6c9d2a60d5c00233ba104236`
+- invariant: semantic W19 commit is published and local/tracking/remote refs are
+  exactly equal before this evidence-only closure commit
+
+```text
+[master 34582f3] feat: add derived hybrid memory indexing
+To https://github.com/yailabs/yai.git
+   b47a426..34582f3  master -> master
+34582f36fbe0093b6c9d2a60d5c00233ba104236
+34582f36fbe0093b6c9d2a60d5c00233ba104236
+34582f36fbe0093b6c9d2a60d5c00233ba104236 refs/heads/master
+```
