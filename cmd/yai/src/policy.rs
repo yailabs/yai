@@ -196,6 +196,13 @@ fn positional(args: &[String], label: &str) -> Result<String, String> {
 fn policy_ingest(args: &[String]) -> Result<(), String> {
     let source_path = PathBuf::from(positional(args, "policy source path")?);
     let tenant_id = named_arg(args, "--tenant")?;
+    let validate = args.iter().any(|value| value == "--validate");
+    let publish = args.iter().any(|value| value == "--publish");
+    if publish && !validate {
+        return Err("policy_ingest_publish_requires_validate".to_string());
+    }
+    let lifecycle_reason = optional_arg(args, "--reason")
+        .unwrap_or_else(|| "operator requested ingest lifecycle progression".to_string());
     let authenticated = authenticate_local()?;
     let principal_id = authenticated.projected_principal_id();
     reject_spoofed_as(args, &principal_id)?;
@@ -214,6 +221,7 @@ fn policy_ingest(args: &[String]) -> Result<(), String> {
     )?;
     let outcome =
         store.ingest_tenant_policy_compilation(&authenticated, &tenant_id, &compilation)?;
+    let artifact_id = outcome.view.artifact.artifact_id.clone();
     println!(
         "policy_ingest: {}",
         if outcome.artifact_created {
@@ -227,6 +235,38 @@ fn policy_ingest(args: &[String]) -> Result<(), String> {
     println!("input_path: {}", source_path.display());
     print_source(&compilation.source);
     print_artifact(&outcome.view);
+    if validate {
+        let validation = store.validate_tenant_policy_artifact(
+            &authenticated,
+            &artifact_id,
+            &lifecycle_reason,
+        )?;
+        println!(
+            "policy_validate: {}",
+            if validation.changed {
+                "validated"
+            } else {
+                "already_validated"
+            }
+        );
+        print_artifact(&validation.view);
+    }
+    if publish {
+        let publication = store.publish_tenant_policy_artifact(
+            &authenticated,
+            &artifact_id,
+            &lifecycle_reason,
+        )?;
+        println!(
+            "policy_publish: {}",
+            if publication.changed {
+                "published"
+            } else {
+                "already_published"
+            }
+        );
+        print_artifact(&publication.view);
+    }
     Ok(())
 }
 

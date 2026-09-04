@@ -2013,6 +2013,22 @@ pub(super) fn case_runtime_status(args: &[String]) -> Result<(), String> {
     print_runtime_summary(&checkpoint)
 }
 
+pub(super) fn latest_case_context_artifact_id(case_id: &str, kind: &str) -> Result<String, String> {
+    if !checkpoint_path(case_id).is_file() {
+        return Err("case_context_latest_unavailable_case_never_started".to_string());
+    }
+    let checkpoint = read_checkpoint(case_id)?;
+    match kind {
+        "projection" => checkpoint
+            .last_projection_id
+            .ok_or_else(|| "case_context_latest_projection_unavailable".to_string()),
+        "context-frame" => checkpoint
+            .last_context_frame_id
+            .ok_or_else(|| "case_context_latest_frame_unavailable".to_string()),
+        _ => Err("case_context_kind_invalid".to_string()),
+    }
+}
+
 pub(super) fn case_runtime_stop(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let store = LmdbRecordStore::open(record_store_path())?;

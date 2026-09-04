@@ -49,3 +49,18 @@ The derived store remains `yai.derived_memory_store.v2`; ProviderQualification
 remains v3; LMDB remains 37/40. H20 hardening, W21 learned reranking/compression,
 and W22 governed capabilities were not started. The root `README.md` was not
 modified.
+
+## Post-publication manual-acceptance usability correction
+
+Operator review correctly found that the first published acceptance artifact
+was a Bash assertion harness rather than a natural CLI walkthrough. The
+follow-up keeps exact target/artifact/profile IDs fully supported, while adding
+fail-closed stable references for interactive use: Tenant-scoped provider
+keys, `--principal self`, current published policy keys, the sole current
+memory profile, `--episode latest`, and the latest Case Projection or
+ContextFrame. Optional credential environment variables are now resolved by
+`yai provider add` without exposing their values. The W20 smoke exercises the
+same stable-reference route.
+
+This correction changes no memory semantics, schema version, authority path,
+owner, LMDB database, YVEX behavior, H20/W21 scope, or W22 capability surface.

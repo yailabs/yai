@@ -5,6 +5,7 @@ use crate::command_adapters::security::{authenticate_local, reject_spoofed_as};
 use yai_core_engine::case_policy::{
     EffectivePolicyRule, NormativeReadiness, NormativeStatus, PolicyCatalogDrift,
 };
+use yai_core_engine::governance::PolicyLifecycleState;
 use yai_core_engine::store::lmdb::CasePolicyMutationOutcome;
 
 fn required_generation(args: &[String]) -> Result<u64, String> {
@@ -198,13 +199,48 @@ fn print_mutation(
 
 fn bind(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
-    let artifact_id = named_arg(args, "--artifact")?;
     let authenticated = authenticate_local()?;
     reject_spoofed_as(args, &authenticated.projected_principal_id())?;
     let reason =
         optional_arg(args, "--reason").unwrap_or_else(|| "bind exact published policy".to_string());
     let store = LmdbRecordStore::open(record_store_path())?;
-    store.get_case_state_authorized(&authenticated, &case_id)?;
+    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    let exact_artifact = optional_arg(args, "--artifact");
+    let policy_key = optional_arg(args, "--policy-key");
+    let artifact_id = match (exact_artifact, policy_key) {
+        (Some(artifact_id), None) => artifact_id,
+        (None, Some(policy_key)) => {
+            let tenant_id = state
+                .tenant_id
+                .as_deref()
+                .ok_or_else(|| "case_policy_key_requires_tenant_scoped_case".to_string())?;
+            let tenant = store
+                .get_tenant(tenant_id)?
+                .ok_or_else(|| "case_policy_tenant_not_found".to_string())?;
+            let mut candidates = store
+                .list_policy_artifact_views_authorized(&authenticated, tenant_id)?
+                .into_iter()
+                .filter(|view| {
+                    view.artifact.policy_key == policy_key
+                        && view.artifact.owner_ref == tenant.organization_ref
+                        && view.artifact.organization_ref.as_deref()
+                            == Some(tenant.organization_ref.as_str())
+                        && view.lifecycle == PolicyLifecycleState::Published
+                        && view.runtime_consumable
+                });
+            let current = candidates
+                .next()
+                .ok_or_else(|| "case_policy_key_has_no_current_published_artifact".to_string())?;
+            if candidates.next().is_some() {
+                return Err("case_policy_key_has_multiple_current_published_artifacts".to_string());
+            }
+            current.artifact.artifact_id
+        }
+        (None, None) => {
+            return Err("case_policy_artifact_or_policy_key_required".to_string());
+        }
+        (Some(_), Some(_)) => return Err("case_policy_reference_conflict".to_string()),
+    };
     let outcome = store.bind_tenant_case_policy(
         &authenticated,
         &case_id,

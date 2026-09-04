@@ -545,7 +545,35 @@ fn profile_from_build_args(
     tenant_id: &str,
     store: &LmdbRecordStore,
 ) -> Result<MemoryRepresentationProfile, String> {
-    let target_id = named_arg(args, "--encoder-target")?;
+    let exact_target = optional_arg(args, "--encoder-target");
+    let provider_key = optional_arg(args, "--encoder-provider-key");
+    let target_id = match (exact_target, provider_key) {
+        (Some(target_id), None) => target_id,
+        (None, Some(provider_key)) => {
+            let authenticated = security::authenticate_local()?;
+            let mut targets = store
+                .list_provider_targets_authorized(&authenticated, tenant_id)?
+                .into_iter()
+                .filter(|target| target.provider_key == provider_key)
+                .map(|target| target.target_id)
+                .collect::<Vec<_>>();
+            targets.sort();
+            match targets.as_slice() {
+                [] => return Err("memory_encoder_provider_key_not_found".to_string()),
+                [target_id] => target_id.clone(),
+                _ => {
+                    return Err("memory_encoder_provider_key_ambiguous_use_exact_target".to_string())
+                }
+            }
+        }
+        (None, None) => {
+            return Err(
+                "memory_encoder_reference_required: use --encoder-target or --encoder-provider-key"
+                    .to_string(),
+            )
+        }
+        (Some(_), Some(_)) => return Err("memory_encoder_reference_conflict".to_string()),
+    };
     let revision = named_arg(args, "--encoder-revision")?;
     let dimension = parse_dimension(args)?;
     let authenticated = security::authenticate_local()?;
@@ -618,7 +646,8 @@ fn memory_index_build_or_rebuild(args: &[String], rebuild: bool) -> Result<(), S
     let corpus = derive_hierarchy_representation_corpus(&memory, &hierarchy)?;
 
     let requested_profile = optional_arg(args, "--profile");
-    let configured_profile = optional_arg(args, "--encoder-target").is_some();
+    let configured_profile = optional_arg(args, "--encoder-target").is_some()
+        || optional_arg(args, "--encoder-provider-key").is_some();
     let profile = if configured_profile {
         profile_from_build_args(args, tenant_id, &store)?
     } else if rebuild {
@@ -746,15 +775,28 @@ fn memory_index_status(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+fn exact_or_only_current_profile(
+    args: &[String],
+    tenant_id: &str,
+    case_id: &str,
+) -> Result<String, String> {
+    if let Some(profile_id) = optional_arg(args, "--profile") {
+        return Ok(profile_id);
+    }
+    find_current_memory_index(&memory_index_root(), tenant_id, case_id, None)?
+        .map(|index| index.profile.profile_id)
+        .ok_or_else(|| "memory_index_current_profile_missing".to_string())
+}
+
 fn memory_index_verify(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
-    let profile_id = named_arg(args, "--profile")?;
     let store = LmdbRecordStore::open(record_store_path())?;
     let state = security::authorize_case_read_if_scoped(&store, &case_id)?;
     let tenant_id = state
         .tenant_id
         .as_deref()
         .ok_or_else(|| "memory_index_requires_tenant_scoped_case".to_string())?;
+    let profile_id = exact_or_only_current_profile(args, tenant_id, &case_id)?;
     let (hierarchy, memory) = derive_current_memory_hierarchy(&store, &case_id)?;
     let (posture, index_id, corpus_id, detail) =
         match load_current_memory_index(&memory_index_root(), tenant_id, &case_id, &profile_id) {
@@ -1162,13 +1204,13 @@ fn memory_search(args: &[String]) -> Result<(), String> {
 
 fn memory_index_drop(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
-    let profile_id = named_arg(args, "--profile")?;
     let store = LmdbRecordStore::open(record_store_path())?;
     let state = security::authorize_case_read_if_scoped(&store, &case_id)?;
     let tenant_id = state
         .tenant_id
         .as_deref()
         .ok_or_else(|| "memory_index_requires_tenant_scoped_case".to_string())?;
+    let profile_id = exact_or_only_current_profile(args, tenant_id, &case_id)?;
     let before = store.list_case_transitions(&case_id)?.len();
     let lock =
         acquire_memory_index_build_lock(&memory_index_root(), tenant_id, &case_id, &profile_id)?;
@@ -1246,7 +1288,28 @@ pub(super) fn runtime_hybrid_retrieve(
     qualification: RetrievalQualification,
     query: &str,
 ) -> Result<HybridRetrievalSetV3, String> {
-    let configured_profile = super::provider::env_var("YAI_MEMORY_PROFILE_ID");
+    let configured_profile = match super::provider::env_var("YAI_MEMORY_PROFILE_ID") {
+        Some(profile_id) => Some(profile_id),
+        None => state
+            .tenant_id
+            .as_deref()
+            .and_then(|tenant_id| {
+                match find_current_memory_index(
+                    &memory_index_root(),
+                    tenant_id,
+                    &state.case_id,
+                    None,
+                ) {
+                    Ok(index) => index.map(|index| index.profile.profile_id),
+                    Err(error) => {
+                        eprintln!(
+                            "warning: runtime memory profile resolution unavailable; derived planes will degrade: {error}"
+                        );
+                        None
+                    }
+                }
+            }),
+    };
     if let Some(profile_id) = configured_profile.as_deref() {
         if let Err(error) = refresh_runtime_index_if_stale(store, state, entries, profile_id) {
             eprintln!(
@@ -1311,13 +1374,21 @@ fn memory_episode_show(args: &[String]) -> Result<(), String> {
     let episode_id = named_arg(args, "--episode")?;
     let store = LmdbRecordStore::open(record_store_path())?;
     let (hierarchy, _) = derive_current_memory_hierarchy(&store, &case_id)?;
-    let episode = hierarchy
-        .episodes
-        .iter()
-        .find(|episode| {
+    let episode = if episode_id == "latest" {
+        hierarchy
+            .episodes
+            .iter()
+            .filter(|episode| episode_is_visible(episode, &participant_id))
+            .max_by(|left, right| {
+                (left.end_generation, left.episode_id.as_str())
+                    .cmp(&(right.end_generation, right.episode_id.as_str()))
+            })
+    } else {
+        hierarchy.episodes.iter().find(|episode| {
             episode.episode_id == episode_id && episode_is_visible(episode, &participant_id)
         })
-        .ok_or_else(|| "memory_episode_not_found_or_not_visible".to_string())?;
+    }
+    .ok_or_else(|| "memory_episode_not_found_or_not_visible".to_string())?;
     if args.iter().any(|value| value == "--json") {
         emit_json(episode)
     } else {
@@ -1686,8 +1757,18 @@ fn memory_consolidate(args: &[String]) -> Result<(), String> {
         println!("memory_consolidation: normalized");
         println!("case_id: {case_id}");
         println!("consolidation_input_id: {}", input.input_id);
+        println!(
+            "provider_selection_id: {}",
+            route
+                .selection
+                .as_ref()
+                .map(|selection| selection.selection_id.as_str())
+                .unwrap_or("none")
+        );
         println!("provider_invocation_id: {}", result.invocation_id);
         println!("provider_result_id: {}", result.result_id);
+        println!("provider_id: {}", result.provider_id);
+        println!("model_id: {}", result.model_id);
         println!("projection_id: {}", result.projection_id);
         println!("context_frame_id: {}", result.context_frame_id);
         println!("semantic_assertion_ids: {}", produced.join(","));

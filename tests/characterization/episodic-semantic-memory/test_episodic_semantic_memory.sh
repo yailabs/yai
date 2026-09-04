@@ -37,46 +37,45 @@ EMBED_PORT="$(head -1 "$RUN_ROOT/embed.out")"
 export YAI_HOME="$RUN_ROOT/yai-home"
 "$YAI_BIN" init --tenant tenant:w20-smoke --organization organization:cli-product >/dev/null
 
-chat_add="$("$YAI_BIN" provider add \
+"$YAI_BIN" provider add \
   --tenant tenant:w20-smoke --provider-key memory-w20-cognition \
   --endpoint "http://127.0.0.1:$CHAT_PORT" --model memory-w20-cognition-fixture \
-  --locality loopback)"
-CHAT_TARGET="$(sed -n 's/^target_id: //p' <<<"$chat_add")"
-[[ "$CHAT_TARGET" == provider-target:* ]]
-"$YAI_BIN" provider qualify "$CHAT_TARGET" >/dev/null
-"$YAI_BIN" provider trust approve "$CHAT_TARGET" >/dev/null
+  --credential-env YAI_W20_OPTIONAL_CHAT_KEY --locality loopback >/dev/null
+"$YAI_BIN" provider qualify --tenant tenant:w20-smoke \
+  --provider-key memory-w20-cognition >/dev/null
+"$YAI_BIN" provider trust approve --tenant tenant:w20-smoke \
+  --provider-key memory-w20-cognition >/dev/null
 
-encoder_add="$("$YAI_BIN" provider add \
+"$YAI_BIN" provider add \
   --tenant tenant:w20-smoke --provider-key memory-w20-encoder \
   --endpoint "http://127.0.0.1:$EMBED_PORT" --model memory-w20-encoder \
-  --locality loopback)"
-ENCODER_TARGET="$(sed -n 's/^target_id: //p' <<<"$encoder_add")"
-[[ "$ENCODER_TARGET" == provider-target:* ]]
-"$YAI_BIN" provider qualify "$ENCODER_TARGET" --embedding | grep -Fq 'TextEmbedding'
-"$YAI_BIN" provider trust approve "$ENCODER_TARGET" >/dev/null
+  --credential-env YAI_W20_OPTIONAL_ENCODER_KEY --locality loopback >/dev/null
+"$YAI_BIN" provider qualify --tenant tenant:w20-smoke \
+  --provider-key memory-w20-encoder --embedding | grep -Fq 'TextEmbedding'
+"$YAI_BIN" provider trust approve --tenant tenant:w20-smoke \
+  --provider-key memory-w20-encoder >/dev/null
 
 "$YAI_BIN" case create case:w20-memory --tenant tenant:w20-smoke >/dev/null
 "$YAI_BIN" case participant role add case:w20-memory \
   --participant participant:model --role model-executor >/dev/null
+"$YAI_BIN" case participant link-principal case:w20-memory \
+  --principal self --participant participant:model >/dev/null
 "$YAI_BIN" case participant role add case:w20-memory \
   --participant participant:model --role operation-proposer >/dev/null
 "$YAI_BIN" case participant view admit case:w20-memory \
   --participant participant:model --consumer model --view model_context >/dev/null
 "$YAI_BIN" case provider bind case:w20-memory \
-  --participant participant:model --target "$CHAT_TARGET" \
+  --participant participant:model --provider-key memory-w20-cognition \
   --failover safe_only --max-attempts 1 >/dev/null
 mkdir -p "$RUN_ROOT/resource/allowed"
 "$YAI_BIN" case resource attach filesystem case:w20-memory \
   --resource resource:w20-memory --root "$RUN_ROOT/resource" \
   --allow-prefix allowed --policy-owner participant:model --max-bytes 4096 >/dev/null
 
-policy_ingest="$("$YAI_BIN" policy ingest \
-  "$ROOT/tests/fixtures/cli-product-policy.json" --tenant tenant:w20-smoke)"
-POLICY_ID="$(sed -n 's/^artifact_id: //p' <<<"$policy_ingest" | head -1)"
-[[ "$POLICY_ID" == policy-artifact:* ]]
-"$YAI_BIN" policy validate "$POLICY_ID" --reason 'W20 fixture validation' >/dev/null
-"$YAI_BIN" policy publish "$POLICY_ID" --reason 'W20 fixture publication' >/dev/null
-"$YAI_BIN" case policy bind case:w20-memory --artifact "$POLICY_ID" \
+"$YAI_BIN" policy ingest "$ROOT/tests/fixtures/cli-product-policy.json" \
+  --tenant tenant:w20-smoke --validate --publish \
+  --reason 'W20 fixture validation and publication' >/dev/null
+"$YAI_BIN" case policy bind case:w20-memory --policy-key cli.product.governed \
   --reason 'W20 episodic semantic memory fixture' >/dev/null
 
 denied="$("$YAI_BIN" case run case:w20-memory \
@@ -150,19 +149,19 @@ HIERARCHY_REBUILT="$(python3 -c 'import json,sys; print(json.load(sys.stdin)["da
 grep -Fq '"canonical_transition_mutated":false' <<<"$rebuild_hierarchy"
 
 build_output="$("$YAI_BIN" case memory index build case:w20-memory \
-  --encoder-target "$ENCODER_TARGET" \
+  --encoder-provider-key memory-w20-encoder \
   --encoder-revision test-only-w20-v1 --dimension 4)"
 PROFILE_ID="$(sed -n 's/^representation_profile_id: //p' <<<"$build_output")"
 INDEX_ID="$(sed -n 's/^index_manifest_id: //p' <<<"$build_output")"
 [[ "$PROFILE_ID" == memory-profile:* && "$INDEX_ID" == memory-index:* ]]
-verify="$("$YAI_BIN" case memory index verify case:w20-memory --profile "$PROFILE_ID")"
+verify="$("$YAI_BIN" case memory index verify case:w20-memory)"
 grep -Fq 'posture: current' <<<"$verify"
 grep -Fq 'deep_plus_current_memory_hierarchy_source' <<<"$verify"
 
 search="$("$YAI_BIN" case memory search case:w20-memory \
   --participant participant:model \
   --query 'ORCHID-W20 numeric fact 4188 9999 denied final outcome' \
-  --profile "$PROFILE_ID" --limit 16 --json)"
+  --limit 16 --json)"
 grep -Fq 'yai.retrieval_set.v3' <<<"$search"
 grep -Fq '"memory_family":"episodic"' <<<"$search"
 grep -Fq '"memory_family":"semantic"' <<<"$search"
@@ -178,11 +177,11 @@ isolated="$("$YAI_BIN" case memory search case:w20-isolated \
   --participant participant:model --query 'ORCHID-W20 4188 9999' --limit 8)"
 grep -Fq 'selected: 0' <<<"$isolated"
 
-drop="$("$YAI_BIN" case memory index drop case:w20-memory --profile "$PROFILE_ID")"
+drop="$("$YAI_BIN" case memory index drop case:w20-memory)"
 grep -Fq 'semantic_continuity_preserved: yes' <<<"$drop"
 fallback="$("$YAI_BIN" case memory search case:w20-memory \
   --participant participant:model --query 'ORCHID-W20 4188' \
-  --profile "$PROFILE_ID" --limit 8)"
+  --limit 8)"
 grep -Fq 'plane: lexical_bm25 available:false' <<<"$fallback"
 grep -Fq 'plane: vector_exact_cosine available:false' <<<"$fallback"
 grep -Eq 'selected: [1-9][0-9]*' <<<"$fallback"
@@ -195,19 +194,22 @@ semantic_rebuilt="$("$YAI_BIN" case memory semantic show case:w20-memory \
 grep -Fq "$PROVIDER_RESULT" <<<"$semantic_rebuilt"
 
 rebuilt="$("$YAI_BIN" case memory index rebuild case:w20-memory \
-  --encoder-target "$ENCODER_TARGET" \
+  --encoder-provider-key memory-w20-encoder \
   --encoder-revision test-only-w20-v1 --dimension 4)"
 REBUILT_INDEX="$(sed -n 's/^index_manifest_id: //p' <<<"$rebuilt")"
 [[ "$INDEX_ID" == "$REBUILT_INDEX" ]]
 
-export YAI_MEMORY_PROFILE_ID="$PROFILE_ID"
 final_turn="$("$YAI_BIN" case run case:w20-memory \
   --participant participant:model --resource resource:w20-memory \
   --prompt 'Qual è il valore operativo finale, quale valore precedente è stato sostituito, quale claim contraddittorio è apparso e su quali evidenze si basa questa distinzione?' \
   --max-invocations 1 --max-runtime-ms 5000)"
 grep -Fq 'runtime_status: Completed' <<<"$final_turn"
+"$YAI_BIN" case context show case:w20-memory --kind projection | \
+  grep -Fq 'artifact_kind: projection'
+"$YAI_BIN" case context show case:w20-memory --kind context-frame | \
+  grep -Fq 'artifact_kind: context_frame'
 retrieval="$("$YAI_BIN" case memory retrieval show case:w20-memory \
-  --profile "$PROFILE_ID" --json)"
+  --json)"
 grep -Fq 'yai.retrieval_set.v3' <<<"$retrieval"
 grep -Fq 'memory-hierarchy:' <<<"$retrieval"
 

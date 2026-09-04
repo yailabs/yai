@@ -68,3 +68,48 @@ W20.
 
 No live YVEX or live encoder failure is claimed: the required endpoint/model
 variables were not present.
+
+## F-W20-07 — published acceptance was shell orchestration, not natural CLI
+
+Operator review rejected the first `MANUAL-ACCEPTANCE.md` even though its Bash
+syntax check had passed. It required `test`, `curl`, Python JSON parsing,
+`sed`, `grep`, command substitution, and copied generated IDs. The earlier
+`manual_acceptance_natural_commands: pass` line therefore proved only script
+syntax, not operator-natural product usability.
+
+The correction adds explicit registry-backed stable selectors and rewrites the
+walkthrough so that only isolated-directory setup and cleanup use shell. The
+actual acceptance uses direct `yai` commands without output parsing or ID
+plumbing. Generated-ID syntax remains compatible and stable selectors fail
+closed when missing, conflicting, or ambiguous.
+
+## F-W20-08 — first stable policy-key lookup used the legacy unscoped lineage
+
+The first focused natural-path run failed with
+`case_policy_key_has_no_current_published_artifact`. The initial adapter called
+the historical unscoped `current_published_policy(owner, key)` lookup, while
+the current W12+ policy lineage is Tenant-scoped. The final command resolves
+only an authenticated Case-Tenant artifact whose policy key, owner,
+organization, lifecycle, and runtime-consumable posture all match; missing or
+multiple candidates fail closed. The final focused smoke and both full suites
+pass.
+
+## F-W20-09 — runtime retrieval still depended on a copied profile ID
+
+After eliminating `YAI_MEMORY_PROFILE_ID` from the walkthrough, the first
+focused run completed model cognition but `case memory retrieval show` returned
+`memory_retrieval_not_found`. Query commands already selected a sole current
+profile, but runtime refresh was gated on the old environment variable. The
+final runtime resolves exactly one current Case/Tenant profile when no explicit
+environment override exists; zero, corrupt, or ambiguous profiles degrade
+without guessing. The final smoke proves the RetrievalSet is persisted and
+inspectable without copied profile identity.
+
+## F-W20-10 — qualification-environment artifacts and socket restrictions
+
+One `make check` preflight rejected a generated
+`cmd/yai/target/.../flag_check.c`; only that disposable build directory was
+removed before rerunning the layout guard. A sandboxed characterization then
+reported `EPERM` while two transport tests opened loopback listeners. The same
+unchanged source passed those HTTP framing and TLS tests with loopback socket
+access. Neither event is classified as a YAI or YVEX product defect.

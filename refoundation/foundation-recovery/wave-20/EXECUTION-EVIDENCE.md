@@ -316,3 +316,134 @@ No live ProviderSelection, RetrievalSet, Projection, ContextFrame, or
 ProviderResult ID is claimed. Classification:
 `blocked_external_dependency` / `DEPLOYMENT_LIMITATION`. The exact runnable
 operator sequence is retained in `MANUAL-ACCEPTANCE.md`.
+
+## E-W20-013 — natural CLI acceptance path
+
+- run ID: `w20-natural-cli-smoke-20260904-final`
+- order: 13
+- cwd: `/home/mothx/computer-science/projects/YAI/yai`
+- command:
+  `bash tests/characterization/episodic-semantic-memory/test_episodic_semantic_memory.sh`
+- environment: isolated temporary `YAI_HOME`; deterministic chat and embedding
+  fixtures bound only to loopback; no live external provider variables
+- exit: 0
+- invariant: the same product path documented for the operator resolves
+  `self`, Tenant-scoped provider keys, the current published policy key, the
+  sole current memory profile, `latest` Episode, and latest Case context
+  without copying or parsing generated IDs
+
+```text
+episodic_semantic_memory: pass
+episode_schema: yai.memory_episode.v1
+semantic_schema: yai.semantic_memory_assertion.v1
+retrieval_schema: yai.retrieval_set.v3
+consolidation_input: memory-consolidation-input:30f5bb59debd1e81
+consolidation_provider_result: provider-result:case:w20-memory:model-output-27
+hierarchy_before_consolidation: memory-hierarchy:331e3fb6857fadd9
+hierarchy_after_consolidation: memory-hierarchy:c66a0f8929507d10
+hierarchy_rebuild_exact: true
+provider_reinference_on_rebuild: zero
+cross_case_isolation: true
+index_drop_preserved_hierarchy: true
+```
+
+## E-W20-014 — final repository qualification after CLI correction
+
+- run ID: `w20-natural-cli-make-check-20260904-final`
+- order: 14
+- cwd: `/home/mothx/computer-science/projects/YAI/yai`
+- command: `make check`
+- environment: repository qualification environment; deterministic loopback
+  fixtures only
+- exit: 0
+- invariant: layout/docs, complete engine and CLI suites, registry audit, all
+  lower smokes, H19 adversarial coverage, and W20 memory behavior pass together
+  on the final corrected source
+
+```text
+test result: ok. 265 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 91.38s
+test result: ok. 35 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out
+operation_count: 162
+registry_digest: sha256:3abce51ba5b41a80c6d2fe4b28ea271cf927bb565b64bcc4d2cc55c2be52b5f5
+memory_index_hardening: pass
+adversarial_matrix: H19-S01..H19-S24
+episodic_semantic_memory: pass
+hierarchy_rebuild_exact: true
+provider_reinference_on_rebuild: zero
+cross_case_isolation: true
+index_drop_preserved_hierarchy: true
+```
+
+## E-W20-015 — final characterization after CLI correction
+
+- run ID: `w20-natural-cli-characterization-20260904-final`
+- order: 15
+- cwd: `/home/mothx/computer-science/projects/YAI/yai`
+- command: `make characterization`
+- environment: repository qualification environment with loopback socket
+  access for transport fixtures; no external endpoint
+- exit: 0
+- invariant: the complete characterization passes separately on the same final
+  source, including the natural stable-reference W20 path
+
+```text
+test result: ok. 265 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 91.50s
+test result: ok. 35 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.13s
+memory_index_hardening: pass
+adversarial_matrix: H19-S01..H19-S24
+episodic_semantic_memory: pass
+consolidation_input: memory-consolidation-input:cc0c6b3a8e6209cb
+consolidation_provider_result: provider-result:case:w20-memory:model-output-27
+hierarchy_before_consolidation: memory-hierarchy:cdb276d5be9de26d
+hierarchy_after_consolidation: memory-hierarchy:19bcbe2b58bb9eab
+hierarchy_rebuild_exact: true
+provider_reinference_on_rebuild: zero
+cross_case_isolation: true
+index_drop_preserved_hierarchy: true
+```
+
+## E-W20-016 — final registry, manual, and static closure
+
+- run ID: `w20-natural-cli-static-20260904-final`
+- order: 16
+- cwd: `/home/mothx/computer-science/projects/YAI/yai`
+- commands:
+  - `cargo fmt --manifest-path engine/Cargo.toml --all -- --check`
+  - `cargo fmt --manifest-path cmd/yai/Cargo.toml --all -- --check`
+  - `CARGO_TARGET_DIR=target cargo clippy --manifest-path engine/Cargo.toml --workspace --all-targets --all-features`
+  - `CARGO_TARGET_DIR=target cargo clippy --manifest-path cmd/yai/Cargo.toml --all-targets --all-features`
+  - `make check-docs`
+  - extract the Markdown Bash blocks and run `bash -n`
+  - reject shell harness commands in `MANUAL-ACCEPTANCE.md`
+  - `git diff --check`
+- exit: 0 for every repository-contract command
+- invariant: registry help exposes the new product selectors; the manual is
+  syntactically valid and contains no `set -e/-u`, `pipefail`, `test`, Python,
+  `curl`, `sed`, `grep`, or command substitution; formatting, docs, and diff
+  integrity pass. Default pre-existing Clippy warnings remain admitted and no
+  new diagnostic points to the corrected files.
+
+```text
+check-doc-links: ok (30 files)
+check-repository-identity: ok
+Finished `dev` profile [unoptimized + debuginfo] target(s)
+```
+
+## E-W20-017 — live dependency recheck for corrected walkthrough
+
+- run ID: `w20-natural-cli-live-preflight-20260904`
+- order: 17
+- cwd: `/home/mothx/computer-science/projects/YAI/yai`
+- command: report presence only for the six required external variables
+- exit: 0
+- invariant: live results are not fabricated; the published state remains
+  `complete_published_external_acceptance_pending`
+
+```text
+YAI_EXTERNAL_PROVIDER_BASE_URL=unset
+YAI_EXTERNAL_PROVIDER_MODEL=unset
+YAI_MEMORY_ENCODER_BASE_URL=unset
+YAI_MEMORY_ENCODER_MODEL=unset
+YAI_MEMORY_ENCODER_REVISION=unset
+YAI_MEMORY_ENCODER_DIMENSION=unset
+```

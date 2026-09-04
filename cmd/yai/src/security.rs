@@ -174,7 +174,12 @@ pub(super) fn case_security_command(args: &[String]) -> Result<(), String> {
         }
         Some("principal") if args.get(1).map(String::as_str) == Some("link") => {
             let case_id = named_arg(&args[2..], "--case")?;
-            let principal_id = named_arg(&args[2..], "--principal")?;
+            let requested_principal_id = named_arg(&args[2..], "--principal")?;
+            let principal_id = if requested_principal_id == "self" {
+                authenticated.projected_principal_id()
+            } else {
+                requested_principal_id
+            };
             let participant_id = named_arg(&args[2..], "--participant")?;
             let state = store.get_case_state_authorized(&authenticated, &case_id)?;
             let tenant_id = state.tenant_id.clone().ok_or_else(|| "legacy_unscoped_case_cannot_accept_principal_link".to_string())?;

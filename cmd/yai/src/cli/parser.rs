@@ -498,6 +498,36 @@ mod tests {
     }
 
     #[test]
+    fn stable_product_references_do_not_require_generated_ids() {
+        for args in [
+            vec![
+                "provider",
+                "qualify",
+                "--tenant",
+                "tenant:a",
+                "--provider-key",
+                "cognition",
+            ],
+            vec![
+                "case",
+                "provider",
+                "bind",
+                "case:a",
+                "--participant",
+                "participant:model",
+                "--provider-key",
+                "cognition",
+            ],
+            vec!["case", "memory", "index", "verify", "case:a"],
+        ] {
+            assert!(
+                matches!(parse(&strings(&args)), Ok(ParseOutcome::Invoke(_))),
+                "{args:?}"
+            );
+        }
+    }
+
+    #[test]
     fn removed_path_refuses_with_successor() {
         let error = parse(&strings(&["observe", "process", "--pid", "1"]))
             .err()

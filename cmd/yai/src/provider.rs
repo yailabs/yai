@@ -99,11 +99,26 @@ pub(super) fn projection_request(args: &[String]) -> Result<(), String> {
 }
 
 pub(super) fn semantic_context_inspect(args: &[String]) -> Result<(), String> {
-    let artifact_id = optional_arg(args, "--id")
+    let exact_artifact_id = optional_arg(args, "--id")
         .or_else(|| optional_arg(args, "--projection"))
-        .or_else(|| optional_arg(args, "--frame"))
-        .ok_or_else(|| "context inspect requires --id, --projection, or --frame".to_string())?;
+        .or_else(|| optional_arg(args, "--frame"));
     let store = LmdbRecordStore::open(record_store_path())?;
+    let case_id = optional_arg(args, "--case");
+    let latest_kind = optional_arg(args, "--kind");
+    let artifact_id = match (exact_artifact_id, case_id, latest_kind) {
+        (Some(artifact_id), None, None) => artifact_id,
+        (None, Some(case_id), Some(kind)) => {
+            security::authorize_case_read_if_scoped(&store, &case_id)?;
+            super::case_runtime::latest_case_context_artifact_id(&case_id, &kind)?
+        }
+        (None, None, None) => {
+            return Err(
+                "context inspect requires --id, or Case context requires --case and --kind"
+                    .to_string(),
+            )
+        }
+        _ => return Err("context_inspection_reference_conflict".to_string()),
+    };
     let artifact = store
         .get_semantic_context_artifact(&artifact_id)?
         .ok_or_else(|| format!("semantic context artifact not found: {artifact_id}"))?;

@@ -1223,6 +1223,7 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
         "yai.case.run" => case_runtime_run(&args[2..]),
         "yai.case.resume" => case_runtime_resume(&args[2..]),
         "yai.case.show" => case_runtime_status(&args[2..]),
+        "yai.case.context.show" => semantic_context_inspect(&args[2..]),
         "yai.case.stop" => case_runtime_stop(&args[2..]),
         "yai.case.cancel" => case_cancel(&args[2..]),
         "yai.case.close" => case_close(&args[2..]),

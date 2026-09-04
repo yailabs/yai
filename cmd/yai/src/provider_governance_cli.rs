@@ -41,6 +41,48 @@ fn authenticated_store() -> Result<(AuthenticatedPrincipal, LmdbRecordStore), St
     Ok((authenticated, store))
 }
 
+fn provider_target_id_by_key(
+    authenticated: &AuthenticatedPrincipal,
+    store: &LmdbRecordStore,
+    tenant_id: &str,
+    provider_key: &str,
+) -> Result<String, String> {
+    let mut matches = store
+        .list_provider_targets_authorized(authenticated, tenant_id)?
+        .into_iter()
+        .filter(|target| target.provider_key == provider_key)
+        .map(|target| target.target_id)
+        .collect::<Vec<_>>();
+    matches.sort();
+    match matches.as_slice() {
+        [] => Err("provider_key_not_found".to_string()),
+        [target_id] => Ok(target_id.clone()),
+        _ => Err("provider_key_ambiguous_use_exact_target".to_string()),
+    }
+}
+
+fn provider_target_id_from_args(
+    args: &[String],
+    authenticated: &AuthenticatedPrincipal,
+    store: &LmdbRecordStore,
+) -> Result<String, String> {
+    let exact = optional_arg(args, "--target");
+    let tenant = optional_arg(args, "--tenant");
+    let provider_key = optional_arg(args, "--provider-key");
+    match (exact, tenant, provider_key) {
+        (Some(target_id), None, None) => Ok(target_id),
+        (None, Some(tenant_id), Some(provider_key)) => {
+            provider_target_id_by_key(authenticated, store, &tenant_id, &provider_key)
+        }
+        (None, None, None) => Err(
+            "provider_reference_required: use TARGET or --tenant TENANT --provider-key KEY"
+                .to_string(),
+        ),
+        (Some(_), _, _) => Err("provider_reference_conflict".to_string()),
+        (None, _, _) => Err("provider_key_reference_requires_tenant_and_provider_key".to_string()),
+    }
+}
+
 fn parse_locality(value: &str) -> Result<ProviderLocality, String> {
     match value {
         "loopback" => Ok(ProviderLocality::Loopback),
@@ -58,6 +100,32 @@ fn parse_failover(value: &str) -> Result<ProviderFailoverPolicy, String> {
     }
 }
 
+fn credential_ref_from_args(args: &[String]) -> Result<String, String> {
+    let exact = optional_arg(args, "--credential-ref");
+    let optional_env = optional_arg(args, "--credential-env");
+    match (exact, optional_env) {
+        (Some(reference), None) => Ok(reference),
+        (None, Some(name)) => {
+            if name.is_empty()
+                || name.len() > 128
+                || !name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                || name.as_bytes()[0].is_ascii_digit()
+            {
+                return Err("provider_credential_env_name_invalid".to_string());
+            }
+            if std::env::var(&name).is_ok_and(|value| !value.trim().is_empty()) {
+                Ok(format!("env:{name}"))
+            } else {
+                Ok("none".to_string())
+            }
+        }
+        (None, None) => Ok("none".to_string()),
+        (Some(_), Some(_)) => Err("provider_credential_reference_conflict".to_string()),
+    }
+}
+
 fn provider_add(args: &[String]) -> Result<(), String> {
     let (authenticated, store) = authenticated_store()?;
     let tenant_id = named_arg(args, "--tenant")?;
@@ -69,8 +137,7 @@ fn provider_add(args: &[String]) -> Result<(), String> {
             adapter: ProviderAdapterKind::OpenAiCompatible,
             endpoint: named_arg(args, "--endpoint")?,
             model_id: named_arg(args, "--model")?,
-            credential_ref: optional_arg(args, "--credential-ref")
-                .unwrap_or_else(|| "none".to_string()),
+            credential_ref: credential_ref_from_args(args)?,
             locality: parse_locality(&named_arg(args, "--locality")?)?,
             extension_adapter_id: optional_arg(args, "--extension-adapter"),
             created_by_principal_id: authenticated.projected_principal_id(),
@@ -109,8 +176,8 @@ fn provider_list(args: &[String]) -> Result<(), String> {
 }
 
 fn provider_show(args: &[String]) -> Result<(), String> {
-    let target_id = named_arg(args, "--target")?;
     let (authenticated, store) = authenticated_store()?;
+    let target_id = provider_target_id_from_args(args, &authenticated, &store)?;
     let (target, qualification, trust, health) =
         store.provider_posture_authorized(&authenticated, &target_id)?;
     println!("provider_target: {}", target.target_id);
@@ -598,8 +665,8 @@ fn print_probe(evidence: &ProviderProbeEvidence) {
 }
 
 fn provider_probe(args: &[String], persist_qualification: bool) -> Result<(), String> {
-    let target_id = named_arg(args, "--target")?;
     let (authenticated, store) = authenticated_store()?;
+    let target_id = provider_target_id_from_args(args, &authenticated, &store)?;
     let (target, _, _, _) = store.provider_posture_authorized(&authenticated, &target_id)?;
     let admission_token = format!("probe-admission:{}:{}", std::process::id(), now_ms());
     let probe_owner = store.begin_provider_probe_authorized(
@@ -653,8 +720,8 @@ fn provider_probe(args: &[String], persist_qualification: bool) -> Result<(), St
 }
 
 fn provider_trust(args: &[String], posture: ProviderTrustPosture) -> Result<(), String> {
-    let target_id = named_arg(args, "--target")?;
     let (authenticated, store) = authenticated_store()?;
+    let target_id = provider_target_id_from_args(args, &authenticated, &store)?;
     let event =
         store.set_provider_trust_authorized(&authenticated, &target_id, posture, now_ms())?;
     println!("provider_trust: recorded");
@@ -667,9 +734,9 @@ fn provider_trust(args: &[String], posture: ProviderTrustPosture) -> Result<(), 
 }
 
 fn provider_credential_rotate(args: &[String]) -> Result<(), String> {
-    let target_id = named_arg(args, "--target")?;
     let revision_label = named_arg(args, "--revision")?;
     let (authenticated, store) = authenticated_store()?;
+    let target_id = provider_target_id_from_args(args, &authenticated, &store)?;
     let revision =
         store.rotate_provider_credential_authorized(&authenticated, &target_id, &revision_label)?;
     println!("provider_credential_rotation: recorded");
@@ -684,7 +751,8 @@ fn provider_credential_rotate(args: &[String]) -> Result<(), String> {
 fn case_provider_bind(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let participant_id = named_arg(args, "--participant")?;
-    let targets = repeated_arg(args, "--target");
+    let exact_targets = repeated_arg(args, "--target");
+    let provider_keys = repeated_arg(args, "--provider-key");
     let failover = parse_failover(
         &optional_arg(args, "--failover").unwrap_or_else(|| "safe_only".to_string()),
     )?;
@@ -693,6 +761,25 @@ fn case_provider_bind(args: &[String]) -> Result<(), String> {
         .parse::<u32>()
         .map_err(|_| "provider_max_attempts_invalid".to_string())?;
     let (authenticated, store) = authenticated_store()?;
+    if !exact_targets.is_empty() && !provider_keys.is_empty() {
+        return Err("case_provider_reference_families_conflict".to_string());
+    }
+    let targets = if provider_keys.is_empty() {
+        if exact_targets.is_empty() {
+            return Err("case_provider_target_or_provider_key_required".to_string());
+        }
+        exact_targets
+    } else {
+        let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "case_provider_key_requires_tenant_scoped_case".to_string())?;
+        provider_keys
+            .iter()
+            .map(|key| provider_target_id_by_key(&authenticated, &store, tenant_id, key))
+            .collect::<Result<Vec<_>, _>>()?
+    };
     let binding = store.bind_case_provider_targets_authorized(
         &authenticated,
         &case_id,

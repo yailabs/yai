@@ -209,6 +209,15 @@ const fn pos(name: &'static str, legacy_flag: Option<&'static str>) -> Positiona
     }
 }
 
+const fn optional_pos(name: &'static str, legacy_flag: Option<&'static str>) -> PositionalSpec {
+    PositionalSpec {
+        name,
+        required: false,
+        legacy_flag,
+        choices: EMPTY,
+    }
+}
+
 const fn choice_pos(name: &'static str, choices: &'static [&'static str]) -> PositionalSpec {
     PositionalSpec {
         name,
@@ -280,18 +289,6 @@ const fn repeat_flag(name: &'static str, value_name: &'static str) -> FlagSpec {
     }
 }
 
-const fn required_repeat_flag(name: &'static str, value_name: &'static str) -> FlagSpec {
-    FlagSpec {
-        name,
-        aliases: EMPTY,
-        value_name: Some(value_name),
-        required: true,
-        repeatable: true,
-        choices: EMPTY,
-        legacy_name: None,
-    }
-}
-
 macro_rules! op {
     ($id:literal, [$($path:literal),+], $description:literal, $visibility:ident, $lane:ident, $mutation:ident, $output:ident, $pos:expr, $flags:expr) => {
         Descriptor {
@@ -351,6 +348,11 @@ const CASE_RUN_FLAGS: &[FlagSpec] = &[
     bool_flag("--continue-after-malformed"),
     flag("--failpoint", Some("FAILPOINT"), false),
 ];
+const CASE_CONTEXT_SHOW: &[FlagSpec] = &[choice_flag(
+    "--kind",
+    &["projection", "context-frame"],
+    true,
+)];
 const CASE_RESUME_FLAGS: &[FlagSpec] = &[
     flag("--max-invocations", Some("N"), false),
     flag("--max-operations", Some("N"), false),
@@ -415,6 +417,7 @@ const PROVIDER_ADD: &[FlagSpec] = &[
     flag("--endpoint", Some("URL"), true),
     flag("--model", Some("MODEL"), true),
     flag("--credential-ref", Some("REF"), false),
+    flag("--credential-env", Some("ENV"), false),
     choice_flag(
         "--locality",
         &["loopback", "private_network", "remote"],
@@ -422,14 +425,25 @@ const PROVIDER_ADD: &[FlagSpec] = &[
     ),
     flag("--extension-adapter", Some("ADAPTER"), false),
 ];
-const PROVIDER_PROBE: &[FlagSpec] = &[bool_flag("--embedding")];
+const PROVIDER_REFERENCE: &[FlagSpec] = &[
+    flag("--tenant", Some("TENANT"), false),
+    flag("--provider-key", Some("KEY"), false),
+];
+const PROVIDER_PROBE: &[FlagSpec] = &[
+    flag("--tenant", Some("TENANT"), false),
+    flag("--provider-key", Some("KEY"), false),
+    bool_flag("--embedding"),
+];
 const PROVIDER_QUALIFY: &[FlagSpec] = &[
+    flag("--tenant", Some("TENANT"), false),
+    flag("--provider-key", Some("KEY"), false),
     flag("--valid-for-ms", Some("MS"), false),
     bool_flag("--embedding"),
 ];
 const CASE_PROVIDER_BIND: &[FlagSpec] = &[
     flag("--participant", Some("PARTICIPANT"), true),
-    required_repeat_flag("--target", "TARGET"),
+    repeat_flag("--target", "TARGET"),
+    repeat_flag("--provider-key", "KEY"),
     choice_flag("--failover", &["none", "safe_only"], false),
     flag("--max-attempts", Some("N"), false),
 ];
@@ -453,17 +467,19 @@ const CASE_MEMORY_SEARCH: &[FlagSpec] = &[
     flag("--limit", Some("N"), false),
 ];
 const CASE_MEMORY_INDEX_BUILD: &[FlagSpec] = &[
-    flag("--encoder-target", Some("TARGET"), true),
+    flag("--encoder-target", Some("TARGET"), false),
+    flag("--encoder-provider-key", Some("KEY"), false),
     flag("--encoder-revision", Some("REVISION"), true),
     flag("--dimension", Some("N"), true),
 ];
 const CASE_MEMORY_INDEX_REBUILD: &[FlagSpec] = &[
     flag("--profile", Some("PROFILE"), false),
     flag("--encoder-target", Some("TARGET"), false),
+    flag("--encoder-provider-key", Some("KEY"), false),
     flag("--encoder-revision", Some("REVISION"), false),
     flag("--dimension", Some("N"), false),
 ];
-const CASE_MEMORY_PROFILE: &[FlagSpec] = &[flag("--profile", Some("PROFILE"), true)];
+const CASE_MEMORY_PROFILE: &[FlagSpec] = &[flag("--profile", Some("PROFILE"), false)];
 const CASE_MEMORY_OPTIONAL_PROFILE: &[FlagSpec] = &[flag("--profile", Some("PROFILE"), false)];
 const CASE_MEMORY_PARTICIPANT: &[FlagSpec] = &[flag("--participant", Some("PARTICIPANT"), true)];
 const CASE_MEMORY_EPISODE: &[FlagSpec] = &[
@@ -504,7 +520,8 @@ const PROCESS_ATTACH: &[FlagSpec] = &[
     flag("--policy-id", Some("POLICY"), false),
 ];
 const CASE_POLICY_BIND: &[FlagSpec] = &[
-    flag("--artifact", Some("POLICY"), true),
+    flag("--artifact", Some("POLICY"), false),
+    flag("--policy-key", Some("KEY"), false),
     flag("--reason", Some("REASON"), false),
     flag("--expected-generation", Some("N"), false),
     flag("--as", Some("PRINCIPAL"), false),
@@ -574,6 +591,9 @@ const REVIEW_RESOLVE: &[FlagSpec] = &[
 const POLICY_INGEST: &[FlagSpec] = &[
     flag("--tenant", Some("TENANT"), true),
     flag("--as", Some("PRINCIPAL"), false),
+    bool_flag("--validate"),
+    bool_flag("--publish"),
+    flag("--reason", Some("REASON"), false),
 ];
 const POLICY_REASON: &[FlagSpec] = &[
     flag("--reason", Some("REASON"), false),
@@ -734,8 +754,8 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         LocalDomain,
         ReadOnly,
         Structured,
-        &[pos("target", Some("--target"))],
-        NO_FLAGS
+        &[optional_pos("target", Some("--target"))],
+        PROVIDER_REFERENCE
     ),
     op!(
         "yai.provider.probe",
@@ -745,7 +765,7 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         LocalDomain,
         Mutating,
         Structured,
-        &[pos("target", Some("--target"))],
+        &[optional_pos("target", Some("--target"))],
         PROVIDER_PROBE
     ),
     op!(
@@ -756,7 +776,7 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         LocalDomain,
         Mutating,
         Structured,
-        &[pos("target", Some("--target"))],
+        &[optional_pos("target", Some("--target"))],
         PROVIDER_QUALIFY
     ),
     op!(
@@ -767,8 +787,8 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         LocalDomain,
         Mutating,
         Structured,
-        &[pos("target", Some("--target"))],
-        NO_FLAGS
+        &[optional_pos("target", Some("--target"))],
+        PROVIDER_REFERENCE
     ),
     op!(
         "yai.provider.trust.deny",
@@ -778,8 +798,8 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         LocalDomain,
         Mutating,
         Structured,
-        &[pos("target", Some("--target"))],
-        NO_FLAGS
+        &[optional_pos("target", Some("--target"))],
+        PROVIDER_REFERENCE
     ),
     op!(
         "yai.provider.credential.rotate",
@@ -789,8 +809,12 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         LocalDomain,
         Mutating,
         Structured,
-        &[pos("target", Some("--target"))],
-        &[flag("--revision", Some("REVISION"), true)]
+        &[optional_pos("target", Some("--target"))],
+        &[
+            flag("--tenant", Some("TENANT"), false),
+            flag("--provider-key", Some("KEY"), false),
+            flag("--revision", Some("REVISION"), true)
+        ]
     ),
     op!(
         "yai.case.create",
@@ -829,6 +853,17 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
             NO_FLAGS
         )
     },
+    op!(
+        "yai.case.context.show",
+        ["case", "context", "show"],
+        "Inspect the latest Projection or ContextFrame for a Case",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_CONTEXT_SHOW
+    ),
     op!(
         "yai.case.run",
         ["case", "run"],
@@ -1193,7 +1228,7 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
     op!(
         "yai.case.policy.bind",
         ["case", "policy", "bind"],
-        "Bind an exact policy artifact to a Case",
+        "Bind an exact artifact or current published policy key to a Case",
         Product,
         LocalDomain,
         Mutating,
