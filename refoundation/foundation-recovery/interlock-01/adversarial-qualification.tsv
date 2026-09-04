@@ -1,0 +1,16 @@
+id	attack_or_property	executable_proof	result	boundary
+I01-A01	Text plus repeated images plus audio plus derived text retains order	conversation multipart_order_and_duplicate_content_survive_publication; smoke-multipart-conversation	pass	Equal object identity does not collapse Turn positions
+I01-A02	Original audio survives transcript and human edit	conversation original_machine_transcript_and_human_edit_are_distinct; smoke	pass	All three immutable objects and two derivation edges remain
+I01-A03	Cross-Case/Tenant derivation and Principal provenance forgery	conversation rejects_cross_case_derivation_and_oversized_metadata	pass	Turn validation refuses source Case Tenant and importing-Principal mismatch
+I01-A04	Identical bytes cross Case/Tenant	conversation identical_bytes_remain_case_and_tenant_scoped	pass	Content digest may match but object identity differs
+I01-A05	Draft-label collision and pre-SEND adoption	conversation identical_draft_labels_are_namespaced_by_case_and_preview_does_not_adopt_bytes	pass	Draft namespace is Case-scoped; preview publishes nothing
+I01-A06	Content corruption	conversation corruption_and_internal_symlink_substitution_fail_closed	pass	Digest mismatch refuses object
+I01-A07	Draft directory symlink substitution	conversation corruption_and_internal_symlink_substitution_fail_closed	pass	openat2 no-symlink refuses and outside file survives
+I01-A08	Oversized text/import allocation	conversation rejects_cross_case_derivation_and_oversized_metadata; bounded read implementation	pass	Metadata/length checked before allocation
+I01-A09	Turn before provider and provider failure after SEND	tests/characterization/multipart-conversation/test_multipart_conversation.sh	pass	Committed Turn and objects survive restart/failure
+I01-A10	Projection without ProviderResult	context committed_multipart_turn_projects_in_exact_order_without_provider_lineage	pass	Projection v7 and ContextFrame v7 retain ordered Turn
+I01-A11	Old W20 memory and provider paths	full engine/CLI suites and lower characterization	pass	Old schemas/readers stay and content is not promoted to semantic truth
+I01-A12	Media sent through current text provider adapter	case_runtime exact modality check	pass_fail_closed	No irreversible flattening; typed-media adapter remains I02
+I01-A13	Incomplete object publication is substituted at the final content address	conversation incomplete_object_publication_is_never_accepted_as_adopted_content	pass	Missing sealed metadata fails closed; no incomplete object is accepted as adopted content
+I01-A14	Human/provider/deterministic derivation actor or result lineage is forged	conversation original_machine_transcript_and_human_edit_are_distinct	pass	Kind fixes the admitted actor and ProviderResult relationship
+I01-A15	An internally valid Turn names a Tenant other than the canonical Case Tenant	store lmdb i01_conversation_turn_tenant_must_match_canonical_case_security_domain	pass	Authenticated secured commit re-resolves Case Tenant and refuses the Transition

@@ -17,6 +17,7 @@ pub mod admission;
 pub mod case_policy;
 pub mod compatibility;
 pub mod context;
+pub mod conversation;
 pub mod effect;
 pub mod governance;
 pub mod graph;

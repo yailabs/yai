@@ -31,7 +31,10 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
             Ok(CliData::AlreadyRendered)
         }
         "yai.case.show" => case_show(invocation),
-        operation_id if operation_id.starts_with("yai.case.memory.") => {
+        operation_id
+            if operation_id.starts_with("yai.case.memory.")
+                || operation_id.starts_with("yai.case.conversation.") =>
+        {
             execute_structured_legacy(operation_id, invocation)
         }
         operation_id if invocation.descriptor.visibility == Visibility::Product => {
@@ -514,6 +517,7 @@ fn execute_structured_legacy(
     let mut args = invocation.legacy_args();
     let native_json = invocation.json
         && (operation_id.starts_with("yai.case.memory.")
+            || operation_id.starts_with("yai.case.conversation.")
             || (operation_id.starts_with("yai.workflow.") && operation_id != "yai.workflow.input")
             || operation_id.starts_with("yai.case.handoff."));
     if native_json {

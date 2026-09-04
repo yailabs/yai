@@ -1040,6 +1040,10 @@ use graph_runtime::*;
 mod memory_cli;
 use memory_cli::*;
 
+#[path = "conversation_cli.rs"]
+mod conversation_cli;
+use conversation_cli::conversation_case_command;
+
 fn yes_no(value: bool) -> &'static str {
     if value {
         "yes"
@@ -1217,6 +1221,9 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
         "yai.case.resource.attach_process" => case_attach_process(&args[2..]),
         operation if operation.starts_with("yai.case.memory.") => {
             memory_case_command(operation, args)
+        }
+        operation if operation.starts_with("yai.case.conversation.") => {
+            conversation_case_command(operation, args)
         }
         operation if operation.starts_with("yai.case.handoff.") => handoff_command(&args[2..]),
         operation if operation.starts_with("yai.case.policy.") => case_policy_porcelain(&args[2..]),

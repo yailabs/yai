@@ -336,7 +336,8 @@ const CASE_RUN_FLAGS: &[FlagSpec] = &[
         true,
         "--attachment",
     ),
-    flag("--prompt", Some("TASK"), true),
+    flag("--prompt", Some("TASK"), false),
+    flag("--input-turn", Some("TURN"), false),
     flag("--max-invocations", Some("N"), false),
     flag("--max-operations", Some("N"), false),
     flag("--max-semantic-units", Some("N"), false),
@@ -353,6 +354,34 @@ const CASE_CONTEXT_SHOW: &[FlagSpec] = &[choice_flag(
     &["projection", "context-frame"],
     true,
 )];
+const CONVERSATION_DRAFT_CREATE: &[FlagSpec] = &[
+    flag("--participant", Some("PARTICIPANT"), true),
+    flag("--thread", Some("THREAD"), false),
+];
+const CONVERSATION_DRAFT_TEXT: &[FlagSpec] = &[flag("--text", Some("TEXT"), true)];
+const CONVERSATION_DRAFT_IMPORT: &[FlagSpec] = &[
+    choice_flag("--type", &["image", "audio", "video", "file"], true),
+    flag("--mime", Some("MIME"), true),
+];
+const CONVERSATION_DRAFT_DERIVE_TEXT: &[FlagSpec] = &[
+    flag("--source-part", Some("ORDINAL"), true),
+    choice_flag(
+        "--kind",
+        &[
+            "speech-transcription",
+            "human-edit",
+            "ocr",
+            "image-caption",
+            "document-text-extraction",
+            "generated-content",
+        ],
+        true,
+    ),
+    flag("--text", Some("TEXT"), true),
+    flag("--producer-ref", Some("REF"), false),
+    flag("--provider-result", Some("RESULT"), false),
+];
+const CONVERSATION_PARTICIPANT: &[FlagSpec] = &[flag("--participant", Some("PARTICIPANT"), true)];
 const CASE_RESUME_FLAGS: &[FlagSpec] = &[
     flag("--max-invocations", Some("N"), false),
     flag("--max-operations", Some("N"), false),
@@ -863,6 +892,109 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         Structured,
         &[pos("case", Some("--case"))],
         CASE_CONTEXT_SHOW
+    ),
+    op!(
+        "yai.case.conversation.draft.create",
+        ["case", "conversation", "draft", "create"],
+        "Create mutable multipart conversation draft state",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case")), pos("draft", Some("--draft"))],
+        CONVERSATION_DRAFT_CREATE
+    ),
+    op!(
+        "yai.case.conversation.draft.add_text",
+        ["case", "conversation", "draft", "add-text"],
+        "Append original text to an ordered conversation draft",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case")), pos("draft", Some("--draft"))],
+        CONVERSATION_DRAFT_TEXT
+    ),
+    op!(
+        "yai.case.conversation.draft.import",
+        ["case", "conversation", "draft", "import"],
+        "Import bounded immutable media into an ordered draft",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[
+            pos("case", Some("--case")),
+            pos("draft", Some("--draft")),
+            pos("source", Some("--source"))
+        ],
+        CONVERSATION_DRAFT_IMPORT
+    ),
+    op!(
+        "yai.case.conversation.draft.derive_text",
+        ["case", "conversation", "draft", "derive-text"],
+        "Append transcript, edit, or other derived text with source provenance",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case")), pos("draft", Some("--draft"))],
+        CONVERSATION_DRAFT_DERIVE_TEXT
+    ),
+    op!(
+        "yai.case.conversation.draft.show",
+        ["case", "conversation", "draft", "show"],
+        "Inspect mutable draft content without dumping media bytes",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case")), pos("draft", Some("--draft"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.case.conversation.draft.discard",
+        ["case", "conversation", "draft", "discard"],
+        "Discard uncommitted conversation draft state",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case")), pos("draft", Some("--draft"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.case.conversation.draft.send",
+        ["case", "conversation", "draft", "send"],
+        "Commit one ordered multipart Turn before provider execution",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case")), pos("draft", Some("--draft"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.case.conversation.turn.list",
+        ["case", "conversation", "turn", "list"],
+        "List canonical multipart and compatible legacy text Turns",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CONVERSATION_PARTICIPANT
+    ),
+    op!(
+        "yai.case.conversation.turn.show",
+        ["case", "conversation", "turn", "show"],
+        "Verify one committed Turn, ordered parts, objects, and provenance",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case")), pos("turn", Some("--turn"))],
+        CONVERSATION_PARTICIPANT
     ),
     op!(
         "yai.case.run",

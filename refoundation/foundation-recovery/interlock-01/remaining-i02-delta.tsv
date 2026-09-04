@@ -1,0 +1,11 @@
+topic	I01_posture	I02_question_or_work	excluded_now
+cognitive_roles	Three capability domains documented but no role router	Bind PrimaryConversation SpeechToText ImageUnderstanding and other roles to exact qualified targets	No CognitiveCapabilityRole registry/router in I01
+typed_media_delivery	ConversationTurn/ContextFrame are typed; current provider adapter refuses media	Choose native modality versus exact auxiliary derivation without changing Turn	No speculative YVEX endpoint or ABI
+provider_capabilities	Existing ChatText/TextEmbedding only; no fabricated media support	Version exact AudioInput/ImageInput/VideoInput/FileInput evidence after actual provider contract exists	No name-based inference
+derivation_execution	Provenance accepts exact ProviderResult or deterministic producer ref	Define governed auxiliary invocation purpose/input/result and delivery-indeterminate posture	No STT/OCR/vision engine
+cross_turn_derivation	I01 derivations cite earlier parts of the same committed Turn	Decide if post-SEND asynchronous derivations require a new canonical augmentation event	No mutation of committed Turn
+episode_linkage	W20 sees new Turns structurally but does not join them to later invocation by causal-ref fields	Integrate Turn causal lineage without reopening W20 authority	No H20 hardening here
+generated_media	Content domain can own future generated objects	Normalize typed provider media result into content provenance after exact execution contract	No generation-specific media store
+draft_processing	CLI proves mutable draft and explicit SEND contracts	Studio/composer may implement capture and processing against them	No Studio or device capture
+orphan_objects	Crash-safe object-first SEND can leave complete unreferenced objects	Define conservative owner-aware orphan reclamation/endurance policy	No deletion of referenced original content
+cloud_adapters	Upper content contract is provider-independent	Map providers with weaker/richer capability evidence through same boundary	No provider-brand ontology

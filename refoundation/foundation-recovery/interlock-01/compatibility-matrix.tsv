@@ -1,0 +1,13 @@
+surface	prior_version	I01_version	reader_or_behavior_posture
+Transition	yai.transition.v12	yai.transition.v13	v1-v12 remain readable; I01 payload requires v13
+CaseState	yai.case_state.v12	yai.case_state.v12	unchanged compact materialization; no binary/object bag
+Projection	yai.projection.v6	yai.projection.v7	v5/v6 constants retained; v7 adds typed ConversationTurn values
+ContextFrame	yai.context_frame.v6	yai.context_frame.v7	v5/v6 constants retained; v7 carries typed conversation semantics
+RenderedInput metadata	yai.rendered_input.v6	yai.rendered_input.v7	version follows changed frame meaning; no binary payload persistence
+Case runtime checkpoint	yai.case_runtime_checkpoint.v2	yai.case_runtime_checkpoint.v3	v1/v2 read; v3 adds optional exact input Turn identity
+InteractionTurnRecorded	yai.transition.v3+	unchanged historical payload	Old text-only Cases rebuild/project and --prompt remains supported
+RetrievalSet	yai.retrieval_set.v3	yai.retrieval_set.v3	unchanged
+ProviderQualification	yai.provider_qualification.v3	yai.provider_qualification.v3	unchanged; no fabricated media capabilities
+W20 memory	Episode/assertion/hierarchy v1	unchanged	New Turn is structural input and is not automatically semantic truth
+Derived memory store	yai.derived_memory_store.v2	yai.derived_memory_store.v2	unchanged
+LMDB	37 databases	37 databases	no content-object database added

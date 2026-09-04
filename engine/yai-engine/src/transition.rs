@@ -6,6 +6,7 @@
 //! optional summary is presentation material and is never read by the reducer.
 
 use crate::case_policy::CasePolicyBinding;
+use crate::conversation::ConversationTurn;
 use crate::effect::{
     digest_bytes, Decision, DecisionOutcome, EffectOutcome, EffectReceipt, ExecutionGrant,
     FilesystemObservation, NormalizationFailure, Operation, OperationKind, OperationOrigin,
@@ -38,7 +39,8 @@ pub const TRANSITION_SCHEMA_V8: &str = "yai.transition.v8";
 pub const TRANSITION_SCHEMA_V9: &str = "yai.transition.v9";
 pub const TRANSITION_SCHEMA_V10: &str = "yai.transition.v10";
 pub const TRANSITION_SCHEMA_V11: &str = "yai.transition.v11";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v12";
+pub const TRANSITION_SCHEMA_V12: &str = "yai.transition.v12";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v13";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
@@ -278,6 +280,9 @@ pub enum TransitionPayload {
         result_id: String,
         operator_input: String,
     },
+    ConversationTurnCommitted {
+        turn: ConversationTurn,
+    },
     ModelInterpretationRecorded {
         interpretation_id: String,
         result_id: String,
@@ -433,6 +438,7 @@ impl TransitionPayload {
             Self::ProviderInvocationStarted { .. } => "provider_invocation_started",
             Self::ProviderResultRecorded { .. } => "provider_result_recorded",
             Self::InteractionTurnRecorded { .. } => "interaction_turn_recorded",
+            Self::ConversationTurnCommitted { .. } => "conversation_turn_committed",
             Self::ModelInterpretationRecorded { .. } => "model_interpretation_recorded",
             Self::ResourceAttached { .. } => "resource_attached",
             Self::OperationNormalizationFailed { .. } => "operation_normalization_failed",
@@ -1442,6 +1448,7 @@ impl CaseState {
                 });
             }
             TransitionPayload::InteractionTurnRecorded { .. } => {}
+            TransitionPayload::ConversationTurnCommitted { .. } => {}
             TransitionPayload::ModelInterpretationRecorded {
                 interpretation_id,
                 result_id,
@@ -2538,6 +2545,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V12
             && self.schema != TRANSITION_SCHEMA_V11
             && self.schema != TRANSITION_SCHEMA_V10
             && self.schema != TRANSITION_SCHEMA_V9
@@ -2574,6 +2582,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V12
                 | TRANSITION_SCHEMA_V11
                 | TRANSITION_SCHEMA_V10
                 | TRANSITION_SCHEMA_V9
@@ -2586,6 +2595,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V12
                 | TRANSITION_SCHEMA_V11
                 | TRANSITION_SCHEMA_V10
                 | TRANSITION_SCHEMA_V9
@@ -2596,6 +2606,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V12
                 | TRANSITION_SCHEMA_V11
                 | TRANSITION_SCHEMA_V10
                 | TRANSITION_SCHEMA_V9
@@ -2605,20 +2616,30 @@ impl Transition {
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V11 | TRANSITION_SCHEMA_V10
+            TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V12
+                | TRANSITION_SCHEMA_V11
+                | TRANSITION_SCHEMA_V10
         ) && self.payload.is_wave15_kind()
         {
             return Err("wave15_contract_requires_yai_transition_v10".to_string());
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V11
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V12 | TRANSITION_SCHEMA_V11
         ) && self.payload.is_wave17_kind()
         {
             return Err("wave17_contract_requires_yai_transition_v11".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_wave18_kind() {
+        if !matches!(
+            self.schema.as_str(),
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V12
+        ) && self.payload.is_wave18_kind()
+        {
             return Err("wave18_contract_requires_yai_transition_v12".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_interlock_i01_kind() {
+            return Err("interlock_i01_contract_requires_yai_transition_v13".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -2794,6 +2815,35 @@ impl Transition {
                 require_value("result_id", result_id)?;
                 require_causal_ref(&self.causal_refs, invocation_id, "provider_invocation")?;
                 require_causal_ref(&self.causal_refs, result_id, "provider_result")?;
+            }
+            TransitionPayload::ConversationTurnCommitted { turn } => {
+                turn.validate()?;
+                if turn.case_id != self.case_id
+                    || turn.base_generation.checked_add(1) != Some(self.sequence)
+                    || self.source.participant_id.as_deref() != Some(turn.participant_id.as_str())
+                    || self.source.principal_id.as_deref()
+                        != Some(turn.submitted_by_principal_id.as_str())
+                {
+                    return Err("conversation_turn_transition_scope_invalid".to_string());
+                }
+                let scope = self
+                    .scope
+                    .as_ref()
+                    .ok_or_else(|| "conversation_turn_transition_scope_required".to_string())?;
+                if scope.participant_refs != vec![turn.participant_id.clone()]
+                    || !scope.resource_refs.is_empty()
+                    || !scope.policy_refs.is_empty()
+                {
+                    return Err("conversation_turn_transition_scope_invalid".to_string());
+                }
+                require_causal_ref(&self.causal_refs, &turn.participant_id, "participant")?;
+                for part in &turn.ordered_parts {
+                    require_causal_ref(
+                        &self.causal_refs,
+                        &part.object.object_id,
+                        "content_object",
+                    )?;
+                }
             }
             TransitionPayload::ModelInterpretationRecorded {
                 interpretation_id,
@@ -3636,12 +3686,17 @@ impl TransitionPayload {
                 | Self::ProviderAttemptOutcomeRecorded { .. }
         )
     }
+
+    fn is_interlock_i01_kind(&self) -> bool {
+        matches!(self, Self::ConversationTurnCommitted { .. })
+    }
 }
 
 fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V12
             | TRANSITION_SCHEMA_V11
             | TRANSITION_SCHEMA_V10
             | TRANSITION_SCHEMA_V9
@@ -3657,6 +3712,7 @@ fn supports_wave9_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V12
             | TRANSITION_SCHEMA_V11
             | TRANSITION_SCHEMA_V10
             | TRANSITION_SCHEMA_V9
@@ -3671,6 +3727,7 @@ fn supports_wave10_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V12
             | TRANSITION_SCHEMA_V11
             | TRANSITION_SCHEMA_V10
             | TRANSITION_SCHEMA_V9

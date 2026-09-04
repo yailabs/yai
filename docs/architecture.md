@@ -1,8 +1,8 @@
 # Current executable architecture
 
-Authority: implementation truth. This edition covers the published H17
-baseline and the Wave-18 provider-governance implementation. Historical checkpoints and
-exact executable evidence remain in `refoundation/foundation-recovery/`.
+Authority: implementation truth. This edition covers the published W20
+foundation and the I01 multipart-conversation interlock. Historical checkpoints
+and exact executable evidence remain in `refoundation/foundation-recovery/`.
 
 This document includes current contradictions. It does not claim that the
 [Constitution](constitution.md) is implemented. Target changes and sequencing
@@ -17,6 +17,7 @@ operator
   |
   +-- yai (Rust command/process boundary)
   |     +-- typed Projection/ContextFrame compilation and provider invocation
+  |     +-- Case-canonical ordered multipart Turns and immutable content ownership
   |     +-- provenance-bound operational-memory derivation/retrieval
   |     +-- derived semantic ResidencyPlan and bounded Case execution loop
   |     +-- controlled filesystem effect transition family
@@ -50,6 +51,7 @@ domain implementation remains grouped by demonstrated boundary in
 [`case_runtime.rs`](../cmd/yai/src/case_runtime.rs),
 [`policy.rs`](../cmd/yai/src/policy.rs),
 [`security.rs`](../cmd/yai/src/security.rs),
+[`conversation_cli.rs`](../cmd/yai/src/conversation_cli.rs),
 [`memory_cli.rs`](../cmd/yai/src/memory_cli.rs),
 [`review.rs`](../cmd/yai/src/review.rs),
 [`controlled_effect.rs`](../cmd/yai/src/controlled_effect.rs),
@@ -83,7 +85,8 @@ mean constitutional, general, or production-ready.
 
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
-| Case-bound provider prompt | admitted participant + typed CaseState/history → qualified `yai.operational_memory.v1` retrieval → `yai.residency_plan.v1` → `yai.projection.v5` → `yai.context_frame.v5` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | HTTP is local/plain and non-streaming; ranking/residency are typed and deterministic; no learned compression or authoritative tokenizer |
+| Case conversation content | mutable non-canonical draft → bounded text/media imports → explicit original/derived provenance → SEND → `ConversationTurnCommitted` → immutable content-addressed bytes plus canonical ordered references; CLI fixtures prove repeated modalities, restart identity and survival of downstream provider failure | typed media delivery and auxiliary cognitive-role routing remain I02 work |
+| Case-bound provider prompt | admitted participant + typed CaseState/history → qualified long-horizon retrieval → `yai.residency_plan.v1` → `yai.projection.v7` → `yai.context_frame.v7` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | the current transport renders text only; typed media adapters and authoritative tokenization remain absent |
 | Governed provider routing | immutable Tenant ProviderTarget → synthetic evidence-bound qualification → Tenant-Owner approval → shared fresh health/circuit → exact Case provider binding → mechanical requirement/filtering → canonical ProviderSelection and attempt outcome; local fixtures prove qualified capability differences, deterministic exclusions, pre-dispatch safe failover and indeterminate-delivery refusal | remote HTTPS transport, credential rotation, DNS drift and adversarial multi-process circuit hardening remain outside W18 |
 | Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | one synchronous single-host `filesystem.write` loop; no multi-Case scheduler, quotas, backpressure or distributed lease |
 | Controlled filesystem effect | Tenant-scoped attachment + Ready/Valid EffectivePolicy → real HTTP ProviderResult → exact Operation → DecisionBasis/Decision/finite ExecutionGrant → durable PREPARE → Rust atomic replacement → Observation/Receipt → FINALIZE/RECONCILE | only `filesystem.write`; exact/overlapping roots are rejected across Tenants, but hostile namespace fencing and a second carrier are absent |
@@ -124,8 +127,8 @@ verticals/tests.
 Rust owns one canonical semantic write path in
 [`transition.rs`](../engine/yai-engine/src/transition.rs) and
 [`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). The current serialized
-contracts are `yai.transition.v12` and
-`yai.case_state.v12`; readers retain v1-v11 while
+contracts are `yai.transition.v13` and
+`yai.case_state.v12`; Transition readers retain v1-v12 while
 rejecting unknown future versions. Version 3 added provider identity,
 semantic-frame/render lineage and typed
 interaction turns. Version 4 adds Operation-bound ReviewRequest,
@@ -138,7 +141,9 @@ immutable Case Tenant ownership, authenticated transition provenance and
 Principal-to-Participant links. Versions 9 and 10 add shared ResourceControl
 and exact Case-bound Workflow progression; version 11 adds amendments,
 Subflow and Handoff; version 12 adds Case provider binding, selection and
-attempt outcomes while keeping derived views non-canonical. One bounded LMDB write
+attempt outcomes while keeping derived views non-canonical. Version 13 adds a
+Case-canonical `ConversationTurnCommitted` payload whose ordered typed content
+references are independent of provider invocation/result success. One bounded LMDB write
 transaction:
 
 1. validates typed payload closure and global Transition identity;
@@ -167,6 +172,27 @@ Operation-bound review state, logical filesystem attachments, latest Operation/D
 lifecycle, and compact prepared/finalized/indeterminate effect refs. Full
 content, Observations, and Receipts remain in immutable Transitions rather than
 turning CaseState into an object bag.
+
+### Immutable conversation content
+
+[`conversation.rs`](../engine/yai-engine/src/conversation.rs) owns original
+application bytes that cannot be reconstructed from the ledger. The Linux
+store is `$YAI_HOME/conversation-content-v1`: private owner-controlled
+directories, descriptor-relative `openat2` access, bounded pre-read sizes,
+content/digest verification, fsynced files and directories, and atomic
+publication of complete immutable object directories. Binary payloads never
+enter Transition or CaseState. The canonical Turn instead carries bounded
+object metadata, exact ordered part identity and provenance. A missing or
+corrupt owned object makes inspection/execution fail closed; it cannot inject
+Case truth.
+
+Drafts are mutable application state and are Case-namespaced. Previewing a
+draft computes stable identities without publishing objects. SEND first
+publishes/verifies all immutable objects and then commits the Turn transition;
+provider execution is a later causal action. A crash can leave an unreferenced
+complete object, never a canonical Turn pointing at a partially published one.
+Conversation content is not a ResourceAttachment and import is an explicit
+local-operator action, not a model-usable filesystem capability.
 
 Machine-local absolute filesystem roots are stored in a separately versioned
 `local_resource_bindings` LMDB database. They survive restart because the
@@ -446,8 +472,8 @@ one Tenant context and never combines catalogs or Case-derived reads.
 boundary from typed CaseState, ordered canonical Transitions and an optional
 qualified RetrievalSet to an immutable candidate Projection. The pure
 [`residency.rs`](../engine/yai-engine/src/residency.rs) planner applies a
-`yai.residency_plan.v1` budget before the compiler emits `yai.projection.v5`
-and one task/output-contract-specific `yai.context_frame.v5`. Projection identity binds
+`yai.residency_plan.v1` budget before the compiler emits `yai.projection.v7`
+and one task/output-contract-specific `yai.context_frame.v7`. Projection identity binds
 Case generation, participant/purpose/admitted view, ordered typed entries,
 provenance and bounded omission state. Provider availability, rendering,
 tokenization, KV state and opaque continuation identity do not participate.
@@ -479,7 +505,7 @@ core.
 
 [`memory_index.rs`](../engine/yai-engine/src/memory_index.rs) owns these pure
 derived algorithms, manifests, checksums and the disposable filesystem layout
-under `$YAI_HOME/store/derived-memory/v1`. It does not own memory truth. Builds
+under `$YAI_HOME/store/derived-memory/v2`. It does not own memory truth. Builds
 are serialized per Case/profile, validated before atomic publication and
 content-idempotent under concurrent processes. Encoder profiles reuse W18
 ProviderGovernance and require an exact loopback `text_embedding`
@@ -490,8 +516,11 @@ The compiler fails before rendering if the participant lacks the exact
 `model/model_context` admission. It includes the participant's own binding,
 current provider/model binding, logical resources, latest Decision, all
 unresolved effects, the four most recent finalized effects, bounded recent
-typed interaction turns/provider claims, and typed provenance-bearing retrieved
-memory. Candidate selection is intentionally broader than provider input.
+typed legacy interactions, ordered multipart conversation Turns, provider
+claims, and typed provenance-bearing retrieved memory. A conversation entry
+preserves part order, modality, digest and original/derived/human-edit posture;
+it does not turn a transcript into an Observation or semantic fact. Candidate
+selection is intentionally broader than provider input.
 Residency pins mandatory current/unresolved/observed truth first, then retains
 or reintroduces ranked optional entries under item and semantic-unit limits;
 every omission has an inspectable reason. Provider claims carry an explicit
@@ -510,11 +539,14 @@ OpenAI-compatible render function in
 minimal provider/model profile and creates a distinct render identity/digest;
 [`provider.rs`](../cmd/yai/src/provider.rs) owns the HTTP transport.
 
-`yai.transition.v4` Invocation and ProviderResult payloads explicitly reference
+Invocation and ProviderResult payloads explicitly reference
 provider ID, model ID, Projection, ContextFrame, Case generation, render ID/
 digest and output-contract ID. ProviderResult content remains non-authoritative.
-A typed `InteractionTurnRecorded` transition preserves bounded task lineage;
-the old JSONL `InteractionTurn` remains compatibility output. New invocations
+A historical typed `InteractionTurnRecorded` transition preserves the old
+completed text task/result lineage. New `ConversationTurnCommitted` transitions
+record submitted user content before any invocation; a later
+`ProviderInvocationStarted` cites the Turn and does not redefine it. The old
+JSONL `InteractionTurn` remains compatibility output. New invocations
 no longer write or consume `ParticipantViewFrame`; that RecordKind survives
 only as historical input/counting compatibility. The free-form Case-entry
 preview is explicitly labeled compatibility output and never reaches a
@@ -598,6 +630,8 @@ participates.
 | Surface | Executable role | Classification |
 |---|---|---|
 | `cmd/yai/src/main.rs` | parsing, dispatch, common CLI/process initiation and residual compatibility commands | product-reachable command boundary |
+| `cmd/yai/src/conversation_cli.rs` | mutable draft preparation, explicit SEND, immutable Turn/content inspection and provider-independent input reference | product-reachable application boundary; no model or resource authority |
+| `engine/yai-engine/src/conversation.rs` | ordered typed Turn/content/provenance contracts and private immutable byte ownership | one durable application-content owner for non-reconstructible original bytes; no execution owner |
 | `cmd/yai/src/case_runtime.rs` | bounded disposable Case iteration, stop/budget checkpointing, automatic reconciliation and memory repair | product-reachable transition algorithm; never canonical owner |
 | `cmd/yai/src/provider.rs` | Case admission/attachment compatibility, HTTP transport and typed invocation/result residue | product-reachable provider boundary |
 | `engine/yai-engine/src/context.rs` | bounded typed Projection compilation, ContextFrame construction, provenance and the OpenAI-compatible render contract | product-reachable derived semantic compiler/render boundary |

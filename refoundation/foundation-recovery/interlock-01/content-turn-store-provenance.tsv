@@ -1,0 +1,14 @@
+property	contract	authority_or_owner	bound	validation	failure_posture
+turn_commit	yai.conversation_turn.v1 in yai.transition.v13	Case Transition ledger	32 ordered parts; 64 MiB aggregate	Case Tenant Participant Principal generation and content digest bound	Commit fails atomically; provider not required
+part_order	yai.conversation_content_part.v1	canonical Turn	ordinal 0..31	Ordinal and part digest rederived	Order mismatch refuses
+object	yai.conversation_content_object.v1	ConversationContentStore owns bytes	16 MiB/object	Case/Tenant/modality/MIME/length/content digest/object identity	Missing/corrupt object refuses inspection and execution
+text	Text content object	content store plus bounded canonical inline text	64 KiB UTF-8	Inline length/digest must equal immutable payload	Invalid UTF-8 or mismatch refuses
+binary	Image Audio Video File content object	content store	16 MiB/object	Declared MIME syntax/modality; regular file; exact length/digest	Never dumped or silently flattened
+draft	yai.conversation_draft.v1	noncanonical application state	32 parts; 512 KiB metadata; 64 MiB total	Case-scoped physical key and authenticated Principal link	Discard mutates no Case truth
+send	publish objects then commit transition	content store then Case ledger	exact expected generation	All objects verified before commit	Complete orphan object possible; incomplete referenced object impossible
+original	original provenance	importing authenticated Principal	bounded actor ID	Principal ID validated	Cannot be rewritten by derived content
+machine_or_deterministic	content derivation	derived conversation provenance	16 source parts	Sources must be earlier parts in same Turn; provider result same Case/Participant when present	Invalid/cross-scope source refuses
+human_edit	human-edit derivation	derived conversation provenance	16 source parts	Authenticated Principal is actor; prior derived object remains	Cannot inject alternate author or mutate source
+filesystem	conversation-content-v1 physical store	one durable application-content owner	0700 dirs; 0600 files; nlink 1	openat2 beneath/no-symlink; pre-read size; SHA-256; fsync/rename	Fail closed; no outside-path read/write through store namespace
+projection	yai.projection.v7 and yai.context_frame.v7	derived_no_owner	current projection budgets	Part identity/order/type/provenance retained	Content never becomes operational or memory authority
+runtime_input	yai.case_runtime_checkpoint.v3 input_turn_id	disposable runtime state	exactly one prompt or Turn input	Exact Turn resolved; object integrity; text-only adapter in I01	Media refuses pending I02; failure preserves Turn

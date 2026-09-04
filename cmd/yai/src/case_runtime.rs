@@ -15,6 +15,7 @@ use std::io::Write;
 use std::time::{Duration, Instant};
 use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
+use yai_core_engine::conversation::{find_turn, ContentModality, ConversationContentStore};
 use yai_core_engine::effect::OPERATION_PROPOSAL_SCHEMA;
 use yai_core_engine::provider_governance::{
     ProviderAttemptOutcome, ProviderDeliveryClass, ProviderRequirement, ProviderSelection,
@@ -25,7 +26,8 @@ use yai_core_engine::store::lmdb::{
     RuntimeWorkItem, RuntimeWorkState,
 };
 
-const CASE_RUNTIME_CHECKPOINT_SCHEMA: &str = "yai.case_runtime_checkpoint.v2";
+const CASE_RUNTIME_CHECKPOINT_SCHEMA: &str = "yai.case_runtime_checkpoint.v3";
+const CASE_RUNTIME_CHECKPOINT_SCHEMA_V2: &str = "yai.case_runtime_checkpoint.v2";
 const CASE_RUNTIME_CHECKPOINT_SCHEMA_V1: &str = "yai.case_runtime_checkpoint.v1";
 const CASE_RUNTIME_OUTPUT_SCHEMA: &str = "yai.case_runtime_turn.v1";
 const CASE_RUNTIME_ADMISSION_TTL_MS: u64 = 30 * 60 * 1000;
@@ -125,6 +127,8 @@ struct CaseRuntimeCheckpoint {
     attachment_id: String,
     journal_path: String,
     task: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    input_turn_id: Option<String>,
     status: CaseRuntimeStop,
     stop_detail: String,
     stop_requested: bool,
@@ -340,6 +344,7 @@ fn read_checkpoint_at(path: &Path, case_id: &str) -> Result<CaseRuntimeCheckpoin
     let checkpoint: CaseRuntimeCheckpoint = serde_json::from_slice(&encoded)
         .map_err(|error| format!("invalid case runtime checkpoint: {error}"))?;
     if (checkpoint.schema != CASE_RUNTIME_CHECKPOINT_SCHEMA
+        && checkpoint.schema != CASE_RUNTIME_CHECKPOINT_SCHEMA_V2
         && checkpoint.schema != CASE_RUNTIME_CHECKPOINT_SCHEMA_V1)
         || checkpoint.case_id != case_id
     {
@@ -362,7 +367,11 @@ fn initial_checkpoint_with_journal(
     let case_id = named_arg(args, "--case")?;
     let participant_id = named_arg(args, "--subject")?;
     let attachment_id = named_arg(args, "--attachment")?;
-    let task = named_arg(args, "--prompt")?;
+    let prompt = optional_arg(args, "--prompt");
+    let input_turn_id = optional_arg(args, "--input-turn");
+    if prompt.is_some() == input_turn_id.is_some() {
+        return Err("case_run_requires_exactly_one_of_prompt_or_input_turn".to_string());
+    }
     let store = LmdbRecordStore::open(record_store_path())?;
     let state = store
         .get_case_state(&case_id)?
@@ -376,6 +385,35 @@ fn initial_checkpoint_with_journal(
             "participant {participant_id} is not bound to {case_id}"
         ));
     }
+    let mut resolved_input_turn_id = None;
+    let task = if let Some(turn_id) = input_turn_id.as_deref() {
+        let transitions = store.list_case_transitions(&case_id)?;
+        let turn = if turn_id == "latest" {
+            yai_core_engine::conversation::turns_from_history(&case_id, &transitions)
+                .into_iter()
+                .rev()
+                .find(|turn| turn.participant_id == participant_id)
+        } else {
+            find_turn(&case_id, turn_id, &transitions)
+        }
+        .ok_or_else(|| "case_run_input_conversation_turn_not_found".to_string())?;
+        if turn.participant_id != participant_id {
+            return Err("case_run_input_conversation_turn_participant_mismatch".to_string());
+        }
+        resolved_input_turn_id = Some(turn.turn_id.clone());
+        let content_store = ConversationContentStore::open(&yai_home())?;
+        let mut text = Vec::new();
+        for part in &turn.ordered_parts {
+            content_store.verify_object(&part.object)?;
+            if part.object.modality != ContentModality::Text {
+                return Err("conversation_turn_requires_typed_media_provider_adapter".to_string());
+            }
+            text.push(content_store.read_text(&part.object)?);
+        }
+        text.join("\n\n")
+    } else {
+        prompt.expect("exclusive prompt contract checked")
+    };
     if !state
         .resources
         .iter()
@@ -404,6 +442,8 @@ fn initial_checkpoint_with_journal(
         attachment_id,
         journal_path: journal_path.display().to_string(),
         task,
+        // Persist the exact identity, never the moving `latest` alias.
+        input_turn_id: resolved_input_turn_id,
         status: CaseRuntimeStop::Running,
         stop_detail: String::new(),
         stop_requested: false,
@@ -1237,6 +1277,7 @@ fn run_loop(
                 retrieval_limit: checkpoint.max_resident_items.saturating_mul(4).max(1),
                 previous_item_ids: checkpoint.previous_item_ids.clone(),
                 workflow_execution_id: current_workflow_execution_id(&checkpoint)?,
+                conversation_turn_id: checkpoint.input_turn_id.clone(),
             };
             let store = LmdbRecordStore::open(record_store_path())?;
             let state = store.get_case_state(&checkpoint.case_id)?.ok_or_else(|| {
@@ -1602,6 +1643,13 @@ fn print_runtime_summary(checkpoint: &CaseRuntimeCheckpoint) -> Result<(), Strin
     println!("case_runtime_schema: {}", checkpoint.schema);
     println!("run_id: {}", checkpoint.run_id);
     println!("case_id: {}", checkpoint.case_id);
+    println!(
+        "input_conversation_turn_id: {}",
+        checkpoint
+            .input_turn_id
+            .as_deref()
+            .unwrap_or("legacy_prompt")
+    );
     println!("case_generation: {}", state.generation);
     println!("runtime_status: {:?}", checkpoint.status);
     println!("stop_detail: {}", checkpoint.stop_detail);
@@ -2072,6 +2120,7 @@ mod tests {
             attachment_id: "resource:workspace".to_string(),
             journal_path: "/tmp/h13-journal.jsonl".to_string(),
             task: "bounded task".to_string(),
+            input_turn_id: None,
             status,
             stop_detail: "test posture".to_string(),
             stop_requested: false,

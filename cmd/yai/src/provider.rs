@@ -2050,6 +2050,9 @@ pub(super) struct RuntimeInvocationOptions {
     pub retrieval_limit: usize,
     pub previous_item_ids: Vec<String>,
     pub workflow_execution_id: Option<String>,
+    /// Canonical user Turn that causally precedes this execution. This is an
+    /// application-content reference, not a provider routing instruction.
+    pub conversation_turn_id: Option<String>,
 }
 
 impl Default for RuntimeInvocationOptions {
@@ -2061,6 +2064,7 @@ impl Default for RuntimeInvocationOptions {
             retrieval_limit: DEFAULT_RETRIEVAL_LIMIT,
             previous_item_ids: Vec::new(),
             workflow_execution_id: None,
+            conversation_turn_id: None,
         }
     }
 }
@@ -2450,6 +2454,7 @@ fn invoke_runtime_provider_with_optional_journal(
         task,
         invocation_lineage(&semantic, requested_disposition),
         options.workflow_execution_id.as_deref(),
+        options.conversation_turn_id.as_deref(),
     )
     .map_err(|error| format!("provider_not_dispatched:invocation_start:{error}"))?;
     let structured_json = matches!(
@@ -2482,15 +2487,17 @@ fn invoke_runtime_provider_with_optional_journal(
         ) {
             eprintln!("provider_post_result_projection_warning: {error}");
         }
-        if let Err(error) = append_interaction_turn(
-            &session,
-            &invocation.attempt_id,
-            &invocation.invocation_id,
-            &result_id,
-            task,
-            &transport.output,
-        ) {
-            eprintln!("provider_post_result_interaction_warning: {error}");
+        if options.conversation_turn_id.is_none() {
+            if let Err(error) = append_interaction_turn(
+                &session,
+                &invocation.attempt_id,
+                &invocation.invocation_id,
+                &result_id,
+                task,
+                &transport.output,
+            ) {
+                eprintln!("provider_post_result_interaction_warning: {error}");
+            }
         }
     }
     Ok(ControlledProviderResult {
@@ -2517,6 +2524,7 @@ fn append_model_prompt_attempt(
     prompt: &str,
     semantic_lineage: ProviderInvocationLineage,
     workflow_execution_id: Option<&str>,
+    conversation_turn_id: Option<&str>,
 ) -> Result<ProviderInvocationRefs, String> {
     let journal = Journal::load_jsonl(&session.journal_path)
         .map_err(|error| format!("failed to load {}: {error}", session.journal_path.display()))?;
@@ -2567,6 +2575,9 @@ fn append_model_prompt_attempt(
     }
     if let Some(execution_id) = workflow_execution_id {
         pending.causal_refs.push(execution_id.to_string());
+    }
+    if let Some(turn_id) = conversation_turn_id {
+        pending.causal_refs.push(turn_id.to_string());
     }
     pending.summary = Some(prompt_attempt_summary(session, prompt));
     store.commit_transition(pending)?;
@@ -2865,6 +2876,7 @@ fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> 
         session,
         prompt,
         invocation_lineage(&semantic, requested_disposition),
+        None,
         None,
     )?;
     let structured_json = matches!(

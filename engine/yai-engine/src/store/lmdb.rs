@@ -83,9 +83,9 @@ use crate::transition::{
     CASE_STATE_SCHEMA_V10, CASE_STATE_SCHEMA_V11, CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3,
     CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5, CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7,
     CASE_STATE_SCHEMA_V8, CASE_STATE_SCHEMA_V9, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1,
-    TRANSITION_SCHEMA_V10, TRANSITION_SCHEMA_V11, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3,
-    TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7,
-    TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
+    TRANSITION_SCHEMA_V10, TRANSITION_SCHEMA_V11, TRANSITION_SCHEMA_V12, TRANSITION_SCHEMA_V2,
+    TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6,
+    TRANSITION_SCHEMA_V7, TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
 };
 use crate::workflow::{
     derive_effective_workflow_topology, evaluate_predicate, node_completion_predicate,
@@ -7928,6 +7928,7 @@ impl LmdbRecordStore {
                 | TransitionPayload::CaseClosed { .. }
                 | TransitionPayload::CaseWorkflowBound { .. }
                 | TransitionPayload::WorkflowAmendmentAdopted { .. }
+                | TransitionPayload::ConversationTurnCommitted { .. }
         );
         if owner_protected {
             let context = security_context
@@ -7935,6 +7936,26 @@ impl LmdbRecordStore {
             context.require_owner()?;
             if pending.source.principal_id.as_deref() != Some(context.principal_id()) {
                 return Err("administrative_principal_provenance_mismatch".to_string());
+            }
+        }
+
+        if let TransitionPayload::ConversationTurnCommitted { turn } = &pending.payload {
+            let context = security_context
+                .ok_or_else(|| "authenticated_tenant_owner_required".to_string())?;
+            if turn.case_id != pending.case_id
+                || turn.tenant_id != case_tenant_id
+                || turn.submitted_by_principal_id != context.principal_id()
+                || !state
+                    .participants
+                    .iter()
+                    .any(|participant| participant.participant_id == turn.participant_id)
+                || !state.principal_participant_links.iter().any(|link| {
+                    link.tenant_id == case_tenant_id
+                        && link.participant_id == turn.participant_id
+                        && link.principal_id == turn.submitted_by_principal_id
+                })
+            {
+                return Err("conversation_turn_security_domain_mismatch".to_string());
             }
         }
 
@@ -10687,6 +10708,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V12,
                 TRANSITION_SCHEMA_V11,
                 TRANSITION_SCHEMA_V10,
                 TRANSITION_SCHEMA_V9,
@@ -11751,6 +11773,46 @@ fn derive_graph_relations_from_transition(
                 "provider_result",
                 result_id,
             );
+        }
+        TransitionPayload::ConversationTurnCommitted { turn } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "conversation_turn_submitted_by_participant",
+                "conversation_turn",
+                &turn.turn_id,
+                "participant",
+                &turn.participant_id,
+            );
+            for part in &turn.ordered_parts {
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "conversation_turn_contains_content_object",
+                    "conversation_turn",
+                    &turn.turn_id,
+                    "content_object",
+                    &part.object.object_id,
+                );
+                if let crate::conversation::ContentPartProvenance::Derived { derivation } =
+                    &part.provenance
+                {
+                    for source in &derivation.source_part_ids {
+                        add_transition_relation(
+                            &mut relations,
+                            skipped,
+                            transition,
+                            "content_part_derived_from_content_part",
+                            "content_part",
+                            &part.part_id,
+                            "content_part",
+                            source,
+                        );
+                    }
+                }
+            }
         }
         TransitionPayload::ModelInterpretationRecorded {
             interpretation_id,
@@ -14883,6 +14945,18 @@ fn transition_contains_canonical_fact_ref(transition: &Transition, reference: &s
             result_id,
             ..
         } => turn_id == reference || invocation_id == reference || result_id == reference,
+        TransitionPayload::ConversationTurnCommitted { turn } => {
+            turn.turn_id == reference
+                || turn.ordered_parts.iter().any(|part| {
+                    part.part_id == reference
+                        || part.object.object_id == reference
+                        || matches!(
+                            &part.provenance,
+                            crate::conversation::ContentPartProvenance::Derived { derivation }
+                                if derivation.derivation_id == reference
+                        )
+                })
+        }
         TransitionPayload::ModelInterpretationRecorded {
             interpretation_id,
             result_id,
@@ -14981,6 +15055,10 @@ mod tests {
         CanonicalEvidenceResolution,
     };
     use crate::context::{RenderedInputMetadata, SemanticContextArtifact, RENDERED_INPUT_SCHEMA};
+    use crate::conversation::{
+        ContentModality, ContentPartProvenance, ConversationContentObject, ConversationContentPart,
+        ConversationTurn,
+    };
     use crate::effect::{
         build_effect_receipt, build_filesystem_review_request, build_process_effect_receipt,
         classify_reconciliation, decide_filesystem_write, execute_fenced_filesystem_write,
@@ -19948,6 +20026,124 @@ mod tests {
         );
         drop(reopened);
         fs::remove_dir_all(path).expect("remove security store");
+    }
+
+    #[test]
+    fn i01_conversation_turn_tenant_must_match_canonical_case_security_domain() {
+        let path = temp_store_path("i01-conversation-tenant");
+        let store = LmdbRecordStore::open(&path).expect("open security store");
+        let owner = AuthenticatedPrincipal::for_test(12_901);
+        let bootstrap = store
+            .bootstrap_local_security(
+                &owner,
+                "tenant:i01-canonical",
+                "organization:i01",
+                1_290_001,
+            )
+            .expect("bootstrap Tenant");
+        let case = store
+            .create_tenant_case(&owner, "tenant:i01-canonical", "case:i01-tenant")
+            .expect("create Tenant Case");
+        let principal_id = bootstrap.principal.principal_id;
+        let participant = store
+            .commit_secured_transition(
+                &owner,
+                "tenant:i01-canonical",
+                secured_pending(
+                    "transition:i01-participant",
+                    "case:i01-tenant",
+                    case.state.generation,
+                    &principal_id,
+                    TransitionPayload::ParticipantBound {
+                        participant_id: "participant:i01".to_string(),
+                        role: "model-executor".to_string(),
+                    },
+                ),
+                true,
+            )
+            .expect("bind Participant");
+        let link = crate::transition::PrincipalParticipantLink::new(
+            "case:i01-tenant",
+            "tenant:i01-canonical",
+            &principal_id,
+            "participant:i01",
+            &principal_id,
+            1_290_002,
+        )
+        .expect("build Principal link");
+        let mut link_pending = secured_pending(
+            "transition:i01-participant-link",
+            "case:i01-tenant",
+            participant.state.generation,
+            &principal_id,
+            TransitionPayload::ParticipantPrincipalLinked { link },
+        );
+        link_pending.causal_refs = vec![principal_id.clone(), "participant:i01".to_string()];
+        let linked = store
+            .commit_secured_transition(&owner, "tenant:i01-canonical", link_pending, true)
+            .expect("link Principal");
+
+        let object = ConversationContentObject::new(
+            "tenant:i01-forged",
+            "case:i01-tenant",
+            ContentModality::Text,
+            "text/plain",
+            b"forged cross-tenant turn",
+        )
+        .expect("internally valid foreign-Tenant object");
+        let part = ConversationContentPart::build(
+            0,
+            object,
+            ContentPartProvenance::Original {
+                imported_by_principal_id: principal_id.clone(),
+            },
+        )
+        .expect("foreign-Tenant part");
+        let turn = ConversationTurn::build(
+            "case:i01-tenant",
+            "tenant:i01-forged",
+            "thread:i01",
+            "participant:i01",
+            &principal_id,
+            linked.state.generation,
+            vec![part],
+        )
+        .expect("internally valid foreign-Tenant Turn");
+        let mut causal_refs = vec!["participant:i01".to_string()];
+        causal_refs.extend(
+            turn.ordered_parts
+                .iter()
+                .map(|part| part.object.object_id.clone()),
+        );
+        let pending = PendingTransition {
+            transition_id: format!("transition:{}", turn.turn_id),
+            case_id: "case:i01-tenant".to_string(),
+            expected_generation: linked.state.generation,
+            source: TransitionSource {
+                component: "i01-security-test".to_string(),
+                participant_id: Some("participant:i01".to_string()),
+                principal_id: Some(principal_id),
+                source_ref: Some(turn.turn_id.clone()),
+            },
+            scope: Some(TransitionScope {
+                case_id: "case:i01-tenant".to_string(),
+                participant_refs: vec!["participant:i01".to_string()],
+                resource_refs: Vec::new(),
+                policy_refs: Vec::new(),
+            }),
+            causal_refs,
+            payload: TransitionPayload::ConversationTurnCommitted { turn },
+            provenance: Vec::new(),
+            summary: None,
+        };
+        assert_eq!(
+            store
+                .commit_secured_transition(&owner, "tenant:i01-canonical", pending, false,)
+                .unwrap_err(),
+            "conversation_turn_security_domain_mismatch"
+        );
+        drop(store);
+        fs::remove_dir_all(path).expect("remove store");
     }
 
     #[test]

@@ -1,0 +1,2 @@
+YAI-I01 bounded opaque audio fixture.
+The content foundation stores bytes and media metadata; it does not decode audio.

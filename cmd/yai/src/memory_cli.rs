@@ -1684,6 +1684,7 @@ fn memory_consolidate(args: &[String]) -> Result<(), String> {
         retrieval_limit: 8,
         previous_item_ids: Vec::new(),
         workflow_execution_id: None,
+        conversation_turn_id: None,
     };
     let invocation = super::provider::invoke_runtime_provider(
         &route.args,

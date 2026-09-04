@@ -79,10 +79,10 @@ projection_id=$(sed -n 's/^projection_id: //p' <<<"$prompt_output" | tail -1)
 frame_id=$(sed -n 's/^context_frame_id: //p' <<<"$prompt_output" | tail -1)
 projection_inspect=$(YAI_HOME="$YAI_HOME" "$YAI_BIN" context inspect --projection "$projection_id")
 frame_inspect=$(YAI_HOME="$YAI_HOME" "$YAI_BIN" context inspect --frame "$frame_id")
-require_text "$projection_inspect" "schema: yai.projection.v6"
+require_text "$projection_inspect" "schema: yai.projection.v7"
 require_text "$projection_inspect" "participant_id: subject:llm-provider"
 require_text "$projection_inspect" "provenance: entry="
-require_text "$frame_inspect" "schema: yai.context_frame.v6"
+require_text "$frame_inspect" "schema: yai.context_frame.v7"
 require_text "$frame_inspect" "projection_id: $projection_id"
 
 grep -F '"record_kind":"attempt"' "$journal" | grep -F 'op:model.prompt.submit' >/dev/null

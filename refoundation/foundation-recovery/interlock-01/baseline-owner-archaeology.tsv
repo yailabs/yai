@@ -1,0 +1,12 @@
+area	executable_evidence	verdict	recovered_or_preserved	rejected_or_deferred
+baseline	d12edd22..398def1; direct git show of 398def1	compatible_intervening_work	Natural W20 stable-reference CLI work preserved	No history rewrite
+current_input	cmd/yai/src/provider.rs append_interaction_turn; transition.rs InteractionTurnRecorded	replaced_as_requirement	Legacy text/result reader and --prompt path preserved	Provider success no longer defines all Turns
+current_context	engine/yai-engine/src/context.rs v6 baseline	advanced	One existing Projection/ContextFrame path now carries typed multipart entries	No second model-context pipeline
+current_persistence	engine/yai-engine/src/store/lmdb.rs	preserved	Transition remains canonical and CaseState rebuildable	No binary in Transition/CaseState and no new LMDB DB
+legacy_audio	89a6f9896015bd1c46534a57b651b49ec875fba1 include/runtime/audio/records/audio_records.h; core/runtime/audio/turn/turn_builder.c; turn_finalize.c	partial_recovery	Explicit finalize/send, separate audio/transcript, ordered chunk/turn concepts	Global runtime root, PID/time refs, audio-only owner, confidence authority
+legacy_media	bea0c7cfbb298713f316c260cc2cc176758a12f2 include/media/media.h; include/models/multimodal/multimodal_capability.h	scaffolding_only	Typed media families and explicit provenance/publication posture informed vocabulary	Path-owned media registry, model-family route, MediaManager-style plane
+legacy_attachments	e659f15b5 and 81b356a1c attachment lifecycle/subject asset history	different_owner	Confirmed attachments can represent controlled or subject assets	Do not reinterpret ResourceAttachment as Case conversation content
+conversation_turn	TransitionPayload::ConversationTurnCommitted	existing_case_owner	Ordered content references join canonical Case history at SEND	No ConversationManager or Agent owner
+original_bytes	engine/yai-engine/src/conversation.rs ConversationContentStore	new_durable_application_owner	Immutable non-reconstructible bytes, content identity and integrity	Not Resource, memory, provider, model, UI, or derived store
+draft	ConversationDraft under conversation-content-v1/drafts	application_state_no_case_truth	Mutable pre-SEND state with Case-scoped namespace	No transition on file drop or microphone stop
+derivation	ContentDerivation inside committed part	case_content_provenance	Exact source part, generic kind, actor and optional ProviderResult lineage	No Whisper/provider-specific ontology and no truth promotion
