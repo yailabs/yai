@@ -1,0 +1,6 @@
+test	result	evidence
+same history twice	exact equal	w20_e01_e02_e03_episode_identity_is_structural_and_provider_independent
+restart/drop semantic hierarchy	exact hierarchy ID	W20 smoke hierarchy_after == hierarchy_rebuilt
+provider identity change	boundary algorithm ignores provider prose/model semantics	focused episode identity test
+closed Case	derivation reads immutable history; no provider required	contract inspection + pure derive_episodes
+index drop	hierarchy remains derivable	W20 smoke index_drop_preserved_hierarchy=true

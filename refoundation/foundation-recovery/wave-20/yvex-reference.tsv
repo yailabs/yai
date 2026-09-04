@@ -1,0 +1,11 @@
+property	observed
+remote	resolved with git ls-remote at W20 execution time
+models1 SHA	c3f675d1213ce3a6d7387179bb22415775e40e37
+read-only inspection checkout	/tmp/yvex-w20-readonly at exact SHA; clean
+profile	yvex.openai.compat.v2
+chat completions	supported bounded subset
+responses	supported bounded subset
+structured JSON	response_format json_object supported; malformed JSON refused
+function/tools	definitions/calls/continuation supported; YVEX never executes application tools
+embeddings	explicitly refused
+YAI use	DeepSeek cognition/consolidation only; separate loopback encoder required

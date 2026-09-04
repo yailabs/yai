@@ -1,0 +1,9 @@
+variant	bound	use
+boolean	fixed	typed yes/no assertion
+integer	i64	bounded numeric fact
+string	encoded assertion max 2048 bytes	bounded semantic text
+reference	encoded assertion max 2048 bytes	typed YAI/source reference
+digest	encoded assertion max 2048 bytes	content identity
+symbol	encoded assertion max 2048 bytes	enum-like state
+string_list	maximum 16 items	bounded collection
+reference_list	maximum 16 items	bounded reference collection

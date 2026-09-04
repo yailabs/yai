@@ -1,0 +1,7 @@
+artifact	visibility rule	negative boundary
+Episode	intersection of non-empty participant sets across source transitions	one A-only source prevents B visibility
+Mechanical assertion	inherited from exact OperationalMemory support	cannot broaden
+Provider inference	intersection of all admitted supports	model cannot widen
+Consolidation input	only sources visible to invoking Participant	hidden support ID absent and rejected
+Retrieval	Case/Tenant/Participant view qualification before BM25/vector top-k	hidden items do not affect rank/count
+Handoff	only existing canonical Handoff material enters target Case	no full source-Case memory merge

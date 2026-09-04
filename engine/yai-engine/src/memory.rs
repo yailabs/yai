@@ -1035,6 +1035,7 @@ fn rank_memory(
             }
         }
         ProjectionPurpose::Inspection => 30,
+        ProjectionPurpose::MemoryConsolidation => 35,
     };
     score += purpose_score;
     reasons.push(format!("purpose_match:+{purpose_score}"));

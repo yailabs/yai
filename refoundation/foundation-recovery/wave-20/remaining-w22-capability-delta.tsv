@@ -1,0 +1,11 @@
+capability	current model-usable posture	W20 action
+filesystem.write	implemented typed governed Effect	unchanged
+filesystem replacement/write	implemented atomic replacement when content is known	unchanged
+process.signal	implemented typed governed Effect	unchanged
+filesystem.read	missing	not implemented
+filesystem.list	missing	not implemented
+filesystem.stat	missing	not implemented
+filesystem.search	missing	not implemented
+process observation/inspect	missing	not implemented
+YVEX function/tool call	provider output candidate only	W20 explicitly rejects during consolidation; never direct execution
+future path	ProviderResult -> typed CapabilityRequest/proposal -> YAI authority/resource path	preserved for W22

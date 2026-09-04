@@ -108,7 +108,7 @@ grep -Fq 'posture:current' <<<"$status_output"
 grep -Fq 'format:yai.derived_memory_store.v2' <<<"$status_output"
 verify_output=$("$YAI_BIN" case memory index verify case:w19-memory --profile "$PROFILE_ID")
 grep -Fq 'posture: current' <<<"$verify_output"
-grep -Fq 'validation: deep_plus_current_operational_memory_source' <<<"$verify_output"
+grep -Fq 'validation: deep_plus_current_memory_hierarchy_source' <<<"$verify_output"
 
 # The profile lock and equivalent-build recheck happen before external work.
 # Thirty-two independent rebuild callers therefore reuse the sealed build and
@@ -136,9 +136,9 @@ search_output=$("$YAI_BIN" case memory search case:w19-memory \
   --profile "$PROFILE_ID" --limit 8)
 grep -Fq 'plane: lexical_bm25 available:true' <<<"$search_output"
 grep -Fq 'plane: vector_exact_cosine available:true' <<<"$search_output"
-grep -Eq '^1[[:space:]]+provider_claim[[:space:]]+' <<<"$search_output"
+grep -Eq '^1[[:space:]]+(operational|episodic|semantic)[[:space:]]+' <<<"$search_output"
 "$YAI_BIN" case memory retrieval show case:w19-memory \
-  --profile "$PROFILE_ID" --json | grep -Fq 'yai.retrieval_set.v2'
+  --profile "$PROFILE_ID" --json | grep -Fq 'yai.retrieval_set.v3'
 
 "$YAI_BIN" case create case:w19-isolated --tenant tenant:w19-smoke >/dev/null
 "$YAI_BIN" case participant role add case:w19-isolated \
@@ -183,11 +183,11 @@ second_run=$("$YAI_BIN" case run case:w19-memory \
 grep -Fq 'runtime_status: Completed' <<<"$second_run"
 runtime_retrieval=$("$YAI_BIN" case memory retrieval show case:w19-memory \
   --profile "$PROFILE_ID" --json)
-grep -Fq '"schema":"yai.retrieval_set.v2"' <<<"$runtime_retrieval"
+grep -Fq '"schema":"yai.retrieval_set.v3"' <<<"$runtime_retrieval"
 grep -Fq '"plane":"vector_exact_cosine"' <<<"$runtime_retrieval"
 grep -Fq '"available":true' <<<"$runtime_retrieval"
 grep -Fq '"index_manifest_id":"memory-index:' <<<"$runtime_retrieval"
-grep -Fq 'finalized_observed_consequence' <<<"$runtime_retrieval"
+grep -Fq '"memory_family":"operational"' <<<"$runtime_retrieval"
 
 printf 'memory_representation_characterization: pass\n'
 printf 'corpus_profile_index: %s %s\n' "$PROFILE_ID" "$INDEX_ID"

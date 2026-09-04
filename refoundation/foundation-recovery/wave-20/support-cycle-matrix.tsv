@@ -1,0 +1,7 @@
+case	expected	observed_test
+A supports A	reject semantic_support_self_cycle_rejected	w20_s08
+A -> B -> A	reject semantic_support_cycle_rejected	w20_s08
+diamond with shared ancestor	accept	w20_s08_support_cycle_rejected_but_shared_ancestor_is_valid
+inference-only closed cycle	reject no canonical leaf	validate_support_graph
+depth 17	reject semantic_support_depth_exceeded	w20_support_depth_and_contradiction_storm_are_bounded
+fan-in 17	reject assertion support bound	normalizer/constructor

@@ -1,0 +1,5 @@
+family	exact anchors	fuzzy planes	projected posture
+operational	causal/resource refs	BM25 + exact cosine	operational semantic kind/authority/lifecycle + canonical provenance
+episodic	transition/resource/workflow/participant refs	BM25 + exact cosine	episode kind/completion/lifecycle + transition provenance
+semantic	subject/predicate/support/contradiction refs	BM25 + exact cosine	epistemic class/lifecycle/support provenance
+all	Case/Tenant/Participant/generation/resource/causal/lifecycle first	RRF after qualification	current source payload only

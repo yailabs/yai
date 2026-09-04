@@ -1,0 +1,13 @@
+field	contract	identity_bearing
+schema	yai.memory_episode.v1	yes
+case_id	exact Case	yes
+derivation_version	yai.memory_episode.derivation.v1	yes
+boundary_policy_version	yai.memory_episode.boundary.structural_refs.v1	yes
+generation_range	first/last exact source sequence	yes
+transition_ids	ordered exact source transitions	yes
+participant_refs	conservative source-view intersection	yes
+resource/workflow/operation/decision/review/effect/handoff/provider refs	typed refs extracted from canonical payloads	yes
+kind/posture	mechanically derived	yes
+structural_summary	transition kinds/attempts/outcomes/unresolved refs only	yes
+provider prose	never part of Episode identity	no
+provenance_digest	content digest over exact structural source	yes

@@ -1,0 +1,8 @@
+stage	persistent_authority	identity/recovery
+input derivation	derived	content-addressed exact generation/source set
+ProviderSelection	canonical Transition	exact governed target/attempt/purpose
+ProviderInvocationStarted	canonical Transition	semantic lineage binds Projection/Context/output contract
+ProviderResultRecorded	canonical Transition	durable exact non-deterministic provider bytes
+normalization	derived	normalizer v1 + exact recorded bytes + rederived input
+assertions/contradictions/hierarchy	derived	delete/rebuild without provider invocation
+delivery indeterminate	canonical unresolved provider posture	no cross-provider retry for consolidation

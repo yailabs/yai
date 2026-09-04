@@ -1,0 +1,8 @@
+rule	mechanism	why
+candidate inclusion	exclude only setup/binding transitions; retain passive/deterministic progress	zero-model work remains episodic
+connectivity	union transitions sharing strong typed operation/review/effect/workflow/handoff/provider identifiers	Case semantics, not time
+non-connectors	participant/Case/resource names alone never join episodes	prevents giant unrelated episode
+ordering	canonical sequence order	deterministic
+open boundary	no mechanically terminal transition	no fabricated outcome
+upgrade	boundary-policy version participates in identity	future algorithms do not reinterpret v1
+wall_clock	unused	clock changes cannot change identity

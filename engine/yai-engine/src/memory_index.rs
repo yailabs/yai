@@ -1,9 +1,10 @@
 //! Content-addressed, rebuildable representations and retrieval indexes.
 //!
 //! This module owns no semantic truth. It deterministically represents exact
-//! `OperationalMemoryEntry` values, builds disposable lexical/vector indexes,
-//! and fuses candidates only after the existing Case/Participant/view
-//! qualification barrier. Canonical authority remains Transition history.
+//! operational, episodic, and semantic memory sources, builds disposable
+//! lexical/vector indexes, and fuses candidates only after the existing
+//! Case/Participant/view qualification barrier. Canonical authority remains
+//! Transition history.
 
 use crate::context::stable_digest;
 use crate::effect::digest_bytes;
@@ -34,6 +35,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 pub const MEMORY_REPRESENTATION_DOCUMENT_SCHEMA: &str = "yai.memory_representation_document.v1";
 pub const MEMORY_REPRESENTATION_CONTRACT: &str = "yai.memory_representation.input.v1";
+pub const MEMORY_REPRESENTATION_DOCUMENT_SCHEMA_V2: &str = "yai.memory_representation_document.v2";
+pub const MEMORY_REPRESENTATION_CONTRACT_V2: &str = "yai.memory_representation.input.v2";
 pub const MEMORY_REPRESENTATION_PROFILE_SCHEMA: &str = "yai.memory_representation_profile.v1";
 pub const MEMORY_EMBEDDING_SCHEMA: &str = "yai.memory_embedding.v1";
 pub const MEMORY_CORPUS_MANIFEST_SCHEMA: &str = "yai.memory_corpus_manifest.v1";
@@ -43,6 +46,9 @@ pub const MEMORY_LEXICAL_INDEX_SCHEMA: &str = "yai.memory_lexical_index.bm25.v1"
 pub const MEMORY_VECTOR_INDEX_SCHEMA: &str = "yai.memory_vector_index.exact_cosine.v1";
 pub const RETRIEVAL_QUERY_DOCUMENT_SCHEMA: &str = "yai.retrieval_query_document.v1";
 pub const HYBRID_RETRIEVAL_SET_SCHEMA: &str = "yai.retrieval_set.v2";
+pub const HYBRID_RETRIEVAL_SET_SCHEMA_V3: &str = "yai.retrieval_set.v3";
+pub const MEMORY_HIERARCHY_CORPUS_SELECTION_POLICY: &str =
+    "yai.memory_hierarchy.corpus_selection.unresolved_grounded_support_recent.v1";
 pub const MEMORY_INDEX_BUILD_VERSION: &str = "yai.memory_index.builder.v1";
 pub const HYBRID_FUSION_VERSION: &str = "yai.memory_rank_fusion.rrf.v1";
 pub const DERIVED_MEMORY_STORE_VERSION: &str = "v2";
@@ -296,6 +302,16 @@ pub struct MemoryRepresentationDocument {
     pub participant_ids: Vec<String>,
     pub consumer: String,
     pub view_kind: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub source_family: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub source_id: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub epistemic_class: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub support_refs: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contradiction_set_ref: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -314,6 +330,28 @@ struct RepresentationDocumentIdentity<'a> {
     participant_ids: &'a [String],
     consumer: &'a str,
     view_kind: &'a str,
+}
+
+#[derive(Serialize)]
+struct RepresentationDocumentIdentityV2<'a> {
+    schema: &'a str,
+    case_id: &'a str,
+    source_family: &'a str,
+    source_id: &'a str,
+    source_content_digest: &'a str,
+    source_derivation_version: &'a str,
+    representation_contract_version: &'a str,
+    semantic_kind: &'a str,
+    epistemic_class: &'a str,
+    authority_posture: &'a str,
+    lifecycle: &'a str,
+    canonical_text: &'a str,
+    provenance_refs: &'a [String],
+    support_refs: &'a [String],
+    participant_ids: &'a [String],
+    consumer: &'a str,
+    view_kind: &'a str,
+    contradiction_set_ref: &'a Option<String>,
 }
 
 impl MemoryRepresentationDocument {
@@ -413,12 +451,227 @@ impl MemoryRepresentationDocument {
             participant_ids,
             consumer: entry.visibility.consumer.clone(),
             view_kind: entry.visibility.view_kind.clone(),
+            source_family: String::new(),
+            source_id: String::new(),
+            epistemic_class: String::new(),
+            support_refs: Vec::new(),
+            contradiction_set_ref: None,
+        })
+    }
+
+    pub fn from_operational_v2(entry: &OperationalMemoryEntry) -> Result<Self, String> {
+        let legacy = Self::from_memory(entry)?;
+        let source_family = "operational".to_string();
+        let source_id = entry.memory_id.clone();
+        let epistemic_class = match entry.posture {
+            OperationalMemoryPosture::FinalizedObservedConsequence
+            | OperationalMemoryPosture::Unresolved => "mechanically_grounded",
+            OperationalMemoryPosture::DecisionControlHistory => "control_history",
+            OperationalMemoryPosture::ProviderOriginatedClaim => "provider_originated_claim",
+        }
+        .to_string();
+        let support_refs = legacy.provenance_refs.clone();
+        let identity = RepresentationDocumentIdentityV2 {
+            schema: MEMORY_REPRESENTATION_DOCUMENT_SCHEMA_V2,
+            case_id: &legacy.case_id,
+            source_family: &source_family,
+            source_id: &source_id,
+            source_content_digest: &legacy.source_content_digest,
+            source_derivation_version: &legacy.operational_memory_derivation_version,
+            representation_contract_version: MEMORY_REPRESENTATION_CONTRACT_V2,
+            semantic_kind: &legacy.semantic_kind,
+            epistemic_class: &epistemic_class,
+            authority_posture: &legacy.authority_posture,
+            lifecycle: &legacy.lifecycle,
+            canonical_text: &legacy.canonical_text,
+            provenance_refs: &legacy.provenance_refs,
+            support_refs: &support_refs,
+            participant_ids: &legacy.participant_ids,
+            consumer: &legacy.consumer,
+            view_kind: &legacy.view_kind,
+            contradiction_set_ref: &None,
+        };
+        let digest = digest_json(&identity, "operational_representation_v2_identity")?;
+        Ok(Self {
+            schema: MEMORY_REPRESENTATION_DOCUMENT_SCHEMA_V2.to_string(),
+            document_id: short_id("memory-document", &digest),
+            representation_contract_version: MEMORY_REPRESENTATION_CONTRACT_V2.to_string(),
+            source_family,
+            source_id,
+            epistemic_class,
+            support_refs,
+            ..legacy
         })
     }
 
     pub fn validate_against(&self, entry: &OperationalMemoryEntry) -> Result<(), String> {
         if Self::from_memory(entry)? != *self {
             return Err("memory_representation_document_integrity_mismatch".to_string());
+        }
+        Ok(())
+    }
+
+    pub fn from_episode(episode: &crate::memory_hierarchy::MemoryEpisode) -> Result<Self, String> {
+        let source_content_digest = digest_json(episode, "episode_representation_source")?;
+        let canonical_text = bounded(
+            &format!(
+                "memory_family=episodic\nepisode_kind={:?}\ncompletion_posture={:?}\ngeneration={}..{}\ntransition_kinds={}\nresources={}\noperations={}\neffects={}\nunresolved={}",
+                episode.episode_kind,
+                episode.completion_posture,
+                episode.start_generation,
+                episode.end_generation,
+                episode.structural_summary.transition_kinds.join(","),
+                episode.resource_refs.join(","),
+                episode.operation_refs.join(","),
+                episode.effect_refs.join(","),
+                episode.unresolved_refs.join(",")
+            ),
+            MAX_REPRESENTATION_CHARS,
+        );
+        let mut provenance_refs = episode.transition_ids.clone();
+        provenance_refs.sort();
+        let mut participant_ids = episode.participant_refs.clone();
+        participant_ids.sort();
+        let support_refs = provenance_refs.clone();
+        let contradiction_set_ref = None;
+        let semantic_kind = format!("{:?}", episode.episode_kind).to_ascii_lowercase();
+        let authority_posture = "derived_episode".to_string();
+        let lifecycle = format!("{:?}", episode.completion_posture).to_ascii_lowercase();
+        let identity = RepresentationDocumentIdentityV2 {
+            schema: MEMORY_REPRESENTATION_DOCUMENT_SCHEMA_V2,
+            case_id: &episode.case_id,
+            source_family: "episodic",
+            source_id: &episode.episode_id,
+            source_content_digest: &source_content_digest,
+            source_derivation_version: &episode.derivation_version,
+            representation_contract_version: MEMORY_REPRESENTATION_CONTRACT_V2,
+            semantic_kind: &semantic_kind,
+            epistemic_class: "derived_structural",
+            authority_posture: &authority_posture,
+            lifecycle: &lifecycle,
+            canonical_text: &canonical_text,
+            provenance_refs: &provenance_refs,
+            support_refs: &support_refs,
+            participant_ids: &participant_ids,
+            consumer: "model",
+            view_kind: "model_context",
+            contradiction_set_ref: &contradiction_set_ref,
+        };
+        let digest = digest_json(&identity, "episode_representation_identity")?;
+        Ok(Self {
+            schema: MEMORY_REPRESENTATION_DOCUMENT_SCHEMA_V2.to_string(),
+            document_id: short_id("memory-document", &digest),
+            case_id: episode.case_id.clone(),
+            memory_id: episode.episode_id.clone(),
+            source_content_digest,
+            operational_memory_derivation_version: episode.derivation_version.clone(),
+            representation_contract_version: MEMORY_REPRESENTATION_CONTRACT_V2.to_string(),
+            semantic_kind,
+            authority_posture,
+            lifecycle,
+            canonical_text,
+            provenance_refs,
+            participant_ids,
+            consumer: "model".to_string(),
+            view_kind: "model_context".to_string(),
+            source_family: "episodic".to_string(),
+            source_id: episode.episode_id.clone(),
+            epistemic_class: "derived_structural".to_string(),
+            support_refs,
+            contradiction_set_ref,
+        })
+    }
+
+    pub fn validate_against_episode(
+        &self,
+        episode: &crate::memory_hierarchy::MemoryEpisode,
+    ) -> Result<(), String> {
+        if Self::from_episode(episode)? != *self {
+            return Err("memory_episode_representation_source_divergent".to_string());
+        }
+        Ok(())
+    }
+
+    pub fn from_semantic_assertion(
+        assertion: &crate::memory_hierarchy::SemanticMemoryAssertion,
+    ) -> Result<Self, String> {
+        let source_content_digest = digest_json(assertion, "semantic_representation_source")?;
+        let support_refs = assertion
+            .support_refs
+            .iter()
+            .map(|support| support.id().to_string())
+            .collect::<Vec<_>>();
+        let canonical_text = bounded(
+            &format!(
+                "memory_family=semantic\nsubject={:?}\npredicate={}\nvalue={:?}\nepistemic_class={:?}\nlifecycle={:?}\ncontradiction={}\nsupport_refs={}",
+                assertion.subject,
+                assertion.predicate,
+                assertion.value,
+                assertion.epistemic_class,
+                assertion.lifecycle,
+                assertion.contradiction_set_ref.as_deref().unwrap_or("none"),
+                support_refs.join(",")
+            ),
+            MAX_REPRESENTATION_CHARS,
+        );
+        let semantic_kind = "semantic_assertion".to_string();
+        let epistemic_class = format!("{:?}", assertion.epistemic_class).to_ascii_lowercase();
+        let authority_posture = epistemic_class.clone();
+        let lifecycle = format!("{:?}", assertion.lifecycle).to_ascii_lowercase();
+        let provenance_refs = support_refs.clone();
+        let mut participant_ids = assertion.participant_refs.clone();
+        participant_ids.sort();
+        let identity = RepresentationDocumentIdentityV2 {
+            schema: MEMORY_REPRESENTATION_DOCUMENT_SCHEMA_V2,
+            case_id: &assertion.case_id,
+            source_family: "semantic",
+            source_id: &assertion.assertion_id,
+            source_content_digest: &source_content_digest,
+            source_derivation_version: &assertion.semantic_schema_version,
+            representation_contract_version: MEMORY_REPRESENTATION_CONTRACT_V2,
+            semantic_kind: &semantic_kind,
+            epistemic_class: &epistemic_class,
+            authority_posture: &authority_posture,
+            lifecycle: &lifecycle,
+            canonical_text: &canonical_text,
+            provenance_refs: &provenance_refs,
+            support_refs: &support_refs,
+            participant_ids: &participant_ids,
+            consumer: "model",
+            view_kind: "model_context",
+            contradiction_set_ref: &assertion.contradiction_set_ref,
+        };
+        let digest = digest_json(&identity, "semantic_representation_identity")?;
+        Ok(Self {
+            schema: MEMORY_REPRESENTATION_DOCUMENT_SCHEMA_V2.to_string(),
+            document_id: short_id("memory-document", &digest),
+            case_id: assertion.case_id.clone(),
+            memory_id: assertion.assertion_id.clone(),
+            source_content_digest,
+            operational_memory_derivation_version: assertion.semantic_schema_version.clone(),
+            representation_contract_version: MEMORY_REPRESENTATION_CONTRACT_V2.to_string(),
+            semantic_kind,
+            authority_posture,
+            lifecycle,
+            canonical_text,
+            provenance_refs,
+            participant_ids,
+            consumer: "model".to_string(),
+            view_kind: "model_context".to_string(),
+            source_family: "semantic".to_string(),
+            source_id: assertion.assertion_id.clone(),
+            epistemic_class,
+            support_refs,
+            contradiction_set_ref: assertion.contradiction_set_ref.clone(),
+        })
+    }
+
+    pub fn validate_against_semantic_assertion(
+        &self,
+        assertion: &crate::memory_hierarchy::SemanticMemoryAssertion,
+    ) -> Result<(), String> {
+        if Self::from_semantic_assertion(assertion)? != *self {
+            return Err("memory_semantic_representation_source_divergent".to_string());
         }
         Ok(())
     }
@@ -464,6 +717,47 @@ impl MemoryRepresentationProfile {
         operator_encoder_revision: &str,
         vector_dimension: usize,
     ) -> Result<Self, String> {
+        Self::new_for_contract(
+            tenant_id,
+            encoder_target_id,
+            encoder_model_id,
+            operator_encoder_revision,
+            vector_dimension,
+            MEMORY_REPRESENTATION_CONTRACT,
+        )
+    }
+
+    pub fn new_v2(
+        tenant_id: &str,
+        encoder_target_id: &str,
+        encoder_model_id: &str,
+        operator_encoder_revision: &str,
+        vector_dimension: usize,
+    ) -> Result<Self, String> {
+        Self::new_for_contract(
+            tenant_id,
+            encoder_target_id,
+            encoder_model_id,
+            operator_encoder_revision,
+            vector_dimension,
+            MEMORY_REPRESENTATION_CONTRACT_V2,
+        )
+    }
+
+    fn new_for_contract(
+        tenant_id: &str,
+        encoder_target_id: &str,
+        encoder_model_id: &str,
+        operator_encoder_revision: &str,
+        vector_dimension: usize,
+        representation_contract_version: &str,
+    ) -> Result<Self, String> {
+        if !matches!(
+            representation_contract_version,
+            MEMORY_REPRESENTATION_CONTRACT | MEMORY_REPRESENTATION_CONTRACT_V2
+        ) {
+            return Err("memory_profile_representation_contract_unsupported".to_string());
+        }
         for (label, value) in [
             ("memory_profile_tenant", tenant_id),
             ("memory_profile_encoder_target", encoder_target_id),
@@ -478,7 +772,7 @@ impl MemoryRepresentationProfile {
         let identity = RepresentationProfileIdentity {
             schema: MEMORY_REPRESENTATION_PROFILE_SCHEMA,
             tenant_id,
-            representation_contract_version: MEMORY_REPRESENTATION_CONTRACT,
+            representation_contract_version,
             encoder_target_id,
             encoder_model_id,
             operator_encoder_revision,
@@ -494,7 +788,7 @@ impl MemoryRepresentationProfile {
             profile_id: short_id("memory-profile", &integrity_digest),
             integrity_digest,
             tenant_id: tenant_id.to_string(),
-            representation_contract_version: MEMORY_REPRESENTATION_CONTRACT.to_string(),
+            representation_contract_version: representation_contract_version.to_string(),
             encoder_target_id: encoder_target_id.to_string(),
             encoder_model_id: encoder_model_id.to_string(),
             operator_encoder_revision: operator_encoder_revision.to_string(),
@@ -507,12 +801,13 @@ impl MemoryRepresentationProfile {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        let rebuilt = Self::new(
+        let rebuilt = Self::new_for_contract(
             &self.tenant_id,
             &self.encoder_target_id,
             &self.encoder_model_id,
             &self.operator_encoder_revision,
             self.vector_dimension,
+            &self.representation_contract_version,
         )?;
         if rebuilt != *self {
             return Err("memory_representation_profile_integrity_mismatch".to_string());
@@ -744,6 +1039,193 @@ pub fn derive_representation_corpus(
             source_generation: build.manifest.source_generation,
             operational_memory_derivation_version: build.manifest.derivation_version.clone(),
             representation_contract_version: MEMORY_REPRESENTATION_CONTRACT.to_string(),
+            ordered_items,
+        },
+        documents,
+    })
+}
+
+pub fn derive_hierarchy_representation_corpus(
+    operational: &OperationalMemoryBuild,
+    hierarchy: &crate::memory_hierarchy::SemanticMemoryHierarchy,
+) -> Result<MemoryRepresentationCorpus, String> {
+    if operational.manifest.case_id != hierarchy.manifest.case_id
+        || operational.manifest.source_generation != hierarchy.manifest.source_generation
+    {
+        return Err("memory_hierarchy_corpus_source_mismatch".to_string());
+    }
+    let _total_source_items = operational
+        .entries
+        .len()
+        .checked_add(hierarchy.episodes.len())
+        .and_then(|value| value.checked_add(hierarchy.assertions.len()))
+        .ok_or_else(|| "memory_hierarchy_corpus_count_overflow".to_string())?;
+    let mut documents = Vec::with_capacity(MAX_CORPUS_DOCUMENTS.min(_total_source_items));
+    let mut admitted = BTreeSet::<(String, String)>::new();
+    let mut admit = |document: Result<MemoryRepresentationDocument, String>| -> Result<(), String> {
+        if documents.len() == MAX_CORPUS_DOCUMENTS {
+            return Ok(());
+        }
+        let document = document?;
+        let identity = (document.source_family.clone(), document.source_id.clone());
+        if admitted.insert(identity) {
+            documents.push(document);
+        }
+        Ok(())
+    };
+
+    // Selection is deterministic and authority-neutral. Preserve unresolved
+    // operational state, active grounded/contradicted semantic state, and its
+    // direct support before ordinary active and historical material.
+    for entry in operational
+        .entries
+        .iter()
+        .filter(|entry| entry.posture == crate::memory::OperationalMemoryPosture::Unresolved)
+    {
+        admit(MemoryRepresentationDocument::from_operational_v2(entry))?;
+    }
+    let priority_assertions = hierarchy.assertions.iter().filter(|assertion| {
+        matches!(
+            assertion.lifecycle,
+            crate::memory_hierarchy::SemanticLifecycle::Active
+                | crate::memory_hierarchy::SemanticLifecycle::Contradicted
+        ) && (assertion.epistemic_class
+            == crate::memory_hierarchy::EpistemicClass::MechanicallyGrounded
+            || assertion.contradiction_set_ref.is_some())
+    });
+    let priority_assertions = priority_assertions.collect::<Vec<_>>();
+    for assertion in &priority_assertions {
+        admit(MemoryRepresentationDocument::from_semantic_assertion(
+            assertion,
+        ))?;
+    }
+    for assertion in &priority_assertions {
+        for support in &assertion.support_refs {
+            match support {
+                crate::memory_hierarchy::SemanticSupportRef::Operational(id) => {
+                    if let Some(entry) = operational
+                        .entries
+                        .iter()
+                        .find(|entry| entry.memory_id == *id)
+                    {
+                        admit(MemoryRepresentationDocument::from_operational_v2(entry))?;
+                    }
+                }
+                crate::memory_hierarchy::SemanticSupportRef::Episode(id) => {
+                    if let Some(episode) = hierarchy
+                        .episodes
+                        .iter()
+                        .find(|episode| episode.episode_id == *id)
+                    {
+                        admit(MemoryRepresentationDocument::from_episode(episode))?;
+                    }
+                }
+                crate::memory_hierarchy::SemanticSupportRef::Assertion(id) => {
+                    if let Some(source) = hierarchy
+                        .assertions
+                        .iter()
+                        .find(|source| source.assertion_id == *id)
+                    {
+                        admit(MemoryRepresentationDocument::from_semantic_assertion(
+                            source,
+                        ))?;
+                    }
+                }
+                crate::memory_hierarchy::SemanticSupportRef::Transition(_)
+                | crate::memory_hierarchy::SemanticSupportRef::ProviderResult(_) => {}
+            }
+        }
+    }
+    for entry in operational
+        .entries
+        .iter()
+        .filter(|entry| entry.lifecycle == crate::memory::OperationalMemoryLifecycle::Active)
+    {
+        admit(MemoryRepresentationDocument::from_operational_v2(entry))?;
+    }
+    for assertion in hierarchy.assertions.iter().filter(|assertion| {
+        hierarchy
+            .manifest
+            .active_semantic_ids
+            .contains(&assertion.assertion_id)
+    }) {
+        admit(MemoryRepresentationDocument::from_semantic_assertion(
+            assertion,
+        ))?;
+    }
+    for episode in hierarchy.episodes.iter().filter(|episode| {
+        hierarchy
+            .manifest
+            .active_episode_ids
+            .contains(&episode.episode_id)
+            || hierarchy
+                .manifest
+                .open_episode_ids
+                .contains(&episode.episode_id)
+    }) {
+        admit(MemoryRepresentationDocument::from_episode(episode))?;
+    }
+    for entry in operational.entries.iter().rev() {
+        admit(MemoryRepresentationDocument::from_operational_v2(entry))?;
+    }
+    for assertion in hierarchy.assertions.iter().rev() {
+        admit(MemoryRepresentationDocument::from_semantic_assertion(
+            assertion,
+        ))?;
+    }
+    for episode in hierarchy.episodes.iter().rev() {
+        admit(MemoryRepresentationDocument::from_episode(episode))?;
+    }
+    documents.sort_by(|left, right| {
+        left.source_family
+            .cmp(&right.source_family)
+            .then_with(|| left.source_id.cmp(&right.source_id))
+    });
+    let identities = documents
+        .iter()
+        .map(|document| (document.source_family.as_str(), document.source_id.as_str()))
+        .collect::<BTreeSet<_>>();
+    if identities.len() != documents.len()
+        || documents.iter().any(|document| {
+            document.schema != MEMORY_REPRESENTATION_DOCUMENT_SCHEMA_V2
+                || document.representation_contract_version != MEMORY_REPRESENTATION_CONTRACT_V2
+                || document.case_id != operational.manifest.case_id
+        })
+    {
+        return Err("memory_hierarchy_corpus_document_identity_invalid".to_string());
+    }
+    let ordered_items = documents
+        .iter()
+        .map(|document| MemoryCorpusItem {
+            memory_id: document.source_id.clone(),
+            document_id: document.document_id.clone(),
+            lifecycle: document.lifecycle.clone(),
+        })
+        .collect::<Vec<_>>();
+    let derivation = format!(
+        "{}+{}+{}",
+        operational.manifest.derivation_version,
+        crate::memory_hierarchy::MEMORY_HIERARCHY_SCHEMA,
+        MEMORY_HIERARCHY_CORPUS_SELECTION_POLICY
+    );
+    let material = (
+        MEMORY_CORPUS_MANIFEST_SCHEMA,
+        &operational.manifest.case_id,
+        operational.manifest.source_generation,
+        &derivation,
+        MEMORY_REPRESENTATION_CONTRACT_V2,
+        &ordered_items,
+    );
+    let corpus_digest = digest_json(&material, "memory_hierarchy_corpus_identity")?;
+    Ok(MemoryRepresentationCorpus {
+        manifest: MemoryCorpusManifest {
+            schema: MEMORY_CORPUS_MANIFEST_SCHEMA.to_string(),
+            manifest_id: short_id("memory-corpus", &corpus_digest),
+            corpus_digest,
+            case_id: operational.manifest.case_id.clone(),
+            source_generation: operational.manifest.source_generation,
+            operational_memory_derivation_version: derivation,
+            representation_contract_version: MEMORY_REPRESENTATION_CONTRACT_V2.to_string(),
             ordered_items,
         },
         documents,
@@ -1250,6 +1732,32 @@ impl MemoryIndexBundle {
             return Err("memory_index_manifest_invalid".to_string());
         }
         self.profile.validate()?;
+        if self.profile.representation_contract_version
+            != self.corpus.representation_contract_version
+        {
+            return Err("memory_index_profile_corpus_contract_mismatch".to_string());
+        }
+        let representation_contract_valid =
+            match self.corpus.representation_contract_version.as_str() {
+                MEMORY_REPRESENTATION_CONTRACT => self.documents.iter().all(|document| {
+                    document.schema == MEMORY_REPRESENTATION_DOCUMENT_SCHEMA
+                        && document.representation_contract_version
+                            == MEMORY_REPRESENTATION_CONTRACT
+                }),
+                MEMORY_REPRESENTATION_CONTRACT_V2 => self.documents.iter().all(|document| {
+                    document.schema == MEMORY_REPRESENTATION_DOCUMENT_SCHEMA_V2
+                        && document.representation_contract_version
+                            == MEMORY_REPRESENTATION_CONTRACT_V2
+                        && matches!(
+                            document.source_family.as_str(),
+                            "operational" | "episodic" | "semantic"
+                        )
+                        && !document.source_id.is_empty()
+                        && document.memory_id == document.source_id
+                        && !document.epistemic_class.is_empty()
+                }),
+                _ => false,
+            };
         let document_by_memory = self
             .documents
             .iter()
@@ -1260,7 +1768,7 @@ impl MemoryIndexBundle {
                 .documents
                 .iter()
                 .any(|document| document.case_id != self.corpus.case_id)
-            || self.corpus.representation_contract_version != MEMORY_REPRESENTATION_CONTRACT
+            || !representation_contract_valid
             || self.manifest.index_types
                 != [
                     "lexical_bm25".to_string(),
@@ -1283,7 +1791,7 @@ impl MemoryIndexBundle {
             &self.corpus.case_id,
             self.corpus.source_generation,
             &self.corpus.operational_memory_derivation_version,
-            MEMORY_REPRESENTATION_CONTRACT,
+            &self.corpus.representation_contract_version,
             &self.corpus.ordered_items,
         );
         let corpus_digest = digest_json(&corpus_material, "memory_corpus_identity")?;
@@ -1390,6 +1898,9 @@ pub fn validate_memory_index_source(
     entries: &[OperationalMemoryEntry],
 ) -> Result<(), String> {
     index.validate_loaded()?;
+    if index.corpus.representation_contract_version != MEMORY_REPRESENTATION_CONTRACT {
+        return Err("memory_index_operational_source_contract_mismatch".to_string());
+    }
     let scoped_entries = entries
         .iter()
         .filter(|entry| entry.case_id == index.corpus.case_id)
@@ -1415,6 +1926,46 @@ pub fn validate_memory_index_source(
     Ok(())
 }
 
+pub fn validate_hierarchy_memory_index_source(
+    index: &MemoryIndexBundle,
+    operational: &OperationalMemoryBuild,
+    hierarchy: &crate::memory_hierarchy::SemanticMemoryHierarchy,
+) -> Result<(), String> {
+    index.validate_loaded()?;
+    if index.corpus.representation_contract_version != MEMORY_REPRESENTATION_CONTRACT_V2 {
+        return Err("memory_index_hierarchy_source_contract_mismatch".to_string());
+    }
+    let expected = derive_hierarchy_representation_corpus(operational, hierarchy)?;
+    if expected.manifest != index.corpus || expected.documents != index.documents {
+        return Err("memory_index_hierarchy_source_divergent".to_string());
+    }
+    Ok(())
+}
+
+pub fn validate_hierarchy_memory_index_compatibility(
+    index: &MemoryIndexBundle,
+    operational: &OperationalMemoryBuild,
+    hierarchy: &crate::memory_hierarchy::SemanticMemoryHierarchy,
+) -> Result<(), String> {
+    index.validate_loaded()?;
+    let expected_derivation = format!(
+        "{}+{}+{}",
+        operational.manifest.derivation_version,
+        crate::memory_hierarchy::MEMORY_HIERARCHY_SCHEMA,
+        MEMORY_HIERARCHY_CORPUS_SELECTION_POLICY
+    );
+    if index.corpus.representation_contract_version != MEMORY_REPRESENTATION_CONTRACT_V2
+        || index.corpus.case_id != operational.manifest.case_id
+        || index.corpus.case_id != hierarchy.manifest.case_id
+        || index.corpus.source_generation != operational.manifest.source_generation
+        || index.corpus.source_generation != hierarchy.manifest.source_generation
+        || index.corpus.operational_memory_derivation_version != expected_derivation
+    {
+        return Err("memory_index_hierarchy_scope_or_generation_mismatch".to_string());
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RetrievalQueryDocument {
     pub schema: String,
@@ -1426,6 +1977,14 @@ pub struct RetrievalQueryDocument {
 
 impl RetrievalQueryDocument {
     pub fn new(query: &str) -> Result<Self, String> {
+        Self::new_for_contract(query, MEMORY_REPRESENTATION_CONTRACT)
+    }
+
+    pub fn new_v2(query: &str) -> Result<Self, String> {
+        Self::new_for_contract(query, MEMORY_REPRESENTATION_CONTRACT_V2)
+    }
+
+    fn new_for_contract(query: &str, contract: &str) -> Result<Self, String> {
         require_nonempty("memory_retrieval_query", query)?;
         let canonical_text = canonicalize_query(query);
         require_nonempty("memory_retrieval_query", &canonical_text)?;
@@ -1433,7 +1992,7 @@ impl RetrievalQueryDocument {
         let digest = digest_json(
             &(
                 RETRIEVAL_QUERY_DOCUMENT_SCHEMA,
-                MEMORY_REPRESENTATION_CONTRACT,
+                contract,
                 &text_digest,
                 &canonical_text,
             ),
@@ -1443,7 +2002,7 @@ impl RetrievalQueryDocument {
             schema: RETRIEVAL_QUERY_DOCUMENT_SCHEMA.to_string(),
             query_id: short_id("memory-query", &digest),
             text_digest,
-            representation_contract_version: MEMORY_REPRESENTATION_CONTRACT.to_string(),
+            representation_contract_version: contract.to_string(),
             canonical_text,
         })
     }
@@ -1518,6 +2077,130 @@ pub struct HybridRetrievalSet {
     pub omitted_count: usize,
     pub selected_memory_ids: Vec<String>,
     pub selected: Vec<HybridRetrievedMemory>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "memory_family", content = "memory", rename_all = "snake_case")]
+pub enum RetrievedMemoryFamily {
+    Operational(OperationalMemoryEntry),
+    Episodic(crate::memory_hierarchy::MemoryEpisode),
+    Semantic(crate::memory_hierarchy::SemanticMemoryAssertion),
+}
+
+impl RetrievedMemoryFamily {
+    pub fn source_id(&self) -> &str {
+        match self {
+            Self::Operational(value) => &value.memory_id,
+            Self::Episodic(value) => &value.episode_id,
+            Self::Semantic(value) => &value.assertion_id,
+        }
+    }
+
+    pub fn family(&self) -> &'static str {
+        match self {
+            Self::Operational(_) => "operational",
+            Self::Episodic(_) => "episodic",
+            Self::Semantic(_) => "semantic",
+        }
+    }
+
+    pub fn epistemic_class(&self) -> &str {
+        match self {
+            Self::Operational(value) => match value.posture {
+                OperationalMemoryPosture::FinalizedObservedConsequence
+                | OperationalMemoryPosture::Unresolved => "mechanically_grounded",
+                OperationalMemoryPosture::DecisionControlHistory => "control_history",
+                OperationalMemoryPosture::ProviderOriginatedClaim => "provider_originated_claim",
+            },
+            Self::Episodic(_) => "derived_structural",
+            Self::Semantic(value) => match value.epistemic_class {
+                crate::memory_hierarchy::EpistemicClass::MechanicallyGrounded => {
+                    "mechanically_grounded"
+                }
+                crate::memory_hierarchy::EpistemicClass::EvidenceBoundInference => {
+                    "evidence_bound_inference"
+                }
+                crate::memory_hierarchy::EpistemicClass::ProviderOriginatedClaim => {
+                    "provider_originated_claim"
+                }
+                crate::memory_hierarchy::EpistemicClass::ControlHistory => "control_history",
+            },
+        }
+    }
+
+    pub fn lifecycle(&self) -> String {
+        match self {
+            Self::Operational(value) => value.lifecycle.as_str().to_string(),
+            Self::Episodic(value) => format!("{:?}", value.completion_posture).to_ascii_lowercase(),
+            Self::Semantic(value) => format!("{:?}", value.lifecycle).to_ascii_lowercase(),
+        }
+    }
+
+    pub fn generation_end(&self) -> u64 {
+        match self {
+            Self::Operational(value) => value.provenance.generation_end,
+            Self::Episodic(value) => value.end_generation,
+            Self::Semantic(value) => value.source_generation_end,
+        }
+    }
+
+    pub fn description(&self) -> String {
+        match self {
+            Self::Operational(value) => value.description.clone(),
+            Self::Episodic(value) => format!(
+                "episode {:?} {:?}: {}",
+                value.episode_kind,
+                value.completion_posture,
+                value.structural_summary.transition_kinds.join(",")
+            ),
+            Self::Semantic(value) => format!(
+                "{:?} {} {:?} [{:?} {:?}]",
+                value.subject, value.predicate, value.value, value.epistemic_class, value.lifecycle
+            ),
+        }
+    }
+
+    pub fn provenance_refs(&self) -> Vec<String> {
+        match self {
+            Self::Operational(value) => value.provenance.transition_ids.clone(),
+            Self::Episodic(value) => value.transition_ids.clone(),
+            Self::Semantic(value) => value
+                .support_refs
+                .iter()
+                .map(|support| support.id().to_string())
+                .collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct HybridRetrievedMemoryV3 {
+    pub source: RetrievedMemoryFamily,
+    pub fusion_score_micros: u64,
+    pub plane_ranks: Vec<CandidatePlaneRank>,
+    pub ranking_reasons: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct HybridRetrievalSetV3 {
+    pub schema: String,
+    pub retrieval_id: String,
+    pub fusion_version: String,
+    pub case_id: String,
+    pub case_generation: u64,
+    pub participant_id: String,
+    pub query: RetrievalQueryDocument,
+    pub hierarchy_id: String,
+    pub corpus_manifest_id: Option<String>,
+    pub representation_profile_id: Option<String>,
+    pub index_manifest_id: Option<String>,
+    pub planes: Vec<RetrievalPlaneStatus>,
+    pub qualified_count: usize,
+    pub selected_count: usize,
+    pub omitted_count: usize,
+    pub selected_memory_ids: Vec<String>,
+    pub selected: Vec<HybridRetrievedMemoryV3>,
+    pub restricted_rejection_counts_redacted: bool,
 }
 
 #[derive(Default)]
@@ -1864,6 +2547,418 @@ pub fn hybrid_retrieve(
         omitted_count,
         selected_memory_ids,
         selected,
+    })
+}
+
+pub fn hybrid_retrieve_hierarchy(
+    state: &CaseState,
+    operational: &OperationalMemoryBuild,
+    hierarchy: &crate::memory_hierarchy::SemanticMemoryHierarchy,
+    qualification: RetrievalQualification,
+    query: RetrievalQueryDocument,
+    index: Option<&MemoryIndexBundle>,
+    query_vector: Result<Option<Vec<f32>>, String>,
+) -> Result<HybridRetrievalSetV3, String> {
+    if qualification.case_id != state.case_id
+        || qualification.case_generation != state.generation
+        || operational.manifest.source_generation != state.generation
+        || hierarchy.manifest.source_generation != state.generation
+        || qualification.max_results == 0
+    {
+        return Err("memory_hierarchy_retrieval_qualification_invalid".to_string());
+    }
+    let mut all_qualification = qualification.clone();
+    all_qualification.max_results = operational.entries.len().max(1);
+    let qualified_operational =
+        retrieve_operational_memory(state, &operational.entries, all_qualification)?;
+    let resource_qualified = |resources: &[String]| {
+        qualification.resource_refs.is_empty()
+            || qualification
+                .resource_refs
+                .iter()
+                .all(|required| resources.contains(required))
+    };
+    let causal_qualified = |refs: &[String]| {
+        qualification.causal_refs.is_empty()
+            || qualification
+                .causal_refs
+                .iter()
+                .all(|required| refs.contains(required))
+    };
+    let mut eligible = BTreeMap::<String, RetrievedMemoryFamily>::new();
+    for value in qualified_operational.selected {
+        eligible.insert(
+            value.memory.memory_id.clone(),
+            RetrievedMemoryFamily::Operational(value.memory),
+        );
+    }
+    if qualification.semantic_kinds.is_empty() {
+        for episode in &hierarchy.episodes {
+            let retained = hierarchy
+                .manifest
+                .active_episode_ids
+                .contains(&episode.episode_id)
+                || hierarchy
+                    .manifest
+                    .open_episode_ids
+                    .contains(&episode.episode_id);
+            if episode.case_id == qualification.case_id
+                && episode.end_generation <= qualification.case_generation
+                && (qualification.include_superseded || retained)
+                && crate::memory_hierarchy::episode_is_visible(
+                    episode,
+                    &qualification.participant_id,
+                )
+                && resource_qualified(&episode.resource_refs)
+                && causal_qualified(&episode.transition_ids)
+            {
+                eligible.insert(
+                    episode.episode_id.clone(),
+                    RetrievedMemoryFamily::Episodic(episode.clone()),
+                );
+            }
+        }
+        let operational_by_id = operational
+            .entries
+            .iter()
+            .map(|entry| (entry.memory_id.as_str(), entry))
+            .collect::<BTreeMap<_, _>>();
+        for assertion in &hierarchy.assertions {
+            let historical = matches!(
+                assertion.lifecycle,
+                crate::memory_hierarchy::SemanticLifecycle::Historical
+                    | crate::memory_hierarchy::SemanticLifecycle::Superseded
+            );
+            let resources = match &assertion.subject {
+                crate::memory_hierarchy::SemanticSubject::ResourceAttachment(id) => {
+                    vec![id.clone()]
+                }
+                _ => assertion
+                    .support_refs
+                    .iter()
+                    .filter_map(|support| match support {
+                        crate::memory_hierarchy::SemanticSupportRef::Operational(id) => {
+                            operational_by_id.get(id.as_str())
+                        }
+                        _ => None,
+                    })
+                    .flat_map(|entry| entry.value.resource_refs())
+                    .collect(),
+            };
+            let support_refs = assertion
+                .support_refs
+                .iter()
+                .map(|support| support.id().to_string())
+                .collect::<Vec<_>>();
+            if assertion.case_id == qualification.case_id
+                && assertion.source_generation_end <= qualification.case_generation
+                && assertion.lifecycle != crate::memory_hierarchy::SemanticLifecycle::Invalid
+                && (qualification.include_superseded
+                    || (!historical
+                        && hierarchy
+                            .manifest
+                            .active_semantic_ids
+                            .contains(&assertion.assertion_id)))
+                && crate::memory_hierarchy::assertion_is_visible(
+                    assertion,
+                    &qualification.participant_id,
+                )
+                && resource_qualified(&resources)
+                && causal_qualified(&support_refs)
+            {
+                eligible.insert(
+                    assertion.assertion_id.clone(),
+                    RetrievedMemoryFamily::Semantic(assertion.clone()),
+                );
+            }
+        }
+    }
+    let candidate_cap = qualification
+        .max_results
+        .saturating_mul(4)
+        .max(qualification.max_results)
+        .min(MAX_CANDIDATES_PER_PLANE)
+        .min(MAX_TOTAL_CANDIDATES / 3);
+    let direct_anchor =
+        !qualification.resource_refs.is_empty() || !qualification.causal_refs.is_empty();
+    let mut exact_order = eligible.values().cloned().collect::<Vec<_>>();
+    exact_order.sort_by(|left, right| {
+        right
+            .generation_end()
+            .cmp(&left.generation_end())
+            .then_with(|| left.source_id().cmp(right.source_id()))
+    });
+    let mut candidates = BTreeMap::<String, FusionCandidate>::new();
+    for (position, source) in exact_order.iter().take(candidate_cap).enumerate() {
+        add_rank(
+            &mut candidates,
+            source.source_id(),
+            CandidatePlaneRank {
+                plane: format!("exact_{}", source.family()),
+                rank: position + 1,
+                plane_score_micros: 0,
+                evidence: source.provenance_refs(),
+            },
+            direct_anchor,
+        )?;
+    }
+    let mut planes = vec![RetrievalPlaneStatus {
+        plane: "exact_memory_hierarchy".to_string(),
+        available: true,
+        candidate_count: exact_order.len().min(candidate_cap),
+        reason: if direct_anchor {
+            "qualified_direct_causal_or_resource_anchor".to_string()
+        } else {
+            "qualified_family_generation_order".to_string()
+        },
+    }];
+    let mut corpus_manifest_id = None;
+    let mut representation_profile_id = None;
+    let mut index_manifest_id = None;
+    if let Some(index) = index {
+        if !index.is_current(&qualification.case_id, qualification.case_generation) {
+            return Err("memory_index_stale_for_case_generation".to_string());
+        }
+        validate_hierarchy_memory_index_compatibility(index, operational, hierarchy)?;
+        corpus_manifest_id = Some(index.corpus.manifest_id.clone());
+        representation_profile_id = Some(index.profile.profile_id.clone());
+        index_manifest_id = Some(index.manifest.index_id.clone());
+        let document_by_source = index
+            .documents
+            .iter()
+            .map(|document| (document.source_id.as_str(), document))
+            .collect::<BTreeMap<_, _>>();
+        let mut admitted_document_ids = BTreeSet::new();
+        let mut document_sources = BTreeMap::new();
+        for source_id in eligible.keys() {
+            let Some(document) = document_by_source.get(source_id.as_str()) else {
+                // Deterministic corpus retention can omit historical material.
+                // It remains eligible for exact current-source retrieval but
+                // cannot participate in a derived fuzzy plane.
+                continue;
+            };
+            admitted_document_ids.insert(document.document_id.clone());
+            document_sources.insert(document.document_id.clone(), source_id.clone());
+        }
+        let lexical = index.lexical.search_qualified(
+            &query.canonical_text,
+            candidate_cap,
+            &admitted_document_ids,
+        )?;
+        for (position, hit) in lexical.iter().enumerate() {
+            let source_id = document_sources
+                .get(&hit.document_id)
+                .ok_or_else(|| "memory_hierarchy_lexical_source_missing".to_string())?;
+            add_rank(
+                &mut candidates,
+                source_id,
+                CandidatePlaneRank {
+                    plane: "lexical_bm25".to_string(),
+                    rank: position + 1,
+                    plane_score_micros: hit.score_micros,
+                    evidence: hit
+                        .matched_terms
+                        .iter()
+                        .map(|term| format!("term:{term}"))
+                        .collect(),
+                },
+                false,
+            )?;
+        }
+        planes.push(RetrievalPlaneStatus {
+            plane: "lexical_bm25".to_string(),
+            available: true,
+            candidate_count: lexical.len(),
+            reason: "qualified_multifamily_bm25".to_string(),
+        });
+        match query_vector {
+            Ok(Some(vector)) => {
+                let vector_hits = index.vector.exact_search_qualified(
+                    &vector,
+                    candidate_cap,
+                    &admitted_document_ids,
+                )?;
+                for (position, hit) in vector_hits.iter().enumerate() {
+                    let source_id = document_sources
+                        .get(&hit.document_id)
+                        .ok_or_else(|| "memory_hierarchy_vector_source_missing".to_string())?;
+                    add_rank(
+                        &mut candidates,
+                        source_id,
+                        CandidatePlaneRank {
+                            plane: "vector_exact_cosine".to_string(),
+                            rank: position + 1,
+                            plane_score_micros: hit.similarity_micros,
+                            evidence: vec![format!(
+                                "cosine_similarity_micros:{}",
+                                hit.similarity_micros
+                            )],
+                        },
+                        false,
+                    )?;
+                }
+                planes.push(RetrievalPlaneStatus {
+                    plane: "vector_exact_cosine".to_string(),
+                    available: true,
+                    candidate_count: vector_hits.len(),
+                    reason: "qualified_multifamily_exact_scan".to_string(),
+                });
+            }
+            Ok(None) => planes.push(RetrievalPlaneStatus {
+                plane: "vector_exact_cosine".to_string(),
+                available: false,
+                candidate_count: 0,
+                reason: "query_vector_unavailable".to_string(),
+            }),
+            Err(error) => planes.push(RetrievalPlaneStatus {
+                plane: "vector_exact_cosine".to_string(),
+                available: false,
+                candidate_count: 0,
+                reason: format!("query_encoder_unavailable:{error}"),
+            }),
+        }
+    } else {
+        planes.extend([
+            RetrievalPlaneStatus {
+                plane: "lexical_bm25".to_string(),
+                available: false,
+                candidate_count: 0,
+                reason: "index_unavailable".to_string(),
+            },
+            RetrievalPlaneStatus {
+                plane: "vector_exact_cosine".to_string(),
+                available: false,
+                candidate_count: 0,
+                reason: "index_unavailable".to_string(),
+            },
+        ]);
+    }
+    planes.push(RetrievalPlaneStatus {
+        plane: "ann".to_string(),
+        available: false,
+        candidate_count: 0,
+        reason: "deferred_exact_scan_not_dominant".to_string(),
+    });
+    if candidates.len() > MAX_TOTAL_CANDIDATES {
+        return Err("memory_hierarchy_total_candidate_bound_exceeded".to_string());
+    }
+    let mut selected = candidates
+        .into_iter()
+        .map(|(source_id, mut candidate)| {
+            candidate
+                .plane_ranks
+                .sort_by(|left, right| left.plane.cmp(&right.plane));
+            let source = eligible
+                .get(&source_id)
+                .ok_or_else(|| "memory_hierarchy_candidate_source_missing".to_string())?
+                .clone();
+            let mut ranking_reasons = candidate
+                .plane_ranks
+                .iter()
+                .map(|rank| format!("{}:rank={}", rank.plane, rank.rank))
+                .collect::<Vec<_>>();
+            if candidate.exact_anchor {
+                ranking_reasons.push("direct_anchor_privileged".to_string());
+            }
+            ranking_reasons.push(format!(
+                "rrf_k_{RRF_K}:fusion_micros={}",
+                candidate.fusion_score_micros
+            ));
+            Ok((
+                candidate.exact_anchor,
+                HybridRetrievedMemoryV3 {
+                    source,
+                    fusion_score_micros: candidate.fusion_score_micros,
+                    plane_ranks: candidate.plane_ranks,
+                    ranking_reasons,
+                },
+            ))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    selected.sort_by(|(left_anchor, left), (right_anchor, right)| {
+        right_anchor
+            .cmp(left_anchor)
+            .then_with(|| right.fusion_score_micros.cmp(&left.fusion_score_micros))
+            .then_with(|| {
+                right
+                    .source
+                    .generation_end()
+                    .cmp(&left.source.generation_end())
+            })
+            .then_with(|| left.source.source_id().cmp(right.source.source_id()))
+    });
+    let qualified_count = eligible.len();
+    let selected = selected
+        .into_iter()
+        .take(qualification.max_results)
+        .map(|(_, item)| item)
+        .collect::<Vec<_>>();
+    if let Some(index) = index {
+        let document_by_source = index
+            .documents
+            .iter()
+            .map(|document| (document.source_id.as_str(), document))
+            .collect::<BTreeMap<_, _>>();
+        for item in &selected {
+            let Some(document) = document_by_source.get(item.source.source_id()) else {
+                continue;
+            };
+            match &item.source {
+                RetrievedMemoryFamily::Operational(value) => {
+                    if MemoryRepresentationDocument::from_operational_v2(value)? != **document {
+                        return Err("memory_index_selected_source_divergent".to_string());
+                    }
+                }
+                RetrievedMemoryFamily::Episodic(value) => {
+                    document.validate_against_episode(value)?;
+                }
+                RetrievedMemoryFamily::Semantic(value) => {
+                    document.validate_against_semantic_assertion(value)?;
+                }
+            }
+        }
+    }
+    let selected_memory_ids = selected
+        .iter()
+        .map(|item| item.source.source_id().to_string())
+        .collect::<Vec<_>>();
+    let omitted_count = qualified_count.saturating_sub(selected.len());
+    let identity_digest = digest_json(
+        &(
+            HYBRID_RETRIEVAL_SET_SCHEMA_V3,
+            HYBRID_FUSION_VERSION,
+            &qualification,
+            &query,
+            &hierarchy.manifest.hierarchy_id,
+            &corpus_manifest_id,
+            &representation_profile_id,
+            &index_manifest_id,
+            &planes,
+            qualified_count,
+            omitted_count,
+            &selected,
+        ),
+        "hybrid_hierarchy_retrieval_identity",
+    )?;
+    Ok(HybridRetrievalSetV3 {
+        schema: HYBRID_RETRIEVAL_SET_SCHEMA_V3.to_string(),
+        retrieval_id: short_id("retrieval", &identity_digest),
+        fusion_version: HYBRID_FUSION_VERSION.to_string(),
+        case_id: qualification.case_id.clone(),
+        case_generation: qualification.case_generation,
+        participant_id: qualification.participant_id.clone(),
+        query,
+        hierarchy_id: hierarchy.manifest.hierarchy_id.clone(),
+        corpus_manifest_id,
+        representation_profile_id,
+        index_manifest_id,
+        planes,
+        qualified_count,
+        selected_count: selected.len(),
+        omitted_count,
+        selected_memory_ids,
+        selected,
+        restricted_rejection_counts_redacted: true,
     })
 }
 
@@ -3343,12 +4438,87 @@ pub fn drop_memory_index_locked(lock: &MemoryIndexBuildLock) -> Result<bool, Str
     {
         let existed = exists_at(&lock.profile, "current.json")?
             || exists_at(&lock.profile, "builds")?
-            || exists_at(&lock.profile, "last-retrieval.json")?;
+            || exists_at(&lock.profile, "last-retrieval.json")?
+            || exists_at(&lock.profile, "last-retrieval-v3.json")?;
         unlink_at(&lock.profile, "current.json", 0)?;
         unlink_at(&lock.profile, "last-retrieval.json", 0)?;
+        unlink_at(&lock.profile, "last-retrieval-v3.json", 0)?;
         remove_tree_at(&lock.profile, "builds")?;
         sync_directory(&lock.profile, "memory_index_drop_profile")?;
         Ok(existed)
+    }
+}
+
+pub fn store_last_hierarchy_retrieval(
+    root: &Path,
+    tenant_id: &str,
+    retrieval: &HybridRetrievalSetV3,
+) -> Result<(), String> {
+    let profile_id = retrieval
+        .representation_profile_id
+        .as_deref()
+        .ok_or_else(|| "memory_retrieval_profile_missing".to_string())?;
+    let lock = acquire_memory_index_build_lock(root, tenant_id, &retrieval.case_id, profile_id)?;
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = lock;
+        return Err("memory_index_mutation_platform_unsupported".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let bytes = json_bytes(
+            retrieval,
+            MAX_LAST_RETRIEVAL_BYTES,
+            "memory_last_retrieval_v3",
+        )?;
+        atomic_write_at(
+            &lock.profile,
+            "last-retrieval-v3.json",
+            &bytes,
+            MAX_LAST_RETRIEVAL_BYTES,
+        )
+    }
+}
+
+pub fn load_last_hierarchy_retrieval(
+    root: &Path,
+    tenant_id: &str,
+    case_id: &str,
+    profile_id: &str,
+) -> Result<Option<HybridRetrievalSetV3>, String> {
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (root, tenant_id, case_id, profile_id);
+        return Err("memory_index_read_platform_unsupported".to_string());
+    }
+    #[cfg(target_os = "linux")]
+    let Some(profile) = open_profile_directory(root, tenant_id, case_id, profile_id, false)?
+    else {
+        return Ok(None);
+    };
+    #[cfg(target_os = "linux")]
+    if !exists_at(&profile, "last-retrieval-v3.json")? {
+        return Ok(None);
+    }
+    #[cfg(target_os = "linux")]
+    let read = acquire_read_lock(profile)?;
+    #[cfg(target_os = "linux")]
+    let bytes = read_bounded_at(
+        &read.profile,
+        "last-retrieval-v3.json",
+        MAX_LAST_RETRIEVAL_BYTES,
+        "memory_last_retrieval_v3",
+    )?;
+    #[cfg(target_os = "linux")]
+    {
+        let retrieval: HybridRetrievalSetV3 = parse_json(&bytes, "memory_last_retrieval_v3")?;
+        if retrieval.schema != HYBRID_RETRIEVAL_SET_SCHEMA_V3
+            || retrieval.case_id != case_id
+            || retrieval.representation_profile_id.as_deref() != Some(profile_id)
+        {
+            return Err("memory_last_retrieval_v3_integrity_mismatch".to_string());
+        }
+        Ok(Some(retrieval))
     }
 }
 
@@ -3432,7 +4602,10 @@ mod tests {
         OPERATIONAL_MEMORY_DERIVATION, OPERATIONAL_MEMORY_MANIFEST_SCHEMA,
         OPERATIONAL_MEMORY_SCHEMA,
     };
-    use crate::transition::{AdmittedView, CaseLifecycle, ParticipantState};
+    use crate::transition::{
+        AdmittedView, CaseLifecycle, ParticipantState, Transition, TransitionPayload,
+        TransitionSource,
+    };
     use std::process::Command;
     use std::time::Instant;
 
@@ -3590,6 +4763,184 @@ mod tests {
             max_results: 2,
             include_superseded: false,
         }
+    }
+
+    fn hierarchy_fixture(
+        entries: Vec<OperationalMemoryEntry>,
+    ) -> (
+        CaseState,
+        OperationalMemoryBuild,
+        crate::memory_hierarchy::SemanticMemoryHierarchy,
+    ) {
+        let case_id = "case:memory-index";
+        let mut state = CaseState::new(case_id, CaseLifecycle::Open);
+        state.generation = 3;
+        state.tenant_id = Some("tenant:test".to_string());
+        state.participants = vec![ParticipantState {
+            participant_id: "participant:a".to_string(),
+            roles: vec!["model_provider".to_string()],
+            admitted_views: vec![AdmittedView {
+                consumer: "model".to_string(),
+                view_kind: "model_context".to_string(),
+            }],
+        }];
+        let history = (1..=3)
+            .map(|sequence| Transition {
+                schema: crate::transition::TRANSITION_SCHEMA.to_string(),
+                transition_id: format!("transition:setup:{sequence}"),
+                case_id: case_id.to_string(),
+                sequence,
+                committed_at_unix_ms: 0,
+                source: TransitionSource {
+                    component: "test".to_string(),
+                    participant_id: Some("participant:a".to_string()),
+                    principal_id: None,
+                    source_ref: None,
+                },
+                scope: None,
+                causal_refs: Vec::new(),
+                payload: TransitionPayload::CaseOpened {
+                    lifecycle: CaseLifecycle::Open,
+                },
+                provenance: Vec::new(),
+                summary: None,
+            })
+            .collect::<Vec<_>>();
+        let operational = OperationalMemoryBuild {
+            manifest: OperationalMemoryManifest {
+                schema: OPERATIONAL_MEMORY_MANIFEST_SCHEMA.to_string(),
+                case_id: case_id.to_string(),
+                derivation_version: OPERATIONAL_MEMORY_DERIVATION.to_string(),
+                source_generation: 3,
+                memory_ids: entries
+                    .iter()
+                    .map(|entry| entry.memory_id.clone())
+                    .collect(),
+            },
+            entries,
+        };
+        let hierarchy =
+            crate::memory_hierarchy::build_memory_hierarchy(&state, &history, &operational)
+                .unwrap();
+        (state, operational, hierarchy)
+    }
+
+    #[test]
+    fn w20_representation_v1_serialized_shape_remains_compatible() {
+        let (_, entries, _, _, _) = fixture();
+        let document = MemoryRepresentationDocument::from_memory(&entries[0]).unwrap();
+        let encoded = serde_json::to_value(document).unwrap();
+        assert_eq!(encoded["schema"], MEMORY_REPRESENTATION_DOCUMENT_SCHEMA);
+        for field in [
+            "source_family",
+            "source_id",
+            "epistemic_class",
+            "support_refs",
+            "contradiction_set_ref",
+        ] {
+            assert!(
+                encoded.get(field).is_none(),
+                "v1 unexpectedly serialized {field}"
+            );
+        }
+    }
+
+    #[test]
+    fn w20_multifamily_qualification_excludes_hidden_before_bm25_and_vector_top_k() {
+        let (_, entries, _, _, _) = fixture();
+        let (state, operational, hierarchy) = hierarchy_fixture(entries);
+        let corpus = derive_hierarchy_representation_corpus(&operational, &hierarchy).unwrap();
+        let profile = MemoryRepresentationProfile::new_v2(
+            "tenant:test",
+            "test-only:fixture-encoder",
+            "fixture:model",
+            "fixture-revision-v2",
+            3,
+        )
+        .unwrap();
+        let vectors = corpus
+            .documents
+            .iter()
+            .map(|document| {
+                let vector = if document.participant_ids == vec!["participant:b".to_string()] {
+                    vec![1.0, 0.0, 0.0]
+                } else {
+                    vec![0.0, 1.0, 0.0]
+                };
+                (document.document_id.clone(), vector)
+            })
+            .collect::<BTreeMap<_, _>>();
+        let bundle = MemoryIndexBundle::build(corpus, profile, &vectors).unwrap();
+        let mut qualification = qualification(&state);
+        qualification.max_results = 1;
+        let result = hybrid_retrieve_hierarchy(
+            &state,
+            &operational,
+            &hierarchy,
+            qualification,
+            RetrievalQueryDocument::new_v2("amber hidden participant secret").unwrap(),
+            Some(&bundle),
+            Ok(Some(vec![1.0, 0.0, 0.0])),
+        )
+        .unwrap();
+        assert_eq!(result.schema, HYBRID_RETRIEVAL_SET_SCHEMA_V3);
+        assert!(result.selected.iter().all(|item| {
+            !item
+                .source
+                .description()
+                .contains("hidden participant secret")
+        }));
+        assert!(result.restricted_rejection_counts_redacted);
+        assert!(result
+            .planes
+            .iter()
+            .filter(|plane| {
+                matches!(plane.plane.as_str(), "lexical_bm25" | "vector_exact_cosine")
+            })
+            .all(|plane| plane.candidate_count <= result.qualified_count));
+    }
+
+    #[test]
+    fn w20_selected_multifamily_payload_revalidates_current_source() {
+        let (_, entries, _, _, _) = fixture();
+        let (state, operational, hierarchy) = hierarchy_fixture(entries.clone());
+        let mut forged_entries = entries;
+        forged_entries[0].value = OperationalMemoryValue::ProviderClaim {
+            result_id: "result:forged".to_string(),
+            invocation_id: "invocation:forged".to_string(),
+            provider_id: "provider:test".to_string(),
+            model_id: "model:test".to_string(),
+            preview: "forged multifamily payload".to_string(),
+        };
+        forged_entries[0].description = "forged multifamily payload".to_string();
+        let (_, forged_operational, forged_hierarchy) = hierarchy_fixture(forged_entries);
+        let forged_corpus =
+            derive_hierarchy_representation_corpus(&forged_operational, &forged_hierarchy).unwrap();
+        let profile = MemoryRepresentationProfile::new_v2(
+            "tenant:test",
+            "test-only:fixture-encoder",
+            "fixture:model",
+            "fixture-revision-v2-forged",
+            3,
+        )
+        .unwrap();
+        let vectors = forged_corpus
+            .documents
+            .iter()
+            .map(|document| (document.document_id.clone(), vec![1.0, 0.0, 0.0]))
+            .collect::<BTreeMap<_, _>>();
+        let forged = MemoryIndexBundle::build(forged_corpus, profile, &vectors).unwrap();
+        assert!(hybrid_retrieve_hierarchy(
+            &state,
+            &operational,
+            &hierarchy,
+            qualification(&state),
+            RetrievalQueryDocument::new_v2("forged multifamily payload").unwrap(),
+            Some(&forged),
+            Ok(Some(vec![1.0, 0.0, 0.0])),
+        )
+        .unwrap_err()
+        .contains("selected_source_divergent"));
     }
 
     #[test]

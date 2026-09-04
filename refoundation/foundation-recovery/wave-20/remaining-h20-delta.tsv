@@ -1,0 +1,9 @@
+area	H20 hardening candidate	W20 posture
+concurrent consolidation	extreme multi-process races and replay pressure	bounded explicit path implemented; not expanded here
+support graph	deep historical corruption/upgrade endurance	bounded/cycle-safe base implemented
+contradictions	large storms and derived corruption repair	1024 member bound and rebuild base implemented
+normalization	Unicode/hostile semantic edge corpus	strict v1 contract implemented
+retention	boundary pressure/long chronology	generation-based base implemented
+privacy	visibility races under concurrent Case change	conservative intersection implemented
+crash/replay	all W20-C1..C7 fault injection	canonical result-before-normalization architecture implemented
+model nondeterminism	provider variation endurance	recorded ProviderResult remains exact source

@@ -491,9 +491,9 @@ fn update_resume_budgets(
 }
 
 #[derive(Clone, Debug)]
-struct RuntimeProviderRoute {
-    args: Vec<String>,
-    selection: Option<ProviderSelection>,
+pub(super) struct RuntimeProviderRoute {
+    pub(super) args: Vec<String>,
+    pub(super) selection: Option<ProviderSelection>,
 }
 
 fn target_chat_endpoint(endpoint: &str) -> String {
@@ -503,6 +503,114 @@ fn target_chat_endpoint(endpoint: &str) -> String {
     } else {
         format!("{endpoint}/v1/chat/completions")
     }
+}
+
+pub(super) fn governed_provider_route_for_requirement(
+    case_id: &str,
+    participant_id: &str,
+    requirement: &ProviderRequirement,
+    logical_turn_id: &str,
+) -> Result<RuntimeProviderRoute, String> {
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = store
+        .get_case_state(case_id)?
+        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let binding = state
+        .provider_binding
+        .as_ref()
+        .ok_or_else(|| "memory_consolidation_governed_provider_binding_required".to_string())?;
+    if binding.participant_id != participant_id {
+        return Err("case_provider_binding_participant_mismatch".to_string());
+    }
+    let authenticated = authenticate_local()?;
+    let mut available_credentials = BTreeSet::new();
+    for target_id in &binding.ordered_target_ids {
+        let (target, _, _, _) = store.provider_posture_authorized(&authenticated, target_id)?;
+        if target.credential_ref == "none"
+            || target
+                .credential_ref
+                .strip_prefix("env:")
+                .is_some_and(|name| env_var(name).is_some())
+        {
+            available_credentials.insert(target.credential_ref.clone());
+        }
+    }
+    let selection = match store.select_case_provider_authorized(
+        &authenticated,
+        case_id,
+        participant_id,
+        requirement,
+        logical_turn_id,
+        1,
+        &BTreeSet::new(),
+        false,
+        &available_credentials,
+        runtime_now_millis().try_into().unwrap_or(u64::MAX),
+    )? {
+        ProviderSelectionStoreOutcome::Selected { selection, .. }
+        | ProviderSelectionStoreOutcome::AlreadySelected(selection) => selection,
+        ProviderSelectionStoreOutcome::Waiting { exclusions } => {
+            let reasons = exclusions
+                .iter()
+                .map(|entry| format!("{}:{:?}", entry.target_id, entry.code))
+                .collect::<Vec<_>>()
+                .join(",");
+            return Err(format!("provider_waiting:{reasons}"));
+        }
+    };
+    let (target, _, _, _) =
+        store.provider_posture_authorized(&authenticated, &selection.selected_target_id)?;
+    let locality = match target.locality {
+        yai_core_engine::provider_governance::ProviderLocality::Loopback => "loopback",
+        yai_core_engine::provider_governance::ProviderLocality::PrivateNetwork => "private_network",
+        yai_core_engine::provider_governance::ProviderLocality::Remote => "remote",
+    };
+    let mut args = vec![
+        "--case".to_string(),
+        case_id.to_string(),
+        "--subject".to_string(),
+        participant_id.to_string(),
+        "--base-url".to_string(),
+        target_chat_endpoint(&target.endpoint),
+        "--provider-id".to_string(),
+        target.target_id,
+        "--model".to_string(),
+        target.model_id,
+        "--selection-id".to_string(),
+        selection.selection_id.clone(),
+        "--target-id".to_string(),
+        selection.selected_target_id.clone(),
+        "--logical-turn-id".to_string(),
+        selection.logical_turn_id.clone(),
+        "--attempt-number".to_string(),
+        selection.attempt_number.to_string(),
+        "--provider-locality".to_string(),
+        locality.to_string(),
+    ];
+    if let Some(environment) = target.credential_ref.strip_prefix("env:") {
+        args.push("--api-key-env".to_string());
+        args.push(environment.to_string());
+        args.push("--credential-required".to_string());
+    }
+    Ok(RuntimeProviderRoute {
+        args,
+        selection: Some(selection),
+    })
+}
+
+pub(super) fn record_governed_provider_outcome(
+    case_id: &str,
+    selection: &ProviderSelection,
+    error: Option<&str>,
+    request_bytes: Option<u64>,
+) -> Result<(), String> {
+    let outcome = governed_attempt_outcome(selection, error, request_bytes)?;
+    let authenticated = authenticate_local()?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let outcome_id = outcome.outcome_id.clone();
+    store.record_provider_attempt_outcome_authorized(&authenticated, case_id, outcome)?;
+    store.record_provider_attempt_health_authorized(&authenticated, case_id, &outcome_id)?;
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]

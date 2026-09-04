@@ -1,0 +1,8 @@
+competition	posture	winner rule
+inference vs inference	unresolved; both contradicted	no winner
+grounded vs inference	grounded_assertion_preserved	grounded remains active; inference contradicted
+provider claim vs grounded	grounded_assertion_preserved	claim cannot displace
+older/newer grounded declared state	mechanically_superseded	unique newer generation only
+same-generation grounded state tie	grounded_state_tie_unresolved	no arbitrary winner
+open predicate newer by recency	unresolved/grounded preserved	recency alone cannot resolve
+provider-suggested winner	ignored	YAI derives set mechanically

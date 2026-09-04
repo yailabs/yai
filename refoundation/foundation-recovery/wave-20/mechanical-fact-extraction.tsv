@@ -1,0 +1,8 @@
+operational_kind	predicate	subject	epistemic_class	notes
+resource_effect	effect.outcome	Effect	mechanically_grounded	final typed Effect outcome
+resource_effect	resource.content_digest	ResourceAttachment	mechanically_grounded	only when canonical post-observation/digest exists
+decision	decision.outcome	Operation	control_history	historical Decision cannot authorize
+review	review.resolution	Review	control_history	historical resolution/unresolved posture
+provider_claim	provider.statement	ProviderTarget/provider result	provider_originated_claim	marker-filtered preview; never observation
+normalization_failure	provider.normalization_failure	ProviderTarget/provider result	provider_originated_claim	failed candidate remains claim
+case lifecycle	case.lifecycle	Case	mechanically_grounded	current CaseState + exact lifecycle transition

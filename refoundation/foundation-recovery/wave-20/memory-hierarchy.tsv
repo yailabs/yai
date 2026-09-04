@@ -1,0 +1,8 @@
+level	artifact	authority	rebuild source
+0	Transition/Observation/EffectReceipt	canonical Case truth	not derived
+1	OperationalMemory	derived_no_owner	Transition history
+2	MemoryEpisode	derived_no_owner	Transition history + boundary v1
+3	SemanticMemoryAssertion/ContradictionSet	derived_no_owner	mechanical extractor + recorded consolidation ProviderResults
+projection	MemoryHierarchyManifest	derived_no_owner	levels 1..3 at exact generation
+representation	MemoryRepresentationDocument v2/index	derived_no_owner	selected operational/episodic/semantic source
+context	RetrievalSet v3 -> Projection v6 -> ContextFrame v6	derived_no_owner	qualified current source

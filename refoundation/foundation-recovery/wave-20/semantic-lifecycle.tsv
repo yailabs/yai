@@ -1,0 +1,6 @@
+lifecycle	meaning	trigger	authority_effect
+active	current derived assertion	valid source and no mechanical contradiction/supersession	none
+contradicted	competes with another value	structural contradiction with no resolution or stronger grounded evidence	none
+superseded	older declared single-current-state fact	unique newer mechanically grounded value	none
+historical	non-current retained assertion	derived view posture	none
+invalid	source/support cannot validate	fail-closed derivation	none

@@ -1,0 +1,11 @@
+property	contract
+policy schema	yai.memory_retention_policy.v1
+recent Episodes	128 by deterministic Episode order/generation
+default semantic items	4096
+priority	contradicted/unresolved; grounded; other active; then stable generation/ID order
+support ancestors	retained assertion ancestry and directly supported Episodes remain in the active derived view within the 4096 semantic-item bound
+background	valid active assertion excluded only from default tier
+historical	superseded/historical assertion available by explicit inspection
+wall clock	unused
+deletion	no canonical or semantic-source deletion
+combined index	50000 total documents with deterministic family selection

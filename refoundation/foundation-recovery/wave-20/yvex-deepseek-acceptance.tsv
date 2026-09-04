@@ -1,0 +1,10 @@
+field	value
+attempt_posture	blocked_external_dependency
+classification	DEPLOYMENT_LIMITATION
+YAI_EXTERNAL_PROVIDER_BASE_URL	absent
+YAI_EXTERNAL_PROVIDER_MODEL	absent
+YAI_MEMORY_ENCODER_BASE_URL	absent
+YAI_MEMORY_ENCODER_MODEL	absent
+fixture_qualification	passed smoke-episodic-semantic-memory
+live_claim	none
+next_action	run MANUAL-ACCEPTANCE.md with operator-selected YVEX DeepSeek and separate loopback encoder

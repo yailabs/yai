@@ -1,0 +1,9 @@
+field	contract
+schema	yai.semantic_contradiction_set.v1
+identity	Case + typed subject + predicate + sorted competing assertion IDs
+detection	same typed subject/predicate with distinct typed values
+kind	structural_value_conflict
+member bound	1024; fail closed above
+provider winner	not admitted
+open predicate	unresolved absent stronger mechanical evidence
+rebuild	pure over normalized assertions

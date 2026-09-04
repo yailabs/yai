@@ -1,0 +1,11 @@
+artifact	previous	W20 current	compatibility
+Transition	current baseline schema	unchanged	no Episode/assertion giant state
+CaseState	current baseline schema	unchanged	no hierarchy materialization
+OperationalMemory	v1	v1	unchanged
+MemoryRepresentationDocument	v1	v2	v1 constants/readers/serialized shape retained
+RetrievalSet	v1/v2	v3	v1/v2 readers retained; v3 adds memory family/posture
+Projection	v5	v6	v5 constants retained; serialized semantic purpose/entries changed
+ContextFrame	v5	v6	v5 constants retained; strict MemoryConsolidation purpose added
+ProviderQualification	v3	v3	unchanged
+derived physical store	v2	v2	H19 bounds/openat2/atomic publication/GC retained
+LMDB databases	37/40	37/40	no new database

@@ -1,0 +1,6 @@
+predicate	eligible	mechanism
+resource.content_digest	yes	unique newer MechanicallyGrounded assertion supersedes older grounded value
+case.lifecycle	yes	unique newer MechanicallyGrounded assertion supersedes older grounded value
+open provider predicate	no	structural contradiction remains
+embedding-similar predicate	no	similarity never creates identity/supersession
+provider confidence/repetition	no	epistemic class immutable

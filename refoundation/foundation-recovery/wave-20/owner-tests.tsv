@@ -1,0 +1,9 @@
+concept	independent_truth	classification	lifecycle_source	lmdb_delta
+MemoryEpisode	no	derived_no_owner	Case Transition history + boundary-policy version	0
+EpisodeNarrative	no	derived_no_owner	recorded consolidation ProviderResult + Episode source	0
+SemanticAssertion	no	derived_no_owner	exact canonical/operational/episodic/provider-result support	0
+ContradictionSet	no	derived_no_owner	current typed assertions and predicate contract	0
+ConsolidationInput	no	derived_no_owner	exact Case generation and admitted source IDs	0
+MemoryHierarchyManifest	no	derived_no_owner	current hierarchy projection	0
+RetentionPolicy	no	immutable runtime/admin configuration	versioned deterministic configuration	0
+W20 total	no new owner	+0 semantic; +0 operational	Transition remains authority	0; LMDB 37/40

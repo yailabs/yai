@@ -21,7 +21,7 @@ class Handler(BaseHTTPRequestHandler):
         frame = json.loads(content[len(marker) :])
         contract = frame.get("output_contract", {})
         if (
-            frame.get("schema") != "yai.context_frame.v5"
+            frame.get("schema") != "yai.context_frame.v6"
             or frame.get("purpose") != "process_signal_proposal"
             or contract.get("kind") != "process_signal_proposal"
         ):

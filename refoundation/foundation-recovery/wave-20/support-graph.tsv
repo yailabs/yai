@@ -1,0 +1,10 @@
+invariant	bound	mechanism
+same Case	exact	lookup against input/current hierarchy
+visibility	intersection of every support	cannot widen
+fan-in	16 refs/assertion	candidate validation
+depth	16 assertion edges	iterative BFS with checked depth
+cycle	forbidden	path-local visited set
+self-support	forbidden	explicit check
+canonical leaf	required	at least one Episode/Operational/Transition/ProviderResult path
+recursive inference	allowed within bound	full assertion ancestry retained
+provider result alone	candidate source, not grounding	epistemic class remains inference/claim

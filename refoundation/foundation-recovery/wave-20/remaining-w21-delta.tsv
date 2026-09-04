@@ -1,0 +1,7 @@
+capability	W20 disposition
+learned reranking	not implemented
+learned context compression	not implemented
+semantic-equivalence clustering	not implemented; near-duplicates remain distinct
+automatic query rewriting	not implemented
+model-based retrieval planning	not implemented
+hierarchical learned summarization	not implemented

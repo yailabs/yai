@@ -1,0 +1,5 @@
+build	assertions	materialization_ms	contradiction_grouping_ms	groups	context
+release	1000	1	0	0	unique subject/predicate fixture
+release	10000	11	2	0	unique subject/predicate fixture
+release	50000	59	21	0	combined admitted assertion bound pressure
+bounded storm	1025	-	-	refused	maximum contradiction members is 1024

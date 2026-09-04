@@ -1,0 +1,7 @@
+transition	allowed	meaning
+provider candidate -> evidence_bound_inference	yes	only strict normalization with validated exact support
+provider claim -> mechanically_grounded	no	repetition/similarity/confidence irrelevant
+evidence_bound_inference -> mechanically_grounded	no	epistemic class immutable
+active inference -> contradicted	yes	stronger/conflicting typed evidence changes lifecycle only
+older grounded current state -> superseded	yes	only declared mechanical state predicate and unique newer grounded source
+retrieved historical ALLOW -> current authority	no	current Policy/Decision/Grant reruns

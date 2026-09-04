@@ -1,0 +1,13 @@
+property	W20 contract
+representation schema	yai.memory_representation_document.v2 with source_family/source_id/source_digest/epistemic/lifecycle
+families	operational; episodic; semantic
+logical profile	yai.memory_representation_profile.v1/v2 input contract identity
+physical store	yai.derived_memory_store.v2 unchanged
+combined bound	50000 documents
+selection	unresolved operational; active grounded/contradicted semantic and support; active operational/semantic; active/open/recent Episodes; historical tail
+lexical	BM25 over qualified subset
+vector	exact normalized cosine over qualified subset
+fusion	checked deterministic RRF + exact anchors
+source validation	selected Episode/Assertion re-resolves from current hierarchy/canonical support
+drop	index loss degrades search, never memory truth
+ANN	deferred; no W20 evidence changed H19 bottleneck conclusion

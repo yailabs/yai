@@ -1,0 +1,13 @@
+property	contract	failure
+schema	yai.memory_consolidation_candidate.v1	unknown/wrong schema rejected
+JSON	one strict object; unknown fields denied	malformed/trailing output rejected
+case/input IDs	exact input match	wrong Case/input rejected
+assertions	maximum 64	oversized rejected
+support refs	1..16; must be in exact input	invented/cross-Case/hidden/future rejected
+subject/predicate/value	typed and byte-bounded	invalid form rejected
+epistemic class	field not admitted	provider-selected grounding rejected
+confidence	field not admitted	confidence theater rejected
+tool/function calls	provider envelope rejected	W22 candidate never executed
+operations/grants/policy	no fields or normalization path	candidate rejected
+narrative	optional; maximum 8192 bytes; source-bound	never Episode identity/truth
+total result	maximum 262144 bytes	refused before normalization

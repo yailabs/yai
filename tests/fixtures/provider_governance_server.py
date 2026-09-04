@@ -12,13 +12,15 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--port", type=int, default=0)
 parser.add_argument(
     "--mode",
-    choices=("full", "text_only", "reject", "malformed", "drop", "slow", "memory"),
+    choices=("full", "text_only", "reject", "malformed", "drop", "slow", "memory", "memory_w20"),
     default="full",
 )
 parser.add_argument("--model", default="provider-governance-model")
 parser.add_argument("--requests", type=int, default=32)
 args = parser.parse_args()
 MEMORY_TURNS = 0
+W20_REPLACEMENT_EMITTED = False
+W20_INITIAL_WRITE_EMITTED = False
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -43,7 +45,7 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(404, {"error": {"type": "not_found"}})
 
     def do_POST(self):
-        global MEMORY_TURNS
+        global MEMORY_TURNS, W20_REPLACEMENT_EMITTED, W20_INITIAL_WRITE_EMITTED
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length)
         if args.mode == "drop":
@@ -86,8 +88,66 @@ class Handler(BaseHTTPRequestHandler):
         if wants_json and args.mode == "text_only":
             self.reply(400, {"error": {"type": "response_format_unsupported"}})
             return
-        if wants_json:
-            content = '{"ok":true}'
+        consolidation_frame = None
+        case_runtime_task = ""
+        if args.mode == "memory_w20":
+            for message in messages:
+                content_value = message.get("content") if isinstance(message, dict) else None
+                if isinstance(content_value, str) and content_value.startswith("YAI typed ContextFrame:\n"):
+                    try:
+                        frame = json.loads(content_value.split("\n", 1)[1])
+                    except (json.JSONDecodeError, IndexError):
+                        continue
+                    case_runtime_task = frame.get("task", "")
+                    if frame.get("purpose") == "memory_consolidation":
+                        consolidation_frame = frame
+                        break
+        if consolidation_frame is not None:
+            task = consolidation_frame.get("task", "")
+            marker = "Exact typed input:\n"
+            packet = json.loads(task.split(marker, 1)[1])
+            consolidation_input = packet["consolidation_input"]
+            support = consolidation_input["allowed_support_refs"][0]
+            representations = packet.get("operational_representation_documents", [])
+
+            def support_for(marker_value):
+                for document in representations:
+                    if marker_value in document.get("canonical_text", ""):
+                        return {"family": "operational", "id": document["source_id"]}
+                return support
+
+            support_4188 = support_for("4188")
+            support_9999 = support_for("9999")
+            content = json.dumps(
+                {
+                    "schema": "yai.memory_consolidation_candidate.v1",
+                    "case_id": consolidation_input["case_id"],
+                    "consolidation_input_id": consolidation_input["input_id"],
+                    "episode_narratives": [],
+                    "assertions": [
+                        {
+                            "subject": {"kind": "named_entity", "id": "project:w20-fixture"},
+                            "predicate": "project.codename",
+                            "value": {"type": "string", "value": "ORCHID-W20"},
+                            "support_refs": [support_4188],
+                        },
+                        {
+                            "subject": {"kind": "named_entity", "id": "project:w20-fixture"},
+                            "predicate": "project.numeric_fact",
+                            "value": {"type": "integer", "value": 4188},
+                            "support_refs": [support_4188],
+                        },
+                        {
+                            "subject": {"kind": "named_entity", "id": "project:w20-fixture"},
+                            "predicate": "project.numeric_fact",
+                            "value": {"type": "integer", "value": 9999},
+                            "support_refs": [support_9999],
+                        },
+                    ],
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
         elif args.mode == "memory" and is_case_runtime and MEMORY_TURNS == 0:
             MEMORY_TURNS += 1
             content = json.dumps(
@@ -104,6 +164,88 @@ class Handler(BaseHTTPRequestHandler):
         elif args.mode == "memory" and is_case_runtime:
             MEMORY_TURNS += 1
             content = '{"schema":"yai.case_runtime_turn.v1","outcome":"complete"}'
+        elif (
+            args.mode == "memory_w20"
+            and is_case_runtime
+            and "9999 provider-only" in case_runtime_task
+        ):
+            content = json.dumps(
+                {
+                    "schema": "yai.provider_claim.v1",
+                    "claim": "numeric fact 9999 provider-only",
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        elif (
+            args.mode == "memory_w20"
+            and is_case_runtime
+            and "denied attempt" in case_runtime_task
+        ):
+            content = json.dumps(
+                {
+                    "schema": "yai.operation_proposal.filesystem_write.v1",
+                    "operation": "filesystem.write",
+                    "resource": "resource:w20-memory",
+                    "path": "denied/blocked.txt",
+                    "content": "DENIED-W20\n",
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        elif (
+            args.mode == "memory_w20"
+            and is_case_runtime
+            and "initial write 4187" in case_runtime_task
+            and not W20_INITIAL_WRITE_EMITTED
+        ):
+            W20_INITIAL_WRITE_EMITTED = True
+            content = json.dumps(
+                {
+                    "schema": "yai.operation_proposal.filesystem_write.v1",
+                    "operation": "filesystem.write",
+                    "resource": "resource:w20-memory",
+                    "path": "allowed/codename.txt",
+                    "content": "codename ORCHID-W20 numeric fact 4187\n",
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        elif (
+            args.mode == "memory_w20"
+            and is_case_runtime
+            and "initial write 4187" in case_runtime_task
+        ):
+            content = '{"schema":"yai.case_runtime_turn.v1","outcome":"complete"}'
+        elif (
+            args.mode == "memory_w20"
+            and is_case_runtime
+            and "replacement 4188" in case_runtime_task
+            and not W20_REPLACEMENT_EMITTED
+        ):
+            W20_REPLACEMENT_EMITTED = True
+            content = json.dumps(
+                {
+                    "schema": "yai.operation_proposal.filesystem_write.v1",
+                    "operation": "filesystem.write",
+                    "resource": "resource:w20-memory",
+                    "path": "allowed/codename.txt",
+                    "content": "codename ORCHID-W20 numeric fact 4188\n",
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        elif (
+            args.mode == "memory_w20"
+            and is_case_runtime
+            and "replacement 4188" in case_runtime_task
+        ):
+            content = '{"schema":"yai.case_runtime_turn.v1","outcome":"complete"}'
+        elif args.mode == "memory_w20" and is_case_runtime:
+            MEMORY_TURNS += 1
+            content = '{"schema":"yai.case_runtime_turn.v1","outcome":"complete"}'
+        elif wants_json:
+            content = '{"ok":true}'
         else:
             content = '{"schema":"yai.case_runtime_turn.v1","outcome":"complete"}'
         self.reply(

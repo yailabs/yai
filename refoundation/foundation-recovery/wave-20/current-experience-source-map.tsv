@@ -1,0 +1,11 @@
+source_family	current_executable_source	experience_role	boundary_anchor	authority
+Transition	engine/yai-engine/src/transition.rs	ordered Case history	sequence and typed payload	canonical
+InteractionTurn	TransitionPayload::InteractionTurnRecorded	logical model turn	turn/invocation/result refs	canonical event
+Provider invocation	ProviderInvocationStarted/ProviderResultRecorded	model attempt and durable output	invocation/result refs	canonical event/candidate output
+Operation chain	OperationProposed/DecisionRecorded/Review*/Effect*	attempt and consequence	operation/decision/review/effect/receipt refs	canonical event
+Workflow	Workflow* transitions	deterministic/passive/model node progression	execution/node/satisfaction refs	canonical event
+Handoff	Handoff* transitions	cross-Case protocol progression	handoff/acceptance/result refs	canonical event
+Case lifecycle	CaseOpened/CaseCancellationRequested/CaseClosed	lifecycle experience	sequence and lifecycle payload	canonical event
+OperationalMemory	engine/yai-engine/src/memory.rs	typed residue used by episode/semantic extraction	memory provenance range	derived_no_owner
+Episode	engine/yai-engine/src/memory_hierarchy.rs	connected structural experience	strong typed reference graph	derived_no_owner
+SemanticAssertion	engine/yai-engine/src/memory_hierarchy.rs	typed knowledge projection	exact support graph	derived_no_owner

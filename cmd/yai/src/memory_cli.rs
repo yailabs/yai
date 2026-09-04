@@ -5,18 +5,42 @@ use serde::Serialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
+use yai_core_engine::memory_hierarchy::{
+    assertion_is_visible, build_memory_hierarchy, derive_consolidation_input, episode_is_visible,
+    MemoryConsolidationInput, SemanticMemoryHierarchy, CONSOLIDATION_CANDIDATE_SCHEMA,
+    CONSOLIDATION_NORMALIZER_VERSION, CONSOLIDATION_SEMANTIC_UNIT_BUDGET,
+};
 use yai_core_engine::memory_index::{
-    acquire_memory_index_build_lock, derive_representation_corpus, drop_memory_index_locked,
-    find_current_memory_index, hybrid_retrieve, list_memory_index_statuses,
-    load_current_memory_index, load_current_memory_index_locked, load_last_hybrid_retrieval,
-    publish_memory_index_locked, store_last_hybrid_retrieval, validate_memory_index_build_budget,
-    validate_memory_index_source, HybridRetrievalSet, MemoryIndexBundle,
-    MemoryRepresentationProfile, RetrievalQueryDocument,
+    acquire_memory_index_build_lock, derive_hierarchy_representation_corpus,
+    drop_memory_index_locked, find_current_memory_index, hybrid_retrieve_hierarchy,
+    list_memory_index_statuses, load_current_memory_index, load_current_memory_index_locked,
+    load_last_hierarchy_retrieval, load_last_hybrid_retrieval, publish_memory_index_locked,
+    store_last_hierarchy_retrieval, validate_hierarchy_memory_index_compatibility,
+    validate_hierarchy_memory_index_source, validate_memory_index_build_budget,
+    validate_memory_index_source, HybridRetrievalSetV3, MemoryIndexBundle,
+    MemoryRepresentationDocument, MemoryRepresentationProfile, RetrievalQueryDocument,
 };
 use yai_core_engine::provider_governance::{
     CapabilityProvenance, ProviderCapability, ProviderCircuitPosture, ProviderLocality,
     ProviderTarget, ProviderTrustPosture,
 };
+
+fn derive_current_memory_hierarchy(
+    store: &LmdbRecordStore,
+    case_id: &str,
+) -> Result<
+    (
+        SemanticMemoryHierarchy,
+        yai_core_engine::memory::OperationalMemoryBuild,
+    ),
+    String,
+> {
+    let state = security::authorize_case_read_if_scoped(store, case_id)?;
+    let transitions = store.list_case_transitions(case_id)?;
+    let memory = derive_operational_memory(case_id, &transitions)?;
+    let hierarchy = build_memory_hierarchy(&state, &transitions, &memory)?;
+    Ok((hierarchy, memory))
+}
 
 pub(super) fn memory_summary(args: &[String]) -> Result<(), String> {
     let path = journal_arg(args)?;
@@ -526,7 +550,7 @@ fn profile_from_build_args(
     let dimension = parse_dimension(args)?;
     let authenticated = security::authenticate_local()?;
     let (target, _, _, _) = store.provider_posture_authorized(&authenticated, &target_id)?;
-    MemoryRepresentationProfile::new(
+    MemoryRepresentationProfile::new_v2(
         tenant_id,
         &target.target_id,
         &target.model_id,
@@ -589,9 +613,9 @@ fn memory_index_build_or_rebuild(args: &[String], rebuild: bool) -> Result<(), S
         .tenant_id
         .as_deref()
         .ok_or_else(|| "memory_index_requires_tenant_scoped_case".to_string())?;
-    let (memory, _) = derive_current_operational_memory(&store, &case_id)?;
+    let (hierarchy, memory) = derive_current_memory_hierarchy(&store, &case_id)?;
     store.replace_case_operational_memory(&memory)?;
-    let corpus = derive_representation_corpus(&memory)?;
+    let corpus = derive_hierarchy_representation_corpus(&memory, &hierarchy)?;
 
     let requested_profile = optional_arg(args, "--profile");
     let configured_profile = optional_arg(args, "--encoder-target").is_some();
@@ -731,7 +755,7 @@ fn memory_index_verify(args: &[String]) -> Result<(), String> {
         .tenant_id
         .as_deref()
         .ok_or_else(|| "memory_index_requires_tenant_scoped_case".to_string())?;
-    let (memory, _) = derive_current_operational_memory(&store, &case_id)?;
+    let (hierarchy, memory) = derive_current_memory_hierarchy(&store, &case_id)?;
     let (posture, index_id, corpus_id, detail) =
         match load_current_memory_index(&memory_index_root(), tenant_id, &case_id, &profile_id) {
             Ok(None) => (
@@ -755,10 +779,14 @@ fn memory_index_verify(args: &[String]) -> Result<(), String> {
             Ok(Some(index)) => {
                 let index_id = index.manifest.index_id.clone();
                 let corpus_id = index.corpus.manifest_id.clone();
-                match index
-                    .validate_deep()
-                    .and_then(|()| validate_memory_index_source(&index, &memory.entries))
+                let source_validation = if index.corpus.representation_contract_version
+                    == yai_core_engine::memory_index::MEMORY_REPRESENTATION_CONTRACT_V2
                 {
+                    validate_hierarchy_memory_index_source(&index, &memory, &hierarchy)
+                } else {
+                    validate_memory_index_source(&index, &memory.entries)
+                };
+                match index.validate_deep().and(source_validation) {
                     Ok(()) => (
                         "current",
                         index_id,
@@ -781,7 +809,7 @@ fn memory_index_verify(args: &[String]) -> Result<(), String> {
         "corpus_manifest_id": corpus_id,
         "posture": posture,
         "physical_format": yai_core_engine::memory_index::DERIVED_MEMORY_PHYSICAL_SCHEMA,
-        "validation": "deep_plus_current_operational_memory_source",
+        "validation": "deep_plus_current_memory_hierarchy_source",
         "detail": detail,
         "canonical_authority": "transition_history"
     });
@@ -798,7 +826,7 @@ fn memory_index_verify(args: &[String]) -> Result<(), String> {
             "physical_format: {}",
             yai_core_engine::memory_index::DERIVED_MEMORY_PHYSICAL_SCHEMA
         );
-        println!("validation: deep_plus_current_operational_memory_source");
+        println!("validation: deep_plus_current_memory_hierarchy_source");
         println!("detail: {detail}");
         println!("canonical_authority: transition_history");
         Ok(())
@@ -911,7 +939,7 @@ fn execute_hybrid_retrieval(
     qualification: RetrievalQualification,
     query: &str,
     profile_id: Option<&str>,
-) -> Result<HybridRetrievalSet, String> {
+) -> Result<HybridRetrievalSetV3, String> {
     let tenant_id = state
         .tenant_id
         .as_deref()
@@ -925,13 +953,19 @@ fn execute_hybrid_retrieval(
         Ok(index) => (index, None),
         Err(error) => (None, Some(error)),
     };
-    let query_document = RetrievalQueryDocument::new(query)?;
+    let transitions = store.list_case_transitions(&state.case_id)?;
+    let operational = derive_operational_memory(&state.case_id, &transitions)?;
+    if operational.entries != entries {
+        return Err("runtime_operational_memory_source_divergent".to_string());
+    }
+    let hierarchy = build_memory_hierarchy(state, &transitions, &operational)?;
+    let query_document = RetrievalQueryDocument::new_v2(query)?;
     let stale_index = index
         .as_ref()
         .is_some_and(|index| !index.is_current(&state.case_id, state.generation));
     let (usable_index, query_vector) = match index {
         Some(index) if index.is_current(&state.case_id, state.generation) => {
-            match validate_memory_index_source(&index, entries) {
+            match validate_hierarchy_memory_index_compatibility(&index, &operational, &hierarchy) {
                 Ok(()) => {
                     let vector = encode_memory_texts(
                         store,
@@ -954,14 +988,31 @@ fn execute_hybrid_retrieval(
         }
         None => (None, Ok(None)),
     };
-    let mut retrieval = hybrid_retrieve(
+    let indexed_retrieval = hybrid_retrieve_hierarchy(
         state,
-        entries,
-        qualification,
-        query_document,
+        &operational,
+        &hierarchy,
+        qualification.clone(),
+        query_document.clone(),
         usable_index.as_ref(),
         query_vector,
-    )?;
+    );
+    let mut retrieval = match indexed_retrieval {
+        Ok(retrieval) => retrieval,
+        Err(error) if usable_index.is_some() => {
+            derived_failure = Some(error);
+            hybrid_retrieve_hierarchy(
+                state,
+                &operational,
+                &hierarchy,
+                qualification,
+                query_document,
+                None,
+                Ok(None),
+            )?
+        }
+        Err(error) => return Err(error),
+    };
     if stale_index || derived_failure.is_some() {
         let reason = derived_failure
             .as_deref()
@@ -973,7 +1024,7 @@ fn execute_hybrid_retrieval(
         }
     }
     if retrieval.representation_profile_id.is_some() {
-        store_last_hybrid_retrieval(&memory_index_root(), tenant_id, &retrieval)?;
+        store_last_hierarchy_retrieval(&memory_index_root(), tenant_id, &retrieval)?;
     }
     Ok(retrieval)
 }
@@ -1005,10 +1056,13 @@ fn refresh_runtime_index_if_stale(
         .operational_memory_manifest(&state.case_id)?
         .filter(|manifest| manifest.is_current(&state.case_id, state.generation))
         .ok_or_else(|| "operational_memory_manifest_not_current".to_string())?;
-    let corpus = derive_representation_corpus(&yai_core_engine::memory::OperationalMemoryBuild {
+    let operational = yai_core_engine::memory::OperationalMemoryBuild {
         manifest,
         entries: entries.to_vec(),
-    })?;
+    };
+    let transitions = store.list_case_transitions(&state.case_id)?;
+    let hierarchy = build_memory_hierarchy(state, &transitions, &operational)?;
+    let corpus = derive_hierarchy_representation_corpus(&operational, &hierarchy)?;
     let lock = acquire_memory_index_build_lock(
         &memory_index_root(),
         tenant_id,
@@ -1085,21 +1139,22 @@ fn memory_search(args: &[String]) -> Result<(), String> {
             plane.plane, plane.available, plane.candidate_count, plane.reason
         );
     }
-    println!("rank\tkind\tauthority_posture\tplanes\tdescription\tgeneration");
+    println!("rank\tfamily\tepistemic_class\tlifecycle\tplanes\tdescription\tgeneration");
     for (rank, selected) in retrieval.selected.iter().enumerate() {
         println!(
-            "{}\t{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}",
             rank + 1,
-            selected.memory.semantic_kind.as_str(),
-            selected.memory.posture.as_str(),
+            selected.source.family(),
+            selected.source.epistemic_class(),
+            selected.source.lifecycle(),
             selected
                 .plane_ranks
                 .iter()
                 .map(|plane| plane.plane.as_str())
                 .collect::<Vec<_>>()
                 .join(","),
-            selected.memory.description.replace('\t', " "),
-            selected.memory.provenance.generation_end
+            selected.source.description().replace('\t', " "),
+            selected.source.generation_end()
         );
     }
     Ok(())
@@ -1158,7 +1213,7 @@ fn memory_retrieval_show(args: &[String]) -> Result<(), String> {
         optional_arg(args, "--profile").as_deref(),
     )?
     .ok_or_else(|| "memory_index_not_found".to_string())?;
-    let retrieval = load_last_hybrid_retrieval(
+    let retrieval = load_last_hierarchy_retrieval(
         &memory_index_root(),
         tenant_id,
         &case_id,
@@ -1190,7 +1245,7 @@ pub(super) fn runtime_hybrid_retrieve(
     entries: &[OperationalMemoryEntry],
     qualification: RetrievalQualification,
     query: &str,
-) -> Result<HybridRetrievalSet, String> {
+) -> Result<HybridRetrievalSetV3, String> {
     let configured_profile = super::provider::env_var("YAI_MEMORY_PROFILE_ID");
     if let Some(profile_id) = configured_profile.as_deref() {
         if let Err(error) = refresh_runtime_index_if_stale(store, state, entries, profile_id) {
@@ -1209,6 +1264,439 @@ pub(super) fn runtime_hybrid_retrieve(
     )
 }
 
+fn memory_episodes_show(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let (hierarchy, _) = derive_current_memory_hierarchy(&store, &case_id)?;
+    let episodes = hierarchy
+        .episodes
+        .into_iter()
+        .filter(|episode| episode_is_visible(episode, &participant_id))
+        .collect::<Vec<_>>();
+    if args.iter().any(|value| value == "--json") {
+        return emit_json(&serde_json::json!({
+            "schema": "yai.memory_episode_list.v1",
+            "case_id": case_id,
+            "source_generation": hierarchy.manifest.source_generation,
+            "hierarchy_id": hierarchy.manifest.hierarchy_id,
+            "episodes": episodes
+        }));
+    }
+    println!("case_id: {case_id}");
+    println!(
+        "source_generation: {}",
+        hierarchy.manifest.source_generation
+    );
+    println!("hierarchy_id: {}", hierarchy.manifest.hierarchy_id);
+    println!("episode_id\tgeneration\tkind\tposture\tresources\ttransitions");
+    for episode in episodes {
+        println!(
+            "{}\t{}..{}\t{:?}\t{:?}\t{}\t{}",
+            episode.episode_id,
+            episode.start_generation,
+            episode.end_generation,
+            episode.episode_kind,
+            episode.completion_posture,
+            episode.resource_refs.join(","),
+            episode.transition_ids.len()
+        );
+    }
+    Ok(())
+}
+
+fn memory_episode_show(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let episode_id = named_arg(args, "--episode")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let (hierarchy, _) = derive_current_memory_hierarchy(&store, &case_id)?;
+    let episode = hierarchy
+        .episodes
+        .iter()
+        .find(|episode| {
+            episode.episode_id == episode_id && episode_is_visible(episode, &participant_id)
+        })
+        .ok_or_else(|| "memory_episode_not_found_or_not_visible".to_string())?;
+    if args.iter().any(|value| value == "--json") {
+        emit_json(episode)
+    } else {
+        println!("episode_id: {}", episode.episode_id);
+        println!("case_id: {}", episode.case_id);
+        println!(
+            "generation: {}..{}",
+            episode.start_generation, episode.end_generation
+        );
+        println!("kind: {:?}", episode.episode_kind);
+        println!("completion_posture: {:?}", episode.completion_posture);
+        println!("participants: {}", episode.participant_refs.join(","));
+        println!("resources: {}", episode.resource_refs.join(","));
+        println!("operations: {}", episode.operation_refs.join(","));
+        println!("effects: {}", episode.effect_refs.join(","));
+        println!("unresolved: {}", episode.unresolved_refs.join(","));
+        println!("transition_ids: {}", episode.transition_ids.join(","));
+        println!("provenance_digest: {}", episode.provenance_digest);
+        Ok(())
+    }
+}
+
+fn memory_semantic_show(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let include_historical = args.iter().any(|value| value == "--include-historical");
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let (hierarchy, _) = derive_current_memory_hierarchy(&store, &case_id)?;
+    let assertions = hierarchy
+        .assertions
+        .iter()
+        .filter(|assertion| assertion_is_visible(assertion, &participant_id))
+        .filter(|assertion| {
+            include_historical
+                || hierarchy
+                    .manifest
+                    .active_semantic_ids
+                    .contains(&assertion.assertion_id)
+        })
+        .collect::<Vec<_>>();
+    if args.iter().any(|value| value == "--json") {
+        return emit_json(&serde_json::json!({
+            "schema": "yai.semantic_memory_view.v1",
+            "case_id": case_id,
+            "source_generation": hierarchy.manifest.source_generation,
+            "hierarchy_id": hierarchy.manifest.hierarchy_id,
+            "unresolved_consolidation_result_ids": hierarchy.unresolved_consolidation_result_ids,
+            "background_assertion_count": hierarchy.manifest.background_semantic_ids.len(),
+            "assertions": assertions
+        }));
+    }
+    println!("case_id: {case_id}");
+    println!("hierarchy_id: {}", hierarchy.manifest.hierarchy_id);
+    println!("assertion_id\tsubject\tpredicate\tvalue\tepistemic_class\tlifecycle\tsupports\tcontradiction");
+    for assertion in assertions {
+        println!(
+            "{}\t{:?}\t{}\t{:?}\t{:?}\t{:?}\t{}\t{}",
+            assertion.assertion_id,
+            assertion.subject,
+            assertion.predicate,
+            assertion.value,
+            assertion.epistemic_class,
+            assertion.lifecycle,
+            assertion.support_refs.len(),
+            assertion.contradiction_set_ref.as_deref().unwrap_or("none")
+        );
+    }
+    println!(
+        "unresolved_consolidation_results: {}",
+        hierarchy.unresolved_consolidation_result_ids.join(",")
+    );
+    println!(
+        "background_semantic_assertions: {}",
+        hierarchy.manifest.background_semantic_ids.len()
+    );
+    Ok(())
+}
+
+fn memory_contradictions_show(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let (hierarchy, _) = derive_current_memory_hierarchy(&store, &case_id)?;
+    let visible_ids = hierarchy
+        .assertions
+        .iter()
+        .filter(|assertion| assertion_is_visible(assertion, &participant_id))
+        .map(|assertion| assertion.assertion_id.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let contradictions = hierarchy
+        .contradictions
+        .iter()
+        .filter(|set| {
+            set.competing_assertion_ids
+                .iter()
+                .all(|id| visible_ids.contains(id.as_str()))
+        })
+        .collect::<Vec<_>>();
+    if args.iter().any(|value| value == "--json") {
+        return emit_json(&serde_json::json!({
+            "schema": "yai.semantic_contradiction_list.v1",
+            "case_id": case_id,
+            "hierarchy_id": hierarchy.manifest.hierarchy_id,
+            "contradictions": contradictions
+        }));
+    }
+    println!("case_id: {case_id}");
+    println!("contradiction_id\tsubject\tpredicate\tresolution\tassertions");
+    for set in contradictions {
+        println!(
+            "{}\t{:?}\t{}\t{}\t{}",
+            set.contradiction_id,
+            set.subject,
+            set.predicate,
+            set.resolution_posture,
+            set.competing_assertion_ids.join(",")
+        );
+    }
+    Ok(())
+}
+
+fn memory_hierarchy_show(args: &[String], action: &str) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let before = store.list_case_transitions(&case_id)?.len();
+    let (hierarchy, _) = derive_current_memory_hierarchy(&store, &case_id)?;
+    let visible_episodes = hierarchy
+        .episodes
+        .iter()
+        .filter(|episode| episode_is_visible(episode, &participant_id))
+        .count();
+    let visible_assertions = hierarchy
+        .assertions
+        .iter()
+        .filter(|assertion| assertion_is_visible(assertion, &participant_id))
+        .count();
+    let after = store.list_case_transitions(&case_id)?.len();
+    let result = serde_json::json!({
+        "schema": "yai.memory_hierarchy_status.v1",
+        "action": action,
+        "case_id": case_id,
+        "source_generation": hierarchy.manifest.source_generation,
+        "hierarchy_id": hierarchy.manifest.hierarchy_id,
+        "hierarchy_digest": hierarchy.manifest.hierarchy_digest,
+        "operational_manifest_id": hierarchy.manifest.operational_manifest_id,
+        "visible_episode_count": visible_episodes,
+        "visible_semantic_assertion_count": visible_assertions,
+        "background_semantic_assertion_count": hierarchy.manifest.background_semantic_ids.len(),
+        "contradiction_count": hierarchy.contradictions.len(),
+        "unresolved_consolidation_result_count": hierarchy.unresolved_consolidation_result_ids.len(),
+        "persistent_cache": "absent_by_design_rebuilt_from_transition_history",
+        "canonical_transition_mutated": before != after
+    });
+    if args.iter().any(|value| value == "--json") {
+        emit_json(&result)
+    } else {
+        println!("memory_hierarchy_{action}: complete");
+        println!("case_id: {case_id}");
+        println!(
+            "source_generation: {}",
+            hierarchy.manifest.source_generation
+        );
+        println!("hierarchy_id: {}", hierarchy.manifest.hierarchy_id);
+        println!("hierarchy_digest: {}", hierarchy.manifest.hierarchy_digest);
+        println!("visible_episodes: {visible_episodes}");
+        println!("visible_semantic_assertions: {visible_assertions}");
+        println!(
+            "background_semantic_assertions: {}",
+            hierarchy.manifest.background_semantic_ids.len()
+        );
+        println!("contradictions: {}", hierarchy.contradictions.len());
+        println!("persistent_cache: absent_by_design_rebuilt_from_transition_history");
+        println!("canonical_transition_mutated: {}", yes_no(before != after));
+        Ok(())
+    }
+}
+
+fn memory_hierarchy_drop(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let before = store.list_case_transitions(&case_id)?.len();
+    let (hierarchy, _) = derive_current_memory_hierarchy(&store, &case_id)?;
+    let visible_source_exists = hierarchy
+        .episodes
+        .iter()
+        .any(|episode| episode_is_visible(episode, &participant_id));
+    let after = store.list_case_transitions(&case_id)?.len();
+    let result = serde_json::json!({
+        "schema": "yai.memory_hierarchy_drop_result.v1",
+        "case_id": case_id,
+        "dropped": false,
+        "reason": "persistent_hierarchy_cache_absent_by_design",
+        "visible_source_exists": visible_source_exists,
+        "canonical_transitions_before": before,
+        "canonical_transitions_after": after,
+        "rebuild_requires_provider_invocation": false
+    });
+    if args.iter().any(|value| value == "--json") {
+        emit_json(&result)
+    } else {
+        println!("memory_hierarchy_drop: absent_by_design");
+        println!("case_id: {case_id}");
+        println!("canonical_transitions_remaining: {after}");
+        println!("rebuild_requires_provider_invocation: no");
+        Ok(())
+    }
+}
+
+fn consolidation_task(
+    input: &MemoryConsolidationInput,
+    hierarchy: &SemanticMemoryHierarchy,
+    operational: &[OperationalMemoryEntry],
+) -> Result<String, String> {
+    let episodes = hierarchy
+        .episodes
+        .iter()
+        .filter(|episode| input.episode_ids.contains(&episode.episode_id))
+        .collect::<Vec<_>>();
+    let representations = operational
+        .iter()
+        .filter(|entry| input.operational_memory_ids.contains(&entry.memory_id))
+        .map(MemoryRepresentationDocument::from_operational_v2)
+        .collect::<Result<Vec<_>, _>>()?;
+    let semantic = hierarchy
+        .assertions
+        .iter()
+        .filter(|assertion| {
+            input
+                .existing_semantic_assertion_ids
+                .contains(&assertion.assertion_id)
+        })
+        .collect::<Vec<_>>();
+    let packet = serde_json::json!({
+        "consolidation_input": input,
+        "episodes": episodes,
+        "operational_representation_documents": representations,
+        "existing_semantic_assertions": semantic
+    });
+    let encoded = serde_json::to_string_pretty(&packet)
+        .map_err(|error| format!("memory_consolidation_input_encode_failed: {error}"))?;
+    Ok(format!(
+        "Perform bounded Case-memory consolidation. Return exactly one JSON object with schema {schema}. Do not return markdown, tools, operations, policy, grants, authority decisions, epistemic_class, confidence, grounded, observed, or authoritative fields. Every assertion must use only support_refs present in consolidation_input.allowed_support_refs. Open predicates must be lowercase dot-separated names. Preserve disagreement; do not select a winner.\n\nExact typed input:\n{encoded}",
+        schema = CONSOLIDATION_CANDIDATE_SCHEMA
+    ))
+}
+
+fn memory_consolidate(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let initial_store = LmdbRecordStore::open(record_store_path())?;
+    let initial_state = security::authorize_case_read_if_scoped(&initial_store, &case_id)?;
+    let logical_turn_id = format!(
+        "memory-consolidation-{}-{}",
+        initial_state.generation.saturating_add(1),
+        participant_id.replace(':', "-")
+    );
+    let requirement =
+        yai_core_engine::provider_governance::ProviderRequirement::memory_consolidation()?;
+    let route = super::case_runtime::governed_provider_route_for_requirement(
+        &case_id,
+        &participant_id,
+        &requirement,
+        &logical_turn_id,
+    )?;
+
+    // Provider selection is itself canonical. Derive the exact consolidation
+    // snapshot only after that transition so lineage can reproduce it.
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = security::authorize_case_read_if_scoped(&store, &case_id)?;
+    let (hierarchy, memory) = derive_current_memory_hierarchy(&store, &case_id)?;
+    let input = derive_consolidation_input(
+        &case_id,
+        state.generation,
+        &participant_id,
+        &hierarchy.episodes,
+        &memory.entries,
+        &hierarchy.assertions,
+    )?;
+    let task = consolidation_task(&input, &hierarchy, &memory.entries)?;
+    let output_contract = InvocationOutputContract::MemoryConsolidation {
+        schema: CONSOLIDATION_CANDIDATE_SCHEMA.to_string(),
+        consolidation_input_id: input.input_id.clone(),
+        maximum_assertions: input.maximum_assertion_count,
+        maximum_support_refs: input.maximum_support_refs,
+        normalizer_version: CONSOLIDATION_NORMALIZER_VERSION.to_string(),
+    };
+    let consolidation_options = super::provider::RuntimeInvocationOptions {
+        max_resident_items: 8,
+        max_semantic_units: CONSOLIDATION_SEMANTIC_UNIT_BUDGET,
+        max_estimated_input_units: CONSOLIDATION_SEMANTIC_UNIT_BUDGET * 2,
+        retrieval_limit: 8,
+        previous_item_ids: Vec::new(),
+        workflow_execution_id: None,
+    };
+    let invocation = super::provider::invoke_runtime_provider(
+        &route.args,
+        ProjectionPurpose::MemoryConsolidation,
+        &task,
+        output_contract,
+        &consolidation_options,
+    );
+    let result = match invocation {
+        Ok(result) => {
+            if let Some(selection) = &route.selection {
+                super::case_runtime::record_governed_provider_outcome(
+                    &case_id,
+                    selection,
+                    None,
+                    Some(result.request_bytes_written),
+                )?;
+            }
+            result
+        }
+        Err(error) => {
+            if let Some(selection) = &route.selection {
+                super::case_runtime::record_governed_provider_outcome(
+                    &case_id,
+                    selection,
+                    Some(&error),
+                    None,
+                )?;
+            }
+            return Err(error);
+        }
+    };
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let (rebuilt, _) = derive_current_memory_hierarchy(&store, &case_id)?;
+    let produced = rebuilt
+        .assertions
+        .iter()
+        .filter(|assertion| assertion.origin.contains(&result.result_id))
+        .map(|assertion| assertion.assertion_id.clone())
+        .collect::<Vec<_>>();
+    if produced.is_empty()
+        && rebuilt
+            .unresolved_consolidation_result_ids
+            .contains(&result.result_id)
+    {
+        return Err(format!(
+            "memory_consolidation_result_recorded_but_normalization_failed:{}",
+            result.result_id
+        ));
+    }
+    let output = serde_json::json!({
+        "schema": "yai.memory_consolidation_result.v1",
+        "case_id": case_id,
+        "consolidation_input_id": input.input_id,
+        "provider_selection_id": route.selection.as_ref().map(|selection| &selection.selection_id),
+        "provider_invocation_id": result.invocation_id,
+        "provider_result_id": result.result_id,
+        "provider_id": result.provider_id,
+        "model_id": result.model_id,
+        "projection_id": result.projection_id,
+        "context_frame_id": result.context_frame_id,
+        "semantic_assertion_ids": produced,
+        "hierarchy_id": rebuilt.manifest.hierarchy_id,
+        "normalizer_version": CONSOLIDATION_NORMALIZER_VERSION,
+        "provider_result_recorded_before_normalization": true,
+        "rebuild_requires_reinference": false
+    });
+    if args.iter().any(|value| value == "--json") {
+        emit_json(&output)
+    } else {
+        println!("memory_consolidation: normalized");
+        println!("case_id: {case_id}");
+        println!("consolidation_input_id: {}", input.input_id);
+        println!("provider_invocation_id: {}", result.invocation_id);
+        println!("provider_result_id: {}", result.result_id);
+        println!("projection_id: {}", result.projection_id);
+        println!("context_frame_id: {}", result.context_frame_id);
+        println!("semantic_assertion_ids: {}", produced.join(","));
+        println!("hierarchy_id: {}", rebuilt.manifest.hierarchy_id);
+        println!("rebuild_requires_reinference: no");
+        Ok(())
+    }
+}
+
 pub(super) fn memory_case_command(operation_id: &str, args: &[String]) -> Result<(), String> {
     match operation_id {
         "yai.case.memory.show" => memory_case_show(args),
@@ -1219,6 +1707,14 @@ pub(super) fn memory_case_command(operation_id: &str, args: &[String]) -> Result
         "yai.case.memory.index.rebuild" => memory_index_build_or_rebuild(args, true),
         "yai.case.memory.index.drop" => memory_index_drop(args),
         "yai.case.memory.retrieval.show" => memory_retrieval_show(args),
+        "yai.case.memory.episodes.show" => memory_episodes_show(args),
+        "yai.case.memory.episode.show" => memory_episode_show(args),
+        "yai.case.memory.semantic.show" => memory_semantic_show(args),
+        "yai.case.memory.contradictions" => memory_contradictions_show(args),
+        "yai.case.memory.hierarchy.show" => memory_hierarchy_show(args, "show"),
+        "yai.case.memory.hierarchy.rebuild" => memory_hierarchy_show(args, "rebuild"),
+        "yai.case.memory.hierarchy.drop" => memory_hierarchy_drop(args),
+        "yai.case.memory.consolidate" => memory_consolidate(args),
         _ => Err(format!("unsupported Case memory operation: {operation_id}")),
     }
 }

@@ -1,0 +1,13 @@
+field	contract
+schema	yai.memory_consolidation_input.v1
+input_id	content-addressed immutable identity
+case/generation	exact snapshot after canonical ProviderSelection
+participant/visibility	exact admitted model Participant view
+episodes	maximum 16 visible source IDs/digests
+operational	maximum 32 visible OperationalMemory IDs/digests
+existing assertions	maximum 16 visible assertion IDs/digests
+source_digest	digest of ordered admitted source identities
+purpose	memory_consolidation
+assertion bound	64
+support bound	16
+semantic-unit budget	16384

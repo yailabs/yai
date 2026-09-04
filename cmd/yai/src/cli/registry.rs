@@ -465,6 +465,15 @@ const CASE_MEMORY_INDEX_REBUILD: &[FlagSpec] = &[
 ];
 const CASE_MEMORY_PROFILE: &[FlagSpec] = &[flag("--profile", Some("PROFILE"), true)];
 const CASE_MEMORY_OPTIONAL_PROFILE: &[FlagSpec] = &[flag("--profile", Some("PROFILE"), false)];
+const CASE_MEMORY_PARTICIPANT: &[FlagSpec] = &[flag("--participant", Some("PARTICIPANT"), true)];
+const CASE_MEMORY_EPISODE: &[FlagSpec] = &[
+    flag("--participant", Some("PARTICIPANT"), true),
+    flag("--episode", Some("EPISODE"), true),
+];
+const CASE_MEMORY_SEMANTIC: &[FlagSpec] = &[
+    flag("--participant", Some("PARTICIPANT"), true),
+    bool_flag("--include-historical"),
+];
 const FILESYSTEM_ATTACH: &[FlagSpec] = &[
     aliased_flag(
         "--resource",
@@ -1092,6 +1101,94 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         Structured,
         &[pos("case", Some("--case"))],
         CASE_MEMORY_PROFILE
+    ),
+    op!(
+        "yai.case.memory.episodes.show",
+        ["case", "memory", "episodes", "show"],
+        "Show deterministic Case-native Episode projections",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_PARTICIPANT
+    ),
+    op!(
+        "yai.case.memory.episode.show",
+        ["case", "memory", "episode", "show"],
+        "Show one Episode with exact structural provenance",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_EPISODE
+    ),
+    op!(
+        "yai.case.memory.semantic.show",
+        ["case", "memory", "semantic", "show"],
+        "Show typed semantic assertions and epistemic posture",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_SEMANTIC
+    ),
+    op!(
+        "yai.case.memory.contradictions",
+        ["case", "memory", "contradictions"],
+        "Inspect unresolved and mechanically resolved contradiction sets",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_PARTICIPANT
+    ),
+    op!(
+        "yai.case.memory.hierarchy.show",
+        ["case", "memory", "hierarchy", "show"],
+        "Inspect the rebuildable operational, episodic, and semantic hierarchy",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_PARTICIPANT
+    ),
+    op!(
+        "yai.case.memory.hierarchy.rebuild",
+        ["case", "memory", "hierarchy", "rebuild"],
+        "Rebuild the memory hierarchy without provider reinference",
+        Advanced,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_PARTICIPANT
+    ),
+    op!(
+        "yai.case.memory.hierarchy.drop",
+        ["case", "memory", "hierarchy", "drop"],
+        "Drop disposable hierarchy state when present",
+        Advanced,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_PARTICIPANT
+    ),
+    op!(
+        "yai.case.memory.consolidate",
+        ["case", "memory", "consolidate"],
+        "Run explicit evidence-bound memory consolidation",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_MEMORY_PARTICIPANT
     ),
     op!(
         "yai.case.policy.bind",

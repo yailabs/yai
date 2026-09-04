@@ -1827,6 +1827,7 @@ struct ProviderTransportResult {
     request_bytes_written: u64,
 }
 
+#[derive(Debug)]
 struct DecodedProviderResponse {
     output: String,
     response_model_id: Option<String>,
@@ -1846,6 +1847,20 @@ pub(super) struct ProviderUsageTelemetry {
 fn decode_provider_response(body: &str) -> Result<DecodedProviderResponse, String> {
     let value: serde_json::Value = serde_json::from_str(body)
         .map_err(|error| format!("provider response was not valid JSON: {error}"))?;
+    let message = value
+        .pointer("/choices/0/message")
+        .ok_or_else(|| "provider response did not contain message".to_string())?;
+    if message
+        .get("tool_calls")
+        .and_then(|value| value.as_array())
+        .is_some_and(|calls| !calls.is_empty())
+        || message.get("function_call").is_some()
+    {
+        return Err(
+            "provider tool/function call is candidate material for W22 and is not executable"
+                .to_string(),
+        );
+    }
     let output = value
         .pointer("/choices/0/message/content")
         .and_then(|value| value.as_str())
@@ -1884,6 +1899,7 @@ fn provider_http_request(
     config: &ProviderConfig,
     rendered: &RenderedInput,
     continuation: Option<&ProviderContinuationReference>,
+    structured_json: bool,
 ) -> Result<(u16, String, usize), String> {
     let endpoint = super::provider_transport::parse_provider_endpoint(&config.base_url)?;
     if let Some(reference) = continuation {
@@ -1894,28 +1910,38 @@ fn provider_http_request(
             return Err("provider_continuation_not_supported".to_string());
         }
     }
-    let continuation_field = continuation
-        .map(|reference| {
-            format!(
-                ",\"yai_provider_continuation\":{{\"runtime_id\":\"{}\",\"reference\":\"{}\"}}",
-                json_escape(&reference.runtime_id),
-                json_escape(&reference.opaque_reference)
-            )
-        })
-        .unwrap_or_default();
-    let body = format!(
-        "{{\"model\":\"{}\",\"stream\":false,\"messages\":[{{\"role\":\"system\",\"content\":\"{}\"}},{{\"role\":\"user\",\"content\":\"{}\"}}]{} }}",
-        json_escape(&config.model),
-        json_escape(&rendered.system_content),
-        json_escape(&rendered.user_content),
-        continuation_field
-    );
+    let mut body = serde_json::json!({
+        "model": config.model,
+        "stream": false,
+        "messages": [
+            {"role": "system", "content": rendered.system_content},
+            {"role": "user", "content": rendered.user_content}
+        ]
+    });
+    let object = body.as_object_mut().expect("provider request object");
+    if let Some(reference) = continuation {
+        object.insert(
+            "yai_provider_continuation".to_string(),
+            serde_json::json!({
+                "runtime_id": reference.runtime_id,
+                "reference": reference.opaque_reference
+            }),
+        );
+    }
+    if structured_json {
+        object.insert(
+            "response_format".to_string(),
+            serde_json::json!({"type": "json_object"}),
+        );
+    }
+    let body = serde_json::to_vec(&body)
+        .map_err(|error| format!("provider_request_encode_failed: {error}"))?;
     let response = super::provider_transport::provider_http(
         &endpoint,
         config.governed_locality.as_ref(),
         "POST",
         &endpoint.path,
-        body.as_bytes(),
+        &body,
         config.api_key.as_deref(),
     )?;
     Ok((
@@ -1933,11 +1959,12 @@ fn provider_http_request(
 fn provider_chat_completion(
     config: &ProviderConfig,
     rendered: &RenderedInput,
+    structured_json: bool,
 ) -> Result<ProviderTransportResult, String> {
     let started = Instant::now();
     let continuation = config.continuation_ref.as_ref();
     let (status, body_text, request_bytes_written) =
-        provider_http_request(config, rendered, continuation)?;
+        provider_http_request(config, rendered, continuation, structured_json)?;
     let success = (200..300).contains(&status);
     let disposition = if success {
         if continuation.is_some() {
@@ -2038,6 +2065,7 @@ fn compile_semantic_invocation(
     output_contract: InvocationOutputContract,
     options: &RuntimeInvocationOptions,
 ) -> Result<SemanticInvocation, String> {
+    let is_memory_consolidation = purpose == ProjectionPurpose::MemoryConsolidation;
     let store = LmdbRecordStore::open(record_store_path())?;
     let mut state = store
         .get_case_state(&session.case_ref)?
@@ -2070,9 +2098,9 @@ fn compile_semantic_invocation(
     }
     // Compile a broad but bounded qualified candidate view first. Residency is
     // the invocation-specific selector and owns the tighter budget.
-    request.max_items = 256;
-    request.max_provider_claims = 64;
-    request.max_interaction_turns = 64;
+    request.max_items = if is_memory_consolidation { 32 } else { 256 };
+    request.max_provider_claims = if is_memory_consolidation { 0 } else { 64 };
+    request.max_interaction_turns = if is_memory_consolidation { 0 } else { 64 };
     let resource_refs = match &output_contract {
         InvocationOutputContract::FilesystemWriteProposal { attachment_id, .. }
         | InvocationOutputContract::ProcessSignalProposal { attachment_id, .. }
@@ -2080,7 +2108,8 @@ fn compile_semantic_invocation(
             vec![attachment_id.clone()]
         }
         InvocationOutputContract::NaturalLanguage
-        | InvocationOutputContract::WorkflowPlanPatch { .. } => Vec::new(),
+        | InvocationOutputContract::WorkflowPlanPatch { .. }
+        | InvocationOutputContract::MemoryConsolidation { .. } => Vec::new(),
     };
     let memory_entries = match store.operational_memory_manifest(&session.case_ref) {
         Ok(Some(manifest)) if manifest.is_current(&session.case_ref, state.generation) => {
@@ -2111,9 +2140,15 @@ fn compile_semantic_invocation(
             None
         }
     };
-    let derived = memory_entries
-        .as_ref()
-        .and_then(|entries| {
+    let derived = if is_memory_consolidation {
+        // The immutable, content-addressed consolidation packet is already the
+        // exact task payload. A second fuzzy retrieval here would duplicate
+        // sources and could admit material outside that packet.
+        DerivedProjectionInput::default()
+    } else {
+        memory_entries
+            .as_ref()
+            .and_then(|entries| {
             let qualification = RetrievalQualification {
                 case_id: session.case_ref.clone(),
                 participant_id: session.subject_ref.clone(),
@@ -2140,17 +2175,52 @@ fn compile_semantic_invocation(
                     memory: retrieval
                         .selected
                         .iter()
-                        .map(|item| yai_core_engine::context::DerivedMemoryInput {
-                            memory_ref: item.memory.memory_id.clone(),
-                            semantic_kind: item.memory.semantic_kind.as_str().to_string(),
-                            memory_posture: item.memory.posture.as_str().to_string(),
-                            description: item.memory.description.clone(),
-                            lifecycle: item.memory.lifecycle.as_str().to_string(),
-                            score: i64::try_from(item.fusion_score_micros).unwrap_or(i64::MAX),
-                            ranking_reasons: item.ranking_reasons.clone(),
-                            transition_refs: item.memory.provenance.transition_ids.clone(),
-                            observation_refs: item.memory.provenance.observation_ids.clone(),
-                            receipt_refs: item.memory.provenance.effect_receipt_ids.clone(),
+                        .map(|item| {
+                            let (semantic_kind, memory_posture) = match &item.source {
+                                yai_core_engine::memory_index::RetrievedMemoryFamily::Operational(value) => (
+                                    value.semantic_kind.as_str().to_string(),
+                                    value.posture.as_str().to_string(),
+                                ),
+                                yai_core_engine::memory_index::RetrievedMemoryFamily::Episodic(_) => (
+                                    item.source.family().to_string(),
+                                    item.source.epistemic_class().to_string(),
+                                ),
+                                yai_core_engine::memory_index::RetrievedMemoryFamily::Semantic(_) => (
+                                    item.source.family().to_string(),
+                                    item.source.epistemic_class().to_string(),
+                                ),
+                            };
+                            yai_core_engine::context::DerivedMemoryInput {
+                                memory_ref: item.source.source_id().to_string(),
+                                semantic_kind,
+                                memory_posture,
+                                description: item.source.description(),
+                                lifecycle: item.source.lifecycle(),
+                                score: i64::try_from(item.fusion_score_micros)
+                                    .unwrap_or(i64::MAX),
+                                ranking_reasons: item.ranking_reasons.clone(),
+                                transition_refs: match &item.source {
+                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Operational(value) => value.provenance.transition_ids.clone(),
+                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Episodic(value) => value.transition_ids.clone(),
+                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Semantic(_) => Vec::new(),
+                                },
+                                observation_refs: match &item.source {
+                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Operational(value) => value.provenance.observation_ids.clone(),
+                                    _ => Vec::new(),
+                                },
+                                receipt_refs: match &item.source {
+                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Operational(value) => value.provenance.effect_receipt_ids.clone(),
+                                    _ => Vec::new(),
+                                },
+                                derived_memory_refs: match &item.source {
+                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Semantic(value) => value
+                                        .support_refs
+                                        .iter()
+                                        .map(|support| support.id().to_string())
+                                        .collect(),
+                                    _ => Vec::new(),
+                                },
+                            }
                         })
                         .collect(),
                     retrieval_id: Some(retrieval.retrieval_id),
@@ -2179,6 +2249,7 @@ fn compile_semantic_invocation(
                                     transition_refs: item.memory.provenance.transition_ids.clone(),
                                     observation_refs: item.memory.provenance.observation_ids.clone(),
                                     receipt_refs: item.memory.provenance.effect_receipt_ids.clone(),
+                                    derived_memory_refs: Vec::new(),
                                 })
                                 .collect(),
                             retrieval_id: Some(retrieval.retrieval_id),
@@ -2194,8 +2265,9 @@ fn compile_semantic_invocation(
                     }
                 }
             }
-        })
-        .unwrap_or_default();
+            })
+            .unwrap_or_default()
+    };
     let candidate_projection = compile_projection(&state, &transitions, &request, &derived)?;
     let output_contract_id = output_contract.contract_id();
     let profile = ProviderModelProfile {
@@ -2208,6 +2280,7 @@ fn compile_semantic_invocation(
                 | InvocationOutputContract::ProcessSignalProposal { .. }
                 | InvocationOutputContract::CaseRuntimeTurn { .. }
                 | InvocationOutputContract::WorkflowPlanPatch { .. }
+                | InvocationOutputContract::MemoryConsolidation { .. }
         ),
         continuation_supported: session.provider.continuation_supported,
     };
@@ -2364,7 +2437,12 @@ fn invoke_runtime_provider_with_optional_journal(
         options.workflow_execution_id.as_deref(),
     )
     .map_err(|error| format!("provider_not_dispatched:invocation_start:{error}"))?;
-    let transport = provider_chat_completion(&session.provider, &semantic.rendered)?;
+    let structured_json = matches!(
+        semantic.frame.output_contract,
+        InvocationOutputContract::MemoryConsolidation { .. }
+    );
+    let transport =
+        provider_chat_completion(&session.provider, &semantic.rendered, structured_json)?;
     let result_lineage = invocation_lineage(&semantic, transport.continuation_disposition.clone());
     let result_id = append_model_output_receipt(
         &session,
@@ -2380,23 +2458,25 @@ fn invoke_runtime_provider_with_optional_journal(
             transport.request_bytes_written, error
         )
     })?;
-    if let Err(error) = append_model_interpretation_record(
-        &session,
-        &invocation.attempt_id,
-        &result_id,
-        &transport.output,
-    ) {
-        eprintln!("provider_post_result_projection_warning: {error}");
-    }
-    if let Err(error) = append_interaction_turn(
-        &session,
-        &invocation.attempt_id,
-        &invocation.invocation_id,
-        &result_id,
-        task,
-        &transport.output,
-    ) {
-        eprintln!("provider_post_result_interaction_warning: {error}");
+    if semantic.frame.purpose != ProjectionPurpose::MemoryConsolidation {
+        if let Err(error) = append_model_interpretation_record(
+            &session,
+            &invocation.attempt_id,
+            &result_id,
+            &transport.output,
+        ) {
+            eprintln!("provider_post_result_projection_warning: {error}");
+        }
+        if let Err(error) = append_interaction_turn(
+            &session,
+            &invocation.attempt_id,
+            &invocation.invocation_id,
+            &result_id,
+            task,
+            &transport.output,
+        ) {
+            eprintln!("provider_post_result_interaction_warning: {error}");
+        }
     }
     Ok(ControlledProviderResult {
         invocation_id: invocation.invocation_id,
@@ -2772,7 +2852,12 @@ fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> 
         invocation_lineage(&semantic, requested_disposition),
         None,
     )?;
-    let transport = provider_chat_completion(&session.provider, &semantic.rendered)?;
+    let structured_json = matches!(
+        semantic.frame.output_contract,
+        InvocationOutputContract::MemoryConsolidation { .. }
+    );
+    let transport =
+        provider_chat_completion(&session.provider, &semantic.rendered, structured_json)?;
     let output = transport.output.clone();
     println!();
     print_cli_section(colors, "MODEL", &session.provider.model, ANSI_MAGENTA);
@@ -3189,6 +3274,17 @@ mod tests {
     }
 
     #[test]
+    fn w20_provider_tool_calls_remain_non_executable_candidate_material() {
+        let body = r#"{
+          "model":"provider-exposed-model",
+          "choices":[{"message":{"role":"assistant","content":"{}","tool_calls":[{"id":"call:1","type":"function","function":{"name":"filesystem.write","arguments":"{}"}}]}}]
+        }"#;
+        assert!(decode_provider_response(body)
+            .unwrap_err()
+            .contains("candidate material for W22"));
+    }
+
+    #[test]
     #[ignore = "requires loopback sockets; exercised by smoke-provider-governance"]
     fn wave18_connect_refused_is_provably_not_dispatched() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -3198,6 +3294,7 @@ mod tests {
             &test_config(format!("http://{address}/v1/chat/completions")),
             &rendered_input(),
             None,
+            false,
         )
         .unwrap_err();
         assert!(error.starts_with("provider_not_dispatched:connect:"));
@@ -3218,6 +3315,7 @@ mod tests {
             &test_config(format!("http://{address}/v1/chat/completions")),
             &rendered_input(),
             None,
+            false,
         )
         .unwrap_err();
         server.join().unwrap();

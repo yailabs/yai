@@ -1,0 +1,5 @@
+build	items	input_materialization_ms	episode_derivation_ms	result	context
+release	100	0	0	100 Episodes	W20 explicit ignored characterization
+release	1000	0	5	1000 Episodes	W20 explicit ignored characterization
+release	10000	2	60	10000 Episodes	W20 explicit ignored characterization
+note	-	-	-	peak RSS not separately sampled	informational local host 2026-09-04

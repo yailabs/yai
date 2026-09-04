@@ -1,0 +1,15 @@
+field	contract
+schema	yai.semantic_memory_assertion.v1
+assertion_id	content address of Case + typed subject/predicate/value + immutable epistemic class + exact support + generation range + visibility
+case_id	exact Case; cross-Case support rejected
+semantic_schema_version	bound to v1 normalizer semantics
+subject	typed SemanticSubject
+predicate	bounded lowercase namespaced predicate
+value	bounded typed SemanticValue
+epistemic_class	YAI-derived; provider cannot set
+support_refs	1..16 exact refs
+source_generation_range	minimum/maximum validated support generation
+origin	extractor or exact ProviderResult/normalizer lineage; not assertion identity
+lifecycle	active/contradicted/superseded/historical/invalid, separate from class
+participant_refs	conservative support visibility intersection
+assertion_digest	sealed lifecycle/contradiction/supersession posture

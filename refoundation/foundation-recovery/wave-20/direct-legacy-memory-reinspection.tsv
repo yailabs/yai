@@ -1,0 +1,8 @@
+legacy_revision	files_inspected	strongest_property	verdict	target_owner
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/memory/episodic.c; headers/tests/consumers	explicit episodic records and source refs	recover structural distinction only	current derived memory_hierarchy
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/memory/semantic.c; consolidation.c	semantic concepts with provenance and explicit consolidation	recover typed support and explicit process	current derived memory_hierarchy
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/memory/runtime.c; decay.c; pin.c	mutable global arrays/time/salience/pins	reject	no owner
+8a2b09e268fe6e20b1681dab7b22eac6b8239a8c	src/knowledge/recall/rank.c; retrieval/semantic.c	recall influence observable	recover provenance/explainability; reject substring identity	current retrieval
+6fa23af2592de5518dda7a2e59aae4cb2b82d89c	working/workset sources and consumers	mutable WorkingMemory/workset	reject duplicate owner	CaseState/Projection/Residency remains owner path
+2a4018147219044dfe1fad2268759b1f2a585945	deletion history	legacy memory plane removal	confirms no wholesale restoration	n/a
+085cf7ad242e11bde97c78f2cb7299c54b7a43c5	working-plane deletion history	working plane removal	confirms current Case-native boundary	n/a

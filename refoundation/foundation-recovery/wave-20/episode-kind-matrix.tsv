@@ -1,0 +1,9 @@
+evidence	kind	completion_posture
+provider chain	model_interaction	completed or blocked_provider
+operation/decision/review/effect	operation_chain	completed/denied/blocked_review/effect_indeterminate/failed/open
+workflow transitions	workflow_progression	completed/open
+workflow human input	human_input	completed/open
+handoff transitions	handoff_progression	handoff_waiting/completed
+case cancellation	case_lifecycle	cancelled
+case close	case_lifecycle	completed
+other experience-bearing transition	structural_event	open/completed from exact terminal evidence

@@ -1185,6 +1185,23 @@ impl ProviderRequirement {
         )
     }
 
+    pub fn memory_consolidation() -> Result<Self, String> {
+        Self::new(
+            "memory_consolidation",
+            vec![
+                ProviderCapabilityRequirement {
+                    capability: ProviderCapability::ChatText,
+                    minimum_provenance: CapabilityProvenance::Qualified,
+                },
+                ProviderCapabilityRequirement {
+                    capability: ProviderCapability::StructuredJsonObject,
+                    minimum_provenance: CapabilityProvenance::Qualified,
+                },
+            ],
+            None,
+        )
+    }
+
     pub fn new(
         purpose: &str,
         mut capabilities: Vec<ProviderCapabilityRequirement>,

@@ -742,6 +742,7 @@ mod tests {
                     transition_refs: item.memory.provenance.transition_ids.clone(),
                     observation_refs: item.memory.provenance.observation_ids.clone(),
                     receipt_refs: item.memory.provenance.effect_receipt_ids.clone(),
+                    derived_memory_refs: Vec::new(),
                 })
                 .collect(),
             retrieval_id: Some(retrieval.retrieval_id),

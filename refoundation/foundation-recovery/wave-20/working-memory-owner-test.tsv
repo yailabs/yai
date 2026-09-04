@@ -1,0 +1,5 @@
+question	evidence	verdict
+Does W20 need a second mutable WorkingMemory store?	CaseState + Retrieval + Projection + ResidencyPlan + ContextFrame already own current working context	no
+Would WorkingMemory have an independent lifecycle?	It would duplicate Case generation and provider continuation	no
+Legacy evidence	process-global worksets and mutable arrays were deleted in 085cf7ad242e11bde97c78f2cb7299c54b7a43c5	reject restoration
+Final classification	No type/store/registry added	zero new owner
