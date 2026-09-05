@@ -167,8 +167,10 @@ check-doc-links: ok (30 files)
 
 - cwd: repository root
 - environment: `YAI_HOME=/tmp/yai-post-i01-acceptance.UaoRgB`
-- commands: the exact sequence in `MANUAL-ACCEPTANCE.md`, executed individually
-  without shell assertion scaffolding
+- commands: the same command arguments now retained in `MANUAL-ACCEPTANCE.md`,
+  executed individually without shell assertion scaffolding; this historical
+  run invoked `./target/debug/yai` directly before the operator-facing launcher
+  ambiguity was corrected to `./yai`
 - exit: every command `0`
 - produced identifiers:
   - Case: `case:post-i01-acceptance`
@@ -211,3 +213,12 @@ Visibility: Advanced
 - classification: `DEPLOYMENT_LIMITATION`
 - invariant: deterministic loopback provider qualification proves the generic
   YAI seam, but no live YVEX/model result is fabricated.
+
+## E-POST-I01-10 — repository-local operator launcher
+
+- cwd: repository root
+- exact command: `./yai --help`
+- exit: `0`
+- invariant: the documented `./yai` operator entry point resolves the freshly
+  built local product binary; manual acceptance does not expose Cargo's
+  `target/debug/yai` build path.
