@@ -26,14 +26,18 @@ use crate::case_policy::{
     POLICY_MATERIALIZER_VERSION, POLICY_MATERIALIZER_VERSION_V1, POLICY_MATERIALIZER_VERSION_V2,
 };
 use crate::cognitive::{
-    plan_cognitive_execution, CaseCognitiveBinding, CognitiveBindingRole, CognitiveCapability,
-    CognitiveCapabilityRequirement, CognitiveExecutionPlan, CognitivePlanningSnapshot,
-    CognitiveTargetSnapshot, SemanticEvidencePosture, SemanticSuitabilityEvidence,
+    cognitive_execution_lane_id, plan_cognitive_execution, CaseCognitiveBinding,
+    CognitiveBindingRole, CognitiveCapability, CognitiveCapabilityRequirement,
+    CognitiveExecutionPlan, CognitivePlanningSnapshot, CognitiveTargetSnapshot,
+    SemanticEvidencePosture, SemanticSuitabilityEvidence,
 };
 use crate::compatibility::{
     decode_legacy_record, inspect_legacy_jsonl, LegacyDecodeOutcome, LegacyRecord,
 };
 use crate::context::SemanticContextArtifact;
+use crate::conversation::{
+    normalize_provider_derived_text, ConversationDerivedContent, PROVIDER_DERIVED_TEXT_NORMALIZER,
+};
 use crate::effect::{
     build_workflow_deterministic_filesystem_operation,
     build_workflow_deterministic_process_operation, digest_bytes, issue_policy_execution_grant,
@@ -66,8 +70,8 @@ use crate::provider_governance::{
     select_provider, CaseProviderBinding, ProviderAttemptOutcome, ProviderCandidateSnapshot,
     ProviderCapability, ProviderCredentialRevision, ProviderFailoverPolicy, ProviderHealthPosture,
     ProviderHealthState, ProviderProbeEvidence, ProviderProbeOwner, ProviderQualification,
-    ProviderRequirement, ProviderSelection, ProviderTarget, ProviderTargetInput,
-    ProviderTrustEvent, ProviderTrustPosture, MAX_PROVIDER_TARGETS_PER_TENANT,
+    ProviderRealizationShape, ProviderRequirement, ProviderSelection, ProviderTarget,
+    ProviderTargetInput, ProviderTrustEvent, ProviderTrustPosture, MAX_PROVIDER_TARGETS_PER_TENANT,
     PROVIDER_CIRCUIT_FAILURE_THRESHOLD,
 };
 use crate::record::Record;
@@ -90,9 +94,9 @@ use crate::transition::{
     CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5, CASE_STATE_SCHEMA_V6,
     CASE_STATE_SCHEMA_V7, CASE_STATE_SCHEMA_V8, CASE_STATE_SCHEMA_V9, TRANSITION_SCHEMA,
     TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V10, TRANSITION_SCHEMA_V11, TRANSITION_SCHEMA_V12,
-    TRANSITION_SCHEMA_V13, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4,
-    TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7, TRANSITION_SCHEMA_V8,
-    TRANSITION_SCHEMA_V9,
+    TRANSITION_SCHEMA_V13, TRANSITION_SCHEMA_V14, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3,
+    TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7,
+    TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
 };
 use crate::workflow::{
     derive_effective_workflow_topology, evaluate_predicate, node_completion_predicate,
@@ -10717,6 +10721,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V14,
                 TRANSITION_SCHEMA_V13,
                 TRANSITION_SCHEMA_V12,
                 TRANSITION_SCHEMA_V11,
@@ -11857,6 +11862,40 @@ fn derive_graph_relations_from_transition(
                         );
                     }
                 }
+            }
+        }
+        TransitionPayload::ConversationDerivedContentRecorded { derived } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "derived_content_from_conversation_turn",
+                "conversation_derived_content",
+                &derived.derived_content_id,
+                "conversation_turn",
+                &derived.source_turn_id,
+            );
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "derived_content_from_provider_result",
+                "conversation_derived_content",
+                &derived.derived_content_id,
+                "provider_result",
+                &derived.provider_result_id,
+            );
+            for source in &derived.source_part_ids {
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "derived_content_from_content_part",
+                    "conversation_derived_content",
+                    &derived.derived_content_id,
+                    "content_part",
+                    source,
+                );
             }
         }
         TransitionPayload::ModelInterpretationRecorded {
@@ -13892,6 +13931,68 @@ impl LmdbRecordStore {
         {
             return Err("provider_invocation_target_unavailable".to_string());
         }
+        if selection
+            .logical_turn_id
+            .starts_with("cognitive-realization:")
+        {
+            let history = self.list_case_transitions_txn(txn, &state.case_id)?;
+            let selection_transition = history
+                .iter()
+                .find(|transition| {
+                    matches!(
+                        &transition.payload,
+                        TransitionPayload::ProviderSelectionRecorded { selection: candidate }
+                            if candidate.selection_id == selection.selection_id
+                    )
+                })
+                .ok_or_else(|| "provider_invocation_cognitive_selection_missing".to_string())?;
+            let cognitive_binding = state
+                .cognitive_bindings
+                .iter()
+                .find(|candidate| {
+                    selection_transition
+                        .causal_refs
+                        .contains(&candidate.binding_id)
+                })
+                .ok_or_else(|| "provider_invocation_cognitive_binding_stale".to_string())?;
+            if cognitive_binding.participant_id != *participant_id
+                || cognitive_binding.target_id != target.target_id
+                || cognitive_binding.target_digest != target.integrity_digest
+                || cognitive_binding.provider_binding_id_at_bind != binding.binding_id
+                || !selection_transition
+                    .causal_refs
+                    .contains(&cognitive_binding.semantic_evidence_id)
+            {
+                return Err("provider_invocation_cognitive_binding_stale".to_string());
+            }
+            let evidence = self
+                .semantic_suitability_evidence_txn(txn, &cognitive_binding.semantic_evidence_id)?
+                .ok_or_else(|| "provider_invocation_semantic_evidence_missing".to_string())?;
+            evidence.validate()?;
+            if evidence.target_id != target.target_id
+                || evidence.target_digest != target.integrity_digest
+                || evidence.capability != cognitive_binding.capability
+            {
+                return Err("provider_invocation_semantic_evidence_mismatch".to_string());
+            }
+            let shapes = selection_transition
+                .causal_refs
+                .iter()
+                .filter_map(|reference| {
+                    reference
+                        .strip_prefix("provider-realization-shape:")
+                        .map(ProviderRealizationShape::parse)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            if shapes.len() != 1 || !qualification.supports_realization_shape(&shapes[0]) {
+                return Err("provider_invocation_realization_shape_stale".to_string());
+            }
+            if !selection_transition.causal_refs.contains(&format!(
+                "provider-normalization-contract:{PROVIDER_DERIVED_TEXT_NORMALIZER}"
+            )) {
+                return Err("provider_invocation_normalization_contract_missing".to_string());
+            }
+        }
         Ok(())
     }
 
@@ -14459,6 +14560,11 @@ impl LmdbRecordStore {
             let provider_envelope_admitted = provider_binding.is_some_and(|binding| {
                 binding.participant_id == participant_id
                     && binding.ordered_target_ids.contains(&target_id)
+                    && state.cognitive_bindings.iter().any(|cognitive| {
+                        cognitive.participant_id == participant_id
+                            && cognitive.target_id == target_id
+                            && cognitive.provider_binding_id_at_bind == binding.binding_id
+                    })
             });
             targets.push(CognitiveTargetSnapshot {
                 target_id,
@@ -14615,6 +14721,417 @@ impl LmdbRecordStore {
             selection,
             commit: Box::new(commit),
         })
+    }
+
+    /// Selects only the exact target already chosen by a fresh I02 plan. Other
+    /// targets in the provider envelope are intentionally absent from the
+    /// candidate snapshot, so lower-level failover cannot change cognitive
+    /// meaning behind the plan.
+    #[allow(clippy::too_many_arguments)]
+    pub fn select_case_provider_exact_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        plan: &CognitiveExecutionPlan,
+        requirement: &ProviderRequirement,
+        realization_shape: &ProviderRealizationShape,
+        logical_turn_id: &str,
+        available_credential_refs: &BTreeSet<String>,
+    ) -> Result<ProviderSelectionStoreOutcome, String> {
+        requirement.validate()?;
+        let capability_matches_shape = matches!(
+            (&plan.capability, realization_shape),
+            (
+                CognitiveCapability::PrimaryConversation,
+                ProviderRealizationShape::TextToText
+            ) | (
+                CognitiveCapability::SpeechToText,
+                ProviderRealizationShape::AudioWavToText
+            ) | (
+                CognitiveCapability::ImageUnderstanding,
+                ProviderRealizationShape::OrderedPngTextToText
+            )
+        );
+        if !capability_matches_shape {
+            return Err("cognitive_realization_capability_shape_mismatch".to_string());
+        }
+        let target_id = plan
+            .selected_target_id
+            .as_deref()
+            .ok_or_else(|| "cognitive_realization_plan_unresolved".to_string())?;
+        let binding_id = plan
+            .selected_binding_id
+            .as_deref()
+            .ok_or_else(|| "cognitive_realization_binding_missing".to_string())?;
+        let semantic_evidence_id = plan
+            .semantic_evidence_id
+            .as_deref()
+            .ok_or_else(|| "cognitive_realization_semantic_evidence_missing".to_string())?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start exact provider selection: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, &plan.case_id)?
+            .ok_or_else(|| "cognitive_realization_case_not_found".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "legacy_case_cannot_realize_cognitive_plan".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        if plan.tenant_id != tenant_id || plan.case_generation != state.generation {
+            return Err("cognitive_realization_plan_stale".to_string());
+        }
+        if !state.principal_participant_links.iter().any(|link| {
+            link.tenant_id == tenant_id
+                && link.participant_id == plan.participant_id
+                && link.principal_id == context.principal_id()
+        }) {
+            return Err("cognitive_realization_principal_participant_mismatch".to_string());
+        }
+        let provider_binding = state
+            .provider_binding
+            .as_ref()
+            .ok_or_else(|| "cognitive_realization_provider_envelope_missing".to_string())?;
+        let cognitive_binding = state
+            .cognitive_bindings
+            .iter()
+            .find(|binding| binding.binding_id == binding_id)
+            .ok_or_else(|| "cognitive_realization_binding_stale".to_string())?;
+        if provider_binding.participant_id != plan.participant_id
+            || cognitive_binding.participant_id != plan.participant_id
+            || cognitive_binding.target_id != target_id
+            || cognitive_binding.semantic_evidence_id != semantic_evidence_id
+            || cognitive_binding.provider_binding_id_at_bind != provider_binding.binding_id
+            || !provider_binding
+                .ordered_target_ids
+                .contains(&target_id.to_string())
+        {
+            return Err("cognitive_realization_binding_stale".to_string());
+        }
+        let evidence = self
+            .semantic_suitability_evidence_txn(&txn, semantic_evidence_id)?
+            .ok_or_else(|| "cognitive_realization_semantic_evidence_missing".to_string())?;
+        evidence.validate()?;
+        if evidence.target_id != target_id
+            || evidence.target_digest != cognitive_binding.target_digest
+            || evidence.capability != plan.capability
+        {
+            return Err("cognitive_realization_semantic_evidence_mismatch".to_string());
+        }
+        let target = self
+            .provider_target_txn(&txn, target_id)?
+            .ok_or_else(|| "cognitive_realization_target_missing".to_string())?;
+        target.validate()?;
+        if target.tenant_id != tenant_id
+            || target.integrity_digest != cognitive_binding.target_digest
+        {
+            return Err("cognitive_realization_target_mismatch".to_string());
+        }
+        let qualification = self
+            .provider_qualification_current_txn(&txn, target_id)?
+            .ok_or_else(|| "cognitive_realization_qualification_missing".to_string())?;
+        let now_unix_ms = self.provider_effective_time_txn(&mut txn)?;
+        qualification.validate(&target)?;
+        if !qualification.is_current(now_unix_ms)
+            || !qualification.supports_realization_shape(realization_shape)
+        {
+            return Err("cognitive_realization_shape_not_qualified".to_string());
+        }
+        let trust = self.provider_trust_current_txn(&txn, target_id)?;
+        let health = self.provider_health_txn(&txn, &target)?;
+        let credential_available = target.credential_ref == "none"
+            || available_credential_refs.contains(&target.credential_ref);
+        let snapshots = BTreeMap::from([(
+            target_id.to_string(),
+            ProviderCandidateSnapshot {
+                target: Some(&target),
+                qualification: Some(&qualification),
+                trust: trust.as_ref(),
+                health: Some(&health),
+                credential_available,
+            },
+        )]);
+        let preview = select_provider(
+            provider_binding,
+            requirement,
+            &snapshots,
+            &BTreeSet::new(),
+            false,
+            now_unix_ms,
+        );
+        if preview.selected_target_id.as_deref() != Some(target_id) {
+            return Ok(ProviderSelectionStoreOutcome::Waiting {
+                exclusions: preview.exclusions,
+            });
+        }
+        if let Some(existing) = state.provider_selections.iter().find(|selection| {
+            selection.logical_turn_id == logical_turn_id && selection.attempt_number == 1
+        }) {
+            if existing.selected_target_id != target_id
+                || existing.requirement_id != requirement.requirement_id
+                || existing.binding_id != provider_binding.binding_id
+                || existing.qualification_id != qualification.qualification_id
+            {
+                return Err("cognitive_realization_existing_selection_mismatch".to_string());
+            }
+            return Ok(ProviderSelectionStoreOutcome::AlreadySelected(
+                existing.clone(),
+            ));
+        }
+        let selection = ProviderSelection::from_preview(
+            provider_binding,
+            requirement,
+            state.generation,
+            logical_turn_id,
+            1,
+            preview,
+            now_unix_ms,
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", selection.selection_id),
+            &plan.case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.cognitive_realization".to_string(),
+                participant_id: Some(plan.participant_id.clone()),
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(plan.plan_id.clone()),
+            },
+            TransitionPayload::ProviderSelectionRecorded {
+                selection: selection.clone(),
+            },
+        );
+        pending.causal_refs = vec![
+            selection.binding_id.clone(),
+            selection.requirement_id.clone(),
+            selection.qualification_id.clone(),
+            selection.selected_target_id.clone(),
+            plan.plan_id.clone(),
+            binding_id.to_string(),
+            semantic_evidence_id.to_string(),
+            format!("provider-realization-shape:{}", realization_shape.as_str()),
+            format!("provider-normalization-contract:{PROVIDER_DERIVED_TEXT_NORMALIZER}"),
+        ];
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit exact provider selection: {error}"))?;
+        Ok(ProviderSelectionStoreOutcome::Selected {
+            selection,
+            commit: Box::new(commit),
+        })
+    }
+
+    pub fn record_conversation_derived_content_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        derived: ConversationDerivedContent,
+    ) -> Result<ConversationDerivedContent, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start derived-content transaction: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, &derived.case_id)?
+            .ok_or_else(|| "conversation_derived_content_case_not_found".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "legacy_case_cannot_record_derived_content".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        let history = self.list_case_transitions_txn(&txn, &derived.case_id)?;
+        if let Some(existing) = history
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::ConversationDerivedContentRecorded { derived: existing }
+                    if existing.derived_content_id == derived.derived_content_id =>
+                {
+                    Some(existing)
+                }
+                _ => None,
+            })
+        {
+            if existing == &derived {
+                return Ok(existing.clone());
+            }
+            return Err("conversation_derived_content_identity_collision".to_string());
+        }
+        let source_turn = history
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::ConversationTurnCommitted { turn }
+                    if turn.turn_id == derived.source_turn_id =>
+                {
+                    Some(turn)
+                }
+                _ => None,
+            })
+            .ok_or_else(|| "conversation_derived_content_source_turn_missing".to_string())?;
+        derived.validate(source_turn)?;
+        if derived.tenant_id != tenant_id
+            || !state.principal_participant_links.iter().any(|link| {
+                link.tenant_id == tenant_id
+                    && link.participant_id == source_turn.participant_id
+                    && link.principal_id == context.principal_id()
+            })
+        {
+            return Err("conversation_derived_content_security_scope_invalid".to_string());
+        }
+        let cognitive_binding = history
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::CaseCognitiveBindingRecorded { binding }
+                    if binding.binding_id == derived.cognitive_binding_id =>
+                {
+                    Some(binding)
+                }
+                _ => None,
+            })
+            .ok_or_else(|| "conversation_derived_content_binding_missing".to_string())?;
+        if cognitive_binding.tenant_id != derived.tenant_id
+            || cognitive_binding.case_id != derived.case_id
+            || cognitive_binding.participant_id != source_turn.participant_id
+            || cognitive_binding.role != CognitiveBindingRole::Auxiliary
+            || cognitive_binding.capability != derived.capability
+            || cognitive_binding.target_id != derived.target_id
+            || cognitive_binding.target_digest != derived.target_digest
+            || cognitive_binding.semantic_evidence_id != derived.semantic_evidence_id
+            || cognitive_execution_lane_id(
+                &derived.case_id,
+                &source_turn.participant_id,
+                cognitive_binding,
+            )? != derived.execution_lane_id
+        {
+            return Err("conversation_derived_content_binding_mismatch".to_string());
+        }
+        let (selection, selection_refs) = history
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::ProviderSelectionRecorded { selection }
+                    if selection.selection_id == derived.provider_selection_id =>
+                {
+                    Some((selection, &transition.causal_refs))
+                }
+                _ => None,
+            })
+            .ok_or_else(|| "conversation_derived_content_selection_missing".to_string())?;
+        if selection.selected_target_id != derived.target_id
+            || selection.qualification_id != derived.provider_qualification_id
+            || selection.logical_turn_id != format!("cognitive-realization:{}", derived.plan_id)
+            || !selection_refs.contains(&derived.plan_id)
+            || !selection_refs.contains(&derived.cognitive_binding_id)
+            || !selection_refs.contains(&derived.semantic_evidence_id)
+            || !selection_refs.contains(&format!(
+                "provider-normalization-contract:{}",
+                derived.normalization_contract_id
+            ))
+        {
+            return Err("conversation_derived_content_selection_mismatch".to_string());
+        }
+        let invocation = history
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::ProviderInvocationStarted {
+                    invocation_id,
+                    participant_id,
+                    provider_id,
+                    governance: Some(governance),
+                    ..
+                } if invocation_id == &derived.provider_invocation_id => {
+                    Some((participant_id, provider_id, governance))
+                }
+                _ => None,
+            })
+            .ok_or_else(|| "conversation_derived_content_invocation_missing".to_string())?;
+        if invocation.0 != &source_turn.participant_id
+            || invocation.1 != &derived.target_id
+            || invocation.2.selection_id != derived.provider_selection_id
+        {
+            return Err("conversation_derived_content_invocation_mismatch".to_string());
+        }
+        let result_output = history
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::ProviderResultRecorded {
+                    result_id,
+                    invocation_id,
+                    provider_id,
+                    output,
+                    ..
+                } if result_id == &derived.provider_result_id => {
+                    Some((invocation_id, provider_id, output))
+                }
+                _ => None,
+            })
+            .ok_or_else(|| "conversation_derived_content_provider_result_missing".to_string())?;
+        let normalized_output = normalize_provider_derived_text(result_output.2)?;
+        if result_output.0 != &derived.provider_invocation_id
+            || result_output.1 != &derived.target_id
+            || derived.object.inline_text.as_deref() != Some(normalized_output.as_str())
+        {
+            return Err("conversation_derived_content_result_mismatch".to_string());
+        }
+        let target = self
+            .provider_target_txn(&txn, &derived.target_id)?
+            .ok_or_else(|| "conversation_derived_content_target_missing".to_string())?;
+        if target.integrity_digest != derived.target_digest {
+            return Err("conversation_derived_content_target_mismatch".to_string());
+        }
+        let qualification: ProviderQualification = get_json_txn(
+            &txn,
+            self.provider_governance,
+            &format!("qualification:{}", derived.provider_qualification_id),
+            "provider_qualification",
+        )?
+        .ok_or_else(|| "conversation_derived_content_qualification_missing".to_string())?;
+        qualification.validate(&target)?;
+        if !qualification.supports_realization_shape(&derived.realization_shape) {
+            return Err("conversation_derived_content_shape_unqualified".to_string());
+        }
+        let semantic = self
+            .semantic_suitability_evidence_txn(&txn, &derived.semantic_evidence_id)?
+            .ok_or_else(|| "conversation_derived_content_semantic_evidence_missing".to_string())?;
+        semantic.validate()?;
+        if semantic.target_id != derived.target_id
+            || semantic.target_digest != derived.target_digest
+            || semantic.capability != derived.capability
+        {
+            return Err("conversation_derived_content_semantic_evidence_mismatch".to_string());
+        }
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", derived.derived_content_id),
+            &derived.case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.cognitive_realization".to_string(),
+                participant_id: Some(source_turn.participant_id.clone()),
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(derived.provider_result_id.clone()),
+            },
+            TransitionPayload::ConversationDerivedContentRecorded {
+                derived: derived.clone(),
+            },
+        );
+        pending.causal_refs = vec![
+            derived.derived_content_id.clone(),
+            derived.source_turn_id.clone(),
+            derived.plan_id.clone(),
+            derived.cognitive_binding_id.clone(),
+            derived.semantic_evidence_id.clone(),
+            derived.target_id.clone(),
+            derived.provider_qualification_id.clone(),
+            derived.provider_selection_id.clone(),
+            derived.provider_invocation_id.clone(),
+            derived.provider_result_id.clone(),
+            derived.normalization_contract_id.clone(),
+        ];
+        pending
+            .causal_refs
+            .extend(derived.source_part_ids.iter().cloned());
+        self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit derived content: {error}"))?;
+        Ok(derived)
     }
 
     pub fn record_provider_attempt_outcome_authorized(
@@ -15438,6 +15955,16 @@ fn transition_contains_canonical_fact_ref(transition: &Transition, reference: &s
                                 if derivation.derivation_id == reference
                         )
                 })
+        }
+        TransitionPayload::ConversationDerivedContentRecorded { derived } => {
+            derived.derived_content_id == reference
+                || derived.object.object_id == reference
+                || derived.derivation.derivation_id == reference
+                || derived
+                    .source_part_ids
+                    .iter()
+                    .any(|value| value == reference)
+                || derived.provider_result_id == reference
         }
         TransitionPayload::ModelInterpretationRecorded {
             interpretation_id,
@@ -25190,6 +25717,8 @@ mod tests {
     mod hardening18_tests;
     #[path = "i02_tests.rs"]
     mod i02_tests;
+    #[path = "i03_tests.rs"]
+    mod i03_tests;
     #[path = "wave18_tests.rs"]
     mod wave18_tests;
 }

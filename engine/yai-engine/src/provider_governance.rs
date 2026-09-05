@@ -14,7 +14,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 pub const PROVIDER_TARGET_SCHEMA: &str = "yai.provider_target.v1";
 pub const PROVIDER_QUALIFICATION_SCHEMA_V1: &str = "yai.provider_qualification.v1";
 pub const PROVIDER_QUALIFICATION_SCHEMA_V2: &str = "yai.provider_qualification.v2";
-pub const PROVIDER_QUALIFICATION_SCHEMA: &str = "yai.provider_qualification.v3";
+pub const PROVIDER_QUALIFICATION_SCHEMA_V3: &str = "yai.provider_qualification.v3";
+pub const PROVIDER_QUALIFICATION_SCHEMA: &str = "yai.provider_qualification.v4";
 pub const PROVIDER_TRUST_EVENT_SCHEMA: &str = "yai.provider_trust_event.v1";
 pub const PROVIDER_HEALTH_SCHEMA_V1: &str = "yai.provider_health.v1";
 pub const PROVIDER_HEALTH_SCHEMA: &str = "yai.provider_health.v2";
@@ -33,6 +34,7 @@ pub const MAX_PROVIDER_CREDENTIAL_REF_BYTES: usize = 256;
 pub const MAX_PROVIDER_CAPABILITIES: usize = 16;
 pub const MAX_PROVIDER_EXCLUSIONS: usize = 32;
 pub const MAX_PROVIDER_EVIDENCE_REFS: usize = 32;
+pub const MAX_PROVIDER_REALIZATION_SHAPES: usize = 3;
 pub const MAX_PROVIDER_ATTEMPTS_PER_TURN: u32 = 3;
 pub const PROVIDER_HEALTH_FRESHNESS_MS: u64 = 60_000;
 pub const PROVIDER_CIRCUIT_FAILURE_THRESHOLD: u32 = 3;
@@ -42,6 +44,36 @@ pub const PROVIDER_CIRCUIT_COOLDOWN_MS: u64 = 30_000;
 #[serde(rename_all = "snake_case")]
 pub enum ProviderAdapterKind {
     OpenAiCompatible,
+}
+
+/// Exact application-content/result shape proven through the configured
+/// provider adapter. These are mechanical wire properties, not YAI cognitive
+/// meaning and not claims about a provider runtime's residency or engine.
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderRealizationShape {
+    TextToText,
+    AudioWavToText,
+    OrderedPngTextToText,
+}
+
+impl ProviderRealizationShape {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::TextToText => "text_to_text",
+            Self::AudioWavToText => "audio_wav_to_text",
+            Self::OrderedPngTextToText => "ordered_png_text_to_text",
+        }
+    }
+
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "text_to_text" => Ok(Self::TextToText),
+            "audio_wav_to_text" => Ok(Self::AudioWavToText),
+            "ordered_png_text_to_text" => Ok(Self::OrderedPngTextToText),
+            _ => Err("provider_realization_shape_invalid".to_string()),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
@@ -387,6 +419,10 @@ pub struct ProviderProbeEvidence {
     pub text_embedding_envelope_valid: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub embedding_dimension: Option<u64>,
+    /// Shapes accepted through an actual bounded synthetic request and a
+    /// correctly typed text response. Empty on historical v1-v3 evidence.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub realization_shapes: Vec<ProviderRealizationShape>,
     #[serde(default)]
     pub failure_codes: Vec<String>,
 }
@@ -395,8 +431,17 @@ impl ProviderProbeEvidence {
     pub fn validate(&self) -> Result<(), String> {
         require_identifier("provider_probe_run_id", &self.run_id, 256)?;
         require_identifier("provider_probe_target_id", &self.target_id, 256)?;
-        if self.completed_at_unix_ms < self.started_at_unix_ms || self.failure_codes.len() > 16 {
+        if self.completed_at_unix_ms < self.started_at_unix_ms
+            || self.failure_codes.len() > 16
+            || self.realization_shapes.len() > MAX_PROVIDER_REALIZATION_SHAPES
+        {
             return Err("provider_probe_evidence_invalid".to_string());
+        }
+        let mut shapes = self.realization_shapes.clone();
+        shapes.sort();
+        shapes.dedup();
+        if shapes != self.realization_shapes {
+            return Err("provider_probe_realization_shapes_invalid".to_string());
         }
         for code in &self.failure_codes {
             require_identifier("provider_probe_failure_code", code, 128)?;
@@ -449,8 +494,10 @@ fn derived_capabilities(
     if evidence.health_endpoint_observed {
         add(ProviderCapability::HealthProbe, "health_probe");
     }
-    if schema == PROVIDER_QUALIFICATION_SCHEMA
-        && evidence.text_embedding_envelope_valid
+    if matches!(
+        schema,
+        PROVIDER_QUALIFICATION_SCHEMA | PROVIDER_QUALIFICATION_SCHEMA_V3
+    ) && evidence.text_embedding_envelope_valid
         && evidence.exact_model_addressed
     {
         capabilities.push(ProviderCapabilityEvidence {
@@ -610,6 +657,7 @@ impl ProviderQualification {
 
     pub fn validate(&self, target: &ProviderTarget) -> Result<(), String> {
         if self.schema != PROVIDER_QUALIFICATION_SCHEMA
+            && self.schema != PROVIDER_QUALIFICATION_SCHEMA_V3
             && self.schema != PROVIDER_QUALIFICATION_SCHEMA_V2
             && self.schema != PROVIDER_QUALIFICATION_SCHEMA_V1
         {
@@ -697,6 +745,15 @@ impl ProviderQualification {
                 }
             }
         })
+    }
+
+    pub fn supports_realization_shape(&self, shape: &ProviderRealizationShape) -> bool {
+        self.schema == PROVIDER_QUALIFICATION_SCHEMA
+            && self
+                .evidence
+                .realization_shapes
+                .binary_search(shape)
+                .is_ok()
     }
 }
 
@@ -1772,6 +1829,7 @@ mod tests {
                 extension_telemetry_observed: false,
                 text_embedding_envelope_valid: false,
                 embedding_dimension: None,
+                realization_shapes: Vec::new(),
                 failure_codes: vec![],
             },
             "yai.openai_compatible.synthetic.v1",
@@ -1863,6 +1921,7 @@ mod tests {
                 extension_telemetry_observed: false,
                 text_embedding_envelope_valid: true,
                 embedding_dimension: Some(384),
+                realization_shapes: Vec::new(),
                 failure_codes: vec![],
             },
             "yai.openai_compatible.embedding.synthetic.v1",
@@ -1956,6 +2015,7 @@ mod tests {
             extension_telemetry_observed: true,
             text_embedding_envelope_valid: false,
             embedding_dimension: None,
+            realization_shapes: Vec::new(),
             failure_codes: vec![],
         };
         let capabilities = derived_capabilities(&evidence, PROVIDER_QUALIFICATION_SCHEMA_V1);

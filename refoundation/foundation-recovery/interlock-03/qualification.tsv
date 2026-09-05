@@ -1,0 +1,17 @@
+property	mechanism	result	evidence
+native_exact_dispatch	primary plan plus v4 text_to_text evidence	PASS	actual loopback ProviderSelection/Invocation/Result
+derived_audio	auxiliary speech_to_text plus audio_wav_to_text	PASS	immutable transcript with source part and ProviderResult
+derived_ordered_images	auxiliary image_understanding plus ordered_png_text_to_text	PASS	text+PNG+PNG+text order and four distinct part IDs preserved
+name_inference	misleading provider/model names	PASS	no semantic or mechanical capability inferred from names
+semantic_without_mechanical	suitable target without wire shape	PASS	refused before ProviderSelection and HTTP dispatch
+mechanical_without_semantic	v4 shape without active suitable binding	PASS	I02 fresh-plan construction remains prerequisite
+capability_shape_composition	exact selector receives shape inconsistent with semantic plan	PASS	refused before ProviderSelection
+exact_target	provider envelope containing alternate suitable targets	PASS	exact selector contains only plan target; no substitution
+stale_plan	binding/envelope generation replacement	PASS	fresh-plan/current-binding revalidation rejects
+result_then_crash	after-provider-result failpoint	PASS	recovered_without_dispatch; Turn unchanged
+malformed_result	invalid JSON response	PASS	ResponseInvalid; no derived content
+normalization_failure	empty text result	PASS	ProviderResult retained; no derived content
+delivery_indeterminate	partial response then disconnect	PASS	no derived content and no unsafe retry
+participant_isolation	unlinked/wrong Participant inspection and realization	PASS	both paths reject Principal-to-Participant mismatch before reading content
+continuation_scope	I02 lane/target continuation validation	PASS	cross-lane stale hint rejected; loss remains safe
+compatibility	engine/CLI/full characterization	PASS	old Transition readers and I01/I02/W19/W20 suites green

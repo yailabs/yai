@@ -501,3 +501,26 @@ semantic suitability. Plans perform no provider dispatch, network access,
 content derivation, YVEX activation or model execution. I03 retains typed media
 realization, native-versus-auxiliary execution, execution-provider adapters and
 dynamic arbitration. Replia/Studio, H20, W21 and W22 remain outside I02.
+
+## Completed boundary — typed provider realization and auxiliary execution
+
+Interlock I03 consumes one fresh I02 plan and exact canonical Turn parts only
+after revalidating the current binding, target-bound semantic evidence,
+provider envelope, trust, target identity, credential posture and
+ProviderQualification v4 wire-shape evidence. The OpenAI-compatible adapter
+preserves source-part order and repeated equal-byte parts for the admitted
+text, PNG and WAV shapes. Exact-target selection deliberately makes
+transport-level substitution impossible.
+
+Native plans reuse the primary lane. Derived speech-to-text and image-
+understanding plans may publish only bounded normalized text into the existing
+immutable ConversationContentStore, followed by a Case-canonical v1 relation
+binding source parts, lane, target, qualification, selection, invocation and
+ProviderResult. The source ConversationTurn is unchanged and provider content
+remains non-authoritative candidate material. A recorded result can complete
+publication after restart without provider reinvocation; indeterminate or
+invalid results publish nothing.
+
+I03 does not add dynamic arbitration, automatic auxiliary-to-primary
+orchestration, production STT/vision integrations, YVEX private-protocol
+coupling, streaming, Replia, Studio, H20, W21 or W22.

@@ -462,12 +462,14 @@ const PROVIDER_PROBE: &[FlagSpec] = &[
     flag("--tenant", Some("TENANT"), false),
     flag("--provider-key", Some("KEY"), false),
     bool_flag("--embedding"),
+    repeat_flag("--realization-shape", "SHAPE"),
 ];
 const PROVIDER_QUALIFY: &[FlagSpec] = &[
     flag("--tenant", Some("TENANT"), false),
     flag("--provider-key", Some("KEY"), false),
     flag("--valid-for-ms", Some("MS"), false),
     bool_flag("--embedding"),
+    repeat_flag("--realization-shape", "SHAPE"),
 ];
 const PROVIDER_SUITABILITY_RECORD: &[FlagSpec] = &[
     choice_flag(
@@ -546,6 +548,25 @@ const CASE_COGNITIVE_PLAN: &[FlagSpec] = &[
     flag("--continuation-target", Some("TARGET"), false),
     flag("--continuation-runtime", Some("RUNTIME"), false),
     flag("--continuation-ref", Some("REF"), false),
+];
+const CASE_COGNITIVE_REALIZE: &[FlagSpec] = &[
+    flag("--participant", Some("PARTICIPANT"), true),
+    choice_flag(
+        "--capability",
+        &[
+            "primary_conversation",
+            "speech_to_text",
+            "image_understanding",
+        ],
+        true,
+    ),
+    flag("--turn", Some("TURN"), true),
+    repeat_flag("--part", "PART"),
+    flag("--continuation-lane", Some("LANE"), false),
+    flag("--continuation-target", Some("TARGET"), false),
+    flag("--continuation-runtime", Some("RUNTIME"), false),
+    flag("--continuation-ref", Some("REF"), false),
+    choice_flag("--failpoint", &["after-provider-result"], false),
 ];
 const CASE_MEMORY_SEARCH: &[FlagSpec] = &[
     flag("--participant", Some("PARTICIPANT"), true),
@@ -1276,6 +1297,28 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         Structured,
         &[pos("case", Some("--case"))],
         CASE_COGNITIVE_PLAN
+    ),
+    op!(
+        "yai.case.cognitive.realize",
+        ["case", "cognitive", "realize"],
+        "Realize one fresh semantic plan through its exact provider target",
+        Advanced,
+        LocalDomain,
+        LongRunning,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_COGNITIVE_REALIZE
+    ),
+    op!(
+        "yai.case.cognitive.derived.show",
+        ["case", "cognitive", "derived", "show"],
+        "Inspect restart-resolvable provider-derived conversation content",
+        Advanced,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_COGNITIVE_SHOW
     ),
     Descriptor {
         aliases: &[&["case", "attach-filesystem"]],

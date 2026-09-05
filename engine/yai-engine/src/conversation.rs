@@ -6,7 +6,9 @@
 //! are mutable staging state and acquire no Case authority until SEND commits
 //! a turn. Content derivations retain their sources instead of replacing them.
 
+use crate::cognitive::CognitiveCapability;
 use crate::effect::digest_bytes;
+use crate::provider_governance::ProviderRealizationShape;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 #[cfg(target_os = "linux")]
@@ -31,6 +33,9 @@ pub const CONTENT_DERIVATION_SCHEMA: &str = "yai.content_derivation.v1";
 pub const CONVERSATION_TURN_SCHEMA: &str = "yai.conversation_turn.v1";
 pub const CONVERSATION_DRAFT_SCHEMA: &str = "yai.conversation_draft.v1";
 pub const CONTENT_STORE_SCHEMA: &str = "yai.conversation_content_store.v1";
+pub const DERIVED_CONTENT_SCHEMA: &str = "yai.conversation_derived_content.v1";
+pub const PROVIDER_DERIVED_TEXT_NORMALIZER: &str =
+    "yai.conversation_provider_derived_text_normalizer.v1";
 
 pub const MAX_CONTENT_OBJECT_BYTES: u64 = 16 * 1024 * 1024;
 pub const MAX_TURN_CONTENT_BYTES: u64 = 64 * 1024 * 1024;
@@ -38,6 +43,14 @@ pub const MAX_TURN_PARTS: usize = 32;
 pub const MAX_TEXT_BYTES: usize = 64 * 1024;
 pub const MAX_DRAFT_JSON_BYTES: u64 = 512 * 1024;
 pub const MAX_DERIVATION_SOURCES: usize = 16;
+
+pub fn normalize_provider_derived_text(output: &str) -> Result<String, String> {
+    let normalized = output.trim().to_string();
+    if normalized.is_empty() || normalized.len() > MAX_TEXT_BYTES {
+        return Err("conversation_provider_derived_text_invalid".to_string());
+    }
+    Ok(normalized)
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -123,6 +136,27 @@ pub struct ContentDerivation {
 }
 
 impl ContentDerivation {
+    pub fn provider(
+        case_id: &str,
+        kind: ContentDerivationKind,
+        source_part_ids: Vec<String>,
+        target_id: &str,
+        provider_result_id: &str,
+    ) -> Result<Self, String> {
+        let mut value = Self {
+            schema: CONTENT_DERIVATION_SCHEMA.to_string(),
+            derivation_id: String::new(),
+            case_id: case_id.to_string(),
+            kind,
+            source_part_ids,
+            actor_kind: DerivationActorKind::Provider,
+            actor_ref: target_id.to_string(),
+            provider_result_id: Some(provider_result_id.to_string()),
+        };
+        value.derivation_id = format!("content-derivation:{}", value.identity_digest()?);
+        Ok(value)
+    }
+
     fn identity_digest(&self) -> Result<String, String> {
         digest_json(&(
             CONTENT_DERIVATION_SCHEMA,
@@ -529,6 +563,283 @@ impl ConversationTurn {
     }
 }
 
+/// Canonical post-SEND relation for provider-derived application content.
+/// The referenced bytes remain owned by `ConversationContentStore`; this
+/// record never mutates or appends to the source `ConversationTurn`.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ConversationDerivedContent {
+    pub schema: String,
+    pub derived_content_id: String,
+    pub tenant_id: String,
+    pub case_id: String,
+    pub source_turn_id: String,
+    pub source_turn_digest: String,
+    pub source_part_ids: Vec<String>,
+    pub capability: CognitiveCapability,
+    pub realization_shape: ProviderRealizationShape,
+    pub normalization_contract_id: String,
+    pub plan_id: String,
+    pub execution_lane_id: String,
+    pub cognitive_binding_id: String,
+    pub semantic_evidence_id: String,
+    pub target_id: String,
+    pub target_digest: String,
+    pub provider_qualification_id: String,
+    pub provider_selection_id: String,
+    pub provider_invocation_id: String,
+    pub provider_result_id: String,
+    pub object: ConversationContentObject,
+    pub derivation: ContentDerivation,
+}
+
+#[derive(Serialize)]
+struct ConversationDerivedContentIdentity<'a> {
+    schema: &'a str,
+    tenant_id: &'a str,
+    case_id: &'a str,
+    source_turn_id: &'a str,
+    source_turn_digest: &'a str,
+    source_part_ids: &'a [String],
+    capability: &'a CognitiveCapability,
+    realization_shape: &'a ProviderRealizationShape,
+    normalization_contract_id: &'a str,
+    plan_id: &'a str,
+    execution_lane_id: &'a str,
+    cognitive_binding_id: &'a str,
+    semantic_evidence_id: &'a str,
+    target_id: &'a str,
+    target_digest: &'a str,
+    provider_qualification_id: &'a str,
+    provider_selection_id: &'a str,
+    provider_invocation_id: &'a str,
+    provider_result_id: &'a str,
+    object: &'a ConversationContentObject,
+    derivation: &'a ContentDerivation,
+}
+
+impl ConversationDerivedContent {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        source_turn: &ConversationTurn,
+        source_part_ids: Vec<String>,
+        capability: CognitiveCapability,
+        realization_shape: ProviderRealizationShape,
+        plan_id: &str,
+        execution_lane_id: &str,
+        cognitive_binding_id: &str,
+        semantic_evidence_id: &str,
+        target_id: &str,
+        target_digest: &str,
+        provider_qualification_id: &str,
+        provider_selection_id: &str,
+        provider_invocation_id: &str,
+        provider_result_id: &str,
+        object: ConversationContentObject,
+    ) -> Result<Self, String> {
+        let kind = match capability {
+            CognitiveCapability::SpeechToText => ContentDerivationKind::SpeechTranscription,
+            CognitiveCapability::ImageUnderstanding => ContentDerivationKind::ImageCaption,
+            CognitiveCapability::PrimaryConversation => {
+                return Err("primary_conversation_does_not_publish_derived_content".to_string())
+            }
+        };
+        let derivation = ContentDerivation::provider(
+            &source_turn.case_id,
+            kind,
+            source_part_ids.clone(),
+            target_id,
+            provider_result_id,
+        )?;
+        let mut value = Self {
+            schema: DERIVED_CONTENT_SCHEMA.to_string(),
+            derived_content_id: String::new(),
+            tenant_id: source_turn.tenant_id.clone(),
+            case_id: source_turn.case_id.clone(),
+            source_turn_id: source_turn.turn_id.clone(),
+            source_turn_digest: source_turn.content_digest.clone(),
+            source_part_ids,
+            capability,
+            realization_shape,
+            normalization_contract_id: PROVIDER_DERIVED_TEXT_NORMALIZER.to_string(),
+            plan_id: plan_id.to_string(),
+            execution_lane_id: execution_lane_id.to_string(),
+            cognitive_binding_id: cognitive_binding_id.to_string(),
+            semantic_evidence_id: semantic_evidence_id.to_string(),
+            target_id: target_id.to_string(),
+            target_digest: target_digest.to_string(),
+            provider_qualification_id: provider_qualification_id.to_string(),
+            provider_selection_id: provider_selection_id.to_string(),
+            provider_invocation_id: provider_invocation_id.to_string(),
+            provider_result_id: provider_result_id.to_string(),
+            object,
+            derivation,
+        };
+        value.derived_content_id = format!(
+            "conversation-derived:{}",
+            digest_json(&ConversationDerivedContentIdentity {
+                schema: DERIVED_CONTENT_SCHEMA,
+                tenant_id: &value.tenant_id,
+                case_id: &value.case_id,
+                source_turn_id: &value.source_turn_id,
+                source_turn_digest: &value.source_turn_digest,
+                source_part_ids: &value.source_part_ids,
+                capability: &value.capability,
+                realization_shape: &value.realization_shape,
+                normalization_contract_id: &value.normalization_contract_id,
+                plan_id: &value.plan_id,
+                execution_lane_id: &value.execution_lane_id,
+                cognitive_binding_id: &value.cognitive_binding_id,
+                semantic_evidence_id: &value.semantic_evidence_id,
+                target_id: &value.target_id,
+                target_digest: &value.target_digest,
+                provider_qualification_id: &value.provider_qualification_id,
+                provider_selection_id: &value.provider_selection_id,
+                provider_invocation_id: &value.provider_invocation_id,
+                provider_result_id: &value.provider_result_id,
+                object: &value.object,
+                derivation: &value.derivation,
+            })?
+        );
+        Ok(value)
+    }
+
+    pub fn validate_structure(&self) -> Result<(), String> {
+        if self.schema != DERIVED_CONTENT_SCHEMA
+            || self.object.case_id != self.case_id
+            || self.object.tenant_id != self.tenant_id
+            || self.object.modality != ContentModality::Text
+            || self.object.inline_text.is_none()
+        {
+            return Err("conversation_derived_content_scope_invalid".to_string());
+        }
+        self.object.validate()?;
+        if self.normalization_contract_id != PROVIDER_DERIVED_TEXT_NORMALIZER {
+            return Err("conversation_derived_content_normalizer_invalid".to_string());
+        }
+        match (&self.capability, &self.realization_shape) {
+            (CognitiveCapability::SpeechToText, ProviderRealizationShape::AudioWavToText)
+            | (
+                CognitiveCapability::ImageUnderstanding,
+                ProviderRealizationShape::OrderedPngTextToText,
+            ) => {}
+            (CognitiveCapability::PrimaryConversation, _) => {
+                return Err("primary_conversation_does_not_publish_derived_content".to_string())
+            }
+            _ => return Err("conversation_derived_content_capability_shape_mismatch".to_string()),
+        }
+        validate_scope_id("case_id", &self.case_id, "case:")?;
+        validate_scope_id("tenant_id", &self.tenant_id, "tenant:")?;
+        let admitted = self
+            .source_part_ids
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        self.derivation.validate(&self.case_id, &admitted)?;
+        if self.derivation.source_part_ids != self.source_part_ids
+            || self.derivation.actor_ref != self.target_id
+            || self.derivation.provider_result_id.as_deref() != Some(&self.provider_result_id)
+            || self.source_part_ids.is_empty()
+            || self.source_part_ids.len() > MAX_DERIVATION_SOURCES
+        {
+            return Err("conversation_derived_content_provenance_invalid".to_string());
+        }
+        for value in [
+            &self.source_turn_id,
+            &self.source_turn_digest,
+            &self.normalization_contract_id,
+            &self.plan_id,
+            &self.execution_lane_id,
+            &self.cognitive_binding_id,
+            &self.semantic_evidence_id,
+            &self.target_id,
+            &self.target_digest,
+            &self.provider_qualification_id,
+            &self.provider_selection_id,
+            &self.provider_invocation_id,
+            &self.provider_result_id,
+        ] {
+            require_bounded("conversation_derived_content_ref", value, 256)?;
+        }
+        Ok(())
+    }
+
+    pub fn validate(&self, source_turn: &ConversationTurn) -> Result<(), String> {
+        self.validate_structure()?;
+        source_turn.validate()?;
+        if self.case_id != source_turn.case_id
+            || self.tenant_id != source_turn.tenant_id
+            || self.source_turn_id != source_turn.turn_id
+            || self.source_turn_digest != source_turn.content_digest
+            || self.source_part_ids.iter().any(|source| {
+                !source_turn
+                    .ordered_parts
+                    .iter()
+                    .any(|part| part.part_id == *source)
+            })
+        {
+            return Err("conversation_derived_content_source_invalid".to_string());
+        }
+        let source_parts = self
+            .source_part_ids
+            .iter()
+            .map(|source| {
+                source_turn
+                    .ordered_parts
+                    .iter()
+                    .find(|part| part.part_id == *source)
+                    .expect("source membership validated above")
+            })
+            .collect::<Vec<_>>();
+        let shape_matches_sources = match self.realization_shape {
+            ProviderRealizationShape::AudioWavToText => {
+                source_parts.len() == 1
+                    && source_parts[0].object.modality == ContentModality::Audio
+                    && matches!(
+                        source_parts[0].object.media_type.as_str(),
+                        "audio/wav" | "audio/x-wav"
+                    )
+            }
+            ProviderRealizationShape::OrderedPngTextToText => {
+                source_parts
+                    .iter()
+                    .any(|part| part.object.modality == ContentModality::Image)
+                    && source_parts.iter().all(|part| {
+                        part.object.modality == ContentModality::Text
+                            || (part.object.modality == ContentModality::Image
+                                && part.object.media_type == "image/png")
+                    })
+            }
+            ProviderRealizationShape::TextToText => false,
+        };
+        if !shape_matches_sources {
+            return Err("conversation_derived_content_source_shape_mismatch".to_string());
+        }
+        let rebuilt = Self::new(
+            source_turn,
+            self.source_part_ids.clone(),
+            self.capability.clone(),
+            self.realization_shape.clone(),
+            &self.plan_id,
+            &self.execution_lane_id,
+            &self.cognitive_binding_id,
+            &self.semantic_evidence_id,
+            &self.target_id,
+            &self.target_digest,
+            &self.provider_qualification_id,
+            &self.provider_selection_id,
+            &self.provider_invocation_id,
+            &self.provider_result_id,
+            self.object.clone(),
+        )?;
+        if rebuilt.derived_content_id != self.derived_content_id
+            || rebuilt.derivation != self.derivation
+        {
+            return Err("conversation_derived_content_identity_mismatch".to_string());
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct DraftContentPart {
     pub draft_blob_id: String,
@@ -747,7 +1058,7 @@ impl ConversationContentStore {
         Ok(parts)
     }
 
-    pub fn verify_object(&self, object: &ConversationContentObject) -> Result<(), String> {
+    fn read_verified_bytes(&self, object: &ConversationContentObject) -> Result<Vec<u8>, String> {
         object.validate()?;
         let digest = object
             .object_id
@@ -767,19 +1078,40 @@ impl ConversationContentStore {
         if &stored != object {
             return Err("conversation_content_object_metadata_mismatch".to_string());
         }
-        Ok(())
+        Ok(bytes)
+    }
+
+    pub fn verify_object(&self, object: &ConversationContentObject) -> Result<(), String> {
+        self.read_verified_bytes(object).map(|_| ())
     }
 
     pub fn read_text(&self, object: &ConversationContentObject) -> Result<String, String> {
         if object.modality != ContentModality::Text {
             return Err("conversation_content_object_not_text".to_string());
         }
-        self.verify_object(object)?;
-        let digest = object.object_id.trim_start_matches("content-object:");
-        let objects = open_child_directory(&self.root_directory, "objects", false)?;
-        let object_dir = open_child_directory(&objects, digest, false)?;
-        let bytes = read_bounded_at(&object_dir, "payload", object.byte_length as usize)?;
+        let bytes = self.read_verified_bytes(object)?;
         String::from_utf8(bytes).map_err(|_| "conversation_text_content_invalid".to_string())
+    }
+
+    pub fn read_bytes(&self, object: &ConversationContentObject) -> Result<Vec<u8>, String> {
+        self.read_verified_bytes(object)
+    }
+
+    pub fn publish_derived_text(
+        &self,
+        tenant_id: &str,
+        case_id: &str,
+        text: &str,
+    ) -> Result<ConversationContentObject, String> {
+        let object = ConversationContentObject::new(
+            tenant_id,
+            case_id,
+            ContentModality::Text,
+            "text/plain;charset=utf-8",
+            text.as_bytes(),
+        )?;
+        self.publish_object(&object, text.as_bytes())?;
+        Ok(object)
     }
 
     pub fn discard_draft(&self, case_id: &str, draft_id: &str) -> Result<(), String> {
@@ -869,6 +1201,21 @@ pub fn find_turn<'a>(
     turns_from_history(case_id, transitions)
         .into_iter()
         .find(|turn| turn.turn_id == turn_id)
+}
+
+pub fn derived_content_from_history<'a>(
+    case_id: &str,
+    transitions: &'a [crate::transition::Transition],
+) -> Vec<&'a ConversationDerivedContent> {
+    transitions
+        .iter()
+        .filter_map(|transition| match &transition.payload {
+            crate::transition::TransitionPayload::ConversationDerivedContentRecorded {
+                derived,
+            } if derived.case_id == case_id => Some(derived),
+            _ => None,
+        })
+        .collect()
 }
 
 fn validate_scope_id(field: &str, value: &str, prefix: &str) -> Result<(), String> {
@@ -1743,6 +2090,73 @@ mod tests {
         assert_ne!(a.object_id, case_b.object_id);
         assert_ne!(a.object_id, tenant_b.object_id);
         assert_eq!(a.content_digest, case_b.content_digest);
+    }
+
+    #[test]
+    fn provider_derived_content_binds_capability_shape_and_source_modality() {
+        let text_source = ConversationContentPart::build(
+            0,
+            ConversationContentObject::new(
+                "tenant:i01",
+                "case:i01",
+                ContentModality::Text,
+                "text/plain",
+                b"not audio",
+            )
+            .unwrap(),
+            original(),
+        )
+        .unwrap();
+        let turn = ConversationTurn::build(
+            "case:i01",
+            "tenant:i01",
+            "thread:i01",
+            "participant:operator",
+            "principal:operator",
+            4,
+            vec![text_source.clone()],
+        )
+        .unwrap();
+        let output = ConversationContentObject::new(
+            "tenant:i01",
+            "case:i01",
+            ContentModality::Text,
+            "text/plain",
+            b"provider candidate",
+        )
+        .unwrap();
+        let build = |shape| {
+            ConversationDerivedContent::new(
+                &turn,
+                vec![text_source.part_id.clone()],
+                CognitiveCapability::SpeechToText,
+                shape,
+                "cognitive-plan:i03",
+                "execution-lane:i03",
+                "cognitive-binding:i03",
+                "semantic-evidence:i03",
+                "provider-target:i03",
+                "sha256:target",
+                "provider-qualification:i03",
+                "provider-selection:i03",
+                "provider-invocation:i03",
+                "provider-result:i03",
+                output.clone(),
+            )
+            .unwrap()
+        };
+        assert_eq!(
+            build(ProviderRealizationShape::OrderedPngTextToText)
+                .validate_structure()
+                .unwrap_err(),
+            "conversation_derived_content_capability_shape_mismatch"
+        );
+        assert_eq!(
+            build(ProviderRealizationShape::AudioWavToText)
+                .validate(&turn)
+                .unwrap_err(),
+            "conversation_derived_content_source_shape_mismatch"
+        );
     }
 
     #[test]

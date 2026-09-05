@@ -79,6 +79,7 @@ fn target(
                 extension_telemetry_observed: false,
                 text_embedding_envelope_valid: false,
                 embedding_dimension: None,
+                realization_shapes: Vec::new(),
                 failure_codes: Vec::new(),
             },
             "yai.i02.deterministic_provider_fixture.v1",

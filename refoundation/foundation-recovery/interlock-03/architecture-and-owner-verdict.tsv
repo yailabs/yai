@@ -1,0 +1,12 @@
+concept	classification	persistent_owner	verdict	reason
+conversation_turn	canonical_case_history	Case Transition ledger	unchanged	SEND identity remains immutable and independent of provider execution
+conversation_content_bytes	owned_immutable_resource	ConversationContentStore	unchanged	original and derived bytes require integrity-bound durable ownership
+provider_realization_shape	provider_governance_evidence	provider_governance database	extended_existing_owner	exact adapter/target mechanical evidence has the provider qualification lifecycle
+conversation_derived_content	canonical_case_relation	Case Transition ledger	minimum_new_relation	post-SEND source/result provenance must survive restart without mutating the Turn
+cognitive_execution_plan	derived_no_owner	none	unchanged	fresh plan is rebuilt and revalidated immediately before dispatch
+execution_lane	derived_no_owner	none	unchanged	deterministic logical identity is not a runtime/session owner
+provider_continuation	ephemeral_optimization	none	unchanged	loss degrades to semantic reconstruction
+provider_result	canonical_candidate_history	Case Transition ledger	unchanged	actual result remains non-authoritative candidate material
+semantic_owner_delta	count	none	0	no new truth owner
+operational_owner_delta	count	none	0	no model/runtime/effect owner
+lmdb_database_delta	count	existing LMDB environment	0	37 of 40 databases remain

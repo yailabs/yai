@@ -1917,11 +1917,121 @@ fn decode_provider_response(body: &str) -> Result<DecodedProviderResponse, Strin
     })
 }
 
+#[derive(Clone, Debug)]
+pub(super) struct ProviderWireInputPart {
+    pub source_part_id: String,
+    pub modality: yai_core_engine::conversation::ContentModality,
+    pub media_type: String,
+    pub bytes: Vec<u8>,
+}
+
+impl ProviderWireInputPart {
+    fn validate(&self) -> Result<(), String> {
+        use yai_core_engine::conversation::ContentModality;
+        if self.source_part_id.is_empty()
+            || self.source_part_id.len() > 256
+            || self.bytes.is_empty()
+            || self.bytes.len() > 1_200_000
+        {
+            return Err("provider_typed_input_part_size_invalid".to_string());
+        }
+        match self.modality {
+            ContentModality::Text => {
+                std::str::from_utf8(&self.bytes)
+                    .map_err(|_| "provider_typed_text_invalid_utf8".to_string())?;
+            }
+            ContentModality::Image if self.media_type == "image/png" => {
+                if !self.bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
+                    return Err("provider_typed_png_signature_invalid".to_string());
+                }
+            }
+            ContentModality::Audio
+                if matches!(self.media_type.as_str(), "audio/wav" | "audio/x-wav") =>
+            {
+                if self.bytes.len() < 12
+                    || &self.bytes[..4] != b"RIFF"
+                    || &self.bytes[8..12] != b"WAVE"
+                {
+                    return Err("provider_typed_wav_signature_invalid".to_string());
+                }
+            }
+            _ => return Err("provider_typed_input_shape_not_supported".to_string()),
+        }
+        Ok(())
+    }
+
+    fn to_openai_content(&self) -> Result<serde_json::Value, String> {
+        use yai_core_engine::conversation::ContentModality;
+        self.validate()?;
+        match self.modality {
+            ContentModality::Text => Ok(serde_json::json!({
+                "type":"text",
+                "text": std::str::from_utf8(&self.bytes)
+                    .map_err(|_| "provider_typed_text_invalid_utf8".to_string())?
+            })),
+            ContentModality::Image if self.media_type == "image/png" => Ok(serde_json::json!({
+                "type":"image_url",
+                "image_url":{"url":format!("data:{};base64,{}", self.media_type, encode_base64(&self.bytes))}
+            })),
+            ContentModality::Audio
+                if matches!(self.media_type.as_str(), "audio/wav" | "audio/x-wav") =>
+            {
+                Ok(serde_json::json!({
+                    "type":"input_audio",
+                    "input_audio":{"data":encode_base64(&self.bytes),"format":"wav"}
+                }))
+            }
+            _ => Err("provider_typed_input_shape_not_supported".to_string()),
+        }
+    }
+}
+
+fn validate_provider_wire_parts(parts: &[ProviderWireInputPart]) -> Result<(), String> {
+    if parts.is_empty() || parts.len() > 16 {
+        return Err("provider_typed_input_part_count_invalid".to_string());
+    }
+    let mut total = 0usize;
+    for part in parts {
+        part.validate()?;
+        total = total
+            .checked_add(part.bytes.len())
+            .ok_or_else(|| "provider_typed_input_total_size_invalid".to_string())?;
+    }
+    if total > 4_000_000 {
+        return Err("provider_typed_input_total_size_invalid".to_string());
+    }
+    Ok(())
+}
+
+fn encode_base64(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut output = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let first = chunk[0];
+        let second = chunk.get(1).copied().unwrap_or(0);
+        let third = chunk.get(2).copied().unwrap_or(0);
+        output.push(TABLE[(first >> 2) as usize] as char);
+        output.push(TABLE[(((first & 0x03) << 4) | (second >> 4)) as usize] as char);
+        output.push(if chunk.len() > 1 {
+            TABLE[(((second & 0x0f) << 2) | (third >> 6)) as usize] as char
+        } else {
+            '='
+        });
+        output.push(if chunk.len() > 2 {
+            TABLE[(third & 0x3f) as usize] as char
+        } else {
+            '='
+        });
+    }
+    output
+}
+
 fn provider_http_request(
     config: &ProviderConfig,
     rendered: &RenderedInput,
     continuation: Option<&ProviderContinuationReference>,
     structured_json: bool,
+    typed_parts: Option<&[ProviderWireInputPart]>,
 ) -> Result<(u16, String, usize), String> {
     let endpoint = super::provider_transport::parse_provider_endpoint(&config.base_url)?;
     if let Some(reference) = continuation {
@@ -1932,12 +2042,24 @@ fn provider_http_request(
             return Err("provider_continuation_not_supported".to_string());
         }
     }
+    let user_content = if let Some(parts) = typed_parts {
+        let mut content = vec![serde_json::json!({
+            "type": "text",
+            "text": rendered.user_content
+        })];
+        for part in parts {
+            content.push(part.to_openai_content()?);
+        }
+        serde_json::Value::Array(content)
+    } else {
+        serde_json::Value::String(rendered.user_content.clone())
+    };
     let mut body = serde_json::json!({
         "model": config.model,
         "stream": false,
         "messages": [
             {"role": "system", "content": rendered.system_content},
-            {"role": "user", "content": rendered.user_content}
+            {"role": "user", "content": user_content}
         ]
     });
     let object = body.as_object_mut().expect("provider request object");
@@ -1982,11 +2104,12 @@ fn provider_chat_completion(
     config: &ProviderConfig,
     rendered: &RenderedInput,
     structured_json: bool,
+    typed_parts: Option<&[ProviderWireInputPart]>,
 ) -> Result<ProviderTransportResult, String> {
     let started = Instant::now();
     let continuation = config.continuation_ref.as_ref();
     let (status, body_text, request_bytes_written) =
-        provider_http_request(config, rendered, continuation, structured_json)?;
+        provider_http_request(config, rendered, continuation, structured_json, typed_parts)?;
     let success = (200..300).contains(&status);
     let disposition = if success {
         if continuation.is_some() {
@@ -2002,6 +2125,12 @@ fn provider_chat_completion(
     let decoded = decode_provider_response(&body_text).map_err(|error| {
         format!("provider_response_invalid:status={status}:bytes={request_bytes_written}:{error}")
     })?;
+    if typed_parts.is_some() && decoded.response_model_id.as_deref() != Some(config.model.as_str())
+    {
+        return Err(format!(
+            "provider_response_invalid:status={status}:bytes={request_bytes_written}:exact_model_mismatch"
+        ));
+    }
     Ok(ProviderTransportResult {
         output: decoded.output,
         response_model_id: decoded.response_model_id,
@@ -2146,6 +2275,107 @@ pub(super) fn governed_provider_route_for_attempt(
         args.push("--api-key-env".to_string());
         args.push(environment.to_string());
         args.push("--credential-required".to_string());
+    }
+    Ok(ProviderInvocationRoute { args, selection })
+}
+
+pub(super) fn governed_provider_route_for_exact_plan(
+    plan: &yai_core_engine::cognitive::CognitiveExecutionPlan,
+    requirement: &ProviderRequirement,
+    realization_shape: &yai_core_engine::provider_governance::ProviderRealizationShape,
+    logical_turn_id: &str,
+    continuation: Option<&yai_core_engine::cognitive::LaneContinuationReference>,
+) -> Result<ProviderInvocationRoute, String> {
+    use yai_core_engine::cognitive::{assess_lane_continuation, LaneContinuationPosture};
+    let target_id = plan
+        .selected_target_id
+        .as_deref()
+        .ok_or_else(|| "cognitive_realization_plan_unresolved".to_string())?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let authenticated = authenticate_local()?;
+    let (target, _, _, _) = store.provider_posture_authorized(&authenticated, target_id)?;
+    let mut available_credentials = BTreeSet::new();
+    if target.credential_ref == "none"
+        || target
+            .credential_ref
+            .strip_prefix("env:")
+            .is_some_and(|name| env_var(name).is_some())
+    {
+        available_credentials.insert(target.credential_ref.clone());
+    }
+    if !matches!(
+        assess_lane_continuation(plan, continuation),
+        LaneContinuationPosture::NotProvidedSemanticReconstruction
+            | LaneContinuationPosture::Compatible
+    ) {
+        return Err("cognitive_realization_continuation_incompatible".to_string());
+    }
+    let selection = match store.select_case_provider_exact_authorized(
+        &authenticated,
+        plan,
+        requirement,
+        realization_shape,
+        logical_turn_id,
+        &available_credentials,
+    )? {
+        ProviderSelectionStoreOutcome::Selected { selection, .. }
+        | ProviderSelectionStoreOutcome::AlreadySelected(selection) => selection,
+        ProviderSelectionStoreOutcome::Waiting { exclusions } => {
+            return Err(format!(
+                "cognitive_realization_target_unavailable:{}",
+                exclusions
+                    .iter()
+                    .map(|entry| format!("{}:{:?}", entry.target_id, entry.code))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ));
+        }
+    };
+    if selection.selected_target_id != target_id {
+        return Err("cognitive_realization_exact_target_substitution".to_string());
+    }
+    let locality = match target.locality {
+        ProviderLocality::Loopback => "loopback",
+        ProviderLocality::PrivateNetwork => "private_network",
+        ProviderLocality::Remote => "remote",
+    };
+    let mut args = vec![
+        "--case".to_string(),
+        plan.case_id.clone(),
+        "--subject".to_string(),
+        plan.participant_id.clone(),
+        "--base-url".to_string(),
+        target_chat_endpoint(&target.endpoint),
+        "--provider-id".to_string(),
+        target.target_id.clone(),
+        "--model".to_string(),
+        target.model_id.clone(),
+        "--selection-id".to_string(),
+        selection.selection_id.clone(),
+        "--target-id".to_string(),
+        target.target_id.clone(),
+        "--logical-turn-id".to_string(),
+        logical_turn_id.to_string(),
+        "--attempt-number".to_string(),
+        "1".to_string(),
+        "--provider-locality".to_string(),
+        locality.to_string(),
+    ];
+    if let Some(environment) = target.credential_ref.strip_prefix("env:") {
+        args.extend([
+            "--api-key-env".to_string(),
+            environment.to_string(),
+            "--credential-required".to_string(),
+        ]);
+    }
+    if let Some(continuation) = continuation {
+        args.extend([
+            "--provider-runtime-id".to_string(),
+            continuation.runtime_id.clone(),
+            "--continuation-ref".to_string(),
+            continuation.opaque_reference.clone(),
+            "--continuation-capable".to_string(),
+        ]);
     }
     Ok(ProviderInvocationRoute { args, selection })
 }
@@ -2664,6 +2894,28 @@ pub(super) fn invoke_semantic_provider(
         output_contract,
         options,
         None,
+        None,
+    )
+}
+
+pub(super) fn invoke_semantic_provider_typed(
+    args: &[String],
+    purpose: ProjectionPurpose,
+    task: &str,
+    output_contract: InvocationOutputContract,
+    options: &SemanticInvocationOptions,
+    typed_parts: &[ProviderWireInputPart],
+) -> Result<ControlledProviderResult, String> {
+    validate_provider_wire_parts(typed_parts)
+        .map_err(|error| format!("provider_not_dispatched:typed_input:{error}"))?;
+    invoke_semantic_provider_with_optional_journal(
+        args,
+        purpose,
+        task,
+        output_contract,
+        options,
+        None,
+        Some(typed_parts),
     )
 }
 
@@ -2682,6 +2934,7 @@ pub(super) fn invoke_semantic_provider_with_journal(
         output_contract,
         options,
         Some(journal_path),
+        None,
     )
 }
 
@@ -2692,6 +2945,7 @@ fn invoke_semantic_provider_with_optional_journal(
     output_contract: InvocationOutputContract,
     options: &SemanticInvocationOptions,
     journal_path: Option<&Path>,
+    typed_parts: Option<&[ProviderWireInputPart]>,
 ) -> Result<ControlledProviderResult, String> {
     let session = prompt_runtime_from_args_with_journal(args, journal_path)
         .map_err(|error| format!("provider_not_dispatched:local_setup:{error}"))?;
@@ -2714,8 +2968,12 @@ fn invoke_semantic_provider_with_optional_journal(
         semantic.frame.output_contract,
         InvocationOutputContract::MemoryConsolidation { .. }
     );
-    let transport =
-        provider_chat_completion(&session.provider, &semantic.rendered, structured_json)?;
+    let transport = provider_chat_completion(
+        &session.provider,
+        &semantic.rendered,
+        structured_json,
+        typed_parts,
+    )?;
     let result_lineage = invocation_lineage(&semantic, transport.continuation_disposition.clone());
     let result_id = append_model_output_receipt(
         &session,
@@ -3137,7 +3395,7 @@ fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> 
         InvocationOutputContract::MemoryConsolidation { .. }
     );
     let transport =
-        provider_chat_completion(&session.provider, &semantic.rendered, structured_json)?;
+        provider_chat_completion(&session.provider, &semantic.rendered, structured_json, None)?;
     let output = transport.output.clone();
     println!();
     print_cli_section(colors, "MODEL", &session.provider.model, ANSI_MAGENTA);
@@ -3492,11 +3750,15 @@ pub(super) fn prompt_repl(args: &[String]) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_provider_response, provider_http_request, ProviderConfig};
+    use super::{
+        decode_provider_response, provider_http_request, validate_provider_wire_parts,
+        ProviderConfig, ProviderWireInputPart,
+    };
     use std::io::Read;
     use std::net::TcpListener;
     use std::thread;
     use yai_core_engine::context::{RenderedInput, RenderedInputMetadata};
+    use yai_core_engine::conversation::ContentModality;
 
     fn test_config(base_url: String) -> ProviderConfig {
         ProviderConfig {
@@ -3565,6 +3827,33 @@ mod tests {
     }
 
     #[test]
+    fn i03_typed_input_preflight_is_bounded_and_signature_safe() {
+        let wav = ProviderWireInputPart {
+            source_part_id: "content-part:audio".to_string(),
+            modality: ContentModality::Audio,
+            media_type: "audio/wav".to_string(),
+            bytes: b"RIFF\x04\x00\x00\x00WAVE".to_vec(),
+        };
+        validate_provider_wire_parts(std::slice::from_ref(&wav)).unwrap();
+        let mut forged = wav;
+        forged.bytes = b"not a wave file".to_vec();
+        assert_eq!(
+            validate_provider_wire_parts(&[forged]).unwrap_err(),
+            "provider_typed_wav_signature_invalid"
+        );
+        let oversized = ProviderWireInputPart {
+            source_part_id: "content-part:image".to_string(),
+            modality: ContentModality::Image,
+            media_type: "image/png".to_string(),
+            bytes: vec![0; 1_200_001],
+        };
+        assert_eq!(
+            validate_provider_wire_parts(&[oversized]).unwrap_err(),
+            "provider_typed_input_part_size_invalid"
+        );
+    }
+
+    #[test]
     #[ignore = "requires loopback sockets; exercised by smoke-provider-governance"]
     fn wave18_connect_refused_is_provably_not_dispatched() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -3575,6 +3864,7 @@ mod tests {
             &rendered_input(),
             None,
             false,
+            None,
         )
         .unwrap_err();
         assert!(error.starts_with("provider_not_dispatched:connect:"));
@@ -3596,6 +3886,7 @@ mod tests {
             &rendered_input(),
             None,
             false,
+            None,
         )
         .unwrap_err();
         server.join().unwrap();

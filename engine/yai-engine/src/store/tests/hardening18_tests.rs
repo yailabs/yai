@@ -75,6 +75,7 @@ fn evidence(target: &ProviderTarget, run: &str, completed: u64) -> ProviderProbe
         extension_telemetry_observed: false,
         text_embedding_envelope_valid: false,
         embedding_dimension: None,
+        realization_shapes: Vec::new(),
         failure_codes: vec![],
     }
 }

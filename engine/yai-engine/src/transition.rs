@@ -10,7 +10,7 @@ use crate::cognitive::{
     validate_active_cognitive_bindings, CaseCognitiveBinding, CognitiveBindingRole,
     CognitiveCapability, CASE_COGNITIVE_BINDING_SCHEMA,
 };
-use crate::conversation::ConversationTurn;
+use crate::conversation::{ConversationDerivedContent, ConversationTurn};
 use crate::effect::{
     digest_bytes, Decision, DecisionOutcome, EffectOutcome, EffectReceipt, ExecutionGrant,
     FilesystemObservation, NormalizationFailure, Operation, OperationKind, OperationOrigin,
@@ -45,7 +45,8 @@ pub const TRANSITION_SCHEMA_V10: &str = "yai.transition.v10";
 pub const TRANSITION_SCHEMA_V11: &str = "yai.transition.v11";
 pub const TRANSITION_SCHEMA_V12: &str = "yai.transition.v12";
 pub const TRANSITION_SCHEMA_V13: &str = "yai.transition.v13";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v14";
+pub const TRANSITION_SCHEMA_V14: &str = "yai.transition.v14";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v15";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
@@ -300,6 +301,9 @@ pub enum TransitionPayload {
     ConversationTurnCommitted {
         turn: ConversationTurn,
     },
+    ConversationDerivedContentRecorded {
+        derived: ConversationDerivedContent,
+    },
     ModelInterpretationRecorded {
         interpretation_id: String,
         result_id: String,
@@ -458,6 +462,9 @@ impl TransitionPayload {
             Self::ProviderResultRecorded { .. } => "provider_result_recorded",
             Self::InteractionTurnRecorded { .. } => "interaction_turn_recorded",
             Self::ConversationTurnCommitted { .. } => "conversation_turn_committed",
+            Self::ConversationDerivedContentRecorded { .. } => {
+                "conversation_derived_content_recorded"
+            }
             Self::ModelInterpretationRecorded { .. } => "model_interpretation_recorded",
             Self::ResourceAttached { .. } => "resource_attached",
             Self::OperationNormalizationFailed { .. } => "operation_normalization_failed",
@@ -1543,6 +1550,7 @@ impl CaseState {
             }
             TransitionPayload::InteractionTurnRecorded { .. } => {}
             TransitionPayload::ConversationTurnCommitted { .. } => {}
+            TransitionPayload::ConversationDerivedContentRecorded { .. } => {}
             TransitionPayload::ModelInterpretationRecorded {
                 interpretation_id,
                 result_id,
@@ -2640,6 +2648,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V14
             && self.schema != TRANSITION_SCHEMA_V13
             && self.schema != TRANSITION_SCHEMA_V12
             && self.schema != TRANSITION_SCHEMA_V11
@@ -2678,6 +2687,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
                 | TRANSITION_SCHEMA_V12
                 | TRANSITION_SCHEMA_V11
@@ -2692,6 +2702,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
                 | TRANSITION_SCHEMA_V12
                 | TRANSITION_SCHEMA_V11
@@ -2704,6 +2715,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
                 | TRANSITION_SCHEMA_V12
                 | TRANSITION_SCHEMA_V11
@@ -2716,6 +2728,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
                 | TRANSITION_SCHEMA_V12
                 | TRANSITION_SCHEMA_V11
@@ -2727,6 +2740,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
                 | TRANSITION_SCHEMA_V12
                 | TRANSITION_SCHEMA_V11
@@ -2736,19 +2750,30 @@ impl Transition {
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V13 | TRANSITION_SCHEMA_V12
+            TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V14
+                | TRANSITION_SCHEMA_V13
+                | TRANSITION_SCHEMA_V12
         ) && self.payload.is_wave18_kind()
         {
             return Err("wave18_contract_requires_yai_transition_v12".to_string());
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V14
             && self.payload.is_interlock_i01_kind()
             && self.schema != TRANSITION_SCHEMA_V13
         {
             return Err("interlock_i01_contract_requires_yai_transition_v13".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_interlock_i02_kind() {
+        if !matches!(
+            self.schema.as_str(),
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V14
+        ) && self.payload.is_interlock_i02_kind()
+        {
             return Err("interlock_i02_contract_requires_yai_transition_v14".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA && self.payload.is_interlock_i03_kind() {
+            return Err("interlock_i03_contract_requires_yai_transition_v15".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -2990,6 +3015,30 @@ impl Transition {
                         &part.object.object_id,
                         "content_object",
                     )?;
+                }
+            }
+            TransitionPayload::ConversationDerivedContentRecorded { derived } => {
+                derived.validate_structure()?;
+                if derived.case_id != self.case_id {
+                    return Err("conversation_derived_content_transition_scope_invalid".to_string());
+                }
+                for (value, label) in [
+                    (&derived.derived_content_id, "derived_content"),
+                    (&derived.source_turn_id, "source_turn"),
+                    (&derived.normalization_contract_id, "normalization_contract"),
+                    (&derived.plan_id, "cognitive_plan"),
+                    (&derived.cognitive_binding_id, "cognitive_binding"),
+                    (&derived.semantic_evidence_id, "semantic_evidence"),
+                    (&derived.target_id, "provider_target"),
+                    (&derived.provider_qualification_id, "provider_qualification"),
+                    (&derived.provider_selection_id, "provider_selection"),
+                    (&derived.provider_invocation_id, "provider_invocation"),
+                    (&derived.provider_result_id, "provider_result"),
+                ] {
+                    require_causal_ref(&self.causal_refs, value, label)?;
+                }
+                for source in &derived.source_part_ids {
+                    require_causal_ref(&self.causal_refs, source, "source_part")?;
                 }
             }
             TransitionPayload::ModelInterpretationRecorded {
@@ -3844,12 +3893,17 @@ impl TransitionPayload {
             Self::CaseCognitiveBindingRecorded { .. } | Self::CaseCognitiveBindingUnbound { .. }
         )
     }
+
+    fn is_interlock_i03_kind(&self) -> bool {
+        matches!(self, Self::ConversationDerivedContentRecorded { .. })
+    }
 }
 
 fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V14
             | TRANSITION_SCHEMA_V13
             | TRANSITION_SCHEMA_V12
             | TRANSITION_SCHEMA_V11
@@ -3867,6 +3921,7 @@ fn supports_wave9_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V14
             | TRANSITION_SCHEMA_V13
             | TRANSITION_SCHEMA_V12
             | TRANSITION_SCHEMA_V11
@@ -3883,6 +3938,7 @@ fn supports_wave10_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V14
             | TRANSITION_SCHEMA_V13
             | TRANSITION_SCHEMA_V12
             | TRANSITION_SCHEMA_V11

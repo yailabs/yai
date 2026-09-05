@@ -112,6 +112,7 @@ fn w18_qualify(
                 extension_telemetry_observed: false,
                 text_embedding_envelope_valid: false,
                 embedding_dimension: None,
+                realization_shapes: Vec::new(),
                 failure_codes: vec![],
             },
             "yai.openai_compatible.synthetic.v1",
@@ -753,6 +754,7 @@ fn wave18_qualification_current_projection_never_rolls_back() {
         extension_telemetry_observed: false,
         text_embedding_envelope_valid: false,
         embedding_dimension: None,
+        realization_shapes: Vec::new(),
         failure_codes: vec![],
     };
     let newer = store

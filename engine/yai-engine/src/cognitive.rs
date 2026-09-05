@@ -536,20 +536,25 @@ struct PlanIdentity<'a> {
     unresolved_reason: &'a Option<CognitivePlanUnresolvedReason>,
 }
 
-fn execution_lane_id(
-    snapshot: &CognitivePlanningSnapshot,
+pub fn cognitive_execution_lane_id(
+    case_id: &str,
+    participant_id: &str,
     binding: &CaseCognitiveBinding,
 ) -> Result<String, String> {
+    binding.validate()?;
+    if binding.case_id != case_id || binding.participant_id != participant_id {
+        return Err("cognitive_lane_binding_scope_mismatch".to_string());
+    }
     let material = if binding.role == CognitiveBindingRole::Primary {
         format!(
             "primary\0{}\0{}\0{}",
-            snapshot.case_id, snapshot.participant_id, binding.binding_id
+            case_id, participant_id, binding.binding_id
         )
     } else {
         format!(
             "auxiliary\0{}\0{}\0{}\0{}",
-            snapshot.case_id,
-            snapshot.participant_id,
+            case_id,
+            participant_id,
             binding.capability.as_str(),
             binding.binding_id
         )
@@ -558,6 +563,13 @@ fn execution_lane_id(
         "cognitive-lane",
         &digest_of(&material, "cognitive_lane_identity")?,
     ))
+}
+
+fn execution_lane_id(
+    snapshot: &CognitivePlanningSnapshot,
+    binding: &CaseCognitiveBinding,
+) -> Result<String, String> {
+    cognitive_execution_lane_id(&snapshot.case_id, &snapshot.participant_id, binding)
 }
 
 fn target_for_binding<'a>(

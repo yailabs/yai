@@ -12,11 +12,24 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--port", type=int, default=0)
 parser.add_argument(
     "--mode",
-    choices=("full", "text_only", "reject", "malformed", "drop", "slow", "memory", "memory_w20"),
+    choices=(
+        "full",
+        "text_only",
+        "reject",
+        "malformed",
+        "malformed_realization",
+        "empty_realization",
+        "drop",
+        "drop_realization",
+        "slow",
+        "memory",
+        "memory_w20",
+    ),
     default="full",
 )
 parser.add_argument("--model", default="provider-governance-model")
 parser.add_argument("--requests", type=int, default=32)
+parser.add_argument("--log")
 args = parser.parse_args()
 MEMORY_TURNS = 0
 W20_REPLACEMENT_EMITTED = False
@@ -62,13 +75,54 @@ class Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             self.reply(400, {"error": {"type": "invalid_json"}})
             return
+        messages = request.get("messages", [])
+        is_synthetic = any(
+            isinstance(message, dict)
+            and isinstance(message.get("content"), str)
+            and "Synthetic YAI" in message["content"]
+            for message in messages
+        )
+        user_content = messages[-1].get("content") if messages else None
+        typed_parts = user_content if isinstance(user_content, list) else []
+        typed_kinds = [
+            part.get("type")
+            for part in typed_parts
+            if isinstance(part, dict) and isinstance(part.get("type"), str)
+        ]
+        if args.log:
+            unexpected_yai_fields = [
+                sorted(key for key in part if key.startswith("yai_"))
+                for part in typed_parts
+                if isinstance(part, dict)
+                and any(key.startswith("yai_") for key in part)
+            ]
+            with open(args.log, "a", encoding="utf-8") as stream:
+                stream.write(
+                    json.dumps(
+                        {
+                            "model": request.get("model"),
+                            "synthetic": is_synthetic,
+                            "typed_kinds": typed_kinds,
+                            "unexpected_yai_fields": unexpected_yai_fields,
+                        },
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    )
+                    + "\n"
+                )
         if request.get("model") != args.model:
             self.reply(404, {"error": {"type": "model_not_found"}})
             return
         if args.mode == "reject":
             self.reply(503, {"error": {"type": "fixture_unavailable"}})
             return
-        if args.mode == "malformed":
+        if args.mode == "drop_realization" and not is_synthetic:
+            self.connection.shutdown(socket.SHUT_RDWR)
+            self.connection.close()
+            return
+        if args.mode == "malformed" or (
+            args.mode == "malformed_realization" and not is_synthetic
+        ):
             body = b'{"choices":['
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -78,7 +132,6 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
         wants_json = request.get("response_format") == {"type": "json_object"}
-        messages = request.get("messages", [])
         is_case_runtime = any(
             isinstance(message, dict)
             and isinstance(message.get("content"), str)
@@ -244,6 +297,14 @@ class Handler(BaseHTTPRequestHandler):
         elif args.mode == "memory_w20" and is_case_runtime:
             MEMORY_TURNS += 1
             content = '{"schema":"yai.case_runtime_turn.v1","outcome":"complete"}'
+        elif args.mode == "empty_realization" and not is_synthetic:
+            content = ""
+        elif typed_parts and not is_synthetic and "input_audio" in typed_kinds:
+            content = "fixture transcript ORCHID-I03"
+        elif typed_parts and not is_synthetic and "image_url" in typed_kinds:
+            content = "fixture image understanding ORCHID-I03"
+        elif typed_parts and not is_synthetic:
+            content = "fixture native conversation ORCHID-I03"
         elif wants_json:
             content = '{"ok":true}'
         else:

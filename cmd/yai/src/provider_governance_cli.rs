@@ -8,12 +8,13 @@ use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 use yai_core_engine::provider_governance::{
     ProviderAdapterKind, ProviderFailoverPolicy, ProviderLocality, ProviderProbeEvidence,
-    ProviderTargetInput, ProviderTrustPosture,
+    ProviderRealizationShape, ProviderTargetInput, ProviderTrustPosture,
 };
 use yai_core_engine::security::AuthenticatedPrincipal;
 
 const QUALIFICATION_SUITE: &str = "yai.openai_compatible.synthetic.v1";
 const EMBEDDING_QUALIFICATION_SUITE: &str = "yai.openai_compatible.embedding.synthetic.v1";
+const REALIZATION_QUALIFICATION_SUITE: &str = "yai.openai_compatible.typed_content.synthetic.v1";
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -403,6 +404,7 @@ fn embedding_probe_shape(value: &Value, model_id: &str) -> (Option<u64>, bool) {
 fn run_synthetic_probe(
     target: &yai_core_engine::provider_governance::ProviderTarget,
     probe_embedding: bool,
+    requested_shapes: &[ProviderRealizationShape],
 ) -> ProviderProbeEvidence {
     let started = now_ms();
     let run_id = format!(
@@ -423,6 +425,7 @@ fn run_synthetic_probe(
         extension_telemetry_observed: false,
         text_embedding_envelope_valid: false,
         embedding_dimension: None,
+        realization_shapes: Vec::new(),
         failure_codes: Vec::new(),
     };
     let endpoint = match parse_http_endpoint(&target.endpoint) {
@@ -629,6 +632,63 @@ fn run_synthetic_probe(
                 (200..300).contains(&response.status) && strict_json(&response.body).is_ok();
         }
     }
+    for shape in requested_shapes {
+        let content = match shape {
+            ProviderRealizationShape::TextToText => Some(serde_json::json!([
+                {"type":"text","text":"Synthetic YAI ordered text-part wire probe. Return text."}
+            ])),
+            ProviderRealizationShape::AudioWavToText => Some(serde_json::json!([
+                {"type":"text","text":"Synthetic YAI audio-to-text wire probe. Return text."},
+                {"type":"input_audio","input_audio":{"data":"UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=","format":"wav"}}
+            ])),
+            ProviderRealizationShape::OrderedPngTextToText => Some(serde_json::json!([
+                {"type":"text","text":"Synthetic YAI ordered image/text wire probe."},
+                {"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="}},
+                {"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="}},
+                {"type":"text","text":"Preserve the declared order and return text."}
+            ])),
+        };
+        let valid = if let Some(content) = content {
+            let body = serde_json::to_vec(&serde_json::json!({
+                "model": target.model_id,
+                "stream": false,
+                "messages": [
+                    {"role":"system","content":"Synthetic YAI typed-content contract probe. No Case data."},
+                    {"role":"user","content":content}
+                ]
+            }))
+            .expect("synthetic typed-content probe serializes");
+            probe_http(
+                &endpoint,
+                &target.locality,
+                "POST",
+                &api_path(&endpoint, "chat/completions"),
+                Some(&body),
+                api_key.as_deref(),
+            )
+            .ok()
+            .filter(|response| (200..300).contains(&response.status))
+            .and_then(|response| strict_json(&response.body).ok())
+            .is_some_and(|value| {
+                value
+                    .pointer("/choices/0/message/content")
+                    .and_then(Value::as_str)
+                    .is_some()
+                    && value.get("model").and_then(Value::as_str) == Some(target.model_id.as_str())
+            })
+        } else {
+            false
+        };
+        if valid {
+            evidence.realization_shapes.push(shape.clone());
+        } else {
+            evidence
+                .failure_codes
+                .push(format!("realization_shape_{}_invalid", shape.as_str()));
+        }
+    }
+    evidence.realization_shapes.sort();
+    evidence.realization_shapes.dedup();
     evidence.completed_at_unix_ms = now_ms().max(evidence.started_at_unix_ms);
     evidence.failure_codes.sort();
     evidence.failure_codes.dedup();
@@ -660,6 +720,15 @@ fn print_probe(evidence: &ProviderProbeEvidence) {
         "extension_compatible_telemetry: {}",
         evidence.extension_telemetry_observed
     );
+    println!(
+        "realization_shapes: {}",
+        evidence
+            .realization_shapes
+            .iter()
+            .map(ProviderRealizationShape::as_str)
+            .collect::<Vec<_>>()
+            .join(",")
+    );
     println!("synthetic_input_only: true");
     println!("failure_codes: {}", evidence.failure_codes.join(","));
 }
@@ -668,14 +737,21 @@ fn provider_probe(args: &[String], persist_qualification: bool) -> Result<(), St
     let (authenticated, store) = authenticated_store()?;
     let target_id = provider_target_id_from_args(args, &authenticated, &store)?;
     let (target, _, _, _) = store.provider_posture_authorized(&authenticated, &target_id)?;
+    let probe_embedding = args.iter().any(|value| value == "--embedding");
+    let requested_shapes = repeated_arg(args, "--realization-shape")
+        .iter()
+        .map(|value| ProviderRealizationShape::parse(value))
+        .collect::<Result<Vec<_>, _>>()?;
+    if probe_embedding && !requested_shapes.is_empty() {
+        return Err("provider_embedding_and_realization_probe_conflict".to_string());
+    }
     let admission_token = format!("probe-admission:{}:{}", std::process::id(), now_ms());
     let probe_owner = store.begin_provider_probe_authorized(
         &authenticated,
         &target.target_id,
         &admission_token,
     )?;
-    let probe_embedding = args.iter().any(|value| value == "--embedding");
-    let evidence = run_synthetic_probe(&target, probe_embedding);
+    let evidence = run_synthetic_probe(&target, probe_embedding, &requested_shapes);
     store.complete_provider_probe_authorized(
         &authenticated,
         &target.target_id,
@@ -698,6 +774,8 @@ fn provider_probe(args: &[String], persist_qualification: bool) -> Result<(), St
             evidence,
             if probe_embedding {
                 EMBEDDING_QUALIFICATION_SUITE
+            } else if !requested_shapes.is_empty() {
+                REALIZATION_QUALIFICATION_SUITE
             } else {
                 QUALIFICATION_SUITE
             },
