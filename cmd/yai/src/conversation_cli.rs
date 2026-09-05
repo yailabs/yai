@@ -7,7 +7,6 @@ use yai_core_engine::conversation::{
     ContentPartProvenance, ConversationContentStore, ConversationDraft, ConversationTurn,
     DerivationActorKind, CONTENT_DERIVATION_SCHEMA, CONVERSATION_DRAFT_SCHEMA,
 };
-use yai_core_engine::transition::TransitionScope;
 
 #[derive(Serialize)]
 struct DraftView<'a> {
@@ -236,67 +235,7 @@ fn discard_draft(args: &[String]) -> Result<(), String> {
 
 fn send_draft(args: &[String]) -> Result<(), String> {
     let draft = load_authorized_draft(args)?;
-    if draft.parts.is_empty() {
-        return Err("conversation_turn_requires_content".to_string());
-    }
-    let (store, state, authenticated, principal_id, tenant_id) =
-        authorized_case(&draft.case_id, &draft.participant_id)?;
-    if state.generation != draft.base_generation {
-        return Err("conversation_draft_case_generation_stale".to_string());
-    }
-    if tenant_id != draft.tenant_id || principal_id != draft.principal_id {
-        return Err("conversation_draft_security_scope_changed".to_string());
-    }
-    store
-        .resolve_security_context(&authenticated, &tenant_id)?
-        .require_owner()?;
-    let objects = content_store()?.publish_draft(&draft)?;
-    let turn = ConversationTurn::build(
-        &draft.case_id,
-        &draft.tenant_id,
-        &draft.thread_id,
-        &draft.participant_id,
-        &draft.principal_id,
-        draft.base_generation,
-        objects,
-    )?;
-    for part in &turn.ordered_parts {
-        content_store()?.verify_object(&part.object)?;
-    }
-    let mut causal_refs = vec![turn.participant_id.clone()];
-    causal_refs.extend(
-        turn.ordered_parts
-            .iter()
-            .map(|part| part.object.object_id.clone()),
-    );
-    causal_refs.sort();
-    causal_refs.dedup();
-    let pending = PendingTransition {
-        transition_id: format!("transition:{}", turn.turn_id),
-        case_id: turn.case_id.clone(),
-        expected_generation: turn.base_generation,
-        source: TransitionSource {
-            component: "yai.case_conversation".to_string(),
-            participant_id: Some(turn.participant_id.clone()),
-            principal_id: Some(turn.submitted_by_principal_id.clone()),
-            source_ref: Some(turn.turn_id.clone()),
-        },
-        scope: Some(TransitionScope {
-            case_id: turn.case_id.clone(),
-            participant_refs: vec![turn.participant_id.clone()],
-            resource_refs: Vec::new(),
-            policy_refs: Vec::new(),
-        }),
-        causal_refs,
-        payload: TransitionPayload::ConversationTurnCommitted { turn: turn.clone() },
-        provenance: Vec::new(),
-        summary: Some(format!(
-            "multipart conversation turn with {} ordered content parts",
-            turn.ordered_parts.len()
-        )),
-    };
-    let commit = store.commit_secured_transition(&authenticated, &tenant_id, pending, false)?;
-    content_store()?.discard_draft(&draft.case_id, &draft.draft_id)?;
+    let commit = super::conversation_controller::commit_conversation_draft(&draft)?;
     #[derive(Serialize)]
     struct SendView<'a> {
         schema: &'static str,
@@ -308,20 +247,23 @@ fn send_draft(args: &[String]) -> Result<(), String> {
     }
     let value = SendView {
         schema: "yai.conversation_send_result.v1",
-        turn: &turn,
-        transition_id: &commit.transition.transition_id,
-        generation: commit.state.generation,
+        turn: &commit.turn,
+        transition_id: &commit.transition_id,
+        generation: commit.generation,
         provider_execution_started: false,
-        draft_discarded: true,
+        draft_discarded: commit.draft_discarded,
     };
     render(args, &value, || {
-        println!("turn_id: {}", turn.turn_id);
-        println!("transition_id: {}", commit.transition.transition_id);
-        println!("case_generation: {}", commit.state.generation);
-        println!("ordered_parts: {}", turn.ordered_parts.len());
+        println!("turn_id: {}", commit.turn.turn_id);
+        println!("transition_id: {}", commit.transition_id);
+        println!("case_generation: {}", commit.generation);
+        println!("ordered_parts: {}", commit.turn.ordered_parts.len());
         println!("canonical: yes");
         println!("provider_execution_started: no");
-        println!("draft_discarded: yes");
+        println!(
+            "draft_discarded: {}",
+            if commit.draft_discarded { "yes" } else { "no" }
+        );
     })
 }
 
@@ -430,27 +372,15 @@ fn authorized_case(
     ),
     String,
 > {
-    let authenticated = security::authenticate_local()?;
-    let principal_id = authenticated.projected_principal_id();
-    let store = LmdbRecordStore::open(record_store_path())?;
-    let state = store.get_case_state_authorized(&authenticated, case_id)?;
-    let tenant_id = state
-        .tenant_id
-        .clone()
-        .ok_or_else(|| "legacy_unscoped_case_cannot_own_conversation_content".to_string())?;
-    if !state
-        .participants
-        .iter()
-        .any(|participant| participant.participant_id == participant_id)
-        || !state.principal_participant_links.iter().any(|link| {
-            link.participant_id == participant_id
-                && link.principal_id == principal_id
-                && link.tenant_id == tenant_id
-        })
-    {
-        return Err("conversation_participant_not_linked_to_authenticated_principal".to_string());
-    }
-    Ok((store, state, authenticated, principal_id, tenant_id))
+    let authorized =
+        super::conversation_controller::authorized_conversation_case(case_id, participant_id)?;
+    Ok((
+        authorized.store,
+        authorized.state,
+        authorized.authenticated,
+        authorized.principal_id,
+        authorized.tenant_id,
+    ))
 }
 
 fn verify_provider_result(
@@ -488,16 +418,11 @@ fn verify_provider_result(
 }
 
 fn content_store() -> Result<ConversationContentStore, String> {
-    ConversationContentStore::open(&yai_home())
+    super::conversation_controller::conversation_content_store()
 }
 
 fn verify_turn(turn: &ConversationTurn) -> Result<(), String> {
-    turn.validate()?;
-    let store = content_store()?;
-    for part in &turn.ordered_parts {
-        store.verify_object(&part.object)?;
-    }
-    Ok(())
+    super::conversation_controller::verify_conversation_turn(turn)
 }
 
 fn render_draft_mutation(

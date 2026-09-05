@@ -1649,12 +1649,19 @@ fn memory_consolidate(args: &[String]) -> Result<(), String> {
     );
     let requirement =
         yai_core_engine::provider_governance::ProviderRequirement::memory_consolidation()?;
-    let route = super::case_runtime::governed_provider_route_for_requirement(
+    let route = super::provider::governed_provider_route_for_requirement(
         &case_id,
         &participant_id,
         &requirement,
         &logical_turn_id,
-    )?;
+    )
+    .map_err(|error| {
+        if error == "case_governed_provider_binding_required" {
+            "memory_consolidation_governed_provider_binding_required".to_string()
+        } else {
+            error
+        }
+    })?;
 
     // Provider selection is itself canonical. Derive the exact consolidation
     // snapshot only after that transition so lineage can reproduce it.
@@ -1677,7 +1684,7 @@ fn memory_consolidate(args: &[String]) -> Result<(), String> {
         maximum_support_refs: input.maximum_support_refs,
         normalizer_version: CONSOLIDATION_NORMALIZER_VERSION.to_string(),
     };
-    let consolidation_options = super::provider::RuntimeInvocationOptions {
+    let consolidation_options = super::provider::SemanticInvocationOptions {
         max_resident_items: 8,
         max_semantic_units: CONSOLIDATION_SEMANTIC_UNIT_BUDGET,
         max_estimated_input_units: CONSOLIDATION_SEMANTIC_UNIT_BUDGET * 2,
@@ -1686,7 +1693,7 @@ fn memory_consolidate(args: &[String]) -> Result<(), String> {
         workflow_execution_id: None,
         conversation_turn_id: None,
     };
-    let invocation = super::provider::invoke_runtime_provider(
+    let invocation = super::provider::invoke_semantic_provider(
         &route.args,
         ProjectionPurpose::MemoryConsolidation,
         &task,
@@ -1695,25 +1702,21 @@ fn memory_consolidate(args: &[String]) -> Result<(), String> {
     );
     let result = match invocation {
         Ok(result) => {
-            if let Some(selection) = &route.selection {
-                super::case_runtime::record_governed_provider_outcome(
-                    &case_id,
-                    selection,
-                    None,
-                    Some(result.request_bytes_written),
-                )?;
-            }
+            super::provider::record_governed_provider_outcome(
+                &case_id,
+                &route.selection,
+                None,
+                Some(result.request_bytes_written),
+            )?;
             result
         }
         Err(error) => {
-            if let Some(selection) = &route.selection {
-                super::case_runtime::record_governed_provider_outcome(
-                    &case_id,
-                    selection,
-                    Some(&error),
-                    None,
-                )?;
-            }
+            super::provider::record_governed_provider_outcome(
+                &case_id,
+                &route.selection,
+                Some(&error),
+                None,
+            )?;
             return Err(error);
         }
     };
@@ -1739,7 +1742,7 @@ fn memory_consolidate(args: &[String]) -> Result<(), String> {
         "schema": "yai.memory_consolidation_result.v1",
         "case_id": case_id,
         "consolidation_input_id": input.input_id,
-        "provider_selection_id": route.selection.as_ref().map(|selection| &selection.selection_id),
+        "provider_selection_id": &route.selection.selection_id,
         "provider_invocation_id": result.invocation_id,
         "provider_result_id": result.result_id,
         "provider_id": result.provider_id,
@@ -1758,14 +1761,7 @@ fn memory_consolidate(args: &[String]) -> Result<(), String> {
         println!("memory_consolidation: normalized");
         println!("case_id: {case_id}");
         println!("consolidation_input_id: {}", input.input_id);
-        println!(
-            "provider_selection_id: {}",
-            route
-                .selection
-                .as_ref()
-                .map(|selection| selection.selection_id.as_str())
-                .unwrap_or("none")
-        );
+        println!("provider_selection_id: {}", route.selection.selection_id);
         println!("provider_invocation_id: {}", result.invocation_id);
         println!("provider_result_id: {}", result.result_id);
         println!("provider_id: {}", result.provider_id);

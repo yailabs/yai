@@ -1,8 +1,9 @@
 # Current executable architecture
 
 Authority: implementation truth. This edition covers the published W20
-foundation and the I01 multipart-conversation interlock. Historical checkpoints
-and exact executable evidence remain in `refoundation/foundation-recovery/`.
+foundation, the closed I01 multipart-conversation interlock, and its
+provider-independent interaction-host closure. Historical checkpoints and
+exact executable evidence remain in `refoundation/foundation-recovery/`.
 
 This document includes current contradictions. It does not claim that the
 [Constitution](constitution.md) is implemented. Target changes and sequencing
@@ -51,6 +52,7 @@ domain implementation remains grouped by demonstrated boundary in
 [`case_runtime.rs`](../cmd/yai/src/case_runtime.rs),
 [`policy.rs`](../cmd/yai/src/policy.rs),
 [`security.rs`](../cmd/yai/src/security.rs),
+[`conversation_controller.rs`](../cmd/yai/src/conversation_controller.rs),
 [`conversation_cli.rs`](../cmd/yai/src/conversation_cli.rs),
 [`memory_cli.rs`](../cmd/yai/src/memory_cli.rs),
 [`review.rs`](../cmd/yai/src/review.rs),
@@ -86,6 +88,7 @@ mean constitutional, general, or production-ready.
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
 | Case conversation content | mutable non-canonical draft → bounded text/media imports → explicit original/derived provenance → SEND → `ConversationTurnCommitted` → immutable content-addressed bytes plus canonical ordered references; CLI fixtures prove repeated modalities, restart identity and survival of downstream provider failure | typed media delivery and auxiliary cognitive-role routing remain I02 work |
+| Conversation interaction host | host-normalized ordered parts → canonical Turn commit → optional independent conversation execution through the shared Projection/Context/provider-governance seam; failure and retry preserve one Turn and require no ResourceAttachment, Workflow, Policy, Effect, or Case-runtime admission | the Product `yai chat` frontend awaits authoritative Replia integration; YAI does not privately implement terminal mechanics |
 | Case-bound provider prompt | admitted participant + typed CaseState/history → qualified long-horizon retrieval → `yai.residency_plan.v1` → `yai.projection.v7` → `yai.context_frame.v7` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | the current transport renders text only; typed media adapters and authoritative tokenization remain absent |
 | Governed provider routing | immutable Tenant ProviderTarget → synthetic evidence-bound qualification → Tenant-Owner approval → shared fresh health/circuit → exact Case provider binding → mechanical requirement/filtering → canonical ProviderSelection and attempt outcome; local fixtures prove qualified capability differences, deterministic exclusions, pre-dispatch safe failover and indeterminate-delivery refusal | remote HTTPS transport, credential rotation, DNS drift and adversarial multi-process circuit hardening remain outside W18 |
 | Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | one synchronous single-host `filesystem.write` loop; no multi-Case scheduler, quotas, backpressure or distributed lease |
@@ -193,6 +196,32 @@ provider execution is a later causal action. A crash can leave an unreferenced
 complete object, never a canonical Turn pointing at a partially published one.
 Conversation content is not a ResourceAttachment and import is an explicit
 local-operator action, not a model-usable filesystem capability.
+
+[`conversation_controller.rs`](../cmd/yai/src/conversation_controller.rs)
+owns the application-side interaction algorithm, not conversation truth. It
+accepts ordered typed parts and controller actions without parsing terminal
+text, can commit a Turn independently of execution, and invokes an already
+committed text Turn through the same bounded Projection, ContextFrame,
+ProviderSelection, ProviderInvocation, and ProviderResult owners used by other
+model paths. This conversation path has no implicit ResourceAttachment,
+Workflow, Effect, Policy, or operational-runtime budget. Retry cites the same
+canonical Turn rather than creating another one.
+
+Thread identity remains a field of a committed `ConversationTurn`, not a new
+Thread object or store. A controller-local new thread becomes durable only on
+its first committed Turn; thread listing is derived from Turn history and an
+unused empty identity may disappear on restart. The controller exposes
+buffered completion/failure facts and conservative pre-dispatch cancellation.
+It adds no provider streaming capability and does not claim interruption of an
+already dispatched buffered request.
+
+Generic terminal editing, history, paste, raw mode, cursor handling,
+redraw/resize, terminal key semantics, and presentation are intentionally not
+implemented here. The future Replia adapter will normalize terminal input
+(including any natural path syntax) into these YAI actions. A graphical client
+can submit the same typed parts directly. `yai prompt` remains a frozen
+Advanced legacy donor until that authoritative cutover; it is not expanded or
+removed by this closure.
 
 Machine-local absolute filesystem roots are stored in a separately versioned
 `local_resource_bindings` LMDB database. They survive restart because the
@@ -630,7 +659,8 @@ participates.
 | Surface | Executable role | Classification |
 |---|---|---|
 | `cmd/yai/src/main.rs` | parsing, dispatch, common CLI/process initiation and residual compatibility commands | product-reachable command boundary |
-| `cmd/yai/src/conversation_cli.rs` | mutable draft preparation, explicit SEND, immutable Turn/content inspection and provider-independent input reference | product-reachable application boundary; no model or resource authority |
+| `cmd/yai/src/conversation_controller.rs` | host-independent commit, thread projection, retry/cancellation posture, and ordinary conversation execution over shared semantic/provider boundaries | application controller awaiting frontend adapters; no terminal, Case, provider, or content owner |
+| `cmd/yai/src/conversation_cli.rs` | Advanced mutable draft preparation and SEND plumbing plus immutable Turn/content inspection | automation/reference-client boundary; no model or resource authority |
 | `engine/yai-engine/src/conversation.rs` | ordered typed Turn/content/provenance contracts and private immutable byte ownership | one durable application-content owner for non-reconstructible original bytes; no execution owner |
 | `cmd/yai/src/case_runtime.rs` | bounded disposable Case iteration, stop/budget checkpointing, automatic reconciliation and memory repair | product-reachable transition algorithm; never canonical owner |
 | `cmd/yai/src/provider.rs` | Case admission/attachment compatibility, HTTP transport and typed invocation/result residue | product-reachable provider boundary |

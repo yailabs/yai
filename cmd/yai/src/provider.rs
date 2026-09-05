@@ -2,7 +2,14 @@
 
 use super::*;
 use crate::command_adapters::security::{authenticate_local, reject_spoofed_as};
+use std::collections::BTreeSet;
 use std::time::Instant;
+use std::time::{SystemTime, UNIX_EPOCH};
+use yai_core_engine::provider_governance::{
+    ProviderAttemptOutcome, ProviderDeliveryClass, ProviderRequirement, ProviderSelection,
+    ProviderTransportStage,
+};
+use yai_core_engine::store::lmdb::ProviderSelectionStoreOutcome;
 
 pub(super) fn projection_summary(args: &[String]) -> Result<(), String> {
     let path = journal_arg(args)?;
@@ -2009,6 +2016,252 @@ fn provider_chat_completion(
     })
 }
 
+#[derive(Clone, Debug)]
+pub(super) struct ProviderInvocationRoute {
+    pub(super) args: Vec<String>,
+    pub(super) selection: ProviderSelection,
+}
+
+fn provider_now_millis() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .try_into()
+        .unwrap_or(u64::MAX)
+}
+
+fn target_chat_endpoint(endpoint: &str) -> String {
+    let endpoint = endpoint.trim_end_matches('/');
+    if endpoint.ends_with("/v1") {
+        format!("{endpoint}/chat/completions")
+    } else {
+        format!("{endpoint}/v1/chat/completions")
+    }
+}
+
+pub(super) fn governed_provider_route_for_requirement(
+    case_id: &str,
+    participant_id: &str,
+    requirement: &ProviderRequirement,
+    logical_turn_id: &str,
+) -> Result<ProviderInvocationRoute, String> {
+    governed_provider_route_for_attempt(
+        case_id,
+        participant_id,
+        requirement,
+        logical_turn_id,
+        1,
+        &BTreeSet::new(),
+        false,
+    )
+}
+
+pub(super) fn governed_provider_route_for_attempt(
+    case_id: &str,
+    participant_id: &str,
+    requirement: &ProviderRequirement,
+    logical_turn_id: &str,
+    attempt_number: u32,
+    attempted_targets: &BTreeSet<String>,
+    prior_attempt_retry_safe: bool,
+) -> Result<ProviderInvocationRoute, String> {
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let state = store
+        .get_case_state(case_id)?
+        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
+    let binding = state
+        .provider_binding
+        .as_ref()
+        .ok_or_else(|| "case_governed_provider_binding_required".to_string())?;
+    if binding.participant_id != participant_id {
+        return Err("case_provider_binding_participant_mismatch".to_string());
+    }
+    let authenticated = authenticate_local()?;
+    let mut available_credentials = BTreeSet::new();
+    for target_id in &binding.ordered_target_ids {
+        let (target, _, _, _) = store.provider_posture_authorized(&authenticated, target_id)?;
+        if target.credential_ref == "none"
+            || target
+                .credential_ref
+                .strip_prefix("env:")
+                .is_some_and(|name| env_var(name).is_some())
+        {
+            available_credentials.insert(target.credential_ref.clone());
+        }
+    }
+    let selection = match store.select_case_provider_authorized(
+        &authenticated,
+        case_id,
+        participant_id,
+        requirement,
+        logical_turn_id,
+        attempt_number,
+        attempted_targets,
+        prior_attempt_retry_safe,
+        &available_credentials,
+        provider_now_millis(),
+    )? {
+        ProviderSelectionStoreOutcome::Selected { selection, .. }
+        | ProviderSelectionStoreOutcome::AlreadySelected(selection) => selection,
+        ProviderSelectionStoreOutcome::Waiting { exclusions } => {
+            let reasons = exclusions
+                .iter()
+                .map(|entry| format!("{}:{:?}", entry.target_id, entry.code))
+                .collect::<Vec<_>>()
+                .join(",");
+            return Err(format!("provider_waiting:{reasons}"));
+        }
+    };
+    let (target, _, _, _) =
+        store.provider_posture_authorized(&authenticated, &selection.selected_target_id)?;
+    let locality = match target.locality {
+        ProviderLocality::Loopback => "loopback",
+        ProviderLocality::PrivateNetwork => "private_network",
+        ProviderLocality::Remote => "remote",
+    };
+    let mut args = vec![
+        "--case".to_string(),
+        case_id.to_string(),
+        "--subject".to_string(),
+        participant_id.to_string(),
+        "--base-url".to_string(),
+        target_chat_endpoint(&target.endpoint),
+        "--provider-id".to_string(),
+        target.target_id,
+        "--model".to_string(),
+        target.model_id,
+        "--selection-id".to_string(),
+        selection.selection_id.clone(),
+        "--target-id".to_string(),
+        selection.selected_target_id.clone(),
+        "--logical-turn-id".to_string(),
+        selection.logical_turn_id.clone(),
+        "--attempt-number".to_string(),
+        selection.attempt_number.to_string(),
+        "--provider-locality".to_string(),
+        locality.to_string(),
+    ];
+    if let Some(environment) = target.credential_ref.strip_prefix("env:") {
+        args.push("--api-key-env".to_string());
+        args.push(environment.to_string());
+        args.push("--credential-required".to_string());
+    }
+    Ok(ProviderInvocationRoute { args, selection })
+}
+
+pub(super) fn record_governed_provider_outcome(
+    case_id: &str,
+    selection: &ProviderSelection,
+    error: Option<&str>,
+    request_bytes: Option<u64>,
+) -> Result<ProviderAttemptOutcome, String> {
+    let outcome = governed_attempt_outcome(selection, error, request_bytes)?;
+    let authenticated = authenticate_local()?;
+    let store = LmdbRecordStore::open(record_store_path())?;
+    let outcome_id = outcome.outcome_id.clone();
+    store.record_provider_attempt_outcome_authorized(&authenticated, case_id, outcome.clone())?;
+    store.record_provider_attempt_health_authorized(&authenticated, case_id, &outcome_id)?;
+    Ok(outcome)
+}
+
+pub(super) fn governed_attempt_outcome(
+    selection: &ProviderSelection,
+    error: Option<&str>,
+    successful_request_bytes: Option<u64>,
+) -> Result<ProviderAttemptOutcome, String> {
+    let error_bytes = error
+        .and_then(|value| value.split("bytes=").nth(1))
+        .and_then(|value| value.split(|ch: char| !ch.is_ascii_digit()).next())
+        .and_then(|value| value.parse::<u64>().ok())
+        .or_else(|| {
+            error
+                .and_then(|value| value.split("partial_write:").nth(1))
+                .and_then(|value| value.split(':').next())
+                .and_then(|value| value.parse::<u64>().ok())
+        });
+    let error_status = error
+        .and_then(|value| value.split("status=").nth(1))
+        .and_then(|value| value.split(|ch: char| !ch.is_ascii_digit()).next())
+        .and_then(|value| value.parse::<u16>().ok());
+    let (delivery, stage, bytes, status, failure) = match error {
+        None => (
+            ProviderDeliveryClass::ResultReceived,
+            ProviderTransportStage::Completed,
+            successful_request_bytes.unwrap_or(1),
+            Some(200),
+            None,
+        ),
+        Some(error) if error.starts_with("provider_not_dispatched:connect") => (
+            ProviderDeliveryClass::NotDispatched,
+            ProviderTransportStage::Connect,
+            0,
+            None,
+            Some("connect_failure".to_string()),
+        ),
+        Some(error) if error.starts_with("provider_not_dispatched:") => (
+            ProviderDeliveryClass::NotDispatched,
+            ProviderTransportStage::RequestWriting,
+            0,
+            None,
+            Some("write_before_bytes_failure".to_string()),
+        ),
+        Some(error) if error.starts_with("provider_remote_response:") => {
+            let status = error
+                .split(':')
+                .nth(1)
+                .and_then(|value| value.parse::<u16>().ok());
+            (
+                ProviderDeliveryClass::DeliveryIndeterminate,
+                ProviderTransportStage::ResponseBody,
+                error_bytes.unwrap_or(1),
+                status,
+                Some("remote_response_rejected".to_string()),
+            )
+        }
+        Some(error) if error.starts_with("provider_response_invalid:") => {
+            let stage = if error.contains("header") || error.contains("content_length") {
+                ProviderTransportStage::ResponseHeaders
+            } else if error.contains("body") || error.contains("transfer_encoding") {
+                ProviderTransportStage::ResponseBody
+            } else {
+                ProviderTransportStage::JsonParse
+            };
+            (
+                ProviderDeliveryClass::ResponseInvalid,
+                stage,
+                error_bytes.unwrap_or(1),
+                error_status,
+                Some("response_schema_invalid".to_string()),
+            )
+        }
+        Some(error) if error.starts_with("provider_delivery_indeterminate:") => (
+            ProviderDeliveryClass::DeliveryIndeterminate,
+            ProviderTransportStage::ResponseBody,
+            error_bytes.unwrap_or(1),
+            None,
+            Some("delivery_or_response_unknown".to_string()),
+        ),
+        Some(_) => (
+            ProviderDeliveryClass::NotDispatched,
+            ProviderTransportStage::RequestWriting,
+            0,
+            None,
+            Some("local_pre_dispatch_failure".to_string()),
+        ),
+    };
+    ProviderAttemptOutcome::new(
+        selection,
+        delivery,
+        stage,
+        bytes,
+        status,
+        false,
+        failure,
+        provider_now_millis(),
+    )
+}
+
 fn redact_sensitive(value: &str, session: &PromptRuntime) -> String {
     if let Some(api_key) = session
         .provider
@@ -2043,7 +2296,7 @@ struct SemanticInvocation {
 }
 
 #[derive(Clone, Debug)]
-pub(super) struct RuntimeInvocationOptions {
+pub(super) struct SemanticInvocationOptions {
     pub max_resident_items: usize,
     pub max_semantic_units: usize,
     pub max_estimated_input_units: usize,
@@ -2055,7 +2308,7 @@ pub(super) struct RuntimeInvocationOptions {
     pub conversation_turn_id: Option<String>,
 }
 
-impl Default for RuntimeInvocationOptions {
+impl Default for SemanticInvocationOptions {
     fn default() -> Self {
         Self {
             max_resident_items: DEFAULT_MAX_RESIDENT_ITEMS,
@@ -2082,7 +2335,7 @@ fn compile_semantic_invocation(
     purpose: ProjectionPurpose,
     task: &str,
     output_contract: InvocationOutputContract,
-    options: &RuntimeInvocationOptions,
+    options: &SemanticInvocationOptions,
 ) -> Result<SemanticInvocation, String> {
     let is_memory_consolidation = purpose == ProjectionPurpose::MemoryConsolidation;
     let store = LmdbRecordStore::open(record_store_path())?;
@@ -2361,9 +2614,9 @@ fn invocation_lineage(
     }
 }
 
-/// Result of one provider invocation made through the real case/provider
-/// boundary for a controlled effect turn. The raw output remains
-/// non-authoritative candidate material until normalization succeeds.
+/// Result of one provider invocation made through the shared semantic Case /
+/// provider boundary. The raw output remains non-authoritative candidate
+/// material; each consumer applies its own typed normalization contract.
 pub(super) struct ControlledProviderResult {
     pub invocation_id: String,
     pub result_id: String,
@@ -2388,23 +2641,23 @@ pub(super) fn invoke_controlled_provider(
     task: &str,
     output_contract: InvocationOutputContract,
 ) -> Result<ControlledProviderResult, String> {
-    invoke_runtime_provider(
+    invoke_semantic_provider(
         args,
         purpose,
         task,
         output_contract,
-        &RuntimeInvocationOptions::default(),
+        &SemanticInvocationOptions::default(),
     )
 }
 
-pub(super) fn invoke_runtime_provider(
+pub(super) fn invoke_semantic_provider(
     args: &[String],
     purpose: ProjectionPurpose,
     task: &str,
     output_contract: InvocationOutputContract,
-    options: &RuntimeInvocationOptions,
+    options: &SemanticInvocationOptions,
 ) -> Result<ControlledProviderResult, String> {
-    invoke_runtime_provider_with_optional_journal(
+    invoke_semantic_provider_with_optional_journal(
         args,
         purpose,
         task,
@@ -2414,15 +2667,15 @@ pub(super) fn invoke_runtime_provider(
     )
 }
 
-pub(super) fn invoke_runtime_provider_with_journal(
+pub(super) fn invoke_semantic_provider_with_journal(
     args: &[String],
     purpose: ProjectionPurpose,
     task: &str,
     output_contract: InvocationOutputContract,
-    options: &RuntimeInvocationOptions,
+    options: &SemanticInvocationOptions,
     journal_path: &Path,
 ) -> Result<ControlledProviderResult, String> {
-    invoke_runtime_provider_with_optional_journal(
+    invoke_semantic_provider_with_optional_journal(
         args,
         purpose,
         task,
@@ -2432,12 +2685,12 @@ pub(super) fn invoke_runtime_provider_with_journal(
     )
 }
 
-fn invoke_runtime_provider_with_optional_journal(
+fn invoke_semantic_provider_with_optional_journal(
     args: &[String],
     purpose: ProjectionPurpose,
     task: &str,
     output_contract: InvocationOutputContract,
-    options: &RuntimeInvocationOptions,
+    options: &SemanticInvocationOptions,
     journal_path: Option<&Path>,
 ) -> Result<ControlledProviderResult, String> {
     let session = prompt_runtime_from_args_with_journal(args, journal_path)
@@ -2827,7 +3080,7 @@ fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> 
         ProjectionPurpose::Conversation,
         prompt,
         InvocationOutputContract::NaturalLanguage,
-        &RuntimeInvocationOptions::default(),
+        &SemanticInvocationOptions::default(),
     )?;
     if dry_run {
         println!("model_prompt: dry_run");

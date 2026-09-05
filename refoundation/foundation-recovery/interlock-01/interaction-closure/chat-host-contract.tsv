@@ -1,0 +1,8 @@
+property	owner	implemented_contract	non_claim
+Turn commit	Existing Case Transition ledger	Host-normalized ordered parts can be committed independently before provider work	No new Turn schema or owner
+conversation execution	YAI application controller	An exact committed text Turn reuses Projection ContextFrame provider governance invocation and result boundaries	Not case run and no Resource Workflow Effect or Policy requirement
+retry	YAI application controller	Re-executes the same canonical Turn ID and appends only new provider lineage	Does not duplicate or mutate the Turn
+cancellation	YAI application controller	Cancellation is checked before buffered provider dispatch and after selection before dispatch	No claim of interrupting an already dispatched buffered request
+threads	ConversationTurn history plus controller-local selection	New identity is ephemeral until first committed Turn; list/use derive from committed history	No Thread store schema labels or empty-thread durability
+input normalization	Frontend adapter	Controller consumes typed ordered text/byte parts	No terminal path parser or Replia API invented
+events	YAI application controller	Typed commit selection result and unavailable postures are frontend-neutral	No terminal renderer and no streaming capability claim

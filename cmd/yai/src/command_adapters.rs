@@ -1040,6 +1040,9 @@ use graph_runtime::*;
 mod memory_cli;
 use memory_cli::*;
 
+#[path = "conversation_controller.rs"]
+mod conversation_controller;
+
 #[path = "conversation_cli.rs"]
 mod conversation_cli;
 use conversation_cli::conversation_case_command;

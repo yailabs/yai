@@ -18,12 +18,10 @@ use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
 use yai_core_engine::conversation::{find_turn, ContentModality, ConversationContentStore};
 use yai_core_engine::effect::OPERATION_PROPOSAL_SCHEMA;
 use yai_core_engine::provider_governance::{
-    ProviderAttemptOutcome, ProviderDeliveryClass, ProviderRequirement, ProviderSelection,
-    ProviderTransportStage,
+    ProviderDeliveryClass, ProviderRequirement, ProviderSelection,
 };
 use yai_core_engine::store::lmdb::{
-    CaseRuntimeAdmissionOutcome, CaseRuntimeAdmissionRequest, ProviderSelectionStoreOutcome,
-    RuntimeWorkItem, RuntimeWorkState,
+    CaseRuntimeAdmissionOutcome, CaseRuntimeAdmissionRequest, RuntimeWorkItem, RuntimeWorkState,
 };
 
 const CASE_RUNTIME_CHECKPOINT_SCHEMA: &str = "yai.case_runtime_checkpoint.v3";
@@ -536,123 +534,6 @@ pub(super) struct RuntimeProviderRoute {
     pub(super) selection: Option<ProviderSelection>,
 }
 
-fn target_chat_endpoint(endpoint: &str) -> String {
-    let endpoint = endpoint.trim_end_matches('/');
-    if endpoint.ends_with("/v1") {
-        format!("{endpoint}/chat/completions")
-    } else {
-        format!("{endpoint}/v1/chat/completions")
-    }
-}
-
-pub(super) fn governed_provider_route_for_requirement(
-    case_id: &str,
-    participant_id: &str,
-    requirement: &ProviderRequirement,
-    logical_turn_id: &str,
-) -> Result<RuntimeProviderRoute, String> {
-    let store = LmdbRecordStore::open(record_store_path())?;
-    let state = store
-        .get_case_state(case_id)?
-        .ok_or_else(|| format!("canonical CaseState missing for {case_id}"))?;
-    let binding = state
-        .provider_binding
-        .as_ref()
-        .ok_or_else(|| "memory_consolidation_governed_provider_binding_required".to_string())?;
-    if binding.participant_id != participant_id {
-        return Err("case_provider_binding_participant_mismatch".to_string());
-    }
-    let authenticated = authenticate_local()?;
-    let mut available_credentials = BTreeSet::new();
-    for target_id in &binding.ordered_target_ids {
-        let (target, _, _, _) = store.provider_posture_authorized(&authenticated, target_id)?;
-        if target.credential_ref == "none"
-            || target
-                .credential_ref
-                .strip_prefix("env:")
-                .is_some_and(|name| env_var(name).is_some())
-        {
-            available_credentials.insert(target.credential_ref.clone());
-        }
-    }
-    let selection = match store.select_case_provider_authorized(
-        &authenticated,
-        case_id,
-        participant_id,
-        requirement,
-        logical_turn_id,
-        1,
-        &BTreeSet::new(),
-        false,
-        &available_credentials,
-        runtime_now_millis().try_into().unwrap_or(u64::MAX),
-    )? {
-        ProviderSelectionStoreOutcome::Selected { selection, .. }
-        | ProviderSelectionStoreOutcome::AlreadySelected(selection) => selection,
-        ProviderSelectionStoreOutcome::Waiting { exclusions } => {
-            let reasons = exclusions
-                .iter()
-                .map(|entry| format!("{}:{:?}", entry.target_id, entry.code))
-                .collect::<Vec<_>>()
-                .join(",");
-            return Err(format!("provider_waiting:{reasons}"));
-        }
-    };
-    let (target, _, _, _) =
-        store.provider_posture_authorized(&authenticated, &selection.selected_target_id)?;
-    let locality = match target.locality {
-        yai_core_engine::provider_governance::ProviderLocality::Loopback => "loopback",
-        yai_core_engine::provider_governance::ProviderLocality::PrivateNetwork => "private_network",
-        yai_core_engine::provider_governance::ProviderLocality::Remote => "remote",
-    };
-    let mut args = vec![
-        "--case".to_string(),
-        case_id.to_string(),
-        "--subject".to_string(),
-        participant_id.to_string(),
-        "--base-url".to_string(),
-        target_chat_endpoint(&target.endpoint),
-        "--provider-id".to_string(),
-        target.target_id,
-        "--model".to_string(),
-        target.model_id,
-        "--selection-id".to_string(),
-        selection.selection_id.clone(),
-        "--target-id".to_string(),
-        selection.selected_target_id.clone(),
-        "--logical-turn-id".to_string(),
-        selection.logical_turn_id.clone(),
-        "--attempt-number".to_string(),
-        selection.attempt_number.to_string(),
-        "--provider-locality".to_string(),
-        locality.to_string(),
-    ];
-    if let Some(environment) = target.credential_ref.strip_prefix("env:") {
-        args.push("--api-key-env".to_string());
-        args.push(environment.to_string());
-        args.push("--credential-required".to_string());
-    }
-    Ok(RuntimeProviderRoute {
-        args,
-        selection: Some(selection),
-    })
-}
-
-pub(super) fn record_governed_provider_outcome(
-    case_id: &str,
-    selection: &ProviderSelection,
-    error: Option<&str>,
-    request_bytes: Option<u64>,
-) -> Result<(), String> {
-    let outcome = governed_attempt_outcome(selection, error, request_bytes)?;
-    let authenticated = authenticate_local()?;
-    let store = LmdbRecordStore::open(record_store_path())?;
-    let outcome_id = outcome.outcome_id.clone();
-    store.record_provider_attempt_outcome_authorized(&authenticated, case_id, outcome)?;
-    store.record_provider_attempt_health_authorized(&authenticated, case_id, &outcome_id)?;
-    Ok(())
-}
-
 #[allow(clippy::too_many_arguments)]
 fn provider_route(
     checkpoint: &CaseRuntimeCheckpoint,
@@ -666,30 +547,13 @@ fn provider_route(
     let state = store
         .get_case_state(&checkpoint.case_id)?
         .ok_or_else(|| format!("canonical CaseState missing for {}", checkpoint.case_id))?;
-    if let Some(binding) = state.provider_binding.as_ref() {
-        if binding.participant_id != checkpoint.participant_id {
-            return Err("case_provider_binding_participant_mismatch".to_string());
-        }
-        let authenticated = authenticate_local()?;
+    if state.provider_binding.is_some() {
         let requirement = if plan_patch {
             ProviderRequirement::plan_patch()?
         } else {
             ProviderRequirement::text("case_runtime_turn")?
         };
-        let mut available_credentials = BTreeSet::new();
-        for target_id in &binding.ordered_target_ids {
-            let (target, _, _, _) = store.provider_posture_authorized(&authenticated, target_id)?;
-            if target.credential_ref == "none"
-                || target
-                    .credential_ref
-                    .strip_prefix("env:")
-                    .is_some_and(|name| env_var(name).is_some())
-            {
-                available_credentials.insert(target.credential_ref.clone());
-            }
-        }
-        let selection = store.select_case_provider_authorized(
-            &authenticated,
+        let route = governed_provider_route_for_attempt(
             &checkpoint.case_id,
             &checkpoint.participant_id,
             &requirement,
@@ -697,60 +561,10 @@ fn provider_route(
             attempt_number,
             attempted_targets,
             prior_attempt_retry_safe,
-            &available_credentials,
-            runtime_now_millis().try_into().unwrap_or(u64::MAX),
         )?;
-        let selection = match selection {
-            ProviderSelectionStoreOutcome::Selected { selection, .. }
-            | ProviderSelectionStoreOutcome::AlreadySelected(selection) => selection,
-            ProviderSelectionStoreOutcome::Waiting { exclusions } => {
-                let reasons = exclusions
-                    .iter()
-                    .map(|entry| format!("{}:{:?}", entry.target_id, entry.code))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                return Err(format!("provider_waiting:{reasons}"));
-            }
-        };
-        let (target, _, _, _) =
-            store.provider_posture_authorized(&authenticated, &selection.selected_target_id)?;
-        let locality = match target.locality {
-            yai_core_engine::provider_governance::ProviderLocality::Loopback => "loopback",
-            yai_core_engine::provider_governance::ProviderLocality::PrivateNetwork => {
-                "private_network"
-            }
-            yai_core_engine::provider_governance::ProviderLocality::Remote => "remote",
-        };
-        let mut args = vec![
-            "--case".to_string(),
-            checkpoint.case_id.clone(),
-            "--subject".to_string(),
-            checkpoint.participant_id.clone(),
-            "--base-url".to_string(),
-            target_chat_endpoint(&target.endpoint),
-            "--provider-id".to_string(),
-            target.target_id,
-            "--model".to_string(),
-            target.model_id,
-            "--selection-id".to_string(),
-            selection.selection_id.clone(),
-            "--target-id".to_string(),
-            selection.selected_target_id.clone(),
-            "--logical-turn-id".to_string(),
-            selection.logical_turn_id.clone(),
-            "--attempt-number".to_string(),
-            selection.attempt_number.to_string(),
-            "--provider-locality".to_string(),
-            locality.to_string(),
-        ];
-        if let Some(environment) = target.credential_ref.strip_prefix("env:") {
-            args.push("--api-key-env".to_string());
-            args.push(environment.to_string());
-            args.push("--credential-required".to_string());
-        }
         return Ok(Some(RuntimeProviderRoute {
-            args,
-            selection: Some(selection),
+            args: route.args,
+            selection: Some(route.selection),
         }));
     }
     let Some(provider) = state.provider else {
@@ -776,106 +590,6 @@ fn provider_route(
         args,
         selection: None,
     }))
-}
-
-fn governed_attempt_outcome(
-    selection: &ProviderSelection,
-    error: Option<&str>,
-    successful_request_bytes: Option<u64>,
-) -> Result<ProviderAttemptOutcome, String> {
-    let error_bytes = error
-        .and_then(|value| value.split("bytes=").nth(1))
-        .and_then(|value| value.split(|ch: char| !ch.is_ascii_digit()).next())
-        .and_then(|value| value.parse::<u64>().ok())
-        .or_else(|| {
-            error
-                .and_then(|value| value.split("partial_write:").nth(1))
-                .and_then(|value| value.split(':').next())
-                .and_then(|value| value.parse::<u64>().ok())
-        });
-    let error_status = error
-        .and_then(|value| value.split("status=").nth(1))
-        .and_then(|value| value.split(|ch: char| !ch.is_ascii_digit()).next())
-        .and_then(|value| value.parse::<u16>().ok());
-    let (delivery, stage, bytes, status, failure) = match error {
-        None => (
-            ProviderDeliveryClass::ResultReceived,
-            ProviderTransportStage::Completed,
-            successful_request_bytes.unwrap_or(1),
-            Some(200),
-            None,
-        ),
-        Some(error) if error.starts_with("provider_not_dispatched:connect") => (
-            ProviderDeliveryClass::NotDispatched,
-            ProviderTransportStage::Connect,
-            0,
-            None,
-            Some("connect_failure".to_string()),
-        ),
-        Some(error) if error.starts_with("provider_not_dispatched:") => (
-            ProviderDeliveryClass::NotDispatched,
-            ProviderTransportStage::RequestWriting,
-            0,
-            None,
-            Some("write_before_bytes_failure".to_string()),
-        ),
-        Some(error) if error.starts_with("provider_remote_response:") => {
-            let status = error
-                .split(':')
-                .nth(1)
-                .and_then(|value| value.parse::<u16>().ok());
-            (
-                // A generic HTTP status proves that a response arrived, not
-                // that model execution never occurred. It is therefore never
-                // safe_only failover evidence by itself.
-                ProviderDeliveryClass::DeliveryIndeterminate,
-                ProviderTransportStage::ResponseBody,
-                error_bytes.unwrap_or(1),
-                status,
-                Some("remote_response_rejected".to_string()),
-            )
-        }
-        Some(error) if error.starts_with("provider_response_invalid:") => {
-            let stage = if error.contains("header") || error.contains("content_length") {
-                ProviderTransportStage::ResponseHeaders
-            } else if error.contains("body") || error.contains("transfer_encoding") {
-                ProviderTransportStage::ResponseBody
-            } else {
-                ProviderTransportStage::JsonParse
-            };
-            (
-                ProviderDeliveryClass::ResponseInvalid,
-                stage,
-                error_bytes.unwrap_or(1),
-                error_status,
-                Some("response_schema_invalid".to_string()),
-            )
-        }
-        Some(error) if error.starts_with("provider_delivery_indeterminate:") => (
-            ProviderDeliveryClass::DeliveryIndeterminate,
-            ProviderTransportStage::ResponseBody,
-            error_bytes.unwrap_or(1),
-            None,
-            Some("delivery_or_response_unknown".to_string()),
-        ),
-        Some(_) => (
-            ProviderDeliveryClass::NotDispatched,
-            ProviderTransportStage::RequestWriting,
-            0,
-            None,
-            Some("local_pre_dispatch_failure".to_string()),
-        ),
-    };
-    ProviderAttemptOutcome::new(
-        selection,
-        delivery,
-        stage,
-        bytes,
-        status,
-        false,
-        failure,
-        runtime_now_millis().try_into().unwrap_or(u64::MAX),
-    )
 }
 
 fn ensure_memory_fresh(case_id: &str) -> Result<usize, String> {
@@ -1270,7 +984,7 @@ fn run_loop(
                 .max_cumulative_estimated_input_units
                 .saturating_sub(checkpoint.cumulative_estimated_input_units);
             let plan_patch_contract = current_workflow_plan_patch_contract(&checkpoint)?;
-            let options = RuntimeInvocationOptions {
+            let options = SemanticInvocationOptions {
                 max_resident_items: checkpoint.max_resident_items,
                 max_semantic_units: checkpoint.max_semantic_units,
                 max_estimated_input_units: remaining_cost,
@@ -1338,7 +1052,7 @@ fn run_loop(
                     }
                     Err(error) => return Err(error),
                 };
-                match invoke_runtime_provider_with_journal(
+                match invoke_semantic_provider_with_journal(
                     &route.args,
                     purpose,
                     &checkpoint.task,

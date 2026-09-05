@@ -19,7 +19,7 @@
 .PHONY: smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33
 .PHONY: smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40
 .PHONY: smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47
-.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance smoke-tenant-security smoke-multi-case-runtime smoke-multi-case-runtime-hardening smoke-shared-resource-fencing smoke-shared-resource-fencing-hardening smoke-second-carrier smoke-workflow-kernel smoke-workflow-kernel-hardening smoke-cli-product-surface smoke-adaptive-workflow smoke-adaptive-workflow-hardening smoke-provider-governance smoke-provider-governance-hardening smoke-memory-representation smoke-memory-index-hardening smoke-episodic-semantic-memory smoke-multipart-conversation qualification-yvex-provider endurance-agentless-case-runtime characterization smoke check clean
+.PHONY: smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance smoke-tenant-security smoke-multi-case-runtime smoke-multi-case-runtime-hardening smoke-shared-resource-fencing smoke-shared-resource-fencing-hardening smoke-second-carrier smoke-workflow-kernel smoke-workflow-kernel-hardening smoke-cli-product-surface smoke-adaptive-workflow smoke-adaptive-workflow-hardening smoke-provider-governance smoke-provider-governance-hardening smoke-memory-representation smoke-memory-index-hardening smoke-episodic-semantic-memory smoke-multipart-conversation smoke-conversation-interaction-host qualification-yvex-provider endurance-agentless-case-runtime characterization smoke check clean
 
 CC ?= cc
 AR ?= ar
@@ -579,7 +579,7 @@ smoke-spine33e: $(SMOKE_HOST_OBSERVATION_PROBE) build-rust
 
 
 
-smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance smoke-tenant-security smoke-multi-case-runtime smoke-multi-case-runtime-hardening smoke-shared-resource-fencing smoke-shared-resource-fencing-hardening smoke-second-carrier smoke-workflow-kernel smoke-workflow-kernel-hardening smoke-cli-product-surface smoke-adaptive-workflow smoke-adaptive-workflow-hardening smoke-provider-governance smoke-provider-governance-hardening smoke-memory-representation smoke-memory-index-hardening smoke-episodic-semantic-memory smoke-multipart-conversation
+smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance smoke-tenant-security smoke-multi-case-runtime smoke-multi-case-runtime-hardening smoke-shared-resource-fencing smoke-shared-resource-fencing-hardening smoke-second-carrier smoke-workflow-kernel smoke-workflow-kernel-hardening smoke-cli-product-surface smoke-adaptive-workflow smoke-adaptive-workflow-hardening smoke-provider-governance smoke-provider-governance-hardening smoke-memory-representation smoke-memory-index-hardening smoke-episodic-semantic-memory smoke-multipart-conversation smoke-conversation-interaction-host
 
 smoke-semantic-continuity: $(YAID) build-rust
 	@$(CHARACTERIZATION_SEMANTIC_CONTINUITY)
@@ -664,6 +664,10 @@ smoke-episodic-semantic-memory: build-rust
 smoke-multipart-conversation: build-rust
 	@$(CHARACTERIZATION_MULTIPART_CONVERSATION)
 
+smoke-conversation-interaction-host: build-rust
+	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path cmd/yai/Cargo.toml command_adapters::conversation_controller::tests::post_i01_host_commits_before_provider_and_derives_threads_only_from_turns -- --ignored --exact --nocapture --test-threads=1
+	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path cmd/yai/Cargo.toml command_adapters::conversation_controller::tests::post_i01_host_reuses_governed_semantic_execution_without_operational_runtime -- --ignored --exact --nocapture --test-threads=1
+
 qualification-yvex-provider: build-rust
 	@$(QUALIFICATION_YVEX_PROVIDER)
 
@@ -688,6 +692,7 @@ characterization: smoke-new4 smoke-new11 smoke-new12 smoke-spine39 smoke-spine45
 	@$(CHARACTERIZATION_MEMORY_INDEX_HARDENING)
 	@$(CHARACTERIZATION_EPISODIC_SEMANTIC_MEMORY)
 	@$(CHARACTERIZATION_MULTIPART_CONVERSATION)
+	@$(MAKE) --no-print-directory smoke-conversation-interaction-host
 
 check: check-layout check-docs build smoke
 

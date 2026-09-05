@@ -118,6 +118,30 @@ operation recorded in Case history; it exposes bounded exclusion codes rather
 than a magic score. Existing `case provider attach` remains the legacy exact
 pin, not an alias for a governed pool.
 
+## Post-I01 conversation interaction boundary
+
+The I01 draft commands remain executable, registry-backed Advanced plumbing
+for automation and exact content/provenance qualification. They are no longer
+presented as the ordinary human conversation journey. Canonical Turn
+inspection remains available under `case conversation turn`.
+
+The application-side conversation controller accepts typed ordered parts,
+commits the Turn before model execution, and then reuses YAI's
+Projection/Context/provider-governance invocation boundary. Ordinary
+conversation does not inherit `case run` requirements for a Resource,
+Workflow, Effect, policy, or operational budgets. Retry executes the same
+committed Turn and cannot duplicate it. New thread identities are local until
+their first SEND; thread lists are projections of committed Turn history.
+
+There is intentionally no temporary `yai chat` command. The Product command
+will be admitted only with the authoritative external Replia frontend, which
+owns terminal editing, history, paste, key handling, redraw/resize, and terminal
+rendering. YAI will own the meanings of chat actions such as memory/context,
+thread selection, retry, and cancellation. Natural terminal path recognition
+will live in that adapter; graphical clients may supply typed parts directly.
+`yai prompt` remains frozen as an Advanced legacy interaction surface until
+the real cutover and receives no new terminal behavior here.
+
 ## Case memory representation and retrieval
 
 Wave 19 keeps memory operations Case-first in the same registry:

@@ -1,0 +1,10 @@
+proof	mechanism	expected_invariant	layer
+commit before provider	focused isolated controller test	TurnCommitted event and canonical history survive missing provider	YAI semantic
+governed text execution	loopback qualified provider fixture	Projection Context Selection Invocation Result execute without ResourceAttachment	YAI semantic
+retry	second execution of exact Turn	one committed Turn and two causally linked ProviderInvocation transitions	YAI semantic
+thread lifecycle	new/list/use/reopen controller actions	unused thread is non-durable and committed thread is history-derived	YAI semantic
+multipart compatibility	typed text plus repeated images	order and distinct part positions survive while equal bytes share object identity	YAI semantic
+typed media posture	multipart submit with no I02 adapter	Turn commits and execution reports typed_media_adapter_pending	YAI semantic
+cancellation	pre-dispatch cancellation handle	no ProviderResult and committed Turn remains	YAI semantic
+prior foundation	make check plus characterization	I01 H19 W20 and lower regressions remain green	YAI regression
+terminal editing history paste keys redraw resize	future Replia integration suite	Must be proven only against authoritative Replia adapter	external pending
