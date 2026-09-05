@@ -3,7 +3,8 @@
 Authority: implementation truth. This edition covers the published W20
 foundation, the closed I01 multipart-conversation interlock, its
 provider-independent interaction-host closure, the I02 cognitive-binding
-planning interlock, and the I03 typed provider-realization boundary. Historical checkpoints and
+planning interlock, the I03 typed provider-realization boundary, and the I04
+bounded cognitive-composition boundary. Historical checkpoints and
 exact executable evidence remain in `refoundation/foundation-recovery/`.
 
 This document includes current contradictions. It does not claim that the
@@ -31,6 +32,7 @@ operator
   |     +-- Case-canonical provider selection and delivery-safe attempt lineage
   |     +-- Case-canonical cognitive bindings and execution-free lane planning
   |     +-- exact typed provider realization and provenance-bound auxiliary output
+  |     +-- bounded direct-or-prerequisite cognitive execution composition
   |     +-- canonical Transition/CaseState authority in LMDB
   |     +-- legacy journal inspect/import/replay compatibility
   |     +-- LMDB graph materialization/query
@@ -78,7 +80,10 @@ plan contracts live in
 [`cognitive.rs`](../engine/yai-engine/src/cognitive.rs). I03 keeps those plans
 pure, then revalidates a fresh plan against exact mechanical adapter evidence
 before the existing governed invocation/result seam performs one dispatch.
-Neither layer owns deployment/runtime state.
+I04 composes at most one explicit prerequisite into a fresh primary
+realization. Its request and source closure are deterministic derived values;
+the existing Turn, derived-content relation and provider lineage remain the
+only durable facts. None of these layers owns deployment/runtime state.
 
 The normal CLI links [`yai-engine`](../engine/yai-engine/src/lib.rs) directly
 as Rust. There is no product C→Rust call edge or installed Rust C ABI. The
@@ -97,10 +102,11 @@ mean constitutional, general, or production-ready.
 
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
-| Case conversation content | mutable non-canonical draft → bounded text/media imports → explicit original/derived provenance → SEND → `ConversationTurnCommitted` → immutable content-addressed bytes plus canonical ordered references; I03 can publish bounded provider-derived text as a separate canonical relation without mutating the Turn | automatic auxiliary→primary orchestration and non-text generated output remain later work |
+| Case conversation content | mutable non-canonical draft → bounded text/media imports → explicit original/derived provenance → SEND → `ConversationTurnCommitted` → immutable content-addressed bytes plus canonical ordered references; I03 can publish bounded provider-derived text as a separate canonical relation without mutating the Turn | non-text generated output and automatic unbounded composition remain later work |
 | Conversation interaction host | host-normalized ordered parts → canonical Turn commit → optional independent conversation execution through the shared Projection/Context/provider-governance seam; failure and retry preserve one Turn and require no ResourceAttachment, Workflow, Policy, Effect, or Case-runtime admission | the Product `yai chat` frontend awaits authoritative Replia integration; YAI does not privately implement terminal mechanics |
-| Cognitive capability planning | exact semantic requirement → target-bound suitability evidence → canonical Case/Participant primary or auxiliary binding → pure native/derived/unresolved plan → deterministic lane and lane-scoped continuation posture; planning remains execution-free | policy-driven arbitration and automatic multi-stage orchestration remain later work |
-| Typed provider realization | fresh I02 plan + exact current binding/evidence/envelope + ProviderQualification v4 wire-shape evidence + canonical Turn parts → exact-target governed selection → ordered OpenAI-compatible typed request → ProviderInvocation/ProviderResult; derived routes use an exact versioned normalizer to publish bounded immutable text plus source/result provenance | production STT/vision adapters, public YVEX typed-media compatibility, streaming and automatic next-stage execution remain later work |
+| Cognitive capability planning | exact semantic requirement → target-bound suitability evidence → canonical Case/Participant primary or auxiliary binding → pure native/derived/unresolved plan → deterministic lane and lane-scoped continuation posture; planning remains execution-free | policy-driven arbitration remains later work |
+| Typed provider realization | fresh I02 plan + exact current binding/evidence/envelope + ProviderQualification v4 wire-shape evidence + canonical Turn parts → exact-target governed selection → ordered OpenAI-compatible typed request → ProviderInvocation/ProviderResult; derived routes use an exact versioned normalizer to publish bounded immutable text plus source/result provenance | production STT/vision adapters, public YVEX typed-media compatibility and streaming remain later work |
+| Cognitive execution composition | explicit primary goal + ordered canonical source selection → content-addressed composition request → proven direct primary bypass or one exact auxiliary I02/I03 realization → canonical derived content → deterministic original/derived source closure → fresh exact primary I02/I03 realization; completed compatible prerequisites resume without redispatch | only depth-two speech/image-to-text prerequisites are admitted; dynamic arbitration, recursive graphs and automatic chat routing remain absent |
 | Case-bound provider prompt | admitted participant + typed CaseState/history → qualified long-horizon retrieval → `yai.residency_plan.v1` → `yai.projection.v7` → `yai.context_frame.v7` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | authoritative tokenization and streaming remain absent; typed realization is explicit Advanced plumbing, not automatic chat routing |
 | Governed provider routing | immutable Tenant ProviderTarget → synthetic evidence-bound qualification → Tenant-Owner approval → shared fresh health/circuit → exact Case provider binding → mechanical requirement/filtering → canonical ProviderSelection and attempt outcome; local fixtures prove qualified capability differences, deterministic exclusions, pre-dispatch safe failover and indeterminate-delivery refusal | remote HTTPS transport, credential rotation, DNS drift and adversarial multi-process circuit hardening remain outside W18 |
 | Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | one synchronous single-host `filesystem.write` loop; no multi-Case scheduler, quotas, backpressure or distributed lease |
@@ -167,7 +173,11 @@ adds a canonical post-SEND `ConversationDerivedContentRecorded` relation. Its
 bytes remain owned by the existing immutable ConversationContentStore and it
 does not add a CaseState field. ProviderQualification v4 adds exact bounded
 wire-shape evidence from synthetic adapter requests while retaining v1-v3
-readers. One bounded
+readers. I04 adds `yai.cognitive_composition_request.v1` and
+`yai.cognitive_source_closure.v1` as rebuildable content-addressed values. They
+add no Transition payload, CaseState field, database or owner; exact closure
+and derived-content identities are attached as causal refs to the ordinary
+ProviderSelection history. One bounded
 LMDB write transaction:
 
 1. validates typed payload closure and global Transition identity;
@@ -682,6 +692,7 @@ participates.
 | `cmd/yai/src/main.rs` | parsing, dispatch, common CLI/process initiation and residual compatibility commands | product-reachable command boundary |
 | `cmd/yai/src/conversation_controller.rs` | host-independent commit, thread projection, retry/cancellation posture, and ordinary conversation execution over shared semantic/provider boundaries | application controller awaiting frontend adapters; no terminal, Case, provider, or content owner |
 | `cmd/yai/src/conversation_cli.rs` | Advanced mutable draft preparation and SEND plumbing plus immutable Turn/content inspection | automation/reference-client boundary; no model or resource authority |
+| `cmd/yai/src/cognitive_cli.rs` | Advanced suitability/binding/planning/realization surfaces plus bounded process-local composition over I02/I03 | derived execution control and inspection; no Case, lane, workflow, provider-session or content owner |
 | `engine/yai-engine/src/conversation.rs` | ordered typed Turn/content/provenance contracts and private immutable byte ownership | one durable application-content owner for non-reconstructible original bytes; no execution owner |
 | `cmd/yai/src/case_runtime.rs` | bounded disposable Case iteration, stop/budget checkpointing, automatic reconciliation and memory repair | product-reachable transition algorithm; never canonical owner |
 | `cmd/yai/src/provider.rs` | Case admission/attachment compatibility, HTTP transport and typed invocation/result residue | product-reachable provider boundary |

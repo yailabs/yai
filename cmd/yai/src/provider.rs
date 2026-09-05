@@ -2285,6 +2285,7 @@ pub(super) fn governed_provider_route_for_exact_plan(
     realization_shape: &yai_core_engine::provider_governance::ProviderRealizationShape,
     logical_turn_id: &str,
     continuation: Option<&yai_core_engine::cognitive::LaneContinuationReference>,
+    realization_causal_refs: &[String],
 ) -> Result<ProviderInvocationRoute, String> {
     use yai_core_engine::cognitive::{assess_lane_continuation, LaneContinuationPosture};
     let target_id = plan
@@ -2317,6 +2318,7 @@ pub(super) fn governed_provider_route_for_exact_plan(
         realization_shape,
         logical_turn_id,
         &available_credentials,
+        realization_causal_refs,
     )? {
         ProviderSelectionStoreOutcome::Selected { selection, .. }
         | ProviderSelectionStoreOutcome::AlreadySelected(selection) => selection,

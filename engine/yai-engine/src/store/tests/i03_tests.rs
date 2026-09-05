@@ -270,6 +270,7 @@ fn i03_exact_realization_selection_never_substitutes_provider_target() {
             &ProviderRealizationShape::OrderedPngTextToText,
             &format!("cognitive-realization:{}", plan.plan_id),
             &BTreeSet::from(["none".to_string()]),
+            &[],
         )
         .unwrap_err();
     assert_eq!(
@@ -290,6 +291,7 @@ fn i03_exact_realization_selection_never_substitutes_provider_target() {
             &ProviderRealizationShape::AudioWavToText,
             &format!("cognitive-realization:{}", plan.plan_id),
             &BTreeSet::from(["none".to_string()]),
+            &[],
         )
         .unwrap();
     let selection = match outcome {
@@ -318,6 +320,7 @@ fn i03_exact_realization_selection_never_substitutes_provider_target() {
             &ProviderRealizationShape::AudioWavToText,
             "cognitive-realization:stale-plan",
             &BTreeSet::from(["none".to_string()]),
+            &[],
         )
         .unwrap_err();
     assert_eq!(stale_error, "cognitive_realization_plan_stale");
@@ -485,6 +488,7 @@ fn i03_semantic_suitability_without_wire_shape_refuses_before_selection() {
             &ProviderRealizationShape::AudioWavToText,
             &format!("cognitive-realization:{}", plan.plan_id),
             &BTreeSet::from(["none".to_string()]),
+            &[],
         )
         .unwrap_err();
     assert_eq!(error, "cognitive_realization_shape_not_qualified");

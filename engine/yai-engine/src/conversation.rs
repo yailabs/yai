@@ -34,6 +34,8 @@ pub const CONVERSATION_TURN_SCHEMA: &str = "yai.conversation_turn.v1";
 pub const CONVERSATION_DRAFT_SCHEMA: &str = "yai.conversation_draft.v1";
 pub const CONTENT_STORE_SCHEMA: &str = "yai.conversation_content_store.v1";
 pub const DERIVED_CONTENT_SCHEMA: &str = "yai.conversation_derived_content.v1";
+pub const COGNITIVE_COMPOSITION_REQUEST_SCHEMA: &str = "yai.cognitive_composition_request.v1";
+pub const COGNITIVE_SOURCE_CLOSURE_SCHEMA: &str = "yai.cognitive_source_closure.v1";
 pub const PROVIDER_DERIVED_TEXT_NORMALIZER: &str =
     "yai.conversation_provider_derived_text_normalizer.v1";
 
@@ -560,6 +562,393 @@ impl ConversationTurn {
             );
         }
         Ok(texts.join("\n\n"))
+    }
+}
+
+/// Explicit semantic intent for one bounded cognitive composition. This is a
+/// derived, content-addressed request rather than durable Case history. Media
+/// shape never creates a prerequisite implicitly.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CognitiveCompositionPrerequisite {
+    pub capability: CognitiveCapability,
+    pub source_part_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CognitiveCompositionRequest {
+    pub schema: String,
+    pub request_id: String,
+    pub integrity_digest: String,
+    pub tenant_id: String,
+    pub case_id: String,
+    pub participant_id: String,
+    pub source_turn_id: String,
+    pub source_turn_digest: String,
+    pub goal: CognitiveCapability,
+    pub source_part_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub prerequisite: Option<CognitiveCompositionPrerequisite>,
+}
+
+#[derive(Serialize)]
+struct CognitiveCompositionRequestIdentity<'a> {
+    schema: &'a str,
+    tenant_id: &'a str,
+    case_id: &'a str,
+    participant_id: &'a str,
+    source_turn_id: &'a str,
+    source_turn_digest: &'a str,
+    goal: &'a CognitiveCapability,
+    source_part_ids: &'a [String],
+    prerequisite: &'a Option<CognitiveCompositionPrerequisite>,
+}
+
+fn canonical_turn_part_ids(
+    turn: &ConversationTurn,
+    requested: &[String],
+    label: &str,
+) -> Result<Vec<String>, String> {
+    if requested.is_empty() {
+        return Err(format!("{label}_required"));
+    }
+    let requested_set = requested.iter().collect::<BTreeSet<_>>();
+    if requested_set.len() != requested.len() {
+        return Err(format!("{label}_duplicate"));
+    }
+    let ordered = turn
+        .ordered_parts
+        .iter()
+        .filter(|part| requested_set.contains(&part.part_id))
+        .map(|part| part.part_id.clone())
+        .collect::<Vec<_>>();
+    if ordered.len() != requested.len() {
+        return Err(format!("{label}_not_found"));
+    }
+    Ok(ordered)
+}
+
+impl CognitiveCompositionRequest {
+    pub fn new(
+        turn: &ConversationTurn,
+        participant_id: &str,
+        goal: CognitiveCapability,
+        source_part_ids: Vec<String>,
+        prerequisite: Option<CognitiveCompositionPrerequisite>,
+    ) -> Result<Self, String> {
+        turn.validate()?;
+        if participant_id != turn.participant_id {
+            return Err("cognitive_composition_participant_mismatch".to_string());
+        }
+        if goal != CognitiveCapability::PrimaryConversation {
+            return Err("cognitive_composition_goal_not_admitted".to_string());
+        }
+        let source_part_ids =
+            canonical_turn_part_ids(turn, &source_part_ids, "cognitive_composition_source_part")?;
+        let prerequisite = prerequisite
+            .map(|value| {
+                if value.capability == CognitiveCapability::PrimaryConversation {
+                    return Err("cognitive_composition_prerequisite_invalid".to_string());
+                }
+                let prerequisite_part_ids = canonical_turn_part_ids(
+                    turn,
+                    &value.source_part_ids,
+                    "cognitive_composition_prerequisite_part",
+                )?;
+                if prerequisite_part_ids.len() > MAX_DERIVATION_SOURCES {
+                    return Err("cognitive_composition_prerequisite_parts_exceeded".to_string());
+                }
+                if prerequisite_part_ids
+                    .iter()
+                    .any(|part| !source_part_ids.contains(part))
+                {
+                    return Err("cognitive_composition_prerequisite_outside_source".to_string());
+                }
+                Ok(CognitiveCompositionPrerequisite {
+                    capability: value.capability,
+                    source_part_ids: prerequisite_part_ids,
+                })
+            })
+            .transpose()?;
+        let identity = CognitiveCompositionRequestIdentity {
+            schema: COGNITIVE_COMPOSITION_REQUEST_SCHEMA,
+            tenant_id: &turn.tenant_id,
+            case_id: &turn.case_id,
+            participant_id,
+            source_turn_id: &turn.turn_id,
+            source_turn_digest: &turn.content_digest,
+            goal: &goal,
+            source_part_ids: &source_part_ids,
+            prerequisite: &prerequisite,
+        };
+        let integrity_digest = digest_json(&identity)?;
+        Ok(Self {
+            schema: COGNITIVE_COMPOSITION_REQUEST_SCHEMA.to_string(),
+            request_id: format!("cognitive-composition:{integrity_digest}"),
+            integrity_digest,
+            tenant_id: turn.tenant_id.clone(),
+            case_id: turn.case_id.clone(),
+            participant_id: participant_id.to_string(),
+            source_turn_id: turn.turn_id.clone(),
+            source_turn_digest: turn.content_digest.clone(),
+            goal,
+            source_part_ids,
+            prerequisite,
+        })
+    }
+
+    pub fn validate(&self, turn: &ConversationTurn) -> Result<(), String> {
+        if self.schema != COGNITIVE_COMPOSITION_REQUEST_SCHEMA {
+            return Err("cognitive_composition_schema_invalid".to_string());
+        }
+        let rebuilt = Self::new(
+            turn,
+            &self.participant_id,
+            self.goal.clone(),
+            self.source_part_ids.clone(),
+            self.prerequisite.clone(),
+        )?;
+        if rebuilt != *self {
+            return Err("cognitive_composition_identity_mismatch".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CognitiveSourceDisposition {
+    RetainedOriginal,
+    ReplacedByDerived,
+    ConsumedByDerivation,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CognitiveSourceClosureEntry {
+    pub source_ordinal: u16,
+    pub source_part_id: String,
+    pub original_object_id: String,
+    pub disposition: CognitiveSourceDisposition,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delivery_ordinal: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delivery_source_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delivery_object: Option<ConversationContentObject>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub derived_content_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_result_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CognitiveSourceClosure {
+    pub schema: String,
+    pub closure_id: String,
+    pub integrity_digest: String,
+    pub composition_request_id: String,
+    pub tenant_id: String,
+    pub case_id: String,
+    pub participant_id: String,
+    pub source_turn_id: String,
+    pub source_turn_digest: String,
+    pub entries: Vec<CognitiveSourceClosureEntry>,
+    pub delivery_count: u16,
+}
+
+#[derive(Serialize)]
+struct CognitiveSourceClosureIdentity<'a> {
+    schema: &'a str,
+    composition_request_id: &'a str,
+    tenant_id: &'a str,
+    case_id: &'a str,
+    participant_id: &'a str,
+    source_turn_id: &'a str,
+    source_turn_digest: &'a str,
+    entries: &'a [CognitiveSourceClosureEntry],
+    delivery_count: u16,
+}
+
+impl CognitiveSourceClosure {
+    pub fn direct(
+        request: &CognitiveCompositionRequest,
+        turn: &ConversationTurn,
+    ) -> Result<Self, String> {
+        request.validate(turn)?;
+        Self::build(request, turn, None)
+    }
+
+    pub fn composed(
+        request: &CognitiveCompositionRequest,
+        turn: &ConversationTurn,
+        derived: &ConversationDerivedContent,
+    ) -> Result<Self, String> {
+        request.validate(turn)?;
+        derived.validate(turn)?;
+        let prerequisite = request
+            .prerequisite
+            .as_ref()
+            .ok_or_else(|| "cognitive_composition_prerequisite_missing".to_string())?;
+        if prerequisite.capability != derived.capability
+            || prerequisite.source_part_ids != derived.source_part_ids
+        {
+            return Err("cognitive_composition_derived_lineage_mismatch".to_string());
+        }
+        Self::build(request, turn, Some(derived))
+    }
+
+    fn build(
+        request: &CognitiveCompositionRequest,
+        turn: &ConversationTurn,
+        derived: Option<&ConversationDerivedContent>,
+    ) -> Result<Self, String> {
+        let prerequisite_sources = if derived.is_some() {
+            request
+                .prerequisite
+                .as_ref()
+                .map(|value| value.source_part_ids.iter().collect::<BTreeSet<_>>())
+                .unwrap_or_default()
+        } else {
+            BTreeSet::new()
+        };
+        let first_prerequisite = derived.and_then(|_| {
+            request
+                .prerequisite
+                .as_ref()
+                .and_then(|value| value.source_part_ids.first())
+        });
+        let mut delivery_ordinal = 0u16;
+        let mut entries = Vec::with_capacity(request.source_part_ids.len());
+        for source_part_id in &request.source_part_ids {
+            let part = turn
+                .ordered_parts
+                .iter()
+                .find(|part| &part.part_id == source_part_id)
+                .ok_or_else(|| "cognitive_source_closure_part_missing".to_string())?;
+            let source_ordinal = part.ordinal;
+            let (disposition, delivery_source_ref, delivery_object, derived_content_id, result_id) =
+                if prerequisite_sources.contains(source_part_id) {
+                    let derived = derived.ok_or_else(|| {
+                        "cognitive_source_closure_derivation_required".to_string()
+                    })?;
+                    if first_prerequisite == Some(source_part_id) {
+                        (
+                            CognitiveSourceDisposition::ReplacedByDerived,
+                            Some(derived.derived_content_id.clone()),
+                            Some(derived.object.clone()),
+                            Some(derived.derived_content_id.clone()),
+                            Some(derived.provider_result_id.clone()),
+                        )
+                    } else {
+                        (
+                            CognitiveSourceDisposition::ConsumedByDerivation,
+                            None,
+                            None,
+                            Some(derived.derived_content_id.clone()),
+                            Some(derived.provider_result_id.clone()),
+                        )
+                    }
+                } else {
+                    (
+                        CognitiveSourceDisposition::RetainedOriginal,
+                        Some(part.part_id.clone()),
+                        Some(part.object.clone()),
+                        None,
+                        None,
+                    )
+                };
+            let delivered = delivery_object.is_some();
+            entries.push(CognitiveSourceClosureEntry {
+                source_ordinal,
+                source_part_id: part.part_id.clone(),
+                original_object_id: part.object.object_id.clone(),
+                disposition,
+                delivery_ordinal: delivered.then_some(delivery_ordinal),
+                delivery_source_ref,
+                delivery_object,
+                derived_content_id,
+                provider_result_id: result_id,
+            });
+            if delivered {
+                delivery_ordinal = delivery_ordinal
+                    .checked_add(1)
+                    .ok_or_else(|| "cognitive_source_closure_delivery_overflow".to_string())?;
+            }
+        }
+        let identity = CognitiveSourceClosureIdentity {
+            schema: COGNITIVE_SOURCE_CLOSURE_SCHEMA,
+            composition_request_id: &request.request_id,
+            tenant_id: &request.tenant_id,
+            case_id: &request.case_id,
+            participant_id: &request.participant_id,
+            source_turn_id: &request.source_turn_id,
+            source_turn_digest: &request.source_turn_digest,
+            entries: &entries,
+            delivery_count: delivery_ordinal,
+        };
+        let integrity_digest = digest_json(&identity)?;
+        Ok(Self {
+            schema: COGNITIVE_SOURCE_CLOSURE_SCHEMA.to_string(),
+            closure_id: format!("cognitive-source-closure:{integrity_digest}"),
+            integrity_digest,
+            composition_request_id: request.request_id.clone(),
+            tenant_id: request.tenant_id.clone(),
+            case_id: request.case_id.clone(),
+            participant_id: request.participant_id.clone(),
+            source_turn_id: request.source_turn_id.clone(),
+            source_turn_digest: request.source_turn_digest.clone(),
+            entries,
+            delivery_count: delivery_ordinal,
+        })
+    }
+
+    pub fn validate(
+        &self,
+        request: &CognitiveCompositionRequest,
+        turn: &ConversationTurn,
+        derived: Option<&ConversationDerivedContent>,
+    ) -> Result<(), String> {
+        if self.schema != COGNITIVE_SOURCE_CLOSURE_SCHEMA {
+            return Err("cognitive_source_closure_schema_invalid".to_string());
+        }
+        let uses_derivation = self
+            .entries
+            .iter()
+            .any(|entry| entry.disposition != CognitiveSourceDisposition::RetainedOriginal);
+        let rebuilt = if uses_derivation {
+            Self::composed(
+                request,
+                turn,
+                derived.ok_or_else(|| "cognitive_source_closure_derivation_missing".to_string())?,
+            )?
+        } else {
+            if derived.is_some() {
+                return Err("cognitive_source_closure_unexpected_derivation".to_string());
+            }
+            Self::direct(request, turn)?
+        };
+        if rebuilt != *self {
+            return Err("cognitive_source_closure_identity_mismatch".to_string());
+        }
+        Ok(())
+    }
+
+    pub fn delivery_objects(&self) -> Vec<(&str, &ConversationContentObject)> {
+        let mut values = self
+            .entries
+            .iter()
+            .filter_map(|entry| {
+                Some((
+                    entry.delivery_ordinal?,
+                    entry.delivery_source_ref.as_deref()?,
+                    entry.delivery_object.as_ref()?,
+                ))
+            })
+            .collect::<Vec<_>>();
+        values.sort_by_key(|value| value.0);
+        values
+            .into_iter()
+            .map(|(_, source, object)| (source, object))
+            .collect()
     }
 }
 
@@ -1779,6 +2168,123 @@ mod tests {
             store.verify_object(&part.object).unwrap();
         }
         let _ = fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn i04_composition_intent_and_source_closure_are_deterministic_and_noncanonical() {
+        let make_part = |ordinal, modality, media_type, bytes: &[u8]| {
+            ConversationContentPart::build(
+                ordinal,
+                ConversationContentObject::new(
+                    "tenant:i01",
+                    "case:i01",
+                    modality,
+                    media_type,
+                    bytes,
+                )
+                .unwrap(),
+                original(),
+            )
+            .unwrap()
+        };
+        let turn = ConversationTurn::build(
+            "case:i01",
+            "tenant:i01",
+            "thread:i04",
+            "participant:operator",
+            "principal:operator",
+            9,
+            vec![
+                make_part(0, ContentModality::Text, "text/plain", b"before"),
+                make_part(1, ContentModality::Audio, "audio/wav", b"RIFF....WAVE"),
+                make_part(2, ContentModality::Text, "text/plain", b"after"),
+            ],
+        )
+        .unwrap();
+        let original_turn = turn.clone();
+        let selected = turn
+            .ordered_parts
+            .iter()
+            .map(|part| part.part_id.clone())
+            .collect::<Vec<_>>();
+        let audio_id = turn.ordered_parts[1].part_id.clone();
+        let prerequisite = CognitiveCompositionPrerequisite {
+            capability: CognitiveCapability::SpeechToText,
+            source_part_ids: vec![audio_id.clone()],
+        };
+        let request = CognitiveCompositionRequest::new(
+            &turn,
+            "participant:operator",
+            CognitiveCapability::PrimaryConversation,
+            selected.iter().rev().cloned().collect(),
+            Some(prerequisite),
+        )
+        .unwrap();
+        assert_eq!(request.source_part_ids, selected);
+
+        let direct = CognitiveSourceClosure::direct(&request, &turn).unwrap();
+        direct.validate(&request, &turn, None).unwrap();
+        assert_eq!(direct.delivery_count, 3);
+        assert!(direct
+            .entries
+            .iter()
+            .all(|entry| entry.disposition == CognitiveSourceDisposition::RetainedOriginal));
+
+        let derived_object = ConversationContentObject::new(
+            "tenant:i01",
+            "case:i01",
+            ContentModality::Text,
+            "text/plain;charset=utf-8",
+            b"exact transcript",
+        )
+        .unwrap();
+        let derived = ConversationDerivedContent::new(
+            &turn,
+            vec![audio_id],
+            CognitiveCapability::SpeechToText,
+            ProviderRealizationShape::AudioWavToText,
+            "cognitive-plan:i04",
+            "cognitive-lane:i04-auxiliary",
+            "case-cognitive-binding:i04",
+            "semantic-suitability:i04",
+            "provider-target:misleading-vision-name",
+            "sha256:i04-target",
+            "provider-qualification:i04",
+            "provider-selection:i04",
+            "provider-invocation:i04",
+            "provider-result:i04",
+            derived_object.clone(),
+        )
+        .unwrap();
+        let composed = CognitiveSourceClosure::composed(&request, &turn, &derived).unwrap();
+        composed.validate(&request, &turn, Some(&derived)).unwrap();
+        assert_eq!(composed.delivery_count, 3);
+        assert_eq!(
+            composed
+                .entries
+                .iter()
+                .map(|entry| entry.disposition.clone())
+                .collect::<Vec<_>>(),
+            vec![
+                CognitiveSourceDisposition::RetainedOriginal,
+                CognitiveSourceDisposition::ReplacedByDerived,
+                CognitiveSourceDisposition::RetainedOriginal,
+            ]
+        );
+        assert_eq!(
+            composed
+                .delivery_objects()
+                .into_iter()
+                .map(|(_, object)| object.object_id.clone())
+                .collect::<Vec<_>>(),
+            vec![
+                turn.ordered_parts[0].object.object_id.clone(),
+                derived_object.object_id,
+                turn.ordered_parts[2].object.object_id.clone(),
+            ]
+        );
+        assert_eq!(turn, original_turn);
+        assert_ne!(direct.closure_id, composed.closure_id);
     }
 
     #[test]

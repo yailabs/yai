@@ -1,0 +1,15 @@
+property	mechanism	result	evidence
+explicit_intent	primary goal plus optional typed prerequisite and exact source parts	PASS	no prerequisite inferred from WAV MIME or misleading names
+direct_bypass	primary semantic binding plus current audio_wav_to_text qualification	PASS	one primary dispatch and zero auxiliary dispatches
+composed_path	text-only primary plus exact speech_to_text auxiliary	PASS	auxiliary derived transcript then fresh primary realization
+source_closure	content-addressed ordered retained/replaced/consumed entries	PASS	three delivery objects preserve Turn order and exact identities
+turn_immutability	Turn inspected before and after composition	PASS	byte-identical typed JSON
+restart_resume	failpoint after canonical prerequisite publication	PASS	second process reuses exact derivation with zero auxiliary redispatch
+repeat_idempotency	reconstruct request and closure from canonical facts	PASS	same request/closure IDs and zero repeat dispatch
+dependency_failure	delivery-indeterminate auxiliary provider	PASS	primary dispatch count unchanged and no derived content
+name_inference	misleading Whisper/text/speech provider names	PASS	capability comes only from evidence/bindings/explicit intent
+current_revalidation	fresh I02 plan and current I03 exact selector per stage	PASS	qualification renewal redispatches; binding/evidence replacement cannot reuse the historical derivation
+lane_isolation	separate auxiliary and primary I02 lane identities	PASS	no continuation crosses stages; absence is safe
+malformed_result	invalid provider response and valid-but-empty normalized output	PASS	both block primary dispatch and publish zero derived content
+unresolved_prerequisite	explicit prerequisite with no auxiliary binding	PASS	planning fails closed before either provider dispatch
+compatibility	I01 I02 I03 and full repository contracts	PASS	make check and make characterization exit zero

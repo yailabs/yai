@@ -1,7 +1,7 @@
-//! Advanced operator surfaces for I02 semantic cognitive planning.
-//!
-//! These commands mutate only provider-owned suitability evidence or canonical
-//! Case cognitive bindings. Planning is read-only and cannot dispatch a model.
+//! Advanced operator surfaces for cognitive planning, exact realization, and
+//! bounded composition. Planning remains read-only; realization and
+//! composition reuse the governed provider/Case owners without acquiring
+//! independent runtime authority.
 
 use super::*;
 use serde_json::json;
@@ -12,8 +12,10 @@ use yai_core_engine::cognitive::{
 };
 use yai_core_engine::context::{InvocationOutputContract, ProjectionPurpose};
 use yai_core_engine::conversation::{
-    derived_content_from_history, find_turn, normalize_provider_derived_text, ContentModality,
-    ConversationContentStore, ConversationDerivedContent, PROVIDER_DERIVED_TEXT_NORMALIZER,
+    derived_content_from_history, find_turn, normalize_provider_derived_text,
+    CognitiveCompositionPrerequisite, CognitiveCompositionRequest, CognitiveSourceClosure,
+    ContentModality, ConversationContentStore, ConversationDerivedContent,
+    PROVIDER_DERIVED_TEXT_NORMALIZER,
 };
 use yai_core_engine::effect::digest_bytes;
 use yai_core_engine::provider_governance::{
@@ -357,12 +359,37 @@ fn realization_shape(
         return Err("cognitive_realization_source_parts_required".to_string());
     }
     match capability {
-        CognitiveCapability::PrimaryConversation
+        CognitiveCapability::PrimaryConversation => {
             if parts
                 .iter()
-                .all(|part| part.modality == ContentModality::Text) =>
-        {
-            Ok(ProviderRealizationShape::TextToText)
+                .all(|part| part.modality == ContentModality::Text)
+            {
+                Ok(ProviderRealizationShape::TextToText)
+            } else if parts
+                .iter()
+                .any(|part| part.modality == ContentModality::Image)
+                && parts.iter().all(|part| {
+                    part.modality == ContentModality::Text
+                        || (part.modality == ContentModality::Image
+                            && part.media_type == "image/png")
+                })
+            {
+                Ok(ProviderRealizationShape::OrderedPngTextToText)
+            } else if parts
+                .iter()
+                .filter(|part| part.modality == ContentModality::Audio)
+                .count()
+                == 1
+                && parts.iter().all(|part| {
+                    part.modality == ContentModality::Text
+                        || (part.modality == ContentModality::Audio
+                            && matches!(part.media_type.as_str(), "audio/wav" | "audio/x-wav"))
+                })
+            {
+                Ok(ProviderRealizationShape::AudioWavToText)
+            } else {
+                Err("cognitive_realization_content_shape_mismatch".to_string())
+            }
         }
         CognitiveCapability::SpeechToText
             if parts.len() == 1
@@ -425,6 +452,7 @@ fn recorded_execution(
     provider_requirement_id: &str,
     current_binding_id: &str,
     current_target_id: &str,
+    current_qualification_id: Option<&str>,
 ) -> Result<Option<RecordedExecution>, String> {
     for transition in transitions.iter().rev() {
         let TransitionPayload::ProviderSelectionRecorded { selection } = &transition.payload else {
@@ -432,6 +460,7 @@ fn recorded_execution(
         };
         if selection.requirement_id != provider_requirement_id
             || selection.selected_target_id != current_target_id
+            || current_qualification_id != Some(selection.qualification_id.as_str())
             || !transition
                 .causal_refs
                 .iter()
@@ -547,15 +576,32 @@ fn publish_derived(
     store.record_conversation_derived_content_authorized(authenticated, derived)
 }
 
-fn cognitive_realize(args: &[String]) -> Result<(), String> {
-    let case_id = named_arg(args, "--case")?;
-    let participant_id = named_arg(args, "--participant")?;
-    let turn_id = named_arg(args, "--turn")?;
-    let capability = CognitiveCapability::parse(&named_arg(args, "--capability")?)?;
-    let requested_parts = repeated_arg(args, "--part");
-    let continuation = continuation_from_args(args)?;
-    let (authenticated, store) = authenticated_store()?;
-    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+struct CognitiveRealizationOutcome {
+    plan: yai_core_engine::cognitive::CognitiveExecutionPlan,
+    derived: Option<ConversationDerivedContent>,
+    execution: Option<RecordedExecution>,
+    posture: &'static str,
+    recovered: bool,
+}
+
+#[allow(clippy::too_many_arguments)]
+fn realize_cognitive(
+    authenticated: &AuthenticatedPrincipal,
+    store: &LmdbRecordStore,
+    content_store: &ConversationContentStore,
+    turn: &yai_core_engine::conversation::ConversationTurn,
+    participant_id: &str,
+    capability: CognitiveCapability,
+    wire_parts: Vec<provider::ProviderWireInputPart>,
+    derivation_source_part_ids: Vec<String>,
+    requirement_source_ref: &str,
+    expected_route: Option<CognitivePlanRoute>,
+    continuation: Option<&LaneContinuationReference>,
+    failpoint: Option<&str>,
+    realization_causal_refs: &[String],
+) -> Result<CognitiveRealizationOutcome, String> {
+    let case_id = turn.case_id.clone();
+    let state = store.get_case_state_authorized(authenticated, &case_id)?;
     let principal_id = authenticated.projected_principal_id();
     if !state.principal_participant_links.iter().any(|link| {
         state.tenant_id.as_deref() == Some(link.tenant_id.as_str())
@@ -564,35 +610,36 @@ fn cognitive_realize(args: &[String]) -> Result<(), String> {
     }) {
         return Err("cognitive_realization_principal_participant_mismatch".to_string());
     }
-    let transitions = store.list_case_transitions(&case_id)?;
-    let turn = find_turn(&case_id, &turn_id, &transitions)
-        .ok_or_else(|| "cognitive_realization_turn_not_found".to_string())?;
     if turn.participant_id != participant_id {
         return Err("cognitive_realization_turn_participant_mismatch".to_string());
     }
-    let content_store = ConversationContentStore::open(&yai_home())?;
-    let wire_parts = source_parts(&content_store, turn, &requested_parts)?;
-    let part_ids = wire_parts
-        .iter()
-        .map(|part| part.source_part_id.clone())
-        .collect::<Vec<_>>();
+    let transitions = store.list_case_transitions(&case_id)?;
     let shape = realization_shape(&capability, &wire_parts)?;
     let cognitive_requirement = CognitiveCapabilityRequirement::new(
         &case_id,
-        &participant_id,
+        participant_id,
         capability.clone(),
-        &source_identity(&turn_id, &part_ids)?,
+        requirement_source_ref,
     )?;
     let plan = store.plan_case_cognitive_execution_authorized(
-        &authenticated,
+        authenticated,
         &case_id,
-        &participant_id,
+        participant_id,
         &cognitive_requirement,
     )?;
     if plan.route == CognitivePlanRoute::Unresolved {
         return Err(format!(
             "cognitive_realization_plan_unresolved:{:?}",
             plan.unresolved_reason
+        ));
+    }
+    if expected_route
+        .as_ref()
+        .is_some_and(|expected| &plan.route != expected)
+    {
+        return Err(format!(
+            "cognitive_realization_plan_route_changed:expected={:?}:actual={:?}",
+            expected_route, plan.route
         ));
     }
     let binding_id = plan
@@ -611,7 +658,7 @@ fn cognitive_realize(args: &[String]) -> Result<(), String> {
         .execution_lane_id
         .as_deref()
         .ok_or_else(|| "cognitive_realization_lane_missing".to_string())?;
-    let continuation_posture = assess_lane_continuation(&plan, continuation.as_ref());
+    let continuation_posture = assess_lane_continuation(&plan, continuation);
     if !matches!(
         continuation_posture,
         yai_core_engine::cognitive::LaneContinuationPosture::Compatible
@@ -622,24 +669,44 @@ fn cognitive_realize(args: &[String]) -> Result<(), String> {
         ));
     }
     let provider_requirement = provider_requirement(&cognitive_requirement)?;
-    let (target, _, _, _) = store.provider_posture_authorized(&authenticated, target_id)?;
-    if let Some(derived) = derived_content_from_history(&case_id, &transitions)
-        .into_iter()
-        .find(|derived| {
-            derived.source_turn_id == turn_id
-                && derived.source_part_ids == part_ids
-                && derived.capability == capability
-                && derived.cognitive_binding_id == binding_id
-        })
-    {
-        content_store.verify_object(&derived.object)?;
-        return render_realization(args, &plan, Some(derived), None, "already_published", false);
+    let (target, qualification, _, _) =
+        store.provider_posture_authorized(authenticated, target_id)?;
+    if plan.route == CognitivePlanRoute::Derived {
+        if let Some(derived) = derived_content_from_history(&case_id, &transitions)
+            .into_iter()
+            .find(|derived| {
+                derived.source_turn_id == turn.turn_id
+                    && derived.source_part_ids == derivation_source_part_ids
+                    && derived.capability == capability
+                    && derived.realization_shape == shape
+                    && derived.cognitive_binding_id == binding_id
+                    && derived.semantic_evidence_id == evidence_id
+                    && derived.target_id == target_id
+                    && derived.target_digest == target.integrity_digest
+                    && qualification.as_ref().is_some_and(|qualification| {
+                        derived.provider_qualification_id == qualification.qualification_id
+                    })
+            })
+        {
+            derived.validate(turn)?;
+            content_store.verify_object(&derived.object)?;
+            return Ok(CognitiveRealizationOutcome {
+                plan,
+                derived: Some(derived.clone()),
+                execution: None,
+                posture: "already_published",
+                recovered: true,
+            });
+        }
     }
     let recorded = recorded_execution(
         &transitions,
         &provider_requirement.requirement_id,
         binding_id,
         target_id,
+        qualification
+            .as_ref()
+            .map(|value| value.qualification_id.as_str()),
     )?;
     let (execution, recovered) = if let Some(recorded) = recorded {
         (recorded, true)
@@ -650,7 +717,8 @@ fn cognitive_realize(args: &[String]) -> Result<(), String> {
             &provider_requirement,
             &shape,
             &logical_turn_id,
-            continuation.as_ref(),
+            continuation,
+            realization_causal_refs,
         )?;
         let options = provider::SemanticInvocationOptions {
             conversation_turn_id: Some(turn.turn_id.clone()),
@@ -660,7 +728,11 @@ fn cognitive_realize(args: &[String]) -> Result<(), String> {
             "Realize the explicit YAI cognitive capability {} over committed Turn {} and source parts [{}]. Return bounded text only; the result remains non-authoritative provider output.",
             capability.as_str(),
             turn.turn_id,
-            part_ids.join(",")
+            wire_parts
+                .iter()
+                .map(|part| part.source_part_id.as_str())
+                .collect::<Vec<_>>()
+                .join(",")
         );
         let result = match provider::invoke_semantic_provider_typed(
             &route.args,
@@ -699,7 +771,7 @@ fn cognitive_realize(args: &[String]) -> Result<(), String> {
             result_id: result.result_id,
             output: result.raw_output,
         };
-        if optional_arg(args, "--failpoint").as_deref() == Some("after-provider-result") {
+        if failpoint == Some("after-provider-result") {
             return Err(format!(
                 "cognitive_realization_failpoint_after_provider_result:{}",
                 recorded.result_id
@@ -708,25 +780,24 @@ fn cognitive_realize(args: &[String]) -> Result<(), String> {
         (recorded, false)
     };
     if plan.route == CognitivePlanRoute::Native {
-        return render_realization(
-            args,
-            &plan,
-            None,
-            Some(&execution),
-            if recovered {
+        return Ok(CognitiveRealizationOutcome {
+            plan,
+            derived: None,
+            execution: Some(execution),
+            posture: if recovered {
                 "recovered_result"
             } else {
                 "completed"
             },
             recovered,
-        );
+        });
     }
     let derived = publish_derived(
-        &store,
-        &authenticated,
-        &content_store,
+        store,
+        authenticated,
+        content_store,
         turn,
-        part_ids,
+        derivation_source_part_ids,
         capability,
         shape,
         &execution.plan_id,
@@ -737,18 +808,342 @@ fn cognitive_realize(args: &[String]) -> Result<(), String> {
         &target.integrity_digest,
         &execution,
     )?;
-    render_realization(
-        args,
-        &plan,
-        Some(&derived),
-        Some(&execution),
-        if recovered {
+    Ok(CognitiveRealizationOutcome {
+        plan,
+        derived: Some(derived),
+        execution: Some(execution),
+        posture: if recovered {
             "recovered_without_dispatch"
         } else {
             "completed"
         },
         recovered,
+    })
+}
+
+fn cognitive_realize(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let turn_id = named_arg(args, "--turn")?;
+    let capability = CognitiveCapability::parse(&named_arg(args, "--capability")?)?;
+    let requested_parts = repeated_arg(args, "--part");
+    let continuation = continuation_from_args(args)?;
+    let (authenticated, store) = authenticated_store()?;
+    let transitions = store.list_case_transitions(&case_id)?;
+    let turn = find_turn(&case_id, &turn_id, &transitions)
+        .ok_or_else(|| "cognitive_realization_turn_not_found".to_string())?;
+    let content_store = ConversationContentStore::open(&yai_home())?;
+    let wire_parts = source_parts(&content_store, turn, &requested_parts)?;
+    let part_ids = wire_parts
+        .iter()
+        .map(|part| part.source_part_id.clone())
+        .collect::<Vec<_>>();
+    let source_ref = source_identity(&turn_id, &part_ids)?;
+    let causal_refs = vec![turn_id.clone(), source_ref.clone()];
+    let outcome = realize_cognitive(
+        &authenticated,
+        &store,
+        &content_store,
+        turn,
+        &participant_id,
+        capability,
+        wire_parts,
+        part_ids,
+        &source_ref,
+        None,
+        continuation.as_ref(),
+        optional_arg(args, "--failpoint").as_deref(),
+        &causal_refs,
+    )?;
+    render_realization(
+        args,
+        &outcome.plan,
+        outcome.derived.as_ref(),
+        outcome.execution.as_ref(),
+        outcome.posture,
+        outcome.recovered,
     )
+}
+
+fn closure_wire_parts(
+    content_store: &ConversationContentStore,
+    closure: &CognitiveSourceClosure,
+) -> Result<Vec<provider::ProviderWireInputPart>, String> {
+    closure
+        .delivery_objects()
+        .into_iter()
+        .map(|(source_ref, object)| {
+            Ok(provider::ProviderWireInputPart {
+                source_part_id: source_ref.to_string(),
+                modality: object.modality.clone(),
+                media_type: object.media_type.clone(),
+                bytes: content_store.read_bytes(object)?,
+            })
+        })
+        .collect()
+}
+
+fn realization_performed_now(outcome: &CognitiveRealizationOutcome) -> bool {
+    outcome.execution.is_some() && !outcome.recovered
+}
+
+fn cognitive_compose(args: &[String]) -> Result<(), String> {
+    let case_id = named_arg(args, "--case")?;
+    let participant_id = named_arg(args, "--participant")?;
+    let turn_id = named_arg(args, "--turn")?;
+    let goal = CognitiveCapability::parse(&named_arg(args, "--goal")?)?;
+    let requested_parts = repeated_arg(args, "--part");
+    let prerequisite_capability = optional_arg(args, "--prerequisite")
+        .map(|value| CognitiveCapability::parse(&value))
+        .transpose()?;
+    let prerequisite_parts = repeated_arg(args, "--prerequisite-part");
+    if prerequisite_capability.is_none() && !prerequisite_parts.is_empty() {
+        return Err("cognitive_composition_prerequisite_capability_required".to_string());
+    }
+    if prerequisite_capability.is_some() && prerequisite_parts.is_empty() {
+        return Err("cognitive_composition_prerequisite_parts_required".to_string());
+    }
+    let (authenticated, store) = authenticated_store()?;
+    let transitions = store.list_case_transitions(&case_id)?;
+    let turn = find_turn(&case_id, &turn_id, &transitions)
+        .ok_or_else(|| "cognitive_composition_turn_not_found".to_string())?;
+    let selected_part_ids = if requested_parts.is_empty() {
+        turn.ordered_parts
+            .iter()
+            .map(|part| part.part_id.clone())
+            .collect()
+    } else {
+        requested_parts
+    };
+    let prerequisite = prerequisite_capability.map(|capability| CognitiveCompositionPrerequisite {
+        capability,
+        source_part_ids: prerequisite_parts,
+    });
+    let request = CognitiveCompositionRequest::new(
+        turn,
+        &participant_id,
+        goal.clone(),
+        selected_part_ids,
+        prerequisite,
+    )?;
+    let content_store = ConversationContentStore::open(&yai_home())?;
+    let direct_closure = CognitiveSourceClosure::direct(&request, turn)?;
+    let direct_wire_parts = closure_wire_parts(&content_store, &direct_closure)?;
+    let direct_shape = realization_shape(&goal, &direct_wire_parts);
+    let direct_requirement = CognitiveCapabilityRequirement::new(
+        &case_id,
+        &participant_id,
+        goal.clone(),
+        &direct_closure.closure_id,
+    )?;
+    let direct_plan = store.plan_case_cognitive_execution_authorized(
+        &authenticated,
+        &case_id,
+        &participant_id,
+        &direct_requirement,
+    )?;
+    let direct_mechanically_admitted = if let (Ok(shape), Some(target_id)) = (
+        direct_shape.as_ref(),
+        direct_plan.selected_target_id.as_deref(),
+    ) {
+        let (_, qualification, _, _) =
+            store.provider_posture_authorized(&authenticated, target_id)?;
+        direct_plan.route == CognitivePlanRoute::Native
+            && qualification
+                .as_ref()
+                .is_some_and(|value| value.supports_realization_shape(shape))
+    } else {
+        false
+    };
+    if direct_mechanically_admitted {
+        let causal_refs = vec![
+            request.request_id.clone(),
+            direct_closure.closure_id.clone(),
+            turn.turn_id.clone(),
+        ];
+        let outcome = realize_cognitive(
+            &authenticated,
+            &store,
+            &content_store,
+            turn,
+            &participant_id,
+            goal,
+            direct_wire_parts,
+            Vec::new(),
+            &direct_closure.closure_id,
+            Some(CognitivePlanRoute::Native),
+            None,
+            None,
+            &causal_refs,
+        )?;
+        return render_composition(args, &request, &direct_closure, "direct", None, &outcome);
+    }
+    if direct_plan.route == CognitivePlanRoute::Unresolved {
+        return Err(format!(
+            "cognitive_composition_primary_plan_unresolved:{:?}",
+            direct_plan.unresolved_reason
+        ));
+    }
+    let prerequisite = request
+        .prerequisite
+        .as_ref()
+        .ok_or_else(|| "cognitive_composition_prerequisite_required".to_string())?;
+    let prerequisite_source_ref = format!("composition-prerequisite:{}", request.request_id);
+    let prerequisite_requirement = CognitiveCapabilityRequirement::new(
+        &case_id,
+        &participant_id,
+        prerequisite.capability.clone(),
+        &prerequisite_source_ref,
+    )?;
+    let prerequisite_plan = store.plan_case_cognitive_execution_authorized(
+        &authenticated,
+        &case_id,
+        &participant_id,
+        &prerequisite_requirement,
+    )?;
+    if prerequisite_plan.route != CognitivePlanRoute::Derived {
+        return Err(format!(
+            "cognitive_composition_prerequisite_not_auxiliary:{:?}",
+            prerequisite_plan.route
+        ));
+    }
+    let prerequisite_wire_parts =
+        source_parts(&content_store, turn, &prerequisite.source_part_ids)?;
+    realization_shape(&prerequisite.capability, &prerequisite_wire_parts)?;
+    let prerequisite_causal_refs = vec![request.request_id.clone(), turn.turn_id.clone()];
+    let prerequisite_outcome = realize_cognitive(
+        &authenticated,
+        &store,
+        &content_store,
+        turn,
+        &participant_id,
+        prerequisite.capability.clone(),
+        prerequisite_wire_parts,
+        prerequisite.source_part_ids.clone(),
+        &prerequisite_source_ref,
+        Some(CognitivePlanRoute::Derived),
+        None,
+        None,
+        &prerequisite_causal_refs,
+    )?;
+    let derived = prerequisite_outcome
+        .derived
+        .as_ref()
+        .ok_or_else(|| "cognitive_composition_prerequisite_content_missing".to_string())?;
+    if optional_arg(args, "--failpoint").as_deref() == Some("after-prerequisite") {
+        return Err(format!(
+            "cognitive_composition_failpoint_after_prerequisite:{}",
+            derived.derived_content_id
+        ));
+    }
+    let composed_closure = CognitiveSourceClosure::composed(&request, turn, derived)?;
+    let primary_wire_parts = closure_wire_parts(&content_store, &composed_closure)?;
+    let primary_causal_refs = vec![
+        request.request_id.clone(),
+        composed_closure.closure_id.clone(),
+        derived.derived_content_id.clone(),
+        derived.provider_result_id.clone(),
+    ];
+    let primary_outcome = realize_cognitive(
+        &authenticated,
+        &store,
+        &content_store,
+        turn,
+        &participant_id,
+        goal,
+        primary_wire_parts,
+        Vec::new(),
+        &composed_closure.closure_id,
+        Some(CognitivePlanRoute::Native),
+        None,
+        None,
+        &primary_causal_refs,
+    )?;
+    render_composition(
+        args,
+        &request,
+        &composed_closure,
+        "composed",
+        Some(&prerequisite_outcome),
+        &primary_outcome,
+    )
+}
+
+fn render_composition(
+    args: &[String],
+    request: &CognitiveCompositionRequest,
+    closure: &CognitiveSourceClosure,
+    route: &str,
+    prerequisite: Option<&CognitiveRealizationOutcome>,
+    primary: &CognitiveRealizationOutcome,
+) -> Result<(), String> {
+    let value = json!({
+        "schema":"yai.cognitive_composition_result.v1",
+        "composition_request":request,
+        "composition_route":route,
+        "source_closure":closure,
+        "prerequisite":prerequisite.map(|outcome| json!({
+            "plan_id":outcome.plan.plan_id,
+            "route":outcome.plan.route,
+            "execution_lane_id":outcome.plan.execution_lane_id,
+            "provider_result_id":outcome.execution.as_ref().map(|value| value.result_id.as_str()).or_else(|| outcome.derived.as_ref().map(|value| value.provider_result_id.as_str())),
+            "derived_content_id":outcome.derived.as_ref().map(|value| value.derived_content_id.as_str()),
+            "provider_execution_performed_now":realization_performed_now(outcome),
+            "posture":outcome.posture
+        })),
+        "primary":{
+            "plan_id":primary.plan.plan_id,
+            "route":primary.plan.route,
+            "execution_lane_id":primary.plan.execution_lane_id,
+            "provider_result_id":primary.execution.as_ref().map(|value| value.result_id.as_str()),
+            "provider_execution_performed_now":realization_performed_now(primary),
+            "posture":primary.posture
+        },
+        "conversation_turn_mutated":false,
+        "composition_owner":"none_derived_control",
+        "authority":"provider_candidate_material"
+    });
+    if json_requested(args) {
+        println!(
+            "{}",
+            serde_json::to_string(&value)
+                .map_err(|error| format!("cognitive_composition_encode_failed: {error}"))?
+        );
+    } else {
+        println!("cognitive_composition: completed");
+        println!("composition_request_id: {}", request.request_id);
+        println!("composition_route: {route}");
+        println!("source_closure_id: {}", closure.closure_id);
+        println!("delivery_parts: {}", closure.delivery_count);
+        println!(
+            "prerequisite_provider_result_id: {}",
+            prerequisite
+                .and_then(|outcome| {
+                    outcome
+                        .execution
+                        .as_ref()
+                        .map(|value| value.result_id.as_str())
+                        .or_else(|| {
+                            outcome
+                                .derived
+                                .as_ref()
+                                .map(|value| value.provider_result_id.as_str())
+                        })
+                })
+                .unwrap_or("none")
+        );
+        println!(
+            "primary_provider_result_id: {}",
+            primary
+                .execution
+                .as_ref()
+                .map(|value| value.result_id.as_str())
+                .unwrap_or("none")
+        );
+        println!("conversation_turn_mutated: no");
+        println!("composition_owner: none_derived_control");
+    }
+    Ok(())
 }
 
 fn render_realization(
@@ -885,6 +1280,7 @@ pub(super) fn cognitive_command(operation_id: &str, args: &[String]) -> Result<(
         "yai.case.cognitive.show" => cognitive_show(args),
         "yai.case.cognitive.plan" => cognitive_plan(args),
         "yai.case.cognitive.realize" => cognitive_realize(args),
+        "yai.case.cognitive.compose" => cognitive_compose(args),
         "yai.case.cognitive.derived.show" => cognitive_derived_show(args),
         _ => Err(format!("unsupported cognitive operation: {operation_id}")),
     }

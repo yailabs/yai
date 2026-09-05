@@ -14736,13 +14736,27 @@ impl LmdbRecordStore {
         realization_shape: &ProviderRealizationShape,
         logical_turn_id: &str,
         available_credential_refs: &BTreeSet<String>,
+        realization_causal_refs: &[String],
     ) -> Result<ProviderSelectionStoreOutcome, String> {
         requirement.validate()?;
+        if realization_causal_refs.len() > 32
+            || realization_causal_refs
+                .iter()
+                .any(|value| value.is_empty() || value.len() > 256)
+        {
+            return Err("cognitive_realization_causal_refs_invalid".to_string());
+        }
         let capability_matches_shape = matches!(
             (&plan.capability, realization_shape),
             (
                 CognitiveCapability::PrimaryConversation,
                 ProviderRealizationShape::TextToText
+            ) | (
+                CognitiveCapability::PrimaryConversation,
+                ProviderRealizationShape::AudioWavToText
+            ) | (
+                CognitiveCapability::PrimaryConversation,
+                ProviderRealizationShape::OrderedPngTextToText
             ) | (
                 CognitiveCapability::SpeechToText,
                 ProviderRealizationShape::AudioWavToText
@@ -14912,6 +14926,11 @@ impl LmdbRecordStore {
             format!("provider-realization-shape:{}", realization_shape.as_str()),
             format!("provider-normalization-contract:{PROVIDER_DERIVED_TEXT_NORMALIZER}"),
         ];
+        pending
+            .causal_refs
+            .extend(realization_causal_refs.iter().cloned());
+        pending.causal_refs.sort();
+        pending.causal_refs.dedup();
         let commit =
             self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
         txn.commit()

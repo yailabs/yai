@@ -524,3 +524,27 @@ invalid results publish nothing.
 I03 does not add dynamic arbitration, automatic auxiliary-to-primary
 orchestration, production STT/vision integrations, YVEX private-protocol
 coupling, streaming, Replia, Studio, H20, W21 or W22.
+
+## Completed boundary — cognitive execution composition
+
+Interlock I04 composes one explicit speech-to-text or image-understanding
+prerequisite into a primary-conversation realization without creating an
+Orchestrator, WorkflowRun, lane store or pipeline owner. A content-addressed
+request records semantic intent independently of MIME or model naming. A
+deterministic source closure preserves original Turn order and identities,
+marks exact original parts retained, replaced or consumed by a derivation, and
+feeds a fresh primary I02 plan through the existing I03 realization seam.
+
+An exact primary binding with matching semantic suitability and current
+ProviderQualification v4 mechanical shape bypasses the auxiliary stage. When a
+declared prerequisite is needed, only its exact auxiliary binding may execute;
+failure or delivery-indeterminate posture blocks the primary. Compatible
+canonical derived content resumes after restart without redispatch, while
+binding/evidence/qualification changes require current revalidation. The
+submitted ConversationTurn remains immutable and composition state remains
+fully derived.
+
+I04 admits one bounded depth-two composition only. Dynamic target arbitration,
+recursive cognitive graphs, automatic chat routing, production STT/vision
+onboarding, YVEX runtime ownership, Replia, Studio, H20, W21 and W22 remain
+outside this boundary.

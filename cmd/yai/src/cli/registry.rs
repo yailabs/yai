@@ -568,6 +568,19 @@ const CASE_COGNITIVE_REALIZE: &[FlagSpec] = &[
     flag("--continuation-ref", Some("REF"), false),
     choice_flag("--failpoint", &["after-provider-result"], false),
 ];
+const CASE_COGNITIVE_COMPOSE: &[FlagSpec] = &[
+    flag("--participant", Some("PARTICIPANT"), true),
+    choice_flag("--goal", &["primary_conversation"], true),
+    flag("--turn", Some("TURN"), true),
+    repeat_flag("--part", "PART"),
+    choice_flag(
+        "--prerequisite",
+        &["speech_to_text", "image_understanding"],
+        false,
+    ),
+    repeat_flag("--prerequisite-part", "PART"),
+    choice_flag("--failpoint", &["after-prerequisite"], false),
+];
 const CASE_MEMORY_SEARCH: &[FlagSpec] = &[
     flag("--participant", Some("PARTICIPANT"), true),
     flag("--query", Some("QUERY"), true),
@@ -1308,6 +1321,17 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         Structured,
         &[pos("case", Some("--case"))],
         CASE_COGNITIVE_REALIZE
+    ),
+    op!(
+        "yai.case.cognitive.compose",
+        ["case", "cognitive", "compose"],
+        "Compose one bounded cognitive prerequisite into a primary realization",
+        Advanced,
+        LocalDomain,
+        LongRunning,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_COGNITIVE_COMPOSE
     ),
     op!(
         "yai.case.cognitive.derived.show",

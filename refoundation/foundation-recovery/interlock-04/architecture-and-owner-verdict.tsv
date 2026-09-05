@@ -1,0 +1,11 @@
+surface	owner_before	owner_after	classification	verdict
+ConversationTurn	Case Transition history	unchanged	canonical submitted input	immutable after SEND
+ConversationContentStore	YAI application content	unchanged	durable immutable byte owner	no derived media store
+ConversationDerivedContent	Case Transition history	unchanged	canonical post-SEND provenance	reused for prerequisite recovery
+CognitiveCompositionRequest	none	none	derived content-addressed intent	zero owner delta
+CognitiveSourceClosure	none	none	derived deterministic provider input closure	zero owner delta
+CognitiveExecutionPlan	none	none	derived current decision	replanned per stage
+composition control	none	process-local only	execution algorithm	no Orchestrator WorkflowRun or daemon
+ProviderSelection/Invocation/Result	Case Transition history	unchanged	canonical provider lineage	reused through I03
+execution lane	none	none	derived logical identity	never a provider session
+LMDB databases	37	37	physical store count	zero database delta
