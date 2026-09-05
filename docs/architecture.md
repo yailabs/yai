@@ -1,8 +1,9 @@
 # Current executable architecture
 
 Authority: implementation truth. This edition covers the published W20
-foundation, the closed I01 multipart-conversation interlock, and its
-provider-independent interaction-host closure. Historical checkpoints and
+foundation, the closed I01 multipart-conversation interlock, its
+provider-independent interaction-host closure, and the I02 cognitive-binding
+planning interlock. Historical checkpoints and
 exact executable evidence remain in `refoundation/foundation-recovery/`.
 
 This document includes current contradictions. It does not claim that the
@@ -28,6 +29,7 @@ operator
   |     +-- local POSIX-authenticated Principal and Tenant security isolation
   |     +-- Tenant-scoped provider targets, qualification, trust and shared health
   |     +-- Case-canonical provider selection and delivery-safe attempt lineage
+  |     +-- Case-canonical cognitive bindings and execution-free lane planning
   |     +-- canonical Transition/CaseState authority in LMDB
   |     +-- legacy journal inspect/import/replay compatibility
   |     +-- LMDB graph materialization/query
@@ -54,6 +56,7 @@ domain implementation remains grouped by demonstrated boundary in
 [`security.rs`](../cmd/yai/src/security.rs),
 [`conversation_controller.rs`](../cmd/yai/src/conversation_controller.rs),
 [`conversation_cli.rs`](../cmd/yai/src/conversation_cli.rs),
+[`cognitive_cli.rs`](../cmd/yai/src/cognitive_cli.rs),
 [`memory_cli.rs`](../cmd/yai/src/memory_cli.rs),
 [`review.rs`](../cmd/yai/src/review.rs),
 [`controlled_effect.rs`](../cmd/yai/src/controlled_effect.rs),
@@ -69,6 +72,10 @@ Provider administration adapters are isolated in
 typed owner contracts and deterministic selection live in
 [`provider_governance.rs`](../engine/yai-engine/src/provider_governance.rs).
 See the current [provider governance contract](provider-governance.md).
+Provider-independent cognitive capability, suitability, binding, lane and
+plan contracts live in
+[`cognitive.rs`](../engine/yai-engine/src/cognitive.rs); they do not execute a
+provider or own deployment/runtime state.
 
 The normal CLI links [`yai-engine`](../engine/yai-engine/src/lib.rs) directly
 as Rust. There is no product C→Rust call edge or installed Rust C ABI. The
@@ -87,8 +94,9 @@ mean constitutional, general, or production-ready.
 
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
-| Case conversation content | mutable non-canonical draft → bounded text/media imports → explicit original/derived provenance → SEND → `ConversationTurnCommitted` → immutable content-addressed bytes plus canonical ordered references; CLI fixtures prove repeated modalities, restart identity and survival of downstream provider failure | typed media delivery and auxiliary cognitive-role routing remain I02 work |
+| Case conversation content | mutable non-canonical draft → bounded text/media imports → explicit original/derived provenance → SEND → `ConversationTurnCommitted` → immutable content-addressed bytes plus canonical ordered references; CLI fixtures prove repeated modalities, restart identity and survival of downstream provider failure | typed media delivery and execution of planned auxiliary cognition remain I03 work |
 | Conversation interaction host | host-normalized ordered parts → canonical Turn commit → optional independent conversation execution through the shared Projection/Context/provider-governance seam; failure and retry preserve one Turn and require no ResourceAttachment, Workflow, Policy, Effect, or Case-runtime admission | the Product `yai chat` frontend awaits authoritative Replia integration; YAI does not privately implement terminal mechanics |
+| Cognitive capability planning | exact semantic requirement → target-bound suitability evidence → canonical Case/Participant primary or auxiliary binding → pure native/derived/unresolved plan → deterministic lane and lane-scoped continuation posture; unreachable fixture endpoints prove zero dispatch | provider mechanical realization, typed media transport, auxiliary execution and policy-driven arbitration remain I03/later work |
 | Case-bound provider prompt | admitted participant + typed CaseState/history → qualified long-horizon retrieval → `yai.residency_plan.v1` → `yai.projection.v7` → `yai.context_frame.v7` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | the current transport renders text only; typed media adapters and authoritative tokenization remain absent |
 | Governed provider routing | immutable Tenant ProviderTarget → synthetic evidence-bound qualification → Tenant-Owner approval → shared fresh health/circuit → exact Case provider binding → mechanical requirement/filtering → canonical ProviderSelection and attempt outcome; local fixtures prove qualified capability differences, deterministic exclusions, pre-dispatch safe failover and indeterminate-delivery refusal | remote HTTPS transport, credential rotation, DNS drift and adversarial multi-process circuit hardening remain outside W18 |
 | Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | one synchronous single-host `filesystem.write` loop; no multi-Case scheduler, quotas, backpressure or distributed lease |
@@ -130,8 +138,8 @@ verticals/tests.
 Rust owns one canonical semantic write path in
 [`transition.rs`](../engine/yai-engine/src/transition.rs) and
 [`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). The current serialized
-contracts are `yai.transition.v13` and
-`yai.case_state.v12`; Transition readers retain v1-v12 while
+contracts are `yai.transition.v14` and
+`yai.case_state.v13`; Transition readers retain v1-v13 while
 rejecting unknown future versions. Version 3 added provider identity,
 semantic-frame/render lineage and typed
 interaction turns. Version 4 adds Operation-bound ReviewRequest,
@@ -146,8 +154,12 @@ and exact Case-bound Workflow progression; version 11 adds amendments,
 Subflow and Handoff; version 12 adds Case provider binding, selection and
 attempt outcomes while keeping derived views non-canonical. Version 13 adds a
 Case-canonical `ConversationTurnCommitted` payload whose ordered typed content
-references are independent of provider invocation/result success. One bounded LMDB write
-transaction:
+references are independent of provider invocation/result success. Version 14
+adds explicit Case-canonical cognitive binding and
+unbind history. CaseState v13 materializes only the current primary/auxiliary
+binding slots; semantic suitability remains in the existing Tenant provider
+governance owner, while execution plans and lanes remain derived. One bounded
+LMDB write transaction:
 
 1. validates typed payload closure and global Transition identity;
 2. compares the expected per-Case generation;

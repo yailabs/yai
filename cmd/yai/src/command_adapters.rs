@@ -943,6 +943,10 @@ use provider::*;
 mod provider_governance_cli;
 use provider_governance_cli::provider_governance_command;
 
+#[path = "cognitive_cli.rs"]
+mod cognitive_cli;
+use cognitive_cli::cognitive_command;
+
 #[path = "controlled_effect.rs"]
 mod controlled_effect;
 use controlled_effect::*;
@@ -1220,6 +1224,9 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
         "yai.case.provider.bind" | "yai.case.provider.show" => {
             provider_governance_command(operation_id, &args[2..])
         }
+        operation if operation.starts_with("yai.case.cognitive.") => {
+            cognitive_command(operation, &args[2..])
+        }
         "yai.case.resource.attach_filesystem" => case_attach_filesystem(&args[2..]),
         "yai.case.resource.attach_process" => case_attach_process(&args[2..]),
         operation if operation.starts_with("yai.case.memory.") => {
@@ -1244,6 +1251,9 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
         "yai.review.deny" => review_resolve(&args[2..], ReviewActionKind::Deny),
         "yai.review.defer" => review_resolve(&args[2..], ReviewActionKind::Defer),
         operation if operation.starts_with("yai.policy.") => policy_command(&args[1..]),
+        operation if operation.starts_with("yai.provider.suitability.") => {
+            cognitive_command(operation, &args[1..])
+        }
         operation if operation.starts_with("yai.provider.") => {
             provider_governance_command(operation_id, &args[1..])
         }

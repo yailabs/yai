@@ -1,0 +1,4 @@
+repository	branch	observed_remote_sha	files_inspected	finding	classification
+yailabs/yvex	models1	3a6520945a5c103365178f48104f0ccdb5154624	include/yvex/content.h; include/yvex/provider.h; docs/openai-compatibility.md	Wave-start remote reference exposed typed ordered content/provider contracts, while OpenAI profile v2 rejected multimodal input; I02 required no YVEX ABI or execution.	NO_ISSUE
+yailabs/yvex	models1	absent_at_closure	remote refs/heads query	The named branch was no longer advertised at closure; this is reference drift, not evidence of a YVEX implementation defect.	DEPLOYMENT_LIMITATION
+yailabs/yvex	models2	5b95ee82eee394581521d106c7b1ec479d472448	include/yvex/content.h; include/yvex/provider.h; docs/openai-compatibility.md	Current advertised models2 and main share this SHA; the three public contract files are unchanged from the inspected wave-start commit. Provider realization remains post-I02.	EXPECTED_LIMITATION

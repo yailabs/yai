@@ -1,0 +1,11 @@
+subject	classification	owner/lifecycle	I02 verdict
+semantic capability vocabulary	typed semantic contract	YAI engine contract; closed v1 vocabulary	new contract, not a registry service
+semantic suitability evidence	provider-governance evidence	existing provider_governance LMDB owner	immutable exact-target evidence; operator evidence is visibly attested, not mechanically qualified
+Case cognitive binding	canonical Case relation	Transition history; current posture materialized in CaseState	new canonical relation with explicit replacement/unbind
+cognitive execution plan	derived_no_owner	pure reconstruction from Case state and evidence	no persistence and no execution
+execution lane	derived_no_owner	stable identity derived from exact active binding	no lane store, manager, daemon or database
+provider continuation	ephemeral_no_owner	optional lane-scoped optimization	loss falls back to semantic reconstruction
+CaseProviderBinding	provider permission/routing	existing Case provider-governance envelope	retained; cognitive binding cannot grant admission
+ProviderQualification	mechanical provider evidence	existing provider-governance owner	v3 retained and not overloaded with semantic capability
+YVEX deployment/session/residency	external execution-plane state	YVEX	no YAI owner introduced
+LMDB databases	physical persistence budget	37 open databases of maximum 40	unchanged

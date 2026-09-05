@@ -25,13 +25,18 @@ use crate::case_policy::{
     EFFECTIVE_POLICY_SCHEMA, EFFECTIVE_POLICY_SCHEMA_V1, EFFECTIVE_POLICY_SCHEMA_V2,
     POLICY_MATERIALIZER_VERSION, POLICY_MATERIALIZER_VERSION_V1, POLICY_MATERIALIZER_VERSION_V2,
 };
+use crate::cognitive::{
+    plan_cognitive_execution, CaseCognitiveBinding, CognitiveBindingRole, CognitiveCapability,
+    CognitiveCapabilityRequirement, CognitiveExecutionPlan, CognitivePlanningSnapshot,
+    CognitiveTargetSnapshot, SemanticEvidencePosture, SemanticSuitabilityEvidence,
+};
 use crate::compatibility::{
     decode_legacy_record, inspect_legacy_jsonl, LegacyDecodeOutcome, LegacyRecord,
 };
 use crate::context::SemanticContextArtifact;
 use crate::effect::{
     build_workflow_deterministic_filesystem_operation,
-    build_workflow_deterministic_process_operation, issue_policy_execution_grant,
+    build_workflow_deterministic_process_operation, digest_bytes, issue_policy_execution_grant,
     validate_execution_obligation_closure, validate_execution_obligation_preparation, Decision,
     LocalFilesystemBinding, LocalProcessBinding, Operation, OperationOrigin,
     LOCAL_FILESYSTEM_BINDING_SCHEMA, LOCAL_FILESYSTEM_BINDING_SCHEMA_V1,
@@ -59,10 +64,11 @@ use crate::memory::{
 };
 use crate::provider_governance::{
     select_provider, CaseProviderBinding, ProviderAttemptOutcome, ProviderCandidateSnapshot,
-    ProviderCredentialRevision, ProviderFailoverPolicy, ProviderHealthPosture, ProviderHealthState,
-    ProviderProbeEvidence, ProviderProbeOwner, ProviderQualification, ProviderRequirement,
-    ProviderSelection, ProviderTarget, ProviderTargetInput, ProviderTrustEvent,
-    ProviderTrustPosture, MAX_PROVIDER_TARGETS_PER_TENANT, PROVIDER_CIRCUIT_FAILURE_THRESHOLD,
+    ProviderCapability, ProviderCredentialRevision, ProviderFailoverPolicy, ProviderHealthPosture,
+    ProviderHealthState, ProviderProbeEvidence, ProviderProbeOwner, ProviderQualification,
+    ProviderRequirement, ProviderSelection, ProviderTarget, ProviderTargetInput,
+    ProviderTrustEvent, ProviderTrustPosture, MAX_PROVIDER_TARGETS_PER_TENANT,
+    PROVIDER_CIRCUIT_FAILURE_THRESHOLD,
 };
 use crate::record::Record;
 use crate::resource_control::{
@@ -80,12 +86,13 @@ use crate::transition::{
     CaseLifecycle, CaseState, ExecutionGrantInvalidation, GrantInvalidationDisposition,
     GrantLifecycle, PendingTransition, ReviewInvalidation, ReviewResolution, Transition,
     TransitionPayload, TransitionSource, CASE_STATE_SCHEMA, CASE_STATE_SCHEMA_V1,
-    CASE_STATE_SCHEMA_V10, CASE_STATE_SCHEMA_V11, CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3,
-    CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5, CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7,
-    CASE_STATE_SCHEMA_V8, CASE_STATE_SCHEMA_V9, TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1,
-    TRANSITION_SCHEMA_V10, TRANSITION_SCHEMA_V11, TRANSITION_SCHEMA_V12, TRANSITION_SCHEMA_V2,
-    TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6,
-    TRANSITION_SCHEMA_V7, TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
+    CASE_STATE_SCHEMA_V10, CASE_STATE_SCHEMA_V11, CASE_STATE_SCHEMA_V12, CASE_STATE_SCHEMA_V2,
+    CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5, CASE_STATE_SCHEMA_V6,
+    CASE_STATE_SCHEMA_V7, CASE_STATE_SCHEMA_V8, CASE_STATE_SCHEMA_V9, TRANSITION_SCHEMA,
+    TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V10, TRANSITION_SCHEMA_V11, TRANSITION_SCHEMA_V12,
+    TRANSITION_SCHEMA_V13, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4,
+    TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7, TRANSITION_SCHEMA_V8,
+    TRANSITION_SCHEMA_V9,
 };
 use crate::workflow::{
     derive_effective_workflow_topology, evaluate_predicate, node_completion_predicate,
@@ -7920,6 +7927,8 @@ impl LmdbRecordStore {
                 | TransitionPayload::ParticipantPrincipalLinked { .. }
                 | TransitionPayload::ProviderAttached { .. }
                 | TransitionPayload::CaseProviderBindingRecorded { .. }
+                | TransitionPayload::CaseCognitiveBindingRecorded { .. }
+                | TransitionPayload::CaseCognitiveBindingUnbound { .. }
                 | TransitionPayload::ResourceAttached { .. }
                 | TransitionPayload::CasePolicyBound { .. }
                 | TransitionPayload::CasePolicyReplaced { .. }
@@ -10708,6 +10717,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V13,
                 TRANSITION_SCHEMA_V12,
                 TRANSITION_SCHEMA_V11,
                 TRANSITION_SCHEMA_V10,
@@ -10728,6 +10738,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                CASE_STATE_SCHEMA_V12,
                 CASE_STATE_SCHEMA_V11,
                 CASE_STATE_SCHEMA_V10,
                 CASE_STATE_SCHEMA_V9,
@@ -11699,6 +11710,40 @@ fn derive_graph_relations_from_transition(
                 );
             }
         }
+        TransitionPayload::CaseCognitiveBindingRecorded { binding } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "cognitive_binding_selects_target",
+                "case_cognitive_binding",
+                &binding.binding_id,
+                "provider_target",
+                &binding.target_id,
+            );
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "cognitive_binding_uses_semantic_evidence",
+                "case_cognitive_binding",
+                &binding.binding_id,
+                "semantic_suitability_evidence",
+                &binding.semantic_evidence_id,
+            );
+        }
+        TransitionPayload::CaseCognitiveBindingUnbound {
+            prior_binding_id, ..
+        } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "cognitive_binding_invalidates_prior",
+            "transition",
+            &transition.transition_id,
+            "case_cognitive_binding",
+            prior_binding_id,
+        ),
         TransitionPayload::ProviderSelectionRecorded { selection } => add_transition_relation(
             &mut relations,
             skipped,
@@ -13190,6 +13235,51 @@ impl LmdbRecordStore {
         Ok(current)
     }
 
+    fn semantic_suitability_evidence_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        evidence_id: &str,
+    ) -> Result<Option<SemanticSuitabilityEvidence>, String> {
+        get_json_txn(
+            txn,
+            self.provider_governance,
+            &format!("semantic-suitability:{evidence_id}"),
+            "semantic_suitability_evidence",
+        )
+    }
+
+    fn semantic_suitability_for_target_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        target: &ProviderTarget,
+    ) -> Result<Vec<SemanticSuitabilityEvidence>, String> {
+        let mut cursor = txn
+            .open_ro_cursor(self.provider_governance)
+            .map_err(|error| format!("failed to scan semantic suitability evidence: {error}"))?;
+        let mut evidence = Vec::new();
+        for (key, value) in cursor.iter() {
+            if !std::str::from_utf8(key)
+                .ok()
+                .is_some_and(|key| key.starts_with("semantic-suitability:"))
+            {
+                continue;
+            }
+            let item: SemanticSuitabilityEvidence = serde_json::from_slice(value)
+                .map_err(|error| format!("semantic_suitability_evidence_decode_failed: {error}"))?;
+            item.validate()?;
+            if item.target_id == target.target_id {
+                if item.tenant_id != target.tenant_id
+                    || item.target_digest != target.integrity_digest
+                {
+                    return Err("semantic_suitability_target_integrity_mismatch".to_string());
+                }
+                evidence.push(item);
+            }
+        }
+        evidence.sort_by(|left, right| left.evidence_id.cmp(&right.evidence_id));
+        Ok(evidence)
+    }
+
     fn provider_trust_current_txn<T: Transaction>(
         &self,
         txn: &T,
@@ -13402,6 +13492,90 @@ impl LmdbRecordStore {
         }
         targets.sort_by(|left, right| left.target_id.cmp(&right.target_id));
         Ok(targets)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_semantic_suitability_evidence_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_id: &str,
+        capability: CognitiveCapability,
+        posture: SemanticEvidencePosture,
+        suite_id: &str,
+        run_id: &str,
+        provenance_refs: Vec<String>,
+        qualification_source: &str,
+    ) -> Result<SemanticSuitabilityEvidence, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start semantic suitability write: {error}"))?;
+        let target = self
+            .provider_target_txn(&txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?;
+        context.require_owner()?;
+        let recorded_at_unix_ms = self.provider_effective_time_txn(&mut txn)?;
+        let evidence = SemanticSuitabilityEvidence::new(
+            &target.tenant_id,
+            &target.target_id,
+            &target.integrity_digest,
+            capability,
+            posture,
+            suite_id,
+            run_id,
+            provenance_refs,
+            qualification_source,
+            context.principal_id(),
+            recorded_at_unix_ms,
+        )?;
+        let key = format!("semantic-suitability:{}", evidence.evidence_id);
+        if let Some(existing) =
+            self.semantic_suitability_evidence_txn(&txn, &evidence.evidence_id)?
+        {
+            if existing != evidence {
+                return Err("semantic_suitability_evidence_identity_collision".to_string());
+            }
+            return Ok(existing);
+        }
+        let count = self
+            .semantic_suitability_for_target_txn(&txn, &target)?
+            .len();
+        if count >= 64 {
+            return Err("semantic_suitability_target_limit_reached".to_string());
+        }
+        put_json_txn(
+            &mut txn,
+            self.provider_governance,
+            &key,
+            &evidence,
+            WriteFlags::NO_OVERWRITE,
+            "semantic suitability evidence",
+        )?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit semantic suitability evidence: {error}"))?;
+        Ok(evidence)
+    }
+
+    pub fn list_semantic_suitability_evidence_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        target_id: &str,
+        capability: Option<CognitiveCapability>,
+    ) -> Result<Vec<SemanticSuitabilityEvidence>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to read semantic suitability evidence: {error}"))?;
+        let target = self
+            .provider_target_txn(&txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        self.resolve_security_context_txn(&txn, authenticated, &target.tenant_id)?;
+        let mut evidence = self.semantic_suitability_for_target_txn(&txn, &target)?;
+        if let Some(capability) = capability {
+            evidence.retain(|item| item.capability == capability);
+        }
+        Ok(evidence)
     }
 
     pub fn qualify_provider_target_authorized(
@@ -14002,6 +14176,308 @@ impl LmdbRecordStore {
             .collect();
         self.commit_secured_transition(authenticated, &tenant_id, pending, true)?;
         Ok(binding)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn bind_case_cognitive_target_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        role: CognitiveBindingRole,
+        capability: CognitiveCapability,
+        target_id: &str,
+        semantic_evidence_id: &str,
+        replace: bool,
+    ) -> Result<CaseCognitiveBinding, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|error| format!("failed to start cognitive binding write: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "cognitive_binding_case_not_found".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "legacy_case_cannot_bind_cognitive_target".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        if state.lifecycle != CaseLifecycle::Open || state.cancellation.is_some() {
+            return Err("cognitive_binding_case_not_open".to_string());
+        }
+        if !state
+            .participants
+            .iter()
+            .any(|participant| participant.participant_id == participant_id)
+        {
+            return Err("cognitive_binding_participant_not_bound".to_string());
+        }
+        let provider_binding = state
+            .provider_binding
+            .as_ref()
+            .ok_or_else(|| "cognitive_binding_provider_envelope_missing".to_string())?;
+        if provider_binding.participant_id != participant_id
+            || !provider_binding
+                .ordered_target_ids
+                .iter()
+                .any(|value| value == target_id)
+        {
+            return Err("cognitive_target_not_admitted_by_provider_envelope".to_string());
+        }
+        let target = self
+            .provider_target_txn(&txn, target_id)?
+            .ok_or_else(|| "provider_target_not_found".to_string())?;
+        target.validate()?;
+        if target.tenant_id != tenant_id {
+            return Err("cross_tenant_cognitive_target_rejected".to_string());
+        }
+        let qualification = self
+            .provider_qualification_current_txn(&txn, target_id)?
+            .ok_or_else(|| "cognitive_target_provider_qualification_missing".to_string())?;
+        qualification.validate(&target)?;
+        let now_unix_ms = authority_wall_time_unix_ms().max(self.authority_time_floor_txn(&txn)?);
+        if !qualification.is_current(now_unix_ms)
+            || !qualification
+                .capabilities
+                .iter()
+                .any(|item| item.capability == ProviderCapability::ModelExactAddressing)
+        {
+            return Err("cognitive_target_provider_qualification_stale".to_string());
+        }
+        let trust = self
+            .provider_trust_current_txn(&txn, target_id)?
+            .ok_or_else(|| "cognitive_target_trust_not_approved".to_string())?;
+        trust.validate(&target)?;
+        if trust.posture != ProviderTrustPosture::Approved {
+            return Err("cognitive_target_trust_not_approved".to_string());
+        }
+        let evidence = self
+            .semantic_suitability_evidence_txn(&txn, semantic_evidence_id)?
+            .ok_or_else(|| "semantic_suitability_evidence_not_found".to_string())?;
+        evidence.validate()?;
+        if evidence.tenant_id != tenant_id
+            || evidence.target_id != target.target_id
+            || evidence.target_digest != target.integrity_digest
+            || evidence.capability != capability
+        {
+            return Err("semantic_suitability_evidence_binding_mismatch".to_string());
+        }
+        let current = state.cognitive_bindings.iter().find(|binding| {
+            binding.participant_id == participant_id
+                && binding.role == role
+                && (role == CognitiveBindingRole::Primary || binding.capability == capability)
+        });
+        if let Some(current) = current {
+            if current.target_id == target_id
+                && current.target_digest == target.integrity_digest
+                && current.semantic_evidence_id == semantic_evidence_id
+                && current.capability == capability
+            {
+                return Ok(current.clone());
+            }
+            if !replace {
+                return Err("cognitive_binding_replacement_requires_replace".to_string());
+            }
+        } else if replace {
+            return Err("cognitive_binding_replace_requires_existing".to_string());
+        }
+        let binding = CaseCognitiveBinding::new(
+            tenant_id,
+            case_id,
+            participant_id,
+            role,
+            capability,
+            target_id,
+            &target.integrity_digest,
+            semantic_evidence_id,
+            &provider_binding.binding_id,
+            current.map(|binding| binding.binding_id.clone()),
+            context.principal_id(),
+            state.generation,
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", binding.binding_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.cognitive_binding".to_string(),
+                participant_id: Some(participant_id.to_string()),
+                principal_id: Some(context.principal_id().to_string()),
+                source_ref: Some(binding.semantic_evidence_id.clone()),
+            },
+            TransitionPayload::CaseCognitiveBindingRecorded {
+                binding: binding.clone(),
+            },
+        );
+        pending.causal_refs = vec![
+            binding.binding_id.clone(),
+            binding.provider_binding_id_at_bind.clone(),
+            binding.semantic_evidence_id.clone(),
+            binding.target_id.clone(),
+        ];
+        if let Some(replaces) = &binding.replaces_binding_id {
+            pending.causal_refs.push(replaces.clone());
+        }
+        self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|error| format!("failed to commit cognitive binding: {error}"))?;
+        Ok(binding)
+    }
+
+    pub fn unbind_case_cognitive_target_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        role: CognitiveBindingRole,
+        capability: CognitiveCapability,
+        reason: &str,
+    ) -> Result<CanonicalCommit, String> {
+        if reason.is_empty() || reason.len() > 512 {
+            return Err("cognitive_binding_unbind_reason_invalid".to_string());
+        }
+        let state = self.get_case_state_authorized(authenticated, case_id)?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "legacy_case_cannot_unbind_cognitive_target".to_string())?;
+        self.resolve_security_context(authenticated, tenant_id)?
+            .require_owner()?;
+        let current = state
+            .cognitive_bindings
+            .iter()
+            .find(|binding| {
+                binding.participant_id == participant_id
+                    && binding.role == role
+                    && binding.capability == capability
+            })
+            .ok_or_else(|| "cognitive_binding_not_found".to_string())?;
+        let principal_id = authenticated.projected_principal_id();
+        let identity = format!(
+            "{}\0{}\0{}\0{}\0{}\0{}",
+            case_id,
+            participant_id,
+            role.as_str(),
+            capability.as_str(),
+            current.binding_id,
+            reason
+        );
+        let transition_id = format!(
+            "transition:cognitive-unbind:{}",
+            digest_bytes(identity.as_bytes())
+                .strip_prefix("sha256:")
+                .unwrap_or_default()
+                .chars()
+                .take(32)
+                .collect::<String>()
+        );
+        let mut pending = PendingTransition::new(
+            transition_id,
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.cognitive_binding".to_string(),
+                participant_id: Some(participant_id.to_string()),
+                principal_id: Some(principal_id.clone()),
+                source_ref: Some(current.binding_id.clone()),
+            },
+            TransitionPayload::CaseCognitiveBindingUnbound {
+                participant_id: participant_id.to_string(),
+                role,
+                capability,
+                prior_binding_id: current.binding_id.clone(),
+                unbound_by_principal_id: principal_id,
+                reason: reason.to_string(),
+            },
+        );
+        pending.causal_refs = vec![current.binding_id.clone()];
+        self.commit_secured_transition(authenticated, tenant_id, pending, true)
+    }
+
+    pub fn plan_case_cognitive_execution_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        requirement: &CognitiveCapabilityRequirement,
+    ) -> Result<CognitiveExecutionPlan, String> {
+        requirement.validate()?;
+        if requirement.case_id != case_id || requirement.participant_id != participant_id {
+            return Err("cognitive_planning_requirement_scope_mismatch".to_string());
+        }
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|error| format!("failed to start cognitive planning snapshot: {error}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "cognitive_planning_case_not_found".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "legacy_case_cannot_plan_cognitive_execution".to_string())?;
+        self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        if !state
+            .participants
+            .iter()
+            .any(|participant| participant.participant_id == participant_id)
+        {
+            return Err("cognitive_planning_participant_not_bound".to_string());
+        }
+        let provider_binding = state.provider_binding.as_ref();
+        let now_unix_ms = authority_wall_time_unix_ms().max(self.authority_time_floor_txn(&txn)?);
+        let mut target_ids = state
+            .cognitive_bindings
+            .iter()
+            .filter(|binding| binding.participant_id == participant_id)
+            .map(|binding| binding.target_id.clone())
+            .collect::<Vec<_>>();
+        target_ids.sort();
+        target_ids.dedup();
+        let mut targets = Vec::new();
+        for target_id in target_ids {
+            let Some(target) = self.provider_target_txn(&txn, &target_id)? else {
+                continue;
+            };
+            target.validate()?;
+            let qualification = self.provider_qualification_current_txn(&txn, &target_id)?;
+            let mechanically_qualified = qualification.as_ref().is_some_and(|qualification| {
+                qualification.validate(&target).is_ok()
+                    && qualification.is_current(now_unix_ms)
+                    && qualification
+                        .capabilities
+                        .iter()
+                        .any(|item| item.capability == ProviderCapability::ModelExactAddressing)
+            });
+            let trust_approved = self
+                .provider_trust_current_txn(&txn, &target_id)?
+                .is_some_and(|trust| {
+                    trust.validate(&target).is_ok()
+                        && trust.posture == ProviderTrustPosture::Approved
+                });
+            let provider_envelope_admitted = provider_binding.is_some_and(|binding| {
+                binding.participant_id == participant_id
+                    && binding.ordered_target_ids.contains(&target_id)
+            });
+            targets.push(CognitiveTargetSnapshot {
+                target_id,
+                target_digest: target.integrity_digest.clone(),
+                provider_envelope_admitted,
+                mechanically_qualified,
+                trust_approved,
+                semantic_evidence: self.semantic_suitability_for_target_txn(&txn, &target)?,
+            });
+        }
+        let snapshot = CognitivePlanningSnapshot {
+            tenant_id: tenant_id.to_string(),
+            case_id: case_id.to_string(),
+            participant_id: participant_id.to_string(),
+            case_generation: state.generation,
+            active_bindings: state.cognitive_bindings.clone(),
+            targets,
+        };
+        plan_cognitive_execution(&snapshot, requirement)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -14925,6 +15401,12 @@ fn transition_contains_canonical_fact_ref(transition: &Transition, reference: &s
         TransitionPayload::CaseProviderBindingRecorded { binding } => {
             binding.binding_id == reference
         }
+        TransitionPayload::CaseCognitiveBindingRecorded { binding } => {
+            binding.binding_id == reference
+        }
+        TransitionPayload::CaseCognitiveBindingUnbound {
+            prior_binding_id, ..
+        } => prior_binding_id == reference,
         TransitionPayload::ProviderSelectionRecorded { selection } => {
             selection.selection_id == reference
         }
@@ -24706,6 +25188,8 @@ mod tests {
     mod hardening17_tests;
     #[path = "hardening18_tests.rs"]
     mod hardening18_tests;
+    #[path = "i02_tests.rs"]
+    mod i02_tests;
     #[path = "wave18_tests.rs"]
     mod wave18_tests;
 }

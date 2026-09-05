@@ -17,6 +17,7 @@ ProviderTarget
 
 Case
   -> CaseProviderBinding
+  -> CaseCognitiveBinding (distinct semantic role/evidence relation)
   -> derived ProviderRequirement
   -> canonical ProviderSelection
   -> canonical ProviderInvocationStarted
@@ -28,7 +29,32 @@ owner family. They share one LMDB database because their lifecycle and current
 lookup are one administrative catalog. Health has a second small shared
 operational database: it is fresh, multi-process routing input, not Case truth,
 qualification or trust. Binding, selection and attempt outcomes are Case
-Transitions and replay through CaseState v12.
+Transitions and replay through CaseState v13.
+
+I02 adds a separate `yai.semantic_suitability_evidence.v1` record family to
+the same Tenant provider-governance owner. It binds an exact target and target
+digest to one closed YAI cognitive capability plus suite/run/provenance and an
+explicit posture. An authenticated operator attestation is rendered as an
+attestation, never mislabeled as mechanical qualification. It neither expands
+`ProviderQualification v3` nor grants Case routing eligibility.
+
+`yai.case_cognitive_binding.v1` is canonical Case history distinct from
+`CaseProviderBinding`: the provider binding says which exact targets may be
+routed to, while the cognitive binding says why one admitted target serves
+`primary_conversation`, `speech_to_text`, or `image_understanding`. One current
+primary slot exists per admitted participant and one auxiliary slot per
+capability. Replacement and unbind are explicit historical transitions.
+
+The pure `yai.cognitive_execution_planner.v1` checks the primary target first.
+Exact suitability yields a native primary lane; otherwise an exact suitable
+auxiliary binding yields a derived auxiliary lane; missing or stale evidence,
+qualification, trust, Tenant scope, Participant scope, target identity, or
+provider-envelope admission yields a typed unresolved plan. Lane identity is
+derived from Case, Participant and exact binding. Continuations are ephemeral,
+lane-scoped hints whose loss does not invalidate the plan. Planning reads no
+health state, creates no `ProviderSelection`, performs no network request and
+always reports `provider_execution: not_performed`. Physical media admission,
+provider realization and auxiliary execution remain post-I02 work.
 
 Capabilities are derived from synthetic probe evidence. The mechanical
 vocabulary is `chat_text`, `text_embedding`, `structured_json_object`,

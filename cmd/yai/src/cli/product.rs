@@ -33,7 +33,9 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.show" => case_show(invocation),
         operation_id
             if operation_id.starts_with("yai.case.memory.")
-                || operation_id.starts_with("yai.case.conversation.") =>
+                || operation_id.starts_with("yai.case.conversation.")
+                || operation_id.starts_with("yai.case.cognitive.")
+                || operation_id.starts_with("yai.provider.suitability.") =>
         {
             execute_structured_legacy(operation_id, invocation)
         }
@@ -518,6 +520,8 @@ fn execute_structured_legacy(
     let native_json = invocation.json
         && (operation_id.starts_with("yai.case.memory.")
             || operation_id.starts_with("yai.case.conversation.")
+            || operation_id.starts_with("yai.case.cognitive.")
+            || operation_id.starts_with("yai.provider.suitability.")
             || (operation_id.starts_with("yai.workflow.") && operation_id != "yai.workflow.input")
             || operation_id.starts_with("yai.case.handoff."));
     if native_json {

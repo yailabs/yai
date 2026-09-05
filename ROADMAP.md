@@ -484,3 +484,20 @@ loopback targets under W18 ProviderGovernance. YVEX/DeepSeek remains the
 cognitive provider and gains no embedding endpoint or core special case.
 Learned reranking, contradiction/consolidation and governed filesystem/process
 capability expansion remain outside W19.
+
+## Completed boundary — cognitive capability bindings and execution lanes
+
+Interlock I02 adds the smallest YAI-owned semantic planning layer between Case
+conversation requirements and provider realization. It introduces a closed
+initial cognitive capability vocabulary, immutable exact-target semantic
+suitability evidence, canonical primary/auxiliary Case bindings with explicit
+replacement, and a pure native/derived/unresolved planner. Stable derived lane
+identity scopes optional continuation hints without turning lanes, provider
+sessions or model runtime state into owners.
+
+The provider-governance envelope remains the permission/routing boundary and
+ProviderQualification v3 remains mechanical evidence; neither is replaced by
+semantic suitability. Plans perform no provider dispatch, network access,
+content derivation, YVEX activation or model execution. I03 retains typed media
+realization, native-versus-auxiliary execution, execution-provider adapters and
+dynamic arbitration. Replia/Studio, H20, W21 and W22 remain outside I02.

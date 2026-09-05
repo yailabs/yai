@@ -15,6 +15,7 @@
 
 pub mod admission;
 pub mod case_policy;
+pub mod cognitive;
 pub mod compatibility;
 pub mod context;
 pub mod conversation;

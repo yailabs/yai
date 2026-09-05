@@ -1,0 +1,6 @@
+source	revision	observed mechanism	I02 disposition
+yai-dev provider_compatibility.h/.c	cffb318c7223458a9c310a288a5e7337e7fb72b7	explicit compatibility status and source reference	recover typed evidence identity and fail-closed unknown posture
+yai-dev inference capability contracts	e9ad7f634a068767890e59b44c6c20b344d23d84	bounded declared inference capabilities	recover a small closed semantic vocabulary, not legacy ownership
+yai-dev provider routing consumers	6ce6a3f7d2b074ef31c2f33a551f7138f216d25a	compatibility filtering before route choice	recover filter-before-plan composition with current governance
+yai-dev provider capability-fit tests	dda93eeec4102f8bb9d37d930c187df7ff078c2d	explicit fit evidence and negative paths	recover adversarial wrong-target/capability tests
+yai-dev model selection engine	2a40181bec52b18fd76d455a62a927b5e87d5c4b	process-global mutable selector/runtime state	reject global registries, name inference and runtime ownership

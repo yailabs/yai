@@ -469,12 +469,83 @@ const PROVIDER_QUALIFY: &[FlagSpec] = &[
     flag("--valid-for-ms", Some("MS"), false),
     bool_flag("--embedding"),
 ];
+const PROVIDER_SUITABILITY_RECORD: &[FlagSpec] = &[
+    choice_flag(
+        "--capability",
+        &[
+            "primary_conversation",
+            "speech_to_text",
+            "image_understanding",
+        ],
+        true,
+    ),
+    flag("--suite", Some("SUITE"), true),
+    flag("--run", Some("RUN"), true),
+    repeat_flag("--evidence-ref", "REF"),
+];
+const PROVIDER_SUITABILITY_SHOW: &[FlagSpec] = &[choice_flag(
+    "--capability",
+    &[
+        "primary_conversation",
+        "speech_to_text",
+        "image_understanding",
+    ],
+    false,
+)];
 const CASE_PROVIDER_BIND: &[FlagSpec] = &[
     flag("--participant", Some("PARTICIPANT"), true),
     repeat_flag("--target", "TARGET"),
     repeat_flag("--provider-key", "KEY"),
     choice_flag("--failover", &["none", "safe_only"], false),
     flag("--max-attempts", Some("N"), false),
+];
+const CASE_COGNITIVE_BIND: &[FlagSpec] = &[
+    flag("--participant", Some("PARTICIPANT"), true),
+    choice_flag("--role", &["primary", "auxiliary"], true),
+    choice_flag(
+        "--capability",
+        &[
+            "primary_conversation",
+            "speech_to_text",
+            "image_understanding",
+        ],
+        true,
+    ),
+    flag("--target", Some("TARGET"), true),
+    flag("--evidence", Some("EVIDENCE"), true),
+    bool_flag("--replace"),
+];
+const CASE_COGNITIVE_UNBIND: &[FlagSpec] = &[
+    flag("--participant", Some("PARTICIPANT"), true),
+    choice_flag("--role", &["primary", "auxiliary"], true),
+    choice_flag(
+        "--capability",
+        &[
+            "primary_conversation",
+            "speech_to_text",
+            "image_understanding",
+        ],
+        true,
+    ),
+    flag("--reason", Some("REASON"), true),
+];
+const CASE_COGNITIVE_SHOW: &[FlagSpec] = &[flag("--participant", Some("PARTICIPANT"), true)];
+const CASE_COGNITIVE_PLAN: &[FlagSpec] = &[
+    flag("--participant", Some("PARTICIPANT"), true),
+    choice_flag(
+        "--capability",
+        &[
+            "primary_conversation",
+            "speech_to_text",
+            "image_understanding",
+        ],
+        true,
+    ),
+    flag("--source", Some("REF"), true),
+    flag("--continuation-lane", Some("LANE"), false),
+    flag("--continuation-target", Some("TARGET"), false),
+    flag("--continuation-runtime", Some("RUNTIME"), false),
+    flag("--continuation-ref", Some("REF"), false),
 ];
 const CASE_MEMORY_SEARCH: &[FlagSpec] = &[
     flag("--participant", Some("PARTICIPANT"), true),
@@ -809,6 +880,28 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         PROVIDER_QUALIFY
     ),
     op!(
+        "yai.provider.suitability.record",
+        ["provider", "suitability", "record"],
+        "Record authenticated semantic-suitability evidence without model execution",
+        Advanced,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("target", Some("--target"))],
+        PROVIDER_SUITABILITY_RECORD
+    ),
+    op!(
+        "yai.provider.suitability.show",
+        ["provider", "suitability", "show"],
+        "Inspect target-bound semantic-suitability evidence",
+        Advanced,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("target", Some("--target"))],
+        PROVIDER_SUITABILITY_SHOW
+    ),
+    op!(
         "yai.provider.trust.approve",
         ["provider", "trust", "approve"],
         "Approve a provider target for future Tenant selections",
@@ -1139,6 +1232,50 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         Structured,
         &[pos("case", Some("--case"))],
         NO_FLAGS
+    ),
+    op!(
+        "yai.case.cognitive.bind",
+        ["case", "cognitive", "bind"],
+        "Bind an exact admitted provider target to a Case cognitive role",
+        Advanced,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_COGNITIVE_BIND
+    ),
+    op!(
+        "yai.case.cognitive.unbind",
+        ["case", "cognitive", "unbind"],
+        "Explicitly unbind one active Case cognitive role",
+        Advanced,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_COGNITIVE_UNBIND
+    ),
+    op!(
+        "yai.case.cognitive.show",
+        ["case", "cognitive", "show"],
+        "Inspect active Case cognitive bindings",
+        Advanced,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_COGNITIVE_SHOW
+    ),
+    op!(
+        "yai.case.cognitive.plan",
+        ["case", "cognitive", "plan"],
+        "Derive a native, auxiliary, or unresolved cognitive execution plan",
+        Advanced,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        CASE_COGNITIVE_PLAN
     ),
     Descriptor {
         aliases: &[&["case", "attach-filesystem"]],
