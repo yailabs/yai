@@ -3,12 +3,11 @@
 //! This controller is deliberately not a terminal REPL. It accepts typed
 //! actions and ordered semantic content, commits the user turn first, and then
 //! reuses YAI's Projection/Context/provider-governance invocation boundary.
-//! A future terminal frontend (including Replia) and a graphical client can
+//! The REPLAI terminal frontend and a graphical client can
 //! adapt to this boundary without owning Case or conversation truth.
 
-// The production consumer is intentionally the pending external frontend
-// adapter. Until Replia exists, qualification exercises this seam directly
-// instead of adding a temporary private terminal implementation.
+// The terminal adapter consumes this application boundary through typed actions.
+// Some non-terminal multipart actions are also exercised directly in qualification.
 #![allow(dead_code)]
 
 use super::*;
@@ -577,7 +576,7 @@ impl ConversationController {
             active_thread_durable,
             case_generation: authorized.state.generation,
             committed_threads,
-            terminal_frontend: "awaiting_replia_integration",
+            terminal_frontend: "replai_native",
         })
     }
 }
@@ -966,7 +965,7 @@ mod tests {
         };
         assert!(!initial.active_thread_durable);
         assert!(initial.committed_threads.is_empty());
-        assert_eq!(initial.terminal_frontend, "awaiting_replia_integration");
+        assert_eq!(initial.terminal_frontend, "replai_native");
 
         let first = submit_text(&mut controller, "canonical before provider availability");
         assert_eq!(

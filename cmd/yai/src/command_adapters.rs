@@ -16,11 +16,10 @@
 //!   active
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::ffi::{CStr, CString};
 use std::fmt::Write as FmtWrite;
 use std::fs::{self, OpenOptions};
 use std::io::{IsTerminal, Read, Write};
-use std::os::raw::{c_char, c_int, c_void};
+use std::os::raw::c_int;
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
@@ -65,10 +64,7 @@ use yai_core_engine::transition::{
 const ANSI_RESET: &str = "\x1b[0m";
 const ANSI_BOLD: &str = "\x1b[1m";
 const ANSI_DIM: &str = "\x1b[2m";
-const ANSI_CYAN: &str = "\x1b[36m";
-const ANSI_BLUE: &str = "\x1b[34m";
 const ANSI_GREEN: &str = "\x1b[32m";
-const ANSI_YELLOW: &str = "\x1b[33m";
 const ANSI_MAGENTA: &str = "\x1b[35m";
 const FACT_SCHEMA: &str = "yai.fact.v1";
 const FACT_TABLES: &[&str] = &[
@@ -98,10 +94,6 @@ const FACT_COMMON_COLUMNS: &[&str] = &[
 const FACT_VALID_TIME_END_SENTINEL: u128 = 0;
 
 unsafe extern "C" {
-    fn linenoise(prompt: *const c_char) -> *mut c_char;
-    fn linenoiseFree(ptr: *mut c_void);
-    fn linenoiseHistoryAdd(line: *const c_char) -> c_int;
-    fn linenoiseHistorySetMaxLen(len: c_int) -> c_int;
     #[cfg(unix)]
     fn kill(pid: c_int, sig: c_int) -> c_int;
 }
@@ -1046,6 +1038,9 @@ use memory_cli::*;
 
 #[path = "conversation_controller.rs"]
 mod conversation_controller;
+
+#[path = "conversation_terminal.rs"]
+mod conversation_terminal;
 
 #[path = "conversation_cli.rs"]
 mod conversation_cli;

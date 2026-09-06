@@ -6,6 +6,7 @@ import argparse
 import json
 import socket
 import time
+from pathlib import Path
 
 
 parser = argparse.ArgumentParser()
@@ -30,6 +31,7 @@ parser.add_argument(
 parser.add_argument("--model", default="provider-governance-model")
 parser.add_argument("--requests", type=int, default=32)
 parser.add_argument("--log")
+parser.add_argument("--release-file", help="Bounded test barrier before non-synthetic replies")
 args = parser.parse_args()
 MEMORY_TURNS = 0
 W20_REPLACEMENT_EMITTED = False
@@ -110,6 +112,13 @@ class Handler(BaseHTTPRequestHandler):
                     )
                     + "\n"
                 )
+        if args.release_file and not is_synthetic:
+            deadline = time.monotonic() + 20
+            while not Path(args.release_file).exists() and time.monotonic() < deadline:
+                time.sleep(0.02)
+            if not Path(args.release_file).exists():
+                self.reply(503, {"error": {"type": "fixture_barrier_timeout"}})
+                return
         if request.get("model") != args.model:
             self.reply(404, {"error": {"type": "model_not_found"}})
             return

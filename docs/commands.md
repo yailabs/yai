@@ -133,14 +133,12 @@ Workflow, Effect, policy, or operational budgets. Retry executes the same
 committed Turn and cannot duplicate it. New thread identities are local until
 their first SEND; thread lists are projections of committed Turn history.
 
-There is intentionally no temporary `yai chat` command. The Product command
-will be admitted only with the authoritative external Replia frontend, which
-owns terminal editing, history, paste, key handling, redraw/resize, and terminal
-rendering. YAI will own the meanings of chat actions such as memory/context,
-thread selection, retry, and cancellation. Natural terminal path recognition
-will live in that adapter; graphical clients may supply typed parts directly.
-`yai prompt` remains frozen as an Advanced legacy interaction surface until
-the real cutover and receives no new terminal behavior here.
+The Advanced `yai prompt` now consumes [native REPLAI](replai-terminal.md).
+The existing controller owns submission, canonical threads, retry and cancellation;
+REPLAI owns only transient editing and generic terminal interaction. The
+`case enter` inspection/shell setup surface, `prompt --once` and piped invocation
+remain available. No separate `yai chat`, natural path parser or cognitive
+execution command is introduced by the terminal cutover.
 
 ## Case memory representation and retrieval
 

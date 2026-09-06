@@ -490,7 +490,7 @@ fn render_legacy_case_entry_preview(journal: &Journal, case_ref: Option<&str>) -
     );
     let _ = writeln!(
         output,
-        "- subject:linenoise-terminal is a vendored prompt surface only; it does not generate decisions, authorize writes, mutate receipts or own provider semantics."
+        "- REPLAI is the native terminal interaction surface only; it does not generate decisions, authorize writes, mutate receipts or own provider semantics."
     );
     let _ = writeln!(
         output,
@@ -1136,7 +1136,7 @@ pub(super) fn case_attach_provider(args: &[String]) -> Result<(), String> {
     }
 
     let provider_summary = format!(
-        "provider_attachment:attached provider_id:{provider_id} provider:openai_compatible base_url:{base_url} model:{model} api_key_env:{api_key_env} prompt_surface:vendored_linenoise context:typed_projection_context_frame"
+        "provider_attachment:attached provider_id:{provider_id} provider:openai_compatible base_url:{base_url} model:{model} api_key_env:{api_key_env} prompt_surface:replai context:typed_projection_context_frame"
     );
     let tenant_id = state
         .tenant_id
@@ -1598,32 +1598,6 @@ fn prompt_runtime_from_args_with_journal(
         legacy_status_notes: render_thread_context(&journal, &case_ref, &active_thread_id),
         transcript_enabled,
     })
-}
-
-fn linenoise_read_line(prompt: &str) -> Result<Option<String>, String> {
-    let prompt = CString::new(prompt).map_err(|_| "prompt contains a NUL byte".to_string())?;
-    let ptr = unsafe { linenoise(prompt.as_ptr()) };
-    if ptr.is_null() {
-        return Ok(None);
-    }
-    let line = unsafe { CStr::from_ptr(ptr) }
-        .to_string_lossy()
-        .into_owned();
-    unsafe {
-        linenoiseFree(ptr.cast::<c_void>());
-    }
-    Ok(Some(line))
-}
-
-fn prompt_label(case_ref: &str, colors: bool) -> String {
-    if colors {
-        format!(
-            "{}{}{}({}{}{})> ",
-            ANSI_BOLD, ANSI_CYAN, "yai", ANSI_YELLOW, case_ref, ANSI_RESET
-        )
-    } else {
-        format!("yai({case_ref})> ")
-    }
 }
 
 fn terminal_width() -> usize {
@@ -3272,13 +3246,13 @@ fn append_interaction_turn(
 fn prompt_attempt_summary(session: &PromptRuntime, prompt: &str) -> String {
     if session.transcript_enabled {
         format!(
-            "op:model.prompt.submit prompt_surface:vendored_linenoise context:typed_context_frame thread_id:{} transcript_retention:full_redacted_case_local prompt_text:{}",
+            "op:model.prompt.submit prompt_surface:replai context:typed_context_frame thread_id:{} transcript_retention:full_redacted_case_local prompt_text:{}",
             session.active_thread_id,
             transcript_text(prompt, session)
         )
     } else {
         format!(
-            "op:model.prompt.submit prompt_surface:vendored_linenoise context:typed_context_frame thread_id:{} transcript_retention:preview_only prompt_preview:{}",
+            "op:model.prompt.submit prompt_surface:replai context:typed_context_frame thread_id:{} transcript_retention:preview_only prompt_preview:{}",
             session.active_thread_id,
             compact_text(prompt, 120)
         )
@@ -3679,8 +3653,10 @@ fn handle_prompt_command(session: &mut PromptRuntime, command: &str) -> Result<b
 pub(super) fn prompt_repl(args: &[String]) -> Result<(), String> {
     let dry_run = args.iter().any(|arg| arg == "--dry-run");
     let once = optional_arg(args, "--once");
+    if once.is_none() && std::io::stdin().is_terminal() {
+        return super::conversation_terminal::run(args);
+    }
     let mut session = prompt_runtime_from_args(args)?;
-    let colors = color_enabled();
     if let Some(prompt) = once {
         if handle_prompt_command(&mut session, prompt.trim())? {
             return Ok(());
@@ -3704,50 +3680,34 @@ pub(super) fn prompt_repl(args: &[String]) -> Result<(), String> {
         return run_prompt_once(&mut session, prompt, dry_run);
     }
 
-    unsafe {
-        let _ = linenoiseHistorySetMaxLen(200);
-    }
-    println!("case_prompt: entered");
-    println!("case_ref: {}", session.case_ref);
-    println!("case_session: active");
-    println!("case_context: active");
-    println!("interaction_thread: {}", session.active_thread_id);
-    println!("subject_ref: {}", session.subject_ref);
-    println!("provider_model: {}", session.provider.model);
-    println!("context_source: typed_projection_plus_context_frame");
-    println!(
-        "transcript_retention: {}",
-        transcript_retention_label(session.transcript_enabled)
-    );
-    println!("commands: /thread status /thread new [label] /thread list /thread use <thread_id> /thread archive <thread_id> /refresh /transcript on /transcript off /transcript status /exit");
+    Err("prompt_input_mode_changed".to_string())
+}
 
-    loop {
-        println!();
-        print_cli_section(colors, "QUESTION", &session.case_ref, ANSI_BLUE);
-        let prompt = prompt_label(&session.case_ref, colors);
-        let Some(line) = linenoise_read_line(&prompt)? else {
-            break;
-        };
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if trimmed == "/exit" || trimmed == "/quit" {
-            break;
-        }
-        if handle_prompt_command(&mut session, trimmed)? {
-            continue;
-        }
-        if let Ok(history_line) = CString::new(trimmed) {
-            unsafe {
-                let _ = linenoiseHistoryAdd(history_line.as_ptr());
-            }
-        }
-        if let Err(error) = run_prompt_once(&mut session, trimmed, dry_run) {
-            eprintln!("{error}");
-        }
-    }
-    Ok(())
+// Explicit compatibility operations retain their existing application handlers.
+// They do not read terminal input or become the canonical conversation owner.
+pub(super) fn terminal_compatibility_command(
+    args: &[String],
+    command: &str,
+    active_thread: &str,
+) -> Result<(), String> {
+    let mut session = prompt_runtime_from_args(args)?;
+    session.active_thread_id = active_thread.to_string();
+    handle_prompt_command(&mut session, command).map(|_| ())
+}
+
+pub(super) fn terminal_dry_run(args: &[String], text: &str) -> Result<(), String> {
+    let mut session = prompt_runtime_from_args(args)?;
+    run_prompt_once(&mut session, text, true)
+}
+
+pub(super) fn terminal_context(args: &[String]) -> Result<(String, Option<String>), String> {
+    let case_id = optional_arg(args, "--case")
+        .or_else(|| env_var("YAI_CASE_REF"))
+        .ok_or_else(|| "YAI_CASE_REF is required; run `yai case enter` first".to_string())?;
+    let participant = optional_arg(args, "--subject")
+        .or_else(|| env_var("YAI_PROVIDER_SUBJECT_REF"))
+        .or_else(|| env_var("YAI_SUBJECT_REF"));
+    Ok((case_id, participant))
 }
 
 #[cfg(test)]

@@ -23,6 +23,11 @@ Independent diagnostic lanes: `test-unit`, `test-component`, `test-contract`,
 `smoke` remains the named smoke-leaf union; individual historical commands stay
 available. They are not replacements for the complete publication union.
 
+The native terminal product lane also requires the pinned Python packages in
+[requirements-terminal.txt](requirements-terminal.txt). See
+[native REPLAI reproduction](../docs/replai-terminal.md#reproduction-and-evidence)
+for the isolated virtualenv setup before running the publication union.
+
 ## Orthogonal evidence axes
 
 Each row binds a stable ID, source paths, exact selector/executor, property,

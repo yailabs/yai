@@ -822,3 +822,8 @@ check: test-release
 
 clean:
 	rm -rf "$(BUILD_DIR)" "$(RUST_TARGET_DIR)" engine/target cmd/yai/target
+
+.PHONY: smoke-replai-terminal
+smoke-replai-terminal: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/replai-terminal/test_replai_terminal.py

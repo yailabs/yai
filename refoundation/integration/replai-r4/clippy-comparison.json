@@ -1,0 +1,111 @@
+{
+  "baseline": [
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:320:63"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:408:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:419:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:426:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:433:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:440:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:447:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:454:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:461:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:468:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:475:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:482:9"
+    ],
+    [
+      "writing `&PathBuf` instead of `&Path` involves a new object where a slice will do",
+      "src/provider.rs:567:33"
+    ]
+  ],
+  "current": [
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:320:63"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:408:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:419:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:426:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:433:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:440:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:447:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:454:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:461:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:468:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:475:9"
+    ],
+    [
+      "this expression creates a reference which is immediately dereferenced by the compiler",
+      "src/provider.rs:482:9"
+    ],
+    [
+      "writing `&PathBuf` instead of `&Path` involves a new object where a slice will do",
+      "src/provider.rs:567:33"
+    ]
+  ],
+  "equal": true
+}

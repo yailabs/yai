@@ -8,6 +8,8 @@ name = "yai"
 path = "src/main.rs"
 
 [dependencies]
+replai = { git = "https://github.com/mothx9/replai", rev = "df5538c718b8d068432032e7fb116fb8bfab158e" }
+signal-hook = "0.3.18"
 yai-engine = { path = "../../engine/yai-engine" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

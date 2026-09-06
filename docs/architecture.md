@@ -103,7 +103,7 @@ mean constitutional, general, or production-ready.
 | Vertical | Current path and demonstrated consequence | First architectural gap |
 |---|---|---|
 | Case conversation content | mutable non-canonical draft → bounded text/media imports → explicit original/derived provenance → SEND → `ConversationTurnCommitted` → immutable content-addressed bytes plus canonical ordered references; I03 can publish bounded provider-derived text as a separate canonical relation without mutating the Turn | non-text generated output and automatic unbounded composition remain later work |
-| Conversation interaction host | host-normalized ordered parts → canonical Turn commit → optional independent conversation execution through the shared Projection/Context/provider-governance seam; failure and retry preserve one Turn and require no ResourceAttachment, Workflow, Policy, Effect, or Case-runtime admission | the Product `yai chat` frontend awaits authoritative Replia integration; YAI does not privately implement terminal mechanics |
+| Conversation interaction host | host-normalized ordered parts → canonical Turn commit → optional independent conversation execution through the shared Projection/Context/provider-governance seam; failure and retry preserve one Turn and require no ResourceAttachment, Workflow, Policy, Effect, or Case-runtime admission | the Advanced `yai prompt` frontend consumes native REPLAI; generic terminal mechanics stay external |
 | Cognitive capability planning | exact semantic requirement → target-bound suitability evidence → canonical Case/Participant primary or auxiliary binding → pure native/derived/unresolved plan → deterministic lane and lane-scoped continuation posture; planning remains execution-free | policy-driven arbitration remains later work |
 | Typed provider realization | fresh I02 plan + exact current binding/evidence/envelope + ProviderQualification v4 wire-shape evidence + canonical Turn parts → exact-target governed selection → ordered OpenAI-compatible typed request → ProviderInvocation/ProviderResult; derived routes use an exact versioned normalizer to publish bounded immutable text plus source/result provenance | production STT/vision adapters, public YVEX typed-media compatibility and streaming remain later work |
 | Cognitive execution composition | explicit primary goal + ordered canonical source selection → content-addressed composition request → proven direct primary bypass or one exact auxiliary I02/I03 realization → canonical derived content → deterministic original/derived source closure → fresh exact primary I02/I03 realization; completed compatible prerequisites resume without redispatch | only depth-two speech/image-to-text prerequisites are admitted; dynamic arbitration, recursive graphs and automatic chat routing remain absent |
@@ -246,13 +246,13 @@ buffered completion/failure facts and conservative pre-dispatch cancellation.
 It adds no provider streaming capability and does not claim interruption of an
 already dispatched buffered request.
 
-Generic terminal editing, history, paste, raw mode, cursor handling,
-redraw/resize, terminal key semantics, and presentation are intentionally not
-implemented here. The future Replia adapter will normalize terminal input
-(including any natural path syntax) into these YAI actions. A graphical client
-can submit the same typed parts directly. `yai prompt` remains a frozen
-Advanced legacy donor until that authoritative cutover; it is not expanded or
-removed by this closure.
+[The native REPLAI frontend](replai-terminal.md) supplies `yai prompt` with
+terminal editing, history, paste, resize/redraw and scoped terminal ownership.
+YAI translates events into controller actions; transient edits never publish
+content or commit a Turn. Submission commits ordered text before execution.
+`case enter` retains its inspection/shell setup role. Noninteractive `--once`
+and piped input retain the existing invocation paths. No additional Product
+`yai chat`, natural path parser or graphical frontend is introduced here.
 
 Machine-local absolute filesystem roots are stored in a separately versioned
 `local_resource_bindings` LMDB database. They survive restart because the

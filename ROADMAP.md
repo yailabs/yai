@@ -548,3 +548,20 @@ I04 admits one bounded depth-two composition only. Dynamic target arbitration,
 recursive cognitive graphs, automatic chat routing, production STT/vision
 onboarding, YVEX runtime ownership, Replia, Studio, H20, W21 and W22 remain
 outside this boundary.
+
+
+## Completed boundary — native terminal consumer
+
+R4 replaces the active `yai prompt` linenoise path with pinned native REPLAI.
+Transient editor state stays separate from Case authority; the existing
+conversation controller commits one Turn before governed provider execution.
+`case enter` inspection/shell setup and noninteractive invocation retain their
+existing roles. The product PTY qualification observes canonical non-mutation
+while editing, commit-before-provider, success/failure retention, exact terminal
+restoration and bounded descriptors. See the
+[R4 report](refoundation/integration/replai-r4/REPORT.md) and
+[terminal contract](docs/replai-terminal.md).
+
+Physical unused `vendor/linenoise` residue remains for the final cross-consumer
+R5 audit. This boundary does not begin that audit, introduce automatic cognitive
+routing or advance the pinned library revision.
