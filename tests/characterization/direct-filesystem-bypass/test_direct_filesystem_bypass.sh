@@ -2,7 +2,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 test_root=$(mktemp -d /tmp/yai-direct-filesystem-characterization.XXXXXX)
 trap 'rm -rf "$test_root"' EXIT INT TERM
 

@@ -12,7 +12,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 YAI_HOME=${YAI_HOME:-"/tmp/yai-spine35-home-$$"}
 export YAI_HOME
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 YAID="$ROOT/build/yaid"
 TMP_DIR="build/tmp/yai-spine48-$$"
 YAI_HOME="$TMP_DIR/home"

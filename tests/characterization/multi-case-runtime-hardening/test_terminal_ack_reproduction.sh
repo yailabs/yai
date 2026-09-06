@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 YAID="$ROOT/build/yaid"
 PROVIDER="$ROOT/tests/fixtures/agentless_case_runtime_provider.py"
 source "$ROOT/tests/characterization/lib/governed_case_policy.sh"

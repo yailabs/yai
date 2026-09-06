@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 RUN_ROOT="$(mktemp -d)"
 trap 'rm -rf "$RUN_ROOT"' EXIT
 export YAI_HOME="$RUN_ROOT/yai-home"

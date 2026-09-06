@@ -5,7 +5,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 YAI_HOME=${YAI_HOME:-"/tmp/yai-spine30-home-$$"}
 export YAI_HOME
 
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 YAID="$ROOT/build/yaid"
 SOCKET="$YAI_HOME/run/yaid.sock"
 RECORD_STORE="$YAI_HOME/store/lmdb"

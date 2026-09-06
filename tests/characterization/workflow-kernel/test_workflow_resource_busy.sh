@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 YAID="$ROOT/build/yaid"
 PROVIDER_FIXTURE="$ROOT/tests/fixtures/controlled_effect_provider.py"
 TEST_DIR="$(mktemp -d /tmp/yai-workflow-resource-busy.XXXXXX)"

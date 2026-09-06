@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 TEST_DIR="$(mktemp -d /tmp/yai-workflow-hardening.XXXXXX)"
 export YAI_HOME="$TEST_DIR/home"
 RUNTIME_PID=""

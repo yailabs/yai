@@ -12,7 +12,8 @@ repository check path.
 - Work from the repository root.
 - Use the local toolchain expected by the Makefile.
 
-No model, provider, daemon, API key, or manual runtime setup is required.
+No external model/provider, API key or manual runtime setup is required. The
+gate starts its own deterministic loopback providers and test daemons.
 
 ## Commands
 
@@ -25,8 +26,9 @@ make check
 
 `make info` prints repository status and main path information.
 
-`make check` runs the current layout checks, documentation checks, build steps,
-and smoke tests.
+`make check` runs the publication union documented in `tests/README.md`: guards,
+build, unit/component, provider contract, product, recovery and retained bounded
+endurance. Use `make test-fast` while coding.
 
 ## Failure Interpretation
 

@@ -2,7 +2,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 TEST_DIR=$(mktemp -d /tmp/yai-cli-product-surface.XXXXXX)
 export YAI_HOME="$TEST_DIR/home"
 RUNTIME_PID=""

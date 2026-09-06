@@ -1,3 +1,12 @@
+.DEFAULT_GOAL := info
+
+build/validation-topology.mk: tests/classification.tsv tools/validation/topology.py
+	@mkdir -p build
+	@python3 tools/validation/topology.py make > $@.tmp
+	@mv $@.tmp $@
+
+include build/validation-topology.mk
+
 # YAI - local build and validation surface
 #
 # Purpose:
@@ -28,6 +37,7 @@ PREFIX ?= $(HOME)/.local
 YAI_HOME ?= $(HOME)/.yai
 BUILD_DIR := build
 RUST_TARGET_DIR := target
+export CARGO_TARGET_DIR := $(abspath $(RUST_TARGET_DIR))
 INSTALL_BINDIR := $(PREFIX)/bin
 YAI_BIN := $(RUST_TARGET_DIR)/debug/yai
 YAI_RUN_DIR := $(YAI_HOME)/run
@@ -370,9 +380,7 @@ build-c: $(C_LIBRARY) $(YAID)
 
 build-rust:
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo build --manifest-path engine/Cargo.toml --workspace
-	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path engine/Cargo.toml --workspace
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo build --manifest-path cmd/yai/Cargo.toml
-	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path cmd/yai/Cargo.toml
 
 build: build-c build-rust
 
@@ -430,289 +438,387 @@ doctor-local:
 	@case ":$$PATH:" in *:"$(INSTALL_BINDIR)":*) printf "PATH_status: ok\n" ;; *) printf "PATH_status: warning add %s to PATH\n" "$(INSTALL_BINDIR)" ;; esac
 
 smoke-new1: $(SMOKE_MINIMUM_LOOP)
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_MINIMUM_LOOP)
 
 smoke-new2: $(SMOKE_PERSISTENT_JOURNAL)
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_PERSISTENT_JOURNAL)
 
 smoke-new3: $(SMOKE_CONTROL_GATE)
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_CONTROL_GATE)
 
 smoke-new4: $(SMOKE_FILESYSTEM_CARRIER)
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_FILESYSTEM_CARRIER)
 
 
 
 
 smoke-new8: $(SMOKE_PROJECTION_HARDENING)
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_PROJECTION_HARDENING)
 
 
 smoke-new11: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_DAEMON_IPC)
 
 smoke-new12: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_DAEMON_CORE_LOOP)
 
 smoke-new18b: $(SMOKE_CASE_CONTEXT)
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_CASE_CONTEXT)
 
 
 smoke-spine23: $(SMOKE_HOT_STATE)
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_HOT_STATE)
 
 smoke-spine24: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_HOT_STATE_SNAPSHOT)
 
 smoke-spine24a: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_COMMAND_SURFACE)
 
 smoke-spine25: $(SMOKE_HOT_STATE_SESSION)
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_HOT_STATE_SESSION)
 
 smoke-spine26: $(SMOKE_PROJECTION_FRESHNESS)
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_PROJECTION_FRESHNESS)
 
 smoke-spine27: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_HOT_STATE_CLI)
 
 smoke-spine29: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_RECORD_STORE_CLI)
 
 smoke-spine30: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_RECORD_STORE_WRITE)
 
 smoke-spine31: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_RECORD_STORE_READ_QUERY)
 
 smoke-spine32: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_RECORD_STORE_SUBJECT_RECEIPT)
 
 smoke-spine33: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_RECORD_STORE_CLI_MANUAL)
 
 smoke-spine34: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_RECORD_STORE_FREEZE)
 
 smoke-spine35: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_JOURNAL_REPLAY_BOUNDARY)
 
 smoke-spine36: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_JOURNAL_REPLAY_TO_LMDB)
 
 smoke-spine37: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_REPLAY_IDEMPOTENCY_SCHEMA)
 
 smoke-spine38: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_REPLAY_DIAGNOSTICS_REPORT)
 
 smoke-spine39: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_JOURNAL_REPLAY_FREEZE)
 
 smoke-spine40: build-rust
-	@$(YAI_BIN) graph schema | grep -F -- "graph_schema:" >/dev/null
-	@$(YAI_BIN) graph schema | grep -F -- "- case" >/dev/null
-	@$(YAI_BIN) graph schema | grep -F -- "- decision_controls_attempt" >/dev/null
-	@$(YAI_BIN) graph runtime-status | grep -F -- "status: active_minimal" >/dev/null
-	@$(YAI_BIN) graph runtime-status | grep -F -- "role: in_memory_active_case_working_set" >/dev/null
-	@$(YAI_BIN) graph runtime-status | grep -F -- "working_set: per_command_ephemeral" >/dev/null
-	@$(YAI_BIN) graph runtime-status | grep -F -- "relation_write_path: active_minimal" >/dev/null
+	@python3 tools/validation/topology.py label --entry $@
+	@./yai graph schema | grep -F -- "graph_schema:" >/dev/null
+	@./yai graph schema | grep -F -- "- case" >/dev/null
+	@./yai graph schema | grep -F -- "- decision_controls_attempt" >/dev/null
+	@./yai graph runtime-status | grep -F -- "status: active_minimal" >/dev/null
+	@./yai graph runtime-status | grep -F -- "role: in_memory_active_case_working_set" >/dev/null
+	@./yai graph runtime-status | grep -F -- "working_set: per_command_ephemeral" >/dev/null
+	@./yai graph runtime-status | grep -F -- "relation_write_path: active_minimal" >/dev/null
 	@printf "graph_schema:node_kinds ok\n"
 	@printf "graph_schema:edge_kinds ok\n"
 	@printf "runtime_graph:boundary ok\n"
 	@printf "runtime_graph:active_minimal ok\n"
 
 smoke-spine41: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_GRAPH_RELATION_WRITE_PATH)
 
 smoke-spine42: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_RUNTIMEGRAPH_WORKING_SET)
 
 smoke-spine43: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_RUNTIMEGRAPH_REBUILD)
 
 smoke-spine44: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_RUNTIMEGRAPH_QUERY)
 
 smoke-spine45: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_GRAPH_RUNTIMEGRAPH_FREEZE)
 
 smoke-spine46: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_DUCKDB_FACT_PLANE)
 
 smoke-spine47: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_RECEIPT_DECISION_PROJECTION_FACTS)
 
 smoke-spine48: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_MODEL_BEHAVIOR_POLICY_FACTS)
 
 smoke-spine49: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_MEMORY_DIVERGENCE_CARRIER_FACTS)
 
 smoke-spine50: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_FACT_REPORTS_CLI)
 
 smoke-spine51: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_FACT_PLANE_FREEZE)
 
 smoke-controlled-effect: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_CONTROLLED_EFFECT)
 
 
 
 
 smoke-spine33c: $(SMOKE_CARRIER_CONTRACT_FILESYSTEM)
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_CARRIER_CONTRACT_FILESYSTEM)
 
 smoke-spine33d: $(SMOKE_PROCESS_CARRIER) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_PROCESS_CARRIER)
-	@$(YAI_BIN) process signal --pid 999999 --signal TERM --dry-run | grep -F -- "carrier_attempted: false" >/dev/null
-	@$(YAI_BIN) process signal --pid 999999 --signal KILL | grep -F -- "reason: unsafe_process_target" >/dev/null
+	@./yai process signal --pid 999999 --signal TERM --dry-run | grep -F -- "carrier_attempted: false" >/dev/null
+	@./yai process signal --pid 999999 --signal KILL | grep -F -- "reason: unsafe_process_target" >/dev/null
 
 smoke-spine33e: $(SMOKE_HOST_OBSERVATION_PROBE) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(SMOKE_HOST_OBSERVATION_PROBE)
-	@$(YAI_BIN) process observe --pid $$$$ | grep -F -- "observation_is_enforcement: false" >/dev/null
-	@$(YAI_BIN) observe compare-process --pid $$$$ --expected running | grep -F -- "result: matched" >/dev/null
-	@$(YAI_BIN) observe compare-process --pid $$$$ --expected stopped | grep -F -- "divergence_candidate: expected_stopped_but_running" >/dev/null
+	@./yai process observe --pid $$$$ | grep -F -- "observation_is_enforcement: false" >/dev/null
+	@./yai observe compare-process --pid $$$$ --expected running | grep -F -- "result: matched" >/dev/null
+	@./yai observe compare-process --pid $$$$ --expected stopped | grep -F -- "divergence_candidate: expected_stopped_but_running" >/dev/null
 
 
 
 
 
 
-smoke: smoke-new1 smoke-new2 smoke-new3 smoke-new4 smoke-new8 smoke-new11 smoke-new12 smoke-new18b smoke-spine23 smoke-spine24 smoke-spine24a smoke-spine25 smoke-spine26 smoke-spine27 smoke-spine29 smoke-spine30 smoke-spine31 smoke-spine32 smoke-spine33 smoke-spine33c smoke-spine33d smoke-spine33e smoke-spine34 smoke-spine35 smoke-spine36 smoke-spine37 smoke-spine38 smoke-spine39 smoke-spine40 smoke-spine41 smoke-spine42 smoke-spine43 smoke-spine44 smoke-spine45 smoke-spine46 smoke-spine47 smoke-spine48 smoke-spine49 smoke-spine50 smoke-spine51 smoke-controlled-effect smoke-semantic-continuity smoke-agentless-case-runtime smoke-human-review-runtime smoke-governance-intake smoke-governance-hardening smoke-case-policy-materialization smoke-policy-authority-admission smoke-policy-authority-hardening smoke-temporal-governance smoke-tenant-security smoke-multi-case-runtime smoke-multi-case-runtime-hardening smoke-shared-resource-fencing smoke-shared-resource-fencing-hardening smoke-second-carrier smoke-workflow-kernel smoke-workflow-kernel-hardening smoke-cli-product-surface smoke-adaptive-workflow smoke-adaptive-workflow-hardening smoke-provider-governance smoke-provider-governance-hardening smoke-memory-representation smoke-memory-index-hardening smoke-episodic-semantic-memory smoke-multipart-conversation smoke-conversation-interaction-host smoke-cognitive-capability-bindings smoke-typed-provider-realization smoke-cognitive-execution-composition
+smoke: $(filter smoke-%,$(VALIDATION_RELEASE))
 
 smoke-semantic-continuity: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_SEMANTIC_CONTINUITY)
 
 smoke-agentless-case-runtime: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_AGENTLESS_CASE_RUNTIME)
 
 smoke-human-review-runtime: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_HUMAN_REVIEW_RUNTIME)
 
 smoke-governance-intake: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_GOVERNANCE_INTAKE)
 
 smoke-governance-hardening: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_GOVERNANCE_HARDENING)
 
 smoke-case-policy-materialization: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_CASE_POLICY)
 
 smoke-policy-authority-admission: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_POLICY_AUTHORITY)
 
 smoke-policy-authority-hardening:
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_POLICY_AUTHORITY_HARDENING)
 
 smoke-temporal-governance: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_TEMPORAL_GOVERNANCE)
 
 smoke-tenant-security: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_TENANT_SECURITY)
 
 smoke-multi-case-runtime: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_MULTI_CASE_RUNTIME)
 
 smoke-multi-case-runtime-hardening: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_MULTI_CASE_RUNTIME_HARDENING)
 
 smoke-shared-resource-fencing: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_SHARED_RESOURCE_FENCING)
 
 smoke-shared-resource-fencing-hardening: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_SHARED_RESOURCE_FENCING_HARDENING)
 	@tests/characterization/shared-resource-fencing-hardening/test_process_uncertainty.sh
 
 smoke-second-carrier: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_SECOND_CARRIER)
 
 smoke-workflow-kernel: $(YAID) build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_WORKFLOW_KERNEL)
 	@$(CHARACTERIZATION_WORKFLOW_MODELWORK)
 	@$(CHARACTERIZATION_WORKFLOW_RESOURCE_BUSY)
 	@$(CHARACTERIZATION_WORKFLOW_REVIEW)
 
 smoke-workflow-kernel-hardening: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_WORKFLOW_KERNEL_HARDENING)
 
 smoke-cli-product-surface: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_CLI_PRODUCT_SURFACE)
 	@python3 tests/characterization/cli-product-surface/audit_registry.py --binary ./yai
 
 smoke-adaptive-workflow: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_ADAPTIVE_WORKFLOW)
 
 smoke-adaptive-workflow-hardening: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_ADAPTIVE_WORKFLOW_HARDENING)
 
 smoke-provider-governance: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_PROVIDER_GOVERNANCE)
 
 smoke-provider-governance-hardening: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_PROVIDER_GOVERNANCE_HARDENING)
 
 smoke-memory-representation: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_MEMORY_REPRESENTATION)
 
 smoke-memory-index-hardening: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_MEMORY_INDEX_HARDENING)
 
 smoke-episodic-semantic-memory: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_EPISODIC_SEMANTIC_MEMORY)
 
 smoke-multipart-conversation: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(CHARACTERIZATION_MULTIPART_CONVERSATION)
 
 smoke-conversation-interaction-host: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path cmd/yai/Cargo.toml command_adapters::conversation_controller::tests::post_i01_host_commits_before_provider_and_derives_threads_only_from_turns -- --ignored --exact --nocapture --test-threads=1
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path cmd/yai/Cargo.toml command_adapters::conversation_controller::tests::post_i01_host_reuses_governed_semantic_execution_without_operational_runtime -- --ignored --exact --nocapture --test-threads=1
 
 smoke-cognitive-capability-bindings: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path engine/Cargo.toml cognitive::tests:: -- --nocapture
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path engine/Cargo.toml store::lmdb::tests::i02_tests:: -- --nocapture
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path cmd/yai/Cargo.toml cli::registry::tests::registry_is_self_consistent -- --exact
 	@tests/characterization/cognitive-capability-bindings/test_cognitive_capability_bindings.sh
 
 smoke-typed-provider-realization: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path engine/Cargo.toml store::lmdb::tests::i03_tests:: -- --nocapture
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path cmd/yai/Cargo.toml command_adapters::provider::tests::i03_typed_input_preflight_is_bounded_and_signature_safe -- --exact --nocapture
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path cmd/yai/Cargo.toml cli::registry::tests::registry_is_self_consistent -- --exact
 	@tests/characterization/typed-provider-realization/test_typed_provider_realization.sh
 
 smoke-cognitive-execution-composition: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path engine/Cargo.toml conversation::tests::i04_composition_intent_and_source_closure_are_deterministic_and_noncanonical -- --exact --nocapture
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path cmd/yai/Cargo.toml cli::registry::tests::registry_is_self_consistent -- --exact
 	@$(CHARACTERIZATION_COGNITIVE_EXECUTION_COMPOSITION)
 
 qualification-yvex-provider: build-rust
+	@python3 tools/validation/topology.py label --entry $@
 	@$(QUALIFICATION_YVEX_PROVIDER)
 
 endurance-agentless-case-runtime: smoke-agentless-case-runtime
 
-characterization: smoke-new4 smoke-new11 smoke-new12 smoke-spine39 smoke-spine45 smoke-spine51
-	@$(CHARACTERIZATION_PROVIDER_MODEL)
-	@$(CHARACTERIZATION_SEMANTIC_CONTINUITY)
-	@$(CHARACTERIZATION_DIRECT_FILESYSTEM)
-	@$(CHARACTERIZATION_CONTROLLED_EFFECT)
-	@$(CHARACTERIZATION_AGENTLESS_CASE_RUNTIME)
-	@$(CHARACTERIZATION_HUMAN_REVIEW_RUNTIME)
-	@$(CHARACTERIZATION_POLICY_AUTHORITY)
-	@$(CHARACTERIZATION_GOVERNANCE_INTAKE)
-	@$(CHARACTERIZATION_GOVERNANCE_HARDENING)
-	@$(CHARACTERIZATION_CLI_PRODUCT_SURFACE)
-	@$(CHARACTERIZATION_ADAPTIVE_WORKFLOW)
-	@$(CHARACTERIZATION_ADAPTIVE_WORKFLOW_HARDENING)
-	@$(CHARACTERIZATION_PROVIDER_GOVERNANCE)
-	@$(CHARACTERIZATION_PROVIDER_GOVERNANCE_HARDENING)
-	@$(CHARACTERIZATION_MEMORY_REPRESENTATION)
-	@$(CHARACTERIZATION_MEMORY_INDEX_HARDENING)
-	@$(CHARACTERIZATION_EPISODIC_SEMANTIC_MEMORY)
-	@$(CHARACTERIZATION_MULTIPART_CONVERSATION)
-	@$(MAKE) --no-print-directory smoke-conversation-interaction-host
+# Proof classes and posture are selected from tests/classification.tsv. Shared
+# prerequisites execute once in `make check characterization`; there is no
+# result cache and separate invocations intentionally rerun their selected proof.
+.PHONY: test-fast test-local test-release test-unit test-component test-contract
+.PHONY: test-product test-recovery test-endurance test-external-yvex test-manual
+.PHONY: check-validation-topology validation-rust-build test-topology test-rust-doc
+.PHONY: smoke-provider-model smoke-direct-filesystem-bypass
 
-check: check-layout check-docs build smoke
+test-fast: check-layout check-docs check-validation-topology $(VALIDATION_FAST)
+test-local: check-layout check-docs check-validation-topology build $(VALIDATION_LOCAL)
+test-release: check-layout check-docs check-validation-topology build $(VALIDATION_RELEASE)
+test-unit: $(VALIDATION_UNIT)
+test-component: $(VALIDATION_COMPONENT)
+test-contract: $(VALIDATION_CONTRACT)
+test-product: $(VALIDATION_PRODUCT)
+test-recovery: $(VALIDATION_RECOVERY)
+test-endurance: $(VALIDATION_ENDURANCE)
+test-external-yvex: qualification-yvex-provider
+test-manual:
+	@python3 tools/validation/topology.py list --lane manual
+
+validation-rust-build: export CARGO_NET_OFFLINE = true
+validation-rust-build: build-rust
+	CARGO_NET_OFFLINE=true cargo test --manifest-path engine/Cargo.toml --workspace --no-run
+	CARGO_NET_OFFLINE=true cargo test --manifest-path cmd/yai/Cargo.toml --no-run
+
+check-validation-topology: validation-rust-build test-topology
+	@python3 tools/validation/topology.py audit
+
+test-topology:
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/test_validation_topology.py
+
+test-rust-doc:
+	@python3 tools/validation/topology.py label --entry $@
+	CARGO_NET_OFFLINE=true cargo test --manifest-path engine/Cargo.toml --workspace --doc
+
+smoke-provider-model: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@$(CHARACTERIZATION_PROVIDER_MODEL)
+
+smoke-direct-filesystem-bypass: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@$(CHARACTERIZATION_DIRECT_FILESYSTEM)
+
+characterization: check-validation-topology $(VALIDATION_CHARACTERIZATION)
+
+check: test-release
 
 clean:
 	rm -rf "$(BUILD_DIR)" "$(RUST_TARGET_DIR)" engine/target cmd/yai/target

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 source "$ROOT/tests/characterization/lib/governed_case_policy.sh"
 YAID="$ROOT/build/yaid"
 TEST_DIR="$ROOT/build/tmp/characterization-provider-$$"

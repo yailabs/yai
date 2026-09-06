@@ -1,6 +1,6 @@
 # Test 02 -- Filesystem Loop Manual Validation
 
-Status: manual
+Status: historical fixture procedure; not current product acceptance
 
 ## Purpose
 
@@ -25,8 +25,11 @@ Use the existing manual:
 work/archive/manuals/manual-filesystem-loop-validation.md
 ```
 
-The manual includes the current setup, daemon lifecycle, filesystem loop,
-hot-state inspection, projection inspection, and optional prompt sections.
+The archived manual records daemon-fixture setup and optional historical prompt
+sections. It is not the current governed product effect acceptance procedure.
+Use `make smoke-controlled-effect` for current deterministic loopback product
+proof, and the current wave's manual for operator acceptance. Do not reinterpret
+C fixture receipts as product-controlled effects.
 
 ## Expected Evidence
 

@@ -7,7 +7,7 @@ set -euo pipefail
 # admitted so this script cannot invent authority as test setup.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 
 : "${YAI_HOME:?set YAI_HOME}"
 : "${YAI_JOURNAL:?set YAI_JOURNAL to the admitted Case journal}"

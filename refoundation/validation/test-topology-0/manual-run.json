@@ -1,0 +1,62 @@
+[
+  {
+    "run_id": "topology-manual-01",
+    "order": 1,
+    "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+    "environment": {
+      "YAI_HOME": "/tmp/yai-validation-manual.JhP0cq/home",
+      "provider_mode": "no_provider"
+    },
+    "command": "make build",
+    "chunk_id": "7fd98d",
+    "wall_time_seconds": 0.027667187,
+    "exit_code": 0,
+    "original_token_count": 75,
+    "output": "CARGO_TARGET_DIR=target cargo build --manifest-path engine/Cargo.toml --workspace\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.01s\nCARGO_TARGET_DIR=target cargo build --manifest-path cmd/yai/Cargo.toml\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.02s\n"
+  },
+  {
+    "run_id": "topology-manual-01",
+    "order": 2,
+    "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+    "environment": {
+      "YAI_HOME": "/tmp/yai-validation-manual.JhP0cq/home",
+      "provider_mode": "no_provider"
+    },
+    "command": "./yai init --tenant tenant:validation-manual --organization organization:validation",
+    "chunk_id": "f591de",
+    "wall_time_seconds": 0.000002435,
+    "exit_code": 0,
+    "original_token_count": 86,
+    "output": "security_bootstrap: created\nauthenticated: true\nauthentication_kind: local_posix_effective_credential\nreal_uid: 1000\neffective_uid: 1000\nreal_gid: 1000\neffective_gid: 1000\nprincipal_id: principal:72cc156b82060120eac8f7e234dbfcef\ntenant_id: tenant:validation-manual\norganization_ref: organization:validation\nmembership: owner\nsecurity_events: 2\n"
+  },
+  {
+    "run_id": "topology-manual-01",
+    "order": 3,
+    "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+    "environment": {
+      "YAI_HOME": "/tmp/yai-validation-manual.JhP0cq/home",
+      "provider_mode": "no_provider"
+    },
+    "command": "./yai case create case:validation-manual --tenant tenant:validation-manual",
+    "chunk_id": "844088",
+    "wall_time_seconds": 0.000002645,
+    "exit_code": 0,
+    "original_token_count": 45,
+    "output": "case_created: true\ncase_id: case:validation-manual\ntenant_id: tenant:validation-manual\ncase_generation: 1\nlifecycle: open\nprincipal_id: principal:72cc156b82060120eac8f7e234dbfcef\n"
+  },
+  {
+    "run_id": "topology-manual-01",
+    "order": 4,
+    "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+    "environment": {
+      "YAI_HOME": "/tmp/yai-validation-manual.JhP0cq/home",
+      "provider_mode": "no_provider"
+    },
+    "command": "./yai case participant link-principal case:validation-manual --principal self --participant participant:operator",
+    "chunk_id": "10c0fa",
+    "wall_time_seconds": 0.000002305,
+    "exit_code": 3,
+    "original_token_count": 14,
+    "output": "yai: principal_participant_link_case_contract_invalid\n"
+  }
+]

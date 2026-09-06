@@ -31,8 +31,8 @@ while [ ! -S "$socket_path" ]; do
   sleep 0.1
 done
 
-status_output=$(target/debug/yai daemon status --socket "$socket_path")
-minimum_output=$(target/debug/yai daemon run-minimum-loop --socket "$socket_path")
+status_output=$(./yai daemon status --socket "$socket_path")
+minimum_output=$(./yai daemon run-minimum-loop --socket "$socket_path")
 minimum_journal=$(printf '%s\n' "$minimum_output" | sed -n 's/.*"journal_path":"\([^"]*\)".*/\1/p')
 
 if [ -z "$minimum_journal" ]; then
@@ -40,10 +40,10 @@ if [ -z "$minimum_journal" ]; then
   exit 1
 fi
 
-journal_output=$(target/debug/yai daemon journal-summary --socket "$socket_path" --journal "$minimum_journal")
-projection_output=$(target/debug/yai daemon projection-summary --socket "$socket_path" --journal "$minimum_journal")
-filesystem_output=$(target/debug/yai daemon run-filesystem-loop --socket "$socket_path")
-filesystem_output=$(target/debug/yai daemon run-filesystem-loop --socket "$socket_path")
+journal_output=$(./yai daemon journal-summary --socket "$socket_path" --journal "$minimum_journal")
+projection_output=$(./yai daemon projection-summary --socket "$socket_path" --journal "$minimum_journal")
+filesystem_output=$(./yai daemon run-filesystem-loop --socket "$socket_path")
+filesystem_output=$(./yai daemon run-filesystem-loop --socket "$socket_path")
 filesystem_journal=$(printf '%s\n' "$filesystem_output" | sed -n 's/.*"journal_path":"\([^"]*\)".*/\1/p')
 
 if [ -z "$filesystem_journal" ]; then
@@ -51,24 +51,24 @@ if [ -z "$filesystem_journal" ]; then
   exit 1
 fi
 
-filesystem_summary=$(target/debug/yai daemon journal-summary --socket "$socket_path" --journal "$filesystem_journal")
-filesystem_projection=$(target/debug/yai projection inspect --journal "$filesystem_journal")
-security_bootstrap=$(target/debug/yai security bootstrap-local \
+filesystem_summary=$(./yai daemon journal-summary --socket "$socket_path" --journal "$filesystem_journal")
+filesystem_projection=$(./yai projection inspect --journal "$filesystem_journal")
+security_bootstrap=$(./yai security bootstrap-local \
   --tenant tenant:daemon-core-loop --organization organization:characterization)
-tenant_case=$(target/debug/yai case create \
+tenant_case=$(./yai case create \
   --case case:new12-filesystem --tenant tenant:daemon-core-loop)
-filesystem_case_entry=$(YAI_JOURNAL="$filesystem_journal" target/debug/yai case enter --case case:new12-filesystem --subject subject:llm-provider)
-filesystem_case_shell=$(YAI_JOURNAL="$filesystem_journal" target/debug/yai case enter --case case:new12-filesystem --subject subject:llm-provider --shell zsh)
-filesystem_provider_attach=$(YAI_JOURNAL="$filesystem_journal" target/debug/yai case attach-provider --case case:new12-filesystem --subject subject:llm-provider --base-url http://127.0.0.1:43117/v1/chat/completions --model qwen-local)
-filesystem_provider_shell=$(YAI_JOURNAL="$filesystem_journal" target/debug/yai case attach-provider --case case:new12-filesystem --subject subject:llm-provider --base-url http://127.0.0.1:43117/v1/chat/completions --model qwen-local --shell zsh)
-filesystem_transcript_on=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local target/debug/yai prompt --once "/transcript on")
-filesystem_transcript_status=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local target/debug/yai prompt --once "/transcript status")
-filesystem_thread_status=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local target/debug/yai prompt --once "/thread status")
-filesystem_thread_new=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local target/debug/yai prompt --once "/thread new clean")
-filesystem_thread_use_default=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local target/debug/yai prompt --once "/thread use thread:default")
-filesystem_memory_propose=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local target/debug/yai prompt --once "/memory propose smoke boundary residue")
-filesystem_prompt_dry_run=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local target/debug/yai prompt --dry-run --once "What subjects are bound to this case?")
-shutdown_output=$(target/debug/yai daemon shutdown --socket "$socket_path")
+filesystem_case_entry=$(YAI_JOURNAL="$filesystem_journal" ./yai case enter --case case:new12-filesystem --subject subject:llm-provider)
+filesystem_case_shell=$(YAI_JOURNAL="$filesystem_journal" ./yai case enter --case case:new12-filesystem --subject subject:llm-provider --shell zsh)
+filesystem_provider_attach=$(YAI_JOURNAL="$filesystem_journal" ./yai case attach-provider --case case:new12-filesystem --subject subject:llm-provider --base-url http://127.0.0.1:43117/v1/chat/completions --model qwen-local)
+filesystem_provider_shell=$(YAI_JOURNAL="$filesystem_journal" ./yai case attach-provider --case case:new12-filesystem --subject subject:llm-provider --base-url http://127.0.0.1:43117/v1/chat/completions --model qwen-local --shell zsh)
+filesystem_transcript_on=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local ./yai prompt --once "/transcript on")
+filesystem_transcript_status=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local ./yai prompt --once "/transcript status")
+filesystem_thread_status=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local ./yai prompt --once "/thread status")
+filesystem_thread_new=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local ./yai prompt --once "/thread new clean")
+filesystem_thread_use_default=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local ./yai prompt --once "/thread use thread:default")
+filesystem_memory_propose=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local ./yai prompt --once "/memory propose smoke boundary residue")
+filesystem_prompt_dry_run=$(YAI_JOURNAL="$filesystem_journal" YAI_CASE_REF=case:new12-filesystem YAI_SUBJECT_REF=subject:llm-provider YAI_PROVIDER_BASE_URL=http://127.0.0.1:43117/v1/chat/completions YAI_PROVIDER_MODEL=qwen-local ./yai prompt --dry-run --once "What subjects are bound to this case?")
+shutdown_output=$(./yai daemon shutdown --socket "$socket_path")
 
 printf '%s\n' "$status_output" | grep '"status":"ok"' >/dev/null
 printf '%s\n' "$minimum_output" | grep '"status":"completed"' >/dev/null

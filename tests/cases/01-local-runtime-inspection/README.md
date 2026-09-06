@@ -11,7 +11,7 @@ be inspected without involving a model.
 
 - Build or install the local binaries according to the current engineering
   command surface.
-- Run commands from an environment where `yai` resolves to the local binary.
+- Run commands from the repository root using the canonical `./yai` launcher.
 - Prepare a local `YAI_HOME` when inspecting a specific runtime home.
 
 No provider, model, API key, or model server is required.
@@ -19,20 +19,22 @@ No provider, model, API key, or model server is required.
 ## Commands
 
 ```sh
-yai doctor
-yai hot status
-yai store status
-yai store summary
+./yai doctor
+./yai hot status
+./yai store status
+./yai store summary
 ```
 
 When a local `yaid` process and socket are prepared, daemon inspection commands
 from the current engineering command surface may also be used:
 
 ```sh
-yai daemon status --socket <path>
-yai daemon info --socket <path>
-yai daemon shutdown --socket <path>
+./yai daemon status --socket "$YAI_DAEMON_SOCKET"
+./yai daemon info --socket "$YAI_DAEMON_SOCKET"
 ```
+
+Set `YAI_DAEMON_SOCKET` to the actual operator-prepared socket before these
+optional commands. Inspection does not shut down an operator's daemon.
 
 ## Expected Behavior
 

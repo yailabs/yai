@@ -6,7 +6,7 @@ YAI_HOME=${YAI_HOME:-"/tmp/yai-spine24a-home-$$"}
 PREFIX=${PREFIX:-"/tmp/yai-spine24a-install-$$"}
 export YAI_HOME
 
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 YAID="$ROOT/build/yaid"
 SOCKET="$YAI_HOME/run/yaid.sock"
 HOT="$YAI_HOME/run/hot-state.json"

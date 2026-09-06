@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 ENGINE_MANIFEST="$ROOT/engine/Cargo.toml"
 CLI_MANIFEST="$ROOT/cmd/yai/Cargo.toml"
-YAI_BIN="$ROOT/target/debug/yai"
+YAI_BIN="$ROOT/yai"
 RUN_ROOT="$(mktemp -d)"
 SERVER_PID=""
 export CARGO_TARGET_DIR="$ROOT/target"

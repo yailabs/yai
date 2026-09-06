@@ -29,9 +29,10 @@ artifacts.
 
 ## Model Requirements
 
-The baseline cases are no-model paths. Model/provider work belongs in optional
-lab cases unless a future wave provides a deterministic, repository-owned test
-fixture.
+The local gates already include deterministic repository-owned provider
+fixtures. They exercise real generic adapter transport without deploying YVEX.
+Real-model interoperability is the opt-in external lane, not a local fixture
+claim. See `tests/README.md` for the current proof/provider axes.
 
 ## Current Limitations
 
