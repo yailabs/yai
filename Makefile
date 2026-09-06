@@ -824,6 +824,11 @@ clean:
 	rm -rf "$(BUILD_DIR)" "$(RUST_TARGET_DIR)" engine/target cmd/yai/target
 
 .PHONY: smoke-replai-terminal
+.PHONY: smoke-cognitive-target-arbitration
+smoke-cognitive-target-arbitration: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/cognitive-target-arbitration/test_cognitive_target_arbitration.py
+
 smoke-replai-terminal: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/replai-terminal/test_replai_terminal.py

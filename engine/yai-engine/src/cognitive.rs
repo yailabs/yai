@@ -6,14 +6,17 @@
 //! deterministic derived values and continuations remain disposable hints.
 
 use crate::effect::digest_bytes;
+use crate::provider_governance::ProviderRealizationShape;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
 pub const SEMANTIC_SUITABILITY_EVIDENCE_SCHEMA: &str = "yai.semantic_suitability_evidence.v1";
 pub const CASE_COGNITIVE_BINDING_SCHEMA: &str = "yai.case_cognitive_binding.v1";
+pub const CASE_COGNITIVE_BINDING_SCHEMA_V2: &str = "yai.case_cognitive_binding.v2";
+pub const MAX_COGNITIVE_CANDIDATES: usize = 8;
 pub const COGNITIVE_REQUIREMENT_SCHEMA: &str = "yai.cognitive_capability_requirement.v1";
-pub const COGNITIVE_EXECUTION_PLAN_SCHEMA: &str = "yai.cognitive_execution_plan.v1";
-pub const COGNITIVE_PLANNER_VERSION: &str = "yai.cognitive_execution_planner.v1";
+pub const COGNITIVE_EXECUTION_PLAN_SCHEMA: &str = "yai.cognitive_execution_plan.v2";
+pub const COGNITIVE_PLANNER_VERSION: &str = "yai.cognitive_execution_planner.v2";
 pub const MAX_SEMANTIC_EVIDENCE_REFS: usize = 32;
 pub const MAX_COGNITIVE_BINDINGS_PER_CASE: usize = 64;
 
@@ -240,11 +243,31 @@ pub struct CaseCognitiveBinding {
     pub target_id: String,
     pub target_digest: String,
     pub semantic_evidence_id: String,
+    /// v1 is pinned. In v2 the fields above name the FIRST preference, not
+    /// the execution target; only a derived plan names the selected target.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_policy: Option<CognitiveTargetPolicy>,
     pub provider_binding_id_at_bind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replaces_binding_id: Option<String>,
     pub bound_by_principal_id: String,
     pub bound_at_generation: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveTargetCandidate {
+    pub target_id: String,
+    pub target_digest: String,
+    pub semantic_evidence_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CognitiveTargetPolicy {
+    OrderedEligible {
+        alternatives: Vec<CognitiveTargetCandidate>,
+    },
 }
 
 #[derive(Serialize)]
@@ -333,6 +356,7 @@ impl CaseCognitiveBinding {
             target_id: target_id.to_string(),
             target_digest: target_digest.to_string(),
             semantic_evidence_id: semantic_evidence_id.to_string(),
+            target_policy: None,
             provider_binding_id_at_bind: provider_binding_id_at_bind.to_string(),
             replaces_binding_id,
             bound_by_principal_id: bound_by_principal_id.to_string(),
@@ -341,10 +365,12 @@ impl CaseCognitiveBinding {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema != CASE_COGNITIVE_BINDING_SCHEMA {
+        if self.schema != CASE_COGNITIVE_BINDING_SCHEMA
+            && self.schema != CASE_COGNITIVE_BINDING_SCHEMA_V2
+        {
             return Err("unsupported_case_cognitive_binding_schema".to_string());
         }
-        let rebuilt = Self::new(
+        let mut rebuilt = Self::new(
             &self.tenant_id,
             &self.case_id,
             &self.participant_id,
@@ -358,10 +384,65 @@ impl CaseCognitiveBinding {
             &self.bound_by_principal_id,
             self.bound_at_generation,
         )?;
+        if let Some(CognitiveTargetPolicy::OrderedEligible { alternatives }) = &self.target_policy {
+            rebuilt = rebuilt.with_ordered_alternatives(alternatives.clone())?;
+        }
         if rebuilt != *self {
             return Err("case_cognitive_binding_integrity_mismatch".to_string());
         }
         Ok(())
+    }
+
+    pub fn candidates(&self) -> Vec<CognitiveTargetCandidate> {
+        let mut result = vec![CognitiveTargetCandidate {
+            target_id: self.target_id.clone(),
+            target_digest: self.target_digest.clone(),
+            semantic_evidence_id: self.semantic_evidence_id.clone(),
+        }];
+        if let Some(CognitiveTargetPolicy::OrderedEligible { alternatives }) = &self.target_policy {
+            result.extend(alternatives.iter().cloned());
+        }
+        result
+    }
+
+    pub fn candidate(&self, target_id: &str) -> Option<CognitiveTargetCandidate> {
+        self.candidates()
+            .into_iter()
+            .find(|candidate| candidate.target_id == target_id)
+    }
+
+    pub fn with_ordered_alternatives(
+        mut self,
+        alternatives: Vec<CognitiveTargetCandidate>,
+    ) -> Result<Self, String> {
+        self.validate()?;
+        if self.target_policy.is_some()
+            || alternatives.is_empty()
+            || alternatives.len() >= MAX_COGNITIVE_CANDIDATES
+        {
+            return Err("cognitive_candidate_policy_bounds_invalid".to_string());
+        }
+        let mut ids = BTreeSet::from([self.target_id.clone()]);
+        for candidate in &alternatives {
+            for value in [
+                &candidate.target_id,
+                &candidate.target_digest,
+                &candidate.semantic_evidence_id,
+            ] {
+                require_identifier("cognitive_candidate", value, 256)?;
+            }
+            if !ids.insert(candidate.target_id.clone()) {
+                return Err("cognitive_candidate_duplicate".to_string());
+            }
+        }
+        self.schema = CASE_COGNITIVE_BINDING_SCHEMA_V2.to_string();
+        self.target_policy = Some(CognitiveTargetPolicy::OrderedEligible { alternatives });
+        self.integrity_digest = digest_of(
+            &(&self.schema, &self.integrity_digest, &self.target_policy),
+            "cognitive_policy_identity",
+        )?;
+        self.binding_id = short_identity("case-cognitive-binding", &self.integrity_digest);
+        Ok(self)
     }
 
     pub fn same_slot(&self, other: &Self) -> bool {
@@ -433,6 +514,54 @@ pub struct CognitiveTargetSnapshot {
     pub mechanically_qualified: bool,
     pub trust_approved: bool,
     pub semantic_evidence: Vec<SemanticSuitabilityEvidence>,
+    pub execution_evidence: Option<CognitiveExecutionEvidence>,
+}
+
+/// Exact identities plus effective operational posture, never runtime residency.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CognitiveExecutionEvidence {
+    pub provider_envelope_id: Option<String>,
+    pub qualification_id: Option<String>,
+    pub trust_id: Option<String>,
+    pub health_digest: String,
+    pub operational_exclusion: Option<CognitiveCandidateExclusion>,
+    pub shapes: Vec<ProviderRealizationShape>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CognitiveCandidateExclusion {
+    TargetMissingOrChanged,
+    ProviderEnvelopeMismatch,
+    SemanticEvidenceMissingOrStale,
+    RequiredSemanticSuitabilityMissing,
+    MechanicalQualificationMissingOrStale,
+    MechanicalShapeUnsupported,
+    TrustNotApproved,
+    CircuitOpen,
+    ProviderUnavailable,
+    CredentialUnavailable,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CognitiveCandidateAssessment {
+    pub binding_id: String,
+    pub role: CognitiveBindingRole,
+    pub preference: usize,
+    pub target_id: String,
+    pub target_digest: String,
+    pub binding_evidence_id: String,
+    pub required_evidence_id: Option<String>,
+    pub execution_evidence: Option<CognitiveExecutionEvidence>,
+    pub exclusions: Vec<CognitiveCandidateExclusion>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CognitiveArbitration {
+    pub requirement: CognitiveCapabilityRequirement,
+    pub required_shape: Option<ProviderRealizationShape>,
+    pub evidence_snapshot_digest: String,
+    pub candidates: Vec<CognitiveCandidateAssessment>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -514,6 +643,8 @@ pub struct CognitiveExecutionPlan {
     pub execution_lane_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unresolved_reason: Option<CognitivePlanUnresolvedReason>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub arbitration: Option<CognitiveArbitration>,
     pub provider_realization: ProviderRealizationPosture,
     pub provider_execution: ProviderExecutionPosture,
 }
@@ -541,6 +672,17 @@ pub fn cognitive_execution_lane_id(
     participant_id: &str,
     binding: &CaseCognitiveBinding,
 ) -> Result<String, String> {
+    if binding.target_policy.is_some() {
+        return Err("arbitrated_lane_requires_exact_target".to_string());
+    }
+    binding_lane_base(case_id, participant_id, binding)
+}
+
+fn binding_lane_base(
+    case_id: &str,
+    participant_id: &str,
+    binding: &CaseCognitiveBinding,
+) -> Result<String, String> {
     binding.validate()?;
     if binding.case_id != case_id || binding.participant_id != participant_id {
         return Err("cognitive_lane_binding_scope_mismatch".to_string());
@@ -563,22 +705,6 @@ pub fn cognitive_execution_lane_id(
         "cognitive-lane",
         &digest_of(&material, "cognitive_lane_identity")?,
     ))
-}
-
-fn execution_lane_id(
-    snapshot: &CognitivePlanningSnapshot,
-    binding: &CaseCognitiveBinding,
-) -> Result<String, String> {
-    cognitive_execution_lane_id(&snapshot.case_id, &snapshot.participant_id, binding)
-}
-
-fn target_for_binding<'a>(
-    snapshot: &'a CognitivePlanningSnapshot,
-    binding: &CaseCognitiveBinding,
-) -> Option<&'a CognitiveTargetSnapshot> {
-    snapshot.targets.iter().find(|target| {
-        target.target_id == binding.target_id && target.target_digest == binding.target_digest
-    })
 }
 
 fn exact_evidence<'a>(
@@ -664,172 +790,293 @@ fn seal_plan(
         semantic_evidence_id,
         execution_lane_id,
         unresolved_reason,
+        arbitration: None,
         provider_realization: ProviderRealizationPosture::DeferredToExecutionAdapter,
         provider_execution: ProviderExecutionPosture::NotPerformed,
     })
 }
 
-/// Produces a semantic route only. It performs no provider selection,
-/// transport, network access, content derivation, or model execution.
+/// Select first eligible preference, never a provider/model-name score.
+/// Snapshot construction belongs to the existing governance owner; this is pure.
 pub fn plan_cognitive_execution(
     snapshot: &CognitivePlanningSnapshot,
     requirement: &CognitiveCapabilityRequirement,
 ) -> Result<CognitiveExecutionPlan, String> {
+    plan_cognitive_execution_for_shape(snapshot, requirement, None)
+}
+
+pub fn cognitive_execution_lane_for_target(
+    case_id: &str,
+    participant_id: &str,
+    binding: &CaseCognitiveBinding,
+    target_id: &str,
+) -> Result<String, String> {
+    let base = binding_lane_base(case_id, participant_id, binding)?;
+    let candidate = binding
+        .candidate(target_id)
+        .ok_or_else(|| "cognitive_lane_target_not_in_policy".to_string())?;
+    if binding.target_policy.is_none() {
+        return Ok(base);
+    }
+    Ok(short_identity(
+        "cognitive-lane",
+        &digest_of(&(base, candidate), "cognitive_arbitrated_lane")?,
+    ))
+}
+
+fn assess_binding(
+    snapshot: &CognitivePlanningSnapshot,
+    binding: &CaseCognitiveBinding,
+    requirement: &CognitiveCapabilityRequirement,
+    shape: Option<&ProviderRealizationShape>,
+) -> Vec<CognitiveCandidateAssessment> {
+    binding
+        .candidates()
+        .into_iter()
+        .enumerate()
+        .map(|(preference, candidate)| {
+            use CognitiveCandidateExclusion::*;
+            let mut assessment = CognitiveCandidateAssessment {
+                binding_id: binding.binding_id.clone(),
+                role: binding.role.clone(),
+                preference,
+                target_id: candidate.target_id.clone(),
+                target_digest: candidate.target_digest.clone(),
+                binding_evidence_id: candidate.semantic_evidence_id.clone(),
+                required_evidence_id: None,
+                execution_evidence: None,
+                exclusions: Vec::new(),
+            };
+            let target = snapshot.targets.iter().find(|target| {
+                target.target_id == candidate.target_id
+                    && target.target_digest == candidate.target_digest
+            });
+            let Some(target) = target else {
+                assessment.exclusions.push(TargetMissingOrChanged);
+                return assessment;
+            };
+            if !target.provider_envelope_admitted {
+                assessment.exclusions.push(ProviderEnvelopeMismatch);
+            }
+            let evidence = exact_evidence(
+                target,
+                &binding.capability,
+                Some(&candidate.semantic_evidence_id),
+            )
+            .filter(|evidence| evidence.tenant_id == snapshot.tenant_id);
+            if evidence.is_none() {
+                assessment.exclusions.push(SemanticEvidenceMissingOrStale);
+            }
+            let required = if binding.capability == requirement.capability {
+                evidence
+            } else {
+                exact_evidence(target, &requirement.capability, None)
+                    .filter(|evidence| evidence.tenant_id == snapshot.tenant_id)
+            };
+            assessment.required_evidence_id = required.map(|item| item.evidence_id.clone());
+            if required.is_none() {
+                assessment
+                    .exclusions
+                    .push(RequiredSemanticSuitabilityMissing);
+            }
+            if !target.mechanically_qualified {
+                assessment
+                    .exclusions
+                    .push(MechanicalQualificationMissingOrStale);
+            }
+            if !target.trust_approved {
+                assessment.exclusions.push(TrustNotApproved);
+            }
+            if let Some(shape) = shape {
+                if !target
+                    .execution_evidence
+                    .as_ref()
+                    .is_some_and(|e| e.shapes.contains(shape))
+                {
+                    assessment.exclusions.push(MechanicalShapeUnsupported);
+                }
+            }
+            if let Some(evidence) = &target.execution_evidence {
+                if let Some(reason) = &evidence.operational_exclusion {
+                    assessment.exclusions.push(reason.clone());
+                }
+            }
+            assessment.execution_evidence = target.execution_evidence.clone();
+            assessment
+        })
+        .collect()
+}
+
+pub fn plan_cognitive_execution_for_shape(
+    snapshot: &CognitivePlanningSnapshot,
+    requirement: &CognitiveCapabilityRequirement,
+    shape: Option<&ProviderRealizationShape>,
+) -> Result<CognitiveExecutionPlan, String> {
     requirement.validate()?;
+    validate_active_cognitive_bindings(&snapshot.active_bindings)?;
     if snapshot.case_id != requirement.case_id
         || snapshot.participant_id != requirement.participant_id
     {
         return Err("cognitive_planning_scope_mismatch".to_string());
     }
-    if snapshot.active_bindings.len() > MAX_COGNITIVE_BINDINGS_PER_CASE {
-        return Err("cognitive_binding_case_limit_exceeded".to_string());
-    }
-    let primary = snapshot.active_bindings.iter().find(|binding| {
-        binding.participant_id == snapshot.participant_id
-            && binding.role == CognitiveBindingRole::Primary
+    let primary = snapshot.active_bindings.iter().find(|b| {
+        b.participant_id == snapshot.participant_id && b.role == CognitiveBindingRole::Primary
     });
-    let Some(primary) = primary else {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::PrimaryBindingMissing,
-        );
-    };
-    if primary.validate().is_err()
-        || primary.tenant_id != snapshot.tenant_id
-        || primary.case_id != snapshot.case_id
-    {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::PrimaryBindingStale,
-        );
+    let auxiliary = snapshot.active_bindings.iter().find(|b| {
+        b.participant_id == snapshot.participant_id
+            && b.role == CognitiveBindingRole::Auxiliary
+            && b.capability == requirement.capability
+    });
+    let mut assessments = Vec::new();
+    for binding in primary.into_iter().chain(auxiliary) {
+        if binding.case_id != snapshot.case_id || binding.tenant_id != snapshot.tenant_id {
+            return Err("cognitive_binding_scope_mismatch".to_string());
+        }
+        assessments.extend(assess_binding(snapshot, binding, requirement, shape));
     }
-    let Some(primary_target) = target_for_binding(snapshot, primary) else {
-        return unresolved(
+    // Auxiliary execution never invents a missing primary semantic slot.
+    let primary_viable = assessments.iter().any(|a| {
+        a.role == CognitiveBindingRole::Primary
+            && a.exclusions.iter().all(|reason| {
+                matches!(
+                    reason,
+                    CognitiveCandidateExclusion::RequiredSemanticSuitabilityMissing
+                        | CognitiveCandidateExclusion::MechanicalShapeUnsupported
+                )
+            })
+    });
+    let selected = primary
+        .filter(|_| primary_viable)
+        .and_then(|_| assessments.iter().find(|a| a.exclusions.is_empty()));
+    let mut plan = if let Some(selected) = selected {
+        let binding = snapshot
+            .active_bindings
+            .iter()
+            .find(|b| b.binding_id == selected.binding_id)
+            .unwrap();
+        let is_primary = binding.role == CognitiveBindingRole::Primary;
+        seal_plan(
             snapshot,
             requirement,
-            CognitivePlanUnresolvedReason::PrimaryBindingStale,
-        );
-    };
-    if !primary_target.provider_envelope_admitted {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::PrimaryTargetNotAdmitted,
-        );
-    }
-    if !primary_target.mechanically_qualified {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::PrimaryProviderQualificationMissing,
-        );
-    }
-    if !primary_target.trust_approved {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::PrimaryTrustNotApproved,
-        );
-    }
-    if exact_evidence(
-        primary_target,
-        &primary.capability,
-        Some(&primary.semantic_evidence_id),
-    )
-    .is_none()
-    {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::PrimaryBindingStale,
-        );
-    }
-    if let Some(evidence) = exact_evidence(primary_target, &requirement.capability, None) {
-        return seal_plan(
-            snapshot,
-            requirement,
-            CognitivePlanRoute::Native,
-            CognitivePlanRole::Primary,
-            Some(primary.binding_id.clone()),
-            Some(primary.target_id.clone()),
-            Some(evidence.evidence_id.clone()),
-            Some(execution_lane_id(snapshot, primary)?),
+            if is_primary {
+                CognitivePlanRoute::Native
+            } else {
+                CognitivePlanRoute::Derived
+            },
+            if is_primary {
+                CognitivePlanRole::Primary
+            } else {
+                CognitivePlanRole::Auxiliary
+            },
+            Some(binding.binding_id.clone()),
+            Some(selected.target_id.clone()),
+            selected.required_evidence_id.clone(),
+            Some(cognitive_execution_lane_for_target(
+                &snapshot.case_id,
+                &snapshot.participant_id,
+                binding,
+                &selected.target_id,
+            )?),
             None,
-        );
-    }
-    let auxiliary = snapshot.active_bindings.iter().find(|binding| {
-        binding.participant_id == snapshot.participant_id
-            && binding.role == CognitiveBindingRole::Auxiliary
-            && binding.capability == requirement.capability
-    });
-    let Some(auxiliary) = auxiliary else {
-        let reason = if requirement.capability == CognitiveCapability::PrimaryConversation {
-            CognitivePlanUnresolvedReason::PrimarySuitabilityMissing
+        )?
+    } else {
+        // Preserve v1 diagnostic distinctions for pinned callers.
+        use CognitiveCandidateExclusion as E;
+        use CognitivePlanUnresolvedReason::*;
+        let reason = if primary.is_none() {
+            PrimaryBindingMissing
+        } else if let Some(first) = assessments.first() {
+            if first.exclusions.contains(&E::TargetMissingOrChanged)
+                || first
+                    .exclusions
+                    .contains(&E::SemanticEvidenceMissingOrStale)
+            {
+                PrimaryBindingStale
+            } else if first.exclusions.contains(&E::ProviderEnvelopeMismatch) {
+                PrimaryTargetNotAdmitted
+            } else if first
+                .exclusions
+                .contains(&E::MechanicalQualificationMissingOrStale)
+            {
+                PrimaryProviderQualificationMissing
+            } else if first.exclusions.contains(&E::TrustNotApproved) {
+                PrimaryTrustNotApproved
+            } else if requirement.capability == CognitiveCapability::PrimaryConversation {
+                PrimarySuitabilityMissing
+            } else if auxiliary.is_none() {
+                AuxiliaryBindingMissing
+            } else {
+                let last = assessments
+                    .iter()
+                    .find(|a| a.role == CognitiveBindingRole::Auxiliary)
+                    .unwrap();
+                if last.exclusions.contains(&E::ProviderEnvelopeMismatch) {
+                    AuxiliaryTargetNotAdmitted
+                } else if last.exclusions.contains(&E::TrustNotApproved) {
+                    AuxiliaryTrustNotApproved
+                } else if last
+                    .exclusions
+                    .contains(&E::MechanicalQualificationMissingOrStale)
+                {
+                    AuxiliaryProviderQualificationMissing
+                } else if last.exclusions.contains(&E::TargetMissingOrChanged) {
+                    AuxiliaryBindingStale
+                } else {
+                    AuxiliarySuitabilityMissing
+                }
+            }
         } else {
-            CognitivePlanUnresolvedReason::AuxiliaryBindingMissing
+            PrimaryBindingMissing
         };
-        return unresolved(snapshot, requirement, reason);
+        unresolved(snapshot, requirement, reason)?
     };
-    if auxiliary.validate().is_err()
-        || auxiliary.tenant_id != snapshot.tenant_id
-        || auxiliary.case_id != snapshot.case_id
-    {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::AuxiliaryBindingStale,
-        );
-    }
-    let Some(auxiliary_target) = target_for_binding(snapshot, auxiliary) else {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::AuxiliaryBindingStale,
-        );
+    let snapshot_digest = digest_of(
+        &(
+            &snapshot.tenant_id,
+            &snapshot.case_id,
+            &snapshot.participant_id,
+            &requirement.capability,
+            shape,
+            &assessments,
+        ),
+        "cognitive_arbitration_snapshot",
+    )?;
+    let arbitration = CognitiveArbitration {
+        requirement: requirement.clone(),
+        required_shape: shape.cloned(),
+        evidence_snapshot_digest: snapshot_digest,
+        candidates: assessments,
     };
-    if !auxiliary_target.provider_envelope_admitted {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::AuxiliaryTargetNotAdmitted,
-        );
-    }
-    if !auxiliary_target.mechanically_qualified {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::AuxiliaryProviderQualificationMissing,
-        );
-    }
-    if !auxiliary_target.trust_approved {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::AuxiliaryTrustNotApproved,
-        );
-    }
-    let Some(evidence) = exact_evidence(
-        auxiliary_target,
-        &requirement.capability,
-        Some(&auxiliary.semantic_evidence_id),
-    ) else {
-        return unresolved(
-            snapshot,
-            requirement,
-            CognitivePlanUnresolvedReason::AuxiliarySuitabilityMissing,
-        );
+    plan.integrity_digest = digest_of(
+        &(&plan.integrity_digest, &arbitration),
+        "cognitive_arbitration_plan",
+    )?;
+    plan.plan_id = short_identity("cognitive-plan", &plan.integrity_digest);
+    plan.arbitration = Some(arbitration);
+    Ok(plan)
+}
+
+/// Shared I03 contract: purpose cannot be changed to evade prior-delivery checks.
+pub fn cognitive_provider_requirement(
+    cognitive: &CognitiveCapabilityRequirement,
+) -> Result<crate::provider_governance::ProviderRequirement, String> {
+    use crate::provider_governance::{
+        CapabilityProvenance, ProviderCapability, ProviderCapabilityRequirement,
+        ProviderRequirement,
     };
-    seal_plan(
-        snapshot,
-        requirement,
-        CognitivePlanRoute::Derived,
-        CognitivePlanRole::Auxiliary,
-        Some(auxiliary.binding_id.clone()),
-        Some(auxiliary.target_id.clone()),
-        Some(evidence.evidence_id.clone()),
-        Some(execution_lane_id(snapshot, auxiliary)?),
+    cognitive.validate()?;
+    ProviderRequirement::new(
+        &format!("cognitive_realization:{}", cognitive.requirement_id),
+        vec![
+            ProviderCapabilityRequirement {
+                capability: ProviderCapability::ChatText,
+                minimum_provenance: CapabilityProvenance::Qualified,
+            },
+            ProviderCapabilityRequirement {
+                capability: ProviderCapability::ModelExactAddressing,
+                minimum_provenance: CapabilityProvenance::Qualified,
+            },
+        ],
         None,
     )
 }
@@ -901,6 +1148,92 @@ pub fn validate_active_cognitive_bindings(bindings: &[CaseCognitiveBinding]) -> 
 mod tests {
     use super::*;
 
+    #[test]
+    fn arbitration_never_infers_capability_and_reports_exact_exclusions() {
+        let a = evidence(
+            "provider-target:whisper-best",
+            "sha256:a",
+            CognitiveCapability::PrimaryConversation,
+        );
+        let b = evidence(
+            "provider-target:plain",
+            "sha256:b",
+            CognitiveCapability::PrimaryConversation,
+        );
+        let pinned = binding(
+            CognitiveBindingRole::Primary,
+            CognitiveCapability::PrimaryConversation,
+            &a.target_id,
+            &a.target_digest,
+            &a.evidence_id,
+            2,
+            None,
+        );
+        let ordered = pinned
+            .with_ordered_alternatives(vec![CognitiveTargetCandidate {
+                target_id: b.target_id.clone(),
+                target_digest: b.target_digest.clone(),
+                semantic_evidence_id: b.evidence_id.clone(),
+            }])
+            .unwrap();
+        let mut snapshot = CognitivePlanningSnapshot {
+            tenant_id: "tenant:test".into(),
+            case_id: "case:test".into(),
+            participant_id: "participant:model".into(),
+            case_generation: 3,
+            active_bindings: vec![ordered],
+            targets: vec![
+                target(&a.target_id, &a.target_digest, vec![a.clone()]),
+                target(&b.target_id, &b.target_digest, vec![b.clone()]),
+            ],
+        };
+        let req = CognitiveCapabilityRequirement::new(
+            "case:test",
+            "participant:model",
+            CognitiveCapability::PrimaryConversation,
+            "source:test",
+        )
+        .unwrap();
+        snapshot.targets[0].semantic_evidence.clear();
+        let plan = plan_cognitive_execution(&snapshot, &req).unwrap();
+        assert_eq!(
+            plan.selected_target_id.as_deref(),
+            Some("provider-target:plain")
+        );
+        assert!(plan.arbitration.as_ref().unwrap().candidates[0]
+            .exclusions
+            .contains(&CognitiveCandidateExclusion::SemanticEvidenceMissingOrStale));
+        snapshot.targets[0].semantic_evidence.push(a);
+        snapshot.targets[0].mechanically_qualified = false;
+        let plan = plan_cognitive_execution(&snapshot, &req).unwrap();
+        assert_eq!(
+            plan.selected_target_id.as_deref(),
+            Some("provider-target:plain")
+        );
+        assert!(plan.arbitration.as_ref().unwrap().candidates[0]
+            .exclusions
+            .contains(&CognitiveCandidateExclusion::MechanicalQualificationMissingOrStale));
+        snapshot.targets[0].target_digest = "sha256:replaced".into();
+        let plan = plan_cognitive_execution(&snapshot, &req).unwrap();
+        assert!(plan.arbitration.as_ref().unwrap().candidates[0]
+            .exclusions
+            .contains(&CognitiveCandidateExclusion::TargetMissingOrChanged));
+        assert!(CognitiveCapability::parse("whisper").is_err());
+        let mut historical_plan = serde_json::to_value(&plan).unwrap();
+        historical_plan["schema"] = serde_json::json!("yai.cognitive_execution_plan.v1");
+        historical_plan["planner_version"] =
+            serde_json::json!("yai.cognitive_execution_planner.v1");
+        historical_plan
+            .as_object_mut()
+            .unwrap()
+            .remove("arbitration");
+        let historical: CognitiveExecutionPlan = serde_json::from_value(historical_plan).unwrap();
+        assert!(historical.arbitration.is_none());
+        let mut unknown = serde_json::to_value(&snapshot.active_bindings[0]).unwrap();
+        unknown["target_policy"]["kind"] = serde_json::json!("learned_best");
+        assert!(serde_json::from_value::<CaseCognitiveBinding>(unknown).is_err());
+    }
+
     fn evidence(
         target: &str,
         digest: &str,
@@ -954,6 +1287,7 @@ mod tests {
         semantic_evidence: Vec<SemanticSuitabilityEvidence>,
     ) -> CognitiveTargetSnapshot {
         CognitiveTargetSnapshot {
+            execution_evidence: None,
             target_id: target_id.to_string(),
             target_digest: digest.to_string(),
             provider_envelope_admitted: true,
@@ -1159,6 +1493,7 @@ mod tests {
     #[test]
     fn continuation_is_lane_and_target_scoped_but_disposable() {
         let mut plan = CognitiveExecutionPlan {
+            arbitration: None,
             schema: COGNITIVE_EXECUTION_PLAN_SCHEMA.to_string(),
             planner_version: COGNITIVE_PLANNER_VERSION.to_string(),
             plan_id: "cognitive-plan:test".to_string(),

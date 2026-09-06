@@ -26,10 +26,10 @@ use crate::case_policy::{
     POLICY_MATERIALIZER_VERSION, POLICY_MATERIALIZER_VERSION_V1, POLICY_MATERIALIZER_VERSION_V2,
 };
 use crate::cognitive::{
-    cognitive_execution_lane_id, plan_cognitive_execution, CaseCognitiveBinding,
-    CognitiveBindingRole, CognitiveCapability, CognitiveCapabilityRequirement,
-    CognitiveExecutionPlan, CognitivePlanningSnapshot, CognitiveTargetSnapshot,
-    SemanticEvidencePosture, SemanticSuitabilityEvidence,
+    cognitive_execution_lane_for_target, CaseCognitiveBinding, CognitiveBindingRole,
+    CognitiveCapability, CognitiveCapabilityRequirement, CognitiveExecutionPlan,
+    CognitivePlanningSnapshot, CognitiveTargetSnapshot, SemanticEvidencePosture,
+    SemanticSuitabilityEvidence,
 };
 use crate::compatibility::{
     decode_legacy_record, inspect_legacy_jsonl, LegacyDecodeOutcome, LegacyRecord,
@@ -90,13 +90,13 @@ use crate::transition::{
     CaseLifecycle, CaseState, ExecutionGrantInvalidation, GrantInvalidationDisposition,
     GrantLifecycle, PendingTransition, ReviewInvalidation, ReviewResolution, Transition,
     TransitionPayload, TransitionSource, CASE_STATE_SCHEMA, CASE_STATE_SCHEMA_V1,
-    CASE_STATE_SCHEMA_V10, CASE_STATE_SCHEMA_V11, CASE_STATE_SCHEMA_V12, CASE_STATE_SCHEMA_V2,
-    CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5, CASE_STATE_SCHEMA_V6,
-    CASE_STATE_SCHEMA_V7, CASE_STATE_SCHEMA_V8, CASE_STATE_SCHEMA_V9, TRANSITION_SCHEMA,
-    TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V10, TRANSITION_SCHEMA_V11, TRANSITION_SCHEMA_V12,
-    TRANSITION_SCHEMA_V13, TRANSITION_SCHEMA_V14, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3,
-    TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7,
-    TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
+    CASE_STATE_SCHEMA_V10, CASE_STATE_SCHEMA_V11, CASE_STATE_SCHEMA_V12, CASE_STATE_SCHEMA_V13,
+    CASE_STATE_SCHEMA_V2, CASE_STATE_SCHEMA_V3, CASE_STATE_SCHEMA_V4, CASE_STATE_SCHEMA_V5,
+    CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7, CASE_STATE_SCHEMA_V8, CASE_STATE_SCHEMA_V9,
+    TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V10, TRANSITION_SCHEMA_V11,
+    TRANSITION_SCHEMA_V12, TRANSITION_SCHEMA_V13, TRANSITION_SCHEMA_V14, TRANSITION_SCHEMA_V15,
+    TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5,
+    TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7, TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
 };
 use crate::workflow::{
     derive_effective_workflow_topology, evaluate_predicate, node_completion_predicate,
@@ -10721,6 +10721,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V15,
                 TRANSITION_SCHEMA_V14,
                 TRANSITION_SCHEMA_V13,
                 TRANSITION_SCHEMA_V12,
@@ -10743,6 +10744,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                CASE_STATE_SCHEMA_V13,
                 CASE_STATE_SCHEMA_V12,
                 CASE_STATE_SCHEMA_V11,
                 CASE_STATE_SCHEMA_V10,
@@ -11716,26 +11718,32 @@ fn derive_graph_relations_from_transition(
             }
         }
         TransitionPayload::CaseCognitiveBindingRecorded { binding } => {
-            add_transition_relation(
-                &mut relations,
-                skipped,
-                transition,
-                "cognitive_binding_selects_target",
-                "case_cognitive_binding",
-                &binding.binding_id,
-                "provider_target",
-                &binding.target_id,
-            );
-            add_transition_relation(
-                &mut relations,
-                skipped,
-                transition,
-                "cognitive_binding_uses_semantic_evidence",
-                "case_cognitive_binding",
-                &binding.binding_id,
-                "semantic_suitability_evidence",
-                &binding.semantic_evidence_id,
-            );
+            for candidate in binding.candidates() {
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    if binding.target_policy.is_some() {
+                        "cognitive_binding_considers_target"
+                    } else {
+                        "cognitive_binding_selects_target"
+                    },
+                    "case_cognitive_binding",
+                    &binding.binding_id,
+                    "provider_target",
+                    &candidate.target_id,
+                );
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "cognitive_binding_uses_semantic_evidence",
+                    "case_cognitive_binding",
+                    &binding.binding_id,
+                    "semantic_suitability_evidence",
+                    &candidate.semantic_evidence_id,
+                );
+            }
         }
         TransitionPayload::CaseCognitiveBindingUnbound {
             prior_binding_id, ..
@@ -13955,18 +13963,21 @@ impl LmdbRecordStore {
                         .contains(&candidate.binding_id)
                 })
                 .ok_or_else(|| "provider_invocation_cognitive_binding_stale".to_string())?;
+            let candidate = cognitive_binding
+                .candidate(&target.target_id)
+                .ok_or("provider_invocation_cognitive_target_not_in_policy")?;
             if cognitive_binding.participant_id != *participant_id
-                || cognitive_binding.target_id != target.target_id
-                || cognitive_binding.target_digest != target.integrity_digest
-                || cognitive_binding.provider_binding_id_at_bind != binding.binding_id
+                || candidate.target_digest != target.integrity_digest
+                || (cognitive_binding.target_policy.is_none()
+                    && cognitive_binding.provider_binding_id_at_bind != binding.binding_id)
                 || !selection_transition
                     .causal_refs
-                    .contains(&cognitive_binding.semantic_evidence_id)
+                    .contains(&candidate.semantic_evidence_id)
             {
                 return Err("provider_invocation_cognitive_binding_stale".to_string());
             }
             let evidence = self
-                .semantic_suitability_evidence_txn(txn, &cognitive_binding.semantic_evidence_id)?
+                .semantic_suitability_evidence_txn(txn, &candidate.semantic_evidence_id)?
                 .ok_or_else(|| "provider_invocation_semantic_evidence_missing".to_string())?;
             evidence.validate()?;
             if evidence.target_id != target.target_id
@@ -13986,6 +13997,51 @@ impl LmdbRecordStore {
                 .collect::<Result<Vec<_>, _>>()?;
             if shapes.len() != 1 || !qualification.supports_realization_shape(&shapes[0]) {
                 return Err("provider_invocation_realization_shape_stale".to_string());
+            }
+            if let Some(digest) = selection_transition
+                .causal_refs
+                .iter()
+                .find_map(|r| r.strip_prefix("cognitive-arbitration-snapshot:"))
+            {
+                let capability = selection_transition
+                    .causal_refs
+                    .iter()
+                    .find_map(|r| r.strip_prefix("cognitive-arbitration-capability:"))
+                    .ok_or("provider_invocation_arbitration_capability_missing")?;
+                let shape = selection_transition
+                    .causal_refs
+                    .iter()
+                    .find_map(|r| r.strip_prefix("cognitive-arbitration-shape:"))
+                    .ok_or("provider_invocation_arbitration_shape_missing")?;
+                let shape = if shape == "unknown" {
+                    None
+                } else {
+                    Some(ProviderRealizationShape::parse(shape)?)
+                };
+                let requirement = CognitiveCapabilityRequirement::new(
+                    &state.case_id,
+                    participant_id,
+                    CognitiveCapability::parse(capability)?,
+                    "invocation-revalidation",
+                )?;
+                let fresh = self.cognitive_plan_txn(
+                    txn,
+                    state,
+                    participant_id,
+                    &requirement,
+                    shape.as_ref(),
+                )?;
+                if fresh
+                    .arbitration
+                    .as_ref()
+                    .map(|a| a.evidence_snapshot_digest.as_str())
+                    != Some(digest)
+                    || fresh.selected_target_id.as_deref() != Some(target.target_id.as_str())
+                {
+                    return Err("provider_invocation_arbitration_snapshot_stale".to_string());
+                }
+            } else if cognitive_binding.target_policy.is_some() {
+                return Err("provider_invocation_arbitration_snapshot_missing".to_string());
             }
             if !selection_transition.causal_refs.contains(&format!(
                 "provider-normalization-contract:{PROVIDER_DERIVED_TEXT_NORMALIZER}"
@@ -14291,6 +14347,32 @@ impl LmdbRecordStore {
         semantic_evidence_id: &str,
         replace: bool,
     ) -> Result<CaseCognitiveBinding, String> {
+        self.bind_case_cognitive_candidates_authorized(
+            authenticated,
+            case_id,
+            participant_id,
+            role,
+            capability,
+            vec![(target_id.to_string(), semantic_evidence_id.to_string())],
+            replace,
+        )
+    }
+
+    /// One canonical slot: a single pinned target or a bounded explicit order.
+    #[allow(clippy::too_many_arguments)]
+    pub fn bind_case_cognitive_candidates_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        role: CognitiveBindingRole,
+        capability: CognitiveCapability,
+        candidates: Vec<(String, String)>,
+        replace: bool,
+    ) -> Result<CaseCognitiveBinding, String> {
+        if candidates.is_empty() || candidates.len() > crate::cognitive::MAX_COGNITIVE_CANDIDATES {
+            return Err("cognitive_candidate_policy_bounds_invalid".to_string());
+        }
         let mut txn = self
             .env
             .begin_rw_txn()
@@ -14318,62 +14400,71 @@ impl LmdbRecordStore {
             .provider_binding
             .as_ref()
             .ok_or_else(|| "cognitive_binding_provider_envelope_missing".to_string())?;
-        if provider_binding.participant_id != participant_id
-            || !provider_binding
-                .ordered_target_ids
-                .iter()
-                .any(|value| value == target_id)
-        {
-            return Err("cognitive_target_not_admitted_by_provider_envelope".to_string());
+        let mut admitted = Vec::new();
+        for (target_id, semantic_evidence_id) in &candidates {
+            if provider_binding.participant_id != participant_id
+                || !provider_binding
+                    .ordered_target_ids
+                    .iter()
+                    .any(|value| value == target_id)
+            {
+                return Err("cognitive_target_not_admitted_by_provider_envelope".to_string());
+            }
+            let target = self
+                .provider_target_txn(&txn, target_id)?
+                .ok_or_else(|| "provider_target_not_found".to_string())?;
+            target.validate()?;
+            if target.tenant_id != tenant_id {
+                return Err("cross_tenant_cognitive_target_rejected".to_string());
+            }
+            let qualification = self
+                .provider_qualification_current_txn(&txn, target_id)?
+                .ok_or_else(|| "cognitive_target_provider_qualification_missing".to_string())?;
+            qualification.validate(&target)?;
+            let now_unix_ms =
+                authority_wall_time_unix_ms().max(self.authority_time_floor_txn(&txn)?);
+            if !qualification.is_current(now_unix_ms)
+                || !qualification
+                    .capabilities
+                    .iter()
+                    .any(|item| item.capability == ProviderCapability::ModelExactAddressing)
+            {
+                return Err("cognitive_target_provider_qualification_stale".to_string());
+            }
+            let trust = self
+                .provider_trust_current_txn(&txn, target_id)?
+                .ok_or_else(|| "cognitive_target_trust_not_approved".to_string())?;
+            trust.validate(&target)?;
+            if trust.posture != ProviderTrustPosture::Approved {
+                return Err("cognitive_target_trust_not_approved".to_string());
+            }
+            let evidence = self
+                .semantic_suitability_evidence_txn(&txn, semantic_evidence_id)?
+                .ok_or_else(|| "semantic_suitability_evidence_not_found".to_string())?;
+            evidence.validate()?;
+            if evidence.tenant_id != tenant_id
+                || evidence.target_id != target.target_id
+                || evidence.target_digest != target.integrity_digest
+                || evidence.capability != capability
+            {
+                return Err("semantic_suitability_evidence_binding_mismatch".to_string());
+            }
+            admitted.push(crate::cognitive::CognitiveTargetCandidate {
+                target_id: target.target_id,
+                target_digest: target.integrity_digest,
+                semantic_evidence_id: evidence.evidence_id,
+            });
         }
-        let target = self
-            .provider_target_txn(&txn, target_id)?
-            .ok_or_else(|| "provider_target_not_found".to_string())?;
-        target.validate()?;
-        if target.tenant_id != tenant_id {
-            return Err("cross_tenant_cognitive_target_rejected".to_string());
-        }
-        let qualification = self
-            .provider_qualification_current_txn(&txn, target_id)?
-            .ok_or_else(|| "cognitive_target_provider_qualification_missing".to_string())?;
-        qualification.validate(&target)?;
-        let now_unix_ms = authority_wall_time_unix_ms().max(self.authority_time_floor_txn(&txn)?);
-        if !qualification.is_current(now_unix_ms)
-            || !qualification
-                .capabilities
-                .iter()
-                .any(|item| item.capability == ProviderCapability::ModelExactAddressing)
-        {
-            return Err("cognitive_target_provider_qualification_stale".to_string());
-        }
-        let trust = self
-            .provider_trust_current_txn(&txn, target_id)?
-            .ok_or_else(|| "cognitive_target_trust_not_approved".to_string())?;
-        trust.validate(&target)?;
-        if trust.posture != ProviderTrustPosture::Approved {
-            return Err("cognitive_target_trust_not_approved".to_string());
-        }
-        let evidence = self
-            .semantic_suitability_evidence_txn(&txn, semantic_evidence_id)?
-            .ok_or_else(|| "semantic_suitability_evidence_not_found".to_string())?;
-        evidence.validate()?;
-        if evidence.tenant_id != tenant_id
-            || evidence.target_id != target.target_id
-            || evidence.target_digest != target.integrity_digest
-            || evidence.capability != capability
-        {
-            return Err("semantic_suitability_evidence_binding_mismatch".to_string());
-        }
+        let first = &admitted[0];
         let current = state.cognitive_bindings.iter().find(|binding| {
             binding.participant_id == participant_id
                 && binding.role == role
                 && (role == CognitiveBindingRole::Primary || binding.capability == capability)
         });
         if let Some(current) = current {
-            if current.target_id == target_id
-                && current.target_digest == target.integrity_digest
-                && current.semantic_evidence_id == semantic_evidence_id
+            if current.candidates() == admitted
                 && current.capability == capability
+                && current.provider_binding_id_at_bind == provider_binding.binding_id
             {
                 return Ok(current.clone());
             }
@@ -14383,20 +14474,23 @@ impl LmdbRecordStore {
         } else if replace {
             return Err("cognitive_binding_replace_requires_existing".to_string());
         }
-        let binding = CaseCognitiveBinding::new(
+        let mut binding = CaseCognitiveBinding::new(
             tenant_id,
             case_id,
             participant_id,
             role,
             capability,
-            target_id,
-            &target.integrity_digest,
-            semantic_evidence_id,
+            &first.target_id,
+            &first.target_digest,
+            &first.semantic_evidence_id,
             &provider_binding.binding_id,
             current.map(|binding| binding.binding_id.clone()),
             context.principal_id(),
             state.generation,
         )?;
+        if admitted.len() > 1 {
+            binding = binding.with_ordered_alternatives(admitted[1..].to_vec())?;
+        }
         let mut pending = PendingTransition::new(
             format!("transition:{}", binding.binding_id),
             case_id,
@@ -14417,6 +14511,11 @@ impl LmdbRecordStore {
             binding.semantic_evidence_id.clone(),
             binding.target_id.clone(),
         ];
+        for candidate in binding.candidates().into_iter().skip(1) {
+            pending
+                .causal_refs
+                .extend([candidate.target_id, candidate.semantic_evidence_id]);
+        }
         if let Some(replaces) = &binding.replaces_binding_id {
             pending.causal_refs.push(replaces.clone());
         }
@@ -14503,6 +14602,23 @@ impl LmdbRecordStore {
         participant_id: &str,
         requirement: &CognitiveCapabilityRequirement,
     ) -> Result<CognitiveExecutionPlan, String> {
+        self.plan_case_cognitive_execution_for_shape_authorized(
+            authenticated,
+            case_id,
+            participant_id,
+            requirement,
+            None,
+        )
+    }
+
+    pub fn plan_case_cognitive_execution_for_shape_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        requirement: &CognitiveCapabilityRequirement,
+        shape: Option<&ProviderRealizationShape>,
+    ) -> Result<CognitiveExecutionPlan, String> {
         requirement.validate()?;
         if requirement.case_id != case_id || requirement.participant_id != participant_id {
             return Err("cognitive_planning_requirement_scope_mismatch".to_string());
@@ -14526,23 +14642,47 @@ impl LmdbRecordStore {
         {
             return Err("cognitive_planning_participant_not_bound".to_string());
         }
+        self.cognitive_plan_txn(&txn, &state, participant_id, requirement, shape)
+    }
+
+    fn cognitive_plan_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        state: &CaseState,
+        participant_id: &str,
+        requirement: &CognitiveCapabilityRequirement,
+        shape: Option<&ProviderRealizationShape>,
+    ) -> Result<CognitiveExecutionPlan, String> {
+        let case_id = &state.case_id;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or("cognitive_case_tenant_missing")?;
         let provider_binding = state.provider_binding.as_ref();
-        let now_unix_ms = authority_wall_time_unix_ms().max(self.authority_time_floor_txn(&txn)?);
+        let now_unix_ms = authority_wall_time_unix_ms().max(self.authority_time_floor_txn(txn)?);
         let mut target_ids = state
             .cognitive_bindings
             .iter()
             .filter(|binding| binding.participant_id == participant_id)
-            .map(|binding| binding.target_id.clone())
+            .flat_map(|binding| {
+                binding
+                    .candidates()
+                    .into_iter()
+                    .map(|candidate| candidate.target_id)
+            })
             .collect::<Vec<_>>();
         target_ids.sort();
         target_ids.dedup();
         let mut targets = Vec::new();
         for target_id in target_ids {
-            let Some(target) = self.provider_target_txn(&txn, &target_id)? else {
+            let Some(target) = self.provider_target_txn(txn, &target_id)? else {
                 continue;
             };
             target.validate()?;
-            let qualification = self.provider_qualification_current_txn(&txn, &target_id)?;
+            if target.tenant_id != tenant_id {
+                continue;
+            }
+            let qualification = self.provider_qualification_current_txn(txn, &target_id)?;
             let mechanically_qualified = qualification.as_ref().is_some_and(|qualification| {
                 qualification.validate(&target).is_ok()
                     && qualification.is_current(now_unix_ms)
@@ -14551,28 +14691,87 @@ impl LmdbRecordStore {
                         .iter()
                         .any(|item| item.capability == ProviderCapability::ModelExactAddressing)
             });
-            let trust_approved = self
-                .provider_trust_current_txn(&txn, &target_id)?
-                .is_some_and(|trust| {
-                    trust.validate(&target).is_ok()
-                        && trust.posture == ProviderTrustPosture::Approved
-                });
+            let trust = self.provider_trust_current_txn(txn, &target_id)?;
+            let trust_approved = trust.as_ref().is_some_and(|trust| {
+                trust.validate(&target).is_ok() && trust.posture == ProviderTrustPosture::Approved
+            });
             let provider_envelope_admitted = provider_binding.is_some_and(|binding| {
                 binding.participant_id == participant_id
                     && binding.ordered_target_ids.contains(&target_id)
                     && state.cognitive_bindings.iter().any(|cognitive| {
                         cognitive.participant_id == participant_id
-                            && cognitive.target_id == target_id
-                            && cognitive.provider_binding_id_at_bind == binding.binding_id
+                            && cognitive.candidate(&target_id).is_some()
+                            && (cognitive.target_policy.is_some()
+                                || cognitive.provider_binding_id_at_bind == binding.binding_id)
                     })
+            });
+            let health = self.provider_health_txn(txn, &target)?;
+            use crate::cognitive::CognitiveCandidateExclusion as E;
+            let operational_exclusion = if health.circuit_at(now_unix_ms)
+                != crate::provider_governance::ProviderCircuitPosture::Closed
+            {
+                Some(E::CircuitOpen)
+            } else if health.effective_posture(now_unix_ms) == ProviderHealthPosture::Unavailable {
+                Some(E::ProviderUnavailable)
+            } else if target.credential_ref != "none"
+                && !target
+                    .credential_ref
+                    .strip_prefix("env:")
+                    .is_some_and(|name| std::env::var(name).is_ok_and(|value| !value.is_empty()))
+            {
+                Some(E::CredentialUnavailable)
+            } else {
+                None
+            };
+            let execution_evidence = Some(crate::cognitive::CognitiveExecutionEvidence {
+                provider_envelope_id: provider_binding.map(|binding| binding.binding_id.clone()),
+                qualification_id: qualification.as_ref().map(|q| q.qualification_id.clone()),
+                trust_id: trust.as_ref().map(|t| t.event_id.clone()),
+                // The authority clock floor advances on unrelated commits.
+                // Seal effective operational facts, not passage of time alone.
+                health_digest: digest_bytes(
+                    &serde_json::to_vec(&(
+                        &health.target_id,
+                        &health.target_digest,
+                        &health.posture,
+                        health.circuit_at(now_unix_ms),
+                        health.effective_posture(now_unix_ms),
+                        health.consecutive_failures,
+                        health.observed_at_unix_ms,
+                        &health.source,
+                        &health.failure_class,
+                        health.probe_epoch,
+                    ))
+                    .map_err(|error| format!("cognitive_health_snapshot_encode:{error}"))?,
+                ),
+                operational_exclusion,
+                shapes: [
+                    ProviderRealizationShape::TextToText,
+                    ProviderRealizationShape::AudioWavToText,
+                    ProviderRealizationShape::OrderedPngTextToText,
+                ]
+                .into_iter()
+                .filter(|shape| {
+                    qualification.as_ref().is_some_and(|q| {
+                        q.validate(&target).is_ok()
+                            && q.is_current(now_unix_ms)
+                            && q.supports_realization_shape(shape)
+                            && q.capability_at_least(
+                                &ProviderCapability::ChatText,
+                                &crate::provider_governance::CapabilityProvenance::Qualified,
+                            )
+                    })
+                })
+                .collect(),
             });
             targets.push(CognitiveTargetSnapshot {
                 target_id,
                 target_digest: target.integrity_digest.clone(),
                 provider_envelope_admitted,
                 mechanically_qualified,
+                execution_evidence,
                 trust_approved,
-                semantic_evidence: self.semantic_suitability_for_target_txn(&txn, &target)?,
+                semantic_evidence: self.semantic_suitability_for_target_txn(txn, &target)?,
             });
         }
         let snapshot = CognitivePlanningSnapshot {
@@ -14583,7 +14782,7 @@ impl LmdbRecordStore {
             active_bindings: state.cognitive_bindings.clone(),
             targets,
         };
-        plan_cognitive_execution(&snapshot, requirement)
+        crate::cognitive::plan_cognitive_execution_for_shape(&snapshot, requirement, shape)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -14795,6 +14994,33 @@ impl LmdbRecordStore {
         if plan.tenant_id != tenant_id || plan.case_generation != state.generation {
             return Err("cognitive_realization_plan_stale".to_string());
         }
+        if let Some(arbitration) = &plan.arbitration {
+            if crate::cognitive::cognitive_provider_requirement(&arbitration.requirement)?
+                != *requirement
+            {
+                return Err("cognitive_realization_provider_requirement_mismatch".to_string());
+            }
+            if arbitration
+                .required_shape
+                .as_ref()
+                .is_some_and(|s| s != realization_shape)
+            {
+                return Err("cognitive_realization_plan_shape_mismatch".to_string());
+            }
+            let fresh = self.cognitive_plan_txn(
+                &txn,
+                &state,
+                &plan.participant_id,
+                &arbitration.requirement,
+                arbitration.required_shape.as_ref(),
+            )?;
+            if fresh != *plan {
+                return Err("cognitive_realization_arbitration_snapshot_stale".to_string());
+            }
+        } else {
+            // Historical v1 plans remain inspectable; only fresh v2 plans execute.
+            return Err("cognitive_realization_requires_fresh_arbitration_plan".to_string());
+        }
         if !state.principal_participant_links.iter().any(|link| {
             link.tenant_id == tenant_id
                 && link.participant_id == plan.participant_id
@@ -14811,11 +15037,15 @@ impl LmdbRecordStore {
             .iter()
             .find(|binding| binding.binding_id == binding_id)
             .ok_or_else(|| "cognitive_realization_binding_stale".to_string())?;
+        let candidate = cognitive_binding
+            .candidate(target_id)
+            .ok_or("cognitive_realization_target_not_in_policy")?;
         if provider_binding.participant_id != plan.participant_id
             || cognitive_binding.participant_id != plan.participant_id
-            || cognitive_binding.target_id != target_id
-            || cognitive_binding.semantic_evidence_id != semantic_evidence_id
-            || cognitive_binding.provider_binding_id_at_bind != provider_binding.binding_id
+            || (cognitive_binding.capability == plan.capability
+                && candidate.semantic_evidence_id != semantic_evidence_id)
+            || (cognitive_binding.target_policy.is_none()
+                && cognitive_binding.provider_binding_id_at_bind != provider_binding.binding_id)
             || !provider_binding
                 .ordered_target_ids
                 .contains(&target_id.to_string())
@@ -14827,7 +15057,7 @@ impl LmdbRecordStore {
             .ok_or_else(|| "cognitive_realization_semantic_evidence_missing".to_string())?;
         evidence.validate()?;
         if evidence.target_id != target_id
-            || evidence.target_digest != cognitive_binding.target_digest
+            || evidence.target_digest != candidate.target_digest
             || evidence.capability != plan.capability
         {
             return Err("cognitive_realization_semantic_evidence_mismatch".to_string());
@@ -14836,9 +15066,7 @@ impl LmdbRecordStore {
             .provider_target_txn(&txn, target_id)?
             .ok_or_else(|| "cognitive_realization_target_missing".to_string())?;
         target.validate()?;
-        if target.tenant_id != tenant_id
-            || target.integrity_digest != cognitive_binding.target_digest
-        {
+        if target.tenant_id != tenant_id || target.integrity_digest != candidate.target_digest {
             return Err("cognitive_realization_target_mismatch".to_string());
         }
         let qualification = self
@@ -14850,6 +15078,37 @@ impl LmdbRecordStore {
             || !qualification.supports_realization_shape(realization_shape)
         {
             return Err("cognitive_realization_shape_not_qualified".to_string());
+        }
+        // A new plan must not erase possible prior delivery of this same
+        // semantic source requirement, even after selecting another target.
+        let history = self.list_case_transitions_txn(&txn, &plan.case_id)?;
+        for prior in state.provider_selections.iter().filter(|prior| {
+            prior.requirement_id == requirement.requirement_id
+                && prior.logical_turn_id.starts_with("cognitive-realization:")
+        }) {
+            let invocation = history.iter().find_map(|t| match &t.payload {
+                TransitionPayload::ProviderInvocationStarted {
+                    invocation_id,
+                    governance: Some(g),
+                    ..
+                } if g.selection_id == prior.selection_id => Some(invocation_id),
+                _ => None,
+            });
+            if let Some(invocation) = invocation {
+                let result = history.iter().any(|t| matches!(&t.payload,
+                    TransitionPayload::ProviderResultRecorded { invocation_id, .. } if invocation_id == invocation));
+                let safe = history.iter().any(|t| {
+                    matches!(&t.payload,
+                    TransitionPayload::ProviderAttemptOutcomeRecorded { outcome }
+                    if outcome.selection_id == prior.selection_id && outcome.retry_safe())
+                });
+                if !result && !safe {
+                    return Err(
+                        "cognitive_realization_prior_delivery_indeterminate_requires_resolution"
+                            .to_string(),
+                    );
+                }
+            }
         }
         let trust = self.provider_trust_current_txn(&txn, target_id)?;
         let health = self.provider_health_txn(&txn, &target)?;
@@ -14926,6 +15185,29 @@ impl LmdbRecordStore {
             format!("provider-realization-shape:{}", realization_shape.as_str()),
             format!("provider-normalization-contract:{PROVIDER_DERIVED_TEXT_NORMALIZER}"),
         ];
+        if let Some(arbitration) = &plan.arbitration {
+            pending.causal_refs.extend([
+                candidate.semantic_evidence_id.clone(),
+                format!(
+                    "cognitive-arbitration-snapshot:{}",
+                    arbitration.evidence_snapshot_digest
+                ),
+                format!(
+                    "cognitive-arbitration-capability:{}",
+                    plan.capability.as_str()
+                ),
+                format!(
+                    "cognitive-arbitration-shape:{}",
+                    arbitration
+                        .required_shape
+                        .as_ref()
+                        .map(|s| s.as_str())
+                        .unwrap_or("unknown")
+                ),
+            ]);
+            pending.causal_refs.sort();
+            pending.causal_refs.dedup();
+        }
         pending
             .causal_refs
             .extend(realization_causal_refs.iter().cloned());
@@ -15007,18 +15289,21 @@ impl LmdbRecordStore {
                 _ => None,
             })
             .ok_or_else(|| "conversation_derived_content_binding_missing".to_string())?;
+        let candidate = cognitive_binding
+            .candidate(&derived.target_id)
+            .ok_or("conversation_derived_content_target_not_in_policy")?;
         if cognitive_binding.tenant_id != derived.tenant_id
             || cognitive_binding.case_id != derived.case_id
             || cognitive_binding.participant_id != source_turn.participant_id
             || cognitive_binding.role != CognitiveBindingRole::Auxiliary
             || cognitive_binding.capability != derived.capability
-            || cognitive_binding.target_id != derived.target_id
-            || cognitive_binding.target_digest != derived.target_digest
-            || cognitive_binding.semantic_evidence_id != derived.semantic_evidence_id
-            || cognitive_execution_lane_id(
+            || candidate.target_digest != derived.target_digest
+            || candidate.semantic_evidence_id != derived.semantic_evidence_id
+            || cognitive_execution_lane_for_target(
                 &derived.case_id,
                 &source_turn.participant_id,
                 cognitive_binding,
+                &derived.target_id,
             )? != derived.execution_lane_id
         {
             return Err("conversation_derived_content_binding_mismatch".to_string());
@@ -25738,6 +26023,8 @@ mod tests {
     mod i02_tests;
     #[path = "i03_tests.rs"]
     mod i03_tests;
+    #[path = "i05_tests.rs"]
+    mod i05_tests;
     #[path = "wave18_tests.rs"]
     mod wave18_tests;
 }

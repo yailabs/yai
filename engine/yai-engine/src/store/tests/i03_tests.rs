@@ -10,7 +10,7 @@ use crate::provider_governance::{
 };
 use crate::transition::{ProviderInvocationGovernance, ProviderInvocationLineage};
 
-fn i03_setup_case(
+pub(super) fn i03_setup_case(
     store: &LmdbRecordStore,
     owner: &AuthenticatedPrincipal,
     tenant_id: &str,
@@ -60,7 +60,7 @@ fn i03_setup_case(
         .unwrap();
 }
 
-fn i03_target(
+pub(super) fn i03_target(
     store: &LmdbRecordStore,
     owner: &AuthenticatedPrincipal,
     tenant_id: &str,
@@ -121,7 +121,7 @@ fn i03_target(
     target
 }
 
-fn i03_suitability(
+pub(super) fn i03_suitability(
     store: &LmdbRecordStore,
     owner: &AuthenticatedPrincipal,
     target: &ProviderTarget,
@@ -141,7 +141,7 @@ fn i03_suitability(
         .unwrap()
 }
 
-fn i03_provider_requirement(source: &str) -> ProviderRequirement {
+pub(super) fn i03_provider_requirement(source: &str) -> ProviderRequirement {
     ProviderRequirement::new(
         &format!("cognitive_realization:{source}"),
         vec![

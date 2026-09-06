@@ -18,10 +18,7 @@ use yai_core_engine::conversation::{
     PROVIDER_DERIVED_TEXT_NORMALIZER,
 };
 use yai_core_engine::effect::digest_bytes;
-use yai_core_engine::provider_governance::{
-    CapabilityProvenance, ProviderCapability, ProviderCapabilityRequirement,
-    ProviderRealizationShape, ProviderRequirement,
-};
+use yai_core_engine::provider_governance::{ProviderRealizationShape, ProviderRequirement};
 use yai_core_engine::security::AuthenticatedPrincipal;
 use yai_core_engine::transition::TransitionPayload;
 
@@ -130,14 +127,20 @@ fn cognitive_bind(args: &[String]) -> Result<(), String> {
     let role = CognitiveBindingRole::parse(&named_arg(args, "--role")?)?;
     let capability = CognitiveCapability::parse(&named_arg(args, "--capability")?)?;
     let (authenticated, store) = authenticated_store()?;
-    let binding = store.bind_case_cognitive_target_authorized(
+    let mut candidates = vec![(named_arg(args, "--target")?, named_arg(args, "--evidence")?)];
+    for alternative in repeated_arg(args, "--alternative") {
+        let (target, evidence) = alternative
+            .split_once('=')
+            .ok_or("cognitive_alternative_requires_target_equals_evidence")?;
+        candidates.push((target.to_string(), evidence.to_string()));
+    }
+    let binding = store.bind_case_cognitive_candidates_authorized(
         &authenticated,
         &case_id,
         &participant_id,
         role,
         capability,
-        &named_arg(args, "--target")?,
-        &named_arg(args, "--evidence")?,
+        candidates,
         args.iter().any(|arg| arg == "--replace"),
     )?;
     if json_requested(args) {
@@ -157,8 +160,20 @@ fn cognitive_bind(args: &[String]) -> Result<(), String> {
         println!("participant_id: {}", binding.participant_id);
         println!("role: {}", binding.role.as_str());
         println!("capability: {}", binding.capability.as_str());
-        println!("target_id: {}", binding.target_id);
-        println!("semantic_evidence_id: {}", binding.semantic_evidence_id);
+        println!(
+            "target_policy: {}",
+            if binding.target_policy.is_some() {
+                "ordered_eligible"
+            } else {
+                "pinned"
+            }
+        );
+        for (order, candidate) in binding.candidates().iter().enumerate() {
+            println!(
+                "candidate: {} preference:{} evidence:{}",
+                candidate.target_id, order, candidate.semantic_evidence_id
+            );
+        }
         println!("provider_execution: not_performed");
     }
     Ok(())
@@ -239,6 +254,20 @@ fn cognitive_show(args: &[String]) -> Result<(), String> {
                 binding.target_id,
                 binding.semantic_evidence_id
             );
+            println!(
+                "target_policy: {}",
+                if binding.target_policy.is_some() {
+                    "ordered_eligible"
+                } else {
+                    "pinned"
+                }
+            );
+            for (order, candidate) in binding.candidates().iter().enumerate() {
+                println!(
+                    "candidate: {} preference:{} evidence:{}",
+                    candidate.target_id, order, candidate.semantic_evidence_id
+                );
+            }
         }
         println!("provider_execution: not_performed");
     }
@@ -275,11 +304,15 @@ fn cognitive_plan(args: &[String]) -> Result<(), String> {
         CognitiveCapabilityRequirement::new(&case_id, &participant_id, capability, &source_ref)?;
     let continuation = continuation_from_args(args)?;
     let (authenticated, store) = authenticated_store()?;
-    let plan = store.plan_case_cognitive_execution_authorized(
+    let shape = optional_arg(args, "--shape")
+        .map(|value| ProviderRealizationShape::parse(&value))
+        .transpose()?;
+    let plan = store.plan_case_cognitive_execution_for_shape_authorized(
         &authenticated,
         &case_id,
         &participant_id,
         &requirement,
+        shape.as_ref(),
     )?;
     let continuation_posture = assess_lane_continuation(&plan, continuation.as_ref());
     if json_requested(args) {
@@ -309,6 +342,18 @@ fn cognitive_plan(args: &[String]) -> Result<(), String> {
             plan.execution_lane_id.as_deref().unwrap_or("none")
         );
         println!("continuation_posture: {:?}", continuation_posture);
+        if let Some(arbitration) = &plan.arbitration {
+            println!(
+                "arbitration_snapshot: {}",
+                arbitration.evidence_snapshot_digest
+            );
+            for candidate in &arbitration.candidates {
+                println!(
+                    "candidate: {} role:{:?} preference:{} exclusions:{:?}",
+                    candidate.target_id, candidate.role, candidate.preference, candidate.exclusions
+                );
+            }
+        }
         println!("provider_realization: deferred_to_execution_adapter");
         println!("provider_execution: not_performed");
     }
@@ -417,20 +462,7 @@ fn realization_shape(
 fn provider_requirement(
     cognitive: &CognitiveCapabilityRequirement,
 ) -> Result<ProviderRequirement, String> {
-    ProviderRequirement::new(
-        &format!("cognitive_realization:{}", cognitive.requirement_id),
-        vec![
-            ProviderCapabilityRequirement {
-                capability: ProviderCapability::ChatText,
-                minimum_provenance: CapabilityProvenance::Qualified,
-            },
-            ProviderCapabilityRequirement {
-                capability: ProviderCapability::ModelExactAddressing,
-                minimum_provenance: CapabilityProvenance::Qualified,
-            },
-        ],
-        None,
-    )
+    yai_core_engine::cognitive::cognitive_provider_requirement(cognitive)
 }
 
 fn source_identity(turn_id: &str, part_ids: &[String]) -> Result<String, String> {
@@ -621,16 +653,32 @@ fn realize_cognitive(
         capability.clone(),
         requirement_source_ref,
     )?;
-    let plan = store.plan_case_cognitive_execution_authorized(
+    let plan = store.plan_case_cognitive_execution_for_shape_authorized(
         authenticated,
         &case_id,
         participant_id,
         &cognitive_requirement,
+        Some(&shape),
     )?;
     if plan.route == CognitivePlanRoute::Unresolved {
+        // Preserve the I03 mechanical-refusal diagnostic when a candidate is
+        // otherwise admitted. Arbitration must not relabel missing wire
+        // evidence as missing semantic suitability.
+        let shape_only_exclusion = plan.arbitration.as_ref().is_some_and(|arbitration| {
+            arbitration.candidates.iter().any(|candidate| {
+                candidate.exclusions
+                    == [yai_core_engine::cognitive::CognitiveCandidateExclusion::MechanicalShapeUnsupported]
+            })
+        });
+        let diagnostic = if shape_only_exclusion {
+            "cognitive_realization_shape_not_qualified"
+        } else {
+            "cognitive_realization_plan_unresolved"
+        };
         return Err(format!(
-            "cognitive_realization_plan_unresolved:{:?}",
-            plan.unresolved_reason
+            "{diagnostic}:{:?}:arbitration={}",
+            plan.unresolved_reason,
+            serde_json::to_string(&plan.arbitration).map_err(|error| error.to_string())?
         ));
     }
     if expected_route
@@ -936,11 +984,12 @@ fn cognitive_compose(args: &[String]) -> Result<(), String> {
         goal.clone(),
         &direct_closure.closure_id,
     )?;
-    let direct_plan = store.plan_case_cognitive_execution_authorized(
+    let direct_plan = store.plan_case_cognitive_execution_for_shape_authorized(
         &authenticated,
         &case_id,
         &participant_id,
         &direct_requirement,
+        direct_shape.as_ref().ok(),
     )?;
     let direct_mechanically_admitted = if let (Ok(shape), Some(target_id)) = (
         direct_shape.as_ref(),
@@ -978,10 +1027,18 @@ fn cognitive_compose(args: &[String]) -> Result<(), String> {
         )?;
         return render_composition(args, &request, &direct_closure, "direct", None, &outcome);
     }
-    if direct_plan.route == CognitivePlanRoute::Unresolved {
+    // Raw input may exclude every primary while a transformed closure is
+    // realizable. An explicit prerequisite may bridge shape, not missing intent.
+    let semantic_primary = store.plan_case_cognitive_execution_authorized(
+        &authenticated,
+        &case_id,
+        &participant_id,
+        &direct_requirement,
+    )?;
+    if semantic_primary.route == CognitivePlanRoute::Unresolved {
         return Err(format!(
             "cognitive_composition_primary_plan_unresolved:{:?}",
-            direct_plan.unresolved_reason
+            semantic_primary.unresolved_reason
         ));
     }
     let prerequisite = request
@@ -995,11 +1052,15 @@ fn cognitive_compose(args: &[String]) -> Result<(), String> {
         prerequisite.capability.clone(),
         &prerequisite_source_ref,
     )?;
-    let prerequisite_plan = store.plan_case_cognitive_execution_authorized(
+    let prerequisite_wire_parts =
+        source_parts(&content_store, turn, &prerequisite.source_part_ids)?;
+    let prerequisite_shape = realization_shape(&prerequisite.capability, &prerequisite_wire_parts)?;
+    let prerequisite_plan = store.plan_case_cognitive_execution_for_shape_authorized(
         &authenticated,
         &case_id,
         &participant_id,
         &prerequisite_requirement,
+        Some(&prerequisite_shape),
     )?;
     if prerequisite_plan.route != CognitivePlanRoute::Derived {
         return Err(format!(
@@ -1007,9 +1068,6 @@ fn cognitive_compose(args: &[String]) -> Result<(), String> {
             prerequisite_plan.route
         ));
     }
-    let prerequisite_wire_parts =
-        source_parts(&content_store, turn, &prerequisite.source_part_ids)?;
-    realization_shape(&prerequisite.capability, &prerequisite_wire_parts)?;
     let prerequisite_causal_refs = vec![request.request_id.clone(), turn.turn_id.clone()];
     let prerequisite_outcome = realize_cognitive(
         &authenticated,

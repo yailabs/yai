@@ -246,6 +246,26 @@ grep -Fq 'ResponseInvalid' <<<"$MALFORMED_OUTPUT"
 "$YAI_BIN" case cognitive bind case:i03-cli --participant participant:model \
   --role auxiliary --capability speech_to_text --target "$EMPTY_TARGET" \
   --evidence "$EMPTY_EVIDENCE" --replace >/dev/null
+# I05 preserves possible prior execution even across an explicit target
+# replacement. ResponseInvalid is not retry-safe in the existing taxonomy.
+set +e
+UNSAFE_REPLACEMENT="$("$YAI_BIN" case cognitive realize case:i03-cli \
+  --participant participant:model --capability speech_to_text \
+  --turn "$AUDIO_TURN" --json 2>&1)"
+UNSAFE_REPLACEMENT_EXIT=$?
+set -e
+[[ "$UNSAFE_REPLACEMENT_EXIT" -ne 0 ]]
+grep -Fq 'cognitive_realization_prior_delivery_indeterminate_requires_resolution' <<<"$UNSAFE_REPLACEMENT"
+[[ "$(grep -c '"synthetic":false' "$RUN_ROOT/empty.log" || true)" -eq 0 ]]
+
+# Test normalization of independent newly submitted work, rather than bypass
+# uncertain delivery of the malformed-result request by switching providers.
+"$YAI_BIN" case conversation draft create case:i03-cli normalization-source \
+  --participant participant:model >/dev/null
+"$YAI_BIN" case conversation draft import case:i03-cli normalization-source \
+  "$RUN_ROOT/source.wav" --type audio --mime audio/wav >/dev/null
+NORMALIZATION_SEND="$("$YAI_BIN" case conversation draft send case:i03-cli normalization-source)"
+AUDIO_TURN="$(sed -n 's/^turn_id: //p' <<<"$NORMALIZATION_SEND")"
 set +e
 EMPTY_OUTPUT="$("$YAI_BIN" case cognitive realize case:i03-cli \
   --participant participant:model --capability speech_to_text \
@@ -288,6 +308,7 @@ printf '%s\n' "$RECOVERED"
 printf '%s\n' "$IMAGE_RESULT"
 printf '%s\n' "$NO_WIRE_OUTPUT"
 printf '%s\n' "$MALFORMED_OUTPUT"
+printf '%s\n' "$UNSAFE_REPLACEMENT"
 printf '%s\n' "$EMPTY_OUTPUT"
 printf '%s\n' "$DROP_OUTPUT"
 printf '%s\n' "$DROP_RETRY_OUTPUT"

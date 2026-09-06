@@ -515,6 +515,7 @@ const CASE_COGNITIVE_BIND: &[FlagSpec] = &[
     ),
     flag("--target", Some("TARGET"), true),
     flag("--evidence", Some("EVIDENCE"), true),
+    repeat_flag("--alternative", "TARGET=EVIDENCE"),
     bool_flag("--replace"),
 ];
 const CASE_COGNITIVE_UNBIND: &[FlagSpec] = &[
@@ -544,6 +545,15 @@ const CASE_COGNITIVE_PLAN: &[FlagSpec] = &[
         true,
     ),
     flag("--source", Some("REF"), true),
+    choice_flag(
+        "--shape",
+        &[
+            "text_to_text",
+            "audio_wav_to_text",
+            "ordered_png_text_to_text",
+        ],
+        false,
+    ),
     flag("--continuation-lane", Some("LANE"), false),
     flag("--continuation-target", Some("TARGET"), false),
     flag("--continuation-runtime", Some("RUNTIME"), false),

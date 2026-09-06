@@ -565,3 +565,22 @@ restoration and bounded descriptors. See the
 Physical unused `vendor/linenoise` residue remains for the final cross-consumer
 R5 audit. This boundary does not begin that audit, introduce automatic cognitive
 routing or advance the pinned library revision.
+
+## Completed boundary — governed cognitive target arbitration
+
+I05 adds bounded ordered preference to the existing Case cognitive-binding
+contract while retaining pinned choices. Exact semantic evidence, current
+provider-envelope admission, target integrity, trust, operational eligibility
+and known mechanical shape are resolved before selecting one exact target.
+Arbitration is derived and inspectable; I03 still performs exact-target
+dispatch, and I04 still composes only its bounded prerequisite/primary path.
+Snapshot changes require fresh planning; uncertain delivery cannot silently
+become work for another target. Canonical binding v2, Transition v16 and
+CaseState v14 retain historical readers. Plans v2 add the inspected snapshot;
+LMDB remains 37/40 with no owner delta.
+
+Remaining: explicit production semantic qualification beyond operator
+attestation, public typed-media provider interoperability, product-host
+integration, and any future evidence-backed routing dimensions. No learned
+optimizer, prices/quality guesses, autonomous retry, YVEX physical lifecycle,
+REPLAI change, Studio, H20, W21 or W22 is part of I05.

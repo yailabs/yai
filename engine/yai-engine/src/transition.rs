@@ -8,7 +8,7 @@
 use crate::case_policy::CasePolicyBinding;
 use crate::cognitive::{
     validate_active_cognitive_bindings, CaseCognitiveBinding, CognitiveBindingRole,
-    CognitiveCapability, CASE_COGNITIVE_BINDING_SCHEMA,
+    CognitiveCapability, CASE_COGNITIVE_BINDING_SCHEMA_V2,
 };
 use crate::conversation::{ConversationDerivedContent, ConversationTurn};
 use crate::effect::{
@@ -46,7 +46,8 @@ pub const TRANSITION_SCHEMA_V11: &str = "yai.transition.v11";
 pub const TRANSITION_SCHEMA_V12: &str = "yai.transition.v12";
 pub const TRANSITION_SCHEMA_V13: &str = "yai.transition.v13";
 pub const TRANSITION_SCHEMA_V14: &str = "yai.transition.v14";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v15";
+pub const TRANSITION_SCHEMA_V15: &str = "yai.transition.v15";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v16";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
@@ -59,7 +60,8 @@ pub const CASE_STATE_SCHEMA_V9: &str = "yai.case_state.v9";
 pub const CASE_STATE_SCHEMA_V10: &str = "yai.case_state.v10";
 pub const CASE_STATE_SCHEMA_V11: &str = "yai.case_state.v11";
 pub const CASE_STATE_SCHEMA_V12: &str = "yai.case_state.v12";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v13";
+pub const CASE_STATE_SCHEMA_V13: &str = "yai.case_state.v13";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v14";
 pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v2";
 pub const REVIEW_REQUEST_SCHEMA_V1: &str = "yai.review_request.v1";
 pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v2";
@@ -1336,13 +1338,14 @@ impl CaseState {
                     .provider_binding
                     .as_ref()
                     .ok_or_else(|| "cognitive_binding_provider_envelope_missing".to_string())?;
-                if binding.schema != CASE_COGNITIVE_BINDING_SCHEMA
-                    || binding.case_id != next.case_id
+                if binding.case_id != next.case_id
                     || next.tenant_id.as_deref() != Some(binding.tenant_id.as_str())
                     || binding.participant_id != provider_binding.participant_id
-                    || !provider_binding
-                        .ordered_target_ids
-                        .contains(&binding.target_id)
+                    || binding.candidates().iter().any(|candidate| {
+                        !provider_binding
+                            .ordered_target_ids
+                            .contains(&candidate.target_id)
+                    })
                     || !next
                         .participants
                         .iter()
@@ -2636,6 +2639,7 @@ impl CaseState {
             || state.schema == CASE_STATE_SCHEMA_V10
             || state.schema == CASE_STATE_SCHEMA_V11
             || state.schema == CASE_STATE_SCHEMA_V12
+            || state.schema == CASE_STATE_SCHEMA_V13
         {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
@@ -2648,6 +2652,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V15
             && self.schema != TRANSITION_SCHEMA_V14
             && self.schema != TRANSITION_SCHEMA_V13
             && self.schema != TRANSITION_SCHEMA_V12
@@ -2664,6 +2669,12 @@ impl Transition {
             && self.schema != TRANSITION_SCHEMA_V1
         {
             return Err(format!("unsupported_transition_schema: {}", self.schema));
+        }
+        if self.schema != TRANSITION_SCHEMA
+            && matches!(&self.payload,
+            TransitionPayload::CaseCognitiveBindingRecorded { binding } if binding.schema == CASE_COGNITIVE_BINDING_SCHEMA_V2)
+        {
+            return Err("arbitrated_binding_requires_yai_transition_v16".to_string());
         }
         if self.schema == TRANSITION_SCHEMA_V1 && self.payload.is_wave3_kind() {
             return Err("wave3_transition_kind_requires_yai_transition_v2".to_string());
@@ -2687,6 +2698,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
                 | TRANSITION_SCHEMA_V12
@@ -2702,6 +2714,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
                 | TRANSITION_SCHEMA_V12
@@ -2715,6 +2728,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
                 | TRANSITION_SCHEMA_V12
@@ -2728,6 +2742,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
                 | TRANSITION_SCHEMA_V12
@@ -2740,6 +2755,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
                 | TRANSITION_SCHEMA_V12
@@ -2751,6 +2767,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
                 | TRANSITION_SCHEMA_V12
@@ -2761,18 +2778,22 @@ impl Transition {
         if self.schema != TRANSITION_SCHEMA
             && self.schema != TRANSITION_SCHEMA_V14
             && self.payload.is_interlock_i01_kind()
+            && self.schema != TRANSITION_SCHEMA_V15
             && self.schema != TRANSITION_SCHEMA_V13
         {
             return Err("interlock_i01_contract_requires_yai_transition_v13".to_string());
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V14
+            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V15 | TRANSITION_SCHEMA_V14
         ) && self.payload.is_interlock_i02_kind()
         {
             return Err("interlock_i02_contract_requires_yai_transition_v14".to_string());
         }
-        if self.schema != TRANSITION_SCHEMA && self.payload.is_interlock_i03_kind() {
+        if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V15
+            && self.payload.is_interlock_i03_kind()
+        {
             return Err("interlock_i03_contract_requires_yai_transition_v15".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
@@ -2871,12 +2892,14 @@ impl Transition {
                     &binding.provider_binding_id_at_bind,
                     "provider_binding",
                 )?;
-                require_causal_ref(
-                    &self.causal_refs,
-                    &binding.semantic_evidence_id,
-                    "semantic_suitability_evidence",
-                )?;
-                require_causal_ref(&self.causal_refs, &binding.target_id, "provider_target")?;
+                for candidate in binding.candidates() {
+                    require_causal_ref(
+                        &self.causal_refs,
+                        &candidate.semantic_evidence_id,
+                        "semantic_suitability_evidence",
+                    )?;
+                    require_causal_ref(&self.causal_refs, &candidate.target_id, "provider_target")?;
+                }
                 if let Some(replaces) = &binding.replaces_binding_id {
                     require_causal_ref(&self.causal_refs, replaces, "replaced_cognitive_binding")?;
                 }
@@ -3903,6 +3926,7 @@ fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V15
             | TRANSITION_SCHEMA_V14
             | TRANSITION_SCHEMA_V13
             | TRANSITION_SCHEMA_V12
@@ -3921,6 +3945,7 @@ fn supports_wave9_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V15
             | TRANSITION_SCHEMA_V14
             | TRANSITION_SCHEMA_V13
             | TRANSITION_SCHEMA_V12
@@ -3938,6 +3963,7 @@ fn supports_wave10_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V15
             | TRANSITION_SCHEMA_V14
             | TRANSITION_SCHEMA_V13
             | TRANSITION_SCHEMA_V12
