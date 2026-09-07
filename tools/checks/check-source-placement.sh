@@ -45,17 +45,17 @@ if [ -n "$bad_rs" ]; then
   exit 1
 fi
 
-bad_c=$(find "$ROOT" -name '*.c' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/system/*" ! -path "$ROOT/cmd/yaid/*" ! -path "$ROOT/tests/*" ! -path "$ROOT/vendor/*" -print)
+bad_c=$(find "$ROOT" -name '*.c' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/system/*" ! -path "$ROOT/cmd/yaid/*" ! -path "$ROOT/tests/*" -print)
 if [ -n "$bad_c" ]; then
   printf '%s\n' "$bad_c" >&2
-  printf 'C files are only allowed under system/, cmd/yaid/, tests/ or vendor/\n' >&2
+  printf 'C files are only allowed under system/, cmd/yaid/, tests/\n' >&2
   exit 1
 fi
 
-bad_h=$(find "$ROOT" -name '*.h' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/include/yai/*" ! -path "$ROOT/vendor/*" -print)
+bad_h=$(find "$ROOT" -name '*.h' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/include/yai/*" -print)
 if [ -n "$bad_h" ]; then
   printf '%s\n' "$bad_h" >&2
-  printf 'Headers are only allowed under include/yai/ or vendor/\n' >&2
+  printf 'Headers are only allowed under include/yai/\n' >&2
   exit 1
 fi
 

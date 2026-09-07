@@ -27,7 +27,7 @@ require_file() {
   fi
 }
 
-for dir in docs docs/reference include/yai system system/daemon cmd/yai cmd/yaid tests tests/characterization tests/fixtures tests/smoke tools/checks vendor; do
+for dir in docs docs/reference include/yai system system/daemon cmd/yai cmd/yaid tests tests/characterization tests/fixtures tests/smoke tools/checks; do
   require_dir "$dir"
 done
 

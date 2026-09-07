@@ -24,8 +24,8 @@ import pyte
 
 ROOT = Path(__file__).resolve().parents[3]
 WORK = Path(tempfile.mkdtemp(prefix="yai-r4-"))
-BIN = ROOT / "yai"
-ARTIFACT = ROOT / "target/debug/yai"
+ARTIFACT = Path(os.environ.get("YAI_REPLAI_TEST_ARTIFACT", ROOT / "target/debug/yai"))
+BIN = ARTIFACT if "YAI_REPLAI_TEST_ARTIFACT" in os.environ else ROOT / "yai"
 CASE, PARTICIPANT, TENANT = "case:r4", "participant:r4", "tenant:r4"
 PROMPT = f"yai({CASE})> "
 RECORDS = []
@@ -41,7 +41,7 @@ def observe(kind, **values):
 
 
 def cli(*args, structured=False):
-    command = [str(ROOT / "yai"), *args] + (["--json"] if structured else [])
+    command = [str(BIN), *args] + (["--json"] if structured else [])
     p = subprocess.run(command, cwd=ROOT, env=ENV, text=True, capture_output=True, timeout=30)
     observe("cli", command=command, exit=p.returncode, stdout=p.stdout, stderr=p.stderr)
     assert p.returncode == 0, (command, p.stdout, p.stderr)
@@ -379,6 +379,7 @@ def artifact_contract():
     assert "replai::terminal::Interaction" in symbols
     assert "linenoise" not in symbols.lower()
     assert not (ROOT / "cmd/yai/build.rs").exists()
+    assert not (ROOT / "vendor").exists()
     observe("artifact", replai_source=dependency["source"], native_rust=True, linenoise_symbols=False)
 
 

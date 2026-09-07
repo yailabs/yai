@@ -1,16 +1,13 @@
 # Third-Party Notices
 
-Third-party code included in this repository remains governed by its own
-license terms. The YAI source-available repository notice does not replace
-or narrow those third-party licenses.
+Third-party dependencies retain their own license terms. The YAI repository
+notice does not replace or narrow those licenses.
 
-## Linenoise
+The native terminal dependency is REPLAI, acquired through Cargo at revision
+`df5538c718b8d068432032e7fb116fb8bfab158e`, under the
+[MIT License](https://github.com/mothx9/replai/blob/df5538c718b8d068432032e7fb116fb8bfab158e/LICENSE),
+Copyright (c) 2026 YAI Labs. The manifest and lockfile identify the complete
+build dependency graph; dependency distributions carry their respective notices.
 
-- Location: `vendor/linenoise/`
-- Upstream: `https://github.com/antirez/linenoise`
-- Authors named in the vendored license: Salvatore Sanfilippo and Pieter
-  Noordhuis
-- License file: `vendor/linenoise/LICENSE`
-
-YAI uses the vendored Linenoise copy for the local `yai` case prompt
-surface.
+The obsolete vendored Linenoise implementation is no longer distributed in the
+current source tree. Historical revisions retain its original license notice.

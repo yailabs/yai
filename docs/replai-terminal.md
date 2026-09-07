@@ -4,9 +4,8 @@
 `df5538c718b8d068432032e7fb116fb8bfab158e` from `mothx9/replai`.
 `cmd/yai/Cargo.toml` and its lockfile govern acquisition. There is no adjacent
 checkout requirement, C binding, installed shared-library requirement or
-fallback editor. The unused `vendor/linenoise` source is deferred to the final
-cross-consumer legacy audit; no build script, FFI declaration or executable
-symbol keeps it active.
+fallback editor. The obsolete `vendor/linenoise` source has been removed. No vendor tree,
+build script, FFI declaration or executable symbol supplies an alternative editor.
 
 ## Frontend and application ownership
 

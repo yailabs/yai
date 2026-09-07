@@ -562,9 +562,9 @@ restoration and bounded descriptors. See the
 [R4 report](refoundation/integration/replai-r4/REPORT.md) and
 [terminal contract](docs/replai-terminal.md).
 
-Physical unused `vendor/linenoise` residue remains for the final cross-consumer
-R5 audit. This boundary does not begin that audit, introduce automatic cognitive
-routing or advance the pinned library revision.
+The obsolete vendored editor is removed in R5. The cross-consumer closure
+requires separate current YVEX qualification; this YAI cleanup does not change
+the native interaction, cognitive execution or qualified dependency pin.
 
 ## Completed boundary — governed cognitive target arbitration
 
