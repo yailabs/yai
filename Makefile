@@ -824,6 +824,11 @@ clean:
 	rm -rf "$(BUILD_DIR)" "$(RUST_TARGET_DIR)" engine/target cmd/yai/target
 
 .PHONY: smoke-replai-terminal
+.PHONY: smoke-conversation-cognitive-host
+smoke-conversation-cognitive-host: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	CARGO_TARGET_DIR=target cargo test --manifest-path cmd/yai/Cargo.toml command_adapters::conversation_controller::tests::i06_typed_host_native_composed_restart_and_fail_closed -- --ignored --exact --nocapture --test-threads=1
+
 .PHONY: smoke-cognitive-target-arbitration
 smoke-cognitive-target-arbitration: build-rust
 	@python3 tools/validation/topology.py label --entry $@

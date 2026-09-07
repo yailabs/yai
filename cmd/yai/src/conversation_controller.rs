@@ -10,17 +10,19 @@
 // Some non-terminal multipart actions are also exercised directly in qualification.
 #![allow(dead_code)]
 
+use super::cognitive_execution::{execute_composition, CognitiveCompositionOutcome};
 use super::*;
 use serde::Serialize;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use yai_core_engine::cognitive::CognitiveCapability;
 use yai_core_engine::conversation::{
-    find_turn, turns_from_history, ContentModality, ContentPartProvenance,
-    ConversationContentStore, ConversationDraft, ConversationTurn, CONVERSATION_DRAFT_SCHEMA,
+    find_turn, turns_from_history, CognitiveCompositionPrerequisite, CognitiveCompositionRequest,
+    ContentModality, ContentPartProvenance, ConversationContentStore, ConversationDraft,
+    ConversationTurn, CONVERSATION_DRAFT_SCHEMA,
 };
-use yai_core_engine::provider_governance::{ProviderDeliveryClass, ProviderRequirement};
 use yai_core_engine::security::AuthenticatedPrincipal;
 use yai_core_engine::transition::{CaseState, TransitionScope};
 
@@ -36,6 +38,47 @@ pub(super) enum ConversationInputPart {
         media_type: String,
         bytes: Vec<u8>,
     },
+}
+
+/// Pre-SEND semantic choice. Ordinals address ordered application parts, never
+/// filenames or terminal syntax. No prerequisite is inferred when omitted.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub(super) struct ConversationExecutionInput {
+    pub prerequisite: Option<(CognitiveCapability, Vec<u16>)>,
+}
+
+impl ConversationExecutionInput {
+    fn bind(&self, turn: &ConversationTurn) -> Result<CognitiveCompositionRequest, String> {
+        let prerequisite = self
+            .prerequisite
+            .as_ref()
+            .map(|(capability, ordinals)| {
+                let source_part_ids = ordinals
+                    .iter()
+                    .map(|ordinal| {
+                        turn.ordered_parts
+                            .get(usize::from(*ordinal))
+                            .map(|part| part.part_id.clone())
+                            .ok_or_else(|| "conversation_intent_ordinal_not_found".to_string())
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok::<_, String>(CognitiveCompositionPrerequisite {
+                    capability: capability.clone(),
+                    source_part_ids,
+                })
+            })
+            .transpose()?;
+        CognitiveCompositionRequest::new(
+            turn,
+            &turn.participant_id,
+            CognitiveCapability::PrimaryConversation,
+            turn.ordered_parts
+                .iter()
+                .map(|part| part.part_id.clone())
+                .collect(),
+            prerequisite,
+        )
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -56,7 +99,7 @@ pub(super) enum ConversationExecutionPosture {
     ProviderUnavailable,
     ProviderFailed,
     DeliveryIndeterminate,
-    TypedMediaAdapterPending,
+    Unresolved,
     CancelledBeforeDispatch,
 }
 
@@ -117,6 +160,8 @@ pub(super) struct ConversationExecutionResult {
     pub provider_result_id: Option<String>,
     pub projection_id: Option<String>,
     pub context_frame_id: Option<String>,
+    pub intent: Option<CognitiveCompositionRequest>,
+    pub cognition: Option<CognitiveCompositionOutcome>,
     pub events: Vec<ConversationApplicationEvent>,
 }
 
@@ -136,7 +181,7 @@ pub(super) enum ConversationActionResult {
         value: Box<ConversationSubmissionResult>,
     },
     Execution {
-        value: ConversationExecutionResult,
+        value: Box<ConversationExecutionResult>,
     },
     Threads {
         values: Vec<ConversationThreadSummary>,
@@ -233,9 +278,12 @@ impl ConversationController {
                         value: Box::new(value),
                     })
             }
-            ConversationAction::Retry { turn_id } => self
-                .retry(&turn_id)
-                .map(|value| ConversationActionResult::Execution { value }),
+            ConversationAction::Retry { turn_id } => {
+                self.retry(&turn_id)
+                    .map(|value| ConversationActionResult::Execution {
+                        value: Box::new(value),
+                    })
+            }
             ConversationAction::NewThread => {
                 let state =
                     authorized_conversation_case(&self.case_id, &self.participant_id)?.state;
@@ -303,6 +351,14 @@ impl ConversationController {
         &mut self,
         parts: Vec<ConversationInputPart>,
     ) -> Result<ConversationCommitResult, String> {
+        self.commit_parts_with_intent(parts, &ConversationExecutionInput::default())
+    }
+
+    pub(super) fn commit_parts_with_intent(
+        &mut self,
+        parts: Vec<ConversationInputPart>,
+        intent: &ConversationExecutionInput,
+    ) -> Result<ConversationCommitResult, String> {
         if parts.is_empty() {
             return Err("conversation_turn_requires_content".to_string());
         }
@@ -363,7 +419,7 @@ impl ConversationController {
             let _ = content_store.discard_draft(&draft.case_id, &draft.draft_id);
             return Err(error);
         }
-        commit_conversation_draft(&draft)
+        commit_conversation_draft_with_intent(&draft, Some(intent))
     }
 
     fn retry(&mut self, turn_id: &str) -> Result<ConversationExecutionResult, String> {
@@ -397,160 +453,122 @@ impl ConversationController {
         turn: &ConversationTurn,
         events: &mut Vec<ConversationApplicationEvent>,
     ) -> Result<ConversationExecutionResult, String> {
+        self.execute_turn_with_failpoint(turn, events, None)
+    }
+
+    fn execute_turn_with_failpoint(
+        &self,
+        turn: &ConversationTurn,
+        events: &mut Vec<ConversationApplicationEvent>,
+        failpoint: Option<&str>,
+    ) -> Result<ConversationExecutionResult, String> {
         verify_conversation_turn(turn)?;
-        let task = match turn.provider_text_input() {
-            Ok(task) => task,
-            Err(error) if error == "conversation_turn_requires_typed_media_provider_adapter" => {
-                return Ok(unavailable_execution(
-                    turn,
-                    ConversationExecutionPosture::TypedMediaAdapterPending,
-                    error,
-                    events,
-                ));
-            }
-            Err(error) => return Err(error),
-        };
-        if self.cancellation.is_requested() {
-            return Ok(unavailable_execution(
-                turn,
-                ConversationExecutionPosture::CancelledBeforeDispatch,
-                "conversation_cancellation_observed_before_provider_dispatch".to_string(),
-                events,
-            ));
-        }
-        let state = authorized_conversation_case(&self.case_id, &self.participant_id)?.state;
-        let Some(binding) = state.provider_binding.as_ref() else {
-            return Ok(unavailable_execution(
-                turn,
-                ConversationExecutionPosture::ProviderUnavailable,
-                "case_governed_provider_binding_required".to_string(),
-                events,
-            ));
-        };
-        if binding.participant_id != self.participant_id {
-            return Ok(unavailable_execution(
-                turn,
-                ConversationExecutionPosture::ProviderUnavailable,
-                "case_provider_binding_participant_mismatch".to_string(),
-                events,
-            ));
-        }
-        let requirement = ProviderRequirement::text("conversation")?;
-        let logical_turn_id = format!(
-            "conversation-execution:{}:{}",
-            turn.turn_id, state.generation
-        );
-        let mut attempted_targets = BTreeSet::new();
-        let mut prior_attempt_retry_safe = false;
-        for attempt_number in 1..=binding.max_attempts_per_turn {
-            if self.cancellation.is_requested() {
-                return Ok(unavailable_execution(
-                    turn,
-                    ConversationExecutionPosture::CancelledBeforeDispatch,
-                    "conversation_cancellation_observed_before_provider_dispatch".to_string(),
-                    events,
-                ));
-            }
-            let route = match provider::governed_provider_route_for_attempt(
-                &self.case_id,
-                &self.participant_id,
-                &requirement,
-                &logical_turn_id,
-                attempt_number,
-                &attempted_targets,
-                prior_attempt_retry_safe,
-            ) {
-                Ok(route) => route,
-                Err(error) => {
-                    return Ok(unavailable_execution(
-                        turn,
-                        ConversationExecutionPosture::ProviderUnavailable,
-                        error,
-                        events,
-                    ));
+        let authorized = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        let history = authorized.store.list_case_transitions(&self.case_id)?;
+        let intent = history
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::ConversationExecutionIntentRecorded { request }
+                    if request.source_turn_id == turn.turn_id =>
+                {
+                    Some(request.clone())
                 }
+                _ => None,
+            })
+            .unwrap_or(ConversationExecutionInput::default().bind(turn)?);
+        intent.validate(turn)?;
+        let intent = authorized
+            .store
+            .record_conversation_execution_intent_authorized(&authorized.authenticated, intent)?;
+        // A changed source closure/target must not hide any possibly delivered
+        // work on this Turn. The exact I03 guard remains active below this gate.
+        let unsafe_prior = history.iter().any(|transition| {
+            let TransitionPayload::ProviderInvocationStarted { invocation_id, governance, .. } = &transition.payload else {
+                return false;
             };
-            events.push(ConversationApplicationEvent::ProviderSelected {
-                selection_id: route.selection.selection_id.clone(),
-                target_id: route.selection.selected_target_id.clone(),
-                attempt_number,
-            });
-            if self.cancellation.is_requested() {
-                return Ok(unavailable_execution(
-                    turn,
-                    ConversationExecutionPosture::CancelledBeforeDispatch,
-                    "conversation_cancellation_observed_after_selection_before_provider_dispatch"
-                        .to_string(),
-                    events,
-                ));
+            if !transition.causal_refs.contains(&turn.turn_id) { return false; }
+            let completed = history.iter().any(|item| matches!(&item.payload,
+                TransitionPayload::ProviderResultRecorded { invocation_id: owner, .. } if owner == invocation_id));
+            if completed { return false; }
+            !history.iter().any(|item| matches!(&item.payload,
+                TransitionPayload::ProviderAttemptOutcomeRecorded { outcome }
+                if governance.as_ref().is_some_and(|g| g.selection_id == outcome.selection_id) && outcome.retry_safe()))
+        });
+        let result = if unsafe_prior {
+            Err("conversation_prior_delivery_indeterminate_requires_resolution".to_string())
+        } else {
+            execute_composition(
+                &authorized.authenticated,
+                &authorized.store,
+                &conversation_content_store()?,
+                turn,
+                &intent,
+                &|| self.cancellation.is_requested(),
+                failpoint,
+            )
+        };
+        match result {
+            Ok(cognition) => {
+                let execution = cognition
+                    .primary
+                    .execution
+                    .as_ref()
+                    .ok_or_else(|| "conversation_primary_result_missing".to_string())?;
+                let history = authorized.store.list_case_transitions(&self.case_id)?;
+                let lineage = history
+                    .iter()
+                    .find_map(|transition| match &transition.payload {
+                        TransitionPayload::ProviderInvocationStarted {
+                            invocation_id,
+                            semantic_lineage,
+                            ..
+                        } if invocation_id == &execution.invocation_id => semantic_lineage.as_ref(),
+                        _ => None,
+                    });
+                events.push(ConversationApplicationEvent::ProviderSelected {
+                    selection_id: execution.selection.selection_id.clone(),
+                    target_id: execution.selection.selected_target_id.clone(),
+                    attempt_number: execution.selection.attempt_number,
+                });
+                events.push(ConversationApplicationEvent::ProviderResultRecorded {
+                    invocation_id: execution.invocation_id.clone(),
+                    result_id: execution.result_id.clone(),
+                });
+                Ok(ConversationExecutionResult {
+                    turn_id: turn.turn_id.clone(),
+                    posture: ConversationExecutionPosture::Completed,
+                    output: Some(execution.output.clone()),
+                    selection_id: Some(execution.selection.selection_id.clone()),
+                    invocation_id: Some(execution.invocation_id.clone()),
+                    provider_result_id: Some(execution.result_id.clone()),
+                    projection_id: lineage.map(|value| value.projection_id.clone()),
+                    context_frame_id: lineage.map(|value| value.context_frame_id.clone()),
+                    intent: Some(intent),
+                    cognition: Some(cognition),
+                    events: events.clone(),
+                })
             }
-            let options = provider::SemanticInvocationOptions {
-                conversation_turn_id: Some(turn.turn_id.clone()),
-                ..provider::SemanticInvocationOptions::default()
-            };
-            match provider::invoke_semantic_provider(
-                &route.args,
-                ProjectionPurpose::Conversation,
-                &task,
-                InvocationOutputContract::NaturalLanguage,
-                &options,
-            ) {
-                Ok(result) => {
-                    provider::record_governed_provider_outcome(
-                        &self.case_id,
-                        &route.selection,
-                        None,
-                        Some(result.request_bytes_written),
-                    )?;
-                    events.push(ConversationApplicationEvent::ProviderResultRecorded {
-                        invocation_id: result.invocation_id.clone(),
-                        result_id: result.result_id.clone(),
-                    });
-                    return Ok(ConversationExecutionResult {
-                        turn_id: turn.turn_id.clone(),
-                        posture: ConversationExecutionPosture::Completed,
-                        output: Some(result.raw_output),
-                        selection_id: Some(route.selection.selection_id),
-                        invocation_id: Some(result.invocation_id),
-                        provider_result_id: Some(result.result_id),
-                        projection_id: Some(result.projection_id),
-                        context_frame_id: Some(result.context_frame_id),
-                        events: events.clone(),
-                    });
-                }
-                Err(error) => {
-                    let outcome = provider::record_governed_provider_outcome(
-                        &self.case_id,
-                        &route.selection,
-                        Some(&error),
-                        None,
-                    )?;
-                    let delivery_indeterminate =
-                        outcome.delivery == ProviderDeliveryClass::DeliveryIndeterminate;
-                    let retry_safe = outcome.retry_safe();
-                    attempted_targets.insert(route.selection.selected_target_id.clone());
-                    if !delivery_indeterminate
-                        && retry_safe
-                        && attempt_number < binding.max_attempts_per_turn
-                    {
-                        prior_attempt_retry_safe = true;
-                        continue;
-                    }
-                    let posture = if delivery_indeterminate {
-                        ConversationExecutionPosture::DeliveryIndeterminate
-                    } else {
-                        ConversationExecutionPosture::ProviderFailed
-                    };
-                    return Ok(unavailable_execution(turn, posture, error, events));
-                }
+            Err(error) => {
+                let posture = if error.contains("cancelled_before_dispatch") {
+                    ConversationExecutionPosture::CancelledBeforeDispatch
+                } else if error.contains("delivery_indeterminate")
+                    || error.contains("DeliveryIndeterminate")
+                {
+                    ConversationExecutionPosture::DeliveryIndeterminate
+                } else if error.contains("cognitive_realization_failed")
+                    || error.contains("derived_text_invalid")
+                {
+                    ConversationExecutionPosture::ProviderFailed
+                } else if authorized.state.cognitive_bindings.is_empty() {
+                    ConversationExecutionPosture::ProviderUnavailable
+                } else {
+                    ConversationExecutionPosture::Unresolved
+                };
+                let mut result = unavailable_execution(turn, posture, error, events);
+                result.intent = Some(intent);
+                Ok(result)
             }
         }
-        Ok(unavailable_execution(
-            turn,
-            ConversationExecutionPosture::ProviderFailed,
-            "conversation_provider_attempt_bound_exhausted".to_string(),
-            events,
-        ))
     }
 
     fn threads(&self) -> Result<Vec<ConversationThreadSummary>, String> {
@@ -600,6 +618,8 @@ fn unavailable_execution(
         provider_result_id: None,
         projection_id: None,
         context_frame_id: None,
+        intent: None,
+        cognition: None,
         events: events.clone(),
     }
 }
@@ -768,6 +788,13 @@ pub(super) fn verify_conversation_turn(turn: &ConversationTurn) -> Result<(), St
 pub(super) fn commit_conversation_draft(
     draft: &ConversationDraft,
 ) -> Result<ConversationCommitResult, String> {
+    commit_conversation_draft_with_intent(draft, None)
+}
+
+fn commit_conversation_draft_with_intent(
+    draft: &ConversationDraft,
+    intent: Option<&ConversationExecutionInput>,
+) -> Result<ConversationCommitResult, String> {
     if draft.parts.is_empty() {
         return Err("conversation_turn_requires_content".to_string());
     }
@@ -826,19 +853,31 @@ pub(super) fn commit_conversation_draft(
             turn.ordered_parts.len()
         )),
     };
-    let commit = authorized.store.commit_secured_transition(
-        &authorized.authenticated,
-        &authorized.tenant_id,
-        pending,
-        false,
-    )?;
+    let (transition_id, generation) = if let Some(intent) = intent {
+        let request = intent.bind(&turn)?;
+        let (first, second) = authorized.store.commit_conversation_submission_authorized(
+            &authorized.authenticated,
+            &authorized.tenant_id,
+            pending,
+            request,
+        )?;
+        (first.transition.transition_id, second.state.generation)
+    } else {
+        let commit = authorized.store.commit_secured_transition(
+            &authorized.authenticated,
+            &authorized.tenant_id,
+            pending,
+            false,
+        )?;
+        (commit.transition.transition_id, commit.state.generation)
+    };
     let draft_discarded = content_store
         .discard_draft(&draft.case_id, &draft.draft_id)
         .is_ok();
     Ok(ConversationCommitResult {
         turn,
-        transition_id: commit.transition.transition_id,
-        generation: commit.state.generation,
+        transition_id,
+        generation,
         draft_discarded,
     })
 }
@@ -1056,7 +1095,7 @@ mod tests {
             ConversationActionResult::Submission { value } => *value,
             other => panic!("unexpected action result: {other:?}"),
         };
-        assert_eq!(media.generation, before_media_generation + 1);
+        assert_eq!(media.generation, before_media_generation + 2);
         assert_eq!(media.turn.ordered_parts.len(), 3);
         assert_eq!(
             media.turn.ordered_parts[1].object.object_id,
@@ -1068,7 +1107,7 @@ mod tests {
         );
         assert_eq!(
             media.execution.posture,
-            ConversationExecutionPosture::TypedMediaAdapterPending
+            ConversationExecutionPosture::ProviderUnavailable
         );
         let state = authorized_conversation_case(case_id, participant_id)
             .unwrap()
@@ -1187,7 +1226,12 @@ mod tests {
             .unwrap();
         provider_governance_cli::provider_governance_command(
             "yai.provider.qualify",
-            &strings(&["--target", &target.target_id]),
+            &strings(&[
+                "--target",
+                &target.target_id,
+                "--realization-shape",
+                "text_to_text",
+            ]),
         )
         .unwrap();
         provider_governance_cli::provider_governance_command(
@@ -1212,6 +1256,30 @@ mod tests {
         )
         .unwrap();
 
+        let evidence = store
+            .record_semantic_suitability_evidence_authorized(
+                &authenticated,
+                &target.target_id,
+                CognitiveCapability::PrimaryConversation,
+                yai_core_engine::cognitive::SemanticEvidencePosture::OperatorAttested,
+                "fixture:i06-host",
+                "fixture:i06-run",
+                vec!["evidence:deterministic-fixture".into()],
+                "deterministic_loopback_fixture",
+            )
+            .unwrap();
+        store
+            .bind_case_cognitive_target_authorized(
+                &authenticated,
+                case_id,
+                participant_id,
+                yai_core_engine::cognitive::CognitiveBindingRole::Primary,
+                CognitiveCapability::PrimaryConversation,
+                &target.target_id,
+                &evidence.evidence_id,
+                false,
+            )
+            .unwrap();
         let mut controller = ConversationController::open(case_id, None).unwrap();
         let submission = submit_text(&mut controller, "natural Case conversation");
         assert_eq!(
@@ -1263,8 +1331,394 @@ mod tests {
                 .filter(|_| transition.causal_refs.contains(&submission.turn.turn_id))
             })
             .collect::<Vec<_>>();
-        assert_eq!(invocation_indices.len(), 2);
+        assert_eq!(
+            invocation_indices.len(),
+            1,
+            "retry reuses the recorded result"
+        );
+        assert_eq!(
+            retry.provider_result_id,
+            submission.execution.provider_result_id
+        );
         assert!(invocation_indices.iter().all(|index| *index > turn_index));
         server.join().unwrap();
+    }
+
+    struct CognitiveFixture {
+        process: std::process::Child,
+        target: String,
+        log: PathBuf,
+    }
+
+    impl Drop for CognitiveFixture {
+        fn drop(&mut self) {
+            let _ = self.process.kill();
+            let _ = self.process.wait();
+        }
+    }
+
+    impl CognitiveFixture {
+        fn new(name: &str, mode: &str, shapes: &[&str]) -> Self {
+            use std::io::BufRead;
+            let log = yai_home().join(format!("{name}.jsonl"));
+            let mut process = std::process::Command::new("python3")
+                .current_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.."))
+                .args([
+                    "tests/fixtures/provider_governance_server.py",
+                    "--mode",
+                    mode,
+                    "--model",
+                    name,
+                    "--log",
+                    log.to_str().unwrap(),
+                ])
+                .stdout(std::process::Stdio::piped())
+                .spawn()
+                .unwrap();
+            let mut port = String::new();
+            std::io::BufReader::new(process.stdout.take().unwrap())
+                .read_line(&mut port)
+                .unwrap();
+            let endpoint = format!("http://127.0.0.1:{}", port.trim());
+            provider_governance_cli::provider_governance_command(
+                "yai.provider.add",
+                &strings(&[
+                    "--tenant",
+                    "tenant:i06-host",
+                    "--provider-key",
+                    name,
+                    "--endpoint",
+                    &endpoint,
+                    "--model",
+                    name,
+                    "--locality",
+                    "loopback",
+                ]),
+            )
+            .unwrap();
+            let auth = security::authenticate_local().unwrap();
+            let store = LmdbRecordStore::open(record_store_path()).unwrap();
+            let target = store
+                .list_provider_targets_authorized(&auth, "tenant:i06-host")
+                .unwrap()
+                .into_iter()
+                .find(|target| target.model_id == name)
+                .unwrap()
+                .target_id;
+            let mut args = strings(&["--target", &target]);
+            for shape in shapes {
+                args.extend(strings(&["--realization-shape", shape]));
+            }
+            provider_governance_cli::provider_governance_command("yai.provider.qualify", &args)
+                .unwrap();
+            provider_governance_cli::provider_governance_command(
+                "yai.provider.trust.approve",
+                &strings(&["--target", &target]),
+            )
+            .unwrap();
+            Self {
+                process,
+                target,
+                log,
+            }
+        }
+
+        fn count(&self) -> usize {
+            fs::read_to_string(&self.log)
+                .unwrap_or_default()
+                .lines()
+                .filter(|line| {
+                    !serde_json::from_str::<serde_json::Value>(line).unwrap()["synthetic"]
+                        .as_bool()
+                        .unwrap()
+                })
+                .count()
+        }
+
+        fn bind(&self, capability: CognitiveCapability, replace: bool) {
+            let auth = security::authenticate_local().unwrap();
+            let store = LmdbRecordStore::open(record_store_path()).unwrap();
+            let evidence = store
+                .record_semantic_suitability_evidence_authorized(
+                    &auth,
+                    &self.target,
+                    capability.clone(),
+                    yai_core_engine::cognitive::SemanticEvidencePosture::OperatorAttested,
+                    "fixture:i06-host",
+                    &format!("fixture:{}", self.target),
+                    vec!["evidence:i06-fixture".into()],
+                    "deterministic_loopback_test",
+                )
+                .unwrap();
+            let role = if capability == CognitiveCapability::PrimaryConversation {
+                yai_core_engine::cognitive::CognitiveBindingRole::Primary
+            } else {
+                yai_core_engine::cognitive::CognitiveBindingRole::Auxiliary
+            };
+            store
+                .bind_case_cognitive_target_authorized(
+                    &auth,
+                    "case:i06-host",
+                    "participant:model",
+                    role,
+                    capability,
+                    &self.target,
+                    &evidence.evidence_id,
+                    replace,
+                )
+                .unwrap();
+        }
+    }
+
+    fn i06_audio() -> Vec<ConversationInputPart> {
+        let audio = std::process::Command::new("base64")
+            .current_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.."))
+            .args([
+                "--decode",
+                "tests/fixtures/conversation/i03-audio.wav.base64",
+            ])
+            .output()
+            .unwrap();
+        assert!(audio.status.success());
+        vec![
+            ConversationInputPart::Text {
+                text: "before original audio".into(),
+            },
+            ConversationInputPart::Bytes {
+                modality: ContentModality::Audio,
+                media_type: "audio/wav".into(),
+                bytes: audio.stdout,
+            },
+            ConversationInputPart::Text {
+                text: "after original audio".into(),
+            },
+        ]
+    }
+
+    #[test]
+    #[ignore = "real loopback HTTP and isolated YAI_HOME; smoke-conversation-cognitive-host"]
+    fn i06_typed_host_native_composed_restart_and_fail_closed() {
+        const CASE: &str = "case:i06-host";
+        if let Ok(turn_id) = std::env::var("YAI_I06_HOST_RESUME") {
+            let mut controller =
+                ConversationController::open(CASE, Some("participant:model")).unwrap();
+            let result = controller.execute_committed_turn(&turn_id).unwrap();
+            assert_eq!(result.posture, ConversationExecutionPosture::Completed);
+            let cognition = result.cognition.as_ref().unwrap();
+            assert_eq!(cognition.route, "composed");
+            assert!(cognition.prerequisite.as_ref().unwrap().recovered);
+            assert!(!cognition.primary.recovered);
+            println!("I06_RESUMED:{}", serde_json::to_string(&result).unwrap());
+            return;
+        }
+        let _home = TestHome::enter("i06-typed-host");
+        prepare_case(CASE, "tenant:i06-host", "participant:model");
+        let primary =
+            CognitiveFixture::new("whisper-vision-name-text-only", "full", &["text_to_text"]);
+        let native = CognitiveFixture::new(
+            "plain-native",
+            "full",
+            &[
+                "text_to_text",
+                "audio_wav_to_text",
+                "ordered_png_text_to_text",
+            ],
+        );
+        let aux = CognitiveFixture::new("not-whisper", "full", &["audio_wav_to_text"]);
+        let drop_peer = CognitiveFixture::new(
+            "deepseek-strongest-name",
+            "drop_realization",
+            &["audio_wav_to_text"],
+        );
+        let malformed = CognitiveFixture::new(
+            "speech-name",
+            "malformed_realization",
+            &["audio_wav_to_text"],
+        );
+        let empty =
+            CognitiveFixture::new("vision-name", "empty_realization", &["audio_wav_to_text"]);
+        let auth = security::authenticate_local().unwrap();
+        let store = LmdbRecordStore::open(record_store_path()).unwrap();
+        store
+            .bind_case_provider_targets_authorized(
+                &auth,
+                CASE,
+                "participant:model",
+                [&primary, &native, &aux, &drop_peer, &malformed, &empty]
+                    .iter()
+                    .map(|peer| peer.target.clone())
+                    .collect(),
+                yai_core_engine::provider_governance::ProviderFailoverPolicy::SafeOnly,
+                3,
+            )
+            .unwrap();
+        native.bind(CognitiveCapability::PrimaryConversation, false);
+        aux.bind(CognitiveCapability::SpeechToText, false);
+        let mut controller = ConversationController::open(CASE, Some("participant:model")).unwrap();
+        let commit = controller.commit_parts(i06_audio()).unwrap();
+        let direct = controller
+            .execute_committed_turn(&commit.turn.turn_id)
+            .unwrap();
+        assert_eq!(direct.posture, ConversationExecutionPosture::Completed);
+        assert_eq!(direct.cognition.as_ref().unwrap().route, "direct");
+        assert!(direct.intent.as_ref().unwrap().prerequisite.is_none());
+        assert_eq!((native.count(), aux.count()), (1, 0));
+        // Repeated equal images retain distinct ordered positions through the same host.
+        let image = std::process::Command::new("base64")
+            .current_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../.."))
+            .args([
+                "--decode",
+                "tests/fixtures/conversation/i03-image.png.base64",
+            ])
+            .output()
+            .unwrap()
+            .stdout;
+        let parts = vec![
+            ConversationInputPart::Text {
+                text: "two distinct images".into(),
+            },
+            ConversationInputPart::Bytes {
+                modality: ContentModality::Image,
+                media_type: "image/png".into(),
+                bytes: image.clone(),
+            },
+            ConversationInputPart::Bytes {
+                modality: ContentModality::Image,
+                media_type: "image/png".into(),
+                bytes: image,
+            },
+        ];
+        let images = controller.commit_parts(parts).unwrap();
+        let image_result = controller
+            .execute_committed_turn(&images.turn.turn_id)
+            .unwrap();
+        assert_eq!(
+            image_result.posture,
+            ConversationExecutionPosture::Completed
+        );
+        assert_eq!(
+            image_result
+                .cognition
+                .as_ref()
+                .unwrap()
+                .closure
+                .delivery_count,
+            3
+        );
+        assert_ne!(
+            images.turn.ordered_parts[1].part_id,
+            images.turn.ordered_parts[2].part_id
+        );
+        primary.bind(CognitiveCapability::PrimaryConversation, true);
+        let unsupported = controller.commit_parts(i06_audio()).unwrap();
+        let result = controller
+            .execute_committed_turn(&unsupported.turn.turn_id)
+            .unwrap();
+        assert_eq!(result.posture, ConversationExecutionPosture::Unresolved);
+        assert_eq!(
+            (primary.count(), aux.count()),
+            (0, 0),
+            "MIME/name cannot invent a prerequisite"
+        );
+        // Retry retains the exact default intent but replans after a legitimate
+        // binding change makes the original source directly realizable.
+        native.bind(CognitiveCapability::PrimaryConversation, true);
+        let retried_native = controller.retry(&unsupported.turn.turn_id).unwrap();
+        assert_eq!(
+            retried_native.posture,
+            ConversationExecutionPosture::Completed
+        );
+        assert_eq!(retried_native.intent, result.intent);
+        assert_eq!(retried_native.cognition.as_ref().unwrap().route, "direct");
+        assert_eq!((native.count(), aux.count()), (3, 0));
+        primary.bind(CognitiveCapability::PrimaryConversation, true);
+        let explicit = ConversationExecutionInput {
+            prerequisite: Some((CognitiveCapability::SpeechToText, vec![1])),
+        };
+        let committed = controller
+            .commit_parts_with_intent(i06_audio(), &explicit)
+            .unwrap();
+        let interrupted = controller
+            .execute_turn_with_failpoint(&committed.turn, &mut vec![], Some("after-prerequisite"))
+            .unwrap();
+        assert_eq!(
+            interrupted.posture,
+            ConversationExecutionPosture::Unresolved
+        );
+        assert_eq!((primary.count(), aux.count()), (0, 1));
+        let history = store.list_case_transitions(CASE).unwrap();
+        let derived = yai_core_engine::conversation::derived_content_from_history(CASE, &history);
+        assert_eq!(derived.len(), 1);
+        assert_eq!(
+            derived[0].source_part_ids,
+            vec![committed.turn.ordered_parts[1].part_id.clone()]
+        );
+        let original_derivation = derived[0].clone();
+        let original_turns = turns_from_history(CASE, &history)
+            .into_iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        drop(controller);
+        store.rebuild_case_state(CASE).unwrap();
+        // A fresh OS process exercises the host, not the Advanced compose CLI.
+        let child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["command_adapters::conversation_controller::tests::i06_typed_host_native_composed_restart_and_fail_closed",
+                "--exact", "--ignored", "--nocapture", "--test-threads=1"])
+            .env("YAI_I06_HOST_RESUME", &committed.turn.turn_id).output().unwrap();
+        println!("{}", String::from_utf8_lossy(&child.stdout));
+        assert!(
+            child.status.success(),
+            "{}",
+            String::from_utf8_lossy(&child.stderr)
+        );
+        assert_eq!((primary.count(), aux.count()), (1, 1));
+        let mut controller = ConversationController::open(CASE, Some("participant:model")).unwrap();
+        let retry = controller.retry(&committed.turn.turn_id).unwrap();
+        assert_eq!(retry.posture, ConversationExecutionPosture::Completed);
+        assert!(retry.cognition.as_ref().unwrap().primary.recovered);
+        assert_eq!((primary.count(), aux.count()), (1, 1));
+        let history = store.list_case_transitions(CASE).unwrap();
+        assert_eq!(
+            turns_from_history(CASE, &history)
+                .into_iter()
+                .cloned()
+                .collect::<Vec<_>>(),
+            original_turns
+        );
+        assert_eq!(
+            yai_core_engine::conversation::derived_content_from_history(CASE, &history),
+            vec![&original_derivation]
+        );
+        for peer in [&drop_peer, &malformed, &empty] {
+            peer.bind(CognitiveCapability::SpeechToText, true);
+            let committed = controller
+                .commit_parts_with_intent(i06_audio(), &explicit)
+                .unwrap();
+            let result = controller
+                .execute_committed_turn(&committed.turn.turn_id)
+                .unwrap();
+            assert_ne!(result.posture, ConversationExecutionPosture::Completed);
+            assert_eq!(primary.count(), 1);
+            assert_eq!(peer.count(), 1);
+            let history = store.list_case_transitions(CASE).unwrap();
+            assert_eq!(
+                yai_core_engine::conversation::derived_content_from_history(CASE, &history).len(),
+                1
+            );
+            if peer.target == drop_peer.target {
+                assert_eq!(
+                    result.posture,
+                    ConversationExecutionPosture::DeliveryIndeterminate
+                );
+                aux.bind(CognitiveCapability::SpeechToText, true);
+                let retry = controller.retry(&committed.turn.turn_id).unwrap();
+                assert_eq!(
+                    retry.posture,
+                    ConversationExecutionPosture::DeliveryIndeterminate
+                );
+                assert_eq!((primary.count(), aux.count(), drop_peer.count()), (1, 1, 1));
+            }
+        }
+        println!("i06_host: audio_and_repeated_images_native=true no_mime_inference=true explicit_composition=true process_restart_reuses_auxiliary=true retry_same_turn_and_intent=true failed_prerequisite_blocks_primary=true uncertain_delivery_no_cross_target=true");
     }
 }

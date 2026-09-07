@@ -1,0 +1,206 @@
+{
+  "baseline": "e9002b7a452856a7b67eb602d66360f83330ec2d",
+  "provider_mode": "loopback_fixture",
+  "proof_class": "product",
+  "evidence_posture": "qualification",
+  "qualification_actor": "automated_operator_command_replay_not_human_acceptance",
+  "pre_state": "fresh /tmp/yai-i06-operator.ShuXHF/home; no provider or Case before setup; modified I06 worktree",
+  "provider_start": {
+    "command": "python3 tests/fixtures/provider_governance_server.py --port 0 --model i06-manual-fixture --mode full --requests 64",
+    "observed_port": 42909,
+    "observed_pid": 2256071
+  },
+  "records": [
+    {
+      "order": 1,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai init --tenant tenant:i06-manual --organization organization:i06",
+      "exit": 0,
+      "output": "security_bootstrap: created\nauthenticated: true\nauthentication_kind: local_posix_effective_credential\nreal_uid: 1000\neffective_uid: 1000\nreal_gid: 1000\neffective_gid: 1000\nprincipal_id: principal:72cc156b82060120eac8f7e234dbfcef\ntenant_id: tenant:i06-manual\norganization_ref: organization:i06\nmembership: owner\nsecurity_events: 2\n"
+    },
+    {
+      "order": 2,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai case create case:i06-manual --tenant tenant:i06-manual",
+      "exit": 0,
+      "output": "case_created: true\ncase_id: case:i06-manual\ntenant_id: tenant:i06-manual\ncase_generation: 1\nlifecycle: open\nprincipal_id: principal:72cc156b82060120eac8f7e234dbfcef\n"
+    },
+    {
+      "order": 3,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai case participant role add case:i06-manual --participant participant:model --role model-executor",
+      "exit": 0,
+      "output": "participant_role_binding: committed\ncase_id: case:i06-manual\ncase_generation: 2\nparticipant_id: participant:model\nrole: model-executor\nactor_ref: principal:72cc156b82060120eac8f7e234dbfcef\nactor_trust_boundary: kernel_authenticated_tenant_owner\n"
+    },
+    {
+      "order": 4,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai case participant link-principal case:i06-manual --principal self --participant participant:model",
+      "exit": 0,
+      "output": "principal_participant_linked: true\ncase_id: case:i06-manual\ntenant_id: tenant:i06-manual\nprincipal_id: principal:72cc156b82060120eac8f7e234dbfcef\nparticipant_id: participant:model\nlink_id: principal-participant-link:650a116628c7f438601feed176edcd6f\ncase_generation: 3\n"
+    },
+    {
+      "order": 5,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai case participant view admit case:i06-manual --participant participant:model --consumer model --view model_context",
+      "exit": 0,
+      "output": "participant_view_admission: committed\ncase_id: case:i06-manual\ncase_generation: 4\nparticipant_id: participant:model\nconsumer: model\nview: model_context\nactor_ref: principal:72cc156b82060120eac8f7e234dbfcef\nactor_trust_boundary: kernel_authenticated_tenant_owner\n"
+    },
+    {
+      "order": 6,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai provider add --tenant tenant:i06-manual --provider-key i06-fixture --endpoint http://127.0.0.1:42909 --model i06-manual-fixture --locality loopback",
+      "exit": 0,
+      "output": "provider_target: registered\ntarget_id: provider-target:80bbd59bf7639ee7cfc0ae1d331eb493\ntenant_id: tenant:i06-manual\nprovider_key: i06-fixture\nadapter: open_ai_compatible\nendpoint: http://127.0.0.1:42909\nmodel_id: i06-manual-fixture\ncredential_ref: none\nlocality: Loopback\nintegrity_digest: sha256:b497119b08d55a17e2be4872935e304c11e570eebf4ed800325b1cd58f33041c\n"
+    },
+    {
+      "order": 7,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai provider qualify provider-target:80bbd59bf7639ee7cfc0ae1d331eb493 --realization-shape text_to_text",
+      "exit": 0,
+      "output": "provider_probe: completed\nrun_id: qualification-run:8b5768a38e212ad9:1788782620860\ntarget_id: provider-target:80bbd59bf7639ee7cfc0ae1d331eb493\ntransport_connected: true\nmodel_exact_addressing: true\nchat_text: true\nstructured_json_object: true\nusage_accounting: true\ntext_embedding: false\nembedding_dimension: none\nhealth_probe: false\nextension_compatible_telemetry: false\nrealization_shapes: text_to_text\nsynthetic_input_only: true\nfailure_codes: \nqualification: recorded\nqualification_id: provider-qualification:45ccfdf68399b5c9afc837b0d9dc9f36\nqualification_suite: yai.openai_compatible.typed_content.synthetic.v1\nqualified_capabilities: ChatText,StructuredJsonObject,ModelExactAddressing,UsageAccounting\n"
+    },
+    {
+      "order": 8,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai provider trust approve provider-target:80bbd59bf7639ee7cfc0ae1d331eb493",
+      "exit": 0,
+      "output": "provider_trust: recorded\nevent_id: provider-trust-event:e9a107fdf658eaa186e613144613fbce\ntarget_id: provider-target:80bbd59bf7639ee7cfc0ae1d331eb493\nposture: Approved\nsequence: 1\nprincipal_id: principal:72cc156b82060120eac8f7e234dbfcef\n"
+    },
+    {
+      "order": 9,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai case provider bind case:i06-manual --participant participant:model --target provider-target:80bbd59bf7639ee7cfc0ae1d331eb493 --failover safe_only --max-attempts 1",
+      "exit": 0,
+      "output": "case_provider_binding: recorded\nbinding_id: case-provider-binding:815994bb7d315c5e1b2af889877ca958\ncase_id: case:i06-manual\nparticipant_id: participant:model\ntargets: provider-target:80bbd59bf7639ee7cfc0ae1d331eb493\nfailover_policy: SafeOnly\nmax_attempts_per_turn: 1\n"
+    },
+    {
+      "order": 10,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai provider suitability record provider-target:80bbd59bf7639ee7cfc0ae1d331eb493 --capability primary_conversation --suite fixture:i06-manual --run manual-local --evidence-ref evidence:i06-deterministic-fixture",
+      "exit": 0,
+      "output": "semantic_suitability_evidence: recorded\nevidence_id: semantic-suitability:20dbcac8c27a90ac56606b53a18f8a94\ntarget_id: provider-target:80bbd59bf7639ee7cfc0ae1d331eb493\ncapability: primary_conversation\nposture: operator_attested\nmechanically_qualified: false\nprovider_execution: not_performed\n"
+    },
+    {
+      "order": 11,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai case cognitive bind case:i06-manual --participant participant:model --role primary --capability primary_conversation --target provider-target:80bbd59bf7639ee7cfc0ae1d331eb493 --evidence semantic-suitability:20dbcac8c27a90ac56606b53a18f8a94",
+      "exit": 0,
+      "output": "case_cognitive_binding: recorded\nbinding_id: case-cognitive-binding:a0d71150b975ac05461d381f56de368e\ncase_id: case:i06-manual\nparticipant_id: participant:model\nrole: primary\ncapability: primary_conversation\ntarget_policy: pinned\ncandidate: provider-target:80bbd59bf7639ee7cfc0ae1d331eb493 preference:0 evidence:semantic-suitability:20dbcac8c27a90ac56606b53a18f8a94\nprovider_execution: not_performed\n"
+    },
+    {
+      "order": 12,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home TERM=xterm-256color ./yai prompt --case case:i06-manual --subject participant:model",
+      "exit": "running",
+      "output": "case_prompt: entered\r\ncase_ref: case:i06-manual\r\nsubject_ref: participant:model\r\ninteraction_thread: conversation-thread:eabfa057d9e629e6a73bf7a46a5e2f1775a48fcf1bc280bcfca1093f17d23a46\r\ncommands: /thread status | /thread new | /thread list | /thread use  | /thread archive  | /refresh | /transcript on | /transcript off | /transcript status | /memory propose | /retry  | /cancel | /exit | /quit\r\n\u001b[?2004h\r\u001b[2Kyai(case:i06-manual)> "
+    },
+    {
+      "order": 13,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "action": "PTY input",
+      "input": "Saluta e descrivi il contesto della conversazione.\r",
+      "exit": "running",
+      "output": "Saluta e descrivi il contesto della conversazione.\r\u001b[72C\r\n\u001b[?2004lconversation_turn: conversation-turn:sha256:3057959c78ea29e7e4bdbdb991d7e9ae70bbd454107977eb917afaa1cc4723e0\r\nconversation_generation: 8\r\nfixture native conversation ORCHID-I03\r\nconversation_cognition: {\"context_frame_id\":\"context-frame:44c5b47cacd3e913\",\"execution_plan_id\":\"cognitive-plan:c599192ba87a115bc4e0895943994270\",\"intent_id\":\"cognitive-composition:sha256:5d8cec262bcc79282a77726338a0f99839040b40ee82d9851e8892336b316f48\",\"invocation_id\":\"invocation:case:i06-manual:model-prompt-2\",\"lane_id\":\"cognitive-lane:a45a301884556a9a489bea3cfe0c802e\",\"projection_id\":\"projection:ba3f4e5a96a9fa27\",\"provider_result_id\":\"provider-result:case:i06-manual:model-output-3\",\"recovered\":false,\"route\":\"direct\",\"selection_id\":\"provider-selection:08bb8517d06dc2190b072aa5e5308b71\",\"source_closure_id\":\"cognitive-source-closure:sha256:d03c7852a17cc206c4ff08881465ac0fe290bc493f5cc2b23a0eaa3c08fc1f48\",\"target_id\":\"provider-target:80bbd59bf7639ee7cfc0ae1d331eb493\",\"turn_id\":\"conversation-turn:sha256:3057959c78ea29e7e4bdbdb991d7e9ae70bbd454107977eb917afaa1cc4723e0\",\"validation_plan_id\":\"cognitive-plan:c599192ba87a115bc4e0895943994270\"}\r\nconversation_execution: \"completed\"\r\n\u001b[?2004h\r\u001b[2Kyai(case:i06-manual)> "
+    },
+    {
+      "order": 14,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "action": "PTY input",
+      "input": "/exit\r",
+      "exit": 0,
+      "output": "/exit\r\u001b[27C\r\n\u001b[?2004l"
+    },
+    {
+      "order": 15,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai case conversation turn show case:i06-manual latest --participant participant:model --json",
+      "exit": 0,
+      "output": "{\"schema\":\"yai.cli.result.v1\",\"operation_id\":\"yai.case.conversation.turn.show\",\"status\":\"ok\",\"data\":{\"kind\":\"native_json\",\"value\":{\"canonical\":true,\"content_integrity\":\"verified\",\"execution_intent\":{\"case_id\":\"case:i06-manual\",\"goal\":\"primary_conversation\",\"integrity_digest\":\"sha256:5d8cec262bcc79282a77726338a0f99839040b40ee82d9851e8892336b316f48\",\"participant_id\":\"participant:model\",\"request_id\":\"cognitive-composition:sha256:5d8cec262bcc79282a77726338a0f99839040b40ee82d9851e8892336b316f48\",\"schema\":\"yai.cognitive_composition_request.v1\",\"source_part_ids\":[\"content-part:sha256:c887d8068c68ea6699df9c02283668b4ded38aec4dd9814eda3ca14311c5cc0c\"],\"source_turn_digest\":\"sha256:58786059e9cfed6b9d80ec36b73c30e9bfb781d4c8a807407dc9b43bce3528cd\",\"source_turn_id\":\"conversation-turn:sha256:3057959c78ea29e7e4bdbdb991d7e9ae70bbd454107977eb917afaa1cc4723e0\",\"tenant_id\":\"tenant:i06-manual\"},\"provider_execution_required_for_identity\":false,\"schema\":\"yai.conversation_turn_view.v2\",\"turn\":{\"base_generation\":6,\"case_id\":\"case:i06-manual\",\"content_digest\":\"sha256:58786059e9cfed6b9d80ec36b73c30e9bfb781d4c8a807407dc9b43bce3528cd\",\"ordered_parts\":[{\"object\":{\"byte_length\":50,\"case_id\":\"case:i06-manual\",\"content_digest\":\"sha256:7c925866a04e047a45a6e591dd43889be7cb76eea3648d27487def3b9b84c93a\",\"inline_text\":\"Saluta e descrivi il contesto della conversazione.\",\"media_type\":\"text/plain;charset=utf-8\",\"modality\":\"text\",\"object_id\":\"content-object:9d57184c221ba94b2e37652512459f205d5cbe7b2b83cabb4e6427e6390d0e20\",\"schema\":\"yai.conversation_content_object.v1\",\"storage_ref\":\"yai-content/v1/objects/9d57184c221ba94b2e37652512459f205d5cbe7b2b83cabb4e6427e6390d0e20/payload\",\"tenant_id\":\"tenant:i06-manual\"},\"ordinal\":0,\"part_id\":\"content-part:sha256:c887d8068c68ea6699df9c02283668b4ded38aec4dd9814eda3ca14311c5cc0c\",\"provenance\":{\"imported_by_principal_id\":\"principal:72cc156b82060120eac8f7e234dbfcef\",\"provenance_kind\":\"original\"},\"schema\":\"yai.conversation_content_part.v1\"}],\"participant_id\":\"participant:model\",\"schema\":\"yai.conversation_turn.v1\",\"submitted_by_principal_id\":\"principal:72cc156b82060120eac8f7e234dbfcef\",\"tenant_id\":\"tenant:i06-manual\",\"thread_id\":\"conversation-thread:eabfa057d9e629e6a73bf7a46a5e2f1775a48fcf1bc280bcfca1093f17d23a46\",\"turn_id\":\"conversation-turn:sha256:3057959c78ea29e7e4bdbdb991d7e9ae70bbd454107977eb917afaa1cc4723e0\"}}}}\n"
+    },
+    {
+      "order": 16,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai case cognitive show case:i06-manual --participant participant:model --json",
+      "exit": 0,
+      "output": "{\"schema\":\"yai.cli.result.v1\",\"operation_id\":\"yai.case.cognitive.show\",\"status\":\"ok\",\"data\":{\"kind\":\"native_json\",\"value\":{\"bindings\":[{\"binding_id\":\"case-cognitive-binding:a0d71150b975ac05461d381f56de368e\",\"bound_at_generation\":5,\"bound_by_principal_id\":\"principal:72cc156b82060120eac8f7e234dbfcef\",\"capability\":\"primary_conversation\",\"case_id\":\"case:i06-manual\",\"integrity_digest\":\"sha256:a0d71150b975ac05461d381f56de368ecccb9c4788724611db1d42cec80d042b\",\"participant_id\":\"participant:model\",\"provider_binding_id_at_bind\":\"case-provider-binding:815994bb7d315c5e1b2af889877ca958\",\"role\":\"primary\",\"schema\":\"yai.case_cognitive_binding.v1\",\"semantic_evidence_id\":\"semantic-suitability:20dbcac8c27a90ac56606b53a18f8a94\",\"target_digest\":\"sha256:b497119b08d55a17e2be4872935e304c11e570eebf4ed800325b1cd58f33041c\",\"target_id\":\"provider-target:80bbd59bf7639ee7cfc0ae1d331eb493\",\"tenant_id\":\"tenant:i06-manual\"}],\"case_generation\":13,\"case_id\":\"case:i06-manual\",\"count\":1,\"participant_id\":\"participant:model\",\"provider_execution\":\"not_performed\",\"schema\":\"yai.cli.case_cognitive_binding_collection.v1\"}}}\n"
+    },
+    {
+      "order": 17,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai case provider show case:i06-manual",
+      "exit": 0,
+      "output": "case_id: case:i06-manual\nprovider_mode: governed_pool\nbinding_id: case-provider-binding:815994bb7d315c5e1b2af889877ca958\nparticipant_id: participant:model\ncandidate_count: 1\ntargets: provider-target:80bbd59bf7639ee7cfc0ae1d331eb493\nfailover_policy: SafeOnly\nlast_selection_id: provider-selection:08bb8517d06dc2190b072aa5e5308b71\nlast_selected_target: provider-target:80bbd59bf7639ee7cfc0ae1d331eb493\nlast_selected_model: i06-manual-fixture\nlast_attempt_posture: ResultReceived\ndelivery_indeterminate: false\n"
+    },
+    {
+      "order": 18,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai store status",
+      "exit": 0,
+      "output": "record_store_backend: lmdb\nrecord_store_status: ready\nrecord_store_path: /tmp/yai-i06-operator.ShuXHF/home/store/lmdb\ncanonical_authority: lmdb_transaction_authority_v1\ntransition_schema: yai.transition.v8\ncase_state_schema: yai.case_state.v8\nlegacy_record_schema: yai.record.v1\ncanonical_databases: transitions_by_id,case_transition_sequence,case_state,security_principals_by_id,tenants_by_id,tenant_memberships,security_events_by_id\nindexes: records_by_id,records_by_case,records_by_kind,records_by_subject,records_by_receipt\nlegacy_databases: records_by_id,records_by_case,records_by_kind,records_by_subject,records_by_receipt,legacy_compatibility_payloads\nderived_databases: graph_relations_by_id,graph_relations_by_case,graph_relations_by_kind\n"
+    },
+    {
+      "order": 19,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home TERM=xterm-256color ./yai prompt --case case:i06-manual --subject participant:model",
+      "exit": "running",
+      "output": "case_prompt: entered\r\ncase_ref: case:i06-manual\r\nsubject_ref: participant:model\r\ninteraction_thread: conversation-thread:eabfa057d9e629e6a73bf7a46a5e2f1775a48fcf1bc280bcfca1093f17d23a46\r\ncommands: /thread status | /thread new | /thread list | /thread use  | /thread archive  | /refresh | /transcript on | /transcript off | /transcript status | /memory propose | /retry  | /cancel | /exit | /quit\r\n\u001b[?2004h\r\u001b[2Kyai(case:i06-manual)> "
+    },
+    {
+      "order": 20,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "action": "PTY input",
+      "input": "/retry conversation-turn:sha256:3057959c78ea29e7e4bdbdb991d7e9ae70bbd454107977eb917afaa1cc4723e0\r",
+      "exit": "running",
+      "output": "/retry conversation-turn:sha256:3057959c78ea29e7e4bdbdb99\r\u001b[2K\ryai(case:i06-manual)> /retry conversation-turn:sha256:3057959c78ea29e7e4bdbdb991\r\nd7e9ae70bbd454107977eb917afaa1cc4723e0\r\u001b[38C\r\n\u001b[?2004lfixture native conversation ORCHID-I03\r\nconversation_cognition: {\"context_frame_id\":\"context-frame:44c5b47cacd3e913\",\"execution_plan_id\":\"cognitive-plan:c599192ba87a115bc4e0895943994270\",\"intent_id\":\"cognitive-composition:sha256:5d8cec262bcc79282a77726338a0f99839040b40ee82d9851e8892336b316f48\",\"invocation_id\":\"invocation:case:i06-manual:model-prompt-2\",\"lane_id\":\"cognitive-lane:a45a301884556a9a489bea3cfe0c802e\",\"projection_id\":\"projection:ba3f4e5a96a9fa27\",\"provider_result_id\":\"provider-result:case:i06-manual:model-output-3\",\"recovered\":true,\"route\":\"direct\",\"selection_id\":\"provider-selection:08bb8517d06dc2190b072aa5e5308b71\",\"source_closure_id\":\"cognitive-source-closure:sha256:d03c7852a17cc206c4ff08881465ac0fe290bc493f5cc2b23a0eaa3c08fc1f48\",\"target_id\":\"provider-target:80bbd59bf7639ee7cfc0ae1d331eb493\",\"turn_id\":\"conversation-turn:sha256:3057959c78ea29e7e4bdbdb991d7e9ae70bbd454107977eb917afaa1cc4723e0\",\"validation_plan_id\":\"cognitive-plan:3a4470c72ba2da233f2abedbf0b63264\"}\r\nconversation_execution: \"completed\"\r\n\u001b[?2004h\r\u001b[2Kyai(case:i06-manual)> "
+    },
+    {
+      "order": 21,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "action": "PTY input",
+      "input": "/exit\r",
+      "exit": 0,
+      "output": "/exit\r\u001b[27C\r\n\u001b[?2004l"
+    },
+    {
+      "order": 22,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+      "command": "env YAI_HOME=/tmp/yai-i06-operator.ShuXHF/home ./yai store status",
+      "exit": 0,
+      "output": "record_store_backend: lmdb\nrecord_store_status: ready\nrecord_store_path: /tmp/yai-i06-operator.ShuXHF/home/store/lmdb\ncanonical_authority: lmdb_transaction_authority_v1\ntransition_schema: yai.transition.v17\ncase_state_schema: yai.case_state.v14\nlegacy_record_schema: yai.record.v1\ncanonical_databases: transitions_by_id,case_transition_sequence,case_state,security_principals_by_id,tenants_by_id,tenant_memberships,security_events_by_id\nindexes: records_by_id,records_by_case,records_by_kind,records_by_subject,records_by_receipt\nlegacy_databases: records_by_id,records_by_case,records_by_kind,records_by_subject,records_by_receipt,legacy_compatibility_payloads\nderived_databases: graph_relations_by_id,graph_relations_by_case,graph_relations_by_kind\n"
+    },
+    {
+      "order": 23,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "command": "kill -TERM 2256071",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "order": 24,
+      "run_id": "yai-i06-operator.ShuXHF",
+      "command": "rm -r -- /tmp/yai-i06-operator.ShuXHF",
+      "exit": 0,
+      "output": "",
+      "removed": "disposable manual Case/content/store only"
+    }
+  ]
+}

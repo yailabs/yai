@@ -88,7 +88,10 @@ suites hidden inside build and recursive characterization build are removed.
 `cases/` holds procedures. Rust tests remain beside implementation. No directory
 shuffle, provider/test service, database or runtime owner is introduced.
 
-W19/H19/W20 and I01–I04 remain publication-reachable. Loopback proves YAI
+W19/H19/W20 and I01–I06 remain publication-reachable. The I06 host recovery
+leaf is `smoke-conversation-cognitive-host`; `smoke-replai-terminal` exercises
+real PTY SEND/arbitration/pinning/retry. Canonical intent/adoption/replay runs in
+the no-provider Rust recovery lane. Loopback proves YAI
 semantics and real generic adapter transport, **not live YVEX multipart
 compatibility or model quality**. External YVEX text qualification has a separate
 scope; public typed-media external qualification remains integration work.

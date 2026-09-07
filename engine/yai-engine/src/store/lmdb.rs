@@ -95,8 +95,9 @@ use crate::transition::{
     CASE_STATE_SCHEMA_V6, CASE_STATE_SCHEMA_V7, CASE_STATE_SCHEMA_V8, CASE_STATE_SCHEMA_V9,
     TRANSITION_SCHEMA, TRANSITION_SCHEMA_V1, TRANSITION_SCHEMA_V10, TRANSITION_SCHEMA_V11,
     TRANSITION_SCHEMA_V12, TRANSITION_SCHEMA_V13, TRANSITION_SCHEMA_V14, TRANSITION_SCHEMA_V15,
-    TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4, TRANSITION_SCHEMA_V5,
-    TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7, TRANSITION_SCHEMA_V8, TRANSITION_SCHEMA_V9,
+    TRANSITION_SCHEMA_V16, TRANSITION_SCHEMA_V2, TRANSITION_SCHEMA_V3, TRANSITION_SCHEMA_V4,
+    TRANSITION_SCHEMA_V5, TRANSITION_SCHEMA_V6, TRANSITION_SCHEMA_V7, TRANSITION_SCHEMA_V8,
+    TRANSITION_SCHEMA_V9,
 };
 use crate::workflow::{
     derive_effective_workflow_topology, evaluate_predicate, node_completion_predicate,
@@ -5310,6 +5311,70 @@ impl LmdbRecordStore {
         Ok(commit)
     }
 
+    /// Atomic SEND: complete object references and immutable semantic intent.
+    pub fn commit_conversation_submission_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        pending: PendingTransition,
+        request: crate::conversation::CognitiveCompositionRequest,
+    ) -> Result<(CanonicalCommit, CanonicalCommit), String> {
+        let TransitionPayload::ConversationTurnCommitted { turn } = &pending.payload else {
+            return Err("conversation_submission_requires_turn".to_string());
+        };
+        request.validate(turn)?;
+        let mut txn = self.env.begin_rw_txn().map_err(|error| error.to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        let first =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        let intent =
+            conversation_intent_pending(&request, first.state.generation, context.principal_id());
+        let second =
+            self.commit_transition_txn_at(&mut txn, intent, false, None, Some(&context))?;
+        txn.commit().map_err(|error| error.to_string())?;
+        Ok((first, second))
+    }
+
+    /// Explicit compatibility adoption; a retry never replaces the first intent.
+    pub fn record_conversation_execution_intent_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        request: crate::conversation::CognitiveCompositionRequest,
+    ) -> Result<crate::conversation::CognitiveCompositionRequest, String> {
+        let mut txn = self.env.begin_rw_txn().map_err(|error| error.to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, &request.tenant_id)?;
+        context.require_owner()?;
+        let history = self.list_case_transitions_txn(&txn, &request.case_id)?;
+        let turn =
+            crate::conversation::find_turn(&request.case_id, &request.source_turn_id, &history)
+                .ok_or_else(|| "conversation_intent_turn_missing".to_string())?;
+        request.validate(turn)?;
+        if turn.submitted_by_principal_id != context.principal_id() {
+            return Err("conversation_intent_principal_mismatch".to_string());
+        }
+        for transition in &history {
+            if let TransitionPayload::ConversationExecutionIntentRecorded { request: existing } =
+                &transition.payload
+            {
+                if existing.source_turn_id == request.source_turn_id {
+                    if existing != &request {
+                        return Err("conversation_intent_immutable".to_string());
+                    }
+                    return Ok(existing.clone());
+                }
+            }
+        }
+        let state = self
+            .get_case_state_txn(&txn, &request.case_id)?
+            .ok_or_else(|| "conversation_intent_case_missing".to_string())?;
+        let pending =
+            conversation_intent_pending(&request, state.generation, context.principal_id());
+        self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit().map_err(|error| error.to_string())?;
+        Ok(request)
+    }
+
     pub fn create_tenant_case(
         &self,
         authenticated: &AuthenticatedPrincipal,
@@ -7794,6 +7859,40 @@ impl LmdbRecordStore {
             &pending,
             security_context,
         )?;
+        if let TransitionPayload::ConversationExecutionIntentRecorded { request } = &pending.payload
+        {
+            let context = security_context
+                .ok_or_else(|| "authenticated_tenant_owner_required".to_string())?;
+            context.require_owner()?;
+            let state = current_state
+                .as_ref()
+                .ok_or_else(|| "conversation_intent_case_missing".to_string())?;
+            let history = self.list_case_transitions_txn(txn, &pending.case_id)?;
+            let turn =
+                crate::conversation::find_turn(&pending.case_id, &request.source_turn_id, &history)
+                    .ok_or_else(|| "conversation_intent_turn_missing".to_string())?;
+            request.validate(turn)?;
+            if request.case_id != pending.case_id
+                || state.tenant_id.as_deref() != Some(request.tenant_id.as_str())
+                || context.tenant_id() != request.tenant_id
+                || context.principal_id() != turn.submitted_by_principal_id
+                || pending.source.principal_id.as_deref() != Some(context.principal_id())
+                || !state.principal_participant_links.iter().any(|link| {
+                    link.tenant_id == request.tenant_id
+                        && link.participant_id == request.participant_id
+                        && link.principal_id == context.principal_id()
+                })
+            {
+                return Err("conversation_intent_security_domain_mismatch".to_string());
+            }
+            if history.iter().any(|transition| {
+                matches!(&transition.payload,
+                TransitionPayload::ConversationExecutionIntentRecorded { request: existing }
+                if existing.source_turn_id == request.source_turn_id)
+            }) {
+                return Err("conversation_intent_already_adopted".to_string());
+            }
+        }
         self.validate_workflow_progression_txn(
             txn,
             current_state.as_ref(),
@@ -7942,6 +8041,7 @@ impl LmdbRecordStore {
                 | TransitionPayload::CaseWorkflowBound { .. }
                 | TransitionPayload::WorkflowAmendmentAdopted { .. }
                 | TransitionPayload::ConversationTurnCommitted { .. }
+                | TransitionPayload::ConversationExecutionIntentRecorded { .. }
         );
         if owner_protected {
             let context = security_context
@@ -10721,6 +10821,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                TRANSITION_SCHEMA_V16,
                 TRANSITION_SCHEMA_V15,
                 TRANSITION_SCHEMA_V14,
                 TRANSITION_SCHEMA_V13,
@@ -11830,6 +11931,18 @@ fn derive_graph_relations_from_transition(
                 turn_id,
                 "provider_result",
                 result_id,
+            );
+        }
+        TransitionPayload::ConversationExecutionIntentRecorded { request } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "conversation_execution_intent_uses_turn",
+                "conversation_execution_intent",
+                &request.request_id,
+                "conversation_turn",
+                &request.source_turn_id,
             );
         }
         TransitionPayload::ConversationTurnCommitted { turn } => {
@@ -16207,6 +16320,43 @@ fn closure_blockers(state: &CaseState) -> Vec<String> {
     blockers
 }
 
+/// The only canonical adoption shape for a conversation execution request.
+fn conversation_intent_pending(
+    request: &crate::conversation::CognitiveCompositionRequest,
+    generation: u64,
+    principal_id: &str,
+) -> PendingTransition {
+    let mut causal_refs = vec![
+        request.request_id.clone(),
+        request.source_turn_id.clone(),
+        request.participant_id.clone(),
+    ];
+    causal_refs.extend(request.source_part_ids.iter().cloned());
+    PendingTransition {
+        transition_id: format!("transition:conversation-intent:{}", request.source_turn_id),
+        case_id: request.case_id.clone(),
+        expected_generation: generation,
+        source: TransitionSource {
+            component: "yai.conversation_execution".to_string(),
+            participant_id: Some(request.participant_id.clone()),
+            principal_id: Some(principal_id.to_string()),
+            source_ref: Some(request.request_id.clone()),
+        },
+        scope: Some(crate::transition::TransitionScope {
+            case_id: request.case_id.clone(),
+            participant_refs: vec![request.participant_id.clone()],
+            resource_refs: Vec::new(),
+            policy_refs: Vec::new(),
+        }),
+        causal_refs,
+        payload: TransitionPayload::ConversationExecutionIntentRecorded {
+            request: request.clone(),
+        },
+        provenance: Vec::new(),
+        summary: None,
+    }
+}
+
 /// Returns whether a reference names canonical truth committed in this exact
 /// Transition. Handoff evidence uses this closed projection so a syntactically
 /// plausible identifier from another Case can never become target-local proof.
@@ -16248,6 +16398,11 @@ fn transition_contains_canonical_fact_ref(transition: &Transition, reference: &s
             result_id,
             ..
         } => turn_id == reference || invocation_id == reference || result_id == reference,
+        TransitionPayload::ConversationExecutionIntentRecorded { request } => {
+            request.request_id == reference
+                || request.source_turn_id == reference
+                || request.source_part_ids.iter().any(|part| part == reference)
+        }
         TransitionPayload::ConversationTurnCommitted { turn } => {
             turn.turn_id == reference
                 || turn.ordered_parts.iter().any(|part| {
@@ -26025,6 +26180,8 @@ mod tests {
     mod i03_tests;
     #[path = "i05_tests.rs"]
     mod i05_tests;
+    #[path = "i06_tests.rs"]
+    mod i06_tests;
     #[path = "wave18_tests.rs"]
     mod wave18_tests;
 }

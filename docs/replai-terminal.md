@@ -25,6 +25,15 @@ committed Turn identity, then calls `execute_committed_turn`. Provider failure
 cannot erase the committed user Turn. No edit-by-edit synchronization into a
 Case draft, second conversation state machine or provider policy exists here.
 
+I06 changes only the YAI application consumer: SEND atomically commits Turn and
+execution intent, then the controller invokes the shared cognitive arbitration,
+exact realization and finite composition boundary. Configure cognitive binding
+and suitability as well as the provider envelope and mechanical qualification.
+The terminal does not rank targets or infer media intent. `/retry TURN` preserves
+that Turn/intent and reuses compatible recorded results. REPLAI revision and
+terminal mechanics are unchanged. The PTY suite also proves arbitrated versus
+pinned target choice and refusal of cross-target retry after uncertain delivery.
+
 | Terminal or local action | Application decision |
 | --- | --- |
 | Submitted non-command text | Admit history; commit one ordered text part; execute the committed Turn |

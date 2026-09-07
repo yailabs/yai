@@ -696,6 +696,56 @@ impl CognitiveCompositionRequest {
         })
     }
 
+    /// Identity validation independent of history; exact source membership is
+    /// additionally validated against the canonical Turn at adoption/replay.
+    pub fn validate_structure(&self) -> Result<(), String> {
+        if self.schema != COGNITIVE_COMPOSITION_REQUEST_SCHEMA
+            || self.goal != CognitiveCapability::PrimaryConversation
+            || self.source_part_ids.is_empty()
+            || self.source_part_ids.len() > MAX_TURN_PARTS
+            || self.source_part_ids.iter().collect::<BTreeSet<_>>().len()
+                != self.source_part_ids.len()
+        {
+            return Err("conversation_intent_contract_invalid".to_string());
+        }
+        if let Some(prerequisite) = &self.prerequisite {
+            if prerequisite.capability == CognitiveCapability::PrimaryConversation
+                || prerequisite.source_part_ids.is_empty()
+                || prerequisite.source_part_ids.len() > MAX_DERIVATION_SOURCES
+                || prerequisite
+                    .source_part_ids
+                    .iter()
+                    .collect::<BTreeSet<_>>()
+                    .len()
+                    != prerequisite.source_part_ids.len()
+                || prerequisite
+                    .source_part_ids
+                    .iter()
+                    .any(|id| !self.source_part_ids.contains(id))
+            {
+                return Err("conversation_intent_prerequisite_invalid".to_string());
+            }
+        }
+        let identity = CognitiveCompositionRequestIdentity {
+            schema: &self.schema,
+            tenant_id: &self.tenant_id,
+            case_id: &self.case_id,
+            participant_id: &self.participant_id,
+            source_turn_id: &self.source_turn_id,
+            source_turn_digest: &self.source_turn_digest,
+            goal: &self.goal,
+            source_part_ids: &self.source_part_ids,
+            prerequisite: &self.prerequisite,
+        };
+        let digest = digest_json(&identity)?;
+        if digest != self.integrity_digest
+            || self.request_id != format!("cognitive-composition:{digest}")
+        {
+            return Err("conversation_intent_identity_mismatch".to_string());
+        }
+        Ok(())
+    }
+
     pub fn validate(&self, turn: &ConversationTurn) -> Result<(), String> {
         if self.schema != COGNITIVE_COMPOSITION_REQUEST_SCHEMA {
             return Err("cognitive_composition_schema_invalid".to_string());

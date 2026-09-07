@@ -322,8 +322,14 @@ fn print_store_status() {
     println!("record_store_status: {}", status.status);
     println!("record_store_path: {}", status.path.display());
     println!("canonical_authority: lmdb_transaction_authority_v1");
-    println!("transition_schema: yai.transition.v8");
-    println!("case_state_schema: yai.case_state.v8");
+    println!(
+        "transition_schema: {}",
+        yai_core_engine::transition::TRANSITION_SCHEMA
+    );
+    println!(
+        "case_state_schema: {}",
+        yai_core_engine::transition::CASE_STATE_SCHEMA
+    );
     println!("legacy_record_schema: yai.record.v1");
     if status.status == "ready" {
         println!("canonical_databases: transitions_by_id,case_transition_sequence,case_state,security_principals_by_id,tenants_by_id,tenant_memberships,security_events_by_id");
@@ -937,6 +943,8 @@ use provider_governance_cli::provider_governance_command;
 
 #[path = "cognitive_cli.rs"]
 mod cognitive_cli;
+#[path = "cognitive_execution.rs"]
+mod cognitive_execution;
 use cognitive_cli::cognitive_command;
 
 #[path = "controlled_effect.rs"]

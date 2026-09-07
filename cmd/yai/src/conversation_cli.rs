@@ -23,6 +23,7 @@ struct TurnView<'a> {
     canonical: bool,
     provider_execution_required_for_identity: bool,
     content_integrity: &'static str,
+    execution_intent: Option<&'a yai_core_engine::conversation::CognitiveCompositionRequest>,
 }
 
 #[derive(Serialize)]
@@ -336,11 +337,21 @@ fn show_turn(args: &[String]) -> Result<(), String> {
     }
     verify_turn(turn)?;
     let value = TurnView {
-        schema: "yai.conversation_turn_view.v1",
+        schema: "yai.conversation_turn_view.v2",
         turn,
         canonical: true,
         provider_execution_required_for_identity: false,
         content_integrity: "verified",
+        execution_intent: transitions
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::ConversationExecutionIntentRecorded { request }
+                    if request.source_turn_id == turn.turn_id =>
+                {
+                    Some(request)
+                }
+                _ => None,
+            }),
     };
     render(args, &value, || print_turn(turn))
 }

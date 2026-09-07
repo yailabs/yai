@@ -10,7 +10,9 @@ use crate::cognitive::{
     validate_active_cognitive_bindings, CaseCognitiveBinding, CognitiveBindingRole,
     CognitiveCapability, CASE_COGNITIVE_BINDING_SCHEMA_V2,
 };
-use crate::conversation::{ConversationDerivedContent, ConversationTurn};
+use crate::conversation::{
+    CognitiveCompositionRequest, ConversationDerivedContent, ConversationTurn,
+};
 use crate::effect::{
     digest_bytes, Decision, DecisionOutcome, EffectOutcome, EffectReceipt, ExecutionGrant,
     FilesystemObservation, NormalizationFailure, Operation, OperationKind, OperationOrigin,
@@ -47,7 +49,8 @@ pub const TRANSITION_SCHEMA_V12: &str = "yai.transition.v12";
 pub const TRANSITION_SCHEMA_V13: &str = "yai.transition.v13";
 pub const TRANSITION_SCHEMA_V14: &str = "yai.transition.v14";
 pub const TRANSITION_SCHEMA_V15: &str = "yai.transition.v15";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v16";
+pub const TRANSITION_SCHEMA_V16: &str = "yai.transition.v16";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v17";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
@@ -300,6 +303,9 @@ pub enum TransitionPayload {
         result_id: String,
         operator_input: String,
     },
+    ConversationExecutionIntentRecorded {
+        request: CognitiveCompositionRequest,
+    },
     ConversationTurnCommitted {
         turn: ConversationTurn,
     },
@@ -463,6 +469,9 @@ impl TransitionPayload {
             Self::ProviderInvocationStarted { .. } => "provider_invocation_started",
             Self::ProviderResultRecorded { .. } => "provider_result_recorded",
             Self::InteractionTurnRecorded { .. } => "interaction_turn_recorded",
+            Self::ConversationExecutionIntentRecorded { .. } => {
+                "conversation_execution_intent_recorded"
+            }
             Self::ConversationTurnCommitted { .. } => "conversation_turn_committed",
             Self::ConversationDerivedContentRecorded { .. } => {
                 "conversation_derived_content_recorded"
@@ -1552,6 +1561,7 @@ impl CaseState {
                 });
             }
             TransitionPayload::InteractionTurnRecorded { .. } => {}
+            TransitionPayload::ConversationExecutionIntentRecorded { .. } => {}
             TransitionPayload::ConversationTurnCommitted { .. } => {}
             TransitionPayload::ConversationDerivedContentRecorded { .. } => {}
             TransitionPayload::ModelInterpretationRecorded {
@@ -2652,6 +2662,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V16
             && self.schema != TRANSITION_SCHEMA_V15
             && self.schema != TRANSITION_SCHEMA_V14
             && self.schema != TRANSITION_SCHEMA_V13
@@ -2671,6 +2682,7 @@ impl Transition {
             return Err(format!("unsupported_transition_schema: {}", self.schema));
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V16
             && matches!(&self.payload,
             TransitionPayload::CaseCognitiveBindingRecorded { binding } if binding.schema == CASE_COGNITIVE_BINDING_SCHEMA_V2)
         {
@@ -2698,6 +2710,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
@@ -2714,6 +2727,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
@@ -2728,6 +2742,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
@@ -2742,6 +2757,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
@@ -2755,6 +2771,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
@@ -2767,6 +2784,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
                 | TRANSITION_SCHEMA_V13
@@ -2776,6 +2794,7 @@ impl Transition {
             return Err("wave18_contract_requires_yai_transition_v12".to_string());
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V16
             && self.schema != TRANSITION_SCHEMA_V14
             && self.payload.is_interlock_i01_kind()
             && self.schema != TRANSITION_SCHEMA_V15
@@ -2785,16 +2804,28 @@ impl Transition {
         }
         if !matches!(
             self.schema.as_str(),
-            TRANSITION_SCHEMA | TRANSITION_SCHEMA_V15 | TRANSITION_SCHEMA_V14
+            TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V16
+                | TRANSITION_SCHEMA_V15
+                | TRANSITION_SCHEMA_V14
         ) && self.payload.is_interlock_i02_kind()
         {
             return Err("interlock_i02_contract_requires_yai_transition_v14".to_string());
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V16
             && self.schema != TRANSITION_SCHEMA_V15
             && self.payload.is_interlock_i03_kind()
         {
             return Err("interlock_i03_contract_requires_yai_transition_v15".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA
+            && matches!(
+                self.payload,
+                TransitionPayload::ConversationExecutionIntentRecorded { .. }
+            )
+        {
+            return Err("conversation_execution_intent_requires_yai_transition_v17".to_string());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -3010,6 +3041,34 @@ impl Transition {
                 require_value("result_id", result_id)?;
                 require_causal_ref(&self.causal_refs, invocation_id, "provider_invocation")?;
                 require_causal_ref(&self.causal_refs, result_id, "provider_result")?;
+            }
+            TransitionPayload::ConversationExecutionIntentRecorded { request } => {
+                request.validate_structure()?;
+                let scope = self
+                    .scope
+                    .as_ref()
+                    .ok_or_else(|| "conversation_intent_scope_required".to_string())?;
+                if request.case_id != self.case_id
+                    || self.source.participant_id.as_deref()
+                        != Some(request.participant_id.as_str())
+                    || self.source.principal_id.is_none()
+                    || self.source.source_ref.as_deref() != Some(request.request_id.as_str())
+                    || scope.participant_refs != vec![request.participant_id.clone()]
+                    || !scope.resource_refs.is_empty()
+                    || !scope.policy_refs.is_empty()
+                {
+                    return Err("conversation_intent_scope_invalid".to_string());
+                }
+                for reference in [
+                    &request.request_id,
+                    &request.source_turn_id,
+                    &request.participant_id,
+                ]
+                .into_iter()
+                .chain(request.source_part_ids.iter())
+                {
+                    require_causal_ref(&self.causal_refs, reference, "conversation_intent")?;
+                }
             }
             TransitionPayload::ConversationTurnCommitted { turn } => {
                 turn.validate()?;
@@ -3926,6 +3985,7 @@ fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V16
             | TRANSITION_SCHEMA_V15
             | TRANSITION_SCHEMA_V14
             | TRANSITION_SCHEMA_V13
@@ -3945,6 +4005,7 @@ fn supports_wave9_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V16
             | TRANSITION_SCHEMA_V15
             | TRANSITION_SCHEMA_V14
             | TRANSITION_SCHEMA_V13
@@ -3963,6 +4024,7 @@ fn supports_wave10_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V16
             | TRANSITION_SCHEMA_V15
             | TRANSITION_SCHEMA_V14
             | TRANSITION_SCHEMA_V13
@@ -4202,7 +4264,29 @@ pub fn replay_case(case_id: &str, transitions: &[Transition]) -> Result<CaseStat
         }
         _ => return Err("case_history_must_start_with_case_opened".to_string()),
     };
+    let mut turns = std::collections::BTreeMap::new();
+    let mut intents = std::collections::BTreeSet::new();
     for transition in transitions {
+        match &transition.payload {
+            TransitionPayload::ConversationTurnCommitted { turn } => {
+                turns.insert(turn.turn_id.as_str(), turn);
+            }
+            TransitionPayload::ConversationExecutionIntentRecorded { request } => {
+                let turn = turns
+                    .get(request.source_turn_id.as_str())
+                    .ok_or_else(|| "conversation_intent_turn_missing_at_replay".to_string())?;
+                request.validate(turn)?;
+                if transition.source.principal_id.as_deref()
+                    != Some(turn.submitted_by_principal_id.as_str())
+                {
+                    return Err("conversation_intent_principal_mismatch_at_replay".to_string());
+                }
+                if !intents.insert(request.source_turn_id.as_str()) {
+                    return Err("conversation_intent_duplicate_at_replay".to_string());
+                }
+            }
+            _ => {}
+        }
         state = state.reduce(transition)?;
     }
     Ok(state)

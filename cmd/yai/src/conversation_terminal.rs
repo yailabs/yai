@@ -80,6 +80,24 @@ fn render_execution(value: ConversationExecutionResult) -> Result<(), String> {
     if let Some(output) = &value.output {
         println!("{output}");
     }
+    if let Some(cognition) = &value.cognition {
+        println!("conversation_cognition: {}", serde_json::to_string(&serde_json::json!({
+            "turn_id": value.turn_id,
+            "intent_id": cognition.request.request_id,
+            "route": cognition.route,
+            "source_closure_id": cognition.closure.closure_id,
+            "target_id": cognition.primary.plan.selected_target_id,
+            "lane_id": cognition.primary.plan.execution_lane_id,
+            "validation_plan_id": cognition.primary.plan.plan_id,
+            "execution_plan_id": cognition.primary.execution.as_ref().map(|execution| &execution.plan_id),
+            "provider_result_id": value.provider_result_id,
+            "selection_id": value.selection_id,
+            "invocation_id": value.invocation_id,
+            "projection_id": value.projection_id,
+            "context_frame_id": value.context_frame_id,
+            "recovered": cognition.primary.recovered
+        })).map_err(|error| error.to_string())?);
+    }
     // The posture is the controller's observation, never inferred from text.
     println!(
         "conversation_execution: {}",
@@ -120,7 +138,7 @@ fn command(
             None
         };
         match controller.apply(action)? {
-            ConversationActionResult::Execution { value } => render_execution(value)?,
+            ConversationActionResult::Execution { value } => render_execution(*value)?,
             value => println!(
                 "conversation: {}",
                 serde_json::to_string(&value).map_err(|e| e.to_string())?

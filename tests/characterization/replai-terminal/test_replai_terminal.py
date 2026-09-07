@@ -24,7 +24,8 @@ import pyte
 
 ROOT = Path(__file__).resolve().parents[3]
 WORK = Path(tempfile.mkdtemp(prefix="yai-r4-"))
-BIN = ROOT / "target/debug/yai"
+BIN = ROOT / "yai"
+ARTIFACT = ROOT / "target/debug/yai"
 CASE, PARTICIPANT, TENANT = "case:r4", "participant:r4", "tenant:r4"
 PROMPT = f"yai({CASE})> "
 RECORDS = []
@@ -172,7 +173,7 @@ def terminal_contract():
     t.draft("", 0)
     committed = turns()
     assert len(committed) == 1
-    assert state()["generation"] == initial["generation"] + 1
+    assert state()["generation"] == initial["generation"] + 2
     t.send("draft")
     t.send(b"\x1b[D\x1b[A\x1b[B")
     t.draft("draft", 4)
@@ -201,7 +202,7 @@ def terminal_contract():
     t.draft("", 0)
     after = turns()
     assert len(after) == 2
-    assert state()["generation"] == before_paste["generation"] + 1
+    assert state()["generation"] == before_paste["generation"] + 2
     # Confirm actual immutable content rather than the terminal's echo.
     latest = cli("case", "conversation", "turn", "show", CASE, "latest", "--participant", PARTICIPANT, structured=True)
     turn = latest["value"]["turn"]
@@ -244,16 +245,38 @@ def provider_contract(mode, cancel=False):
     server = subprocess.Popen([sys.executable, str(ROOT / "tests/fixtures/provider_governance_server.py"),
         "--mode", mode, "--model", "r4-fixture", "--release-file", str(release), "--log", str(log)],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    decoy_log = WORK / f"{label}-decoy.jsonl"
+    decoy = subprocess.Popen([sys.executable, str(ROOT / "tests/fixtures/provider_governance_server.py"),
+        "--mode", "full", "--model", "whisper-vision-best-looking-name", "--log", str(decoy_log)],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
+        decoy_port = decoy.stdout.readline().strip()
         port = server.stdout.readline().strip()
         assert port.isdigit(), port
         added = cli("provider", "add", "--tenant", TENANT, "--provider-key", label,
                     "--endpoint", f"http://127.0.0.1:{port}", "--model", "r4-fixture", "--locality", "loopback")
         target = re.search(r"provider-target:[\w:.-]+", added)[0]
-        cli("provider", "qualify", "--target", target)
+        decoy_added = cli("provider", "add", "--tenant", TENANT, "--provider-key", label + "-decoy",
+                    "--endpoint", f"http://127.0.0.1:{decoy_port}", "--model", "whisper-vision-best-looking-name", "--locality", "loopback")
+        decoy_target = re.search(r"provider-target:[\w:.-]+", decoy_added)[0]
+        cli("provider", "qualify", "--target", decoy_target, "--realization-shape", "text_to_text")
+        cli("provider", "trust", "approve", "--target", decoy_target)
+        cli("provider", "qualify", "--target", target, "--realization-shape", "text_to_text")
         cli("provider", "trust", "approve", "--target", target)
-        cli("case", "provider", "bind", CASE, "--participant", PARTICIPANT, "--target", target,
-            "--failover", "safe_only", "--max-attempts", "1")
+        cli("case", "provider", "bind", CASE, "--participant", PARTICIPANT, "--target", decoy_target, "--target", target,
+            "--failover", "safe_only", "--max-attempts", "2")
+        def suitability(identity):
+            out = cli("provider", "suitability", "record", identity, "--capability", "primary_conversation",
+                "--suite", "fixture:i06-pty", "--run", label, "--evidence-ref", "evidence:i06-pty")
+            return re.search(r"^evidence_id: (.+)$", out, re.M)[1]
+        evidence, decoy_evidence = suitability(target), suitability(decoy_target)
+        bind_args = ["case", "cognitive", "bind", CASE, "--participant", PARTICIPANT,
+            "--role", "primary", "--capability", "primary_conversation", "--target", target, "--evidence", evidence]
+        if cli("case", "cognitive", "show", CASE, "--participant", PARTICIPANT, structured=True)["value"]["bindings"]:
+            bind_args += ["--replace"]
+        if mode == "full" and not cancel:
+            bind_args += ["--alternative", decoy_target + "=" + decoy_evidence]
+        cli(*bind_args)
         before, inventory = state(), turns()
         t = Terminal()
         t.send("provider boundary")
@@ -272,7 +295,10 @@ def provider_contract(mode, cancel=False):
             t.wait(lambda: log.exists() and '"synthetic":false' in log.read_text())
             t.send(b"\x03")
         assert committed[-1]["base_generation"] == before["generation"]
-        observe("provider_pending", mode=label, before=before, during=during, committed=committed)
+        intent = cli("case", "conversation", "turn", "show", CASE, committed[-1]["turn_id"],
+            "--participant", PARTICIPANT, structured=True)["value"]["execution_intent"]
+        assert intent["goal"] == "primary_conversation" and "prerequisite" not in intent
+        observe("provider_pending", mode=label, before=before, during=during, committed=committed, intent=intent)
         release.touch()
         expected = b'"completed"' if mode == "full" else b'"delivery_indeterminate"'
         if cancel:
@@ -281,16 +307,45 @@ def provider_contract(mode, cancel=False):
             t.wait(lambda: expected in t.output)
         t.draft("", 0)
         if mode == "full" and not cancel:
-            assert b'{"schema":"yai.case_runtime_turn.v1","outcome":"complete"}' in t.output
+            assert b"fixture native conversation ORCHID-I03" in t.output
         assert turns() == committed
         assert len(os.listdir(f"/proc/{t.proc.pid}/fd")) == t.fd_initial
         requests = [json.loads(line) for line in log.read_text().splitlines()]
         assert sum(not request["synthetic"] for request in requests) == 1
-        observe("provider_finished", mode=label, state=state(), turns=turns(), requests=requests)
+        provider_posture = cli("case", "provider", "show", CASE)
+        assert "last_selected_target: " + target in provider_posture
+        assert "last_selected_model: r4-fixture" in provider_posture
+        if mode == "full" and not cancel:
+            lineage = json.loads(re.search(rb"conversation_cognition: (\{[^\r\n]+\})", t.output)[1])
+            assert lineage["target_id"] == target and lineage["intent_id"] == intent["request_id"]
+            assert lineage["execution_plan_id"].startswith("cognitive-plan:")
+            assert lineage["lane_id"].startswith("cognitive-lane:")
+            assert "last_selection_id: " + lineage["selection_id"] in provider_posture
+            observe("i06_exact_lineage", lineage=lineage, provider_posture=provider_posture)
+        assert not any(not json.loads(line)["synthetic"] for line in decoy_log.read_text().splitlines())
+        if not cancel:
+            if mode != "full":
+                # New exact binding cannot erase uncertainty on the prior Turn.
+                cli("case", "cognitive", "bind", CASE, "--participant", PARTICIPANT, "--role", "primary",
+                    "--capability", "primary_conversation", "--target", decoy_target, "--evidence", decoy_evidence, "--replace")
+            retry_start = len(t.output)
+            t.send("/retry " + committed[-1]["turn_id"] + "\r")
+            t.wait(lambda: expected in t.output[retry_start:])
+            t.draft("", 0)
+            assert turns() == committed
+            assert sum(not json.loads(line)["synthetic"] for line in log.read_text().splitlines()) == 1
+            assert not any(not json.loads(line)["synthetic"] for line in decoy_log.read_text().splitlines())
+            if mode == "full":
+                assert b'"recovered":true' in t.output[retry_start:]
+            observe("i06_retry", mode=label, output=t.output, same_turn=True, redispatches=0)
+        observe("provider_finished", mode=label, state=state(), turns=turns(), requests=requests,
+                selected_target=target, historical_first_target=decoy_target, cognitive_selection=True)
         t.exit()
     finally:
         server.terminate()
         server.wait(timeout=5)
+        decoy.terminate()
+        decoy.wait(timeout=5)
 
 
 def rejected_acquisition():
@@ -320,7 +375,7 @@ def artifact_contract():
     dependency = next(p for p in meta["packages"] if p["name"] == "replai")
     assert dependency["source"].endswith("#df5538c718b8d068432032e7fb116fb8bfab158e")
     assert not any(p["name"] == "replai-c" for p in meta["packages"])
-    symbols = subprocess.check_output(["nm", "-C", str(BIN)], text=True)
+    symbols = subprocess.check_output(["nm", "-C", str(ARTIFACT)], text=True)
     assert "replai::terminal::Interaction" in symbols
     assert "linenoise" not in symbols.lower()
     assert not (ROOT / "cmd/yai/build.rs").exists()
@@ -337,6 +392,7 @@ try:
     provider_contract("drop_realization")
     provider_contract("full", cancel=True)
     print("r4_terminal: canonical_editing_unchanged=true commit_before_provider=true success_failure_turn_retained=true exact_termios=true bounded_fds=true native_replai=true")
+    print("i06_pty: cognitive_arbitration=true provider_order_bypassed=true pinned=true durable_intent=true retry_no_redispatch=true indeterminate_no_cross_target=true")
     print("evidence:", WORK)
 except BaseException:
     print("FAILED evidence:", WORK, file=sys.stderr)

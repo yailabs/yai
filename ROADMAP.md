@@ -579,8 +579,27 @@ become work for another target. Canonical binding v2, Transition v16 and
 CaseState v14 retain historical readers. Plans v2 add the inspected snapshot;
 LMDB remains 37/40 with no owner delta.
 
-Remaining: explicit production semantic qualification beyond operator
+Remaining after I05: explicit production semantic qualification beyond operator
 attestation, public typed-media provider interoperability, product-host
-integration, and any future evidence-backed routing dimensions. No learned
+integration (closed by I06 below), and future evidence-backed routing dimensions. No learned
 optimizer, prices/quality guesses, autonomous retry, YVEX physical lifecycle,
 REPLAI change, Studio, H20, W21 or W22 is part of I05.
+
+## Completed boundary — conversation execution intent and cognitive host routing
+
+I06 connects the existing ConversationController and native REPLAI `yai prompt`
+to shared I02–I05 execution. Atomic SEND records immutable Turn plus an adopted
+I04 request as semantic intent (Transition v17; CaseState v14 unchanged).
+PrimaryConversation is the conversation action default; source modality never
+invents a prerequisite. Exact native execution or one explicitly requested
+auxiliary transformation uses the existing composition and realization seam.
+Retry preserves intent and Turn, reconstructs current plans, reuses compatible
+canonical results, and refuses uncertain prior work across target changes.
+The controller's old provider-order execution loop is removed.
+
+Remaining: production semantic qualification, public external typed-media
+interoperability, explicit operator resolution of uncertain delivery, streaming,
+and future frontend attachment/capture actions. Noninteractive legacy diagnostic
+prompt and bounded operational Case runtime keep their separate purposes.
+No REPLAI pin/R5 work, Product `yai chat`, Studio, H20, W21 or W22 begins here.
+See [I06 evidence](refoundation/foundation-recovery/interlock-06/REPORT.md).
