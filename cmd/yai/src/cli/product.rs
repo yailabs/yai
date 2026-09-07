@@ -25,6 +25,44 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.list" => case_list(invocation),
         "yai.case.participant.list" => participant_list(invocation),
         "yai.case.resource.list" => resource_list(invocation),
+        "yai.case.history" | "yai.case.verify" => canonical_case_inspection(invocation),
+        "yai.case.workbench" => {
+            if invocation.json {
+                return Err(CliError::usage("interactive workbench has no JSON stream; use the structured Case inspection commands"));
+            }
+            crate::command_adapters::dispatch_operation(
+                "yai.case.workbench",
+                &invocation.legacy_args(),
+            )
+            .map_err(|error| domain_error(classify_domain_code(&error), error))?;
+            Ok(CliData::AlreadyRendered)
+        }
+        "yai.case.capabilities" => {
+            let case = load_case(invocation)?;
+            let authenticated = AuthenticatedPrincipal::authenticate_local()
+                .map_err(|e| domain_error("authentication_failed", e))?;
+            let value = open_store()?
+                .case_capability_view_authorized(
+                    &authenticated,
+                    &case.case_id,
+                    invocation
+                        .flag("--participant")
+                        .ok_or_else(|| CliError::usage("--participant is required"))?,
+                )
+                .map_err(|e| domain_error("capability_view_unavailable", e))?;
+            Ok(CliData::NativeJson {
+                value: serde_json::to_value(value)
+                    .map_err(|e| domain_error("capability_view_encoding", e.to_string()))?,
+            })
+        }
+        operation_id @ ("yai.case.resource.import" | "yai.case.resource.request") => {
+            crate::command_adapters::resource_application_command(
+                operation_id,
+                &invocation.legacy_args(),
+            )
+            .map(|value| CliData::NativeJson { value })
+            .map_err(|error| domain_error(classify_domain_code(&error), error))
+        }
         "yai.case.show" if invocation.compatibility_syntax && !invocation.json => {
             crate::command_adapters::dispatch_operation("yai.case.show", &invocation.legacy_args())
                 .map_err(|error| domain_error(classify_domain_code(&error), error))?;
@@ -461,6 +499,52 @@ fn resource_list(invocation: &Invocation) -> Result<CliData, CliError> {
                 ]
             })
             .collect(),
+    })
+}
+
+fn canonical_case_inspection(invocation: &Invocation) -> Result<CliData, CliError> {
+    let case = load_case(invocation)?;
+    let authenticated = AuthenticatedPrincipal::authenticate_local()
+        .map_err(|e| domain_error("authentication_failed", e))?;
+    let store = open_store()?;
+    // Full historical payload inspection is an operator/owner surface, not an
+    // implicit disclosure channel for every model Participant in this Case.
+    store
+        .resolve_security_context(&authenticated, case.tenant_id.as_deref().unwrap())
+        .and_then(|context| context.require_owner())
+        .map_err(|e| domain_error("tenant_owner_required", e))?;
+    if invocation.descriptor.operation_id == "yai.case.verify" {
+        let replay = store
+            .replay_case_state(&case.case_id)
+            .map_err(|e| domain_error("canonical_replay_failed", e))?;
+        if replay != case {
+            return Err(domain_error(
+                "canonical_materialization_mismatch",
+                "CaseState differs from Transition Ledger replay",
+            ));
+        }
+        return Ok(CliData::NativeJson {
+            value: serde_json::json!({"case_id":case.case_id,
+            "generation":case.generation,"authority":"transition_ledger","materialization":"equivalent_to_replay",
+            "schema":case.schema,"mutation":"none"}),
+        });
+    }
+    let limit = invocation
+        .flag("--limit")
+        .map(|value| value.parse::<usize>())
+        .transpose()
+        .map_err(|_| CliError::usage("--limit must be an integer from 1 to 256"))?
+        .unwrap_or(32);
+    if limit == 0 || limit > 256 {
+        return Err(CliError::usage("--limit must be from 1 to 256"));
+    }
+    let history = store
+        .list_case_transitions(&case.case_id)
+        .map_err(|e| domain_error("canonical_history_failed", e))?;
+    Ok(CliData::NativeJson {
+        value: serde_json::json!({"case_id":case.case_id,
+        "authority":"transition_ledger","total_transitions":history.len(),
+        "transitions":&history[history.len().saturating_sub(limit)..]}),
     })
 }
 

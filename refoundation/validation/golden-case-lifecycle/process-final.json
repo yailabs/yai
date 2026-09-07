@@ -1,0 +1,25 @@
+{
+  "run_id": "process-final",
+  "order": 1,
+  "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+  "command": "env TMPDIR=/tmp CARGO_TARGET_DIR=/home/mothx/computer-science/projects/YAI/yai/target cargo test --manifest-path engine/Cargo.toml effect::process_runner::tests::bounded_runner_real_process_confinement_exit_timeout_and_output -- --exact --nocapture",
+  "pre_state": "temporary process-only test files; no provider",
+  "session_id": 30866,
+  "chunks": [
+    {
+      "chunk_id": "2e1a3f",
+      "wall_time_seconds": 1.000767422,
+      "session_id": 30866,
+      "original_token_count": 27,
+      "output": "   Compiling yai-engine v0.0.0-newcore (/home/mothx/computer-science/projects/YAI/yai/engine/yai-engine)\n"
+    },
+    {
+      "chunk_id": "17c959",
+      "wall_time_seconds": 0.000001103,
+      "exit_code": 0,
+      "original_token_count": 162,
+      "output": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.36s\n     Running unittests src/lib.rs (target/debug/deps/yai_core_engine-1d5a909aa914d326)\n\nrunning 1 test\nbounded_process_component:{\"exit\":7,\"external_read_write_network_fork_chmod_prlimit_ioctl\":\"denied\",\"output_bound\":128,\"product_effect\":\"not_qualified\",\"profile\":\"yai.process.readonly_single_process.linux_x86_64.v1\",\"provider_mode\":\"no_provider\",\"timeout_ms\":101}\ntest effect::process_runner::tests::bounded_runner_real_process_confinement_exit_timeout_and_output ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 316 filtered out; finished in 0.12s\n\n"
+    }
+  ],
+  "exit": 0
+}

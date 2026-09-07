@@ -119,6 +119,18 @@ implementation
   declare it complete and do not automatically pull, merge, rebase, or force
   push through an unexpected remote divergence.
 
+## Cumulative product acceptance
+
+Substantive user-visible or Case-semantic waves update the single cumulative
+`docs/zero-to-current.md` runbook rather than creating disconnected manuals.
+Report automated proof/provider axes, Golden local, Golden external YVEX,
+continuity canary, human acceptance, runbook update and exact blockers according
+to `docs/test-cases.md`. Run the ordinary deterministic publication union plus
+the explicit Golden local lane when affected. An aggregate test count is not
+sufficient evidence. Never claim human acceptance without the operator's result
+at the relevant SHA; otherwise `HUMAN_GOLDEN_CASE = PENDING_OPERATOR`.
+Never reset an operator-owned continuity canary as automated test setup.
+
 ## YVEX external consumer qualification
 
 From Wave 14 onward, a YAI wave that materially changes provider integration,

@@ -390,6 +390,7 @@ fn cognitive_realize(args: &[String]) -> Result<(), String> {
         optional_arg(args, "--failpoint").as_deref(),
         &causal_refs,
         &|| false,
+        yai_core_engine::context::InvocationOutputContract::NaturalLanguage,
     )?;
     render_realization(
         args,

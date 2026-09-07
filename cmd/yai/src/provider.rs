@@ -11,6 +11,9 @@ use yai_core_engine::provider_governance::{
 };
 use yai_core_engine::store::lmdb::ProviderSelectionStoreOutcome;
 
+#[path = "provider/capabilities.rs"]
+mod capabilities;
+
 pub(super) fn projection_summary(args: &[String]) -> Result<(), String> {
     let path = journal_arg(args)?;
     let journal = Journal::load_jsonl(&path)
@@ -317,7 +320,7 @@ fn render_legacy_case_entry_records(
 }
 
 fn render_legacy_case_entry_preview(journal: &Journal, case_ref: Option<&str>) -> String {
-    let projection = ProjectionSummary::from_journal("model", &journal);
+    let projection = ProjectionSummary::from_journal("model", journal);
     let case_ref = case_ref
         .or_else(|| (!projection.case_ref.is_empty()).then_some(projection.case_ref.as_str()));
 
@@ -405,7 +408,7 @@ fn render_legacy_case_entry_preview(journal: &Journal, case_ref: Option<&str>) -
     render_legacy_case_entry_records(
         &mut output,
         "Case World",
-        &journal,
+        journal,
         case_ref,
         &[
             RecordKind::CaseDomain,
@@ -416,70 +419,70 @@ fn render_legacy_case_entry_preview(journal: &Journal, case_ref: Option<&str>) -
     render_legacy_case_entry_records(
         &mut output,
         "Subjects",
-        &journal,
+        journal,
         case_ref,
         &[RecordKind::SubjectBinding],
     );
     render_legacy_case_entry_records(
         &mut output,
         "Policy",
-        &journal,
+        journal,
         case_ref,
         &[RecordKind::PolicyRule],
     );
     render_legacy_case_entry_records(
         &mut output,
         "Projection Rules",
-        &journal,
+        journal,
         case_ref,
         &[RecordKind::ProjectionRule],
     );
     render_legacy_case_entry_records(
         &mut output,
         "Authority Scopes",
-        &journal,
+        journal,
         case_ref,
         &[RecordKind::AuthorityScope],
     );
     render_legacy_case_entry_records(
         &mut output,
         "Decisions",
-        &journal,
+        journal,
         case_ref,
         &[RecordKind::Decision],
     );
     render_legacy_case_entry_records(
         &mut output,
         "Filesystem Receipts",
-        &journal,
+        journal,
         case_ref,
         &[RecordKind::FilesystemReceipt],
     );
     render_legacy_case_entry_records(
         &mut output,
         "Memory",
-        &journal,
+        journal,
         case_ref,
         &[RecordKind::MemoryCandidate],
     );
     render_legacy_case_entry_records(
         &mut output,
         "Graph",
-        &journal,
+        journal,
         case_ref,
         &[RecordKind::GraphEdge],
     );
     render_legacy_case_entry_records(
         &mut output,
         "Projection Records",
-        &journal,
+        journal,
         case_ref,
         &[RecordKind::ProjectionRequest, RecordKind::ProjectionResult],
     );
     render_legacy_case_entry_records(
         &mut output,
         "Model Interpretations",
-        &journal,
+        journal,
         case_ref,
         &[RecordKind::ModelInterpretation],
     );
@@ -564,7 +567,7 @@ fn shell_quote(value: &str) -> String {
     quoted
 }
 
-fn print_case_enter_shell(path: &PathBuf, case_ref: &str, subject_ref: &str) {
+fn print_case_enter_shell(path: &Path, case_ref: &str, subject_ref: &str) {
     let prompt_flag = format!("[yai:{case_ref}]");
     println!("printf '%s\\n' {}", shell_quote("case_entry: accepted"));
     println!(
@@ -1840,6 +1843,145 @@ pub(super) struct ProviderUsageTelemetry {
     pub latency_ms: u64,
 }
 
+/// Adapter-local wire contracts, not a registry or permission to execute.
+/// Application definitions are derived and every requested action must still
+/// cross current Case authority independently of this response decoder.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub(super) struct NativeFunctionDefinition {
+    pub name: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub(super) struct NativeFunctionCall {
+    pub call_id: String,
+    pub name: String,
+    pub arguments: serde_json::Value,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub(super) struct NativeFunctionReply {
+    pub text: Option<String>,
+    pub call: Option<NativeFunctionCall>,
+}
+
+pub(super) fn native_function_tools(
+    definitions: &[NativeFunctionDefinition],
+) -> Result<serde_json::Value, String> {
+    if definitions.is_empty()
+        || definitions.len() > 32
+        || serde_json::to_vec(definitions)
+            .map_err(|e| e.to_string())?
+            .len()
+            > 32768
+    {
+        return Err("provider_function_definition_bound".into());
+    }
+    let mut names = BTreeSet::new();
+    let mut tools = Vec::new();
+    for definition in definitions {
+        if definition.name.is_empty()
+            || definition.name.len() > 64
+            || !definition
+                .name
+                .bytes()
+                .all(|c| c.is_ascii_alphanumeric() || b"_-".contains(&c))
+            || definition.description.is_empty()
+            || definition.description.len() > 1024
+            || !names.insert(&definition.name)
+            || definition.parameters["type"] != "object"
+        {
+            return Err("provider_function_definition_invalid".into());
+        }
+        super::resource_transport::schema_validator(&definition.parameters)
+            .map_err(|_| "provider_function_parameter_schema_invalid")?;
+        tools.push(serde_json::json!({"type":"function", "function":definition}));
+    }
+    Ok(serde_json::Value::Array(tools))
+}
+
+/// Only the public Chat Completions envelope is decoded as a function request.
+/// Prose is never parsed as a call, even if it contains well-formed JSON.
+pub(super) fn decode_native_function_reply(
+    body: &[u8],
+    exact_model: &str,
+    definitions: &[NativeFunctionDefinition],
+) -> Result<NativeFunctionReply, String> {
+    native_function_tools(definitions)?;
+    if body.len() > 131072 {
+        return Err("provider_function_response_bound".into());
+    }
+    let value = super::provider_governance_cli::strict_json(body)?;
+    if value["model"] != exact_model || value["choices"].as_array().is_none_or(|v| v.len() != 1) {
+        return Err("provider_function_exact_response_mismatch".into());
+    }
+    let message = &value["choices"][0]["message"];
+    if message["role"] != "assistant"
+        || message.get("function_call").is_some()
+        || message.get("refusal").is_some_and(|v| !v.is_null())
+    {
+        return Err("provider_function_response_kind_invalid".into());
+    }
+    let text = match message.get("content") {
+        None | Some(serde_json::Value::Null) => None,
+        Some(serde_json::Value::String(text)) if text.len() <= 65536 => Some(text.clone()),
+        _ => return Err("provider_function_text_shape_invalid".into()),
+    };
+    let calls = match message.get("tool_calls") {
+        None | Some(serde_json::Value::Null) => &[][..],
+        Some(serde_json::Value::Array(calls)) if calls.len() <= 1 => calls.as_slice(),
+        _ => return Err("provider_function_call_bound".into()),
+    };
+    if calls.is_empty() {
+        if value["choices"][0]["finish_reason"] != "stop"
+            || text.as_deref().is_none_or(|v| v.trim().is_empty())
+        {
+            return Err("provider_function_text_not_complete".into());
+        }
+        return Ok(NativeFunctionReply { text, call: None });
+    }
+    if value["choices"][0]["finish_reason"] != "tool_calls" || calls[0]["type"] != "function" {
+        return Err("provider_function_call_not_complete".into());
+    }
+    let call = &calls[0];
+    let id = call["id"]
+        .as_str()
+        .filter(|s| {
+            !s.is_empty()
+                && s.len() <= 128
+                && s.bytes()
+                    .all(|c| c.is_ascii_alphanumeric() || b"_-:.".contains(&c))
+        })
+        .ok_or("provider_function_call_id_invalid")?;
+    let name = call["function"]["name"]
+        .as_str()
+        .ok_or("provider_function_name_missing")?;
+    let definition = definitions
+        .iter()
+        .find(|d| d.name == name)
+        .ok_or("provider_function_not_offered")?;
+    let arguments = call["function"]["arguments"]
+        .as_str()
+        .filter(|s| s.len() <= 16384)
+        .ok_or("provider_function_arguments_shape_invalid")?;
+    let arguments = super::provider_governance_cli::strict_json(arguments.as_bytes())?;
+    if !super::resource_transport::schema_validator(&definition.parameters)?.is_valid(&arguments) {
+        return Err("provider_function_arguments_contract_mismatch".into());
+    }
+    Ok(NativeFunctionReply {
+        text,
+        call: Some(NativeFunctionCall {
+            call_id: id.into(),
+            name: name.into(),
+            arguments,
+        }),
+    })
+}
+
 fn decode_provider_response(body: &str) -> Result<DecodedProviderResponse, String> {
     let value: serde_json::Value = serde_json::from_str(body)
         .map_err(|error| format!("provider response was not valid JSON: {error}"))?;
@@ -1977,7 +2119,7 @@ fn validate_provider_wire_parts(parts: &[ProviderWireInputPart]) -> Result<(), S
     Ok(())
 }
 
-fn encode_base64(bytes: &[u8]) -> String {
+pub(super) fn encode_base64(bytes: &[u8]) -> String {
     const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut output = String::with_capacity(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
@@ -2007,6 +2149,33 @@ fn provider_http_request(
     structured_json: bool,
     typed_parts: Option<&[ProviderWireInputPart]>,
 ) -> Result<(u16, String, usize), String> {
+    provider_http_request_with_functions(
+        config,
+        rendered,
+        continuation,
+        structured_json,
+        typed_parts,
+        None,
+    )
+}
+
+struct NativeFunctionExchange<'a> {
+    definitions: &'a [NativeFunctionDefinition],
+    feedback: &'a [serde_json::Value],
+    max_input_units: Option<usize>,
+}
+
+fn provider_http_request_with_functions(
+    config: &ProviderConfig,
+    rendered: &RenderedInput,
+    continuation: Option<&ProviderContinuationReference>,
+    structured_json: bool,
+    typed_parts: Option<&[ProviderWireInputPart]>,
+    native: Option<NativeFunctionExchange<'_>>,
+) -> Result<(u16, String, usize), String> {
+    let functions = native.as_ref().map(|n| n.definitions);
+    let feedback = native.as_ref().map_or(&[][..], |n| n.feedback);
+    let max_input_units = native.as_ref().and_then(|n| n.max_input_units);
     let endpoint = super::provider_transport::parse_provider_endpoint(&config.base_url)?;
     if let Some(reference) = continuation {
         if reference.provider_id != config.provider_id {
@@ -2037,6 +2206,24 @@ fn provider_http_request(
         ]
     });
     let object = body.as_object_mut().expect("provider request object");
+    if !feedback.is_empty() {
+        if functions.is_none() {
+            return Err("provider_feedback_requires_native_functions".into());
+        }
+        object
+            .get_mut("messages")
+            .and_then(serde_json::Value::as_array_mut)
+            .expect("provider messages")
+            .extend_from_slice(feedback);
+    }
+    if let Some(functions) = functions {
+        if structured_json {
+            return Err("provider_output_contract_conflict".into());
+        }
+        object.insert("tools".into(), native_function_tools(functions)?);
+        object.insert("parallel_tool_calls".into(), serde_json::Value::Bool(false));
+        object.insert("tool_choice".into(), serde_json::json!("auto"));
+    }
     if let Some(reference) = continuation {
         object.insert(
             "yai_provider_continuation".to_string(),
@@ -2054,6 +2241,9 @@ fn provider_http_request(
     }
     let body = serde_json::to_vec(&body)
         .map_err(|error| format!("provider_request_encode_failed: {error}"))?;
+    if max_input_units.is_some_and(|limit| body.len().div_ceil(4) > limit) {
+        return Err("provider_not_dispatched:complete_wire_input_budget_exceeded".into());
+    }
     let response = super::provider_transport::provider_http(
         &endpoint,
         config.governed_locality.as_ref(),
@@ -2079,11 +2269,51 @@ fn provider_chat_completion(
     rendered: &RenderedInput,
     structured_json: bool,
     typed_parts: Option<&[ProviderWireInputPart]>,
+    output_contract: &InvocationOutputContract,
+    max_input_units: Option<usize>,
 ) -> Result<ProviderTransportResult, String> {
     let started = Instant::now();
     let continuation = config.continuation_ref.as_ref();
-    let (status, body_text, request_bytes_written) =
-        provider_http_request(config, rendered, continuation, structured_json, typed_parts)?;
+    let offered = match output_contract {
+        InvocationOutputContract::CaseCapabilities { view, catalogs, .. } => {
+            Some(capabilities::offer(view, catalogs)?)
+        }
+        _ => None,
+    };
+    let definitions = offered.as_ref().map(|offered| {
+        offered
+            .iter()
+            .map(|o| o.definition.clone())
+            .collect::<Vec<_>>()
+    });
+    let (status, body_text, request_bytes_written) = if let Some(definitions) = &definitions {
+        let feedback = if let InvocationOutputContract::CaseCapabilities {
+            view,
+            feedback_result_ids,
+            ..
+        } = output_contract
+        {
+            let history =
+                LmdbRecordStore::open(record_store_path())?.list_case_transitions(&view.case_id)?;
+            capabilities::feedback(view, feedback_result_ids, &history)?
+        } else {
+            Vec::new()
+        };
+        provider_http_request_with_functions(
+            config,
+            rendered,
+            continuation,
+            structured_json,
+            typed_parts,
+            Some(NativeFunctionExchange {
+                definitions,
+                feedback: &feedback,
+                max_input_units,
+            }),
+        )?
+    } else {
+        provider_http_request(config, rendered, continuation, structured_json, typed_parts)?
+    };
     let success = (200..300).contains(&status);
     let disposition = if success {
         if continuation.is_some() {
@@ -2096,7 +2326,22 @@ fn provider_chat_completion(
             "provider_remote_response:{status}:bytes={request_bytes_written}"
         ));
     };
-    let decoded = decode_provider_response(&body_text).map_err(|error| {
+    let decoded = if let (InvocationOutputContract::CaseCapabilities { view, .. }, Some(offered)) =
+        (output_contract, offered)
+    {
+        capabilities::decode(&body_text, &config.model, view, &offered).map(|output| {
+            DecodedProviderResponse {
+                output,
+                response_model_id: Some(config.model.clone()),
+                input_tokens: None,
+                output_tokens: None,
+                total_tokens: None,
+            }
+        })
+    } else {
+        decode_provider_response(&body_text)
+    }
+    .map_err(|error| {
         format!("provider_response_invalid:status={status}:bytes={request_bytes_written}:{error}")
     })?;
     if typed_parts.is_some() && decoded.response_model_id.as_deref() != Some(config.model.as_str())
@@ -2561,6 +2806,17 @@ fn compile_semantic_invocation(
         if !selection_is_canonical {
             return Err("provider_selection_projection_admission_invalid".to_string());
         }
+        let native_selected = transitions.iter().any(|t|matches!(&t.payload,
+            TransitionPayload::ProviderSelectionRecorded {selection} if selection.selection_id == governance.selection_id
+                && t.causal_refs.contains(&"provider-realization-shape:text_functions_to_text_or_call".to_string())));
+        if native_selected
+            != matches!(
+                &output_contract,
+                InvocationOutputContract::CaseCapabilities { .. }
+            )
+        {
+            return Err("provider_selected_output_contract_mismatch".into());
+        }
         let participant = state
             .participants
             .iter_mut()
@@ -2580,6 +2836,45 @@ fn compile_semantic_invocation(
     request.max_provider_claims = if is_memory_consolidation { 0 } else { 64 };
     request.max_interaction_turns = if is_memory_consolidation { 0 } else { 64 };
     let resource_refs = match &output_contract {
+        InvocationOutputContract::CaseCapabilities {
+            view,
+            catalogs,
+            feedback_result_ids,
+        } => {
+            if view.case_id != state.case_id || view.participant_id != session.subject_ref {
+                return Err("provider_capability_view_scope_mismatch".into());
+            }
+            let selection_id = session
+                .provider
+                .governance
+                .as_ref()
+                .ok_or("provider_capability_governance_required")?
+                .selection_id
+                .as_str();
+            let selection = transitions.iter().find(|t| matches!(&t.payload,
+                TransitionPayload::ProviderSelectionRecorded {selection} if selection.selection_id == selection_id
+            )).ok_or("provider_capability_selection_missing")?;
+            if !selection.causal_refs.contains(&view.view_id)
+                || !selection.causal_refs.contains(
+                    &"provider-realization-shape:text_functions_to_text_or_call".to_string(),
+                )
+            {
+                return Err("provider_capability_view_not_selected".into());
+            }
+            // Validate schemas and catalog provenance before InvocationStarted.
+            capabilities::offer(view, catalogs)?;
+            capabilities::feedback(view, feedback_result_ids, &transitions)?;
+            for catalog in catalogs {
+                if !transitions.iter().any(|t|matches!(&t.payload,
+                    TransitionPayload::ResourceObservationRecorded {observation} if observation == catalog)) {
+                    return Err("provider_capability_catalog_not_canonical".into());
+                }
+            }
+            view.entries
+                .iter()
+                .map(|entry| entry.resource.attachment_id.clone())
+                .collect()
+        }
         InvocationOutputContract::FilesystemWriteProposal { attachment_id, .. }
         | InvocationOutputContract::ProcessSignalProposal { attachment_id, .. }
         | InvocationOutputContract::CaseRuntimeTurn { attachment_id, .. } => {
@@ -2754,7 +3049,8 @@ fn compile_semantic_invocation(
         model_id: session.provider.model.clone(),
         structured_output_supported: matches!(
             &output_contract,
-            InvocationOutputContract::FilesystemWriteProposal { .. }
+            InvocationOutputContract::CaseCapabilities { .. }
+                | InvocationOutputContract::FilesystemWriteProposal { .. }
                 | InvocationOutputContract::ProcessSignalProposal { .. }
                 | InvocationOutputContract::CaseRuntimeTurn { .. }
                 | InvocationOutputContract::WorkflowPlanPatch { .. }
@@ -2943,12 +3239,15 @@ fn invoke_semantic_provider_with_optional_journal(
     let structured_json = matches!(
         semantic.frame.output_contract,
         InvocationOutputContract::MemoryConsolidation { .. }
+            | InvocationOutputContract::WorkflowPlanPatch { .. }
     );
     let transport = provider_chat_completion(
         &session.provider,
         &semantic.rendered,
         structured_json,
         typed_parts,
+        &semantic.frame.output_contract,
+        Some(options.max_estimated_input_units),
     )?;
     let result_lineage = invocation_lineage(&semantic, transport.continuation_disposition.clone());
     let result_id = append_model_output_receipt(
@@ -3370,8 +3669,14 @@ fn run_prompt_once(session: &mut PromptRuntime, prompt: &str, dry_run: bool) -> 
         semantic.frame.output_contract,
         InvocationOutputContract::MemoryConsolidation { .. }
     );
-    let transport =
-        provider_chat_completion(&session.provider, &semantic.rendered, structured_json, None)?;
+    let transport = provider_chat_completion(
+        &session.provider,
+        &semantic.rendered,
+        structured_json,
+        None,
+        &semantic.frame.output_contract,
+        None,
+    )?;
     let output = transport.output.clone();
     println!();
     print_cli_section(colors, "MODEL", &session.provider.model, ANSI_MAGENTA);
@@ -3712,6 +4017,59 @@ pub(super) fn terminal_context(args: &[String]) -> Result<(String, Option<String
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn native_function_candidates_are_bounded_typed_and_never_prose_authority() {
+        use super::{decode_native_function_reply, NativeFunctionDefinition};
+        let definitions = [NativeFunctionDefinition {
+            name: "bounded_read".into(),
+            description: "candidate read".into(),
+            parameters: serde_json::json!({"type":"object", "properties":{"path":{"type":"string", "maxLength":32}}, "required":["path"], "additionalProperties":false}),
+        }];
+        let value = serde_json::json!({"model":"vision-whisper-only-name", "choices":[{"finish_reason":"tool_calls", "message":{
+            "role":"assistant", "content":null, "tool_calls":[{"id":"call_1", "type":"function", "function":{"name":"bounded_read", "arguments":"{\"path\":\"src/retry.py\"}"}}]}}]});
+        let decode = |v: &serde_json::Value| {
+            decode_native_function_reply(
+                &serde_json::to_vec(v).unwrap(),
+                "vision-whisper-only-name",
+                &definitions,
+            )
+        };
+        assert_eq!(
+            decode(&value).unwrap().call.unwrap().arguments["path"],
+            "src/retry.py"
+        );
+        assert!(super::decode_provider_response(&value.to_string()).is_err());
+        let mut wrong = value.clone();
+        wrong["model"] = serde_json::json!("other");
+        assert!(decode(&wrong).is_err());
+        let mut wrong = value.clone();
+        wrong["choices"][0]["finish_reason"] = serde_json::json!("length");
+        assert!(decode(&wrong).is_err());
+        let mut wrong = value.clone();
+        wrong["choices"][0]["message"]["tool_calls"][0]["function"]["name"] =
+            serde_json::json!("unknown");
+        assert!(decode(&wrong).is_err());
+        for arguments in [
+            "{\"path\":\"src/a\",\"path\":\"protected/secret\"}",
+            "{\"path\":\"a\",\"grant\":true}",
+            "{\"path\":7}",
+            "[]",
+        ] {
+            let mut wrong = value.clone();
+            wrong["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"] =
+                serde_json::json!(arguments);
+            assert!(decode(&wrong).is_err());
+        }
+        let mut duplicate = value.clone();
+        duplicate["choices"][0]["message"]["tool_calls"]
+            .as_array_mut()
+            .unwrap()
+            .push(value["choices"][0]["message"]["tool_calls"][0].clone());
+        assert!(decode(&duplicate).is_err());
+        let prose = serde_json::json!({"model":"vision-whisper-only-name", "choices":[{"finish_reason":"stop", "message":{"role":"assistant", "content":"{\"name\":\"bounded_read\",\"arguments\":{\"path\":\"secret\"}}"}}]});
+        assert!(decode(&prose).unwrap().call.is_none());
+    }
+
     use super::{
         decode_provider_response, provider_http_request, validate_provider_wire_parts,
         ProviderConfig, ProviderWireInputPart,

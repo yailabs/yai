@@ -15,7 +15,8 @@ pub const PROVIDER_TARGET_SCHEMA: &str = "yai.provider_target.v1";
 pub const PROVIDER_QUALIFICATION_SCHEMA_V1: &str = "yai.provider_qualification.v1";
 pub const PROVIDER_QUALIFICATION_SCHEMA_V2: &str = "yai.provider_qualification.v2";
 pub const PROVIDER_QUALIFICATION_SCHEMA_V3: &str = "yai.provider_qualification.v3";
-pub const PROVIDER_QUALIFICATION_SCHEMA: &str = "yai.provider_qualification.v4";
+pub const PROVIDER_QUALIFICATION_SCHEMA_V4: &str = "yai.provider_qualification.v4";
+pub const PROVIDER_QUALIFICATION_SCHEMA: &str = "yai.provider_qualification.v5";
 pub const PROVIDER_TRUST_EVENT_SCHEMA: &str = "yai.provider_trust_event.v1";
 pub const PROVIDER_HEALTH_SCHEMA_V1: &str = "yai.provider_health.v1";
 pub const PROVIDER_HEALTH_SCHEMA: &str = "yai.provider_health.v2";
@@ -34,7 +35,7 @@ pub const MAX_PROVIDER_CREDENTIAL_REF_BYTES: usize = 256;
 pub const MAX_PROVIDER_CAPABILITIES: usize = 16;
 pub const MAX_PROVIDER_EXCLUSIONS: usize = 32;
 pub const MAX_PROVIDER_EVIDENCE_REFS: usize = 32;
-pub const MAX_PROVIDER_REALIZATION_SHAPES: usize = 3;
+pub const MAX_PROVIDER_REALIZATION_SHAPES: usize = 4;
 pub const MAX_PROVIDER_ATTEMPTS_PER_TURN: u32 = 3;
 pub const PROVIDER_HEALTH_FRESHNESS_MS: u64 = 60_000;
 pub const PROVIDER_CIRCUIT_FAILURE_THRESHOLD: u32 = 3;
@@ -53,24 +54,33 @@ pub enum ProviderAdapterKind {
 #[serde(rename_all = "snake_case")]
 pub enum ProviderRealizationShape {
     TextToText,
+    TextToJsonObject,
     AudioWavToText,
     OrderedPngTextToText,
+    /// Buffered text plus native function definitions; one typed function
+    /// request or text, including a correlated function-result round trip.
+    /// This proves wire behavior, never permission to execute the request.
+    TextFunctionsToTextOrCall,
 }
 
 impl ProviderRealizationShape {
     pub const fn as_str(&self) -> &'static str {
         match self {
             Self::TextToText => "text_to_text",
+            Self::TextToJsonObject => "text_to_json_object",
             Self::AudioWavToText => "audio_wav_to_text",
             Self::OrderedPngTextToText => "ordered_png_text_to_text",
+            Self::TextFunctionsToTextOrCall => "text_functions_to_text_or_call",
         }
     }
 
     pub fn parse(value: &str) -> Result<Self, String> {
         match value {
             "text_to_text" => Ok(Self::TextToText),
+            "text_to_json_object" => Ok(Self::TextToJsonObject),
             "audio_wav_to_text" => Ok(Self::AudioWavToText),
             "ordered_png_text_to_text" => Ok(Self::OrderedPngTextToText),
+            "text_functions_to_text_or_call" => Ok(Self::TextFunctionsToTextOrCall),
             _ => Err("provider_realization_shape_invalid".to_string()),
         }
     }
@@ -496,7 +506,9 @@ fn derived_capabilities(
     }
     if matches!(
         schema,
-        PROVIDER_QUALIFICATION_SCHEMA | PROVIDER_QUALIFICATION_SCHEMA_V3
+        PROVIDER_QUALIFICATION_SCHEMA
+            | PROVIDER_QUALIFICATION_SCHEMA_V4
+            | PROVIDER_QUALIFICATION_SCHEMA_V3
     ) && evidence.text_embedding_envelope_valid
         && evidence.exact_model_addressed
     {
@@ -657,6 +669,7 @@ impl ProviderQualification {
 
     pub fn validate(&self, target: &ProviderTarget) -> Result<(), String> {
         if self.schema != PROVIDER_QUALIFICATION_SCHEMA
+            && self.schema != PROVIDER_QUALIFICATION_SCHEMA_V4
             && self.schema != PROVIDER_QUALIFICATION_SCHEMA_V3
             && self.schema != PROVIDER_QUALIFICATION_SCHEMA_V2
             && self.schema != PROVIDER_QUALIFICATION_SCHEMA_V1
@@ -665,6 +678,17 @@ impl ProviderQualification {
         }
         target.validate()?;
         self.evidence.validate()?;
+        if self.schema != PROVIDER_QUALIFICATION_SCHEMA
+            && self.evidence.realization_shapes.iter().any(|shape| {
+                matches!(
+                    shape,
+                    ProviderRealizationShape::TextFunctionsToTextOrCall
+                        | ProviderRealizationShape::TextToJsonObject
+                )
+            })
+        {
+            return Err("provider_function_shape_requires_qualification_v5".into());
+        }
         if self.tenant_id != target.tenant_id
             || self.target_id != target.target_id
             || self.target_digest != target.integrity_digest
@@ -748,7 +772,15 @@ impl ProviderQualification {
     }
 
     pub fn supports_realization_shape(&self, shape: &ProviderRealizationShape) -> bool {
-        self.schema == PROVIDER_QUALIFICATION_SCHEMA
+        matches!(
+            self.schema.as_str(),
+            PROVIDER_QUALIFICATION_SCHEMA | PROVIDER_QUALIFICATION_SCHEMA_V4
+        ) && (self.schema == PROVIDER_QUALIFICATION_SCHEMA
+            || !matches!(
+                shape,
+                ProviderRealizationShape::TextFunctionsToTextOrCall
+                    | ProviderRealizationShape::TextToJsonObject
+            ))
             && self
                 .evidence
                 .realization_shapes
@@ -1837,6 +1869,70 @@ mod tests {
             Some(1000),
         )
         .unwrap()
+    }
+
+    #[test]
+    fn function_shape_requires_v5_evidence_and_preserves_historical_v4_shapes() {
+        let target = target(ProviderLocality::Loopback, "http://127.0.0.1:8080/v1");
+        let mut evidence = qualification(&target, true).evidence;
+        evidence.realization_shapes = vec![ProviderRealizationShape::TextToText];
+        let mut historical = ProviderQualification::from_evidence(
+            &target,
+            evidence.clone(),
+            "fixture:typed-v4",
+            "principal:test",
+            None,
+        )
+        .unwrap();
+        historical.schema = PROVIDER_QUALIFICATION_SCHEMA_V4.into();
+        let identity = QualificationIdentity {
+            tenant_id: &historical.tenant_id,
+            target_id: &historical.target_id,
+            target_digest: &historical.target_digest,
+            suite_id: &historical.suite_id,
+            run_id: &historical.run_id,
+            qualified_at_unix_ms: historical.qualified_at_unix_ms,
+            valid_until_unix_ms: historical.valid_until_unix_ms,
+            evidence: &historical.evidence,
+            capabilities: &historical.capabilities,
+            operator_principal_id: &historical.operator_principal_id,
+        };
+        historical.integrity_digest = digest_of(
+            &QualificationIdentityV2 {
+                schema: PROVIDER_QUALIFICATION_SCHEMA_V4,
+                credential_revision: 0,
+                identity,
+            },
+            "fixture:v4",
+        )
+        .unwrap();
+        historical.qualification_id =
+            short_identity("provider-qualification", &historical.integrity_digest);
+        historical.validate(&target).unwrap();
+        assert!(historical.supports_realization_shape(&ProviderRealizationShape::TextToText));
+        assert!(!historical
+            .supports_realization_shape(&ProviderRealizationShape::TextFunctionsToTextOrCall));
+        evidence
+            .realization_shapes
+            .push(ProviderRealizationShape::TextFunctionsToTextOrCall);
+        let current = ProviderQualification::from_evidence(
+            &target,
+            evidence,
+            "fixture:native-function",
+            "principal:test",
+            None,
+        )
+        .unwrap();
+        assert!(current
+            .supports_realization_shape(&ProviderRealizationShape::TextFunctionsToTextOrCall));
+        let mut downgraded = current;
+        downgraded.schema = PROVIDER_QUALIFICATION_SCHEMA_V4.into();
+        assert!(downgraded
+            .validate(&target)
+            .unwrap_err()
+            .contains("requires_qualification_v5"));
+        assert!(!qualification(&target, true)
+            .supports_realization_shape(&ProviderRealizationShape::TextFunctionsToTextOrCall));
     }
 
     #[test]

@@ -35,6 +35,8 @@ pub const CONVERSATION_DRAFT_SCHEMA: &str = "yai.conversation_draft.v1";
 pub const CONTENT_STORE_SCHEMA: &str = "yai.conversation_content_store.v1";
 pub const DERIVED_CONTENT_SCHEMA: &str = "yai.conversation_derived_content.v1";
 pub const COGNITIVE_COMPOSITION_REQUEST_SCHEMA: &str = "yai.cognitive_composition_request.v1";
+/// Exact Turn-to-executor disclosure; no Principal or review authority is delegated.
+pub const DELEGATED_COMPOSITION_REQUEST_SCHEMA: &str = "yai.cognitive_composition_request.v2";
 pub const COGNITIVE_SOURCE_CLOSURE_SCHEMA: &str = "yai.cognitive_source_closure.v1";
 pub const PROVIDER_DERIVED_TEXT_NORMALIZER: &str =
     "yai.conversation_provider_derived_text_normalizer.v1";
@@ -565,9 +567,10 @@ impl ConversationTurn {
     }
 }
 
-/// Explicit semantic intent for one bounded cognitive composition. This is a
-/// derived, content-addressed request rather than durable Case history. Media
-/// shape never creates a prerequisite implicitly.
+/// Explicit prerequisite meaning for a bounded composition. A request is
+/// content-addressed; ConversationExecutionIntentRecorded admits it as SEND
+/// intent. Plans and process-local progression remain derived. Media shape
+/// never creates a prerequisite implicitly.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct CognitiveCompositionPrerequisite {
     pub capability: CognitiveCapability,
@@ -588,6 +591,42 @@ pub struct CognitiveCompositionRequest {
     pub source_part_ids: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub prerequisite: Option<CognitiveCompositionPrerequisite>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub work_limits: Option<CaseWorkLimits>,
+    /// Existing canonical Workflow execution, not another progression owner.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_execution_id: Option<String>,
+}
+
+pub const CASE_WORK_INTENT_SCHEMA: &str = "yai.cognitive_composition_request.v3";
+
+/// Explicit finite application work, not an Agent or persisted execution graph.
+/// Limits are immutable SEND intent, so restart cannot silently reset a budget.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaseWorkLimits {
+    pub invocations: u16,
+    pub operations: u16,
+    pub effects: u16,
+    /// Per-dispatch conservative input estimate, including native tool schemas
+    /// and reconstructed result feedback. Not a tokenizer or price estimate.
+    pub max_input_units: usize,
+}
+
+impl CaseWorkLimits {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.invocations == 0
+            || self.invocations > 24
+            || self.operations == 0
+            || self.operations > self.invocations
+            || self.effects > self.operations
+            || self.max_input_units == 0
+            || self.max_input_units > 131_072
+        {
+            return Err("case_work_limits_invalid".into());
+        }
+        Ok(())
+    }
 }
 
 #[derive(Serialize)]
@@ -601,6 +640,10 @@ struct CognitiveCompositionRequestIdentity<'a> {
     goal: &'a CognitiveCapability,
     source_part_ids: &'a [String],
     prerequisite: &'a Option<CognitiveCompositionPrerequisite>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    work_limits: &'a Option<CaseWorkLimits>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    workflow_execution_id: &'a Option<String>,
 }
 
 fn canonical_turn_part_ids(
@@ -628,6 +671,24 @@ fn canonical_turn_part_ids(
 }
 
 impl CognitiveCompositionRequest {
+    /// Derived finite cursor, not a persistent execution graph or runtime ID.
+    pub fn work_step_source(&self, ordinal: u16) -> Result<String, String> {
+        let limits = self
+            .work_limits
+            .as_ref()
+            .ok_or("case_work_intent_required")?;
+        limits.validate()?;
+        if ordinal >= limits.invocations {
+            return Err("case_work_step_out_of_bounds".into());
+        }
+        Ok(format!(
+            "case-work-step:{}",
+            digest_bytes(
+                format!("yai.case_work.step.v1\0{}\0{ordinal}", self.request_id).as_bytes()
+            )
+        ))
+    }
+
     pub fn new(
         turn: &ConversationTurn,
         participant_id: &str,
@@ -635,10 +696,33 @@ impl CognitiveCompositionRequest {
         source_part_ids: Vec<String>,
         prerequisite: Option<CognitiveCompositionPrerequisite>,
     ) -> Result<Self, String> {
-        turn.validate()?;
         if participant_id != turn.participant_id {
             return Err("cognitive_composition_participant_mismatch".to_string());
         }
+        Self::for_executor(turn, participant_id, goal, source_part_ids, prerequisite)
+    }
+
+    /// Construct explicit application intent. This is not authorization: the
+    /// Case must canonically admit the author's exact delegation before execution.
+    pub fn for_executor(
+        turn: &ConversationTurn,
+        participant_id: &str,
+        goal: CognitiveCapability,
+        source_part_ids: Vec<String>,
+        prerequisite: Option<CognitiveCompositionPrerequisite>,
+    ) -> Result<Self, String> {
+        turn.validate()?;
+        if participant_id.is_empty()
+            || participant_id.len() > 256
+            || participant_id.chars().any(char::is_control)
+        {
+            return Err("conversation_executor_identity_invalid".into());
+        }
+        let schema = if participant_id == turn.participant_id {
+            COGNITIVE_COMPOSITION_REQUEST_SCHEMA
+        } else {
+            DELEGATED_COMPOSITION_REQUEST_SCHEMA
+        };
         if goal != CognitiveCapability::PrimaryConversation {
             return Err("cognitive_composition_goal_not_admitted".to_string());
         }
@@ -670,7 +754,7 @@ impl CognitiveCompositionRequest {
             })
             .transpose()?;
         let identity = CognitiveCompositionRequestIdentity {
-            schema: COGNITIVE_COMPOSITION_REQUEST_SCHEMA,
+            schema,
             tenant_id: &turn.tenant_id,
             case_id: &turn.case_id,
             participant_id,
@@ -679,10 +763,12 @@ impl CognitiveCompositionRequest {
             goal: &goal,
             source_part_ids: &source_part_ids,
             prerequisite: &prerequisite,
+            work_limits: &None,
+            workflow_execution_id: &None,
         };
         let integrity_digest = digest_json(&identity)?;
         Ok(Self {
-            schema: COGNITIVE_COMPOSITION_REQUEST_SCHEMA.to_string(),
+            schema: schema.to_string(),
             request_id: format!("cognitive-composition:{integrity_digest}"),
             integrity_digest,
             tenant_id: turn.tenant_id.clone(),
@@ -693,20 +779,90 @@ impl CognitiveCompositionRequest {
             goal,
             source_part_ids,
             prerequisite,
+            work_limits: None,
+            workflow_execution_id: None,
         })
+    }
+
+    pub fn with_work_limits(mut self, limits: CaseWorkLimits) -> Result<Self, String> {
+        limits.validate()?;
+        if self.prerequisite.is_some() {
+            return Err("case_work_prerequisite_not_admitted".into());
+        }
+        self.schema = CASE_WORK_INTENT_SCHEMA.into();
+        self.work_limits = Some(limits);
+        let identity = CognitiveCompositionRequestIdentity {
+            schema: &self.schema,
+            tenant_id: &self.tenant_id,
+            case_id: &self.case_id,
+            participant_id: &self.participant_id,
+            source_turn_id: &self.source_turn_id,
+            source_turn_digest: &self.source_turn_digest,
+            goal: &self.goal,
+            source_part_ids: &self.source_part_ids,
+            prerequisite: &self.prerequisite,
+            work_limits: &self.work_limits,
+            workflow_execution_id: &self.workflow_execution_id,
+        };
+        self.integrity_digest = digest_json(&identity)?;
+        self.request_id = format!("cognitive-composition:{}", self.integrity_digest);
+        Ok(self)
+    }
+
+    pub fn with_workflow_execution(mut self, execution_id: &str) -> Result<Self, String> {
+        if !execution_id.starts_with("workflow-execution:")
+            || execution_id.len() > 256
+            || execution_id.chars().any(char::is_control)
+            || self.prerequisite.is_some()
+        {
+            return Err("conversation_workflow_execution_invalid".into());
+        }
+        self.schema = CASE_WORK_INTENT_SCHEMA.into();
+        self.workflow_execution_id = Some(execution_id.into());
+        let identity = CognitiveCompositionRequestIdentity {
+            schema: &self.schema,
+            tenant_id: &self.tenant_id,
+            case_id: &self.case_id,
+            participant_id: &self.participant_id,
+            source_turn_id: &self.source_turn_id,
+            source_turn_digest: &self.source_turn_digest,
+            goal: &self.goal,
+            source_part_ids: &self.source_part_ids,
+            prerequisite: &self.prerequisite,
+            work_limits: &self.work_limits,
+            workflow_execution_id: &self.workflow_execution_id,
+        };
+        self.integrity_digest = digest_json(&identity)?;
+        self.request_id = format!("cognitive-composition:{}", self.integrity_digest);
+        Ok(self)
     }
 
     /// Identity validation independent of history; exact source membership is
     /// additionally validated against the canonical Turn at adoption/replay.
     pub fn validate_structure(&self) -> Result<(), String> {
-        if self.schema != COGNITIVE_COMPOSITION_REQUEST_SCHEMA
-            || self.goal != CognitiveCapability::PrimaryConversation
+        if !matches!(
+            self.schema.as_str(),
+            COGNITIVE_COMPOSITION_REQUEST_SCHEMA
+                | DELEGATED_COMPOSITION_REQUEST_SCHEMA
+                | CASE_WORK_INTENT_SCHEMA
+        ) || self.goal != CognitiveCapability::PrimaryConversation
             || self.source_part_ids.is_empty()
             || self.source_part_ids.len() > MAX_TURN_PARTS
             || self.source_part_ids.iter().collect::<BTreeSet<_>>().len()
                 != self.source_part_ids.len()
         {
             return Err("conversation_intent_contract_invalid".to_string());
+        }
+        if (self.schema == CASE_WORK_INTENT_SCHEMA)
+            != (self.work_limits.is_some() || self.workflow_execution_id.is_some())
+        {
+            return Err("conversation_intent_work_schema_mismatch".into());
+        }
+        if let Some(limits) = &self.work_limits {
+            limits.validate()?;
+            if self.prerequisite.is_some() {
+                return Err("case_work_prerequisite_not_admitted".into());
+            }
         }
         if let Some(prerequisite) = &self.prerequisite {
             if prerequisite.capability == CognitiveCapability::PrimaryConversation
@@ -736,6 +892,8 @@ impl CognitiveCompositionRequest {
             goal: &self.goal,
             source_part_ids: &self.source_part_ids,
             prerequisite: &self.prerequisite,
+            work_limits: &self.work_limits,
+            workflow_execution_id: &self.workflow_execution_id,
         };
         let digest = digest_json(&identity)?;
         if digest != self.integrity_digest
@@ -747,21 +905,94 @@ impl CognitiveCompositionRequest {
     }
 
     pub fn validate(&self, turn: &ConversationTurn) -> Result<(), String> {
-        if self.schema != COGNITIVE_COMPOSITION_REQUEST_SCHEMA {
+        if !matches!(
+            self.schema.as_str(),
+            COGNITIVE_COMPOSITION_REQUEST_SCHEMA
+                | DELEGATED_COMPOSITION_REQUEST_SCHEMA
+                | CASE_WORK_INTENT_SCHEMA
+        ) {
             return Err("cognitive_composition_schema_invalid".to_string());
         }
-        let rebuilt = Self::new(
+        self.validate_structure()?;
+        let mut rebuilt = Self::for_executor(
             turn,
             &self.participant_id,
             self.goal.clone(),
             self.source_part_ids.clone(),
             self.prerequisite.clone(),
         )?;
+        if let Some(limits) = &self.work_limits {
+            if turn.ordered_parts.iter().any(|p| {
+                self.source_part_ids.contains(&p.part_id)
+                    && p.object.modality != ContentModality::Text
+            }) {
+                return Err("case_work_requires_text_source".into());
+            }
+            rebuilt = rebuilt.with_work_limits(limits.clone())?;
+        }
+        if let Some(execution_id) = &self.workflow_execution_id {
+            rebuilt = rebuilt.with_workflow_execution(execution_id)?;
+        }
         if rebuilt != *self {
             return Err("cognitive_composition_identity_mismatch".to_string());
         }
         Ok(())
     }
+}
+
+/// Current Case disclosure and exact canonical SEND intent, not an ambient
+/// right to speak as another Participant. The caller still authenticates the
+/// Principal and enforces Tenant membership and execution governance.
+pub fn authorize_turn_execution(
+    state: &crate::transition::CaseState,
+    history: &[crate::transition::Transition],
+    turn: &ConversationTurn,
+    executor: &str,
+    principal_id: &str,
+) -> Result<(), String> {
+    use crate::transition::TransitionPayload;
+    if state.case_id != turn.case_id
+        || state.tenant_id.as_deref() != Some(turn.tenant_id.as_str())
+        || turn.submitted_by_principal_id != principal_id
+        || !state.principal_participant_links.iter().any(|link| {
+            link.tenant_id == turn.tenant_id
+                && link.participant_id == turn.participant_id
+                && link.principal_id == principal_id
+        })
+    {
+        return Err("cognitive_realization_principal_participant_mismatch".into());
+    }
+    if executor != turn.participant_id {
+        let intent = history
+            .iter()
+            .find_map(|transition| match &transition.payload {
+                TransitionPayload::ConversationExecutionIntentRecorded { request }
+                    if request.source_turn_id == turn.turn_id =>
+                {
+                    Some(request)
+                }
+                _ => None,
+            })
+            .ok_or("cognitive_realization_principal_participant_mismatch")?;
+        intent.validate(turn)?;
+        if !matches!(
+            intent.schema.as_str(),
+            DELEGATED_COMPOSITION_REQUEST_SCHEMA | CASE_WORK_INTENT_SCHEMA
+        ) || intent.participant_id != executor
+        {
+            return Err("conversation_executor_delegation_mismatch".into());
+        }
+        if !state.participants.iter().any(|participant| {
+            participant.participant_id == executor
+                && participant
+                    .admitted_views
+                    .iter()
+                    .any(|view| view.consumer == "model" && view.view_kind == "model_context")
+        }) {
+            return Err("conversation_executor_model_view_not_admitted".into());
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -1248,7 +1479,9 @@ impl ConversationDerivedContent {
                                 && part.object.media_type == "image/png")
                     })
             }
-            ProviderRealizationShape::TextToText => false,
+            ProviderRealizationShape::TextToText
+            | ProviderRealizationShape::TextToJsonObject
+            | ProviderRealizationShape::TextFunctionsToTextOrCall => false,
         };
         if !shape_matches_sources {
             return Err("conversation_derived_content_source_shape_mismatch".to_string());
@@ -1550,6 +1783,25 @@ impl ConversationContentStore {
             text.as_bytes(),
         )?;
         self.publish_object(&object, text.as_bytes())?;
+        Ok(object)
+    }
+
+    /// Object-first byte publication shared by conversation and explicit Case
+    /// material admission. This alone creates no Turn or Case relationship.
+    pub fn publish_owned_file_bytes(
+        &self,
+        tenant_id: &str,
+        case_id: &str,
+        bytes: &[u8],
+    ) -> Result<ConversationContentObject, String> {
+        let object = ConversationContentObject::new(
+            tenant_id,
+            case_id,
+            ContentModality::File,
+            "application/octet-stream",
+            bytes,
+        )?;
+        self.publish_object(&object, bytes)?;
         Ok(object)
     }
 
@@ -2218,6 +2470,77 @@ mod tests {
             store.verify_object(&part.object).unwrap();
         }
         let _ = fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn case_work_limits_are_immutable_explicit_intent_not_restart_local_budget() {
+        let object = ConversationContentObject::new(
+            "tenant:i01",
+            "case:i01",
+            ContentModality::Text,
+            "text/plain",
+            b"inspect the admitted source",
+        )
+        .unwrap();
+        let part = ConversationContentPart::build(0, object, original()).unwrap();
+        let turn = ConversationTurn::build(
+            "case:i01",
+            "tenant:i01",
+            "thread:work",
+            "participant:operator",
+            "principal:operator",
+            9,
+            vec![part],
+        )
+        .unwrap();
+        let plain = CognitiveCompositionRequest::new(
+            &turn,
+            "participant:operator",
+            CognitiveCapability::PrimaryConversation,
+            turn.ordered_parts
+                .iter()
+                .map(|p| p.part_id.clone())
+                .collect(),
+            None,
+        )
+        .unwrap();
+        let old = serde_json::to_value(&plain).unwrap();
+        assert!(
+            old.get("work_limits").is_none(),
+            "historical request bytes retain the absent field"
+        );
+        let work = plain
+            .clone()
+            .with_work_limits(CaseWorkLimits {
+                invocations: 12,
+                operations: 10,
+                effects: 3,
+                max_input_units: 8192,
+            })
+            .unwrap();
+        work.validate(&turn).unwrap();
+        assert_ne!(work.request_id, plain.request_id);
+        let reopened: CognitiveCompositionRequest =
+            serde_json::from_str(&serde_json::to_string(&work).unwrap()).unwrap();
+        assert_eq!(reopened, work);
+        reopened.validate(&turn).unwrap();
+        let mut changed = work.clone();
+        changed.work_limits.as_mut().unwrap().effects += 1;
+        assert!(
+            changed.validate(&turn).is_err(),
+            "restart cannot reset or enlarge the admitted budget"
+        );
+        let mut downgraded = work;
+        downgraded.schema = COGNITIVE_COMPOSITION_REQUEST_SCHEMA.into();
+        assert!(downgraded.validate_structure().is_err());
+        assert!(plain
+            .with_work_limits(CaseWorkLimits {
+                invocations: 0,
+                operations: 1,
+                effects: 1,
+                max_input_units: 8192,
+            })
+            .is_err());
     }
 
     #[test]

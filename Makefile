@@ -775,6 +775,48 @@ endurance-agentless-case-runtime: smoke-agentless-case-runtime
 # prerequisites execute once in `make check characterization`; there is no
 # result cache and separate invocations intentionally rerun their selected proof.
 .PHONY: test-fast test-local test-release test-unit test-component test-contract
+.PHONY: test-golden-local
+test-golden-local: $(VALIDATION_GOLDEN_LOCAL)
+.PHONY: test-golden-external-yvex qualification-golden-yvex
+test-golden-external-yvex: qualification-golden-yvex
+qualification-golden-yvex: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/case-resource-access/test_reference_free.py --external
+	@python3 tests/characterization/case-resource-access/test_reference_free.py --workflow --external
+.PHONY: smoke-case-resource-access smoke-case-resource-effects
+.PHONY: smoke-conversation-executor-delegation
+.PHONY: smoke-case-capability-realization
+.PHONY: smoke-case-workbench
+.PHONY: smoke-case-reference-free
+.PHONY: smoke-case-reference-workflow
+smoke-case-reference-workflow: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/case-resource-access/test_reference_free.py --workflow
+
+smoke-case-reference-free: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/case-resource-access/test_reference_free.py
+
+smoke-case-workbench: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/case-resource-access/test_case_workbench.py
+
+smoke-case-capability-realization: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path cmd/yai/Cargo.toml command_adapters::conversation_controller::tests::golden_native_capability_result_restarts_into_exact_governed_resource_request -- --ignored --exact --nocapture --test-threads=1
+
+smoke-conversation-executor-delegation: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo test --manifest-path cmd/yai/Cargo.toml command_adapters::conversation_controller::tests::golden_turn_author_delegates_execution_without_identity_or_review_transfer -- --ignored --exact --nocapture --test-threads=1
+
+smoke-case-resource-access: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/case-resource-access/test_case_resource_access.py
+
+smoke-case-resource-effects: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/case-resource-access/test_resource_effects.py
+
 .PHONY: test-product test-recovery test-endurance test-external-yvex test-manual
 .PHONY: check-validation-topology validation-rust-build test-topology test-rust-doc
 .PHONY: smoke-provider-model smoke-direct-filesystem-bypass

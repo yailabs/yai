@@ -152,12 +152,12 @@ mean constitutional, general, or production-ready.
 | Case conversation content | mutable non-canonical draft → bounded text/media imports → explicit original/derived provenance → SEND → `ConversationTurnCommitted` → immutable content-addressed bytes plus canonical ordered references; I03 can publish bounded provider-derived text as a separate canonical relation without mutating the Turn | non-text generated output and automatic unbounded composition remain later work |
 | Conversation interaction host | host-normalized ordered parts + explicit semantic prerequisites → atomic Turn/intent SEND → shared I05/I02/I03 direct realization or I04 composition; failure and retry preserve one Turn/intent without ResourceAttachment, Workflow, Policy, Effect, or Case-runtime admission | the Advanced `yai prompt` frontend consumes native REPLAI; generic terminal mechanics stay external |
 | Cognitive capability planning | explicit requirement → pinned or ordered Case/Participant cognitive binding → exact semantic, governance and known mechanical eligibility → first eligible candidate with inspectable exclusions → exact native/derived/unresolved plan and lane; planning remains execution-free | learned/economic routing remains absent; I06 connects the conversation host |
-| Typed provider realization | fresh I02 plan + exact current binding/evidence/envelope + ProviderQualification v4 wire-shape evidence + canonical Turn parts → exact-target governed selection → ordered OpenAI-compatible typed request → ProviderInvocation/ProviderResult; derived routes use an exact versioned normalizer to publish bounded immutable text plus source/result provenance | production STT/vision adapters, public YVEX typed-media compatibility and streaming remain later work |
+| Typed provider realization | fresh I02 plan + exact current binding/evidence/envelope + ProviderQualification v5 wire-shape evidence + canonical Turn parts → exact-target governed selection → ordered OpenAI-compatible typed request → ProviderInvocation/ProviderResult; derived routes preserve immutable text/source/result provenance; native function calls and JSON-object output have separate mechanical probes | production STT/vision adapters, public YVEX typed-media compatibility and streaming remain later work |
 | Cognitive execution composition | explicit primary goal + ordered canonical source selection → content-addressed composition request → proven direct primary bypass or one exact auxiliary I02/I03 realization → canonical derived content → deterministic original/derived source closure → fresh exact primary I02/I03 realization; I05 arbitrates before each exact plan, and compatible prerequisites resume without redispatch | only depth-two speech/image-to-text prerequisites are admitted; recursive graphs remain absent; I06 consumes this bounded composition in the host |
-| Case-bound provider prompt | admitted participant + typed CaseState/history → qualified long-horizon retrieval → `yai.residency_plan.v1` → `yai.projection.v7` → `yai.context_frame.v7` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | authoritative tokenization and streaming remain absent; interactive conversation uses cognitive realization; --once/piped legacy diagnostics remain separate |
+| Case-bound provider prompt | admitted participant + typed CaseState/history → qualified long-horizon retrieval → `yai.residency_plan.v1` → `yai.projection.v8` → `yai.context_frame.v8` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | authoritative tokenization and streaming remain absent; interactive conversation uses cognitive realization; --once/piped legacy diagnostics remain separate |
 | Governed provider routing | immutable Tenant ProviderTarget → synthetic evidence-bound qualification → Tenant-Owner approval → shared fresh health/circuit → exact Case provider binding → mechanical requirement/filtering → canonical ProviderSelection and attempt outcome; local fixtures prove qualified capability differences, deterministic exclusions, pre-dispatch safe failover and indeterminate-delivery refusal | remote HTTPS transport, credential rotation, DNS drift and adversarial multi-process circuit hardening remain outside W18 |
 | Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | one synchronous single-host `filesystem.write` loop; no multi-Case scheduler, quotas, backpressure or distributed lease |
-| Controlled filesystem effect | Tenant-scoped attachment + Ready/Valid EffectivePolicy → real HTTP ProviderResult → exact Operation → DecisionBasis/Decision/finite ExecutionGrant → durable PREPARE → Rust atomic replacement → Observation/Receipt → FINALIZE/RECONCILE | only `filesystem.write`; exact/overlapping roots are rejected across Tenants, but hostile namespace fencing and a second carrier are absent |
+| Controlled external effect | Tenant-scoped attachment + Ready/Valid EffectivePolicy → exact Operation → DecisionBasis/Decision/finite ExecutionGrant → durable fenced PREPARE → filesystem replacement, confined process or admitted MCP tool call → Observation/Receipt → FINALIZE/INDETERMINATE | process confinement is bounded Linux x86_64; arbitrary shell, general database mutation and state-changing HTTP are not admitted |
 | Human-reviewed filesystem effect | policy-driven `REQUIRE_REVIEW` → v2 request → per-command POSIX Principal authentication → Tenant membership → explicit Principal/Participant link → Case-role eligibility → ReviewAction v2 → effective Decision → same Grant/carrier path | local POSIX identity only; no SSO, remote signer or membership removal lifecycle |
 | Governance intake and admission | authenticated Tenant owner + constrained JSON → Tenant-owned immutable artifact/lifecycle → exact Tenant-safe Case binding → EffectivePolicy → operation-specific DecisionBasis; P@1/P@2 remain distinct and validity/revoke contract future authority | local ownership is enforced; external organization identity, credential security, retention and distributed revoke remain future work |
 | Journal compatibility | inspect/dry-run/import `yai.store.record.v0` or `yai.record.v1`, preserving unknowns opaquely in an isolated target; old replay still materializes legacy record indexes | general semantic promotion is deliberately absent; the old record plane remains compatibility data, not authority |
@@ -188,6 +188,54 @@ mirrors, `net/`, and its unconsumed `proto/` fixtures are absent. None had a
 product caller or unique property not already captured by the surviving
 verticals/tests.
 
+## Case workbench and attached capabilities
+
+`./yai case workbench CASE --participant HUMAN --executor MODEL` is the Product
+frontend over ConversationController and the qualified REPLAI editor. Ordinary
+conversation remains I06. Explicit `/work` commits finite work intent before
+I02–I05 arbitration/realization; Workflow CaseWork nodes call that same host.
+No Agent, connector/tool registry or independent execution history is introduced.
+
+The derived Case capability view is scoped by generation, Participant, current
+resource envelope and READY EffectivePolicy. Native provider function requests
+are candidates: exact normalization creates an Operation, not permission.
+Arbitrary assistant prose cannot become a hidden tool call. Human review and
+current authority remain mandatory when required. Delegation never transfers
+the human Principal's review authority to the model.
+
+Resource effects reuse Decision/Grant and fenced PREPARE. Filesystem writes
+retain their existing atomic carrier. A separately qualified process runner
+executes only descriptor-pinned root-owned ELF, exact argv/cwd/environment and
+bounded output/time under Linux x86_64 Landlock/seccomp confinement. MCP tools
+are conservatively effects; indeterminate delivery holds the fence and is not
+blind-retried. Database mutation is explicitly denied in the reference deck;
+arbitrary SQL mutations, unrestricted shells and state-changing HTTP are absent.
+
+Read observations remain scoped external material. Filesystem access is
+descriptor-relative beneath admitted roots; SQLite queries use a bounded
+quiescent rollback-mode image with a read-only authorizer and exact named query;
+HTTP fetch uses exact endpoint/IP/path bounds without redirects. MCP implements
+the bounded 2026-07-28 stateless Streamable HTTP subset: per-request capability
+metadata, server/discover, tools/list, resources/list, resources/read and
+tools/call, bounded pagination/JSON/SSE and exact catalog/schema revalidation.
+It does not implement legacy session fallback, sampling, Apps, Tasks or prompts.
+Remote catalog annotations never grant YAI authority.
+
+Discovery produces integrity-bound candidates only. Explicit policy admission
+imports complete immutable bytes into ConversationContentStore and records
+CaseContentAdmitted identity/provenance/disclosure. Candidate drift refuses.
+The original Turn is unchanged and material does not become semantic truth.
+Model capability feedback and restart reuse are reconstructed from canonical
+ProviderResult/Operation/Observation/effect/admission relations, not a second log.
+
+Workbench inspection includes exact operations before review, policy, resources,
+effects, Workflow, history, derived memory/graph and replay. `/rebuild` rebuilds
+disposable views while verifying unchanged canonical history. Scoped Handoff
+actions reuse existing source/target admission and never copy authority. The
+[reference evidence](../refoundation/validation/golden-case-lifecycle/REPORT.md)
+records the current qualification state; the [cumulative runbook](zero-to-current.md)
+owns human acceptance. Loopback lifecycle proof is not live YVEX qualification.
+
 ## Current state and schema authority
 
 ### Canonical LMDB authority
@@ -195,8 +243,8 @@ verticals/tests.
 Rust owns one canonical semantic write path in
 [`transition.rs`](../engine/yai-engine/src/transition.rs) and
 [`lmdb.rs`](../engine/yai-engine/src/store/lmdb.rs). The current serialized
-contracts are `yai.transition.v17` and
-`yai.case_state.v14`; Transition readers retain v1-v16 and reject unknown
+contracts are `yai.transition.v18` and
+`yai.case_state.v15`; Transition readers retain v1-v17 and reject unknown
 future versions. Version 3 added provider identity,
 semantic-frame/render lineage and typed
 interaction turns. Version 4 adds Operation-bound ReviewRequest,
@@ -231,8 +279,19 @@ composition-request v1 body. Host SEND atomically appends Turn and intent;
 CaseState gains no field. The Turn-view CLI projection is v2 and includes the
 optional adopted intent. Stored Turn v1 and content contracts remain unchanged.
 Pinned binding v1, historical plans v1 and their source histories remain readable;
-historical plans must be freshly planned before new execution. Projection v7,
-ContextFrame v7, RetrievalSet v3 and ProviderQualification v4 do not change.
+historical plans must be freshly planned before new execution. I06 itself did
+not change Projection v7, ContextFrame v7, RetrievalSet v3 or ProviderQualification v4.
+Golden convergence advances Projection/ContextFrame to v8 for scoped resource
+observations, admitted immutable material and a typed capability-output contract;
+ProviderQualification v5 separately qualifies native calls and JSON output.
+RetrievalSet v3 and RenderedInput v7 remain unchanged. Transition v18 and
+CaseState v15 carry bounded resource envelopes, observation/effect and immutable
+material-admission meaning. Composition request v2 separates Turn author from
+an explicitly delegated cognitive Participant; v3 binds finite work budgets and
+optional exact Workflow execution identity. Existing request versions do not
+silently acquire work budgets. WorkflowDefinition v3 admits a finite CaseWork
+node and exact terminal predicate; v1/v2 definitions and store markers remain
+readable without rewriting immutable definitions.
 One bounded
 LMDB write transaction:
 
@@ -258,7 +317,7 @@ generation, immutable Tenant domain, Principal links, participant
 bindings/admitted views, one current provider/model attachment or governed
 provider binding, historical provider selections/attempt outcomes, latest
 provider invocation/result/interpretation lineage, typed
-Operation-bound review state, logical filesystem attachments, latest Operation/Decision, Grant
+Operation-bound review state, typed resource attachments, latest Operation/Decision, Grant
 lifecycle, and compact prepared/finalized/indeterminate effect refs. Full
 content, Observations, and Receipts remain in immutable Transitions rather than
 turning CaseState into an object bag.
@@ -591,8 +650,8 @@ one Tenant context and never combines catalogs or Case-derived reads.
 boundary from typed CaseState, ordered canonical Transitions and an optional
 qualified RetrievalSet to an immutable candidate Projection. The pure
 [`residency.rs`](../engine/yai-engine/src/residency.rs) planner applies a
-`yai.residency_plan.v1` budget before the compiler emits `yai.projection.v7`
-and one task/output-contract-specific `yai.context_frame.v7`. Projection identity binds
+`yai.residency_plan.v1` budget before the compiler emits `yai.projection.v8`
+and one task/output-contract-specific `yai.context_frame.v8`. Projection identity binds
 Case generation, participant/purpose/admitted view, ordered typed entries,
 provenance and bounded omission state. Provider availability, rendering,
 tokenization, KV state and opaque continuation identity do not participate.
@@ -819,10 +878,10 @@ from one checkout.
 | Constitutional requirement | Current implementation | Gap |
 |---|---|---|
 | one canonical Transition Ledger with transactional CaseState | implemented in LMDB for typed payloads; provider and review are live consumers | migrate remaining current workflows; add operational checkpoint/compaction policy |
-| carrier consumes an ExecutionGrant | implemented for the sole product `filesystem.write` carrier and migrated review approval; C carriers remain component-only | migrate a second resource carrier only when its lifecycle justifies the contract; no registry exists |
-| PREPARE/EFFECT/FINALIZE with indeterminate recovery | implemented for local filesystem write, including prepared discovery, failpoints, reconciliation, stable idempotency identity and a temporal cut: unused authority can expire/revoke/abandon before PREPARE, while prepared truth must settle | automatic multi-Case background recovery and non-filesystem protocols |
-| filesystem attachment confinement | lexical validation plus canonical-parent containment rejects traversal and symlink-parent escape in the current single-machine tests | race-resistant directory-handle confinement for adversarial concurrent namespace mutation |
-| distinct ProviderResult, Observation, EffectReceipt | implemented as separate Rust types and Transition payload roles; compatibility export still has old receipt-shaped rows | migrate process observations or other live resource families when they become product-reachable |
+| carrier consumes an ExecutionGrant | governed filesystem write, confined process runner and admitted MCP tool call reuse exact grants and current authority; C carriers remain component-only | general database/HTTP mutation and broader process profiles are not admitted; no carrier registry owner exists |
+| PREPARE/EFFECT/FINALIZE with indeterminate recovery | filesystem reconciliation and resource fenced publication preserve terminal/indeterminate truth; unused authority may expire before PREPARE, while prepared work must settle | no blind retry or invented reconciliation for unknown process/MCP outcomes; broader resource-specific reconciliation remains future work |
+| filesystem attachment confinement | descriptor-relative reads/imports and the controlled write carrier preserve admitted roots and reject symlink/namespace substitution in qualified Linux tests | broader platforms require independently qualified confinement |
+| distinct ProviderResult, Observation, EffectReceipt | separate Rust types and canonical roles for filesystem/process/MCP effects and bounded resource reads; compatibility export retains old receipt-shaped rows | future resource families require their own truthful result and reconciliation contract |
 | Case plus materialized CaseState | implemented and replayable for provider/review/resource/operation/grant/effect refs and exact policy bindings | extend only for demonstrated future consumers; migrate daemon hot/fixture state only if it becomes canonical input |
 | summary is presentation only | canonical reducers and migrated paths do not parse it; old projection/frame and analytics records use the compatibility decoder | migrate or retire remaining legacy-only producers and views |
 | Projection/Residency/ContextFrame/KV separation | typed Projection, pure `yai.residency_plan.v1`, independent ContextFrame and distinct render identity are implemented; opaque continuation is optional and tokens/KV are absent from canonical state | semantic units and rendered-size estimation are conservative rather than tokenizer-authoritative; no ContextDelta consumer |

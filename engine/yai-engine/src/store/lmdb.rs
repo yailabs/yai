@@ -79,7 +79,7 @@ use crate::resource_control::{
     filesystem_relation, rebuild_resource_control_state as replay_resource_control_state,
     ActiveResourceLease, FilesystemRelation, LocalProcessIdentity, ResourceControlAction,
     ResourceControlEvent, ResourceControlState, ResourceFence, ResourceFenceAuthority,
-    ResourceIdentity, RESOURCE_CONTROL_EVENT_SCHEMA, RESOURCE_CONTROL_STATE_SCHEMA,
+    ResourceIdentity, RESOURCE_CONTROL_EVENT_SCHEMA,
 };
 use crate::security::{
     AuthenticatedPrincipal, SecurityContext, SecurityEvent, SecurityEventAction, SecurityPrincipal,
@@ -4694,6 +4694,153 @@ impl LmdbRecordStore {
     /// the Case transition, and publishes resource current/history state.
     /// No externally visible resource lease can exist without PREPARE and no
     /// PREPARE can exist without its resource lease.
+    /// Shared temporal cut for every controlled PREPARE. The caller commits
+    /// the returned invalidation in its own transaction; no carrier runs here.
+    fn invalidate_unusable_grant_before_prepare_txn(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        state: &CaseState,
+        grant_id: &str,
+    ) -> Result<(u64, Option<CanonicalCommit>), String> {
+        let grant_state = state
+            .grants
+            .iter()
+            .find(|grant| grant.grant_id == grant_id)
+            .ok_or_else(|| "prepare_without_grant".to_string())?;
+        if grant_state.status != GrantLifecycle::Issued {
+            return Err("prepare_requires_issued_grant".to_string());
+        }
+        let authority_time = self.advance_authority_time_txn(txn, authority_wall_time_unix_ms())?;
+        let floor = self.authority_time_floor_txn(txn)?;
+        let status =
+            self.materialize_case_policy_at_txn(txn, &state.case_id, authority_time, floor)?;
+        let invalidation = if let Some(cancellation) = &state.cancellation {
+            Some((
+                GrantInvalidationDisposition::Abandoned,
+                "case_cancelled_before_prepare".to_string(),
+                cancellation.transition_id.clone(),
+            ))
+        } else if grant_state.expires_at_unix_ms != 0
+            && authority_time >= grant_state.expires_at_unix_ms
+        {
+            Some((
+                GrantInvalidationDisposition::Expired,
+                "execution_grant_expired_before_prepare".to_string(),
+                grant_id.to_string(),
+            ))
+        } else if status.validity != PolicyValidityPosture::Valid {
+            let disposition = if status.validity == PolicyValidityPosture::Revoked {
+                GrantInvalidationDisposition::Revoked
+            } else {
+                GrantInvalidationDisposition::Expired
+            };
+            let source = status
+                .binding_validity
+                .values()
+                .find_map(|binding| binding.revoke_event_id.clone())
+                .unwrap_or_else(|| grant_id.to_string());
+            Some((
+                disposition,
+                format!("policy_invalid_before_prepare:{:?}", status.validity),
+                source,
+            ))
+        } else {
+            None
+        };
+        if let Some((disposition, reason, source_ref)) = invalidation {
+            let mut invalidation_pending = PendingTransition::new(
+                format!(
+                    "transition:grant-invalidated:{}:{}",
+                    grant_id,
+                    state.generation + 1
+                ),
+                &state.case_id,
+                state.generation,
+                TransitionSource::component("yai.temporal_governance"),
+                TransitionPayload::ExecutionGrantInvalidated {
+                    invalidation: ExecutionGrantInvalidation {
+                        grant_id: grant_id.to_string(),
+                        disposition,
+                        reason,
+                        source_ref: source_ref.clone(),
+                        invalidated_at_unix_ms: authority_time,
+                    },
+                },
+            );
+            invalidation_pending.causal_refs = vec![grant_id.to_string(), source_ref];
+            let commit = self.commit_transition_txn(txn, invalidation_pending, false)?;
+            return Ok((authority_time, Some(commit)));
+        }
+
+        Ok((authority_time, None))
+    }
+
+    /// Prepare the shared lease/event in the caller's Case transaction.
+    /// This computes no provider/process state and publishes nothing alone.
+    fn prepare_resource_acquisition_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        identity: ResourceIdentity,
+        (case_id, operation_id, grant_id, effect_id): (&str, &str, &str, &str),
+        owner_pid: u32,
+        authority_time: u64,
+    ) -> Result<(ResourceFence, ResourceControlEvent, ResourceControlState), String> {
+        self.reject_active_resource_conflict_txn(txn, &identity)?;
+        let prior = self.resource_control_state_txn(txn, &identity.resource_id)?;
+        let next_epoch = match prior.as_ref() {
+            Some(current) => current
+                .resource_epoch
+                .checked_add(1)
+                .ok_or_else(|| "resource_epoch_exhausted".to_string())?,
+            None => 1,
+        };
+        let next_sequence = match prior.as_ref() {
+            Some(current) => current
+                .event_sequence
+                .checked_add(1)
+                .ok_or_else(|| "resource_event_sequence_exhausted".to_string())?,
+            None => 1,
+        };
+        let owner_process_identity = LocalProcessIdentity::capture(owner_pid)?.canonical_identity();
+        let fence = ResourceFence::issue(
+            &identity,
+            next_epoch,
+            case_id,
+            operation_id,
+            grant_id,
+            effect_id,
+            owner_pid,
+            &owner_process_identity,
+            authority_time,
+        )?;
+        let previous = self.resource_control_event_at_sequence_txn(
+            txn,
+            &identity.resource_id,
+            prior.as_ref().map(|state| state.event_sequence),
+        )?;
+        let event = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &identity,
+            &fence,
+            next_sequence,
+            authority_time,
+            previous.as_ref(),
+        )?;
+        let control = ResourceControlState {
+            schema: identity.state_schema().to_string(),
+            identity,
+            resource_epoch: next_epoch,
+            event_sequence: next_sequence,
+            last_event_id: Some(event.event_id.clone()),
+            last_event_digest: Some(event.integrity_digest.clone()),
+            active_lease: Some(ActiveResourceLease {
+                fence: fence.clone(),
+            }),
+        };
+        control.validate()?;
+        Ok((fence, event, control))
+    }
+
     pub fn commit_fenced_effect_prepared(
         &self,
         mut pending: PendingTransition,
@@ -4731,74 +4878,12 @@ impl LmdbRecordStore {
                 pending.expected_generation, state.generation
             ));
         }
-        let grant_state = state
-            .grants
-            .iter()
-            .find(|grant| grant.grant_id == prepared_snapshot.grant_id)
-            .ok_or_else(|| "prepare_without_grant".to_string())?;
-        if grant_state.status != GrantLifecycle::Issued {
-            return Err("prepare_requires_issued_grant".to_string());
-        }
-        let authority_time =
-            self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
-        let floor = self.authority_time_floor_txn(&txn)?;
-        let status =
-            self.materialize_case_policy_at_txn(&txn, &pending.case_id, authority_time, floor)?;
-        let invalidation = if let Some(cancellation) = &state.cancellation {
-            Some((
-                GrantInvalidationDisposition::Abandoned,
-                "case_cancelled_before_prepare".to_string(),
-                cancellation.transition_id.clone(),
-            ))
-        } else if grant_state.expires_at_unix_ms != 0
-            && authority_time >= grant_state.expires_at_unix_ms
-        {
-            Some((
-                GrantInvalidationDisposition::Expired,
-                "execution_grant_expired_before_prepare".to_string(),
-                prepared_snapshot.grant_id.clone(),
-            ))
-        } else if status.validity != PolicyValidityPosture::Valid {
-            let disposition = if status.validity == PolicyValidityPosture::Revoked {
-                GrantInvalidationDisposition::Revoked
-            } else {
-                GrantInvalidationDisposition::Expired
-            };
-            let source = status
-                .binding_validity
-                .values()
-                .find_map(|binding| binding.revoke_event_id.clone())
-                .unwrap_or_else(|| prepared_snapshot.grant_id.clone());
-            Some((
-                disposition,
-                format!("policy_invalid_before_prepare:{:?}", status.validity),
-                source,
-            ))
-        } else {
-            None
-        };
-        if let Some((disposition, reason, source_ref)) = invalidation {
-            let mut invalidation_pending = PendingTransition::new(
-                format!(
-                    "transition:grant-invalidated:{}:{}",
-                    prepared_snapshot.grant_id,
-                    state.generation + 1
-                ),
-                &pending.case_id,
-                state.generation,
-                TransitionSource::component("yai.temporal_governance"),
-                TransitionPayload::ExecutionGrantInvalidated {
-                    invalidation: ExecutionGrantInvalidation {
-                        grant_id: prepared_snapshot.grant_id.clone(),
-                        disposition,
-                        reason,
-                        source_ref: source_ref.clone(),
-                        invalidated_at_unix_ms: authority_time,
-                    },
-                },
-            );
-            invalidation_pending.causal_refs = vec![prepared_snapshot.grant_id.clone(), source_ref];
-            let commit = self.commit_transition_txn(&mut txn, invalidation_pending, false)?;
+        let (authority_time, invalidation) = self.invalidate_unusable_grant_before_prepare_txn(
+            &mut txn,
+            &state,
+            &prepared_snapshot.grant_id,
+        )?;
+        if let Some(commit) = invalidation {
             txn.commit()
                 .map_err(|error| format!("failed to commit Grant invalidation: {error}"))?;
             return Ok(PreparedCommitOutcome::GrantInvalidated(commit));
@@ -4812,59 +4897,18 @@ impl LmdbRecordStore {
             )?
             .ok_or_else(|| "fenced_prepare_local_binding_missing".to_string())?;
         let identity = ResourceIdentity::filesystem(tenant_id, &binding.canonical_root)?;
-        self.reject_active_resource_conflict_txn(&txn, &identity)?;
-        let prior = self.resource_control_state_txn(&txn, &identity.resource_id)?;
-        let next_epoch = match prior.as_ref() {
-            Some(current) => current
-                .resource_epoch
-                .checked_add(1)
-                .ok_or_else(|| "resource_epoch_exhausted".to_string())?,
-            None => 1,
-        };
-        let next_sequence = match prior.as_ref() {
-            Some(current) => current
-                .event_sequence
-                .checked_add(1)
-                .ok_or_else(|| "resource_event_sequence_exhausted".to_string())?,
-            None => 1,
-        };
-        let owner_process_identity = LocalProcessIdentity::capture(owner_pid)?.canonical_identity();
-        let fence = ResourceFence::issue(
-            &identity,
-            next_epoch,
-            &prepared_snapshot.case_id,
-            &prepared_snapshot.operation_id,
-            &prepared_snapshot.grant_id,
-            &prepared_snapshot.effect_id,
-            owner_pid,
-            &owner_process_identity,
-            authority_time,
-        )?;
-        let previous = self.resource_control_event_at_sequence_txn(
+        let (fence, event, control) = self.prepare_resource_acquisition_txn(
             &txn,
-            &identity.resource_id,
-            prior.as_ref().map(|state| state.event_sequence),
-        )?;
-        let event = ResourceControlEvent::build(
-            ResourceControlAction::Acquired,
-            &identity,
-            &fence,
-            next_sequence,
-            authority_time,
-            previous.as_ref(),
-        )?;
-        let control = ResourceControlState {
-            schema: RESOURCE_CONTROL_STATE_SCHEMA.to_string(),
             identity,
-            resource_epoch: next_epoch,
-            event_sequence: next_sequence,
-            last_event_id: Some(event.event_id.clone()),
-            last_event_digest: Some(event.integrity_digest.clone()),
-            active_lease: Some(ActiveResourceLease {
-                fence: fence.clone(),
-            }),
-        };
-        control.validate()?;
+            (
+                &prepared_snapshot.case_id,
+                &prepared_snapshot.operation_id,
+                &prepared_snapshot.grant_id,
+                &prepared_snapshot.effect_id,
+            ),
+            owner_pid,
+            authority_time,
+        )?;
         let TransitionPayload::EffectPrepared { prepared } = &mut pending.payload else {
             unreachable!()
         };
@@ -4929,74 +4973,12 @@ impl LmdbRecordStore {
                 pending.expected_generation, state.generation
             ));
         }
-        let grant_state = state
-            .grants
-            .iter()
-            .find(|grant| grant.grant_id == prepared_snapshot.grant_id)
-            .ok_or_else(|| "prepare_without_grant".to_string())?;
-        if grant_state.status != GrantLifecycle::Issued {
-            return Err("prepare_requires_issued_grant".to_string());
-        }
-        let authority_time =
-            self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
-        let floor = self.authority_time_floor_txn(&txn)?;
-        let status =
-            self.materialize_case_policy_at_txn(&txn, &pending.case_id, authority_time, floor)?;
-        let invalidation = if let Some(cancellation) = &state.cancellation {
-            Some((
-                GrantInvalidationDisposition::Abandoned,
-                "case_cancelled_before_prepare".to_string(),
-                cancellation.transition_id.clone(),
-            ))
-        } else if grant_state.expires_at_unix_ms != 0
-            && authority_time >= grant_state.expires_at_unix_ms
-        {
-            Some((
-                GrantInvalidationDisposition::Expired,
-                "execution_grant_expired_before_prepare".to_string(),
-                prepared_snapshot.grant_id.clone(),
-            ))
-        } else if status.validity != PolicyValidityPosture::Valid {
-            let disposition = if status.validity == PolicyValidityPosture::Revoked {
-                GrantInvalidationDisposition::Revoked
-            } else {
-                GrantInvalidationDisposition::Expired
-            };
-            let source = status
-                .binding_validity
-                .values()
-                .find_map(|binding| binding.revoke_event_id.clone())
-                .unwrap_or_else(|| prepared_snapshot.grant_id.clone());
-            Some((
-                disposition,
-                format!("policy_invalid_before_prepare:{:?}", status.validity),
-                source,
-            ))
-        } else {
-            None
-        };
-        if let Some((disposition, reason, source_ref)) = invalidation {
-            let mut invalidation_pending = PendingTransition::new(
-                format!(
-                    "transition:grant-invalidated:{}:{}",
-                    prepared_snapshot.grant_id,
-                    state.generation + 1
-                ),
-                &pending.case_id,
-                state.generation,
-                TransitionSource::component("yai.temporal_governance"),
-                TransitionPayload::ExecutionGrantInvalidated {
-                    invalidation: ExecutionGrantInvalidation {
-                        grant_id: prepared_snapshot.grant_id.clone(),
-                        disposition,
-                        reason,
-                        source_ref: source_ref.clone(),
-                        invalidated_at_unix_ms: authority_time,
-                    },
-                },
-            );
-            invalidation_pending.causal_refs = vec![prepared_snapshot.grant_id.clone(), source_ref];
-            let commit = self.commit_transition_txn(&mut txn, invalidation_pending, false)?;
+        let (authority_time, invalidation) = self.invalidate_unusable_grant_before_prepare_txn(
+            &mut txn,
+            &state,
+            &prepared_snapshot.grant_id,
+        )?;
+        if let Some(commit) = invalidation {
             txn.commit()
                 .map_err(|error| format!("failed to commit Grant invalidation: {error}"))?;
             return Ok(PreparedCommitOutcome::GrantInvalidated(commit));
@@ -5018,59 +5000,18 @@ impl LmdbRecordStore {
             return Err("fenced_prepare_process_birth_identity_mismatch".to_string());
         }
         let identity = ResourceIdentity::process(tenant_id, &binding.process)?;
-        self.reject_active_resource_conflict_txn(&txn, &identity)?;
-        let prior = self.resource_control_state_txn(&txn, &identity.resource_id)?;
-        let next_epoch = match prior.as_ref() {
-            Some(current) => current
-                .resource_epoch
-                .checked_add(1)
-                .ok_or_else(|| "resource_epoch_exhausted".to_string())?,
-            None => 1,
-        };
-        let next_sequence = match prior.as_ref() {
-            Some(current) => current
-                .event_sequence
-                .checked_add(1)
-                .ok_or_else(|| "resource_event_sequence_exhausted".to_string())?,
-            None => 1,
-        };
-        let owner_process_identity = LocalProcessIdentity::capture(owner_pid)?.canonical_identity();
-        let fence = ResourceFence::issue(
-            &identity,
-            next_epoch,
-            &prepared_snapshot.case_id,
-            &prepared_snapshot.operation_id,
-            &prepared_snapshot.grant_id,
-            &prepared_snapshot.effect_id,
-            owner_pid,
-            &owner_process_identity,
-            authority_time,
-        )?;
-        let previous = self.resource_control_event_at_sequence_txn(
+        let (fence, event, control) = self.prepare_resource_acquisition_txn(
             &txn,
-            &identity.resource_id,
-            prior.as_ref().map(|state| state.event_sequence),
-        )?;
-        let event = ResourceControlEvent::build(
-            ResourceControlAction::Acquired,
-            &identity,
-            &fence,
-            next_sequence,
-            authority_time,
-            previous.as_ref(),
-        )?;
-        let control = ResourceControlState {
-            schema: RESOURCE_CONTROL_STATE_SCHEMA.to_string(),
             identity,
-            resource_epoch: next_epoch,
-            event_sequence: next_sequence,
-            last_event_id: Some(event.event_id.clone()),
-            last_event_digest: Some(event.integrity_digest.clone()),
-            active_lease: Some(ActiveResourceLease {
-                fence: fence.clone(),
-            }),
-        };
-        control.validate()?;
+            (
+                &prepared_snapshot.case_id,
+                &prepared_snapshot.operation_id,
+                &prepared_snapshot.grant_id,
+                &prepared_snapshot.effect_id,
+            ),
+            owner_pid,
+            authority_time,
+        )?;
         let TransitionPayload::ProcessEffectPrepared { prepared } = &mut pending.payload else {
             unreachable!()
         };
@@ -5091,6 +5032,329 @@ impl LmdbRecordStore {
         Ok(PreparedCommitOutcome::Prepared(commit))
     }
 
+    /// Exact Resource PREPARE reuses the same Grant and lease transaction as
+    /// filesystem writes. A process runner locks its workspace; MCP locks its
+    /// admitted endpoint. Endpoint aliases are not asserted to be equivalent.
+    pub fn commit_fenced_resource_effect_prepared(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        mut pending: PendingTransition,
+    ) -> Result<PreparedCommitOutcome, String> {
+        use crate::effect::access::{LocalAccessBinding, PreparedResourceEffect, ResourceAddress};
+        let snapshot = match &pending.payload {
+            TransitionPayload::ResourceEffectPrepared { prepared }
+                if prepared.resource_fence.is_none() =>
+            {
+                prepared.clone()
+            }
+            _ => return Err("resource_prepare_requires_unsealed_intent".into()),
+        };
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|e| format!("resource_prepare:{e}"))?;
+        let state = self
+            .get_case_state_txn(&txn, &pending.case_id)?
+            .ok_or("case_not_visible")?;
+        let tenant = state
+            .tenant_id
+            .as_deref()
+            .ok_or("resource_prepare_requires_tenant")?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant)?;
+        if state.generation != pending.expected_generation
+            || state.lifecycle == CaseLifecycle::Closed
+        {
+            return Err("resource_prepare_stale_or_closed_case".into());
+        }
+        let history = self.list_case_transitions_txn(&txn, &state.case_id)?;
+        let operation = Self::canonical_operation(&state, &history, &snapshot.operation_id)?;
+        let decision = Self::canonical_decision(&state, &history, &snapshot.decision_id)?;
+        Self::authorize_resource_operation(&state, &context, &operation)?;
+        if pending.source.principal_id.as_deref() != Some(context.principal_id())
+            || pending.source.participant_id.as_deref() != Some(operation.participant_id.as_str())
+        {
+            return Err("resource_prepare_source_mismatch".into());
+        }
+        let grant = history
+            .iter()
+            .find_map(|entry| match &entry.payload {
+                TransitionPayload::ExecutionGrantIssued { grant }
+                    if grant.grant_id == snapshot.grant_id =>
+                {
+                    Some(grant)
+                }
+                _ => None,
+            })
+            .ok_or("resource_prepare_canonical_grant_missing")?;
+        let expected = PreparedResourceEffect::new(
+            &operation,
+            &decision,
+            grant,
+            snapshot.expected_pre_observation.clone(),
+        )?;
+        if expected != snapshot {
+            return Err("resource_prepare_not_exact_canonical_intent".into());
+        }
+        let attachment = state
+            .resources
+            .iter()
+            .find(|r| r.attachment_id == operation.resource_attachment_id)
+            .ok_or("resource_not_attached")?;
+        let access = attachment
+            .access
+            .as_ref()
+            .ok_or("resource_access_contract_missing")?;
+        access.admits_request(
+            &operation.participant_id,
+            operation
+                .resource_request
+                .as_ref()
+                .ok_or("resource_request_missing")?,
+        )?;
+        let binding: LocalAccessBinding = get_json_txn(
+            &txn,
+            self.local_resource_bindings,
+            &format!("access|{}|{}", state.case_id, attachment.attachment_id),
+            "local_access_binding",
+        )?
+        .ok_or("local_access_binding_missing")?;
+        binding.validate_attachment(attachment)?;
+        let identity = match &binding.address {
+            ResourceAddress::ProcessRunner { root, .. } => {
+                ResourceIdentity::filesystem(tenant, &root.canonical_root)?
+            }
+            ResourceAddress::Mcp { endpoint } => {
+                ResourceIdentity::network_endpoint(tenant, &endpoint.endpoint)?
+            }
+            _ => return Err("resource_effect_address_not_admitted".into()),
+        };
+        let (now, invalidation) = self.invalidate_unusable_grant_before_prepare_txn(
+            &mut txn,
+            &state,
+            &snapshot.grant_id,
+        )?;
+        if let Some(commit) = invalidation {
+            txn.commit()
+                .map_err(|e| format!("resource_prepare_invalidation:{e}"))?;
+            return Ok(PreparedCommitOutcome::GrantInvalidated(commit));
+        }
+        let effective = self.current_ready_effective_policy_txn(&txn, &state.case_id)?;
+        let basis = decision
+            .decision_basis
+            .as_ref()
+            .ok_or("resource_prepare_policy_basis_missing")?;
+        if effective.effective_policy_id != basis.effective_policy_id
+            || effective.semantic_digest != basis.effective_policy_digest
+            || !basis.admission_obligations_satisfied()
+        {
+            return Err("resource_prepare_policy_basis_stale".into());
+        }
+        let (fence, event, control) = self.prepare_resource_acquisition_txn(
+            &txn,
+            identity,
+            (
+                &snapshot.case_id,
+                &snapshot.operation_id,
+                &snapshot.grant_id,
+                &snapshot.effect_id,
+            ),
+            std::process::id(),
+            now,
+        )?;
+        let TransitionPayload::ResourceEffectPrepared { prepared } = &mut pending.payload else {
+            unreachable!()
+        };
+        prepared.resource_fence = Some(fence.clone());
+        pending.causal_refs.push(fence.fence_id.clone());
+        let commit = self.commit_transition_txn_at_with_fence(
+            &mut txn,
+            pending,
+            false,
+            Some(now),
+            Some(&context),
+            Some(&fence),
+        )?;
+        self.put_resource_control_event_txn(&mut txn, &event)?;
+        self.put_resource_control_state_txn(&mut txn, &control)?;
+        txn.commit().map_err(|e| format!("resource_prepare:{e}"))?;
+        Ok(PreparedCommitOutcome::Prepared(commit))
+    }
+
+    fn authorize_resource_operation(
+        state: &CaseState,
+        context: &SecurityContext,
+        operation: &Operation,
+    ) -> Result<(), String> {
+        let linked = state.principal_participant_links.iter().any(|link| {
+            link.principal_id == context.principal_id()
+                && link.participant_id == operation.participant_id
+        });
+        if !linked
+            && (!matches!(operation.origin, OperationOrigin::ProviderResult { .. })
+                || context.require_owner().is_err())
+        {
+            return Err("resource_action_participant_not_authorized".into());
+        }
+        Ok(())
+    }
+
+    /// Final authority cut before a Resource carrier. It cannot substitute a
+    /// new binding, revive an expired Grant, or continue after another Case
+    /// transition changed the prepared working state.
+    pub fn validate_resource_effect_dispatch_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        prepared: &crate::effect::access::PreparedResourceEffect,
+    ) -> Result<
+        (
+            crate::effect::access::LocalAccessBinding,
+            crate::effect::access::ResourceAccessContract,
+        ),
+        String,
+    > {
+        use crate::effect::access::LocalAccessBinding;
+        prepared.validate()?;
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|e| format!("resource_dispatch:{e}"))?;
+        self.validate_carrier_fence_txn(&txn, prepared.resource_fence.as_ref().unwrap(), true)?;
+        let state = self
+            .get_case_state_txn(&txn, &prepared.case_id)?
+            .ok_or("case_not_visible")?;
+        let context = self.resolve_security_context_txn(
+            &txn,
+            authenticated,
+            state
+                .tenant_id
+                .as_deref()
+                .ok_or("resource_requires_tenant")?,
+        )?;
+        let history = self.list_case_transitions_txn(&txn, &state.case_id)?;
+        if state.lifecycle == CaseLifecycle::Closed
+            || state.cancellation.is_some()
+            || history.last().is_none_or(|entry| {
+                !matches!(&entry.payload,
+                TransitionPayload::ResourceEffectPrepared { prepared: exact } if exact == prepared)
+            })
+        {
+            return Err("resource_dispatch_prepare_not_current".into());
+        }
+        let operation = Self::canonical_operation(&state, &history, &prepared.operation_id)?;
+        Self::authorize_resource_operation(&state, &context, &operation)?;
+        let decision = Self::canonical_decision(&state, &history, &prepared.decision_id)?;
+        let grant = history
+            .iter()
+            .find_map(|entry| match &entry.payload {
+                TransitionPayload::ExecutionGrantIssued { grant }
+                    if grant.grant_id == prepared.grant_id =>
+                {
+                    Some(grant)
+                }
+                _ => None,
+            })
+            .ok_or("resource_dispatch_grant_missing")?;
+        let now = self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let effective = self.current_ready_effective_policy_txn(&txn, &state.case_id)?;
+        let basis = decision
+            .decision_basis
+            .as_ref()
+            .ok_or("resource_dispatch_policy_basis_missing")?;
+        if now >= grant.expires_at_unix_ms
+            || basis
+                .earliest_policy_expiry_unix_ms
+                .is_some_and(|expiry| now >= expiry)
+            || effective.effective_policy_id != basis.effective_policy_id
+            || effective.semantic_digest != basis.effective_policy_digest
+        {
+            return Err("resource_dispatch_authority_stale".into());
+        }
+        let attachment = state
+            .resources
+            .iter()
+            .find(|r| r.attachment_id == prepared.resource_attachment_id)
+            .ok_or("resource_not_attached")?;
+        let access = attachment
+            .access
+            .as_ref()
+            .ok_or("resource_access_contract_missing")?
+            .clone();
+        access.admits_request(
+            &prepared.participant_id,
+            operation
+                .resource_request
+                .as_ref()
+                .ok_or("resource_request_missing")?,
+        )?;
+        let binding: LocalAccessBinding = get_json_txn(
+            &txn,
+            self.local_resource_bindings,
+            &format!("access|{}|{}", state.case_id, attachment.attachment_id),
+            "local_access_binding",
+        )?
+        .ok_or("local_access_binding_missing")?;
+        binding.validate_attachment(attachment)?;
+        txn.commit().map_err(|e| format!("resource_dispatch:{e}"))?;
+        Ok((binding, access))
+    }
+
+    /// Bounded physical process carrier. Callers must not retry an unresolved
+    /// PREPARE: a lost response remains indeterminate, including across restart.
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    pub fn execute_prepared_resource_process(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        prepared: &crate::effect::access::PreparedResourceEffect,
+    ) -> Result<serde_json::Value, crate::effect::access::ResourceCarrierFailure> {
+        use crate::effect::access::ResourceCarrierFailure as Failure;
+        use crate::effect::{access::ResourceAction, process_runner::BoundedProcess};
+        let dispatch_attempted = std::cell::Cell::new(false);
+        let execute = || -> Result<serde_json::Value, String> {
+            let (binding, access) =
+                self.validate_resource_effect_dispatch_authorized(authenticated, prepared)?;
+            let state = self
+                .get_case_state(&prepared.case_id)?
+                .ok_or("case_not_visible")?;
+            let history = self.list_case_transitions(&prepared.case_id)?;
+            let operation = Self::canonical_operation(&state, &history, &prepared.operation_id)?;
+            let Some(crate::effect::access::ResourceRequest {
+                action: ResourceAction::ProcessRun { name },
+                ..
+            }) = operation.resource_request
+            else {
+                return Err("process_runner_request_required".into());
+            };
+            // Reserve room for exact configuration/exit metadata and JSON escaping.
+            // A too-small response envelope refuses before spawn, never truncates
+            // required receipt fields after an external execution.
+            if access.max_output_bytes < 4096 {
+                return Err("process_result_envelope_too_small".into());
+            }
+            let runner =
+                BoundedProcess::prepare(&binding, &name, (access.max_output_bytes - 3072) / 12)?;
+            let result = runner.execute(|| {
+                self.validate_resource_effect_dispatch_authorized(authenticated, prepared)?;
+                dispatch_attempted.set(true);
+                Ok(())
+            })?;
+            let value =
+                serde_json::to_value(result).map_err(|e| format!("process_result_encode:{e}"))?;
+            if serde_json::to_vec(&value).map_err(|e| e.to_string())?.len()
+                > access.max_output_bytes
+            {
+                return Err("process_result_envelope_exceeded_after_execution".into());
+            }
+            Ok(value)
+        };
+        execute().map_err(|reason| {
+            if !dispatch_attempted.get() || reason.starts_with("process_not_started:") {
+                Failure::before_dispatch(reason)
+            } else {
+                Failure::indeterminate(reason)
+            }
+        })
+    }
+
     /// Commits a terminal Case effect and releases the exact current resource
     /// fence in the same LMDB transaction. Indeterminate effects are not
     /// terminal and deliberately have no release path here.
@@ -5103,6 +5367,7 @@ impl LmdbRecordStore {
         let terminal_effect = match &pending.payload {
             TransitionPayload::EffectFinalized { effect_id, .. } => effect_id,
             TransitionPayload::ProcessEffectFinalized { effect_id, .. } => effect_id,
+            TransitionPayload::ResourceEffectFinalized { effect_id, .. } => effect_id,
             TransitionPayload::EffectReconciled {
                 effect_id,
                 conclusion:
@@ -5120,7 +5385,45 @@ impl LmdbRecordStore {
             .begin_rw_txn()
             .map_err(|error| format!("failed to start fenced terminal transaction: {error}"))?;
         self.validate_carrier_fence_txn(&txn, fence, false)?;
-        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        let commit = if let TransitionPayload::ResourceEffectFinalized {
+            effect_id,
+            observation,
+            receipt,
+        } = &pending.payload
+        {
+            use crate::effect::access::ResourceEffectReceipt;
+            let history = self.list_case_transitions_txn(&txn, &pending.case_id)?;
+            let prepared = history
+                .iter()
+                .find_map(|entry| match &entry.payload {
+                    TransitionPayload::ResourceEffectPrepared { prepared }
+                        if prepared.effect_id == *effect_id =>
+                    {
+                        Some(prepared)
+                    }
+                    _ => None,
+                })
+                .ok_or("resource_terminal_prepare_missing")?;
+            let expected = ResourceEffectReceipt::new(
+                prepared,
+                observation,
+                receipt.outcome.clone(),
+                receipt.external_execution_started,
+            )?;
+            if expected != *receipt {
+                return Err("resource_terminal_receipt_not_exact".into());
+            }
+            self.commit_transition_txn_at_with_fence(
+                &mut txn,
+                pending,
+                false,
+                None,
+                None,
+                Some(fence),
+            )?
+        } else {
+            self.commit_transition_txn(&mut txn, pending, false)?
+        };
         let mut state = self
             .resource_control_state_txn(&txn, &fence.resource_id)?
             .ok_or_else(|| "resource_control_state_missing_at_release".to_string())?;
@@ -5144,7 +5447,7 @@ impl LmdbRecordStore {
             previous.as_ref(),
         )?;
         state.active_lease = None;
-        state.schema = RESOURCE_CONTROL_STATE_SCHEMA.to_string();
+        state.schema = state.identity.state_schema().to_string();
         state.last_event_id = Some(event.event_id.clone());
         state.last_event_digest = Some(event.integrity_digest.clone());
         state.validate()?;
@@ -5227,7 +5530,7 @@ impl LmdbRecordStore {
             now,
             previous.as_ref(),
         )?;
-        state.schema = RESOURCE_CONTROL_STATE_SCHEMA.to_string();
+        state.schema = state.identity.state_schema().to_string();
         state.last_event_id = Some(event.event_id.clone());
         state.last_event_digest = Some(event.integrity_digest.clone());
         state.validate()?;
@@ -5323,13 +5626,18 @@ impl LmdbRecordStore {
             return Err("conversation_submission_requires_turn".to_string());
         };
         request.validate(turn)?;
+        let author_id = turn.participant_id.clone();
         let mut txn = self.env.begin_rw_txn().map_err(|error| error.to_string())?;
         let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
         context.require_owner()?;
         let first =
             self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
-        let intent =
-            conversation_intent_pending(&request, first.state.generation, context.principal_id());
+        let intent = conversation_intent_pending(
+            &request,
+            first.state.generation,
+            context.principal_id(),
+            &author_id,
+        );
         let second =
             self.commit_transition_txn_at(&mut txn, intent, false, None, Some(&context))?;
         txn.commit().map_err(|error| error.to_string())?;
@@ -5368,8 +5676,12 @@ impl LmdbRecordStore {
         let state = self
             .get_case_state_txn(&txn, &request.case_id)?
             .ok_or_else(|| "conversation_intent_case_missing".to_string())?;
-        let pending =
-            conversation_intent_pending(&request, state.generation, context.principal_id());
+        let pending = conversation_intent_pending(
+            &request,
+            state.generation,
+            context.principal_id(),
+            &turn.participant_id,
+        );
         self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
         txn.commit().map_err(|error| error.to_string())?;
         Ok(request)
@@ -5696,6 +6008,197 @@ impl LmdbRecordStore {
         resolve_workflow_with_definitions(&definition, binding, &state, &history, &definitions)
     }
 
+    /// Direct application host consumer of existing Workflow execution facts.
+    /// No RuntimeWorkItem is created. The same canonical readiness validator
+    /// used by the bounded runtime is the final authority inside this commit.
+    pub fn start_workflow_model_work_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        node_id: &str,
+        now_unix_ms: u64,
+    ) -> Result<(WorkflowNodeExecution, crate::workflow::WorkflowNode, String), String> {
+        let mut txn = self.env.begin_rw_txn().map_err(|e| e.to_string())?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or("case_not_visible")?;
+        let tenant = state
+            .tenant_id
+            .as_deref()
+            .ok_or("workflow_requires_tenant_case")?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant)?;
+        context.require_owner()?;
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or("case_workflow_not_bound")?;
+        let definition = self
+            .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
+            .ok_or("bound_workflow_definition_missing")?;
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
+        let topology = derive_effective_workflow_topology(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            &definitions,
+        )?;
+        let node = topology
+            .node(node_id)
+            .ok_or("workflow_node_not_found")?
+            .node
+            .clone();
+        let WorkflowNodeKind::ModelWork { executor_slot, .. } = &node.kind else {
+            return Err("workflow_execution_is_not_model_work".into());
+        };
+        let participant = binding
+            .participant_for_slot(executor_slot)
+            .ok_or("workflow_model_executor_slot_unbound")?
+            .to_string();
+        let id = workflow_execution_identity(binding, node_id);
+        if list_runtime_work_items_txn(&txn, self.runtime_work_items)?
+            .iter()
+            .any(|item| {
+                item.workflow
+                    .as_ref()
+                    .is_some_and(|workflow| workflow.workflow_execution_id == id)
+            })
+        {
+            return Err("workflow_execution_owned_by_existing_runtime_work".into());
+        }
+        if let Some(execution) = state
+            .workflow_executions
+            .iter()
+            .find(|e| e.execution_id == id)
+        {
+            return Ok((execution.clone(), node, participant));
+        }
+        let execution = WorkflowNodeExecution {
+            schema: WORKFLOW_NODE_EXECUTION_SCHEMA.into(),
+            execution_id: id.clone(),
+            binding_id: binding.binding_id.clone(),
+            workflow_definition_id: definition.workflow_definition_id.clone(),
+            node_id: node_id.into(),
+            case_id: case_id.into(),
+            started_at_generation: state.generation + 1,
+            started_at_unix_ms: now_unix_ms,
+        };
+        let mut pending = PendingTransition::new(
+            format!("transition:{id}"),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.workflow".into(),
+                participant_id: Some(participant.clone()),
+                principal_id: Some(context.principal_id().into()),
+                source_ref: Some(id),
+            },
+            TransitionPayload::WorkflowNodeExecutionStarted {
+                execution: execution.clone(),
+            },
+        );
+        pending.causal_refs = vec![binding.binding_id.clone(), node_id.into()];
+        self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit().map_err(|e| e.to_string())?;
+        Ok((execution, node, participant))
+    }
+
+    fn validate_conversation_workflow_intent_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        state: &CaseState,
+        history: &[Transition],
+        request: &crate::conversation::CognitiveCompositionRequest,
+    ) -> Result<(), String> {
+        let Some(execution_id) = &request.workflow_execution_id else {
+            return Ok(());
+        };
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or("case_workflow_not_bound")?;
+        let execution = state
+            .workflow_executions
+            .iter()
+            .find(|e| &e.execution_id == execution_id && e.binding_id == binding.binding_id)
+            .ok_or("workflow_execution_not_found")?;
+        let definition = self
+            .workflow_definition_txn(txn, &binding.workflow_definition_id)?
+            .ok_or("bound_workflow_definition_missing")?;
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
+        let topology = derive_effective_workflow_topology(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            &definitions,
+        )?;
+        let node = &topology
+            .node(&execution.node_id)
+            .ok_or("workflow_node_not_found")?
+            .node;
+        let WorkflowNodeKind::ModelWork {
+            executor_slot,
+            task,
+            budgets,
+            output_contract,
+            ..
+        } = &node.kind
+        else {
+            return Err("workflow_execution_is_not_model_work".into());
+        };
+        let turn = crate::conversation::find_turn(&state.case_id, &request.source_turn_id, history)
+            .ok_or("workflow_intent_turn_missing")?;
+        let expected_limits =
+            if *output_contract == crate::workflow::ModelWorkOutputContract::CaseWork {
+                Some(budgets.case_work_limits()?)
+            } else {
+                None
+            };
+        if binding.participant_for_slot(executor_slot) != Some(request.participant_id.as_str())
+            || request.work_limits != expected_limits
+            || request.prerequisite.is_some()
+            || turn.ordered_parts.len() != 1
+            || turn.ordered_parts[0].object.inline_text.as_deref() != Some(task.as_str())
+        {
+            return Err("workflow_conversation_intent_contract_mismatch".into());
+        }
+        if history.iter().any(|t| {
+            matches!(&t.payload,
+            TransitionPayload::ConversationExecutionIntentRecorded { request: other }
+                if other.workflow_execution_id.as_ref() == Some(execution_id) && other != request)
+        }) {
+            return Err("workflow_execution_intent_already_adopted".into());
+        }
+        Ok(())
+    }
+
+    pub fn revalidate_conversation_workflow_intent_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        request: &crate::conversation::CognitiveCompositionRequest,
+    ) -> Result<(), String> {
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        self.resolve_security_context_txn(&txn, authenticated, &request.tenant_id)?
+            .require_owner()?;
+        let state = self
+            .get_case_state_txn(&txn, &request.case_id)?
+            .ok_or("case_not_visible")?;
+        let history = self.list_case_transitions_txn(&txn, &request.case_id)?;
+        if !history.iter().any(|t| matches!(&t.payload, TransitionPayload::ConversationExecutionIntentRecorded { request: r } if r == request)) {
+            return Err("conversation_intent_not_canonical".into());
+        }
+        self.validate_conversation_workflow_intent_txn(&txn, &state, &history, request)
+    }
+
     pub fn workflow_model_output_contract_authorized(
         &self,
         authenticated: &AuthenticatedPrincipal,
@@ -5749,6 +6252,44 @@ impl LmdbRecordStore {
             } => Ok((output_contract.clone(), topology.topology_digest)),
             _ => Err("workflow_execution_is_not_model_work".to_string()),
         }
+    }
+
+    pub fn workflow_effective_topology_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+    ) -> Result<crate::workflow::EffectiveWorkflowTopology, String> {
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or("case_not_visible")?;
+        self.resolve_security_context_txn(
+            &txn,
+            authenticated,
+            state
+                .tenant_id
+                .as_deref()
+                .ok_or("workflow_requires_tenant_case")?,
+        )?;
+        let binding = state
+            .workflow_binding
+            .as_ref()
+            .ok_or("case_workflow_not_bound")?;
+        let definition = self
+            .workflow_definition_txn(&txn, &binding.workflow_definition_id)?
+            .ok_or("bound_workflow_definition_missing")?;
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            &txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
+        derive_effective_workflow_topology(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            &definitions,
+        )
     }
 
     pub fn propose_workflow_plan_patch_human(
@@ -7279,8 +7820,12 @@ impl LmdbRecordStore {
                 task,
                 budgets,
                 resource_slot,
+                output_contract,
                 ..
             } => {
+                if *output_contract == crate::workflow::ModelWorkOutputContract::CaseWork {
+                    return Err("workflow_case_work_requires_conversation_host".into());
+                }
                 let participant = binding
                     .participant_for_slot(executor_slot)
                     .ok_or_else(|| "workflow_model_executor_slot_unbound".to_string())?;
@@ -7807,6 +8352,33 @@ impl LmdbRecordStore {
         security_context: Option<&SecurityContext>,
         resource_fence: Option<&ResourceFence>,
     ) -> Result<CanonicalCommit, String> {
+        self.commit_transition_txn_with_owned_content(
+            txn,
+            pending,
+            inject_failure_before_commit,
+            authority_time_unix_ms,
+            security_context,
+            resource_fence,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn commit_transition_txn_with_owned_content(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        pending: PendingTransition,
+        inject_failure_before_commit: bool,
+        authority_time_unix_ms: Option<u64>,
+        security_context: Option<&SecurityContext>,
+        resource_fence: Option<&ResourceFence>,
+        content_store: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<CanonicalCommit, String> {
+        if let TransitionPayload::CaseContentAdmitted { admission } = &pending.payload {
+            content_store
+                .ok_or("content_admission_requires_verified_owned_bytes")?
+                .verify_object(&admission.object)?;
+        }
         match (&pending.payload, resource_fence) {
             (TransitionPayload::EffectPrepared { prepared }, Some(fence))
                 if prepared.schema == crate::effect::PREPARED_EFFECT_SCHEMA
@@ -7816,6 +8388,17 @@ impl LmdbRecordStore {
             (TransitionPayload::ProcessEffectPrepared { prepared }, Some(fence))
                 if prepared.schema == crate::effect::PREPARED_PROCESS_EFFECT_SCHEMA
                     && prepared.resource_fence.as_ref() == Some(fence) => {}
+            (TransitionPayload::ResourceEffectPrepared { prepared }, Some(fence))
+                if prepared.resource_fence.as_ref() == Some(fence) => {}
+            (TransitionPayload::ResourceEffectFinalized { effect_id, .. }, Some(fence))
+                if effect_id == &fence.effect_id && pending.case_id == fence.case_id => {}
+            (
+                TransitionPayload::ResourceEffectPrepared { .. }
+                | TransitionPayload::ResourceEffectFinalized { .. },
+                _,
+            ) => {
+                return Err("resource_effect_requires_atomic_fence_transaction".into());
+            }
             (TransitionPayload::EffectPrepared { .. }, _)
             | (TransitionPayload::ProcessEffectPrepared { .. }, _) => {
                 return Err(
@@ -7859,6 +8442,151 @@ impl LmdbRecordStore {
             &pending,
             security_context,
         )?;
+        if let TransitionPayload::CaseContentAdmitted { admission } = &pending.payload {
+            let context = security_context.ok_or("authenticated_content_admission_required")?;
+            let state = current_state.as_ref().ok_or("case_not_visible")?;
+            let history = self.list_case_transitions_txn(txn, &pending.case_id)?;
+            let operation = Self::canonical_operation(state, &history, &admission.operation_id)?;
+            Self::authorize_resource_operation(state, context, &operation)?;
+            if context.principal_id() != admission.admitted_by_principal_id
+                || pending.source.principal_id.as_deref() != Some(context.principal_id())
+            {
+                return Err("content_admission_principal_mismatch".into());
+            }
+            let decision = Self::canonical_decision(state, &history, &admission.decision_id)?;
+            let discovery = history
+                .iter()
+                .find_map(|entry| match &entry.payload {
+                    TransitionPayload::ResourceObservationRecorded { observation }
+                        if observation.observation_id == admission.discovery_observation_id =>
+                    {
+                        Some(observation)
+                    }
+                    _ => None,
+                })
+                .ok_or("content_admission_discovery_not_canonical")?;
+            let attachment = state
+                .resources
+                .iter()
+                .find(|r| r.attachment_id == admission.source_resource_id)
+                .ok_or("resource_not_attached")?;
+            let access = attachment
+                .access
+                .as_ref()
+                .ok_or("resource_access_contract_missing")?;
+            access.admits_request(
+                &operation.participant_id,
+                operation
+                    .resource_request
+                    .as_ref()
+                    .ok_or("resource_request_missing")?,
+            )?;
+            let binding: crate::effect::access::LocalAccessBinding = get_json_txn(
+                txn,
+                self.local_resource_bindings,
+                &format!("access|{}|{}", state.case_id, attachment.attachment_id),
+                "local_access_binding",
+            )?
+            .ok_or("local_access_binding_missing")?;
+            binding.validate_attachment(attachment)?;
+            let mut participants = access.participant_ids.clone();
+            participants.sort();
+            let expected = crate::effect::access::CaseContentAdmission::new(
+                &operation,
+                &decision,
+                discovery,
+                context.principal_id(),
+                participants,
+                admission.object.clone(),
+            )?;
+            if expected != *admission {
+                return Err("content_admission_not_exact_canonical_relation".into());
+            }
+        }
+        if let TransitionPayload::OperationRecorded { operation } = &pending.payload {
+            if let OperationOrigin::ProviderResult {
+                provider_result_id, ..
+            } = &operation.origin
+            {
+                let history = self.list_case_transitions_txn(txn, &pending.case_id)?;
+                let native = Self::capability_result_is_native(&history, provider_result_id);
+                if native
+                    || matches!(
+                        operation.kind,
+                        crate::effect::OperationKind::ResourceAccess(_)
+                    )
+                {
+                    let context = security_context
+                        .ok_or("authenticated_capability_normalization_required")?;
+                    context.require_owner()?;
+                    let state = current_state.as_ref().ok_or("capability_case_missing")?;
+                    if pending.source.principal_id.as_deref() != Some(context.principal_id())
+                        || pending.source.participant_id.as_ref() != Some(&operation.participant_id)
+                    {
+                        return Err("capability_normalization_actor_mismatch".into());
+                    }
+                    if history.iter().any(|t|matches!(&t.payload, TransitionPayload::OperationRecorded {operation:old}
+                        if matches!(&old.origin,OperationOrigin::ProviderResult {provider_result_id:old_id,..} if old_id == provider_result_id))) {
+                        return Err("capability_result_already_normalized".into());
+                    }
+                    let expected = self.normalize_capability_result_txn(
+                        txn,
+                        state,
+                        &history,
+                        provider_result_id,
+                    )?;
+                    if &expected != operation {
+                        return Err("capability_operation_not_exact_provider_candidate".into());
+                    }
+                }
+            }
+            if let OperationOrigin::ParticipantRequest {
+                request_id,
+                principal_id,
+                ..
+            } = &operation.origin
+            {
+                let context = security_context
+                    .ok_or_else(|| "authenticated_resource_request_required".to_string())?;
+                if principal_id != context.principal_id()
+                    || pending.source.principal_id.as_ref() != Some(principal_id)
+                    || current_state
+                        .as_ref()
+                        .and_then(|state| state.tenant_id.as_deref())
+                        != Some(context.tenant_id())
+                {
+                    return Err("resource_request_principal_mismatch".into());
+                }
+                if self.list_case_transitions_txn(txn, &pending.case_id)?.iter().any(|transition| {
+                    matches!(&transition.payload, TransitionPayload::OperationRecorded { operation: old }
+                        if matches!(&old.origin, OperationOrigin::ParticipantRequest { request_id: old_id, principal_id: old_principal, .. }
+                            if old_id == request_id && old_principal == principal_id))
+                }) {
+                    return Err("participant_request_already_recorded".into());
+                }
+            }
+        }
+        if let TransitionPayload::ResourceObservationRecorded { observation } = &pending.payload {
+            let context = security_context
+                .ok_or_else(|| "authenticated_resource_observation_required".to_string())?;
+            let state = current_state
+                .as_ref()
+                .ok_or_else(|| "resource_observation_case_missing".to_string())?;
+            let history = self.list_case_transitions_txn(txn, &pending.case_id)?;
+            let operation = Self::canonical_operation(state, &history, &observation.operation_id)?;
+            let linked = state.principal_participant_links.iter().any(|link| {
+                link.principal_id == context.principal_id()
+                    && link.participant_id == operation.participant_id
+            });
+            if pending.source.principal_id.as_deref() != Some(context.principal_id())
+                || pending.source.participant_id.as_ref() != Some(&operation.participant_id)
+                || (!linked
+                    && (!matches!(operation.origin, OperationOrigin::ProviderResult { .. })
+                        || context.require_owner().is_err()))
+            {
+                return Err("resource_observation_actor_mismatch".into());
+            }
+        }
         if let TransitionPayload::ConversationExecutionIntentRecorded { request } = &pending.payload
         {
             let context = security_context
@@ -7872,18 +8600,30 @@ impl LmdbRecordStore {
                 crate::conversation::find_turn(&pending.case_id, &request.source_turn_id, &history)
                     .ok_or_else(|| "conversation_intent_turn_missing".to_string())?;
             request.validate(turn)?;
+            self.validate_conversation_workflow_intent_txn(txn, state, &history, request)?;
             if request.case_id != pending.case_id
                 || state.tenant_id.as_deref() != Some(request.tenant_id.as_str())
                 || context.tenant_id() != request.tenant_id
                 || context.principal_id() != turn.submitted_by_principal_id
                 || pending.source.principal_id.as_deref() != Some(context.principal_id())
+                || pending.source.participant_id.as_deref() != Some(turn.participant_id.as_str())
                 || !state.principal_participant_links.iter().any(|link| {
                     link.tenant_id == request.tenant_id
-                        && link.participant_id == request.participant_id
+                        && link.participant_id == turn.participant_id
                         && link.principal_id == context.principal_id()
                 })
             {
                 return Err("conversation_intent_security_domain_mismatch".to_string());
+            }
+            if request.participant_id != turn.participant_id
+                && !state.participants.iter().any(|participant| {
+                    participant.participant_id == request.participant_id
+                        && participant.admitted_views.iter().any(|view| {
+                            view.consumer == "model" && view.view_kind == "model_context"
+                        })
+                })
+            {
+                return Err("conversation_executor_model_view_not_admitted".into());
             }
             if history.iter().any(|transition| {
                 matches!(&transition.payload,
@@ -9226,6 +9966,48 @@ impl LmdbRecordStore {
             None => return Ok(()),
         };
         match payload {
+            TransitionPayload::CaseContentAdmitted { admission } => {
+                let history = self.list_case_transitions_txn(txn, case_id)?;
+                let decision = Self::canonical_decision(state, &history, &admission.decision_id)?;
+                let basis = decision
+                    .decision_basis
+                    .as_ref()
+                    .ok_or("content_admission_policy_basis_missing")?;
+                let effective = self.current_ready_effective_policy_txn(txn, case_id)?;
+                if effective.effective_policy_id != basis.effective_policy_id
+                    || effective.semantic_digest != basis.effective_policy_digest
+                    || basis
+                        .earliest_policy_expiry_unix_ms
+                        .is_some_and(|expiry| authority_time_unix_ms >= expiry)
+                {
+                    return Err("content_admission_policy_basis_stale".into());
+                }
+            }
+            TransitionPayload::ResourceObservationRecorded { observation } => {
+                observation.validate()?;
+                let history = self.list_case_transitions_txn(txn, case_id)?;
+                if history.iter().any(|transition| {
+                    matches!(&transition.payload,
+                    TransitionPayload::ResourceObservationRecorded { observation: old }
+                    if old.operation_id == observation.operation_id)
+                }) {
+                    return Err("resource_operation_already_observed".into());
+                }
+                let decision = Self::canonical_decision(state, &history, &observation.decision_id)?;
+                let basis = decision
+                    .decision_basis
+                    .as_ref()
+                    .ok_or_else(|| "resource_observation_policy_basis_missing".to_string())?;
+                let effective = self.current_ready_effective_policy_txn(txn, case_id)?;
+                if effective.effective_policy_id != basis.effective_policy_id
+                    || effective.semantic_digest != basis.effective_policy_digest
+                    || basis
+                        .earliest_policy_expiry_unix_ms
+                        .is_some_and(|expiry| authority_time_unix_ms >= expiry)
+                {
+                    return Err("resource_observation_policy_basis_stale".into());
+                }
+            }
             TransitionPayload::DecisionRecorded { decision }
                 if decision.schema == crate::effect::DECISION_SCHEMA =>
             {
@@ -9300,7 +10082,7 @@ impl LmdbRecordStore {
                 }
             }
             TransitionPayload::ExecutionGrantIssued { grant }
-                if grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA =>
+                if grant.has_current_policy_basis() =>
             {
                 grant.validate_integrity()?;
                 if authority_time_unix_ms >= grant.expires_at_unix_ms {
@@ -9381,7 +10163,7 @@ impl LmdbRecordStore {
                 let [grant] = grants.as_slice() else {
                     return Err("execution_obligation_grant_ambiguous_or_missing".to_string());
                 };
-                if grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA {
+                if grant.has_current_policy_basis() {
                     if authority_time_unix_ms >= grant.expires_at_unix_ms {
                         return Err("execution_grant_expired_before_prepare".to_string());
                     }
@@ -9955,6 +10737,701 @@ impl LmdbRecordStore {
         Ok(commit)
     }
 
+    /// Canonical resource envelope and local protocol resolution are published
+    /// atomically under the existing resource-binding owner. Neither an address
+    /// nor a protocol's tool catalog grants Case/Participant access by itself.
+    pub fn commit_tenant_access_attachment(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        pending: PendingTransition,
+        binding: &crate::effect::access::LocalAccessBinding,
+    ) -> Result<CanonicalCommit, String> {
+        let attachment = match &pending.payload {
+            TransitionPayload::ResourceAttached { attachment } => attachment,
+            _ => return Err("resource_access_attachment_input_mismatch".into()),
+        };
+        binding.validate_attachment(attachment)?;
+        if binding.case_id != pending.case_id {
+            return Err("resource_access_attachment_case_mismatch".into());
+        }
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|e| format!("resource_access_attachment_transaction:{e}"))?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        if let Some(root) = binding.root() {
+            self.validate_cross_tenant_root_txn(&txn, &context, root)?;
+        }
+        let state = self
+            .get_case_state_txn(&txn, &pending.case_id)?
+            .ok_or_else(|| "resource_access_case_missing".to_string())?;
+        if attachment.access.as_ref().is_none_or(|access| {
+            access.participant_ids.iter().any(|id| {
+                !state
+                    .participants
+                    .iter()
+                    .any(|participant| participant.participant_id == *id)
+            })
+        }) {
+            return Err("resource_access_participant_not_admitted".into());
+        }
+        let commit =
+            self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        put_json_txn(
+            &mut txn,
+            self.local_resource_bindings,
+            &format!("access|{}|{}", binding.case_id, binding.attachment_id),
+            binding,
+            WriteFlags::NO_OVERWRITE,
+            "local_access_binding",
+        )?;
+        // Preserve the existing descriptor-backed filesystem carrier and the
+        // root-overlap accounting for every local resource, not only writes.
+        if let Some(root) = binding.root() {
+            put_json_txn(
+                &mut txn,
+                self.local_resource_bindings,
+                &local_binding_key(&binding.case_id, &binding.attachment_id),
+                root,
+                WriteFlags::NO_OVERWRITE,
+                "local_resource_root",
+            )?;
+        }
+        txn.commit()
+            .map_err(|e| format!("resource_access_attachment_commit:{e}"))?;
+        Ok(commit)
+    }
+
+    /// A typed human action is normalized without inventing provider lineage.
+    /// Request identity is Case/Principal scoped and immutable on replay/retry.
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_participant_resource_request(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+        attachment_id: &str,
+        request_id: &str,
+        expected_generation: u64,
+        request: crate::effect::access::ResourceRequest,
+    ) -> Result<Operation, String> {
+        request.validate()?;
+        let state = self.get_case_state_authorized(authenticated, case_id)?;
+        let principal_id = authenticated.projected_principal_id();
+        let link = state
+            .principal_participant_links
+            .iter()
+            .find(|link| link.principal_id == principal_id && link.participant_id == participant_id)
+            .ok_or_else(|| "authenticated_principal_participant_link_required".to_string())?;
+        for transition in self.list_case_transitions(case_id)? {
+            if let TransitionPayload::OperationRecorded { operation } = transition.payload {
+                if matches!(&operation.origin, OperationOrigin::ParticipantRequest { request_id: old_id, principal_id: old_principal, .. }
+                    if old_id == request_id && *old_principal == principal_id)
+                {
+                    if operation.participant_id != participant_id
+                        || operation.resource_attachment_id != attachment_id
+                        || operation.resource_request.as_ref() != Some(&request)
+                    {
+                        return Err("participant_request_identity_collision".into());
+                    }
+                    return Ok(operation);
+                }
+            }
+        }
+        let operation = Operation::from_resource_request(
+            case_id,
+            participant_id,
+            attachment_id,
+            expected_generation,
+            request,
+            OperationOrigin::ParticipantRequest {
+                request_id: request_id.into(),
+                principal_id: principal_id.clone(),
+                participant_link_id: link.link_id.clone(),
+            },
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:resource-request:{}", operation.operation_id),
+            case_id,
+            expected_generation,
+            TransitionSource {
+                component: "yai.resource_access".into(),
+                participant_id: Some(participant_id.into()),
+                principal_id: Some(principal_id),
+                source_ref: Some(request_id.into()),
+            },
+            TransitionPayload::OperationRecorded {
+                operation: operation.clone(),
+            },
+        );
+        pending.scope = Some(operation.scope.clone());
+        pending.causal_refs = operation.origin.causal_refs();
+        self.commit_secured_transition(
+            authenticated,
+            state.tenant_id.as_deref().unwrap(),
+            pending,
+            false,
+        )?;
+        Ok(operation)
+    }
+
+    fn capability_result_is_native(history: &[Transition], result_id: &str) -> bool {
+        Self::capability_result_lineage(history, result_id).is_some()
+    }
+
+    fn capability_result_lineage<'a>(
+        history: &'a [Transition],
+        result_id: &str,
+    ) -> Option<(
+        &'a str,
+        &'a str,
+        &'a str,
+        &'a ProviderSelection,
+        &'a Transition,
+    )> {
+        let (invocation_id, output) = history.iter().find_map(|t| match &t.payload {
+            TransitionPayload::ProviderResultRecorded {
+                result_id: id,
+                invocation_id,
+                output,
+                ..
+            } if id == result_id => Some((invocation_id, output)),
+            _ => None,
+        })?;
+        let (participant, governance) = history.iter().find_map(|t| match &t.payload {
+            TransitionPayload::ProviderInvocationStarted {
+                invocation_id: id,
+                participant_id,
+                governance: Some(governance),
+                ..
+            } if id == invocation_id => Some((participant_id, governance)),
+            _ => None,
+        })?;
+        let (selection, transition) = history.iter().find_map(|t| match &t.payload {
+            TransitionPayload::ProviderSelectionRecorded { selection }
+                if selection.selection_id == governance.selection_id
+                    && t.causal_refs.contains(&format!(
+                        "provider-normalization-contract:{}",
+                        crate::admission::CASE_CAPABILITY_OUTPUT_SCHEMA
+                    ))
+                    && t.causal_refs.contains(
+                        &"provider-realization-shape:text_functions_to_text_or_call".to_string(),
+                    ) =>
+            {
+                Some((selection, t))
+            }
+            _ => None,
+        })?;
+        Some((invocation_id, output, participant, selection, transition))
+    }
+
+    fn normalize_capability_result_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        state: &CaseState,
+        history: &[Transition],
+        result_id: &str,
+    ) -> Result<Operation, String> {
+        let (invocation_id, output, participant, selection, transition) =
+            Self::capability_result_lineage(history, result_id)
+                .ok_or("capability_result_native_contract_required")?;
+        let effective = self.current_ready_effective_policy_txn(txn, &state.case_id)?;
+        let mut source_state = state.clone();
+        source_state.generation = selection.case_generation;
+        let view =
+            crate::admission::derive_case_capability_view(&source_state, &effective, participant)?;
+        if !transition.causal_refs.contains(&view.view_id) {
+            return Err("capability_result_view_stale".into());
+        }
+        let operation = crate::admission::normalize_case_capability_candidate(
+            output,
+            &view,
+            result_id,
+            invocation_id,
+            state.generation,
+        )?;
+        if let Some(request) = Self::work_intent_for_selection(history, transition)? {
+            let limits = request.work_limits.as_ref().expect("work intent");
+            let prior_operations = history
+                .iter()
+                .filter_map(|t| match &t.payload {
+                    TransitionPayload::OperationRecorded { operation } => {
+                        let OperationOrigin::ProviderResult {
+                            provider_result_id, ..
+                        } = &operation.origin
+                        else {
+                            return None;
+                        };
+                        let (_, _, _, _, selected) =
+                            Self::capability_result_lineage(history, provider_result_id)?;
+                        selected
+                            .causal_refs
+                            .contains(&request.request_id)
+                            .then_some(operation)
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            let is_effect = |kind: &crate::effect::OperationKind| match kind {
+                crate::effect::OperationKind::ResourceAccess(kind) => kind.is_external_effect(),
+                _ => true,
+            };
+            if prior_operations.len() >= usize::from(limits.operations)
+                || (is_effect(&operation.kind)
+                    && prior_operations
+                        .iter()
+                        .filter(|op| is_effect(&op.kind))
+                        .count()
+                        >= usize::from(limits.effects))
+            {
+                return Err("case_work_operation_budget_exhausted".into());
+            }
+        }
+        Ok(operation)
+    }
+
+    fn work_intent_for_selection<'a>(
+        history: &'a [Transition],
+        selected: &Transition,
+    ) -> Result<Option<&'a crate::conversation::CognitiveCompositionRequest>, String> {
+        let requests = history
+            .iter()
+            .filter_map(|t| match &t.payload {
+                TransitionPayload::ConversationExecutionIntentRecorded { request }
+                    if request.work_limits.is_some()
+                        && selected.causal_refs.contains(&request.request_id) =>
+                {
+                    Some(request)
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        if requests.len() > 1 {
+            return Err("case_work_intent_ambiguous".into());
+        }
+        if selected
+            .causal_refs
+            .iter()
+            .any(|r| r.starts_with("case-work-step:"))
+            && requests.is_empty()
+        {
+            return Err("case_work_canonical_intent_required".into());
+        }
+        Ok(requests.first().copied())
+    }
+
+    /// One native result can normalize at most one Operation. Resumption reuses
+    /// that canonical Operation; it neither invokes a provider nor admits an
+    /// effect. Current Policy/Decision/Grant are still separate downstream gates.
+    pub fn record_provider_capability_request(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        result_id: &str,
+    ) -> Result<Operation, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|e| format!("capability_normalization:{e}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or("capability_case_missing")?;
+        let context = self.resolve_security_context_txn(
+            &txn,
+            authenticated,
+            state
+                .tenant_id
+                .as_deref()
+                .ok_or("capability_tenant_required")?,
+        )?;
+        context.require_owner()?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        if !Self::capability_result_is_native(&history, result_id) {
+            return Err("capability_result_native_contract_required".into());
+        }
+        if let Some(operation) = history.iter().find_map(|t|match &t.payload {
+            TransitionPayload::OperationRecorded {operation} if matches!(&operation.origin,OperationOrigin::ProviderResult {provider_result_id,..} if provider_result_id == result_id) => Some(operation),_=>None,
+        }) { return Ok(operation.clone()); }
+        self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let operation = self.normalize_capability_result_txn(&txn, &state, &history, result_id)?;
+        let mut pending = PendingTransition::new(
+            format!("transition:capability:{}", operation.operation_id),
+            case_id,
+            state.generation,
+            TransitionSource {
+                component: "yai.case_capability".into(),
+                participant_id: Some(operation.participant_id.clone()),
+                principal_id: Some(context.principal_id().into()),
+                source_ref: Some(result_id.into()),
+            },
+            TransitionPayload::OperationRecorded {
+                operation: operation.clone(),
+            },
+        );
+        pending.scope = Some(operation.scope.clone());
+        pending.causal_refs = operation.origin.causal_refs();
+        self.commit_transition_txn_at(&mut txn, pending, false, None, Some(&context))?;
+        txn.commit()
+            .map_err(|e| format!("capability_normalization:{e}"))?;
+        Ok(operation)
+    }
+
+    /// Immediate pre-dispatch read admission. No external I/O or long-lived
+    /// writer lock is performed here. A policy Decision is not a filesystem or
+    /// network address; resolve the exact, digest-bound local attachment too.
+    pub fn admit_resource_read_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        operation_id: &str,
+    ) -> Result<crate::effect::access::ResourceReadAdmission, String> {
+        self.admit_resource_access_authorized(authenticated, case_id, operation_id, false)
+    }
+
+    /// Current, derived request surface. No tool registry, Decision, Grant or
+    /// external request is created. Model dispatch must still qualify a native
+    /// function shape and concrete calls must use the canonical admission path.
+    pub fn case_capability_view_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        participant_id: &str,
+    ) -> Result<crate::admission::CaseCapabilityView, String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|e| format!("capability_view:{e}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or("capability_view_case_missing")?;
+        let context = self.resolve_security_context_txn(
+            &txn,
+            authenticated,
+            state
+                .tenant_id
+                .as_deref()
+                .ok_or("capability_view_requires_tenant")?,
+        )?;
+        if !state.principal_participant_links.iter().any(|link| {
+            link.principal_id == context.principal_id() && link.participant_id == participant_id
+        }) {
+            context.require_owner()?; // administrative inspection, not execution delegation
+        }
+        self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let effective = self.current_ready_effective_policy_txn(&txn, case_id)?;
+        let view =
+            crate::admission::derive_case_capability_view(&state, &effective, participant_id)?;
+        for entry in &view.entries {
+            if entry.resource.access.is_some() {
+                let binding: crate::effect::access::LocalAccessBinding = get_json_txn(
+                    &txn,
+                    self.local_resource_bindings,
+                    &format!("access|{case_id}|{}", entry.resource.attachment_id),
+                    "local_access_binding",
+                )?
+                .ok_or("capability_view_local_binding_missing")?;
+                binding.validate_attachment(&entry.resource)?;
+            }
+        }
+        txn.commit().map_err(|e| format!("capability_view:{e}"))?;
+        Ok(view)
+    }
+
+    fn admit_resource_access_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        operation_id: &str,
+        content_admission: bool,
+    ) -> Result<crate::effect::access::ResourceReadAdmission, String> {
+        use crate::effect::access::{LocalAccessBinding, ResourceReadAdmission};
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|e| format!("resource_read_admission:{e}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "resource_read_requires_tenant_case".to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant)?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let operation = Self::canonical_operation(&state, &history, operation_id)?.clone();
+        let linked = state.principal_participant_links.iter().any(|link| {
+            link.principal_id == context.principal_id()
+                && link.participant_id == operation.participant_id
+        });
+        // A human Participant requests their own reads. A host may mediate an
+        // exact canonical model request only as the current Tenant owner.
+        if !linked
+            && (!matches!(operation.origin, OperationOrigin::ProviderResult { .. })
+                || context.require_owner().is_err())
+        {
+            return Err("resource_read_participant_not_authorized".into());
+        }
+        let decision_state = state
+            .last_decision
+            .as_ref()
+            .filter(|decision| {
+                decision.operation_id == operation_id
+                    && decision.recorded_at_generation == state.generation
+            })
+            .ok_or_else(|| "resource_read_current_decision_required".to_string())?;
+        let decision =
+            Self::canonical_decision(&state, &history, &decision_state.decision_id)?.clone();
+        let request = operation
+            .resource_request
+            .as_ref()
+            .ok_or_else(|| "resource_read_request_missing".to_string())?;
+        if state.cancellation.is_some()
+            || state.lifecycle == CaseLifecycle::Closed
+            || request.action.kind().is_external_effect()
+            || (request.action.kind() == crate::effect::access::AccessKind::AdmitContent)
+                != content_admission
+            || decision.outcome != crate::effect::DecisionOutcome::Allow
+        {
+            return Err("resource_read_not_admitted".into());
+        }
+        let attachment = state
+            .resources
+            .iter()
+            .find(|attachment| attachment.attachment_id == operation.resource_attachment_id)
+            .ok_or_else(|| "resource_read_not_attached".to_string())?;
+        let access = attachment
+            .access
+            .as_ref()
+            .ok_or_else(|| "resource_access_contract_missing".to_string())?
+            .clone();
+        access.admits_request(&operation.participant_id, request)?;
+        let binding: LocalAccessBinding = get_json_txn(
+            &txn,
+            self.local_resource_bindings,
+            &format!("access|{case_id}|{}", attachment.attachment_id),
+            "local_access_binding",
+        )?
+        .ok_or_else(|| "local_access_binding_missing".to_string())?;
+        binding.validate_attachment(attachment)?;
+        let now = self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let effective = self.current_ready_effective_policy_txn(&txn, case_id)?;
+        let basis = decision
+            .decision_basis
+            .as_ref()
+            .ok_or_else(|| "resource_read_policy_basis_missing".to_string())?;
+        if effective.effective_policy_id != basis.effective_policy_id
+            || effective.semantic_digest != basis.effective_policy_digest
+            || basis
+                .earliest_policy_expiry_unix_ms
+                .is_some_and(|expiry| now >= expiry)
+            || !basis.admission_obligations_satisfied()
+        {
+            return Err("resource_read_policy_basis_stale".into());
+        }
+        txn.commit()
+            .map_err(|e| format!("resource_read_admission:{e}"))?;
+        Ok(ResourceReadAdmission {
+            case_generation: state.generation,
+            operation,
+            decision,
+            binding,
+            access,
+        })
+    }
+
+    /// Discovery-to-admission is a local immutable import, not an external
+    /// mutation. The policy Decision remains distinct from the discovery read.
+    /// A failed Case commit may leave a complete orphan object (I01 rule).
+    pub fn admit_discovered_content_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        content_store: &crate::conversation::ConversationContentStore,
+        case_id: &str,
+        operation_id: &str,
+    ) -> Result<crate::effect::access::CaseContentAdmission, String> {
+        use crate::effect::access::{
+            read_confined_file, AccessKind, CaseContentAdmission, ResourceAction,
+        };
+        let admitted =
+            self.admit_resource_access_authorized(authenticated, case_id, operation_id, true)?;
+        let operation = &admitted.operation;
+        let request = operation
+            .resource_request
+            .as_ref()
+            .ok_or("resource_request_missing")?;
+        let ResourceAction::AdmitContent {
+            path,
+            candidate_digest,
+        } = &request.action
+        else {
+            unreachable!()
+        };
+        let history = self.list_case_transitions(case_id)?;
+        let discovery = history
+            .iter()
+            .rev()
+            .find_map(|entry| match &entry.payload {
+                TransitionPayload::ResourceObservationRecorded { observation }
+                    if observation.kind == AccessKind::Discover
+                        && observation.participant_id == operation.participant_id
+                        && observation.resource_attachment_id
+                            == operation.resource_attachment_id
+                        && observation.configuration_digest == request.configuration_digest
+                        && observation.result["entries"]
+                            .as_array()
+                            .is_some_and(|entries| {
+                                entries.iter().any(|entry| {
+                                    entry["path"] == *path
+                                        && entry["digest"] == *candidate_digest
+                                        && entry["admitted"] == false
+                                })
+                            }) =>
+                {
+                    Some(observation)
+                }
+                _ => None,
+            })
+            .ok_or("content_admission_candidate_not_discovered")?;
+        let bytes = read_confined_file(
+            admitted.binding.root().ok_or("discovery_root_required")?,
+            path,
+            admitted.access.max_output_bytes,
+        )?;
+        if crate::effect::digest_bytes(&bytes) != *candidate_digest {
+            return Err("discovery_candidate_drift_before_admission".into());
+        }
+        let state = self.get_case_state_authorized(authenticated, case_id)?;
+        let tenant = state
+            .tenant_id
+            .as_deref()
+            .ok_or("content_admission_requires_tenant")?;
+        let object = content_store.publish_owned_file_bytes(tenant, case_id, &bytes)?;
+        let mut participants = admitted.access.participant_ids;
+        participants.sort();
+        let admission = CaseContentAdmission::new(
+            operation,
+            &admitted.decision,
+            discovery,
+            &authenticated.projected_principal_id(),
+            participants,
+            object,
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", admission.admission_id),
+            case_id,
+            admitted.case_generation,
+            TransitionSource {
+                component: "yai.resource_access".into(),
+                participant_id: Some(operation.participant_id.clone()),
+                principal_id: Some(authenticated.projected_principal_id()),
+                source_ref: Some(operation.operation_id.clone()),
+            },
+            TransitionPayload::CaseContentAdmitted {
+                admission: admission.clone(),
+            },
+        );
+        pending.scope = Some(crate::transition::TransitionScope {
+            case_id: case_id.into(),
+            participant_refs: admission.participant_ids.clone(),
+            resource_refs: vec![operation.resource_attachment_id.clone()],
+            policy_refs: operation.scope.policy_refs.clone(),
+        });
+        pending.causal_refs = vec![
+            operation.operation_id.clone(),
+            admitted.decision.decision_id,
+            admission.discovery_observation_id.clone(),
+            admission.source_resource_id.clone(),
+        ];
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|e| format!("content_admission:{e}"))?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant)?;
+        self.commit_transition_txn_with_owned_content(
+            &mut txn,
+            pending,
+            false,
+            None,
+            Some(&context),
+            None,
+            Some(content_store),
+        )?;
+        txn.commit().map_err(|e| format!("content_admission:{e}"))?;
+        Ok(admission)
+    }
+
+    pub fn record_resource_observation_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        admission: &crate::effect::access::ResourceReadAdmission,
+        result: serde_json::Value,
+    ) -> Result<crate::effect::access::ResourceObservation, String> {
+        let state = self.get_case_state_authorized(authenticated, &admission.operation.case_id)?;
+        let observation = crate::effect::access::ResourceObservation::new(
+            &admission.operation,
+            &admission.decision,
+            result,
+            authority_wall_time_unix_ms(),
+        )?;
+        let mut pending = PendingTransition::new(
+            format!("transition:{}", observation.observation_id),
+            &state.case_id,
+            admission.case_generation,
+            TransitionSource {
+                component: "yai.resource_access".into(),
+                participant_id: Some(observation.participant_id.clone()),
+                principal_id: Some(authenticated.projected_principal_id()),
+                source_ref: Some(observation.operation_id.clone()),
+            },
+            TransitionPayload::ResourceObservationRecorded {
+                observation: observation.clone(),
+            },
+        );
+        pending.scope = Some(admission.operation.scope.clone());
+        pending.causal_refs = vec![
+            observation.operation_id.clone(),
+            observation.decision_id.clone(),
+            observation.resource_attachment_id.clone(),
+        ];
+        self.commit_secured_transition(
+            authenticated,
+            state.tenant_id.as_deref().unwrap(),
+            pending,
+            false,
+        )?;
+        Ok(observation)
+    }
+
+    pub fn get_local_access_binding(
+        &self,
+        case_id: &str,
+        attachment_id: &str,
+    ) -> Result<Option<crate::effect::access::LocalAccessBinding>, String> {
+        let txn = self
+            .env
+            .begin_ro_txn()
+            .map_err(|e| format!("resource_access_binding_read:{e}"))?;
+        match txn.get(
+            self.local_resource_bindings,
+            &format!("access|{case_id}|{attachment_id}"),
+        ) {
+            Ok(bytes) => {
+                let binding: crate::effect::access::LocalAccessBinding =
+                    serde_json::from_slice(bytes)
+                        .map_err(|e| format!("resource_access_binding_decode:{e}"))?;
+                binding.validate()?;
+                if binding.case_id != case_id || binding.attachment_id != attachment_id {
+                    return Err("resource_access_binding_scope_mismatch".into());
+                }
+                Ok(Some(binding))
+            }
+            Err(Error::NotFound) => Ok(None),
+            Err(e) => Err(format!("resource_access_binding_read:{e}")),
+        }
+    }
+
     fn put_local_filesystem_binding_inner(
         &self,
         binding: &LocalFilesystemBinding,
@@ -10192,10 +11669,13 @@ impl LmdbRecordStore {
         {
             return Err("resource_history_duplicate_sequence".to_string());
         }
-        if events
-            .iter()
-            .all(|current| current.schema == RESOURCE_CONTROL_EVENT_SCHEMA)
-        {
+        if events.iter().all(|current| {
+            matches!(
+                current.schema.as_str(),
+                RESOURCE_CONTROL_EVENT_SCHEMA
+                    | crate::resource_control::NETWORK_RESOURCE_EVENT_SCHEMA
+            )
+        }) {
             events.push(event.clone());
             replay_resource_control_state(&events)?;
             return Ok(());
@@ -10303,7 +11783,8 @@ impl LmdbRecordStore {
                     ),
                     FilesystemRelation::Disjoint
                 ),
-                crate::resource_control::ControlledResourceKind::Process => {
+                crate::resource_control::ControlledResourceKind::Process
+                | crate::resource_control::ControlledResourceKind::NetworkEndpoint => {
                     proposed.canonical_identity == state.identity.canonical_identity
                 }
             };
@@ -10821,6 +12302,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                crate::transition::TRANSITION_SCHEMA_V17,
                 TRANSITION_SCHEMA_V16,
                 TRANSITION_SCHEMA_V15,
                 TRANSITION_SCHEMA_V14,
@@ -10845,6 +12327,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                crate::transition::CASE_STATE_SCHEMA_V14,
                 CASE_STATE_SCHEMA_V13,
                 CASE_STATE_SCHEMA_V12,
                 CASE_STATE_SCHEMA_V11,
@@ -11006,7 +12489,10 @@ impl LmdbRecordStore {
             self.schema_meta,
             "meta:workflow_definition_schema",
             WORKFLOW_DEFINITION_SCHEMA,
-            &[WORKFLOW_DEFINITION_SCHEMA_V1],
+            &[
+                WORKFLOW_DEFINITION_SCHEMA_V1,
+                crate::workflow::WORKFLOW_DEFINITION_SCHEMA_V2,
+            ],
         )?;
         for (key, value) in [
             ("meta:canonical_transition_schema", TRANSITION_SCHEMA),
@@ -12043,6 +13529,55 @@ fn derive_graph_relations_from_transition(
             "case",
             &transition.case_id,
         ),
+        TransitionPayload::CaseContentAdmitted { admission } => {
+            for (kind, target) in [
+                ("content_object", &admission.object.object_id),
+                ("operation", &admission.operation_id),
+                ("decision", &admission.decision_id),
+                ("resource_observation", &admission.discovery_observation_id),
+            ] {
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "case_content_admission_provenance",
+                    "case_content",
+                    &admission.admission_id,
+                    kind,
+                    target,
+                );
+            }
+        }
+        TransitionPayload::ResourceObservationRecorded { observation } => {
+            for (relation, kind, target) in [
+                (
+                    "resource_observation_from_operation",
+                    "operation",
+                    &observation.operation_id,
+                ),
+                (
+                    "resource_observation_under_decision",
+                    "decision",
+                    &observation.decision_id,
+                ),
+                (
+                    "resource_observation_from_resource",
+                    "resource_attachment",
+                    &observation.resource_attachment_id,
+                ),
+            ] {
+                add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    relation,
+                    "resource_observation",
+                    &observation.observation_id,
+                    kind,
+                    target,
+                );
+            }
+        }
         TransitionPayload::OperationNormalizationFailed {
             provider_result_id, ..
         } => add_transition_relation(
@@ -12057,6 +13592,19 @@ fn derive_graph_relations_from_transition(
         ),
         TransitionPayload::OperationRecorded { operation } => {
             match &operation.origin {
+                OperationOrigin::ParticipantRequest {
+                    participant_link_id,
+                    ..
+                } => add_transition_relation(
+                    &mut relations,
+                    skipped,
+                    transition,
+                    "operation_from_participant_request",
+                    "operation",
+                    &operation.operation_id,
+                    "principal_participant_link",
+                    participant_link_id,
+                ),
                 OperationOrigin::ProviderResult {
                     provider_result_id, ..
                 } => add_transition_relation(
@@ -12172,6 +13720,54 @@ fn derive_graph_relations_from_transition(
                     basis_id,
                 );
             }
+        }
+        TransitionPayload::ResourceEffectPrepared { prepared } => add_transition_relation(
+            &mut relations,
+            skipped,
+            transition,
+            "prepared_resource_effect_consumes_grant",
+            "prepared_resource_effect",
+            &prepared.effect_id,
+            "execution_grant",
+            &prepared.grant_id,
+        ),
+        TransitionPayload::ResourceEffectFinalized {
+            effect_id,
+            receipt,
+            observation,
+        } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "resource_receipt_closes_effect",
+                "effect_receipt",
+                &receipt.receipt_id,
+                "prepared_resource_effect",
+                effect_id,
+            );
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "resource_receipt_carries_observation",
+                "effect_receipt",
+                &receipt.receipt_id,
+                "resource_observation",
+                &observation.observation_id,
+            );
+        }
+        TransitionPayload::ResourceEffectIndeterminate { effect_id, .. } => {
+            add_transition_relation(
+                &mut relations,
+                skipped,
+                transition,
+                "indeterminate_transition_tracks_resource_effect",
+                "transition",
+                &transition.transition_id,
+                "prepared_resource_effect",
+                effect_id,
+            )
         }
         TransitionPayload::EffectPrepared { prepared } => add_transition_relation(
             &mut relations,
@@ -12846,7 +14442,7 @@ fn derive_graph_relations(
                 record,
                 "review_request_for_attempt",
                 "review_request",
-                &review_ref,
+                review_ref,
                 "attempt",
                 &attempt_id,
                 created_at_unix_ms,
@@ -12859,7 +14455,7 @@ fn derive_graph_relations(
                 record,
                 "review_resolution_produces_receipt",
                 "review_request",
-                &review_ref,
+                review_ref,
                 "receipt",
                 &receipt_id,
                 created_at_unix_ms,
@@ -12878,7 +14474,7 @@ fn derive_graph_relations(
                 "review_decision",
                 &record.record_id,
                 "review_request",
-                &review_ref,
+                review_ref,
                 created_at_unix_ms,
             ),
         );
@@ -12895,7 +14491,7 @@ fn derive_graph_relations(
                 record,
                 "control_pending_blocks_attempt",
                 "control_pending",
-                &pending_ref,
+                pending_ref,
                 "attempt",
                 &attempt_id,
                 created_at_unix_ms,
@@ -14067,6 +15663,88 @@ impl LmdbRecordStore {
                     )
                 })
                 .ok_or_else(|| "provider_invocation_cognitive_selection_missing".to_string())?;
+            for intent in history.iter().filter_map(|t| match &t.payload {
+                TransitionPayload::ConversationExecutionIntentRecorded { request }
+                    if request.workflow_execution_id.is_some()
+                        && selection_transition
+                            .causal_refs
+                            .contains(&request.request_id) =>
+                {
+                    Some(request)
+                }
+                _ => None,
+            }) {
+                self.validate_conversation_workflow_intent_txn(txn, state, &history, intent)?;
+                let workflow_binding = state
+                    .workflow_binding
+                    .as_ref()
+                    .ok_or("case_workflow_not_bound")?;
+                let definition = self
+                    .workflow_definition_txn(txn, &workflow_binding.workflow_definition_id)?
+                    .ok_or("bound_workflow_definition_missing")?;
+                let definitions = self.workflow_definition_graph_for_operations_txn(
+                    txn,
+                    &definition,
+                    &state.workflow_amendments,
+                    &[],
+                )?;
+                let topology = derive_effective_workflow_topology(
+                    &definition,
+                    workflow_binding,
+                    &state.workflow_amendments,
+                    &definitions,
+                )?;
+                if !selection_transition
+                    .causal_refs
+                    .contains(&format!("workflow-topology:{}", topology.topology_digest))
+                {
+                    return Err("workflow_invocation_topology_stale".into());
+                }
+                let execution_id = intent.workflow_execution_id.as_ref().unwrap();
+                let execution = state
+                    .workflow_executions
+                    .iter()
+                    .find(|e| &e.execution_id == execution_id)
+                    .ok_or("workflow_execution_not_found")?;
+                let WorkflowNodeKind::ModelWork { budgets, .. } = &topology
+                    .node(&execution.node_id)
+                    .ok_or("workflow_node_not_found")?
+                    .node
+                    .kind
+                else {
+                    return Err("workflow_execution_is_not_model_work".into());
+                };
+                let attempts = history
+                    .iter()
+                    .filter(|t| {
+                        matches!(
+                            t.payload,
+                            TransitionPayload::ProviderInvocationStarted { .. }
+                        ) && t.causal_refs.contains(execution_id)
+                    })
+                    .count();
+                if attempts >= budgets.max_turns {
+                    return Err("workflow_provider_invocation_budget_exhausted".into());
+                }
+                if intent.work_limits.is_none()
+                    && history.iter().any(|t| {
+                        matches!(&t.payload, TransitionPayload::ProviderResultRecorded { .. })
+                            && intent
+                                .workflow_execution_id
+                                .as_ref()
+                                .is_some_and(|id| t.causal_refs.contains(id))
+                    })
+                {
+                    return Err("workflow_single_result_requires_reuse".into());
+                }
+                if state
+                    .workflow_satisfactions
+                    .iter()
+                    .any(|s| s.execution_id == intent.workflow_execution_id)
+                {
+                    return Err("workflow_execution_completed_requires_result_reuse".into());
+                }
+            }
             let cognitive_binding = state
                 .cognitive_bindings
                 .iter()
@@ -14156,9 +15834,89 @@ impl LmdbRecordStore {
             } else if cognitive_binding.target_policy.is_some() {
                 return Err("provider_invocation_arbitration_snapshot_missing".to_string());
             }
-            if !selection_transition.causal_refs.contains(&format!(
-                "provider-normalization-contract:{PROVIDER_DERIVED_TEXT_NORMALIZER}"
-            )) {
+            let normalizer = if shapes[0] == ProviderRealizationShape::TextFunctionsToTextOrCall {
+                if let Some(request) =
+                    Self::work_intent_for_selection(&history, selection_transition)?
+                {
+                    let limits = request.work_limits.as_ref().expect("work intent");
+                    if request.participant_id != *participant_id
+                        || !selection_transition
+                            .causal_refs
+                            .contains(&request.source_turn_id)
+                    {
+                        return Err("case_work_invocation_scope_mismatch".into());
+                    }
+                    let mut matching_step = false;
+                    for ordinal in 0..limits.invocations {
+                        let source = request.work_step_source(ordinal)?;
+                        let requirement = CognitiveCapabilityRequirement::new(
+                            &state.case_id,
+                            participant_id,
+                            CognitiveCapability::PrimaryConversation,
+                            &source,
+                        )?;
+                        let requirement =
+                            crate::cognitive::cognitive_provider_requirement(&requirement)?;
+                        matching_step |= selection.requirement_id == requirement.requirement_id
+                            && selection_transition.causal_refs.contains(&source);
+                    }
+                    if !matching_step {
+                        return Err("case_work_step_identity_invalid".into());
+                    }
+                    let mut invocation_count = 0;
+                    for t in &history {
+                        let TransitionPayload::ProviderInvocationStarted {
+                            invocation_id,
+                            governance: Some(prior),
+                            ..
+                        } = &t.payload
+                        else {
+                            continue;
+                        };
+                        let Some(prior_selection) = history.iter().find_map(|s| match &s.payload {
+                            TransitionPayload::ProviderSelectionRecorded { selection }
+                                if selection.selection_id == prior.selection_id
+                                    && s.causal_refs.contains(&request.request_id) =>
+                            {
+                                Some(selection)
+                            }
+                            _ => None,
+                        }) else {
+                            continue;
+                        };
+                        invocation_count += 1;
+                        let completed = history.iter().any(|r|matches!(&r.payload,TransitionPayload::ProviderResultRecorded {invocation_id:id,..} if id == invocation_id));
+                        let retry_safe = history.iter().any(|r|matches!(&r.payload,TransitionPayload::ProviderAttemptOutcomeRecorded {outcome} if outcome.selection_id == prior.selection_id && outcome.retry_safe()));
+                        if !completed && !retry_safe {
+                            return Err("case_work_prior_delivery_indeterminate".into());
+                        }
+                        if completed && prior_selection.requirement_id == selection.requirement_id {
+                            return Err("case_work_step_completed_requires_result_reuse".into());
+                        }
+                    }
+                    if invocation_count >= usize::from(limits.invocations) {
+                        return Err("case_work_invocation_budget_exhausted".into());
+                    }
+                }
+                let effective = self.current_ready_effective_policy_txn(txn, &state.case_id)?;
+                let mut source_state = state.clone();
+                source_state.generation = selection.case_generation;
+                let view = crate::admission::derive_case_capability_view(
+                    &source_state,
+                    &effective,
+                    participant_id,
+                )?;
+                if !selection_transition.causal_refs.contains(&view.view_id) {
+                    return Err("provider_invocation_capability_view_stale".into());
+                }
+                crate::admission::CASE_CAPABILITY_OUTPUT_SCHEMA
+            } else {
+                PROVIDER_DERIVED_TEXT_NORMALIZER
+            };
+            if !selection_transition
+                .causal_refs
+                .contains(&format!("provider-normalization-contract:{normalizer}"))
+            {
                 return Err("provider_invocation_normalization_contract_missing".to_string());
             }
         }
@@ -14860,8 +16618,10 @@ impl LmdbRecordStore {
                 operational_exclusion,
                 shapes: [
                     ProviderRealizationShape::TextToText,
+                    ProviderRealizationShape::TextToJsonObject,
                     ProviderRealizationShape::AudioWavToText,
                     ProviderRealizationShape::OrderedPngTextToText,
+                    ProviderRealizationShape::TextFunctionsToTextOrCall,
                 ]
                 .into_iter()
                 .filter(|shape| {
@@ -15065,6 +16825,12 @@ impl LmdbRecordStore {
                 ProviderRealizationShape::TextToText
             ) | (
                 CognitiveCapability::PrimaryConversation,
+                ProviderRealizationShape::TextToJsonObject
+            ) | (
+                CognitiveCapability::PrimaryConversation,
+                ProviderRealizationShape::TextFunctionsToTextOrCall
+            ) | (
+                CognitiveCapability::PrimaryConversation,
                 ProviderRealizationShape::AudioWavToText
             ) | (
                 CognitiveCapability::PrimaryConversation,
@@ -15107,6 +16873,18 @@ impl LmdbRecordStore {
         if plan.tenant_id != tenant_id || plan.case_generation != state.generation {
             return Err("cognitive_realization_plan_stale".to_string());
         }
+        if *realization_shape == ProviderRealizationShape::TextFunctionsToTextOrCall {
+            self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+            let effective = self.current_ready_effective_policy_txn(&txn, &state.case_id)?;
+            let view = crate::admission::derive_case_capability_view(
+                &state,
+                &effective,
+                &plan.participant_id,
+            )?;
+            if !realization_causal_refs.contains(&view.view_id) {
+                return Err("cognitive_realization_capability_view_stale".into());
+            }
+        }
         if let Some(arbitration) = &plan.arbitration {
             if crate::cognitive::cognitive_provider_requirement(&arbitration.requirement)?
                 != *requirement
@@ -15139,7 +16917,40 @@ impl LmdbRecordStore {
                 && link.participant_id == plan.participant_id
                 && link.principal_id == context.principal_id()
         }) {
-            return Err("cognitive_realization_principal_participant_mismatch".to_string());
+            // Only an exact canonical Turn disclosure may authorize a distinct
+            // executor. Tenant ownership by itself is not ambient delegation.
+            let history = self.list_case_transitions_txn(&txn, &state.case_id)?;
+            let intent = history
+                .iter()
+                .find_map(|transition| match &transition.payload {
+                    TransitionPayload::ConversationExecutionIntentRecorded { request }
+                        if request.participant_id == plan.participant_id
+                            && realization_causal_refs.contains(&request.request_id)
+                            && realization_causal_refs.contains(&request.source_turn_id) =>
+                    {
+                        Some(request)
+                    }
+                    _ => None,
+                })
+                .ok_or("cognitive_realization_principal_participant_mismatch")?;
+            if plan.capability != intent.goal
+                && intent
+                    .prerequisite
+                    .as_ref()
+                    .is_none_or(|prerequisite| prerequisite.capability != plan.capability)
+            {
+                return Err("conversation_executor_capability_outside_intent".into());
+            }
+            let turn =
+                crate::conversation::find_turn(&state.case_id, &intent.source_turn_id, &history)
+                    .ok_or("conversation_intent_turn_missing")?;
+            crate::conversation::authorize_turn_execution(
+                &state,
+                &history,
+                turn,
+                &plan.participant_id,
+                context.principal_id(),
+            )?;
         }
         let provider_binding = state
             .provider_binding
@@ -15296,7 +17107,14 @@ impl LmdbRecordStore {
             binding_id.to_string(),
             semantic_evidence_id.to_string(),
             format!("provider-realization-shape:{}", realization_shape.as_str()),
-            format!("provider-normalization-contract:{PROVIDER_DERIVED_TEXT_NORMALIZER}"),
+            format!(
+                "provider-normalization-contract:{}",
+                if *realization_shape == ProviderRealizationShape::TextFunctionsToTextOrCall {
+                    crate::admission::CASE_CAPABILITY_OUTPUT_SCHEMA
+                } else {
+                    PROVIDER_DERIVED_TEXT_NORMALIZER
+                }
+            ),
         ];
         if let Some(arbitration) = &plan.arbitration {
             pending.causal_refs.extend([
@@ -15405,16 +17223,22 @@ impl LmdbRecordStore {
         let candidate = cognitive_binding
             .candidate(&derived.target_id)
             .ok_or("conversation_derived_content_target_not_in_policy")?;
+        crate::conversation::authorize_turn_execution(
+            &state,
+            &history,
+            source_turn,
+            &cognitive_binding.participant_id,
+            context.principal_id(),
+        )?;
         if cognitive_binding.tenant_id != derived.tenant_id
             || cognitive_binding.case_id != derived.case_id
-            || cognitive_binding.participant_id != source_turn.participant_id
             || cognitive_binding.role != CognitiveBindingRole::Auxiliary
             || cognitive_binding.capability != derived.capability
             || candidate.target_digest != derived.target_digest
             || candidate.semantic_evidence_id != derived.semantic_evidence_id
             || cognitive_execution_lane_for_target(
                 &derived.case_id,
-                &source_turn.participant_id,
+                &cognitive_binding.participant_id,
                 cognitive_binding,
                 &derived.target_id,
             )? != derived.execution_lane_id
@@ -15460,7 +17284,7 @@ impl LmdbRecordStore {
                 _ => None,
             })
             .ok_or_else(|| "conversation_derived_content_invocation_missing".to_string())?;
-        if invocation.0 != &source_turn.participant_id
+        if invocation.0 != &cognitive_binding.participant_id
             || invocation.1 != &derived.target_id
             || invocation.2.selection_id != derived.provider_selection_id
         {
@@ -15521,7 +17345,7 @@ impl LmdbRecordStore {
             state.generation,
             TransitionSource {
                 component: "yai.cognitive_realization".to_string(),
-                participant_id: Some(source_turn.participant_id.clone()),
+                participant_id: Some(cognitive_binding.participant_id.clone()),
                 principal_id: Some(context.principal_id().to_string()),
                 source_ref: Some(derived.provider_result_id.clone()),
             },
@@ -16325,6 +18149,7 @@ fn conversation_intent_pending(
     request: &crate::conversation::CognitiveCompositionRequest,
     generation: u64,
     principal_id: &str,
+    author_id: &str,
 ) -> PendingTransition {
     let mut causal_refs = vec![
         request.request_id.clone(),
@@ -16332,19 +18157,24 @@ fn conversation_intent_pending(
         request.participant_id.clone(),
     ];
     causal_refs.extend(request.source_part_ids.iter().cloned());
+    let mut participants = vec![request.participant_id.clone()];
+    if author_id != request.participant_id {
+        participants.push(author_id.to_string());
+        causal_refs.push(author_id.to_string());
+    }
     PendingTransition {
         transition_id: format!("transition:conversation-intent:{}", request.source_turn_id),
         case_id: request.case_id.clone(),
         expected_generation: generation,
         source: TransitionSource {
             component: "yai.conversation_execution".to_string(),
-            participant_id: Some(request.participant_id.clone()),
+            participant_id: Some(author_id.to_string()),
             principal_id: Some(principal_id.to_string()),
             source_ref: Some(request.request_id.clone()),
         },
         scope: Some(crate::transition::TransitionScope {
             case_id: request.case_id.clone(),
-            participant_refs: vec![request.participant_id.clone()],
+            participant_refs: participants,
             resource_refs: Vec::new(),
             policy_refs: Vec::new(),
         }),
@@ -16431,6 +18261,12 @@ fn transition_contains_canonical_fact_ref(transition: &Transition, reference: &s
             ..
         } => interpretation_id == reference || result_id == reference,
         TransitionPayload::ResourceAttached { attachment } => attachment.attachment_id == reference,
+        TransitionPayload::CaseContentAdmitted { admission } => {
+            admission.admission_id == reference || admission.object.object_id == reference
+        }
+        TransitionPayload::ResourceObservationRecorded { observation } => {
+            observation.observation_id == reference
+        }
         TransitionPayload::OperationNormalizationFailed {
             provider_result_id, ..
         } => provider_result_id == reference,
@@ -16443,6 +18279,17 @@ fn transition_contains_canonical_fact_ref(transition: &Transition, reference: &s
                     .is_some_and(|basis| basis.basis_id == reference)
         }
         TransitionPayload::ExecutionGrantIssued { grant } => grant.grant_id == reference,
+        TransitionPayload::ResourceEffectPrepared { prepared } => prepared.effect_id == reference,
+        TransitionPayload::ResourceEffectFinalized {
+            effect_id,
+            receipt,
+            observation,
+        } => {
+            effect_id == reference
+                || receipt.receipt_id == reference
+                || observation.observation_id == reference
+        }
+        TransitionPayload::ResourceEffectIndeterminate { effect_id, .. } => effect_id == reference,
         TransitionPayload::EffectPrepared { prepared } => prepared.effect_id == reference,
         TransitionPayload::ProcessEffectPrepared { prepared } => prepared.effect_id == reference,
         TransitionPayload::EffectFinalized {
@@ -17914,6 +19761,7 @@ mod tests {
             policy_owner_participant_id: operator.to_string(),
             review_requirement: crate::transition::ReviewRequirement::Automatic,
             process_signal_actions: Vec::new(),
+            access: None,
         };
         commit_typed(
             &store,
@@ -18872,6 +20720,7 @@ mod tests {
             policy_owner_participant_id: reviewer.to_string(),
             review_requirement: ReviewRequirement::RequireReview,
             process_signal_actions: Vec::new(),
+            access: None,
         };
         commit_typed(
             &store,
@@ -19181,6 +21030,7 @@ mod tests {
             policy_owner_participant_id: reviewer.to_string(),
             review_requirement: ReviewRequirement::Automatic,
             process_signal_actions: Vec::new(),
+            access: None,
         };
         commit_typed(
             store,
@@ -20401,6 +22251,7 @@ mod tests {
             policy_owner_participant_id: reviewer.to_string(),
             review_requirement: ReviewRequirement::Automatic,
             process_signal_actions: Vec::new(),
+            access: None,
         };
         commit_typed(
             &store,
@@ -21799,6 +23650,7 @@ mod tests {
             policy_owner_participant_id: "compatibility:inert".to_string(),
             review_requirement: ReviewRequirement::Automatic,
             process_signal_actions: Vec::new(),
+            access: None,
         };
         let principal_a = owner_a.projected_principal_id();
         let principal_b = owner_b.projected_principal_id();
@@ -21962,6 +23814,7 @@ mod tests {
             policy_owner_participant_id: "participant:model".to_string(),
             review_requirement: ReviewRequirement::Automatic,
             process_signal_actions: Vec::new(),
+            access: None,
         };
         let mut pending = secured_pending(
             &format!("transition:runtime-resource:{suffix}"),
@@ -22657,6 +24510,7 @@ mod tests {
             policy_owner_participant_id: "participant:model".to_string(),
             review_requirement: ReviewRequirement::Automatic,
             process_signal_actions: Vec::new(),
+            access: None,
         };
         let mut attachment = secured_pending(
             &format!("transition:w14:{suffix}:resource"),
@@ -23394,6 +25248,7 @@ mod tests {
             policy_owner_participant_id: "participant:model".to_string(),
             review_requirement: ReviewRequirement::Automatic,
             process_signal_actions: vec![ProcessSignalAction::Suspend],
+            access: None,
         };
         let binding = LocalProcessBinding::capture(case_id, &attachment.attachment_id, pid)
             .expect("capture exact process birth");
@@ -26182,6 +28037,8 @@ mod tests {
     mod i05_tests;
     #[path = "i06_tests.rs"]
     mod i06_tests;
+    #[path = "resource_access_tests.rs"]
+    mod resource_access_tests;
     #[path = "wave18_tests.rs"]
     mod wave18_tests;
 }

@@ -50,7 +50,8 @@ pub const TRANSITION_SCHEMA_V13: &str = "yai.transition.v13";
 pub const TRANSITION_SCHEMA_V14: &str = "yai.transition.v14";
 pub const TRANSITION_SCHEMA_V15: &str = "yai.transition.v15";
 pub const TRANSITION_SCHEMA_V16: &str = "yai.transition.v16";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v17";
+pub const TRANSITION_SCHEMA_V17: &str = "yai.transition.v17";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v18";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
@@ -64,7 +65,8 @@ pub const CASE_STATE_SCHEMA_V10: &str = "yai.case_state.v10";
 pub const CASE_STATE_SCHEMA_V11: &str = "yai.case_state.v11";
 pub const CASE_STATE_SCHEMA_V12: &str = "yai.case_state.v12";
 pub const CASE_STATE_SCHEMA_V13: &str = "yai.case_state.v13";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v14";
+pub const CASE_STATE_SCHEMA_V14: &str = "yai.case_state.v14";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v15";
 pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v2";
 pub const REVIEW_REQUEST_SCHEMA_V1: &str = "yai.review_request.v1";
 pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v2";
@@ -320,6 +322,12 @@ pub enum TransitionPayload {
     ResourceAttached {
         attachment: ResourceAttachmentState,
     },
+    ResourceObservationRecorded {
+        observation: crate::effect::access::ResourceObservation,
+    },
+    CaseContentAdmitted {
+        admission: crate::effect::access::CaseContentAdmission,
+    },
     OperationNormalizationFailed {
         provider_result_id: String,
         failure: NormalizationFailure,
@@ -338,6 +346,18 @@ pub enum TransitionPayload {
     },
     ProcessEffectPrepared {
         prepared: PreparedProcessEffect,
+    },
+    ResourceEffectPrepared {
+        prepared: crate::effect::access::PreparedResourceEffect,
+    },
+    ResourceEffectFinalized {
+        effect_id: String,
+        observation: crate::effect::access::ResourceObservation,
+        receipt: crate::effect::access::ResourceEffectReceipt,
+    },
+    ResourceEffectIndeterminate {
+        effect_id: String,
+        reason: String,
     },
     EffectFinalized {
         effect_id: String,
@@ -478,12 +498,17 @@ impl TransitionPayload {
             }
             Self::ModelInterpretationRecorded { .. } => "model_interpretation_recorded",
             Self::ResourceAttached { .. } => "resource_attached",
+            Self::ResourceObservationRecorded { .. } => "resource_observation_recorded",
+            Self::CaseContentAdmitted { .. } => "case_content_admitted",
             Self::OperationNormalizationFailed { .. } => "operation_normalization_failed",
             Self::OperationRecorded { .. } => "operation_recorded",
             Self::DecisionRecorded { .. } => "decision_recorded",
             Self::ExecutionGrantIssued { .. } => "execution_grant_issued",
             Self::EffectPrepared { .. } => "effect_prepared",
             Self::ProcessEffectPrepared { .. } => "process_effect_prepared",
+            Self::ResourceEffectPrepared { .. } => "resource_effect_prepared",
+            Self::ResourceEffectFinalized { .. } => "resource_effect_finalized",
+            Self::ResourceEffectIndeterminate { .. } => "resource_effect_indeterminate",
             Self::EffectFinalized { .. } => "effect_finalized",
             Self::ProcessEffectFinalized { .. } => "process_effect_finalized",
             Self::EffectIndeterminate { .. } => "effect_indeterminate",
@@ -873,6 +898,8 @@ pub struct CaseState {
     pub handoff_reconciliations: Vec<HandoffReconciliation>,
     #[serde(default)]
     pub resources: Vec<ResourceAttachmentState>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub admitted_content: Vec<crate::effect::access::CaseContentAdmission>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_normalization_failure: Option<NormalizationFailureState>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1045,6 +1072,11 @@ pub struct ReviewState {
 pub enum ResourceKind {
     Filesystem,
     Process,
+    ProcessRunner,
+    Database,
+    HttpService,
+    Mcp,
+    Discovery,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
@@ -1067,6 +1099,8 @@ pub struct ResourceAttachmentState {
     pub review_requirement: ReviewRequirement,
     #[serde(default)]
     pub process_signal_actions: Vec<ProcessSignalAction>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access: Option<crate::effect::access::ResourceAccessContract>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -1206,6 +1240,7 @@ impl CaseState {
             handoff_results: Vec::new(),
             handoff_reconciliations: Vec::new(),
             resources: Vec::new(),
+            admitted_content: Vec::new(),
             last_normalization_failure: None,
             last_operation: None,
             last_decision: None,
@@ -1597,6 +1632,39 @@ impl CaseState {
                 }
                 next.resources.push(attachment.clone());
             }
+            TransitionPayload::ResourceObservationRecorded { observation } => {
+                observation.validate()?;
+                let operation = next
+                    .last_operation
+                    .as_ref()
+                    .ok_or_else(|| "observation_without_operation".to_string())?;
+                let decision = next
+                    .last_decision
+                    .as_ref()
+                    .ok_or_else(|| "observation_without_decision".to_string())?;
+                let attachment = next
+                    .resources
+                    .iter()
+                    .find(|resource| resource.attachment_id == observation.resource_attachment_id)
+                    .ok_or_else(|| "observation_resource_not_attached".to_string())?;
+                if observation.case_id != next.case_id
+                    || observation.kind.is_external_effect()
+                    || operation.kind != OperationKind::ResourceAccess(observation.kind)
+                    || operation.operation_id != observation.operation_id
+                    || operation.participant_id != observation.participant_id
+                    || operation.intended_content_digest != observation.request_digest
+                    || decision.decision_id != observation.decision_id
+                    || decision.operation_id != operation.operation_id
+                    || decision.outcome != DecisionOutcome::Allow
+                    || decision.recorded_at_generation != next.generation
+                    || attachment.access.as_ref().is_none_or(|access| {
+                        access.configuration_digest != observation.configuration_digest
+                            || !access.participant_ids.contains(&observation.participant_id)
+                    })
+                {
+                    return Err("resource_observation_authority_chain_mismatch".into());
+                }
+            }
             TransitionPayload::OperationNormalizationFailed {
                 provider_result_id,
                 failure,
@@ -1634,6 +1702,24 @@ impl CaseState {
                     return Err("operation_resource_not_attached".to_string());
                 }
                 match &operation.origin {
+                    OperationOrigin::ParticipantRequest {
+                        principal_id,
+                        participant_link_id,
+                        ..
+                    } => {
+                        if transition.source.principal_id.as_ref() != Some(principal_id)
+                            || transition.source.participant_id.as_ref()
+                                != Some(&operation.participant_id)
+                            || !next.principal_participant_links.iter().any(|link| {
+                                link.link_id == *participant_link_id
+                                    && link.principal_id == *principal_id
+                                    && link.participant_id == operation.participant_id
+                                    && Some(link.tenant_id.as_str()) == next.tenant_id.as_deref()
+                            })
+                        {
+                            return Err("operation_participant_request_link_mismatch".into());
+                        }
+                    }
                     OperationOrigin::ProviderResult {
                         provider_result_id,
                         provider_invocation_id,
@@ -1811,7 +1897,7 @@ impl CaseState {
                 {
                     return Err("grant_chain_or_generation_mismatch".to_string());
                 }
-                if grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA
+                if grant.has_current_policy_basis()
                     && (grant.decision_basis_id.as_deref() != decision.decision_basis_id.as_deref()
                         || grant.effective_policy_id.as_deref()
                             != decision.effective_policy_id.as_deref()
@@ -1890,6 +1976,153 @@ impl CaseState {
                     prepared_at_generation: transition.sequence,
                     updated_at_generation: transition.sequence,
                 });
+            }
+            TransitionPayload::CaseContentAdmitted { admission } => {
+                admission.validate()?;
+                let operation = next
+                    .last_operation
+                    .as_ref()
+                    .ok_or("content_admission_operation_missing")?;
+                let decision = next
+                    .last_decision
+                    .as_ref()
+                    .ok_or("content_admission_decision_missing")?;
+                if admission.object.case_id != next.case_id
+                    || next.tenant_id.as_deref() != Some(admission.object.tenant_id.as_str())
+                    || operation.operation_id != admission.operation_id
+                    || operation.kind
+                        != OperationKind::ResourceAccess(
+                            crate::effect::access::AccessKind::AdmitContent,
+                        )
+                    || decision.decision_id != admission.decision_id
+                    || decision.recorded_at_generation != next.generation
+                    || decision.outcome != DecisionOutcome::Allow
+                    || next.admitted_content.len() >= 128
+                    || next.admitted_content.iter().any(|old| {
+                        old.admission_id == admission.admission_id
+                            || old.operation_id == admission.operation_id
+                    })
+                    || admission
+                        .participant_ids
+                        .iter()
+                        .any(|id| !next.participants.iter().any(|p| &p.participant_id == id))
+                {
+                    return Err("content_admission_current_chain_mismatch".into());
+                }
+                next.admitted_content.push(admission.clone());
+            }
+            TransitionPayload::ResourceEffectPrepared { prepared } => {
+                prepared.validate()?;
+                let operation = next
+                    .last_operation
+                    .as_ref()
+                    .ok_or("resource_prepare_without_operation")?;
+                let decision = next
+                    .last_decision
+                    .as_ref()
+                    .ok_or("resource_prepare_without_decision")?;
+                let index = next
+                    .grants
+                    .iter()
+                    .position(|grant| grant.grant_id == prepared.grant_id)
+                    .ok_or("resource_prepare_without_grant")?;
+                let grant = &next.grants[index];
+                if grant.status != GrantLifecycle::Issued
+                    || grant.issued_at_generation != next.generation
+                    || operation.kind != OperationKind::ResourceAccess(prepared.kind)
+                    || prepared.case_id != next.case_id
+                    || prepared.operation_id != operation.operation_id
+                    || prepared.decision_id != decision.decision_id
+                    || prepared.participant_id != operation.participant_id
+                    || prepared.resource_attachment_id != operation.resource_attachment_id
+                    || prepared.idempotency_key != grant.idempotency_key
+                    || next.effects.iter().any(|effect| {
+                        effect.effect_id == prepared.effect_id
+                            || effect.operation_id == prepared.operation_id
+                            || effect.grant_id == prepared.grant_id
+                            || effect.pre_observation_id
+                                == prepared.expected_pre_observation.observation_id
+                    })
+                {
+                    return Err("resource_prepare_chain_or_consumed_grant_mismatch".into());
+                }
+                next.grants[index].status = GrantLifecycle::Prepared;
+                next.effects.push(EffectState {
+                    effect_id: prepared.effect_id.clone(),
+                    operation_id: prepared.operation_id.clone(),
+                    decision_id: prepared.decision_id.clone(),
+                    grant_id: prepared.grant_id.clone(),
+                    resource_attachment_id: prepared.resource_attachment_id.clone(),
+                    relative_path: operation.relative_path.clone(),
+                    intended_content_digest: prepared.request_digest.clone(),
+                    kind: operation.kind.clone(),
+                    pre_observation_id: prepared.expected_pre_observation.observation_id.clone(),
+                    post_observation_id: None,
+                    receipt_id: None,
+                    outcome: None,
+                    status: EffectLifecycle::Prepared,
+                    prepared_at_generation: transition.sequence,
+                    updated_at_generation: transition.sequence,
+                });
+            }
+            TransitionPayload::ResourceEffectFinalized {
+                effect_id,
+                observation,
+                receipt,
+            } => {
+                receipt.validate(observation)?;
+                let index = next
+                    .effects
+                    .iter()
+                    .position(|effect| effect.effect_id == *effect_id)
+                    .ok_or("resource_finalize_without_prepare")?;
+                let effect = &next.effects[index];
+                if effect.status == EffectLifecycle::Finalized
+                    || effect.kind != OperationKind::ResourceAccess(observation.kind)
+                    || receipt.effect_id != *effect_id
+                    || receipt.operation_id != effect.operation_id
+                    || receipt.decision_id != effect.decision_id
+                    || receipt.grant_id != effect.grant_id
+                    || receipt.resource_attachment_id != effect.resource_attachment_id
+                    || receipt.pre_observation_id != effect.pre_observation_id
+                    || observation.request_digest != effect.intended_content_digest
+                    || observation.case_id != next.case_id
+                {
+                    return Err("resource_finalize_chain_mismatch".into());
+                }
+                let grant = next
+                    .grants
+                    .iter_mut()
+                    .find(|grant| grant.grant_id == effect.grant_id)
+                    .ok_or("resource_finalize_grant_missing")?;
+                if grant.status != GrantLifecycle::Prepared {
+                    return Err("resource_finalize_grant_not_prepared".into());
+                }
+                grant.status = GrantLifecycle::Finalized;
+                let effect = &mut next.effects[index];
+                effect.status = EffectLifecycle::Finalized;
+                effect.outcome = Some(receipt.outcome.clone());
+                effect.post_observation_id = Some(observation.observation_id.clone());
+                effect.receipt_id = Some(receipt.receipt_id.clone());
+                effect.updated_at_generation = transition.sequence;
+            }
+            TransitionPayload::ResourceEffectIndeterminate { effect_id, reason } => {
+                if reason.is_empty() || reason.len() > 1024 {
+                    return Err("resource_indeterminate_reason_invalid".into());
+                }
+                let effect = next
+                    .effects
+                    .iter_mut()
+                    .find(|effect| effect.effect_id == *effect_id)
+                    .ok_or("resource_indeterminate_without_prepare")?;
+                if effect.status == EffectLifecycle::Finalized
+                    || !matches!(effect.kind, OperationKind::ResourceAccess(_))
+                {
+                    return Err("resource_indeterminate_effect_mismatch".into());
+                }
+                effect.status = EffectLifecycle::Indeterminate;
+                effect.outcome = Some(EffectOutcome::Indeterminate);
+                effect.updated_at_generation = transition.sequence;
             }
             TransitionPayload::ProcessEffectPrepared { prepared } => {
                 prepared.validate()?;
@@ -2637,6 +2870,15 @@ impl CaseState {
     pub fn from_json(value: &str) -> Result<Self, String> {
         let mut state: Self = serde_json::from_str(value)
             .map_err(|error| format!("case_state_decode_failed: {error}"))?;
+        if state.schema != CASE_STATE_SCHEMA
+            && (!state.admitted_content.is_empty()
+                || state
+                    .resources
+                    .iter()
+                    .any(|resource| resource.access.is_some()))
+        {
+            return Err("resource_access_materialization_requires_case_state_v15".into());
+        }
         if state.schema == CASE_STATE_SCHEMA_V1
             || state.schema == CASE_STATE_SCHEMA_V2
             || state.schema == CASE_STATE_SCHEMA_V3
@@ -2650,6 +2892,7 @@ impl CaseState {
             || state.schema == CASE_STATE_SCHEMA_V11
             || state.schema == CASE_STATE_SCHEMA_V12
             || state.schema == CASE_STATE_SCHEMA_V13
+            || state.schema == CASE_STATE_SCHEMA_V14
         {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
@@ -2662,6 +2905,7 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V17
             && self.schema != TRANSITION_SCHEMA_V16
             && self.schema != TRANSITION_SCHEMA_V15
             && self.schema != TRANSITION_SCHEMA_V14
@@ -2682,6 +2926,7 @@ impl Transition {
             return Err(format!("unsupported_transition_schema: {}", self.schema));
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V17
             && self.schema != TRANSITION_SCHEMA_V16
             && matches!(&self.payload,
             TransitionPayload::CaseCognitiveBindingRecorded { binding } if binding.schema == CASE_COGNITIVE_BINDING_SCHEMA_V2)
@@ -2710,6 +2955,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
@@ -2727,6 +2973,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
@@ -2742,6 +2989,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
@@ -2757,6 +3005,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
@@ -2771,6 +3020,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
@@ -2784,6 +3034,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
@@ -2794,6 +3045,7 @@ impl Transition {
             return Err("wave18_contract_requires_yai_transition_v12".to_string());
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V17
             && self.schema != TRANSITION_SCHEMA_V16
             && self.schema != TRANSITION_SCHEMA_V14
             && self.payload.is_interlock_i01_kind()
@@ -2805,6 +3057,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
                 | TRANSITION_SCHEMA_V14
@@ -2813,6 +3066,7 @@ impl Transition {
             return Err("interlock_i02_contract_requires_yai_transition_v14".to_string());
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V17
             && self.schema != TRANSITION_SCHEMA_V16
             && self.schema != TRANSITION_SCHEMA_V15
             && self.payload.is_interlock_i03_kind()
@@ -2820,12 +3074,36 @@ impl Transition {
             return Err("interlock_i03_contract_requires_yai_transition_v15".to_string());
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V17
             && matches!(
                 self.payload,
                 TransitionPayload::ConversationExecutionIntentRecorded { .. }
             )
         {
             return Err("conversation_execution_intent_requires_yai_transition_v17".to_string());
+        }
+        if self.schema != TRANSITION_SCHEMA
+            && matches!(&self.payload, TransitionPayload::ConversationExecutionIntentRecorded { request }
+                if matches!(request.schema.as_str(), crate::conversation::DELEGATED_COMPOSITION_REQUEST_SCHEMA | crate::conversation::CASE_WORK_INTENT_SCHEMA))
+        {
+            return Err("delegated_conversation_intent_requires_yai_transition_v18".into());
+        }
+        if self.schema != TRANSITION_SCHEMA
+            && (matches!(
+                &self.payload,
+                TransitionPayload::ResourceObservationRecorded { .. }
+                    | TransitionPayload::ResourceEffectPrepared { .. }
+                    | TransitionPayload::ResourceEffectFinalized { .. }
+                    | TransitionPayload::ResourceEffectIndeterminate { .. }
+                    | TransitionPayload::CaseContentAdmitted { .. }
+            ) || matches!(&self.payload, TransitionPayload::ResourceAttached { attachment }
+                if attachment.access.is_some() || !matches!(attachment.kind, ResourceKind::Filesystem | ResourceKind::Process))
+                || matches!(&self.payload, TransitionPayload::OperationRecorded { operation }
+                if matches!(operation.kind, OperationKind::ResourceAccess(_)))
+                || matches!(&self.payload, TransitionPayload::ExecutionGrantIssued { grant }
+                if matches!(grant.permitted_effect, crate::effect::GrantedEffect::ResourceAccess(_))))
+        {
+            return Err("resource_access_requires_yai_transition_v18".into());
         }
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
@@ -3048,12 +3326,32 @@ impl Transition {
                     .scope
                     .as_ref()
                     .ok_or_else(|| "conversation_intent_scope_required".to_string())?;
+                let author = self
+                    .source
+                    .participant_id
+                    .as_deref()
+                    .ok_or("conversation_intent_author_required")?;
+                let mut participants = vec![request.participant_id.clone()];
+                if request.schema == crate::conversation::DELEGATED_COMPOSITION_REQUEST_SCHEMA
+                    && author == request.participant_id
+                {
+                    return Err("conversation_intent_delegation_required".into());
+                }
+                if matches!(
+                    request.schema.as_str(),
+                    crate::conversation::DELEGATED_COMPOSITION_REQUEST_SCHEMA
+                        | crate::conversation::CASE_WORK_INTENT_SCHEMA
+                ) && author != request.participant_id
+                {
+                    participants.push(author.to_string());
+                    require_causal_ref(&self.causal_refs, author, "conversation_intent_author")?;
+                } else if author != request.participant_id {
+                    return Err("conversation_intent_scope_invalid".into());
+                }
                 if request.case_id != self.case_id
-                    || self.source.participant_id.as_deref()
-                        != Some(request.participant_id.as_str())
                     || self.source.principal_id.is_none()
                     || self.source.source_ref.as_deref() != Some(request.request_id.as_str())
-                    || scope.participant_refs != vec![request.participant_id.clone()]
+                    || scope.participant_refs != participants
                     || !scope.resource_refs.is_empty()
                     || !scope.policy_refs.is_empty()
                 {
@@ -3140,6 +3438,26 @@ impl Transition {
                     "resource_policy_owner",
                 )?;
             }
+            TransitionPayload::ResourceObservationRecorded { observation } => {
+                observation.validate()?;
+                if self.case_id != observation.case_id
+                    || self.scope.as_ref().is_none_or(|scope| {
+                        !scope.participant_refs.contains(&observation.participant_id)
+                            || !scope
+                                .resource_refs
+                                .contains(&observation.resource_attachment_id)
+                    })
+                {
+                    return Err("resource_observation_scope_mismatch".into());
+                }
+                require_causal_ref(&self.causal_refs, &observation.operation_id, "operation")?;
+                require_causal_ref(&self.causal_refs, &observation.decision_id, "decision")?;
+                require_causal_ref(
+                    &self.causal_refs,
+                    &observation.resource_attachment_id,
+                    "resource",
+                )?;
+            }
             TransitionPayload::OperationNormalizationFailed {
                 provider_result_id,
                 failure,
@@ -3177,7 +3495,7 @@ impl Transition {
                 grant.validate_integrity()?;
                 require_causal_ref(&self.causal_refs, &grant.operation_id, "operation")?;
                 require_causal_ref(&self.causal_refs, &grant.decision_id, "decision")?;
-                if grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA {
+                if grant.has_current_policy_basis() {
                     require_causal_ref(
                         &self.causal_refs,
                         grant.decision_basis_id.as_deref().unwrap_or_default(),
@@ -3189,6 +3507,62 @@ impl Transition {
                         "effective_policy",
                     )?;
                 }
+            }
+            TransitionPayload::CaseContentAdmitted { admission } => {
+                admission.validate()?;
+                if self.case_id != admission.object.case_id
+                    || self.scope.as_ref().is_none_or(|scope| {
+                        scope.participant_refs != admission.participant_ids
+                            || !scope.resource_refs.contains(&admission.source_resource_id)
+                    })
+                {
+                    return Err("content_admission_scope_mismatch".into());
+                }
+                for reference in [
+                    &admission.operation_id,
+                    &admission.decision_id,
+                    &admission.discovery_observation_id,
+                    &admission.source_resource_id,
+                ] {
+                    require_causal_ref(&self.causal_refs, reference, "content_admission")?;
+                }
+            }
+            TransitionPayload::ResourceEffectPrepared { prepared } => {
+                prepared.validate()?;
+                for reference in [
+                    &prepared.operation_id,
+                    &prepared.decision_id,
+                    &prepared.grant_id,
+                    &prepared.expected_pre_observation.observation_id,
+                    &prepared.resource_fence.as_ref().unwrap().fence_id,
+                ] {
+                    require_causal_ref(&self.causal_refs, reference, "resource_effect_prepare")?;
+                }
+            }
+            TransitionPayload::ResourceEffectFinalized {
+                effect_id,
+                observation,
+                receipt,
+            } => {
+                receipt.validate(observation)?;
+                if receipt.effect_id != *effect_id {
+                    return Err("resource_finalized_effect_id_mismatch".into());
+                }
+                for reference in [
+                    effect_id,
+                    &receipt.operation_id,
+                    &receipt.grant_id,
+                    &receipt.pre_observation_id,
+                ] {
+                    require_causal_ref(&self.causal_refs, reference, "resource_effect_finalize")?;
+                }
+            }
+            TransitionPayload::ResourceEffectIndeterminate { effect_id, reason } => {
+                require_value("resource_effect_id", effect_id)?;
+                if reason.is_empty() || reason.len() > 1024 {
+                    return Err("resource_indeterminate_reason_invalid".into());
+                }
+                require_causal_ref(&self.causal_refs, effect_id, "resource_indeterminate")?;
             }
             TransitionPayload::EffectPrepared { prepared } => {
                 prepared.validate()?;
@@ -3886,9 +4260,7 @@ impl TransitionPayload {
             Self::DecisionRecorded { decision } => {
                 decision.schema == crate::effect::DECISION_SCHEMA
             }
-            Self::ExecutionGrantIssued { grant } => {
-                grant.schema == crate::effect::EXECUTION_GRANT_SCHEMA
-            }
+            Self::ExecutionGrantIssued { grant } => grant.has_current_policy_basis(),
             Self::ReviewRequested { review } => review.schema == REVIEW_REQUEST_SCHEMA,
             _ => false,
         }
@@ -3985,6 +4357,7 @@ fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V17
             | TRANSITION_SCHEMA_V16
             | TRANSITION_SCHEMA_V15
             | TRANSITION_SCHEMA_V14
@@ -4005,6 +4378,7 @@ fn supports_wave9_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V17
             | TRANSITION_SCHEMA_V16
             | TRANSITION_SCHEMA_V15
             | TRANSITION_SCHEMA_V14
@@ -4024,6 +4398,7 @@ fn supports_wave10_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V17
             | TRANSITION_SCHEMA_V16
             | TRANSITION_SCHEMA_V15
             | TRANSITION_SCHEMA_V14
@@ -4077,13 +4452,27 @@ impl ResourceAttachmentState {
             "policy_owner_participant_id",
             &self.policy_owner_participant_id,
         )?;
+        if let Some(access) = &self.access {
+            access.validate()?;
+            if access
+                .operations
+                .iter()
+                .any(|operation| operation.resource_name() != self.kind.as_str())
+            {
+                return Err("resource_access_kind_mismatch".into());
+            }
+        }
         match self.kind {
             ResourceKind::Filesystem => {
-                require_value("allowed_write_prefix", &self.allowed_write_prefix)?;
-                if crate::effect::normalize_write_prefix(&self.allowed_write_prefix)?
-                    != self.allowed_write_prefix
-                    || self.max_write_bytes == 0
-                    || !self.process_signal_actions.is_empty()
+                let read_only = self.access.is_some()
+                    && self.allowed_write_prefix.is_empty()
+                    && self.max_write_bytes == 0;
+                if !self.process_signal_actions.is_empty()
+                    || (!read_only
+                        && (self.allowed_write_prefix.is_empty()
+                            || crate::effect::normalize_write_prefix(&self.allowed_write_prefix)?
+                                != self.allowed_write_prefix
+                            || self.max_write_bytes == 0))
                 {
                     return Err("invalid_filesystem_resource_attachment_contract".to_string());
                 }
@@ -4102,8 +4491,31 @@ impl ResourceAttachmentState {
                     return Err("process_signal_actions_not_canonical".to_string());
                 }
             }
+            _ => {
+                if self.access.is_none()
+                    || !self.allowed_write_prefix.is_empty()
+                    || self.max_write_bytes != 0
+                    || !self.process_signal_actions.is_empty()
+                {
+                    return Err("resource_access_attachment_contract_invalid".into());
+                }
+            }
         }
         Ok(())
+    }
+}
+
+impl ResourceKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Filesystem => "filesystem",
+            Self::Process => "process",
+            Self::ProcessRunner => "process_runner",
+            Self::Database => "database",
+            Self::HttpService => "http_service",
+            Self::Mcp => "mcp",
+            Self::Discovery => "discovery",
+        }
     }
 }
 
@@ -4278,8 +4690,24 @@ pub fn replay_case(case_id: &str, transitions: &[Transition]) -> Result<CaseStat
                 request.validate(turn)?;
                 if transition.source.principal_id.as_deref()
                     != Some(turn.submitted_by_principal_id.as_str())
+                    || transition.source.participant_id.as_deref()
+                        != Some(turn.participant_id.as_str())
                 {
                     return Err("conversation_intent_principal_mismatch_at_replay".to_string());
+                }
+                if request.participant_id != turn.participant_id
+                    && (!state.principal_participant_links.iter().any(|link| {
+                        link.tenant_id == turn.tenant_id
+                            && link.participant_id == turn.participant_id
+                            && link.principal_id == turn.submitted_by_principal_id
+                    }) || !state.participants.iter().any(|participant| {
+                        participant.participant_id == request.participant_id
+                            && participant.admitted_views.iter().any(|view| {
+                                view.consumer == "model" && view.view_kind == "model_context"
+                            })
+                    }))
+                {
+                    return Err("conversation_intent_delegation_invalid_at_replay".into());
                 }
                 if !intents.insert(request.source_turn_id.as_str()) {
                     return Err("conversation_intent_duplicate_at_replay".to_string());

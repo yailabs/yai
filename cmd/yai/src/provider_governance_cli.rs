@@ -401,6 +401,68 @@ fn embedding_probe_shape(value: &Value, model_id: &str) -> (Option<u64>, bool) {
     (dimension, exact_response_model)
 }
 
+fn probe_native_function_roundtrip(
+    target: &yai_core_engine::provider_governance::ProviderTarget,
+    endpoint: &ParsedEndpoint,
+    api_key: Option<&str>,
+) -> Result<(), String> {
+    let definitions = [provider::NativeFunctionDefinition {
+        name: "yai_contract_echo".into(),
+        description: "Synthetic contract probe; no external operation.".into(),
+        parameters: serde_json::json!({"type":"object", "properties":{"value":{"type":"string", "enum":["yai-contract"]}}, "required":["value"], "additionalProperties":false}),
+    }];
+    let tools = provider::native_function_tools(&definitions)?;
+    let messages = serde_json::json!([
+        {"role":"system", "content":"Synthetic YAI native function contract qualification. No Case data or external tools."},
+        {"role":"user", "content":"Call yai_contract_echo with value yai-contract. After its result return exactly that returned value."}
+    ]);
+    let request = serde_json::json!({"model":target.model_id, "stream":false, "parallel_tool_calls":false,
+        "messages":messages, "tools":tools, "tool_choice":{"type":"function", "function":{"name":"yai_contract_echo"}}});
+    let response = probe_http(
+        endpoint,
+        &target.locality,
+        "POST",
+        &api_path(endpoint, "chat/completions"),
+        Some(&serde_json::to_vec(&request).map_err(|e| e.to_string())?),
+        api_key,
+    )?;
+    if response.status != 200 {
+        return Err("provider_function_probe_http_status".into());
+    }
+    let reply =
+        provider::decode_native_function_reply(&response.body, &target.model_id, &definitions)?;
+    let call = reply
+        .call
+        .ok_or("provider_function_probe_native_call_required")?;
+    // This local synthetic echo carries no operation authority. The second
+    // response must consume the correlated result, not merely emit any text.
+    let echoed = format!("yai-result-{}", now_ms());
+    let mut messages = messages.as_array().unwrap().clone();
+    messages.push(serde_json::json!({"role":"assistant", "content":reply.text, "tool_calls":[{
+        "id":call.call_id, "type":"function", "function":{"name":call.name, "arguments":serde_json::to_string(&call.arguments).map_err(|e| e.to_string())?}}]}));
+    messages
+        .push(serde_json::json!({"role":"tool", "tool_call_id":call.call_id, "content":echoed}));
+    let request = serde_json::json!({"model":target.model_id, "stream":false, "parallel_tool_calls":false,
+        "messages":messages, "tools":tools, "tool_choice":"none"});
+    let response = probe_http(
+        endpoint,
+        &target.locality,
+        "POST",
+        &api_path(endpoint, "chat/completions"),
+        Some(&serde_json::to_vec(&request).map_err(|e| e.to_string())?),
+        api_key,
+    )?;
+    if response.status != 200 {
+        return Err("provider_function_probe_result_http_status".into());
+    }
+    let reply =
+        provider::decode_native_function_reply(&response.body, &target.model_id, &definitions)?;
+    if reply.call.is_some() || reply.text.as_deref().map(str::trim) != Some(echoed.as_str()) {
+        return Err("provider_function_probe_correlated_result_not_consumed".into());
+    }
+    Ok(())
+}
+
 fn run_synthetic_probe(
     target: &yai_core_engine::provider_governance::ProviderTarget,
     probe_embedding: bool,
@@ -633,9 +695,25 @@ fn run_synthetic_probe(
         }
     }
     for shape in requested_shapes {
+        if *shape == ProviderRealizationShape::TextFunctionsToTextOrCall {
+            if probe_native_function_roundtrip(target, &endpoint, api_key.as_deref()).is_ok() {
+                evidence.realization_shapes.push(shape.clone());
+            } else {
+                evidence
+                    .failure_codes
+                    .push("native_function_roundtrip_invalid".into());
+            }
+            continue;
+        }
         let content = match shape {
+            ProviderRealizationShape::TextFunctionsToTextOrCall => {
+                unreachable!("function shape qualified separately")
+            }
             ProviderRealizationShape::TextToText => Some(serde_json::json!([
                 {"type":"text","text":"Synthetic YAI ordered text-part wire probe. Return text."}
+            ])),
+            ProviderRealizationShape::TextToJsonObject => Some(serde_json::json!([
+                {"type":"text","text":"Synthetic YAI ordered text-part JSON wire probe. Return a JSON object with probe=true."}
             ])),
             ProviderRealizationShape::AudioWavToText => Some(serde_json::json!([
                 {"type":"text","text":"Synthetic YAI audio-to-text wire probe. Return text."},
@@ -649,15 +727,18 @@ fn run_synthetic_probe(
             ])),
         };
         let valid = if let Some(content) = content {
-            let body = serde_json::to_vec(&serde_json::json!({
+            let mut body = serde_json::json!({
                 "model": target.model_id,
                 "stream": false,
                 "messages": [
                     {"role":"system","content":"Synthetic YAI typed-content contract probe. No Case data."},
                     {"role":"user","content":content}
                 ]
-            }))
-            .expect("synthetic typed-content probe serializes");
+            });
+            if *shape == ProviderRealizationShape::TextToJsonObject {
+                body["response_format"] = serde_json::json!({"type":"json_object"});
+            }
+            let body = serde_json::to_vec(&body).expect("synthetic typed-content probe serializes");
             probe_http(
                 &endpoint,
                 &target.locality,
@@ -673,7 +754,10 @@ fn run_synthetic_probe(
                 value
                     .pointer("/choices/0/message/content")
                     .and_then(Value::as_str)
-                    .is_some()
+                    .is_some_and(|content| {
+                        *shape != ProviderRealizationShape::TextToJsonObject
+                            || strict_json(content.as_bytes()).is_ok_and(|v| v.is_object())
+                    })
                     && value.get("model").and_then(Value::as_str) == Some(target.model_id.as_str())
             })
         } else {
@@ -795,6 +879,43 @@ fn provider_probe(args: &[String], persist_qualification: bool) -> Result<(), St
         );
     }
     Ok(())
+}
+
+/// Product onboarding uses the same synthetic probes and provider evidence
+/// owner as the Advanced qualification command. It sends no Case material.
+pub(super) fn qualify_case_work_target(
+    store: &LmdbRecordStore,
+    authenticated: &AuthenticatedPrincipal,
+    target: &yai_core_engine::provider_governance::ProviderTarget,
+) -> Result<yai_core_engine::provider_governance::ProviderQualification, String> {
+    let token = format!("probe-admission:{}:{}", std::process::id(), now_ms());
+    let owner = store.begin_provider_probe_authorized(authenticated, &target.target_id, &token)?;
+    let shapes = [
+        ProviderRealizationShape::TextToText,
+        ProviderRealizationShape::TextFunctionsToTextOrCall,
+        ProviderRealizationShape::TextToJsonObject,
+    ];
+    let evidence = run_synthetic_probe(target, false, &shapes);
+    store.complete_provider_probe_authorized(
+        authenticated,
+        &target.target_id,
+        &owner,
+        &evidence,
+    )?;
+    let qualified = store.qualify_provider_target_authorized(
+        authenticated,
+        &target.target_id,
+        evidence,
+        REALIZATION_QUALIFICATION_SUITE,
+        None,
+    )?;
+    if !shapes
+        .iter()
+        .all(|shape| qualified.supports_realization_shape(shape))
+    {
+        return Err(format!("case_connect_mechanical_contract_unqualified: target={} qualification={}; no trust or Case binding added", target.target_id, qualified.qualification_id));
+    }
+    Ok(qualified)
 }
 
 fn provider_trust(args: &[String], posture: ProviderTrustPosture) -> Result<(), String> {
@@ -935,6 +1056,107 @@ pub(super) fn provider_governance_command(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn native_function_probe_requires_real_correlated_roundtrip() {
+        use std::io::{BufRead, BufReader, Read, Write};
+        use std::net::TcpListener;
+        for correct_result in [true, false] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            let peer = std::thread::spawn(move || {
+                for step in 0..2 {
+                    let (mut stream, _) = listener.accept().unwrap();
+                    stream
+                        .set_read_timeout(Some(std::time::Duration::from_secs(3)))
+                        .unwrap();
+                    let mut reader = BufReader::new(stream.try_clone().unwrap());
+                    let mut first = String::new();
+                    reader.read_line(&mut first).unwrap();
+                    assert!(first.starts_with("POST /v1/chat/completions "), "{first}");
+                    let mut length = None;
+                    loop {
+                        let mut line = String::new();
+                        reader.read_line(&mut line).unwrap();
+                        if line == "\r\n" {
+                            break;
+                        }
+                        if let Some((key, value)) = line.split_once(':') {
+                            if key.eq_ignore_ascii_case("content-length") {
+                                length = Some(value.trim().parse::<usize>().unwrap());
+                            }
+                        }
+                    }
+                    let mut bytes = vec![0; length.unwrap()];
+                    reader.read_exact(&mut bytes).unwrap();
+                    let request: Value = serde_json::from_slice(&bytes).unwrap();
+                    assert_eq!(request["model"], "whisper-vision-tools-only-a-name");
+                    assert_eq!(request["parallel_tool_calls"], false);
+                    assert_eq!(request["tools"][0]["function"]["name"], "yai_contract_echo");
+                    let (finish, message) = if step == 0 {
+                        assert_eq!(
+                            request["tool_choice"]["function"]["name"],
+                            "yai_contract_echo"
+                        );
+                        (
+                            "tool_calls",
+                            serde_json::json!({"role":"assistant", "content":null, "tool_calls":[{
+                            "id":"call_exact", "type":"function", "function":{"name":"yai_contract_echo", "arguments":"{\"value\":\"yai-contract\"}"}}]}),
+                        )
+                    } else {
+                        assert_eq!(request["tool_choice"], "none");
+                        assert_eq!(request["messages"][2]["tool_calls"][0]["id"], "call_exact");
+                        assert_eq!(request["messages"][3]["role"], "tool");
+                        assert_eq!(request["messages"][3]["tool_call_id"], "call_exact");
+                        let text = if correct_result {
+                            request["messages"][3]["content"].clone()
+                        } else {
+                            serde_json::json!("unrelated text cannot qualify result consumption")
+                        };
+                        (
+                            "stop",
+                            serde_json::json!({"role":"assistant", "content":text}),
+                        )
+                    };
+                    let body = serde_json::to_vec(
+                        &serde_json::json!({"model":"whisper-vision-tools-only-a-name",
+                        "choices":[{"finish_reason":finish, "message":message}]}),
+                    )
+                    .unwrap();
+                    write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap();
+                    stream.write_all(&body).unwrap();
+                }
+                2
+            });
+            let target = yai_core_engine::provider_governance::ProviderTarget::from_input(
+                ProviderTargetInput {
+                    tenant_id: "tenant:function-probe".into(),
+                    provider_key: "deepseek-not-semantic-evidence".into(),
+                    adapter: ProviderAdapterKind::OpenAiCompatible,
+                    endpoint: format!("http://{address}/v1"),
+                    model_id: "whisper-vision-tools-only-a-name".into(),
+                    credential_ref: "none".into(),
+                    locality: ProviderLocality::Loopback,
+                    extension_adapter_id: None,
+                    created_by_principal_id: "principal:test".into(),
+                    created_at_unix_ms: 1,
+                },
+            )
+            .unwrap();
+            let result = probe_native_function_roundtrip(
+                &target,
+                &parse_http_endpoint(&target.endpoint).unwrap(),
+                None,
+            );
+            assert_eq!(peer.join().unwrap(), 2);
+            if correct_result {
+                result.unwrap();
+            } else {
+                assert!(result.unwrap_err().contains("not_consumed"));
+            }
+        }
+        println!("native_function_contract: provider=loopback_fixture actual_http_requests=4 correlated_result=required no_external_operation=true no_yvex=true");
+    }
 
     #[test]
     fn strict_json_rejects_duplicate_keys() {

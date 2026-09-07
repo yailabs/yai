@@ -26,6 +26,54 @@ use yai_core_engine::conversation::{
 use yai_core_engine::security::AuthenticatedPrincipal;
 use yai_core_engine::transition::{CaseState, TransitionScope};
 
+#[path = "conversation_controller/setup.rs"]
+mod setup;
+#[path = "conversation_controller/work.rs"]
+mod work;
+#[path = "conversation_controller/workflow_host.rs"]
+mod workflow_host;
+pub(super) use setup::ProviderConnection;
+
+#[derive(Clone, Copy, Debug)]
+pub(super) enum CaseInspection {
+    Status,
+    History,
+    Participants,
+    Resources,
+    Artifacts,
+    Policy,
+    Reviews,
+    Provider,
+    Capabilities,
+    Workflow,
+    Effects,
+    Memory,
+    Graph,
+    Handoffs,
+    Verify,
+}
+
+pub(super) enum CaseHandoffAction {
+    Offer {
+        target: String,
+        required_role: String,
+        text: String,
+    },
+    Accept {
+        source: String,
+        handoff_id: String,
+    },
+    Result {
+        handoff_id: String,
+        outcome: yai_core_engine::handoff::HandoffOutcome,
+        evidence_ref: String,
+        text: String,
+    },
+    Reconcile {
+        handoff_id: String,
+    },
+}
+
 static CONTROLLER_SEQUENCE: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -45,6 +93,9 @@ pub(super) enum ConversationInputPart {
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(super) struct ConversationExecutionInput {
     pub prerequisite: Option<(CognitiveCapability, Vec<u16>)>,
+    pub executor_participant_id: Option<String>,
+    pub work_limits: Option<yai_core_engine::conversation::CaseWorkLimits>,
+    pub workflow_execution_id: Option<String>,
 }
 
 impl ConversationExecutionInput {
@@ -68,16 +119,26 @@ impl ConversationExecutionInput {
                 })
             })
             .transpose()?;
-        CognitiveCompositionRequest::new(
+        let request = CognitiveCompositionRequest::for_executor(
             turn,
-            &turn.participant_id,
+            self.executor_participant_id
+                .as_deref()
+                .unwrap_or(&turn.participant_id),
             CognitiveCapability::PrimaryConversation,
             turn.ordered_parts
                 .iter()
                 .map(|part| part.part_id.clone())
                 .collect(),
             prerequisite,
-        )
+        )?;
+        let request = match &self.work_limits {
+            Some(limits) => request.with_work_limits(limits.clone()),
+            None => Ok(request),
+        }?;
+        match &self.workflow_execution_id {
+            Some(id) => request.with_workflow_execution(id),
+            None => Ok(request),
+        }
     }
 }
 
@@ -101,6 +162,8 @@ pub(super) enum ConversationExecutionPosture {
     DeliveryIndeterminate,
     Unresolved,
     CancelledBeforeDispatch,
+    AwaitingReview,
+    BudgetExhausted,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -162,6 +225,7 @@ pub(super) struct ConversationExecutionResult {
     pub context_frame_id: Option<String>,
     pub intent: Option<CognitiveCompositionRequest>,
     pub cognition: Option<CognitiveCompositionOutcome>,
+    pub work: Option<work::CaseWorkOutcome>,
     pub events: Vec<ConversationApplicationEvent>,
 }
 
@@ -234,11 +298,278 @@ pub(super) struct ConversationCommitResult {
 pub(super) struct ConversationController {
     case_id: String,
     participant_id: String,
+    executor_participant_id: Option<String>,
     active_thread_id: String,
     cancellation: ConversationCancellation,
 }
 
 impl ConversationController {
+    pub(super) fn inspect_operation(
+        &self,
+        operation_id: &str,
+    ) -> Result<serde_json::Value, String> {
+        let a = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        a.store
+            .resolve_security_context(&a.authenticated, &a.tenant_id)?
+            .require_owner()?;
+        let history = a.store.list_case_transitions(&self.case_id)?;
+        let operation = history
+            .iter()
+            .find_map(|t| match &t.payload {
+                TransitionPayload::OperationRecorded { operation }
+                    if operation.operation_id == operation_id =>
+                {
+                    Some(operation)
+                }
+                _ => None,
+            })
+            .ok_or("operation_not_in_case")?;
+        Ok(
+            serde_json::json!({"operation":operation,"causal_transitions":history.iter()
+            .filter(|t| t.causal_refs.iter().any(|r|r == operation_id))
+            .map(|t| serde_json::json!({"id":t.transition_id,"kind":t.payload.kind(),"generation":t.sequence})).collect::<Vec<_>>()}),
+        )
+    }
+
+    /// Scoped maintenance of disposable access structures, not a semantic write.
+    /// The caller never needs to edit LMDB or delete arbitrary filesystem paths.
+    pub(super) fn rebuild_case_views(&self) -> Result<serde_json::Value, String> {
+        let a = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        a.store
+            .resolve_security_context(&a.authenticated, &a.tenant_id)?
+            .require_owner()?;
+        let history = a.store.list_case_transitions(&self.case_id)?;
+        if a.store.replay_case_state(&self.case_id)? != a.state {
+            return Err("case_materialization_does_not_match_replay".into());
+        }
+        let memory = yai_core_engine::memory::derive_operational_memory(&self.case_id, &history)?;
+        let hierarchy =
+            yai_core_engine::memory_hierarchy::build_memory_hierarchy(&a.state, &history, &memory)?;
+        a.store.clear_case_operational_memory(&self.case_id)?;
+        a.store.replace_case_operational_memory(&memory)?;
+        let graph = a.store.rebuild_graph_relations_for_case(&self.case_id)?;
+        let rebuilt = a.store.rebuild_case_state(&self.case_id)?;
+        if rebuilt != a.state || a.store.list_case_transitions(&self.case_id)? != history {
+            return Err("case_changed_during_derived_rebuild".into());
+        }
+        Ok(
+            serde_json::json!({"case":self.case_id,"generation":a.state.generation,
+            "canonical_history_unchanged":true,"replay_equal":true,
+            "operational_entries":memory.entries.len(),"hierarchy_digest":hierarchy.manifest.hierarchy_digest,
+            "episodes":hierarchy.episodes.len(),"semantic_assertions":hierarchy.assertions.len(),
+            "hierarchy_cache":"absent_by_design","graph":{"relations_seen":graph.relations_seen,
+                "relations_written":graph.relations_written,"relations_skipped":graph.relations_skipped},
+            "embedding_index":"not_rebuilt_requires_explicit_encoder_profile"}),
+        )
+    }
+
+    pub(super) fn handoff(&self, action: CaseHandoffAction) -> Result<serde_json::Value, String> {
+        use yai_core_engine::handoff::{HandoffData, HandoffDataKind};
+        let a = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+            .min(u128::from(u64::MAX)) as u64;
+        let text_data = |value| HandoffData {
+            kind: HandoffDataKind::Text,
+            value,
+        };
+        let commit = match action {
+            CaseHandoffAction::Offer {
+                target,
+                required_role,
+                text,
+            } => a.store.offer_case_handoff(
+                &a.authenticated,
+                &self.case_id,
+                &target,
+                text_data(text),
+                vec![required_role],
+                now,
+            )?,
+            CaseHandoffAction::Accept { source, handoff_id } => a.store.accept_case_handoff(
+                &a.authenticated,
+                &self.case_id,
+                &source,
+                &handoff_id,
+                &self.participant_id,
+                now,
+            )?,
+            CaseHandoffAction::Result {
+                handoff_id,
+                outcome,
+                evidence_ref,
+                text,
+            } => a.store.record_case_handoff_result(
+                &a.authenticated,
+                &self.case_id,
+                &handoff_id,
+                outcome,
+                text_data(text),
+                vec![evidence_ref],
+                &self.participant_id,
+                now,
+            )?,
+            CaseHandoffAction::Reconcile { handoff_id } => {
+                a.store
+                    .reconcile_case_handoff(&a.authenticated, &self.case_id, &handoff_id, now)?
+            }
+        };
+        Ok(
+            serde_json::json!({"case":self.case_id,"generation":commit.state.generation,
+            "offers":commit.state.handoff_offers,"acceptances":commit.state.handoff_acceptances,
+            "results":commit.state.handoff_results,"reconciliations":commit.state.handoff_reconciliations,
+            "authority_transferred":false}),
+        )
+    }
+
+    /// Operator workbench view. This is NOT a model disclosure bypass: the
+    /// authenticated Tenant owner is required before inspecting full history.
+    pub(super) fn inspect_case(
+        &self,
+        section: CaseInspection,
+    ) -> Result<serde_json::Value, String> {
+        use serde_json::json;
+        let authorized = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        authorized
+            .store
+            .resolve_security_context(&authorized.authenticated, &authorized.tenant_id)?
+            .require_owner()?;
+        let state = &authorized.state;
+        let store = &authorized.store;
+        let value = match section {
+            CaseInspection::Status => {
+                json!({"case":state.case_id,"generation":state.generation,"tenant":state.tenant_id,"lifecycle":state.lifecycle,
+                "operator":self.participant_id,"executor":self.executor_participant_id,"participants":state.participants.len(),"resources":state.resources.len(),
+                "pending_reviews":state.reviews.iter().filter(|r|matches!(r.status,yai_core_engine::transition::ReviewResolution::Pending | yai_core_engine::transition::ReviewResolution::Deferred)).count()})
+            }
+            CaseInspection::History => {
+                let history = store.list_case_transitions(&self.case_id)?;
+                json!({"authority":"transition_ledger","total":history.len(),"tail":history.iter().rev().take(48).collect::<Vec<_>>().into_iter().rev().map(|t|json!({"sequence":t.sequence,"id":t.transition_id,"kind":t.payload.kind(),"causal_refs":t.causal_refs})).collect::<Vec<_>>()})
+            }
+            CaseInspection::Participants => json!(state.participants),
+            CaseInspection::Resources => json!(state.resources),
+            CaseInspection::Artifacts => json!(state.admitted_content),
+            CaseInspection::Policy => json!(store.case_policy_status(&self.case_id)?),
+            CaseInspection::Reviews => json!(state.reviews),
+            CaseInspection::Provider => {
+                json!({"routing_envelope":state.provider_binding,"cognitive_bindings":state.cognitive_bindings})
+            }
+            CaseInspection::Capabilities => json!(store.case_capability_view_authorized(
+                &authorized.authenticated,
+                &self.case_id,
+                self.executor_participant_id
+                    .as_deref()
+                    .unwrap_or(&self.participant_id)
+            )?),
+            CaseInspection::Workflow => {
+                json!({"status":store.workflow_status_authorized(&authorized.authenticated, &self.case_id)?,
+                    "patches":state.workflow_plan_patches,"amendments":state.workflow_amendments})
+            }
+            CaseInspection::Effects => json!(state.effects),
+            CaseInspection::Memory => {
+                let history = store.list_case_transitions(&self.case_id)?;
+                let memory =
+                    yai_core_engine::memory::derive_operational_memory(&self.case_id, &history)?;
+                let hierarchy = yai_core_engine::memory_hierarchy::build_memory_hierarchy(
+                    state, &history, &memory,
+                )?;
+                json!({"authority":"derived","operational_count":memory.entries.len(),
+                    "operational":memory.entries.iter().rev().take(24).collect::<Vec<_>>(),
+                    "hierarchy":hierarchy.manifest,"episodes":hierarchy.episodes.iter().rev().take(12).collect::<Vec<_>>(),
+                    "semantic_assertions":hierarchy.assertions.iter().rev().take(12).collect::<Vec<_>>()})
+            }
+            CaseInspection::Graph => {
+                let relations = store.list_graph_relations_by_case(&self.case_id, 48)?;
+                json!({"authority":"derived","total":relations.relations_total,"relations":relations.relations.iter().map(|r|json!({"id":r.relation_id,"from":r.from_ref,"to":r.to_ref,"kind":r.edge_kind,"source":r.source_record_id,"confidence":r.confidence})).collect::<Vec<_>>()})
+            }
+            CaseInspection::Handoffs => {
+                json!({"offers":state.handoff_offers,"acceptances":state.handoff_acceptances,
+                "results":state.handoff_results,"reconciliations":state.handoff_reconciliations,
+                "pending_incoming":store.list_pending_case_handoffs_authorized(&authorized.authenticated,&self.case_id)?})
+            }
+            CaseInspection::Verify => {
+                json!({"case":self.case_id,"generation":state.generation,"replay_equal":store.replay_case_state(&self.case_id)? == *state})
+            }
+        };
+        Ok(value)
+    }
+
+    pub(super) fn review_action(
+        &self,
+        review_id: &str,
+        reviewer: &str,
+        action: yai_core_engine::transition::ReviewActionKind,
+        reason: &str,
+    ) -> Result<(), String> {
+        let authorized = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        super::review::resolve_review_action(
+            &authorized.store,
+            &authorized.authenticated,
+            &self.case_id,
+            review_id,
+            Some(reviewer),
+            action,
+            reason,
+            None,
+        )
+    }
+
+    pub(super) fn commit_work(
+        &mut self,
+        text: String,
+        limits: yai_core_engine::conversation::CaseWorkLimits,
+    ) -> Result<ConversationCommitResult, String> {
+        self.commit_parts_with_intent(
+            vec![ConversationInputPart::Text { text }],
+            &ConversationExecutionInput {
+                executor_participant_id: self.executor_participant_id.clone(),
+                work_limits: Some(limits),
+                ..Default::default()
+            },
+        )
+    }
+
+    pub(super) fn request_resource(
+        &self,
+        resource: &str,
+        action: yai_core_engine::effect::access::ResourceAction,
+    ) -> Result<serde_json::Value, String> {
+        let authorized = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        let access = authorized
+            .state
+            .resources
+            .iter()
+            .find(|r| r.attachment_id == resource)
+            .and_then(|r| r.access.as_ref())
+            .ok_or("resource_not_attached")?;
+        let request = yai_core_engine::effect::access::ResourceRequest {
+            schema: yai_core_engine::effect::access::RESOURCE_REQUEST_SCHEMA.into(),
+            configuration_digest: access.configuration_digest.clone(),
+            action,
+        };
+        let operation = authorized.store.record_participant_resource_request(
+            &authorized.authenticated,
+            &self.case_id,
+            &self.participant_id,
+            resource,
+            &fresh_controller_id(
+                "resource-request",
+                &self.case_id,
+                &self.participant_id,
+                authorized.state.generation,
+            ),
+            authorized.state.generation,
+            request,
+        )?;
+        serde_json::to_value(controlled_effect::access::advance(
+            &authorized.store,
+            &authorized.authenticated,
+            &operation,
+        )?)
+        .map_err(|e| e.to_string())
+    }
     pub(super) fn open(case_id: &str, participant_id: Option<&str>) -> Result<Self, String> {
         let authenticated = security::authenticate_local()?;
         let principal_id = authenticated.projected_principal_id();
@@ -258,6 +589,7 @@ impl ConversationController {
         Ok(Self {
             case_id: case_id.to_string(),
             participant_id,
+            executor_participant_id: None,
             active_thread_id,
             cancellation: ConversationCancellation::default(),
         })
@@ -265,6 +597,23 @@ impl ConversationController {
 
     pub(super) fn cancellation(&self) -> ConversationCancellation {
         self.cancellation.clone()
+    }
+
+    /// Frontend-local selection becomes exact durable delegation only at SEND.
+    /// It grants neither the Principal identity nor human review authority.
+    pub(super) fn select_executor(&mut self, executor: &str) -> Result<(), String> {
+        let authorized = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        if !authorized.state.participants.iter().any(|participant| {
+            participant.participant_id == executor
+                && participant
+                    .admitted_views
+                    .iter()
+                    .any(|view| view.consumer == "model" && view.view_kind == "model_context")
+        }) {
+            return Err("conversation_executor_model_view_not_admitted".into());
+        }
+        self.executor_participant_id = Some(executor.into());
+        Ok(())
     }
 
     pub(super) fn apply(
@@ -351,7 +700,11 @@ impl ConversationController {
         &mut self,
         parts: Vec<ConversationInputPart>,
     ) -> Result<ConversationCommitResult, String> {
-        self.commit_parts_with_intent(parts, &ConversationExecutionInput::default())
+        let intent = ConversationExecutionInput {
+            executor_participant_id: self.executor_participant_id.clone(),
+            ..ConversationExecutionInput::default()
+        };
+        self.commit_parts_with_intent(parts, &intent)
     }
 
     pub(super) fn commit_parts_with_intent(
@@ -445,7 +798,20 @@ impl ConversationController {
         }
         verify_conversation_turn(turn)?;
         let mut events = Vec::new();
-        self.execute_turn(turn, &mut events)
+        let result = self.execute_turn(turn, &mut events)?;
+        if result.posture == ConversationExecutionPosture::Completed
+            && result
+                .intent
+                .as_ref()
+                .is_some_and(|intent| intent.workflow_execution_id.is_some())
+        {
+            authorized.store.advance_workflow_passive_progress(
+                &authorized.authenticated,
+                &self.case_id,
+                128,
+            )?;
+        }
+        Ok(result)
     }
 
     fn execute_turn(
@@ -494,8 +860,48 @@ impl ConversationController {
                 TransitionPayload::ProviderAttemptOutcomeRecorded { outcome }
                 if governance.as_ref().is_some_and(|g| g.selection_id == outcome.selection_id) && outcome.retry_safe()))
         });
+        if !unsafe_prior && intent.work_limits.is_some() {
+            return match work::execute(self, &authorized, turn, &intent, events, failpoint) {
+                Ok(result) => Ok(result),
+                Err(error) => {
+                    let posture = if error.contains("indeterminate") {
+                        ConversationExecutionPosture::DeliveryIndeterminate
+                    } else if error.contains("cancelled_before_dispatch") {
+                        ConversationExecutionPosture::CancelledBeforeDispatch
+                    } else {
+                        ConversationExecutionPosture::Unresolved
+                    };
+                    let mut result = unavailable_execution(turn, posture, error, events);
+                    result.intent = Some(intent);
+                    Ok(result)
+                }
+            };
+        }
         let result = if unsafe_prior {
             Err("conversation_prior_delivery_indeterminate_requires_resolution".to_string())
+        } else if intent.workflow_execution_id.is_some() {
+            return match workflow_host::execute_single(
+                self,
+                &authorized,
+                turn,
+                &intent,
+                events,
+                failpoint,
+            ) {
+                Ok(result) => Ok(result),
+                Err(error) => {
+                    let posture = if error.contains("indeterminate") {
+                        ConversationExecutionPosture::DeliveryIndeterminate
+                    } else if error.contains("cancelled_before_dispatch") {
+                        ConversationExecutionPosture::CancelledBeforeDispatch
+                    } else {
+                        ConversationExecutionPosture::Unresolved
+                    };
+                    let mut result = unavailable_execution(turn, posture, error, events);
+                    result.intent = Some(intent);
+                    Ok(result)
+                }
+            };
         } else {
             execute_composition(
                 &authorized.authenticated,
@@ -545,6 +951,7 @@ impl ConversationController {
                     context_frame_id: lineage.map(|value| value.context_frame_id.clone()),
                     intent: Some(intent),
                     cognition: Some(cognition),
+                    work: None,
                     events: events.clone(),
                 })
             }
@@ -620,6 +1027,7 @@ fn unavailable_execution(
         context_frame_id: None,
         intent: None,
         cognition: None,
+        work: None,
         events: events.clone(),
     }
 }
@@ -670,15 +1078,11 @@ fn resolve_conversation_participant(
         .participants
         .iter()
         .filter(|participant| {
-            participant
-                .admitted_views
-                .iter()
-                .any(|view| view.consumer == "model" && view.view_kind == "model_context")
-                && state.principal_participant_links.iter().any(|link| {
-                    link.tenant_id == tenant_id
-                        && link.principal_id == principal_id
-                        && link.participant_id == participant.participant_id
-                })
+            state.principal_participant_links.iter().any(|link| {
+                link.tenant_id == tenant_id
+                    && link.principal_id == principal_id
+                    && link.participant_id == participant.participant_id
+            })
         })
         .map(|participant| participant.participant_id.clone())
         .collect::<Vec<_>>();
@@ -1496,6 +1900,580 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "canonical stores, actual loopback provider and confined resource; smoke-case-capability-realization"]
+    fn golden_native_capability_result_restarts_into_exact_governed_resource_request() {
+        use yai_core_engine::context::InvocationOutputContract;
+        use yai_core_engine::effect::access::{
+            AccessKind, LocalAccessBinding, ResourceAccessContract, ResourceAddress,
+        };
+        use yai_core_engine::governance::{compile_policy_source, scope_policy_compilation};
+        const CASE: &str = "case:i06-host";
+        const TENANT: &str = "tenant:i06-host";
+        const MODEL: &str = "participant:model";
+        let _home = TestHome::enter("native-capability");
+        prepare_case(CASE, TENANT, MODEL);
+        let fixture = CognitiveFixture::new(
+            "whisper-vision-name-grants-nothing",
+            "capabilities",
+            &["text_to_text"],
+        );
+        let auth = security::authenticate_local().unwrap();
+        let store = LmdbRecordStore::open(record_store_path()).unwrap();
+        store
+            .bind_case_provider_targets_authorized(
+                &auth,
+                CASE,
+                MODEL,
+                vec![fixture.target.clone()],
+                yai_core_engine::provider_governance::ProviderFailoverPolicy::SafeOnly,
+                1,
+            )
+            .unwrap();
+        fixture.bind(CognitiveCapability::PrimaryConversation, false);
+        let workspace = yai_home().join("workspace");
+        fs::create_dir_all(workspace.join("src")).unwrap();
+        fs::write(
+            workspace.join("src/retry.txt"),
+            "real source evidence, not an assistant assertion",
+        )
+        .unwrap();
+        let binding = LocalAccessBinding {
+            schema: yai_core_engine::effect::access::LOCAL_ACCESS_BINDING_SCHEMA.into(),
+            case_id: CASE.into(),
+            attachment_id: "resource:workspace".into(),
+            address: ResourceAddress::Filesystem {
+                root: yai_core_engine::effect::LocalFilesystemBinding::new(
+                    CASE,
+                    "resource:workspace",
+                    &workspace,
+                )
+                .unwrap(),
+            },
+        };
+        controlled_effect::access::attach(
+            &store,
+            &auth,
+            &binding,
+            ResourceAccessContract {
+                schema: yai_core_engine::effect::access::RESOURCE_ACCESS_SCHEMA.into(),
+                configuration_digest: binding.digest(),
+                participant_ids: vec![MODEL.into()],
+                operations: vec![AccessKind::FilesystemRead],
+                read_prefixes: vec!["src".into()],
+                names: vec![],
+                max_output_bytes: 8192,
+                max_items: 16,
+            },
+            MODEL,
+            None,
+        )
+        .unwrap();
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "schema":"yai.policy_source_input.v4","policy_key":"capability-read","source_version":"1","owner_ref":"organization:conversation-host-test",
+            "source_origin":{"source_system":"contract-test","source_uri":"test://native-capability/policy"},"validity":{"mode":"unbounded"},
+            "rules":[{"kind":"operation_restriction","rule_id":"read","operation_kind":"filesystem.read","resource_kind":"filesystem","effect":"allow","reason":"read the exact admitted subtree"}]
+        })).unwrap();
+        let compilation = scope_policy_compilation(
+            &compile_policy_source(&bytes).unwrap(),
+            TENANT,
+            "organization:conversation-host-test",
+        )
+        .unwrap();
+        let artifact = &compilation.artifact.artifact_id;
+        store
+            .ingest_tenant_policy_compilation(&auth, TENANT, &compilation)
+            .unwrap();
+        store
+            .validate_tenant_policy_artifact(&auth, artifact, "test validation")
+            .unwrap();
+        store
+            .publish_tenant_policy_artifact(&auth, artifact, "test publication")
+            .unwrap();
+        store
+            .bind_tenant_case_policy(
+                &auth,
+                CASE,
+                artifact,
+                store.get_case_state(CASE).unwrap().unwrap().generation,
+                "test exact binding",
+            )
+            .unwrap();
+        let mut controller = ConversationController::open(CASE, Some(MODEL)).unwrap();
+        let committed = controller
+            .commit_parts(vec![ConversationInputPart::Text {
+                text: "Inspect the admitted retry source".into(),
+            }])
+            .unwrap();
+        let content = conversation_content_store().unwrap();
+        let parts = super::super::cognitive_execution::source_parts(&content, &committed.turn, &[])
+            .unwrap();
+        let view = store
+            .case_capability_view_authorized(&auth, CASE, MODEL)
+            .unwrap();
+        assert_eq!(
+            fixture.count(),
+            0,
+            "SEND and capability inspection dispatch no provider"
+        );
+        let realize = |store: &LmdbRecordStore, view, failpoint| {
+            super::super::cognitive_execution::realize_cognitive(
+                &auth,
+                store,
+                &content,
+                &committed.turn,
+                MODEL,
+                CognitiveCapability::PrimaryConversation,
+                parts.clone(),
+                vec![],
+                "test:exact-native-source",
+                Some(yai_core_engine::cognitive::CognitivePlanRoute::Native),
+                None,
+                failpoint,
+                std::slice::from_ref(&committed.turn.turn_id),
+                &|| false,
+                InvocationOutputContract::CaseCapabilities {
+                    view: Box::new(view),
+                    catalogs: vec![],
+                    feedback_result_ids: vec![],
+                },
+            )
+        };
+        assert!(realize(&store, view.clone(), None)
+            .unwrap_err()
+            .contains("shape_not_qualified"));
+        assert_eq!(
+            fixture.count(),
+            0,
+            "semantic suitability is not function realization evidence"
+        );
+        provider_governance_cli::provider_governance_command(
+            "yai.provider.qualify",
+            &strings(&[
+                "--target",
+                &fixture.target,
+                "--realization-shape",
+                "text_functions_to_text_or_call",
+            ]),
+        )
+        .unwrap();
+        let failure = realize(&store, view, Some("after-provider-result")).unwrap_err();
+        assert!(
+            failure.contains("failpoint_after_provider_result"),
+            "{failure}"
+        );
+        assert_eq!(fixture.count(), 1);
+        let history = store.list_case_transitions(CASE).unwrap();
+        assert!(!history
+            .iter()
+            .any(|t| matches!(t.payload, TransitionPayload::OperationRecorded { .. })));
+        let result_id = history
+            .iter()
+            .find_map(|t| match &t.payload {
+                TransitionPayload::ProviderResultRecorded { result_id, .. } => {
+                    Some(result_id.clone())
+                }
+                _ => None,
+            })
+            .unwrap();
+        let turn_index = history
+            .iter()
+            .position(|t| {
+                matches!(
+                    t.payload,
+                    TransitionPayload::ConversationTurnCommitted { .. }
+                )
+            })
+            .unwrap();
+        assert!(
+            history
+                .iter()
+                .position(|t| matches!(
+                    t.payload,
+                    TransitionPayload::ProviderInvocationStarted { .. }
+                ))
+                .unwrap()
+                > turn_index
+        );
+        drop(store);
+        let store = LmdbRecordStore::open(record_store_path()).unwrap();
+        let operation = store
+            .record_provider_capability_request(&auth, CASE, &result_id)
+            .unwrap();
+        assert_eq!(operation.participant_id, MODEL);
+        let outcome = controlled_effect::access::advance(&store, &auth, &operation).unwrap();
+        let controlled_effect::access::ResourceActionOutcome::Observed {
+            observation,
+            reused: false,
+        } = outcome
+        else {
+            panic!("{outcome:?}")
+        };
+        assert_eq!(
+            observation.result["text"],
+            "real source evidence, not an assistant assertion"
+        );
+        assert_eq!(
+            fixture.count(),
+            1,
+            "result recovery never redispatches the model"
+        );
+        assert_eq!(
+            store
+                .record_provider_capability_request(&auth, CASE, &result_id)
+                .unwrap(),
+            operation
+        );
+        assert!(matches!(
+            controlled_effect::access::advance(&store, &auth, &operation).unwrap(),
+            controlled_effect::access::ResourceActionOutcome::Observed { reused: true, .. }
+        ));
+        let history = store.list_case_transitions(CASE).unwrap();
+        assert_eq!(
+            history
+                .iter()
+                .filter(|t| matches!(t.payload, TransitionPayload::OperationRecorded { .. }))
+                .count(),
+            1
+        );
+        assert_eq!(turns_from_history(CASE, &history), vec![&committed.turn]);
+        let projection = yai_core_engine::context::compile_projection(
+            &store.get_case_state(CASE).unwrap().unwrap(),
+            &history,
+            &yai_core_engine::context::ProjectionRequest::model(
+                MODEL,
+                yai_core_engine::context::ProjectionPurpose::Conversation,
+            ),
+            &yai_core_engine::context::DerivedProjectionInput::default(),
+        )
+        .unwrap();
+        assert!(serde_json::to_string(&projection)
+            .unwrap()
+            .contains(&observation.observation_id));
+        assert_eq!(
+            store.replay_case_state(CASE).unwrap(),
+            store.get_case_state(CASE).unwrap().unwrap()
+        );
+        println!(
+            "capability_identifiers: {}",
+            serde_json::json!({"turn_id":committed.turn.turn_id,"provider_result_id":result_id,"operation_id":operation.operation_id,"observation_id":observation.observation_id,"case_generation":store.get_case_state(CASE).unwrap().unwrap().generation})
+        );
+        println!("capability_realization: provider_mode=loopback_fixture dispatches=1 canonical_turns=1 operations=1 source=real_confined_file restart_result_reused=true observation_projected=true replay_equal=true no_yvex=true");
+        // Exercise the SAME application host as normal conversation, with an
+        // explicit immutable work budget. Crash after the real resource result,
+        // then reconstruct native tool-result feedback rather than repeat work.
+        let work_turn = controller
+            .commit_parts_with_intent(
+                vec![ConversationInputPart::Text {
+                    text: "Inspect source using the admitted capability and report the evidence"
+                        .into(),
+                }],
+                &ConversationExecutionInput {
+                    work_limits: Some(yai_core_engine::conversation::CaseWorkLimits {
+                        invocations: 4,
+                        operations: 3,
+                        effects: 0,
+                        max_input_units: 8192,
+                    }),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        let paused = controller
+            .execute_turn_with_failpoint(
+                &work_turn.turn,
+                &mut Vec::new(),
+                Some("after-capability-outcome"),
+            )
+            .unwrap();
+        assert_eq!(paused.posture, ConversationExecutionPosture::Unresolved);
+        assert_eq!(
+            fixture.count(),
+            2,
+            "resource completion preceded the simulated crash"
+        );
+        drop(controller);
+        drop(store);
+        let mut controller = ConversationController::open(CASE, Some(MODEL)).unwrap();
+        let resumed = controller.retry(&work_turn.turn.turn_id).unwrap();
+        assert_eq!(
+            resumed.posture,
+            ConversationExecutionPosture::Completed,
+            "{resumed:?}"
+        );
+        assert_eq!(
+            resumed.output.as_deref(),
+            Some("case-work-complete: exact source observation received")
+        );
+        assert_eq!(resumed.work.as_ref().unwrap().steps.len(), 2);
+        assert_eq!(
+            fixture.count(),
+            3,
+            "one next cognition, zero duplicated read request"
+        );
+        let repeated = controller.retry(&work_turn.turn.turn_id).unwrap();
+        assert_eq!(repeated.posture, ConversationExecutionPosture::Completed);
+        assert_eq!(
+            fixture.count(),
+            3,
+            "completed work never dispatches on retry"
+        );
+        let store = LmdbRecordStore::open(record_store_path()).unwrap();
+        let history = store.list_case_transitions(CASE).unwrap();
+        assert_eq!(turns_from_history(CASE, &history).len(), 2);
+        assert_eq!(
+            history
+                .iter()
+                .filter(|t| matches!(t.payload, TransitionPayload::OperationRecorded { .. }))
+                .count(),
+            2
+        );
+        assert_eq!(
+            store.replay_case_state(CASE).unwrap(),
+            store.get_case_state(CASE).unwrap().unwrap()
+        );
+        println!(
+            "bounded_case_work: {}",
+            serde_json::to_string(&resumed).unwrap()
+        );
+        let prior = history
+            .iter()
+            .find(|t| {
+                matches!(&t.payload,
+            TransitionPayload::ProviderInvocationStarted {invocation_id,..}
+                if Some(invocation_id) == resumed.invocation_id.as_ref())
+            })
+            .unwrap();
+        let mut payload = prior.payload.clone();
+        if let TransitionPayload::ProviderInvocationStarted { invocation_id, .. } = &mut payload {
+            *invocation_id = "invocation:forged-repeat-completed-step".into();
+        }
+        let before = store.get_case_state(CASE).unwrap().unwrap();
+        let mut duplicate = PendingTransition::new(
+            "transition:forged-repeat-completed-step",
+            CASE,
+            before.generation,
+            prior.source.clone(),
+            payload,
+        );
+        duplicate.causal_refs = prior.causal_refs.clone();
+        duplicate.scope = prior.scope.clone();
+        let refused = store
+            .commit_secured_transition(&auth, TENANT, duplicate, false)
+            .unwrap_err();
+        assert!(
+            refused.contains("case_work_step_completed_requires_result_reuse"),
+            "{refused}"
+        );
+        assert_eq!(store.get_case_state(CASE).unwrap().unwrap(), before);
+        let bounded = controller
+            .commit_work(
+                "Inspect with exactly one model invocation".into(),
+                yai_core_engine::conversation::CaseWorkLimits {
+                    invocations: 1,
+                    operations: 1,
+                    effects: 0,
+                    max_input_units: 8192,
+                },
+            )
+            .unwrap();
+        let exhausted = controller
+            .execute_committed_turn(&bounded.turn.turn_id)
+            .unwrap();
+        assert_eq!(
+            exhausted.posture,
+            ConversationExecutionPosture::BudgetExhausted,
+            "{exhausted:?}"
+        );
+        let calls = fixture.count();
+        assert_eq!(
+            controller.retry(&bounded.turn.turn_id).unwrap().posture,
+            ConversationExecutionPosture::BudgetExhausted
+        );
+        assert_eq!(
+            fixture.count(),
+            calls,
+            "restart/retry cannot replenish immutable work budget"
+        );
+        println!("case_work_adversarial: completed_step_raw_redispatch=rejected state_unchanged=true invocation_budget=1 retry_budget_reset=false");
+    }
+
+    #[test]
+    #[ignore = "real loopback provider and isolated YAI_HOME; smoke-conversation-executor-delegation"]
+    fn golden_turn_author_delegates_execution_without_identity_or_review_transfer() {
+        const CASE: &str = "case:i06-host";
+        const TENANT: &str = "tenant:i06-host";
+        const HUMAN: &str = "participant:operator";
+        const MODEL: &str = "participant:model";
+        let _home = TestHome::enter("golden-delegation");
+        security::security_command(&strings(&[
+            "bootstrap-local",
+            "--tenant",
+            TENANT,
+            "--organization",
+            "organization:golden-host-test",
+        ]))
+        .unwrap();
+        security::case_security_command(&strings(&["create", "--case", CASE, "--tenant", TENANT]))
+            .unwrap();
+        for (participant, role) in [(HUMAN, "human-reviewer"), (MODEL, "model-executor")] {
+            provider::case_bind_participant_role(&strings(&[
+                "--case",
+                CASE,
+                "--participant",
+                participant,
+                "--role",
+                role,
+            ]))
+            .unwrap();
+        }
+        security::case_security_command(&strings(&[
+            "principal",
+            "link",
+            "--case",
+            CASE,
+            "--principal",
+            "self",
+            "--participant",
+            HUMAN,
+        ]))
+        .unwrap();
+        let mut controller = ConversationController::open(CASE, Some(HUMAN)).unwrap();
+        assert!(controller
+            .select_executor(MODEL)
+            .unwrap_err()
+            .contains("view_not_admitted"));
+        provider::case_admit_participant_view(&strings(&[
+            "--case",
+            CASE,
+            "--participant",
+            MODEL,
+            "--consumer",
+            "model",
+            "--view",
+            "model_context",
+        ]))
+        .unwrap();
+        controller.select_executor(MODEL).unwrap();
+        let primary = CognitiveFixture::new("not-an-agent", "full", &["text_to_text"]);
+        let auxiliary = CognitiveFixture::new("not-a-transcriber", "full", &["audio_wav_to_text"]);
+        let auth = security::authenticate_local().unwrap();
+        let store = LmdbRecordStore::open(record_store_path()).unwrap();
+        store
+            .bind_case_provider_targets_authorized(
+                &auth,
+                CASE,
+                MODEL,
+                vec![primary.target.clone(), auxiliary.target.clone()],
+                yai_core_engine::provider_governance::ProviderFailoverPolicy::SafeOnly,
+                1,
+            )
+            .unwrap();
+        primary.bind(CognitiveCapability::PrimaryConversation, false);
+        auxiliary.bind(CognitiveCapability::SpeechToText, false);
+        let committed = controller
+            .commit_parts(vec![ConversationInputPart::Text {
+                text: "Human-authored input".into(),
+            }])
+            .unwrap();
+        assert_eq!(committed.turn.participant_id, HUMAN);
+        assert_eq!(primary.count(), 0, "SEND has no provider execution");
+        let history = store.list_case_transitions(CASE).unwrap();
+        let intent = history
+            .iter()
+            .find_map(|t| match &t.payload {
+                TransitionPayload::ConversationExecutionIntentRecorded { request } => Some(request),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(intent.participant_id, MODEL);
+        assert_eq!(
+            intent.schema,
+            yai_core_engine::conversation::DELEGATED_COMPOSITION_REQUEST_SCHEMA
+        );
+        let result = controller
+            .execute_committed_turn(&committed.turn.turn_id)
+            .unwrap();
+        assert_eq!(
+            result.posture,
+            ConversationExecutionPosture::Completed,
+            "{result:?}"
+        );
+        assert_eq!(
+            result
+                .cognition
+                .as_ref()
+                .unwrap()
+                .primary
+                .plan
+                .participant_id,
+            MODEL
+        );
+        assert_eq!(primary.count(), 1);
+        let mut reopened = ConversationController::open(CASE, Some(HUMAN)).unwrap();
+        let retry = reopened.retry(&committed.turn.turn_id).unwrap();
+        assert_eq!(retry.provider_result_id, result.provider_result_id);
+        assert_eq!(primary.count(), 1);
+        assert!(
+            ConversationController::open(CASE, Some(MODEL)).is_err(),
+            "delegation cannot impersonate model as human"
+        );
+        let explicit = ConversationExecutionInput {
+            workflow_execution_id: None,
+            work_limits: None,
+            prerequisite: Some((CognitiveCapability::SpeechToText, vec![1])),
+            executor_participant_id: Some(MODEL.into()),
+        };
+        let media = reopened
+            .commit_parts_with_intent(i06_audio(), &explicit)
+            .unwrap();
+        let interrupted = reopened
+            .execute_turn_with_failpoint(&media.turn, &mut vec![], Some("after-prerequisite"))
+            .unwrap();
+        assert_eq!(
+            interrupted.posture,
+            ConversationExecutionPosture::Unresolved
+        );
+        assert_eq!((auxiliary.count(), primary.count()), (1, 1));
+        let mut reopened = ConversationController::open(CASE, Some(HUMAN)).unwrap();
+        let resumed = reopened.retry(&media.turn.turn_id).unwrap();
+        assert_eq!(
+            resumed.posture,
+            ConversationExecutionPosture::Completed,
+            "{resumed:?}"
+        );
+        assert_eq!((auxiliary.count(), primary.count()), (1, 2));
+        let state = store.get_case_state(CASE).unwrap().unwrap();
+        assert_eq!(state.principal_participant_links.len(), 1);
+        assert_eq!(state.principal_participant_links[0].participant_id, HUMAN);
+        assert!(state
+            .participants
+            .iter()
+            .find(|p| p.participant_id == HUMAN)
+            .unwrap()
+            .admitted_views
+            .is_empty());
+        let history = store.list_case_transitions(CASE).unwrap();
+        let derived = yai_core_engine::conversation::derived_content_from_history(CASE, &history);
+        assert_eq!(derived.len(), 1);
+        assert_eq!(derived[0].source_turn_id, media.turn.turn_id);
+        assert_eq!(
+            yai_core_engine::transition::replay_case(CASE, &history).unwrap(),
+            state
+        );
+        assert_eq!(
+            find_turn(CASE, &media.turn.turn_id, &history).unwrap(),
+            &media.turn
+        );
+        println!(
+            "GOLDEN_DELEGATED_HOST:{}",
+            serde_json::json!({"case":CASE,"author":HUMAN,"executor":MODEL,
+            "turn":committed.turn.turn_id,"intent":result.intent,"result":result.provider_result_id,
+            "derived":derived[0].derived_content_id,"resumed_result":resumed.provider_result_id,
+            "provider_mode":"loopback_fixture","golden_lifecycle":"not_yet_qualified"})
+        );
+    }
+
+    #[test]
     #[ignore = "real loopback HTTP and isolated YAI_HOME; smoke-conversation-cognitive-host"]
     fn i06_typed_host_native_composed_restart_and_fail_closed() {
         const CASE: &str = "case:i06-host";
@@ -1633,7 +2611,10 @@ mod tests {
         assert_eq!((native.count(), aux.count()), (3, 0));
         primary.bind(CognitiveCapability::PrimaryConversation, true);
         let explicit = ConversationExecutionInput {
+            workflow_execution_id: None,
+            work_limits: None,
             prerequisite: Some((CognitiveCapability::SpeechToText, vec![1])),
+            executor_participant_id: None,
         };
         let committed = controller
             .commit_parts_with_intent(i06_audio(), &explicit)

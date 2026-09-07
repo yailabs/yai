@@ -39,10 +39,16 @@ pub const OPERATION_PROPOSAL_SCHEMA: &str = "yai.operation_proposal.filesystem_w
 pub const PROCESS_SIGNAL_PROPOSAL_SCHEMA: &str = "yai.operation_proposal.process_signal.v1";
 pub const OPERATION_SCHEMA_V1: &str = "yai.operation.v1";
 pub const OPERATION_SCHEMA: &str = "yai.operation.v2";
+pub const RESOURCE_OPERATION_SCHEMA: &str = "yai.operation.v3";
+
+pub mod access;
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+pub(crate) mod process_runner;
 pub const DECISION_SCHEMA: &str = "yai.decision.v3";
 pub const DECISION_SCHEMA_V2: &str = "yai.decision.v2";
 pub const DECISION_SCHEMA_V1: &str = "yai.decision.v1";
 pub const EXECUTION_GRANT_SCHEMA: &str = "yai.execution_grant.v3";
+pub const RESOURCE_EXECUTION_GRANT_SCHEMA: &str = "yai.execution_grant.v4";
 pub const EXECUTION_GRANT_SCHEMA_V2: &str = "yai.execution_grant.v2";
 pub const EXECUTION_GRANT_SCHEMA_V1: &str = "yai.execution_grant.v1";
 pub const OBSERVATION_SCHEMA: &str = "yai.observation.filesystem.v1";
@@ -113,11 +119,19 @@ pub enum OperationKind {
     #[default]
     FilesystemWrite,
     ProcessSignal,
+    ResourceAccess(access::AccessKind),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum OperationOrigin {
+    /// An authenticated application action, not a fabricated model result.
+    /// The request is recorded by OperationRecorded; it owns no separate log.
+    ParticipantRequest {
+        request_id: String,
+        principal_id: String,
+        participant_link_id: String,
+    },
     ProviderResult {
         provider_result_id: String,
         provider_invocation_id: String,
@@ -135,6 +149,13 @@ pub enum OperationOrigin {
 impl OperationOrigin {
     pub fn causal_refs(&self) -> Vec<String> {
         match self {
+            Self::ParticipantRequest {
+                principal_id,
+                participant_link_id,
+                ..
+            } => {
+                vec![principal_id.clone(), participant_link_id.clone()]
+            }
             Self::ProviderResult {
                 provider_result_id,
                 provider_invocation_id,
@@ -213,6 +234,8 @@ pub struct Operation {
     pub filesystem_write: FilesystemWritePayload,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub process_signal: Option<ProcessSignalPayload>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_request: Option<access::ResourceRequest>,
     pub origin: OperationOrigin,
     pub expected_case_generation: u64,
 }
@@ -303,6 +326,7 @@ struct DecisionDigestMaterialV2<'a> {
 pub enum GrantedEffect {
     FilesystemWrite,
     ProcessSignal,
+    ResourceAccess(access::AccessKind),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -833,6 +857,7 @@ fn build_filesystem_write_operation(
         resource_attachment_id: resource.attachment_id.clone(),
         filesystem_write,
         process_signal: None,
+        resource_request: None,
         origin,
         expected_case_generation: case_generation,
     }
@@ -965,6 +990,7 @@ pub fn normalize_process_signal_candidate(
         resource_attachment_id: context.resource.attachment_id.clone(),
         filesystem_write: FilesystemWritePayload::default(),
         process_signal: Some(payload),
+        resource_request: None,
         origin,
         expected_case_generation: context.case_generation,
     })
@@ -1026,6 +1052,7 @@ pub fn build_workflow_deterministic_process_operation(
         resource_attachment_id: resource.attachment_id.clone(),
         filesystem_write: FilesystemWritePayload::default(),
         process_signal: Some(payload),
+        resource_request: None,
         origin,
         expected_case_generation: case_generation,
     })
@@ -1330,6 +1357,19 @@ pub fn issue_policy_execution_grant(
     current_case_generation: u64,
 ) -> Result<ExecutionGrant, String> {
     validate_decision(operation, decision, decision.decided_at_case_generation)?;
+    if let OperationKind::ResourceAccess(kind) = operation.kind {
+        if !matches!(
+            kind,
+            access::AccessKind::ProcessRun | access::AccessKind::McpToolCall
+        ) {
+            return Err(if kind.is_external_effect() {
+                "resource_effect_carrier_not_admitted"
+            } else {
+                "observation_request_does_not_issue_external_effect_grant"
+            }
+            .into());
+        }
+    }
     if decision.schema != DECISION_SCHEMA || decision.outcome != DecisionOutcome::Allow {
         return Err("policy_execution_grant_requires_v2_allow_decision".to_string());
     }
@@ -1361,8 +1401,13 @@ pub fn issue_policy_execution_grant(
     if issued_at_unix_ms == 0 || expires_at_unix_ms <= issued_at_unix_ms {
         return Err("policy_execution_grant_temporal_window_invalid".to_string());
     }
+    let schema = if matches!(operation.kind, OperationKind::ResourceAccess(_)) {
+        RESOURCE_EXECUTION_GRANT_SCHEMA
+    } else {
+        EXECUTION_GRANT_SCHEMA
+    };
     let material = GrantDigestMaterialV3 {
-        schema: EXECUTION_GRANT_SCHEMA,
+        schema,
         operation_id: &operation.operation_id,
         operation_digest: &operation.operation_digest,
         decision_id: &decision.decision_id,
@@ -1390,7 +1435,7 @@ pub fn issue_policy_execution_grant(
     };
     let integrity_digest = digest_serialized(&material);
     let grant = ExecutionGrant {
-        schema: EXECUTION_GRANT_SCHEMA.to_string(),
+        schema: schema.to_string(),
         grant_id: format!("grant:{}", digest_suffix(&integrity_digest, 32)),
         integrity_digest,
         operation_id: operation.operation_id.clone(),
@@ -1645,7 +1690,9 @@ pub fn validate_grant(
     }
     let normalized_target = operation.normalized_target()?;
     let intended_content_digest = operation.intended_effect_digest()?;
-    if (grant.schema != EXECUTION_GRANT_SCHEMA && grant.schema != EXECUTION_GRANT_SCHEMA_V1)
+    if (grant.schema != EXECUTION_GRANT_SCHEMA
+        && grant.schema != EXECUTION_GRANT_SCHEMA_V1
+        && grant.schema != RESOURCE_EXECUTION_GRANT_SCHEMA)
         || grant.operation_id != operation.operation_id
         || grant.operation_digest != operation.operation_digest
         || grant.decision_id != decision.decision_id
@@ -1672,6 +1719,18 @@ pub fn validate_grant(
 impl Operation {
     pub fn normalized_target(&self) -> Result<String, String> {
         match self.kind {
+            OperationKind::ResourceAccess(_) => self
+                .resource_request
+                .as_ref()
+                .map(|request| {
+                    request
+                        .action
+                        .path()
+                        .or_else(|| request.action.name())
+                        .unwrap_or(request.action.kind().operation_name())
+                        .to_string()
+                })
+                .ok_or_else(|| "resource_request_missing".to_string()),
             OperationKind::FilesystemWrite => Ok(self.filesystem_write.relative_path.clone()),
             OperationKind::ProcessSignal => self
                 .process_signal
@@ -1683,6 +1742,11 @@ impl Operation {
 
     pub fn intended_effect_digest(&self) -> Result<String, String> {
         match self.kind {
+            OperationKind::ResourceAccess(_) => self
+                .resource_request
+                .as_ref()
+                .map(access::ResourceRequest::digest)
+                .ok_or_else(|| "resource_request_missing".to_string()),
             OperationKind::FilesystemWrite => Ok(self.filesystem_write.content_digest.clone()),
             OperationKind::ProcessSignal => self
                 .process_signal
@@ -1703,13 +1767,16 @@ impl Operation {
 
     pub fn granted_effect(&self) -> GrantedEffect {
         match self.kind {
+            OperationKind::ResourceAccess(kind) => GrantedEffect::ResourceAccess(kind),
             OperationKind::FilesystemWrite => GrantedEffect::FilesystemWrite,
             OperationKind::ProcessSignal => GrantedEffect::ProcessSignal,
         }
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        if (self.schema != OPERATION_SCHEMA && self.schema != OPERATION_SCHEMA_V1)
+        if (self.schema != OPERATION_SCHEMA
+            && self.schema != OPERATION_SCHEMA_V1
+            && self.schema != RESOURCE_OPERATION_SCHEMA)
             || self.case_id.is_empty()
             || self.participant_id.is_empty()
             || self.resource_attachment_id.is_empty()
@@ -1727,7 +1794,23 @@ impl Operation {
         {
             return Err("operation_contract_mismatch".to_string());
         }
+        if self.schema != RESOURCE_OPERATION_SCHEMA && self.resource_request.is_some() {
+            return Err("legacy_operation_contains_resource_request".into());
+        }
         match &self.origin {
+            OperationOrigin::ParticipantRequest {
+                request_id,
+                principal_id,
+                participant_link_id,
+            } if self.schema != RESOURCE_OPERATION_SCHEMA
+                || request_id.is_empty()
+                || request_id.len() > 256
+                || request_id.chars().any(char::is_control)
+                || !principal_id.starts_with("principal:")
+                || participant_link_id.is_empty() =>
+            {
+                return Err("operation_participant_request_origin_invalid".into());
+            }
             OperationOrigin::ProviderResult {
                 provider_result_id,
                 provider_invocation_id,
@@ -1743,6 +1826,19 @@ impl Operation {
             _ => {}
         }
         let digest = match (&*self.schema, &self.kind, &self.process_signal) {
+            (RESOURCE_OPERATION_SCHEMA, OperationKind::ResourceAccess(kind), None) => {
+                let request = self
+                    .resource_request
+                    .as_ref()
+                    .ok_or_else(|| "resource_request_missing".to_string())?;
+                request.validate()?;
+                if *kind != request.action.kind()
+                    || self.filesystem_write != FilesystemWritePayload::default()
+                {
+                    return Err("resource_operation_payload_mismatch".into());
+                }
+                self.resource_operation_digest()
+            }
             (OPERATION_SCHEMA_V1, OperationKind::FilesystemWrite, None) => {
                 if normalize_relative_path(&self.filesystem_write.relative_path)?
                     != self.filesystem_write.relative_path
@@ -1788,6 +1884,51 @@ impl Operation {
             return Err("operation_digest_mismatch".to_string());
         }
         Ok(())
+    }
+
+    fn resource_operation_digest(&self) -> String {
+        digest_serialized(&serde_json::json!({
+            "schema": self.schema, "case_id": self.case_id,
+            "participant_id": self.participant_id, "scope": self.scope,
+            "kind": self.kind, "resource_attachment_id": self.resource_attachment_id,
+            "resource_request": self.resource_request, "origin": self.origin,
+            "expected_case_generation": self.expected_case_generation,
+        }))
+    }
+
+    pub fn from_resource_request(
+        case_id: &str,
+        participant_id: &str,
+        attachment_id: &str,
+        generation: u64,
+        request: access::ResourceRequest,
+        origin: OperationOrigin,
+    ) -> Result<Self, String> {
+        request.validate()?;
+        let mut value = Self {
+            schema: RESOURCE_OPERATION_SCHEMA.into(),
+            operation_id: String::new(),
+            operation_digest: String::new(),
+            case_id: case_id.into(),
+            participant_id: participant_id.into(),
+            scope: TransitionScope {
+                case_id: case_id.into(),
+                participant_refs: vec![participant_id.into()],
+                resource_refs: vec![attachment_id.into()],
+                policy_refs: Vec::new(),
+            },
+            kind: OperationKind::ResourceAccess(request.action.kind()),
+            resource_attachment_id: attachment_id.into(),
+            filesystem_write: FilesystemWritePayload::default(),
+            process_signal: None,
+            resource_request: Some(request),
+            origin,
+            expected_case_generation: generation,
+        };
+        value.operation_digest = value.resource_operation_digest();
+        value.operation_id = format!("operation:{}", digest_suffix(&value.operation_digest, 32));
+        value.validate()?;
+        Ok(value)
     }
 }
 
@@ -1868,8 +2009,29 @@ impl Decision {
 }
 
 impl ExecutionGrant {
+    pub fn has_current_policy_basis(&self) -> bool {
+        matches!(
+            self.schema.as_str(),
+            EXECUTION_GRANT_SCHEMA | RESOURCE_EXECUTION_GRANT_SCHEMA
+        )
+    }
+
     pub fn validate_integrity(&self) -> Result<(), String> {
+        // No legacy Grant schema describes these carriers. A new effect must
+        // not acquire authority by extending an enum inside a historical seal.
+        let resource_effect = matches!(
+            self.permitted_effect,
+            GrantedEffect::ResourceAccess(
+                access::AccessKind::ProcessRun | access::AccessKind::McpToolCall
+            )
+        );
+        if resource_effect != (self.schema == RESOURCE_EXECUTION_GRANT_SCHEMA)
+            || matches!(self.permitted_effect, GrantedEffect::ResourceAccess(_)) && !resource_effect
+        {
+            return Err("resource_effect_grant_schema_not_admitted".into());
+        }
         if (self.schema != EXECUTION_GRANT_SCHEMA
+            && self.schema != RESOURCE_EXECUTION_GRANT_SCHEMA
             && self.schema != EXECUTION_GRANT_SCHEMA_V2
             && self.schema != EXECUTION_GRANT_SCHEMA_V1)
             || self.grant_id.is_empty()
@@ -3458,6 +3620,7 @@ mod tests {
             policy_owner_participant_id: "participant:operator".to_string(),
             review_requirement: crate::transition::ReviewRequirement::Automatic,
             process_signal_actions: Vec::new(),
+            access: None,
         }
     }
 

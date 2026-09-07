@@ -15,6 +15,8 @@ parser.add_argument(
     "--mode",
     choices=(
         "full",
+        "capabilities",
+        "golden",
         "text_only",
         "reject",
         "malformed",
@@ -141,6 +143,51 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
         wants_json = request.get("response_format") == {"type": "json_object"}
+        if args.mode == "golden" and wants_json and not is_synthetic:
+            from golden_model import plan_patch_reply
+            self.reply(200, {"model":args.model,"choices":[{"message":{"role":"assistant","content":plan_patch_reply(request)},"finish_reason":"stop"}]})
+            return
+        if request.get("tools") and args.mode in ("capabilities", "golden"):
+            tools = request["tools"]
+            if request.get("parallel_tool_calls") is not False:
+                self.reply(400, {"error": {"type": "parallel_calls_not_bounded"}})
+                return
+            if request.get("tool_choice") == "none":
+                result = next(message["content"] for message in reversed(messages) if message["role"] == "tool")
+                message = {"role": "assistant", "content": result}
+                finish = "stop"
+            elif args.mode == "golden" and not is_synthetic:
+                from golden_model import native_reply
+                message, finish = native_reply(request)
+            elif any(message.get("role") == "tool" for message in messages):
+                previous = messages[-2]
+                result_message = messages[-1]
+                result = json.loads(result_message["content"])
+                if (previous["role"] != "assistant"
+                        or previous["tool_calls"][0]["id"] != result_message["tool_call_id"]
+                        or result.get("material_is_authority") is not False
+                        or not result.get("operation_id")
+                        or not result.get("transition_id")
+                        or "real source evidence" not in result_message["content"]):
+                    self.reply(400, {"error": {"type": "canonical_tool_feedback_missing"}})
+                    return
+                message = {"role": "assistant", "content": "case-work-complete: exact source observation received"}
+                finish = "stop"
+            else:
+                definition = next((tool["function"] for tool in tools
+                                   if tool["function"]["name"] == "yai_contract_echo"), None)
+                if definition:
+                    arguments = {"value": "yai-contract"}
+                else:
+                    definition = next(tool["function"] for tool in tools
+                                      if "filesystem.read" in tool["function"]["description"])
+                    arguments = {"path": "src/retry.txt"}
+                message = {"role": "assistant", "content": None, "tool_calls": [{
+                    "id": "call-fixture-exact", "type": "function", "function": {
+                        "name": definition["name"], "arguments": json.dumps(arguments)}}]}
+                finish = "tool_calls"
+            self.reply(200, {"model": args.model, "choices": [{"message": message,"finish_reason": finish}]})
+            return
         is_case_runtime = any(
             isinstance(message, dict)
             and isinstance(message.get("content"), str)

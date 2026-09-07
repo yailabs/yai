@@ -16,6 +16,9 @@ pub const RESOURCE_CONTROL_STATE_SCHEMA: &str = "yai.resource_control_state.v2";
 pub const RESOURCE_CONTROL_EVENT_SCHEMA_V1: &str = "yai.resource_control_event.v1";
 pub const RESOURCE_CONTROL_EVENT_SCHEMA: &str = "yai.resource_control_event.v2";
 pub const RESOURCE_FENCE_SCHEMA: &str = "yai.resource_fence.v1";
+pub const NETWORK_RESOURCE_STATE_SCHEMA: &str = "yai.resource_control_state.v3";
+pub const NETWORK_RESOURCE_EVENT_SCHEMA: &str = "yai.resource_control_event.v3";
+pub const NETWORK_RESOURCE_FENCE_SCHEMA: &str = "yai.resource_fence.v2";
 pub const PROCESS_IDENTITY_SCHEMA: &str = "yai.local_process_identity.v1";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -23,6 +26,7 @@ pub const PROCESS_IDENTITY_SCHEMA: &str = "yai.local_process_identity.v1";
 pub enum ControlledResourceKind {
     Filesystem,
     Process,
+    NetworkEndpoint,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -36,6 +40,49 @@ pub struct ResourceIdentity {
 }
 
 impl ResourceIdentity {
+    /// Coordinates one exact admitted endpoint in a Tenant. It does not claim
+    /// that different DNS names identify different physical remote systems.
+    pub fn network_endpoint(tenant_id: &str, endpoint: &str) -> Result<Self, String> {
+        if !tenant_id.starts_with("tenant:") {
+            return Err("invalid_resource_tenant".into());
+        }
+        crate::effect::access::NetworkResourceAddress::validate_endpoint(endpoint)?;
+        let material = format!("{tenant_id}|network_endpoint|{endpoint}");
+        Ok(Self {
+            resource_id: format!(
+                "resource-control:{}",
+                &digest_bytes(material.as_bytes())[..32]
+            ),
+            tenant_id: tenant_id.into(),
+            resource_kind: ControlledResourceKind::NetworkEndpoint,
+            canonical_identity: endpoint.into(),
+        })
+    }
+
+    pub fn state_schema(&self) -> &'static str {
+        if self.resource_kind == ControlledResourceKind::NetworkEndpoint {
+            NETWORK_RESOURCE_STATE_SCHEMA
+        } else {
+            RESOURCE_CONTROL_STATE_SCHEMA
+        }
+    }
+
+    fn event_schema(&self) -> &'static str {
+        if self.resource_kind == ControlledResourceKind::NetworkEndpoint {
+            NETWORK_RESOURCE_EVENT_SCHEMA
+        } else {
+            RESOURCE_CONTROL_EVENT_SCHEMA
+        }
+    }
+
+    fn fence_schema(&self) -> &'static str {
+        if self.resource_kind == ControlledResourceKind::NetworkEndpoint {
+            NETWORK_RESOURCE_FENCE_SCHEMA
+        } else {
+            RESOURCE_FENCE_SCHEMA
+        }
+    }
+
     pub fn filesystem(tenant_id: &str, canonical_root: &str) -> Result<Self, String> {
         if !tenant_id.starts_with("tenant:") || !Path::new(canonical_root).is_absolute() {
             return Err("invalid_filesystem_resource_identity".to_string());
@@ -78,6 +125,9 @@ impl ResourceIdentity {
             return Err("invalid_resource_identity".to_string());
         }
         let expected = match self.resource_kind {
+            ControlledResourceKind::NetworkEndpoint => {
+                Self::network_endpoint(&self.tenant_id, &self.canonical_identity)?
+            }
             ControlledResourceKind::Filesystem => {
                 if !Path::new(&self.canonical_identity).is_absolute() {
                     return Err("filesystem_resource_identity_not_absolute".to_string());
@@ -208,7 +258,7 @@ impl ResourceFence {
     ) -> Result<Self, String> {
         identity.validate()?;
         let mut fence = Self {
-            schema: RESOURCE_FENCE_SCHEMA.to_string(),
+            schema: identity.fence_schema().to_string(),
             fence_id: String::new(),
             integrity_digest: String::new(),
             resource_id: identity.resource_id.clone(),
@@ -248,7 +298,9 @@ impl ResourceFence {
     }
 
     pub fn validate_integrity(&self) -> Result<(), String> {
-        if self.schema != RESOURCE_FENCE_SCHEMA
+        if (self.schema != RESOURCE_FENCE_SCHEMA && self.schema != NETWORK_RESOURCE_FENCE_SCHEMA)
+            || (self.resource_kind == ControlledResourceKind::NetworkEndpoint)
+                != (self.schema == NETWORK_RESOURCE_FENCE_SCHEMA)
             || self.resource_id.is_empty()
             || !self.tenant_id.starts_with("tenant:")
             || self.resource_epoch == 0
@@ -295,13 +347,16 @@ impl ResourceControlState {
     pub fn validate(&self) -> Result<(), String> {
         self.identity.validate()?;
         if (self.schema != RESOURCE_CONTROL_STATE_SCHEMA
+            && self.schema != NETWORK_RESOURCE_STATE_SCHEMA
             && self.schema != RESOURCE_CONTROL_STATE_SCHEMA_V1)
+            || (self.identity.resource_kind == ControlledResourceKind::NetworkEndpoint)
+                != (self.schema == NETWORK_RESOURCE_STATE_SCHEMA)
             || self.resource_epoch == 0
             || self.event_sequence == 0
         {
             return Err("invalid_resource_control_state".to_string());
         }
-        if self.schema == RESOURCE_CONTROL_STATE_SCHEMA
+        if self.schema != RESOURCE_CONTROL_STATE_SCHEMA_V1
             && (self.last_event_id.as_deref().is_none_or(str::is_empty)
                 || self.last_event_digest.as_deref().is_none_or(str::is_empty))
         {
@@ -373,7 +428,7 @@ impl ResourceControlEvent {
             return Err("resource_event_identity_fence_mismatch".to_string());
         }
         let mut event = Self {
-            schema: RESOURCE_CONTROL_EVENT_SCHEMA.to_string(),
+            schema: identity.event_schema().to_string(),
             event_id: String::new(),
             resource_id: fence.resource_id.clone(),
             resource_epoch: fence.resource_epoch,
@@ -439,7 +494,11 @@ impl ResourceControlEvent {
 
     pub fn validate_integrity(&self) -> Result<(), String> {
         if (self.schema != RESOURCE_CONTROL_EVENT_SCHEMA
+            && self.schema != NETWORK_RESOURCE_EVENT_SCHEMA
             && self.schema != RESOURCE_CONTROL_EVENT_SCHEMA_V1)
+            || self.resource_identity.as_ref().is_some_and(|identity| {
+                identity.resource_kind == ControlledResourceKind::NetworkEndpoint
+            }) != (self.schema == NETWORK_RESOURCE_EVENT_SCHEMA)
             || self.resource_id.is_empty()
             || self.resource_epoch == 0
             || self.sequence == 0
@@ -450,7 +509,7 @@ impl ResourceControlEvent {
         {
             return Err("invalid_resource_control_event".to_string());
         }
-        if self.schema == RESOURCE_CONTROL_EVENT_SCHEMA {
+        if self.schema != RESOURCE_CONTROL_EVENT_SCHEMA_V1 {
             let identity = self
                 .resource_identity
                 .as_ref()
@@ -509,7 +568,7 @@ pub fn rebuild_resource_control_state(
 
     for event in ordered {
         event.validate_integrity()?;
-        if event.schema != RESOURCE_CONTROL_EVENT_SCHEMA {
+        if event.schema == RESOURCE_CONTROL_EVENT_SCHEMA_V1 {
             return Err("resource_history_v1_not_rebuildable".to_string());
         }
         let identity = event
@@ -544,7 +603,7 @@ pub fn rebuild_resource_control_state(
         match (&mut state, &event.action) {
             (None, ResourceControlAction::Acquired) if event.resource_epoch == 1 => {
                 state = Some(ResourceControlState {
-                    schema: RESOURCE_CONTROL_STATE_SCHEMA.to_string(),
+                    schema: identity.state_schema().to_string(),
                     identity: identity.clone(),
                     resource_epoch: 1,
                     event_sequence: event.sequence,
@@ -694,6 +753,63 @@ mod tests {
             1_000 + epoch,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn network_endpoint_fence_versions_and_event_rebuild_are_exact() {
+        let identity =
+            ResourceIdentity::network_endpoint("tenant:network", "http://127.0.0.1:19304/mcp")
+                .unwrap();
+        assert_ne!(
+            identity,
+            ResourceIdentity::network_endpoint("tenant:other", "http://127.0.0.1:19304/mcp")
+                .unwrap()
+        );
+        let fence = test_fence(&identity, 1, "network", "effect:network");
+        assert_eq!(fence.schema, NETWORK_RESOURCE_FENCE_SCHEMA);
+        let acquired = ResourceControlEvent::build(
+            ResourceControlAction::Acquired,
+            &identity,
+            &fence,
+            1,
+            2001,
+            None,
+        )
+        .unwrap();
+        assert_eq!(acquired.schema, NETWORK_RESOURCE_EVENT_SCHEMA);
+        let released = ResourceControlEvent::build(
+            ResourceControlAction::Released,
+            &identity,
+            &fence,
+            2,
+            2002,
+            Some(&acquired),
+        )
+        .unwrap();
+        let rebuilt =
+            rebuild_resource_control_state(&[released.clone(), acquired.clone()]).unwrap();
+        assert_eq!(rebuilt.schema, NETWORK_RESOURCE_STATE_SCHEMA);
+        assert!(rebuilt.active_lease.is_none());
+        let mut downgraded = fence.clone();
+        downgraded.schema = RESOURCE_FENCE_SCHEMA.into();
+        assert!(downgraded.validate_integrity().is_err());
+        let mut downgraded = acquired.clone();
+        downgraded.schema = RESOURCE_CONTROL_EVENT_SCHEMA.into();
+        assert!(downgraded.validate_integrity().is_err());
+        let mut downgraded = rebuilt;
+        downgraded.schema = RESOURCE_CONTROL_STATE_SCHEMA.into();
+        assert!(downgraded.validate().is_err());
+        assert!(rebuild_resource_control_state(&[released]).is_err());
+        assert!(ResourceIdentity::network_endpoint(
+            "tenant:network",
+            "http://user:secret@127.0.0.1/mcp"
+        )
+        .is_err());
+        assert!(ResourceIdentity::network_endpoint(
+            "tenant:network",
+            "http://127.0.0.1/mcp?next=elsewhere"
+        )
+        .is_err());
     }
 
     #[test]

@@ -17,6 +17,8 @@ procedures. Historical work records are not current gates.
 | `make test-endurance` | explicit scale lane, including previously ignored W19/H19/W20 characterizations |
 | `make test-external-yvex` | opt-in real-provider text interoperability; absence is nonzero; no fixture fallback |
 | `make test-manual` | list operator procedures only; NOT an acceptance run or PASS |
+| `make test-golden-local` | explicit cumulative reference free/Workflow lifecycle; real Product, persistence and resource peers, loopback model; separate from `check` |
+| `make test-golden-external-yvex` | same reference product lifecycle using the operator's real endpoint/model; no model fixture; absent deployment refuses |
 
 Independent diagnostic lanes: `test-unit`, `test-component`, `test-contract`,
 `test-product`, `test-recovery`. `build` and `build-rust` compile, **not test**.
@@ -42,7 +44,7 @@ catalog reconciliation.
 - Provider: `no_provider`, `loopback_fixture`, `external_yvex`, `external_other`.
   Provider-shaped records constructed in-process are not provider execution.
   Local IPC is not provider HTTP.
-- Cadence: fast, publication, explicit endurance/external/manual, or support.
+- Cadence: fast, publication, explicit golden/endurance/external/manual, or support.
 
 Mixed verticals use their strongest/principal property and declare dependencies.
 A C component plus CLI compatibility assertion is not a governed product effect.

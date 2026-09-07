@@ -1509,6 +1509,7 @@ mod tests {
             policy_owner_participant_id: PARTICIPANT_A.to_string(),
             review_requirement: crate::transition::ReviewRequirement::Automatic,
             process_signal_actions: Vec::new(),
+            access: None,
         }
     }
 

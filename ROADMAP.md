@@ -13,13 +13,13 @@ their checkpoint scope; old exclusions there are not a claim that a later
 completed wave is absent. [Architecture](docs/architecture.md) owns current
 source truth; historical reports retain their original evidence limitations.
 
-**I01–I06 COMPLETE. I07 UNSELECTED.** The reconciled publication anchor is R5
+**I01–I06 COMPLETE. I07 UNSELECTED.** The terminal publication anchor is R5
 `426b5086cc668a3f04b68e39b80a36ffa6faa3ca`, whose parent is the completed I06
 semantic closure `fec2f17b0e71e6e12e8f40a37c5f44d874f4b7d5`.
-Neither is reopened or rewritten as future work. The next implementation
-boundary will be selected after this documentation closure from current
-repository pressure and requires explicit authorization. I07–I10 are not
-invented to preserve numbering; this alignment starts no runtime work.
+Neither is reopened or rewritten as future work. The post-I10 direction was
+recorded at `4d5a69c32622d3f2e37d399f8305001d3a4f27cc`. The next Interlock
+boundary remains unselected and requires explicit authorization. I07–I10 are
+not invented to preserve numbering; the Golden product wave is horizontal.
 
 | Layer | Implemented property / evidence |
 |---|---|
@@ -34,6 +34,14 @@ invented to preserve numbering; this alignment starts no runtime work.
 | Horizontal engineering | [Test proof/provider axes](refoundation/validation/test-topology-0/REPORT.md); [REPLAI R4](refoundation/integration/replai-r4/REPORT.md) and [R5 vendor removal](refoundation/integration/replai-r5/REPORT.md), cognitive semantics and qualified pin unchanged |
 
 These are bounded implemented facts, not blanket live-provider qualification.
+`GOLDEN.CASE.LIFECYCLE.0` is the current product/backend convergence wave,
+separate from Interlock numbering. Its [evidence package](refoundation/validation/golden-case-lifecycle/REPORT.md)
+tracks workbench, governed attached capabilities and free/Workflow reference
+qualification. The [ZERO-TO-CURRENT runbook](docs/zero-to-current.md) is the
+cumulative operator acceptance surface, not a new semantic owner. Deterministic
+publication and Golden local are separate required gates. Human acceptance
+remains PENDING_OPERATOR; live YVEX requires an operator endpoint/model and has
+no fixture fallback. I07 stays UNSELECTED.
 The remaining I-series is separate from the conditional
 [post-I10 program](#post-i10-program--semantic-state-fabric-and-execution-compilation).
 H20, W21, W22 and Studio remain separately gated, not authorized by that program.

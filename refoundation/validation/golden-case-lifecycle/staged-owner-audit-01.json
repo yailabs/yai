@@ -1,0 +1,70 @@
+{
+  "run_id": "golden-staged-owner-audit-01",
+  "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+  "pre_state": "Explicit Golden whitelist staged; release-05 and local-union-08 exit 0; no unstaged runtime changes",
+  "steps": [
+    {
+      "order": 1,
+      "command": "git diff --cached --check",
+      "chunk_id": "690306",
+      "wall_time_seconds": 0.000002264,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    },
+    {
+      "order": 2,
+      "command": "git diff --name-only",
+      "chunk_id": "9e4bbc",
+      "wall_time_seconds": 0.000001934,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    },
+    {
+      "order": 3,
+      "command": "git diff --cached --name-only -- README.md docs/constitution.md docs/replai-terminal.md refoundation/integration/replai-r5",
+      "chunk_id": "afdf75",
+      "wall_time_seconds": 0.000001834,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    },
+    {
+      "order": 4,
+      "command": "rg -c 'create_db\\(' engine/yai-engine/src/store/lmdb.rs",
+      "chunk_id": "c20d66",
+      "wall_time_seconds": 0.000002405,
+      "exit_code": 0,
+      "original_token_count": 1,
+      "output": "37\n"
+    },
+    {
+      "order": 5,
+      "command": "git diff --cached --shortstat",
+      "chunk_id": "484846",
+      "wall_time_seconds": 0.000002234,
+      "exit_code": 0,
+      "original_token_count": 15,
+      "output": " 127 files changed, 20183 insertions(+), 554 deletions(-)\n"
+    },
+    {
+      "order": 6,
+      "command": "git diff --cached --summary",
+      "chunk_id": "52d067",
+      "wall_time_seconds": 0.000002345,
+      "exit_code": 0,
+      "original_token_count": 1760,
+      "output": " create mode 100644 cmd/yai/src/controlled_effect/access.rs\n create mode 100644 cmd/yai/src/conversation_controller/setup.rs\n create mode 100644 cmd/yai/src/conversation_controller/work.rs\n create mode 100644 cmd/yai/src/conversation_controller/workflow_host.rs\n create mode 100644 cmd/yai/src/provider/capabilities.rs\n create mode 100644 cmd/yai/src/resource_transport.rs\n create mode 100644 docs/zero-to-current.md\n create mode 100644 engine/yai-engine/src/effect/access.rs\n create mode 100644 engine/yai-engine/src/effect/process_runner.rs\n create mode 100644 engine/yai-engine/src/store/tests/resource_access_tests.rs\n create mode 100644 refoundation/validation/golden-case-lifecycle/REPORT.md\n create mode 100644 refoundation/validation/golden-case-lifecycle/case-capability-realization-01.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/case-capability-realization-02.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/delegation-01-failed.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/delegation-02-passed.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/fast-development-02.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/final-documentation-01.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-01-free.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-01-workflow.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-01.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-02-failed.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-02-free.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-02-workflow.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-03-free.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-03-workflow.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-03.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-04-failed.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-04-free.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-05-failed.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-05-free.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-06-failed.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-06-free.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-07-failed.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-07-free.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-07-workflow.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-08-free.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-08-workflow.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/local-union-08.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/mcp-contract-02.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/native-function-contract-01.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/process-component-01.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/process-final.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-free-01.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-free-02.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-free-03.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-free-04.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-free-05.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-free-06.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-free-07.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-free-08.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-free-09.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-workflow-01.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-workflow-02.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-workflow-03.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-workflow-04.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-workflow-05.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/reference-workflow-06.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/release-02-failed.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/release-03.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/release-04.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/release-05.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/resource-discovery-product-01.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/resource-effects-final.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/resource-effects-final.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/resource-effects-product-01.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/resource-product-05.jsonl\n create mode 100644 refoundation/validation/golden-case-lifecycle/resource-store-02.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/resource-store-03.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/workbench-product-01.json\n create mode 100644 refoundation/validation/golden-case-lifecycle/workbench-product-02.json\n create mode 100644 tests/cases/04-golden/material/issue/issue.md\n create mode 100644 tests/cases/04-golden/material/notes/migration.md\n create mode 100644 tests/cases/04-golden/policy.json\n create mode 100644 tests/cases/04-golden/project/protected/release.conf\n create mode 100644 tests/cases/04-golden/project/src/retry.py\n create mode 100644 tests/cases/04-golden/project/tests/test_retry.py\n create mode 100644 tests/cases/04-golden/workflow.json\n create mode 100644 tests/cases/04-golden/world.py\n create mode 100644 tests/characterization/case-resource-access/test_case_resource_access.py\n create mode 100644 tests/characterization/case-resource-access/test_case_workbench.py\n create mode 100644 tests/characterization/case-resource-access/test_reference_free.py\n create mode 100644 tests/characterization/case-resource-access/test_resource_effects.py\n create mode 100644 tests/fixtures/golden_model.py\n"
+    },
+    {
+      "order": 7,
+      "command": "git rev-parse HEAD origin/master",
+      "chunk_id": "36ed39",
+      "wall_time_seconds": 0.000002264,
+      "exit_code": 0,
+      "original_token_count": 21,
+      "output": "4d5a69c32622d3f2e37d399f8305001d3a4f27cc\n4d5a69c32622d3f2e37d399f8305001d3a4f27cc\n"
+    }
+  ]
+}

@@ -932,6 +932,8 @@ use review::*;
 
 #[path = "provider_transport.rs"]
 mod provider_transport;
+#[path = "resource_transport.rs"]
+mod resource_transport;
 
 #[path = "provider.rs"]
 mod provider;
@@ -1208,6 +1210,13 @@ fn daemon_request_with_journal(_args: &[String], _request: &str) -> Result<(), S
     Err("daemon IPC is only implemented on Unix in NEW.13".to_string())
 }
 
+pub(crate) fn resource_application_command(
+    operation_id: &str,
+    args: &[String],
+) -> Result<serde_json::Value, String> {
+    controlled_effect::access::command(operation_id, args)
+}
+
 /// Dispatches an already registry-resolved operation to its existing domain
 /// adapter. This match is over stable operation identity, never command text;
 /// path and syntax authority remain in `cli::registry`.
@@ -1232,6 +1241,10 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
         }
         "yai.case.resource.attach_filesystem" => case_attach_filesystem(&args[2..]),
         "yai.case.resource.attach_process" => case_attach_process(&args[2..]),
+        "yai.case.resource.import" | "yai.case.resource.request" => {
+            println!("{}", resource_application_command(operation_id, args)?);
+            Ok(())
+        }
         operation if operation.starts_with("yai.case.memory.") => {
             memory_case_command(operation, args)
         }
@@ -1264,6 +1277,7 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
             runtime_instance::dispatch(&args[1..])
         }
         "yai.case.enter" => case_enter(&args[2..]),
+        "yai.case.workbench" => conversation_terminal::run(&args[2..]),
         "yai.effect.filesystem_write" => controlled_filesystem_write(&args[2..]),
         "yai.effect.process_signal" => controlled_process_signal(&args[2..]),
         "yai.effect.reconcile" => controlled_effect_reconcile(&args[2..]),

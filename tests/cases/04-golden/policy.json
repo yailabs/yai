@@ -1,0 +1,29 @@
+{
+  "schema": "yai.policy_source_input.v4",
+  "policy_key": "golden-release",
+  "source_version": "1",
+  "owner_ref": "organization:golden",
+  "source_origin": {"source_system": "golden-reference", "source_uri": "reference://golden/release-policy/v1"},
+  "validity": {"mode": "unbounded"},
+  "rules": [
+    {"kind":"operation_restriction","rule_id":"source-read","operation_kind":"filesystem.read","resource_kind":"filesystem","effect":"allow","reason":"Bounded admitted source envelope"},
+    {"kind":"operation_restriction","rule_id":"source-search","operation_kind":"filesystem.search","resource_kind":"filesystem","effect":"allow","reason":"Bounded admitted source envelope"},
+    {"kind":"operation_restriction","rule_id":"source-write","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","reason":"Source envelope only; review is independently required"},
+    {"kind":"review_requirement","rule_id":"code-review","operation_kind":"filesystem.write","resource_kind":"filesystem","required":true,"reason":"Human must review exact proposed code"},
+    {"kind":"authority_requirement","rule_id":"code-proposer","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_role":"operation-proposer","reason":"Case admitted proposer only"},
+    {"kind":"authority_requirement","rule_id":"code-reviewer","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"reviewer","required_role":"operation-reviewer","reason":"Eligible independent human review"},
+    {"kind":"evidence_obligation","rule_id":"code-source","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"source_provenance","reason":"Exact candidate origin"},
+    {"kind":"evidence_obligation","rule_id":"code-result","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"post_observation","reason":"Real external consequence"},
+    {"kind":"evidence_obligation","rule_id":"review-reason","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"audit_reason","reason":"Human rationale required"},
+    {"kind":"operation_restriction","rule_id":"query","operation_kind":"database.query","resource_kind":"database","effect":"allow","reason":"Named bounded query only"},
+    {"kind":"operation_restriction","rule_id":"no-database-mutation","operation_kind":"database.mutate","resource_kind":"database","effect":"deny","reason":"Release metadata cannot be rewritten by this Case"},
+    {"kind":"operation_restriction","rule_id":"release-service","operation_kind":"http.fetch","resource_kind":"http_service","effect":"allow","reason":"Exact endpoint and path envelope"},
+    {"kind":"operation_restriction","rule_id":"mcp-catalog","operation_kind":"mcp.catalog","resource_kind":"mcp","effect":"allow","reason":"External catalog is candidate capability material"},
+    {"kind":"operation_restriction","rule_id":"mcp-resource","operation_kind":"mcp.resource.read","resource_kind":"mcp","effect":"allow","reason":"Exact admitted specification URI"},
+    {"kind":"operation_restriction","rule_id":"mcp-risk","operation_kind":"mcp.tool.call","resource_kind":"mcp","effect":"allow","reason":"Exact named schema-bound risk tool; governed external effect"},
+    {"kind":"operation_restriction","rule_id":"tests","operation_kind":"process.run","resource_kind":"process_runner","effect":"allow","reason":"Exact confined runner, not arbitrary shell"},
+    {"kind":"operation_restriction","rule_id":"discover","operation_kind":"discovery.enumerate","resource_kind":"discovery","effect":"allow","reason":"Exact configured discovery boundary"},
+    {"kind":"operation_restriction","rule_id":"admit","operation_kind":"content.admit","resource_kind":"discovery","effect":"allow","reason":"Independent digest-checked content admission"},
+    {"kind":"operation_restriction","rule_id":"material","operation_kind":"content.read","resource_kind":"discovery","effect":"allow","reason":"Exact admitted immutable material, not a mutable source reopen"}
+  ]
+}

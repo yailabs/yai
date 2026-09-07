@@ -10,11 +10,13 @@ path = "src/main.rs"
 [dependencies]
 replai = { git = "https://github.com/mothx9/replai", rev = "df5538c718b8d068432032e7fb116fb8bfab158e" }
 signal-hook = "0.3.18"
+libc = "0.2"
 yai-engine = { path = "../../engine/yai-engine" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rustls = "0.23"
 webpki-roots = "1"
+jsonschema = { version = "0.50.0", default-features = false }
 
 [dev-dependencies]
 rcgen = "0.13"

@@ -25,6 +25,346 @@ pub const DECISION_BASIS_SCHEMA: &str = "yai.decision_basis.v3";
 pub const DECISION_BASIS_SCHEMA_V2: &str = "yai.decision_basis.v2";
 pub const DECISION_BASIS_SCHEMA_V1: &str = "yai.decision_basis.v1";
 
+/// Derived disclosure/constraint surface, not executable authority. A provider
+/// can request these operations only after exact mechanical qualification;
+/// every concrete request still crosses evaluate_operation_admission.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CaseCapabilityView {
+    pub schema: String,
+    pub view_id: String,
+    pub case_id: String,
+    pub tenant_id: String,
+    pub case_generation: u64,
+    pub participant_id: String,
+    pub effective_policy_id: String,
+    pub effective_policy_digest: String,
+    pub entries: Vec<CaseResourceCapability>,
+    pub exclusions: Vec<CaseCapabilityExclusion>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CaseResourceCapability {
+    pub resource: ResourceAttachmentState,
+    pub operation_kind: OperationKind,
+    pub policy_constraints: Vec<EffectivePolicyRule>,
+    pub requires_current_decision: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct CaseCapabilityExclusion {
+    pub resource_id: String,
+    pub operation_kind: OperationKind,
+    pub reason: String,
+}
+
+pub const CASE_CAPABILITY_OUTPUT_SCHEMA: &str = "yai.case_capability_output.v1";
+
+/// Normalized provider candidate, not an Operation, Decision or permission.
+/// The native call identity is retained solely for provider-result correlation.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaseCapabilityOutput {
+    pub schema: String,
+    pub capability_view_id: String,
+    pub text: Option<String>,
+    pub request: Option<CaseCapabilityProposal>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaseCapabilityProposal {
+    pub provider_call_id: String,
+    pub provider_function_name: String,
+    pub resource_id: String,
+    pub configuration_digest: String,
+    pub action: CaseCapabilityAction,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CaseCapabilityAction {
+    Resource {
+        action: crate::effect::access::ResourceAction,
+    },
+    FilesystemWrite {
+        path: String,
+        content: String,
+    },
+}
+
+impl CaseCapabilityAction {
+    pub fn operation_kind(&self) -> OperationKind {
+        match self {
+            Self::Resource { action } => OperationKind::ResourceAccess(action.kind()),
+            Self::FilesystemWrite { .. } => OperationKind::FilesystemWrite,
+        }
+    }
+}
+
+/// Decode only after the caller has established a canonical ProviderResult
+/// from the native capability-output realization contract. JSON-looking prose
+/// on the ordinary text path must never enter this normalizer.
+pub fn normalize_case_capability_candidate(
+    output: &str,
+    view: &CaseCapabilityView,
+    provider_result_id: &str,
+    provider_invocation_id: &str,
+    generation: u64,
+) -> Result<Operation, String> {
+    if output.len() > 131072 {
+        return Err("capability_candidate_bound".into());
+    }
+    let output: CaseCapabilityOutput =
+        serde_json::from_str(output).map_err(|e| format!("capability_candidate_decode:{e}"))?;
+    if output.schema != CASE_CAPABILITY_OUTPUT_SCHEMA || output.capability_view_id != view.view_id {
+        return Err("capability_candidate_view_mismatch".into());
+    }
+    let proposal = output.request.ok_or("capability_candidate_no_request")?;
+    if proposal.provider_call_id.is_empty()
+        || proposal.provider_call_id.len() > 128
+        || proposal.provider_function_name.is_empty()
+        || proposal.provider_function_name.len() > 64
+        || proposal
+            .provider_call_id
+            .chars()
+            .chain(proposal.provider_function_name.chars())
+            .any(char::is_control)
+    {
+        return Err("capability_candidate_call_identity_invalid".into());
+    }
+    let entry = view
+        .entries
+        .iter()
+        .find(|entry| {
+            entry.resource.attachment_id == proposal.resource_id
+                && entry.operation_kind == proposal.action.operation_kind()
+                && entry.resource.access.as_ref().is_some_and(|access| {
+                    access.configuration_digest == proposal.configuration_digest
+                })
+        })
+        .ok_or("capability_candidate_not_admitted_in_view")?;
+    match proposal.action {
+        CaseCapabilityAction::Resource { action } => Operation::from_resource_request(
+            &view.case_id,
+            &view.participant_id,
+            &proposal.resource_id,
+            generation,
+            crate::effect::access::ResourceRequest {
+                schema: crate::effect::access::RESOURCE_REQUEST_SCHEMA.into(),
+                configuration_digest: proposal.configuration_digest,
+                action,
+            },
+            OperationOrigin::ProviderResult {
+                provider_result_id: provider_result_id.into(),
+                provider_invocation_id: provider_invocation_id.into(),
+            },
+        ),
+        CaseCapabilityAction::FilesystemWrite { path, content } => {
+            let raw = serde_json::to_string(&serde_json::json!({
+                "schema":crate::effect::OPERATION_PROPOSAL_SCHEMA,"operation":"filesystem.write",
+                "resource":proposal.resource_id,"path":path,"content":content,
+            }))
+            .map_err(|e| e.to_string())?;
+            crate::effect::normalize_filesystem_write_candidate(
+                &raw,
+                &crate::effect::NormalizationContext {
+                    case_id: &view.case_id,
+                    participant_id: &view.participant_id,
+                    provider_result_id,
+                    provider_invocation_id,
+                    case_generation: generation,
+                    resource: &entry.resource,
+                },
+            )
+            .map_err(|e| {
+                format!(
+                    "capability_filesystem_normalization:{:?}:{}",
+                    e.code, e.detail
+                )
+            })
+        }
+    }
+}
+
+fn operation_selector_matches(
+    operation_kind: &str,
+    resource_kind: &Option<String>,
+    expected_operation: &str,
+    expected_resource: &str,
+) -> bool {
+    operation_kind == expected_operation
+        && resource_kind
+            .as_deref()
+            .is_none_or(|kind| kind == expected_resource)
+}
+
+fn rule_matches_operation(rule: &EffectivePolicyRule, kind: &OperationKind) -> bool {
+    let (operation, resource) = match rule {
+        EffectivePolicyRule::OperationRestriction {
+            operation_kind,
+            resource_kind,
+            ..
+        }
+        | EffectivePolicyRule::ReviewRequirement {
+            operation_kind,
+            resource_kind,
+            ..
+        }
+        | EffectivePolicyRule::AuthorityRequirement {
+            operation_kind,
+            resource_kind,
+            ..
+        }
+        | EffectivePolicyRule::EvidenceObligation {
+            operation_kind,
+            resource_kind,
+            ..
+        } => (operation_kind, resource_kind),
+    };
+    operation_selector_matches(
+        operation,
+        resource,
+        operation_kind_name(kind),
+        operation_resource_kind_name(kind),
+    )
+}
+
+/// Only static impossibility is removed here. Evidence obligations, exact
+/// paths/arguments, review, expiry and generation are re-evaluated when a real
+/// Operation exists. This function cannot produce a Decision or a Grant.
+pub(crate) fn derive_case_capability_view(
+    state: &CaseState,
+    effective: &EffectivePolicy,
+    participant_id: &str,
+) -> Result<CaseCapabilityView, String> {
+    let participant = state
+        .participants
+        .iter()
+        .find(|p| p.participant_id == participant_id)
+        .ok_or("capability_view_participant_not_admitted")?;
+    if state.case_id != effective.case_id
+        || state.tenant_id != effective.tenant_id
+        || state.lifecycle == crate::transition::CaseLifecycle::Closed
+        || state.cancellation.is_some()
+    {
+        return Err("capability_view_case_not_current".into());
+    }
+    let mut entries = Vec::new();
+    let mut exclusions = Vec::new();
+    for resource in &state.resources {
+        if resource
+            .access
+            .as_ref()
+            .is_some_and(|access| !access.participant_ids.iter().any(|id| id == participant_id))
+        {
+            continue; // no disclosure of a resource excluded by its Case envelope
+        }
+        let mut kinds = resource
+            .access
+            .as_ref()
+            .map(|a| {
+                a.operations
+                    .iter()
+                    .copied()
+                    .map(OperationKind::ResourceAccess)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        if resource.kind == ResourceKind::Filesystem
+            && resource.max_write_bytes > 0
+            && !resource.allowed_write_prefix.is_empty()
+        {
+            kinds.push(OperationKind::FilesystemWrite);
+        }
+        for kind in kinds {
+            let rules = effective
+                .rules
+                .iter()
+                .filter(|r| rule_matches_operation(r, &kind))
+                .cloned()
+                .collect::<Vec<_>>();
+            let allow = rules.iter().any(|r| {
+                matches!(
+                    r,
+                    EffectivePolicyRule::OperationRestriction {
+                        effect: PolicyEffect::Allow,
+                        ..
+                    }
+                )
+            });
+            let deny = rules.iter().any(|r| {
+                matches!(
+                    r,
+                    EffectivePolicyRule::OperationRestriction {
+                        effect: PolicyEffect::Deny,
+                        ..
+                    }
+                )
+            });
+            let missing_role = rules.iter().any(|r| matches!(r, EffectivePolicyRule::AuthorityRequirement { subject:AuthoritySubject::Proposer, required_roles, .. }
+                if required_roles.iter().any(|role| !participant.roles.contains(role))));
+            let reason = if deny {
+                Some("explicit_policy_deny")
+            } else if !allow {
+                Some("no_applicable_policy_allow")
+            } else if missing_role {
+                Some("proposer_role_missing")
+            } else {
+                None
+            };
+            if let Some(reason) = reason {
+                exclusions.push(CaseCapabilityExclusion {
+                    resource_id: resource.attachment_id.clone(),
+                    operation_kind: kind,
+                    reason: reason.into(),
+                });
+            } else {
+                entries.push(CaseResourceCapability {
+                    resource: resource.clone(),
+                    operation_kind: kind,
+                    policy_constraints: rules,
+                    requires_current_decision: true,
+                });
+            }
+        }
+    }
+    entries.sort_by(|a, b| {
+        (
+            &a.resource.attachment_id,
+            operation_kind_name(&a.operation_kind),
+        )
+            .cmp(&(
+                &b.resource.attachment_id,
+                operation_kind_name(&b.operation_kind),
+            ))
+    });
+    exclusions.sort_by(|a, b| {
+        (&a.resource_id, operation_kind_name(&a.operation_kind))
+            .cmp(&(&b.resource_id, operation_kind_name(&b.operation_kind)))
+    });
+    let mut view = CaseCapabilityView {
+        schema: "yai.case_capability_view.v1".into(),
+        view_id: String::new(),
+        case_id: state.case_id.clone(),
+        tenant_id: state
+            .tenant_id
+            .clone()
+            .ok_or("capability_view_requires_tenant")?,
+        case_generation: state.generation,
+        participant_id: participant_id.into(),
+        effective_policy_id: effective.effective_policy_id.clone(),
+        effective_policy_digest: effective.semantic_digest.clone(),
+        entries,
+        exclusions,
+    };
+    let bytes = serde_json::to_vec(&view).map_err(|e| e.to_string())?;
+    if view.entries.len() > 32 || view.exclusions.len() > 128 || bytes.len() > 65536 {
+        return Err("case_capability_view_bound_exceeded".into());
+    }
+    view.view_id = format!("case-capability-view:{}", digest_bytes(&bytes));
+    Ok(view)
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct AuthorityTemporalContext {
     pub authority_time_unix_ms: u64,
@@ -289,12 +629,31 @@ pub(crate) fn evaluate_operation_admission(
     let expected_operation_kind = operation_kind_name(&operation.kind);
     let expected_resource_kind = operation_resource_kind_name(&operation.kind);
     let selector_matches = |operation_kind: &str, resource_kind: &Option<String>| {
-        operation_kind == expected_operation_kind
-            && resource_kind
-                .as_deref()
-                .is_none_or(|kind| kind == expected_resource_kind)
+        operation_selector_matches(
+            operation_kind,
+            resource_kind,
+            expected_operation_kind,
+            expected_resource_kind,
+        )
     };
     let mechanical_posture = match operation.kind {
+        OperationKind::ResourceAccess(kind) => {
+            if resource.kind.as_str() != kind.resource_name()
+                || resource
+                    .access
+                    .as_ref()
+                    .zip(operation.resource_request.as_ref())
+                    .is_none_or(|(access, request)| {
+                        access
+                            .admits_request(&operation.participant_id, request)
+                            .is_err()
+                    })
+            {
+                MechanicalPosture::AttachmentMismatch
+            } else {
+                MechanicalPosture::Satisfied
+            }
+        }
         OperationKind::FilesystemWrite => {
             if resource.kind != ResourceKind::Filesystem {
                 MechanicalPosture::AttachmentMismatch
@@ -924,7 +1283,28 @@ pub(crate) fn resolve_canonical_evidence(
         return Err("canonical_evidence_operation_identity_ambiguous".to_string());
     }
 
-    if let OperationOrigin::ProviderResult {
+    if let OperationOrigin::ParticipantRequest {
+        principal_id,
+        participant_link_id,
+        ..
+    } = &operation.origin
+    {
+        let recorded = &history[operation_index];
+        if recorded.source.principal_id.as_ref() == Some(principal_id)
+            && recorded.source.participant_id.as_ref() == Some(&operation.participant_id)
+            && history[..operation_index].iter().any(|transition| {
+                matches!(&transition.payload, TransitionPayload::ParticipantPrincipalLinked { link }
+                    if link.link_id == *participant_link_id
+                        && link.principal_id == *principal_id
+                        && link.participant_id == operation.participant_id)
+            })
+        {
+            resolved.source_provenance_refs = Some(vec![
+                recorded.transition_id.clone(),
+                participant_link_id.clone(),
+            ]);
+        }
+    } else if let OperationOrigin::ProviderResult {
         provider_result_id,
         provider_invocation_id,
     } = &operation.origin
@@ -1157,8 +1537,9 @@ fn sorted_unique(mut values: Vec<String>) -> Vec<String> {
     values
 }
 
-fn operation_kind_name(kind: &OperationKind) -> &'static str {
+pub fn operation_kind_name(kind: &OperationKind) -> &'static str {
     match kind {
+        OperationKind::ResourceAccess(kind) => kind.operation_name(),
         OperationKind::FilesystemWrite => "filesystem.write",
         OperationKind::ProcessSignal => "process.signal",
     }
@@ -1166,6 +1547,7 @@ fn operation_kind_name(kind: &OperationKind) -> &'static str {
 
 fn operation_resource_kind_name(kind: &OperationKind) -> &'static str {
     match kind {
+        OperationKind::ResourceAccess(kind) => kind.resource_name(),
         OperationKind::FilesystemWrite => "filesystem",
         OperationKind::ProcessSignal => "process",
     }
@@ -1199,6 +1581,7 @@ mod tests {
             policy_owner_participant_id: "participant:legacy-owner".to_string(),
             review_requirement: ReviewRequirement::RequireReview,
             process_signal_actions: Vec::new(),
+            access: None,
         }
     }
 

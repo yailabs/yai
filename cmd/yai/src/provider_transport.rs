@@ -161,8 +161,18 @@ fn connect(
     endpoint: &ProviderEndpoint,
     locality: Option<&ProviderLocality>,
     test_roots: Option<RootCertStore>,
+    exact_addresses: Option<&[String]>,
 ) -> Result<Connection, String> {
     let addresses = resolve(endpoint, locality)?;
+    if let Some(admitted) = exact_addresses {
+        if addresses.iter().any(|address| {
+            !admitted
+                .iter()
+                .any(|ip| ip.parse::<std::net::IpAddr>().ok() == Some(address.ip()))
+        }) {
+            return Err("provider_not_dispatched:resource_address_not_admitted".into());
+        }
+    }
     let mut last_error = None;
     let mut socket = None;
     for address in addresses {
@@ -215,6 +225,77 @@ pub(super) struct ProviderHttpResponse {
     pub status: u16,
     pub body: Vec<u8>,
     pub request_bytes_written: usize,
+    pub content_type: Option<String>,
+}
+
+/// Shared HTTP mechanics only. An ordinary service/MCP Resource is never a
+/// ProviderTarget. Its caller must establish independent Case authorization.
+pub(super) fn resource_http(
+    address: &yai_core_engine::effect::access::NetworkResourceAddress,
+    method: &str,
+    relative_path: Option<&str>,
+    body: &[u8],
+    headers: &[(String, String)],
+    max_body: usize,
+) -> Result<ProviderHttpResponse, String> {
+    address.validate()?;
+    if !matches!(method, "GET" | "POST")
+        || max_body == 0
+        || max_body > MAX_HTTP_BODY
+        || body.len() > MAX_HTTP_BODY
+    {
+        return Err("resource_http_request_bounds_invalid".into());
+    }
+    for (name, value) in headers {
+        if name.is_empty()
+            || !name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"!#$%&'*+-.^_`|~".contains(&b))
+            || value
+                .bytes()
+                .any(|b| !(32..=126).contains(&b) && b != b'\t')
+            || !matches!(
+                name.to_ascii_lowercase().as_str(),
+                "accept" | "mcp-protocol-version" | "mcp-method" | "mcp-name"
+            ) && !name.to_ascii_lowercase().starts_with("mcp-param-")
+        {
+            return Err("resource_http_header_not_admitted".into());
+        }
+    }
+    let endpoint = parse_provider_endpoint(&address.endpoint)?;
+    let path = if let Some(path) = relative_path {
+        let path = yai_core_engine::effect::normalize_relative_path(path)?;
+        if path.contains(['%', '?', '#', '\\']) || path.chars().any(char::is_whitespace) {
+            return Err("resource_http_path_invalid".into());
+        }
+        format!("{}/{}", endpoint.path.trim_end_matches('/'), path)
+    } else {
+        endpoint.path.clone()
+    };
+    let credential = address
+        .credential_ref
+        .as_ref()
+        .map(|key| std::env::var(key).map_err(|_| "resource_credential_unavailable".to_string()))
+        .transpose()?;
+    if credential
+        .as_ref()
+        .is_some_and(|value| value.is_empty() || value.bytes().any(|b| !(33..=126).contains(&b)))
+    {
+        return Err("resource_credential_invalid".into());
+    }
+    http_with_options(
+        &endpoint,
+        None,
+        method,
+        &path,
+        body,
+        credential.as_deref(),
+        None,
+        Some(&address.allowed_ip_addresses),
+        headers,
+        max_body,
+        true,
+    )
 }
 
 pub(super) fn provider_http(
@@ -237,11 +318,49 @@ fn provider_http_with_roots(
     api_key: Option<&str>,
     test_roots: Option<RootCertStore>,
 ) -> Result<ProviderHttpResponse, String> {
-    let mut stream = connect(endpoint, locality, test_roots)?;
+    http_with_options(
+        endpoint,
+        locality,
+        method,
+        path,
+        body,
+        api_key,
+        test_roots,
+        None,
+        &[],
+        MAX_HTTP_BODY,
+        false,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn http_with_options(
+    endpoint: &ProviderEndpoint,
+    locality: Option<&ProviderLocality>,
+    method: &str,
+    path: &str,
+    body: &[u8],
+    api_key: Option<&str>,
+    test_roots: Option<RootCertStore>,
+    exact_addresses: Option<&[String]>,
+    extra_headers: &[(String, String)],
+    max_body: usize,
+    allow_chunked: bool,
+) -> Result<ProviderHttpResponse, String> {
+    let mut stream = connect(endpoint, locality, test_roots, exact_addresses)?;
     let mut request = format!(
-        "{method} {path} HTTP/1.1\r\nHost: {}\r\nAccept: application/json\r\nConnection: close\r\n",
+        "{method} {path} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n",
         endpoint.host_header()
     );
+    if !extra_headers
+        .iter()
+        .any(|(name, _)| name.eq_ignore_ascii_case("accept"))
+    {
+        request.push_str("Accept: application/json\r\n");
+    }
+    for (name, value) in extra_headers {
+        request.push_str(&format!("{name}: {value}\r\n"));
+    }
     if let Some(key) = api_key.filter(|key| !key.is_empty()) {
         request.push_str(&format!("Authorization: Bearer {key}\r\n"));
     }
@@ -281,14 +400,20 @@ fn provider_http_with_roots(
     })?;
     let mut response = Vec::new();
     let mut buffer = [0u8; 8192];
+    let started = std::time::Instant::now();
     loop {
+        if allow_chunked && started.elapsed() > IO_TIMEOUT {
+            return Err(format!(
+                "provider_delivery_indeterminate:resource_response_deadline:bytes={written}"
+            ));
+        }
         let count = stream.read(&mut buffer).map_err(|error| {
             format!("provider_delivery_indeterminate:response_read:bytes={written}:{error}")
         })?;
         if count == 0 {
             break;
         }
-        if response.len().saturating_add(count) > MAX_HTTP_HEADERS + MAX_HTTP_BODY {
+        if response.len().saturating_add(count) > MAX_HTTP_HEADERS + max_body {
             return Err(format!(
                 "provider_response_invalid:response_too_large:bytes={written}"
             ));
@@ -326,7 +451,8 @@ fn provider_http_with_roots(
         ));
     }
     let mut content_lengths = Vec::new();
-    let mut transfer_encoding = false;
+    let mut transfer_encodings = Vec::new();
+    let mut content_type = None;
     for line in lines {
         let (name, value) = line
             .split_once(':')
@@ -337,7 +463,13 @@ fn provider_http_with_roots(
             })?);
         }
         if name.eq_ignore_ascii_case("transfer-encoding") {
-            transfer_encoding = true;
+            transfer_encodings.push(value.trim().to_ascii_lowercase());
+        }
+        if name.eq_ignore_ascii_case("content-type") {
+            if content_type.is_some() {
+                return Err("provider_response_invalid:duplicate_content_type".into());
+            }
+            content_type = Some(value.trim().to_string());
         }
     }
     if content_lengths.len() > 1 {
@@ -345,12 +477,21 @@ fn provider_http_with_roots(
             "provider_response_invalid:duplicate_content_length:status={status}:bytes={written}"
         ));
     }
-    if transfer_encoding {
+    if !transfer_encodings.is_empty()
+        && (!allow_chunked || transfer_encodings != ["chunked"] || !content_lengths.is_empty())
+    {
         return Err(format!(
             "provider_response_invalid:transfer_encoding_unsupported:status={status}:bytes={written}"
         ));
     }
-    let body = response[split + 4..].to_vec();
+    let body = if transfer_encodings.is_empty() {
+        response[split + 4..].to_vec()
+    } else {
+        decode_resource_chunks(&response[split + 4..], max_body)?
+    };
+    if body.len() > max_body {
+        return Err("provider_response_invalid:resource_body_bound".into());
+    }
     if let Some(expected) = content_lengths.first().copied() {
         if body.len() < expected {
             return Err(format!(
@@ -372,7 +513,42 @@ fn provider_http_with_roots(
         status,
         body,
         request_bytes_written: written,
+        content_type,
     })
+}
+
+fn decode_resource_chunks(mut input: &[u8], limit: usize) -> Result<Vec<u8>, String> {
+    let mut output = Vec::new();
+    loop {
+        let end = input
+            .windows(2)
+            .position(|w| w == b"\r\n")
+            .ok_or_else(|| "provider_delivery_indeterminate:partial_chunk_header".to_string())?;
+        if end > 128 {
+            return Err("provider_response_invalid:chunk_header_bound".into());
+        }
+        let size = std::str::from_utf8(&input[..end])
+            .ok()
+            .and_then(|value| value.split(';').next())
+            .filter(|value| !value.is_empty() && value.bytes().all(|b| b.is_ascii_hexdigit()))
+            .and_then(|value| usize::from_str_radix(value, 16).ok())
+            .ok_or_else(|| "provider_response_invalid:chunk_size".to_string())?;
+        input = &input[end + 2..];
+        if size == 0 {
+            if input != b"\r\n" {
+                return Err("provider_response_invalid:chunk_trailers_not_admitted".into());
+            }
+            return Ok(output);
+        }
+        if size > limit.saturating_sub(output.len()) {
+            return Err("provider_response_invalid:resource_body_bound".into());
+        }
+        if input.len() < size + 2 || &input[size..size + 2] != b"\r\n" {
+            return Err("provider_delivery_indeterminate:partial_chunk_body".into());
+        }
+        output.extend_from_slice(&input[..size]);
+        input = &input[size + 2..];
+    }
 }
 
 #[cfg(test)]

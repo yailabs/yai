@@ -87,6 +87,7 @@ reading `yai-dev` is not required to discover current YAI.
 
 - [Quickstart](quickstart.md)
 - [Validation guide](test-cases.md)
+- [ZERO-TO-CURRENT Golden operator acceptance](zero-to-current.md)
 - [Research Lab bridge](research-lab-bridge.md)
 - [Research index](research-index.md)
 - [Operational State Mathematics](operational-state-mathematics.md)

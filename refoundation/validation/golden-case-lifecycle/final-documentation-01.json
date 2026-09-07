@@ -1,0 +1,70 @@
+{
+  "run_id": "golden-final-documentation-01",
+  "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+  "pre_state": "Final runtime and fixtures passed release-05/local-union-08; only current documentation/evidence edits afterward",
+  "steps": [
+    {
+      "order": 1,
+      "command": "make check-docs check-layout",
+      "chunk_id": "8586d9",
+      "wall_time_seconds": 0.430693088,
+      "exit_code": 0,
+      "original_token_count": 63,
+      "output": "doc_root_canon: ok\ncheck-doc-canonical-location: ok\ncheck-doc-required-files: ok\ncheck-doc-links: ok (33 files)\ncheck-repository-identity: ok\ncheck-no-old-roots: ok\ncheck-required-layout: ok\ncheck-source-placement: ok\ncheck-source-surface-clean: ok\n"
+    },
+    {
+      "order": 2,
+      "command": "git diff --check",
+      "chunk_id": "486030",
+      "wall_time_seconds": 0.000002154,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    },
+    {
+      "order": 3,
+      "command": "cargo fmt --manifest-path cmd/yai/Cargo.toml -- --check",
+      "chunk_id": "7482cc",
+      "wall_time_seconds": 0.238634674,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    },
+    {
+      "order": 4,
+      "command": "cargo fmt --manifest-path engine/Cargo.toml -- --check",
+      "chunk_id": "7cd4c1",
+      "wall_time_seconds": 0.487012396,
+      "exit_code": 0,
+      "original_token_count": 0,
+      "output": ""
+    },
+    {
+      "order": 5,
+      "command": "env TMPDIR=/tmp CARGO_TARGET_DIR=/home/mothx/computer-science/projects/YAI/yai/target cargo clippy --manifest-path cmd/yai/Cargo.toml --all-targets -- -D warnings",
+      "chunk_id": "f8a59b",
+      "wall_time_seconds": 0.039610853,
+      "exit_code": 0,
+      "original_token_count": 18,
+      "output": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.04s\n"
+    },
+    {
+      "order": 6,
+      "command": "env TMPDIR=/tmp CARGO_TARGET_DIR=/home/mothx/computer-science/projects/YAI/yai/target cargo clippy --manifest-path engine/Cargo.toml --workspace --all-targets -- -D warnings -A clippy::too_many_arguments -A clippy::should_implement_trait",
+      "chunk_id": "b3cb6c",
+      "wall_time_seconds": 0.002061758,
+      "exit_code": 0,
+      "original_token_count": 18,
+      "output": "    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.01s\n"
+    },
+    {
+      "order": 7,
+      "command": "env TMPDIR=/tmp make test-topology",
+      "chunk_id": "ac2b76",
+      "wall_time_seconds": 0.111713033,
+      "exit_code": 0,
+      "original_token_count": 524,
+      "output": "{\"validation_entry\": {\"id\": \"test-topology\", \"kind\": \"make\", \"path\": \"tests/characterization/test_validation_topology.py\", \"selector\": \"test-topology\", \"proof_class\": \"unit\", \"evidence_posture\": \"regression\", \"provider_mode\": \"no_provider\", \"network\": \"none\", \"mutation\": \"temporary_test_metadata\", \"cadence\": \"fast\", \"entrypoint\": \"test-topology\", \"reachability\": \"test_infrastructure\", \"property\": \"Classification and gate drift; absent external dependency cannot pass; no provider dispatch\"}}\ntest_actual_child_failure_reports_class_and_preserves_exit (__main__.TopologyTests.test_actual_child_failure_reports_class_and_preserves_exit) ... deliberate test infrastructure failure\nok\ntest_combined_graph_has_shared_leaf_dependencies_not_repeated_recipes (__main__.TopologyTests.test_combined_graph_has_shared_leaf_dependencies_not_repeated_recipes) ... ok\ntest_cumulative_runbook_is_product_and_preserves_operator_authority (__main__.TopologyTests.test_cumulative_runbook_is_product_and_preserves_operator_authority) ... ok\ntest_duplicate_identity_and_missing_source_fail_closed (__main__.TopologyTests.test_duplicate_identity_and_missing_source_fail_closed) ... ok\ntest_external_absence_is_nonpass_before_any_network_attempt (__main__.TopologyTests.test_external_absence_is_nonpass_before_any_network_attempt) ... ok\ntest_external_provider_cannot_enter_local_publication (__main__.TopologyTests.test_external_provider_cannot_enter_local_publication) ... ok\ntest_failure_remains_nonzero_and_localized (__main__.TopologyTests.test_failure_remains_nonzero_and_localized) ... ok\ntest_fixture_cannot_authorize_external_qualification (__main__.TopologyTests.test_fixture_cannot_authorize_external_qualification) ... ok\ntest_golden_is_an_explicit_cadence_not_an_external_claim (__main__.TopologyTests.test_golden_is_an_explicit_cadence_not_an_external_claim) ... ok\ntest_unclassified_script_and_make_entry_fail_audit (__main__.TopologyTests.test_unclassified_script_and_make_entry_fail_audit) ... ok\n\n----------------------------------------------------------------------\nRan 10 tests in 0.089s\n\nOK\n"
+    }
+  ]
+}

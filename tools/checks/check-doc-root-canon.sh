@@ -80,8 +80,8 @@ grep -Fq 'Old `journal replay`' docs/architecture.md ||
   fail 'legacy journal compatibility boundary missing'
 grep -Fq 'The direct `carrier fs-write` command and Rust primitive were removed' docs/architecture.md ||
   fail 'controlled filesystem boundary implementation missing'
-grep -Fq 'only `filesystem.write`' docs/architecture.md ||
-  fail 'first carrier scope limitation missing'
+grep -Fq 'Resource effects reuse Decision/Grant and fenced PREPARE.' docs/architecture.md ||
+  fail 'controlled resource-effect authority boundary missing'
 grep -Fq 'Authority: historical evidence and work records only.' work/README.md ||
   fail 'work/ is not explicitly de-authorized'
 grep -Fq 'Authority: lab-local procedures, inputs, and captured results only.' labs/README.md ||

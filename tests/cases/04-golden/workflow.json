@@ -1,0 +1,21 @@
+{
+  "definition": {
+    "schema": "yai.workflow_definition.v3",
+    "tenant_id": "tenant:golden",
+    "workflow_key": "golden-governed-release",
+    "declared_version": "1",
+    "name": "Governed Software Change and Release Qualification",
+    "description": "The same Case capabilities and human review used by free work, with explicit evidence, amendment, repair and verification dependencies.",
+    "nodes": [
+      {"node_id":"understand","kind":"human_input","actor_slot":"operator","prompt":"Confirm GOLDEN-42 issue and authorize investigation, not an effect.","required_roles":["workflow-input"],"input_kind":"text","max_bytes":1024},
+      {"node_id":"investigate","kind":"model_work","executor_slot":"model","task":"GOLDEN-INVESTIGATE: Read the immutable issue and attached source, database release channel, service phase and MCP specification. Discover and request admission of the migration note. Derive the correct delay sequence from the independent evidence and assess it with the exact risk capability. Do not modify code yet; conclude after gathering and analyzing this evidence.","output_contract":"case_work","completion":{"predicate":"execution_case_work_completed"},"budgets":{"max_turns":16,"max_operations":15,"max_semantic_units":16384}},
+      {"node_id":"risk-plan","kind":"model_work","executor_slot":"model","task":"Propose a bounded WorkflowPlanPatch adding human history verification between repair and verify. Use node verify-history with operator actor slot and workflow-input role. This is only a proposal; the human must explicitly validate and adopt it.","output_contract":"plan_patch","completion":{"predicate":"execution_provider_result"},"budgets":{"max_turns":1,"max_operations":1,"max_semantic_units":16384}},
+      {"node_id":"repair","kind":"model_work","executor_slot":"model","task":"GOLDEN-REPAIR: Use the already admitted issue/source/database/service/MCP/migration/risk observations. Demonstrate protected-path denial, run the exact test before change, propose the source repair, wait for eligible human review, apply only with YAI permission and rerun the real test. Conclude with the actual process receipt, not a claim from prose.","output_contract":"case_work","completion":{"predicate":"execution_case_work_completed"},"budgets":{"max_turns":12,"max_operations":11,"max_semantic_units":16384}},
+      {"node_id":"verify","kind":"human_input","actor_slot":"operator","prompt":"Inspect effect and passing test receipts, canonical history and replay before concluding the release qualification.","required_roles":["workflow-input"],"input_kind":"text","max_bytes":1024}
+    ],
+    "edges":[{"from":"understand","to":"investigate"},{"from":"investigate","to":"risk-plan"},{"from":"risk-plan","to":"repair"},{"from":"repair","to":"verify"}]
+  },
+  "executor_bindings":[{"slot":"operator","participant_id":"participant:operator"},{"slot":"model","participant_id":"participant:model"}],
+  "resource_bindings":[],
+  "case_bindings":[]
+}

@@ -16,7 +16,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 pub const WORKFLOW_DEFINITION_SCHEMA_V1: &str = "yai.workflow_definition.v1";
-pub const WORKFLOW_DEFINITION_SCHEMA: &str = "yai.workflow_definition.v2";
+pub const WORKFLOW_DEFINITION_SCHEMA_V2: &str = "yai.workflow_definition.v2";
+pub const WORKFLOW_DEFINITION_SCHEMA: &str = "yai.workflow_definition.v3";
 pub const CASE_WORKFLOW_BINDING_SCHEMA_V1: &str = "yai.case_workflow_binding.v1";
 pub const CASE_WORKFLOW_BINDING_SCHEMA: &str = "yai.case_workflow_binding.v2";
 pub const WORKFLOW_NODE_EXECUTION_SCHEMA: &str = "yai.workflow_node_execution.v1";
@@ -208,7 +209,9 @@ impl WorkflowDefinitionInput {
     pub fn validate(&self) -> Result<(), String> {
         if !matches!(
             self.schema.as_str(),
-            WORKFLOW_DEFINITION_SCHEMA | WORKFLOW_DEFINITION_SCHEMA_V1
+            WORKFLOW_DEFINITION_SCHEMA
+                | WORKFLOW_DEFINITION_SCHEMA_V2
+                | WORKFLOW_DEFINITION_SCHEMA_V1
         ) {
             return Err("unsupported_workflow_definition_schema".to_string());
         }
@@ -232,6 +235,20 @@ impl WorkflowDefinitionInput {
         }
         let mut ids = BTreeSet::new();
         for node in &self.nodes {
+            if self.schema != WORKFLOW_DEFINITION_SCHEMA
+                && matches!(
+                    &node.kind,
+                    WorkflowNodeKind::ModelWork {
+                        output_contract: ModelWorkOutputContract::CaseWork,
+                        ..
+                    } | WorkflowNodeKind::ModelWork {
+                        completion: WorkflowPredicate::ExecutionCaseWorkCompleted,
+                        ..
+                    }
+                )
+            {
+                return Err("workflow_case_work_requires_definition_v3".into());
+            }
             node.validate()?;
             if self.schema == WORKFLOW_DEFINITION_SCHEMA_V1
                 && matches!(
@@ -325,7 +342,7 @@ impl WorkflowNode {
                 completion,
                 budgets,
                 resource_slot,
-                output_contract: _,
+                output_contract,
             } => {
                 require_slot(executor_slot)?;
                 if task.is_empty() || task.len() > MAX_WORKFLOW_TASK_BYTES {
@@ -336,6 +353,14 @@ impl WorkflowNode {
                 }
                 completion.validate()?;
                 budgets.validate()?;
+                if (*output_contract == ModelWorkOutputContract::CaseWork)
+                    != matches!(completion, WorkflowPredicate::ExecutionCaseWorkCompleted)
+                {
+                    return Err("workflow_case_work_completion_contract_mismatch".into());
+                }
+                if *output_contract == ModelWorkOutputContract::CaseWork {
+                    budgets.case_work_limits()?.validate()?;
+                }
             }
             WorkflowNodeKind::DeterministicWork {
                 proposer_slot,
@@ -345,6 +370,9 @@ impl WorkflowNode {
                 require_slot(proposer_slot)?;
                 operation.validate()?;
                 completion.validate()?;
+                if matches!(completion, WorkflowPredicate::ExecutionCaseWorkCompleted) {
+                    return Err("workflow_case_work_requires_model_work".into());
+                }
             }
             WorkflowNodeKind::HumanInput {
                 actor_slot,
@@ -481,6 +509,7 @@ pub enum ModelWorkOutputContract {
     #[default]
     Text,
     PlanPatch,
+    CaseWork,
 }
 
 impl ModelWorkOutputContract {
@@ -544,6 +573,23 @@ impl Default for WorkflowBudgets {
 }
 
 impl WorkflowBudgets {
+    pub fn case_work_limits(&self) -> Result<crate::conversation::CaseWorkLimits, String> {
+        self.validate()?;
+        let limits = crate::conversation::CaseWorkLimits {
+            invocations: u16::try_from(self.max_turns)
+                .map_err(|_| "workflow_case_work_budget_invalid")?,
+            operations: u16::try_from(self.max_operations)
+                .map_err(|_| "workflow_case_work_budget_invalid")?,
+            effects: u16::try_from(self.max_operations)
+                .map_err(|_| "workflow_case_work_budget_invalid")?,
+            max_input_units: self
+                .max_semantic_units
+                .checked_mul(4)
+                .ok_or("workflow_case_work_budget_invalid")?,
+        };
+        limits.validate()?;
+        Ok(limits)
+    }
     fn validate(&self) -> Result<(), String> {
         if self.max_turns == 0
             || self.max_turns > 32
@@ -650,6 +696,9 @@ pub enum WorkflowEdgeKind {
 #[serde(tag = "predicate", rename_all = "snake_case", deny_unknown_fields)]
 pub enum WorkflowPredicate {
     ExecutionProviderResult,
+    /// Only the terminal text result of an admitted finite Case work intent;
+    /// intermediate native function requests never satisfy this predicate.
+    ExecutionCaseWorkCompleted,
     ExecutionEffectFinalized,
     ExecutionFilesystemEffectFinalized {
         relative_path: String,
@@ -716,6 +765,7 @@ impl WorkflowPredicate {
     pub fn scope(&self) -> WorkflowPredicateScope {
         match self {
             Self::ExecutionProviderResult
+            | Self::ExecutionCaseWorkCompleted
             | Self::ExecutionEffectFinalized
             | Self::ExecutionFilesystemEffectFinalized { .. }
             | Self::DecisionOutcome { .. }
@@ -2460,6 +2510,31 @@ pub fn evaluate_predicate(
     predicate.validate()?;
     let mut evidence_refs = Vec::new();
     let value = match predicate {
+        WorkflowPredicate::ExecutionCaseWorkCompleted => {
+            let execution_id =
+                execution_id.ok_or("workflow_execution_predicate_requires_execution")?;
+            history.iter().any(|transition| {
+                let TransitionPayload::ProviderResultRecorded { result_id, invocation_id, output, .. } = &transition.payload else { return false; };
+                if !transition.causal_refs.iter().any(|r| r == execution_id) { return false; }
+                let Some(intent) = history.iter().find_map(|t| match &t.payload {
+                    TransitionPayload::ConversationExecutionIntentRecorded { request }
+                        if request.workflow_execution_id.as_deref() == Some(execution_id)
+                        && request.work_limits.is_some() => Some(request), _ => None,
+                }) else { return false; };
+                let Some(selection_id) = history.iter().find_map(|t| match &t.payload {
+                    TransitionPayload::ProviderInvocationStarted { invocation_id: id, governance: Some(g), .. }
+                        if id == invocation_id => Some(&g.selection_id), _ => None,
+                }) else { return false; };
+                if !history.iter().any(|t| matches!(&t.payload,
+                    TransitionPayload::ProviderSelectionRecorded { selection }
+                        if &selection.selection_id == selection_id && t.causal_refs.contains(&intent.request_id))) { return false; }
+                let Ok(output) = serde_json::from_str::<crate::admission::CaseCapabilityOutput>(output) else { return false; };
+                if output.schema == crate::admission::CASE_CAPABILITY_OUTPUT_SCHEMA && output.request.is_none() && output.text.is_some() {
+                    evidence_refs.extend([intent.request_id.clone(), result_id.clone()]);
+                    true
+                } else { false }
+            })
+        }
         WorkflowPredicate::ExecutionProviderResult => {
             let execution_id = execution_id
                 .ok_or_else(|| "workflow_execution_predicate_requires_execution".to_string())?;
@@ -2714,7 +2789,8 @@ fn execution_operation_ids(history: &[Transition], execution_id: &str) -> BTreeS
                         workflow_execution_id,
                         ..
                     } => workflow_execution_id == execution_id,
-                    crate::effect::OperationOrigin::CompatibilityReview { .. } => false,
+                    crate::effect::OperationOrigin::CompatibilityReview { .. }
+                    | crate::effect::OperationOrigin::ParticipantRequest { .. } => false,
                 } =>
             {
                 Some(operation.operation_id.clone())
@@ -2992,6 +3068,66 @@ mod tests {
             nodes,
             edges,
         }
+    }
+
+    #[test]
+    fn case_work_requires_terminal_contract_and_version() {
+        let mut node = model("work");
+        let WorkflowNodeKind::ModelWork {
+            output_contract,
+            completion,
+            ..
+        } = &mut node.kind
+        else {
+            unreachable!()
+        };
+        *output_contract = ModelWorkOutputContract::CaseWork;
+        *completion = WorkflowPredicate::ExecutionCaseWorkCompleted;
+        let valid = input(vec![node.clone()], vec![]);
+        valid.validate().unwrap();
+        for old_schema in [WORKFLOW_DEFINITION_SCHEMA_V1, WORKFLOW_DEFINITION_SCHEMA_V2] {
+            let mut old = valid.clone();
+            old.schema = old_schema.into();
+            assert_eq!(
+                old.validate().unwrap_err(),
+                "workflow_case_work_requires_definition_v3"
+            );
+        }
+        let WorkflowNodeKind::ModelWork { completion, .. } = &mut node.kind else {
+            unreachable!()
+        };
+        *completion = WorkflowPredicate::ExecutionProviderResult;
+        assert_eq!(
+            input(vec![node], vec![]).validate().unwrap_err(),
+            "workflow_case_work_completion_contract_mismatch"
+        );
+        let excessive = WorkflowBudgets {
+            max_turns: 25,
+            ..Default::default()
+        };
+        assert!(excessive.case_work_limits().is_err());
+        let definition = WorkflowDefinition::build(valid, "principal:p", 1).unwrap();
+        let (binding, mut state) = bound_state(&definition);
+        state.generation = 2;
+        let mut history = history_for_state(&state);
+        history[1]
+            .causal_refs
+            .push("workflow-execution:work".into());
+        // A bare real ProviderResult, including "done" prose, is not the
+        // terminal result of an exact canonical finite work intent.
+        assert!(
+            !evaluate_predicate(
+                &definition,
+                &binding,
+                &state,
+                &history,
+                "work",
+                Some("workflow-execution:work"),
+                &WorkflowPredicate::ExecutionCaseWorkCompleted
+            )
+            .unwrap()
+            .value
+        );
     }
 
     #[test]

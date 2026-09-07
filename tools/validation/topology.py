@@ -42,7 +42,7 @@ def read_catalog(path=CATALOG):
             raise ValueError(f"unknown executor: {row['id']}")
         if row["provider_mode"] not in {"no_provider", "loopback_fixture", "external_yvex", "external_other"}:
             raise ValueError(f"unknown provider mode: {row['id']}")
-        if row["cadence"] not in {"fast", "publication", "endurance", "external", "manual", "support", "historical"}:
+        if row["cadence"] not in {"fast", "publication", "golden", "endurance", "external", "manual", "support", "historical"}:
             raise ValueError(f"unknown cadence: {row['id']}")
         if row["evidence_posture"] not in {"regression", "characterization", "qualification", "historical", "support"}:
             raise ValueError(f"unknown evidence posture: {row['id']}")
@@ -64,6 +64,8 @@ def read_catalog(path=CATALOG):
 
 
 def lane_rows(rows, lane):
+    if lane == "golden-local":
+        return [r for r in rows if r["cadence"] == "golden"]
     if lane == "characterization":
         return [r for r in rows if r["evidence_posture"] == "characterization"
                 and r["cadence"] in {"fast", "publication"}]
@@ -77,17 +79,17 @@ def lane_rows(rows, lane):
 
 
 def make_graph(rows):
-    for lane in sorted(CLASSES - {"manual", "historical"} | {"fast", "local", "release", "characterization"}):
+    for lane in sorted(CLASSES - {"manual", "historical"} | {"fast", "local", "release", "characterization", "golden-local"}):
         # Order is stable, shared leaves execute once within a Make invocation.
         deps = sorted({r["entrypoint"] for r in lane_rows(rows, lane)
                        if r["kind"] in {"make", "rust"}})
-        print(f"VALIDATION_{lane.upper()} := {' '.join(deps)}")
+        print(f"VALIDATION_{lane.upper().replace('-', '_')} := {' '.join(deps)}")
     for entry in sorted({r["entrypoint"] for r in rows if r['kind']=='rust' and r["entrypoint"].startswith("test-rust-")}):
         print(f".PHONY: {entry}\n{entry}: validation-rust-build")
         print(f"\t@python3 tools/validation/topology.py rust --entry {entry}")
     # Validation builds use installed dependencies; never fetch crates on a
     # supposedly local lane. Ordinary `make build` can still acquire dependencies.
-    local = sorted({r['entrypoint'] for r in lane_rows(rows, 'release')})
+    local = sorted({r['entrypoint'] for r in lane_rows(rows, 'release') + lane_rows(rows, 'golden-local')})
     print(f"{' '.join(local)}: export CARGO_NET_OFFLINE = true")
 
 
@@ -156,6 +158,13 @@ def audit(rows, with_rust=True):
     expected = {r['entrypoint'] for r in lane_rows(rows, 'release') if r['kind']=='make'}
     if set(actual) != expected or len(actual) != len(set(actual)):
         raise ValueError(f"Make recipe reachability/duplication differs: missing={sorted(expected-set(actual))}, extra={sorted(set(actual)-expected)}")
+    golden = {r['entrypoint'] for r in lane_rows(rows, 'golden-local') if r['kind']=='make'}
+    if not golden or golden & expected:
+        raise ValueError('Golden lifecycle must be explicit and separate from the ordinary release gate')
+    golden_plan = subprocess.check_output(['make', '--no-print-directory', '-n', 'test-golden-local'], cwd=ROOT, text=True)
+    actual_golden = re.findall(r'topology.py label --entry ([\w-]+)', golden_plan)
+    if set(actual_golden) != golden or len(actual_golden) != len(golden):
+        raise ValueError('Golden Make reachability differs from classification')
     rust_entries = set(re.findall(r'topology.py rust --entry ([\w-]+)', plan))
     expected_rust = {r['entrypoint'] for r in lane_rows(rows, 'release')
                      if r['entrypoint'].startswith('test-rust-') and r['kind']=='rust'}

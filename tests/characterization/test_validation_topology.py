@@ -4,6 +4,7 @@ import csv
 import importlib.util
 import io
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -30,11 +31,11 @@ class TopologyTests(unittest.TestCase):
 
     def test_fixture_cannot_authorize_external_qualification(self):
         with self.assertRaisesRegex(ValueError, "fixture cannot qualify"):
-            self.altered(lambda rows: rows[0].update(proof_class="external"))
+            self.altered(lambda rows: next(r for r in rows if r['cadence']=='fast').update(proof_class="external"))
 
     def test_external_provider_cannot_enter_local_publication(self):
         with self.assertRaisesRegex(ValueError, "external provider in local gate"):
-            self.altered(lambda rows: rows[0].update(provider_mode="external_yvex", network="external"))
+            self.altered(lambda rows: next(r for r in rows if r['cadence']=='fast').update(provider_mode="external_yvex", network="external"))
 
     def test_unclassified_script_and_make_entry_fail_audit(self):
         rows = topology.read_catalog()
@@ -67,11 +68,42 @@ class TopologyTests(unittest.TestCase):
         self.assertIn('DEPLOYMENT_LIMITATION', proc.stdout)
         self.assertNotIn('qualification_state: passed', proc.stdout)
 
+    def test_golden_is_an_explicit_cadence_not_an_external_claim(self):
+        rows = topology.read_catalog()
+        golden = topology.lane_rows(rows, 'golden-local')
+        self.assertTrue(golden)
+        self.assertTrue(all(r['proof_class']=='product' and r['provider_mode']=='loopback_fixture' for r in golden))
+        self.assertFalse({r['id'] for r in golden} & {r['id'] for r in topology.lane_rows(rows, 'release')})
+        env = {k:v for k,v in os.environ.items() if not k.startswith(('YVEX_', 'YAI_EXTERNAL_'))}
+        proc = subprocess.run(['python3', str(ROOT/'tests/characterization/case-resource-access/test_reference_free.py'), '--external'],
+                              cwd=ROOT, env=env, capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 3, proc.stdout+proc.stderr)
+        self.assertIn('"external_request_attempted": false', proc.stdout)
+        self.assertIn('DEPLOYMENT_LIMITATION', proc.stdout)
+
     def test_failure_remains_nonzero_and_localized(self):
         # The real executor is libtest/Make, not a result counter that can turn
         # an empty or failed selection into success. Invalid selections refuse.
         with self.assertRaisesRegex(ValueError, 'empty Rust execution group'):
             topology.run_rust(topology.read_catalog(), 'test-rust-unclassified')
+
+    def test_cumulative_runbook_is_product_and_preserves_operator_authority(self):
+        manual = (ROOT / 'docs/zero-to-current.md').read_text()
+        terminal = (ROOT / 'cmd/yai/src/conversation_terminal.rs').read_text()
+        self.assertIn('Authority: cumulative human-executable acceptance', manual)
+        self.assertIn('HUMAN_GOLDEN_CASE = PENDING_OPERATOR', manual)
+        self.assertIn('CANDIDATE_DIGEST', manual)
+        self.assertIn('integrity_digest', manual)
+        self.assertNotIn('target/debug/yai', manual)
+        self.assertNotIn('provider_governance_server.py', manual)
+        self.assertNotIn('test_reference_free.py', manual)
+        commands = re.findall(r'^(/\w+)(?: |$)', manual, re.M)
+        self.assertTrue(commands)
+        for command in set(commands):
+            self.assertIn('"' + command, terminal, command)
+        for path in re.findall(r'python3 ([^ ]+)', manual):
+            self.assertEqual(path, 'tests/cases/04-golden/world.py')
+        self.assertIn('cumulative', (ROOT / 'AGENTS.md').read_text())
 
     def test_actual_child_failure_reports_class_and_preserves_exit(self):
         with tempfile.TemporaryDirectory(prefix='yai-topology-failure-') as temp:

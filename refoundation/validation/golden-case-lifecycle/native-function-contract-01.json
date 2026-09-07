@@ -1,0 +1,17 @@
+{
+  "run_id": "native-function-contract-01",
+  "order": 1,
+  "cwd": "/home/mothx/computer-science/projects/YAI/yai",
+  "command": "env TMPDIR=/tmp CARGO_TARGET_DIR=/home/mothx/computer-science/projects/YAI/yai/target cargo test --manifest-path cmd/yai/Cargo.toml native_function_ -- --nocapture",
+  "material_pre_state": "Each contract run binds a fresh loopback HTTP listener; no Case state or external provider",
+  "proof_classes": [
+    "unit",
+    "contract"
+  ],
+  "provider_modes": [
+    "no_provider",
+    "loopback_fixture"
+  ],
+  "exit": 0,
+  "stdout_stderr": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s\n     Running unittests src/main.rs (target/debug/deps/yai-ce2c6fdf21a26f80)\n\nrunning 2 tests\ntest command_adapters::provider::tests::native_function_candidates_are_bounded_typed_and_never_prose_authority ... ok\nnative_function_contract: provider=loopback_fixture actual_http_requests=4 correlated_result=required no_external_operation=true no_yvex=true\ntest command_adapters::provider_governance_cli::tests::native_function_probe_requires_real_correlated_roundtrip ... ok\n\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 45 filtered out; finished in 0.01s\n\n"
+}

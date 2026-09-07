@@ -141,6 +141,8 @@ pub(crate) enum Mutation {
 pub(crate) enum OutputCapability {
     Structured,
     PlainCompat,
+    /// A real terminal interaction, never an ANSI-bearing JSON stream.
+    Interactive,
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -1394,6 +1396,87 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         Structured,
         &[pos("case", Some("--case"))],
         NO_FLAGS
+    ),
+    op!(
+        "yai.case.resource.import",
+        ["case", "resource", "import"],
+        "Admit an exact resource definition and Participant envelope",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[flag("--file", Some("DEFINITION.json"), true)]
+    ),
+    op!(
+        "yai.case.history",
+        ["case", "history"],
+        "Inspect a bounded tail of the canonical Transition Ledger",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[flag("--limit", Some("COUNT"), false)]
+    ),
+    op!(
+        "yai.case.workbench",
+        ["case", "workbench"],
+        "Open the REPLAI Case workbench with an exact operator and optional cognitive executor",
+        Product,
+        LocalInteractive,
+        Mutating,
+        Interactive,
+        &[pos("case", Some("--case"))],
+        &[
+            aliased_flag(
+                "--participant",
+                SUBJECT_ALIAS,
+                Some("PARTICIPANT"),
+                true,
+                "--subject"
+            ),
+            flag("--executor", Some("PARTICIPANT"), false)
+        ]
+    ),
+    op!(
+        "yai.case.capabilities",
+        ["case", "capabilities"],
+        "Inspect current Participant-scoped resource requestability; not execution permission",
+        Advanced,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[flag("--participant", Some("PARTICIPANT"), true)]
+    ),
+    op!(
+        "yai.case.verify",
+        ["case", "verify"],
+        "Compare current CaseState with canonical Transition replay",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.case.resource.request",
+        ["case", "resource", "request"],
+        "Submit an authenticated typed resource request through current policy",
+        Advanced,
+        LocalDomain,
+        LongRunning,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--participant", Some("PARTICIPANT"), true),
+            flag("--resource", Some("RESOURCE"), true),
+            flag("--request-id", Some("REQUEST"), true),
+            flag("--file", Some("REQUEST.json"), true),
+            flag("--generation", Some("GENERATION"), false)
+        ]
     ),
     op!(
         "yai.case.memory.show",
@@ -3065,6 +3148,14 @@ pub(crate) fn validate() -> Result<(), String> {
                 descriptor.operation_id
             ));
         }
+        if descriptor.output == OutputCapability::Interactive
+            && descriptor.lane != Lane::LocalInteractive
+        {
+            return Err(format!(
+                "interactive output requires the terminal lane: {}",
+                descriptor.operation_id
+            ));
+        }
         let path = descriptor.path.join(" ");
         if !paths.insert(path.clone()) {
             return Err(format!("duplicate canonical path: {path}"));
@@ -3134,10 +3225,11 @@ mod tests {
             .iter()
             .filter(|descriptor| descriptor.visibility == Visibility::Product)
         {
-            assert_eq!(
-                descriptor.output,
-                OutputCapability::Structured,
-                "{}",
+            assert!(
+                descriptor.output == OutputCapability::Structured
+                    || (descriptor.output == OutputCapability::Interactive
+                        && descriptor.lane == Lane::LocalInteractive),
+                "{}: non-interactive Product operations require structured output",
                 descriptor.operation_id
             );
         }

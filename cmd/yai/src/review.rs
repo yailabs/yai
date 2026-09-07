@@ -245,7 +245,33 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
     let reason = named_arg(args, "--reason")?;
     let authenticated = authenticate_local()?;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let initial_state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    resolve_review_action(
+        &store,
+        &authenticated,
+        &case_id,
+        review_id,
+        None,
+        requested,
+        &reason,
+        optional_arg(args, "--failpoint").as_deref(),
+    )
+}
+
+/// Typed application seam shared by the CLI and Case workbench. An explicitly
+/// selected reviewer still needs an authenticated Principal link and current
+/// policy eligibility. This action never dispatches an external effect.
+#[allow(clippy::too_many_arguments)]
+pub(super) fn resolve_review_action(
+    store: &LmdbRecordStore,
+    authenticated: &yai_core_engine::security::AuthenticatedPrincipal,
+    case_id: &str,
+    review_id: &str,
+    selected_reviewer: Option<&str>,
+    requested: ReviewActionKind,
+    reason: &str,
+    failpoint: Option<&str>,
+) -> Result<(), String> {
+    let initial_state = store.get_case_state_authorized(authenticated, case_id)?;
     let tenant_id = initial_state
         .tenant_id
         .clone()
@@ -254,7 +280,11 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
     let reviewer = initial_state
         .principal_participant_links
         .iter()
-        .find(|link| link.principal_id == principal_id && link.tenant_id == tenant_id)
+        .find(|link| {
+            link.principal_id == principal_id
+                && link.tenant_id == tenant_id
+                && selected_reviewer.is_none_or(|selected| link.participant_id == selected)
+        })
         .map(|link| link.participant_id.clone())
         .ok_or_else(|| "authenticated_principal_participant_link_required".to_string())?;
     if initial_state.lifecycle != CaseLifecycle::Open {
@@ -264,7 +294,7 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
     if initial_review.schema != REVIEW_REQUEST_SCHEMA {
         return Err("legacy_review_is_compatibility_only".to_string());
     }
-    if let Some(commit) = store.invalidate_review_if_policy_unusable(&case_id, review_id)? {
+    if let Some(commit) = store.invalidate_review_if_policy_unusable(case_id, review_id)? {
         let invalidated = case_review(&commit.state, review_id)?;
         println!("review_invalidation: committed");
         println!("review_id: {review_id}");
@@ -272,12 +302,12 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
         println!("invalidation_reason: {:?}", invalidated.invalidation_reason);
         return Err("review_authority_invalidated".to_string());
     }
-    let state = store.get_case_state_authorized(&authenticated, &case_id)?;
+    let state = store.get_case_state_authorized(authenticated, case_id)?;
     let review = case_review(&state, review_id)?;
     if !reviewer_is_eligible(&state, &review, &reviewer) {
         return Err("reviewer_not_eligible_for_case_review".to_string());
     }
-    let normative = store.case_policy_status(&case_id)?;
+    let normative = store.case_policy_status(case_id)?;
     let effective_policy = normative
         .effective_policy
         .as_ref()
@@ -291,7 +321,7 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
     {
         return Err("review_policy_basis_stale".to_string());
     }
-    let transitions = store.list_case_transitions(&case_id)?;
+    let transitions = store.list_case_transitions(case_id)?;
     if !review_is_open(&review.status) {
         let same_resolution = matches!(
             (&review.status, &requested),
@@ -300,7 +330,7 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
         );
         if same_resolution {
             println!("review_action: already_resolved_idempotent");
-            print_review(&review, &case_id);
+            print_review(&review, case_id);
             return Ok(());
         }
         return Err(format!(
@@ -320,25 +350,25 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
                 && existing.reason == normalized_reason
             {
                 println!("review_action: already_recorded_idempotent");
-                print_review(&review, &case_id);
+                print_review(&review, case_id);
                 return Ok(());
             }
         }
     }
     let action = build_authenticated_review_action(
         &review,
-        &case_id,
+        case_id,
         &tenant_id,
         &principal_id,
         &reviewer,
         requested.clone(),
-        &reason,
+        reason,
         state.generation,
         LOCAL_OPERATOR_SOURCE,
     )?;
     let state_after_action =
-        commit_review_action(&store, &authenticated, &tenant_id, &state, &action)?;
-    if optional_arg(args, "--failpoint").as_deref() == Some("review_r3") {
+        commit_review_action(store, authenticated, &tenant_id, &state, &action)?;
+    if failpoint == Some("review_r3") {
         eprintln!("review_crash_injected: review_r3");
         std::process::exit(103);
     }
@@ -347,20 +377,18 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
         let current_review = case_review(&state_after_action, review_id)?;
         let operation = operation_for_review(&transitions, &current_review)?;
         let (effective, commit) = store.derive_and_commit_policy_review_decision(
-            &case_id,
+            case_id,
             &operation.operation_id,
             &current_review.review_id,
             &action.action_id,
         )?;
         let state_after_decision = commit.state;
         effective_decision_id = Some(effective.decision_id.clone());
-        let failpoint = optional_arg(args, "--failpoint");
-        if effective.outcome == DecisionOutcome::Allow && failpoint.as_deref() == Some("review_r4")
-        {
+        if effective.outcome == DecisionOutcome::Allow && failpoint == Some("review_r4") {
             eprintln!("review_crash_injected: review_r4");
             std::process::exit(104);
         }
-        if effective.outcome == DecisionOutcome::Deny && failpoint.as_deref() == Some("review_r6") {
+        if effective.outcome == DecisionOutcome::Deny && failpoint == Some("review_r6") {
             eprintln!("review_crash_injected: review_r6");
             std::process::exit(106);
         }
@@ -368,7 +396,7 @@ pub(super) fn review_resolve(args: &[String], requested: ReviewActionKind) -> Re
             return Err("review_resolution_closed_case_race".to_string());
         }
     }
-    update_review_derivations(&store, &case_id);
+    update_review_derivations(store, case_id);
     println!("review_action: committed");
     println!("review_id: {review_id}");
     println!("case_id: {case_id}");

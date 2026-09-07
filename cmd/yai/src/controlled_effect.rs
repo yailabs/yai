@@ -19,8 +19,7 @@ use yai_core_engine::effect::{
     EffectOutcome, ExecutionGrant, FilesystemObservation, LocalFilesystemBinding,
     LocalProcessBinding, NormalizationContext, Operation, OperationKind, PreparedEffect,
     PreparedProcessEffect, ProcessCarrierResult, ProcessSignalAction, ReconciliationConclusion,
-    ResourceState, EXECUTION_GRANT_SCHEMA, OPERATION_PROPOSAL_SCHEMA,
-    PROCESS_SIGNAL_PROPOSAL_SCHEMA,
+    ResourceState, OPERATION_PROPOSAL_SCHEMA, PROCESS_SIGNAL_PROPOSAL_SCHEMA,
 };
 use yai_core_engine::resource_control::{ResourceFence, ResourceFenceAuthority};
 use yai_core_engine::store::lmdb::PreparedCommitOutcome;
@@ -31,6 +30,9 @@ use yai_core_engine::transition::{
 };
 
 const CONTROLLED_EFFECT_COMPONENT: &str = "yai.controlled_filesystem_effect";
+
+#[path = "controlled_effect/access.rs"]
+pub(super) mod access;
 
 fn id_component(value: &str) -> String {
     value
@@ -172,6 +174,7 @@ pub(super) fn case_attach_filesystem(args: &[String]) -> Result<(), String> {
         policy_owner_participant_id: policy_owner.clone(),
         review_requirement: review_requirement.clone(),
         process_signal_actions: Vec::new(),
+        access: None,
     };
     attachment.validate()?;
 
@@ -296,6 +299,7 @@ pub(super) fn case_attach_process(args: &[String]) -> Result<(), String> {
         policy_owner_participant_id: policy_owner.clone(),
         review_requirement: review_requirement.clone(),
         process_signal_actions: actions.clone(),
+        access: None,
     };
     attachment.validate()?;
     if let Some(existing) = state
@@ -522,7 +526,7 @@ fn commit_review_request(
 
 fn commit_grant(store: &LmdbRecordStore, grant: &ExecutionGrant) -> Result<CaseState, String> {
     let mut causal_refs = vec![grant.operation_id.clone(), grant.decision_id.clone()];
-    if grant.schema == EXECUTION_GRANT_SCHEMA {
+    if grant.has_current_policy_basis() {
         if let Some(basis_id) = &grant.decision_basis_id {
             causal_refs.push(basis_id.clone());
         }
@@ -744,12 +748,25 @@ fn exit_at_failpoint(name: &str, code: i32) -> ! {
 }
 
 fn update_derived_after_commit(store: &LmdbRecordStore, case_id: &str, args: &[String]) {
+    update_derived_after_commit_with_reporting(store, case_id, args, true)
+}
+
+fn update_derived_after_commit_with_reporting(
+    store: &LmdbRecordStore,
+    case_id: &str,
+    args: &[String],
+    verbose: bool,
+) {
     if args.iter().any(|arg| arg == "--inject-derived-failure") {
         eprintln!("derived_update: injected_failure_canonical_state_preserved");
         return;
     }
     match store.materialize_graph_relations_for_case(case_id) {
-        Ok(report) => println!("derived_graph_edges: {}", report.relations_written),
+        Ok(report) => {
+            if verbose {
+                println!("derived_graph_edges: {}", report.relations_written);
+            }
+        }
         Err(error) => eprintln!("derived_update_failed_canonical_state_preserved: {error}"),
     }
     match store
@@ -758,7 +775,11 @@ fn update_derived_after_commit(store: &LmdbRecordStore, case_id: &str, args: &[S
             derive_operational_memory(case_id, &transitions)
                 .and_then(|build| store.replace_case_operational_memory(&build).map(|_| build))
         }) {
-        Ok(build) => println!("derived_memory_entries: {}", build.entries.len()),
+        Ok(build) => {
+            if verbose {
+                println!("derived_memory_entries: {}", build.entries.len());
+            }
+        }
         Err(error) => eprintln!("derived_memory_failed_canonical_state_preserved: {error}"),
     }
 }
@@ -876,6 +897,13 @@ pub(super) fn advance_controlled_filesystem_candidate(
             resource: &resource,
         };
         let normalized = match resource.kind {
+            ResourceKind::ProcessRunner
+            | ResourceKind::Database
+            | ResourceKind::HttpService
+            | ResourceKind::Mcp
+            | ResourceKind::Discovery => {
+                return Err("resource_access_requires_typed_capability_request".into());
+            }
             ResourceKind::Filesystem => {
                 normalize_filesystem_write_candidate(&provider_result.raw_output, &context)
             }
@@ -920,11 +948,85 @@ pub(super) fn advance_controlled_filesystem_candidate(
         let state = commit_operation(&store, &operation)?;
         (operation, state)
     };
-    println!("operation_normalization: accepted");
-    println!("operation_id: {}", operation.operation_id);
-    println!(
+    advance_canonical_controlled_operation(args, &store, &operation)
+}
+
+/// Shared carrier/authority advancement for an already canonical Operation.
+/// The normalizer (legacy typed proposal, Workflow or native capability result)
+/// does not choose a different execution path after canonical admission.
+pub(super) fn advance_canonical_controlled_operation(
+    args: &[String],
+    store: &LmdbRecordStore,
+    operation: &Operation,
+) -> Result<ControlledEffectTurnResult, String> {
+    advance_canonical_controlled_operation_with_reporting(args, store, operation, true)
+}
+
+/// Application caller consumes typed outcomes, not engineering stdout.
+pub(super) fn advance_case_filesystem_operation(
+    store: &LmdbRecordStore,
+    operation: &Operation,
+) -> Result<ControlledEffectTurnResult, String> {
+    if operation.kind != OperationKind::FilesystemWrite {
+        return Err("case_filesystem_operation_kind_required".into());
+    }
+    advance_canonical_controlled_operation_with_reporting(&[], store, operation, false)
+}
+
+fn advance_canonical_controlled_operation_with_reporting(
+    args: &[String],
+    store: &LmdbRecordStore,
+    operation: &Operation,
+    verbose: bool,
+) -> Result<ControlledEffectTurnResult, String> {
+    macro_rules! report { ($($arg:tt)*) => { if verbose { println!($($arg)*); } }; }
+    let operation = operation.clone();
+    let case_id = operation.case_id.clone();
+    let case_id = case_id.as_str();
+    let attachment_id = operation.resource_attachment_id.clone();
+    let attachment_id = attachment_id.as_str();
+    let state = store
+        .get_case_state(case_id)?
+        .ok_or("controlled_operation_case_missing")?;
+    let resource = resource_for_case(&state, attachment_id)?;
+    let existing = store.list_case_transitions(case_id)?;
+    if !existing.iter().any(|t|matches!(&t.payload,TransitionPayload::OperationRecorded {operation:exact} if exact == &operation)) {
+        return Err("controlled_operation_not_canonical".into());
+    }
+    if let Some(effect) = state
+        .effects
+        .iter()
+        .find(|effect| effect.operation_id == operation.operation_id)
+    {
+        // PREPARE without a terminal record is possibly delivered. The existing
+        // reconciliation surface must establish its outcome; a new host call
+        // must not blindly re-enter a carrier after restart.
+        return Ok(ControlledEffectTurnResult {
+            status: if effect.status == EffectLifecycle::Finalized {
+                ControlledEffectTurnStatus::Finalized
+            } else {
+                ControlledEffectTurnStatus::Indeterminate
+            },
+            operation_id: Some(operation.operation_id),
+            decision_id: Some(effect.decision_id.clone()),
+            review_id: None,
+            effect_id: Some(effect.effect_id.clone()),
+            receipt_id: effect.receipt_id.clone(),
+            outcome: effect.outcome.clone(),
+        });
+    }
+    if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
+        return Err("case_closed_or_cancelled_new_effect_forbidden".into());
+    }
+    if matches!(operation.kind, OperationKind::ResourceAccess(_)) {
+        return Err("resource_access_requires_typed_capability_execution".into());
+    }
+    report!("operation_normalization: accepted");
+    report!("operation_id: {}", operation.operation_id);
+    report!(
         "operation_kind: {}",
         match operation.kind {
+            OperationKind::ResourceAccess(kind) => kind.operation_name(),
             OperationKind::FilesystemWrite => "filesystem.write",
             OperationKind::ProcessSignal => "process.signal",
         }
@@ -988,7 +1090,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
                     &initial,
                     state_after_initial.generation,
                 )?;
-                commit_review_request(&store, case_id, &review)?;
+                commit_review_request(store, case_id, &review)?;
                 if matches!(
                     failpoint(args).as_deref(),
                     Some("review_after_request" | "review_r2")
@@ -1003,11 +1105,11 @@ pub(super) fn advance_controlled_filesystem_candidate(
                     | ReviewResolution::PendingOperator
                     | ReviewResolution::Deferred
             ) {
-                update_derived_after_commit(&store, case_id, args);
-                println!("decision: require_review");
-                println!("review_id: {}", review.review_id);
-                println!("execution_grant: none");
-                println!("external_effect: none");
+                update_derived_after_commit_with_reporting(store, case_id, args, verbose);
+                report!("decision: require_review");
+                report!("review_id: {}", review.review_id);
+                report!("execution_grant: none");
+                report!("external_effect: none");
                 return Ok(ControlledEffectTurnResult {
                     status: ControlledEffectTurnStatus::AwaitingReview,
                     operation_id: Some(operation.operation_id),
@@ -1112,27 +1214,27 @@ pub(super) fn advance_controlled_filesystem_candidate(
         state_after_decision = commit.state;
         decision = refreshed;
     }
-    println!("decision_id: {}", decision.decision_id);
-    println!("decision_reason: {}", decision.reason);
+    report!("decision_id: {}", decision.decision_id);
+    report!("decision_reason: {}", decision.reason);
     if let Some(basis) = &decision.decision_basis {
-        println!("decision_basis_id: {}", basis.basis_id);
-        println!("effective_policy_id: {}", basis.effective_policy_id);
-        println!(
+        report!("decision_basis_id: {}", basis.basis_id);
+        report!("effective_policy_id: {}", basis.effective_policy_id);
+        report!(
             "matched_policy_rules: {}",
             basis.matched_rule_refs.join(",")
         );
-        println!(
+        report!(
             "authority_requirements: {}",
             serde_json::to_string(&basis.authority)
                 .map_err(|error| format!("authority_render_failed: {error}"))?
         );
-        println!(
+        report!(
             "evidence_obligations: {}",
             serde_json::to_string(&basis.obligations)
                 .map_err(|error| format!("obligation_render_failed: {error}"))?
         );
     }
-    println!(
+    report!(
         "decision: {}",
         match decision.outcome {
             DecisionOutcome::Allow => "allow",
@@ -1141,9 +1243,9 @@ pub(super) fn advance_controlled_filesystem_candidate(
         }
     );
     if decision.outcome == DecisionOutcome::Deny {
-        update_derived_after_commit(&store, case_id, args);
-        println!("execution_grant: none");
-        println!("external_effect: none");
+        update_derived_after_commit_with_reporting(store, case_id, args, verbose);
+        report!("execution_grant: none");
+        report!("external_effect: none");
         return Ok(ControlledEffectTurnResult {
             status: ControlledEffectTurnStatus::Denied,
             operation_id: Some(operation.operation_id.clone()),
@@ -1171,11 +1273,11 @@ pub(super) fn advance_controlled_filesystem_candidate(
         }
         let grant =
             issue_policy_execution_grant(&operation, &decision, state_after_decision.generation)?;
-        commit_grant(&store, &grant)?;
+        commit_grant(store, &grant)?;
         grant
     };
-    println!("execution_grant_id: {}", grant.grant_id);
-    println!(
+    report!("execution_grant_id: {}", grant.grant_id);
+    report!(
         "execution_grant_decision_basis_id: {}",
         grant.decision_basis_id.as_deref().unwrap_or("none")
     );
@@ -1188,7 +1290,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
 
     if operation.kind == OperationKind::ProcessSignal {
         return advance_process_signal_after_grant(
-            args, &store, &existing, &operation, &decision, &grant, &resource,
+            args, store, &existing, &operation, &decision, &grant, &resource,
         );
     }
 
@@ -1253,17 +1355,17 @@ pub(super) fn advance_controlled_filesystem_candidate(
             ));
         }
         let prepared = prepare_fenced_effect(&operation, &decision, &grant, pre_observation)?;
-        commit_prepare(&store, &prepared)?
+        commit_prepare(store, &prepared)?
     };
     let fence = prepared
         .resource_fence
         .as_ref()
         .ok_or_else(|| "prepared_effect_resource_fence_missing".to_string())?;
-    println!("effect_id: {}", prepared.effect_id);
-    println!("resource_id: {}", fence.resource_id);
-    println!("resource_epoch: {}", fence.resource_epoch);
-    println!("resource_fence_id: {}", fence.fence_id);
-    println!("effect_state: prepared_durable_before_mutation");
+    report!("effect_id: {}", prepared.effect_id);
+    report!("resource_id: {}", fence.resource_id);
+    report!("resource_epoch: {}", fence.resource_epoch);
+    report!("resource_fence_id: {}", fence.fence_id);
+    report!("effect_state: prepared_durable_before_mutation");
     if failpoint(args).as_deref() == Some("after_prepare_before_effect") {
         exit_at_failpoint("after_prepare_before_effect", 85);
     }
@@ -1274,7 +1376,7 @@ pub(super) fn advance_controlled_filesystem_candidate(
         _ => CarrierFailpoint::None,
     };
     let result = execute_fenced_filesystem_write(
-        &store,
+        store,
         fence,
         &operation,
         &decision,
@@ -1293,14 +1395,14 @@ pub(super) fn advance_controlled_filesystem_candidate(
         EffectOutcome::Conflict | EffectOutcome::Indeterminate
     ) {
         let state = commit_indeterminate(
-            &store,
+            store,
             &prepared,
             result.detail.clone(),
             Some(result.post_observation),
         )?;
-        update_derived_after_commit(&store, case_id, args);
-        println!("effect_state: indeterminate");
-        println!("case_generation: {}", state.generation);
+        update_derived_after_commit_with_reporting(store, case_id, args, verbose);
+        report!("effect_state: indeterminate");
+        report!("case_generation: {}", state.generation);
         return Ok(ControlledEffectTurnResult {
             status: ControlledEffectTurnStatus::Indeterminate,
             operation_id: Some(operation.operation_id),
@@ -1316,17 +1418,17 @@ pub(super) fn advance_controlled_filesystem_candidate(
         eprintln!("prepared_receipt_id: {}", receipt.receipt_id);
         exit_at_failpoint("after_receipt_before_finalize", 87);
     }
-    commit_finalize(&store, &prepared, &result)?;
+    commit_finalize(store, &prepared, &result)?;
     if failpoint(args).as_deref() == Some("after_terminal_resource_release_commit") {
         exit_at_failpoint("after_terminal_resource_release_commit", 89);
     }
-    println!("effect_receipt_id: {}", receipt.receipt_id);
-    println!("effect_outcome: {:?}", result.outcome);
-    println!("effect_state: finalized");
-    update_derived_after_commit(&store, case_id, args);
+    report!("effect_receipt_id: {}", receipt.receipt_id);
+    report!("effect_outcome: {:?}", result.outcome);
+    report!("effect_state: finalized");
+    update_derived_after_commit_with_reporting(store, case_id, args, verbose);
     let transitions = store.list_case_transitions(case_id)?;
     validate_finalized_effect_chain(&transitions, &prepared.effect_id)?;
-    println!("effect_chain_closure: valid");
+    report!("effect_chain_closure: valid");
     Ok(ControlledEffectTurnResult {
         status: ControlledEffectTurnStatus::Finalized,
         operation_id: Some(operation.operation_id),

@@ -70,6 +70,28 @@ messages, object sections and line-oriented tables; the machine renderer emits
 untruncated and ANSI-free. Human success uses stdout; warnings, hints and errors
 use stderr. JSON success is stdout-only and JSON error is stderr-only.
 
+The explicit Product terminal entry `yai case workbench CASE --participant HUMAN
+--executor MODEL` has an `interactive` output contract on `LOCAL_INTERACTIVE`.
+It uses native REPLAI and rejects `--json` before terminal acquisition; it does
+not pretend its terminal event stream is a structured one-shot response.
+All non-interactive Product operations still require structured output. Exact
+inspection and automation remain available through those one-shot surfaces.
+The workbench invokes typed application actions, not a child YAI executable.
+`/work` commits an explicit finite execution budget with SEND; a resource
+function request remains candidate material subject to current policy, review
+and effect admission. Ordinary text SEND does not implicitly acquire tools.
+
+Workbench vocabulary includes `/attach FILE`, `/policy publish FILE REASON`,
+explicit `/connect ENDPOINT MODEL --trust approve --attest evidence:REF`,
+`/read`, `/discover`, `/admit`, `/material`, `/query`, `/fetch`, `/catalog`, `/test`,
+`/operation ID` before human `/review`, bounded `/work`, and same-Turn `/retry`.
+`/workflow bind|run|input|advance` and `/workflow patch validate|adopt` reuse the
+existing Workflow owner. `/handoff offer|accept|result|reconcile` is explicit
+cross-Case material exchange, never resource/authority transfer. `/rebuild`
+repairs disposable views and verifies unchanged ledger plus replay; it does not
+invent an embedding profile. The full [cumulative procedure](zero-to-current.md)
+distinguishes shell bootstrap from REPLAI actions and external prerequisites.
+
 Color is semantic and restrained, never the sole state indicator. Non-TTY and
 JSON output are undecorated; `NO_COLOR` disables ANSI on TTYs. No command enters
 an alternate screen or a hidden TUI.
