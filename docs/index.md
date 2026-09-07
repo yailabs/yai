@@ -8,9 +8,11 @@ it cannot silently change YAI's constitution, current architecture, or roadmap.
 
 1. [Constitution](constitution.md) — what must remain true independent of the
    current implementation.
-2. [Architecture](architecture.md) — what the frozen executable repository
+2. [Architecture](architecture.md) — what the current executable repository
    actually implements.
 3. [Roadmap](../ROADMAP.md) — the delta and ordered source-refoundation work.
+   Its [post-I10 target](semantic-state-execution-target.md) separates adopted
+   direction from provisional mechanisms; it is not current implementation.
 4. Reference contracts as needed:
    [semantics](reference/semantics.md),
    [state and transitions](reference/state-transitions.md),
@@ -28,9 +30,9 @@ does not replace these owners.
 | Architecture | [architecture.md](architecture.md) | source-, test-, and reachability-backed current truth | target behavior as current capability |
 | Reference | [reference/](reference/) | stable concepts and boundary contracts | project schedule or executable status |
 | Roadmap | [ROADMAP.md](../ROADMAP.md) | gaps, sequencing, gates, and unresolved choices | completed behavior before evidence exists |
+| Architectural target | [semantic-state-execution-target.md](semantic-state-execution-target.md) | post-I10 direction and falsifiers, subordinate to Constitution and Roadmap | implemented State Fabric/compiler/paging, frozen schemas or new owners |
 | Operations | [quickstart.md](quickstart.md), [test-cases.md](test-cases.md) | executable procedures and validation labels | semantic doctrine |
-| Audit/evidence | `refoundation/audits/`, `labs/`, tests | frozen findings, experiments, and behavior proof | current architectural authority |
-| Migration | `../refoundation/doc-refoundation/` from the YAI repository root, later migration records | a bounded before/after transition | permanent doctrine |
+| Audit/evidence | `refoundation/foundation-recovery/`, `refoundation/integration/`, `refoundation/validation/`, labs and tests | frozen findings, experiments, qualification and bounded before/after records | current architectural authority or target completion without execution evidence |
 | Research | [research index](research-index.md), [research bridge](research-lab-bridge.md), [operational-state mathematics](operational-state-mathematics.md) | non-canonical hypotheses, provenance, and promoted design input | runtime truth without implementation evidence |
 | Development instructions | [CONTRIBUTING](../CONTRIBUTING.md), [AGENTS](../AGENTS.md) | contribution and automation rules | product/runtime semantics |
 
@@ -54,13 +56,20 @@ boundary, and stable multi-consumer contract.
 
 ## Current status
 
-The Architecture baseline is YAI commit
-`db183ae4c56bd16c7e6f31787ee4d90a51496d6d`. The worktree had pre-existing
-research/header/spine/notebook changes when this documentation refoundation
-began; those changes are not treated as frozen executable truth.
-
-The architecture remains pre-refoundation. The Constitution is intentionally
-stronger. The Roadmap is the only document permitted to bridge that gap.
+Reconciled publication anchor: `426b5086cc668a3f04b68e39b80a36ffa6faa3ca`
+([R5](../refoundation/integration/replai-r5/REPORT.md)), whose parent is the
+semantic baseline `fec2f17b0e71e6e12e8f40a37c5f44d874f4b7d5` (I06).
+REPLAI is the sole native editor; R5 removed obsolete vendored linenoise without
+changing cognitive semantics or the qualified pin. TEST.TOPOLOGY.0 remains live.
+[Architecture](architecture.md) describes the implemented W20/I01–I06 foundation,
+not the old pre-refoundation snapshot. [Roadmap](../ROADMAP.md) distinguishes
+**I01–I06 COMPLETE**, **I07 UNSELECTED**, and the post-I10 Semantic State /
+Execution Compilation program **RECORDED** as a future target. I07–I10 are not
+specified to preserve numbering. A mechanism in the target document is not a
+runtime component.
+The [alignment evidence](../refoundation/validation/post-i10-semantic-state-alignment/REPORT.md)
+records reconciliation against I06 and R5 without rewriting their published
+source or evidence.
 
 ## De-authorized material
 

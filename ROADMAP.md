@@ -4,6 +4,40 @@ Authority: implementation delta between [the constitution](docs/constitution.md)
 and [the current executable architecture](docs/architecture.md). A named
 concept or stage does not automatically justify a source subsystem.
 
+## Current sequence and authority
+
+The current implementation includes W19/H19, W20, I01–I06, TEST.TOPOLOGY.0
+and the native REPLAI R4 consumer with the published R5 vendor removal.
+Sections titled "Completed boundary" retain
+their checkpoint scope; old exclusions there are not a claim that a later
+completed wave is absent. [Architecture](docs/architecture.md) owns current
+source truth; historical reports retain their original evidence limitations.
+
+**I01–I06 COMPLETE. I07 UNSELECTED.** The reconciled publication anchor is R5
+`426b5086cc668a3f04b68e39b80a36ffa6faa3ca`, whose parent is the completed I06
+semantic closure `fec2f17b0e71e6e12e8f40a37c5f44d874f4b7d5`.
+Neither is reopened or rewritten as future work. The next implementation
+boundary will be selected after this documentation closure from current
+repository pressure and requires explicit authorization. I07–I10 are not
+invented to preserve numbering; this alignment starts no runtime work.
+
+| Layer | Implemented property / evidence |
+|---|---|
+| W19 / H19 | [Derived indexing](refoundation/foundation-recovery/wave-19/WAVE-19-REPORT.md) and [source-revalidated physical hardening](refoundation/foundation-recovery/hardening-19/HARDENING-19-REPORT.md) |
+| W20 | [Derived Episodes, semantic assertions, support, contradictions, retention and no-reinference rebuild](refoundation/foundation-recovery/wave-20/WAVE-20-REPORT.md) |
+| I01 | [Immutable multipart content and canonical Turns](refoundation/foundation-recovery/interlock-01/INTERLOCK-I01-REPORT.md); [frontend-independent host](refoundation/foundation-recovery/interlock-01/interaction-closure/POST-I01-INTERACTION-CLOSURE.md) |
+| I02 | [Semantic suitability, exact bindings, plans and lanes](refoundation/foundation-recovery/interlock-02/INTERLOCK-I02-REPORT.md) |
+| I03 | [Exact typed realization and auxiliary content provenance](refoundation/foundation-recovery/interlock-03/INTERLOCK-I03-REPORT.md) |
+| I04 | [Bounded direct/composed execution and restart reuse](refoundation/foundation-recovery/interlock-04/INTERLOCK-I04-REPORT.md) |
+| I05 | [Pinned/arbitrated target choice before exact execution](refoundation/foundation-recovery/interlock-05/INTERLOCK-I05-REPORT.md) |
+| I06 | [Canonical conversation intent and cognitive host routing](refoundation/foundation-recovery/interlock-06/REPORT.md) |
+| Horizontal engineering | [Test proof/provider axes](refoundation/validation/test-topology-0/REPORT.md); [REPLAI R4](refoundation/integration/replai-r4/REPORT.md) and [R5 vendor removal](refoundation/integration/replai-r5/REPORT.md), cognitive semantics and qualified pin unchanged |
+
+These are bounded implemented facts, not blanket live-provider qualification.
+The remaining I-series is separate from the conditional
+[post-I10 program](#post-i10-program--semantic-state-fabric-and-execution-compilation).
+H20, W21, W22 and Studio remain separately gated, not authorized by that program.
+
 ## Objective
 
 Recover the strongest executable foundations of the original YAI through a
@@ -419,7 +453,7 @@ forest, Workflow, supervisor or embedded-law topology.
 
 ## Post-W19 work-selection gate
 
-There is no active numbered Foundation Wave. A next source task requires
+At the W19 checkpoint there was no active numbered Foundation Wave. A next source task requires
 executable product, deployment or external-consumer evidence that identifies a
 specific missing property. W19 was admitted by explicit long-horizon memory
 product pressure after H18; it did not authorize H19. Distributed consensus,
@@ -427,7 +461,9 @@ production trust and credential provisioning, higher-order memory
 consolidation, governed read/list/stat/search capabilities, retention policy,
 background indexing and richer diagnostics remain candidate pressure areas,
 not pre-authorized semantic owners. Their classifications and non-claims are
-maintained in the W19 dossier.
+maintained in the W19 dossier. H19 and W20 subsequently closed their admitted
+index-hardening and episodic/semantic-memory deltas; their reports, not this
+historical candidate list, establish completion.
 
 ## Completed boundary — adaptive Workflow semantic closure
 
@@ -498,9 +534,9 @@ sessions or model runtime state into owners.
 The provider-governance envelope remains the permission/routing boundary and
 ProviderQualification v3 remains mechanical evidence; neither is replaced by
 semantic suitability. Plans perform no provider dispatch, network access,
-content derivation, YVEX activation or model execution. I03 retains typed media
-realization, native-versus-auxiliary execution, execution-provider adapters and
-dynamic arbitration. Replia/Studio, H20, W21 and W22 remain outside I02.
+content derivation, YVEX activation or model execution. Subsequent I03 closed
+typed media realization and execution-provider adaptation; dynamic arbitration
+was separately closed by I05. REPLAI/Studio, H20, W21 and W22 remain outside I02.
 
 ## Completed boundary — typed provider realization and auxiliary execution
 
@@ -603,3 +639,41 @@ and future frontend attachment/capture actions. Noninteractive legacy diagnostic
 prompt and bounded operational Case runtime keep their separate purposes.
 No REPLAI pin/R5 work, Product `yai chat`, Studio, H20, W21 or W22 begins here.
 See [I06 evidence](refoundation/foundation-recovery/interlock-06/REPORT.md).
+
+## Post-I10 program — semantic state fabric and execution compilation
+
+Authority: **ARCHITECTURAL DECISION / TARGET**. The post-I10 Semantic State /
+Execution Compilation program is **RECORDED**, not implemented or authorized to
+start. Its entry remains conditional on explicit Interlock closure and program
+authorization. The post-I10 name is a future horizon, not a reservation of
+I07–I10 implementations. I07 is UNSELECTED; subsequent boundaries and the
+program's internal wave order require demonstrated pressure, not numbering.
+
+YAI's primitive is governed transformation of durable semantic/operational
+state, not a model invocation or agent loop. Model-visible context is a
+disposable execution working set over Case continuity. **State Fabric** means
+the composition of existing history, owned payload, current materialization,
+derived views and execution boundaries, never a new owner, database, daemon,
+registry or service.
+
+The program investigates a semantic working-state model and provider-independent
+execution representation, working-state compilation, scoped semantic references
+and demand paging, context locality, model-proposed typed deltas, cold-start/model
+substitution invariance and target-native lowering. `ExecutionFrame` is only a
+provisional design term; semantic paging and recurrent-state lowering remain
+**HYPOTHESIS / RESEARCH PRESSURE**, not specified APIs or promised capabilities.
+
+The target is context sufficient for `ActiveWorkingSet(CurrentTask)`, not context
+growing by default with Case history. Large context remains valid for large
+active computations. Case-age independence is falsifiable, not universally
+proven by today's bounded frames. Models propose candidate material; only the
+proper typed admission and authority/evidence closure can advance Case state.
+
+The [focused target doctrine](docs/semantic-state-execution-target.md) defines
+the five concerns, payload/reference split, scoped multi-client continuity,
+execution-compilation hypothesis, exact-versus-fuzzy access paths and six
+future falsifiers: cold-model substitution, Case-age locality, derived-state
+amnesia, provider-state amnesia, state-page locality and authority isolation.
+Those evaluations must retain task/provenance oracles, explicit budgets and
+TEST.TOPOLOGY.0 proof/provider labels. Existing W19/H19/W20 and Interlock proofs
+are positive controls, not already-passing evidence for the complete program.

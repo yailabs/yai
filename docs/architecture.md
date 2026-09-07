@@ -5,12 +5,21 @@ foundation, the closed I01 multipart-conversation interlock, its
 provider-independent interaction-host closure, the I02 cognitive-binding
 planning interlock, the I03 typed provider-realization boundary, and the I04
 bounded cognitive-composition boundary, followed by I05 governed cognitive
-target arbitration and I06 conversation-host cognitive routing. Historical checkpoints and
+target arbitration and I06 conversation-host cognitive routing. R5 subsequently
+removed the obsolete vendored editor without changing cognitive semantics or
+the qualified REPLAI pin. Historical checkpoints and
 exact executable evidence remain in `refoundation/foundation-recovery/`.
 
 This document includes current contradictions. It does not claim that the
 [Constitution](constitution.md) is implemented. Target changes and sequencing
 belong only in the [Roadmap](../ROADMAP.md).
+
+The [post-I10 semantic-state target](semantic-state-execution-target.md) is
+deliberately separate. No general State Compiler, ExecutionFrame or semantic
+demand-paging interface is implemented by that document. Current bounded
+Projection/Residency/ContextFrame, memory and cognitive execution are footholds,
+not proof of Case-age-independent working sets or arbitrary target-native state
+lowering. "State Fabric" names an architectural composition, not a source owner.
 
 ## Executable summary
 
@@ -279,9 +288,10 @@ local-operator action, not a model-usable filesystem capability.
 owns the application-side interaction algorithm, not conversation truth. It
 accepts ordered typed parts and controller actions without parsing terminal
 text, can commit a Turn independently of execution, and invokes an already
-committed text Turn through the same bounded Projection, ContextFrame,
-ProviderSelection, ProviderInvocation, and ProviderResult owners used by other
-model paths. This conversation path has no implicit ResourceAttachment,
+committed typed Turn with its canonical execution intent through the shared
+I05/I02 planner and I03/I04 realization/composition boundary. The same bounded
+Projection, ContextFrame, ProviderSelection, ProviderInvocation and ProviderResult
+owners remain in use. This conversation path has no implicit ResourceAttachment,
 Workflow, Effect, Policy, or operational-runtime budget. Retry cites the same
 canonical Turn rather than creating another one.
 
@@ -295,6 +305,8 @@ already dispatched buffered request.
 
 [The native REPLAI frontend](replai-terminal.md) supplies `yai prompt` with
 terminal editing, history, paste, resize/redraw and scoped terminal ownership.
+It is the sole native interactive editor; [R5](../refoundation/integration/replai-r5/REPORT.md)
+removed the obsolete vendored linenoise, not the qualified REPLAI dependency.
 YAI translates events into controller actions; transient edits never publish
 content or commit a Turn. Submission commits ordered text before execution.
 `case enter` retains its inspection/shell setup role. Noninteractive `--once`
@@ -619,6 +631,28 @@ ProviderGovernance and require an exact loopback `text_embedding`
 qualification. Exact scan is bounded to 50,000 documents; HNSW/ANN remains an
 explicit deferred accelerator after measured exact-query characterization.
 
+[`memory_hierarchy.rs`](../engine/yai-engine/src/memory_hierarchy.rs) adds W20's
+deterministic structural Episodes and typed evidence-bound semantic assertions.
+Epistemic class (MechanicallyGrounded, EvidenceBoundInference,
+ProviderOriginatedClaim, ControlHistory) is separate from lifecycle; repetition
+does not promote a provider claim into an observed fact. Bounded support graphs,
+contradictions and declared mechanical supersession retain exact provenance.
+Generation-based retention changes retrieval posture, not canonical history.
+The hierarchy rebuilds from typed Transitions and exact recorded consolidation
+ProviderResults under the bound normalizer, without re-inference. It owns no
+independent memory truth. This does not make every new conversation object
+automatically memory material.
+
+W20 representation v2 and RetrievalSet v3 admit operational, episodic and
+semantic families under the combined H19 bound. H19 selected-source revalidation
+still resolves current qualified sources before Projection; indexed text is not
+trusted authority. Projection/ContextFrame retain family, epistemic class,
+lifecycle and support. See [W20](../refoundation/foundation-recovery/wave-20/WAVE-20-REPORT.md)
+and [H19](../refoundation/foundation-recovery/hardening-19/HARDENING-19-REPORT.md)
+for the bounded proof and historical external-acceptance limitations. These
+are access/derivation algorithms, not a universal Memory database or implemented
+semantic paging service.
+
 The compiler fails before rendering if the participant lacks the exact
 `model/model_context` admission. It includes the participant's own binding,
 current provider/model binding, logical resources, latest Decision, all
@@ -681,10 +715,20 @@ ledger and CaseState unchanged. OpenAI-compatible usage fields are captured
 when supplied; token counts and latency are invocation telemetry rather than
 operational authority. Unavailable usage remains unknown.
 
-There is still no TLS, streaming/cancellation, authoritative token estimator,
-native YVEX/KV protocol, embedding/learned ranking, semantic compression, or
-ContextDelta consumer. The context-residency lab remains research evidence and
-does not prove KV reuse.
+The current transport includes TLS in
+[`provider_transport.rs`](../cmd/yai/src/provider_transport.rs), and W19/H19
+include qualified embeddings. Streaming/transport-abort semantics, authoritative
+token estimation, a native YVEX/KV protocol, learned ranking/compression and a
+ContextDelta consumer remain absent. Host cancellation gates future dispatch;
+it does not promise abort of an already delivered request. The context-residency
+lab remains research evidence and does not prove KV reuse.
+
+TEST.TOPOLOGY.0 keeps proof class, evidence posture and provider mode orthogonal.
+[tests/README.md](../tests/README.md) and [the validation guide](test-cases.md)
+own gate selection. Local HTTP/TLS/PTY qualification does not establish external
+YVEX interoperability or model quality. This architecture alignment reruns
+documentation guards only; historical runtime passes are cited, not recreated
+as new execution evidence.
 
 ## Current agentless Case runtime
 
@@ -747,6 +791,7 @@ participates.
 | `engine/yai-engine/src/context.rs` | bounded typed Projection compilation, ContextFrame construction, provenance and the OpenAI-compatible render contract | product-reachable derived semantic compiler/render boundary |
 | `engine/yai-engine/src/residency.rs` | deterministic mandatory/retained/reintroduced/omitted semantic selection and budget accounting | product-reachable pure derived planner; no persistent authority |
 | `engine/yai-engine/src/memory.rs` | deterministic operational-memory derivation, provenance validation, supersession and qualified bounded retrieval; legacy MemoryCandidate summary compatibility | product-reachable derived algorithm/store contract; never canonical authority |
+| `engine/yai-engine/src/memory_hierarchy.rs` | structural Episodes, typed semantic assertions, version-bound consolidation normalization, support/contradictions/retention and hierarchy rebuild | W20 derived algorithms, no new canonical memory owner |
 | `engine/yai-engine/src/memory_index.rs` | deterministic memory representation/profile/embedding contracts, corpus/index manifests, BM25, exact cosine, hybrid RRF and atomic disposable index storage | product-reachable derived algorithm/store contract; no authority or independent owner |
 | `cmd/yai/src/controlled_effect.rs` + `engine/yai-engine/src/effect.rs` | controlled proposal/admission/recovery orchestration and the Grant-validating Rust filesystem carrier | product-reachable first constitutional effect family |
 | `cmd/yai/src/review.rs` | Case-native typed participant actions and effective Decision recording; never carrier execution | product-reachable human review boundary |
@@ -781,7 +826,7 @@ from one checkout.
 | Case plus materialized CaseState | implemented and replayable for provider/review/resource/operation/grant/effect refs and exact policy bindings | extend only for demonstrated future consumers; migrate daemon hot/fixture state only if it becomes canonical input |
 | summary is presentation only | canonical reducers and migrated paths do not parse it; old projection/frame and analytics records use the compatibility decoder | migrate or retire remaining legacy-only producers and views |
 | Projection/Residency/ContextFrame/KV separation | typed Projection, pure `yai.residency_plan.v1`, independent ContextFrame and distinct render identity are implemented; opaque continuation is optional and tokens/KV are absent from canonical state | semantic units and rendered-size estimation are conservative rather than tokenizer-authoritative; no ContextDelta consumer |
-| provenance-bound operational memory | `yai.operational_memory.v1` is deterministically derived; W19 content-addresses typed representation documents, keeps encoder/profile identity exact, builds disposable BM25/exact-cosine indexes, qualifies before deterministic RRF, and integrates selected entries through the existing Projection/ContextFrame path | ANN and learned reranking/consolidation remain deferred; no global retention policy |
+| provenance-bound memory | OperationalMemory remains derived; W19/H19 source-revalidate qualified BM25/exact-cosine retrieval; W20 adds Episodes, evidence-bound assertions and recorded-result consolidation rebuild through multi-family RetrievalSet v3 | ANN/learned reranking remain deferred; W20 generation-based retrieval retention is not universal deletion/privacy policy or general semantic paging |
 | agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops, typed human pause/resume, LMDB run admission and restart tests | generalized operation families, distributed admission and daemon scheduling are absent |
 | provider replacement preserves semantic continuity | real HTTP Provider A→filesystem FINALIZE→Provider B, same-provider model replacement, continuation invalidation and provider restart are deterministic product tests | generalized routing/economics and native runtime continuation protocols are deliberately absent |
 | derived data rebuilds from canonical state | graph and OperationalMemory rebuild from typed transitions; W19 corpus/index manifests are content-addressed, stale/corrupt-aware, atomically replaceable and add no LMDB DB; profile replacement creates an independent namespace | adaptive background scheduling, compression and full typed analytics inputs |

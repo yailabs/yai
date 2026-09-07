@@ -56,7 +56,7 @@ grep -Fq 'Authority: implementation truth.' docs/architecture.md ||
   fail 'architecture authority declaration missing'
 grep -Fq 'Authority: implementation delta' ROADMAP.md ||
   fail 'roadmap authority declaration missing'
-grep -Fq 'YAI governs the admitted transformation of canonical operational state.' docs/constitution.md ||
+grep -Fq 'YAI governs the admitted transformation of durable semantic and operational state.' docs/constitution.md ||
   fail 'constitutional primitive missing'
 grep -Fq '`Space` is rejected as a canonical owner.' docs/constitution.md ||
   fail 'Space rejection missing'

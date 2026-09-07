@@ -1,12 +1,16 @@
 # YAI constitution
 
-Authority: constitutional target. This document states invariants for the next
-implementation refoundation. It does not claim that the current repository
+Authority: constitutional target. This document states invariants across
+implementation evolution. It does not claim that the current repository
 implements them; [Architecture](architecture.md) owns that truth.
 
 ## Primitive
 
-YAI governs the admitted transformation of canonical operational state.
+YAI governs the admitted transformation of durable semantic and operational state.
+
+Conversation admission, for example, does not require an external effect.
+Model invocation or an agent loop is a possible computation inside that system,
+not its universal organizing primitive.
 
 An admitted transformation is a typed transition accepted into YAI's canonical
 history under the applicable identity, scope, policy, provenance, and state
@@ -14,7 +18,7 @@ rules. Admission to history is not permission to execute an external effect. A
 denial, provider failure, internal state change, expired grant, or unresolved
 effect can be a valid committed transition.
 
-The operational transition is the primitive. Evidence closure is an invariant
+The admitted transition is the primitive. Evidence closure is an invariant
 of that transition: every committed claim must link the typed basis and
 observations appropriate to its phase and outcome. No successful external
 effect is required for a transition to be valid.
@@ -32,6 +36,12 @@ explicit lineage.
 `CaseState` is the materialized consequence of committed transitions for one
 Case generation. It may be rebuilt. It does not turn Case into a mutable God
 Object, and it cannot advance without a committed transition.
+
+Chats, threads and interaction sessions are views over Case continuity, not
+cognitive-memory owners. Sharing a Case means sharing governed continuity under
+each Participant's scope and disclosure, not copying memory between chats or
+granting every client access to everything. A frontend session is not a new
+Space or ChatStore.
 
 ### Scope
 
@@ -59,25 +69,29 @@ delegation, model/provider association, disclosure, authority, and resource
 access are separate typed Bindings or transition inputs; registration grants
 none implicitly.
 
-`Agent` is rejected as a canonical runtime owner. A product may call
-`model + role + projection + bindings + permissions` an agent. That composition
-owns no canonical memory, authority, resources, execution, state, tools, or
-Case continuity. A future Agent owner requires an independently durable
+`Agent` is rejected as a canonical runtime owner. A product may call a
+Participant plus cognitive role, model/provider bindings, Projection or
+working-state profile, authority/disclosure, allowed capabilities/resources,
+optional Workflow and runtime budgets an agent. This describes a possible
+product composition, not an implemented Agent schema. The name grants ownership
+of neither Case, memory, model, tools, resources, database, authority, execution
+truth nor historical continuity. A future Agent owner requires an independently durable
 lifecycle or transition that Participant, Binding, Case, and Transition cannot
 represent.
 
 ## State authority
 
-YAI has one canonical historical authority: the committed Transition Ledger.
+For Case history, YAI has one canonical authority: the committed Transition Ledger.
 Materialized current state is transactionally maintained from that ledger.
 They may share one physical ACID database, but they are not ontologically equal.
 
 ```text
-Committed Transition Ledger        canonical historical authority
-Materialized Current CaseState     transactional materialization
-Graph / Index / Memory / Analytics derived and rebuildable
-Participant / Model / Operator View projection
-Runtime hot state                  cache
+Committed Transition Ledger         canonical Case historical authority
+Current CaseState                   authoritative current materialization; rebuildable
+Immutable owned content/artifacts   non-reconstructible payload; exact identity/provenance
+Graph / indexes / derived memory / analytics   rebuildable access structures
+Projection / execution working set  consumer-specific derived view
+Provider continuation / KV / recurrent state / runtime hot state   optimization
 ```
 
 The ledger cannot be replaced by a graph, current row, summary, model memory,
@@ -88,7 +102,16 @@ closure, phase rules, and generation; it rebuilds materialized state and later
 derivations. It is not copying one ambiguous store into another and calling
 both canonical.
 
-Database technology and concurrency strategy are deliberately undecided.
+Immutable original content is not a disposable cache: deleting it can lose
+semantic input even when every Transition survives. Durable admission requires
+identity, provenance and a semantic relation, not serialization of every byte
+into the ledger. Payload storage and Case-canonical reference meaning are
+different responsibilities. Transient drafts are not durable admission.
+Existing governance/security owners retain their own admitted history contracts;
+their exact Case bindings do not duplicate that history into a universal ledger.
+
+These distinctions do not prescribe a database technology. The selected physical
+implementation belongs in Architecture, not a new universal Memory database.
 
 ## Operational transition closure
 
@@ -166,6 +189,13 @@ Provenance states who produced material, when, by which method/version, under
 which scope, and with which digest/retention posture. Evidence quality does not
 turn provider prose into resource fact.
 
+A model does not directly write YAI memory or current authority. ProviderResult
+may be interpreted as a proposed typed semantic or operational delta; validation
+and the applicable owner's authority, policy and evidence closure must admit it
+before a Transition advances CaseState. Recording the ProviderResult itself
+records what was returned, not the truth or permission asserted by its content.
+This invariant grants no generic model-to-state mutation API.
+
 ## Semantic and computational continuity
 
 YAI owns semantic continuity: Case history, CaseState, Projection lineage,
@@ -173,6 +203,11 @@ ContextFrame lineage, participant continuity, invocation lineage, and the
 meaning of ProviderResults. A provider or model runtime owns computational
 continuation: tokenizer mechanics, mutable inference-session state, KV/cache,
 low-level execution state, and runtime-specific execution evidence.
+
+YAI owns durable semantic continuity. Model-visible context is a disposable
+execution working set, not durable memory. Losing a view does not delete its
+canonical sources or owned payload. A persisted intent remains canonical even
+when a particular execution's working copy is discarded.
 
 Therefore:
 
@@ -189,6 +224,11 @@ Provider continuation is optional, opaque, invalidatable, and replaceable.
 Losing it may increase cost or reduce computational continuity; it cannot make
 Case history unreconstructible or change semantic correctness.
 
+YAI is model-aware through typed, evidenced capability contracts but
+model-independent in semantic ownership. Architecture-family names confer no
+semantic suitability, authority or execution capability. Physical model state
+remains with the provider/YVEX; no KV or recurrent state becomes Case identity.
+
 ## Derived-state rules
 
 Projection, Residency, ContextFrame, graph, retrieval, index, memory,
@@ -201,6 +241,12 @@ Real operational experience derives from committed transitions and observed
 consequences, never from model prose alone. Derived failure cannot roll back a
 canonical commit. Stale material must be rebuilt, bypassed with an honest
 canonical fallback, or rejected; it may not be presented as fresh.
+
+Graph, vector index, BM25, embeddings and narrative summaries are access paths
+or derived views, not canonical memory. Use exact typed state relations for
+exact current questions, causal traversal for causal questions, and similarity
+retrieval only where it answers the requested question. Retrieval frequency,
+repetition and model agreement cannot inflate a claim's epistemic class.
 
 ## Source minimalism
 
@@ -219,7 +265,7 @@ documentation phrases are never proof of capability.
 
 | Amendment | Decision | Constitutional consequence |
 |---|---|---|
-| operational transition is primitive; evidence closure is invariant | ADOPT | valid no-effect and failure transitions remain representable |
+| admitted semantic/operational transition is primitive; evidence closure is invariant | CLARIFY | I01/I06 conversation admission and operational admission retain distinct closure rules; no-effect and failure transitions remain valid |
 | CaseState is materialized, not a mutable Case | ADOPT | all state advance is transition-mediated |
 | one historical authority even in one ACID database | ADOPT | ledger and materialization retain different authority |
 | PREPARE/EFFECT/FINALIZE plus INDETERMINATE/RECONCILE | ADOPT | ambiguous outcomes survive restart honestly |
@@ -229,6 +275,8 @@ documentation phrases are never proof of capability.
 | Projection, Residency, ContextFrame, tokens, and KV are distinct | ADOPT | identities and invalidation stay at their proper boundary |
 | provider continuation is opaque and non-canonical | ADOPT | loss degrades optimization only |
 | documentation concepts do not imply source owners | ADOPT | refoundation cannot repeat module-per-noun growth |
+| durable continuity differs from disposable model context and derived access paths | CLARIFY | no universal Memory owner or chat-owned continuity |
+| owned payload differs from canonical reference meaning | CLARIFY | original bytes must survive independently of disposable indexes; the ledger is not a blob warehouse |
 
 Changing these decisions requires evidence against the relevant falsifier and
 an explicit constitutional supersession, not an implementation convenience.

@@ -56,14 +56,16 @@ selects a new controller-local thread; canonical Turns remain inspectable.
 Compatibility transcript/archive operations retain their former configured
 journal/provider prerequisites. They are not another conversation owner.
 
-The interactive path uses the Case's governed provider binding. Explicit direct
+The interactive path uses the Case's cognitive binding/arbitration within its
+governed provider envelope. Explicit direct
 provider/language/continuation flags are rejected there rather than silently
 ignored or allowed to bypass selection. They remain available on the existing
 `--once`/piped invocation path, and `--dry-run` retains its original invocation
 preview through the same REPLAI editor. These modes do not acquire new SEND
 semantics. `case enter` remains inspection/admission and optional shell setup;
 it did not contain a separate interactive editor. No new `yai chat` command,
-attachment/path inference, Markdown framework or cognitive interlock is added.
+attachment/path inference or Markdown framework is added by the terminal.
+Cognitive routing belongs to the I06 application host, not REPLAI.
 
 ## Terminal and execution lifecycle
 
@@ -106,8 +108,10 @@ PATH="$PWD/build/terminal-tests/bin:$PATH" make smoke-replai-terminal
 PATH="$PWD/build/terminal-tests/bin:$PATH" make check characterization
 ```
 
-The PTY test launches `target/debug/yai`, prepares an authorized bounded Case
+By default the PTY test launches `./yai`, prepares an authorized bounded Case
 through `./yai`, and reads canonical state/Turns through that same product CLI.
+R5's explicit `YAI_REPLAI_TEST_ARTIFACT` override runs that same suite against an
+independently built artifact; it does not change the operator launcher.
 An independent pyte parser checks visible cells and cursor, while termios and
 `/proc/PID/fd` are directly observed. The existing provider-governance HTTP
 fixture has a bounded reply barrier so the test can inspect a committed Turn
@@ -116,6 +120,6 @@ participant, ordinal and provenance against canonical Turn inspection.
 
 Tests retain ordered input/CLI output/state/PTY evidence in a unique printed
 `/tmp/yai-r4-*` directory. `tests/classification.tsv` admits this product/loopback
-qualification into the publication lane. Existing I01–I04, governance and
+qualification into the publication lane. Existing I01–I06, governance and
 controller tests remain lower-level positive controls. Loopback HTTP is not
 live external-provider interoperability or model quality evidence.
