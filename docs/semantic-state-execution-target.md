@@ -76,32 +76,56 @@ them. Their concrete algorithms and learned consumers remain research pressure.
 Context-only execution is a compatibility realization, not the final paradigm.
 
 ```text
-admitted world/Case events → canonical history/current state
-    → semantic cognitive state → semantic state compilation
-    → provisional SemanticStateFrame / SemanticStateDelta
-    → YVEX computational-state lowering
-    → model-native persistent state + immediate input → model
-
-model result / computational update → computational evidence
-    → semantic proposal / consequence → YAI validation + authority + admission
-    → new canonical semantic state
+YAI: canonical history/current state → S_t
+    → Compile(S_t, I_t, A_t, B_t) → active semantic working state W_t
+    → public cognitive-state boundary
+YVEX: M_t = Lower(W_t, Model, StateProfile)
+    → State Read → Exec(X_t, M_t)
+        ├── Y_t: non-authoritative output
+        ├── M_t+1: computational State Update, retained below YAI admission
+        └── P_t optional: explicit semantic proposal
+              → YAI validation + authority + admission → S_t+1
 ```
 
-Let `S_t` denote qualified YAI semantic state and
-`M_t = Lower(S_t, exact model, exact state profile)`. `M_t` is derived,
-model-specific, replaceable, computational and potentially opaque; `S_t` is
-durable/model-independent and authoritative only through existing admission.
-Changing DeepSeek to Qwen may invalidate `M_t`, never the Case. Qualified
-semantic meaning must support recompilation; this does not promise recreation
-of identical hidden activations or preservation of unadmitted computation.
+The target equations are:
+
+```text
+W_t = Compile(S_t, I_t, A_t, B_t)
+M_t = Lower(W_t, Model, StateProfile)
+Exec(X_t, M_t) → (Y_t, M_t+1, P_t optional)
+```
+
+S_t is durable/model-independent semantic state under existing admission rules.
+I_t is current intent, A_t authority/disclosure, B_t the execution budget.
+YAI compiles W_t as a derived, bounded, task-sufficient working state; it is not
+a new canonical owner or the whole Case by default. Locality and permitted
+disclosure belong to compilation, not a later optimization. YVEX need receive
+only admitted W_t and immediate input X_t. Provisional SemanticStateFrame/Delta
+describe working-state representation/changes, not latent layouts.
+
+M_t is derived, model-specific, replaceable, computational and potentially
+opaque. Lower describes initialization/reconstruction; Exec may subsequently
+evolve it without changing S_t or recompiling at every step. Continuous M_t+1
+updates do not require a semantic event. Y_t is computational output; P_t, when
+present, is a separate explicit semantic proposal, not a synonym for M_t+1.
+Only P_t enters semantic admission, which may refuse it. No proposal means no
+semantic mutation from that internal update, not omission of the established
+governed Invocation/Result/effect evidence. Recording execution is distinct
+from admitting its proposed semantic consequence.
+
+Changing DeepSeek to Qwen may invalidate M_t, never the Case. Recompilation
+selects the currently needed W_t from qualified S_t, current intent, authority
+and budget. It does not promise identical hidden activations or preservation
+of unadmitted computation. M_t must not be the sole copy of admitted Case truth.
 
 YVEX owns model/deployment truth, computational capabilities, layouts,
 KV/recurrent/SSM/latent physical state, State Read/Update realization,
 paging/residency, checkpoints, rollback/invalidation and kernel/resource
 evidence. These are target ownership assignments, not assertions about a
 currently published YVEX ABI. YAI owns semantic selection, working-state/delta
-meaning and semantic admission. YVEX gains no Case, Policy, memory or Workflow
-authority; YAI gains no tensors, latent banks, layer layouts or GPU placement.
+meaning and semantic admission. YVEX gains neither whole-Case visibility by
+implication nor Case, Policy, semantic-memory or Workflow authority; YAI gains
+no tensors, latent banks, layer layouts or GPU placement.
 The model supplies learned computation, not authority to commit its output.
 
 ## Admission and payload — architectural decision with I01 evidence
@@ -170,7 +194,7 @@ Canonical / derived Case state + current intent + authority/disclosure
         ↓
 Working-state compilation
         ↓
-Provider-independent execution representation
+W_t: provider-independent active semantic working state
         ↓
 Target/provider/YVEX lowering
 ```
@@ -192,6 +216,15 @@ Read/Update are adopted targets; their concrete lowering mechanisms remain
 hypotheses, not promised adapters. Every lowering remains subject
 to exact target qualification and honest refusal. Context compilation cannot
 grant permission to execute operations.
+
+**Persistent KV alone != cognitive State Read.** This is not a prohibition on
+KV as a physical realization. Intentional YAI semantic-working-state compilation
+→ qualified YVEX persistent-KV/prefix lowering → actual model reuse is a possible
+bounded first State Read experiment, including without new training. It must
+prove source/scope provenance, exact model/profile compatibility, actual reuse
+and invalidation/reconstruction. A cache existing, a prefix being retained or a
+model being stateful by name proves none of those semantics automatically.
+The experiment remains unqualified, not an implemented YAI/YVEX contract.
 
 YAI should be model-aware through typed capability contracts and model-independent
 in semantic ownership. Transformer, SSM, RWKV, Mamba and future architecture
@@ -233,7 +266,12 @@ class; semantic search is not current policy resolution.
 
 ## Model-proposed state deltas — target, never direct writes
 
-ProviderResult → interpretation/proposed typed delta → typed validation →
+Computational State Update and semantic update are different kinds of change
+in different ownership domains. Exec may produce M_t+1 without P_t; YAI does not
+canonize each latent/prefix/recurrent micro-variation. When an explicit P_t is
+present, the intended semantic path is:
+
+ProviderResult / explicit P_t → interpretation/proposed typed delta → typed validation →
 applicable authority/policy/evidence closure → admitted Transition → new
 CaseState is the intended admission pattern. Recording output proves that it
 was returned, not that its assertions are true. An effect still requires the
@@ -253,6 +291,8 @@ There is no automatic model-to-memory or model-to-state write path implied.
 | Case-age locality | Vary history length radically while holding current state, task and disclosure equivalent; measure sufficient working-set entries/units and actual tokens where available | Model-visible context grows linearly with unrelated history, or stays small only by losing required evidence |
 | Derived-state amnesia | Snapshot canonical history/current replay and owned-object identities; drop only disposable graph/index/retrieval/memory artifacts, rebuild with pinned algorithms and recorded results | Canonical truth changes, original payload is lost, or semantic rebuild silently requires fresh inference; re-encoding cost is accounted separately |
 | Provider-state amnesia | Remove continuation/session/KV/runtime hot state below the provider boundary; replan and reconstruct from admitted sources | Case semantics or authority depend on lost computational state; efficiency degradation alone is not failure |
+| Bounded persistent-KV State Read | Compile scoped W_t, lower it into an exact model/profile's persistent prefix/KV, observe actual reuse, then invalidate/rebuild under changed scope/model | Mere cache persistence is called semantic qualification, reuse is not demonstrated, or hidden/outdated state bypasses W_t admission |
+| Computational update without semantic proposal | Exec changes M_t with P_t absent; separately submit valid/invalid explicit P_t under current authority | Every computational micro-update requires a semantic Transition, or M_t/Y_t admits a fact without P_t validation; required execution evidence must still be recorded |
 | State-page locality | Start bounded, request one relevant causal/state region under explicit scope and expansion budget | Full-history replay into model context is required, expansion is unbounded or references bypass disclosure |
 | Authority isolation | Same Case and task, different admitted Participants/disclosure scopes; include unauthorized, stale and cross-Tenant references | Hidden content/counts leak, scopes are merged, or a handle grants ambient shared-state access instead of refusal |
 

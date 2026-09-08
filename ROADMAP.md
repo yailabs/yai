@@ -15,9 +15,9 @@ evidence, not competing status pages. Git owns chronology.
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
 | Most important structural gap | Existing typed state and bounded Projection/ContextFrame do not yet constitute explicit general semantic cognitive state or a general State Compiler. |
 | Executable foundation | Transition v18 / CaseState v15; immutable owned content; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
-| Primary research boundary | State Read and State Update over model-native persistent computational state, with qualified reconstruction and YAI semantic admission. Both OPEN. |
+| Primary research boundary | State Read and State Update over model-native persistent computational state, with qualified reconstruction; only explicit semantic proposals cross YAI admission. Both OPEN. |
 | Current compatibility path | Governed exact OpenAI-compatible context/text, bounded typed content/functions/JSON when mechanically qualified; optional opaque continuation, not a native state contract. |
-| Target stateful path | Semantic state → bounded compilation → provisional SemanticStateFrame/Delta → YVEX lowering → persistent model state plus immediate input. Not implemented. |
+| Target stateful path | S_t → Compile(intent, authority/disclosure, budget) → active working state W_t → public cognitive-state boundary → YVEX Lower(W_t, model, profile) → M_t plus immediate input. Not implemented. |
 | Human Golden acceptance | **PENDING_OPERATOR**; automated PTY evidence cannot supply this verdict. Continuity canary **NOT_RUN**. |
 | YVEX external posture | Partial synthetic text/functions/JSON qualification observed; real Case SEND received HTTP 413. Full external Golden lifecycle **not qualified**. [Exact observations][connection]. |
 | Next decision point | Authorize a bounded source-refoundation contract with state/admission and compatibility oracles; retain external capacity/setup-latency blockers rather than relabeling them solved. |
@@ -38,24 +38,27 @@ runtime. A model owns learned computation; a future model may learn to read and
 update persistent computational state. It never thereby acquires Case authority.
 
 ```text
-External world / admitted Case events
-  → canonical history + authoritative current state
-  → qualified semantic cognitive state S_t
-  → semantic state compilation
-  → SemanticStateFrame / SemanticStateDelta (provisional names)
-  → YVEX computational-state lowering
-  → model-native persistent state M_t + immediate token/input stream
-  → model
-
-Model result / computational update → YVEX computational evidence
-  → semantic proposal / consequence → YAI validation + authority + admission
-  → new canonical semantic state
+YAI: admitted world/Case events → canonical history/current state → S_t
+  │
+  │ Compile(S_t, intent I_t, authority/disclosure A_t, budget B_t)
+  ▼
+W_t: active semantic working state (derived; not the whole Case by default)
+  │ public cognitive-state boundary
+  ▼
+YVEX: M_t = Lower(W_t, Model, StateProfile)
+  │ State Read
+  ▼
+MODEL / Exec(X_t, M_t)
+  ├── Y_t: output, non-authoritative
+  ├── M_t+1: computational State Update; remains below the YAI boundary
+  └── optional explicit semantic proposal P_t
+        → YAI validation + authority + admission → S_t+1
 ```
 
 | Boundary | Responsibility | Must not acquire |
 |---|---|---|
-| YAI | Transition history, CaseState, owned content meaning/provenance, Participants, identity/scope/disclosure, Policy, Decisions/reviews/Grants, Resource relations, Workflow/Handoff; target objectives/facts/obligations/unresolved state, semantic selection/working-state/deltas, proposal admission and cross-model continuity | tensors, KV, latent banks, layer layouts, physical state paging or GPU placement |
-| YVEX / execution substrate | Exact model/deployment/runtime truth; target computational capabilities, semantic-to-model-state lowering, layout, State Read/Update realization, KV/recurrent/SSM/latent state, paging/residency, checkpoints, rollback/invalidation, layers/kernels and physical evidence | Case authority, semantic memory ownership, Policy, Workflow truth or a shared canonical database |
+| YAI | Transition history, CaseState, owned content meaning/provenance, Participants, identity/scope/disclosure, Policy, Decisions/reviews/Grants, Resource relations, Workflow/Handoff; target semantic state S_t, compilation of scoped working state W_t and its deltas, proposal admission and cross-model continuity | tensors, KV, latent banks, layer layouts, physical state paging or GPU placement |
+| YVEX / execution substrate | Exact model/deployment/runtime truth; target computational capabilities, admitted working-state-to-model-state lowering, layout, State Read/Update realization, KV/recurrent/SSM/latent state, paging/residency, checkpoints, rollback/invalidation, layers/kernels and physical evidence | the entire Case by implication, Case authority, semantic memory ownership, Policy, Workflow truth or a shared canonical database |
 | Model | Learned computation; target learned State Read/Write behavior under the exact substrate contract | self-admission of proposals, resource permission or canonical semantic authority |
 
 Physical responsibilities are assigned here, not certified as existing YVEX
@@ -73,15 +76,33 @@ architecture.
 
 ```text
 S_t = YAI semantic cognitive state
-M_t = Lower(S_t, exact model, exact state profile)
+W_t = Compile(S_t, I_t, A_t, B_t)
+M_t = Lower(W_t, Model, StateProfile)
+Exec(X_t, M_t) → (Y_t, M_t+1, P_t optional)
 ```
 
-M_t is derived, model-specific, replaceable, computational and potentially opaque.
-S_t is durable, semantic and model-independent; its authority still comes only
-from existing admission rules. DeepSeek → Qwen can invalidate M_t, never the Case.
-Recompilation targets qualified semantic state, not bitwise recovery of another
-model's hidden activations or an identical stochastic answer. An update that has
-not been semantically admitted cannot be the sole copy of a durable Case fact.
+I_t is current intent, A_t authority/disclosure and B_t the execution budget;
+X_t is immediate input and Y_t computational output. W_t is YAI-compiled,
+derived, task-sufficient semantic working state, not a new canonical owner or a
+copy of all S_t. SemanticStateFrame/Delta remain provisional representations of
+that working state and its changes. Locality is part of compilation: YVEX sees
+only admitted W_t/input, not necessarily the entire Case.
+
+S_t is durable and model-independent, authoritative only through existing
+admission. M_t is derived, model-specific, replaceable and potentially opaque.
+Lower describes initialization/reconstruction; execution may evolve M_t without
+recompiling or changing S_t at every computational step. M_t+1 can change
+continuously without emitting a semantic event. Only an explicit optional P_t
+enters semantic validation/admission; absence or rejection of P_t creates no
+semantic mutation from the computational update. Existing governed execution
+lineage remains required; recording Invocation/Result evidence is not admitting
+a proposed fact, and internal state updates are not automatically Transitions.
+
+DeepSeek → Qwen may invalidate M_t, never the Case. Recompile the currently
+required W_t from qualified S_t under current intent, scope and budget. This
+does not promise identical hidden activations, stochastic output or preservation
+of unadmitted computation. Computational state cannot be the sole copy of a
+durable admitted Case fact.
 
 Semantic state is not a mutable mega-object: Transition Ledger is canonical Case
 history; CaseState is authoritative current materialization; immutable owned
@@ -157,9 +178,9 @@ ESTABLISHED=28 PARTIAL=22 OPEN=14 LATER=4 TOTAL=68
 | C08 | Context-compatible lowering with exact execution lineage | 🟢 ESTABLISHED | [I03][i03], [I06][i06], [Golden][golden]; bounded generic adapter proof in loopback, not every live deployment. |
 | C09 | Target capability negotiation | 🟡 PARTIAL | Semantic suitability and mechanical shapes are separate; public persistent-state capabilities are not integrated. |
 | C10 | Public YAI/YVEX cognitive-state contract | 🔴 OPEN | No implemented semantic-frame-to-model-state consumer in YAI; private protocols are excluded. |
-| C11 | Persistent model State Read | 🔴 OPEN | First-class target; requires truthful computational capability and consumer qualification. |
-| C12 | Persistent model State Update | 🔴 OPEN | First-class target; computational write is not semantic admission. |
-| C13 | Model-state feedback semantic admission | 🟡 PARTIAL | Operational/PlanPatch proposals pass existing admission; arbitrary computational-state feedback has no semantic normalizer. |
+| C11 | Persistent model State Read | 🔴 OPEN | First-class target; qualified W_t → persistent KV/prefix → model reuse is a possible bounded realization, not proven by persistence alone. |
+| C12 | Persistent model State Update | 🔴 OPEN | First-class target; M_t+1 may evolve without P_t or any semantic Transition; computational write is not semantic admission. |
+| C13 | Model-state feedback semantic admission | 🟡 PARTIAL | Operational/PlanPatch proposals pass existing admission; future explicit P_t needs a semantic contract, not automatic canonization of computational micro-updates. |
 | C14 | Cross-model recompilation | 🔴 OPEN | No general semantic-state/profile lowering equivalence or cold-model task oracle. |
 
 ### Cognitive execution and Participants
@@ -272,8 +293,8 @@ Golden supplies a common Case/task workload; it owns none of these semantics.
 | Task-local versus Case/big-picture state | OPEN | Switch tasks without losing current constraints/obligations or disclosing unrelated state. A narrative summary alone cannot establish this property. |
 | Incremental semantic-state delta | OPEN | Full reconstruction and admitted delta application must agree under replacement, deletion, stale generation and restart. No schema is frozen here. |
 | Derived-state amnesia | ESTABLISHED, bounded | [Golden][golden] drops/rebuilds its disposable graph/index/memory and compares canonical truth. Owned immutable bytes and canonical ledgers are NOT disposable; this does not qualify every future derivation family. |
-| Persistent / incremental State Read | OPEN | A public qualified consumer reads independently resident model-native state; no relabeling of a context window or persistent KV as this proof. |
-| State Update plus semantic admission | OPEN | Computational updates remain derived; validate/admit proposed semantic consequences. Reject unauthorized updates and exercise invalidation/reconstruction without losing admitted Case truth. |
+| Persistent / incremental State Read | OPEN | Persistent KV alone is insufficient. Intentional YAI working-state compilation → qualified YVEX persistent-KV/prefix lowering → model reuse can be a bounded first State Read realization. Prove scope, exact model/profile, actual reuse and invalidation/reconstruction; no current PASS is implied. |
+| State Update versus semantic admission | OPEN | Exercise M_t+1 changes with P_t absent and S_t semantically unchanged; only explicit P_t can request semantic admission. Reject unauthorized proposals and qualify computational invalidation/reconstruction without turning latent micro-updates into ledger events. |
 | Participants and explicit cross-Case Handoff | ESTABLISHED, bounded | [Security][security], [Golden][golden]: same Case with differing disclosure, typed refusal, exact Handoff without resource/authority cloning. Not federated sharing. |
 | Multimodal and operational continuity | PARTIAL | [I04][i04] typed prerequisite restart and Golden operational continuity are separate qualified controls; no combined live-YVEX multimodal Golden claim. |
 
@@ -290,8 +311,12 @@ implementation boundary; recording it does not mean source work has started.
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| SEMANTIC.STATE.REFOUNDATION.0 | SELECTED_NOT_STARTED | R K A S C E O W M X Q | Explicit qualified semantic cognitive state → bounded State Compiler → compatibility context projection → future model-state boundary, preserving existing owners, replay, authority, resources/effects, Workflow and Golden. |
+| SEMANTIC.STATE.REFOUNDATION.0 | SELECTED_NOT_STARTED | R K S C M Q | Explicit qualified semantic state S_t → bounded Compile(intent, authority/disclosure, budget) → W_t → compatibility context projection / future model-state boundary; preserve existing owners and Golden. |
 <!-- execution:end -->
+
+**Primary programs: R / K / S / C / M / Q.** A / E / O / W / X are protected
+invariants and existing consumers to preserve or reconnect, not co-primary
+redesign mandates. This boundary does not authorize rewriting the whole product.
 
 Before authorizing source mutation, resolve the bounded state producer/consumer,
 admission and supersession rules, current-state versus derived-state distinction,
@@ -316,7 +341,7 @@ fall in later horizons.
 | Near | Explicit semantic state, provisional Frame/Delta and context compatibility | Proven current-state ownership, producer/consumer and replay equivalence |
 | Near | Semantic locality, working-set compilation and scoped state references | Authority-aware selection; exact resolution and refusal; no ambient handles |
 | Near / Mid | Public YVEX cognitive-state boundary and first persistent State Read consumer | Truthful negotiated public capability and an actual implementing target |
-| Mid | Cross-model recompilation, state evaluation, semantic admission of computational updates | Reconstruction/invalidation semantics plus independent cross-state oracles |
+| Mid | Cross-model working-state recompilation, state evaluation and admission of explicit semantic proposals P_t | Reconstruction/invalidation semantics plus independent cross-state oracles; M_t updates need not emit P_t |
 | Mid / Later | Learned/native State Read/Write consumers | Real model/runtime support, bounded effects and evidence; no promised architecture family |
 | Later | Federation/distributed semantic continuity | Mature local semantics plus explicit distributed authority/conflict contracts |
 
@@ -364,7 +389,7 @@ implemented modes or implicit YVEX commitments.
 
 | Engineering pressure | Maturity rows | Programs | Required independent evidence |
 |---|---|---|---|
-| Semantic-state refoundation | S02–S11, C01–C08/C13 | R K A S C M Q | Typed meaning/owner, admission negatives, replay/full-delta equivalence, compatibility Golden |
+| Semantic-state refoundation | S02–S11, C01–C08/C13 | Primary R K S C M Q; preserve/reconnect A E O W X | Typed meaning/owner, scoped W_t compilation, admission negatives, replay/full-delta equivalence, compatibility Golden |
 | Public persistent-state boundary | C09–C14, Q06 | C E Q | Negotiated public capability, actual State Read/Update, amnesia/recompilation and authority isolation |
 | Real product provider acceptance | E02/E05, X01/X02, Q03–Q05 | E X Q | Exact target/capacity evidence, full external Golden, operator run and retained canary separately |
 | Operational/Workflow convergence | O01–O07, W01/W02, M01–M05 | A O W M Q | Same admission/effect owners, real adapter transport, ambiguity/recovery and no authority leakage |
@@ -381,7 +406,7 @@ test proof/provider metadata; a roadmap row never reclassifies test evidence.
 | Fully implemented SemanticState IR / general State Compiler | False. Typed current state and bounded selection/rendering are foundations. |
 | SemanticStateFrame / SemanticStateDelta implemented | False. Names are provisional; no new source type, schema or owner is authorized here. |
 | Integrated model-native persistent cognitive state / public YVEX cognitive-state contract | False. Adopted target, OPEN capability boundary, not an invented protocol. |
-| Native State Read / State Update implemented | False. Both OPEN now; neither hidden in LATER nor claimed from KV/continuation. |
+| Native State Read / State Update implemented | False. Both OPEN now; persistence alone proves neither. Qualified semantic-working-state → persistent-KV lowering/reuse remains a possible bounded State Read experiment. |
 | General multi-timescale state / universally Case-age-independent working set | False. Target plus falsifiable research pressure. |
 | Full cold-model substitution / Qwen external state qualification | False. Exact binding replacement does not establish cold-state recovery. |
 | Agent implementation / Studio | False. Later product compositions; no Agent owner or new terminal. |
@@ -412,7 +437,7 @@ traceability, not substantive correctness; reviewers must inspect its scope.
 | ProviderResult | Admitted semantic fact |
 | Model binding replacement | Cold-state substitution |
 | Bounded context size | Case-age locality |
-| Persistent KV / opaque continuation | Native cognitive-state semantics |
+| Persistent KV / opaque continuation alone | Cognitive State Read qualification; intentional scoped W_t lowering/reuse may qualify a bounded realization with independent evidence |
 | Golden loopback model | External YVEX qualification |
 | Automated PTY | Human acceptance |
 
