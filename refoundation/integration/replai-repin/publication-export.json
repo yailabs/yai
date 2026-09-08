@@ -1,0 +1,8 @@
+{
+  "tree": "feeec96ccd8255edaaa88b69bfa1f67bb12445c8",
+  "files_compared_with_index": 1573,
+  "all_blobs_equal": true,
+  "git_worktree_created": false,
+  "build_fixture": "/tmp/yai-consumer-repin/publish-source",
+  "binary": "/tmp/yai-consumer-repin/publish-target/debug/yai"
+}

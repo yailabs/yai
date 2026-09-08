@@ -373,10 +373,10 @@ def rejected_acquisition():
 def artifact_contract():
     meta = json.loads(subprocess.check_output(["cargo", "metadata", "--locked", "--offline", "--format-version=1", "--manifest-path", "cmd/yai/Cargo.toml"], cwd=ROOT))
     dependency = next(p for p in meta["packages"] if p["name"] == "replai")
-    assert dependency["source"].endswith("#df5538c718b8d068432032e7fb116fb8bfab158e")
+    assert dependency["source"].endswith("#6365f84e12865871bf26ecf0d984b48213d81ebc")
     assert not any(p["name"] == "replai-c" for p in meta["packages"])
     symbols = subprocess.check_output(["nm", "-C", str(ARTIFACT)], text=True)
-    assert "replai::terminal::Interaction" in symbols
+    assert "replai::interaction::Interaction" in symbols
     assert "linenoise" not in symbols.lower()
     assert not (ROOT / "cmd/yai/build.rs").exists()
     assert not (ROOT / "vendor").exists()

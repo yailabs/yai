@@ -1,0 +1,5 @@
+{
+  "tracked_files_stable": true,
+  "head": "35705ff1ee979e12e3c56d15275b43a0212f248a",
+  "status": " M cmd/yai/Cargo.lock\n M cmd/yai/Cargo.toml\n M cmd/yai/src/conversation_controller/setup.rs\n M cmd/yai/src/conversation_terminal.rs\n M cmd/yai/src/conversation_terminal/setup.rs\n M cmd/yai/src/provider_governance_cli.rs\n M docs/architecture.md\n M docs/commands.md\n M docs/replai-terminal.md\n M docs/zero-to-current.md\n M tests/README.md\n M tests/characterization/case-resource-access/test_case_workbench.py\n M tests/characterization/case-resource-access/test_reference_free.py\n M tests/characterization/cli-product-surface/test_provider_connection.py\n M tests/characterization/replai-terminal/test_replai_terminal.py\n M tests/classification.tsv\n?? refoundation/validation/single-connect/\n"
+}
