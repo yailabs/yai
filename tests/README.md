@@ -97,3 +97,10 @@ the no-provider Rust recovery lane. Loopback proves YAI
 semantics and real generic adapter transport, **not live YVEX multipart
 compatibility or model quality**. External YVEX text qualification has a separate
 scope; public typed-media external qualification remains integration work.
+
+`smoke-guided-case-setup` separately proves the short `init`/`open` Product
+journey with a real REPLAI PTY and **no provider**: explicit consent,
+cancellation, existing Case preservation and selection. The Golden local free
+and Workflow runs use guided `/connect`, `/review`, resource/policy setup and
+bare `/retry` over the real controller and loopback provider transport. Neither
+lane authorizes a human PASS or live YVEX claim.

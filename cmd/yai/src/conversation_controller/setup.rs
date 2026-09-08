@@ -1,5 +1,5 @@
-//! Operator setup actions compose existing owners. Each admitted step remains
-//! separately inspectable; failure is not falsely reported as an atomic setup.
+//! Operator setup actions compose existing owners. Provider/policy preparation
+//! retains independent commits; the bounded Participant profile is atomic.
 use super::*;
 use serde_json::{json, Value};
 use yai_core_engine::cognitive::{CognitiveBindingRole, SemanticEvidencePosture};
@@ -25,6 +25,133 @@ fn now_unix_ms() -> u64 {
         .unwrap_or_default()
         .as_millis()
         .min(u128::from(u64::MAX)) as u64
+}
+
+/// A short reference is only spelling for an exact ID, never a persisted alias
+/// or an ambient selected Case. Resolution runs over authorized visible state.
+pub(crate) fn scoped_name(prefix: &str, value: &str) -> Result<String, String> {
+    let value = value.trim();
+    let value = value.strip_prefix(prefix).unwrap_or(value);
+    if value.is_empty()
+        || value.len() > 160
+        || !value
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._:-".contains(c))
+    {
+        return Err("setup_identifier_invalid".into());
+    }
+    Ok(format!("{prefix}{value}"))
+}
+
+/// Compose existing canonical facts after the human has approved this exact
+/// generation/profile. No policy, provider trust, grant or resource is created.
+pub(crate) fn admit_workbench_participants(
+    store: &LmdbRecordStore,
+    authenticated: &yai_core_engine::security::AuthenticatedPrincipal,
+    state: &yai_core_engine::transition::CaseState,
+    operator: &str,
+    executor: &str,
+) -> Result<yai_core_engine::transition::CaseState, String> {
+    use yai_core_engine::transition::{
+        PendingTransition, PrincipalParticipantLink, TransitionSource,
+    };
+    let tenant = state.tenant_id.as_deref().ok_or("setup_requires_tenant")?;
+    store
+        .resolve_security_context(authenticated, tenant)?
+        .require_owner()?;
+    let principal = authenticated.projected_principal_id();
+    if operator == executor
+        || state.principal_participant_links.iter().any(|link| {
+            link.participant_id == executor
+                || (link.principal_id == principal && link.participant_id != operator)
+                || (link.participant_id == operator && link.principal_id != principal)
+        })
+    {
+        return Err("setup_identity_conflict_no_authority_transfer".into());
+    }
+    let mut payloads = Vec::new();
+    for (id, roles) in [
+        (
+            operator,
+            &["operation-proposer", "operation-reviewer", "workflow-input"][..],
+        ),
+        (executor, &["model-executor", "operation-proposer"][..]),
+    ] {
+        for role in roles {
+            if !state
+                .participants
+                .iter()
+                .any(|p| p.participant_id == id && p.roles.iter().any(|r| r == role))
+            {
+                payloads.push(TransitionPayload::ParticipantBound {
+                    participant_id: id.into(),
+                    role: (*role).into(),
+                });
+            }
+        }
+    }
+    if !state.participants.iter().any(|p| {
+        p.participant_id == executor
+            && p.admitted_views
+                .iter()
+                .any(|v| v.consumer == "model" && v.view_kind == "model_context")
+    }) {
+        payloads.push(TransitionPayload::ParticipantAdmitted {
+            participant_id: executor.into(),
+            consumer: "model".into(),
+            view_kind: "model_context".into(),
+        });
+    }
+    if !state
+        .principal_participant_links
+        .iter()
+        .any(|p| p.principal_id == principal && p.participant_id == operator)
+    {
+        payloads.push(TransitionPayload::ParticipantPrincipalLinked {
+            link: PrincipalParticipantLink::new(
+                &state.case_id,
+                tenant,
+                &principal,
+                operator,
+                &principal,
+                now_unix_ms(),
+            )?,
+        });
+    }
+    let current = store.get_case_state_authorized(authenticated, &state.case_id)?;
+    if current.generation != state.generation {
+        return Err("stale_case_generation: inspect setup again".into());
+    }
+    if payloads.is_empty() {
+        return Ok(current);
+    }
+    let changes = payloads
+        .into_iter()
+        .enumerate()
+        .map(|(offset, payload)| {
+            let digest = yai_core_engine::effect::digest_bytes(
+                &serde_json::to_vec(&payload).expect("typed payload"),
+            );
+            let mut change = PendingTransition::new(
+                format!(
+                    "transition:participant-setup:{}:{}:{}",
+                    state.case_id, state.generation, digest
+                ),
+                &state.case_id,
+                state.generation + offset as u64,
+                TransitionSource {
+                    component: "yai.case_participant_setup".into(),
+                    participant_id: None,
+                    principal_id: Some(principal.clone()),
+                    source_ref: Some(format!("participant-setup:{operator}:{executor}")),
+                },
+                payload,
+            );
+            change.causal_refs = vec![principal.clone(), operator.into(), executor.into()];
+            change
+        })
+        .collect();
+    store.commit_participant_setup_authorized(authenticated, tenant, changes)
 }
 
 /// Explicit operator file input, not natural-text path recognition. Bounded

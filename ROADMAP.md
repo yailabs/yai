@@ -42,6 +42,9 @@ cumulative operator acceptance surface, not a new semantic owner. Deterministic
 publication and Golden local are separate required gates. Human acceptance
 remains PENDING_OPERATOR; live YVEX requires an operator endpoint/model and has
 no fixture fallback. I07 stays UNSELECTED.
+The follow-up [guided Case CLI closure](refoundation/validation/guided-case-cli/REPORT.md)
+shortens the Product journey to `init` → `open` → in-Case actions while retaining
+the exact automation surface, current authority and qualified REPLAI pin.
 The remaining I-series is separate from the conditional
 [post-I10 program](#post-i10-program--semantic-state-fabric-and-execution-compilation).
 H20, W21, W22 and Studio remain separately gated, not authorized by that program.

@@ -787,6 +787,11 @@ qualification-golden-yvex: build-rust
 .PHONY: smoke-conversation-executor-delegation
 .PHONY: smoke-case-capability-realization
 .PHONY: smoke-case-workbench
+.PHONY: smoke-guided-case-setup
+smoke-guided-case-setup: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/cli-product-surface/test_guided_setup.py
+
 .PHONY: smoke-case-reference-free
 .PHONY: smoke-case-reference-workflow
 smoke-case-reference-workflow: build-rust

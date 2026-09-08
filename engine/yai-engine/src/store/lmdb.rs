@@ -5614,6 +5614,44 @@ impl LmdbRecordStore {
         Ok(commit)
     }
 
+    /// Bounded atomic participant setup for application porcelain. This is not
+    /// an arbitrary batch/effect API: every item retains existing secured
+    /// participant admission and must belong to the same Case. A stale item or
+    /// invalid Principal link rolls back the whole confirmed setup.
+    pub fn commit_participant_setup_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        tenant_id: &str,
+        changes: Vec<PendingTransition>,
+    ) -> Result<CaseState, String> {
+        if changes.is_empty() || changes.len() > 16 {
+            return Err("participant_setup_bound".into());
+        }
+        let case_id = changes[0].case_id.clone();
+        if changes.iter().any(|p| {
+            p.case_id != case_id
+                || !matches!(
+                    p.payload,
+                    TransitionPayload::ParticipantBound { .. }
+                        | TransitionPayload::ParticipantAdmitted { .. }
+                        | TransitionPayload::ParticipantPrincipalLinked { .. }
+                )
+        }) {
+            return Err("participant_setup_payload_or_case_mismatch".into());
+        }
+        let mut txn = self.env.begin_rw_txn().map_err(|e| e.to_string())?;
+        let context = self.resolve_security_context_txn(&txn, authenticated, tenant_id)?;
+        context.require_owner()?;
+        for change in changes {
+            self.commit_transition_txn_at(&mut txn, change, false, None, Some(&context))?;
+        }
+        let state = self
+            .get_case_state_txn(&txn, &case_id)?
+            .ok_or("case_not_visible")?;
+        txn.commit().map_err(|e| e.to_string())?;
+        Ok(state)
+    }
+
     /// Atomic SEND: complete object references and immutable semantic intent.
     pub fn commit_conversation_submission_authorized(
         &self,

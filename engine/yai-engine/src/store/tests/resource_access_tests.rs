@@ -8,6 +8,102 @@ const TENANT: &str = "tenant:resource-contract";
 const HUMAN: &str = "participant:human";
 const RESOURCE: &str = "resource:workspace";
 
+#[test]
+fn participant_setup_is_atomic_scoped_and_replayable() {
+    let path = temp_store_path("participant-setup");
+    let store = LmdbRecordStore::open(&path).unwrap();
+    let owner = AuthenticatedPrincipal::for_test(29101);
+    let outsider = AuthenticatedPrincipal::for_test(29102);
+    store
+        .bootstrap_local_security(&owner, TENANT, "organization:setup", 1)
+        .unwrap();
+    store
+        .bootstrap_local_security(&outsider, "tenant:other", "organization:other", 1)
+        .unwrap();
+    let original = store
+        .create_tenant_case(&owner, TENANT, CASE)
+        .unwrap()
+        .state;
+    let principal = owner.projected_principal_id();
+    let role = secured_pending(
+        "transition:setup-role",
+        CASE,
+        original.generation,
+        &principal,
+        TransitionPayload::ParticipantBound {
+            participant_id: HUMAN.into(),
+            role: "operation-proposer".into(),
+        },
+    );
+    let bad = secured_pending(
+        "transition:setup-bad",
+        CASE,
+        original.generation,
+        &principal,
+        TransitionPayload::ParticipantAdmitted {
+            participant_id: "participant:absent".into(),
+            consumer: "model".into(),
+            view_kind: "model_context".into(),
+        },
+    );
+    let history = store.list_case_transitions(CASE).unwrap();
+    let mut wrong_payload = role.clone();
+    wrong_payload.payload = history[0].payload.clone();
+    assert!(store
+        .commit_participant_setup_authorized(&owner, TENANT, vec![wrong_payload])
+        .is_err());
+    assert!(store
+        .commit_participant_setup_authorized(&owner, TENANT, vec![role.clone(), bad])
+        .is_err());
+    assert_eq!(store.get_case_state(CASE).unwrap().unwrap(), original);
+    assert_eq!(store.list_case_transitions(CASE).unwrap(), history);
+    assert!(store
+        .commit_participant_setup_authorized(&outsider, TENANT, vec![role.clone()])
+        .is_err());
+    assert!(store
+        .commit_participant_setup_authorized(&owner, "tenant:other", vec![role.clone()])
+        .is_err());
+    let mut mixed = role.clone();
+    mixed.case_id = "case:elsewhere".into();
+    assert!(store
+        .commit_participant_setup_authorized(&owner, TENANT, vec![role.clone(), mixed])
+        .is_err());
+    let link = crate::transition::PrincipalParticipantLink::new(
+        CASE, TENANT, &principal, HUMAN, &principal, 2,
+    )
+    .unwrap();
+    let mut linked = secured_pending(
+        "transition:setup-link",
+        CASE,
+        original.generation + 1,
+        &principal,
+        TransitionPayload::ParticipantPrincipalLinked { link },
+    );
+    linked.causal_refs = vec![principal, HUMAN.into()];
+    let committed = store
+        .commit_participant_setup_authorized(&owner, TENANT, vec![role.clone(), linked.clone()])
+        .unwrap();
+    assert_eq!(committed.generation, original.generation + 2);
+    assert_eq!(committed.principal_participant_links.len(), 1);
+    assert!(store
+        .commit_participant_setup_authorized(&owner, TENANT, vec![role, linked])
+        .is_err());
+    assert_eq!(
+        store.list_case_transitions(CASE).unwrap().len(),
+        history.len() + 2
+    );
+    assert_eq!(store.rebuild_case_state(CASE).unwrap(), committed);
+    drop(store);
+    let reopened = LmdbRecordStore::open(&path).unwrap();
+    assert_eq!(
+        reopened.get_case_state_authorized(&owner, CASE).unwrap(),
+        committed
+    );
+    assert!(reopened.verify_case_state(CASE).unwrap());
+    drop(reopened);
+    fs::remove_dir_all(path).unwrap();
+}
+
 struct World {
     path: PathBuf,
     store: LmdbRecordStore,

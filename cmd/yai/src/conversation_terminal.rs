@@ -15,8 +15,14 @@ use std::io::Write;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+#[path = "conversation_terminal/setup.rs"]
+pub(super) mod setup;
+
 // Application vocabulary: shared by this frontend's help and completion.
 const COMMANDS: &[&str] = &[
+    "/help",
+    "/help all",
+    "/setup",
     "/case",
     "/history",
     "/participants",
@@ -28,6 +34,7 @@ const COMMANDS: &[&str] = &[
     "/capabilities",
     "/workflow",
     "/workflow bind ",
+    "/workflow bind",
     "/workflow run ",
     "/workflow input ",
     "/workflow advance",
@@ -46,10 +53,14 @@ const COMMANDS: &[&str] = &[
     "/rebuild",
     "/executor ",
     "/attach ",
+    "/attach",
     "/policy publish ",
+    "/policy publish",
     "/connect ",
+    "/connect",
     "/work ",
     "/review approve ",
+    "/review",
     "/review deny ",
     "/review defer ",
     "/read ",
@@ -59,6 +70,7 @@ const COMMANDS: &[&str] = &[
     "/test ",
     "/catalog ",
     "/admit ",
+    "/admit",
     "/material ",
     "/thread status",
     "/thread new",
@@ -71,6 +83,7 @@ const COMMANDS: &[&str] = &[
     "/transcript status",
     "/memory propose",
     "/retry ",
+    "/retry",
     "/cancel",
     "/exit",
     "/quit",
@@ -180,6 +193,85 @@ fn command(
     args: &[String],
     text: &str,
 ) -> Result<(), String> {
+    if text == "/help" {
+        println!("Case: /case /participants /resources /artifacts /history\nSetup: /setup /attach /connect /policy publish\nWork: /work TEXT /review /retry /cancel\nInspect: /policy /effects /workflow /memory /graph /verify\nAll actions: /help all\nExit: /exit");
+        return Ok(());
+    }
+    if text == "/help all" {
+        println!("{}", COMMANDS.join("\n"));
+        return Ok(());
+    }
+    if text == "/setup" {
+        return setup::participants(controller);
+    }
+    if text == "/connect" {
+        return setup::connect(controller);
+    }
+    if text == "/attach" {
+        let path = setup::ask("Resource definition file", None)?;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&controller.attach_resource(std::path::Path::new(&path))?)
+                .map_err(|e| e.to_string())?
+        );
+        return Ok(());
+    }
+    if text == "/policy publish" {
+        let path = setup::ask("Policy source file", None)?;
+        let reason = setup::ask(
+            "Publication reason (explicit approval of this policy source)",
+            None,
+        )?;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &controller.publish_policy(std::path::Path::new(&path), &reason)?
+            )
+            .map_err(|e| e.to_string())?
+        );
+        return Ok(());
+    }
+    if text == "/review" {
+        return setup::review(controller);
+    }
+    if text == "/workflow bind" {
+        let path = setup::ask("Workflow definition file", None)?;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &controller.configure_workflow(std::path::Path::new(&path))?
+            )
+            .map_err(|e| e.to_string())?
+        );
+        return Ok(());
+    }
+    if text == "/admit" {
+        let resource = super::conversation_controller::scoped_name(
+            "resource:",
+            &setup::ask("Discovery resource", None)?,
+        )?;
+        let digest = setup::ask(
+            "Exact discovered candidate digest (not the observation digest)",
+            None,
+        )?;
+        let path = setup::ask("Exact discovered relative path", None)?;
+        let action = yai_core_engine::effect::access::ResourceAction::AdmitContent {
+            path,
+            candidate_digest: digest,
+        };
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&controller.request_resource(&resource, action)?)
+                .map_err(|e| e.to_string())?
+        );
+        return Ok(());
+    }
+    if text == "/retry" {
+        let id = controller.latest_turn_id()?;
+        println!("Retrying exact Turn: {id}");
+        let _interrupt = ExecutionInterrupt::observe(controller.cancellation())?;
+        return render_execution(controller.execute_committed_turn(&id)?);
+    }
     if let Some(id) = text.strip_prefix("/operation ") {
         println!(
             "{}",
@@ -410,8 +502,11 @@ fn command(
             };
             println!(
                 "{}",
-                serde_json::to_string_pretty(&controller.request_resource(resource, action)?)
-                    .map_err(|e| e.to_string())?
+                serde_json::to_string_pretty(&controller.request_resource(
+                    &super::conversation_controller::scoped_name("resource:", resource)?,
+                    action
+                )?)
+                .map_err(|e| e.to_string())?
             );
             return Ok(());
         }
@@ -579,8 +674,8 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
     let status = inspect(&mut controller)?;
     let prompt = Prompt::new(&format!("yai({case_id})")).map_err(|e| e.to_string())?;
     let mut input = Interaction::new(Editor::new(65_536, 200));
-    println!("case_prompt: entered\ncase_ref: {case_id}\nsubject_ref: {}\ninteraction_thread: {}\ncommands: {}",
-        status.participant_id, status.active_thread_id, COMMANDS.join(" | "));
+    println!("case_prompt: entered\ncase_ref: {case_id}\nsubject_ref: {}\ninteraction_thread: {}\nUse /help for Case actions; /connect to configure a provider; /exit to leave.",
+        status.participant_id, status.active_thread_id);
     loop {
         input
             .open(&std::io::stdin(), &std::io::stdout(), prompt.clone())

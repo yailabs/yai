@@ -1217,6 +1217,13 @@ pub(crate) fn resource_application_command(
     controlled_effect::access::command(operation_id, args)
 }
 
+pub(crate) fn guided_initialization(
+    tenant: Option<&str>,
+    organization: Option<&str>,
+) -> Result<(String, String), String> {
+    conversation_terminal::setup::initialize(tenant, organization)
+}
+
 /// Dispatches an already registry-resolved operation to its existing domain
 /// adapter. This match is over stable operation identity, never command text;
 /// path and syntax authority remain in `cli::registry`.
@@ -1278,6 +1285,7 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
         }
         "yai.case.enter" => case_enter(&args[2..]),
         "yai.case.workbench" => conversation_terminal::run(&args[2..]),
+        "yai.case.open" => conversation_terminal::setup::open(args.get(1).map(String::as_str)),
         "yai.effect.filesystem_write" => controlled_filesystem_write(&args[2..]),
         "yai.effect.process_signal" => controlled_process_signal(&args[2..]),
         "yai.effect.reconcile" => controlled_effect_reconcile(&args[2..]),

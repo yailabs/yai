@@ -32,7 +32,7 @@ mod setup;
 mod work;
 #[path = "conversation_controller/workflow_host.rs"]
 mod workflow_host;
-pub(super) use setup::ProviderConnection;
+pub(super) use setup::{admit_workbench_participants, scoped_name, ProviderConnection};
 
 #[derive(Clone, Copy, Debug)]
 pub(super) enum CaseInspection {
@@ -986,6 +986,19 @@ impl ConversationController {
             &self.participant_id,
             &transitions,
         ))
+    }
+
+    pub(super) fn latest_turn_id(&self) -> Result<String, String> {
+        let a = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        let history = a.store.list_case_transitions(&self.case_id)?;
+        turns_from_history(&self.case_id, &history)
+            .into_iter()
+            .rev()
+            .find(|t| {
+                t.participant_id == self.participant_id && t.thread_id == self.active_thread_id
+            })
+            .map(|t| t.turn_id.clone())
+            .ok_or("no_committed_turn_in_current_thread".into())
     }
 
     fn status(&self) -> Result<ConversationControllerStatus, String> {

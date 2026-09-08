@@ -26,12 +26,12 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.participant.list" => participant_list(invocation),
         "yai.case.resource.list" => resource_list(invocation),
         "yai.case.history" | "yai.case.verify" => canonical_case_inspection(invocation),
-        "yai.case.workbench" => {
+        "yai.case.open" | "yai.case.workbench" => {
             if invocation.json {
                 return Err(CliError::usage("interactive workbench has no JSON stream; use the structured Case inspection commands"));
             }
             crate::command_adapters::dispatch_operation(
-                "yai.case.workbench",
+                invocation.descriptor.operation_id,
                 &invocation.legacy_args(),
             )
             .map_err(|error| domain_error(classify_domain_code(&error), error))?;
@@ -111,6 +111,25 @@ fn version() -> Result<CliData, CliError> {
 }
 
 fn init(invocation: &Invocation) -> Result<CliData, CliError> {
+    let mut effective = Invocation {
+        descriptor: invocation.descriptor,
+        positionals: invocation.positionals.clone(),
+        flags: invocation.flags.clone(),
+        json: invocation.json,
+        compatibility_syntax: invocation.compatibility_syntax,
+    };
+    if invocation.flag("--tenant").is_none() || invocation.flag("--organization").is_none() {
+        if invocation.json {
+            return Err(CliError::usage("structured init requires --tenant and --organization; run `yai init` in a terminal for guided setup"));
+        }
+        let (tenant, organization) = crate::command_adapters::guided_initialization(
+            invocation.flag("--tenant"),
+            invocation.flag("--organization"),
+        )
+        .map_err(|e| domain_error("initialization_setup", e))?;
+        effective.flags.insert("--tenant", vec![tenant]);
+        effective.flags.insert("--organization", vec![organization]);
+    }
     let home = yai_home();
     for relative in ["run", "store", "log", "tmp", "cases", "sockets", "config"] {
         fs::create_dir_all(home.join(relative)).map_err(|error| {
@@ -120,7 +139,7 @@ fn init(invocation: &Invocation) -> Result<CliData, CliError> {
             )
         })?;
     }
-    execute_structured_legacy("yai.init", invocation)
+    execute_structured_legacy("yai.init", &effective)
 }
 
 fn doctor() -> Result<CliData, CliError> {

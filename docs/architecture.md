@@ -190,9 +190,16 @@ verticals/tests.
 
 ## Case workbench and attached capabilities
 
-`./yai case workbench CASE --participant HUMAN --executor MODEL` is the Product
-frontend over ConversationController and the qualified REPLAI editor. Ordinary
-conversation remains I06. Explicit `/work` commits finite work intent before
+`./yai open [CASE]` is the short Product frontend over ConversationController and
+the qualified REPLAI editor. Guided `init`/`open` compose existing security and
+Case contracts with explicit confirmations, not ambient global context. The
+bounded participant bootstrap commits existing typed transitions atomically;
+it does not grant policy, resources or provider trust. Existing explicit
+`case workbench` and one-shot commands remain supported. `/connect`, `/review`,
+`/attach`, `/policy publish`, `/admit` and `/workflow bind` ask for missing input;
+bare `/retry` resolves a canonical current-thread Turn. The frontend calls typed
+application actions without subprocess dispatch or new terminal mechanics.
+Ordinary conversation remains I06. Explicit `/work` commits finite work intent before
 I02–I05 arbitration/realization; Workflow CaseWork nodes call that same host.
 No Agent, connector/tool registry or independent execution history is introduced.
 

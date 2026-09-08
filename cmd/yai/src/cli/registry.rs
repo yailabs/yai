@@ -41,6 +41,11 @@ pub(crate) struct ProductRoot {
 
 pub(crate) const PRODUCT_ROOTS: &[ProductRoot] = &[
     ProductRoot {
+        word: "open",
+        description: "Enter a Case with guided, explicitly approved setup",
+        section: ProductSection::Start,
+    },
+    ProductRoot {
         word: "init",
         description: "Initialize local identity and Tenant state",
         section: ProductSection::Start,
@@ -805,7 +810,24 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
             Mutating,
             Structured,
             NO_POS,
-            INIT_FLAGS
+            &[
+                flag("--tenant", Some("TENANT"), false),
+                flag("--organization", Some("ORGANIZATION"), false)
+            ]
+        )
+    },
+    Descriptor {
+        aliases: &[&["case", "open"]],
+        ..op!(
+            "yai.case.open",
+            ["open"],
+            "Open or explicitly create a Case with guided participant setup",
+            Product,
+            LocalInteractive,
+            Mutating,
+            Interactive,
+            &[optional_pos("case", None)],
+            NO_FLAGS
         )
     },
     op!(

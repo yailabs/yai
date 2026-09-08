@@ -67,6 +67,15 @@ it did not contain a separate interactive editor. No new `yai chat` command,
 attachment/path inference or Markdown framework is added by the terminal.
 Cognitive routing belongs to the I06 application host, not REPLAI.
 
+The short Product entry `./yai open [CASE]` uses this same consumer. Guided
+`init`/Case setup and in-Case `/connect`, `/review`, `/attach`, `/policy publish`,
+`/admit` and `/workflow bind` use bounded REPLAI input with no navigation history
+for setup answers. These are YAI application questions/confirmations, not a new
+editor or library API. Ctrl-C/EOF cancels the pending question without approval.
+Bare `/retry` resolves the current Participant/thread's latest canonical Turn;
+the explicit-ID form remains. See the [cumulative runbook](zero-to-current.md).
+The qualified pin, R5 removal and terminal mechanics above are unchanged.
+
 ## Terminal and execution lifecycle
 
 The prompt label is `yai(CASE)`; REPLAI composes its accent, delimiter and spacing.

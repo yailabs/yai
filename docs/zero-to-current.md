@@ -43,43 +43,59 @@ In Terminal B:
 make build-rust
 mkdir /tmp/yai-golden-human
 export YAI_HOME=/tmp/yai-golden-human/home
-python3 tests/cases/04-golden/world.py prepare --root /tmp/yai-golden-human/world --endpoint http://127.0.0.1:18240
+python3 tests/cases/04-golden/world.py prepare \
+  --root /tmp/yai-golden-human/world
 git rev-parse HEAD
-./yai init --tenant tenant:golden --organization organization:golden
-./yai case create case:golden:free --tenant tenant:golden
-./yai case create case:golden:workflow --tenant tenant:golden
-./yai case create case:golden:isolation --tenant tenant:golden
+./yai init
 ```
 
 If the directory already exists, STOP: preserve the previous run. Choose a new
 explicit directory and substitute it consistently below. `world.py prepare`
 refuses an existing world and does not initialize YAI or run the lifecycle.
 
-Initial identity setup is administration, not model work. One local authenticated
-Principal has one Participant association per Case. The human operator holds
-the reviewer role; the separate model Participant does not inherit that link.
+For `init`, answer Tenant `golden`, Organization `golden`, then explicitly type
+`create`. An initialized home keeps its existing identity; multiple authorized
+Tenants require selection, not an ambient default. Noninteractive automation
+retains the explicit `--tenant` / `--organization` form.
+
+Each shell command above is complete. The backslash continues the preparation
+command; never place a newline between a flag and its value without it. The
+reference endpoint defaults to `http://127.0.0.1:18240`.
+
+Open the Case using its short name:
 
 ```sh
-for case_id in case:golden:free case:golden:workflow case:golden:isolation; do
-  ./yai case participant role add "$case_id" --participant participant:operator --role operation-proposer
-  ./yai case participant role add "$case_id" --participant participant:operator --role operation-reviewer
-  ./yai case participant role add "$case_id" --participant participant:operator --role workflow-input
-  ./yai case participant role add "$case_id" --participant participant:model --role model-executor
-  ./yai case participant role add "$case_id" --participant participant:model --role operation-proposer
-  ./yai case participant link-principal "$case_id" --principal self --participant participant:operator
-  ./yai case participant view admit "$case_id" --participant participant:model --consumer model --view model_context
-done
-./yai case workbench case:golden:free --participant participant:operator --executor participant:model
+./yai open golden:free
 ```
+
+For a new Case, review the exact Tenant/Case and type `create`. Accept the
+suggested Participant names `operator` and `model` with Enter, inspect the roles
+and Principal link, then type `admit`. The approved Participant facts commit
+atomically. This does not attach resources, publish policy, grant an effect or
+trust a provider. The human operator holds the reviewer role; the separate model
+Participant does not inherit the human Principal link or review authority.
+
+If you already created `case:golden:free` but its Participant setup failed, use
+the same `YAI_HOME` and the same `./yai open golden:free`: it preserves that Case
+and offers only the missing setup. Do not reset it or repeat world preparation
+over an existing world. Reopening a ready Case does not repeat setup or mutate
+its generation. `./yai open` selects from visible Cases; it writes no global
+selected-Case state. `/setup` explicitly repairs/adds the shown Participant
+profile within an open Case; it never silently transfers a Principal link.
 
 ## Free Case: remain inside YAI
 
 The following are workbench actions, **not shell commands**. REPLAI handles the
 editor. Paths are literal; the workbench does not expand shell variables or
 infer attachments from ordinary conversation text.
+Execute one action at a time. For a guided action, answer each displayed question
+before continuing: the lines below show the order, not a script to paste as one
+multiline draft. Multiline paste remains one editor submission, not a hidden
+command batch. `/attach` alone can ask for a file instead of its complete form.
 
 ```text
 /case
+/help
 /participants
 /history
 /policy
@@ -89,9 +105,11 @@ infer attachments from ordinary conversation text.
 /attach /tmp/yai-golden-human/world/free/attachments/service.json
 /attach /tmp/yai-golden-human/world/free/attachments/mcp.json
 /attach /tmp/yai-golden-human/world/free/attachments/discovery.json
-/policy publish tests/cases/04-golden/policy.json publish reviewed Golden release policy deck
+/policy publish
+tests/cases/04-golden/policy.json
+publish reviewed Golden release policy deck
 /policy
-/discover resource:discovery issue
+/discover discovery issue
 ```
 
 Before policy publication the Case is not READY. Attachment alone grants no
@@ -101,20 +119,34 @@ candidate in the discovery result's `entries` into this admission action. Do not
 use the enclosing observation's `integrity_digest`:
 
 ```text
-/admit resource:discovery CANDIDATE_DIGEST issue/issue.md
+/admit
+discovery
+CANDIDATE_DIGEST
+issue/issue.md
 /artifacts
 ```
 
-Use the exact **public endpoint and exposed DeepSeek identity supplied by the
-YVEX operator**, replacing the two uppercase placeholders below. This performs
-real mechanical probes, your explicit trust approval and an explicitly
-operator-attested semantic binding. It does not mechanically certify model
-quality. For a private-network endpoint add `--locality private_network`; for
-credentials append `--credential-ref env:YAI_GOLDEN_PROVIDER_KEY` after setting
-that variable before opening the workbench. Never paste secret bytes into chat.
+Use `/connect` and answer its questions one at a time. Supply the exact **public
+endpoint and exposed DeepSeek identity from the YVEX operator**. Replace the two
+uppercase placeholders below; choose `loopback`, `private_network` or `remote`
+truthfully. The example assumes a loopback endpoint without credentials. If a
+credential is needed, supply only `env:YAI_GOLDEN_PROVIDER_KEY`, with that variable
+set before opening YAI. Never paste secret bytes into chat.
+
+The confirmation `approve` is your explicit trust decision. Suitability remains
+operator-attested, not mechanically certified model quality. `no` means do not
+replace an existing primary binding. No network probe begins before these
+answers are complete. A qualification failure remains a failure.
 
 ```text
-/connect PUBLIC_ENDPOINT EXACT_EXPOSED_DEEPSEEK_MODEL --trust approve --attest evidence:operator-golden-primary
+/connect
+PUBLIC_ENDPOINT
+EXACT_EXPOSED_DEEPSEEK_MODEL
+loopback
+none
+operator-golden-primary
+approve
+no
 /provider
 /capabilities
 /resources
@@ -137,24 +169,33 @@ record the actual failure and stop that execution.
 /history
 ```
 
-Inspect the proposed exact operation and its review. Replace `REVIEW_ID` with
-that recorded identity. Use `/operation OPERATION_ID` with the review's operation
-ID to inspect the exact path, proposed bytes, pre-state and canonical lineage
-before approval. First prove the model cannot approve it:
+Use `/review`: it selects a pending review (asks if several exist), displays the
+exact operation, proposed bytes, pre-state and lineage, then asks for your action
+and reason. Review it before answering; `deny` and `defer` remain real actions.
+An optional adversarial administrative check uses the exact displayed review ID:
 
 ```text
 /review approve REVIEW_ID participant:model forbidden self approval
-/review approve REVIEW_ID participant:operator checked independent release evidence and exact source change
+```
+
+That model self-approval must refuse. Normal human approval is:
+
+```text
+/review
+approve
+checked independent release evidence and exact source change
 /effects
 ```
 
-The first action must refuse. Human approval alone must not claim an external
-write. Resume the **same** committed Turn using its printed ID:
+Human approval alone must not claim an external write. Resume the **same** latest
+committed Turn in the selected conversation; `/retry` prints the resolved exact
+ID. `/retry TURN_ID` remains available for an explicitly different historical
+Turn. Neither action duplicates user SEND or weakens delivery safety:
 
 ```text
-/retry TURN_ID
-/read resource:workspace src/retry.py
-/test resource:runner tests
+/retry
+/read workspace src/retry.py
+/test runner tests
 /effects
 /history
 /verify
@@ -171,7 +212,7 @@ unchanged canonical history. Episodes/assertions are rebuilt without inference;
 no persistent hierarchy cache is invented. Embedding indexes require an explicit
 qualified encoder profile and are not silently created or claimed rebuilt.
 
-Reopen with the same `YAI_HOME`, using the same `./yai case workbench` command.
+Reopen with the same `YAI_HOME`, using `./yai open golden:free`.
 Inspect `/history`, `/reviews`, `/effects`, `/artifacts`, `/provider`, `/verify`.
 Retrying the completed Turn must reuse canonical outcomes, not repeat effects.
 Never retry delivery-indeterminate work against a different target to obtain a
@@ -182,10 +223,11 @@ convenient answer; inspect the retained result/prepare and reconciliation postur
 From the shell, enter the fresh Workflow Case:
 
 ```sh
-./yai case workbench case:golden:workflow --participant participant:operator --executor participant:model
+./yai open golden:workflow
 ```
 
-Bootstrap this Case inside the workbench. These are separate Case bindings, not
+Confirm creation and Participant admission as for the free Case. Bootstrap
+inside the workbench. These are separate Case bindings, not
 shared authority. As before, use the exact candidate digest and operator's
 exact public endpoint/model in place of uppercase identifiers.
 
@@ -196,18 +238,24 @@ exact public endpoint/model in place of uppercase identifiers.
 /attach /tmp/yai-golden-human/world/workflow/attachments/service.json
 /attach /tmp/yai-golden-human/world/workflow/attachments/mcp.json
 /attach /tmp/yai-golden-human/world/workflow/attachments/discovery.json
-/policy publish tests/cases/04-golden/policy.json publish reviewed independent Workflow Case deck
+/policy publish
+tests/cases/04-golden/policy.json
+publish reviewed independent Workflow Case deck
 /policy
-/discover resource:discovery issue
-/admit resource:discovery CANDIDATE_DIGEST issue/issue.md
-/connect PUBLIC_ENDPOINT EXACT_EXPOSED_DEEPSEEK_MODEL --trust approve --attest evidence:operator-golden-workflow
+/discover discovery issue
+/admit
+discovery
+CANDIDATE_DIGEST
+issue/issue.md
+/connect
 ```
 
-Use the same explicit locality/credential-reference options as the free Case
-where required by the actual deployment.
+Answer the connection questions as above, using attestation
+`operator-golden-workflow`. No provider authority is copied from the other Case.
 
 ```text
-/workflow bind tests/cases/04-golden/workflow.json
+/workflow bind
+tests/cases/04-golden/workflow.json
 /workflow input understand reviewed GOLDEN-42 issue and release objective
 /workflow run investigate
 /workflow
@@ -234,7 +282,7 @@ explicit adoption only if appropriate:
 ```
 
 As in free mode, inspect and human-review the exact requested source change,
-then `/retry TURN_ID`. Inspect real process results and `/verify`. The deterministic
+then `/retry`. Inspect real process results and `/verify`. The deterministic
 local reference patch introduces `verify-history`; a real model may propose a
 different valid bounded patch. Follow the **actual** inspected Workflow topology,
 not an assumed model answer. Record refusal if the patch is invalid or unsuitable.
@@ -255,7 +303,10 @@ Workflow completion must be canonical progression, not final model prose.
 
 ## Isolation and explicit Handoff
 
-From a completed source Case, create a bounded handoff:
+First create/open the empty isolation Case from the shell with
+`./yai open golden:isolation`, confirm its own setup and `/exit`. It must have
+no source resources or policy. Reopen the completed source with
+`./yai open golden:free` (or `golden:workflow`), then offer a bounded handoff:
 
 ```text
 /handoff offer case:golden:isolation operation-proposer Acknowledge the GOLDEN-42 finding without acquiring source resource access.
@@ -266,13 +317,13 @@ From a completed source Case, create a bounded handoff:
 Enter the isolation Case from the shell:
 
 ```sh
-./yai case workbench case:golden:isolation --participant participant:operator --executor participant:model
+./yai open golden:isolation
 ```
 
 ```text
 /case
 /resources
-/read resource:workspace src/retry.py
+/read workspace src/retry.py
 /handoffs
 /handoff accept SOURCE_CASE HANDOFF_ID
 /handoffs
@@ -289,10 +340,13 @@ source, `/handoff reconcile HANDOFF_ID`, inspect `/handoffs` and `/verify`.
 
 ## Model replacement and persistent canary
 
-After the initial run, the same Case can receive an exact Qwen target with:
+After the initial run, the same Case can receive an exact Qwen target with
+`/connect`: supply its actual endpoint/model, locality and credential reference,
+an explicit attestation, approve trust, and type `replace` at the final question.
+The compact action is the same; replacement is never an implicit default.
 
 ```text
-/connect PUBLIC_ENDPOINT EXACT_EXPOSED_QWEN_MODEL --trust approve --attest evidence:operator-golden-replacement --replace
+/connect
 /provider
 /history
 /verify

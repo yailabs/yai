@@ -86,12 +86,6 @@ def main():
             cli("init", "--tenant", "tenant:golden", "--organization", "organization:golden")
             for case in [CASE, "case:golden:workflow", "case:golden:isolation"]:
                 cli("case", "create", case, "--tenant", "tenant:golden")
-            for participant, role in [(OPERATOR,"operation-proposer"),(MODEL,"model-executor"),(MODEL,"operation-proposer"),(REVIEWER,"operation-reviewer")]:
-                cli("case","participant","role","add",case_id,"--participant",participant,"--role",role)
-            cli("case","participant","role","add",case_id,"--participant",OPERATOR,"--role","workflow-input")
-            for participant in sorted({OPERATOR,REVIEWER}):
-                cli("case","participant","link-principal",case_id,"--principal","self","--participant",participant)
-            cli("case","participant","view","admit",case_id,"--participant",MODEL,"--consumer","model","--view","model_context")
             log = run / "provider.jsonl"
             if not external:
                 provider = subprocess.Popen([sys.executable,str(ROOT / "tests/fixtures/provider_governance_server.py"),"--mode","golden",
@@ -110,16 +104,15 @@ def main():
                 assert history["total_transitions"] <= 256, "external proof exceeds retained inspection bound"
                 return sum(t["payload"]["kind"] == "provider_invocation_started" for t in history["transitions"])
 
-            connection = f"/connect {endpoint} {model} --trust approve --attest evidence:golden-external-operator" if external else f"/connect {endpoint} {model} --trust approve --attest evidence:golden-deterministic-reference"
+            locality, credential = "loopback", "none"
             if external:
                 locality = os.environ.get("YAI_EXTERNAL_PROVIDER_LOCALITY", "private_network")
                 if locality not in ("loopback", "private_network", "remote"):
                     raise AssertionError("invalid explicit provider locality")
-                connection += " --locality " + locality
                 if os.environ.get("YAI_EXTERNAL_PROVIDER_API_KEY"):
-                    connection += " --credential-ref env:YAI_EXTERNAL_PROVIDER_API_KEY"
+                    credential = "env:YAI_EXTERNAL_PROVIDER_API_KEY"
 
-            def open_workbench(selected_case=None):
+            def open_workbench(selected_case=None, first=False):
                 nonlocal terminal, master, slave, output
                 output = bytearray()
                 master, slave = pty.openpty()
@@ -127,10 +120,16 @@ def main():
                 def acquire():
                     os.setsid()
                     fcntl.ioctl(0,termios.TIOCSCTTY,0)
-                command = ["./yai","case","workbench",selected_case or case_id,"--participant",OPERATOR,"--executor",MODEL]
+                command = ["./yai","open",selected_case or case_id]
                 terminal = subprocess.Popen(command,cwd=ROOT,env=env,stdin=slave,stdout=slave,stderr=slave,preexec_fn=acquire)
                 record(command=command, pre_state="canonical Case retained; new terminal process")
-                wait(b"\x1b[?2004h")
+                if first:
+                    wait(b"Operator Participant name")
+                    action("",b"Model Participant name")
+                    action("",b"Type admit")
+                    action("admit",b"case_prompt: entered")
+                else:
+                    wait(b"case_prompt: entered")
 
             def wait(needle, offset=0, timeout=30):
                 if external:
@@ -184,19 +183,36 @@ def main():
                 master = slave = None
                 terminal = None
 
-            open_workbench()
+            def connect():
+                action("/connect",b"Public provider endpoint")
+                action(endpoint,b"Exact provider-exposed model identity")
+                action(model,b"Locality: loopback")
+                action(locality,b"Credential reference only")
+                action(credential,b"Your semantic suitability attestation reference")
+                action("golden-external-operator" if external else "golden-deterministic-reference",b"Type approve")
+                action("approve",b"Replace an existing primary binding?")
+                action("no",b'"semantic_posture": "operator_attested"')
+
+            open_workbench(first=True)
             for definition in sorted((world / "attachments").glob("*.json")):
-                action("/attach " + str(definition),b'"attachment_is_permission": false')
-            action("/policy publish " + str(REFERENCE / "policy.json") + " publish exact Golden reference deck", b'"readiness": "ready"')
-            discovery = action("/discover resource:discovery issue", b'"reused": false')
+                action("/attach",b"Resource definition file")
+                action(str(definition),b'"attachment_is_permission": false')
+            action("/policy publish",b"Policy source file")
+            action(str(REFERENCE / "policy.json"),b"Publication reason")
+            action("publish exact Golden reference deck", b'"readiness": "ready"')
+            discovery = action("/discover discovery issue", b'"reused": false')
             digest = re.search(rb'"digest": "(sha256:[a-f0-9]+)"',discovery)[1].decode()
-            action(f"/admit resource:discovery {digest} issue/issue.md",b'"reused": false')
+            action("/admit",b"Discovery resource")
+            action("discovery",b"Exact discovered candidate digest")
+            action(digest,b"Exact discovered relative path")
+            action("issue/issue.md",b'"reused": false')
             # Provenance remains the admitted immutable bytes, even after source drift.
             (world / "material/issue/issue.md").write_text("Changed external source must not replace admitted issue.")
-            action(connection,b'"semantic_posture": "operator_attested"')
+            connect()
             initial = hashlib.sha256((world / "workspace/src/retry.py").read_bytes()).hexdigest()
             if workflow:
-                action("/workflow bind " + str(REFERENCE / "workflow.json"),b'"workflow_binding": {')
+                action("/workflow bind",b"Workflow definition file")
+                action(str(REFERENCE / "workflow.json"),b'"workflow_binding": {')
                 action("/workflow input understand GOLDEN-42 reviewed; investigate with admitted capabilities",b'"workflow_input": "committed"')
                 action("/workflow run investigate",b'conversation_execution: "completed"',timeout=60)
                 assert hashlib.sha256((world / "workspace/src/retry.py").read_bytes()).hexdigest() == initial
@@ -227,9 +243,12 @@ def main():
             operation = re.search(rb'"operation_id": "([^"]+)"', pending)[1].decode()
             inspected = action("/operation " + operation, b'"causal_transitions": [')
             assert b"src/retry.py" in inspected, "Reviewer must inspect the exact proposed source mutation"
-            action(f"/review approve {review} {REVIEWER} reviewed source against independent release evidence",b"review_action: committed")
+            reviewed = action("/review",b"Review this exact operation:")
+            assert b"src/retry.py" in reviewed
+            action("approve",b"Review reason")
+            action("reviewed source against independent release evidence",b"review_action: committed")
             assert hashlib.sha256((world / "workspace/src/retry.py").read_bytes()).hexdigest() == initial, "Review itself must not execute effect"
-            action("/retry " + turn,b'conversation_execution: "completed"',timeout=60)
+            action("/retry",b'conversation_execution: "completed"',timeout=60)
             action("/verify",b'"replay_equal": true')
             if not external:
                 assert "min(250" in (world / "workspace/src/retry.py").read_text()
@@ -266,7 +285,7 @@ def main():
                 handoff = re.search(rb'"handoff_id": "([^"]+)"',offered)[1].decode()
                 close_workbench()
                 open_workbench(isolation)
-                action("/read resource:workspace src/retry.py",b"resource_not_attached")
+                action("/read workspace src/retry.py",b"resource_not_attached")
                 empty = action("/resources",b"[]")
                 assert b"resource:workspace" not in empty
                 accepted = action(f"/handoff accept {case_id} {handoff}",b'"authority_transferred": false')
@@ -282,7 +301,7 @@ def main():
                 isolated_definition.write_text(json.dumps(definition))
                 action("/attach " + str(isolated_definition),b'"attachment_is_permission": false')
                 action("/policy publish " + str(REFERENCE / "policy.json") + " isolated human-only resource envelope",b'"readiness": "ready"')
-                action(connection,b'"semantic_posture": "operator_attested"')
+                connect()
                 view = action("/capabilities",b'"entries": []')
                 assert b'"resource_participant_not_disclosed"' in view or b'"exclusions"' in view
                 action("/verify",b'"replay_equal": true')

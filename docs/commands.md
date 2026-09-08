@@ -5,12 +5,26 @@ how a user reaches those owners; it does not replace their truth.
 
 ## Product grammar
 
-Default help presents the memorable roots `init`, `doctor`, `case`, `workflow`,
+Default help presents the memorable roots `init`, `open`, `doctor`, `case`, `workflow`,
 `review`, `policy`, `provider`, `tenant`, `identity`, `runtime`, `help`, `version` and
 `completion`. Case is the primary work object. Workflow is optional. Store,
 journal, projection, context, graph, facts, process and carrier diagnostics
 remain available through advanced help without being presented as ordinary
 work.
+
+The normal first-use journey is `./yai init`, then `./yai open NAME`. Missing
+initialization values are asked through REPLAI only on a real terminal; explicit
+flags still support deterministic automation and JSON. `open` resolves exact
+`case:NAME` spelling among authorized state, or asks before creating it. Multiple
+Tenants/Cases/executors require explicit selection. A ready Case reopens without
+changing its generation; there is no mutable global current-Case file.
+
+Participant bootstrap shows the exact roles, model disclosure and human
+Principal link, then requires `admit`. The backend applies the bounded set of
+existing participant transitions in one authorized transaction, refusing stale
+generation or identity conflict without half a setup. This supplies no policy,
+provider trust, resource permission or Grant. An existing partial setup can be
+completed without recreating the Case. `/setup` is the explicit in-Case action.
 
 ## One compiled command authority
 
@@ -70,8 +84,9 @@ messages, object sections and line-oriented tables; the machine renderer emits
 untruncated and ANSI-free. Human success uses stdout; warnings, hints and errors
 use stderr. JSON success is stdout-only and JSON error is stderr-only.
 
-The explicit Product terminal entry `yai case workbench CASE --participant HUMAN
---executor MODEL` has an `interactive` output contract on `LOCAL_INTERACTIVE`.
+The Product entry `yai open [CASE]` (`yai case open` is its exact alias) has an
+`interactive` output contract on `LOCAL_INTERACTIVE`. The explicit
+`yai case workbench CASE --participant HUMAN --executor MODEL` remains available.
 It uses native REPLAI and rejects `--json` before terminal acquisition; it does
 not pretend its terminal event stream is a structured one-shot response.
 All non-interactive Product operations still require structured output. Exact
@@ -81,8 +96,20 @@ The workbench invokes typed application actions, not a child YAI executable.
 function request remains candidate material subject to current policy, review
 and effect admission. Ordinary text SEND does not implicitly acquire tools.
 
-Workbench vocabulary includes `/attach FILE`, `/policy publish FILE REASON`,
-explicit `/connect ENDPOINT MODEL --trust approve --attest evidence:REF`,
+Workbench vocabulary includes guided `/attach`, `/policy publish`, `/connect`,
+`/admit`, `/review` and `/workflow bind`. Answers are application input handled
+by the same typed controller actions as their retained complete forms:
+`/attach FILE`, `/policy publish FILE REASON`, and explicit
+`/connect ENDPOINT MODEL --trust approve --attest evidence:REF`.
+`/connect` still requires explicit trust/attestation and asks separately about
+replacement; it does not infer suitability or credentials. `/review` displays
+the exact pending operation and uses the current human identity, with explicit
+approve/deny/defer and reason. Bare `/retry` resolves the latest canonical Turn
+of the current Participant/thread and calls the unchanged recovery boundary;
+`/retry TURN_ID` remains exact. `/help` is compact; `/help all` and completion
+share the retained full action vocabulary. Resource actions accept `workspace`
+as exact spelling for `resource:workspace`, not a fuzzy match or persisted alias.
+Other actions include
 `/read`, `/discover`, `/admit`, `/material`, `/query`, `/fetch`, `/catalog`, `/test`,
 `/operation ID` before human `/review`, bounded `/work`, and same-Turn `/retry`.
 `/workflow bind|run|input|advance` and `/workflow patch validate|adopt` reuse the
