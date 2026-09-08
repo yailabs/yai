@@ -54,7 +54,7 @@ grep -Fq 'Authority: constitutional target.' docs/constitution.md ||
   fail 'constitution authority declaration missing'
 grep -Fq 'Authority: implementation truth.' docs/architecture.md ||
   fail 'architecture authority declaration missing'
-grep -Fq 'Authority: implementation delta' ROADMAP.md ||
+grep -Fq 'Authority: living public project control.' ROADMAP.md ||
   fail 'roadmap authority declaration missing'
 grep -Fq 'YAI governs the admitted transformation of durable semantic and operational state.' docs/constitution.md ||
   fail 'constitutional primitive missing'

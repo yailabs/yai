@@ -1,690 +1,485 @@
-# YAI implementation refoundation roadmap
+# YAI — living project control
 
-Authority: implementation delta between [the constitution](docs/constitution.md)
-and [the current executable architecture](docs/architecture.md). A named
-concept or stage does not automatically justify a source subsystem.
+Authority: living public project control. This is the sole live roadmap for
+macro state, maturity, strategic programs, engineering selection and promotion.
+[Constitution](docs/constitution.md) owns invariants;
+[Architecture](docs/architecture.md) owns executable truth. Reports are bounded
+evidence, not competing status pages. Git owns chronology.
 
-## Current sequence and authority
+## At a Glance / Current Snapshot
 
-The current implementation includes W19/H19, W20, I01–I06, TEST.TOPOLOGY.0
-and the native REPLAI R4 consumer with the published R5 vendor removal.
-Sections titled "Completed boundary" retain
-their checkpoint scope; old exclusions there are not a claim that a later
-completed wave is absent. [Architecture](docs/architecture.md) owns current
-source truth; historical reports retain their original evidence limitations.
-
-**I01–I06 COMPLETE. I07 UNSELECTED.** The terminal publication anchor is R5
-`426b5086cc668a3f04b68e39b80a36ffa6faa3ca`, whose parent is the completed I06
-semantic closure `fec2f17b0e71e6e12e8f40a37c5f44d874f4b7d5`.
-Neither is reopened or rewritten as future work. The post-I10 direction was
-recorded at `4d5a69c32622d3f2e37d399f8305001d3a4f27cc`. The next Interlock
-boundary remains unselected and requires explicit authorization. I07–I10 are
-not invented to preserve numbering; the Golden product wave is horizontal.
-
-| Layer | Implemented property / evidence |
+| Question | Current answer |
 |---|---|
-| W19 / H19 | [Derived indexing](refoundation/foundation-recovery/wave-19/WAVE-19-REPORT.md) and [source-revalidated physical hardening](refoundation/foundation-recovery/hardening-19/HARDENING-19-REPORT.md) |
-| W20 | [Derived Episodes, semantic assertions, support, contradictions, retention and no-reinference rebuild](refoundation/foundation-recovery/wave-20/WAVE-20-REPORT.md) |
-| I01 | [Immutable multipart content and canonical Turns](refoundation/foundation-recovery/interlock-01/INTERLOCK-I01-REPORT.md); [frontend-independent host](refoundation/foundation-recovery/interlock-01/interaction-closure/POST-I01-INTERACTION-CLOSURE.md) |
-| I02 | [Semantic suitability, exact bindings, plans and lanes](refoundation/foundation-recovery/interlock-02/INTERLOCK-I02-REPORT.md) |
-| I03 | [Exact typed realization and auxiliary content provenance](refoundation/foundation-recovery/interlock-03/INTERLOCK-I03-REPORT.md) |
-| I04 | [Bounded direct/composed execution and restart reuse](refoundation/foundation-recovery/interlock-04/INTERLOCK-I04-REPORT.md) |
-| I05 | [Pinned/arbitrated target choice before exact execution](refoundation/foundation-recovery/interlock-05/INTERLOCK-I05-REPORT.md) |
-| I06 | [Canonical conversation intent and cognitive host routing](refoundation/foundation-recovery/interlock-06/REPORT.md) |
-| Horizontal engineering | [Test proof/provider axes](refoundation/validation/test-topology-0/REPORT.md); [REPLAI R4](refoundation/integration/replai-r4/REPORT.md) and [R5 vendor removal](refoundation/integration/replai-r5/REPORT.md), cognitive semantics and qualified pin unchanged |
+| Project target | Model-independent semantic cognitive-state and governed execution substrate whose durable Case state can be compiled toward context-compatible and model-native persistent execution state. |
+| Selected engineering boundary | **SEMANTIC.STATE.REFOUNDATION.0 — SELECTED_NOT_STARTED**. Selection is project direction, not authorization to mutate runtime in this documentation closure. |
+| Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
+| Most important structural gap | Existing typed state and bounded Projection/ContextFrame do not yet constitute explicit general semantic cognitive state or a general State Compiler. |
+| Executable foundation | Transition v18 / CaseState v15; immutable owned content; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
+| Primary research boundary | State Read and State Update over model-native persistent computational state, with qualified reconstruction and YAI semantic admission. Both OPEN. |
+| Current compatibility path | Governed exact OpenAI-compatible context/text, bounded typed content/functions/JSON when mechanically qualified; optional opaque continuation, not a native state contract. |
+| Target stateful path | Semantic state → bounded compilation → provisional SemanticStateFrame/Delta → YVEX lowering → persistent model state plus immediate input. Not implemented. |
+| Human Golden acceptance | **PENDING_OPERATOR**; automated PTY evidence cannot supply this verdict. Continuity canary **NOT_RUN**. |
+| YVEX external posture | Partial synthetic text/functions/JSON qualification observed; real Case SEND received HTTP 413. Full external Golden lifecycle **not qualified**. [Exact observations][connection]. |
+| Next decision point | Authorize a bounded source-refoundation contract with state/admission and compatibility oracles; retain external capacity/setup-latency blockers rather than relabeling them solved. |
 
-These are bounded implemented facts, not blanket live-provider qualification.
-`GOLDEN.CASE.LIFECYCLE.0` is the current product/backend convergence wave,
-separate from Interlock numbering. Its [evidence package](refoundation/validation/golden-case-lifecycle/REPORT.md)
-tracks workbench, governed attached capabilities and free/Workflow reference
-qualification. The [ZERO-TO-CURRENT runbook](docs/zero-to-current.md) is the
-cumulative operator acceptance surface, not a new semantic owner. Deterministic
-publication and Golden local are separate required gates. Human acceptance
-remains PENDING_OPERATOR; live YVEX requires an operator endpoint/model and has
-no fixture fallback. I07 stays UNSELECTED.
-The follow-up [guided Case CLI closure](refoundation/validation/guided-case-cli/REPORT.md)
-shortens the Product journey to `init` → `open` → in-Case actions while retaining
-the exact automation surface, current authority and qualified REPLAI pin.
-The remaining I-series is separate from the conditional
-[post-I10 program](#post-i10-program--semantic-state-fabric-and-execution-compilation).
-H20, W21, W22 and Studio remain separately gated, not authorized by that program.
+**I01–I06 COMPLETE. I07 UNSELECTED.** Source refoundation, W19/H19/W20,
+TEST.TOPOLOGY.0, REPLAI R4/R5 and Golden/guided CLI remain completed evidence.
+No wave is reopened and no I07–I10 is invented. The formerly “post-I10” direction
+is now organized under programs S/C/Q below; the old horizon is not a numbering
+dependency. Its [target doctrine](docs/semantic-state-execution-target.md)
+remains non-executable. This roadmap authorizes neither that runtime program nor
+H20/W21/W22. The qualified operator-updated REPLAI pin is preserved.
 
-## Objective
+## Adopted thesis and cognitive-state boundary
 
-Recover the strongest executable foundations of the original YAI through a
-direct `yai-dev` archaeology → current characterization → semantic
-differential → minimal refounded implementation cycle. The recovery ledger is
-navigation, never historical authority. Existing transition/effect/context/
-memory/review guarantees remain fixed while governance, lifecycle, tenant,
-runtime, provider and longevity semantics are recovered without restoring the
-old planes, Agent sovereignty or noun-per-module topology.
-
-## Completed boundary — executable reality convergence
-
-`YAI.SOURCE.REFOUNDATION.1` characterized the current product verticals before
-collapsing physical ownership. It:
-
-- separated the 16-source production C archive from component-only C tests;
-- removed the marker Rust FFI crate, smoke-only bridge, net/proto scaffold,
-  synthetic carrier/registry families, inspection-only Case/lease views, and
-  duplicate C graph/index/memory/reconcile implementations;
-- retained and characterized C filesystem/process/observation mechanics with
-  unique platform value;
-- extracted provider, review, direct filesystem, replay, graph, and analytics
-  behavior from the former 10,901-line `main.rs`;
-- added real HTTP provider and direct filesystem bypass characterization;
-- preserved the five demonstrated product verticals and `yaid` lifecycle;
-- left JSONL/LMDB authority, Record schemas, and effect semantics unchanged.
-
-The removed source protected no uncharacterized product behavior. Historical
-E05/E07/V11 properties not implemented today are retained as regression
-requirements in the source-refoundation evidence package, not restored as old
-runtime directories.
-
-## Completed boundary — typed transition authority
-
-`YAI.SOURCE.REFOUNDATION.2` selected the existing LMDB environment after
-testing it against the required transaction semantics. It implemented:
-
-- `yai.transition.v1`, with global identity, Case identity, per-Case sequence,
-  source, optional Scope, causal refs, typed payload, provenance, and
-  presentation-only summary;
-- `yai.case_state.v1`, atomically reduced with every ledger append and fully
-  rebuildable from ordered Transitions;
-- deterministic duplicate/stale-generation rejection, rollback-before-commit,
-  restart, replay equivalence, materialization rebuild, persisted-version
-  rejection, and derived failure isolation;
-- typed Case/participant/provider/invocation/result/interpretation and fixed
-  review request/resolution payloads as the minimum current consumer set;
-- typed graph derivation and deterministic graph replacement from canonical
-  transitions, with historical records routed through one compatibility
-  decoder;
-- a corpus covering all 35 Rust and 32 C legacy kinds, drift cases, both old
-  schemas, optional/malformed/unknown input, repeated IDs, and old summary
-  variants;
-- inspect, dry-run, and isolated compatibility import that preserves unknown
-  information opaquely and never creates canonical meaning;
-- live provider and review consumers while retaining old JSONL/record output
-  for compatibility.
-
-LMDB is now physical storage for both canonical ledger and current
-materialization, but only the Transition ledger is historical authority. The
-old journal/record databases remain compatibility input/output and operator
-evidence, not a second mutable canon.
-
-## Completed boundary — first constitutional effect vertical
-
-`YAI.SOURCE.REFOUNDATION.3` implemented one narrow end-to-end Case path:
+**YAI owns semantic cognitive state. YVEX owns computational cognitive state.**
+This is an architectural decision/target, not a claim of a deployed dual-stream
+runtime. A model owns learned computation; a future model may learn to read and
+update persistent computational state. It never thereby acquires Case authority.
 
 ```text
-qualified CaseState
-→ bounded controlled-effect projection
-→ provider Invocation + typed ProviderResult
-→ interpreted OperationCandidate
-→ Decision + ExecutionGrant
-→ PREPARE / filesystem carrier / FINALIZE
-→ committed Transition + materialized CaseState
-→ rebuilt next Projection
+External world / admitted Case events
+  → canonical history + authoritative current state
+  → qualified semantic cognitive state S_t
+  → semantic state compilation
+  → SemanticStateFrame / SemanticStateDelta (provisional names)
+  → YVEX computational-state lowering
+  → model-native persistent state M_t + immediate token/input stream
+  → model
+
+Model result / computational update → YVEX computational evidence
+  → semantic proposal / consequence → YAI validation + authority + admission
+  → new canonical semantic state
 ```
 
-The provider result remains raw candidate material until an exact
-`filesystem.write` proposal contract is normalized. ALLOW/DENY is deterministic
-and owned by a bound non-model policy participant. Only ALLOW produces an
-integrity-bound, generation-bound, one-time Grant. The Rust carrier requires a
-materialized durable PREPARE, performs real pre/post observation and atomic
-replacement, and finalizes only established outcomes.
-
-Crash injection now covers after Grant/before PREPARE, after PREPARE/before
-effect, after visible effect/before observation, and after receipt construction/
-before FINALIZE. Explicit restart reconciliation concludes effect observed, no
-effect observed, conflict, or still indeterminate from real state. Duplicate
-reconciliation does not duplicate the semantic effect. The direct Rust write
-command is removed, review approval uses the same carrier, and the C daemon
-filesystem fixture no longer performs or claims an effect.
-
-The deterministic HTTP vertical performs a required second provider call. Its
-view derives success or denial from typed Transition/CaseState consequence,
-never from the first model's assertion. This proves the first constitutional
-effect path, not a generalized carrier or final context architecture.
-
-## Completed boundary — typed Projection and semantic continuity
-
-`YAI.SOURCE.REFOUNDATION.4` implemented one provider-independent semantic
-compiler used by ordinary prompts and controlled effects:
-
-- `yai.projection.v1` binds Case generation, admitted participant/purpose,
-  ordered typed entries, authority posture, provenance and bounded omissions;
-- `yai.context_frame.v1` gives one invocation task/output contract identity
-  independent of provider render, token sequence and continuation;
-- `yai.rendered_input.v1` metadata identifies provider/model render and digest
-  without retaining full rendered input;
-- `yai.transition.v3` records provider/model/Projection/Frame/render/output-
-  contract lineage and typed bounded interaction turns;
-- new provider invocations no longer write or consume ParticipantViewFrame;
-- optional opaque continuation is ephemeral and invalidation retries the full
-  frame; its loss cannot change Case history or CaseState;
-- deterministic HTTP proofs replace provider and model after a real filesystem
-  effect, restart provider state, and preserve the observed consequence;
-- participant visibility fails before rendering, indeterminate effects remain
-  unresolved, false provider claims remain claims, and long history produces a
-  bounded frame;
-- the droppable semantic-context artifact store supports inspection but owns no
-  canonical data.
-
-Residency remains provisional and ContextDelta deferred because neither has an
-independent current consumer. The context-residency lab remains research
-evidence, not implementation authority.
-
-## Completed boundary — provenance-bound operational memory and qualified retrieval
-
-`YAI.SOURCE.REFOUNDATION.5` implemented one rebuildable experience layer:
-
-- `yai.operational_memory.v1` derives resource effects, Decisions, unresolved
-  effects, normalization failures and explicitly non-authoritative provider
-  claims from canonical Transitions;
-- every entry binds deterministic identity, derivation version, generation,
-  typed value, participant visibility and Transition/Observation/Receipt/
-  causal provenance;
-- active/superseded lifecycle prevents stale resource state or unresolved
-  effect residue from outranking a newer terminal consequence;
-- two derived LMDB databases are atomically replaceable per Case but remain
-  outside canonical commit success; drop/rebuild and derivation failure leave
-  ledger and CaseState unchanged;
-- qualified retrieval filters Case, generation, participant/admitted view,
-  lifecycle, semantic kind and resource/causal refs before explainable purpose/
-  posture/recency ranking and a hard result budget;
-- `yai.projection.v2`/`yai.context_frame.v2` consume the typed RetrievalSet with
-  provenance and canonical fallback; Provider A→effect→Provider B/model
-  replacement proves memory is independent of conversation/KV;
-- the active `/memory propose` MemoryCandidate writer is retired; legacy
-  MemorySummary/RecordKind handling is compatibility-only.
-
-No embedding model, vector database, learned summary, compression hierarchy,
-memory daemon or Agent owner was added.
-
-## Completed boundary — agentless Case runtime and semantic residency
-
-`YAI.SOURCE.REFOUNDATION.6` connected the existing semantic boundaries into a
-disposable synchronous Case runner:
-
-- every iteration reloads canonical CaseState, reconciles unresolved effects,
-  repairs derived memory, retrieves qualified experience, plans residency,
-  compiles a fresh Projection/ContextFrame and invokes the current provider;
-- `yai.residency_plan.v1` classifies mandatory pinned, retained,
-  reintroduced and omitted semantic refs with inspectable reasons under item
-  and semantic-unit limits; it is derived artifact metadata, not Case memory;
-- invocation, operation, semantic-context and cumulative estimated-input
-  budgets stop before extra transport/effect, while optional provider usage is
-  recorded as telemetry rather than tokenizer truth;
-- `case run/resume/status/stop` expose bounded execution-attempt state without
-  creating Agent, Workflow or Orchestrator ownership;
-- canonical ProviderResult, Grant, visible-effect and post-FINALIZE/pre-memory
-  crash points resume from ledger/CaseState, including automatic reconciliation
-  before the next model call;
-- a real-HTTP 26-turn proof performs 24 controlled writes, one DENY/adaptation,
-  provider/model replacement and bounded 12-item context; a separate
-  128-iteration test grows more than 380 Transitions while context stays
-  bounded;
-- `main.rs` is smaller than its Wave-5 baseline because memory command-family
-  behavior moved behind an explicit CLI boundary.
-
-The current runner is synchronous and single-process. Its run checkpoint is
-non-authoritative operator metadata, and the only effect family remains local
-`filesystem.write`.
-
-## Completed boundary — typed human review and durable runtime admission
-
-`YAI.SOURCE.REFOUNDATION.7` removed the fixed review world and implemented:
-
-- `yai.transition.v4` / `yai.case_state.v4` typed Operation-bound
-  ReviewRequest, integrity-bound ReviewAction and effective Decision refs;
-- explicit `REQUIRE_REVIEW`, where no Grant/PREPARE/effect exists until an
-  eligible bound human Participant records APPROVE and runtime resumes;
-- durable APPROVE/DENY/DEFER state with query purity, duplicate/stale/wrong-
-  participant rejection and replay-equivalent CaseState;
-- provider/model replacement during review while preserving the original
-  Operation identity and observed second-turn consequence;
-- provenance-bound review memory and mandatory unresolved review Projection
-  posture without treating approval as resource evidence;
-- `yai.case_runtime_admission.v1` in noncanonical LMDB metadata, providing
-  process-safe single-Case exclusion, normal/pause release and dead/expired
-  owner reclamation;
-- deterministic R1–R6 review crash recovery and removal of the old fixed
-  Case/review/attempt/path, direct review effect, JSONL dual-write, quarantine
-  writer and `CompatibilityReview` constructor.
-
-The local CLI trust boundary verifies a claimed bound Participant and review
-eligibility; it does not authenticate an operating-system person, SSO identity
-or remote signature.
-
-## Completed boundary — governance source intake and policy artifacts
-
-`YAI.SOURCE.REFOUNDATION.8` began the systematic Foundation Recovery program.
-Direct archaeology across the March 2026 ingestion, review, registry,
-workspace-attachment and later topology/drain epochs recovered the useful
-supply-chain properties while rejecting the former governance forest. Current
-YAI now provides:
-
-- bounded `yai.policy_source_input.v3` constrained JSON with exact-byte SHA-256
-  identity, declared source-origin provenance and retained immutable
-  `yai.policy_source_artifact.v3` (v1-v2 remain readable);
-- deterministic typed parsing for operation restrictions, review requirements
-  and evidence obligations, with source JSON-location provenance;
-- normalized `yai.policy_ir.v2` with deterministic digest, deduplication,
-  unresolved semantics and typed conflict blockers;
-- immutable/versioned `yai.policy_artifact.v3` candidates and an append-only
-  independent governance lifecycle (`candidate → validated → published →
-  superseded/retired`) in the existing LMDB environment;
-- `runtime_consumable` only as a derived published-and-qualified disposition;
-  no Case binding, EffectivePolicy, Decision, Grant, provider call or carrier
-  effect is produced by authoring;
-- idempotent duplicate intake, immutable P@1/P@2 history, pure inspection and
-  fail-closed malformed/unknown/conflicting input.
-
-The local `--as` actor is lifecycle provenance, not authenticated enterprise
-identity or policy authority. Full source bytes are currently retained under a
-hard bound; global privacy/retention policy remains open.
-
-## Completed hardening — governance artifact foundation
-
-`YAI.FOUNDATION.HARDENING.8` re-ran direct cross-family archaeology and made
-the Wave-8 foundation safe for later Case binding without implementing it:
-
-- policy lineage is exactly `owner_ref + policy_key`, preventing cross-owner
-  supersession while keeping tenant/Principal semantics deferred;
-- one declared version in one lineage can identify only one immutable content;
-  changed bytes fail atomically instead of creating ambiguous `P@version`;
-- duplicate JSON keys, pathological depth, BOM/UTF-8/identifier violations and
-  malformed known rules fail before persistence;
-- `source_system`/`source_uri` are bounded declared provenance distinct from
-  source bytes, local paths, actor identity and authenticated ownership;
-- validation is re-derived from stored IR, lifecycle/supersession refs are
-  integrity checked, and LMDB abort/concurrency tests prove one current
-  publication per lineage;
-- a rebuildable current-lineage index accelerates exact lookup without becoming
-  governance history;
-- the shared LMDB default is now 256 MiB with an explicit 256-source catalog
-  contract and fail-closed capacity exhaustion.
-
-At that checkpoint H8 emitted no Case policy state. Wave 9 has since added the
-exact binding/materialization boundary described below without adding
-operational authority.
-
-## Completed boundary — Case policy materialization
-
-`YAI.SOURCE.REFOUNDATION.9` recovered the useful legacy fail-closed normative
-qualification property while rejecting mutable profile aliases, generated
-second truths and free readiness booleans. Current YAI now provides:
-
-- canonical bind/replace/unbind history (introduced in v5, current
-  `yai.transition.v6`) and compact `yai.case_state.v6` active bindings, each pinned to one exact immutable
-  published PolicyArtifact and bind-time publication event;
-- one active binding per owner-scoped policy lineage, explicit atomic
-  replacement and no automatic adoption of a newer publication;
-- rebuildable `yai.effective_policy.v2` under
-  `yai.policy_materializer.v2`, with deterministic sorted composition and full
-  contributing provenance;
-- conservative DENY-over-ALLOW, required-review dominance, additive evidence
-  obligations, and blocking missing/integrity failures;
-- derived `unconfigured`/`ready`/`blocked` normative readiness and catalog drift
-  reporting that does not yet imply revoke or refresh.
-
-Binding and materialization do not alter the existing operation path and emit
-no Decision, review request, Grant, effect or model/provider call.
-
-## Foundation Recovery sequence
-
-The current dependency order is:
-
-1. Waves 10–12: complete — policy-driven authority, temporal governance,
-   durable Case termination and authenticated Tenant security domains.
-2. Wave 13 and H13: complete — local multi-Case RuntimeInstance, bounded
-   workers, Tenant-fair scheduling/backpressure, canonical-first recovery,
-   process-bound operational ownership and terminal-ack closure.
-3. Wave 14 and H14: complete — shared resource authority, monotonic epochs,
-   carrier-enforced fencing, a second physical carrier, and adversarial
-   stale-writer, rebuild, TOCTOU and process-uncertainty qualification.
-4. Wave 15: complete — immutable Tenant-bound
-   WorkflowDefinitions, exact Case adoption, deterministic resolution, bounded
-   ready work, ModelWork and deterministic/passive progression.
-5. H15: complete — workflow determinism, replay, crash,
-   predicate type safety, definition integrity and authority-isolation closure.
-6. Wave 16: complete — CLI Product Refoundation: porcelain/plumbing separation,
-   canonical command registry, parser lanes and output-family alignment.
-7. Wave 17: complete — adaptive workflow evolution, typed same-Tenant
-   multi-Case handoff, PlanPatch, bounded exact Subflow and reconciliation.
-8. H17: complete — amendment lineage/concurrency, effective-topology replay and
-   upgrade closure, nested recovery, Handoff forgery/race resistance and
-   derived multi-Case graph rebuild.
-9. Wave 18: complete — Tenant-scoped provider targets, evidence-bound
-   qualification/capability provenance, explicit trust, shared health,
-   deterministic Case-local selection and delivery-safe failover.
-10. H18: complete — provider-governance corruption, lifecycle/concurrency,
-    endpoint/credential drift, extension spoofing, transport-boundary and
-    long-outage pressure qualification.
-
-The post-H18 reassessment found no evidence for another semantic owner or an
-automatic numbered Foundation Wave. Subsequent work must be selected from
-observed deployment or product pressure and must reopen archaeology when it
-changes a load-bearing property. Workflow design is recorded in
-`refoundation/foundation-recovery/WORKFLOW-REFOUNDATION-PLAN.md`; Wave 15 owns
-the first executable kernel, H15 its adversarial closure, Wave 16 the product
-CLI boundary, Wave 17 adaptive composition, H17 its adversarial closure and
-Wave 18/H18 provider-governance implementation and adversarial closure. The
-selection record is
-`refoundation/foundation-recovery/hardening-18/post-h18-roadmap-reassessment.md`.
-
-The sequence may change only when repository evidence establishes a stronger
-dependency. Every wave is incomplete until its isolated commit is pushed and
-`HEAD == origin/master == ls-remote`.
-
-## Completed boundary — policy-driven authority
-
-`YAI.SOURCE.REFOUNDATION.10` freshly re-inspected legacy mediation and recovered
-its fail-closed useful properties without its planes, mutable profiles,
-default-ALLOW or ambient operator booleans. New live filesystem admission now:
-
-- requires derived normative readiness before provider invocation;
-- evaluates a normalized Operation under the exact `yai.effective_policy.v2`
-  through immutable `yai.decision_basis.v1`;
-- denies an applicable DENY or absence of explicit applicable ALLOW;
-- intersects policy with the hard attachment envelope and Case-bound
-  proposer/reviewer all-of roles;
-- gives source-provenance, audit-reason and pre/post observation obligations
-  typed executable meaning;
-- records `yai.decision.v2`, optionally pauses on
-  `yai.review_request.v2`, and issues `yai.execution_grant.v2` only after final
-  ALLOW under the same current policy basis.
-
-Policy change before review or Grant fails closed. Legacy resource policy-owner
-and review fields remain readable but are not active authority in this path.
-
-## Completed boundary — temporal governance and Case termination
-
-`YAI.SOURCE.REFOUNDATION.11` adds explicit immutable policy validity,
-append-only revoke, a rollback-safe authority-time floor, typed review/Grant
-invalidation, finite Grant v3 authority, durable Case cancellation and terminal
-non-destructive closure. `yai.transition.v7`/`yai.case_state.v7` replay the
-barriers. PREPARE is the non-retroactive cut: authority can contract before it;
-after it the effect must finalize or reconcile.
-
-## Completed boundary — authenticated Tenant security domains
-
-`YAI.SOURCE.REFOUNDATION.12` replaces human/admin string claims on the new live
-path with a kernel-observed local POSIX Principal projection. One durable
-security owner records immutable `yai.security_principal.v1` and
-`yai.tenant.v1` objects plus minimal Owner/Member history. Every new Case has
-one immutable Tenant; legacy v1-v7 Cases remain read/replay-only and cannot
-acquire new authority implicitly.
-
-New policy artifact v5 identity and lineage are Tenant-scoped, Case binding v2
-rejects cross-Tenant artifacts, EffectivePolicy v3 and DecisionBasis v3 retain
-the exact security domain, and ReviewAction v2 resolves an authenticated
-Principal through Tenant membership and an explicit one-to-one Case
-Participant link before applying existing policy roles. Organization remains
-Tenant metadata, not a second runtime owner. Product reads and canonical
-administrative writes enforce the Tenant boundary; exact or overlapping local
-filesystem roots across Tenants fail closed. This is local process/runtime
-isolation over OS-protected LMDB, not SSO, credential-vault, container or VM
-isolation.
-
-## Completed boundary — multi-Case runtime concurrency
-
-`YAI.SOURCE.REFOUNDATION.13` and `YAI.FOUNDATION.HARDENING.13` add one local
-foreground RuntimeInstance with a finite worker pool, durable bounded
-WorkItems, Tenant round-robin/FIFO, per-Tenant and global backpressure, one
-active work item per Case, process-bound instance ownership and restart-stable
-fairness. Recovery derives terminal/parked WorkItem posture from exact Case
-checkpoint and canonical truth; lost scheduler acknowledgement cannot reopen a
-completed or denied Case attempt. This operational state is not Case authority.
-
-At the Wave-13 boundary, the remaining physical gap was cross-process
-shared-resource exclusion: scheduler-local root overlap serialization could
-not stop a separate direct Case runner from reaching the same mutable resource.
-Wave 14/H14 closed that local single-host gap through the fencing boundary
-described below; distributed cross-host exclusion remains unclaimed.
-
-## Completed boundary — shared-resource fencing and second carrier
-
-Wave 14 owns one Tenant-bound shared-resource authority, monotonic resource
-epochs, PREPARE-atomic fence acquisition, carrier-side current-fence
-validation, stale-writer rejection and release only with terminal effect truth.
-It also qualifies a second real physical carrier through the same
-Operation→Decision→Grant→PREPARE chain and establishes a cumulative external
-YVEX provider pressure-test surface. It does not implement Workflow or provider
-governance.
-
-## Explicit non-goals
-
-This roadmap does not introduce Space or Agent as owners, import `yai-dev`,
-modify YVEX from YAI work, create a directory per concept, or require
-ContextDelta. It does
-not restore the historical Governance/Compliance/Authority planes, registry
-forest, Workflow, supervisor or embedded-law topology.
-
-## Post-W19 work-selection gate
-
-At the W19 checkpoint there was no active numbered Foundation Wave. A next source task requires
-executable product, deployment or external-consumer evidence that identifies a
-specific missing property. W19 was admitted by explicit long-horizon memory
-product pressure after H18; it did not authorize H19. Distributed consensus,
-production trust and credential provisioning, higher-order memory
-consolidation, governed read/list/stat/search capabilities, retention policy,
-background indexing and richer diagnostics remain candidate pressure areas,
-not pre-authorized semantic owners. Their classifications and non-claims are
-maintained in the W19 dossier. H19 and W20 subsequently closed their admitted
-index-hardening and episodic/semantic-memory deltas; their reports, not this
-historical candidate list, establish completion.
-
-## Completed boundary — adaptive Workflow semantic closure
-
-Wave 17 added typed bounded PlanPatch candidates, authenticated Case-local
-amendment adoption, deterministic EffectiveWorkflowTopology derivation, exact
-same-Case Subflow expansion and same-Tenant Case Handoff. H17 closes long
-lineage, concurrent mutation, nested recovery, cross-Case forgery,
-cancellation/close ordering, concurrent cycle admission and software-upgrade
-digest drift. Immutable Definitions and the existing
-policy/Decision/Grant/ResourceFence/RuntimeInstance boundaries remain intact.
-No Agent, Orchestrator, WorkflowRun, multi-Case Process owner or provider
-governance is added.
-
-## Completed boundary — provider governance and adversarial closure
-
-Wave 18 adds immutable Tenant-scoped ProviderTargets, synthetic evidence-bound
-qualification, derived capability provenance, Tenant-Owner approval/denial,
-shared fresh operational health/circuit state, exact Case provider bindings,
-mechanical invocation requirements, deterministic Case-canonical selections
-and bounded attempt outcomes. Legacy ProviderAttached Cases remain exact pins.
-
-Failover is only `none` or `safe_only`: failure before any request byte may
-select another exact eligible target, while possible remote delivery without
-an authoritative result stops as `delivery_indeterminate`. Selection remains
-cognition routing, never Policy/Decision/Grant/Resource authority. The
-optional documented YVEX HTTP extension is observation-only; YAI does not
-administer YVEX or depend on its private local protocol. H18 adversarial
-hardening subsequently closed qualification/trust replay, credential rotation,
-rollback-safe health, half-open concurrency, DNS/TLS transport, selector,
-delivery and extension-spoofing boundaries. Cross-host governance, deployment
-credential stores and external-provider availability remain explicit gaps, not
-provider-brand branches or evidence for a new owner.
-
-## Completed boundary — derived hybrid memory indexing
-
-Wave 19 preserves Transition history as memory authority and OperationalMemory
-as its rebuildable typed materialization. It adds deterministic
-`yai.memory_representation_document.v1` values, exact Tenant/encoder/profile
-identity, derived embedding artifacts and content-addressed corpus/index
-manifests without increasing the 37/40 LMDB database count.
-
-Disposable filesystem bundles provide BM25 and normalized exact-cosine
-candidate planes. Case/generation/Participant/view/lifecycle/resource/causal
-qualification remains ahead of deterministic reciprocal-rank fusion, so
-similarity cannot grant visibility, upgrade ProviderClaims or authorize an
-Operation. Builds are bounded, locked, corruption-detecting and atomically
-published; profile replacement creates a new namespace; drop/rebuild preserves
-Case truth. The existing Projection v5 → ResidencyPlan → ContextFrame v5 path
-consumes v2 RetrievalSet selections and degrades to v1/canonical retrieval.
-
-ANN is explicitly deferred after 1k/10k/50k exact-scan characterization; exact
-scan remains the oracle. Embedding calls are limited to separately qualified
-loopback targets under W18 ProviderGovernance. YVEX/DeepSeek remains the
-cognitive provider and gains no embedding endpoint or core special case.
-Learned reranking, contradiction/consolidation and governed filesystem/process
-capability expansion remain outside W19.
-
-## Completed boundary — cognitive capability bindings and execution lanes
-
-Interlock I02 adds the smallest YAI-owned semantic planning layer between Case
-conversation requirements and provider realization. It introduces a closed
-initial cognitive capability vocabulary, immutable exact-target semantic
-suitability evidence, canonical primary/auxiliary Case bindings with explicit
-replacement, and a pure native/derived/unresolved planner. Stable derived lane
-identity scopes optional continuation hints without turning lanes, provider
-sessions or model runtime state into owners.
-
-The provider-governance envelope remains the permission/routing boundary and
-ProviderQualification v3 remains mechanical evidence; neither is replaced by
-semantic suitability. Plans perform no provider dispatch, network access,
-content derivation, YVEX activation or model execution. Subsequent I03 closed
-typed media realization and execution-provider adaptation; dynamic arbitration
-was separately closed by I05. REPLAI/Studio, H20, W21 and W22 remain outside I02.
-
-## Completed boundary — typed provider realization and auxiliary execution
-
-Interlock I03 consumes one fresh I02 plan and exact canonical Turn parts only
-after revalidating the current binding, target-bound semantic evidence,
-provider envelope, trust, target identity, credential posture and
-ProviderQualification v4 wire-shape evidence. The OpenAI-compatible adapter
-preserves source-part order and repeated equal-byte parts for the admitted
-text, PNG and WAV shapes. Exact-target selection deliberately makes
-transport-level substitution impossible.
-
-Native plans reuse the primary lane. Derived speech-to-text and image-
-understanding plans may publish only bounded normalized text into the existing
-immutable ConversationContentStore, followed by a Case-canonical v1 relation
-binding source parts, lane, target, qualification, selection, invocation and
-ProviderResult. The source ConversationTurn is unchanged and provider content
-remains non-authoritative candidate material. A recorded result can complete
-publication after restart without provider reinvocation; indeterminate or
-invalid results publish nothing.
-
-I03 does not add dynamic arbitration, automatic auxiliary-to-primary
-orchestration, production STT/vision integrations, YVEX private-protocol
-coupling, streaming, Replia, Studio, H20, W21 or W22.
-
-## Completed boundary — cognitive execution composition
-
-Interlock I04 composes one explicit speech-to-text or image-understanding
-prerequisite into a primary-conversation realization without creating an
-Orchestrator, WorkflowRun, lane store or pipeline owner. A content-addressed
-request records semantic intent independently of MIME or model naming. A
-deterministic source closure preserves original Turn order and identities,
-marks exact original parts retained, replaced or consumed by a derivation, and
-feeds a fresh primary I02 plan through the existing I03 realization seam.
-
-An exact primary binding with matching semantic suitability and current
-ProviderQualification v4 mechanical shape bypasses the auxiliary stage. When a
-declared prerequisite is needed, only its exact auxiliary binding may execute;
-failure or delivery-indeterminate posture blocks the primary. Compatible
-canonical derived content resumes after restart without redispatch, while
-binding/evidence/qualification changes require current revalidation. The
-submitted ConversationTurn remains immutable and composition state remains
-fully derived.
-
-I04 admits one bounded depth-two composition only. Dynamic target arbitration,
-recursive cognitive graphs, automatic chat routing, production STT/vision
-onboarding, YVEX runtime ownership, Replia, Studio, H20, W21 and W22 remain
-outside this boundary.
-
-
-## Completed boundary — native terminal consumer
-
-R4 replaces the active `yai prompt` linenoise path with pinned native REPLAI.
-Transient editor state stays separate from Case authority; the existing
-conversation controller commits one Turn before governed provider execution.
-`case enter` inspection/shell setup and noninteractive invocation retain their
-existing roles. The product PTY qualification observes canonical non-mutation
-while editing, commit-before-provider, success/failure retention, exact terminal
-restoration and bounded descriptors. See the
-[R4 report](refoundation/integration/replai-r4/REPORT.md) and
-[terminal contract](docs/replai-terminal.md).
-
-The obsolete vendored editor is removed in R5. The cross-consumer closure
-requires separate current YVEX qualification; this YAI cleanup does not change
-the native interaction, cognitive execution or qualified dependency pin.
-
-## Completed boundary — governed cognitive target arbitration
-
-I05 adds bounded ordered preference to the existing Case cognitive-binding
-contract while retaining pinned choices. Exact semantic evidence, current
-provider-envelope admission, target integrity, trust, operational eligibility
-and known mechanical shape are resolved before selecting one exact target.
-Arbitration is derived and inspectable; I03 still performs exact-target
-dispatch, and I04 still composes only its bounded prerequisite/primary path.
-Snapshot changes require fresh planning; uncertain delivery cannot silently
-become work for another target. Canonical binding v2, Transition v16 and
-CaseState v14 retain historical readers. Plans v2 add the inspected snapshot;
-LMDB remains 37/40 with no owner delta.
-
-Remaining after I05: explicit production semantic qualification beyond operator
-attestation, public typed-media provider interoperability, product-host
-integration (closed by I06 below), and future evidence-backed routing dimensions. No learned
-optimizer, prices/quality guesses, autonomous retry, YVEX physical lifecycle,
-REPLAI change, Studio, H20, W21 or W22 is part of I05.
-
-## Completed boundary — conversation execution intent and cognitive host routing
-
-I06 connects the existing ConversationController and native REPLAI `yai prompt`
-to shared I02–I05 execution. Atomic SEND records immutable Turn plus an adopted
-I04 request as semantic intent (Transition v17; CaseState v14 unchanged).
-PrimaryConversation is the conversation action default; source modality never
-invents a prerequisite. Exact native execution or one explicitly requested
-auxiliary transformation uses the existing composition and realization seam.
-Retry preserves intent and Turn, reconstructs current plans, reuses compatible
-canonical results, and refuses uncertain prior work across target changes.
-The controller's old provider-order execution loop is removed.
-
-Remaining: production semantic qualification, public external typed-media
-interoperability, explicit operator resolution of uncertain delivery, streaming,
-and future frontend attachment/capture actions. Noninteractive legacy diagnostic
-prompt and bounded operational Case runtime keep their separate purposes.
-No REPLAI pin/R5 work, Product `yai chat`, Studio, H20, W21 or W22 begins here.
-See [I06 evidence](refoundation/foundation-recovery/interlock-06/REPORT.md).
-
-## Post-I10 program — semantic state fabric and execution compilation
-
-Authority: **ARCHITECTURAL DECISION / TARGET**. The post-I10 Semantic State /
-Execution Compilation program is **RECORDED**, not implemented or authorized to
-start. Its entry remains conditional on explicit Interlock closure and program
-authorization. The post-I10 name is a future horizon, not a reservation of
-I07–I10 implementations. I07 is UNSELECTED; subsequent boundaries and the
-program's internal wave order require demonstrated pressure, not numbering.
-
-YAI's primitive is governed transformation of durable semantic/operational
-state, not a model invocation or agent loop. Model-visible context is a
-disposable execution working set over Case continuity. **State Fabric** means
-the composition of existing history, owned payload, current materialization,
-derived views and execution boundaries, never a new owner, database, daemon,
-registry or service.
-
-The program investigates a semantic working-state model and provider-independent
-execution representation, working-state compilation, scoped semantic references
-and demand paging, context locality, model-proposed typed deltas, cold-start/model
-substitution invariance and target-native lowering. `ExecutionFrame` is only a
-provisional design term; semantic paging and recurrent-state lowering remain
-**HYPOTHESIS / RESEARCH PRESSURE**, not specified APIs or promised capabilities.
-
-The target is context sufficient for `ActiveWorkingSet(CurrentTask)`, not context
-growing by default with Case history. Large context remains valid for large
-active computations. Case-age independence is falsifiable, not universally
-proven by today's bounded frames. Models propose candidate material; only the
-proper typed admission and authority/evidence closure can advance Case state.
-
-The [focused target doctrine](docs/semantic-state-execution-target.md) defines
-the five concerns, payload/reference split, scoped multi-client continuity,
-execution-compilation hypothesis, exact-versus-fuzzy access paths and six
-future falsifiers: cold-model substitution, Case-age locality, derived-state
-amnesia, provider-state amnesia, state-page locality and authority isolation.
-Those evaluations must retain task/provenance oracles, explicit budgets and
-TEST.TOPOLOGY.0 proof/provider labels. Existing W19/H19/W20 and Interlock proofs
-are positive controls, not already-passing evidence for the complete program.
+| Boundary | Responsibility | Must not acquire |
+|---|---|---|
+| YAI | Transition history, CaseState, owned content meaning/provenance, Participants, identity/scope/disclosure, Policy, Decisions/reviews/Grants, Resource relations, Workflow/Handoff; target objectives/facts/obligations/unresolved state, semantic selection/working-state/deltas, proposal admission and cross-model continuity | tensors, KV, latent banks, layer layouts, physical state paging or GPU placement |
+| YVEX / execution substrate | Exact model/deployment/runtime truth; target computational capabilities, semantic-to-model-state lowering, layout, State Read/Update realization, KV/recurrent/SSM/latent state, paging/residency, checkpoints, rollback/invalidation, layers/kernels and physical evidence | Case authority, semantic memory ownership, Policy, Workflow truth or a shared canonical database |
+| Model | Learned computation; target learned State Read/Write behavior under the exact substrate contract | self-admission of proposals, resource permission or canonical semantic authority |
+
+Physical responsibilities are assigned here, not certified as existing YVEX
+capabilities. YAI must require truthful public contracts and accept typed refusal;
+no private ABI, runtime administration or model-family branch closes a missing
+contract. Transformer KV, MLA, SSM, RWKV recurrence and latent banks are possible
+lowerings, never Case ontology.
+
+The target has two streams: ordinary token/activation/residual computation and
+cross-context persistent, model-native, independently versioned/resident cognitive
+state, readable and eventually updateable by the model. **State Read and State
+Update are OPEN target capabilities now**, not LATER because consumers require
+research. Context-only execution is a compatibility realization, not the final
+architecture.
+
+```text
+S_t = YAI semantic cognitive state
+M_t = Lower(S_t, exact model, exact state profile)
+```
+
+M_t is derived, model-specific, replaceable, computational and potentially opaque.
+S_t is durable, semantic and model-independent; its authority still comes only
+from existing admission rules. DeepSeek → Qwen can invalidate M_t, never the Case.
+Recompilation targets qualified semantic state, not bitwise recovery of another
+model's hidden activations or an identical stochastic answer. An update that has
+not been semantically admitted cannot be the sole copy of a durable Case fact.
+
+Semantic state is not a mutable mega-object: Transition Ledger is canonical Case
+history; CaseState is authoritative current materialization; immutable owned
+payload survives separately; graph/index/memory/retrieval/analytics are derived
+access paths. Governance and security retain their established histories.
+Admission requires durable identity/provenance/relation, not every byte in the
+ledger. “State Fabric” denotes this composition, never a Store, daemon, database,
+registry or service. Human and model Participants differ in identity, evidence,
+authority, capability and substrate, not in automatic ownership: neither owns a
+Case merely by participating. An Agent remains a possible composition.
+
+## System Maturity
+
+Maturity applies to the **bounded property in each row**, not an entire domain
+or production guarantee. 🟢 ESTABLISHED has executable positive/negative evidence
+for that scope; 🟡 PARTIAL has foundations but an incomplete generic boundary;
+🔴 OPEN is an adopted unresolved property; ⚪ LATER lies beyond current dependency
+horizons. Temporal execution status is separate. Counts describe rows only,
+never percentage completion. Evidence promotion still requires human review.
+
+<!-- maturity-summary:start -->
+ESTABLISHED=28 PARTIAL=22 OPEN=14 LATER=4 TOTAL=68
+<!-- maturity-summary:end -->
+
+<!-- maturity:start -->
+### Case language and canonical representation
+
+| ID | Property | Maturity | Evidence / precise boundary |
+|---|---|---|---|
+| K01 | Atomic canonical ledger and current CaseState replay | 🟢 ESTABLISHED | [Canonical/recovery proofs][kernel], [Golden replay][golden]; duplicate/stale/partial commits refuse. |
+| K02 | Immutable ordered content, owned payload and provenance | 🟢 ESTABLISHED | [I01][i01], [I03][i03]; object-first publication, original Turn unchanged after derivation. |
+| K03 | Case lifecycle and portable continuity lifecycle | 🟡 PARTIAL | [Termination][temporal] exists; generic export/clone/machine migration is not a qualified lifecycle. |
+| K04 | Historical typed-reader and materialization compatibility | 🟢 ESTABLISHED | [Golden schema/reopen tests][golden], [I06][i06]; known predecessors read, unknown versions refuse; no universal migration claim. |
+
+### Authority and governed semantic mutation
+
+| ID | Property | Maturity | Evidence / precise boundary |
+|---|---|---|---|
+| A01 | Immutable policy source/IR/publication supply chain | 🟢 ESTABLISHED | [Governance hardening][governance], [Golden deck][golden]; bounded constrained grammar, no model policy interpreter. |
+| A02 | Exact Case binding and READY EffectivePolicy materialization | 🟢 ESTABLISHED | [Materialization][policy], [Golden][golden]; publication alone grants no authority. |
+| A03 | ALLOW / DENY / REQUIRE_REVIEW, review and finite Grant | 🟢 ESTABLISHED | [Admission][admission], [Golden][golden]; DENY has no Grant/effect, model cannot self-approve. |
+| A04 | Local Principal/Tenant/Participant and disclosure isolation | 🟢 ESTABLISHED | [Security][security], [Golden isolation][golden]; local POSIX trust model, not enterprise authentication. |
+| A05 | Validity/revoke, generation and PREPARE authority cut | 🟢 ESTABLISHED | [Temporal governance][temporal]; contracting authority cannot erase prepared external uncertainty. |
+| A06 | Production identity, credentials and privacy lifecycle | 🟡 PARTIAL | Local identity and credential references exist; SSO, membership removal and general retention/deletion remain unresolved. |
+
+### Semantic Cognitive State
+
+| ID | Property | Maturity | Evidence / precise boundary |
+|---|---|---|---|
+| S01 | Model-independent canonical continuity foundation | 🟢 ESTABLISHED | [Kernel][kernel], [I06 recovery][i06]; Case identity/history do not contain provider continuation. |
+| S02 | Typed objectives and intent across semantic work | 🟡 PARTIAL | Conversation/work intent and Workflow tasks exist; no general objective lifecycle. Legacy Record nouns do not fill the gap. |
+| S03 | Obligations and unresolved semantic state | 🟡 PARTIAL | Policy evidence obligations, pending review/effects and Workflow blockers exist; not a general obligation/state algebra. |
+| S04 | Evidence-bound facts/claims with preserved epistemic class | 🟢 ESTABLISHED | [W20][memory]; bounded grounded/inferred/provider/control classes, never similarity-to-authority promotion. |
+| S05 | Structural episodic experience | 🟢 ESTABLISHED | [W20][memory]; bounded derived Episodes and recorded-result reconstruction without re-inference. |
+| S06 | Admitted resource and Workflow consequence references | 🟢 ESTABLISHED | [Golden][golden], [Workflow][workflow]; external observation/effect and progression are distinguished. |
+| S07 | Semantic-state hierarchy | 🟡 PARTIAL | Operational/episodic/assertion derivations exist; no unified qualified semantic-state representation. |
+| S08 | Multi-timescale semantic state | 🔴 OPEN | No tested timescale selection/update contract. Retention age is not cognitive timescale. |
+| S09 | Task-local versus Case big-picture state | 🔴 OPEN | No explicit general separation and sufficiency oracle. |
+| S10 | Semantic replacement and supersession | 🟡 PARTIAL | Binding replacement and mechanical derived supersession exist; general semantic replacement needs owner-specific admission. |
+| S11 | Cross-model semantic continuity | 🟡 PARTIAL | [Effect/model replacement][continuity], [I05][i05]; mature cold-state substitution is not fully proven. |
+
+### State Compilation and Cognitive-State Boundary
+
+| ID | Property | Maturity | Evidence / precise boundary |
+|---|---|---|---|
+| C01 | Provider-independent working-state selection | 🟡 PARTIAL | Projection/Residency/ContextFrame are bounded compilation footholds, not the definition of memory. |
+| C02 | Authority/disclosure-aware general compilation | 🟡 PARTIAL | Current admitted view and mandatory-state selection are enforced; generalized state-page compilation is absent. |
+| C03 | Explicit SemanticState representation | 🔴 OPEN | Provisional concept, no general IR/schema or new owner selected. |
+| C04 | SemanticStateFrame | 🔴 OPEN | Provisional representation, not an alias that promotes ContextFrame into a finished compiler. |
+| C05 | SemanticStateDelta | 🔴 OPEN | Needs source/destination, provenance, invalidation and full-rebuild equivalence; not the deferred context transport delta. |
+| C06 | Active working-set compilation and Case-age locality | 🔴 OPEN | Bounded historical fixtures are positive controls, not task-sufficient age independence. |
+| C07 | Exact scoped state references / demand expansion | 🔴 OPEN | Current exact IDs are foundations, not a semantic paging API or ambient access. |
+| C08 | Context-compatible lowering with exact execution lineage | 🟢 ESTABLISHED | [I03][i03], [I06][i06], [Golden][golden]; bounded generic adapter proof in loopback, not every live deployment. |
+| C09 | Target capability negotiation | 🟡 PARTIAL | Semantic suitability and mechanical shapes are separate; public persistent-state capabilities are not integrated. |
+| C10 | Public YAI/YVEX cognitive-state contract | 🔴 OPEN | No implemented semantic-frame-to-model-state consumer in YAI; private protocols are excluded. |
+| C11 | Persistent model State Read | 🔴 OPEN | First-class target; requires truthful computational capability and consumer qualification. |
+| C12 | Persistent model State Update | 🔴 OPEN | First-class target; computational write is not semantic admission. |
+| C13 | Model-state feedback semantic admission | 🟡 PARTIAL | Operational/PlanPatch proposals pass existing admission; arbitrary computational-state feedback has no semantic normalizer. |
+| C14 | Cross-model recompilation | 🔴 OPEN | No general semantic-state/profile lowering equivalence or cold-model task oracle. |
+
+### Cognitive execution and Participants
+
+| ID | Property | Maturity | Evidence / precise boundary |
+|---|---|---|---|
+| E01 | Pinned/ordered arbitration, exact plans and isolated lanes | 🟢 ESTABLISHED | [I02][i02], [I05][i05]; explainable eligibility, no model-name inference or hidden transport substitution. |
+| E02 | Production semantic suitability evidence | 🟡 PARTIAL | Exact evidence contract exists; operator attestation is not a production semantic evaluation. |
+| E03 | Exact typed realization and delivery-safe result lineage | 🟢 ESTABLISHED | [I03][i03], [I05][i05]; stale evidence and uncertain delivery fail closed. |
+| E04 | Explicit finite composition and host intent | 🟢 ESTABLISHED | [I04][i04], [I06][i06]; direct bypass or one explicit speech/image prerequisite; no modality inference. |
+| E05 | Real-provider context fit and setup performance | 🟡 PARTIAL | [Observed 413 and serial probes][connection]; qualified small probes do not establish Case capacity or instant setup. |
+
+### Operational resources and external effects
+
+| ID | Property | Maturity | Evidence / precise boundary |
+|---|---|---|---|
+| O01 | Confined filesystem read/search and governed write | 🟢 ESTABLISHED | [Golden][golden], [fencing][fencing]; admitted Linux profile, no ambient filesystem. |
+| O02 | Discovery candidate → explicit immutable admission | 🟢 ESTABLISHED | [Golden][golden]; digest/drift and disclosure checked; discovery itself is not attachment. |
+| O03 | Bounded process/test-runner capability | 🟡 PARTIAL | [Golden][golden]: real constrained Linux x86_64 runner; not a general writable build environment or shell. |
+| O04 | Database resource | 🟡 PARTIAL | [Golden][golden]: named SQLite query on bounded quiescent image; mutations denied, live/WAL/general drivers absent. |
+| O05 | Ordinary HTTP resource | 🟡 PARTIAL | [Golden][golden]: exact scoped GET, no redirects; state-changing HTTP not admitted. |
+| O06 | MCP resource/tool boundary | 🟡 PARTIAL | [Golden][golden]: bounded 2026-07-28 stateless Streamable HTTP, exact catalog/schema revalidation; not the full MCP ecosystem. |
+| O07 | Observation/effect separation, fencing and uncertainty | 🟢 ESTABLISHED | [Fencing][fencing], [Golden][golden]; PREPARE before effects, exact terminal evidence or INDETERMINATE, never blind retry. |
+
+### Workflow / composition / Handoff
+
+| ID | Property | Maturity | Evidence / precise boundary |
+|---|---|---|---|
+| W01 | Exact Workflow progression, amendments and bounded Subflow | 🟢 ESTABLISHED | [Workflow][workflow], [H17][workflow-hardening], [Golden][golden]; PlanPatch proposal cannot adopt itself. |
+| W02 | Explicit same-Tenant Handoff | 🟢 ESTABLISHED | [H17][workflow-hardening], [Golden][golden]; independent source/target history, no transfer of authority/resources. |
+| W03 | Product Agent composition | ⚪ LATER | Participant/capability/Workflow foundations only; no Agent implementation or canonical Agent owner. |
+
+### Derived state and semantic access paths
+
+| ID | Property | Maturity | Evidence / precise boundary |
+|---|---|---|---|
+| M01 | Provenance-bound operational/episodic/assertion derivation | 🟢 ESTABLISHED | [W20][memory], [Golden rebuild][golden]; derived failure cannot change canonical truth. |
+| M02 | Qualified hybrid indexing and selected-source revalidation | 🟢 ESTABLISHED | [W19][index], [H19][index-hardening]; bounded BM25/exact-cosine oracle, hidden state cannot alter visible ranking. |
+| M03 | Graph/causal access | 🟡 PARTIAL | Typed graph/rebuild and Handoff relations exist; generic scoped causal paging and invalidation remain incomplete. |
+| M04 | Analytical extraction | 🟡 PARTIAL | Existing DuckDB extractors are derived; not all declared fact families have producers. |
+| M05 | Semantic access quality and scale | 🟡 PARTIAL | Qualified exact/lexical/vector selection exists; learned ranking/compression, background indexing and broader scale need evidence. |
+
+### Product interfaces
+
+| ID | Property | Maturity | Evidence / precise boundary |
+|---|---|---|---|
+| X01 | Registry-backed CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; exact automation retained, no global current-Case authority or silent trust. |
+| X02 | Native REPLAI Case workbench | 🟢 ESTABLISHED | [R4][replai], [R5][r5], [presentation][presentation]; real PTY and controller seams, no second terminal. |
+| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | Typed Rust host exists; generic remote API/SDK product and authentication are not qualified. |
+| X04 | Studio | ⚪ LATER | No implementation; frontend would consume Case semantics, not own them. |
+
+### Qualification
+
+| ID | Property | Maturity | Evidence / precise boundary |
+|---|---|---|---|
+| Q01 | Proof/provider topology and deterministic publication union | 🟢 ESTABLISHED | [TEST.TOPOLOGY.0][topology], [current regression][presentation]; classification/reachability and no fixture-to-external promotion. |
+| Q02 | Golden local cumulative product lifecycle | 🟢 ESTABLISHED | [Golden][golden], [current free/Workflow rerun][presentation]; real executable/stores/adapters, loopback model only. |
+| Q03 | External YVEX product qualification | 🟡 PARTIAL | [Public probes and Case refusal][connection]; no complete external Golden PASS or model-quality claim. |
+| Q04 | Human Golden acceptance | 🔴 OPEN | [Runbook](docs/zero-to-current.md) prepared; PENDING_OPERATOR, not automated human PASS. |
+| Q05 | Long-lived continuity canary | 🔴 OPEN | Operator procedure recorded; retained cross-upgrade Case not exercised by this closure. |
+| Q06 | Cognitive-state comparative evaluation | 🔴 OPEN | No qualified cross-state/dual-stream benchmark; spectrum below defines falsifiers, not results. |
+
+### Federation / scale
+
+| ID | Property | Maturity | Evidence / precise boundary |
+|---|---|---|---|
+| F01 | Single-host multi-Case scheduling and admission recovery | 🟢 ESTABLISHED | [H13][runtime]; bounded workers, Tenant fairness and canonical-first acknowledgement recovery, not distributed consensus. |
+| F02 | Cross-host state/resource coordination | ⚪ LATER | Local scheduling/fencing do not prove distributed admission, revocation or conflict closure. |
+| F03 | Federated semantic continuity | ⚪ LATER | Requires mature local state/admission plus explicit replication/disclosure semantics. |
+<!-- maturity:end -->
+
+Derived access structures feed semantic state and working-state compilation;
+their strategic role is not “text to stuff into prompts.” Exact current questions
+use typed relations, causal questions use qualified traversal, chronological
+questions use history, and similarity retrieval serves questions requiring it.
+Canonical truth, current materialization, derived inference, retrieval and model
+claim remain distinct. Repetition never upgrades their epistemic class.
+
+## Strategic Programs
+
+Programs are long-lived project-control axes, not new source modules or owners.
+Letters are local shorthand, not the numbering of historical W/I/R waves.
+
+| Program / purpose | Established foundation | Open maturity boundaries | Current pressure | Material advance | Explicit non-ownership |
+|---|---|---|---|---|---|
+| **R — Architecture Integrity & Refoundation**: preserve one honest owner per lifecycle | Source refoundation; Constitution; I01–I06 and Golden convergence | Duplicated/model-centric preparation assumptions; stale claims | Reconcile state selection and context rendering before adding representations | Remove a demonstrated duplicate while preserving its unique proof and consumer | No StateFabricStore, Agent runtime or module-per-noun redesign |
+| **K — Case Kernel & Canonical State**: durable identity, history and current truth | K01–K04; immutable payload/reference distinction | Portable upgrade coverage and general state relations | Keep new state meaning replayable and generation-scoped | Typed relation with exact payload ownership, replay and recovery evidence | No blob ledger or universal attachment owner |
+| **A — Authority & Governance**: govern semantic and operational admission | A01–A05; Principal/Participant, policy, review, Grant, temporal authority | Broader disclosure and credential integrations | Ensure state compilation/expansion cannot widen authority | Negative scope, revocation and current-generation proof for a new consumer | Neither model output nor a capability catalog grants authority |
+| **S — Semantic Cognitive State**: preserve model-independent task and Case meaning | S01–S07/S10 foundations; typed history, evidence and consequences | Multiscale state, task/big-picture separation, generic semantic deltas | Identify actual semantic producers and admission/supersession contracts | Explicit bounded state model demonstrably preserving provenance and current meaning | No mutable mega-object; derived assertions do not become canonical facts |
+| **C — State Compilation & Cognitive Boundary**: compile governed semantic working state | Projection/ContextFrame compatibility footholds; exact target contracts | C03–C07, C10–C12/C14: Frame/Delta, locality, State Read/Update, recompilation | Define one bounded compatibility consumer and future public boundary | Qualified full/delta equivalence and refusal; later a real persistent-state consumer | No tensors, latent layouts, KV or YVEX placement in YAI |
+| **E — Cognitive Execution**: exact responsibility and provider-independent intent | I02–I06 planning, arbitration, realization, composition and host | Production suitability, capacity negotiation and setup costs | Resolve observed public-capacity/setup pressure without brand-specific routing | Same exact-plan guarantees with a new qualified execution shape/target | Cognitive arbitration is not transport failover or resource scheduling |
+| **O — Operational World**: governed observations, attachments and effects | Golden filesystem/process/SQLite/HTTP/MCP/discovery verticals | General adapter coverage and external ambiguity | Keep future model state requests within the existing capability/admission path | New concrete consumer plus DENY/review, drift, recovery and isolation proof | No ConnectorStore/ToolStore; a database Resource is not YAI memory |
+| **W — Workflow & Composition**: explicit progression and bounded delegation | Workflow amendments/PlanPatch, I04 composition and exact Handoff | Broader delegation and future Agent compositions | Preserve one resource/authority substrate in free and Workflow work | Replayable progression and explicit adoption across a new consumer | Workflow/Agent is not Case continuity or a private execution universe |
+| **M — Derived State & Semantic Access**: rebuildable access and evidence derivation | W19/H19/W20; graph and analytics | Generic causal access, retrieval quality/scale and state-selection consumers | Reposition derived access as semantic compilation input, not prompt stuffing | Rebuild invariance plus relevance/provenance evidence for a bounded question | Index, summary, episode and similarity are not historical authority |
+| **X — Product Interfaces**: thin, usable views over Case semantics | Guided CLI, native REPLAI, application controller, cumulative runbook | Broader API clients, setup ergonomics; Studio later | Keep short product actions and model/system output distinct | Product acceptance through typed seams, without shelling out or moving semantics into UI | REPLAI owns terminal mechanics only; no ChatStore |
+| **Q — Qualification**: independent evidence for each claimed property | TEST.TOPOLOGY.0 and deterministic Golden lifecycle | External Golden, human/canary, cross-model and state evaluation | Retain real failures; define refoundation falsifiers before implementation | Correct proof/provider mode plus negative/recovery/product/external/human evidence as claimed | A fixture, generated report or PASS cache is not semantic authority |
+| **F — Federation & Scale**: future distributed continuity | Single-host multi-Case scheduling/fencing | Cross-host coordination and federation | Establish local state/authority correctness first | Explicit conflict, disclosure, revocation and recovery contracts across hosts | No global Space or shared database by implication |
+
+## Cognitive State Spectrum
+
+This is an adversarial qualification spectrum, not another maturity registry or
+an authorized milestone list. Its bounded verdicts do not enter maturity counts.
+Golden supplies a common Case/task workload; it owns none of these semantics.
+
+| Pressure | Evidence posture | Existing control / future falsifier |
+|---|---|---|
+| Long-lived Case on context-only target | PARTIAL | Current canonical continuity and bounded host tests; no retained mature operator canary qualification. Continue a bounded task without importing all chat history. |
+| Cold, zero-continuation model replacement | PARTIAL | Exact target/lane replacement is tested in [I05][i05]; not a mature-Case cold-state oracle. A different qualified model must recover sufficient task state without inherited computational state or full history injection. |
+| Active task versus Case-age locality | OPEN | Hold task/current meaning equivalent while radically varying history length; execution working sets should be comparable, not linear in Case age. Large genuinely necessary task context remains allowed. |
+| Task-local versus Case/big-picture state | OPEN | Switch tasks without losing current constraints/obligations or disclosing unrelated state. A narrative summary alone cannot establish this property. |
+| Incremental semantic-state delta | OPEN | Full reconstruction and admitted delta application must agree under replacement, deletion, stale generation and restart. No schema is frozen here. |
+| Derived-state amnesia | ESTABLISHED, bounded | [Golden][golden] drops/rebuilds its disposable graph/index/memory and compares canonical truth. Owned immutable bytes and canonical ledgers are NOT disposable; this does not qualify every future derivation family. |
+| Persistent / incremental State Read | OPEN | A public qualified consumer reads independently resident model-native state; no relabeling of a context window or persistent KV as this proof. |
+| State Update plus semantic admission | OPEN | Computational updates remain derived; validate/admit proposed semantic consequences. Reject unauthorized updates and exercise invalidation/reconstruction without losing admitted Case truth. |
+| Participants and explicit cross-Case Handoff | ESTABLISHED, bounded | [Security][security], [Golden][golden]: same Case with differing disclosure, typed refusal, exact Handoff without resource/authority cloning. Not federated sharing. |
+| Multimodal and operational continuity | PARTIAL | [I04][i04] typed prerequisite restart and Golden operational continuity are separate qualified controls; no combined live-YVEX multimodal Golden claim. |
+
+Provider-state amnesia is cross-cutting: loss of optional continuation must not
+invalidate Case correctness. Future state experiments must specify what can be
+reconstructed and what unadmitted computation may be lost. No YAI test gains
+permission to administer YVEX internals or discard operator state.
+
+## Current Execution Sequence
+
+Temporal status is separate from maturity. There is exactly one selected
+implementation boundary; recording it does not mean source work has started.
+
+<!-- execution:start -->
+| Boundary | Temporal state | Programs | Required after-state |
+|---|---|---|---|
+| SEMANTIC.STATE.REFOUNDATION.0 | SELECTED_NOT_STARTED | R K A S C E O W M X Q | Explicit qualified semantic cognitive state → bounded State Compiler → compatibility context projection → future model-state boundary, preserving existing owners, replay, authority, resources/effects, Workflow and Golden. |
+<!-- execution:end -->
+
+Before authorizing source mutation, resolve the bounded state producer/consumer,
+admission and supersession rules, current-state versus derived-state distinction,
+scope/generation checks, compilation budget and full/delta compatibility oracle.
+Use archaeology to decide whether any serialized meaning actually changes.
+There is no preselected module tree, database, schema, API or migration.
+
+The external request-capacity and connection-probe costs remain E/X/Q pressure,
+not a second selected wave and not evidence that the state refactor fixes them.
+I01–I06 are completed anchors; I07 is unselected. Historical “post-I10” naming
+does not require inventing four Interlock deliveries before selecting this work.
+
+## General Substrate Progression
+
+Horizons express dependencies, not dates or automatic implementation authority.
+State Read/Update are OPEN target capabilities now even where their consumers
+fall in later horizons.
+
+| Horizon | Property pressure | Dependency / admission to work |
+|---|---|---|
+| Now | Semantic-state architecture/refoundation | Selected boundary above; bounded source contract still required |
+| Near | Explicit semantic state, provisional Frame/Delta and context compatibility | Proven current-state ownership, producer/consumer and replay equivalence |
+| Near | Semantic locality, working-set compilation and scoped state references | Authority-aware selection; exact resolution and refusal; no ambient handles |
+| Near / Mid | Public YVEX cognitive-state boundary and first persistent State Read consumer | Truthful negotiated public capability and an actual implementing target |
+| Mid | Cross-model recompilation, state evaluation, semantic admission of computational updates | Reconstruction/invalidation semantics plus independent cross-state oracles |
+| Mid / Later | Learned/native State Read/Write consumers | Real model/runtime support, bounded effects and evidence; no promised architecture family |
+| Later | Federation/distributed semantic continuity | Mature local semantics plus explicit distributed authority/conflict contracts |
+
+## Product / Research Qualification Path
+
+No named **v0.1 product release scope is selected** by this roadmap. Package
+version strings are not a release commitment. Packaging follows qualified
+product/research properties, not a maturity percentage.
+
+| Gate / consumer | Current posture | What it authorizes |
+|---|---|---|
+| Deterministic software publication | Published local release/characterization evidence in [presentation closure][presentation]; not rerun by this docs closure | Classified no-provider and loopback properties, not live model interoperability |
+| Golden local product lifecycle | Published PASS, deterministic model with real local persistence/resource adapters and protocol peers | Bounded free/Workflow, authority, replay/rebuild/recovery/isolation lifecycle; separate Golden lane, not folded into `make check` |
+| External YVEX Golden | Partial probes; real Case request rejected with 413; complete lifecycle NOT QUALIFIED | Only the exact public interactions observed; no external Golden PASS |
+| Human Golden | PENDING_OPERATOR | Only a human may report acceptance at an exact YAI/external identity |
+| Continuity canary | NOT_RUN | Operator-owned retained Case across upgrades; never reset by automated qualification |
+| Semantic-state refoundation | SELECTED_NOT_STARTED | No runtime/compiler/state-schema completion claim |
+| Cross-model / cross-state qualification | OPEN | Future same-Case/task comparisons across compatibility and persistent-state modes |
+| Product packaging/release | Scope UNSELECTED | No invented version, deployment or production-readiness guarantee |
+
+The current external observation is against the operator-supplied public target
+`http://127.0.0.1:18001`, model
+`deepseek-v4-flash-mixed-mxfp4-release-v1`; [connection evidence][connection]
+records synthetic text/functions/JSON qualification and the subsequent Case
+`request_too_large` refusal. This is not source inspection, a loopback fixture,
+or a diagnosis of private YVEX internals. DeepSeek is a reference consumer, not a
+semantic branch. Qwen/model replacement is prepared, not externally qualified.
+When no exact live target is available, report NOT_RUN / DEPLOYMENT_LIMITATION;
+never replace it with a fixture and report PASS.
+
+[ZERO-TO-CURRENT](docs/zero-to-current.md) remains the single cumulative human
+product runbook. A future user-visible or Case-semantic change updates that same
+procedure, not a delta-only manual. This documentation-only refoundation leaves
+its commands unchanged because it changes no product behavior. Every relevant
+handoff retains AUTOMATED REGRESSION (proof/provider axes), GOLDEN LOCAL,
+EXTERNAL YVEX, CANARY, HUMAN, RUNBOOK and exact BLOCKERS. Human PASS cannot be
+silently carried to a changed lifecycle.
+
+Golden is also the future common workload for comparing context-only, reusable
+prefix, persistent/incremental State Read, external State Update, learned
+Read/Write and native-state consumers. These are experiment classes, not
+implemented modes or implicit YVEX commitments.
+
+## Cross-axis Traceability
+
+| Engineering pressure | Maturity rows | Programs | Required independent evidence |
+|---|---|---|---|
+| Semantic-state refoundation | S02–S11, C01–C08/C13 | R K A S C M Q | Typed meaning/owner, admission negatives, replay/full-delta equivalence, compatibility Golden |
+| Public persistent-state boundary | C09–C14, Q06 | C E Q | Negotiated public capability, actual State Read/Update, amnesia/recompilation and authority isolation |
+| Real product provider acceptance | E02/E05, X01/X02, Q03–Q05 | E X Q | Exact target/capacity evidence, full external Golden, operator run and retained canary separately |
+| Operational/Workflow convergence | O01–O07, W01/W02, M01–M05 | A O W M Q | Same admission/effect owners, real adapter transport, ambiguity/recovery and no authority leakage |
+| Future federation | F01–F03, A06, K03 | K A S F Q | Explicit distributed conflict/disclosure and recovery; single-host success is insufficient |
+
+These are references into the single matrix, not a second feature registry.
+The [test classification authority](tests/classification.tsv) continues to own
+test proof/provider metadata; a roadmap row never reclassifies test evidence.
+
+## Explicit Nonclaims and Deferred Scope
+
+| Claim not made now | Truthful boundary |
+|---|---|
+| Fully implemented SemanticState IR / general State Compiler | False. Typed current state and bounded selection/rendering are foundations. |
+| SemanticStateFrame / SemanticStateDelta implemented | False. Names are provisional; no new source type, schema or owner is authorized here. |
+| Integrated model-native persistent cognitive state / public YVEX cognitive-state contract | False. Adopted target, OPEN capability boundary, not an invented protocol. |
+| Native State Read / State Update implemented | False. Both OPEN now; neither hidden in LATER nor claimed from KV/continuation. |
+| General multi-timescale state / universally Case-age-independent working set | False. Target plus falsifiable research pressure. |
+| Full cold-model substitution / Qwen external state qualification | False. Exact binding replacement does not establish cold-state recovery. |
+| Agent implementation / Studio | False. Later product compositions; no Agent owner or new terminal. |
+| Complete external YVEX Golden acceptance | False. Probe success coexists with a real Case 413; exact capacity/integration pressure remains unresolved. |
+| Human Golden PASS / continuity canary compatibility | False unless independently reported at the relevant revision; current PENDING_OPERATOR / NOT_RUN. |
+| Instantaneous provider setup or qualified performance | False. Published serial synthetic probes perform real inference; latency is not a new state-architecture proof. |
+| Universal database/HTTP/MCP/process/framework support | False. Golden's implemented operations are bounded, governed verticals, not ambient tools or unrestricted shell. |
+| Named v0.1 scope / generic production readiness | Unselected; local proof is not product release qualification. |
+
+No I07, H20/W21/W22, post-I10 runtime implementation, Studio, private YVEX
+client, shared state database or computational-state ownership transfer begins
+here. Historical wave exclusions remain scoped to their reports: later Golden
+resources and guided product actions are not erased by an older non-goal.
+
+## Progression and Promotion Discipline
+
+**Implementation existence != generic maturity.** A green row means its stated
+bounded property is established, not that the surrounding domain is complete.
+Promotion requires the relevant combination of a justified canonical owner,
+executable contract, negative evidence, replay/recovery, product consumer,
+external execution and human evidence where those are claimed. A link proves
+traceability, not substantive correctness; reviewers must inspect its scope.
+
+| Existing evidence | Does not by itself establish |
+|---|---|
+| Bounded Projection / ContextFrame | General State Compiler |
+| Retrieval/index or repeated assertion | Semantic truth |
+| ProviderResult | Admitted semantic fact |
+| Model binding replacement | Cold-state substitution |
+| Bounded context size | Case-age locality |
+| Persistent KV / opaque continuation | Native cognitive-state semantics |
+| Golden loopback model | External YVEX qualification |
+| Automated PTY | Human acceptance |
+
+Failure evidence can narrow or demote a claim without reopening historical
+deliveries. Unknowns stay unknown; no fabricated quality/latency/cost score and
+no model-family inference can promote a target.
+
+## Living-update Rules
+
+Update this document in place; Git owns previous snapshots. When a wave closes:
+
+1. Replace Current Snapshot and advance the single selected execution boundary.
+2. Promote only affected matrix rows from evidence; recompute counts from those
+   rows alone. Counts describe rows, never percentage completion.
+3. Update affected programs, dependencies and spectrum verdicts without creating
+   a second queue or a historical narrative wall.
+4. Update product/external/human/canary posture independently. Remove a nonclaim
+   only after its corresponding property is proven.
+5. Keep Architecture as executable truth and target doctrine as non-executable;
+   preserve historical report wording and cumulative acceptance infrastructure.
+6. Run `python3 tools/checks/check-roadmap.py --summary` to derive the summary,
+   then `make check-roadmap check-docs check-layout test-roadmap` to validate.
+
+There is no parallel STATUS/FEATURES/PLAN document or maturity registry. The
+guard validates structure, references, states, counts and one coherent selected
+boundary; it cannot manufacture a green verdict.
+
+## Evidence anchors
+
+Completed work remains navigable without controlling the live sequence:
+[foundation recovery](refoundation/foundation-recovery/FOUNDATION-RECOVERY-REPORT.md),
+[W19][index] / [H19][index-hardening] / [W20][memory],
+[I01][i01] / [I02][i02] / [I03][i03] / [I04][i04] / [I05][i05] / [I06][i06],
+[test topology][topology], [REPLAI R4][replai] / [R5][r5] / [qualified repin][repin],
+[post-I10 doctrine alignment](refoundation/validation/post-i10-semantic-state-alignment/REPORT.md),
+[Golden][golden], [guided CLI][guided], [single connection][connection] and
+[conversation presentation][presentation]. These reports are bounded historical
+evidence, not a second live roadmap.
+
+The control format and documentation-only delta are qualified in the bounded
+[roadmap-refoundation report](refoundation/validation/semantic-cognitive-state-roadmap/REPORT.md).
+
+[kernel]: engine/yai-engine/src/store/lmdb.rs
+[continuity]: tests/characterization/agentless-case-runtime/test_agentless_case_runtime.sh
+[governance]: refoundation/foundation-recovery/hardening-8/HARDENING-8-REPORT.md
+[policy]: refoundation/foundation-recovery/wave-9/WAVE-9-REPORT.md
+[admission]: refoundation/foundation-recovery/wave-10/WAVE-10-REPORT.md
+[temporal]: refoundation/foundation-recovery/wave-11/WAVE-11-REPORT.md
+[security]: refoundation/foundation-recovery/wave-12/WAVE-12-REPORT.md
+[runtime]: refoundation/foundation-recovery/hardening-13/HARDENING-13-REPORT.md
+[fencing]: refoundation/foundation-recovery/hardening-14/HARDENING-14-REPORT.md
+[workflow]: refoundation/foundation-recovery/wave-17/WAVE-17-REPORT.md
+[workflow-hardening]: refoundation/foundation-recovery/hardening-17/HARDENING-17-REPORT.md
+[index]: refoundation/foundation-recovery/wave-19/WAVE-19-REPORT.md
+[index-hardening]: refoundation/foundation-recovery/hardening-19/HARDENING-19-REPORT.md
+[memory]: refoundation/foundation-recovery/wave-20/WAVE-20-REPORT.md
+[i01]: refoundation/foundation-recovery/interlock-01/INTERLOCK-I01-REPORT.md
+[i02]: refoundation/foundation-recovery/interlock-02/INTERLOCK-I02-REPORT.md
+[i03]: refoundation/foundation-recovery/interlock-03/INTERLOCK-I03-REPORT.md
+[i04]: refoundation/foundation-recovery/interlock-04/INTERLOCK-I04-REPORT.md
+[i05]: refoundation/foundation-recovery/interlock-05/INTERLOCK-I05-REPORT.md
+[i06]: refoundation/foundation-recovery/interlock-06/REPORT.md
+[topology]: refoundation/validation/test-topology-0/REPORT.md
+[replai]: refoundation/integration/replai-r4/REPORT.md
+[r5]: refoundation/integration/replai-r5/REPORT.md
+[repin]: refoundation/integration/replai-repin/REPORT.md
+[golden]: refoundation/validation/golden-case-lifecycle/REPORT.md
+[guided]: refoundation/validation/guided-case-cli/REPORT.md
+[connection]: refoundation/validation/single-connect/REPORT.md
+[presentation]: refoundation/validation/conversation-presentation/REPORT.md

@@ -10,8 +10,9 @@ it cannot silently change YAI's constitution, current architecture, or roadmap.
    current implementation.
 2. [Architecture](architecture.md) — what the current executable repository
    actually implements.
-3. [Roadmap](../ROADMAP.md) — the delta and ordered source-refoundation work.
-   Its [post-I10 target](semantic-state-execution-target.md) separates adopted
+3. [Roadmap](../ROADMAP.md) — sole living public project control: snapshot,
+   maturity, programs, selected boundary, dependencies and promotion.
+   Its [semantic-state target](semantic-state-execution-target.md) separates adopted
    direction from provisional mechanisms; it is not current implementation.
 4. Reference contracts as needed:
    [semantics](reference/semantics.md),
@@ -29,8 +30,8 @@ does not replace these owners.
 | Constitution | [constitution.md](constitution.md) | stable invariants and rejected owners | that a target invariant is implemented |
 | Architecture | [architecture.md](architecture.md) | source-, test-, and reachability-backed current truth | target behavior as current capability |
 | Reference | [reference/](reference/) | stable concepts and boundary contracts | project schedule or executable status |
-| Roadmap | [ROADMAP.md](../ROADMAP.md) | gaps, sequencing, gates, and unresolved choices | completed behavior before evidence exists |
-| Architectural target | [semantic-state-execution-target.md](semantic-state-execution-target.md) | post-I10 direction and falsifiers, subordinate to Constitution and Roadmap | implemented State Fabric/compiler/paging, frozen schemas or new owners |
+| Roadmap | [ROADMAP.md](../ROADMAP.md) | live macro state, maturity, programs, dependencies, selected execution boundary and promotion | completed behavior before evidence exists; competing status/maturity registries |
+| Architectural target | [semantic-state-execution-target.md](semantic-state-execution-target.md) | semantic/computational-state doctrine and falsifiers, subordinate to Constitution and Roadmap | implemented State Fabric/compiler/paging, frozen schemas or new owners; a second execution queue |
 | Operations | [quickstart.md](quickstart.md), [test-cases.md](test-cases.md) | executable procedures and validation labels | semantic doctrine |
 | Audit/evidence | `refoundation/foundation-recovery/`, `refoundation/integration/`, `refoundation/validation/`, labs and tests | frozen findings, experiments, qualification and bounded before/after records | current architectural authority or target completion without execution evidence |
 | Research | [research index](research-index.md), [research bridge](research-lab-bridge.md), [operational-state mathematics](operational-state-mathematics.md) | non-canonical hypotheses, provenance, and promoted design input | runtime truth without implementation evidence |
@@ -56,20 +57,15 @@ boundary, and stable multi-consumer contract.
 
 ## Current status
 
-Reconciled publication anchor: `426b5086cc668a3f04b68e39b80a36ffa6faa3ca`
-([R5](../refoundation/integration/replai-r5/REPORT.md)), whose parent is the
-semantic baseline `fec2f17b0e71e6e12e8f40a37c5f44d874f4b7d5` (I06).
-REPLAI is the sole native editor; R5 removed obsolete vendored linenoise without
-changing cognitive semantics or the qualified pin. TEST.TOPOLOGY.0 remains live.
-[Architecture](architecture.md) describes the implemented W20/I01–I06 foundation,
-not the old pre-refoundation snapshot. [Roadmap](../ROADMAP.md) distinguishes
-**I01–I06 COMPLETE**, **I07 UNSELECTED**, and the post-I10 Semantic State /
-Execution Compilation program **RECORDED** as a future target. I07–I10 are not
-specified to preserve numbering. A mechanism in the target document is not a
-runtime component.
-The [alignment evidence](../refoundation/validation/post-i10-semantic-state-alignment/REPORT.md)
-records reconciliation against I06 and R5 without rewriting their published
-source or evidence.
+[Architecture](architecture.md) records current executable contracts including
+Golden and guided Case interaction. [Roadmap](../ROADMAP.md) owns the replace-in-place
+snapshot and selected future boundary; this navigation page does not duplicate
+its maturity or qualification verdicts. I01–I06 remain completed evidence, not
+an obligation to invent I07–I10. Native REPLAI, R5 removal, later qualified repin
+and TEST.TOPOLOGY.0 are preserved. A concept in the
+[target doctrine](semantic-state-execution-target.md) is not a runtime component.
+The [earlier alignment evidence](../refoundation/validation/post-i10-semantic-state-alignment/REPORT.md)
+remains an exact historical record, not a current baseline instruction.
 
 ## De-authorized material
 

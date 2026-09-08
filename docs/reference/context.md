@@ -299,77 +299,33 @@ rendered prefix or runtime interpretation invalidates reuse even if semantic
 Projection identity remains stable. Provider/runtime failure can also
 invalidate continuation without invalidating ContextFrame.
 
-## Current repository reality
+## Current implementation foothold
 
-Current Rust code implements `yai.projection.v5` and `yai.context_frame.v5` in
-one pure compiler. Projection binds exact Case generation,
-participant/purpose/admitted view, typed entries, authority posture,
-Transition/Observation/Receipt/derived-memory provenance, deterministic bounds,
-retrieval identity/counts and explicit omission count. It is rebuilt from
-CaseState and ordered Transitions plus an optional qualified RetrievalSet.
-Provider claims remain labeled non-authoritative.
+Current executable versions are Projection v8, ContextFrame v8 and RenderedInput
+v7. They bind canonical generation, admitted Participant/view, ordered source
+content, authority/disclosure, selected derived material, output contract and
+separate provider rendering lineage. I01–I06 and Golden extend the earlier v5
+checkpoint without making context canonical memory. Exact current schemas,
+consumers and limitations belong to [Architecture](../architecture.md).
 
-ContextFrame has independent identity because a Projection can feed multiple
-tasks/output contracts. The Wave-3 `filesystem.write` proposal schema is a
-typed output contract in the frame. The OpenAI-compatible adapter produces a
-separate `yai.rendered_input.v5` identity/digest and wire body. Invocation and
-ProviderResult transitions identify their Projection, frame, Case generation,
-render, provider, model and output contract explicitly.
+OperationalMemory, W19/H19 lexical/vector/hybrid retrieval and W20 episodes /
+semantic assertions remain qualified, rebuildable inputs, not authority. Missing
+or stale derived material degrades to qualified canonical reconstruction;
+retrieval never upgrades a model claim. ResidencyPlan remains derived bounded
+selection, not model KV/state placement or a database owner. The provider receives
+selected material, not index internals, encoder credentials or ambient access.
 
-Bounded Projection/ContextFrame values and render metadata are retained in a
-droppable derived LMDB database so `yai context inspect` can show lineage. Full
-rendered input is not retained. Clearing that database is tested not to change
-Transition history or CaseState. New provider invocations neither write nor
-consume legacy `ParticipantViewFrame`; historical records remain readable only
-through compatibility surfaces.
+Current context/text and qualified typed/function/JSON adapters are compatibility
+realizations. They are bounded compilation footholds, not the general State
+Compiler or semantic memory definition. The adopted
+[semantic cognitive-state target](../semantic-state-execution-target.md) keeps
+SemanticStateFrame/Delta and persistent State Read/Update distinct from this
+implemented path. The legacy transport-oriented ContextDelta decision above
+does not defer or implement that future semantic-state delta contract.
 
-`yai.operational_memory.v1` and
-`yai.operational_memory.derivation.v1` are owned by the single Rust
-`memory.rs` algorithm boundary. Two clearly derived LMDB databases hold entries
-and a Case generation manifest. They can be cleared/rebuilt without changing
-CaseState or ledger count. The active provider compiler refreshes stale/missing
-memory, runs Case/participant/purpose-qualified retrieval with an eight-entry
-default, and passes only the selected typed material to Projection. Derivation
-or store failure uses canonical fallback. The former `/memory propose` command
-is retired; historical `MemoryCandidate` remains compatibility input only.
-
-When a current Wave-19 index exists, that same compiler locally encodes the
-explicit task query document, performs v2 hybrid retrieval and feeds only the
-selected typed OperationalMemory entries into the existing Projection →
-ResidencyPlan → ContextFrame path. Encoder/index failure degrades to qualified
-v1 retrieval. Provider render receives no vectors, postings, index paths,
-encoder credentials or ANN internals. Projection and ContextFrame remain v5:
-their serialized meaning already binds selected typed memory, retrieval
-identity, reasons and omissions, so no silent schema reinterpretation occurs.
-
-The provider adapter accepts an optional opaque, provider/runtime-bound
-continuation reference in memory for one invocation. It persists only the use/
-invalidation disposition. A generic invalid-continuation response cannot prove
-non-execution and is not retried automatically; an explicit later invocation
-rebuilds a complete frame without the incompatible reference. Product tests
-replace provider and model identity after a real controlled effect, restart the
-provider fixture, and show that the next frame contains the current observed
-consequence plus selected operational memory carrying Transition, Observation
-and Receipt provenance.
-
-`yai.residency_plan.v1` now sits between broad candidate compilation and the
-final Projection used for one invocation. The plan binds current generation,
-participant/purpose, provider/model profile, previous resident refs, explicit
-item/semantic budgets, selected size, dispositions and reasons. The agentless
-Case runtime supplies the previous plan's item identities as derived hints and
-enforces maximum invocations, operations, semantic units and cumulative
-estimated provider input before transport. Provider-reported usage, when
-present, is typed telemetry; the conservative rendered-size estimate is never
-represented as tokenizer truth.
-
-The implementation has no Residency state owner/database, embedding/vector
-retrieval, learned ranking, semantic compression/promotion, ContextDelta
-consumer, authoritative tokenizer, token IDs, KV integration, or native YVEX
-protocol.
-The context-residency lab remains research evidence, not runtime capability.
-
-Historical E07 workset/provider-frame code supports the distinction between a
-qualified semantic workset and provider rendering, but its directory/type
-system is evidence, not target structure. No available file or Git history
-material named `AN-01` was found during this refoundation; no decision depends
-on inaccessible research.
+Opaque continuation is optional and exact-target/lane scoped; loss must preserve
+semantic correctness. Persisted lineage is not provider computational state.
+There is no general semantic-state compiler, semantic demand-paging interface,
+authoritative tokenizer or native YVEX state contract. The context-residency lab
+and historical E07 workset/provider-frame mechanism remain bounded research /
+archaeology evidence, not current source ownership.

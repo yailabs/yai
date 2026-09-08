@@ -20,6 +20,7 @@ include build/validation-topology.mk
 #   This file does not own runtime semantics, legal policy or data-plane truth.
 #
 .PHONY: info check-layout check-docs check-doc-links check-doc-root-canon
+.PHONY: check-roadmap test-roadmap
 .PHONY: check-labs check-lab-runs check-lab-notebooks check-context-residency-lab
 .PHONY: lab-context-residency smoke-lab-context-residency smoke-lab-context-residency-case-native smoke-lab-context-residency-matrix
 .PHONY: check-repository-identity check-archive-historical-records check-source-surface-clean check-foundation-freeze
@@ -235,7 +236,7 @@ check-layout:
 	@./tools/checks/check-source-placement.sh
 	@./tools/checks/check-source-surface-clean.sh
 
-check-docs:
+check-docs: check-roadmap
 	@./tools/checks/check-doc-root-canon.sh
 	@./tools/checks/check-doc-canonical-location.sh
 	@./tools/checks/check-doc-required-files.sh
@@ -244,6 +245,13 @@ check-docs:
 
 check-doc-links:
 	@python3 tools/checks/check-doc-links.py
+
+check-roadmap:
+	@python3 tools/checks/check-roadmap.py
+
+test-roadmap:
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/test_roadmap.py
 
 check-doc-root-canon:
 	@./tools/checks/check-doc-root-canon.sh

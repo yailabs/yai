@@ -127,52 +127,32 @@ provenance and confidence travel with it. An EffectReceipt is carrier-produced
 execution outcome for an Attempt. Supporting Evidence is a relation that may
 link either to a Decision or Transition; it does not collapse the two roles.
 
-## Current implementation gap
+## Current implementation and target boundary
 
-Rust now implements one product `filesystem.write` ResourceBoundary. A Case
-owns a logical attachment (identity, normalized allowed prefix, size bound,
-policy owner); a separately versioned local LMDB binding maps it to one
-machine-local canonical root. Operations carry only attachment identity plus
-relative path. The carrier consumes the exact materialized prepared Grant,
-canonicalizes the target parent against symlink escape, performs same-directory
-atomic replacement with file and parent sync, and produces typed pre/post
-Observations and EffectReceipt.
+The current executable resource boundary has progressed beyond the original
+single filesystem-write carrier: Golden admits bounded filesystem reads/search,
+discovery and immutable admission, confined process execution, SQLite reads,
+ordinary HTTP reads and a bounded MCP client. Resource effects retain current
+Decision/Grant, fenced PREPARE, typed Observation/Receipt and
+FINALIZE/INDETERMINATE/reconciliation. Neither a Resource catalog nor a model
+request grants authority. These are qualified verticals, not universal adapters.
+[Architecture](../architecture.md) owns exact current contracts and limits;
+[ZERO-TO-CURRENT](../zero-to-current.md) owns cumulative product acceptance.
 
-PREPARE, FINALIZE, INDETERMINATE, and RECONCILE are canonical Transition kinds.
-Restart reconciliation compares the actual target with persisted expected
-pre-state and intended post-digest, and never infers no effect from missing
-acknowledgement. A resource may require typed human review of the original
-normalized Operation; APPROVE creates an effective Decision but only runtime
-resume can issue the Grant and enter this carrier boundary. The former fixed
-review effect and direct `fs-write` command are removed, and the old C daemon
-fixture no longer mutates `output.txt`. C control/carrier components remain
-characterized test-only mechanics.
+I01–I06 govern canonical content, intent, exact cognitive targets/lanes and
+provider realization. TLS, deadlines, credentials and shared circuit posture
+exist; streaming/transport abort and a public native YVEX state contract are not
+claimed. Provider continuation remains optional computational evidence, never
+Case authority. Single-host runtime scheduling and resource fencing do not prove
+distributed state coordination.
 
-This is not a universal carrier layer: there is no carrier registry, process
-carrier migration, generic policy engine, distributed binding, automatic
-multi-Case recovery scheduler, or expiry/revocation service. Local absolute
-bindings are restart-durable but noncanonical and single-machine.
-Confinement currently validates the canonical parent immediately before the
-operation; it does not claim race-resistant `openat`/directory-handle security
-against a concurrently hostile namespace.
+The adopted [semantic/computational-state target](../semantic-state-execution-target.md)
+assigns semantic continuity/compilation/admission to YAI and model-native state
+lowering/Read/Update/physical execution to YVEX. It is not an implemented public
+protocol. YAI may require truthful capabilities, not branch on architecture
+families or inspect private engines. Computational state must remain derived and
+replaceable relative to admitted semantic state.
 
-The provider path now compiles typed `yai.projection.v5` and
-`yai.context_frame.v5`, renders them for raw OpenAI-compatible HTTP, and records
-provider/model/frame/render lineage in `yai.transition.v4` Invocation and
-ProviderResult payloads. The controlled effect and ordinary prompt paths use
-the same compiler. A qualified, participant-filtered `yai.operational_memory.v1`
-input is derived from canonical history and may enrich Projection; it can be
-dropped/rebuilt and is never provider or Case authority. Deterministic product
-tests replace provider and model, invalidate an opaque continuation, restart the
-provider endpoint, and rebuild current semantics and operational experience from
-CaseState/history. The opaque continuation value is ephemeral; only its
-disposition is persisted.
-
-The implementation still has no deadline/cancellation, TLS/streaming
-abstraction, runtime ExecutionEvidence ingestion, native YVEX protocol,
-provider-returned continuation lifecycle, or token/KV contract. The current
-continuation reference is a caller-supplied OpenAI-compatible adapter extension
-used to prove invalidation fallback, not a universal provider feature.
-
-These limitations are executable truth, not exceptions to the constitutional
-boundary. Their implementation delta is owned by [ROADMAP](../../ROADMAP.md).
+[ROADMAP](../../ROADMAP.md) alone owns live maturity, selected implementation
+pressure and promotion. Its target architecture does not change these current
+resource, provider or authority contracts.

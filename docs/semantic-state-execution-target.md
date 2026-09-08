@@ -1,7 +1,7 @@
-# Semantic state fabric and execution compilation
+# Semantic cognitive state and execution compilation
 
-Authority: **architectural target / post-I10 program — not current implementation
-truth**. [Roadmap](../ROADMAP.md) owns sequencing; [Constitution](constitution.md)
+Authority: **architectural target — not current implementation truth**.
+[Roadmap](../ROADMAP.md) alone owns live maturity, programs and sequencing; [Constitution](constitution.md)
 owns invariants; [Architecture](architecture.md) owns executable status. This
 document freezes no schema, Rust type, module, protocol or storage owner.
 
@@ -14,14 +14,13 @@ document freezes no schema, Rust type, module, protocol or storage owner.
 - **HYPOTHESIS / RESEARCH PRESSURE** means a mechanism or scaling proposition
   that must earn implementation through a consumer and falsification.
 
-The reconciled baseline includes I01–I06, TEST.TOPOLOGY.0, native REPLAI R4 and
-published R5 vendor removal. **I01–I06 COMPLETE. I07 UNSELECTED.** REPLAI is the
-sole native interactive editor; R5 changed neither cognitive semantics nor the
-qualified pin. Their reports remain the authority for their bounded evidence.
-The post-I10 Semantic State / Execution Compilation program is **RECORDED** as
-a future target. Its entry requires explicit Interlock closure and program
-authorization; the horizon name neither specifies I07–I10 nor reserves their
-implementation. The next boundary must be chosen from current repository pressure.
+I01–I06, TEST.TOPOLOGY.0, native REPLAI R4/R5, Golden and guided Case CLI are
+historical implementation/evidence anchors, not a second status registry here.
+**I01–I06 COMPLETE. I07 UNSELECTED.** REPLAI remains the sole native editor;
+R5 vendor removal changed neither cognitive semantics nor its then-qualified
+pin, and the later qualified repin is preserved. The formerly “post-I10” target
+is organized by the Roadmap's semantic-state programs, not blocked on invented
+I07–I10 implementations. Source work requires separate explicit authorization.
 
 ## Primitive and ownership — architectural decision
 
@@ -50,13 +49,60 @@ source subsystems:
 | Authoritative current materialization | CaseState is current admitted state for a generation, rebuildable from history, never an independent mutable truth | Lifecycle, Participants, logical bindings and current authority refs exist; no universal state bag is proposed |
 | Derived semantic state | Graph, indexes, operational/episodic/semantic memory, retrieval and analytics remain rebuildable | W19/H19/W20 establish bounded access/derivation contracts, not an automatic semantic authority |
 | Execution working state | Consumer-specific selection of intent, scope, authority/disclosure, dependencies, target capabilities and budget | Projection/Residency/ContextFrame and I02–I06 supply parts; a general working-state compiler is a target |
-| Target realization | Adapters lower admitted semantic input into a target-native form; physical execution belongs below that boundary | Existing provider render and typed realization exist; future recurrent/native-state lowering is hypothetical |
+| Target realization | Adapters lower admitted semantic input into a target-native form; physical execution belongs below that boundary | Existing provider render and typed realization exist; persistent State Read/Update are adopted targets with unimplemented consumers, not current capabilities |
 
 **State Fabric** names only this architectural composition. It is **not** a
 database, daemon, canonical owner, registry, service, StateFabricStore or mutable
 global WorkingMemory. A working copy of canonical intent, authority or content
 does not change the authority of its source. Existing governance and security
 histories remain with their established owners; a Case binds their exact facts.
+
+## Semantic / computational state — adopted target
+
+**YAI owns semantic cognitive state. YVEX owns computational cognitive state.**
+This extends the existing continuity boundary, not the set of canonical owners.
+YAI's semantic state spans admitted objectives, facts/claims with their epistemic
+class, obligations, unresolved state, resource/Workflow consequences and
+relationships. It does not flatten CaseState, policy and derived memory into a
+single mutable object. A human and a model participate through identity,
+capability, scope and authority contracts; neither automatically owns the Case.
+
+The adopted execution target has two streams: ordinary token/input/activation
+computation and persistent, cross-context, model-native cognitive state. The
+latter has independently versioned/resident representation, State Read and
+eventual State Update. Both capabilities are **OPEN target requirements now**,
+not deferred out of the architecture because no current consumer implements
+them. Their concrete algorithms and learned consumers remain research pressure.
+Context-only execution is a compatibility realization, not the final paradigm.
+
+```text
+admitted world/Case events → canonical history/current state
+    → semantic cognitive state → semantic state compilation
+    → provisional SemanticStateFrame / SemanticStateDelta
+    → YVEX computational-state lowering
+    → model-native persistent state + immediate input → model
+
+model result / computational update → computational evidence
+    → semantic proposal / consequence → YAI validation + authority + admission
+    → new canonical semantic state
+```
+
+Let `S_t` denote qualified YAI semantic state and
+`M_t = Lower(S_t, exact model, exact state profile)`. `M_t` is derived,
+model-specific, replaceable, computational and potentially opaque; `S_t` is
+durable/model-independent and authoritative only through existing admission.
+Changing DeepSeek to Qwen may invalidate `M_t`, never the Case. Qualified
+semantic meaning must support recompilation; this does not promise recreation
+of identical hidden activations or preservation of unadmitted computation.
+
+YVEX owns model/deployment truth, computational capabilities, layouts,
+KV/recurrent/SSM/latent physical state, State Read/Update realization,
+paging/residency, checkpoints, rollback/invalidation and kernel/resource
+evidence. These are target ownership assignments, not assertions about a
+currently published YVEX ABI. YAI owns semantic selection, working-state/delta
+meaning and semantic admission. YVEX gains no Case, Policy, memory or Workflow
+authority; YAI gains no tensors, latent banks, layer layouts or GPU placement.
+The model supplies learned computation, not authority to commit its output.
 
 ## Admission and payload — architectural decision with I01 evidence
 
@@ -115,7 +161,8 @@ separately from model-visible context size.
 ## Working-state compilation — target; representation is provisional
 
 Current Projection/ContextFrame select and render semantic material for an
-invocation. Post-I10 should investigate their evolution toward:
+invocation. They are bounded compilation footholds, not the definition of
+memory. The selected future program should investigate their evolution toward:
 
 ```text
 Canonical / derived Case state + current intent + authority/disclosure
@@ -128,8 +175,9 @@ Provider-independent execution representation
 Target/provider/YVEX lowering
 ```
 
-`ExecutionFrame`, if used, is a provisional name for that intermediate semantic
-representation, **not an implemented component or frozen schema**. It must not
+`SemanticStateFrame` / `SemanticStateDelta` (earlier discussion used
+`ExecutionFrame`) are provisional names for intermediate semantic
+representations, **not implemented components or frozen schemas**. They must not
 duplicate Projection, ContextFrame, CaseState or the current intent owner.
 Typed capability requirements can constrain compilation without placing a model
 family, wire protocol, session ID or physical deployment into semantic identity.
@@ -139,8 +187,9 @@ is justified; no additional persistent owner is presumed.
 Possible lowerings include ordinary messages/context, typed multipart input,
 opaque continuation plus semantic delta, recurrent checkpoint plus input delta,
 or future native state/memory handles. Only current text/typed adapter and
-optional continuation contracts are implemented footholds; the other forms are
-compatibility hypotheses, not promised adapters. Every lowering remains subject
+optional continuation contracts are implemented footholds. Persistent State
+Read/Update are adopted targets; their concrete lowering mechanisms remain
+hypotheses, not promised adapters. Every lowering remains subject
 to exact target qualification and honest refusal. Context compilation cannot
 grant permission to execute operations.
 
@@ -148,8 +197,9 @@ YAI should be model-aware through typed capability contracts and model-independe
 in semantic ownership. Transformer, SSM, RWKV, Mamba and future architecture
 names are not semantic dispatch rules. YVEX/provider owns physical engines,
 sessions, placement, KV/recurrent state and computational evidence. Future
-checkpoint/native-state forms must remain disposable optimizations with a
-semantic reconstruction route, not new Case authority. No private YVEX protocol
+checkpoint/native-state forms remain derived computational state with a
+semantic reconstruction route, not new Case authority. Their target role is
+broader than caching ordinary context. No private YVEX protocol
 or unobserved provider capability is specified here.
 
 ## Scoped state access — research pressure
@@ -191,7 +241,7 @@ existing Operation/Decision/Grant and effect/reconciliation boundaries; admissio
 to history alone is not permission. An inference remains inference.
 
 Existing operational proposal normalization and W20 consolidation are limited
-footholds, not a generic mutation language. Post-I10 must establish actual
+footholds, not a generic mutation language. Future implementation must establish actual
 producers, consumers, scope and failure semantics before adding any delta API.
 There is no automatic model-to-memory or model-to-state write path implied.
 
@@ -217,9 +267,8 @@ evidence rather than substitute a fixture.
 
 ## Program boundary
 
-After explicit Interlock closure and program authorization, select work on semantic working
-state, provider-independent representation, compilation, scoped demand paging,
-context locality, proposed typed deltas, cold-start/model-substitution invariance
-and target-native lowering from measured boundary pressure. Their dependency
-order and implementation waves are not pre-numbered here. No H20/W21/W22,
-REPLAI change, Studio or runtime work is authorized by this documentation.
+The Roadmap alone selects boundaries and dependency horizons. This document
+retains target meaning and falsifiers, not a second execution queue. Adopted
+State Read/Update remain distinct from hypothetical implementations. No schema,
+H20/W21/W22, REPLAI change, Studio or runtime refactor is authorized by this
+documentation.

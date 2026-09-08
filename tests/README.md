@@ -26,6 +26,16 @@ Independent diagnostic lanes: `test-unit`, `test-component`, `test-contract`,
 `smoke` remains the named smoke-leaf union; individual historical commands stay
 available. They are not replacements for the complete publication union.
 
+For documentation-only project-control changes, use
+`make check-docs check-layout test-roadmap test-topology` and
+`python3 tools/validation/topology.py audit --static`. `check-docs` includes
+`check-roadmap`; its matrix-only counts are derived with
+`python3 tools/checks/check-roadmap.py --summary`. The classified `test-roadmap`
+leaf is unit/regression, no_provider, and participates in fast/release gates.
+These checks prove documentation/reachability consistency, not runtime or model
+behavior; skip runtime/Golden execution only with an explicit unchanged-runtime
+scope, never to qualify an implementation change.
+
 The native terminal product lane also requires the pinned Python packages in
 [requirements-terminal.txt](requirements-terminal.txt). See
 [native REPLAI reproduction](../docs/replai-terminal.md#reproduction-and-evidence)

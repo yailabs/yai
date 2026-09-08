@@ -29,32 +29,35 @@ owner family. They share one LMDB database because their lifecycle and current
 lookup are one administrative catalog. Health has a second small shared
 operational database: it is fresh, multi-process routing input, not Case truth,
 qualification or trust. Binding, selection and attempt outcomes are Case
-Transitions and replay through CaseState v13.
+Transitions and replay through current CaseState v15.
 
 I02 adds a separate `yai.semantic_suitability_evidence.v1` record family to
 the same Tenant provider-governance owner. It binds an exact target and target
 digest to one closed YAI cognitive capability plus suite/run/provenance and an
 explicit posture. An authenticated operator attestation is rendered as an
 attestation, never mislabeled as mechanical qualification. It neither expands
-`ProviderQualification v3` nor grants Case routing eligibility.
+mechanical ProviderQualification nor grants Case routing eligibility.
 
-`yai.case_cognitive_binding.v1` is canonical Case history distinct from
+Current `yai.case_cognitive_binding.v2` is canonical Case history distinct from
 `CaseProviderBinding`: the provider binding says which exact targets may be
 routed to, while the cognitive binding says why one admitted target serves
 `primary_conversation`, `speech_to_text`, or `image_understanding`. One current
 primary slot exists per admitted participant and one auxiliary slot per
 capability. Replacement and unbind are explicit historical transitions.
 
-The pure `yai.cognitive_execution_planner.v1` checks the primary target first.
-Exact suitability yields a native primary lane; otherwise an exact suitable
-auxiliary binding yields a derived auxiliary lane; missing or stale evidence,
-qualification, trust, Tenant scope, Participant scope, target identity, or
-provider-envelope admission yields a typed unresolved plan. Lane identity is
-derived from Case, Participant and exact binding. Continuations are ephemeral,
-lane-scoped hints whose loss does not invalidate the plan. Planning reads no
-health state, creates no `ProviderSelection`, performs no network request and
-always reports `provider_execution: not_performed`. Physical media admission,
-provider realization and auxiliary execution remain post-I02 work.
+I05's v2 cognitive planner preserves a pinned exact target or deterministically
+arbitrates an explicitly ordered candidate policy. Exact semantic suitability,
+scope, integrity, current governance/health and known mechanical input shape
+remain independently inspectable eligibility channels. Missing/currently
+ineligible evidence yields exclusions or an unresolved plan, not inferred model
+capability. Planning itself creates no ProviderSelection and dispatches nothing.
+I03 revalidates the resulting exact plan before governed realization; transport
+cannot silently replace its semantic target. I04 composes only explicit bounded
+prerequisites; I06 routes the application conversation host through this stack.
+Lane identity remains exact to Case, Participant and selected binding/target;
+ephemeral continuation cannot cross lanes and is not Case continuity. Historical
+v1 bindings/plans retain their original meaning; see current
+[Architecture](architecture.md) and bounded I01–I06 evidence linked there.
 
 Capabilities are derived from synthetic probe evidence. The mechanical
 vocabulary is `chat_text`, `text_embedding`, `structured_json_object`,
@@ -65,8 +68,10 @@ capability-specific provenance; extension-observed telemetry cannot satisfy a
 qualified chat, structured-output, exact-addressing or usage requirement.
 Historical v1 `first_party_telemetry` remains readable as its original claim,
 but new qualification records use the narrower compatibility wording.
-The v3 qualification contract binds a successfully parsed embedding envelope
-and its exact finite dimension; v1/v2 readers remain admitted. An embedding
+The v3 qualification contract introduced a parsed embedding envelope
+and its exact finite dimension. Current v5 adds separately evidenced typed
+realization shapes, native function calling and JSON-object output; old versions
+remain readable without inventing absent mechanical evidence. An embedding
 probe uses fixed synthetic non-Case text. W19 automatic memory encoding also
 requires loopback locality, the exact qualified profile dimension and Tenant
 approval, so generic provider approval alone cannot transmit Case memory.

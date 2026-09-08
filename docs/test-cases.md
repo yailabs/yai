@@ -12,6 +12,19 @@ From the repository root with the toolchain and dependencies installed:
 make test-fast
 ```
 
+For a documentation-only closure with no runtime/schema change:
+
+```sh
+make check-docs check-layout test-roadmap test-topology
+python3 tools/validation/topology.py audit --static
+git diff --check
+```
+
+The roadmap guard derives counts solely from its maturity rows and tests reject
+stale counts, undefined evidence and competing execution/authority declarations.
+This is no-provider documentation/unit proof, not new product qualification.
+The full publication gate below remains required for implementation changes.
+
 Before publication, without starting YVEX:
 
 ```sh

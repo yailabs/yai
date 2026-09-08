@@ -7,19 +7,27 @@ planning interlock, the I03 typed provider-realization boundary, and the I04
 bounded cognitive-composition boundary, followed by I05 governed cognitive
 target arbitration and I06 conversation-host cognitive routing. R5 subsequently
 removed the obsolete vendored editor without changing cognitive semantics or
-the qualified REPLAI pin. Historical checkpoints and
-exact executable evidence remain in `refoundation/foundation-recovery/`.
+the then-qualified REPLAI pin. Golden subsequently converged governed resource
+access and the Case workbench; guided setup, public model discovery, single
+connection and separate model/system presentation extend that product consumer.
+The later qualified REPLAI repin is preserved. Historical checkpoints and exact
+evidence remain in `refoundation/foundation-recovery/`, `refoundation/validation/`
+and `refoundation/integration/`.
 
 This document includes current contradictions. It does not claim that the
 [Constitution](constitution.md) is implemented. Target changes and sequencing
 belong only in the [Roadmap](../ROADMAP.md).
 
-The [post-I10 semantic-state target](semantic-state-execution-target.md) is
-deliberately separate. No general State Compiler, ExecutionFrame or semantic
-demand-paging interface is implemented by that document. Current bounded
+The [semantic cognitive-state target](semantic-state-execution-target.md) is
+deliberately separate. No general State Compiler, SemanticStateFrame/Delta or
+semantic demand-paging interface is implemented by that document. State Read
+and State Update are OPEN target capabilities, not current execution contracts.
+Current bounded
 Projection/Residency/ContextFrame, memory and cognitive execution are footholds,
 not proof of Case-age-independent working sets or arbitrary target-native state
-lowering. "State Fabric" names an architectural composition, not a source owner.
+lowering. Context-only preparation is the current compatibility path, not the
+target definition of memory. "State Fabric" names an architectural composition,
+not a source owner. Live maturity and selection belong only to the Roadmap.
 
 ## Executable summary
 
@@ -155,8 +163,8 @@ mean constitutional, general, or production-ready.
 | Typed provider realization | fresh I02 plan + exact current binding/evidence/envelope + ProviderQualification v5 wire-shape evidence + canonical Turn parts → exact-target governed selection → ordered OpenAI-compatible typed request → ProviderInvocation/ProviderResult; derived routes preserve immutable text/source/result provenance; native function calls and JSON-object output have separate mechanical probes | production STT/vision adapters, public YVEX typed-media compatibility and streaming remain later work |
 | Cognitive execution composition | explicit primary goal + ordered canonical source selection → content-addressed composition request → proven direct primary bypass or one exact auxiliary I02/I03 realization → canonical derived content → deterministic original/derived source closure → fresh exact primary I02/I03 realization; I05 arbitrates before each exact plan, and compatible prerequisites resume without redispatch | only depth-two speech/image-to-text prerequisites are admitted; recursive graphs remain absent; I06 consumes this bounded composition in the host |
 | Case-bound provider prompt | admitted participant + typed CaseState/history → qualified long-horizon retrieval → `yai.residency_plan.v1` → `yai.projection.v8` → `yai.context_frame.v8` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | authoritative tokenization and streaming remain absent; interactive conversation uses cognitive realization; --once/piped legacy diagnostics remain separate |
-| Governed provider routing | immutable Tenant ProviderTarget → synthetic evidence-bound qualification → Tenant-Owner approval → shared fresh health/circuit → exact Case provider binding → mechanical requirement/filtering → canonical ProviderSelection and attempt outcome; local fixtures prove qualified capability differences, deterministic exclusions, pre-dispatch safe failover and indeterminate-delivery refusal | remote HTTPS transport, credential rotation, DNS drift and adversarial multi-process circuit hardening remain outside W18 |
-| Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | one synchronous single-host `filesystem.write` loop; no multi-Case scheduler, quotas, backpressure or distributed lease |
+| Governed provider routing | immutable Tenant ProviderTarget → synthetic evidence-bound qualification → Tenant-Owner approval → shared fresh health/circuit → exact Case provider binding → mechanical requirement/filtering → canonical ProviderSelection and attempt outcome; local fixtures prove qualified capability differences, deterministic exclusions, pre-dispatch safe failover and indeterminate-delivery refusal | H18 adds HTTPS/credential/circuit hardening; real provider capacity and full external Golden qualification remain separate evidence requirements |
+| Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | this bounded runner is not a universal capability loop; the separate single-host multi-Case scheduler is implemented, not a distributed lease/consensus system |
 | Controlled external effect | Tenant-scoped attachment + Ready/Valid EffectivePolicy → exact Operation → DecisionBasis/Decision/finite ExecutionGrant → durable fenced PREPARE → filesystem replacement, confined process or admitted MCP tool call → Observation/Receipt → FINALIZE/INDETERMINATE | process confinement is bounded Linux x86_64; arbitrary shell, general database mutation and state-changing HTTP are not admitted |
 | Human-reviewed filesystem effect | policy-driven `REQUIRE_REVIEW` → v2 request → per-command POSIX Principal authentication → Tenant membership → explicit Principal/Participant link → Case-role eligibility → ReviewAction v2 → effective Decision → same Grant/carrier path | local POSIX identity only; no SSO, remote signer or membership removal lifecycle |
 | Governance intake and admission | authenticated Tenant owner + constrained JSON → Tenant-owned immutable artifact/lifecycle → exact Tenant-safe Case binding → EffectivePolicy → operation-specific DecisionBasis; P@1/P@2 remain distinct and validity/revoke contract future authority | local ownership is enforced; external organization identity, credential security, retention and distributed revoke remain future work |
@@ -914,7 +922,7 @@ from one checkout.
 
 | Constitutional requirement | Current implementation | Gap |
 |---|---|---|
-| one canonical Transition Ledger with transactional CaseState | implemented in LMDB for typed payloads; provider and review are live consumers | migrate remaining current workflows; add operational checkpoint/compaction policy |
+| one canonical Transition Ledger with transactional CaseState | implemented in LMDB for typed payloads; provider, review, resource and Workflow are live consumers | operational checkpoint/compaction policy and demonstrated future consumers |
 | carrier consumes an ExecutionGrant | governed filesystem write, confined process runner and admitted MCP tool call reuse exact grants and current authority; C carriers remain component-only | general database/HTTP mutation and broader process profiles are not admitted; no carrier registry owner exists |
 | PREPARE/EFFECT/FINALIZE with indeterminate recovery | filesystem reconciliation and resource fenced publication preserve terminal/indeterminate truth; unused authority may expire before PREPARE, while prepared work must settle | no blind retry or invented reconciliation for unknown process/MCP outcomes; broader resource-specific reconciliation remains future work |
 | filesystem attachment confinement | descriptor-relative reads/imports and the controlled write carrier preserve admitted roots and reject symlink/namespace substitution in qualified Linux tests | broader platforms require independently qualified confinement |
@@ -924,11 +932,11 @@ from one checkout.
 | Projection/Residency/ContextFrame/KV separation | typed Projection, pure `yai.residency_plan.v1`, independent ContextFrame and distinct render identity are implemented; opaque continuation is optional and tokens/KV are absent from canonical state | semantic units and rendered-size estimation are conservative rather than tokenizer-authoritative; no ContextDelta consumer |
 | provenance-bound memory | OperationalMemory remains derived; W19/H19 source-revalidate qualified BM25/exact-cosine retrieval; W20 adds Episodes, evidence-bound assertions and recorded-result consolidation rebuild through multi-family RetrievalSet v3 | ANN/learned reranking remain deferred; W20 generation-based retrieval retention is not universal deletion/privacy policy or general semantic paging |
 | agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops, typed human pause/resume, LMDB run admission and restart tests | generalized operation families, distributed admission and daemon scheduling are absent |
-| provider replacement preserves semantic continuity | real HTTP Provider A→filesystem FINALIZE→Provider B, same-provider model replacement, continuation invalidation and provider restart are deterministic product tests | generalized routing/economics and native runtime continuation protocols are deliberately absent |
+| provider replacement preserves semantic continuity | real HTTP Provider A→filesystem FINALIZE→Provider B, same-provider model replacement, continuation invalidation and provider restart are deterministic product tests; I05 adds bounded governed arbitration | learned/economic routing, general cold-state substitution and native state protocols are absent |
 | derived data rebuilds from canonical state | graph and OperationalMemory rebuild from typed transitions; W19 corpus/index manifests are content-addressed, stale/corrupt-aware, atomically replaceable and add no LMDB DB; profile replacement creates an independent namespace | adaptive background scheduling, compression and full typed analytics inputs |
 | governance source/artifact history | exact-byte source identity, typed deterministic parse/IR, immutable v5 Tenant ownership/validity and append-only authenticated lifecycle/revoke share LMDB while remaining independent from Cases | external organization/SSO assertion, retention policy and distributed revoke |
-| Case policy configuration and admission | Tenant-safe exact artifacts bind canonically; `yai.transition.v8` records DecisionBasis v3, authenticated ReviewAction v2, temporal invalidation and finite Grant v3 under `yai.effective_policy.v3`; cancellation/closure are durable barriers and historical basis is never rewritten | multi-Case runtime, additional carriers and externally authenticated principals remain later |
-| authenticated Principal and Tenant isolation | kernel eUID projection, immutable Principal/Tenant catalog, Owner/Member admin checks, immutable Case Tenant, Principal/Participant links, Tenant-filtered reads and cross-Tenant filesystem-root alias rejection | local OS trust only; no SSO/account directory, membership removal, VM/container boundary or shared-resource fencing |
+| Case policy configuration and admission | Tenant-safe exact artifacts bind canonically; current Transition v18 retains typed Decision/review/temporal/Grant lineage and historical readers; cancellation/closure are durable barriers and historical basis is never rewritten | broader authority consumers and externally authenticated principals; single-host scheduling and Golden resource effects already exist |
+| authenticated Principal and Tenant isolation | kernel eUID projection, immutable Principal/Tenant catalog, Owner/Member admin checks, immutable Case Tenant, Principal/Participant links, Tenant-filtered reads and cross-Tenant filesystem-root alias rejection; shared-resource fencing is implemented | local OS trust only; no SSO/account directory, membership removal or general VM/container trust boundary |
 
-The remaining gaps are intentional boundaries of this wave. The
-[Roadmap](../ROADMAP.md) owns their implementation sequence.
+These are current bounded contract limits, not a second live maturity registry.
+The [Roadmap](../ROADMAP.md) alone owns generic maturity, programs and selection.
