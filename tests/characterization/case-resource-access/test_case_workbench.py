@@ -106,6 +106,12 @@ def main():
                 observe(terminal_input=value)
                 os.write(master,value.encode())
 
+            def details():
+                start = len(output)
+                send("/details\r")
+                wait(lambda: b"[/YAI details]" in output[start:])
+                return json.loads(bytes(output[start:]).split(b"[YAI details]\r\n",1)[1].split(b"\r\n[/YAI details]",1)[0])
+
             wait(lambda: b"\x1b[?2004h" in output)
             send(f"/attach {definition}\r")
             wait(lambda: b'"attachment_is_permission": false' in output)
@@ -117,36 +123,41 @@ def main():
             text_port = text_server.stdout.readline().strip()
             assert text_port.isdigit()
             send(f"/connect http://127.0.0.1:{text_port} vision-tools-not-actually-qualified --trust approve --attest evidence:text-only-fixture\r")
-            wait(lambda: b'"semantic_posture": "operator_attested"' in output)
-            assert b'"native_functions": false' in output and b'"text": true' in output
+            wait(lambda: b'Connected to ' in output)
+            assert b'native functions: not qualified' in output and b'Text: qualified' in output
             send("/work Inspect the admitted source using native functions\r")
-            wait(lambda: b"cognitive_realization_shape_not_qualified" in output)
+            wait(lambda: b"required provider capability is not qualified" in output)
+            assert "cognitive_realization_shape_not_qualified" in json.dumps(details())
             refused_history = cli("case","history",CASE,"--json")
             assert "provider_invocation_started" not in refused_history
             assert "resource_observation_recorded" not in refused_history
             observe(claim="connected text-only target cannot run native work even with READY policy and attached resource", invocation_count=0)
             offset = len(output)
             send(f"/connect http://127.0.0.1:{port} vision-whisper-name-is-not-authority --trust approve --attest evidence:deterministic-native-fixture --replace\r")
-            wait(lambda: b'"semantic_posture": "operator_attested"' in output[offset:])
-            target = re.search(rb'"target_id": "([^"]+)"',output[offset:])[1].decode()
-            assert b'"native_functions": true' in output[offset:]
+            wait(lambda: b'Connected to ' in output[offset:])
+            assert b'native functions: qualified' in output[offset:]
+            target = details()["target_id"]
             offset = len(output)
             send("/work Inspect the admitted source and report the evidence\r")
-            wait(lambda: b"conversation_turn:" in output[offset:])
-            turn_id = re.search(rb"conversation_turn: ([^\r\n]+)",output[offset:])[1].decode()
+            wait(lambda: b"Message saved." in output[offset:])
             # The external peer is waiting; an independent process sees SEND.
             turns = cli("case","conversation","turn","list",CASE,"--participant",HUMAN,"--json")
+            turn_id = json.loads(turns)["data"]["value"]["multipart_turns"][-1]["turn_id"]
             assert turn_id in turns and '"participant_id":"participant:human"' in turns.replace(" ","")
             assert "provider_result_recorded" not in cli("case","history",CASE,"--json")
             release.touch()
-            wait(lambda: b'conversation_execution: "completed"' in output)
+            wait(lambda: b'Response received.' in output)
             assert b"case-work-complete: exact source observation received" in output
-            assert target.encode() in output
+            normal = bytes(output[offset:])
+            assert b"[Model]" in normal and b"[/Model]" in normal and b"[YAI]" in normal
+            assert b"conversation-turn:" not in normal and b'"plan_id"' not in normal
+            execution = details()
+            assert execution["work"]["steps"][-1]["target_id"] == target
             sends = [json.loads(line) for line in log.read_text().splitlines() if not json.loads(line)["synthetic"]]
             assert len(sends) == 2, sends
             offset = len(output)
             send("/retry " + turn_id + "\r")
-            wait(lambda: b'conversation_execution: "completed"' in output[offset:])
+            wait(lambda: b'Response received.' in output[offset:])
             assert len([line for line in log.read_text().splitlines() if not json.loads(line)["synthetic"]]) == 2
             for action, expected in [("/case",b'"executor": "participant:model"'),("/history",b"transition_ledger"),("/verify",b'"replay_equal": true')]:
                 offset = len(output)

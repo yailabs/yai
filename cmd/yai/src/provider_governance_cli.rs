@@ -387,18 +387,18 @@ fn probe_http(
 ) -> Result<ProbeHttpResponse, String> {
     let mut request = body.and_then(|bytes| serde_json::from_slice::<Value>(bytes).ok());
     let stage = if path.ends_with("models") {
-        "catalog"
+        "model catalog"
     } else if request.as_ref().is_some_and(|v| v["tool_choice"] == "none") {
-        "function_result"
+        "function result consumption"
     } else if request.as_ref().is_some_and(|v| v.get("tools").is_some()) {
-        "function_call"
+        "native function call"
     } else if request
         .as_ref()
         .is_some_and(|v| v.get("response_format").is_some())
     {
-        "json"
+        "JSON response"
     } else {
-        "text_or_typed_content"
+        "text/content response"
     };
     if let Some(Value::Object(ref mut object)) = request {
         if path.ends_with("chat/completions") {
@@ -409,7 +409,7 @@ fn probe_http(
         .as_ref()
         .map(|v| serde_json::to_vec(v).expect("probe JSON"));
     let started = std::time::Instant::now();
-    eprintln!("provider_probe: {stage} started (synthetic input; no Case data)");
+    eprintln!("\n[YAI connection]\n  Checking {stage} with synthetic input, not Case data.\n[/YAI connection]");
     let response = std::thread::scope(|scope| {
         let (stop, signal) = std::sync::mpsc::channel::<()>();
         scope.spawn(move || {
@@ -417,7 +417,7 @@ fn probe_http(
                 == Err(std::sync::mpsc::RecvTimeoutError::Timeout)
             {
                 eprintln!(
-                    "provider_probe: {stage} waiting for provider, elapsed={}s",
+                    "\n[YAI connection]\n  Waiting for {stage} ({}s).\n[/YAI connection]",
                     started.elapsed().as_secs()
                 );
             }
@@ -435,13 +435,12 @@ fn probe_http(
     });
     match &response {
         Ok(value) => eprintln!(
-            "provider_probe: {stage} HTTP {} elapsed={}ms",
+            "\n[YAI connection]\n  Received {stage}: HTTP {}, {}ms.\n[/YAI connection]",
             value.status,
             started.elapsed().as_millis()
         ),
-        Err(error) => eprintln!(
-            "provider_probe: {stage} {} elapsed={}ms",
-            probe_failure_code(error),
+        Err(_) => eprintln!(
+            "\n[YAI connection]\n  Could not complete {stage} after {}ms. Exact failure retained in qualification evidence.\n[/YAI connection]",
             started.elapsed().as_millis()
         ),
     }

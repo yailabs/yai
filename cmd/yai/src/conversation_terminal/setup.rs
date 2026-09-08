@@ -262,7 +262,7 @@ pub(crate) fn open(reference: Option<&str>) -> Result<(), String> {
     ])
 }
 
-pub(super) fn connect(controller: &ConversationController) -> Result<(), String> {
+pub(super) fn connect(controller: &ConversationController) -> Result<serde_json::Value, String> {
     use yai_core_engine::provider_governance::ProviderLocality;
     println!("Connect provider. Text is required; native functions and JSON are independently tested and reported. Unqualified capabilities remain unavailable.");
     let (generation, primary) = controller.provider_connection_state()?;
@@ -322,11 +322,7 @@ pub(super) fn connect(controller: &ConversationController) -> Result<(), String>
         replace,
         expected_generation: Some(generation),
     })?;
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
-    );
-    Ok(())
+    Ok(result)
 }
 
 pub(super) fn participants(controller: &mut ConversationController) -> Result<(), String> {

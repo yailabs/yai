@@ -95,30 +95,30 @@ def main():
         before = cli("case", "history", "case:golden:free", "--json")
         terminal(["open", "golden:free"], [("Operator Participant name", "\r"), ("Model Participant name", "\r"), ("Type admit", "cancel\r")], reject=True)
         assert cli("case", "history", "case:golden:free", "--json") == before
-        terminal(["open", "golden:free"], [("Operator Participant name", "\r"), ("Model Participant name", "\r"), ("Type admit", "admit\r"), ("case_prompt: entered", "/exit\r")])
+        terminal(["open", "golden:free"], [("Operator Participant name", "\r"), ("Model Participant name", "\r"), ("Type admit", "admit\r"), ("Case opened:", "/exit\r")])
         history = cli("case", "history", "case:golden:free", "--json")
         assert "participant_principal_linked" in history
         assert "execution_grant_issued" not in history and "provider_invocation_started" not in history
         assert "provider_trust" not in history
-        terminal(["open", "golden:free"], [("case_prompt: entered", "/retry\r"), ("no_committed_turn", "/exit\r")])
+        terminal(["open", "golden:free"], [("Case opened:", "/retry\r"), ("There is no saved message to retry", "/exit\r")])
         assert cli("case", "history", "case:golden:free", "--json") == history
-        terminal(["case", "open", "case:golden:free"], [("case_prompt: entered", "/connect\r"), ("Public provider endpoint", "\x03"), ("setup_cancelled_no_approval", "/exit\r")])
+        terminal(["case", "open", "case:golden:free"], [("Case opened:", "/connect\r"), ("Public provider endpoint", "\x03"), ("Setup cancelled.", "/exit\r")])
         assert cli("case", "history", "case:golden:free", "--json") == history
         providers = cli("provider", "list", "--tenant", "tenant:golden", "--json")
-        terminal(["open", "golden:free"], [("case_prompt: entered", "/connect\r"),
+        terminal(["open", "golden:free"], [("Case opened:", "/connect\r"),
             ("Public provider endpoint", "http://user:forbidden@127.0.0.1:9\r"),
-            ("provider_endpoint_credentials_query_or_fragment_forbidden", "/exit\r")])
+            ("Do not put credentials", "/exit\r")])
         assert cli("provider", "list", "--tenant", "tenant:golden", "--json") == providers
-        terminal(["open", "golden:free"], [("case_prompt: entered", "/setup\r"), ("Model Participant", "operator\r"), ("Type admit", "admit\r"), ("setup_identity_conflict", "/exit\r")])
+        terminal(["open", "golden:free"], [("Case opened:", "/setup\r"), ("Model Participant", "operator\r"), ("Type admit", "admit\r"), ("Human and model Participants must have distinct identities.", "/exit\r")])
         assert cli("case", "history", "case:golden:free", "--json") == history
         assert "equivalent_to_replay" in cli("case", "verify", "case:golden:free", "--json")
         # One visible Case can be reopened without a name. A new tenant never
         # becomes ambient authority: creation then needs an explicit choice.
-        terminal(["open"], [("case_prompt: entered", "/exit\r")])
+        terminal(["open"], [("Case opened:", "/exit\r")])
         terminal(["open", "fresh"], [("Type create", "create\r"), ("Operator Participant name", "\r"),
-            ("Model Participant name", "\r"), ("Type admit", "admit\r"), ("case_prompt: entered", "/exit\r")])
+            ("Model Participant name", "\r"), ("Type admit", "admit\r"), ("Case opened:", "/exit\r")])
         assert "equivalent_to_replay" in cli("case", "verify", "case:fresh", "--json")
-        terminal(["open"], [("Choose an exact name or number", "case:golden:free\r"), ("case_prompt: entered", "/exit\r")])
+        terminal(["open"], [("Choose an exact name or number", "case:golden:free\r"), ("Case opened:", "/exit\r")])
         cli("init", "--tenant", "tenant:other", "--organization", "organization:other")
         terminal(["open", "new"], [("Choose an exact name or number", "\x03")], reject=True)
         assert "case:new" not in cli("case", "list", "--json")

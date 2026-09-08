@@ -15,13 +15,17 @@ use std::io::Write;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+#[path = "conversation_terminal/presentation.rs"]
+mod presentation;
 #[path = "conversation_terminal/setup.rs"]
 pub(super) mod setup;
+use presentation::{notice, Presentation};
 
 // Application vocabulary: shared by this frontend's help and completion.
 const COMMANDS: &[&str] = &[
     "/help",
     "/help all",
+    "/details",
     "/setup",
     "/case",
     "/history",
@@ -133,49 +137,6 @@ fn inspect(
     }
 }
 
-fn render_execution(value: ConversationExecutionResult) -> Result<(), String> {
-    if value.posture
-        == super::conversation_controller::ConversationExecutionPosture::ProviderUnconfigured
-    {
-        eprintln!("Case provider not configured for conversation. Use /connect; this is not evidence that the endpoint is down.");
-    }
-    if let Some(output) = &value.output {
-        println!("{}", literal_external_text(output));
-    }
-    if let Some(cognition) = &value.cognition {
-        println!("conversation_cognition: {}", serde_json::to_string(&serde_json::json!({
-            "turn_id": value.turn_id,
-            "intent_id": cognition.request.request_id,
-            "route": cognition.route,
-            "source_closure_id": cognition.closure.closure_id,
-            "target_id": cognition.primary.plan.selected_target_id,
-            "lane_id": cognition.primary.plan.execution_lane_id,
-            "validation_plan_id": cognition.primary.plan.plan_id,
-            "execution_plan_id": cognition.primary.execution.as_ref().map(|execution| &execution.plan_id),
-            "provider_result_id": value.provider_result_id,
-            "selection_id": value.selection_id,
-            "invocation_id": value.invocation_id,
-            "projection_id": value.projection_id,
-            "context_frame_id": value.context_frame_id,
-            "recovered": cognition.primary.recovered
-        })).map_err(|error| error.to_string())?);
-    }
-    if let Some(work) = &value.work {
-        println!("{}", work.operator_summary());
-    }
-    // The posture is the controller's observation, never inferred from text.
-    println!(
-        "conversation_execution: {}",
-        serde_json::to_string(&value.posture).map_err(|e| e.to_string())?
-    );
-    for event in &value.events {
-        if let super::conversation_controller::ConversationApplicationEvent::ExecutionUnavailable { detail, .. } = event {
-            eprintln!("{}", literal_external_text(detail));
-        }
-    }
-    Ok(())
-}
-
 fn execute_visible(
     controller: &mut ConversationController,
     turn_id: &str,
@@ -183,12 +144,12 @@ fn execute_visible(
     // REPLAI has released the editor. This is truthful application wait output,
     // not token streaming or terminal mechanics; do not imply transport abort.
     let started = std::time::Instant::now();
-    eprintln!("YAI: preparing execution for the committed Turn; waiting for the governed result.");
+    notice("Message saved. Preparing execution; waiting for the provider.");
     std::thread::scope(|scope| {
         let (stop, signal) = std::sync::mpsc::channel::<()>();
         scope.spawn(move || {
             while signal.recv_timeout(Duration::from_secs(5)) == Err(std::sync::mpsc::RecvTimeoutError::Timeout) {
-                eprintln!("YAI: execution pending ({}s); Ctrl-C requests application cancellation, not guaranteed transport abort.", started.elapsed().as_secs());
+                notice(&format!("Still waiting ({}s). Ctrl-C requests cancellation; it cannot guarantee stopping an already sent request.", started.elapsed().as_secs()));
             }
         });
         let result = controller.execute_committed_turn(turn_id);
@@ -216,11 +177,12 @@ fn literal_external_text(text: &str) -> String {
 
 fn command(
     controller: &mut ConversationController,
+    presentation: &mut Presentation,
     args: &[String],
     text: &str,
 ) -> Result<(), String> {
     if text == "/help" {
-        println!("Case: /case /participants /resources /artifacts /history\nSetup: /setup /attach /connect /policy publish\nWork: /work TEXT /review /retry /cancel\nInspect: /policy /effects /workflow /memory /graph /verify\nAll actions: /help all\nExit: /exit");
+        println!("Case: /case /participants /resources /artifacts /history\nSetup: /setup /attach /connect /policy publish\nWork: /work TEXT /review /retry /cancel\nInspect: /details /policy /effects /workflow /memory /graph /verify\nAll actions: /help all\nExit: /exit");
         return Ok(());
     }
     if text == "/help all" {
@@ -231,7 +193,12 @@ fn command(
         return setup::participants(controller);
     }
     if text == "/connect" {
-        return setup::connect(controller);
+        presentation.connection(setup::connect(controller)?);
+        return Ok(());
+    }
+    if text == "/details" {
+        inspect(controller)?; // Current authenticated Case access, never ambient cached access.
+        return presentation.inspect();
     }
     if text == "/attach" {
         let path = setup::ask("Resource definition file", None)?;
@@ -294,9 +261,9 @@ fn command(
     }
     if text == "/retry" {
         let id = controller.latest_turn_id()?;
-        println!("Retrying exact Turn: {id}");
+        notice("Resuming the saved message; delivery and recovery checks still apply.");
         let _interrupt = ExecutionInterrupt::observe(controller.cancellation())?;
-        return render_execution(execute_visible(controller, &id)?);
+        return presentation.execution(execute_visible(controller, &id)?);
     }
     if let Some(id) = text.strip_prefix("/operation ") {
         println!(
@@ -473,10 +440,7 @@ fn command(
                 replace,
                 expected_generation: None,
             })?;
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?
-        );
+        presentation.connection(result);
         return Ok(());
     }
     for prefix in [
@@ -549,23 +513,15 @@ fn command(
                 max_input_units: 65_536,
             },
         )?;
-        println!(
-            "conversation_turn: {}\nconversation_generation: {}",
-            committed.turn.turn_id, committed.generation
-        );
         std::io::stdout().flush().map_err(|e| e.to_string())?;
         let _interrupt = ExecutionInterrupt::observe(controller.cancellation())?;
-        return render_execution(execute_visible(controller, &committed.turn.turn_id)?);
+        return presentation.execution(execute_visible(controller, &committed.turn.turn_id)?);
     }
     if let Some(node) = text.strip_prefix("/workflow run ") {
         let committed = controller.commit_workflow_node(node.trim())?;
-        println!(
-            "conversation_turn: {}\nconversation_generation: {}",
-            committed.turn.turn_id, committed.generation
-        );
         std::io::stdout().flush().map_err(|e| e.to_string())?;
         let _interrupt = ExecutionInterrupt::observe(controller.cancellation())?;
-        return render_execution(execute_visible(controller, &committed.turn.turn_id)?);
+        return presentation.execution(execute_visible(controller, &committed.turn.turn_id)?);
     }
     let workflow_action = if let Some(path) = text.strip_prefix("/workflow bind ") {
         Some(controller.configure_workflow(std::path::Path::new(path.trim()))?)
@@ -631,7 +587,7 @@ fn command(
             None
         };
         match controller.apply(action)? {
-            ConversationActionResult::Execution { value } => render_execution(*value)?,
+            ConversationActionResult::Execution { value } => presentation.execution(*value)?,
             value => println!(
                 "conversation: {}",
                 serde_json::to_string(&value).map_err(|e| e.to_string())?
@@ -701,8 +657,8 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
     let status = inspect(&mut controller)?;
     let prompt = Prompt::new(&format!("yai({case_id})")).map_err(|e| e.to_string())?;
     let mut input = Interaction::new(Editor::new(65_536, 200));
-    println!("case_prompt: entered\ncase_ref: {case_id}\nsubject_ref: {}\ninteraction_thread: {}\nUse /help for Case actions; /connect to configure a provider; /exit to leave.",
-        status.participant_id, status.active_thread_id);
+    let mut presentation = Presentation::default();
+    notice(&format!("Case opened: {case_id}\nParticipant: {}\nUse /help for Case actions; /connect for a provider; /exit to leave.", status.participant_id));
     loop {
         input
             .open(&std::io::stdin(), &std::io::stdout(), prompt.clone())
@@ -757,8 +713,11 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
             return Ok(());
         }
         if trimmed.starts_with('/') {
-            if let Err(error) = command(&mut controller, args, trimmed) {
-                eprintln!("{}", literal_external_text(&error));
+            if trimmed != "/details" {
+                presentation.clear();
+            }
+            if let Err(error) = command(&mut controller, &mut presentation, args, trimmed) {
+                presentation.error(&error);
             }
             continue;
         }
@@ -767,6 +726,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
             .map_err(|e| e.to_string())?
             .admit_history(&text)
             .map_err(|e| e.to_string())?;
+        presentation.clear();
         let result = if dry_run {
             provider::terminal_dry_run(args, &text)
         } else {
@@ -774,16 +734,12 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
                 let committed =
                     controller.commit_parts(vec![ConversationInputPart::Text { text }])?;
                 let _interrupt = ExecutionInterrupt::observe(controller.cancellation())?;
-                println!(
-                    "conversation_turn: {}\nconversation_generation: {}",
-                    committed.turn.turn_id, committed.generation
-                );
                 std::io::stdout().flush().map_err(|e| e.to_string())?;
-                render_execution(execute_visible(&mut controller, &committed.turn.turn_id)?)
+                presentation.execution(execute_visible(&mut controller, &committed.turn.turn_id)?)
             })()
         };
         if let Err(error) = result {
-            eprintln!("{}", literal_external_text(&error));
+            presentation.error(&error);
         }
     }
 }

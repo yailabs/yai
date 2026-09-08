@@ -115,6 +115,14 @@ class Terminal:
         assert not any(marker in self.output for marker in (b"\x1b[?1049h", b"\x1b[?1047h", b"\x1b[?47h"))
         observe("draft", text=text, cursor=[self.screen.cursor.y, self.screen.cursor.x], fd_count=len(os.listdir(f"/proc/{self.proc.pid}/fd")))
 
+    def details(self):
+        start = len(self.output)
+        self.send("/details\r")
+        self.wait(lambda: b"[/YAI details]" in self.output[start:])
+        data = self.output[start:].split(b"[YAI details]\r\n",1)[1].split(b"\r\n[/YAI details]",1)[0]
+        self.draft("", 0)
+        return json.loads(data)
+
     def resize(self, columns, rows, initialize=False):
         fcntl.ioctl(self.slave, termios.TIOCSWINSZ, struct.pack("HHHH", rows, columns, 0, 0))
         if not initialize:
@@ -169,7 +177,7 @@ def terminal_contract():
         t.exit()
     t = Terminal()
     t.send("earlier\r")
-    t.wait(lambda: b'"provider_unconfigured"' in t.output)
+    t.wait(lambda: b'No conversation provider is configured.' in t.output)
     t.draft("", 0)
     committed = turns()
     assert len(committed) == 1
@@ -282,7 +290,7 @@ def provider_contract(mode, cancel=False):
         t.send("provider boundary")
         assert state() == before and turns() == inventory
         t.send(b"\r")
-        t.wait(lambda: b"conversation_turn:" in t.output)
+        t.wait(lambda: b"Message saved." in t.output)
         # The fixture cannot finish until this separate process observes the Turn.
         committed = turns()
         assert len(committed) == len(inventory) + 1
@@ -300,14 +308,22 @@ def provider_contract(mode, cancel=False):
         assert intent["goal"] == "primary_conversation" and "prerequisite" not in intent
         observe("provider_pending", mode=label, before=before, during=during, committed=committed, intent=intent)
         release.touch()
-        expected = b'"completed"' if mode == "full" else b'"delivery_indeterminate"'
+        expected = b'Response received.' if mode == "full" else b'Execution unresolved:'
         if cancel:
-            t.wait(lambda: b'"completed"' in t.output or b'"delivery_indeterminate"' in t.output)
+            t.wait(lambda: b'Response received.' in t.output or b'Execution unresolved:' in t.output)
         else:
             t.wait(lambda: expected in t.output)
         t.draft("", 0)
         if mode == "full" and not cancel:
             assert b"fixture native conversation ORCHID-I03" in t.output
+            model_block = t.output.split(b"[Model]\r\n",1)[1].split(b"\r\n[/Model]",1)[0]
+            assert b"ORCHID-I03" in model_block and b"[YAI]" not in model_block
+            assert b"provider_result_id" not in model_block and b"conversation_execution:" not in t.output
+        if mode != "full":
+            assert b"[Model]" not in t.output, "provider failure must never manufacture a model reply"
+        if mode == "capacity_realization":
+            assert b"HTTP 413" in t.output and b"Delivery remains uncertain" in t.output
+        assert b"conversation-turn:" not in t.output and b'"lane_id"' not in t.output
         assert turns() == committed
         assert len(os.listdir(f"/proc/{t.proc.pid}/fd")) == t.fd_initial
         requests = [json.loads(line) for line in log.read_text().splitlines()]
@@ -316,10 +332,11 @@ def provider_contract(mode, cancel=False):
         assert "last_selected_target: " + target in provider_posture
         assert "last_selected_model: r4-fixture" in provider_posture
         if mode == "full" and not cancel:
-            lineage = json.loads(re.search(rb"conversation_cognition: (\{[^\r\n]+\})", t.output)[1])
-            assert lineage["target_id"] == target and lineage["intent_id"] == intent["request_id"]
-            assert lineage["execution_plan_id"].startswith("cognitive-plan:")
-            assert lineage["lane_id"].startswith("cognitive-lane:")
+            lineage = t.details()
+            assert lineage["cognition"]["primary"]["plan"]["selected_target_id"] == target
+            assert lineage["intent"]["request_id"] == intent["request_id"]
+            assert lineage["cognition"]["primary"]["execution"]["plan_id"].startswith("cognitive-plan:")
+            assert lineage["cognition"]["primary"]["plan"]["execution_lane_id"].startswith("cognitive-lane:")
             assert "last_selection_id: " + lineage["selection_id"] in provider_posture
             observe("i06_exact_lineage", lineage=lineage, provider_posture=provider_posture)
         assert not any(not json.loads(line)["synthetic"] for line in decoy_log.read_text().splitlines())
@@ -336,7 +353,7 @@ def provider_contract(mode, cancel=False):
             assert sum(not json.loads(line)["synthetic"] for line in log.read_text().splitlines()) == 1
             assert not any(not json.loads(line)["synthetic"] for line in decoy_log.read_text().splitlines())
             if mode == "full":
-                assert b'"recovered":true' in t.output[retry_start:]
+                assert t.details()["cognition"]["primary"]["recovered"]
             observe("i06_retry", mode=label, output=t.output, same_turn=True, redispatches=0)
         observe("provider_finished", mode=label, state=state(), turns=turns(), requests=requests,
                 selected_target=target, historical_first_target=decoy_target, cognitive_selection=True)
@@ -391,6 +408,7 @@ try:
     terminal_contract()
     provider_contract("full")
     provider_contract("drop_realization")
+    provider_contract("capacity_realization")
     provider_contract("full", cancel=True)
     print("r4_terminal: canonical_editing_unchanged=true commit_before_provider=true success_failure_turn_retained=true exact_termios=true bounded_fds=true native_replai=true")
     print("i06_pty: cognitive_arbitration=true provider_order_bypassed=true pinned=true durable_intent=true retry_no_redispatch=true indeterminate_no_cross_target=true")

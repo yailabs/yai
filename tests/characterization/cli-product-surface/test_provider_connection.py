@@ -94,9 +94,9 @@ def main():
                         output.extend(os.read(master, 65536))
                     assert proc.poll() is None and time.monotonic() < deadline, output[offset:].decode(errors="replace")
                     pending = bytes(output[offset:])
-                    if needle == 'conversation_execution: "completed"' and b'conversation_execution: "' in pending:
+                    if needle == 'Response received.' and any(marker in pending for marker in (b'Execution unresolved:', b'Execution unavailable', b'Execution failed:')):
                         raise AssertionError(pending.decode(errors="replace"))
-                    if needle == '"connection": "connected"' and b"case_connect_mechanical_contract_unqualified" in pending:
+                    if needle == 'Connected to ' and b"text contract did not qualify" in pending:
                         raise AssertionError(pending.decode(errors="replace"))
                 # Wait for the actual editor, not just the preceding printed
                 # label, before submitting the next answer.
@@ -108,22 +108,28 @@ def main():
                 offset = end
                 if answer is not None:
                     os.write(master, answer.encode() + b"\r")
+            def details():
+                start = len(output)
+                os.write(master, b"/details\r")
+                expect("[/YAI details]")
+                return json.loads(bytes(output[start:]).split(b"[YAI details]\r\n", 1)[1].split(b"\r\n[/YAI details]", 1)[0])
             try:
                 expect("Operator Participant", "")
                 expect("Model Participant", "")
                 expect("Type admit", "admit")
-                expect("case_prompt: entered", "/help all")
+                expect("Case opened:", "/help all")
                 expect("/thread status")
                 assert b"/connect workbench" not in output, "help/completion must expose one connection action"
                 if args.scenario == "single":
                     os.write(master, b"/connect workbench\r")
-                    expect("connect_syntax:")
+                    expect("There is no connection profile suffix.")
                     assert not (run / "requests.jsonl").exists()
                     record(claim="removed suffix is neither completion nor executable alias; malformed command does not probe")
                 os.write(master, b"/connect\r")
                 expect("Public provider endpoint", endpoint)
                 if args.scenario in ("empty", "malformed", "duplicate"):
-                    expect("provider_catalog_empty" if args.scenario == "empty" else "provider_catalog_invalid")
+                    expect("endpoint exposes no models" if args.scenario == "empty" else "public model catalog is invalid")
+                    assert "provider_catalog_" in details()["error"]
                     assert "cognitive_binding" not in cli("case", "history", "case:connect", "--json")
                     assert not (run / "requests.jsonl").exists(), "catalog failure must not invoke inference"
                     os.write(master, b"/exit\r")
@@ -142,7 +148,7 @@ def main():
                     before = cli("case", "history", "case:connect", "--json")
                     targets = cli("provider", "list", "--tenant", "tenant:connect", "--json")
                     os.write(master, b"no\r")
-                    expect("setup_cancelled_no_approval", "/exit")
+                    expect("Setup cancelled.", "/exit")
                     proc.wait(timeout=10)
                     assert cli("case", "history", "case:connect", "--json") == before
                     assert cli("provider", "list", "--tenant", "tenant:connect", "--json") == targets
@@ -153,7 +159,8 @@ def main():
                     cli("case", "participant", "role", "add", "case:connect", "--participant", "participant:operator", "--role", "discovery-test-generation")
                 os.write(master, b"approve\r")
                 if args.scenario in ("drift", "stale"):
-                    expect("exact_model_not_in_current_catalog" if args.scenario == "drift" else "case_connect_approval_stale")
+                    expect("selected model is no longer" if args.scenario == "drift" else "Case changed during approval")
+                    assert ("exact_model_not_in_current_catalog" if args.scenario == "drift" else "case_connect_approval_stale") in details()["error"]
                     assert "cognitive_binding" not in cli("case", "history", "case:connect", "--json")
                     assert not (run / "requests.jsonl").exists(), "stale catalog or approval must not dispatch inference"
                     os.write(master, b"/exit\r")
@@ -161,34 +168,34 @@ def main():
                     record(result="PASS", claim="stale catalog/Case approval refuses before inference and binding")
                     return 0
                 if args.scenario == "no_text":
-                    expect("no trust or Case binding added", "/exit")
+                    expect("No trust or Case binding was added.", "/exit")
                     proc.wait(timeout=10)
                     assert "cognitive_binding" not in cli("case", "history", "case:connect", "--json")
                     assert all(row["synthetic"] for row in map(json.loads, (run / "requests.jsonl").read_text().splitlines()))
                     record(result="PASS", claim="unqualified text refuses connection; no trust, Case binding or semantic dispatch")
                     return 0
-                expect('"connection": "connected"')
+                expect('Connected to ')
+                assert b'"qualification_id"' not in output and b'"capabilities"' not in output
+                connection = details()
                 assert b'"connection_profile"' not in output
                 if not args.external:
-                    available = b"true" if args.scenario == "all_shapes" else b"false"
-                    assert b'"native_functions": ' + available in output
-                    assert b'"json_object": ' + available in output
-                    assert b'"text": true' in output
+                    available = args.scenario == "all_shapes"
+                    assert connection["capabilities"] == {"text":True,"native_functions":available,"json_object":available}
                     record(claim="one connect reports only independently qualified capabilities", functions_and_json=args.scenario == "all_shapes")
                 if args.scenario == "replace":
                     before = cli("case", "history", "case:connect", "--json")
                     os.write(master, b"/connect\r")
                     expect("Public provider endpoint", endpoint)
                     expect("Type replace", "no")
-                    expect("setup_cancelled_no_approval")
+                    expect("Setup cancelled.")
                     assert cli("case", "history", "case:connect", "--json") == before
                     os.write(master, b"/connect\r")
                     expect("Public provider endpoint", endpoint)
                     expect("Type replace", "replace")
-                    expect('"connection": "connected"')
+                    expect('Connected to ')
                     assert cli("case", "history", "case:connect", "--json") != before
                 if args.qualification_only:
-                    assert b'"native_functions": true' in output and b'"json_object": true' in output
+                    assert connection["capabilities"]["native_functions"] and connection["capabilities"]["json_object"]
                     os.write(master, b"/exit\r")
                     proc.wait(timeout=10)
                     record(exit=proc.returncode, result="PASS", claim="single connect synthetic text/functions/JSON qualification only; no user SEND or Golden execution")
@@ -197,11 +204,15 @@ def main():
                 history = cli("case", "history", "case:connect", "--json")
                 assert "case_cognitive" in history or "cognitive_binding" in history
                 os.write(master, b"Reply briefly in Italian: ciao.\r")
-                expect("conversation_turn:")
+                expect("Message saved.")
                 # Independent canonical read while inference is in flight.
                 history = cli("case", "history", "case:connect", "--json")
                 assert "conversation_turn_committed" in history
-                expect('conversation_execution: "completed"', "/exit")
+                expect('Response received.')
+                assert b"conversation_cognition:" not in output
+                execution = details()
+                assert execution["posture"] == "completed" and execution["provider_result_id"]
+                os.write(master, b"/exit\r")
                 proc.wait(timeout=10)
                 record(exit=proc.returncode, output_hex=bytes(output[offset:]).hex())
                 assert proc.returncode == 0

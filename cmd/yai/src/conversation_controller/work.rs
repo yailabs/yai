@@ -36,46 +36,6 @@ pub(crate) struct CaseWorkOutcome {
     pub steps: Vec<CaseWorkStep>,
 }
 
-impl CaseWorkOutcome {
-    /// Compact operator presentation; exact structured outcomes remain in the
-    /// application result and canonical resource/provider lineage, not stdout.
-    pub(crate) fn operator_summary(&self) -> String {
-        let mut lines = vec![format!("case_work: {}", self.request_id)];
-        for step in &self.steps {
-            let posture = step
-                .outcome
-                .as_ref()
-                .and_then(|v| v.get("posture").or_else(|| v.get("status")))
-                .and_then(Value::as_str)
-                .unwrap_or("provider_result");
-            lines.push(format!(
-                "  {}. {} reused={} {}",
-                step.ordinal + 1,
-                posture,
-                step.recovered,
-                step.operation_id
-                    .as_deref()
-                    .unwrap_or(&step.provider_result_id)
-            ));
-            if let Some(id) = step
-                .outcome
-                .as_ref()
-                .and_then(|v| v.get("review_id"))
-                .and_then(Value::as_str)
-            {
-                lines.push(format!("review_id: {id}"));
-            }
-        }
-        if let Some(last) = self.steps.last() {
-            lines.push(format!(
-                "target_id: {}\nlane_id: {}\nplan_id: {}\nprovider_result_id: {}",
-                last.target_id, last.lane_id, last.plan_id, last.provider_result_id
-            ));
-        }
-        lines.join("\n")
-    }
-}
-
 /// A completed request is recovered before consulting fresh target evidence.
 /// A different binding may serve the NEXT step, never repeat a completed one.
 fn completed_step(

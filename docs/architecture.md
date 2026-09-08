@@ -224,6 +224,11 @@ messages, including repeated equal parts; media retains ordered content arrays.
 The same adapter lowering is exercised by the version-2 synthetic shape suite.
 Canonical Turn/closure IDs and provenance are unchanged; wire messages are not
 a second conversation history. This is not a claim of external media support.
+Normal conversation presentation separates buffered model replies from YAI
+notices and qualification progress. It emits no automatic execution JSON/IDs;
+explicit `/details` renders the last action's unchanged result after current
+Case access checks. This disposable display snapshot is not history, a new
+semantic owner or a provider response. Canonical inspection remains unchanged.
 Ordinary conversation remains I06. Explicit `/work` commits finite work intent before
 I02–I05 arbitration/realization; Workflow CaseWork nodes call that same host.
 No Agent, connector/tool registry or independent execution history is introduced.

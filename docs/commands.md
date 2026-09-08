@@ -125,6 +125,12 @@ as exact spelling for `resource:workspace`, not a fuzzy match or persisted alias
 Other actions include
 `/read`, `/discover`, `/admit`, `/material`, `/query`, `/fetch`, `/catalog`, `/test`,
 `/operation ID` before human `/review`, bounded `/work`, and same-Turn `/retry`.
+Normal replies appear in `[Model]` blocks, system notices in separate `[YAI]`
+blocks and qualification progress in `[YAI connection]`. SEND/retry/work and
+connection do not print diagnostic JSON automatically. `/details` requests the
+last action's exact result or refusal in a separate `[YAI details]` block; this
+display snapshot disappears on the next action or process exit. Use `/history`,
+`/provider`, `/operation` and one-shot JSON inspection for durable evidence.
 `/workflow bind|run|input|advance` and `/workflow patch validate|adopt` reuse the
 existing Workflow owner. `/handoff offer|accept|result|reconcile` is explicit
 cross-Case material exchange, never resource/authority transfer. `/rebuild`

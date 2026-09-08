@@ -25,6 +25,7 @@ parser.add_argument(
         "empty_realization",
         "drop",
         "drop_realization",
+        "capacity_realization",
         "slow",
         "memory",
         "memory_w20",
@@ -149,6 +150,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if args.mode == "reject":
             self.reply(503, {"error": {"type": "fixture_unavailable"}})
+            return
+        if args.mode == "capacity_realization" and not is_synthetic:
+            self.reply(413, {"error":{"code":"request_too_large","type":"invalid_request_error","message":"Synthetic public input-capacity refusal"}})
             return
         if args.mode == "drop_realization" and not is_synthetic:
             self.connection.shutdown(socket.SHUT_RDWR)

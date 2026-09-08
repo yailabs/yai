@@ -91,6 +91,16 @@ There is no concurrently editable draft while a buffered provider request runs.
 The released-editor execution phase prints bounded wait updates every five
 seconds. These are application status, not token streaming or transport-abort
 promises. Provider qualification prints its current probe and elapsed time.
+Normal buffered execution renders model text only inside a `[Model]` block,
+and application status/errors in separate `[YAI]` blocks. Probe updates use
+`[YAI connection]`. Complete line-indented blocks prevent external output from
+impersonating a column-zero host delimiter. No terminal editor/cursor renderer
+is added; these are application labels written after the editor releases the TTY.
+Normal SEND/retry/work and connection no longer dump IDs or result JSON.
+`/details` explicitly displays the last action's exact result in `[YAI details]`,
+after checking current Case access. The display snapshot is process-local and
+cleared by the next action, not a chat log. Restart inspection uses existing
+canonical `/history`, `/provider` and one-shot structured commands.
 `/connect` is the only connection action. It tests text, native functions and JSON
 separately, requires text and reports unqualified optional capabilities without
 enabling them. It uses public catalog discovery, automatic singleton selection, conditional

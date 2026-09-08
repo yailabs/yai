@@ -119,3 +119,9 @@ cancellation, existing Case preservation and selection. The Golden local free
 and Workflow runs use guided `/connect`, `/review`, resource/policy setup and
 bare `/retry` over the real controller and loopback provider transport. Neither
 lane authorizes a human PASS or live YVEX claim.
+Normal presentation is qualified separately from its semantics: PTYs assert
+distinct model/system blocks with no automatic diagnostic lineage, then request
+`/details` or read the canonical CLI to prove exact target, lane, result and
+same-Turn recovery. A real HTTP-413 loopback peer must produce a YAI refusal,
+no model-reply block, and no cross-target retry. This reproduces the refusal
+class for YAI display qualification, not a claim about YVEX's internal limit.

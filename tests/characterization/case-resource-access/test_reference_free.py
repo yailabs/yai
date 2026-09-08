@@ -127,9 +127,9 @@ def main():
                     wait(b"Operator Participant name")
                     action("",b"Model Participant name")
                     action("",b"Type admit")
-                    action("admit",b"case_prompt: entered")
+                    action("admit",b"Case opened:")
                 else:
-                    wait(b"case_prompt: entered")
+                    wait(b"Case opened:")
 
             def wait(needle, offset=0, timeout=30):
                 needles = (needle,) if isinstance(needle, bytes) else needle
@@ -141,14 +141,15 @@ def main():
                         output.extend(os.read(master,65536))
                     if any(item in output[offset:] for item in needles):
                         return bytes(output[offset:])
-                    if isinstance(needle, bytes) and needle.startswith(b"conversation_execution:") and re.search(rb'conversation_execution: "[a-z_]+"\r?\n',output[offset:]):
+                    execution_wait = needle in (b"Response received.", b"Human review required.")
+                    if execution_wait and any(marker in output[offset:] for marker in (b"Execution unresolved:", b"Execution unavailable", b"Execution failed:")):
                         record(failure="different execution posture",output_tail_hex=bytes(output[-4096:]).hex())
                         raise AssertionError(output[-4096:].decode(errors="replace"))
-                    if isinstance(needle, bytes) and needle.startswith(b"conversation_execution:") and b"\x1b[?2004h" in output[offset:] and b"conversation_turn:" in output[offset:]:
+                    if execution_wait and b"\x1b[?2004h" in output[offset:] and b"Message saved." in output[offset:]:
                         # An application refusal returned to the editor without
                         # an execution record; don't burn a full timeout.
                         suffix = bytes(output[offset:])
-                        if suffix.rfind(b"\x1b[?2004h") > suffix.rfind(b"conversation_turn:"):
+                        if suffix.rfind(b"\x1b[?2004h") > suffix.rfind(b"Message saved."):
                             record(failure="application refused execution",output_tail_hex=bytes(output[-4096:]).hex())
                             raise AssertionError(output[-4096:].decode(errors="replace"))
                     assert terminal.poll() is None, output.decode(errors="replace")
@@ -162,6 +163,11 @@ def main():
                 data = wait(expected,offset,timeout)
                 record(output_hex=data.hex())
                 return data
+
+            def refusal(value, code):
+                action(value, b"The action could not be completed.")
+                detail_bytes = action("/details", b"[/YAI details]")
+                assert code.encode() in detail_bytes
 
             def close_workbench():
                 nonlocal terminal, master, slave
@@ -191,8 +197,10 @@ def main():
                 for _ in range(4):
                     if b"Type approve" in data:
                         assert ("Selected model: " + model).encode() in data
-                        connected = action("approve",b'"semantic_posture": "operator_attested"')
-                        assert b'"native_functions": true' in connected and b'"json_object": true' in connected, "Golden requires independently qualified functions and JSON, not merely a connected target"
+                        connected = action("approve",b'Connected to ')
+                        assert b'native functions: qualified' in connected and b'JSON: qualified' in connected, "Golden requires independently qualified functions and JSON, not merely a connected target"
+                        evidence = action("/details",b"[/YAI details]")
+                        assert b'"native_functions": true' in evidence and b'"json_object": true' in evidence
                         return
                     if b"Locality: loopback /" in data:
                         data = action(locality,questions)
@@ -226,29 +234,32 @@ def main():
                 action("/workflow bind",b"Workflow definition file")
                 action(str(REFERENCE / "workflow.json"),b'"workflow_binding": {')
                 action("/workflow input understand GOLDEN-42 reviewed; investigate with admitted capabilities",b'"workflow_input": "committed"')
-                action("/workflow run investigate",b'conversation_execution: "completed"',timeout=60)
+                action("/workflow run investigate",b'Response received.',timeout=60)
                 assert hashlib.sha256((world / "workspace/src/retry.py").read_bytes()).hexdigest() == initial
                 close_workbench()
                 investigation_calls = dispatch_count()
                 open_workbench()
-                action("/workflow run investigate",b'conversation_execution: "completed"',timeout=60)
+                action("/workflow run investigate",b'Response received.',timeout=60)
                 assert dispatch_count() == investigation_calls
                 assert external or investigation_calls == 11
-                action("/workflow run risk-plan",b'conversation_execution: "completed"',timeout=60)
+                action("/workflow run risk-plan",b'Response received.',timeout=60)
                 data = action("/workflow",b'"schema": "yai.workflow_resolution.v2"')
                 patch = re.search(rb'"patch_id": "([^"]+)"',data)[1].decode()
                 assert b'"amendments": []' in data, "Model proposal must not adopt itself"
                 action("/workflow patch validate " + patch,b'"valid": true')
                 action("/workflow patch adopt " + patch,b'"adopted": true')
-                data = action("/workflow run repair",b'conversation_execution: "awaiting_review"',timeout=60)
+                data = action("/workflow run repair",b'Human review required.',timeout=60)
             else:
-                data = action("/work Investigate GOLDEN-42 from owned issue and independent source database HTTP MCP and discovered migration evidence. Use the risk tool. Demonstrate protected-path denial and the initial failing test. Request human review for the source repair and run the exact tests after approval.",b'conversation_execution: "awaiting_review"',timeout=60)
-            turn = re.search(rb'conversation_turn: ([^\r\n]+)',data)[1].decode()
-            review = re.search(rb'review_id: ([^\r\n]+)',data)[1].decode()
+                data = action("/work Investigate GOLDEN-42 from owned issue and independent source database HTTP MCP and discovered migration evidence. Use the risk tool. Demonstrate protected-path denial and the initial failing test. Request human review for the source repair and run the exact tests after approval.",b'Human review required.',timeout=60)
+            detail_bytes = action("/details", b"[/YAI details]")
+            execution = json.loads(detail_bytes.split(b"[YAI details]\r\n",1)[1].split(b"\r\n[/YAI details]",1)[0])
+            turn = execution["turn_id"]
+            review = execution["work"]["steps"][-1]["outcome"]["review_id"]
+            assert execution["posture"] == "awaiting_review"
             assert hashlib.sha256((world / "workspace/src/retry.py").read_bytes()).hexdigest() == initial
             calls_before = dispatch_count()
             assert external or calls_before == (15 if workflow else 13), calls_before
-            action(f"/review approve {review} {MODEL} self approval is forbidden",b"authenticated_principal_participant_link_required")
+            refusal(f"/review approve {review} {MODEL} self approval is forbidden", "authenticated_principal_participant_link_required")
             close_workbench()
             open_workbench()
             pending = action("/reviews", b'"status": "pending"')
@@ -260,7 +271,7 @@ def main():
             action("approve",b"Review reason")
             action("reviewed source against independent release evidence",b"review_action: committed")
             assert hashlib.sha256((world / "workspace/src/retry.py").read_bytes()).hexdigest() == initial, "Review itself must not execute effect"
-            action("/retry",b'conversation_execution: "completed"',timeout=60)
+            action("/retry",b'Response received.',timeout=60)
             action("/verify",b'"replay_equal": true')
             if not external:
                 assert "min(250" in (world / "workspace/src/retry.py").read_text()
@@ -270,7 +281,7 @@ def main():
             if external:
                 verified = action("/test resource:runner tests",b'"reused": false')
                 assert b'"exit_code": 0' in verified, "real external-model repair must pass the governed software oracle"
-            action("/retry " + turn,b'conversation_execution: "completed"',timeout=60)
+            action("/retry " + turn,b'Response received.',timeout=60)
             assert calls_after == dispatch_count()
             if workflow:
                 action("/workflow advance",b'"schema": "yai.workflow_resolution.v2"')
@@ -288,7 +299,7 @@ def main():
                 isolation = "case:golden:isolation"
                 cli("init","--tenant","tenant:golden-other","--organization","organization:golden-other")
                 cli("case","create","case:golden:other-tenant","--tenant","tenant:golden-other")
-                action("/handoff offer case:golden:other-tenant operation-proposer This payload must not cross the Tenant boundary.",b"handoff_offer_rederivation_mismatch")
+                refusal("/handoff offer case:golden:other-tenant operation-proposer This payload must not cross the Tenant boundary.", "handoff_offer_rederivation_mismatch")
                 for participant, role in [(OPERATOR,"operation-proposer"),(MODEL,"model-executor")]:
                     cli("case","participant","role","add",isolation,"--participant",participant,"--role",role)
                 cli("case","participant","link-principal",isolation,"--principal","self","--participant",OPERATOR)
@@ -297,7 +308,7 @@ def main():
                 handoff = re.search(rb'"handoff_id": "([^"]+)"',offered)[1].decode()
                 close_workbench()
                 open_workbench(isolation)
-                action("/read workspace src/retry.py",b"resource_not_attached")
+                refusal("/read workspace src/retry.py", "resource_not_attached")
                 empty = action("/resources",b"[]")
                 assert b"resource:workspace" not in empty
                 accepted = action(f"/handoff accept {case_id} {handoff}",b'"authority_transferred": false')
