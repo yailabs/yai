@@ -14,7 +14,7 @@ use yai_core_engine::security::AuthenticatedPrincipal;
 
 const QUALIFICATION_SUITE: &str = "yai.openai_compatible.synthetic.v1";
 const EMBEDDING_QUALIFICATION_SUITE: &str = "yai.openai_compatible.embedding.synthetic.v1";
-const REALIZATION_QUALIFICATION_SUITE: &str = "yai.openai_compatible.typed_content.synthetic.v1";
+const REALIZATION_QUALIFICATION_SUITE: &str = "yai.openai_compatible.typed_content.synthetic.v2";
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -225,6 +225,27 @@ fn provider_show(args: &[String]) -> Result<(), String> {
             "qualification_time_unix_ms: {}",
             qualification.qualified_at_unix_ms
         );
+        println!(
+            "realization_shapes: {}",
+            qualification
+                .evidence
+                .realization_shapes
+                .iter()
+                .map(ProviderRealizationShape::as_str)
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+        println!(
+            "failure_codes: {}",
+            qualification.evidence.failure_codes.join(",")
+        );
+        println!(
+            "probe_elapsed_ms: {}",
+            qualification
+                .evidence
+                .completed_at_unix_ms
+                .saturating_sub(qualification.evidence.started_at_unix_ms)
+        );
     }
     println!(
         "governance: {:?}",
@@ -364,18 +385,109 @@ fn probe_http(
     body: Option<&[u8]>,
     api_key: Option<&str>,
 ) -> Result<ProbeHttpResponse, String> {
-    let response = super::provider_transport::provider_http(
-        endpoint,
-        Some(locality),
-        method,
-        path,
-        body.unwrap_or_default(),
-        api_key,
-    )?;
+    let mut request = body.and_then(|bytes| serde_json::from_slice::<Value>(bytes).ok());
+    let stage = if path.ends_with("models") {
+        "catalog"
+    } else if request.as_ref().is_some_and(|v| v["tool_choice"] == "none") {
+        "function_result"
+    } else if request.as_ref().is_some_and(|v| v.get("tools").is_some()) {
+        "function_call"
+    } else if request
+        .as_ref()
+        .is_some_and(|v| v.get("response_format").is_some())
+    {
+        "json"
+    } else {
+        "text_or_typed_content"
+    };
+    if let Some(Value::Object(ref mut object)) = request {
+        if path.ends_with("chat/completions") {
+            object.insert("max_tokens".into(), Value::from(96));
+        }
+    }
+    let encoded = request
+        .as_ref()
+        .map(|v| serde_json::to_vec(v).expect("probe JSON"));
+    let started = std::time::Instant::now();
+    eprintln!("provider_probe: {stage} started (synthetic input; no Case data)");
+    let response = std::thread::scope(|scope| {
+        let (stop, signal) = std::sync::mpsc::channel::<()>();
+        scope.spawn(move || {
+            while signal.recv_timeout(std::time::Duration::from_secs(5))
+                == Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+            {
+                eprintln!(
+                    "provider_probe: {stage} waiting for provider, elapsed={}s",
+                    started.elapsed().as_secs()
+                );
+            }
+        });
+        let result = super::provider_transport::provider_http(
+            endpoint,
+            Some(locality),
+            method,
+            path,
+            encoded.as_deref().or(body).unwrap_or_default(),
+            api_key,
+        );
+        drop(stop);
+        result
+    });
+    match &response {
+        Ok(value) => eprintln!(
+            "provider_probe: {stage} HTTP {} elapsed={}ms",
+            value.status,
+            started.elapsed().as_millis()
+        ),
+        Err(error) => eprintln!(
+            "provider_probe: {stage} {} elapsed={}ms",
+            probe_failure_code(error),
+            started.elapsed().as_millis()
+        ),
+    }
+    let response = response?;
     Ok(ProbeHttpResponse {
         status: response.status,
         body: response.body,
     })
+}
+
+fn probe_failure_code(error: &str) -> String {
+    // Stable, bounded diagnostics; never copy model prose/HTTP error messages
+    // or credential bytes into evidence. Internal error category and subtype
+    // carry timeout/delivery/normalization distinctions lost by the old probe.
+    error
+        .split(':')
+        .take(2)
+        .collect::<Vec<_>>()
+        .join(":")
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || "._:-/".contains(*c))
+        .take(128)
+        .collect()
+}
+
+pub(super) fn public_error_code(body: &[u8]) -> String {
+    let code = strict_json(body).ok().and_then(|v| {
+        v.pointer("/error/code")
+            .or_else(|| v.pointer("/error/type"))
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+    });
+    code.filter(|s| {
+        s.len() <= 64
+            && s.chars()
+                .all(|c| c.is_ascii_alphanumeric() || "_-".contains(c))
+    })
+    .unwrap_or_else(|| "provider_rejected_request".into())
+}
+
+fn probe_status_error(response: &ProbeHttpResponse) -> String {
+    format!(
+        "http_{}:{}",
+        response.status,
+        public_error_code(&response.body)
+    )
 }
 
 fn credential_for(target: &yai_core_engine::provider_governance::ProviderTarget) -> Option<String> {
@@ -427,7 +539,7 @@ fn probe_native_function_roundtrip(
         api_key,
     )?;
     if response.status != 200 {
-        return Err("provider_function_probe_http_status".into());
+        return Err(probe_status_error(&response));
     }
     let reply =
         provider::decode_native_function_reply(&response.body, &target.model_id, &definitions)?;
@@ -453,7 +565,7 @@ fn probe_native_function_roundtrip(
         api_key,
     )?;
     if response.status != 200 {
-        return Err("provider_function_probe_result_http_status".into());
+        return Err(probe_status_error(&response));
     }
     let reply =
         provider::decode_native_function_reply(&response.body, &target.model_id, &definitions)?;
@@ -536,13 +648,7 @@ fn run_synthetic_probe(
                 }
             }
         }
-        Err(error) => evidence.failure_codes.push(
-            error
-                .split(':')
-                .next()
-                .unwrap_or("transport_failure")
-                .to_string(),
-        ),
+        Err(error) => evidence.failure_codes.push(probe_failure_code(&error)),
     }
 
     if probe_embedding {
@@ -584,13 +690,7 @@ fn run_synthetic_probe(
             Ok(response) => evidence
                 .failure_codes
                 .push(format!("embedding_http_{}", response.status)),
-            Err(error) => evidence.failure_codes.push(
-                error
-                    .split(':')
-                    .next()
-                    .unwrap_or("transport_failure")
-                    .to_string(),
-            ),
+            Err(error) => evidence.failure_codes.push(probe_failure_code(&error)),
         }
         evidence.completed_at_unix_ms = now_ms().max(evidence.started_at_unix_ms);
         evidence.failure_codes.sort();
@@ -643,13 +743,7 @@ fn run_synthetic_probe(
                     .push(format!("chat_http_{}", response.status));
             }
         }
-        Err(error) => evidence.failure_codes.push(
-            error
-                .split(':')
-                .next()
-                .unwrap_or("transport_failure")
-                .to_string(),
-        ),
+        Err(error) => evidence.failure_codes.push(probe_failure_code(&error)),
     }
 
     let json_body = serde_json::to_vec(&serde_json::json!({
@@ -662,25 +756,28 @@ fn run_synthetic_probe(
         ]
     }))
     .expect("synthetic JSON probe serializes");
-    if let Ok(response) = probe_http(
-        &endpoint,
-        &target.locality,
-        "POST",
-        &api_path(&endpoint, "chat/completions"),
-        Some(&json_body),
-        api_key.as_deref(),
-    ) {
-        if (200..300).contains(&response.status) {
-            if let Ok(value) = strict_json(&response.body) {
-                evidence.structured_json_object_valid = value
-                    .pointer("/choices/0/message/content")
-                    .and_then(Value::as_str)
-                    .and_then(|content| strict_json(content.as_bytes()).ok())
-                    .is_some_and(|content| content.is_object());
+    if requested_shapes.is_empty()
+        || requested_shapes.contains(&ProviderRealizationShape::TextToJsonObject)
+    {
+        if let Ok(response) = probe_http(
+            &endpoint,
+            &target.locality,
+            "POST",
+            &api_path(&endpoint, "chat/completions"),
+            Some(&json_body),
+            api_key.as_deref(),
+        ) {
+            if (200..300).contains(&response.status) {
+                if let Ok(value) = strict_json(&response.body) {
+                    evidence.structured_json_object_valid = value
+                        .pointer("/choices/0/message/content")
+                        .and_then(Value::as_str)
+                        .and_then(|content| strict_json(content.as_bytes()).ok())
+                        .is_some_and(|content| content.is_object());
+                }
             }
         }
     }
-
     if target.extension_adapter_id.as_deref() == Some("yvex.http.v1") {
         if let Ok(response) = probe_http(
             &endpoint,
@@ -696,12 +793,14 @@ fn run_synthetic_probe(
     }
     for shape in requested_shapes {
         if *shape == ProviderRealizationShape::TextFunctionsToTextOrCall {
-            if probe_native_function_roundtrip(target, &endpoint, api_key.as_deref()).is_ok() {
-                evidence.realization_shapes.push(shape.clone());
-            } else {
-                evidence
-                    .failure_codes
-                    .push("native_function_roundtrip_invalid".into());
+            match probe_native_function_roundtrip(target, &endpoint, api_key.as_deref()) {
+                Ok(()) => evidence.realization_shapes.push(shape.clone()),
+                Err(error) => {
+                    evidence
+                        .failure_codes
+                        .push("native_function_roundtrip_invalid".into());
+                    evidence.failure_codes.push(probe_failure_code(&error));
+                }
             }
             continue;
         }
@@ -710,7 +809,9 @@ fn run_synthetic_probe(
                 unreachable!("function shape qualified separately")
             }
             ProviderRealizationShape::TextToText => Some(serde_json::json!([
-                {"type":"text","text":"Synthetic YAI ordered text-part wire probe. Return text."}
+                {"type":"text","text":"Synthetic YAI ordered text-part wire probe."},
+                {"type":"text","text":"Synthetic YAI ordered text-part wire probe."},
+                {"type":"text","text":"Return exactly YAI_OK."}
             ])),
             ProviderRealizationShape::TextToJsonObject => Some(serde_json::json!([
                 {"type":"text","text":"Synthetic YAI ordered text-part JSON wire probe. Return a JSON object with probe=true."}
@@ -727,39 +828,52 @@ fn run_synthetic_probe(
             ])),
         };
         let valid = if let Some(content) = content {
+            let mut messages = vec![
+                serde_json::json!({"role":"system","content":"Synthetic YAI typed-content contract probe. No Case data."}),
+            ];
+            provider::append_openai_parts(
+                &mut messages,
+                content.as_array().expect("typed probe parts"),
+            );
             let mut body = serde_json::json!({
                 "model": target.model_id,
                 "stream": false,
-                "messages": [
-                    {"role":"system","content":"Synthetic YAI typed-content contract probe. No Case data."},
-                    {"role":"user","content":content}
-                ]
+                "messages": messages
             });
             if *shape == ProviderRealizationShape::TextToJsonObject {
                 body["response_format"] = serde_json::json!({"type":"json_object"});
             }
             let body = serde_json::to_vec(&body).expect("synthetic typed-content probe serializes");
-            probe_http(
+            let response = probe_http(
                 &endpoint,
                 &target.locality,
                 "POST",
                 &api_path(&endpoint, "chat/completions"),
                 Some(&body),
                 api_key.as_deref(),
-            )
-            .ok()
-            .filter(|response| (200..300).contains(&response.status))
-            .and_then(|response| strict_json(&response.body).ok())
-            .is_some_and(|value| {
-                value
-                    .pointer("/choices/0/message/content")
-                    .and_then(Value::as_str)
-                    .is_some_and(|content| {
-                        *shape != ProviderRealizationShape::TextToJsonObject
-                            || strict_json(content.as_bytes()).is_ok_and(|v| v.is_object())
-                    })
-                    && value.get("model").and_then(Value::as_str) == Some(target.model_id.as_str())
-            })
+            );
+            match &response {
+                Err(error) => evidence.failure_codes.push(probe_failure_code(error)),
+                Ok(response) if !(200..300).contains(&response.status) => {
+                    evidence.failure_codes.push(probe_status_error(response))
+                }
+                _ => {}
+            }
+            response
+                .ok()
+                .filter(|response| (200..300).contains(&response.status))
+                .and_then(|response| strict_json(&response.body).ok())
+                .is_some_and(|value| {
+                    value
+                        .pointer("/choices/0/message/content")
+                        .and_then(Value::as_str)
+                        .is_some_and(|content| {
+                            *shape != ProviderRealizationShape::TextToJsonObject
+                                || strict_json(content.as_bytes()).is_ok_and(|v| v.is_object())
+                        })
+                        && value.get("model").and_then(Value::as_str)
+                            == Some(target.model_id.as_str())
+                })
         } else {
             false
         };
@@ -887,14 +1001,19 @@ pub(super) fn qualify_case_work_target(
     store: &LmdbRecordStore,
     authenticated: &AuthenticatedPrincipal,
     target: &yai_core_engine::provider_governance::ProviderTarget,
+    case_work: bool,
 ) -> Result<yai_core_engine::provider_governance::ProviderQualification, String> {
     let token = format!("probe-admission:{}:{}", std::process::id(), now_ms());
     let owner = store.begin_provider_probe_authorized(authenticated, &target.target_id, &token)?;
-    let shapes = [
-        ProviderRealizationShape::TextToText,
-        ProviderRealizationShape::TextFunctionsToTextOrCall,
-        ProviderRealizationShape::TextToJsonObject,
-    ];
+    let shapes = if case_work {
+        vec![
+            ProviderRealizationShape::TextToText,
+            ProviderRealizationShape::TextFunctionsToTextOrCall,
+            ProviderRealizationShape::TextToJsonObject,
+        ]
+    } else {
+        vec![ProviderRealizationShape::TextToText]
+    };
     let evidence = run_synthetic_probe(target, false, &shapes);
     store.complete_provider_probe_authorized(
         authenticated,
@@ -913,7 +1032,10 @@ pub(super) fn qualify_case_work_target(
         .iter()
         .all(|shape| qualified.supports_realization_shape(shape))
     {
-        return Err(format!("case_connect_mechanical_contract_unqualified: target={} qualification={}; no trust or Case binding added", target.target_id, qualified.qualification_id));
+        return Err(format!("case_connect_mechanical_contract_unqualified: target={} qualification={}; required={}; proven={}; failures={}; no trust or Case binding added", target.target_id, qualified.qualification_id,
+            shapes.iter().map(ProviderRealizationShape::as_str).collect::<Vec<_>>().join(","),
+            qualified.evidence.realization_shapes.iter().map(ProviderRealizationShape::as_str).collect::<Vec<_>>().join(","),
+            qualified.evidence.failure_codes.join(",")));
     }
     Ok(qualified)
 }
@@ -1164,6 +1286,40 @@ mod tests {
         assert!(strict_json(br#"{"ok":true,"ok":false}"#)
             .unwrap_err()
             .contains("duplicate JSON key"));
+        assert_eq!(
+            probe_failure_code("provider_delivery_indeterminate:response_deadline:bytes=123"),
+            "provider_delivery_indeterminate:response_deadline"
+        );
+        let rejected = ProbeHttpResponse {
+            status: 400,
+            body:
+                br#"{"error":{"code":"invalid_request","message":"secret text must not persist"}}"#
+                    .to_vec(),
+        };
+        assert_eq!(probe_status_error(&rejected), "http_400:invalid_request");
+    }
+
+    #[test]
+    fn text_wire_lowering_preserves_distinct_order_without_claiming_media() {
+        let mut messages = vec![serde_json::json!({"role":"system","content":"context"})];
+        provider::append_openai_parts(
+            &mut messages,
+            &[
+                serde_json::json!({"type":"text","text":"same"}),
+                serde_json::json!({"type":"text","text":"same"}),
+                serde_json::json!({"type":"text","text":"last"}),
+            ],
+        );
+        assert_eq!(messages.len(), 4);
+        assert_eq!(messages[1]["content"], "same");
+        assert_eq!(messages[2]["content"], "same");
+        assert_eq!(messages[3]["content"], "last");
+        let media = vec![
+            serde_json::json!({"type":"text","text":"first"}),
+            serde_json::json!({"type":"image_url","image_url":{"url":"data:image/png;base64,AA=="}}),
+        ];
+        provider::append_openai_parts(&mut messages, &media);
+        assert_eq!(messages[4]["content"], serde_json::json!(media));
     }
 
     #[test]

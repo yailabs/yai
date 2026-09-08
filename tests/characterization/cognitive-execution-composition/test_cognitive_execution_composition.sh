@@ -184,7 +184,7 @@ grep -Fq '"disposition":"replaced_by_derived"' <<<"$COMPOSED_RESULT"
 grep -Fq '"composition_owner":"none_derived_control"' <<<"$COMPOSED_RESULT"
 [[ "$AUX_AFTER_PREREQUISITE" -eq "$(grep -c '"synthetic":false' "$RUN_ROOT/auxiliary.log")" ]]
 python3 -c 'import json,sys; root=json.loads(sys.argv[1]); value=root.get("data",{}).get("value",root); c=value["source_closure"]; assert c["delivery_count"]==3; assert [x["source_ordinal"] for x in c["entries"]]==[0,1,2]; assert [x["disposition"] for x in c["entries"]]==["retained_original","replaced_by_derived","retained_original"]; assert value["prerequisite"]["provider_execution_performed_now"] is False; assert value["primary"]["provider_execution_performed_now"] is True' "$COMPOSED_RESULT"
-python3 -c 'import json,sys; rows=[json.loads(line) for line in open(sys.argv[1],encoding="utf-8")]; actual=[row for row in rows if not row["synthetic"]]; assert actual[-1]["typed_kinds"]==["text","text","text","text"]' "$RUN_ROOT/primary.log"
+python3 -c 'import json,sys; rows=[json.loads(line) for line in open(sys.argv[1],encoding="utf-8")]; actual=[row for row in rows if not row["synthetic"]]; assert actual[-1]["typed_kinds"]==["text","text","text","text"]; assert actual[-1]["wire_layout"]=="string_messages"' "$RUN_ROOT/primary.log"
 
 TURN_AFTER="$("$YAI_BIN" case conversation turn show case:i04-composed "$COMPOSED_TURN" \
   --participant participant:model --json)"

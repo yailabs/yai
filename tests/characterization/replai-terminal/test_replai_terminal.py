@@ -169,7 +169,7 @@ def terminal_contract():
         t.exit()
     t = Terminal()
     t.send("earlier\r")
-    t.wait(lambda: b'"provider_unavailable"' in t.output)
+    t.wait(lambda: b'"provider_unconfigured"' in t.output)
     t.draft("", 0)
     committed = turns()
     assert len(committed) == 1

@@ -26,6 +26,15 @@ JSON-object output must pass actual qualification for the complete reference
 Workflow. A text-only public endpoint is insufficient. Record that limitation;
 do not substitute a fake model or use a private protocol.
 
+Qualification of small synthetic inputs is not qualification of a complete
+Case context. The 2026-09-08 [public-provider hardening evidence](../refoundation/validation/provider-connect-hardening/REPORT.md)
+records successful native function/result qualification, but a real cognitive
+SEND refused with HTTP 413 `request_too_large`. A separate bounded input returned
+`token output capacity exceeded` even with `max_tokens=1`. That deployment does
+not yet qualify this lifecycle. Resolve its public input-capacity contract with
+the provider operator; do not discard governed Case context to hide the refusal.
+An indeterminate submitted Turn must not be blindly retried after reconnection.
+
 In Terminal A, start the **reference resources**, not a model fixture:
 
 ```sh
@@ -126,7 +135,9 @@ issue/issue.md
 /artifacts
 ```
 
-Use `/connect` and answer its questions one at a time. Supply the exact **public
+Use `/connect workbench` for this full Golden lifecycle and answer its questions
+one at a time. Plain `/connect` is sufficient for text conversation, not tools
+or Workflow qualification. Supply the exact **public
 endpoint and exposed DeepSeek identity from the YVEX operator**. Replace the two
 uppercase placeholders below; choose `loopback`, `private_network` or `remote`
 truthfully. The example assumes a loopback endpoint without credentials. If a
@@ -138,8 +149,19 @@ operator-attested, not mechanically certified model quality. `no` means do not
 replace an existing primary binding. No network probe begins before these
 answers are complete. A qualification failure remains a failure.
 
+Qualification performs real synthetic model work, not just a connectivity ping.
+It prints stage/elapsed updates; a completed `/v1/models` request alone is not
+execution qualification. Buffered inference defaults to a 300-second total
+response budget, independently of the 30-second connection/resource budget.
+For an explicitly slower deployment an operator may set
+`YAI_PROVIDER_RESPONSE_TIMEOUT_SECS` (1–3600) before launching YAI. Expiry after
+submission remains delivery-indeterminate: do not blindly retry or change target.
+This setting changes waiting, not model speed. Text-only qualification never
+authorizes tools, JSON Workflow work, or media. Inspect `provider show TARGET`
+for stored shape/failure/timing evidence instead of re-running probes to inspect.
+
 ```text
-/connect
+/connect workbench
 PUBLIC_ENDPOINT
 EXACT_EXPOSED_DEEPSEEK_MODEL
 loopback
@@ -247,7 +269,7 @@ publish reviewed independent Workflow Case deck
 discovery
 CANDIDATE_DIGEST
 issue/issue.md
-/connect
+/connect workbench
 ```
 
 Answer the connection questions as above, using attestation
@@ -341,12 +363,12 @@ source, `/handoff reconcile HANDOFF_ID`, inspect `/handoffs` and `/verify`.
 ## Model replacement and persistent canary
 
 After the initial run, the same Case can receive an exact Qwen target with
-`/connect`: supply its actual endpoint/model, locality and credential reference,
+`/connect workbench`: supply its actual endpoint/model, locality and credential reference,
 an explicit attestation, approve trust, and type `replace` at the final question.
 The compact action is the same; replacement is never an implicit default.
 
 ```text
-/connect
+/connect workbench
 /provider
 /history
 /verify

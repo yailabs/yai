@@ -14,6 +14,25 @@ const MAX_HTTP_HEADERS: usize = 64 * 1024;
 const MAX_HTTP_BODY: usize = 2 * 1024 * 1024;
 const IO_TIMEOUT: Duration = Duration::from_secs(30);
 
+// Connecting to an endpoint and waiting for buffered model computation are
+// different budgets. Neither timeout proves that submitted work did not run.
+pub(super) fn provider_response_timeout() -> Result<Duration, String> {
+    match std::env::var("YAI_PROVIDER_RESPONSE_TIMEOUT_SECS") {
+        Ok(value) => parse_response_timeout(&value),
+        Err(std::env::VarError::NotPresent) => Ok(Duration::from_secs(300)),
+        Err(_) => Err("provider_not_dispatched:response_timeout_invalid".into()),
+    }
+}
+
+fn parse_response_timeout(value: &str) -> Result<Duration, String> {
+    value
+        .parse::<u64>()
+        .ok()
+        .filter(|n| (1..=3600).contains(n))
+        .map(Duration::from_secs)
+        .ok_or_else(|| "provider_not_dispatched:response_timeout_invalid".into())
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(super) enum ProviderScheme {
     Http,
@@ -127,6 +146,13 @@ enum Connection {
 }
 
 impl Connection {
+    fn set_response_timeout(&self, timeout: Duration) -> std::io::Result<()> {
+        match self {
+            Self::Plain(socket) => socket.set_read_timeout(Some(timeout)),
+            Self::Tls(stream) => stream.sock.set_read_timeout(Some(timeout)),
+        }
+    }
+
     fn zero_application_write_is_provably_not_dispatched(&self) -> bool {
         matches!(self, Self::Plain(_))
     }
@@ -295,6 +321,7 @@ pub(super) fn resource_http(
         headers,
         max_body,
         true,
+        IO_TIMEOUT,
     )
 }
 
@@ -330,6 +357,7 @@ fn provider_http_with_roots(
         &[],
         MAX_HTTP_BODY,
         false,
+        provider_response_timeout()?,
     )
 }
 
@@ -346,7 +374,10 @@ fn http_with_options(
     extra_headers: &[(String, String)],
     max_body: usize,
     allow_chunked: bool,
+    response_timeout: Duration,
 ) -> Result<ProviderHttpResponse, String> {
+    // Resources keep their independently bounded 30s contract. Model inference
+    // has a total response deadline, not a fresh allowance for every byte.
     let mut stream = connect(endpoint, locality, test_roots, exact_addresses)?;
     let mut request = format!(
         "{method} {path} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n",
@@ -402,13 +433,26 @@ fn http_with_options(
     let mut buffer = [0u8; 8192];
     let started = std::time::Instant::now();
     loop {
-        if allow_chunked && started.elapsed() > IO_TIMEOUT {
+        let remaining = response_timeout.checked_sub(started.elapsed());
+        if remaining.is_none_or(|remaining| remaining.is_zero()) {
             return Err(format!(
-                "provider_delivery_indeterminate:resource_response_deadline:bytes={written}"
+                "provider_delivery_indeterminate:response_deadline:bytes={written}"
             ));
         }
+        stream
+            .set_response_timeout(remaining.unwrap())
+            .map_err(|_| {
+                format!("provider_delivery_indeterminate:response_timeout_config:bytes={written}")
+            })?;
         let count = stream.read(&mut buffer).map_err(|error| {
-            format!("provider_delivery_indeterminate:response_read:bytes={written}:{error}")
+            if matches!(
+                error.kind(),
+                std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+            ) {
+                format!("provider_delivery_indeterminate:response_deadline:bytes={written}")
+            } else {
+                format!("provider_delivery_indeterminate:response_read:bytes={written}:{error}")
+            }
         })?;
         if count == 0 {
             break;
@@ -559,6 +603,60 @@ mod tests {
     use rustls::{ServerConfig, ServerConnection};
     use std::net::TcpListener;
     use std::thread;
+
+    #[test]
+    fn buffered_inference_deadline_is_separate_and_delivery_remains_indeterminate() {
+        assert_eq!(
+            parse_response_timeout("300").unwrap(),
+            Duration::from_secs(300)
+        );
+        for value in ["0", "3601", "garbage", "-1"] {
+            assert!(parse_response_timeout(value).is_err());
+        }
+        for (budget, succeeds) in [
+            (Duration::from_millis(400), true),
+            (Duration::from_millis(30), false),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let endpoint =
+                parse_provider_endpoint(&format!("http://{}", listener.local_addr().unwrap()))
+                    .unwrap();
+            let peer = thread::spawn(move || {
+                let (mut socket, _) = listener.accept().unwrap();
+                let mut bytes = [0; 4096];
+                assert!(socket.read(&mut bytes).unwrap() > 0);
+                thread::sleep(Duration::from_millis(120));
+                let _ = socket.write_all(
+                    b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}",
+                );
+                // Exactly one connection, no automatic redispatch.
+                listener.set_nonblocking(true).unwrap();
+                assert!(listener.accept().is_err());
+            });
+            let result = http_with_options(
+                &endpoint,
+                Some(&ProviderLocality::Loopback),
+                "POST",
+                "/v1/chat/completions",
+                b"{}",
+                None,
+                None,
+                None,
+                &[],
+                MAX_HTTP_BODY,
+                false,
+                budget,
+            );
+            if succeeds {
+                assert_eq!(result.unwrap().body, b"{}");
+            } else {
+                assert!(result
+                    .unwrap_err()
+                    .starts_with("provider_delivery_indeterminate:response_deadline:"));
+            }
+            peer.join().unwrap();
+        }
+    }
 
     fn plain_fixture(response: Vec<u8>) -> (u16, thread::JoinHandle<Vec<u8>>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();

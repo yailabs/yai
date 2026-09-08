@@ -2165,6 +2165,28 @@ struct NativeFunctionExchange<'a> {
     max_input_units: Option<usize>,
 }
 
+/// Wire lowering, not conversation normalization. Text parts become distinct
+/// ordered user messages (including repeated equal text); media retains the
+/// ordered content-array representation. Canonical part IDs and provenance
+/// remain in the invocation's exact source closure, never recovered from wire.
+pub(super) fn append_openai_parts(
+    messages: &mut Vec<serde_json::Value>,
+    parts: &[serde_json::Value],
+) {
+    if parts
+        .iter()
+        .all(|part| part["type"] == "text" && part["text"].is_string())
+    {
+        messages.extend(
+            parts
+                .iter()
+                .map(|part| serde_json::json!({"role":"user", "content":part["text"]})),
+        );
+    } else if !parts.is_empty() {
+        messages.push(serde_json::json!({"role":"user", "content":parts}));
+    }
+}
+
 fn provider_http_request_with_functions(
     config: &ProviderConfig,
     rendered: &RenderedInput,
@@ -2185,25 +2207,21 @@ fn provider_http_request_with_functions(
             return Err("provider_continuation_not_supported".to_string());
         }
     }
-    let user_content = if let Some(parts) = typed_parts {
-        let mut content = vec![serde_json::json!({
-            "type": "text",
-            "text": rendered.user_content
-        })];
+    let mut messages =
+        vec![serde_json::json!({"role":"system", "content":rendered.system_content})];
+    if let Some(parts) = typed_parts {
+        let mut content = vec![serde_json::json!({"type":"text", "text":rendered.user_content})];
         for part in parts {
             content.push(part.to_openai_content()?);
         }
-        serde_json::Value::Array(content)
+        append_openai_parts(&mut messages, &content);
     } else {
-        serde_json::Value::String(rendered.user_content.clone())
-    };
+        messages.push(serde_json::json!({"role":"user", "content":rendered.user_content}));
+    }
     let mut body = serde_json::json!({
         "model": config.model,
         "stream": false,
-        "messages": [
-            {"role": "system", "content": rendered.system_content},
-            {"role": "user", "content": user_content}
-        ]
+        "messages": messages
     });
     let object = body.as_object_mut().expect("provider request object");
     if !feedback.is_empty() {
@@ -2322,8 +2340,9 @@ fn provider_chat_completion(
             ContinuationDisposition::NotProvided
         }
     } else {
+        let rejection = super::provider_governance_cli::public_error_code(body_text.as_bytes());
         return Err(format!(
-            "provider_remote_response:{status}:bytes={request_bytes_written}"
+            "provider_remote_response:{status}:bytes={request_bytes_written}:provider_code={rejection}"
         ));
     };
     let decoded = if let (InvocationOutputContract::CaseCapabilities { view, .. }, Some(offered)) =

@@ -184,7 +184,7 @@ def main():
                 terminal = None
 
             def connect():
-                action("/connect",b"Public provider endpoint")
+                action("/connect workbench",b"Public provider endpoint")
                 action(endpoint,b"Exact provider-exposed model identity")
                 action(model,b"Locality: loopback")
                 action(locality,b"Credential reference only")

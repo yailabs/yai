@@ -16,6 +16,7 @@ procedures. Historical work records are not current gates.
 | `make check characterization` | shared Make leaves execute once in this invocation |
 | `make test-endurance` | explicit scale lane, including previously ignored W19/H19/W20 characterizations |
 | `make test-external-yvex` | opt-in real-provider text interoperability; absence is nonzero; no fixture fallback |
+| `make qualification-provider-connection` | opt-in real public provider through guided REPLAI `/connect` and cognitive SEND; exact operator endpoint/model; not full Golden tools |
 | `make test-manual` | list operator procedures only; NOT an acceptance run or PASS |
 | `make test-golden-local` | explicit cumulative reference free/Workflow lifecycle; real Product, persistence and resource peers, loopback model; separate from `check` |
 | `make test-golden-external-yvex` | same reference product lifecycle using the operator's real endpoint/model; no model fixture; absent deployment refuses |
@@ -29,6 +30,16 @@ The native terminal product lane also requires the pinned Python packages in
 [requirements-terminal.txt](requirements-terminal.txt). See
 [native REPLAI reproduction](../docs/replai-terminal.md#reproduction-and-evidence)
 for the isolated virtualenv setup before running the publication union.
+
+`smoke-provider-connection` exercises a strict string-only loopback provider
+through the real guided PTY product: full-workbench qualification must refuse,
+an explicitly requested text profile may connect, then canonical cognitive SEND
+and replay must succeed. Its external counterpart requires
+`YAI_EXTERNAL_PROVIDER_BASE_URL` and `YAI_EXTERNAL_PROVIDER_MODEL`; the supplied
+endpoint must be a credential-free loopback endpoint (including an operator-owned
+SSH forward). Absence exits 3, with no fixture fallback. The driver's explicit
+`--external --workbench-qualification` mode tests synthetic native function/result
+and JSON contracts only, not a user SEND or the complete Golden lifecycle.
 
 ## Orthogonal evidence axes
 

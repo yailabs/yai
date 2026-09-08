@@ -199,6 +199,18 @@ it does not grant policy, resources or provider trust. Existing explicit
 `/attach`, `/policy publish`, `/admit` and `/workflow bind` ask for missing input;
 bare `/retry` resolves a canonical current-thread Turn. The frontend calls typed
 application actions without subprocess dispatch or new terminal mechanics.
+Guided `/connect` qualifies the conversation profile; `/connect workbench`
+explicitly requires native functions and JSON as well. Partial mechanical
+evidence never authorizes a missing shape. Buffered inference has a separate
+bounded response deadline (default 300s; `YAI_PROVIDER_RESPONSE_TIMEOUT_SECS`,
+1–3600), while connection and ordinary resource budgets remain 30s. Expiry after
+submission is delivery-indeterminate, never automatic retry. Probe progress and
+bounded error categories are visible; no model error prose or secret is admitted
+as qualification evidence. All-text input is lowered as distinct ordered string
+messages, including repeated equal parts; media retains ordered content arrays.
+The same adapter lowering is exercised by the version-2 synthetic shape suite.
+Canonical Turn/closure IDs and provenance are unchanged; wire messages are not
+a second conversation history. This is not a claim of external media support.
 Ordinary conversation remains I06. Explicit `/work` commits finite work intent before
 I02–I05 arbitration/realization; Workflow CaseWork nodes call that same host.
 No Agent, connector/tool registry or independent execution history is introduced.

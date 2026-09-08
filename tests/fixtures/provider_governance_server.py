@@ -18,6 +18,7 @@ parser.add_argument(
         "capabilities",
         "golden",
         "text_only",
+        "string_text_only",
         "reject",
         "malformed",
         "malformed_realization",
@@ -87,12 +88,19 @@ class Handler(BaseHTTPRequestHandler):
             for message in messages
         )
         user_content = messages[-1].get("content") if messages else None
+        if args.mode == "string_text_only" and (any(not isinstance(m.get("content"), str) for m in messages) or request.get("tools") or request.get("response_format")):
+            self.reply(400, {"error": {"code": "string_text_only", "message": "only string text messages are admitted"}})
+            return
         typed_parts = user_content if isinstance(user_content, list) else []
         typed_kinds = [
             part.get("type")
             for part in typed_parts
             if isinstance(part, dict) and isinstance(part.get("type"), str)
         ]
+        # Observe actual transport content, including text lowered to distinct
+        # messages. Keep the physical representation explicit in the log.
+        if not typed_parts:
+            typed_kinds = ["text" for m in messages if m.get("role") == "user" and isinstance(m.get("content"), str)]
         if args.log:
             unexpected_yai_fields = [
                 sorted(key for key in part if key.startswith("yai_"))
@@ -107,6 +115,7 @@ class Handler(BaseHTTPRequestHandler):
                             "model": request.get("model"),
                             "synthetic": is_synthetic,
                             "typed_kinds": typed_kinds,
+                            "wire_layout": "content_array" if typed_parts else "string_messages",
                             "unexpected_yai_fields": unexpected_yai_fields,
                         },
                         sort_keys=True,
@@ -359,7 +368,9 @@ class Handler(BaseHTTPRequestHandler):
             content = "fixture transcript ORCHID-I03"
         elif typed_parts and not is_synthetic and "image_url" in typed_kinds:
             content = "fixture image understanding ORCHID-I03"
-        elif typed_parts and not is_synthetic:
+        elif (typed_parts or len(typed_kinds) > 1) and not is_synthetic:
+            # Cognitive text input retains separate context/source messages;
+            # the response oracle must not depend on the content-array encoding.
             content = "fixture native conversation ORCHID-I03"
         elif wants_json:
             content = '{"ok":true}'

@@ -157,7 +157,7 @@ pub(super) enum ConversationAction {
 #[serde(rename_all = "snake_case")]
 pub(super) enum ConversationExecutionPosture {
     Completed,
-    ProviderUnavailable,
+    ProviderUnconfigured,
     ProviderFailed,
     DeliveryIndeterminate,
     Unresolved,
@@ -967,7 +967,7 @@ impl ConversationController {
                 {
                     ConversationExecutionPosture::ProviderFailed
                 } else if authorized.state.cognitive_bindings.is_empty() {
-                    ConversationExecutionPosture::ProviderUnavailable
+                    ConversationExecutionPosture::ProviderUnconfigured
                 } else {
                     ConversationExecutionPosture::Unresolved
                 };
@@ -1426,7 +1426,7 @@ mod tests {
         let first = submit_text(&mut controller, "canonical before provider availability");
         assert_eq!(
             first.execution.posture,
-            ConversationExecutionPosture::ProviderUnavailable
+            ConversationExecutionPosture::ProviderUnconfigured
         );
         assert!(matches!(
             first.execution.events.first(),
@@ -1524,7 +1524,7 @@ mod tests {
         );
         assert_eq!(
             media.execution.posture,
-            ConversationExecutionPosture::ProviderUnavailable
+            ConversationExecutionPosture::ProviderUnconfigured
         );
         let state = authorized_conversation_case(case_id, participant_id)
             .unwrap()
@@ -1569,9 +1569,22 @@ mod tests {
     fn start_provider(request_count: usize) -> (String, thread::JoinHandle<()>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
         let handle = thread::spawn(move || {
             for _ in 0..request_count {
-                let (mut stream, _) = listener.accept().unwrap();
+                let started = std::time::Instant::now();
+                let (mut stream, _) = loop {
+                    match listener.accept() {
+                        Ok(connection) => break connection,
+                        Err(error)
+                            if error.kind() == std::io::ErrorKind::WouldBlock
+                                && started.elapsed() < Duration::from_secs(5) =>
+                        {
+                            thread::sleep(Duration::from_millis(5))
+                        }
+                        Err(error) => panic!("fixture expected another request: {error}"),
+                    }
+                };
                 let request = read_http_request(&mut stream);
                 let first_line = request.lines().next().unwrap_or_default();
                 let body = if first_line.starts_with("GET ") {
@@ -1613,7 +1626,9 @@ mod tests {
         let tenant_id = "tenant:conversation-host-provider";
         let participant_id = "participant:conversation-host";
         prepare_case(case_id, tenant_id, participant_id);
-        let (endpoint, server) = start_provider(5);
+        // Catalog + base text + ordered text + one SEND. Retry reuses result;
+        // text-only qualification no longer executes an unrelated JSON probe.
+        let (endpoint, server) = start_provider(4);
 
         provider_governance_cli::provider_governance_command(
             "yai.provider.add",
@@ -2274,7 +2289,11 @@ mod tests {
             .commit_secured_transition(&auth, TENANT, duplicate, false)
             .unwrap_err();
         assert!(
-            refused.contains("case_work_step_completed_requires_result_reuse"),
+            refused.contains("case_work_step_completed_requires_result_reuse")
+                // Fresh governance revalidation precedes step-reuse checking.
+                // Crossing the evidence clock boundary can reject this old
+                // forged invocation earlier; neither path may commit it.
+                || refused.contains("provider_invocation_arbitration_snapshot_stale"),
             "{refused}"
         );
         assert_eq!(store.get_case_state(CASE).unwrap().unwrap(), before);

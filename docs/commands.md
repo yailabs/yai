@@ -102,7 +102,11 @@ by the same typed controller actions as their retained complete forms:
 `/attach FILE`, `/policy publish FILE REASON`, and explicit
 `/connect ENDPOINT MODEL --trust approve --attest evidence:REF`.
 `/connect` still requires explicit trust/attestation and asks separately about
-replacement; it does not infer suitability or credentials. `/review` displays
+replacement; it qualifies text conversation only. `/connect workbench` explicitly
+requires text, native function/result round trips and JSON output; the historical
+complete `/connect ENDPOINT MODEL ...` form retains that full profile. There is
+no silent fallback after failed workbench qualification. Neither profile infers
+suitability or credentials. `/review` displays
 the exact pending operation and uses the current human identity, with explicit
 approve/deny/defer and reason. Bare `/retry` resolves the latest canonical Turn
 of the current Participant/thread and calls the unchanged recovery boundary;

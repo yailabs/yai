@@ -58,6 +58,7 @@ const COMMANDS: &[&str] = &[
     "/policy publish",
     "/connect ",
     "/connect",
+    "/connect workbench",
     "/work ",
     "/review approve ",
     "/review",
@@ -134,6 +135,11 @@ fn inspect(
 }
 
 fn render_execution(value: ConversationExecutionResult) -> Result<(), String> {
+    if value.posture
+        == super::conversation_controller::ConversationExecutionPosture::ProviderUnconfigured
+    {
+        eprintln!("Case provider not configured for conversation. Use /connect; this is not evidence that the endpoint is down.");
+    }
     if let Some(output) = &value.output {
         println!("{}", literal_external_text(output));
     }
@@ -171,6 +177,27 @@ fn render_execution(value: ConversationExecutionResult) -> Result<(), String> {
     Ok(())
 }
 
+fn execute_visible(
+    controller: &mut ConversationController,
+    turn_id: &str,
+) -> Result<ConversationExecutionResult, String> {
+    // REPLAI has released the editor. This is truthful application wait output,
+    // not token streaming or terminal mechanics; do not imply transport abort.
+    let started = std::time::Instant::now();
+    eprintln!("YAI: preparing execution for the committed Turn; waiting for the governed result.");
+    std::thread::scope(|scope| {
+        let (stop, signal) = std::sync::mpsc::channel::<()>();
+        scope.spawn(move || {
+            while signal.recv_timeout(Duration::from_secs(5)) == Err(std::sync::mpsc::RecvTimeoutError::Timeout) {
+                eprintln!("YAI: execution pending ({}s); Ctrl-C requests application cancellation, not guaranteed transport abort.", started.elapsed().as_secs());
+            }
+        });
+        let result = controller.execute_committed_turn(turn_id);
+        drop(stop);
+        result
+    })
+}
+
 /// Application-data normalization for buffered output after REPLAI has released
 /// the editor. This is not an ANSI/Markdown renderer: no cursor, style or terminal
 /// mechanics live here. External payloads remain unchanged in canonical history.
@@ -204,8 +231,8 @@ fn command(
     if text == "/setup" {
         return setup::participants(controller);
     }
-    if text == "/connect" {
-        return setup::connect(controller);
+    if matches!(text, "/connect" | "/connect workbench") {
+        return setup::connect(controller, text == "/connect workbench");
     }
     if text == "/attach" {
         let path = setup::ask("Resource definition file", None)?;
@@ -270,7 +297,7 @@ fn command(
         let id = controller.latest_turn_id()?;
         println!("Retrying exact Turn: {id}");
         let _interrupt = ExecutionInterrupt::observe(controller.cancellation())?;
-        return render_execution(controller.execute_committed_turn(&id)?);
+        return render_execution(execute_visible(controller, &id)?);
     }
     if let Some(id) = text.strip_prefix("/operation ") {
         println!(
@@ -445,6 +472,7 @@ fn command(
                 trust_approved: trust,
                 suitability_ref: evidence.ok_or("connect_explicit_attestation_required")?,
                 replace,
+                case_work: true, // Explicit historical form retains full-workbench qualification.
             })?;
         println!(
             "{}",
@@ -528,7 +556,7 @@ fn command(
         );
         std::io::stdout().flush().map_err(|e| e.to_string())?;
         let _interrupt = ExecutionInterrupt::observe(controller.cancellation())?;
-        return render_execution(controller.execute_committed_turn(&committed.turn.turn_id)?);
+        return render_execution(execute_visible(controller, &committed.turn.turn_id)?);
     }
     if let Some(node) = text.strip_prefix("/workflow run ") {
         let committed = controller.commit_workflow_node(node.trim())?;
@@ -538,7 +566,7 @@ fn command(
         );
         std::io::stdout().flush().map_err(|e| e.to_string())?;
         let _interrupt = ExecutionInterrupt::observe(controller.cancellation())?;
-        return render_execution(controller.execute_committed_turn(&committed.turn.turn_id)?);
+        return render_execution(execute_visible(controller, &committed.turn.turn_id)?);
     }
     let workflow_action = if let Some(path) = text.strip_prefix("/workflow bind ") {
         Some(controller.configure_workflow(std::path::Path::new(path.trim()))?)
@@ -752,7 +780,7 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
                     committed.turn.turn_id, committed.generation
                 );
                 std::io::stdout().flush().map_err(|e| e.to_string())?;
-                render_execution(controller.execute_committed_turn(&committed.turn.turn_id)?)
+                render_execution(execute_visible(&mut controller, &committed.turn.turn_id)?)
             })()
         };
         if let Err(error) = result {

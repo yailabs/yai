@@ -262,8 +262,16 @@ pub(crate) fn open(reference: Option<&str>) -> Result<(), String> {
     ])
 }
 
-pub(super) fn connect(controller: &ConversationController) -> Result<(), String> {
+pub(super) fn connect(controller: &ConversationController, case_work: bool) -> Result<(), String> {
     use yai_core_engine::provider_governance::ProviderLocality;
+    println!(
+        "Connect profile: {}. Explicit trust and real mechanical qualification are required.",
+        if case_work {
+            "workbench (text, native functions, JSON)"
+        } else {
+            "conversation (text only; use /connect workbench for tools/Workflow)"
+        }
+    );
     let endpoint = ask("Public provider endpoint (no secret URL parameters)", None)?;
     let model = ask("Exact provider-exposed model identity", None)?;
     let locality = match ask(
@@ -308,6 +316,7 @@ pub(super) fn connect(controller: &ConversationController) -> Result<(), String>
         trust_approved: true,
         suitability_ref: &evidence,
         replace,
+        case_work,
     })?;
     println!(
         "{}",

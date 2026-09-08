@@ -17,6 +17,7 @@ pub(crate) struct ProviderConnection<'a> {
     pub trust_approved: bool,
     pub suitability_ref: &'a str,
     pub replace: bool,
+    pub case_work: bool,
 }
 
 fn now_unix_ms() -> u64 {
@@ -282,6 +283,7 @@ impl ConversationController {
             &a.store,
             &a.authenticated,
             &target,
+            input.case_work,
         )?;
         if a.store
             .get_case_state_authorized(&a.authenticated, &self.case_id)?
@@ -334,6 +336,8 @@ impl ConversationController {
         )?;
         Ok(
             json!({"target_id":target.target_id,"endpoint":target.endpoint,"model":target.model_id,"qualification_id":qualification.qualification_id,
+            "connection_profile":if input.case_work {"workbench"} else {"conversation"},
+            "realization_shapes":qualification.evidence.realization_shapes,
             "semantic_posture":"operator_attested","evidence_id":evidence.evidence_id,"provider_binding":envelope.binding_id,"cognitive_binding":binding.binding_id,
             "policy":"pinned","trust":"explicit_operator_approval","case_continuity":"preserved"}),
         )

@@ -88,6 +88,11 @@ Submitted text, interrupt and EOF restore captured termios and close only the
 library's duplicate FDs. The next prompt reuses editor/history state. Ambiguous
 completion and edit warnings use `external_output`, preserving draft and cursor.
 There is no concurrently editable draft while a buffered provider request runs.
+The released-editor execution phase prints bounded wait updates every five
+seconds. These are application status, not token streaming or transport-abort
+promises. Provider qualification prints its current probe and elapsed time.
+`/connect` is text-conversation onboarding; `/connect workbench` explicitly tests
+the additional native-function and JSON contracts before binding that profile.
 
 A scoped `signal-hook` iterator observes SIGINT only around execution/retry,
 forwarding it to the controller's existing cancellation object. Its worker is
