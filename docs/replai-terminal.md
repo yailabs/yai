@@ -91,9 +91,9 @@ There is no concurrently editable draft while a buffered provider request runs.
 The released-editor execution phase prints bounded wait updates every five
 seconds. These are application status, not token streaming or transport-abort
 promises. Provider qualification prints its current probe and elapsed time.
-`/connect` is text-conversation onboarding; `/connect workbench` explicitly tests
-the additional native-function and JSON contracts before binding that profile.
-Both use public catalog discovery, automatic singleton selection, conditional
+`/connect` is the only connection action. It tests text, native functions and JSON
+separately, requires text and reports unqualified optional capabilities without
+enabling them. It uses public catalog discovery, automatic singleton selection, conditional
 model/authentication/scope questions and one explicit trust/attestation (or
 replacement) confirmation. Discovery and consent remain application semantics;
 REPLAI only collects and displays their bounded inputs.

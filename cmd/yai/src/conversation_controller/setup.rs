@@ -5,8 +5,8 @@ use serde_json::{json, Value};
 use yai_core_engine::cognitive::{CognitiveBindingRole, SemanticEvidencePosture};
 use yai_core_engine::governance::{compile_policy_source, scope_policy_compilation};
 use yai_core_engine::provider_governance::{
-    ProviderAdapterKind, ProviderFailoverPolicy, ProviderLocality, ProviderTargetInput,
-    ProviderTrustPosture,
+    ProviderAdapterKind, ProviderFailoverPolicy, ProviderLocality, ProviderRealizationShape,
+    ProviderTargetInput, ProviderTrustPosture,
 };
 
 pub(crate) struct ProviderConnection<'a> {
@@ -17,7 +17,6 @@ pub(crate) struct ProviderConnection<'a> {
     pub trust_approved: bool,
     pub suitability_ref: Option<&'a str>,
     pub replace: bool,
-    pub case_work: bool,
     pub expected_generation: Option<u64>,
 }
 
@@ -322,11 +321,10 @@ impl ConversationController {
                 created_at_unix_ms: now_unix_ms(),
             },
         )?;
-        let qualification = super::super::provider_governance_cli::qualify_case_work_target(
+        let qualification = super::super::provider_governance_cli::qualify_connection_target(
             &a.store,
             &a.authenticated,
             &target,
-            input.case_work,
         )?;
         if a.store
             .get_case_state_authorized(&a.authenticated, &self.case_id)?
@@ -396,7 +394,13 @@ impl ConversationController {
         )?;
         Ok(
             json!({"target_id":target.target_id,"endpoint":target.endpoint,"model":target.model_id,"qualification_id":qualification.qualification_id,
-            "connection_profile":if input.case_work {"workbench"} else {"conversation"},
+            "connection":"connected",
+            "capabilities":{
+                "text":qualification.supports_realization_shape(&ProviderRealizationShape::TextToText),
+                "native_functions":qualification.supports_realization_shape(&ProviderRealizationShape::TextFunctionsToTextOrCall),
+                "json_object":qualification.supports_realization_shape(&ProviderRealizationShape::TextToJsonObject)
+            },
+            "qualification_failures":qualification.evidence.failure_codes,
             "realization_shapes":qualification.evidence.realization_shapes,
             "semantic_posture":"operator_attested","evidence_id":evidence.evidence_id,"provider_binding":envelope.binding_id,"cognitive_binding":binding.binding_id,
             "policy":"pinned","trust":"explicit_operator_approval","case_continuity":"preserved"}),

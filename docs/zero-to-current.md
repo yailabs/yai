@@ -136,9 +136,8 @@ issue/issue.md
 /artifacts
 ```
 
-Use `/connect workbench` for this full Golden lifecycle and answer its questions
-one at a time. Plain `/connect` is sufficient for text conversation, not tools
-or Workflow qualification. Supply the exact **public endpoint from the YVEX
+Use `/connect` and answer its conditional questions one at a time. There is no
+connection profile to choose. Supply the exact **public endpoint from the YVEX
 operator**. YAI reads `/v1/models`: a single identity is displayed without asking
 you to type it; multiple entries require a displayed number or exact name. Check
 that the selected identity is the intended DeepSeek target. Empty/malformed
@@ -157,7 +156,12 @@ operator-attested, not mechanically certified model quality. If a primary
 already exists, the same confirmation requires `replace` and displays the old
 binding. Empty input cancels; it does not approve. Only metadata GET occurs
 before confirmation: synthetic inference, trust and binding follow approval.
-A qualification failure remains a failure, with no silent profile downgrade.
+Text qualification must pass before binding. Native functions and JSON are
+reported independently in `capabilities` and `realization_shapes`; failed probes
+remain in `qualification_failures`. For this full Golden lifecycle require both
+`native_functions: true` and `json_object: true`. A text-only connection is usable
+for conversation but is not Golden readiness; do not continue tool/Workflow work
+with missing evidence. Exact execution refuses any unqualified capability.
 
 Qualification performs real synthetic model work, not just a connectivity ping.
 It prints stage/elapsed updates; a completed `/v1/models` request alone is not
@@ -171,7 +175,7 @@ authorizes tools, JSON Workflow work, or media. Inspect `provider show TARGET`
 for stored shape/failure/timing evidence instead of re-running probes to inspect.
 
 ```text
-/connect workbench
+/connect
 PUBLIC_ENDPOINT
 approve
 /provider
@@ -274,7 +278,7 @@ publish reviewed independent Workflow Case deck
 discovery
 CANDIDATE_DIGEST
 issue/issue.md
-/connect workbench
+/connect
 ```
 
 Answer the conditional connection questions as above and confirm this Case's
@@ -368,14 +372,14 @@ source, `/handoff reconcile HANDOFF_ID`, inspect `/handoffs` and `/verify`.
 ## Model replacement and persistent canary
 
 After the initial run, the same Case can receive an exact Qwen target with
-`/connect workbench`: supply its actual endpoint, select Qwen if several catalog
+`/connect`: supply its actual endpoint, select Qwen if several catalog
 entries exist, review the displayed target and type `replace` at the one final
 trust/attestation/replacement confirmation. Scope/credentials are asked only when
 necessary, as above.
 The compact action is the same; replacement is never an implicit default.
 
 ```text
-/connect workbench
+/connect
 /provider
 /history
 /verify

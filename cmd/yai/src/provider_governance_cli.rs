@@ -1079,23 +1079,18 @@ fn provider_probe(args: &[String], persist_qualification: bool) -> Result<(), St
 
 /// Product onboarding uses the same synthetic probes and provider evidence
 /// owner as the Advanced qualification command. It sends no Case material.
-pub(super) fn qualify_case_work_target(
+pub(super) fn qualify_connection_target(
     store: &LmdbRecordStore,
     authenticated: &AuthenticatedPrincipal,
     target: &yai_core_engine::provider_governance::ProviderTarget,
-    case_work: bool,
 ) -> Result<yai_core_engine::provider_governance::ProviderQualification, String> {
     let token = format!("probe-admission:{}:{}", std::process::id(), now_ms());
     let owner = store.begin_provider_probe_authorized(authenticated, &target.target_id, &token)?;
-    let shapes = if case_work {
-        vec![
-            ProviderRealizationShape::TextToText,
-            ProviderRealizationShape::TextFunctionsToTextOrCall,
-            ProviderRealizationShape::TextToJsonObject,
-        ]
-    } else {
-        vec![ProviderRealizationShape::TextToText]
-    };
+    let shapes = [
+        ProviderRealizationShape::TextToText,
+        ProviderRealizationShape::TextFunctionsToTextOrCall,
+        ProviderRealizationShape::TextToJsonObject,
+    ];
     let evidence = run_synthetic_probe(target, false, &shapes);
     store.complete_provider_probe_authorized(
         authenticated,
@@ -1110,12 +1105,12 @@ pub(super) fn qualify_case_work_target(
         REALIZATION_QUALIFICATION_SUITE,
         None,
     )?;
-    if !shapes
-        .iter()
-        .all(|shape| qualified.supports_realization_shape(shape))
-    {
+    // A connection is not blanket permission to use all provider contracts.
+    // Keep independently proven shapes; exact execution checks still require
+    // each requested shape. Failed function/JSON probes never qualify tools.
+    if !qualified.supports_realization_shape(&ProviderRealizationShape::TextToText) {
         return Err(format!("case_connect_mechanical_contract_unqualified: target={} qualification={}; required={}; proven={}; failures={}; no trust or Case binding added", target.target_id, qualified.qualification_id,
-            shapes.iter().map(ProviderRealizationShape::as_str).collect::<Vec<_>>().join(","),
+            ProviderRealizationShape::TextToText.as_str(),
             qualified.evidence.realization_shapes.iter().map(ProviderRealizationShape::as_str).collect::<Vec<_>>().join(","),
             qualified.evidence.failure_codes.join(",")));
     }

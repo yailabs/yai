@@ -185,13 +185,14 @@ def main():
                 terminal = None
 
             def connect():
-                action("/connect workbench",b"Public provider endpoint")
+                action("/connect",b"Public provider endpoint")
                 questions = (b"Type approve", b"Locality: loopback /", b"Credential reference env:NAME only", b"Choose an exact name or number", b"provider_catalog_")
                 data = action(endpoint,questions)
                 for _ in range(4):
                     if b"Type approve" in data:
                         assert ("Selected model: " + model).encode() in data
-                        action("approve",b'"semantic_posture": "operator_attested"')
+                        connected = action("approve",b'"semantic_posture": "operator_attested"')
+                        assert b'"native_functions": true' in connected and b'"json_object": true' in connected, "Golden requires independently qualified functions and JSON, not merely a connected target"
                         return
                     if b"Locality: loopback /" in data:
                         data = action(locality,questions)

@@ -73,6 +73,7 @@ def main():
         server = subprocess.Popen([sys.executable,str(ROOT / "tests/fixtures/provider_governance_server.py"),
             "--mode","capabilities","--model","vision-whisper-name-is-not-authority","--requests","64",
             "--release-file",str(release),"--log",str(log)], stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        text_server = None
         terminal = None
         master = slave = None
         try:
@@ -110,12 +111,29 @@ def main():
             wait(lambda: b'"attachment_is_permission": false' in output)
             send(f"/policy publish {policy} explicit reference publication\r")
             wait(lambda: b'"readiness": "ready"' in output)
-            send(f"/connect http://127.0.0.1:{port} vision-whisper-name-is-not-authority --trust approve --attest evidence:deterministic-native-fixture\r")
+            text_server = subprocess.Popen([sys.executable,str(ROOT / "tests/fixtures/provider_governance_server.py"),
+                "--mode","string_text_only","--model","vision-tools-not-actually-qualified","--requests","32"],
+                stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            text_port = text_server.stdout.readline().strip()
+            assert text_port.isdigit()
+            send(f"/connect http://127.0.0.1:{text_port} vision-tools-not-actually-qualified --trust approve --attest evidence:text-only-fixture\r")
             wait(lambda: b'"semantic_posture": "operator_attested"' in output)
-            target = re.search(rb'"target_id": "([^"]+)"',output)[1].decode()
+            assert b'"native_functions": false' in output and b'"text": true' in output
+            send("/work Inspect the admitted source using native functions\r")
+            wait(lambda: b"cognitive_realization_shape_not_qualified" in output)
+            refused_history = cli("case","history",CASE,"--json")
+            assert "provider_invocation_started" not in refused_history
+            assert "resource_observation_recorded" not in refused_history
+            observe(claim="connected text-only target cannot run native work even with READY policy and attached resource", invocation_count=0)
+            offset = len(output)
+            send(f"/connect http://127.0.0.1:{port} vision-whisper-name-is-not-authority --trust approve --attest evidence:deterministic-native-fixture --replace\r")
+            wait(lambda: b'"semantic_posture": "operator_attested"' in output[offset:])
+            target = re.search(rb'"target_id": "([^"]+)"',output[offset:])[1].decode()
+            assert b'"native_functions": true' in output[offset:]
+            offset = len(output)
             send("/work Inspect the admitted source and report the evidence\r")
-            wait(lambda: b"conversation_turn:" in output)
-            turn_id = re.search(rb"conversation_turn: ([^\r\n]+)",output)[1].decode()
+            wait(lambda: b"conversation_turn:" in output[offset:])
+            turn_id = re.search(rb"conversation_turn: ([^\r\n]+)",output[offset:])[1].decode()
             # The external peer is waiting; an independent process sees SEND.
             turns = cli("case","conversation","turn","list",CASE,"--participant",HUMAN,"--json")
             assert turn_id in turns and '"participant_id":"participant:human"' in turns.replace(" ","")
@@ -153,6 +171,9 @@ def main():
                     os.close(fd)
             server.terminate()
             server.wait(timeout=5)
+            if text_server:
+                text_server.terminate()
+                text_server.wait(timeout=5)
 
 
 if __name__ == "__main__":

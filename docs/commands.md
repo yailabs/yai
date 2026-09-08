@@ -110,11 +110,12 @@ confirmation covers trust and operator-attested suitability, with generated
 provenance rather than a manually typed evidence ID. An existing primary uses
 `replace` instead of `approve` in that same confirmation. The captured Case
 generation and selected catalog identity are revalidated before qualification.
-It qualifies text conversation only. `/connect workbench` explicitly
-requires text, native function/result round trips and JSON output; the historical
-complete `/connect ENDPOINT MODEL ...` form retains that full profile. There is
-no silent fallback after failed workbench qualification. Neither profile infers
-suitability or credentials. `/review` displays
+There is one `/connect` action, with no profile suffix. Guided and complete forms
+test text, native function/result round trips and JSON independently. Text must
+qualify before binding; optional capabilities are reported as qualified or
+unqualified with retained failure evidence. Connection is not blanket tool or
+Workflow readiness: exact execution still requires its own qualified shape.
+Suitability and credentials are never inferred. `/review` displays
 the exact pending operation and uses the current human identity, with explicit
 approve/deny/defer and reason. Bare `/retry` resolves the latest canonical Turn
 of the current Participant/thread and calls the unchanged recovery boundary;

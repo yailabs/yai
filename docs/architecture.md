@@ -209,9 +209,12 @@ confirmation admits probes, trust and an operator attestation whose provenance
 reference is generated. Existing primaries require explicit replacement there.
 Catalog disappearance or stale Case approval refuses without inference/binding.
 No catalog registry, model alias, runtime owner or provider-brand branch appears.
-Guided `/connect` qualifies the conversation profile; `/connect workbench`
-explicitly requires native functions and JSON as well. Partial mechanical
-evidence never authorizes a missing shape. Buffered inference has a separate
+`/connect` is the single guided action; no connection-profile selector exists in
+the frontend or controller. Its existing synthetic qualification probes text,
+native functions and JSON independently. Text is required to connect; unsupported
+optional shapes and their failures remain inspectable. Exact execution, not a
+connection label, enforces each required shape. Partial mechanical evidence
+never authorizes a missing shape. Buffered inference has a separate
 bounded response deadline (default 300s; `YAI_PROVIDER_RESPONSE_TIMEOUT_SECS`,
 1–3600), while connection, metadata GET and ordinary resource budgets remain 30s. Expiry after
 submission is delivery-indeterminate, never automatic retry. Probe progress and

@@ -58,7 +58,6 @@ const COMMANDS: &[&str] = &[
     "/policy publish",
     "/connect ",
     "/connect",
-    "/connect workbench",
     "/work ",
     "/review approve ",
     "/review",
@@ -231,8 +230,8 @@ fn command(
     if text == "/setup" {
         return setup::participants(controller);
     }
-    if matches!(text, "/connect" | "/connect workbench") {
-        return setup::connect(controller, text == "/connect workbench");
+    if text == "/connect" {
+        return setup::connect(controller);
     }
     if text == "/attach" {
         let path = setup::ask("Resource definition file", None)?;
@@ -472,7 +471,6 @@ fn command(
                 trust_approved: trust,
                 suitability_ref: Some(evidence.ok_or("connect_explicit_attestation_required")?),
                 replace,
-                case_work: true, // Explicit historical form retains full-workbench qualification.
                 expected_generation: None,
             })?;
         println!(

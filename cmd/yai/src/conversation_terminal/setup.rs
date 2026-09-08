@@ -262,16 +262,9 @@ pub(crate) fn open(reference: Option<&str>) -> Result<(), String> {
     ])
 }
 
-pub(super) fn connect(controller: &ConversationController, case_work: bool) -> Result<(), String> {
+pub(super) fn connect(controller: &ConversationController) -> Result<(), String> {
     use yai_core_engine::provider_governance::ProviderLocality;
-    println!(
-        "Connect profile: {}. Explicit trust and real mechanical qualification are required.",
-        if case_work {
-            "workbench (text, native functions, JSON)"
-        } else {
-            "conversation (text only; use /connect workbench for tools/Workflow)"
-        }
-    );
+    println!("Connect provider. Text is required; native functions and JSON are independently tested and reported. Unqualified capabilities remain unavailable.");
     let (generation, primary) = controller.provider_connection_state()?;
     let endpoint = ask(
         "Public provider endpoint (catalog discovery only; no secret URL parameters)",
@@ -327,7 +320,6 @@ pub(super) fn connect(controller: &ConversationController, case_work: bool) -> R
         trust_approved: true,
         suitability_ref: None,
         replace,
-        case_work,
         expected_generation: Some(generation),
     })?;
     println!(

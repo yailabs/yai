@@ -19,15 +19,15 @@ ROOT = Path(__file__).resolve().parents[3]
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--external", action="store_true")
-    parser.add_argument("--workbench-qualification", action="store_true", help="External synthetic full-workbench qualification only; no SEND/effects")
-    parser.add_argument("--scenario", choices=("single", "multiple", "auth", "empty", "malformed", "duplicate", "drift", "stale", "replace", "cancel"))
+    parser.add_argument("--qualification-only", action="store_true", help="External synthetic connection qualification only; no SEND/effects; verify tools and JSON explicitly")
+    parser.add_argument("--scenario", choices=("single", "all_shapes", "no_text", "multiple", "auth", "empty", "malformed", "duplicate", "drift", "stale", "replace", "cancel"))
     args = parser.parse_args()
-    if args.workbench_qualification and not args.external:
-        parser.error("--workbench-qualification requires --external")
+    if args.qualification_only and not args.external:
+        parser.error("--qualification-only requires --external")
     if args.external and args.scenario:
         parser.error("local scenarios cannot replace an external provider")
     if not args.external and not args.scenario:
-        for scenario in ("single", "multiple", "auth", "empty", "malformed", "duplicate", "drift", "stale", "replace", "cancel"):
+        for scenario in ("single", "all_shapes", "no_text", "multiple", "auth", "empty", "malformed", "duplicate", "drift", "stale", "replace", "cancel"):
             result = subprocess.run([sys.executable, __file__, "--scenario", scenario])
             if result.returncode:
                 return result.returncode
@@ -61,7 +61,8 @@ def main():
         try:
             if not args.external:
                 model = "vision-whisper-only-a-name"
-                fixture_args = [sys.executable, str(ROOT / "tests/fixtures/provider_governance_server.py"), "--mode", "string_text_only", "--model", model, "--requests", "64", "--log", str(run / "requests.jsonl")]
+                fixture_mode = "capabilities" if args.scenario == "all_shapes" else "malformed" if args.scenario == "no_text" else "string_text_only"
+                fixture_args = [sys.executable, str(ROOT / "tests/fixtures/provider_governance_server.py"), "--mode", fixture_mode, "--model", model, "--requests", "64", "--log", str(run / "requests.jsonl")]
                 if args.scenario == "multiple":
                     fixture_args += ["--catalog-model", "a-decoy-name-is-not-ranking"]
                 if args.scenario == "auth":
@@ -95,7 +96,7 @@ def main():
                     pending = bytes(output[offset:])
                     if needle == 'conversation_execution: "completed"' and b'conversation_execution: "' in pending:
                         raise AssertionError(pending.decode(errors="replace"))
-                    if needle.startswith('"connection_profile":') and b"case_connect_mechanical_contract_unqualified" in pending:
+                    if needle == '"connection": "connected"' and b"case_connect_mechanical_contract_unqualified" in pending:
                         raise AssertionError(pending.decode(errors="replace"))
                 # Wait for the actual editor, not just the preceding printed
                 # label, before submitting the next answer.
@@ -111,16 +112,15 @@ def main():
                 expect("Operator Participant", "")
                 expect("Model Participant", "")
                 expect("Type admit", "admit")
-                expect("case_prompt: entered", "/connect workbench" if args.workbench_qualification or args.scenario == "single" else "/connect")
+                expect("case_prompt: entered", "/help all")
+                expect("/thread status")
+                assert b"/connect workbench" not in output, "help/completion must expose one connection action"
                 if args.scenario == "single":
-                    expect("Public provider endpoint", endpoint)
-                    expect("Type approve", "approve")
-                    expect("no trust or Case binding added")
-                    history = cli("case", "history", "case:connect", "--json")
-                    assert "cognitive_binding" not in history and "provider_invocation_started" not in history
-                    assert b"http_400:string_text_only" in output
-                    record(claim="full workbench refuses missing functions/JSON; no silent downgrade, no Case binding or dispatch")
-                    os.write(master, b"/connect\r")
+                    os.write(master, b"/connect workbench\r")
+                    expect("connect_syntax:")
+                    assert not (run / "requests.jsonl").exists()
+                    record(claim="removed suffix is neither completion nor executable alias; malformed command does not probe")
+                os.write(master, b"/connect\r")
                 expect("Public provider endpoint", endpoint)
                 if args.scenario in ("empty", "malformed", "duplicate"):
                     expect("provider_catalog_empty" if args.scenario == "empty" else "provider_catalog_invalid")
@@ -160,7 +160,21 @@ def main():
                     proc.wait(timeout=10)
                     record(result="PASS", claim="stale catalog/Case approval refuses before inference and binding")
                     return 0
-                expect('"connection_profile": "workbench"' if args.workbench_qualification else '"connection_profile": "conversation"')
+                if args.scenario == "no_text":
+                    expect("no trust or Case binding added", "/exit")
+                    proc.wait(timeout=10)
+                    assert "cognitive_binding" not in cli("case", "history", "case:connect", "--json")
+                    assert all(row["synthetic"] for row in map(json.loads, (run / "requests.jsonl").read_text().splitlines()))
+                    record(result="PASS", claim="unqualified text refuses connection; no trust, Case binding or semantic dispatch")
+                    return 0
+                expect('"connection": "connected"')
+                assert b'"connection_profile"' not in output
+                if not args.external:
+                    available = b"true" if args.scenario == "all_shapes" else b"false"
+                    assert b'"native_functions": ' + available in output
+                    assert b'"json_object": ' + available in output
+                    assert b'"text": true' in output
+                    record(claim="one connect reports only independently qualified capabilities", functions_and_json=args.scenario == "all_shapes")
                 if args.scenario == "replace":
                     before = cli("case", "history", "case:connect", "--json")
                     os.write(master, b"/connect\r")
@@ -171,12 +185,13 @@ def main():
                     os.write(master, b"/connect\r")
                     expect("Public provider endpoint", endpoint)
                     expect("Type replace", "replace")
-                    expect('"connection_profile": "conversation"')
+                    expect('"connection": "connected"')
                     assert cli("case", "history", "case:connect", "--json") != before
-                if args.workbench_qualification:
+                if args.qualification_only:
+                    assert b'"native_functions": true' in output and b'"json_object": true' in output
                     os.write(master, b"/exit\r")
                     proc.wait(timeout=10)
-                    record(exit=proc.returncode, result="PASS", claim="synthetic workbench mechanical qualification only; no user SEND or Golden execution")
+                    record(exit=proc.returncode, result="PASS", claim="single connect synthetic text/functions/JSON qualification only; no user SEND or Golden execution")
                     assert proc.returncode == 0
                     return 0
                 history = cli("case", "history", "case:connect", "--json")
