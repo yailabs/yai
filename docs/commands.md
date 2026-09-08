@@ -101,8 +101,16 @@ Workbench vocabulary includes guided `/attach`, `/policy publish`, `/connect`,
 by the same typed controller actions as their retained complete forms:
 `/attach FILE`, `/policy publish FILE REASON`, and explicit
 `/connect ENDPOINT MODEL --trust approve --attest evidence:REF`.
-`/connect` still requires explicit trust/attestation and asks separately about
-replacement; it qualifies text conversation only. `/connect workbench` explicitly
+`/connect` discovers the public endpoint catalog: one exact model is selected
+automatically, multiple models require a name/number choice, an empty/invalid
+catalog refuses. Catalog access is not inference or qualification. Literal
+address locality is derived; ambiguous DNS scope is asked. An authentication
+challenge asks only for an environment credential reference. One final explicit
+confirmation covers trust and operator-attested suitability, with generated
+provenance rather than a manually typed evidence ID. An existing primary uses
+`replace` instead of `approve` in that same confirmation. The captured Case
+generation and selected catalog identity are revalidated before qualification.
+It qualifies text conversation only. `/connect workbench` explicitly
 requires text, native function/result round trips and JSON output; the historical
 complete `/connect ENDPOINT MODEL ...` form retains that full profile. There is
 no silent fallback after failed workbench qualification. Neither profile infers

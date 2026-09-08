@@ -20,8 +20,9 @@ refuse execution; they do not receive an unconfined fallback. Install repository
 build dependencies first. All commands below start in the YAI repository root.
 
 YVEX must already expose the operator's exact DeepSeek target through its public
-OpenAI-compatible endpoint. YAI does not start YVEX, load a model or select the
-first model in its catalog. Native function calls, correlated tool feedback and
+OpenAI-compatible endpoint. YAI does not start YVEX or load a model. Discovery
+selects an exact singleton automatically; multiple entries require an operator
+choice, never an arbitrary first model. Native function calls, correlated tool feedback and
 JSON-object output must pass actual qualification for the complete reference
 Workflow. A text-only public endpoint is insufficient. Record that limitation;
 do not substitute a fake model or use a private protocol.
@@ -137,17 +138,26 @@ issue/issue.md
 
 Use `/connect workbench` for this full Golden lifecycle and answer its questions
 one at a time. Plain `/connect` is sufficient for text conversation, not tools
-or Workflow qualification. Supply the exact **public
-endpoint and exposed DeepSeek identity from the YVEX operator**. Replace the two
-uppercase placeholders below; choose `loopback`, `private_network` or `remote`
-truthfully. The example assumes a loopback endpoint without credentials. If a
-credential is needed, supply only `env:YAI_GOLDEN_PROVIDER_KEY`, with that variable
-set before opening YAI. Never paste secret bytes into chat.
+or Workflow qualification. Supply the exact **public endpoint from the YVEX
+operator**. YAI reads `/v1/models`: a single identity is displayed without asking
+you to type it; multiple entries require a displayed number or exact name. Check
+that the selected identity is the intended DeepSeek target. Empty/malformed
+catalogs refuse, without inference or Case binding.
 
-The confirmation `approve` is your explicit trust decision. Suitability remains
-operator-attested, not mechanically certified model quality. `no` means do not
-replace an existing primary binding. No network probe begins before these
-answers are complete. A qualification failure remains a failure.
+Literal-IP/localhost locality needs no question. For ambiguous DNS names select
+`loopback`, `private_network` or `remote` truthfully. Only an HTTP 401/403 challenge
+asks for a credential reference such as `env:YAI_GOLDEN_PROVIDER_KEY`, with that
+variable set before opening YAI. Never paste secret bytes into chat. Discovery
+uses a bounded metadata GET, not a private runtime inspection or load request.
+
+The final `approve` is your explicit trust and semantic-suitability attestation
+for the displayed target and Case. YAI generates its exact provenance reference;
+you no longer invent an evidence identifier. Suitability remains
+operator-attested, not mechanically certified model quality. If a primary
+already exists, the same confirmation requires `replace` and displays the old
+binding. Empty input cancels; it does not approve. Only metadata GET occurs
+before confirmation: synthetic inference, trust and binding follow approval.
+A qualification failure remains a failure, with no silent profile downgrade.
 
 Qualification performs real synthetic model work, not just a connectivity ping.
 It prints stage/elapsed updates; a completed `/v1/models` request alone is not
@@ -163,12 +173,7 @@ for stored shape/failure/timing evidence instead of re-running probes to inspect
 ```text
 /connect workbench
 PUBLIC_ENDPOINT
-EXACT_EXPOSED_DEEPSEEK_MODEL
-loopback
-none
-operator-golden-primary
 approve
-no
 /provider
 /capabilities
 /resources
@@ -272,8 +277,8 @@ issue/issue.md
 /connect workbench
 ```
 
-Answer the connection questions as above, using attestation
-`operator-golden-workflow`. No provider authority is copied from the other Case.
+Answer the conditional connection questions as above and confirm this Case's
+own target/attestation. No provider authority is copied from the other Case.
 
 ```text
 /workflow bind
@@ -363,8 +368,10 @@ source, `/handoff reconcile HANDOFF_ID`, inspect `/handoffs` and `/verify`.
 ## Model replacement and persistent canary
 
 After the initial run, the same Case can receive an exact Qwen target with
-`/connect workbench`: supply its actual endpoint/model, locality and credential reference,
-an explicit attestation, approve trust, and type `replace` at the final question.
+`/connect workbench`: supply its actual endpoint, select Qwen if several catalog
+entries exist, review the displayed target and type `replace` at the one final
+trust/attestation/replacement confirmation. Scope/credentials are asked only when
+necessary, as above.
 The compact action is the same; replacement is never an implicit default.
 
 ```text

@@ -116,6 +116,35 @@ pub(super) fn parse_provider_endpoint(value: &str) -> Result<ProviderEndpoint, S
     })
 }
 
+/// Infer only address locality, never model capability or physical residency.
+/// DNS names other than localhost require an explicit scoped network choice.
+pub(super) fn endpoint_locality(value: &str) -> Result<Option<ProviderLocality>, String> {
+    let endpoint = parse_provider_endpoint(value)?;
+    let locality = if endpoint.host.eq_ignore_ascii_case("localhost") {
+        Some(ProviderLocality::Loopback)
+    } else if let Ok(ip) = endpoint.host.parse::<std::net::IpAddr>() {
+        Some(
+            [
+                ProviderLocality::Loopback,
+                ProviderLocality::PrivateNetwork,
+                ProviderLocality::Remote,
+            ]
+            .into_iter()
+            .find(|locality| provider_address_admitted(locality, ip))
+            .ok_or("provider_endpoint_address_not_admitted")?,
+        )
+    } else {
+        None
+    };
+    // Validate before any metadata dispatch. In particular, credentials, query
+    // parameters, control characters and public cleartext remain forbidden.
+    yai_core_engine::provider_governance::normalize_provider_endpoint(
+        value,
+        locality.as_ref().unwrap_or(&ProviderLocality::Loopback),
+    )?;
+    Ok(locality)
+}
+
 fn resolve(
     endpoint: &ProviderEndpoint,
     locality: Option<&ProviderLocality>,
@@ -357,7 +386,11 @@ fn provider_http_with_roots(
         &[],
         MAX_HTTP_BODY,
         false,
-        provider_response_timeout()?,
+        if method == "GET" {
+            IO_TIMEOUT
+        } else {
+            provider_response_timeout()?
+        },
     )
 }
 

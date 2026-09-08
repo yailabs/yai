@@ -132,18 +132,19 @@ def main():
                     wait(b"case_prompt: entered")
 
             def wait(needle, offset=0, timeout=30):
+                needles = (needle,) if isinstance(needle, bytes) else needle
                 if external:
                     timeout = max(timeout, 300)
                 end = time.monotonic() + timeout
                 while time.monotonic() < end:
                     if select.select([master],[],[],0.03)[0]:
                         output.extend(os.read(master,65536))
-                    if needle in output[offset:]:
+                    if any(item in output[offset:] for item in needles):
                         return bytes(output[offset:])
-                    if needle.startswith(b"conversation_execution:") and re.search(rb'conversation_execution: "[a-z_]+"\r?\n',output[offset:]):
+                    if isinstance(needle, bytes) and needle.startswith(b"conversation_execution:") and re.search(rb'conversation_execution: "[a-z_]+"\r?\n',output[offset:]):
                         record(failure="different execution posture",output_tail_hex=bytes(output[-4096:]).hex())
                         raise AssertionError(output[-4096:].decode(errors="replace"))
-                    if needle.startswith(b"conversation_execution:") and b"\x1b[?2004h" in output[offset:] and b"conversation_turn:" in output[offset:]:
+                    if isinstance(needle, bytes) and needle.startswith(b"conversation_execution:") and b"\x1b[?2004h" in output[offset:] and b"conversation_turn:" in output[offset:]:
                         # An application refusal returned to the editor without
                         # an execution record; don't burn a full timeout.
                         suffix = bytes(output[offset:])
@@ -151,7 +152,7 @@ def main():
                             record(failure="application refused execution",output_tail_hex=bytes(output[-4096:]).hex())
                             raise AssertionError(output[-4096:].decode(errors="replace"))
                     assert terminal.poll() is None, output.decode(errors="replace")
-                record(failure="expected terminal outcome absent",expected=needle.decode(errors="replace"),output_tail_hex=bytes(output[-16384:]).hex())
+                record(failure="expected terminal outcome absent",expected=[item.decode(errors="replace") for item in needles],output_tail_hex=bytes(output[-16384:]).hex())
                 raise AssertionError(output[-16384:].decode(errors="replace"))
 
             def action(value, expected, timeout=30):
@@ -185,13 +186,23 @@ def main():
 
             def connect():
                 action("/connect workbench",b"Public provider endpoint")
-                action(endpoint,b"Exact provider-exposed model identity")
-                action(model,b"Locality: loopback")
-                action(locality,b"Credential reference only")
-                action(credential,b"Your semantic suitability attestation reference")
-                action("golden-external-operator" if external else "golden-deterministic-reference",b"Type approve")
-                action("approve",b"Replace an existing primary binding?")
-                action("no",b'"semantic_posture": "operator_attested"')
+                questions = (b"Type approve", b"Locality: loopback /", b"Credential reference env:NAME only", b"Choose an exact name or number", b"provider_catalog_")
+                data = action(endpoint,questions)
+                for _ in range(4):
+                    if b"Type approve" in data:
+                        assert ("Selected model: " + model).encode() in data
+                        action("approve",b'"semantic_posture": "operator_attested"')
+                        return
+                    if b"Locality: loopback /" in data:
+                        data = action(locality,questions)
+                    elif b"Credential reference env:NAME only" in data:
+                        assert credential != "none", "external authentication unavailable; no fixture fallback"
+                        data = action(credential,questions)
+                    elif b"Choose an exact name or number" in data:
+                        data = action(model,questions)
+                    else:
+                        raise AssertionError(data.decode(errors="replace"))
+                raise AssertionError("unbounded connection dialogue")
 
             open_workbench(first=True)
             for definition in sorted((world / "attachments").glob("*.json")):

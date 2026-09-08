@@ -32,6 +32,9 @@ parser.add_argument(
     default="full",
 )
 parser.add_argument("--model", default="provider-governance-model")
+parser.add_argument("--catalog-model", action="append", default=[])
+parser.add_argument("--catalog-mode", choices=("normal", "empty", "malformed", "duplicate", "drift"), default="normal")
+parser.add_argument("--catalog-auth", action="store_true")
 parser.add_argument("--requests", type=int, default=32)
 parser.add_argument("--log")
 parser.add_argument("--release-file", help="Bounded test barrier before non-synthetic replies")
@@ -39,6 +42,7 @@ args = parser.parse_args()
 MEMORY_TURNS = 0
 W20_REPLACEMENT_EMITTED = False
 W20_INITIAL_WRITE_EMITTED = False
+CATALOG_READS = 0
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -54,11 +58,21 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        global CATALOG_READS
         if self.path == "/health":
             self.reply(200, {"status": "ok", "model": args.model})
             return
         if self.path == "/v1/models":
-            self.reply(200, {"object": "list", "data": [{"id": args.model}]})
+            if args.catalog_auth and self.headers.get("Authorization") != "Bearer fixture-catalog-only":
+                self.reply(401, {"error": {"code": "authentication_required"}})
+                return
+            CATALOG_READS += 1
+            models = [args.model] + args.catalog_model
+            if args.catalog_mode == "empty" or (args.catalog_mode == "drift" and CATALOG_READS > 1):
+                models = []
+            if args.catalog_mode == "duplicate":
+                models += [args.model]
+            self.reply(200, {"object": "list", "data": "invalid" if args.catalog_mode == "malformed" else [{"id": model} for model in models]})
             return
         self.reply(404, {"error": {"type": "not_found"}})
 

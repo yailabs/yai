@@ -470,9 +470,10 @@ fn command(
                 locality,
                 credential_ref: credential,
                 trust_approved: trust,
-                suitability_ref: evidence.ok_or("connect_explicit_attestation_required")?,
+                suitability_ref: Some(evidence.ok_or("connect_explicit_attestation_required")?),
                 replace,
                 case_work: true, // Explicit historical form retains full-workbench qualification.
+                expected_generation: None,
             })?;
         println!(
             "{}",

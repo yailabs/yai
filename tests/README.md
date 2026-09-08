@@ -34,7 +34,10 @@ for the isolated virtualenv setup before running the publication union.
 `smoke-provider-connection` exercises a strict string-only loopback provider
 through the real guided PTY product: full-workbench qualification must refuse,
 an explicitly requested text profile may connect, then canonical cognitive SEND
-and replay must succeed. Its external counterpart requires
+and replay must succeed. Catalog scenarios additionally prove singleton/multiple
+selection, auth challenge, malformed/empty/duplicate refusal, catalog/Case drift,
+cancelled consent and explicit replacement. No hardcoded model entry is needed
+for a singleton. Its external counterpart requires
 `YAI_EXTERNAL_PROVIDER_BASE_URL` and `YAI_EXTERNAL_PROVIDER_MODEL`; the supplied
 endpoint must be a credential-free loopback endpoint (including an operator-owned
 SSH forward). Absence exits 3, with no fixture fallback. The driver's explicit
@@ -112,6 +115,6 @@ scope; public typed-media external qualification remains integration work.
 `smoke-guided-case-setup` separately proves the short `init`/`open` Product
 journey with a real REPLAI PTY and **no provider**: explicit consent,
 cancellation, existing Case preservation and selection. The Golden local free
-and Workflow runs use guided `/connect`, `/review`, resource/policy setup and
+and Workflow runs use guided `/connect workbench`, `/review`, resource/policy setup and
 bare `/retry` over the real controller and loopback provider transport. Neither
 lane authorizes a human PASS or live YVEX claim.

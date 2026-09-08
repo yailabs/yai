@@ -93,6 +93,10 @@ seconds. These are application status, not token streaming or transport-abort
 promises. Provider qualification prints its current probe and elapsed time.
 `/connect` is text-conversation onboarding; `/connect workbench` explicitly tests
 the additional native-function and JSON contracts before binding that profile.
+Both use public catalog discovery, automatic singleton selection, conditional
+model/authentication/scope questions and one explicit trust/attestation (or
+replacement) confirmation. Discovery and consent remain application semantics;
+REPLAI only collects and displays their bounded inputs.
 
 A scoped `signal-hook` iterator observes SIGINT only around execution/retry,
 forwarding it to the controller's existing cancellation object. Its worker is

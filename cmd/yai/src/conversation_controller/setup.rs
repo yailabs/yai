@@ -15,9 +15,10 @@ pub(crate) struct ProviderConnection<'a> {
     pub locality: ProviderLocality,
     pub credential_ref: &'a str,
     pub trust_approved: bool,
-    pub suitability_ref: &'a str,
+    pub suitability_ref: Option<&'a str>,
     pub replace: bool,
     pub case_work: bool,
+    pub expected_generation: Option<u64>,
 }
 
 fn now_unix_ms() -> u64 {
@@ -179,6 +180,39 @@ pub(super) fn read_input(path: &Path) -> Result<Vec<u8>, String> {
 }
 
 impl ConversationController {
+    /// Read-only setup context; capture before catalog I/O and human approval.
+    pub(crate) fn provider_connection_state(&self) -> Result<(u64, Option<String>), String> {
+        let a = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        a.store
+            .resolve_security_context(&a.authenticated, &a.tenant_id)?
+            .require_owner()?;
+        let executor = self
+            .executor_participant_id
+            .as_deref()
+            .ok_or("case_connect_select_executor_first")?;
+        let primary = a
+            .state
+            .cognitive_bindings
+            .iter()
+            .find(|b| b.participant_id == executor && b.role == CognitiveBindingRole::Primary)
+            .map(|b| b.binding_id.clone());
+        Ok((a.state.generation, primary))
+    }
+
+    pub(crate) fn discover_provider_models(
+        &self,
+        endpoint: &str,
+        locality: &ProviderLocality,
+        credential_ref: &str,
+    ) -> Result<Vec<String>, String> {
+        self.provider_connection_state()?;
+        super::super::provider_governance_cli::discover_provider_models(
+            endpoint,
+            locality,
+            credential_ref,
+        )
+    }
+
     pub(crate) fn attach_resource(&self, path: &Path) -> Result<Value, String> {
         let a = authorized_conversation_case(&self.case_id, &self.participant_id)?;
         a.store
@@ -233,12 +267,21 @@ impl ConversationController {
 
     pub(crate) fn connect_provider(&self, input: ProviderConnection<'_>) -> Result<Value, String> {
         if !input.trust_approved
-            || !input.suitability_ref.starts_with("evidence:")
-            || input.suitability_ref.len() > 240
+            || input
+                .suitability_ref
+                .is_some_and(|value| !value.starts_with("evidence:") || value.len() > 240)
         {
             return Err("case_connect_requires_explicit_trust_and_evidence_reference".into());
         }
         let a = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        if input
+            .expected_generation
+            .is_some_and(|generation| generation != a.state.generation)
+        {
+            return Err(
+                "case_connect_approval_stale: inspect current Case and confirm again".into(),
+            );
+        }
         a.store
             .resolve_security_context(&a.authenticated, &a.tenant_id)?
             .require_owner()?;
@@ -298,6 +341,23 @@ impl ConversationController {
             ProviderTrustPosture::Approved,
             now_unix_ms(),
         )?;
+        // The UI approval itself supplies an operator attestation, not an
+        // invented evaluator run. Its exact provenance is generated, not typed
+        // by the human. The qualification run remains independently referenced.
+        let generated_ref = format!(
+            "evidence:operator-connect:{}",
+            &yai_core_engine::effect::digest_bytes(
+                &serde_json::to_vec(&(
+                    &self.case_id,
+                    executor,
+                    &a.principal_id,
+                    a.state.generation,
+                    &target.target_id,
+                    &qualification.qualification_id
+                ))
+                .map_err(|e| e.to_string())?
+            )[7..]
+        );
         let evidence = a.store.record_semantic_suitability_evidence_authorized(
             &a.authenticated,
             &target.target_id,
@@ -305,7 +365,7 @@ impl ConversationController {
             SemanticEvidencePosture::OperatorAttested,
             "yai.operator.case_connection.v1",
             &qualification.qualification_id,
-            vec![input.suitability_ref.into()],
+            vec![input.suitability_ref.unwrap_or(&generated_ref).into()],
             "authenticated_operator_attestation",
         )?;
         let mut targets = a

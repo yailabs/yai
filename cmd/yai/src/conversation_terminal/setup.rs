@@ -272,51 +272,63 @@ pub(super) fn connect(controller: &ConversationController, case_work: bool) -> R
             "conversation (text only; use /connect workbench for tools/Workflow)"
         }
     );
-    let endpoint = ask("Public provider endpoint (no secret URL parameters)", None)?;
-    let model = ask("Exact provider-exposed model identity", None)?;
-    let locality = match ask(
-        "Locality: loopback / private_network / remote",
-        Some("loopback"),
-    )?
-    .as_str()
-    {
-        "loopback" => ProviderLocality::Loopback,
-        "private_network" => ProviderLocality::PrivateNetwork,
-        "remote" => ProviderLocality::Remote,
-        _ => return Err("connect_locality_invalid".into()),
+    let (generation, primary) = controller.provider_connection_state()?;
+    let endpoint = ask(
+        "Public provider endpoint (catalog discovery only; no secret URL parameters)",
+        None,
+    )?;
+    let locality =
+        if let Some(locality) = super::super::provider_transport::endpoint_locality(&endpoint)? {
+            locality
+        } else {
+            match ask("Locality: loopback / private_network / remote", None)?.as_str() {
+                "loopback" => ProviderLocality::Loopback,
+                "private_network" => ProviderLocality::PrivateNetwork,
+                "remote" => ProviderLocality::Remote,
+                _ => return Err("connect_locality_invalid".into()),
+            }
+        };
+    println!("Discovering public model catalog; no inference, trust or Case binding yet.");
+    let mut credential = "none".to_string();
+    let models = match controller.discover_provider_models(&endpoint, &locality, &credential) {
+        Err(error) if error == "provider_catalog_auth_required" => {
+            credential = ask("Endpoint requires authentication/access approval. Credential reference env:NAME only; never enter a token", None)?;
+            controller.discover_provider_models(&endpoint, &locality, &credential)?
+        }
+        result => result?,
     };
-    let credential = ask(
-        "Credential reference only, e.g. env:NAME; never enter a token",
-        Some("none"),
+    let model = choose(
+        "Provider-exposed models (catalog is not capability evidence)",
+        &models,
     )?;
-    let evidence = scoped_name(
-        "evidence:",
-        &ask("Your semantic suitability attestation reference", None)?,
-    )?;
-    println!("Target: {} / {}\nSuitability: operator-attested ({evidence}), not automatic semantic qualification.", literal_external_text(&endpoint), literal_external_text(&model));
+    println!(
+        "Selected model: {}{}",
+        literal_external_text(&model),
+        if models.len() == 1 {
+            " (only catalog entry)"
+        } else {
+            ""
+        }
+    );
+    println!("Target: {} / {}\nAddress locality: {:?}; credential reference: {}\nCase generation: {generation}\nApproval permits synthetic mechanical probes, trust and a pinned PrimaryConversation binding.\nYou attest this target's semantic suitability as operator_attested, NOT automatic semantic qualification; YAI records the exact provenance. No resource authority is granted.", literal_external_text(&endpoint), literal_external_text(&model), locality, literal_external_text(&credential));
+    let replace = primary.is_some();
+    if let Some(binding) = primary {
+        println!("Existing primary binding: {binding}. This approval explicitly replaces its cognitive policy; it does not recreate the Case.");
+    }
     confirm(
-        "Approve trust for this exact target? Mechanical qualification must still pass.",
-        "approve",
+        "Confirm this exact connection and operator attestation?",
+        if replace { "replace" } else { "approve" },
     )?;
-    let replace = match ask(
-        "Replace an existing primary binding? no / replace",
-        Some("no"),
-    )?
-    .as_str()
-    {
-        "no" => false,
-        "replace" => true,
-        _ => return Err("setup_cancelled_no_replacement".into()),
-    };
     let result = controller.connect_provider(ProviderConnection {
         endpoint: &endpoint,
         model: &model,
         locality,
         credential_ref: &credential,
         trust_approved: true,
-        suitability_ref: &evidence,
+        suitability_ref: None,
         replace,
         case_work,
+        expected_generation: Some(generation),
     })?;
     println!(
         "{}",

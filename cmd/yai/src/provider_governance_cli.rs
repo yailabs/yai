@@ -497,6 +497,86 @@ fn credential_for(target: &yai_core_engine::provider_governance::ProviderTarget)
         .and_then(provider::env_var)
 }
 
+/// Ephemeral public catalog, not semantic evidence or target admission. The
+/// application caller must authorize metadata access before entering here.
+pub(super) fn discover_provider_models(
+    endpoint: &str,
+    locality: &ProviderLocality,
+    credential_ref: &str,
+) -> Result<Vec<String>, String> {
+    let endpoint =
+        yai_core_engine::provider_governance::normalize_provider_endpoint(endpoint, locality)?;
+    let endpoint = parse_http_endpoint(&endpoint)?;
+    let credential = if credential_ref == "none" {
+        None
+    } else {
+        let key = credential_ref
+            .strip_prefix("env:")
+            .filter(|key| {
+                !key.is_empty()
+                    && key.len() <= 128
+                    && key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+            })
+            .ok_or("provider_credential_reference_invalid")?;
+        Some(std::env::var(key).map_err(|_| "provider_credential_unavailable")?)
+    };
+    let response = super::provider_transport::provider_http(
+        &endpoint,
+        Some(locality),
+        "GET",
+        &api_path(&endpoint, "models"),
+        &[],
+        credential.as_deref(),
+    )?;
+    if matches!(response.status, 401 | 403) {
+        return Err("provider_catalog_auth_required".into());
+    }
+    if response.status != 200 {
+        return Err(format!(
+            "provider_catalog_http_{}:{}",
+            response.status,
+            public_error_code(&response.body)
+        ));
+    }
+    catalog_models(&response.body)
+}
+
+fn catalog_models(body: &[u8]) -> Result<Vec<String>, String> {
+    let value = strict_json(body).map_err(|_| "provider_catalog_invalid")?;
+    let rows = value
+        .get("data")
+        .and_then(Value::as_array)
+        .ok_or("provider_catalog_invalid")?;
+    if rows.len() > 128
+        || value.get("has_more").and_then(Value::as_bool) == Some(true)
+        || value.get("next").is_some_and(|next| !next.is_null())
+    {
+        return Err("provider_catalog_incomplete_or_over_bound".into());
+    }
+    let mut models = Vec::new();
+    for row in rows {
+        let id = row
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or("provider_catalog_invalid")?;
+        if id.is_empty()
+            || id.len() > yai_core_engine::provider_governance::MAX_PROVIDER_MODEL_ID_BYTES
+            || !id
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "._:-/".contains(c))
+            || models.iter().any(|known| known == id)
+        {
+            return Err("provider_catalog_invalid_or_duplicate_model".into());
+        }
+        models.push(id.to_owned());
+    }
+    models.sort();
+    if models.is_empty() {
+        return Err("provider_catalog_empty: endpoint exposes no models; no qualification or binding performed".into());
+    }
+    Ok(models)
+}
+
 fn embedding_probe_shape(value: &Value, model_id: &str) -> (Option<u64>, bool) {
     let dimension = value
         .pointer("/data/0/embedding")
@@ -630,17 +710,9 @@ fn run_synthetic_probe(
         Ok(response) => {
             evidence.transport_connected = true;
             if (200..300).contains(&response.status) {
-                match strict_json(&response.body) {
-                    Ok(value) => {
-                        evidence.exact_model_addressed = value
-                            .get("data")
-                            .and_then(Value::as_array)
-                            .is_some_and(|models| {
-                                models.iter().any(|model| {
-                                    model.get("id").and_then(Value::as_str)
-                                        == Some(target.model_id.as_str())
-                                })
-                            });
+                match catalog_models(&response.body) {
+                    Ok(models) => {
+                        evidence.exact_model_addressed = models.contains(&target.model_id);
                     }
                     Err(_) => evidence
                         .failure_codes
@@ -649,6 +721,16 @@ fn run_synthetic_probe(
             }
         }
         Err(error) => evidence.failure_codes.push(probe_failure_code(&error)),
+    }
+
+    if !evidence.exact_model_addressed {
+        evidence
+            .failure_codes
+            .push("exact_model_not_in_current_catalog".into());
+        evidence.completed_at_unix_ms = now_ms().max(evidence.started_at_unix_ms);
+        evidence.failure_codes.sort();
+        evidence.failure_codes.dedup();
+        return evidence;
     }
 
     if probe_embedding {
@@ -1349,5 +1431,62 @@ mod tests {
             embedding_probe_shape(&invalid, "encoder:exact"),
             (None, true)
         );
+    }
+    #[test]
+    fn catalog_discovery_is_bounded_exact_and_not_capability_evidence() {
+        assert_eq!(
+            catalog_models(br#"{"data":[{"id":"vision"},{"id":"bge"}]}"#).unwrap(),
+            vec!["bge", "vision"]
+        );
+        for invalid in [
+            br#"{"data":[]}"#.as_slice(),
+            br#"{"data":[{"id":"x"},{"id":"x"}]}"#,
+            br#"{"data":[{"id":""}]}"#,
+            br#"{"data":[{"id":"name\nspoof"}]}"#,
+            br#"{"data":[{"id":"x"}],"has_more":true}"#,
+            br#"{"data":[{"id":"x"}],"next":"opaque-page"}"#,
+            br#"{"data":[{"id":"x","id":"y"}]}"#,
+            br#"{"data":{}}"#,
+        ] {
+            assert!(catalog_models(invalid).is_err());
+        }
+        assert!(catalog_models(
+            &serde_json::to_vec(
+                &serde_json::json!({"data":vec![serde_json::json!({"id":"x"});129]})
+            )
+            .unwrap()
+        )
+        .is_err());
+        use super::super::provider_transport::endpoint_locality;
+        assert_eq!(
+            endpoint_locality("http://127.0.0.1:18001").unwrap(),
+            Some(ProviderLocality::Loopback)
+        );
+        assert_eq!(
+            endpoint_locality("http://localhost:8001").unwrap(),
+            Some(ProviderLocality::Loopback)
+        );
+        assert_eq!(
+            endpoint_locality("http://[::1]:8001").unwrap(),
+            Some(ProviderLocality::Loopback)
+        );
+        assert_eq!(
+            endpoint_locality("http://192.168.1.61:8001").unwrap(),
+            Some(ProviderLocality::PrivateNetwork)
+        );
+        assert_eq!(
+            endpoint_locality("https://8.8.8.8").unwrap(),
+            Some(ProviderLocality::Remote)
+        );
+        assert_eq!(endpoint_locality("https://provider.example").unwrap(), None);
+        for endpoint in [
+            "http://8.8.8.8",
+            "http://user:secret@localhost",
+            "http://localhost?token=x",
+            "http://127.0.0.1/path?token=x",
+            "http://0.0.0.0",
+        ] {
+            assert!(endpoint_locality(endpoint).is_err(), "{endpoint}");
+        }
     }
 }

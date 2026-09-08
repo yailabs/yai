@@ -106,10 +106,8 @@ def main():
         assert cli("case", "history", "case:golden:free", "--json") == history
         providers = cli("provider", "list", "--tenant", "tenant:golden", "--json")
         terminal(["open", "golden:free"], [("case_prompt: entered", "/connect\r"),
-            ("Public provider endpoint", "http://127.0.0.1:9\r"), ("Exact provider-exposed model", "name-is-not-trust\r"),
-            ("Locality:", "loopback\r"), ("Credential reference only", "none\r"),
-            ("Your semantic suitability", "explicit-unapproved\r"), ("Type approve", "no\r"),
-            ("setup_cancelled_no_approval", "/exit\r")])
+            ("Public provider endpoint", "http://user:forbidden@127.0.0.1:9\r"),
+            ("provider_endpoint_credentials_query_or_fragment_forbidden", "/exit\r")])
         assert cli("provider", "list", "--tenant", "tenant:golden", "--json") == providers
         terminal(["open", "golden:free"], [("case_prompt: entered", "/setup\r"), ("Model Participant", "operator\r"), ("Type admit", "admit\r"), ("setup_identity_conflict", "/exit\r")])
         assert cli("case", "history", "case:golden:free", "--json") == history

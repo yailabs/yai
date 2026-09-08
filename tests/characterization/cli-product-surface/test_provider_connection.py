@@ -20,9 +20,18 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--external", action="store_true")
     parser.add_argument("--workbench-qualification", action="store_true", help="External synthetic full-workbench qualification only; no SEND/effects")
+    parser.add_argument("--scenario", choices=("single", "multiple", "auth", "empty", "malformed", "duplicate", "drift", "stale", "replace", "cancel"))
     args = parser.parse_args()
     if args.workbench_qualification and not args.external:
         parser.error("--workbench-qualification requires --external")
+    if args.external and args.scenario:
+        parser.error("local scenarios cannot replace an external provider")
+    if not args.external and not args.scenario:
+        for scenario in ("single", "multiple", "auth", "empty", "malformed", "duplicate", "drift", "stale", "replace", "cancel"):
+            result = subprocess.run([sys.executable, __file__, "--scenario", scenario])
+            if result.returncode:
+                return result.returncode
+        return 0
     mode = "external_yvex" if args.external else "loopback_fixture"
     endpoint = os.environ.get("YAI_EXTERNAL_PROVIDER_BASE_URL", "")
     model = os.environ.get("YAI_EXTERNAL_PROVIDER_MODEL", "")
@@ -32,11 +41,13 @@ def main():
     with tempfile.TemporaryDirectory(prefix="yai-connect-product-") as directory:
         run = Path(directory)
         env = dict(os.environ, YAI_HOME=str(run / "home"), TERM="xterm-256color")
+        if args.scenario == "auth":
+            env["YAI_TEST_CATALOG_KEY"] = "fixture-catalog-only"
         order = 0
         def record(**value):
             nonlocal order
             order += 1
-            data = dict(run_id=run.name, order=order, provider_mode=mode, cwd=str(ROOT), yai_home=env["YAI_HOME"], **value)
+            data = dict(run_id=run.name, order=order, scenario=args.scenario, provider_mode=mode, cwd=str(ROOT), yai_home=env["YAI_HOME"], **value)
             print(json.dumps(data), flush=True)
             if os.environ.get("YAI_CONNECTION_EVIDENCE"):
                 with Path(os.environ["YAI_CONNECTION_EVIDENCE"]).open("a") as stream:
@@ -50,7 +61,14 @@ def main():
         try:
             if not args.external:
                 model = "vision-whisper-only-a-name"
-                provider = subprocess.Popen([sys.executable, str(ROOT / "tests/fixtures/provider_governance_server.py"), "--mode", "string_text_only", "--model", model, "--requests", "64"], stdout=subprocess.PIPE, text=True)
+                fixture_args = [sys.executable, str(ROOT / "tests/fixtures/provider_governance_server.py"), "--mode", "string_text_only", "--model", model, "--requests", "64", "--log", str(run / "requests.jsonl")]
+                if args.scenario == "multiple":
+                    fixture_args += ["--catalog-model", "a-decoy-name-is-not-ranking"]
+                if args.scenario == "auth":
+                    fixture_args += ["--catalog-auth"]
+                if args.scenario in ("empty", "malformed", "duplicate", "drift"):
+                    fixture_args += ["--catalog-mode", args.scenario]
+                provider = subprocess.Popen(fixture_args, stdout=subprocess.PIPE, text=True)
                 endpoint = "http://127.0.0.1:" + provider.stdout.readline().strip()
             record(pre_state="fresh disposable Case home; no operator state; no Case effects", endpoint=endpoint, model=model,
                    yai_sha=subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip())
@@ -93,15 +111,10 @@ def main():
                 expect("Operator Participant", "")
                 expect("Model Participant", "")
                 expect("Type admit", "admit")
-                expect("case_prompt: entered", "/connect" if args.external and not args.workbench_qualification else "/connect workbench")
-                if not args.external:
+                expect("case_prompt: entered", "/connect workbench" if args.workbench_qualification or args.scenario == "single" else "/connect")
+                if args.scenario == "single":
                     expect("Public provider endpoint", endpoint)
-                    expect("Exact provider-exposed model", model)
-                    expect("Locality:", "loopback")
-                    expect("Credential reference only", "none")
-                    expect("Your semantic suitability", "fixture-not-semantic-certification")
                     expect("Type approve", "approve")
-                    expect("Replace an existing primary", "no")
                     expect("no trust or Case binding added")
                     history = cli("case", "history", "case:connect", "--json")
                     assert "cognitive_binding" not in history and "provider_invocation_started" not in history
@@ -109,13 +122,57 @@ def main():
                     record(claim="full workbench refuses missing functions/JSON; no silent downgrade, no Case binding or dispatch")
                     os.write(master, b"/connect\r")
                 expect("Public provider endpoint", endpoint)
-                expect("Exact provider-exposed model", model)
-                expect("Locality:", "loopback")
-                expect("Credential reference only", "none")
-                expect("Your semantic suitability", "qualification-run-only")
-                expect("Type approve", "approve")
-                expect("Replace an existing primary", "no")
+                if args.scenario in ("empty", "malformed", "duplicate"):
+                    expect("provider_catalog_empty" if args.scenario == "empty" else "provider_catalog_invalid")
+                    assert "cognitive_binding" not in cli("case", "history", "case:connect", "--json")
+                    assert not (run / "requests.jsonl").exists(), "catalog failure must not invoke inference"
+                    os.write(master, b"/exit\r")
+                    proc.wait(timeout=10)
+                    record(result="PASS", claim="invalid/empty catalog fails before inference, target registration or Case binding")
+                    return 0
+                if args.scenario == "multiple":
+                    expect("Choose an exact name or number", "2")
+                if args.scenario == "auth":
+                    expect("Credential reference env:NAME only", "env:YAI_TEST_CATALOG_KEY")
+                expect("Type approve")
+                assert ("Selected model: " + model).encode() in output, "exact operator-supplied external model must match discovery"
+                assert b"Your semantic suitability attestation reference" not in output
+                assert b"Locality: loopback /" not in output, "literal loopback requires no locality question"
+                if args.scenario == "cancel":
+                    before = cli("case", "history", "case:connect", "--json")
+                    targets = cli("provider", "list", "--tenant", "tenant:connect", "--json")
+                    os.write(master, b"no\r")
+                    expect("setup_cancelled_no_approval", "/exit")
+                    proc.wait(timeout=10)
+                    assert cli("case", "history", "case:connect", "--json") == before
+                    assert cli("provider", "list", "--tenant", "tenant:connect", "--json") == targets
+                    assert not (run / "requests.jsonl").exists()
+                    record(result="PASS", claim="catalog GET and cancelled combined consent grant no trust/attestation/target or Case binding; zero inference")
+                    return 0
+                if args.scenario == "stale":
+                    cli("case", "participant", "role", "add", "case:connect", "--participant", "participant:operator", "--role", "discovery-test-generation")
+                os.write(master, b"approve\r")
+                if args.scenario in ("drift", "stale"):
+                    expect("exact_model_not_in_current_catalog" if args.scenario == "drift" else "case_connect_approval_stale")
+                    assert "cognitive_binding" not in cli("case", "history", "case:connect", "--json")
+                    assert not (run / "requests.jsonl").exists(), "stale catalog or approval must not dispatch inference"
+                    os.write(master, b"/exit\r")
+                    proc.wait(timeout=10)
+                    record(result="PASS", claim="stale catalog/Case approval refuses before inference and binding")
+                    return 0
                 expect('"connection_profile": "workbench"' if args.workbench_qualification else '"connection_profile": "conversation"')
+                if args.scenario == "replace":
+                    before = cli("case", "history", "case:connect", "--json")
+                    os.write(master, b"/connect\r")
+                    expect("Public provider endpoint", endpoint)
+                    expect("Type replace", "no")
+                    expect("setup_cancelled_no_approval")
+                    assert cli("case", "history", "case:connect", "--json") == before
+                    os.write(master, b"/connect\r")
+                    expect("Public provider endpoint", endpoint)
+                    expect("Type replace", "replace")
+                    expect('"connection_profile": "conversation"')
+                    assert cli("case", "history", "case:connect", "--json") != before
                 if args.workbench_qualification:
                     os.write(master, b"/exit\r")
                     proc.wait(timeout=10)
