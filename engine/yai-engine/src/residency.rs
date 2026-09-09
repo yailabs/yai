@@ -131,13 +131,106 @@ pub fn plan_residency(
     {
         return Err("residency_projection_request_mismatch".to_string());
     }
-    let previous = request.previous_item_ids.iter().collect::<BTreeSet<_>>();
-    let mut candidates = projection
+    let selection = select_entries(&projection.entries, &request)?;
+    let selected_item_ids = selection.selected_item_ids;
+    let selected_units = selection.selected_semantic_units;
+    let decisions = selection.decisions;
+    let source_semantic_units = selection.source_semantic_units;
+    let selected_count = selected_item_ids.len();
+    let identity = serde_json::to_string(&(
+        RESIDENCY_PLAN_SCHEMA,
+        &request,
+        &projection.projection_id,
+        &selected_item_ids,
+        selected_units,
+        &decisions,
+    ))
+    .map_err(|error| format!("residency_identity_encode_failed: {error}"))?;
+    let plan = ResidencyPlan {
+        schema: RESIDENCY_PLAN_SCHEMA.to_string(),
+        plan_id: format!("residency:{}", crate::context::stable_digest(&identity)),
+        request,
+        source_projection_id: projection.projection_id.clone(),
+        source_item_count: projection.entries.len(),
+        source_semantic_units,
+        selected_item_ids,
+        selected_semantic_units: selected_units,
+        omitted_item_count: projection.entries.len().saturating_sub(selected_count),
+        decisions,
+    };
+    plan.validate()?;
+    Ok(plan)
+}
+
+pub fn apply_residency_plan(
+    projection: &Projection,
+    plan: &ResidencyPlan,
+) -> Result<Projection, String> {
+    plan.validate()?;
+    if projection.projection_id != plan.source_projection_id
+        || projection.case_id != plan.request.case_id
+        || projection.case_generation != plan.request.case_generation
+    {
+        return Err("residency_plan_source_projection_mismatch".to_string());
+    }
+    let selected = plan.selected_item_ids.iter().collect::<BTreeSet<_>>();
+    let mut output = projection.clone();
+    output
         .entries
+        .retain(|entry| selected.contains(&entry.entry_id));
+    if output.entries.len() != selected.len() {
+        return Err("residency_plan_selected_item_missing".to_string());
+    }
+    output.bounds.max_items = plan.request.max_items;
+    output.bounds.selected_items = output.entries.len();
+    output.bounds.omitted_items = output
+        .bounds
+        .omitted_items
+        .saturating_add(plan.omitted_item_count);
+    output.bounds.residency_plan_id = Some(plan.plan_id.clone());
+    output.bounds.semantic_unit_budget = Some(plan.request.max_semantic_units);
+    output.bounds.selected_semantic_units = Some(plan.selected_semantic_units);
+    refresh_projection_identity(&mut output)?;
+    Ok(output)
+}
+
+/// Provider-independent selection kernel, consumed by the State Compiler.
+/// Legacy ResidencyPlan is a compatibility report of this algorithm.
+pub(crate) struct EntrySelection {
+    pub selected_item_ids: Vec<String>,
+    pub selected_semantic_units: usize,
+    pub source_semantic_units: usize,
+    pub decisions: Vec<ResidencyDecision>,
+}
+
+pub(crate) fn select_entries(
+    entries: &[ProjectionEntry],
+    request: &ResidencyRequest,
+) -> Result<EntrySelection, String> {
+    select_entries_required(entries, request, &BTreeSet::new())
+}
+
+pub(crate) fn select_entries_required(
+    entries: &[ProjectionEntry],
+    request: &ResidencyRequest,
+    required: &BTreeSet<String>,
+) -> Result<EntrySelection, String> {
+    if request.max_items == 0 || request.max_semantic_units == 0 {
+        return Err("residency_budget_must_be_positive".into());
+    }
+    let previous = request.previous_item_ids.iter().collect::<BTreeSet<_>>();
+    let mut candidates = entries
         .iter()
         .cloned()
         .enumerate()
-        .map(|(source_order, entry)| candidate(entry, source_order, &previous, &request))
+        .map(|(source_order, entry)| {
+            let mut item = candidate(entry, source_order, &previous, request)?;
+            if required.contains(&item.entry.entry_id) {
+                item.class = ResidencyClass::MandatoryCurrent;
+                item.reasons.push("explicit_semantic_requirement".into());
+            }
+            Ok::<Candidate, String>(item)
+        })
         .collect::<Result<Vec<_>, _>>()?;
     let source_semantic_units = candidates
         .iter()
@@ -219,6 +312,9 @@ pub fn plan_residency(
         };
         let mut reasons = candidate.reasons;
         reasons.push(match disposition {
+            ResidencyDisposition::Pinned if required.contains(&candidate.entry.entry_id) => {
+                "required_semantic_source_without_authority_promotion".to_string()
+            }
             ResidencyDisposition::Pinned => "mandatory_current_truth".to_string(),
             ResidencyDisposition::Retained => "selected_previous_residency".to_string(),
             ResidencyDisposition::Reintroduced => "selected_for_current_invocation".to_string(),
@@ -236,61 +332,12 @@ pub fn plan_residency(
             reasons,
         });
     }
-    let identity = serde_json::to_string(&(
-        RESIDENCY_PLAN_SCHEMA,
-        &request,
-        &projection.projection_id,
-        &selected_item_ids,
-        selected_units,
-        &decisions,
-    ))
-    .map_err(|error| format!("residency_identity_encode_failed: {error}"))?;
-    let plan = ResidencyPlan {
-        schema: RESIDENCY_PLAN_SCHEMA.to_string(),
-        plan_id: format!("residency:{}", crate::context::stable_digest(&identity)),
-        request,
-        source_projection_id: projection.projection_id.clone(),
-        source_item_count: projection.entries.len(),
-        source_semantic_units,
+    Ok(EntrySelection {
         selected_item_ids,
         selected_semantic_units: selected_units,
-        omitted_item_count: projection.entries.len().saturating_sub(selected.len()),
+        source_semantic_units,
         decisions,
-    };
-    plan.validate()?;
-    Ok(plan)
-}
-
-pub fn apply_residency_plan(
-    projection: &Projection,
-    plan: &ResidencyPlan,
-) -> Result<Projection, String> {
-    plan.validate()?;
-    if projection.projection_id != plan.source_projection_id
-        || projection.case_id != plan.request.case_id
-        || projection.case_generation != plan.request.case_generation
-    {
-        return Err("residency_plan_source_projection_mismatch".to_string());
-    }
-    let selected = plan.selected_item_ids.iter().collect::<BTreeSet<_>>();
-    let mut output = projection.clone();
-    output
-        .entries
-        .retain(|entry| selected.contains(&entry.entry_id));
-    if output.entries.len() != selected.len() {
-        return Err("residency_plan_selected_item_missing".to_string());
-    }
-    output.bounds.max_items = plan.request.max_items;
-    output.bounds.selected_items = output.entries.len();
-    output.bounds.omitted_items = output
-        .bounds
-        .omitted_items
-        .saturating_add(plan.omitted_item_count);
-    output.bounds.residency_plan_id = Some(plan.plan_id.clone());
-    output.bounds.semantic_unit_budget = Some(plan.request.max_semantic_units);
-    output.bounds.selected_semantic_units = Some(plan.selected_semantic_units);
-    refresh_projection_identity(&mut output)?;
-    Ok(output)
+    })
 }
 
 fn candidate(
@@ -447,6 +494,7 @@ mod tests {
                 view_kind: "model_context".to_string(),
             },
             bounds: ProjectionBounds {
+                working_state_id: None,
                 max_items: entries.len(),
                 selected_items: entries.len(),
                 omitted_items: 0,

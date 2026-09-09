@@ -35,6 +35,7 @@ pub mod record;
 pub mod residency;
 pub mod resource_control;
 pub mod security;
+pub mod semantic_state;
 pub mod store;
 pub mod transition;
 pub mod workflow;

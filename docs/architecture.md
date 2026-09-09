@@ -19,13 +19,13 @@ This document includes current contradictions. It does not claim that the
 belong only in the [Roadmap](../ROADMAP.md).
 
 The [semantic cognitive-state target](semantic-state-execution-target.md) is
-deliberately separate. No general State Compiler, SemanticStateFrame/Delta or
-semantic demand-paging interface is implemented by that document. State Read
-and State Update are OPEN target capabilities, not current execution contracts.
-Current bounded
-Projection/Residency/ContextFrame, memory and cognitive execution are footholds,
-not proof of Case-age-independent working sets or arbitrary target-native state
-lowering. Context-only preparation is the current compatibility path, not the
+deliberately separate. The [source refoundation](../refoundation/validation/semantic-state-refoundation/REPORT.md)
+implements bounded replay-qualified S, scoped W and derived semantic deltas with
+full-recompilation fallback. General task sufficiency, a public model-state frame,
+optimized incremental compilation and semantic demand paging remain open.
+State Read and State Update are OPEN target capabilities, not current execution
+contracts. Bounded locality evidence is not universal Case-age independence or
+arbitrary target-native state lowering. Context-only preparation is the current compatibility path, not the
 target definition of memory. "State Fabric" names an architectural composition,
 not a source owner. Live maturity and selection belong only to the Roadmap.
 
@@ -37,7 +37,7 @@ YAI has two unequal product processes:
 operator
   |
   +-- yai (Rust command/process boundary)
-  |     +-- typed Projection/ContextFrame compilation and provider invocation
+  |     +-- semantic-state composition / bounded W compilation / context lowering
   |     +-- Case-canonical ordered multipart Turns and immutable content ownership
   |     +-- provenance-bound operational-memory derivation/retrieval
   |     +-- derived semantic ResidencyPlan and bounded Case execution loop
@@ -162,7 +162,7 @@ mean constitutional, general, or production-ready.
 | Cognitive capability planning | explicit requirement → pinned or ordered Case/Participant cognitive binding → exact semantic, governance and known mechanical eligibility → first eligible candidate with inspectable exclusions → exact native/derived/unresolved plan and lane; planning remains execution-free | learned/economic routing remains absent; I06 connects the conversation host |
 | Typed provider realization | fresh I02 plan + exact current binding/evidence/envelope + ProviderQualification v5 wire-shape evidence + canonical Turn parts → exact-target governed selection → ordered OpenAI-compatible typed request → ProviderInvocation/ProviderResult; derived routes preserve immutable text/source/result provenance; native function calls and JSON-object output have separate mechanical probes | production STT/vision adapters, public YVEX typed-media compatibility and streaming remain later work |
 | Cognitive execution composition | explicit primary goal + ordered canonical source selection → content-addressed composition request → proven direct primary bypass or one exact auxiliary I02/I03 realization → canonical derived content → deterministic original/derived source closure → fresh exact primary I02/I03 realization; I05 arbitrates before each exact plan, and compatible prerequisites resume without redispatch | only depth-two speech/image-to-text prerequisites are admitted; recursive graphs remain absent; I06 consumes this bounded composition in the host |
-| Case-bound provider prompt | admitted participant + typed CaseState/history → qualified long-horizon retrieval → `yai.residency_plan.v1` → `yai.projection.v8` → `yai.context_frame.v8` → provider/model render → typed Invocation and ProviderResult lineage → non-authoritative ModelInterpretation; real HTTP fixtures prove rebuild, memory-backed provider/model replacement and continuation-loss fallback | authoritative tokenization and streaming remain absent; interactive conversation uses cognitive realization; --once/piped legacy diagnostics remain separate |
+| Case-bound provider prompt | replay-qualified SemanticState → bounded scoped W → Projection/ContextFrame v9 → exact provider render → Invocation/Result lineage; existing residency report describes W selection, not a second compiler | context compatibility only; authoritative tokenization, persistent model state and streaming remain absent; interactive conversation uses cognitive realization; --once/piped legacy diagnostics remain separate |
 | Governed provider routing | immutable Tenant ProviderTarget → synthetic evidence-bound qualification → Tenant-Owner approval → shared fresh health/circuit → exact Case provider binding → mechanical requirement/filtering → canonical ProviderSelection and attempt outcome; local fixtures prove qualified capability differences, deterministic exclusions, pre-dispatch safe failover and indeterminate-delivery refusal | H18 adds HTTPS/credential/circuit hardening; real provider capacity and full external Golden qualification remain separate evidence requirements |
 | Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | this bounded runner is not a universal capability loop; the separate single-host multi-Case scheduler is implemented, not a distributed lease/consensus system |
 | Controlled external effect | Tenant-scoped attachment + Ready/Valid EffectivePolicy → exact Operation → DecisionBasis/Decision/finite ExecutionGrant → durable fenced PREPARE → filesystem replacement, confined process or admitted MCP tool call → Observation/Receipt → FINALIZE/INDETERMINATE | process confinement is bounded Linux x86_64; arbitrary shell, general database mutation and state-changing HTTP are not admitted |
@@ -691,19 +691,51 @@ one Tenant context and never combines catalogs or Case-derived reads.
 
 ## Current provider and context behavior
 
-[`context.rs`](../engine/yai-engine/src/context.rs) owns a pure compilation
-boundary from typed CaseState, ordered canonical Transitions and an optional
-qualified RetrievalSet to an immutable candidate Projection. The pure
-[`residency.rs`](../engine/yai-engine/src/residency.rs) planner applies a
-`yai.residency_plan.v1` budget before the compiler emits `yai.projection.v8`
-and one task/output-contract-specific `yai.context_frame.v8`. Projection identity binds
-Case generation, participant/purpose/admitted view, ordered typed entries,
-provenance and bounded omission state. Provider availability, rendering,
-tokenization, KV state and opaque continuation identity do not participate.
-Availability flags alone do not change semantic identity; selected memory and
-its explicit omissions do. If graph/memory is unavailable, the required
-CaseState/history entries remain reconstructible while optional context may be
-absent.
+[`semantic_state.rs`](../engine/yai-engine/src/semantic_state.rs) composes a
+read-only `SemanticState` from CaseState and its exact ordered history, requiring
+`CaseState == replay(history)`. S is a qualified composition of existing owners,
+not a new canonical owner, mutable memory object or database. Its source identity
+binds representation version, full canonical history and current materialization.
+Immutable content remains owned separately; selected entries preserve exact
+object references, inline text when owned by that content contract, and provenance.
+
+One `CompilationRequest` selects `SemanticWorkingState` W under exact Participant,
+admitted view, purpose, intent/output-contract identity, required source references,
+resource relevance and item/semantic-unit budgets. Qualification precedes relevance.
+Own Turns and exact currently authorized I06 executor delegations are distinct;
+delegation does not expose the author's unrelated Turns. Current policy bindings,
+control state and unresolved work retain their posture. Policy references are not
+a second EffectivePolicy evaluator or permission to execute: current governance,
+expiry/revoke, Grants and dispatch checks remain in their existing owners.
+
+W is deterministic, provider-independent, disposable and source/request/version
+bound. The compiler uses the shared semantic budget kernel in
+[`residency.rs`](../engine/yai-engine/src/residency.rs) once, upstream of rendering.
+Exact requirements cannot be omitted; missing and undisclosed references produce
+the same refusal. Bounded recent history and current-intent/resource-matched derived
+material are optional. Selected/budget-omitted candidates have per-entry reasons;
+locality omissions have aggregate counts, without exporting hidden IDs. Semantic
+units are the existing serialized-character estimate, not authoritative tokens.
+
+Normal conversation, Golden work, Workflow and bounded Case execution lower W
+through [`context.rs`](../engine/yai-engine/src/context.rs) into Projection v9 and
+ContextFrame v9, then the existing exact provider adapter. W's identity is reachable
+from `projection.bounds.working_state_id` through existing invocation lineage.
+`context inspect --id <working-state-id>` recompiles the historical snapshot and
+checks equality; historical reproducibility does not make it current for dispatch.
+Lowering rejects a stale/tampered W by source/request/version and full recompilation.
+ResidencyPlan is a compatibility report of that selection, not a second selector.
+The older `compile_projection` facade remains for bounded engine inspection tests;
+it shares source extraction, and no normal provider path calls it.
+
+SemanticDelta v1 describes source/destination generations, request and entry
+additions/replacements/removals with digests. It is not a mutation command. Delta
+application verifies both qualified sources, exact forward history and the old W,
+then explicitly reports `FullRecompilation`; all supported classes currently use
+this correctness fallback. Full/delta equality is qualified, incremental speed is
+not. No cache is needed for correctness. S/W/compiler/delta identity contracts are
+v1; Transition v18, CaseState v15, owner counts and LMDB 37/40 are unchanged.
+The future public W → YVEX experiential-state consumer is not implemented.
 
 [`memory.rs`](../engine/yai-engine/src/memory.rs) first derives a versioned
 operational-memory materialization from typed invocation/result, normalization,
@@ -749,16 +781,21 @@ automatically memory material.
 
 W20 representation v2 and RetrievalSet v3 admit operational, episodic and
 semantic families under the combined H19 bound. H19 selected-source revalidation
-still resolves current qualified sources before Projection; indexed text is not
-trusted authority. Projection/ContextFrame retain family, epistemic class,
+still resolves current qualified sources for explicit indexed search; indexed text is not
+trusted authority. W and its Projection/ContextFrame retain family, epistemic class,
 lifecycle and support. See [W20](../refoundation/foundation-recovery/wave-20/WAVE-20-REPORT.md)
 and [H19](../refoundation/foundation-recovery/hardening-19/HARDENING-19-REPORT.md)
 for the bounded proof and historical external-acceptance limitations. These
 are access/derivation algorithms, not a universal Memory database or implemented
-semantic paging service.
+semantic paging service. Normal working-state compilation reconstructs operational,
+episodic and active supported assertions from canonical sources, independent of
+index availability. It no longer refreshes a vector index or dispatches an encoder
+implicitly. Explicit qualified search/index build/rebuild remains available. Derived
+support must remain visible; removed/inactive support cannot launder an assertion.
 
 The compiler fails before rendering if the participant lacks the exact
-`model/model_context` admission. It includes the participant's own binding,
+`model/model_context` admission (or the established exact governed selection proof).
+It includes the participant's own binding,
 current provider/model binding, logical resources, latest Decision, all
 unresolved effects, the four most recent finalized effects, bounded recent
 typed legacy interactions, ordered multipart conversation Turns, provider

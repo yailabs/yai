@@ -171,23 +171,25 @@ repeat=$("$YAI_BIN" case memory search case:w19-memory \
   --profile "$PROFILE_ID" --limit 8)
 grep -Fq 'plane: vector_exact_cosine available:true' <<<"$repeat"
 
-# Provider selection is a canonical Transition and therefore makes the just
-# built derived index stale. The runtime may refresh that exact profile only
-# through its separately qualified loopback encoder before compiling the
-# existing Projection -> ContextFrame path.
+# The index remains an explicit qualified access path. Semantic compilation
+# reconstructs canonical sources instead of invoking an encoder as an implicit
+# prerequisite of cognition. A stale/missing cache cannot change W's meaning.
 export YAI_MEMORY_PROFILE_ID="$PROFILE_ID"
+BEFORE_COMPILATION_ENCODER_REQUESTS=$(<"$RUN_ROOT/embed.count")
 second_run=$("$YAI_BIN" case run case:w19-memory \
   --participant participant:model --resource resource:w19-memory \
   --prompt 'recall the prior provider result from qualified Case memory' \
   --max-invocations 1 --max-runtime-ms 5000)
 grep -Fq 'runtime_status: Completed' <<<"$second_run"
-runtime_retrieval=$("$YAI_BIN" case memory retrieval show case:w19-memory \
-  --profile "$PROFILE_ID" --json)
-grep -Fq '"schema":"yai.retrieval_set.v3"' <<<"$runtime_retrieval"
-grep -Fq '"plane":"vector_exact_cosine"' <<<"$runtime_retrieval"
-grep -Fq '"available":true' <<<"$runtime_retrieval"
-grep -Fq '"index_manifest_id":"memory-index:' <<<"$runtime_retrieval"
-grep -Fq '"memory_family":"operational"' <<<"$runtime_retrieval"
+[[ "$(<"$RUN_ROOT/embed.count")" == "$BEFORE_COMPILATION_ENCODER_REQUESTS" ]]
+projection=$("$YAI_BIN" case context show case:w19-memory --kind projection)
+WORKING_ID=$(sed -n 's/^working_state_id: //p' <<<"$projection")
+[[ "$WORKING_ID" == working-state:* ]]
+working=$("$YAI_BIN" context inspect --id "$WORKING_ID")
+grep -Fq 'recompiled_from_canonical_history: true' <<<"$working"
+grep -Fq 'DerivedMemory' <<<"$projection"
+"$YAI_BIN" case memory index drop case:w19-memory --profile "$PROFILE_ID" >/dev/null
+[[ "$("$YAI_BIN" context inspect --id "$WORKING_ID")" == "$working" ]]
 
 printf 'memory_representation_characterization: pass\n'
 printf 'corpus_profile_index: %s %s\n' "$PROFILE_ID" "$INDEX_ID"
@@ -196,7 +198,8 @@ printf 'ann_posture: deferred_exact_scan_within_bound\n'
 printf 'cross_case_isolation: true\n'
 printf 'drop_preserved_case_truth: true\n'
 printf 'content_identical_rebuild: true\n'
-printf 'runtime_context_used_current_w19_index: true\n'
+printf 'runtime_working_state_rebuilt_without_index_or_encoder: true\n'
+printf 'working_state_id: %s\n' "$WORKING_ID"
 printf 'physical_store: yai.derived_memory_store.v2\n'
 printf 'deep_source_verify: true\n'
 printf 'concurrent_rebuilders: 32\n'

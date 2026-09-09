@@ -123,6 +123,16 @@ semantics and real generic adapter transport, **not live YVEX multipart
 compatibility or model quality**. External YVEX text qualification has a separate
 scope; public typed-media external qualification remains integration work.
 
+Semantic-state compilation is qualified in the no-provider unit/recovery Rust
+partitions: replay qualification, current disclosure, exact requirements,
+Case-age locality, stale/tampered W and full/delta equivalence. Delta application
+currently declares full recompilation; these tests do not prove incremental
+speed or YVEX experiential state. Golden free/Workflow additionally trace the
+real Invocation to its W and recompile it across derived-state rebuilds. The
+W19/W20 explicit index/search evidence remains; implicit model-preparation
+encoder/index refresh is retired in favor of canonical reconstruction, with
+no-encoder and unchanged-W checks. See the [bounded closure evidence](../refoundation/validation/semantic-state-refoundation/REPORT.md).
+
 `smoke-guided-case-setup` separately proves the short `init`/`open` Product
 journey with a real REPLAI PTY and **no provider**: explicit consent,
 cancellation, existing Case preservation and selection. The Golden local free

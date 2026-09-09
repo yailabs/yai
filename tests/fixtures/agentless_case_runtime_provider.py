@@ -109,7 +109,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         output_contract = frame.get("output_contract", {})
         valid = (
-            frame.get("schema") in {"yai.context_frame.v6", "yai.context_frame.v7", "yai.context_frame.v8"}
+            frame.get("schema") in {"yai.context_frame.v6", "yai.context_frame.v7", "yai.context_frame.v8", "yai.context_frame.v9"}
             and output_contract.get("kind") == "case_runtime_turn"
             and entries(frame, kind="provider_binding")
             and entries(frame, kind="resource_attachment")

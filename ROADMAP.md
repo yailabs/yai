@@ -11,24 +11,25 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent semantic cognitive-state and governed execution substrate whose durable Case state can be compiled toward context-compatible and model-native persistent execution state. |
-| Selected engineering boundary | **SEMANTIC.STATE.REFOUNDATION.0 — SELECTED_NOT_STARTED**. Selection is project direction, not authorization to mutate runtime in this documentation closure. |
+| Selected engineering boundary | **SEMANTIC.STATE.REFOUNDATION.0 — COMPLETE**. Bounded S/W, full/delta fallback and context-compatible product qualification; next implementation boundary remains unselected. |
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
-| Most important structural gap | Existing typed state and bounded Projection/ContextFrame do not yet constitute explicit general semantic cognitive state or a general State Compiler. |
+| Most important structural gap | Bounded replay-qualified S → W and context lowering exist; universal task sufficiency, optimized incremental compilation, semantic paging and a public W → E consumer remain open. |
 | Executable foundation | Transition v18 / CaseState v15; immutable owned content; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
 | Primary research boundary | Experiential State Read and State Update over model-native persistent E_t, including training-free and state-augmented pretrained-model experiments. Both OPEN; computational evolution is not semantic admission. |
 | Current compatibility path | Governed exact OpenAI-compatible context/text, bounded typed content/functions/JSON when mechanically qualified; optional opaque continuation, not a native state contract. |
-| Target stateful path | S_t → Compile(intent, authority/disclosure, relevance, budget) → bounded W_t → public cognitive-state boundary → YVEX Lower(W_t, model, profile) → experiential computational E_t plus immediate input. Not implemented. |
+| Target stateful path | S_t → scoped bounded W_t is implemented for current sources; public cognitive-state boundary → YVEX Lower(W_t, model, profile) → experiential E_t remains OPEN. |
 | Human Golden acceptance | **PENDING_OPERATOR**; automated PTY evidence cannot supply this verdict. Continuity canary **NOT_RUN**. |
-| YVEX external posture | Partial synthetic text/functions/JSON qualification observed; real Case SEND received HTTP 413. Full external Golden lifecycle **not qualified**. [Exact observations][connection]. |
-| Next decision point | Authorize a bounded source-refoundation contract with state/admission and compatibility oracles; retain external capacity/setup-latency blockers rather than relabeling them solved. |
+| YVEX external posture | Real external Golden attempted: **FAIL**, first work request returned HTTP 413 `request_too_large` after successful connection. No fixture fallback or blind retry. [Exact run][state-refoundation]. |
+| Next decision point | Select from measured reconstruction cost, broader semantic locality and public state-contract/capacity pressure. No E_t consumer is authorized. |
 
 **I01–I06 COMPLETE. I07 UNSELECTED.** Source refoundation, W19/H19/W20,
 TEST.TOPOLOGY.0, REPLAI R4/R5 and Golden/guided CLI remain completed evidence.
 No wave is reopened and no I07–I10 is invented. The formerly “post-I10” direction
 is now organized under programs S/C/Q below; the old horizon is not a numbering
 dependency. Its [target doctrine](docs/semantic-state-execution-target.md)
-remains non-executable. This roadmap authorizes neither that runtime program nor
-H20/W21/W22. The qualified operator-updated REPLAI pin is preserved.
+remains distinct from executable truth: bounded S/W now exists, while the public
+experiential-state consumer remains open. No H20/W21/W22 is authorized. The
+qualified operator-updated REPLAI pin is preserved.
 
 ## Adopted thesis and cognitive-state boundary
 
@@ -95,9 +96,9 @@ epistemic classes, authoritative only through the existing admission owners.
 and sufficient for this execution. Compilation must explain what matters now,
 for which Participant/task, under which disclosure/budget and from which sources.
 It never implies lowering the entire long-lived Case. Relevance cannot widen
-authority. SemanticStateFrame/Delta remain provisional representations of W_t
-and its changes; current Projection/ContextFrame/retrieval/residency are
-footholds, not renamed W_t or a completed general compiler.
+authority. Current bounded W and derived SemanticDelta contracts precede
+Projection/ContextFrame compatibility lowering. General public frames, paging
+and universal sufficiency remain open; existing owners retain admission.
 **E_t** is Experiential Computational State, owned computationally by YVEX:
 model-native, model-specific, potentially opaque, independently resident,
 derived and replaceable. It is not a second semantic ledger.
@@ -136,7 +137,7 @@ Case merely by participating. An Agent remains a possible composition.
 
 | Realization | Relation to S → W → E | Current claim |
 |---|---|---|
-| Context compatibility | Render the selected working material into ordinary input; prefill reconstructs computational state | Current bounded Projection/ContextFrame/provider foothold, not the general W_t compiler |
+| Context compatibility | Lower bounded qualified W through Projection/ContextFrame into ordinary input; prefill reconstructs computational state | Implemented bounded S → W → context path; not a public E_t realization |
 | Persistent context-derived state | Compile W_t into an exact reusable prefix/KV/hidden realization | Unqualified training-free bridge; retention alone is not State Read proof |
 | Experiential State Read | The model explicitly consumes independently persistent model-native E_t | OPEN; qualified W_t → persistent KV/prefix → actual reuse may satisfy a bounded form |
 | Experiential State Read + external update | YVEX updates E_t from qualified semantic working-state deltas | OPEN; needs full/delta equivalence and invalidation; no YAI latent writes |
@@ -167,7 +168,7 @@ horizons. Temporal execution status is separate. Counts describe rows only,
 never percentage completion. Evidence promotion still requires human review.
 
 <!-- maturity-summary:start -->
-ESTABLISHED=28 PARTIAL=22 OPEN=14 LATER=4 TOTAL=68
+ESTABLISHED=32 PARTIAL=23 OPEN=9 LATER=4 TOTAL=68
 <!-- maturity-summary:end -->
 
 <!-- maturity:start -->
@@ -201,9 +202,9 @@ ESTABLISHED=28 PARTIAL=22 OPEN=14 LATER=4 TOTAL=68
 | S04 | Evidence-bound facts/claims with preserved epistemic class | 🟢 ESTABLISHED | [W20][memory]; bounded grounded/inferred/provider/control classes, never similarity-to-authority promotion. |
 | S05 | Structural episodic experience | 🟢 ESTABLISHED | [W20][memory]; bounded derived Episodes and recorded-result reconstruction without re-inference. |
 | S06 | Admitted resource and Workflow consequence references | 🟢 ESTABLISHED | [Golden][golden], [Workflow][workflow]; external observation/effect and progression are distinguished. |
-| S07 | Semantic-state hierarchy | 🟡 PARTIAL | Operational/episodic/assertion derivations exist; no unified qualified semantic-state representation. |
+| S07 | Semantic-state hierarchy | 🟡 PARTIAL | [State compiler][state-refoundation] composes qualified current owners and derived families without a new store; general multi-timescale organization remains open. |
 | S08 | Multi-timescale semantic state | 🔴 OPEN | Immediate/local, task/subgoal, Case/big-picture and slow/stable semantic classes need tested selection/update rules. Not tensor geometry or retention age. |
-| S09 | Task-local versus Case big-picture state | 🔴 OPEN | No explicit general separation and sufficiency oracle. |
+| S09 | Task-local versus Case big-picture state | 🟡 PARTIAL | [State compiler][state-refoundation] retains current policy bindings and exact older requirements under task switches; no universal sufficiency oracle or general obligation algebra. |
 | S10 | Semantic replacement and supersession | 🟡 PARTIAL | Binding replacement and mechanical derived supersession exist; general semantic replacement needs owner-specific admission. |
 | S11 | Cross-model semantic continuity | 🟡 PARTIAL | [Effect/model replacement][continuity], [I05][i05]; mature cold-state substitution is not fully proven. |
 
@@ -211,12 +212,12 @@ ESTABLISHED=28 PARTIAL=22 OPEN=14 LATER=4 TOTAL=68
 
 | ID | Property | Maturity | Evidence / precise boundary |
 |---|---|---|---|
-| C01 | Provider-independent working-state selection | 🟡 PARTIAL | Projection/Residency/ContextFrame are bounded compilation footholds, not the definition of memory. |
+| C01 | Provider-independent working-state selection | 🟢 ESTABLISHED | [State compiler][state-refoundation]: one deterministic qualified selector before context lowering; model profile does not rank W. |
 | C02 | Authority/disclosure-aware general compilation | 🟡 PARTIAL | Current admitted view and mandatory-state selection are enforced; generalized state-page compilation is absent. |
-| C03 | Explicit SemanticState representation | 🔴 OPEN | Provisional concept, no general IR/schema or new owner selected. |
-| C04 | SemanticStateFrame | 🔴 OPEN | Provisional representation, not an alias that promotes ContextFrame into a finished compiler. |
-| C05 | SemanticStateDelta | 🔴 OPEN | Needs source/destination, provenance, invalidation and full-rebuild equivalence; not the deferred context transport delta. |
-| C06 | Active working-set compilation and Case-age locality | 🔴 OPEN | General scoped W_t compiler absent; bounded historical fixtures do not prove task-sufficient age independence or whole-Case/working-state separation. |
+| C03 | Explicit SemanticState representation | 🟢 ESTABLISHED | [State compiler][state-refoundation]: immutable replay-qualified composition of existing Case owners, typed epistemic classes and exact provenance; no new canonical owner. |
+| C04 | Bounded SemanticWorkingState representation | 🟢 ESTABLISHED | [State compiler][state-refoundation]: v1 source/request/generation-bound W; exact required refs, disclosure, budgets, omissions and stale/tamper refusal. Not a future public model-state schema. |
+| C05 | Derived SemanticDelta and full-compilation equivalence | 🟢 ESTABLISHED | [State compiler][state-refoundation]: forward source/destination/request-bound additions/replacements/removals; checked application explicitly uses full recompilation. No optimized incremental claim. |
+| C06 | Active working-set compilation and Case-age locality | 🟡 PARTIAL | [State compiler][state-refoundation]: 8 versus 1,206 Transitions select 6 entries and comparable units, retaining an exact older requirement. Host replay cost and universal sufficiency remain open. |
 | C07 | Exact scoped state references / demand expansion | 🔴 OPEN | Current exact IDs are foundations, not a semantic paging API or ambient access. |
 | C08 | Context-compatible lowering with exact execution lineage | 🟢 ESTABLISHED | [I03][i03], [I06][i06], [Golden][golden]; bounded generic adapter proof in loopback, not every live deployment. |
 | C09 | Target capability negotiation | 🟡 PARTIAL | Semantic suitability and mechanical shapes are separate; public persistent-state capabilities are not integrated. |
@@ -279,9 +280,9 @@ ESTABLISHED=28 PARTIAL=22 OPEN=14 LATER=4 TOTAL=68
 
 | ID | Property | Maturity | Evidence / precise boundary |
 |---|---|---|---|
-| Q01 | Proof/provider topology and deterministic publication union | 🟢 ESTABLISHED | [TEST.TOPOLOGY.0][topology], [current regression][presentation]; classification/reachability and no fixture-to-external promotion. |
-| Q02 | Golden local cumulative product lifecycle | 🟢 ESTABLISHED | [Golden][golden], [current free/Workflow rerun][presentation]; real executable/stores/adapters, loopback model only. |
-| Q03 | External YVEX product qualification | 🟡 PARTIAL | [Public probes and Case refusal][connection]; no complete external Golden PASS or model-quality claim. |
+| Q01 | Proof/provider topology and deterministic publication union | 🟢 ESTABLISHED | [TEST.TOPOLOGY.0][topology], [current compiler regression][state-refoundation]; classification/reachability and no fixture-to-external promotion. |
+| Q02 | Golden local cumulative product lifecycle | 🟢 ESTABLISHED | [Golden][golden], [current S/W free/Workflow rerun][state-refoundation]; real executable/stores/adapters, loopback model only. |
+| Q03 | External YVEX product qualification | 🟡 PARTIAL | [Public probes][connection] and [external Golden 413][state-refoundation]; no complete external Golden PASS or model-quality claim. |
 | Q04 | Human Golden acceptance | 🔴 OPEN | [Runbook](docs/zero-to-current.md) prepared; PENDING_OPERATOR, not automated human PASS. |
 | Q05 | Long-lived continuity canary | 🔴 OPEN | Operator procedure recorded; retained cross-upgrade Case not exercised by this closure. |
 | Q06 | Cognitive-state comparative evaluation | 🔴 OPEN | Scoped S_t/W_t/task/admitted-consequence trajectories and state-augmented model comparisons are research; no qualified benchmark or training-dataset owner. |
@@ -313,11 +314,11 @@ Letters are local shorthand, not the numbering of historical W/I/R waves.
 | **K — Case Kernel & Canonical State**: durable identity, history and current truth | K01–K04; immutable payload/reference distinction | Portable upgrade coverage and general state relations | Keep new state meaning replayable and generation-scoped | Typed relation with exact payload ownership, replay and recovery evidence | No blob ledger or universal attachment owner |
 | **A — Authority & Governance**: govern semantic and operational admission | A01–A05; Principal/Participant, policy, review, Grant, temporal authority | Broader disclosure and credential integrations | Ensure state compilation/expansion cannot widen authority | Negative scope, revocation and current-generation proof for a new consumer | Neither model output nor a capability catalog grants authority |
 | **S — Semantic Cognitive State**: preserve model-independent task and Case meaning | S01–S07/S10 foundations; typed history, evidence and consequences | Immediate/task/Case/slow semantic timescales, task/big-picture separation, generic deltas | Identify semantic producers and admission/supersession rules; do not import E_t as Case truth | Explicit bounded state model preserving provenance and current meaning | No mutable mega-object; derived assertions do not become canonical facts |
-| **C — State Compilation & Cognitive Boundary**: compile governed semantic working state | Projection/ContextFrame compatibility footholds; exact target contracts | C03–C07, C10–C12/C14: scoped W_t, Frame/Delta, locality, experiential State Read/Update | Define bounded S → W compilation, compatibility consumer and future public W → E boundary | Qualified full/delta equivalence and refusal; later a real persistent-state consumer | No model adapters, tensors, latent layouts, KV or YVEX placement in YAI |
+| **C — State Compilation & Cognitive Boundary**: compile governed semantic working state | Bounded S → W, derived delta/full fallback, context-compatible Projection/ContextFrame | General sufficiency, paging and C10–C12/C14 public state contracts | Measure reconstruction and qualify future consumers without implementing E_t in YAI | Proven new source/fallback class or public W → E consumer with independent oracle | No model adapters, tensors, latent layouts, KV or YVEX placement in YAI |
 | **E — Cognitive Execution**: exact responsibility and provider-independent intent | I02–I06 planning, arbitration, realization, composition and host | Production suitability, capacity negotiation and setup costs | Resolve observed public-capacity/setup pressure without brand-specific routing | Same exact-plan guarantees with a new qualified execution shape/target | Cognitive arbitration is not transport failover or resource scheduling |
 | **O — Operational World**: governed observations, attachments and effects | Golden filesystem/process/SQLite/HTTP/MCP/discovery verticals | General adapter coverage and external ambiguity | Keep future model state requests within the existing capability/admission path | New concrete consumer plus DENY/review, drift, recovery and isolation proof | No ConnectorStore/ToolStore; a database Resource is not YAI memory |
 | **W — Workflow & Composition**: explicit progression and bounded delegation | Workflow amendments/PlanPatch, I04 composition and exact Handoff | Broader delegation and future Agent compositions | Preserve one resource/authority substrate in free and Workflow work | Replayable progression and explicit adoption across a new consumer | Workflow/Agent is not Case continuity or a private execution universe |
-| **M — Derived State & Semantic Access**: rebuildable access and evidence derivation | W19/H19/W20; graph and analytics | Generic causal access, retrieval quality/scale and state-selection consumers | Reposition derived access as semantic compilation input, not prompt stuffing | Rebuild invariance plus relevance/provenance evidence for a bounded question | Index, summary, episode and similarity are not historical authority |
+| **M — Derived State & Semantic Access**: rebuildable access and evidence derivation | W19/H19/W20; graph/analytics; canonical reconstruction for W | Generic causal access, retrieval quality/scale and accelerators equivalent to fallback | Keep explicit indexed search; no implicit encoder call required for compilation | Rebuild invariance plus relevance/provenance evidence | Index, summary, episode and similarity are not historical authority |
 | **X — Product Interfaces**: thin, usable views over Case semantics | Guided CLI, native REPLAI, application controller, cumulative runbook | Broader API clients, setup ergonomics; Studio later | Keep short product actions and model/system output distinct | Product acceptance through typed seams, without shelling out or moving semantics into UI | REPLAI owns terminal mechanics only; no ChatStore |
 | **Q — Qualification**: independent evidence for each claimed property | TEST.TOPOLOGY.0 and deterministic Golden lifecycle | External Golden, human/canary, cross-model and experiential-state evaluation | Retain failures; define scoped semantic trajectory oracles for compatibility, training-free and learned experiments | Correct proof/provider mode plus negative/recovery/product/external/human evidence as claimed | No training-dataset owner; a fixture, generated report or PASS cache is not semantic authority |
 | **F — Federation & Scale**: future distributed continuity | Single-host multi-Case scheduling/fencing | Cross-host coordination and federation | Establish local state/authority correctness first | Explicit conflict, disclosure, revocation and recovery contracts across hosts | No global Space or shared database by implication |
@@ -331,11 +332,11 @@ Golden supplies a common Case/task workload; it owns none of these semantics.
 | Pressure | Evidence posture | Existing control / future falsifier |
 |---|---|---|
 | Long-lived Case on context-only target | PARTIAL | Current canonical continuity and bounded host tests; no retained mature operator canary qualification. Continue a bounded task without importing all chat history. |
-| Whole Case S_t versus bounded W_t | OPEN | Compile one task/Participant's relevant state with exact provenance and budget; reject irrelevant or unauthorized material. A bounded selection that omits necessary state fails, as does automatically lowering the whole Case. |
+| Whole Case S_t versus bounded W_t | PARTIAL | [State compiler][state-refoundation]: exact requirements, bounds and disclosure negatives; general task sufficiency remains open. |
 | Cold, zero-continuation model replacement | PARTIAL | Exact target/lane replacement is tested in [I05][i05]; not a mature-Case cold-state oracle. Replace the model/profile, invalidate E_t and recompile sufficient W_t from S_t without inherited state, full history injection or Case recreation. |
-| Active task versus Case-age locality | OPEN | Hold task/current meaning equivalent while radically varying history length; execution working sets should be comparable, not linear in Case age. Large genuinely necessary task context remains allowed. |
-| Task-local versus Case/big-picture state | OPEN | Switch tasks while retaining relevant slow/stable constraints and obligations, respecting supersession and excluding irrelevant experience. Semantic immediate/task/Case/slow classes prescribe no tensors; a narrative summary alone is insufficient. |
-| Full W_t reconstruction versus semantic delta | OPEN | Reconstructed W_t and qualified delta application must agree in admitted meaning, provenance, scope and dependencies under supersession, removal, stale generation and restart. No bit-identical E_t requirement or delta schema is implied. |
+| Active task versus Case-age locality | PARTIAL | [State compiler][state-refoundation]: 8 and 1,206 Transitions with equivalent task/constraint yield comparable W; no age-independent CPU or universal sufficiency claim. |
+| Task-local versus Case/big-picture state | PARTIAL | Current policy binding and explicit older requirement survive a task switch; replaced/unbound policy cannot remain current. General timescales remain OPEN. |
+| Full W_t reconstruction versus semantic delta | ESTABLISHED, bounded | [State compiler][state-refoundation]: checked forward deltas equal full W for supported changes; stale sources/requests refuse. Explicit full fallback, not incremental speed or E_t equivalence. |
 | Derived-state amnesia | ESTABLISHED, bounded | [Golden][golden] drops/rebuilds its disposable graph/index/memory and compares canonical truth. Owned immutable bytes and canonical ledgers are NOT disposable; this does not qualify every future derivation family. |
 | Training-free persistent-state realization | OPEN | Qualified W_t → exact persistent prefix/KV/hidden E_t → observed model reuse may qualify bounded State Read. Prove provenance, model/profile, reuse, invalidation and reconstruction; persistence alone and an unqualified endpoint cannot pass. |
 | Experiential State Read and incremental external update | OPEN | Consume independently persistent E_t; apply qualified working-state deltas through YVEX and compare task semantics with full reconstruction. Stale scope/profile or ignored state must fail; YAI does not write latent bytes. |
@@ -352,24 +353,27 @@ No YAI test gains permission to administer YVEX internals or discard operator st
 
 ## Current Execution Sequence
 
-Temporal status is separate from maturity. There is exactly one selected
-implementation boundary; recording it does not mean source work has started.
+Temporal status is separate from maturity. The single control row records the
+closed implementation boundary until a successor is explicitly selected; closure
+does not authorize the next experiment.
+
+Next implementation boundary: **UNSELECTED**.
 
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| SEMANTIC.STATE.REFOUNDATION.0 | SELECTED_NOT_STARTED | R K S C M Q | Explicit semantic-state ownership under existing owners; bounded S_t → W_t compilation with intent/authority/relevance/budget and semantic full/delta equivalence; context compatibility as one lowering and a clean future W_t → E_t boundary. E_t is not implemented inside YAI; preserve Golden. |
+| SEMANTIC.STATE.REFOUNDATION.0 | COMPLETE | R K S C M Q | Qualified S/W and full/delta fallback; context compatibility through the existing host; publication union and Golden local PASS. E_t remains outside YAI. |
 <!-- execution:end -->
 
 **Primary programs: R / K / S / C / M / Q.** A / E / O / W / X are protected
 invariants and existing consumers to preserve or reconnect, not co-primary
 redesign mandates. This boundary does not authorize rewriting the whole product.
 
-Before authorizing source mutation, resolve the bounded state producer/consumer,
-admission and supersession rules, current-state versus derived-state distinction,
-scope/generation checks, compilation budget and full/delta compatibility oracle.
-Use archaeology to decide whether any serialized meaning actually changes.
-There is no preselected module tree, database, schema, API or migration.
+The [implementation evidence][state-refoundation] records composition, compiler
+identities, scope/budget refusal and full/delta fallback. Only derived contracts
+advance; no new database or canonical mutation API. Remaining pressure is measured
+rebuild cost, broader locality and a truthful public computational-state consumer,
+not an automatic next wave.
 
 The external request-capacity and connection-probe costs remain E/X/Q pressure,
 not a second selected wave and not evidence that the state refactor fixes them.
@@ -384,8 +388,8 @@ fall in later horizons.
 
 | Horizon | Property pressure | Dependency / admission to work |
 |---|---|---|
-| Now | Semantic-state architecture/refoundation | Selected boundary above; bounded source contract still required |
-| Near | Explicit semantic state, provisional Frame/Delta and context compatibility | Proven current-state ownership, producer/consumer and replay equivalence |
+| Now | Select the next demonstrated boundary after bounded S/W qualification | Closed boundary above; reconstruction cost, locality and public capacity/state contracts remain pressure, not automatic authorization |
+| Near | Generalize demonstrated state-source/full-delta consumer gaps | Preserve S/W qualification, owner-specific admission and context compatibility |
 | Near | Semantic locality, working-set compilation and scoped state references | Authority-aware selection; exact resolution and refusal; no ambient handles |
 | Near / Mid | Public W_t → E_t boundary and first persistent State Read consumer | Truthful public capability and actual consumer; a qualified training-free KV/prefix bridge is admissible |
 | Mid | Cross-model W_t/E_t recompilation, trajectory evaluation and admission of explicit P_t | Reconstruction/invalidation and independent full/delta oracles; E_t updates need not emit P_t |
@@ -400,20 +404,21 @@ product/research properties, not a maturity percentage.
 
 | Gate / consumer | Current posture | What it authorizes |
 |---|---|---|
-| Deterministic software publication | Published local release/characterization evidence in [presentation closure][presentation]; not rerun by this docs closure | Classified no-provider and loopback properties, not live model interoperability |
-| Golden local product lifecycle | Published PASS, deterministic model with real local persistence/resource adapters and protocol peers | Bounded free/Workflow, authority, replay/rebuild/recovery/isolation lifecycle; separate Golden lane, not folded into `make check` |
-| External YVEX Golden | Partial probes; real Case request rejected with 413; complete lifecycle NOT QUALIFIED | Only the exact public interactions observed; no external Golden PASS |
+| Deterministic software publication | [Current full publication/characterization union PASS][state-refoundation] | Classified no-provider and loopback properties, not live model interoperability |
+| Golden local product lifecycle | [Current PASS][state-refoundation], deterministic model with real local persistence/resource adapters and protocol peers; exact Invocation → W and rebuild equality | Bounded free/Workflow, authority, replay/rebuild/recovery/isolation lifecycle; separate Golden lane, not folded into `make check` |
+| External YVEX Golden | Actual current attempt FAIL: first work request rejected with 413; complete lifecycle NOT QUALIFIED | Only the exact public interactions observed; no external Golden PASS |
 | Human Golden | PENDING_OPERATOR | Only a human may report acceptance at an exact YAI/external identity |
 | Continuity canary | NOT_RUN | Operator-owned retained Case across upgrades; never reset by automated qualification |
-| Semantic-state refoundation | SELECTED_NOT_STARTED | No runtime/compiler/state-schema completion claim |
+| Semantic-state refoundation | COMPLETE, bounded | Replay-qualified composition, W, checked delta/full fallback and context-compatible Golden; no universal locality or E_t proof |
 | Cross-model / cross-state qualification | OPEN | Same-Case/task comparisons of compatibility, training-free and state-augmented pretrained/native modes; semantic trajectory oracles, not a training pipeline |
 | Product packaging/release | Scope UNSELECTED | No invented version, deployment or production-readiness guarantee |
 
 The current external observation is against the operator-supplied public target
 `http://127.0.0.1:18001`, model
-`deepseek-v4-flash-mixed-mxfp4-release-v1`; [connection evidence][connection]
-records synthetic text/functions/JSON qualification and the subsequent Case
-`request_too_large` refusal. This is not source inspection, a loopback fixture,
+`deepseek-v4-flash-mixed-mxfp4-release-v1`; [current external evidence][state-refoundation]
+records real connection and a Golden request with 40,438 request bytes written
+followed by `request_too_large`. Earlier [connection evidence][connection]
+remains historical. This is not source inspection, a loopback model fixture,
 or a diagnosis of private YVEX internals. DeepSeek is a reference consumer, not a
 semantic branch. Qwen/model replacement is prepared, not externally qualified.
 When no exact live target is available, report NOT_RUN / DEPLOYMENT_LIMITATION;
@@ -421,8 +426,9 @@ never replace it with a fixture and report PASS.
 
 [ZERO-TO-CURRENT](docs/zero-to-current.md) remains the single cumulative human
 product runbook. A future user-visible or Case-semantic change updates that same
-procedure, not a delta-only manual. This documentation-only refoundation leaves
-its commands unchanged because it changes no product behavior. Every relevant
+procedure, not a delta-only manual. This source refoundation leaves product
+commands unchanged: compilation changes internally, not operator actions or
+admission. The cumulative runbook remains human acceptance authority. Every relevant
 handoff retains AUTOMATED REGRESSION (proof/provider axes), GOLDEN LOCAL,
 EXTERNAL YVEX, CANARY, HUMAN, RUNBOOK and exact BLOCKERS. Human PASS cannot be
 silently carried to a changed lifecycle.
@@ -461,8 +467,8 @@ test proof/provider metadata; a roadmap row never reclassifies test evidence.
 
 | Claim not made now | Truthful boundary |
 |---|---|
-| Fully implemented SemanticState IR / general W_t compiler | False. Typed current state and bounded selection/rendering are foundations, not completed S → W compilation. |
-| SemanticStateFrame / SemanticStateDelta implemented | False. Names are provisional; no new source type, schema or owner is authorized here. |
+| Fully implemented universal SemanticState IR / task-sufficiency compiler | False. Bounded S/W v1 exists for current sources, not all future families, timescales or task requirements. |
+| Public SemanticStateFrame / optimized incremental compilation | False. Internal W and derived SemanticDelta v1 exist; checked application fully recompiles. No public YVEX state frame or incremental performance claim. |
 | Integrated model-native persistent cognitive state / public YVEX cognitive-state contract | False. Adopted target, OPEN capability boundary, not an invented protocol. |
 | Native State Read / State Update implemented | False. Both OPEN now; persistence alone proves neither. Qualified semantic-working-state → persistent-KV lowering/reuse remains a possible bounded State Read experiment. |
 | Experiential Computational State implemented in YAI / current model has a native experiential stream | False. E_t is a model-native computational target below YAI; no current model is certified by this terminology. |
@@ -476,7 +482,7 @@ test proof/provider metadata; a roadmap row never reclassifies test evidence.
 | Universal database/HTTP/MCP/process/framework support | False. Golden's implemented operations are bounded, governed verticals, not ambient tools or unrestricted shell. |
 | Named v0.1 scope / generic production readiness | Unselected; local proof is not product release qualification. |
 
-No I07, H20/W21/W22, post-I10 runtime implementation, Studio, private YVEX
+No I07, H20/W21/W22, experiential-state consumer, Studio, private YVEX
 client, shared state database or computational-state ownership transfer begins
 here. Historical wave exclusions remain scoped to their reports: later Golden
 resources and guided product actions are not erased by an older non-goal.
@@ -510,7 +516,9 @@ no model-family inference can promote a target.
 
 Update this document in place; Git owns previous snapshots. When a wave closes:
 
-1. Replace Current Snapshot and advance the single selected execution boundary.
+1. Replace Current Snapshot and advance the single execution control row. A
+   COMPLETE row leaves the next boundary explicitly UNSELECTED until a decision;
+   it does not automatically authorize a successor.
 2. Promote only affected matrix rows from evidence; recompute counts from those
    rows alone. Counts describe rows, never percentage completion.
 3. Update affected programs, dependencies and spectrum verdicts without creating
@@ -571,3 +579,5 @@ the S → W → E clarification is scoped in the
 [guided]: refoundation/validation/guided-case-cli/REPORT.md
 [connection]: refoundation/validation/single-connect/REPORT.md
 [presentation]: refoundation/validation/conversation-presentation/REPORT.md
+
+[state-refoundation]: refoundation/validation/semantic-state-refoundation/REPORT.md

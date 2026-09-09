@@ -46,7 +46,8 @@ authoritative for their own non-architectural subjects.
   dispositions, and rejected meanings.
 - [State and transitions](reference/state-transitions.md) owns canonical state,
   transition phases, evidence roles, and external-effect recovery.
-- [Context](reference/context.md) owns Projection, Residency, ContextFrame,
+- [Context](reference/context.md) describes qualified S/W compilation and derived
+  semantic delta, context-compatible Projection, Residency, ContextFrame,
   ContextDelta posture, rendering, tokenization, and continuity distinctions.
 - [Boundaries](reference/boundaries.md) owns the YAI↔provider/YVEX and
   YAI↔external-resource contracts.

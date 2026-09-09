@@ -208,10 +208,13 @@ grep -Fq 'runtime_status: Completed' <<<"$final_turn"
   grep -Fq 'artifact_kind: projection'
 "$YAI_BIN" case context show case:w20-memory --kind context-frame | \
   grep -Fq 'artifact_kind: context_frame'
-retrieval="$("$YAI_BIN" case memory retrieval show case:w20-memory \
-  --json)"
-grep -Fq 'yai.retrieval_set.v3' <<<"$retrieval"
-grep -Fq 'memory-hierarchy:' <<<"$retrieval"
+projection="$("$YAI_BIN" case context show case:w20-memory --kind projection)"
+WORKING_ID="$(sed -n 's/^working_state_id: //p' <<<"$projection")"
+[[ "$WORKING_ID" == working-state:* ]]
+working="$("$YAI_BIN" context inspect --id "$WORKING_ID")"
+grep -Fq 'recompiled_from_canonical_history: true' <<<"$working"
+grep -Fq 'derived_memory' <<<"$working"
+grep -Fq 'canonical_reconstruction_no_index_dependency' <<<"$working"
 
 printf 'episodic_semantic_memory: pass\n'
 printf 'episode_schema: yai.memory_episode.v1\n'

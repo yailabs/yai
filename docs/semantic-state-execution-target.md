@@ -48,7 +48,7 @@ source subsystems:
 | Canonical history and owned objects | Transition Ledger owns Case history; content/artifact owners preserve non-reconstructible payload; external references retain exact provenance | I01 immutable content and I03 derived-content lineage exist; arbitrary external object families are not thereby implemented |
 | Authoritative current materialization | CaseState is current admitted state for a generation, rebuildable from history, never an independent mutable truth | Lifecycle, Participants, logical bindings and current authority refs exist; no universal state bag is proposed |
 | Derived semantic state | Graph, indexes, operational/episodic/semantic memory, retrieval and analytics remain rebuildable | W19/H19/W20 establish bounded access/derivation contracts, not an automatic semantic authority |
-| Execution working state | Consumer-specific selection of intent, scope, authority/disclosure, dependencies, target capabilities and budget | Projection/Residency/ContextFrame and I02–I06 supply parts; a general working-state compiler is a target |
+| Execution working state | Consumer-specific selection of intent, scope, authority/disclosure, dependencies, target capabilities and budget | Bounded S/W compiler with context compatibility exists; generic state paging and universal task sufficiency remain targets |
 | Target realization | Adapters lower admitted semantic input into a target-native form; physical execution belongs below that boundary | Existing provider render and typed realization exist; persistent State Read/Update are adopted targets with unimplemented consumers, not current capabilities |
 
 **State Fabric** names only this architectural composition. It is **not** a
@@ -113,8 +113,10 @@ sources. Relevance cannot override disclosure. Case age does not require the
 entire Case to be lowered; boundedness cannot excuse dropping necessary state.
 YVEX need receive only qualified W_t/input, not all of S_t. Provisional
 SemanticStateFrame/Delta describe W_t representation/changes, not latent layouts.
-Current Projection/ContextFrame/retrieval/residency remain footholds, not a
-renaming into a finished general W_t compiler.
+The bounded source implementation now composes qualified SemanticState and compiles
+SemanticWorkingState before Projection/ContextFrame lowering. This is not a claim
+of universal task sufficiency, semantic paging or a public E_t consumer; see
+[current architecture](architecture.md#current-provider-and-context-behavior).
 
 ### Two evolution loops, two admission meanings
 
@@ -207,9 +209,9 @@ separately from model-visible context size.
 
 ## Working-state compilation — target; representation is provisional
 
-Current Projection/ContextFrame select and render semantic material for an
-invocation. They are bounded compilation footholds, not the definition of
-memory. The selected future program should investigate their evolution toward:
+Current SemanticState/SemanticWorkingState contracts provide bounded qualified
+composition and selection, followed by context-compatible Projection/ContextFrame.
+They are not the definition of memory. The target program still extends toward:
 
 ```text
 Canonical / derived Case state + current intent + authority/disclosure
@@ -222,10 +224,12 @@ W_t: provider-independent active semantic working state
 Public cognitive-state boundary → YVEX lowering → E_t
 ```
 
-`SemanticStateFrame` / `SemanticStateDelta` (earlier discussion used
-`ExecutionFrame`) are provisional names for intermediate semantic
-representations, **not implemented components or frozen schemas**. They must not
-duplicate Projection, ContextFrame, CaseState or the current intent owner.
+`SemanticStateFrame` (earlier discussion used `ExecutionFrame`) remains a provisional
+generalized representation, not a fixed future wire schema. Current bounded W and
+derived SemanticDelta v1 are implemented internal contracts; delta application
+explicitly falls back to full recompilation. They neither mutate CaseState nor
+implement computational State Update. Future contracts must not duplicate the
+current semantic-state compiler or existing admission owners.
 Typed capability requirements can constrain compilation without placing a model
 family, wire protocol, session ID or physical deployment into semantic identity.
 Evidence must decide whether existing contracts evolve or a distinct contract
@@ -262,7 +266,7 @@ or unobserved provider capability is specified here.
 
 | Mode | Conceptual realization | Required distinction |
 |---|---|---|
-| Context compatibility | W_t rendered/projected into ordinary input; prefill reconstructs computational state | Current bounded context preparation is a foothold; no general W_t compiler or experiential stream is thereby implemented |
+| Context compatibility | W_t rendered/projected into ordinary input; prefill reconstructs computational state | Current bounded S/W compilation and context lowering are implemented; no experiential stream or universal task-sufficiency claim |
 | Persistent context-derived state | W_t lowered into a reusable prefix/KV/hidden realization | Training-free experiment; exact source/scope/profile, observed reuse and invalidation need evidence |
 | Experiential State Read | Independently persistent model-native E_t explicitly consumed by the model | Persistence must actually carry qualified working-state meaning, not merely exist |
 | Experiential State Read + external update | YVEX incrementally updates E_t from qualified semantic working-state deltas | Current scope, supersession and full-reconstruction equivalence must survive; no YAI tensor writes |
@@ -408,10 +412,10 @@ State Read/Update remain distinct from hypothetical implementations. No schema,
 H20/W21/W22, REPLAI change, Studio or runtime refactor is authorized by this
 documentation.
 
-The general W_t compiler is not implemented. E_t is not implemented inside YAI;
+The bounded S → W compiler is implemented; universal sufficiency, semantic paging
+and optimized incremental compilation are not. E_t is not implemented inside YAI;
 no current model is claimed to possess a native experiential stream. No
 state-augmented training, model-state adapter or latent-state owner is introduced.
-The selected future refoundation remains limited to explicit semantic-state
-meaning, W_t compilation, semantic full/delta equivalence and context
-compatibility with a clean future public cognitive-state boundary, not E_t in
-YAI. Its primary programs and SELECTED_NOT_STARTED status remain Roadmap-owned.
+The source refoundation covers explicit qualified semantic-state meaning, bounded
+W_t compilation, semantic full/delta equivalence and context compatibility, not
+E_t in YAI. Current execution selection and maturity remain Roadmap-owned.

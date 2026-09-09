@@ -143,6 +143,9 @@ def main():
                         return bytes(output[offset:])
                     execution_wait = needle in (b"Response received.", b"Human review required.")
                     if execution_wait and any(marker in output[offset:] for marker in (b"Execution unresolved:", b"Execution unavailable", b"Execution failed:")):
+                        # Inspect the canonical/application refusal, never retry
+                        # possibly delivered work merely to improve evidence.
+                        action("/details", b"[/YAI details]")
                         record(failure="different execution posture",output_tail_hex=bytes(output[-4096:]).hex())
                         raise AssertionError(output[-4096:].decode(errors="replace"))
                     if execution_wait and b"\x1b[?2004h" in output[offset:] and b"Message saved." in output[offset:]:
@@ -290,7 +293,23 @@ def main():
                 action("/workflow input verify actual passing test and replay verified",b'"workflow_input": "committed"')
                 action("/workflow advance",b'"completed": true')
                 action("/verify",b'"replay_equal": true')
+            compiled_history = json.loads(cli("case","history",case_id,"--limit","256","--json"))["data"]["value"]["transitions"]
+            invocation = next(t["payload"]["data"] for t in reversed(compiled_history)
+                              if t["payload"]["kind"] == "provider_invocation_started")
+            projection = cli("context","inspect","--id",invocation["semantic_lineage"]["projection_id"])
+            working_id = re.search(r"^working_state_id: (.+)$",projection,re.M)[1]
+            assert working_id.startswith("working-state:")
+            working_before = cli("context","inspect","--id",working_id)
+            assert "recompiled_from_canonical_history: true" in working_before
+            working = json.loads(working_before.split("\n",2)[2])
+            assert working["case_id"] == case_id and working["participant_id"] == MODEL
+            assert working["bounds"]["selected_items"] <= working["request"]["scope"]["max_items"]
+            assert working["bounds"]["selected_semantic_units"] <= working["request"]["max_semantic_units"]
             action("/rebuild", b'"canonical_history_unchanged": true')
+            assert cli("context","inspect","--id",working_id) == working_before
+            record(semantic_working_state="recompiled_equal_after_derived_rebuild",working_state_id=working_id,
+                   source_id=working["source_id"],bounds=working["bounds"],
+                   invocation_id=invocation["invocation_id"],projection_id=invocation["semantic_lineage"]["projection_id"])
             action("/memory", b'"authority": "derived"')
             action("/graph", b'"authority": "derived"')
             if not workflow:
@@ -383,6 +402,7 @@ def main():
                 verified = cli("case","memory","index","verify",case_id,"--profile",profile)
                 assert "posture: current" in verified
                 cli("case","memory","index","drop",case_id,"--profile",profile)
+                assert cli("context","inspect","--id",working_id) == working_before
                 rebuilt = cli("case","memory","index","rebuild",*build_args)
                 assert re.search(r"^index_manifest_id: (.+)$",rebuilt,re.M)[1] == index
                 searched = cli("case","memory","search",case_id,"--participant",MODEL,"--query","release retry process",
@@ -390,11 +410,15 @@ def main():
                 assert "plane: lexical_bm25 available:true" in searched
                 assert "plane: vector_exact_cosine available:true" in searched
                 assert cli("case","history",case_id,"--limit","256","--json") == before_index
+                assert cli("context","inspect","--id",working_id) == working_before
                 record(index_rebuild="PASS",profile_id=profile,index_id=index,canonical_history_unchanged=True,
                        provider_mode="loopback_fixture",scope="existing W19/W20 encoder and canonical Golden Case")
             record(result="PASS", property="reference work through real Product; review/restart/replay; no retry duplicates",
                    workflow=workflow, model_dispatches=calls_after,provider_mode="external_yvex" if external else "loopback_fixture",
                    turn_id=turn,review_id=review,qualification_scope="golden_workflow" if workflow else "golden_free",
+                   working_state_id=working_id,semantic_source_id=working["source_id"],
+                   working_bounds=working["bounds"],working_recompiled_equal_after_rebuild=True,
+                   final_invocation_id=invocation["invocation_id"],
                    external_request_attempted=external,human_golden_case="PENDING_OPERATOR")
         finally:
             if terminal and terminal.poll() is None:

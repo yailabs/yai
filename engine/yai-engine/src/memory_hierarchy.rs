@@ -902,12 +902,22 @@ pub fn extract_mechanical_assertions(
                 provider_id,
                 preview,
                 ..
-            } => (
-                SemanticSubject::ProviderTarget(provider_id.clone()),
-                "provider.claim".to_string(),
-                SemanticValue::String(scrub_provider_claim(preview)),
-                EpistemicClass::ProviderOriginatedClaim,
-            ),
+            } => {
+                let value = scrub_provider_claim(preview);
+                // An empty result is still recorded execution evidence, but
+                // contains no proposition to turn into a semantic assertion.
+                // Keep its ProviderResult/operational lineage; do not invent
+                // text or make all subsequent reconstruction fail.
+                if value.trim().is_empty() {
+                    continue;
+                }
+                (
+                    SemanticSubject::ProviderTarget(provider_id.clone()),
+                    "provider.claim".to_string(),
+                    SemanticValue::String(value),
+                    EpistemicClass::ProviderOriginatedClaim,
+                )
+            }
         };
         assertions.push(SemanticMemoryAssertion::build(
             case_id,
@@ -1879,6 +1889,48 @@ mod tests {
             vec!["participant:test".to_string()],
         )
         .unwrap()
+    }
+
+    #[test]
+    fn empty_provider_result_retains_lineage_without_an_invented_assertion() {
+        for output in ["", " \n\t", "a non-authoritative claim"] {
+            let history = vec![
+                committed(
+                    "case:test",
+                    1,
+                    TransitionPayload::ProviderInvocationStarted {
+                        invocation_id: "invocation:test".into(),
+                        participant_id: "participant:test".into(),
+                        provider_id: "provider:test".into(),
+                        provider_kind: "openai_compatible".into(),
+                        model_id: "model:test".into(),
+                        semantic_lineage: None,
+                        governance: None,
+                    },
+                ),
+                committed(
+                    "case:test",
+                    2,
+                    TransitionPayload::ProviderResultRecorded {
+                        result_id: "result:test".into(),
+                        invocation_id: "invocation:test".into(),
+                        provider_id: "provider:test".into(),
+                        provider_kind: "openai_compatible".into(),
+                        model_id: "model:test".into(),
+                        semantic_lineage: None,
+                        output: output.into(),
+                    },
+                ),
+            ];
+            let memory = crate::memory::derive_operational_memory("case:test", &history).unwrap();
+            assert_eq!(memory.entries.len(), 1);
+            assert_eq!(memory.entries[0].provenance.transition_ids.len(), 2);
+            let assertions = extract_mechanical_assertions("case:test", &memory).unwrap();
+            assert_eq!(assertions.len(), usize::from(!output.trim().is_empty()));
+            assert!(assertions
+                .iter()
+                .all(|a| a.epistemic_class == EpistemicClass::ProviderOriginatedClaim));
+        }
     }
 
     #[test]

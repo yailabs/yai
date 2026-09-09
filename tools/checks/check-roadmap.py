@@ -14,7 +14,7 @@ from urllib.parse import unquote
 ROOT = Path(__file__).resolve().parents[2]
 STATES = {"🟢 ESTABLISHED": "ESTABLISHED", "🟡 PARTIAL": "PARTIAL",
           "🔴 OPEN": "OPEN", "⚪ LATER": "LATER"}
-TEMPORAL = {"SELECTED_NOT_STARTED", "IN_PROGRESS", "BLOCKED"}
+TEMPORAL = {"SELECTED_NOT_STARTED", "IN_PROGRESS", "BLOCKED", "COMPLETE"}
 AUTHORITY = "Authority: living public project control."
 SECTIONS = (
     "At a Glance / Current Snapshot", "System Maturity", "Strategic Programs",
@@ -130,6 +130,8 @@ def validate(text, root=ROOT, check_summary=True):
     snapshot = re.findall(r"^\| Selected engineering boundary \| (.+) \|$", text, re.M)
     if len(snapshot) != 1 or f"{boundary} — {state}" not in snapshot[0]:
         raise ValueError("snapshot and selected execution boundary disagree")
+    if state == "COMPLETE" and text.count("Next implementation boundary: **UNSELECTED**.") != 1:
+        raise ValueError("completed boundary must explicitly leave next implementation UNSELECTED")
     return expected
 
 

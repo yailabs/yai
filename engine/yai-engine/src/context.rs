@@ -1,16 +1,11 @@
-//! Provider-independent semantic projection and invocation framing.
-//!
-//! This module owns one pure derivation boundary:
-//! `CaseState + canonical Transition history -> Projection -> ContextFrame`.
-//! Projection and frame values are immutable, bounded and rebuildable. They do
-//! not own Case continuity, provider wire formats, tokenization or runtime/KV
-//! continuation state.
+//! Context-compatible lowering and invocation framing.
+//! Composition/selection belongs to semantic_state, never to provider runtime.
 
+#[cfg(test)]
 use crate::effect::{DecisionOutcome, EffectOutcome};
-use crate::transition::{
-    CaseLifecycle, CaseState, EffectLifecycle, ResourceKind, ReviewRequirement, ReviewResolution,
-    Transition, TransitionPayload,
-};
+#[cfg(test)]
+use crate::transition::{CaseLifecycle, EffectLifecycle, ReviewResolution, TransitionPayload};
+use crate::transition::{CaseState, Transition};
 use serde::{Deserialize, Serialize};
 
 pub const PROJECTION_SCHEMA_V5: &str = "yai.projection.v5";
@@ -21,202 +16,25 @@ pub const CONTEXT_FRAME_SCHEMA_V6: &str = "yai.context_frame.v6";
 pub const RENDERED_INPUT_SCHEMA_V6: &str = "yai.rendered_input.v6";
 pub const PROJECTION_SCHEMA_V7: &str = "yai.projection.v7";
 pub const CONTEXT_FRAME_SCHEMA_V7: &str = "yai.context_frame.v7";
-pub const PROJECTION_SCHEMA: &str = "yai.projection.v8";
-pub const CONTEXT_FRAME_SCHEMA: &str = "yai.context_frame.v8";
+pub const PROJECTION_SCHEMA_V8: &str = "yai.projection.v8";
+pub const PROJECTION_SCHEMA: &str = "yai.projection.v9";
+pub const CONTEXT_FRAME_SCHEMA: &str = "yai.context_frame.v9";
 pub const RENDERED_INPUT_SCHEMA: &str = "yai.rendered_input.v7";
 pub const DEFAULT_MAX_PROJECTION_ITEMS: usize = 48;
 pub const DEFAULT_MAX_PROVIDER_CLAIMS: usize = 6;
 pub const DEFAULT_MAX_INTERACTION_TURNS: usize = 8;
 pub const DEFAULT_MAX_CLAIM_CHARS: usize = 320;
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ProjectionPurpose {
-    Conversation,
-    FilesystemWriteProposal,
-    ProcessSignalProposal,
-    WorkflowPlanPatchProposal,
-    EffectConsequence,
-    MemoryConsolidation,
-    Inspection,
-}
-
-impl ProjectionPurpose {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Conversation => "conversation",
-            Self::FilesystemWriteProposal => "filesystem_write_proposal",
-            Self::ProcessSignalProposal => "process_signal_proposal",
-            Self::WorkflowPlanPatchProposal => "workflow_plan_patch_proposal",
-            Self::EffectConsequence => "effect_consequence",
-            Self::MemoryConsolidation => "memory_consolidation",
-            Self::Inspection => "inspection",
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct ProjectionVisibility {
-    pub consumer: String,
-    pub view_kind: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AuthorityPosture {
-    CommittedApplicationContent,
-    CommittedOperationalFact,
-    ObservedResourceState,
-    ControlState,
-    DerivedMemory,
-    ProviderClaim,
-    Unresolved,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ProvenanceKind {
-    ContentObject,
-    Transition,
-    Observation,
-    EffectReceipt,
-    CaseStateGeneration,
-    DerivedMemory,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct SemanticProvenance {
-    pub kind: ProvenanceKind,
-    pub source_ref: String,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", content = "value", rename_all = "snake_case")]
-pub enum ProjectedValue {
-    CaseLifecycle {
-        lifecycle: CaseLifecycle,
-    },
-    TenantSecurityDomain {
-        tenant_id: String,
-    },
-    ParticipantBinding {
-        participant_id: String,
-        roles: Vec<String>,
-        admitted_consumer: String,
-        admitted_view_kind: String,
-    },
-    ProviderBinding {
-        provider_id: String,
-        provider_kind: String,
-        model_id: String,
-    },
-    ResourceAttachment {
-        attachment_id: String,
-        resource_kind: ResourceKind,
-        allowed_write_prefix: String,
-        max_write_bytes: usize,
-        review_requirement: ReviewRequirement,
-        #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        process_signal_actions: Vec<crate::effect::ProcessSignalAction>,
-    },
-    DecisionOutcome {
-        operation_id: String,
-        decision_id: String,
-        outcome: DecisionOutcome,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        decision_basis_id: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        effective_policy_id: Option<String>,
-    },
-    ReviewPosture {
-        review_id: String,
-        operation_id: String,
-        reviewer_participant_id: String,
-        status: ReviewResolution,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        latest_action_id: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        effective_decision_id: Option<String>,
-    },
-    ResourceConsequence {
-        operation_id: String,
-        effect_id: String,
-        relative_path: String,
-        lifecycle: EffectLifecycle,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        outcome: Option<EffectOutcome>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        content_digest: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        receipt_id: Option<String>,
-    },
-    ResourceObservation {
-        observation_id: String,
-        operation_id: String,
-        resource_id: String,
-        result_digest: String,
-        preview: String,
-        truncated: bool,
-    },
-    CaseContent {
-        admission_id: String,
-        object: crate::conversation::ConversationContentObject,
-        source_resource_id: String,
-        source_path: String,
-    },
-    ProviderClaim {
-        result_id: String,
-        invocation_id: String,
-        preview: String,
-    },
-    InteractionTurn {
-        turn_id: String,
-        thread_id: String,
-        operator_input: String,
-        result_id: String,
-    },
-    ConversationTurn {
-        turn_id: String,
-        thread_id: String,
-        ordered_parts: Vec<ProjectedConversationContentPart>,
-    },
-    DerivedMemory {
-        memory_ref: String,
-        semantic_kind: String,
-        memory_posture: String,
-        description: String,
-        lifecycle: String,
-        score: i64,
-        ranking_reasons: Vec<String>,
-    },
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct ProjectedConversationContentPart {
-    pub ordinal: u16,
-    pub part_id: String,
-    pub object_id: String,
-    pub modality: crate::conversation::ContentModality,
-    pub media_type: String,
-    pub byte_length: u64,
-    pub content_digest: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>,
-    pub provenance_posture: String,
-    #[serde(default)]
-    pub source_part_ids: Vec<String>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct ProjectionEntry {
-    pub entry_id: String,
-    pub posture: AuthorityPosture,
-    pub value: ProjectedValue,
-    pub provenance: Vec<SemanticProvenance>,
-}
+pub use crate::semantic_state::{
+    AuthorityPosture, ProvenanceKind, SemanticContentPart as ProjectedConversationContentPart,
+    SemanticEntry as ProjectionEntry, SemanticProvenance, SemanticPurpose as ProjectionPurpose,
+    SemanticValue as ProjectedValue, SemanticVisibility as ProjectionVisibility,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct ProjectionBounds {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub working_state_id: Option<String>,
     pub max_items: usize,
     pub selected_items: usize,
     pub omitted_items: usize,
@@ -252,55 +70,10 @@ pub struct Projection {
     pub bounds: ProjectionBounds,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ProjectionRequest {
-    pub participant_id: String,
-    pub purpose: ProjectionPurpose,
-    pub consumer: String,
-    pub view_kind: String,
-    pub max_items: usize,
-    pub max_provider_claims: usize,
-    pub max_interaction_turns: usize,
-}
-
-impl ProjectionRequest {
-    pub fn model(participant_id: impl Into<String>, purpose: ProjectionPurpose) -> Self {
-        Self {
-            participant_id: participant_id.into(),
-            purpose,
-            consumer: "model".to_string(),
-            view_kind: "model_context".to_string(),
-            max_items: DEFAULT_MAX_PROJECTION_ITEMS,
-            max_provider_claims: DEFAULT_MAX_PROVIDER_CLAIMS,
-            max_interaction_turns: DEFAULT_MAX_INTERACTION_TURNS,
-        }
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct DerivedMemoryInput {
-    pub memory_ref: String,
-    pub semantic_kind: String,
-    pub memory_posture: String,
-    pub description: String,
-    pub lifecycle: String,
-    pub score: i64,
-    pub ranking_reasons: Vec<String>,
-    pub transition_refs: Vec<String>,
-    pub observation_refs: Vec<String>,
-    pub receipt_refs: Vec<String>,
-    pub derived_memory_refs: Vec<String>,
-}
-
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct DerivedProjectionInput {
-    pub graph_available: bool,
-    pub memory_available: bool,
-    pub memory: Vec<DerivedMemoryInput>,
-    pub retrieval_id: Option<String>,
-    pub retrieval_candidates: usize,
-    pub retrieval_omitted: usize,
-}
+pub use crate::semantic_state::{
+    DerivedCandidates as DerivedProjectionInput, DerivedMemoryInput,
+    SemanticScope as ProjectionRequest,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "contract", rename_all = "snake_case")]
@@ -418,6 +191,7 @@ pub struct RenderedInput {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "artifact_kind", content = "artifact", rename_all = "snake_case")]
 pub enum SemanticContextArtifact {
+    WorkingState(crate::semantic_state::SemanticWorkingState),
     Projection(Projection),
     ContextFrame(ContextFrame),
     RenderedInputMetadata(RenderedInputMetadata),
@@ -427,6 +201,7 @@ pub enum SemanticContextArtifact {
 impl SemanticContextArtifact {
     pub fn id(&self) -> &str {
         match self {
+            Self::WorkingState(value) => value.id(),
             Self::Projection(value) => &value.projection_id,
             Self::ContextFrame(value) => &value.frame_id,
             Self::RenderedInputMetadata(value) => &value.rendered_input_id,
@@ -436,6 +211,7 @@ impl SemanticContextArtifact {
 
     pub fn case_id(&self) -> Option<&str> {
         match self {
+            Self::WorkingState(value) => Some(value.case_id()),
             Self::Projection(value) => Some(&value.case_id),
             Self::ContextFrame(value) => Some(&value.case_id),
             Self::RenderedInputMetadata(_) => None,
@@ -444,597 +220,31 @@ impl SemanticContextArtifact {
     }
 }
 
+/// Compatibility inspection entrypoint. Owner extraction is shared with the
+/// State Compiler; normal execution compiles a qualified SemanticWorkingState.
 pub fn compile_projection(
     state: &CaseState,
     transitions: &[Transition],
     request: &ProjectionRequest,
     derived: &DerivedProjectionInput,
 ) -> Result<Projection, String> {
-    if request.max_items == 0 {
-        return Err("projection_max_items_must_be_positive".to_string());
-    }
-    if state.generation != transitions.last().map(|item| item.sequence).unwrap_or(0) {
-        return Err("projection_history_generation_mismatch".to_string());
-    }
-    let participant = state
-        .participants
-        .iter()
-        .find(|item| item.participant_id == request.participant_id)
-        .ok_or_else(|| "projection_participant_not_bound".to_string())?;
-    let admitted = participant
-        .admitted_views
-        .iter()
-        .any(|view| view.consumer == request.consumer && view.view_kind == request.view_kind);
-    if !admitted {
-        return Err("projection_view_not_admitted".to_string());
-    }
+    let source = crate::semantic_state::collect_candidates(state, transitions, request, derived)?;
+    lower_candidates(source)
+}
 
-    let mut mandatory = Vec::new();
-    mandatory.push(ProjectionEntry {
-        entry_id: "case:lifecycle".to_string(),
-        posture: AuthorityPosture::CommittedOperationalFact,
-        value: ProjectedValue::CaseLifecycle {
-            lifecycle: state.lifecycle.clone(),
-        },
-        provenance: provenance_for_latest(transitions, |payload| {
-            matches!(
-                payload,
-                TransitionPayload::CaseOpened { .. } | TransitionPayload::TenantCaseOpened { .. }
-            )
-        }),
-    });
-    if let Some(tenant_id) = &state.tenant_id {
-        mandatory.push(ProjectionEntry {
-            entry_id: "case:tenant-security-domain".to_string(),
-            posture: AuthorityPosture::CommittedOperationalFact,
-            value: ProjectedValue::TenantSecurityDomain {
-                tenant_id: tenant_id.clone(),
-            },
-            provenance: provenance_for_latest(transitions, |payload| {
-                matches!(payload, TransitionPayload::TenantCaseOpened { tenant_id: opened, .. } if opened == tenant_id)
-            }),
-        });
-    }
-    mandatory.push(ProjectionEntry {
-        entry_id: format!("participant:{}", request.participant_id),
-        posture: AuthorityPosture::CommittedOperationalFact,
-        value: ProjectedValue::ParticipantBinding {
-            participant_id: request.participant_id.clone(),
-            roles: participant.roles.clone(),
-            admitted_consumer: request.consumer.clone(),
-            admitted_view_kind: request.view_kind.clone(),
-        },
-        provenance: provenance_for_latest(transitions, |payload| {
-            matches!(
-                payload,
-                TransitionPayload::ParticipantAdmitted { participant_id, consumer, view_kind }
-                    if participant_id == &request.participant_id
-                        && consumer == &request.consumer
-                        && view_kind == &request.view_kind
-            )
-        }),
-    });
-    if let Some(provider) = &state.provider {
-        if provider.participant_id == request.participant_id {
-            mandatory.push(ProjectionEntry {
-                entry_id: "provider:binding".to_string(),
-                posture: AuthorityPosture::CommittedOperationalFact,
-                value: ProjectedValue::ProviderBinding {
-                    provider_id: provider.provider_id.clone(),
-                    provider_kind: provider.provider_kind.clone(),
-                    model_id: provider.model_id.clone(),
-                },
-                provenance: provenance_for_latest(transitions, |payload| {
-                    matches!(payload, TransitionPayload::ProviderAttached { participant_id, .. } if participant_id == &request.participant_id)
-                }),
-            });
-        }
-    }
-    for resource in state.resources.iter().filter(|resource| {
-        resource
-            .access
-            .as_ref()
-            .is_none_or(|access| access.participant_ids.contains(&request.participant_id))
-    }) {
-        mandatory.push(ProjectionEntry {
-            entry_id: format!("resource:{}", resource.attachment_id),
-            posture: AuthorityPosture::CommittedOperationalFact,
-            value: ProjectedValue::ResourceAttachment {
-                attachment_id: resource.attachment_id.clone(),
-                resource_kind: resource.kind.clone(),
-                allowed_write_prefix: resource.allowed_write_prefix.clone(),
-                max_write_bytes: resource.max_write_bytes,
-                review_requirement: resource.review_requirement.clone(),
-                process_signal_actions: resource.process_signal_actions.clone(),
-            },
-            provenance: provenance_for_latest(transitions, |payload| {
-                matches!(payload, TransitionPayload::ResourceAttached { attachment } if attachment.attachment_id == resource.attachment_id)
-            }),
-        });
-    }
-    if let Some(decision) = &state.last_decision {
-        mandatory.push(ProjectionEntry {
-            entry_id: format!("decision:{}", decision.decision_id),
-            posture: AuthorityPosture::ControlState,
-            value: ProjectedValue::DecisionOutcome {
-                operation_id: decision.operation_id.clone(),
-                decision_id: decision.decision_id.clone(),
-                outcome: decision.outcome.clone(),
-                decision_basis_id: decision.decision_basis_id.clone(),
-                effective_policy_id: decision.effective_policy_id.clone(),
-            },
-            provenance: provenance_for_latest(transitions, |payload| {
-                matches!(payload, TransitionPayload::DecisionRecorded { decision: item } if item.decision_id == decision.decision_id)
-            }),
-        });
-    }
-    for review in state.reviews.iter().filter(|review| {
-        !review.operation_id.is_empty()
-            && (review.requested_by_participant == request.participant_id
-                || review.reviewer_participant == request.participant_id
-                || state.participants.iter().any(|participant| {
-                    participant.participant_id == request.participant_id
-                        && !review.required_reviewer_roles.is_empty()
-                        && review
-                            .required_reviewer_roles
-                            .iter()
-                            .all(|role| participant.roles.contains(role))
-                }))
-            && matches!(
-                review.status,
-                ReviewResolution::Pending
-                    | ReviewResolution::PendingOperator
-                    | ReviewResolution::Deferred
-            )
-    }) {
-        mandatory.push(ProjectionEntry {
-            entry_id: format!("review:{}", review.review_id),
-            posture: AuthorityPosture::Unresolved,
-            value: ProjectedValue::ReviewPosture {
-                review_id: review.review_id.clone(),
-                operation_id: review.operation_id.clone(),
-                reviewer_participant_id: review.reviewer_participant.clone(),
-                status: review.status.clone(),
-                latest_action_id: review.latest_action_id.clone(),
-                effective_decision_id: review.effective_decision_id.clone(),
-            },
-            provenance: provenance_for_latest(transitions, |payload| match payload {
-                TransitionPayload::ReviewRequested { review: item } => {
-                    item.review_id == review.review_id
-                }
-                TransitionPayload::ReviewActionRecorded { action } => {
-                    action.review_id == review.review_id
-                }
-                _ => false,
-            }),
-        });
-    }
-    let mut selected_effects = state
-        .effects
-        .iter()
-        .rev()
-        .filter(|effect| effect.status != EffectLifecycle::Finalized)
-        .collect::<Vec<_>>();
-    selected_effects.extend(
-        state
-            .effects
-            .iter()
-            .rev()
-            .filter(|effect| effect.status == EffectLifecycle::Finalized)
-            .take(4),
-    );
-    selected_effects.sort_by_key(|effect| effect.updated_at_generation);
-    selected_effects.retain(|effect| {
-        state
-            .resources
-            .iter()
-            .find(|resource| resource.attachment_id == effect.resource_attachment_id)
-            .is_none_or(|resource| {
-                resource
-                    .access
-                    .as_ref()
-                    .is_none_or(|access| access.participant_ids.contains(&request.participant_id))
-            })
-    });
-    selected_effects.dedup_by(|left, right| left.effect_id == right.effect_id);
-    let mut omitted_historical_effects = state.effects.len().saturating_sub(selected_effects.len());
-    for effect in selected_effects {
-        let posture = match effect.status {
-            EffectLifecycle::Finalized => AuthorityPosture::ObservedResourceState,
-            EffectLifecycle::Prepared | EffectLifecycle::Indeterminate => {
-                AuthorityPosture::Unresolved
-            }
-        };
-        let mut provenance = provenance_for_latest(transitions, |payload| match payload {
-            TransitionPayload::EffectPrepared { prepared } => {
-                prepared.effect_id == effect.effect_id
-            }
-            TransitionPayload::ProcessEffectPrepared { prepared } => {
-                prepared.effect_id == effect.effect_id
-            }
-            TransitionPayload::ResourceEffectPrepared { prepared } => {
-                prepared.effect_id == effect.effect_id
-            }
-            TransitionPayload::EffectFinalized { effect_id, .. }
-            | TransitionPayload::EffectIndeterminate { effect_id, .. }
-            | TransitionPayload::ProcessEffectFinalized { effect_id, .. }
-            | TransitionPayload::ProcessEffectIndeterminate { effect_id, .. }
-            | TransitionPayload::ResourceEffectFinalized { effect_id, .. }
-            | TransitionPayload::ResourceEffectIndeterminate { effect_id, .. }
-            | TransitionPayload::EffectReconciled { effect_id, .. } => {
-                effect_id == &effect.effect_id
-            }
-            _ => false,
-        });
-        if let Some(observation_id) = effect.post_observation_id.as_ref() {
-            provenance.push(SemanticProvenance {
-                kind: ProvenanceKind::Observation,
-                source_ref: observation_id.clone(),
-            });
-        }
-        if let Some(receipt_id) = effect.receipt_id.as_ref() {
-            provenance.push(SemanticProvenance {
-                kind: ProvenanceKind::EffectReceipt,
-                source_ref: receipt_id.clone(),
-            });
-        }
-        mandatory.push(ProjectionEntry {
-            entry_id: format!("effect:{}", effect.effect_id),
-            posture,
-            value: ProjectedValue::ResourceConsequence {
-                operation_id: effect.operation_id.clone(),
-                effect_id: effect.effect_id.clone(),
-                relative_path: effect.relative_path.clone(),
-                lifecycle: effect.status.clone(),
-                outcome: effect.outcome.clone(),
-                content_digest: effect
-                    .post_observation_id
-                    .as_ref()
-                    .map(|_| effect.intended_content_digest.clone()),
-                receipt_id: effect.receipt_id.clone(),
-            },
-            provenance,
-        });
-    }
-    if request.purpose == ProjectionPurpose::MemoryConsolidation {
-        // Consolidation source material is carried by its immutable,
-        // content-addressed task packet. Keep only the identity/control
-        // envelope here so unrelated effects, reviews, resources, turns, and
-        // provider claims cannot enter the consolidation context by accident.
-        mandatory.retain(|entry| {
-            matches!(
-                entry.value,
-                ProjectedValue::CaseLifecycle { .. }
-                    | ProjectedValue::TenantSecurityDomain { .. }
-                    | ProjectedValue::ParticipantBinding { .. }
-                    | ProjectedValue::ProviderBinding { .. }
-            )
-        });
-        omitted_historical_effects = 0;
-    }
-    if mandatory.len() > request.max_items {
-        return Err(format!(
-            "projection_budget_below_mandatory_state: required={} max={}",
-            mandatory.len(),
-            request.max_items
-        ));
-    }
-
-    let mut optional = Vec::new();
-    for transition in transitions.iter().rev() {
-        match &transition.payload {
-            TransitionPayload::ResourceObservationRecorded { observation }
-            | TransitionPayload::ResourceEffectFinalized { observation, .. }
-                if observation.participant_id == request.participant_id
-                    && state.resources.iter().any(|resource| {
-                        resource.attachment_id == observation.resource_attachment_id
-                            && resource.access.as_ref().is_some_and(|access| {
-                                access.configuration_digest == observation.configuration_digest
-                                    && access.participant_ids.contains(&request.participant_id)
-                            })
-                    })
-                    && optional
-                        .iter()
-                        .filter(|entry: &&ProjectionEntry| {
-                            matches!(entry.value, ProjectedValue::ResourceObservation { .. })
-                        })
-                        .count()
-                        < 12 =>
-            {
-                let text = serde_json::to_string(&observation.result)
-                    .map_err(|e| format!("projection_resource_result:{e}"))?;
-                let mut provenance = transition_provenance(transition);
-                provenance.push(SemanticProvenance {
-                    kind: ProvenanceKind::Observation,
-                    source_ref: observation.observation_id.clone(),
-                });
-                optional.push(ProjectionEntry {
-                    entry_id: observation.observation_id.clone(),
-                    posture: AuthorityPosture::ObservedResourceState,
-                    value: ProjectedValue::ResourceObservation {
-                        observation_id: observation.observation_id.clone(),
-                        operation_id: observation.operation_id.clone(),
-                        resource_id: observation.resource_attachment_id.clone(),
-                        result_digest: crate::effect::digest_bytes(text.as_bytes()),
-                        preview: bounded_text(&text, 2048),
-                        truncated: text.chars().count() > 2048,
-                    },
-                    provenance,
-                });
-            }
-            TransitionPayload::CaseContentAdmitted { admission }
-                if admission.participant_ids.contains(&request.participant_id)
-                    && optional
-                        .iter()
-                        .filter(|entry: &&ProjectionEntry| {
-                            matches!(entry.value, ProjectedValue::CaseContent { .. })
-                        })
-                        .count()
-                        < 8 =>
-            {
-                let mut provenance = transition_provenance(transition);
-                provenance.push(SemanticProvenance {
-                    kind: ProvenanceKind::ContentObject,
-                    source_ref: admission.object.object_id.clone(),
-                });
-                optional.push(ProjectionEntry {
-                    entry_id: admission.admission_id.clone(),
-                    posture: AuthorityPosture::CommittedApplicationContent,
-                    value: ProjectedValue::CaseContent {
-                        admission_id: admission.admission_id.clone(),
-                        object: admission.object.clone(),
-                        source_resource_id: admission.source_resource_id.clone(),
-                        source_path: admission.source_path.clone(),
-                    },
-                    provenance,
-                });
-            }
-            TransitionPayload::ConversationTurnCommitted { turn }
-                if turn.participant_id == request.participant_id
-                    && optional
-                        .iter()
-                        .filter(|entry: &&ProjectionEntry| {
-                            matches!(
-                                entry.value,
-                                ProjectedValue::InteractionTurn { .. }
-                                    | ProjectedValue::ConversationTurn { .. }
-                            )
-                        })
-                        .count()
-                        < request.max_interaction_turns =>
-            {
-                let ordered_parts = turn
-                    .ordered_parts
-                    .iter()
-                    .map(|part| {
-                        let (provenance_posture, source_part_ids) = match &part.provenance {
-                            crate::conversation::ContentPartProvenance::Original { .. } => {
-                                ("original".to_string(), Vec::new())
-                            }
-                            crate::conversation::ContentPartProvenance::Derived { derivation }
-                                if derivation.kind
-                                    == crate::conversation::ContentDerivationKind::HumanEdit =>
-                            {
-                                (
-                                    "human_edited_derived".to_string(),
-                                    derivation.source_part_ids.clone(),
-                                )
-                            }
-                            crate::conversation::ContentPartProvenance::Derived { derivation } => (
-                                "machine_or_deterministic_derived".to_string(),
-                                derivation.source_part_ids.clone(),
-                            ),
-                        };
-                        ProjectedConversationContentPart {
-                            ordinal: part.ordinal,
-                            part_id: part.part_id.clone(),
-                            object_id: part.object.object_id.clone(),
-                            modality: part.object.modality.clone(),
-                            media_type: part.object.media_type.clone(),
-                            byte_length: part.object.byte_length,
-                            content_digest: part.object.content_digest.clone(),
-                            text: part.object.inline_text.clone(),
-                            provenance_posture,
-                            source_part_ids,
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                let mut provenance = transition_provenance(transition);
-                provenance.extend(turn.ordered_parts.iter().map(|part| SemanticProvenance {
-                    kind: ProvenanceKind::ContentObject,
-                    source_ref: part.object.object_id.clone(),
-                }));
-                optional.push(ProjectionEntry {
-                    entry_id: turn.turn_id.clone(),
-                    posture: AuthorityPosture::CommittedApplicationContent,
-                    value: ProjectedValue::ConversationTurn {
-                        turn_id: turn.turn_id.clone(),
-                        thread_id: turn.thread_id.clone(),
-                        ordered_parts,
-                    },
-                    provenance,
-                });
-            }
-            TransitionPayload::InteractionTurnRecorded {
-                turn_id,
-                thread_id,
-                participant_id,
-                invocation_id: _,
-                result_id,
-                operator_input,
-            } if participant_id == &request.participant_id
-                && optional
-                    .iter()
-                    .filter(|entry: &&ProjectionEntry| {
-                        matches!(
-                            entry.value,
-                            ProjectedValue::InteractionTurn { .. }
-                                | ProjectedValue::ConversationTurn { .. }
-                        )
-                    })
-                    .count()
-                    < request.max_interaction_turns =>
-            {
-                optional.push(ProjectionEntry {
-                    entry_id: format!("turn:{turn_id}"),
-                    posture: AuthorityPosture::ProviderClaim,
-                    value: ProjectedValue::InteractionTurn {
-                        turn_id: turn_id.clone(),
-                        thread_id: thread_id.clone(),
-                        operator_input: bounded_text(operator_input, DEFAULT_MAX_CLAIM_CHARS),
-                        result_id: result_id.clone(),
-                    },
-                    provenance: transition_provenance(transition),
-                });
-            }
-            TransitionPayload::ProviderResultRecorded {
-                result_id,
-                invocation_id,
-                output,
-                ..
-            } if provider_invocation_participant(transitions, invocation_id)
-                == Some(request.participant_id.as_str())
-                && optional
-                    .iter()
-                    .filter(|entry: &&ProjectionEntry| {
-                        matches!(entry.value, ProjectedValue::ProviderClaim { .. })
-                    })
-                    .count()
-                    < request.max_provider_claims =>
-            {
-                optional.push(ProjectionEntry {
-                    entry_id: format!("provider-claim:{result_id}"),
-                    posture: AuthorityPosture::ProviderClaim,
-                    value: ProjectedValue::ProviderClaim {
-                        result_id: result_id.clone(),
-                        invocation_id: invocation_id.clone(),
-                        preview: bounded_text(output, DEFAULT_MAX_CLAIM_CHARS),
-                    },
-                    provenance: transition_provenance(transition),
-                });
-            }
-            _ => {}
-        }
-    }
-    optional.reverse();
-    // Retrieval is score-descending. Optional selection keeps the tail, so
-    // reverse here to ensure higher-ranked entries survive a Projection budget.
-    for memory in derived.memory.iter().rev() {
-        optional.push(ProjectionEntry {
-            entry_id: format!("memory:{}", memory.memory_ref),
-            posture: AuthorityPosture::DerivedMemory,
-            value: ProjectedValue::DerivedMemory {
-                memory_ref: memory.memory_ref.clone(),
-                semantic_kind: memory.semantic_kind.clone(),
-                memory_posture: memory.memory_posture.clone(),
-                description: bounded_text(&memory.description, DEFAULT_MAX_CLAIM_CHARS),
-                lifecycle: memory.lifecycle.clone(),
-                score: memory.score,
-                ranking_reasons: memory.ranking_reasons.clone(),
-            },
-            provenance: memory
-                .transition_refs
-                .iter()
-                .map(|source_ref| SemanticProvenance {
-                    kind: ProvenanceKind::Transition,
-                    source_ref: source_ref.clone(),
-                })
-                .chain(
-                    memory
-                        .observation_refs
-                        .iter()
-                        .map(|source_ref| SemanticProvenance {
-                            kind: ProvenanceKind::Observation,
-                            source_ref: source_ref.clone(),
-                        }),
-                )
-                .chain(
-                    memory
-                        .receipt_refs
-                        .iter()
-                        .map(|source_ref| SemanticProvenance {
-                            kind: ProvenanceKind::EffectReceipt,
-                            source_ref: source_ref.clone(),
-                        }),
-                )
-                .chain(
-                    memory
-                        .derived_memory_refs
-                        .iter()
-                        .map(|source_ref| SemanticProvenance {
-                            kind: ProvenanceKind::DerivedMemory,
-                            source_ref: source_ref.clone(),
-                        }),
-                )
-                .chain(std::iter::once(SemanticProvenance {
-                    kind: ProvenanceKind::DerivedMemory,
-                    source_ref: memory.memory_ref.clone(),
-                }))
-                .collect(),
-        });
-    }
-    if request.purpose == ProjectionPurpose::MemoryConsolidation {
-        optional.clear();
-    }
-
-    let available = request.max_items - mandatory.len();
-    let consolidation_projection = request.purpose == ProjectionPurpose::MemoryConsolidation;
-    let omitted_items = optional
-        .len()
-        .saturating_sub(available)
-        .saturating_add(omitted_historical_effects)
-        .saturating_add(if consolidation_projection {
-            0
-        } else {
-            derived.retrieval_omitted
-        });
-    let keep_from = optional.len().saturating_sub(available);
-    let mut entries = mandatory;
-    entries.extend(optional.into_iter().skip(keep_from));
-    let bounds = ProjectionBounds {
-        max_items: request.max_items,
-        selected_items: entries.len(),
-        omitted_items,
-        history_transitions_considered: transitions.len(),
-        graph_available: !consolidation_projection && derived.graph_available,
-        memory_available: !consolidation_projection && derived.memory_available,
-        retrieval_id: if consolidation_projection {
-            None
-        } else {
-            derived.retrieval_id.clone()
-        },
-        retrieval_candidates: if consolidation_projection {
-            0
-        } else {
-            derived.retrieval_candidates
-        },
-        retrieval_selected: if consolidation_projection {
-            0
-        } else {
-            derived.memory.len()
-        },
-        retrieval_omitted: if consolidation_projection {
-            0
-        } else {
-            derived.retrieval_omitted
-        },
-        residency_plan_id: None,
-        semantic_unit_budget: None,
-        selected_semantic_units: None,
-    };
+pub(crate) fn lower_candidates(
+    source: crate::semantic_state::SemanticCandidates,
+) -> Result<Projection, String> {
     let mut projection = Projection {
-        schema: PROJECTION_SCHEMA.to_string(),
+        schema: PROJECTION_SCHEMA.into(),
         projection_id: String::new(),
-        case_id: state.case_id.clone(),
-        case_generation: state.generation,
-        participant_id: request.participant_id.clone(),
-        purpose: request.purpose.clone(),
-        visibility: ProjectionVisibility {
-            consumer: request.consumer.clone(),
-            view_kind: request.view_kind.clone(),
-        },
-        entries,
-        bounds,
+        case_id: source.case_id,
+        case_generation: source.case_generation,
+        participant_id: source.participant_id,
+        purpose: source.purpose,
+        visibility: source.visibility,
+        entries: source.entries,
+        bounds: source.bounds,
     };
     refresh_projection_identity(&mut projection)?;
     Ok(projection)
@@ -1070,6 +280,7 @@ pub fn refresh_projection_identity(projection: &mut Projection) -> Result<(), St
             &projection.bounds.residency_plan_id,
             projection.bounds.semantic_unit_budget,
             projection.bounds.selected_semantic_units,
+            &projection.bounds.working_state_id,
         ),
     ))
     .map_err(|error| format!("projection_identity_encode_failed: {error}"))?;
@@ -1200,57 +411,6 @@ pub fn validate_frame_freshness(
         ));
     }
     Ok(())
-}
-
-fn provenance_for_latest<F>(transitions: &[Transition], predicate: F) -> Vec<SemanticProvenance>
-where
-    F: Fn(&TransitionPayload) -> bool,
-{
-    transitions
-        .iter()
-        .rev()
-        .find(|transition| predicate(&transition.payload))
-        .map(transition_provenance)
-        .unwrap_or_default()
-}
-
-fn transition_provenance(transition: &Transition) -> Vec<SemanticProvenance> {
-    vec![
-        SemanticProvenance {
-            kind: ProvenanceKind::Transition,
-            source_ref: transition.transition_id.clone(),
-        },
-        SemanticProvenance {
-            kind: ProvenanceKind::CaseStateGeneration,
-            source_ref: format!("{}@{}", transition.case_id, transition.sequence),
-        },
-    ]
-}
-
-fn provider_invocation_participant<'a>(
-    transitions: &'a [Transition],
-    invocation_id: &str,
-) -> Option<&'a str> {
-    transitions
-        .iter()
-        .rev()
-        .find_map(|transition| match &transition.payload {
-            TransitionPayload::ProviderInvocationStarted {
-                invocation_id: candidate,
-                participant_id,
-                ..
-            } if candidate == invocation_id => Some(participant_id.as_str()),
-            _ => None,
-        })
-}
-
-fn bounded_text(value: &str, max_chars: usize) -> String {
-    let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
-    let mut output = compact.chars().take(max_chars).collect::<String>();
-    if compact.chars().count() > max_chars {
-        output.push_str("...");
-    }
-    output
 }
 
 pub fn stable_digest(value: &str) -> String {

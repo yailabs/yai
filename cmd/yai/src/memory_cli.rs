@@ -1071,81 +1071,6 @@ fn execute_hybrid_retrieval(
     Ok(retrieval)
 }
 
-fn refresh_runtime_index_if_stale(
-    store: &LmdbRecordStore,
-    state: &yai_core_engine::transition::CaseState,
-    entries: &[OperationalMemoryEntry],
-    profile_id: &str,
-) -> Result<(), String> {
-    let tenant_id = state
-        .tenant_id
-        .as_deref()
-        .ok_or_else(|| "memory_index_requires_tenant_scoped_case".to_string())?;
-    let existing = find_current_memory_index(
-        &memory_index_root(),
-        tenant_id,
-        &state.case_id,
-        Some(profile_id),
-    )?
-    .ok_or_else(|| "memory_index_not_found".to_string())?;
-    if existing.is_current(&state.case_id, state.generation) {
-        return Ok(());
-    }
-    if existing.profile.profile_id != profile_id {
-        return Err("memory_index_requested_profile_mismatch".to_string());
-    }
-    let manifest = store
-        .operational_memory_manifest(&state.case_id)?
-        .filter(|manifest| manifest.is_current(&state.case_id, state.generation))
-        .ok_or_else(|| "operational_memory_manifest_not_current".to_string())?;
-    let operational = yai_core_engine::memory::OperationalMemoryBuild {
-        manifest,
-        entries: entries.to_vec(),
-    };
-    let transitions = store.list_case_transitions(&state.case_id)?;
-    let hierarchy = build_memory_hierarchy(state, &transitions, &operational)?;
-    let corpus = derive_hierarchy_representation_corpus(&operational, &hierarchy)?;
-    let lock = acquire_memory_index_build_lock(
-        &memory_index_root(),
-        tenant_id,
-        &state.case_id,
-        profile_id,
-    )?;
-    if load_current_memory_index_locked(&lock)?
-        .is_some_and(|bundle| bundle.is_current(&state.case_id, state.generation))
-    {
-        return Ok(());
-    }
-    let texts = corpus
-        .documents
-        .iter()
-        .map(|document| document.canonical_text.clone())
-        .collect::<Vec<_>>();
-    let encoded = encode_memory_texts(store, tenant_id, &existing.profile, &texts)?;
-    let current_generation = store
-        .get_case_state(&state.case_id)?
-        .ok_or_else(|| "memory_index_case_disappeared_during_build".to_string())?
-        .generation;
-    require_case_generation(corpus.manifest.source_generation, current_generation, false)?;
-    let vectors = corpus
-        .documents
-        .iter()
-        .zip(encoded)
-        .map(|(document, vector)| (document.document_id.clone(), vector))
-        .collect::<BTreeMap<_, _>>();
-    let bundle = MemoryIndexBundle::build(corpus, existing.profile, &vectors)?;
-    publish_memory_index_locked(&lock, &bundle, false)?;
-    let current_generation = store
-        .get_case_state(&state.case_id)?
-        .ok_or_else(|| "memory_index_case_disappeared_during_build".to_string())?
-        .generation;
-    if require_case_generation(bundle.corpus.source_generation, current_generation, true).is_err() {
-        drop_memory_index_locked(&lock)?;
-        return Err("memory_index_case_generation_changed_during_publication".to_string());
-    }
-    Ok(())
-}
-
 fn memory_search(args: &[String]) -> Result<(), String> {
     let case_id = named_arg(args, "--case")?;
     let query = named_arg(args, "--query")?;
@@ -1279,52 +1204,6 @@ fn memory_retrieval_show(args: &[String]) -> Result<(), String> {
         );
         Ok(())
     }
-}
-
-pub(super) fn runtime_hybrid_retrieve(
-    store: &LmdbRecordStore,
-    state: &yai_core_engine::transition::CaseState,
-    entries: &[OperationalMemoryEntry],
-    qualification: RetrievalQualification,
-    query: &str,
-) -> Result<HybridRetrievalSetV3, String> {
-    let configured_profile = match super::provider::env_var("YAI_MEMORY_PROFILE_ID") {
-        Some(profile_id) => Some(profile_id),
-        None => state
-            .tenant_id
-            .as_deref()
-            .and_then(|tenant_id| {
-                match find_current_memory_index(
-                    &memory_index_root(),
-                    tenant_id,
-                    &state.case_id,
-                    None,
-                ) {
-                    Ok(index) => index.map(|index| index.profile.profile_id),
-                    Err(error) => {
-                        eprintln!(
-                            "warning: runtime memory profile resolution unavailable; derived planes will degrade: {error}"
-                        );
-                        None
-                    }
-                }
-            }),
-    };
-    if let Some(profile_id) = configured_profile.as_deref() {
-        if let Err(error) = refresh_runtime_index_if_stale(store, state, entries, profile_id) {
-            eprintln!(
-                "warning: runtime memory index refresh unavailable; derived planes will degrade: {error}"
-            );
-        }
-    }
-    execute_hybrid_retrieval(
-        store,
-        state,
-        entries,
-        qualification,
-        query,
-        configured_profile.as_deref(),
-    )
 }
 
 fn memory_episodes_show(args: &[String]) -> Result<(), String> {

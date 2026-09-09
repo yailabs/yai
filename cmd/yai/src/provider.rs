@@ -146,6 +146,25 @@ pub(super) fn semantic_context_inspect(args: &[String]) -> Result<(), String> {
     let case_id = case_id.ok_or_else(|| "context_artifact_not_visible".to_string())?;
     security::authorize_case_read_if_scoped(&store, &case_id)?;
     match artifact {
+        SemanticContextArtifact::WorkingState(working) => {
+            // Forensic inspection recompiles the exact historical generation;
+            // this does not make an old W current or authorize its dispatch.
+            let history = store.list_case_transitions(working.case_id())?;
+            let prefix = history
+                .iter()
+                .take_while(|t| t.sequence <= working.generation())
+                .cloned()
+                .collect::<Vec<_>>();
+            let state = yai_core_engine::transition::replay_case(working.case_id(), &prefix)?;
+            let source = yai_core_engine::semantic_state::SemanticState::compose(&state, &prefix)?;
+            working.validate_current(&source, working.request())?;
+            println!("artifact_kind: semantic_working_state");
+            println!("recompiled_from_canonical_history: true");
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&working).map_err(|e| e.to_string())?
+            );
+        }
         SemanticContextArtifact::Projection(projection) => {
             println!("artifact_kind: projection");
             println!("schema: {}", projection.schema);
@@ -157,6 +176,14 @@ pub(super) fn semantic_context_inspect(args: &[String]) -> Result<(), String> {
             println!("visibility_consumer: {}", projection.visibility.consumer);
             println!("visibility_view_kind: {}", projection.visibility.view_kind);
             println!("selected_items: {}", projection.bounds.selected_items);
+            println!(
+                "working_state_id: {}",
+                projection
+                    .bounds
+                    .working_state_id
+                    .as_deref()
+                    .unwrap_or("none")
+            );
             println!("omitted_items: {}", projection.bounds.omitted_items);
             println!("graph_available: {}", projection.bounds.graph_available);
             println!("memory_available: {}", projection.bounds.memory_available);
@@ -2809,7 +2836,7 @@ fn compile_semantic_invocation(
 ) -> Result<SemanticInvocation, String> {
     let is_memory_consolidation = purpose == ProjectionPurpose::MemoryConsolidation;
     let store = LmdbRecordStore::open(record_store_path())?;
-    let mut state = store
+    let state = store
         .get_case_state(&session.case_ref)?
         .ok_or_else(|| format!("canonical CaseState missing for {}", session.case_ref))?;
     let transitions = store.list_case_transitions(&session.case_ref)?;
@@ -2836,24 +2863,10 @@ fn compile_semantic_invocation(
         {
             return Err("provider_selected_output_contract_mismatch".into());
         }
-        let participant = state
-            .participants
-            .iter_mut()
-            .find(|participant| participant.participant_id == session.subject_ref)
-            .ok_or_else(|| "provider_selection_participant_not_bound".to_string())?;
-        let admitted = AdmittedView {
-            consumer: request.consumer.clone(),
-            view_kind: request.view_kind.clone(),
-        };
-        if !participant.admitted_views.contains(&admitted) {
-            participant.admitted_views.push(admitted);
-        }
     }
-    // Compile a broad but bounded qualified candidate view first. Residency is
-    // the invocation-specific selector and owns the tighter budget.
-    request.max_items = if is_memory_consolidation { 32 } else { 256 };
-    request.max_provider_claims = if is_memory_consolidation { 0 } else { 64 };
-    request.max_interaction_turns = if is_memory_consolidation { 0 } else { 64 };
+    request.max_items = options.max_resident_items;
+    request.max_provider_claims = if is_memory_consolidation { 0 } else { 6 };
+    request.max_interaction_turns = if is_memory_consolidation { 0 } else { 8 };
     let resource_refs = match &output_contract {
         InvocationOutputContract::CaseCapabilities {
             view,
@@ -2903,164 +2916,6 @@ fn compile_semantic_invocation(
         | InvocationOutputContract::WorkflowPlanPatch { .. }
         | InvocationOutputContract::MemoryConsolidation { .. } => Vec::new(),
     };
-    let memory_entries = match store.operational_memory_manifest(&session.case_ref) {
-        Ok(Some(manifest)) if manifest.is_current(&session.case_ref, state.generation) => {
-            match store.list_operational_memory(&session.case_ref) {
-                Ok(entries) => Some(entries),
-                Err(error) => {
-                    eprintln!("warning: derived operational memory unavailable: {error}");
-                    None
-                }
-            }
-        }
-        Ok(_) => match derive_operational_memory(&session.case_ref, &transitions) {
-            Ok(build) => {
-                if let Err(error) = store.replace_case_operational_memory(&build) {
-                    eprintln!("warning: derived operational memory was not persisted: {error}");
-                }
-                Some(build.entries)
-            }
-            Err(error) => {
-                eprintln!("warning: operational memory derivation failed; using canonical fallback: {error}");
-                None
-            }
-        },
-        Err(error) => {
-            eprintln!(
-                "warning: operational memory store unavailable; using canonical fallback: {error}"
-            );
-            None
-        }
-    };
-    let derived = if is_memory_consolidation {
-        // The immutable, content-addressed consolidation packet is already the
-        // exact task payload. A second fuzzy retrieval here would duplicate
-        // sources and could admit material outside that packet.
-        DerivedProjectionInput::default()
-    } else {
-        memory_entries
-            .as_ref()
-            .and_then(|entries| {
-            let qualification = RetrievalQualification {
-                case_id: session.case_ref.clone(),
-                participant_id: session.subject_ref.clone(),
-                consumer: request.consumer.clone(),
-                view_kind: request.view_kind.clone(),
-                purpose: request.purpose.clone(),
-                case_generation: state.generation,
-                resource_refs: resource_refs.clone(),
-                semantic_kinds: Vec::new(),
-                causal_refs: Vec::new(),
-                max_results: options.retrieval_limit,
-                include_superseded: false,
-            };
-            match super::memory_cli::runtime_hybrid_retrieve(
-                &store,
-                &state,
-                entries,
-                qualification.clone(),
-                task,
-            ) {
-                Ok(retrieval) => Some(DerivedProjectionInput {
-                    graph_available: false,
-                    memory_available: true,
-                    memory: retrieval
-                        .selected
-                        .iter()
-                        .map(|item| {
-                            let (semantic_kind, memory_posture) = match &item.source {
-                                yai_core_engine::memory_index::RetrievedMemoryFamily::Operational(value) => (
-                                    value.semantic_kind.as_str().to_string(),
-                                    value.posture.as_str().to_string(),
-                                ),
-                                yai_core_engine::memory_index::RetrievedMemoryFamily::Episodic(_) => (
-                                    item.source.family().to_string(),
-                                    item.source.epistemic_class().to_string(),
-                                ),
-                                yai_core_engine::memory_index::RetrievedMemoryFamily::Semantic(_) => (
-                                    item.source.family().to_string(),
-                                    item.source.epistemic_class().to_string(),
-                                ),
-                            };
-                            yai_core_engine::context::DerivedMemoryInput {
-                                memory_ref: item.source.source_id().to_string(),
-                                semantic_kind,
-                                memory_posture,
-                                description: item.source.description(),
-                                lifecycle: item.source.lifecycle(),
-                                score: i64::try_from(item.fusion_score_micros)
-                                    .unwrap_or(i64::MAX),
-                                ranking_reasons: item.ranking_reasons.clone(),
-                                transition_refs: match &item.source {
-                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Operational(value) => value.provenance.transition_ids.clone(),
-                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Episodic(value) => value.transition_ids.clone(),
-                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Semantic(_) => Vec::new(),
-                                },
-                                observation_refs: match &item.source {
-                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Operational(value) => value.provenance.observation_ids.clone(),
-                                    _ => Vec::new(),
-                                },
-                                receipt_refs: match &item.source {
-                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Operational(value) => value.provenance.effect_receipt_ids.clone(),
-                                    _ => Vec::new(),
-                                },
-                                derived_memory_refs: match &item.source {
-                                    yai_core_engine::memory_index::RetrievedMemoryFamily::Semantic(value) => value
-                                        .support_refs
-                                        .iter()
-                                        .map(|support| support.id().to_string())
-                                        .collect(),
-                                    _ => Vec::new(),
-                                },
-                            }
-                        })
-                        .collect(),
-                    retrieval_id: Some(retrieval.retrieval_id),
-                    retrieval_candidates: retrieval.qualified_count,
-                    retrieval_omitted: retrieval.omitted_count,
-                }),
-                Err(hybrid_error) => {
-                    eprintln!(
-                        "warning: hybrid memory retrieval unavailable; using qualified operational retrieval: {hybrid_error}"
-                    );
-                    match retrieve_operational_memory(&state, entries, qualification) {
-                        Ok(retrieval) => Some(DerivedProjectionInput {
-                            graph_available: false,
-                            memory_available: true,
-                            memory: retrieval
-                                .selected
-                                .iter()
-                                .map(|item| yai_core_engine::context::DerivedMemoryInput {
-                                    memory_ref: item.memory.memory_id.clone(),
-                                    semantic_kind: item.memory.semantic_kind.as_str().to_string(),
-                                    memory_posture: item.memory.posture.as_str().to_string(),
-                                    description: item.memory.description.clone(),
-                                    lifecycle: item.memory.lifecycle.as_str().to_string(),
-                                    score: item.score,
-                                    ranking_reasons: item.ranking_reasons.clone(),
-                                    transition_refs: item.memory.provenance.transition_ids.clone(),
-                                    observation_refs: item.memory.provenance.observation_ids.clone(),
-                                    receipt_refs: item.memory.provenance.effect_receipt_ids.clone(),
-                                    derived_memory_refs: Vec::new(),
-                                })
-                                .collect(),
-                            retrieval_id: Some(retrieval.retrieval_id),
-                            retrieval_candidates: retrieval.qualified_count,
-                            retrieval_omitted: retrieval.omitted_count,
-                        }),
-                        Err(error) => {
-                            eprintln!(
-                                "warning: qualified memory retrieval failed; using canonical fallback: {error}"
-                            );
-                            None
-                        }
-                    }
-                }
-            }
-            })
-            .unwrap_or_default()
-    };
-    let candidate_projection = compile_projection(&state, &transitions, &request, &derived)?;
     let output_contract_id = output_contract.contract_id();
     let profile = ProviderModelProfile {
         provider_id: session.provider.provider_id.clone(),
@@ -3077,22 +2932,31 @@ fn compile_semantic_invocation(
         ),
         continuation_supported: session.provider.continuation_supported,
     };
-    let residency = plan_residency(
-        &candidate_projection,
-        ResidencyRequest {
-            case_id: candidate_projection.case_id.clone(),
-            case_generation: candidate_projection.case_generation,
-            participant_id: candidate_projection.participant_id.clone(),
-            purpose: candidate_projection.purpose.clone(),
-            provider_id: profile.provider_id.clone(),
-            model_id: profile.model_id.clone(),
-            max_items: options.max_resident_items,
-            max_semantic_units: options.max_semantic_units,
-            resource_refs,
-            previous_item_ids: options.previous_item_ids.clone(),
-        },
+    let source = yai_core_engine::semantic_state::SemanticState::compose(&state, &transitions)?;
+    let compilation = yai_core_engine::semantic_state::CompilationRequest {
+        scope: request,
+        intent: task.to_string(),
+        output_contract_id: output_contract_id.clone(),
+        max_semantic_units: options.max_semantic_units,
+        max_derived_items: options.retrieval_limit,
+        resource_refs,
+        required_refs: options.conversation_turn_id.iter().cloned().collect(),
+        previous_item_ids: options.previous_item_ids.clone(),
+        view_selection_id: session
+            .provider
+            .governance
+            .as_ref()
+            .map(|g| g.selection_id.clone()),
+    };
+    let working = source.compile(&compilation)?;
+    let mut projection = working.lower_context(&source, &compilation)?;
+    let residency = working.residency_report(
+        &projection,
+        profile.provider_id.clone(),
+        profile.model_id.clone(),
     )?;
-    let projection = apply_residency_plan(&candidate_projection, &residency)?;
+    projection.bounds.residency_plan_id = Some(residency.plan_id.clone());
+    yai_core_engine::context::refresh_projection_identity(&mut projection)?;
     let frame = build_context_frame(&projection, task, output_contract)?;
     let rendered = render_openai_compatible(&frame, &profile, &session.provider.language_mode)?;
     let estimated_input_units = rendered.metadata.content_chars.div_ceil(4);
@@ -3102,6 +2966,7 @@ fn compile_semantic_invocation(
             options.max_estimated_input_units
         ));
     }
+    store.put_semantic_context_artifact(&SemanticContextArtifact::WorkingState(working))?;
     store
         .put_semantic_context_artifact(&SemanticContextArtifact::Projection(projection.clone()))?;
     store.put_semantic_context_artifact(&SemanticContextArtifact::ContextFrame(frame.clone()))?;

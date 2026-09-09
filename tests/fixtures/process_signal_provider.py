@@ -21,7 +21,7 @@ class Handler(BaseHTTPRequestHandler):
         frame = json.loads(content[len(marker) :])
         contract = frame.get("output_contract", {})
         if (
-            frame.get("schema") not in {"yai.context_frame.v6", "yai.context_frame.v7", "yai.context_frame.v8"}
+            frame.get("schema") not in {"yai.context_frame.v6", "yai.context_frame.v7", "yai.context_frame.v8", "yai.context_frame.v9"}
             or frame.get("purpose") != "process_signal_proposal"
             or contract.get("kind") != "process_signal_proposal"
         ):

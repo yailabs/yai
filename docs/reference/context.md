@@ -8,11 +8,11 @@ context. This document defines distinctions, not source subsystems.
 The conceptual pipeline is:
 
 ```text
-CaseState
-  → Query / Resolve
-  → Graph / Retrieval
-  → Projection
-  → Residency
+Canonical history + current CaseState + qualified owned source references
+  → SemanticState composition S (not a new store)
+  → State Compiler (intent, Participant, disclosure, relevance, budget)
+  → SemanticWorkingState W (derived)
+  → context compatibility Projection / residency inspection
   → ContextFrame
   → Render
   → Tokenize
@@ -98,9 +98,9 @@ within the 50,000-document bound.
 
 ## Projection
 
-Projection is a semantically selected view of qualified state for an exact
-consumer, task, and disclosure policy. Projection owns selection meaning and
-lineage, not canonical state.
+Projection is the context-compatible view of W for an exact consumer, task and
+disclosure scope. Semantic-state compilation owns selection; Projection carries
+its meaning and lineage, not a second selection algorithm or canonical state.
 
 A Projection identity is determined by at least:
 
@@ -132,13 +132,12 @@ or be made available for a particular invocation.
 Conceptually:
 
 ```text
-Residency = f(
-  Projection,
+Semantic selection = f(
+  qualified semantic candidates,
   previous residency,
   task,
-  model profile,
   semantic budget,
-  runtime constraints
+  exact source requirements
 )
 ```
 
@@ -146,14 +145,16 @@ Residency owns no memory or history. It has no authority to omit required
 material silently. The implemented `yai.residency_plan.v1` output binds source
 Projection and Case generation, provider/model profile, item and semantic-unit
 budgets, selected size, and one machine-readable disposition/reason per
-candidate item. Its current dispositions are pinned, retained, reintroduced,
+budget-stage candidate. W separately counts earlier locality omissions; residency
+source semantic units describe the budget-stage pool, not all Case history.
+Its current dispositions are pinned, retained, reintroduced,
 and omitted. It may be recomputed or cached.
 
 Residency is not provider KV residency. YAI may decide that a semantic item
 remains active while a provider rebuilds all tokens/KV, or may change semantic
 residency while a runtime continuation must be invalidated.
 
-The synchronous Case runtime is its first real consumer. The pure planner pins
+The synchronous Case runtime was its first real consumer. The shared compiler kernel pins
 mandatory current state, unresolved effects, Decisions and observed
 consequences before optional derived memory or provider claims. It uses direct
 task/resource relevance, retrieval order, recency, previous-frame presence and
@@ -301,8 +302,9 @@ invalidate continuation without invalidating ContextFrame.
 
 ## Current implementation foothold
 
-Current executable versions are Projection v8, ContextFrame v8 and RenderedInput
-v7. They bind canonical generation, admitted Participant/view, ordered source
+Current executable versions are SemanticWorkingState/Compiler/Delta v1,
+Projection v9, ContextFrame v9 and RenderedInput v7. S is a read-only replay-qualified
+composition, not a new store. W selects before context lowering. They bind canonical generation, admitted Participant/view, ordered source
 content, authority/disclosure, selected derived material, output contract and
 separate provider rendering lineage. I01–I06 and Golden extend the earlier v5
 checkpoint without making context canonical memory. Exact current schemas,
@@ -316,16 +318,18 @@ selection, not model KV/state placement or a database owner. The provider receiv
 selected material, not index internals, encoder credentials or ambient access.
 
 Current context/text and qualified typed/function/JSON adapters are compatibility
-realizations. They are bounded compilation footholds, not the general State
-Compiler or semantic memory definition. The adopted
-[semantic cognitive-state target](../semantic-state-execution-target.md) keeps
-SemanticStateFrame/Delta and persistent State Read/Update distinct from this
-implemented path. The legacy transport-oriented ContextDelta decision above
-does not defer or implement that future semantic-state delta contract.
+realizations of the bounded S → W compiler, not the definition of semantic memory.
+Its exact-reference and locality contracts do not constitute universal task sufficiency.
+Semantic deltas currently requalify and fall back explicitly to full compilation;
+they do not implement the deferred transport ContextDelta or incremental optimization.
+The adopted [semantic cognitive-state target](../semantic-state-execution-target.md)
+keeps future generalized representations and persistent State Read/Update distinct
+from this implemented path. Indexed search is still a qualified access path;
+normal compilation rebuilds its semantic candidates without an implicit encoder call.
 
 Opaque continuation is optional and exact-target/lane scoped; loss must preserve
 semantic correctness. Persisted lineage is not provider computational state.
-There is no general semantic-state compiler, semantic demand-paging interface,
+There is no universal task-sufficiency compiler, semantic demand-paging interface,
 authoritative tokenizer or native YVEX state contract. The context-residency lab
 and historical E07 workset/provider-frame mechanism remain bounded research /
 archaeology evidence, not current source ownership.

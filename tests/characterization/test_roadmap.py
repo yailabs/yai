@@ -74,6 +74,13 @@ class RoadmapTests(unittest.TestCase):
         ]:
             with self.subTest(error=error), self.assertRaisesRegex(ValueError, error):
                 roadmap.validate(self.text.replace(body, replacement))
+        # Closing the one current row does not silently select another wave.
+        closed = self.text.replace(state, "COMPLETE")
+        marker = "Next implementation boundary: **UNSELECTED**."
+        closed = closed.replace(marker, "")
+        with self.assertRaisesRegex(ValueError, "next implementation UNSELECTED"):
+            roadmap.validate(closed)
+        self.assertEqual(roadmap.validate(closed + "\n" + marker), roadmap.validate(self.text))
 
     def test_no_competing_live_control_file_or_authority_declaration(self):
         with tempfile.TemporaryDirectory(prefix="yai-roadmap-") as temp:

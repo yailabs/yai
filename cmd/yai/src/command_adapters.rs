@@ -29,10 +29,9 @@ use yai_core_engine::compatibility::{
     inspect_legacy_jsonl, legacy_summary_has_marker, parse_legacy_summary_fields,
 };
 use yai_core_engine::context::{
-    build_context_frame, compile_projection, render_openai_compatible, ContextFrame,
-    ContinuationDisposition, DerivedProjectionInput, InvocationOutputContract, Projection,
-    ProjectionPurpose, ProjectionRequest, ProviderContinuationReference, ProviderModelProfile,
-    RenderedInput, SemanticContextArtifact,
+    build_context_frame, render_openai_compatible, ContextFrame, ContinuationDisposition,
+    InvocationOutputContract, Projection, ProjectionPurpose, ProjectionRequest,
+    ProviderContinuationReference, ProviderModelProfile, RenderedInput, SemanticContextArtifact,
 };
 use yai_core_engine::graph::GraphSummary;
 use yai_core_engine::journal::{Journal, JournalInspection, JOURNAL_RECORD_SCHEMA};
@@ -46,8 +45,7 @@ use yai_core_engine::query::{QueryFilter, QueryResult};
 use yai_core_engine::reconcile::ReconcileSummary;
 use yai_core_engine::record::{Record, RecordKind};
 use yai_core_engine::residency::{
-    apply_residency_plan, plan_residency, ResidencyPlan, ResidencyRequest,
-    DEFAULT_MAX_RESIDENT_ITEMS, DEFAULT_SEMANTIC_UNIT_BUDGET,
+    ResidencyPlan, DEFAULT_MAX_RESIDENT_ITEMS, DEFAULT_SEMANTIC_UNIT_BUDGET,
 };
 use yai_core_engine::store::lmdb::{
     GraphMaterializeReport, LmdbRecordStore, RecordStoreStatusKind, ReplayMetadata,
@@ -56,9 +54,9 @@ use yai_core_engine::store::lmdb::{
 };
 use yai_core_engine::store::Store;
 use yai_core_engine::transition::{
-    AdmittedView, CaseLifecycle, InterpretationAuthority, PendingTransition,
-    ProviderInvocationGovernance, ProviderInvocationLineage, ReviewActionKind, TransitionPayload,
-    TransitionProvenance, TransitionSource,
+    CaseLifecycle, InterpretationAuthority, PendingTransition, ProviderInvocationGovernance,
+    ProviderInvocationLineage, ReviewActionKind, TransitionPayload, TransitionProvenance,
+    TransitionSource,
 };
 
 const ANSI_RESET: &str = "\x1b[0m";
