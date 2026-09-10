@@ -1,5 +1,7 @@
 build/
 target/
+# Repository-local launcher, recreated by make build-rust.
+/yai
 .yai/
 .venv/
 venv/

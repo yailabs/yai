@@ -389,6 +389,7 @@ build-c: $(C_LIBRARY) $(YAID)
 build-rust:
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo build --manifest-path engine/Cargo.toml --workspace
 	CARGO_TARGET_DIR=$(RUST_TARGET_DIR) cargo build --manifest-path cmd/yai/Cargo.toml
+	@test -e yai || test -L yai || install -m 0755 tools/shell/yai.sh yai
 
 build: build-c build-rust
 
