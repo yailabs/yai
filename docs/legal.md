@@ -11,14 +11,13 @@ third-party products, and production use require explicit written permission
 from the rights holder.
 
 Third-party components remain governed by their own license terms. The current
-third-party notice inventory is in `THIRD_PARTY_NOTICES.md`.
+third-party notice inventory is in
+[LICENSE.md](../LICENSE.md#third-party-notices).
 
 Primary legal and repository posture documents:
 
 ```text
 LICENSE.md
-NOTICE.md
-THIRD_PARTY_NOTICES.md
 CONTRIBUTING.md
 SECURITY.md
 ```

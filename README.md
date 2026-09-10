@@ -268,7 +268,7 @@ posture and remaining blockers.
 
 YAI is [source-available](LICENSE.md) for technical evaluation and review, not
 offered under an OSI-approved open-source license by default. See
-[legal posture](docs/legal.md), [notices](NOTICE.md),
-[third-party notices](THIRD_PARTY_NOTICES.md), [security](SECURITY.md) and
+[legal posture](docs/legal.md),
+[third-party notices](LICENSE.md#third-party-notices), [security](SECURITY.md) and
 [contribution policy](CONTRIBUTING.md). [Brand assets](docs/assets/brand/README.md)
 retain the supplied identity and do not change the repository's licensing terms.
