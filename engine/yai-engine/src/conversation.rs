@@ -1571,6 +1571,25 @@ pub struct ConversationContentStore {
 }
 
 impl ConversationContentStore {
+    /// Read an existing immutable backing store without creating directories.
+    pub fn open_existing(yai_home: &Path) -> Result<Self, String> {
+        #[cfg(not(target_os = "linux"))]
+        return Err("conversation_content_store_requires_linux_openat2".into());
+        #[cfg(target_os = "linux")]
+        {
+            let root_directory = openat2_path(
+                libc::AT_FDCWD,
+                &yai_home.join("conversation-content-v1"),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+                0,
+                false,
+            )
+            .map_err(|e| format!("conversation_content_root_open_failed: {e}"))?;
+            validate_owned_directory(&root_directory)?;
+            Ok(Self { root_directory })
+        }
+    }
+
     pub fn open(yai_home: &Path) -> Result<Self, String> {
         #[cfg(not(target_os = "linux"))]
         return Err("conversation_content_store_mutation_requires_linux_openat2".to_string());

@@ -13,6 +13,8 @@ use crate::transition::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+pub mod historical;
+
 pub const SEMANTIC_STATE_SCHEMA: &str = "yai.semantic_state.v2";
 pub const WORKING_STATE_SCHEMA: &str = "yai.semantic_working_state.v2";
 pub const SEMANTIC_DELTA_SCHEMA: &str = "yai.semantic_delta.v1";

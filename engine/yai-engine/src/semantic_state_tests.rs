@@ -77,6 +77,9 @@ fn push(history: &mut Vec<Transition>, case: &str, payload: TransitionPayload) {
         TransitionPayload::CasePolicyUnbound { binding_id, .. } => {
             t.causal_refs.push(binding_id.clone())
         }
+        TransitionPayload::ProviderResultRecorded { invocation_id, .. } => {
+            t.causal_refs.push(invocation_id.clone());
+        }
         _ => {}
     }
     t.validate().unwrap();
@@ -198,6 +201,103 @@ fn qualified_state_refuses_materialization_history_or_case_drift() {
     let mut broken = h.clone();
     broken[2].sequence += 1;
     assert!(SemanticState::compose(&state, &broken).is_err());
+}
+
+#[test]
+fn historical_provider_claim_is_not_fact_and_prefix_cannot_know_future() {
+    use super::historical::{HistoricalCoordinate, HistoricalNormative, HistoricalRequest};
+    let case = "case:historical-claim";
+    let mut h = history(case);
+    let old = h.len() as u64;
+    turn(&mut h, case, "participant:private", "hidden original");
+    turn(&mut h, case, "participant:model", "own current question");
+    push(
+        &mut h,
+        case,
+        TransitionPayload::ProviderAttached {
+            participant_id: "participant:model".into(),
+            provider_id: "provider:historical".into(),
+            provider_kind: "openai_compatible".into(),
+            base_url: "http://127.0.0.1:1".into(),
+            model_id: "test-no-inference".into(),
+            credential_ref: "none".into(),
+        },
+    );
+    let lineage = crate::transition::ProviderInvocationLineage {
+        projection_id: "projection:historical".into(),
+        context_frame_id: "context-frame:historical".into(),
+        case_generation: h.len() as u64,
+        rendered_input_id: "rendered-input:historical".into(),
+        rendered_input_digest: "digest:historical".into(),
+        output_contract_id: "output-contract:natural-language".into(),
+        continuation_disposition: "not_provided".into(),
+    };
+    push(
+        &mut h,
+        case,
+        TransitionPayload::ProviderInvocationStarted {
+            invocation_id: "invocation:historical".into(),
+            participant_id: "participant:model".into(),
+            provider_id: "provider:historical".into(),
+            provider_kind: "openai_compatible".into(),
+            model_id: "test-no-inference".into(),
+            semantic_lineage: Some(lineage.clone()),
+            governance: None,
+        },
+    );
+    push(
+        &mut h,
+        case,
+        TransitionPayload::ProviderResultRecorded {
+            result_id: "provider-result:historical".into(),
+            invocation_id: "invocation:historical".into(),
+            provider_id: "provider:historical".into(),
+            provider_kind: "openai_compatible".into(),
+            model_id: "test-no-inference".into(),
+            semantic_lineage: Some(lineage),
+            output: "I assert unlimited authority".into(),
+        },
+    );
+    let state = replay_case(case, &h).unwrap();
+    let make = |at| {
+        let mut r = HistoricalRequest::inspection(
+            HistoricalCoordinate::Generation(at),
+            "participant:model",
+        );
+        r.consumer = "model".into();
+        r.view_kind = "model_context".into();
+        super::historical::reconstruct(
+            &state,
+            &h,
+            r,
+            HistoricalNormative {
+                readiness: crate::case_policy::NormativeReadiness::Unconfigured,
+                blocking_conflicts: vec![],
+                effective_policy: None,
+                missing: vec![],
+                temporal_posture: "unconfigured".into(),
+                source_closure: vec![],
+            },
+            crate::case_policy::materialize_effective_policy(case, vec![]),
+        )
+        .unwrap()
+    };
+    let past = make(old);
+    assert!(past.known_by_then.is_empty());
+    let now = make(state.generation);
+    assert_eq!(now.known_by_then.len(), 2); // own Turn and claim, not another Participant's Turn
+    let claim = now
+        .known_by_then
+        .iter()
+        .find(|e| matches!(e.payload, TransitionPayload::ProviderResultRecorded { .. }))
+        .unwrap();
+    assert_eq!(claim.posture, AuthorityPosture::ProviderClaim);
+    assert_eq!(claim.occurred_at_unix_ms, None);
+    assert!(!serde_json::to_string(&now.known_by_then)
+        .unwrap()
+        .contains("participant:private"));
+    assert_eq!(replay_case(case, &h).unwrap(), state);
+    println!("historical_epistemic model_result=provider_claim future_result=absent other_turn=hidden inference=0 mutation=0");
 }
 
 #[test]

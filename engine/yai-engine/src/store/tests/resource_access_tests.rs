@@ -8,6 +8,9 @@ const TENANT: &str = "tenant:resource-contract";
 const HUMAN: &str = "participant:human";
 const RESOURCE: &str = "resource:workspace";
 
+#[path = "historical_tests.rs"]
+mod historical_tests;
+
 #[test]
 fn cognitive_authority_same_materializer_scoped_mandatory_revocation_rebuild() {
     use crate::semantic_state::{

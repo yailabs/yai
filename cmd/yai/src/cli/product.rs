@@ -26,6 +26,7 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.participant.list" => participant_list(invocation),
         "yai.case.resource.list" => resource_list(invocation),
         "yai.case.history" | "yai.case.verify" => canonical_case_inspection(invocation),
+        "yai.case.as_of" => historical_case_inspection(invocation),
         "yai.case.open" | "yai.case.workbench" => {
             if invocation.json {
                 return Err(CliError::usage("interactive workbench has no JSON stream; use the structured Case inspection commands"));
@@ -518,6 +519,58 @@ fn resource_list(invocation: &Invocation) -> Result<CliData, CliError> {
                 ]
             })
             .collect(),
+    })
+}
+
+fn historical_case_inspection(invocation: &Invocation) -> Result<CliData, CliError> {
+    use yai_core_engine::semantic_state::historical::{HistoricalCoordinate, HistoricalRequest};
+    let case = load_case(invocation)?;
+    let authenticated = AuthenticatedPrincipal::authenticate_local()
+        .map_err(|e| domain_error("authentication_failed", e))?;
+    let participant = match invocation.flag("--participant") {
+        Some(p) => p.to_string(),
+        None => {
+            let linked: Vec<_> = case
+                .principal_participant_links
+                .iter()
+                .filter(|l| l.principal_id == authenticated.projected_principal_id())
+                .collect();
+            if linked.len() != 1 {
+                return Err(CliError::usage(
+                    "select your linked Participant with --participant",
+                ));
+            }
+            linked[0].participant_id.clone()
+        }
+    };
+    let at = invocation
+        .positionals
+        .get("coordinate")
+        .ok_or_else(|| CliError::usage("use: yai case as-of CASE GENERATION_OR_TRANSITION"))?;
+    let coordinate = if at.starts_with("transition:") {
+        HistoricalCoordinate::Transition(at.clone())
+    } else {
+        HistoricalCoordinate::Generation(at.parse().map_err(|_| CliError::usage("coordinate must be an exact generation or Transition ID; wall-clock queries are unsupported"))?)
+    };
+    let mut request = HistoricalRequest::inspection(coordinate, participant);
+    if let Some(limit) = invocation.flag("--limit") {
+        request.max_items = limit
+            .parse()
+            .map_err(|_| CliError::usage("--limit must be an integer"))?;
+    }
+    let content =
+        yai_core_engine::conversation::ConversationContentStore::open_existing(&yai_home()).ok();
+    let view = open_store()?
+        .historical_semantic_view_authorized(
+            &authenticated,
+            &case.case_id,
+            request,
+            content.as_ref(),
+        )
+        .map_err(|e| domain_error("historical_view_unavailable", e))?;
+    Ok(CliData::NativeJson {
+        value: serde_json::to_value(view)
+            .map_err(|e| domain_error("historical_view_encoding", e.to_string()))?,
     })
 }
 

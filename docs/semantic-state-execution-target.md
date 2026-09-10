@@ -138,6 +138,13 @@ sufficiency, semantic paging or a public E_t consumer. The existing Rust
 the H/S target distinction does not rename/split that contract retroactively. See
 [current architecture](architecture.md#current-provider-and-context-behavior).
 
+The first [historical semantic reader](architecture.md#historical-semantic-reconstruction)
+now reconstructs a scoped Case prefix by exact generation/Transition. It separates
+known-by-then evidence, exact bound-policy/DecisionBasis meaning and current
+permission. Its source closure explicitly reports missing originals and the lack
+of a universal historical governance-catalog cut. This is a bounded S12 foothold,
+not a general H owner, event-time query, Episode reconstruction or Recall Trace.
+
 ### Independent computational and semantic evolution
 
 Computational loop: **E_t → execution → E_t+1 → subsequent execution**.
@@ -614,7 +621,7 @@ The source refoundation covers explicit qualified semantic-state meaning, bounde
 W_t compilation, semantic full/delta equivalence and context compatibility, not
 E_t in YAI. Current execution selection and maturity remain Roadmap-owned.
 
-General temporal-causal memory, historical/as-of reconstruction, a Recall
+General temporal-causal memory, general event/validity-time reconstruction, a Recall
 Compiler, learned navigation, SAE memory, prompt-independent E reconciliation,
 persistent internal deliberation and autonomous overnight thinking are **not
 implemented claims**. Existing bounded replay, W20 and runtime loops do not

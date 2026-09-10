@@ -3854,6 +3854,209 @@ impl LmdbRecordStore {
     }
 
     /// Pure derivation from CaseState plus exact immutable PolicyArtifacts.
+    pub fn historical_semantic_view_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        request: crate::semantic_state::historical::HistoricalRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::semantic_state::historical::HistoricalSemanticView, String> {
+        use crate::semantic_state::historical as h;
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let current = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or("case_not_visible")?;
+        let tenant = current
+            .tenant_id
+            .as_deref()
+            .ok_or("historical_unscoped_case_unsupported")?;
+        let security = self
+            .resolve_security_context_txn(&txn, authenticated, tenant)
+            .map_err(|_| "case_not_visible")?;
+        // No new audit authority: only an explicitly Principal-linked current
+        // Participant can use this public reader, even when the caller owns the Tenant.
+        if !current.principal_participant_links.iter().any(|l| {
+            l.tenant_id == tenant
+                && l.principal_id == security.principal_id()
+                && l.participant_id == request.participant_id
+        }) {
+            return Err("historical_scope_unavailable".into());
+        }
+        h::validate_scope(&current, &request)?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let cut = h::prefix(&history, &request.coordinate)?;
+        let then = replay_case(case_id, cut)?;
+        let mut inputs = Vec::new();
+        let mut missing = Vec::new();
+        let mut closure = Vec::new();
+        for binding in &then.policy_bindings {
+            let artifact = match self.policy_artifact_txn(&txn, &binding.artifact_id) {
+                Ok(a)
+                    if a.tenant_id == current.tenant_id && binding.matches_artifact(&a).is_ok() =>
+                {
+                    a
+                }
+                _ => {
+                    missing.push(format!(
+                        "{}:exact_artifact_unavailable",
+                        binding.artifact_id
+                    ));
+                    continue;
+                }
+            };
+            let published = self
+                .policy_lifecycle_events_txn(&txn, Some(&artifact.artifact_id))?
+                .iter()
+                .any(|e| {
+                    e.event_id == binding.publication_event_id
+                        && e.sequence == binding.publication_event_sequence
+                        && e.action == PolicyLifecycleAction::Published
+                        && e.tenant_id == current.tenant_id
+                });
+            if !published {
+                missing.push(format!(
+                    "{}:publication_evidence_unavailable",
+                    binding.binding_id
+                ));
+                continue;
+            }
+            closure.push(h::SourceClosure {
+                source_ref: artifact.artifact_id.clone(),
+                posture: "exact_immutable_artifact".into(),
+            });
+            closure.push(h::SourceClosure {
+                source_ref: binding.publication_event_id.clone(),
+                posture: "exact_binding_publication_anchor".into(),
+            });
+            let source_ok = txn
+                .get(
+                    self.policy_sources_by_id,
+                    &policy_source_key(&binding.source_id),
+                )
+                .ok()
+                .and_then(|v| decode_policy_source(v).ok())
+                .is_some_and(|s| {
+                    s.source_id == binding.source_id && s.content_digest == artifact.source_digest
+                });
+            closure.push(h::SourceClosure {
+                source_ref: binding.source_id.clone(),
+                posture: if source_ok {
+                    "exact_source_available"
+                } else {
+                    "original_source_unavailable_artifact_retained"
+                }
+                .into(),
+            });
+            // Deliberately no current lifecycle fed into historical composition.
+            inputs.push(EffectivePolicyInput {
+                binding: binding.clone(),
+                artifact,
+                drift: PolicyCatalogDrift::Current,
+            });
+        }
+        let historical = materialize_effective_policy(case_id, inputs);
+        missing.extend(historical.missing);
+        let normative_then = h::HistoricalNormative {
+            readiness: if missing.is_empty() { historical.readiness } else { NormativeReadiness::Blocked },
+            blocking_conflicts: historical.blocking_conflicts,
+            effective_policy: if missing.is_empty() { historical.effective_policy } else { None }, missing,
+            temporal_posture: "bound_artifact_semantics_only; global_catalog_cut_unavailable; exact_decision_validity_in_recorded_DecisionBasis".into(),
+            source_closure: closure,
+        };
+        let floor = self.authority_time_floor_txn(&txn)?;
+        let now = self.materialize_policy_for_state_txn(
+            &txn,
+            &current,
+            authority_wall_time_unix_ms().max(floor),
+            floor,
+        )?;
+        let mut view = h::reconstruct(&current, &history, request, normative_then, now)?;
+        // Recorded bindings and Decisions may reference an older policy than
+        // the prefix's active binding, even if no Decision used that policy.
+        // Resolve exact backing without replacing the recorded evidence.
+        let artifact_refs: std::collections::BTreeSet<_> = view
+            .known_by_then
+            .iter()
+            .flat_map(|e| match &e.payload {
+                TransitionPayload::CasePolicyBound { binding }
+                | TransitionPayload::CasePolicyReplaced { binding, .. } => {
+                    vec![binding.artifact_id.clone()]
+                }
+                TransitionPayload::DecisionRecorded { decision } => decision
+                    .decision_basis
+                    .as_ref()
+                    .map(|b| b.policy_artifact_refs.clone())
+                    .unwrap_or_default(),
+                _ => Vec::new(),
+            })
+            .collect();
+        for id in artifact_refs {
+            if view
+                .normative_then
+                .source_closure
+                .iter()
+                .any(|s| s.source_ref == id)
+            {
+                continue;
+            }
+            match self.policy_artifact_txn(&txn, &id) {
+                Ok(a) if a.tenant_id == current.tenant_id => {
+                    view.normative_then.source_closure.push(h::SourceClosure {
+                        source_ref: id,
+                        posture: "exact_immutable_artifact".into(),
+                    });
+                    let available = txn
+                        .get(self.policy_sources_by_id, &policy_source_key(&a.source_id))
+                        .ok()
+                        .and_then(|v| decode_policy_source(v).ok())
+                        .is_some_and(|s| s.content_digest == a.source_digest);
+                    view.normative_then.source_closure.push(h::SourceClosure {
+                        source_ref: a.source_id,
+                        posture: if available {
+                            "exact_source_available"
+                        } else {
+                            "original_source_unavailable_artifact_retained"
+                        }
+                        .into(),
+                    });
+                }
+                _ => view.normative_then.source_closure.push(h::SourceClosure {
+                    source_ref: id,
+                    posture: "artifact_unavailable_recorded_reference_retained".into(),
+                }),
+            }
+        }
+        let mut objects = BTreeMap::new();
+        for item in &view.known_by_then {
+            match &item.payload {
+                TransitionPayload::CaseContentAdmitted { admission } => {
+                    objects.insert(admission.object.object_id.clone(), &admission.object);
+                }
+                TransitionPayload::ConversationTurnCommitted { turn } => {
+                    for part in &turn.ordered_parts {
+                        objects.insert(part.object.object_id.clone(), &part.object);
+                    }
+                }
+                _ => (),
+            }
+        }
+        view.content_backing = objects
+            .into_iter()
+            .map(|(source_ref, object)| h::SourceClosure {
+                source_ref,
+                posture: match content {
+                    Some(store) if store.read_bytes(object).is_ok() => "exact_original_available",
+                    Some(_) => "original_unavailable_or_integrity_failed",
+                    None => "original_not_resolved",
+                }
+                .into(),
+            })
+            .collect();
+        view.seal()?;
+        Ok(view)
+    }
+
+    /// Pure derivation from CaseState plus exact immutable PolicyArtifacts.
     pub fn case_policy_status(&self, case_id: &str) -> Result<NormativeStatus, String> {
         self.case_policy_status_at(case_id, authority_wall_time_unix_ms())
     }

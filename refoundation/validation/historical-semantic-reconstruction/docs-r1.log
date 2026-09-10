@@ -1,0 +1,54 @@
+run_id=historical-docs-r1 order=5 cwd=/home/mothx/computer-science/projects/YAI/yai pre_state=final_sources_qualified_roadmap_closure_updated env=TMPDIR:/tmp,qa_venv:Jf2vcj
+a08ede230705e3d68e69fb44dfb7eb73c2860f2b
+rustc 1.93.1 (01f6ddf75 2026-02-11)
+cargo 1.93.1 (083ac5135 2025-12-15)
+Python 3.14.7
+check-roadmap: PASS ESTABLISHED=32 PARTIAL=24 OPEN=11 LATER=4 TOTAL=71; selected_boundaries=1
+doc_root_canon: ok
+check-doc-canonical-location: ok
+check-doc-required-files: ok
+check-doc-links: ok (34 files)
+check-repository-identity: ok
+check-no-old-roots: ok
+check-required-layout: ok
+check-source-placement: ok
+check-source-surface-clean: ok
+{"validation_entry": {"id": "test-roadmap", "kind": "make", "path": "tests/characterization/test_roadmap.py", "selector": "test-roadmap", "proof_class": "unit", "evidence_posture": "regression", "provider_mode": "no_provider", "network": "none", "mutation": "temporary_test_metadata", "cadence": "fast", "entrypoint": "test-roadmap", "reachability": "test_infrastructure", "property": "Roadmap-only maturity counts, valid evidence references, sole live control authority and one coherent selected temporal boundary; no runtime or maturity certification"}}
+........
+----------------------------------------------------------------------
+Ran 8 tests in 0.159s
+
+OK
+{"validation_entry": {"id": "test-topology", "kind": "make", "path": "tests/characterization/test_validation_topology.py", "selector": "test-topology", "proof_class": "unit", "evidence_posture": "regression", "provider_mode": "no_provider", "network": "none", "mutation": "temporary_test_metadata", "cadence": "fast", "entrypoint": "test-topology", "reachability": "test_infrastructure", "property": "Classification and gate drift; absent external dependency cannot pass; no provider dispatch"}}
+test_actual_child_failure_reports_class_and_preserves_exit (__main__.TopologyTests.test_actual_child_failure_reports_class_and_preserves_exit) ... deliberate test infrastructure failure
+ok
+test_combined_graph_has_shared_leaf_dependencies_not_repeated_recipes (__main__.TopologyTests.test_combined_graph_has_shared_leaf_dependencies_not_repeated_recipes) ... ok
+test_cumulative_runbook_is_product_and_preserves_operator_authority (__main__.TopologyTests.test_cumulative_runbook_is_product_and_preserves_operator_authority) ... ok
+test_duplicate_identity_and_missing_source_fail_closed (__main__.TopologyTests.test_duplicate_identity_and_missing_source_fail_closed) ... ok
+test_external_absence_is_nonpass_before_any_network_attempt (__main__.TopologyTests.test_external_absence_is_nonpass_before_any_network_attempt) ... ok
+test_external_provider_cannot_enter_local_publication (__main__.TopologyTests.test_external_provider_cannot_enter_local_publication) ... ok
+test_failure_remains_nonzero_and_localized (__main__.TopologyTests.test_failure_remains_nonzero_and_localized) ... ok
+test_fixture_cannot_authorize_external_qualification (__main__.TopologyTests.test_fixture_cannot_authorize_external_qualification) ... ok
+test_golden_is_an_explicit_cadence_not_an_external_claim (__main__.TopologyTests.test_golden_is_an_explicit_cadence_not_an_external_claim) ... ok
+test_unclassified_script_and_make_entry_fail_audit (__main__.TopologyTests.test_unclassified_script_and_make_entry_fail_audit) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.100s
+
+OK
+ESTABLISHED=32 PARTIAL=24 OPEN=11 LATER=4 TOTAL=71
+coverage_parity: PASS old_smoke_leaves=71 current_make_leaves=88 combined_duplicate_make_leaves=0
+validation_catalog: PASS entries=496 assertion_files=92 rust_tests=392
+engine/yai-engine/src/semantic_state/historical.rs: OK
+engine/yai-engine/src/semantic_state.rs: OK
+engine/yai-engine/src/store/lmdb.rs: OK
+engine/yai-engine/src/conversation.rs: OK
+engine/yai-engine/src/store/tests/historical_tests.rs: OK
+engine/yai-engine/src/store/tests/resource_access_tests.rs: OK
+engine/yai-engine/src/semantic_state_tests.rs: OK
+cmd/yai/src/cli/product.rs: OK
+cmd/yai/src/cli/registry.rs: OK
+Makefile: OK
+tests/classification.tsv: OK
+tests/characterization/historical-semantic/test_as_of.py: OK
+exit=0

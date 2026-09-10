@@ -419,6 +419,25 @@ Case recreation. The canary is operator evidence, not a cached PASS or new owner
 
 ## Optional forensic inspection and cleanup
 
+Historical semantic inspection is now available without another model call.
+With the same `YAI_HOME`, use a second shell or leave the workbench with `/exit`:
+
+```sh
+./yai case as-of case:golden:free 1
+./yai case history case:golden:free --limit 16
+```
+
+For a later checkpoint, replace `1` with an exact generation or Transition ID
+shown by history. `--json` provides the structured view; `--limit` increases the
+explicit item bound up to 4096 when needed. Excess output refuses rather than
+truncates. The currently authenticated Principal must still be linked to the
+requesting Participant. This does not grant model access or historical audit
+privileges. Inspect `state_then`, `known_by_then`, `normative_then`,
+`normative_now`, source closure and comparison separately: old ALLOW is never
+current permission. Arbitrary wall-clock queries and generic Recall are not
+supported. The ordinary Golden model/resource/review/Workflow steps above are
+unchanged; this optional checkpoint does not make automated evidence Human PASS.
+
 One-shot `./yai case show CASE --json`, provider/resource/history and memory-index
 commands remain available for administration/forensics; they are not the primary
 interactive workflow. Retain exact IDs, exit states and relevant output from each

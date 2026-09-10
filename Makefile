@@ -791,6 +791,10 @@ test-golden-local: $(VALIDATION_GOLDEN_LOCAL)
 smoke-governance-cognitive-context: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@bash tests/characterization/governance-cognitive-context/test_policy_intake.sh
+.PHONY: smoke-historical-semantic
+smoke-historical-semantic: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/historical-semantic/test_as_of.py
 .PHONY: test-golden-external-yvex qualification-golden-yvex
 test-golden-external-yvex: qualification-golden-yvex
 qualification-golden-yvex: build-rust

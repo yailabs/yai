@@ -763,8 +763,9 @@ The future public W → YVEX experiential-state consumer is not implemented.
 
 The target doctrine additionally distinguishes qualified historical experience H,
 current S and task-conditioned Recall. The current `SemanticState` composition
-above includes history for replay/source qualification; this is not general
-temporal-validity/as-of reconstruction or a Recall Compiler. Neither W20's bounded
+above includes history for replay/source qualification. The separate bounded
+historical reader below is not a Recall Compiler or general event-time query.
+Neither W20's bounded
 hierarchy nor the existing finite runtime proves prompt-independent E refresh
 or persistent internal model deliberation. Those remain target/research properties.
 
@@ -901,6 +902,55 @@ own gate selection. Local HTTP/TLS/PTY qualification does not establish external
 YVEX interoperability or model quality. This architecture alignment reruns
 documentation guards only; historical runtime passes are cited, not recreated
 as new execution evidence.
+
+## Historical semantic reconstruction
+
+`yai case as-of CASE GENERATION_OR_TRANSITION` reads a bounded
+[`HistoricalSemanticView v1`](../engine/yai-engine/src/semantic_state/historical.rs)
+within the existing semantic composition owner. It is neither W nor an execution
+input. The store qualifies current Tenant/Principal/Participant and source history
+in one read transaction, verifies current CaseState against full replay, then
+replays the exact prefix. Generations and Transition IDs are exact equivalent
+coordinates; zero/future/foreign IDs and wall-clock queries refuse.
+
+Prefix materialization, evidence known by then, historical bound-policy meaning,
+current normative posture and a derived current comparison remain separate.
+Supported families are explicitly listed: lifecycle/identity, exact policies,
+scoped resources/content/observations, own operations/DecisionBasis/reviews/Grants,
+filesystem effects, own Turns and provider claims. Original payload availability
+is resolved without reading mutable resources as replacements. Workflow/Handoff
+detail, process-effect detail, W20 historical derivation and general temporal
+Recall are outside this initial profile, not silently asserted complete.
+
+Current Principal linkage controls operator inspection; explicit cognitive views
+also require current admission. No owner override impersonates an unlinked model.
+Historical resources must match current envelopes and disclosure. Another
+Participant's history is not granted by common Tenant, path or provider identity.
+No broader audit authority is introduced. Current writers do not offer resource
+detach/rebind or Participant-view revoke; this reader does not invent them.
+
+Historical policy composition uses exact immutable artifacts matched to the
+prefix bindings and their publication anchors. Case and governance-catalog
+sequences are independent: an arbitrary prefix does not establish a complete
+catalog lifecycle cut. The response marks that missingness, while each recorded
+DecisionBasis preserves its exact evaluated authority time, rules and validity.
+Today's revoke is reported as **current** posture, not silently projected into
+yesterday. Sampled current clocks are excluded from reproducible meaning, not
+presented as artificial historical times. Observation and Transition recording
+times retain their distinct existing producers; generic occurrence time is absent.
+A later observation referring to an older event does not enter the earlier prefix.
+
+Identity binds representation, normalized coordinate, full canonical history,
+current disclosure, current normative meaning and resolved backing availability.
+Item/byte budgets refuse rather than truncate; these are inspection limits, not
+provider token capacity. Comparison labels unchanged state, still-recorded
+non-authoritative evidence, superseded lineage, removal, change and items not yet
+known at the historical coordinate. It is not a mutation or SemanticDelta.
+No caches or inference are required. Reconstruction cost includes full history
+verification and prefix replay; no Case-age-independent CPU claim is made.
+See the [historical qualification report](../refoundation/validation/historical-semantic-reconstruction/REPORT.md).
+Transition v18 / CaseState v15, S/W/compiler and context contracts, canonical
+owners and LMDB **37/40** remain unchanged.
 
 ## Current agentless Case runtime
 

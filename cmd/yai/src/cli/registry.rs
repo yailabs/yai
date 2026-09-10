@@ -1442,6 +1442,20 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         &[flag("--limit", Some("COUNT"), false)]
     ),
     op!(
+        "yai.case.as_of",
+        ["case", "as-of"],
+        "Reconstruct historical Case meaning under current Participant disclosure",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case")), pos("coordinate", None)],
+        &[
+            flag("--participant", Some("PARTICIPANT"), false),
+            flag("--limit", Some("ITEMS"), false)
+        ]
+    ),
+    op!(
         "yai.case.workbench",
         ["case", "workbench"],
         "Open the REPLAI Case workbench with an exact operator and optional cognitive executor",
