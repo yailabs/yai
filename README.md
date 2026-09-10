@@ -17,8 +17,6 @@ repository licensing documents, including LICENSE.md and docs/legal.md.
   </picture>
 </p>
 
-<h1 align="center">YAI</h1>
-
 <p align="center">
   The work should outlive the model.
 </p>
