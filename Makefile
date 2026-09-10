@@ -792,6 +792,11 @@ smoke-governance-cognitive-context: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@bash tests/characterization/governance-cognitive-context/test_policy_intake.sh
 .PHONY: smoke-historical-semantic
+.PHONY: smoke-temporal-experience
+smoke-temporal-experience: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/temporal-experience/test_relations.py
+
 smoke-historical-semantic: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/historical-semantic/test_as_of.py

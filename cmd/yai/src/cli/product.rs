@@ -26,7 +26,7 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.participant.list" => participant_list(invocation),
         "yai.case.resource.list" => resource_list(invocation),
         "yai.case.history" | "yai.case.verify" => canonical_case_inspection(invocation),
-        "yai.case.as_of" => historical_case_inspection(invocation),
+        "yai.case.as_of" | "yai.case.experience" => historical_case_inspection(invocation),
         "yai.case.open" | "yai.case.workbench" => {
             if invocation.json {
                 return Err(CliError::usage("interactive workbench has no JSON stream; use the structured Case inspection commands"));
@@ -547,7 +547,10 @@ fn historical_case_inspection(invocation: &Invocation) -> Result<CliData, CliErr
         .positionals
         .get("coordinate")
         .ok_or_else(|| CliError::usage("use: yai case as-of CASE GENERATION_OR_TRANSITION"))?;
-    let coordinate = if at.starts_with("transition:") {
+    let experience = invocation.descriptor.operation_id == "yai.case.experience";
+    let coordinate = if experience && at == "current" {
+        HistoricalCoordinate::Generation(case.generation)
+    } else if at.starts_with("transition:") {
         HistoricalCoordinate::Transition(at.clone())
     } else {
         HistoricalCoordinate::Generation(at.parse().map_err(|_| CliError::usage("coordinate must be an exact generation or Transition ID; wall-clock queries are unsupported"))?)
@@ -560,6 +563,41 @@ fn historical_case_inspection(invocation: &Invocation) -> Result<CliData, CliErr
     }
     let content =
         yai_core_engine::conversation::ConversationContentStore::open_existing(&yai_home()).ok();
+    if experience {
+        let mut query = yai_core_engine::graph::experience::ExperienceQuery::default();
+        query.from = invocation.flag("--from").map(str::to_string);
+        query.to = invocation.flag("--to").map(str::to_string);
+        query.include_recording_order = invocation.flags.contains_key("--recording-order");
+        query.max_events = request.max_items;
+        if let Some(hops) = invocation.flag("--hops") {
+            query.max_hops = hops.parse().map_err(|_| CliError::usage("--hops must be an integer"))?;
+        }
+        // Independent bounded source qualification and output budgets. This is
+        // an inspection profile, never provider token or semantic-W admission.
+        request.max_items = 4096;
+        request.max_bytes = 16_777_216;
+        let view = open_store()?.experience_view_authorized(&authenticated, &case.case_id, request, query, content.as_ref())
+            .map_err(|e| domain_error("experience_view_unavailable", e))?;
+        if !invocation.json {
+            println!("CASE EXPERIENCE {} @{} ({})", view.case_id, view.generation, view.result);
+            println!("View: {}", view.view_id);
+            println!("Participant: {} | derived, read-only; not authority or Recall", view.participant_id);
+            for e in &view.events {
+                println!("@{} {} [{}] {:?}; recorded={:?} observed={:?} occurrence={:?}; source_closed={}",
+                    e.recorded_generation, e.transition_id, e.kind, e.posture, e.recorded_at_unix_ms,
+                    e.observed_at_unix_ms, e.occurred_at_unix_ms, e.source_closed);
+                println!("  objects: {}", e.object_refs.join(", "));
+            }
+            for r in &view.relations {
+                println!("{} --{:?}/{:?}--> {} (known @{})", r.from_event, r.kind, r.posture, r.to_event, r.known_at_generation);
+                for s in &r.sources { println!("  backing: {} :: {}", s.transition_id, s.field); }
+            }
+            println!("Recording order is not causality. No qualified path does not distinguish absent from undisclosed evidence.");
+            return Ok(CliData::AlreadyRendered);
+        }
+        return Ok(CliData::NativeJson { value: serde_json::to_value(view)
+            .map_err(|e| domain_error("experience_encoding", e.to_string()))? });
+    }
     let view = open_store()?
         .historical_semantic_view_authorized(
             &authenticated,

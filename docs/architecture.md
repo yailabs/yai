@@ -169,7 +169,7 @@ mean constitutional, general, or production-ready.
 | Human-reviewed filesystem effect | policy-driven `REQUIRE_REVIEW` → v2 request → per-command POSIX Principal authentication → Tenant membership → explicit Principal/Participant link → Case-role eligibility → ReviewAction v2 → effective Decision → same Grant/carrier path | local POSIX identity only; no SSO, remote signer or membership removal lifecycle |
 | Governance intake and admission | authenticated Tenant owner + JSON/explicit Markdown or text-PDF policy block → Tenant-owned immutable artifact/lifecycle → exact Tenant-safe Case binding → EffectivePolicy → operation-specific DecisionBasis and derived cognitive rules; P@1/P@2 remain distinct and validity/revoke contract future authority | unresolved prose never publishes; local ownership is enforced; external organization identity, credential security, retention and distributed revoke remain future work |
 | Journal compatibility | inspect/dry-run/import `yai.store.record.v0` or `yai.record.v1`, preserving unknowns opaquely in an isolated target; old replay still materializes legacy record indexes | general semantic promotion is deliberately absent; the old record plane remains compatibility data, not authority |
-| Graph | typed canonical transitions and explicitly decoded legacy records → derived relations → rebuildable RuntimeGraph → bounded query | generation/version invalidation remains minimal; legacy-only cases still depend on compatibility translation |
+| Graph / experience access | typed canonical transitions → replay-qualified historical evidence under current disclosure → exact-source experience relations and bounded directed paths; existing decoded legacy records → rebuildable RuntimeGraph remains a separate compatibility access path | general causal discovery, all-owner traversal and Recall remain absent; legacy-only cases still depend on compatibility translation |
 | Analytical facts | LMDB operational records → DuckDB extraction → reports | four declared families have no extractor; schema/orchestration remains embedded in the command crate |
 
 `yaid` startup, status/info/shutdown, restart, fixture loops, and hot snapshot
@@ -952,7 +952,87 @@ See the [historical qualification report](../refoundation/validation/historical-
 Transition v18 / CaseState v15, S/W/compiler and context contracts, canonical
 owners and LMDB **37/40** remain unchanged.
 
+## Qualified experience relations
+
+`yai case experience CASE current|GENERATION|TRANSITION` derives
+`yai.experience_relations.v1` in the existing graph/access owner. The same
+transactional historical reader qualifies current identity/disclosure, canonical
+replay and exact backing; the graph constructor consumes only that qualified
+immutable result. It neither reads a cached edge as truth nor creates another
+history reader, event ledger, memory store or LMDB database. Full-history
+qualification still costs work proportional to Case history.
+
+The profile projects experience-bearing recorded payloads, not every Transition.
+An event exposes its exact Transition and owned object identities, recording
+generation/time, supported observation time, epistemic posture and source-closure
+flag. Missing occurrence time stays absent. Arbitrary timestamps or references
+inside provider/resource result JSON are not temporal/causal authority.
+
+Relations retain a kind, epistemic strength, both backing Transitions and typed
+payload field, plus the generation at which the relationship became knowable:
+
+| Meaning | Exact current sources |
+|---|---|
+| Recording precedence | Visible Transition sequence; neither physical event order nor global adjacency |
+| Structural lineage | ProviderResult → Operation, Operation → Decision, Decision → review/Grant, review → action/re-evaluation, Grant → PREPARE, observation → admitted content, Result → interpretation |
+| Normative/evidence support | Recorded DecisionBasis binding and obligation/review references, not today's policy projected backwards |
+| Observed consequence | Exact PREPARE → recorded receipt/observation and Decision → admitted resource observation; failed/no-effect outcomes are not called successful mutations |
+| Lifecycle | Explicit policy replacement/unbinding and review/Grant invalidation; not recency, contradiction or causal discovery |
+
+`Transition.causal_refs` enforces required lineage references for typed writers;
+extra references have no independent causal meaning. This reader uses the typed
+contracts, never a free-text causal edge. Provider claims remain claims even when
+their **origin relation** is structurally established. No inferred/model-proposed
+physical causal relation is promoted. General assertion contradiction, Workflow
+and Handoff traversal remain outside this initial scoped profile; W20's existing
+qualified contradiction/mechanical-supersession rules are unchanged.
+
+Optional `--from EXACT_REF --to EXACT_REF --hops N` selects a deterministic
+directed path. Recording-order edges are excluded from path search unless
+`--recording-order` is explicit. Equal-length paths use semantic kind ordering,
+preferring exact lifecycle links over auxiliary support, not hash-order accident.
+`no_qualified_path_within_profile_and_hops` does not distinguish absent evidence,
+undisclosed intermediates or paths outside the selected profile/hop bound.
+Unknown and hidden anchors share one refusal. This is exact traversal, not Recall.
+An ambiguous object identity owned by multiple visible events refuses the view;
+this profile does not guess which occurrence an unversioned reference means.
+
+Only disclosed nodes and qualified edges affect path explanations, slice
+identities or exported counts. No raw payload, unfiltered history hash or private
+scope hash is exported. A current-disclosure digest binds the requesting
+Participant, its links/views and visible resources, not other Participants'
+private state. Changing that scope reidentifies the view; inspecting an old cut
+never restores old permissions. No view is accepted as execution authority.
+
+W20 MemoryEpisode records/derivation remain unchanged. Inspection shows disposable
+**scoped Episode slices** grouped by typed operation/result/Turn identity, not
+recursive user JSON fields. Their identities are deliberately distinct from W20
+records. Origin/support relations can cross slices without merging Episodes;
+the committed-origin oracle also verifies the two actual W20 Episode identities
+remain distinct. Slices are bounded access metadata, not a new Episode owner or
+multi-timescale segmentation system.
+
+Required unavailable backing marks the event `source_closed=false` and suppresses
+dependent edges; intact recorded existence remains inspectable. Original-source
+loss with an intact exact PolicyArtifact does not erase artifact semantics.
+The historical surface exposes the finer source-availability details. No mutable
+resource replaces missing original content. Generic resource PREPARE and
+indeterminate payloads now join that reader's existing scoped terminal observation
+family; historical JSON shape/version remains v1, with additive family coverage.
+
+Source qualification and output budgets are separate. The product uses the
+existing bounded historical profile (4096 items, 16 MiB); default graph output is
+256 events, 1024 relations, 1 MiB, and paths allow 16 hops. Excess output refuses,
+not silent truncation. These are inspection bounds, not production scale or
+model-token limits. Each read rebuilds from sources; no provider or persisted
+compilation cache is required. See the
+[temporal experience evidence](../refoundation/validation/temporal-causal-experience-0/REPORT.md).
+
 ## Current agentless Case runtime
+
+The scoped [experience inspection](#qualified-experience-relations) above is an
+independent read-only consumer. It does not change the runtime's S/W preparation,
+admission or provider path.
 
 [`case_runtime.rs`](../cmd/yai/src/case_runtime.rs) owns one disposable
 transition algorithm. It is not an Agent, workflow, scheduler, or state owner.

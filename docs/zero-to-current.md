@@ -438,6 +438,24 @@ current permission. Arbitrary wall-clock queries and generic Recall are not
 supported. The ordinary Golden model/resource/review/Workflow steps above are
 unchanged; this optional checkpoint does not make automated evidence Human PASS.
 
+Qualified experience inspection uses the same current Participant disclosure:
+
+```sh
+./yai case experience case:golden:free current
+```
+
+Inspect the printed event/object IDs, relation kinds, observation/recording
+coordinates and exact `backing` fields. For a bounded directed path, supply two
+visible IDs with `--from EXACT_REF --to EXACT_REF`; replace `current` with an
+exact earlier generation to exclude later knowledge. `--hops` bounds path depth,
+`--limit` bounds output events, and `--json` exposes the structured result. If
+full inspection exceeds its budget, use an earlier cut or an exact path; it does
+not silently drop evidence. Recording precedence enters path search only with
+`--recording-order`, and never means causality. A missing qualified path may also
+mean undisclosed/unsupported evidence. This optional read appends no Transition,
+makes no model call and neither changes the Golden lifecycle nor supplies a
+human acceptance verdict.
+
 One-shot `./yai case show CASE --json`, provider/resource/history and memory-index
 commands remain available for administration/forensics; they are not the primary
 interactive workflow. Retain exact IDs, exit states and relevant output from each

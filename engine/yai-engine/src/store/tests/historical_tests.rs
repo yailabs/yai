@@ -3,6 +3,9 @@ use crate::semantic_state::historical::{
     HistoricalCoordinate, HistoricalRequest, HistoricalSemanticView,
 };
 
+#[path = "experience_tests.rs"]
+mod experience_tests;
+
 fn request(generation: u64) -> HistoricalRequest {
     let mut r = HistoricalRequest::inspection(HistoricalCoordinate::Generation(generation), HUMAN);
     r.consumer = "model".into();
@@ -323,6 +326,12 @@ fn historical_policy_chronology_late_observation_and_current_permission() {
         .policy_bindings
         .is_empty());
     assert!(world.store.verify_case_state(CASE).unwrap());
+    let experience = world.store.experience_view_authorized(&world.owner, CASE, request(final_generation),
+        crate::graph::experience::ExperienceQuery { from: Some(review_decision.decision_id.clone()), to: Some(approved.decision_id.clone()), ..Default::default() }, None).unwrap();
+    use crate::graph::experience::RelationKind as RK;
+    assert_eq!(experience.relations.iter().map(|r| r.kind.clone()).collect::<Vec<_>>(),
+        vec![RK::DecisionReview, RK::ReviewAction, RK::ReviewReevaluation]);
+    println!("experience_review review={} action={} approved={} qualified_edges=3 old_policy_no_current_authority=true", review.review_id, action.action_id, approved.decision_id);
     println!("historical_decisions p1_artifact={} d1={} basis1={} effective1={} d2={} basis2={} effective2={} review_action={} historical_view={}",
         p1.policy_bindings[0].artifact_id, d1.decision_id, d1.decision_basis.as_ref().unwrap().basis_id,
         d1.decision_basis.as_ref().unwrap().effective_policy_id, d2.decision_id,
@@ -662,6 +671,18 @@ fn historical_current_participant_scope_filters_preexisting_private_evidence() {
     assert!(!serialized.contains("current retry constraint"));
     assert!(!serialized.contains(RESOURCE));
     assert_ne!(other.view_id, view(&world, at).view_id);
+    let scoped = world.store.experience_view_authorized(&world.outsider, CASE, r.clone(), Default::default(), None).unwrap();
+    let encoded = serde_json::to_string(&scoped).unwrap();
+    assert!(!encoded.contains(&op.operation_id));
+    assert!(!encoded.contains(RESOURCE));
+    assert!(scoped.episode_slices.is_empty());
+    assert!(scoped.relations.is_empty());
+    let hidden = crate::graph::experience::ExperienceQuery { from: Some(op.operation_id.clone()),
+        to: Some(op.operation_id.clone()), ..Default::default() };
+    let absent = crate::graph::experience::ExperienceQuery { from: Some("operation:does-not-exist".into()),
+        to: Some("operation:does-not-exist".into()), ..Default::default() };
+    assert_eq!(world.store.experience_view_authorized(&world.outsider, CASE, r.clone(), hidden, None).unwrap_err(),
+        world.store.experience_view_authorized(&world.outsider, CASE, r.clone(), absent, None).unwrap_err());
     let mut denied = r.clone();
     denied.consumer = "model".into();
     denied.view_kind = "model_context".into();

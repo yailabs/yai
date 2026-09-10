@@ -145,6 +145,17 @@ permission. Its source closure explicitly reports missing originals and the lack
 of a universal historical governance-catalog cut. This is a bounded S12 foothold,
 not a general H owner, event-time query, Episode reconstruction or Recall Trace.
 
+The [qualified experience reader](architecture.md#qualified-experience-relations)
+adds bounded typed relations over that disclosed historical evidence. Sequence
+precedence, structural lineage, recorded normative/evidence support, observed
+outcome and explicit lifecycle replacement remain distinct. Arbitrary
+`causal_refs`, shared Episode/resource, proximity and model prose do not establish
+physical causality. Exact-reference traversal across structural Episode slices is
+an M03 foothold; it does not select a task-conditioned trajectory or close M06.
+Missing backing suppresses qualification, and hidden intermediate paths do not
+become explanations. General contradiction/causal discovery and broad
+Workflow/Handoff experience reconstruction remain targets, not new claims.
+
 ### Independent computational and semantic evolution
 
 Computational loop: **E_t → execution → E_t+1 → subsequent execution**.

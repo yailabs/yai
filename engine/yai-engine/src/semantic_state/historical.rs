@@ -199,6 +199,15 @@ fn resource_visible(resource: &ResourceAttachmentState, participant: &str) -> bo
         })
 }
 
+/// Identity for a scoped derived consumer. Do not hash other Participants or
+/// hidden resource envelopes into its public identity (an equality side channel).
+pub(crate) fn scoped_disclosure_digest(current: &CaseState, request: &HistoricalRequest) -> String {
+    digest(&(&current.tenant_id, &request.participant_id, &request.consumer, &request.view_kind,
+        current.participants.iter().filter(|p| p.participant_id == request.participant_id).collect::<Vec<_>>(),
+        current.principal_participant_links.iter().filter(|l| l.participant_id == request.participant_id).collect::<Vec<_>>(),
+        current.resources.iter().filter(|r| resource_visible(r, &request.participant_id)).collect::<Vec<_>>()))
+}
+
 // Exact current envelope, including configuration and disclosure. Reusing an
 // attachment ID or path does not restore access to the previous attachment.
 fn resource_current(
@@ -372,6 +381,14 @@ fn visible_evidence(
             }
             P::EffectPrepared { prepared } if operations.contains(&prepared.operation_id) => {
                 effects.insert(prepared.effect_id.clone());
+                Some(AuthorityPosture::Unresolved)
+            }
+            P::ResourceEffectPrepared { prepared } if operations.contains(&prepared.operation_id)
+                && resource_ok(&prepared.resource_attachment_id) => {
+                effects.insert(prepared.effect_id.clone());
+                Some(AuthorityPosture::Unresolved)
+            }
+            P::ResourceEffectIndeterminate { effect_id, .. } if effects.contains(effect_id) => {
                 Some(AuthorityPosture::Unresolved)
             }
             P::EffectFinalized { effect_id, .. } | P::EffectReconciled { effect_id, .. }

@@ -1376,10 +1376,21 @@ fn resource_process_canonical_prepare_fence_real_exit_terminal_and_replay() {
     let state = world.store.get_case_state(CASE).unwrap().unwrap();
     assert_eq!(state.effects[0].status, EffectLifecycle::Finalized);
     assert_eq!(world.store.replay_case_state(CASE).unwrap(), state);
+    let er = crate::semantic_state::historical::HistoricalRequest::inspection(
+        crate::semantic_state::historical::HistoricalCoordinate::Generation(state.generation), HUMAN);
+    let eq = crate::graph::experience::ExperienceQuery { from: Some(operation.operation_id.clone()),
+        to: Some(receipt.receipt_id.clone()), ..Default::default() };
+    let experience = world.store.experience_view_authorized(&world.owner, CASE, er.clone(), eq.clone(), None).unwrap();
+    use crate::graph::experience::RelationKind as RK;
+    assert_eq!(experience.relations.iter().map(|r| r.kind.clone()).collect::<Vec<_>>(),
+        vec![RK::OperationDecision, RK::DecisionGrant, RK::GrantPreparation, RK::PreparedConsequence]);
+    assert_eq!(experience.events.last().unwrap().observed_at_unix_ms, Some(post.observed_at_unix_ms));
+    println!("experience_operation actual_process_exit=7 operation={} decision={} grant={} effect={} receipt={} path_edges=4 outcome_not_assumed_success=true id={}", operation.operation_id, decision.decision_id, grant.grant_id, prepared.effect_id, receipt.receipt_id, experience.view_id);
     let path = world.path.clone();
     drop(world.store);
     let reopened = LmdbRecordStore::open(path.join("store")).unwrap();
     assert_eq!(reopened.replay_case_state(CASE).unwrap(), state);
+    assert_eq!(experience, reopened.experience_view_authorized(&world.owner, CASE, er, eq, None).unwrap());
     assert!(reopened
         .execute_prepared_resource_process(&world.owner, &prepared)
         .is_err());

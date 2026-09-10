@@ -3853,6 +3853,21 @@ impl LmdbRecordStore {
         self.case_policy_changed_outcome(case_id, commit, false)
     }
 
+    /// No persisted graph is trusted: the historical reader qualifies exact
+    /// sources and current disclosure in one read snapshot, then graph derives
+    /// only from that immutable qualified result. No subsequent store reads.
+    pub fn experience_view_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        request: crate::semantic_state::historical::HistoricalRequest,
+        query: crate::graph::experience::ExperienceQuery,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::graph::experience::ExperienceView, String> {
+        let (history, scope) = self.qualified_historical_view(authenticated, case_id, request, content)?;
+        crate::graph::experience::derive(&history, query, &scope)
+    }
+
     /// Pure derivation from CaseState plus exact immutable PolicyArtifacts.
     pub fn historical_semantic_view_authorized(
         &self,
@@ -3861,6 +3876,16 @@ impl LmdbRecordStore {
         request: crate::semantic_state::historical::HistoricalRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::semantic_state::historical::HistoricalSemanticView, String> {
+        self.qualified_historical_view(authenticated, case_id, request, content).map(|(view, _)| view)
+    }
+
+    fn qualified_historical_view(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        request: crate::semantic_state::historical::HistoricalRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<(crate::semantic_state::historical::HistoricalSemanticView, String), String> {
         use crate::semantic_state::historical as h;
         let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
         let current = self
@@ -3883,6 +3908,7 @@ impl LmdbRecordStore {
             return Err("historical_scope_unavailable".into());
         }
         h::validate_scope(&current, &request)?;
+        let scoped_disclosure = h::scoped_disclosure_digest(&current, &request);
         let history = self.list_case_transitions_txn(&txn, case_id)?;
         let cut = h::prefix(&history, &request.coordinate)?;
         let then = replay_case(case_id, cut)?;
@@ -4053,7 +4079,7 @@ impl LmdbRecordStore {
             })
             .collect();
         view.seal()?;
-        Ok(view)
+        Ok((view, scoped_disclosure))
     }
 
     /// Pure derivation from CaseState plus exact immutable PolicyArtifacts.
