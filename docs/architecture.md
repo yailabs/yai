@@ -737,6 +737,13 @@ not. No cache is needed for correctness. S/W/compiler/delta identity contracts a
 v1; Transition v18, CaseState v15, owner counts and LMDB 37/40 are unchanged.
 The future public W → YVEX experiential-state consumer is not implemented.
 
+The target doctrine additionally distinguishes qualified historical experience H,
+current S and task-conditioned Recall. The current `SemanticState` composition
+above includes history for replay/source qualification; this is not general
+temporal-validity/as-of reconstruction or a Recall Compiler. Neither W20's bounded
+hierarchy nor the existing finite runtime proves prompt-independent E refresh
+or persistent internal model deliberation. Those remain target/research properties.
+
 [`memory.rs`](../engine/yai-engine/src/memory.rs) first derives a versioned
 operational-memory materialization from typed invocation/result, normalization,
 Decision and effect-chain Transitions. Each entry has a deterministic identity,
