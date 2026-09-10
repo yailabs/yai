@@ -162,12 +162,12 @@ mean constitutional, general, or production-ready.
 | Cognitive capability planning | explicit requirement → pinned or ordered Case/Participant cognitive binding → exact semantic, governance and known mechanical eligibility → first eligible candidate with inspectable exclusions → exact native/derived/unresolved plan and lane; planning remains execution-free | learned/economic routing remains absent; I06 connects the conversation host |
 | Typed provider realization | fresh I02 plan + exact current binding/evidence/envelope + ProviderQualification v5 wire-shape evidence + canonical Turn parts → exact-target governed selection → ordered OpenAI-compatible typed request → ProviderInvocation/ProviderResult; derived routes preserve immutable text/source/result provenance; native function calls and JSON-object output have separate mechanical probes | production STT/vision adapters, public YVEX typed-media compatibility and streaming remain later work |
 | Cognitive execution composition | explicit primary goal + ordered canonical source selection → content-addressed composition request → proven direct primary bypass or one exact auxiliary I02/I03 realization → canonical derived content → deterministic original/derived source closure → fresh exact primary I02/I03 realization; I05 arbitrates before each exact plan, and compatible prerequisites resume without redispatch | only depth-two speech/image-to-text prerequisites are admitted; recursive graphs remain absent; I06 consumes this bounded composition in the host |
-| Case-bound provider prompt | replay-qualified SemanticState → bounded scoped W → Projection/ContextFrame v9 → exact provider render → Invocation/Result lineage; existing residency report describes W selection, not a second compiler | context compatibility only; authoritative tokenization, persistent model state and streaming remain absent; interactive conversation uses cognitive realization; --once/piped legacy diagnostics remain separate |
+| Case-bound provider prompt | replay-qualified SemanticState + current EffectivePolicy → bounded scoped W → Projection/ContextFrame v10 → exact provider render → Invocation/Result lineage; existing residency report describes W selection, not a second compiler | context compatibility only, not persistent model state; optional public target preflight belongs to execution admission, not W; interactive conversation uses cognitive realization; --once/piped legacy diagnostics remain separate |
 | Governed provider routing | immutable Tenant ProviderTarget → synthetic evidence-bound qualification → Tenant-Owner approval → shared fresh health/circuit → exact Case provider binding → mechanical requirement/filtering → canonical ProviderSelection and attempt outcome; local fixtures prove qualified capability differences, deterministic exclusions, pre-dispatch safe failover and indeterminate-delivery refusal | H18 adds HTTPS/credential/circuit hardening; real provider capacity and full external Golden qualification remain separate evidence requirements |
 | Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | this bounded runner is not a universal capability loop; the separate single-host multi-Case scheduler is implemented, not a distributed lease/consensus system |
 | Controlled external effect | Tenant-scoped attachment + Ready/Valid EffectivePolicy → exact Operation → DecisionBasis/Decision/finite ExecutionGrant → durable fenced PREPARE → filesystem replacement, confined process or admitted MCP tool call → Observation/Receipt → FINALIZE/INDETERMINATE | process confinement is bounded Linux x86_64; arbitrary shell, general database mutation and state-changing HTTP are not admitted |
 | Human-reviewed filesystem effect | policy-driven `REQUIRE_REVIEW` → v2 request → per-command POSIX Principal authentication → Tenant membership → explicit Principal/Participant link → Case-role eligibility → ReviewAction v2 → effective Decision → same Grant/carrier path | local POSIX identity only; no SSO, remote signer or membership removal lifecycle |
-| Governance intake and admission | authenticated Tenant owner + constrained JSON → Tenant-owned immutable artifact/lifecycle → exact Tenant-safe Case binding → EffectivePolicy → operation-specific DecisionBasis; P@1/P@2 remain distinct and validity/revoke contract future authority | local ownership is enforced; external organization identity, credential security, retention and distributed revoke remain future work |
+| Governance intake and admission | authenticated Tenant owner + JSON/explicit Markdown or text-PDF policy block → Tenant-owned immutable artifact/lifecycle → exact Tenant-safe Case binding → EffectivePolicy → operation-specific DecisionBasis and derived cognitive rules; P@1/P@2 remain distinct and validity/revoke contract future authority | unresolved prose never publishes; local ownership is enforced; external organization identity, credential security, retention and distributed revoke remain future work |
 | Journal compatibility | inspect/dry-run/import `yai.store.record.v0` or `yai.record.v1`, preserving unknowns opaquely in an isolated target; old replay still materializes legacy record indexes | general semantic promotion is deliberately absent; the old record plane remains compatibility data, not authority |
 | Graph | typed canonical transitions and explicitly decoded legacy records → derived relations → rebuildable RuntimeGraph → bounded query | generation/version invalidation remains minimal; legacy-only cases still depend on compatibility translation |
 | Analytical facts | LMDB operational records → DuckDB extraction → reports | four declared families have no extractor; schema/orchestration remains embedded in the command crate |
@@ -562,10 +562,15 @@ They are built separately and are not normal product call paths.
 ## Current governance intake behavior
 
 [`governance.rs`](../engine/yai-engine/src/governance.rs) owns one source
-compiler, not a governance plane. It accepts only bounded constrained JSON
-under `yai.policy_source_input.v3`. The exact UTF-8 bytes receive a SHA-256
-identity and become an immutable `yai.policy_source_artifact.v3`; no model or
-free-form policy interpreter participates.
+compiler, not a governance plane. Bounded JSON under
+`yai.policy_source_input.v4`, Markdown with an explicit policy JSON block, and
+the supported text-PDF policy-sheet profile feed the same compiler. JSON keeps
+`yai.policy_source_artifact.v4`; document sources use v5 to retain exact original
+bytes, media type, extractor identity and honest extracted-block coordinates.
+The SHA-256 identity covers the original document, not merely extracted text.
+No model or free-form policy interpreter participates. Text outside the explicit
+structured block remains unresolved and blocks qualification; unsupported PDFs
+refuse without OCR. See the [format contract](reference/governance.md).
 
 The compiler emits `yai.parsed_policy.v2` facts for four current families:
 operation restriction, review requirement, evidence obligation and scoped
@@ -695,7 +700,11 @@ one Tenant context and never combines catalogs or Case-derived reads.
 read-only `SemanticState` from CaseState and its exact ordered history, requiring
 `CaseState == replay(history)`. S is a qualified composition of existing owners,
 not a new canonical owner, mutable memory object or database. Its source identity
-binds representation version, full canonical history and current materialization.
+binds representation version, full canonical history, current materialization and,
+for cognitive execution, current catalog-derived normative status. That status is
+supplied by the same EffectivePolicy materializer as deterministic admission,
+including validity and revocation outside Case generation changes. Observation
+clock samples alone do not change semantic identity; changed validity does.
 Immutable content remains owned separately; selected entries preserve exact
 object references, inline text when owned by that content contract, and provenance.
 
@@ -704,9 +713,17 @@ admitted view, purpose, intent/output-contract identity, required source referen
 resource relevance and item/semantic-unit budgets. Qualification precedes relevance.
 Own Turns and exact currently authorized I06 executor delegations are distinct;
 delegation does not expose the author's unrelated Turns. Current policy bindings,
-control state and unresolved work retain their posture. Policy references are not
-a second EffectivePolicy evaluator or permission to execute: current governance,
+control state and unresolved work retain their posture. A mandatory
+`EffectiveAuthority` entry carries exact EffectivePolicy identity, readiness,
+validity and normalized rules relevant to visible resource kinds, including DENY,
+review, roles and evidence obligations. This is a derived cognitive view, not a
+second policy evaluator or permission to execute. Current governance,
 expiry/revoke, Grants and dispatch checks remain in their existing owners.
+Raw imported prose is not injected as policy instructions. The bounded recent
+`DecisionEvidence` family carries the executing Participant's source-closed
+DecisionBasis, rule refs, resource, canonical sequence/recorded time, review and
+result references. Its optional six-decision window is not general Recall or
+as-of reconstruction; historical permission is never current authority.
 
 W is deterministic, provider-independent, disposable and source/request/version
 bound. The compiler uses the shared semantic budget kernel in
@@ -718,11 +735,13 @@ locality omissions have aggregate counts, without exporting hidden IDs. Semantic
 units are the existing serialized-character estimate, not authoritative tokens.
 
 Normal conversation, Golden work, Workflow and bounded Case execution lower W
-through [`context.rs`](../engine/yai-engine/src/context.rs) into Projection v9 and
-ContextFrame v9, then the existing exact provider adapter. W's identity is reachable
+through [`context.rs`](../engine/yai-engine/src/context.rs) into Projection v10 and
+ContextFrame v10, then the existing exact provider adapter. W's identity is reachable
 from `projection.bounds.working_state_id` through existing invocation lineage.
-`context inspect --id <working-state-id>` recompiles the historical snapshot and
-checks equality; historical reproducibility does not make it current for dispatch.
+`context inspect --id <working-state-id>` recompiles the Case snapshot against
+current catalog truth and checks equality. A changed catalog can invalidate that
+derived artifact even at the same Case generation; this is not historical policy
+time travel. Retained DecisionBasis remains canonical historical backing.
 Lowering rejects a stale/tampered W by source/request/version and full recompilation.
 ResidencyPlan is a compatibility report of that selection, not a second selector.
 The older `compile_projection` facade remains for bounded engine inspection tests;
@@ -734,7 +753,12 @@ application verifies both qualified sources, exact forward history and the old W
 then explicitly reports `FullRecompilation`; all supported classes currently use
 this correctness fallback. Full/delta equality is qualified, incremental speed is
 not. No cache is needed for correctness. S/W/compiler/delta identity contracts are
-v1; Transition v18, CaseState v15, owner counts and LMDB 37/40 are unchanged.
+v2 for S/W/compiler and v1 for delta; Transition v18, CaseState v15, owner counts
+and LMDB 37/40 are unchanged. Policy-only changes without forward Case generation
+require full recompilation, not a fabricated forward semantic delta.
+At the invocation commit, the product revalidates W and its exact Participant,
+output contract and Projection in the same LMDB write transaction as canonical
+invocation admission. A derived cache entry cannot attest its own currentness.
 The future public W → YVEX experiential-state consumer is not implemented.
 
 The target doctrine additionally distinguishes qualified historical experience H,

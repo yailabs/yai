@@ -13,10 +13,10 @@ use crate::transition::{
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const SEMANTIC_STATE_SCHEMA: &str = "yai.semantic_state.v1";
-pub const WORKING_STATE_SCHEMA: &str = "yai.semantic_working_state.v1";
+pub const SEMANTIC_STATE_SCHEMA: &str = "yai.semantic_state.v2";
+pub const WORKING_STATE_SCHEMA: &str = "yai.semantic_working_state.v2";
 pub const SEMANTIC_DELTA_SCHEMA: &str = "yai.semantic_delta.v1";
-pub const STATE_COMPILER_VERSION: &str = "yai.state_compiler.v1";
+pub const STATE_COMPILER_VERSION: &str = "yai.state_compiler.v2";
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SemanticScope {
@@ -75,6 +75,7 @@ pub struct SemanticState {
     source_id: String,
     state: CaseState,
     history: Vec<Transition>,
+    normative: Option<crate::case_policy::NormativeStatus>,
 }
 
 /// Explicit semantic selection, not a target/provider routing request.
@@ -142,6 +143,87 @@ impl SemanticState {
             ),
             state: state.clone(),
             history: history.to_vec(),
+            normative: None,
+        })
+    }
+
+    /// Only the catalog boundary supplies this input, from the same materializer
+    /// used by admission. A deserialized W or a model cannot supply policy truth.
+    pub(crate) fn with_normative(
+        mut self,
+        mut status: crate::case_policy::NormativeStatus,
+    ) -> Result<Self, String> {
+        if status.case_id != self.state.case_id {
+            return Err("semantic_policy_case_mismatch".into());
+        }
+        // Wall-clock observation is not semantic change. Validity/revocation and
+        // exact contributing bindings remain identity-bearing current control.
+        status.authority_time_unix_ms = 0;
+        status.observed_wall_time_unix_ms = 0;
+        status.persisted_authority_floor_unix_ms = 0;
+        self.source_id = format!(
+            "semantic-state:{}",
+            identity(&(SEMANTIC_STATE_SCHEMA, &self.state, &self.history, &status))?
+        );
+        self.normative = Some(status);
+        Ok(self)
+    }
+
+    fn authority_entry(&self, participant: &str) -> Option<SemanticEntry> {
+        use crate::case_policy::EffectivePolicyRule;
+        let status = self.normative.as_ref()?;
+        let visible_kinds = self
+            .state
+            .resources
+            .iter()
+            .filter(|r| {
+                r.access
+                    .as_ref()
+                    .is_none_or(|a| a.participant_ids.iter().any(|p| p == participant))
+            })
+            .filter_map(|r| {
+                serde_json::to_value(&r.kind)
+                    .ok()?
+                    .as_str()
+                    .map(str::to_owned)
+            })
+            .collect::<BTreeSet<_>>();
+        let rules = status
+            .effective_policy
+            .as_ref()
+            .map(|p| {
+                p.rules
+                    .iter()
+                    .filter(|rule| {
+                        let resource_kind = match rule {
+                            EffectivePolicyRule::OperationRestriction { resource_kind, .. }
+                            | EffectivePolicyRule::ReviewRequirement { resource_kind, .. }
+                            | EffectivePolicyRule::EvidenceObligation { resource_kind, .. }
+                            | EffectivePolicyRule::AuthorityRequirement { resource_kind, .. } => {
+                                resource_kind
+                            }
+                        };
+                        resource_kind
+                            .as_ref()
+                            .is_none_or(|kind| kind == "*" || visible_kinds.contains(kind))
+                    })
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default();
+        Some(SemanticEntry {
+            entry_id: "policy:current-effective-authority".into(),
+            posture: AuthorityPosture::ControlState,
+            value: SemanticValue::EffectiveAuthority {
+                effective_policy_id: status.effective_policy.as_ref().map(|p| p.effective_policy_id.clone()),
+                effective_policy_digest: status.effective_policy.as_ref().map(|p| p.semantic_digest.clone()),
+                readiness: status.readiness.clone(), validity: status.validity.clone(), rules,
+                default_posture: "DENY_without_explicit_allow; subject_to_current_roles_evidence_review_and_resource_envelope; information_not_a_grant".into(),
+                unresolved_count: status.missing.len() + status.blocking_conflicts.len(),
+            },
+            provenance: self.state.policy_bindings.iter().map(|b| SemanticProvenance {
+                kind: ProvenanceKind::PolicyBinding, source_ref: b.binding_id.clone()
+            }).collect(),
         })
     }
 
@@ -207,6 +289,9 @@ impl SemanticState {
         };
         let mut candidates = collect_candidates(&qualified, &self.history, &scope, &derived)?;
         if scope.purpose != SemanticPurpose::MemoryConsolidation {
+            if let Some(entry) = self.authority_entry(&scope.participant_id) {
+                candidates.entries.push(entry);
+            }
             for binding in &self.state.policy_bindings {
                 candidates.entries.push(SemanticEntry {
                     entry_id: format!("policy:{}", binding.binding_id),
@@ -218,6 +303,68 @@ impl SemanticState {
                         kind: ProvenanceKind::CaseStateGeneration,
                         source_ref: format!("{}@{}", self.state.case_id, self.state.generation),
                     }],
+                });
+            }
+            // Recent, source-closed Decision history, not a general Recall
+            // compiler. Scope is qualified before recency or relevance.
+            for t in &self.history {
+                let TransitionPayload::DecisionRecorded { decision } = &t.payload else {
+                    continue;
+                };
+                let Some(basis) = &decision.decision_basis else {
+                    continue;
+                };
+                if basis.proposer_participant_id != scope.participant_id
+                    || !self.state.resources.iter().any(|r| {
+                        r.attachment_id == basis.resource_attachment_id
+                            && resource_visible(r, &scope.participant_id)
+                    })
+                {
+                    continue;
+                }
+                candidates.entries.push(SemanticEntry {
+                    entry_id: format!("decision-history:{}", decision.decision_id),
+                    posture: AuthorityPosture::CommittedOperationalFact,
+                    value: SemanticValue::DecisionEvidence {
+                        operation_id: decision.operation_id.clone(),
+                        decision_id: decision.decision_id.clone(),
+                        proposer: basis.proposer_participant_id.clone(),
+                        resource_id: basis.resource_attachment_id.clone(),
+                        operation_kind: basis.operation_kind.clone(),
+                        outcome: decision.outcome.clone(),
+                        reason: basis.final_reason.clone(),
+                        basis_id: basis.basis_id.clone(),
+                        effective_policy_id: basis.effective_policy_id.clone(),
+                        rule_refs: basis.matched_rule_refs.clone(),
+                        sequence: t.sequence,
+                        recorded_at_unix_ms: t.committed_at_unix_ms,
+                        review_action_id: basis.review_action_ref.clone(),
+                        reviewer: basis.review_action_ref.as_ref().and_then(|id| {
+                            self.history.iter().find_map(|t| match &t.payload {
+                                TransitionPayload::ReviewActionRecorded { action }
+                                    if &action.action_id == id =>
+                                {
+                                    Some(action.reviewer_participant_id.clone())
+                                }
+                                _ => None,
+                            })
+                        }),
+                        grant_ids: self
+                            .state
+                            .grants
+                            .iter()
+                            .filter(|g| g.decision_id == decision.decision_id)
+                            .map(|g| g.grant_id.clone())
+                            .collect(),
+                        receipt_ids: self
+                            .state
+                            .effects
+                            .iter()
+                            .filter(|e| e.decision_id == decision.decision_id)
+                            .filter_map(|e| e.receipt_id.clone())
+                            .collect(),
+                    },
+                    provenance: transition_provenance(t),
                 });
             }
         }
@@ -270,11 +417,17 @@ impl SemanticState {
         let mut remaining_observations = 12usize;
         let mut remaining_content = 8usize;
         let mut remaining_effects = 4usize;
+        let mut remaining_decisions = 6usize;
         let mut selected_candidates = Vec::new();
         let mut locality_reasons = BTreeMap::new();
         for entry in candidates.entries.into_iter().rev() {
             let explicit = mandatory_refs.contains(&entry.entry_id);
             let retain = match &entry.value {
+                SemanticValue::DecisionEvidence { .. } => {
+                    let keep = explicit || remaining_decisions > 0;
+                    remaining_decisions = remaining_decisions.saturating_sub(1);
+                    keep
+                }
                 SemanticValue::ResourceObservation { .. } => {
                     let keep = explicit || remaining_observations > 0;
                     remaining_observations = remaining_observations.saturating_sub(1);
@@ -312,6 +465,7 @@ impl SemanticState {
                     SemanticValue::ResourceObservation { .. } => "recent_observation_window",
                     SemanticValue::CaseContent { .. } => "recent_content_window",
                     SemanticValue::ResourceConsequence { .. } => "recent_finalized_effect_window",
+                    SemanticValue::DecisionEvidence { .. } => "recent_decision_evidence_window",
                     SemanticValue::ProviderClaim { .. } => "recent_claim_window",
                     _ => "recent_interaction_window",
                 };
@@ -889,6 +1043,7 @@ pub enum AuthorityPosture {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProvenanceKind {
+    PolicyBinding,
     ContentObject,
     Transition,
     Observation,
@@ -906,6 +1061,33 @@ pub struct SemanticProvenance {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum SemanticValue {
+    DecisionEvidence {
+        operation_id: String,
+        decision_id: String,
+        proposer: String,
+        resource_id: String,
+        operation_kind: String,
+        outcome: DecisionOutcome,
+        reason: String,
+        basis_id: String,
+        effective_policy_id: String,
+        rule_refs: Vec<String>,
+        sequence: u64,
+        recorded_at_unix_ms: u64,
+        review_action_id: Option<String>,
+        reviewer: Option<String>,
+        grant_ids: Vec<String>,
+        receipt_ids: Vec<String>,
+    },
+    EffectiveAuthority {
+        effective_policy_id: Option<String>,
+        effective_policy_digest: Option<String>,
+        readiness: crate::case_policy::NormativeReadiness,
+        validity: crate::case_policy::PolicyValidityPosture,
+        rules: Vec<crate::case_policy::EffectivePolicyRule>,
+        default_posture: String,
+        unresolved_count: usize,
+    },
     PolicyBinding {
         binding: crate::case_policy::CasePolicyBinding,
     },

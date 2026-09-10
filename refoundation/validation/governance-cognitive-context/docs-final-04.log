@@ -1,0 +1,22 @@
+run_id=governance-docs-final-04 pre_state=source_qualified; raw_evidence_preserved; live_entry_indeterminate
+command=TMPDIR=/tmp make check-docs check-layout check-doc-links test-roadmap
+/home/mothx/computer-science/projects/YAI/yai
+7c5687effc4ffcd48cde93d83bab3667316e3e1b
+check-roadmap: PASS ESTABLISHED=32 PARTIAL=23 OPEN=12 LATER=4 TOTAL=71; selected_boundaries=1
+doc_root_canon: ok
+check-doc-canonical-location: ok
+check-doc-required-files: ok
+check-doc-links: ok (34 files)
+check-repository-identity: ok
+check-no-old-roots: ok
+check-required-layout: ok
+check-source-placement: ok
+check-source-surface-clean: ok
+check-doc-links: ok (34 files)
+{"validation_entry": {"id": "test-roadmap", "kind": "make", "path": "tests/characterization/test_roadmap.py", "selector": "test-roadmap", "proof_class": "unit", "evidence_posture": "regression", "provider_mode": "no_provider", "network": "none", "mutation": "temporary_test_metadata", "cadence": "fast", "entrypoint": "test-roadmap", "reachability": "test_infrastructure", "property": "Roadmap-only maturity counts, valid evidence references, sole live control authority and one coherent selected temporal boundary; no runtime or maturity certification"}}
+........
+----------------------------------------------------------------------
+Ran 8 tests in 0.164s
+
+OK
+documentation_exit=0

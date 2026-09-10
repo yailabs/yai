@@ -60,6 +60,7 @@ const COMMANDS: &[&str] = &[
     "/attach",
     "/policy publish ",
     "/policy publish",
+    "/policy extract ",
     "/connect ",
     "/connect",
     "/work ",
@@ -211,15 +212,36 @@ fn command(
     }
     if text == "/policy publish" {
         let path = setup::ask("Policy source file", None)?;
+        let preview =
+            crate::command_adapters::policy::inspect_policy_input(std::path::Path::new(&path))?;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&preview).map_err(|e| e.to_string())?
+        );
+        if preview["candidate"]["validation"]["status"] != "qualified" {
+            return Err("policy_interpretation_unresolved: publication is unavailable; resolve the source explicitly".into());
+        }
         let reason = setup::ask(
             "Publication reason (explicit approval of this policy source)",
             None,
         )?;
         println!(
             "{}",
-            serde_json::to_string_pretty(
-                &controller.publish_policy(std::path::Path::new(&path), &reason)?
-            )
+            serde_json::to_string_pretty(&controller.publish_policy_checked(
+                std::path::Path::new(&path),
+                &reason,
+                preview["original_digest"].as_str()
+            )?)
+            .map_err(|e| e.to_string())?
+        );
+        return Ok(());
+    }
+    if let Some(path) = text.strip_prefix("/policy extract ") {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&crate::command_adapters::policy::inspect_policy_input(
+                std::path::Path::new(path.trim())
+            )?)
             .map_err(|e| e.to_string())?
         );
         return Ok(());

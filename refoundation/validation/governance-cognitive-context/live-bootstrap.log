@@ -1,0 +1,22 @@
+run_id=governance-live-uOpHL7 order=1 pre_state=fresh_home command=./yai init --tenant tenant:policy-native --organization organization:engineering
+security_bootstrap: created
+authenticated: true
+authentication_kind: local_posix_effective_credential
+real_uid: 1000
+effective_uid: 1000
+real_gid: 1000
+effective_gid: 1000
+principal_id: principal:72cc156b82060120eac8f7e234dbfcef
+tenant_id: tenant:policy-native
+organization_ref: organization:engineering
+membership: owner
+security_events: 2
+exit=0
+order=2 command=./yai case create case:policy-native --tenant tenant:policy-native
+case_created: true
+case_id: case:policy-native
+tenant_id: tenant:policy-native
+case_generation: 1
+lifecycle: open
+principal_id: principal:72cc156b82060120eac8f7e234dbfcef
+exit=0

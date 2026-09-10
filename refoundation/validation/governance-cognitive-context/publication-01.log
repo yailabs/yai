@@ -1,0 +1,123 @@
+check-no-old-roots: ok
+check-required-layout: ok
+check-source-placement: ok
+check-source-surface-clean: ok
+check-roadmap: PASS ESTABLISHED=32 PARTIAL=23 OPEN=12 LATER=4 TOTAL=71; selected_boundaries=1
+doc_root_canon: ok
+check-doc-canonical-location: ok
+check-doc-required-files: ok
+check-doc-links: ok (34 files)
+check-repository-identity: ok
+CARGO_TARGET_DIR=target cargo build --manifest-path engine/Cargo.toml --workspace
+    Blocking waiting for file lock on artifact directory
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.17s
+CARGO_TARGET_DIR=target cargo build --manifest-path cmd/yai/Cargo.toml
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on artifact directory
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.99s
+CARGO_NET_OFFLINE=true cargo test --manifest-path engine/Cargo.toml --workspace --no-run
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+  Executable unittests src/lib.rs (target/debug/deps/yai_core_engine-a57a7344f94e1c5f)
+CARGO_NET_OFFLINE=true cargo test --manifest-path cmd/yai/Cargo.toml --no-run
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+  Executable unittests src/main.rs (target/debug/deps/yai-0342339390dc5beb)
+{"validation_entry": {"id": "test-topology", "kind": "make", "path": "tests/characterization/test_validation_topology.py", "selector": "test-topology", "proof_class": "unit", "evidence_posture": "regression", "provider_mode": "no_provider", "network": "none", "mutation": "temporary_test_metadata", "cadence": "fast", "entrypoint": "test-topology", "reachability": "test_infrastructure", "property": "Classification and gate drift; absent external dependency cannot pass; no provider dispatch"}}
+test_actual_child_failure_reports_class_and_preserves_exit (__main__.TopologyTests.test_actual_child_failure_reports_class_and_preserves_exit) ... deliberate test infrastructure failure
+ok
+test_combined_graph_has_shared_leaf_dependencies_not_repeated_recipes (__main__.TopologyTests.test_combined_graph_has_shared_leaf_dependencies_not_repeated_recipes) ... ok
+test_cumulative_runbook_is_product_and_preserves_operator_authority (__main__.TopologyTests.test_cumulative_runbook_is_product_and_preserves_operator_authority) ... ok
+test_duplicate_identity_and_missing_source_fail_closed (__main__.TopologyTests.test_duplicate_identity_and_missing_source_fail_closed) ... ok
+test_external_absence_is_nonpass_before_any_network_attempt (__main__.TopologyTests.test_external_absence_is_nonpass_before_any_network_attempt) ... ok
+test_external_provider_cannot_enter_local_publication (__main__.TopologyTests.test_external_provider_cannot_enter_local_publication) ... ok
+test_failure_remains_nonzero_and_localized (__main__.TopologyTests.test_failure_remains_nonzero_and_localized) ... ok
+test_fixture_cannot_authorize_external_qualification (__main__.TopologyTests.test_fixture_cannot_authorize_external_qualification) ... ok
+test_golden_is_an_explicit_cadence_not_an_external_claim (__main__.TopologyTests.test_golden_is_an_explicit_cadence_not_an_external_claim) ... ok
+test_unclassified_script_and_make_entry_fail_audit (__main__.TopologyTests.test_unclassified_script_and_make_entry_fail_audit) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.100s
+
+OK
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+coverage_parity: PASS old_smoke_leaves=71 current_make_leaves=87 combined_duplicate_make_leaves=0
+validation_catalog: PASS entries=487 assertion_files=91 rust_tests=384
+{"validation_entry": {"id": "smoke-adaptive-workflow", "kind": "make", "path": "tests/characterization/adaptive-workflow/test_adaptive_workflow.sh", "selector": "smoke-adaptive-workflow", "proof_class": "component", "evidence_posture": "characterization", "provider_mode": "no_provider", "network": "none", "mutation": "temporary_files_processes", "cadence": "publication", "entrypoint": "smoke-adaptive-workflow", "reachability": "product", "property": "PlanPatch Subflow and Handoff canonical-store semantics plus CLI discovery; no remote model execution"}}
+w17_planpatch: proposals=2 adopted=1 stale=1 revision=1 topology_digest=sha256:4bd5d93e8944c427134430013644640b3fd6c3f39ed47e4eb76504a889df520d
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+w17_model_patch: provider_results=3 malformed_candidates=0 forged_origin_candidates=0 valid_candidates=1 duplicate_candidates=0 auto_adoptions=0 owner_adoptions=1 patch_id=workflow-plan-patch:8b3061b03026a9b95becf81d64dd9d08
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+w17_patch_race: contenders=8 winners=1 stale=7 amendments=1 revision=1
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+w17_subflow_progress: cases=1 definitions=2 qualified_nodes=2 work_items=0 completed=true digest=sha256:e210a1f622215b5a1c4f28d0c414e852d10ad6a8981ce084ba6bd14fb75769f7
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.01s
+w17_handoff: handoff_id=handoff:fcb70527d2f5faeeae41f10b7af3e385 acceptance_contenders=8 acceptance_winners=1 source_facts=offer,reconciliation target_facts=acceptance,result source_grants=0 source_effects=0
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.01s
+w17_workflow_handoff: offer=1 accept=1 result=1 reconcile=1 source_satisfaction=1 workers_held=0 handoff_id=handoff:b04ed20fe4bd48c1bb031e5ce1996737
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+w17_handoff_negative: active_cycle=rejected cross_tenant=rejected target_payloads=0
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.00s
+w17_handoff_terminal: source_cancel_before_accept=rejected target_cancel_after_accept=reconciled_cancelled target_results=0 histories_verified=4
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.01s
+w17_scale: amendments=32 amendment_bytes=28028 amendment_nodes=33 amendment_rebuild_us=21041 subflow_instances=128 expanded_nodes=512 expanded_edges=765 expanded_rebuild_us=48136
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.63s
+w17_handoff_chain: cases=4 edges=3 accepts=3 results=3 reconciliations=3 histories_replayed=4 process_owners=0 imported_grants=0
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+adaptive_workflow_characterization: pass
+planpatch_proposal_adoption: separated
+model_auto_adoptions: 0
+patch_race_contenders: 8
+patch_race_winners: 1
+subflow_work_items_for_passive_container: 0
+maximum_amendments_replayed: 32
+maximum_effective_nodes_expanded: 512
+handoff_chain_cases_replayed: 4
+handoff_workers_held_while_waiting: 0
+cross_tenant_handoff: rejected
+workflow_run_owner: 0
+multi_case_process_owner: 0
+{"validation_entry": {"id": "smoke-adaptive-workflow-hardening", "kind": "make", "path": "tests/characterization/adaptive-workflow-hardening/test_adaptive_workflow_hardening.sh", "selector": "smoke-adaptive-workflow-hardening", "proof_class": "recovery", "evidence_posture": "characterization", "provider_mode": "no_provider", "network": "none", "mutation": "temporary_files_processes", "cadence": "publication", "entrypoint": "smoke-adaptive-workflow-hardening", "reachability": "product", "property": "Amendment/Handoff process races corruption and depth bounds fail closed"}}
+h17_patch_bounds: bytes=262144 accepted bytes=262145 rejected operations=32 accepted operations=33 rejected added_nodes=16 accepted added_nodes=17 rejected added_edges_cap=64 dominated_by_operations_cap=32 future_schema=v99_rejected path_separator=in_definition_node_rejected
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+h17_amendment_lineage: revisions=32 bytes=29097 transitions=66 effective_nodes=33 effective_edges=0 lineage_execution_us=3259446 prefix_replay_us=273912 topology_rebuild_us=20138 resolution_us=23108 corruptions=11 fail_closed=11 digest=sha256:1dc9765ebc1ab4bd2bf8db80e76f3389c5ca794df73ee0ff4eac285b4564aaa5
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 3.66s
+h17_amendment_process_race: processes=32 winners=1 stale=31 generation_delta=1 revision=1 digest=sha256:fa7ea2b0947ff48ca2ef3ecf2bdd208ed13a4cf06220060b5ddbf3febca3c305
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.23s
+h17_adjacent_revision_races: rounds=8 winning_amendments=8 late_stale_writers=8 forks=0 final_revision=8
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.22s
+h17_progression_adoption_races: human_input_or_amendment_one_winner=true passive_satisfaction_or_amendment_one_truth=true write_skew=0
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+h17_handoff_forgery: wrong_handoff=rejected cross_case_evidence=rejected empty_evidence_success=admitted_as_target_report source_effects=0 source_grants=0 tampered_outcome=integrity_rejected
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.01s
+h17_handoff_process_races: result_processes=32 result_semantic_winners=1 identical_observers=16 conflicts=16 result_generation_delta=1 reconcile_processes=32 reconcile_semantic_winners=1 idempotent_observers=32 reconcile_generation_delta=1
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.07s
+h17_handoff_lifecycle_races: cancel_accept_serialized=true acceptance_committed=1 cancel_result_serialized=true result_committed=1 cancel_reconcile_both_preserved=true close_before_settlement=blocked close_after_reconcile=committed
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+h17_cycle_races: two_way_writers=2 committed=1 refused=1 three_way_writers=3 committed=2 refused=1 final_active_graph=acyclic
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.01s
+h17_active_graph_terminality: original_edge=A->B target_decline=terminal reverse_edge=B->A admitted_before_source_reconcile=true active_cycle=false
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.01s
+h17_multi_case_scale: cases=64 active_handoffs=63 offer_validation_us=100865 cycle_check_us=1556 graph_relations=254 graph_double_rebuild_us=42021 duplicates=0 process_owners=0
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.16s
+h17_cross_definition: depth=4 qualified_leaf=root/s1/s2/s3/s4/leaf corrupt_deep_child=fail_closed exact_restore=resolution_equal topology_digest=sha256:8f0d223bc2523a18a778bae2b85f539bd4bfef6bb770e5d92a9498102988df9f simulated_upgrade_drift=fail_closed
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+h17_deep_model_recovery: depth=4 node=root/s1/s2/s3/s4/deep-model executions=1 provider_invocations=1 provider_results=1 completed_turn_duplicates=0 replay_equal=true
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.06s
+h17_deep_deterministic_recovery: depth=4 node=root/s1/s2/s3/s4/deep-deterministic proposals=1 operations=1 proposal_duplicates=0 operation_duplicates=0 operation_id=operation:f597a68f4f15e83e1b15d26967771e94
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+h17_handoff_bounds: request_bytes=16384 accepted request_bytes=16385 rejected result_bytes=16384 accepted evidence_refs=32 accepted evidence_refs=33 rejected role_requirements=16 accepted role_requirements=17 rejected duplicate_json_keys=rejected
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.00s
+w17_model_patch: provider_results=3 malformed_candidates=0 forged_origin_candidates=0 valid_candidates=1 duplicate_candidates=0 auto_adoptions=0 owner_adoptions=1 patch_id=workflow-plan-patch:8b3061b03026a9b95becf81d64dd9d08
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+adaptive_workflow_hardening_characterization: pass
+amendment_process_contenders: 32
+handoff_result_process_contenders: 32
+handoff_reconcile_process_contenders: 32
+maximum_amendments_replayed: 32
+maximum_subflow_depth_recovered: 4
+multi_case_graph_cases: 64
+semantic_owner_delta: 0
+{"validation_entry": {"id": "smoke-agentless-case-runtime", "kind": "make", "path": "tests/characterization/agentless-case-runtime/test_agentless_case_runtime.sh", "selector": "smoke-agentless-case-runtime", "proof_class": "product", "evidence_posture": "characterization", "provider_mode": "loopback_fixture", "network": "loopback", "mutation": "temporary_files_processes", "cadence": "publication", "entrypoint": "smoke-agentless-case-runtime", "reachability": "product", "property": "Bounded multi-turn Case execution with controlled effects restart and provider replacement; no Agent owner"}}
+make: *** [Makefile:649: smoke-agentless-case-runtime] Error 1

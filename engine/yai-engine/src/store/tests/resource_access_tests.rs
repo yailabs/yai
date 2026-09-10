@@ -9,6 +9,287 @@ const HUMAN: &str = "participant:human";
 const RESOURCE: &str = "resource:workspace";
 
 #[test]
+fn cognitive_authority_same_materializer_scoped_mandatory_revocation_rebuild() {
+    use crate::semantic_state::{
+        CompilationRequest, SemanticPurpose, SemanticScope, SemanticValue,
+    };
+    let world = World::new();
+    let state = world.store.get_case_state(CASE).unwrap().unwrap();
+    let history = world.store.list_case_transitions(CASE).unwrap();
+    let source = world
+        .store
+        .compose_cognitive_state(&state, &history)
+        .unwrap();
+    let request = CompilationRequest {
+        scope: SemanticScope::model(HUMAN, SemanticPurpose::Conversation),
+        intent: "What is currently permitted, denied, and review-required?".into(),
+        output_contract_id: "test:text".into(),
+        max_semantic_units: 12000,
+        max_derived_items: 0,
+        resource_refs: vec![],
+        required_refs: vec![],
+        previous_item_ids: vec![],
+        view_selection_id: None,
+    };
+    let working = source.compile(&request).unwrap();
+    let projection = working.lower_context(&source, &request).unwrap();
+    let effective = world
+        .store
+        .case_policy_status(CASE)
+        .unwrap()
+        .effective_policy
+        .unwrap();
+    let rules = projection
+        .entries
+        .iter()
+        .find_map(|e| match &e.value {
+            SemanticValue::EffectiveAuthority {
+                effective_policy_id,
+                effective_policy_digest,
+                rules,
+                readiness,
+                validity,
+                ..
+            } => {
+                assert_eq!(
+                    effective_policy_id.as_deref(),
+                    Some(effective.effective_policy_id.as_str())
+                );
+                assert_eq!(
+                    effective_policy_digest.as_deref(),
+                    Some(effective.semantic_digest.as_str())
+                );
+                assert_eq!(*readiness, NormativeReadiness::Ready);
+                assert_eq!(*validity, PolicyValidityPosture::Valid);
+                Some(rules)
+            }
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(rules.len(), 3); // discovery rule belongs to a non-attached surface
+    assert!(rules.iter().all(|r| effective.rules.contains(r)));
+    let mut tiny = request.clone();
+    tiny.max_semantic_units = 1;
+    assert!(source.compile(&tiny).is_err());
+    let mut hidden = request.clone();
+    hidden.scope.participant_id = "participant:absent".into();
+    assert!(source.compile(&hidden).is_err());
+    world.store.drop_effective_policy(CASE).unwrap();
+    world.store.clear_semantic_context_artifacts().unwrap();
+    world.store.rebuild_effective_policy(CASE).unwrap();
+    assert_eq!(
+        world
+            .store
+            .compose_cognitive_state(&state, &history)
+            .unwrap()
+            .compile(&request)
+            .unwrap(),
+        working
+    );
+    assert!(world.store.verify_case_state(CASE).unwrap());
+    world
+        .store
+        .put_semantic_context_artifact(&SemanticContextArtifact::WorkingState(working.clone()))
+        .unwrap();
+    world
+        .store
+        .put_semantic_context_artifact(&SemanticContextArtifact::Projection(projection.clone()))
+        .unwrap();
+    let invocation = secured_pending(
+        "transition:cognitive-stale-check",
+        CASE,
+        state.generation,
+        &world.owner.projected_principal_id(),
+        TransitionPayload::ProviderInvocationStarted {
+            invocation_id: "invocation:cognitive-stale-check".into(),
+            participant_id: "participant:model".into(),
+            provider_id: "provider:test".into(),
+            provider_kind: "openai_compatible".into(),
+            model_id: "test".into(),
+            semantic_lineage: Some(ProviderInvocationLineage {
+                projection_id: projection.projection_id.clone(),
+                context_frame_id: "frame:test".into(),
+                case_generation: state.generation,
+                rendered_input_id: "render:test".into(),
+                rendered_input_digest: "digest:test".into(),
+                output_contract_id: request.output_contract_id.clone(),
+                continuation_disposition: "not_provided".into(),
+            }),
+            governance: None,
+        },
+    );
+    assert!(world
+        .store
+        .commit_cognitive_invocation(invocation.clone(), working.id())
+        .unwrap_err()
+        .contains("invocation_mismatch"));
+    world
+        .store
+        .revoke_tenant_policy_artifact(&world.owner, &world.artifact_id, "revocation test")
+        .unwrap();
+    assert_eq!(world.store.get_case_state(CASE).unwrap().unwrap(), state); // separate governance history
+    let revoked = world
+        .store
+        .compose_cognitive_state(&state, &history)
+        .unwrap();
+    assert!(working.lower_context(&revoked, &request).is_err());
+    assert!(world
+        .store
+        .commit_cognitive_invocation(invocation, working.id())
+        .is_err());
+    assert_eq!(world.store.list_case_transitions(CASE).unwrap(), history);
+    let refreshed = revoked
+        .compile(&request)
+        .unwrap()
+        .lower_context(&revoked, &request)
+        .unwrap();
+    assert!(refreshed.entries.iter().any(|e| matches!(
+        &e.value,
+        SemanticValue::EffectiveAuthority {
+            validity: PolicyValidityPosture::Revoked,
+            ..
+        }
+    )));
+    assert!(world
+        .store
+        .case_capability_view_authorized(&world.owner, CASE, HUMAN)
+        .is_err());
+    println!("cognitive_authority exact_effective_policy=true relevant_rules=3 mandatory_budget_refusal=true absent_participant_refusal=true rebuild_equal=true revoke_without_case_generation_invalidates_W=true admission_refuses=true");
+}
+
+#[test]
+fn cognitive_decision_history_scoped_exact_and_not_current_permission() {
+    use crate::semantic_state::{
+        CompilationRequest, SemanticPurpose, SemanticScope, SemanticValue,
+    };
+    let world = World::new();
+    let allowed = world.operation("request:history-read", "src/retry.txt");
+    let (allow, _) = world
+        .store
+        .derive_and_commit_policy_decision(CASE, &allowed.operation_id)
+        .unwrap();
+    let admission = world
+        .store
+        .admit_resource_read_authorized(&world.owner, CASE, &allowed.operation_id)
+        .unwrap();
+    let observation = world
+        .store
+        .record_resource_observation_authorized(&world.owner, &admission, world.result(&admission))
+        .unwrap();
+    let forbidden = world.operation("request:history-denied", "protected/secret.txt");
+    let (deny, _) = world
+        .store
+        .derive_and_commit_policy_decision(CASE, &forbidden.operation_id)
+        .unwrap();
+    assert_eq!(allow.outcome, DecisionOutcome::Allow);
+    assert_eq!(deny.outcome, DecisionOutcome::Deny);
+    assert!(world
+        .store
+        .admit_resource_read_authorized(&world.owner, CASE, &forbidden.operation_id)
+        .is_err());
+    let state = world.store.get_case_state(CASE).unwrap().unwrap();
+    let history = world.store.list_case_transitions(CASE).unwrap();
+    let source = world
+        .store
+        .compose_cognitive_state(&state, &history)
+        .unwrap();
+    let request = CompilationRequest {
+        scope: SemanticScope::model(HUMAN, SemanticPurpose::Conversation),
+        intent: "Explain who did what and why under the Case rules".into(),
+        output_contract_id: "test:text".into(),
+        max_semantic_units: 20000,
+        max_derived_items: 0,
+        resource_refs: vec![],
+        required_refs: vec![],
+        previous_item_ids: vec![],
+        view_selection_id: None,
+    };
+    let working = source.compile(&request).unwrap();
+    let projection = working.lower_context(&source, &request).unwrap();
+    let rows: Vec<_> = projection
+        .entries
+        .iter()
+        .filter_map(|e| match &e.value {
+            SemanticValue::DecisionEvidence {
+                decision_id,
+                basis_id,
+                resource_id,
+                proposer,
+                outcome,
+                sequence,
+                recorded_at_unix_ms,
+                ..
+            } => {
+                let expected = if decision_id == &allow.decision_id {
+                    &allow
+                } else {
+                    &deny
+                };
+                assert_eq!(
+                    basis_id,
+                    &expected.decision_basis.as_ref().unwrap().basis_id
+                );
+                assert_eq!(resource_id, RESOURCE);
+                assert_eq!(proposer, HUMAN);
+                assert_eq!(outcome, &expected.outcome);
+                let t = history.iter().find(|t| t.sequence == *sequence).unwrap();
+                assert_eq!(*recorded_at_unix_ms, t.committed_at_unix_ms);
+                Some(decision_id.clone())
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(rows.len(), 2);
+    assert_eq!(observation.decision_id, allow.decision_id);
+    assert!(state
+        .grants
+        .iter()
+        .all(|g| g.operation_id != forbidden.operation_id));
+    assert!(state
+        .effects
+        .iter()
+        .all(|e| e.operation_id != forbidden.operation_id));
+    let mut other = request.clone();
+    other.scope.participant_id = "participant:model".into();
+    let other_w = source.compile(&other).unwrap();
+    assert!(!other_w
+        .lower_context(&source, &other)
+        .unwrap()
+        .entries
+        .iter()
+        .any(|e| matches!(e.value, SemanticValue::DecisionEvidence { .. })));
+    world
+        .store
+        .revoke_tenant_policy_artifact(
+            &world.owner,
+            &world.artifact_id,
+            "permission is no longer current",
+        )
+        .unwrap();
+    let revoked = world
+        .store
+        .compose_cognitive_state(&state, &history)
+        .unwrap();
+    assert!(working.validate_current(&revoked, &request).is_err());
+    let refreshed = revoked
+        .compile(&request)
+        .unwrap()
+        .lower_context(&revoked, &request)
+        .unwrap();
+    assert_eq!(
+        refreshed
+            .entries
+            .iter()
+            .filter(|e| matches!(e.value, SemanticValue::DecisionEvidence { .. }))
+            .count(),
+        2
+    );
+    assert!(world.store.verify_case_state(CASE).unwrap());
+    println!("cognitive_history exact_basis=true exact_recorded_time=true own_decisions=2 other_participant_decisions=0 deny_grants=0 deny_effects=0 revocation_preserves_history_not_permission=true replay=true");
+    world.finish();
+}
+
+#[test]
 fn participant_setup_is_atomic_scoped_and_replayable() {
     let path = temp_store_path("participant-setup");
     let store = LmdbRecordStore::open(&path).unwrap();

@@ -231,6 +231,15 @@ impl ConversationController {
     }
 
     pub(crate) fn publish_policy(&self, path: &Path, reason: &str) -> Result<Value, String> {
+        self.publish_policy_checked(path, reason, None)
+    }
+
+    pub(crate) fn publish_policy_checked(
+        &self,
+        path: &Path,
+        reason: &str,
+        expected_digest: Option<&str>,
+    ) -> Result<Value, String> {
         let a = authorized_conversation_case(&self.case_id, &self.participant_id)?;
         a.store
             .resolve_security_context(&a.authenticated, &a.tenant_id)?
@@ -239,8 +248,14 @@ impl ConversationController {
             .store
             .get_tenant(&a.tenant_id)?
             .ok_or("tenant_not_visible")?;
+        let bytes = crate::command_adapters::policy::read_policy_input(path)?;
+        if expected_digest
+            .is_some_and(|expected| expected != yai_core_engine::effect::digest_bytes(&bytes))
+        {
+            return Err("policy_source_changed_since_inspection".into());
+        }
         let compilation = scope_policy_compilation(
-            &compile_policy_source(&read_input(path)?)?,
+            &compile_policy_source(&bytes)?,
             &a.tenant_id,
             &tenant.organization_ref,
         )?;

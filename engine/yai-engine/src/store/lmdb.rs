@@ -2571,7 +2571,7 @@ impl LmdbRecordStore {
         authenticated_tenant: Option<&str>,
     ) -> Result<PolicyIngestOutcome, String> {
         compilation.validate()?;
-        let rebuilt = compile_policy_source(compilation.source.content_utf8.as_bytes())?;
+        let rebuilt = compile_policy_source(compilation.source.original_bytes())?;
         let rebuilt = match compilation.artifact.tenant_id.as_deref() {
             Some(tenant_id) => {
                 if authenticated_tenant != Some(tenant_id) {
@@ -3858,6 +3858,33 @@ impl LmdbRecordStore {
         self.case_policy_status_at(case_id, authority_wall_time_unix_ms())
     }
 
+    /// Compose replay-qualified Case state and current catalog truth in one
+    /// snapshot. Historical Case input does not imply historical catalog truth.
+    pub fn compose_cognitive_state(
+        &self,
+        state: &CaseState,
+        history: &[Transition],
+    ) -> Result<crate::semantic_state::SemanticState, String> {
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        self.compose_cognitive_state_txn(&txn, state, history)
+    }
+
+    fn compose_cognitive_state_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        state: &CaseState,
+        history: &[Transition],
+    ) -> Result<crate::semantic_state::SemanticState, String> {
+        let floor = self.authority_time_floor_txn(txn)?;
+        let status = self.materialize_policy_for_state_txn(
+            txn,
+            state,
+            authority_wall_time_unix_ms().max(floor),
+            floor,
+        )?;
+        crate::semantic_state::SemanticState::compose(state, history)?.with_normative(status)
+    }
+
     /// Pure deterministic status derivation used by temporal qualification.
     /// The supplied clock cannot move authority below the committed floor.
     pub fn case_policy_status_at(
@@ -4059,6 +4086,22 @@ impl LmdbRecordStore {
         let state = self
             .get_case_state_txn(txn, case_id)?
             .ok_or_else(|| format!("case_state_not_found: {case_id}"))?;
+        self.materialize_policy_for_state_txn(
+            txn,
+            &state,
+            authority_time_unix_ms,
+            persisted_floor_unix_ms,
+        )
+    }
+
+    fn materialize_policy_for_state_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        state: &CaseState,
+        authority_time_unix_ms: u64,
+        persisted_floor_unix_ms: u64,
+    ) -> Result<NormativeStatus, String> {
+        let case_id = &state.case_id;
         if state.policy_bindings.is_empty() {
             let mut status = materialize_effective_policy(case_id, Vec::new());
             status.authority_time_unix_ms = authority_time_unix_ms;
@@ -5587,6 +5630,68 @@ impl LmdbRecordStore {
 
     pub fn commit_transition(&self, pending: PendingTransition) -> Result<CanonicalCommit, String> {
         self.commit_transition_inner(pending, false)
+    }
+
+    /// The product's compiled invocation must still describe current policy at
+    /// canonical dispatch admission, including revocation without Case mutation.
+    /// The cached W is only a claim: recompile it inside the write transaction.
+    pub fn commit_cognitive_invocation(
+        &self,
+        pending: PendingTransition,
+        working_id: &str,
+    ) -> Result<CanonicalCommit, String> {
+        let mut txn = self.env.begin_rw_txn().map_err(|e| e.to_string())?;
+        let TransitionPayload::ProviderInvocationStarted {
+            participant_id,
+            semantic_lineage: Some(lineage),
+            ..
+        } = &pending.payload
+        else {
+            return Err("cognitive_invocation_payload_required".into());
+        };
+        let artifact: SemanticContextArtifact = get_json_txn(
+            &txn,
+            self.semantic_context_artifacts,
+            &semantic_context_artifact_key(working_id),
+            "working_state",
+        )?
+        .ok_or("cognitive_working_state_missing")?;
+        let SemanticContextArtifact::WorkingState(working) = artifact else {
+            return Err("cognitive_working_state_required".into());
+        };
+        let state = self
+            .get_case_state_txn(&txn, &pending.case_id)?
+            .ok_or("case_not_visible")?;
+        let history = self.list_case_transitions_txn(&txn, &pending.case_id)?;
+        let source = self.compose_cognitive_state_txn(&txn, &state, &history)?;
+        working.validate_current(&source, working.request())?;
+        if participant_id != &working.request().scope.participant_id
+            || lineage.case_generation != state.generation
+            || lineage.output_contract_id != working.request().output_contract_id
+        {
+            return Err("cognitive_working_state_invocation_mismatch".into());
+        }
+        let artifact: SemanticContextArtifact = get_json_txn(
+            &txn,
+            self.semantic_context_artifacts,
+            &semantic_context_artifact_key(&lineage.projection_id),
+            "projection",
+        )?
+        .ok_or("cognitive_projection_missing")?;
+        let SemanticContextArtifact::Projection(projection) = artifact else {
+            return Err("cognitive_projection_required".into());
+        };
+        let mut expected = working.lower_context(&source, working.request())?;
+        // Residency is a derived diagnostic added by the application after W
+        // selection; it cannot change semantic entries or widen disclosure.
+        expected.bounds.residency_plan_id = projection.bounds.residency_plan_id.clone();
+        crate::context::refresh_projection_identity(&mut expected)?;
+        if expected != projection || projection.projection_id != lineage.projection_id {
+            return Err("cognitive_working_state_projection_mismatch".into());
+        }
+        let commit = self.commit_transition_txn(&mut txn, pending, false)?;
+        txn.commit().map_err(|e| e.to_string())?;
+        Ok(commit)
     }
 
     /// Canonical write entry point for Tenant-scoped human/admin mutations.

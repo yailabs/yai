@@ -511,7 +511,8 @@ pub fn derive_operational_memory(
                         reason: bounded_memory_text(&decision.reason),
                     },
                     format!(
-                        "filesystem.write to {}/{} was {} by Decision {}: {}",
+                        "{} to {}/{} was {} by Decision {}: {}",
+                        crate::admission::operation_kind_name(&operation.operation.kind),
                         operation.operation.resource_attachment_id,
                         operation.operation.filesystem_write.relative_path,
                         decision_outcome_label(&decision.outcome),

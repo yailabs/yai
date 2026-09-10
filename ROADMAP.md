@@ -11,7 +11,7 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent semantic continuity over current Case state and qualified historical experience, with bounded Recall/working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **SEMANTIC.STATE.REFOUNDATION.0 — BLOCKED**. Implementation and deterministic/local qualification PASS; external Golden now passes first-request capacity but fails the 300-second product-test wait. Same-boundary [external repair][external-closure], no next wave selected. |
+| Selected engineering boundary | **GOVERNANCE.COGNITIVE.CONTEXT.0 — IN_PROGRESS**. Document intake and same-EffectivePolicy cognitive projection pass deterministic/local qualification. Real Live entry received no model result within 300 s; exact postmortem preflight fits (4,448 input / 16,384 sequence tokens). Model-operated phases remain unqualified. [Bounded evidence](refoundation/validation/governance-cognitive-context/REPORT.md). |
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
 | Most important structural gap | Bounded replay-qualified S → W exists; general historical/as-of reconstruction, temporal-causal Recall, prompt-independent refresh, universal task sufficiency and a public W → E consumer do not. |
 | Executable foundation | Transition v18 / CaseState v15; immutable owned content; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
@@ -20,7 +20,7 @@ evidence, not competing status pages. Git owns chronology.
 | Target stateful path | Qualified H_t → task-conditioned Recall R_t^q; S_t + relevant Recall → W_t → public boundary → YVEX E_t. Current bounded S/W is a foothold, not implemented Recall, E or deliberation L. |
 | Human Golden acceptance | **PENDING_OPERATOR**; automated PTY evidence cannot supply this verdict. Continuity canary **NOT_RUN**. |
 | YVEX external posture | **FAIL**. Generation 2 first-request capacity is compatible. Consumer received no response before its 300-second watchdog; operator-supplied producer logs locate the wait in prefill (918/12,055 tokens, zero generated), then cancellation/cleanup. Invocation without ProviderResult; no fallback/retry. [Exact evidence][external-closure]. |
-| Next decision point | Producer-owned diagnosis of demonstrated prefill latency; separately align YAI's harness/transport observation deadlines against a justified execution budget. Preserve the unresolved Invocation; no blind timeout increase, next boundary or E_t consumer. |
+| Next decision point | Reconcile the unresolved compact live invocation before another execution; retain exact request/latency evidence, then complete model awareness, governed operations and reconstruction. No blind retry. Semantic-state implementation/local qualification stays earned; full External Golden remains independently incomplete. |
 
 **I01–I06 COMPLETE. I07 UNSELECTED.** Source refoundation, W19/H19/W20,
 TEST.TOPOLOGY.0, REPLAI R4/R5 and Golden/guided CLI remain completed evidence.
@@ -233,7 +233,7 @@ ESTABLISHED=32 PARTIAL=23 OPEN=12 LATER=4 TOTAL=71
 
 | ID | Property | Maturity | Evidence / precise boundary |
 |---|---|---|---|
-| A01 | Immutable policy source/IR/publication supply chain | 🟢 ESTABLISHED | [Governance hardening][governance], [Golden deck][golden]; bounded constrained grammar, no model policy interpreter. |
+| A01 | Immutable policy source/IR/publication supply chain | 🟢 ESTABLISHED | [Governance hardening][governance], [Golden deck][golden]; [document intake](refoundation/validation/governance-cognitive-context/REPORT.md) adds exact JSON/Markdown-block/text-PDF representations of the same bounded grammar. Unsupported prose remains unresolved; no general enterprise-policy interpreter. |
 | A02 | Exact Case binding and READY EffectivePolicy materialization | 🟢 ESTABLISHED | [Materialization][policy], [Golden][golden]; publication alone grants no authority. |
 | A03 | ALLOW / DENY / REQUIRE_REVIEW, review and finite Grant | 🟢 ESTABLISHED | [Admission][admission], [Golden][golden]; DENY has no Grant/effect, model cannot self-approve. |
 | A04 | Local Principal/Tenant/Participant and disclosure isolation | 🟢 ESTABLISHED | [Security][security], [Golden isolation][golden]; local POSIX trust model, not enterprise authentication. |
@@ -262,9 +262,9 @@ ESTABLISHED=32 PARTIAL=23 OPEN=12 LATER=4 TOTAL=71
 | ID | Property | Maturity | Evidence / precise boundary |
 |---|---|---|---|
 | C01 | Provider-independent working-state selection | 🟢 ESTABLISHED | [State compiler][state-refoundation]: one deterministic qualified selector before context lowering; model profile does not rank W. |
-| C02 | Authority/disclosure-aware general compilation and refresh | 🟡 PARTIAL | Current admitted view, mandatory selection and stale-W refusal exist; prompt-independent correctness-critical invalidation before affected State Read and bounded-staleness enrichment remain target contracts. |
+| C02 | Authority/disclosure-aware general compilation and refresh | 🟡 PARTIAL | Current admitted view, mandatory selection and stale-W refusal; [same-EffectivePolicy projection](refoundation/validation/governance-cognitive-context/REPORT.md) adds current rules and atomic policy-only revoke refusal before invocation. Live model understanding is unqualified; prompt-independent State Read invalidation and bounded-staleness enrichment remain targets. |
 | C03 | Explicit SemanticState representation | 🟢 ESTABLISHED | [State compiler][state-refoundation]: immutable replay-qualified composition of existing Case owners, typed epistemic classes and exact provenance; no new canonical owner. |
-| C04 | Bounded SemanticWorkingState representation | 🟢 ESTABLISHED | [State compiler][state-refoundation]: v1 source/request/generation-bound W; exact required refs, disclosure, budgets, omissions and stale/tamper refusal. Not a future public model-state schema. |
+| C04 | Bounded SemanticWorkingState representation | 🟢 ESTABLISHED | [State compiler][state-refoundation]: source/request/generation-bound W; exact required refs, disclosure, budgets, omissions and stale/tamper refusal. Not a future public model-state schema. |
 | C05 | Derived SemanticDelta and full-compilation equivalence | 🟢 ESTABLISHED | [State compiler][state-refoundation]: forward source/destination/request-bound additions/replacements/removals; checked application explicitly uses full recompilation. No optimized incremental claim. |
 | C06 | Active working-set compilation and Case-age locality | 🟡 PARTIAL | [State compiler][state-refoundation]: 8 versus 1,206 Transitions select 6 entries and comparable units with an older requirement. General S + relevant Recall → bounded W, ΔRecall refresh, host replay cost and universal sufficiency remain open. |
 | C07 | Exact scoped state references / demand expansion | 🔴 OPEN | Current exact IDs are foundations, not a semantic paging API or ambient access. |
@@ -424,12 +424,12 @@ Next implementation boundary: **UNSELECTED**.
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| SEMANTIC.STATE.REFOUNDATION.0 | BLOCKED | R K S C M Q | Retain earned S/W, delta, publication and Golden local proof; qualify real execution after first-request capacity admission, then complete external free/Workflow. Preserve indeterminate work; E_t remains outside YAI. |
+| GOVERNANCE.COGNITIVE.CONTEXT.0 | IN_PROGRESS | A S C X Q | Immutable JSON/Markdown/PDF intake with explicit ambiguity; same-source EffectivePolicy cognitive projection in W; compact real model entry, governed ALLOW/DENY/review, canonical reconstruction and refresh. No E or general Recall implementation. |
 <!-- execution:end -->
 
-**Primary programs: R / K / S / C / M / Q.** A / E / O / W / X are protected
-invariants and existing consumers to preserve or reconnect, not co-primary
-redesign mandates. This boundary does not authorize rewriting the whole product.
+**Primary programs: A / S / C / X / Q.** K / E / O / W / M retain their
+load-bearing contracts. This boundary does not authorize rewriting the whole
+product, adding a policy authority or taking over YVEX optimization.
 
 The [implementation evidence][state-refoundation] records composition, compiler
 identities, scope/budget refusal and full/delta fallback. Only derived contracts
@@ -437,8 +437,10 @@ advance; no new database or canonical mutation API. Remaining pressure is measur
 rebuild cost, broader locality and a truthful public computational-state consumer,
 not an automatic next wave.
 
-The [external capacity investigation][external-closure] is repair of this same
-boundary, not a second selected wave. The producer's compat.v3 generation 2
+The [external capacity investigation][external-closure] remains repair of
+SEMANTIC.STATE.REFOUNDATION.0's external scope, independently incomplete; its
+implementation and deterministic/local qualification remain PASS. It is not a
+second selected implementation wave. The producer's compat.v3 generation 2
 now offers 16,384 input/sequence tokens. Original-request preflight is compatible;
 the fresh real Golden instead fails its 300-second terminal watchdog with no
 received response bytes. This is no longer a demonstrated first-request capacity

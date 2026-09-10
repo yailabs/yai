@@ -786,6 +786,11 @@ endurance-agentless-case-runtime: smoke-agentless-case-runtime
 .PHONY: test-fast test-local test-release test-unit test-component test-contract
 .PHONY: test-golden-local
 test-golden-local: $(VALIDATION_GOLDEN_LOCAL)
+
+.PHONY: smoke-governance-cognitive-context
+smoke-governance-cognitive-context: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@bash tests/characterization/governance-cognitive-context/test_policy_intake.sh
 .PHONY: test-golden-external-yvex qualification-golden-yvex
 test-golden-external-yvex: qualification-golden-yvex
 qualification-golden-yvex: build-rust

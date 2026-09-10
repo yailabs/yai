@@ -84,6 +84,56 @@ and never create ambient Participant permission.
 
 ## Source and provenance
 
+### Document representations and interpretation boundary
+
+`./yai policy extract FILE` is bounded read-only inspection, not publication.
+The REPLAI workbench exposes the same seam as `/policy extract FILE`. Guided
+`/policy publish` shows the extraction and validation before explicit consent;
+publication rechecks the inspected original digest so file drift cannot silently
+substitute another object. No raw Transition construction is required.
+
+All supported forms contain the same strict v4 JSON language above:
+
+| Representation | Supported profile | Exact source location |
+|---|---|---|
+| JSON | Existing bounded strict JSON | Existing `$.rules[n]` field location |
+| Markdown | Exactly one fenced `yai-policy-json` block | JSON location plus block line range; other nonblank lines remain unresolved |
+| PDF | Text-only policy sheet with `YAI-POLICY-JSON-BEGIN` / `YAI-POLICY-JSON-END` markers | JSON location plus page/extracted-line block range, not invented glyph coordinates |
+
+Original bytes are limited to 256 KiB. The PDF adapter uses pinned lopdf 0.44.0,
+strict parsing, bounded stream/text extraction, at most 32 pages/2,048 objects
+and a conservative lexical nesting bound. Encrypted, annotation-bearing,
+non-text drawing/form/image profiles, blank extracted pages and malformed input
+refuse; there is no OCR. This is not general enterprise PDF interpretation.
+Extraction order is the parser's text order, not a claim of visual layout fidelity.
+
+Document sources use `yai.policy_source_artifact.v5` with original bytes, media
+type, extractor identity and block location. JSON sources remain v4. Revalidation
+re-extracts the original document and reconstructs parsed facts and unresolved
+items; the catalog must not recompile only the extracted JSON and lose identity.
+Changing bytes at the same policy lineage/version is a conflict, not an update.
+
+Prose without a block is inspectable but cannot be ingested as authoritative
+policy. A block plus other prose retains unresolved items and cannot qualify.
+Ambiguity must be resolved by producing an explicit reviewed structured source
+and going through normal validation/publication/binding. No heuristic, confidence
+score, model interpretation or instruction embedded in a document creates rules.
+The original source remains data; cognition receives normalized EffectivePolicy
+semantics, not an elevated copy of arbitrary source instructions.
+
+### Two consumers of the same normative source
+
+EffectivePolicy feeds both deterministic admission and the mandatory scoped
+working-state authority view. The latter reports readiness/validity, exact policy
+identity and normalized restrictions/review/role/evidence rules for visible
+resource kinds. It grants nothing. Each Operation still receives a current
+DecisionBasis and the existing ALLOW / DENY / REQUIRE_REVIEW lifecycle.
+Catalog revocation invalidates old W even without a Case-generation increment;
+mandatory authority material cannot be silently removed to satisfy a budget.
+Recent Decision evidence remains history under the policy that applied then.
+
+### Original structured source contract
+
 `yai.policy_source_artifact.v4` stores:
 
 ```text

@@ -156,7 +156,7 @@ pub(super) fn semantic_context_inspect(args: &[String]) -> Result<(), String> {
                 .cloned()
                 .collect::<Vec<_>>();
             let state = yai_core_engine::transition::replay_case(working.case_id(), &prefix)?;
-            let source = yai_core_engine::semantic_state::SemanticState::compose(&state, &prefix)?;
+            let source = store.compose_cognitive_state(&state, &prefix)?;
             working.validate_current(&source, working.request())?;
             println!("artifact_kind: semantic_working_state");
             println!("recompiled_from_canonical_history: true");
@@ -2932,7 +2932,7 @@ fn compile_semantic_invocation(
         ),
         continuation_supported: session.provider.continuation_supported,
     };
-    let source = yai_core_engine::semantic_state::SemanticState::compose(&state, &transitions)?;
+    let source = store.compose_cognitive_state(&state, &transitions)?;
     let compilation = yai_core_engine::semantic_state::CompilationRequest {
         scope: request,
         intent: task.to_string(),
@@ -3250,7 +3250,18 @@ fn append_model_prompt_attempt(
         pending.causal_refs.push(turn_id.to_string());
     }
     pending.summary = Some(prompt_attempt_summary(session, prompt));
-    store.commit_transition(pending)?;
+    let projection = store
+        .get_semantic_context_artifact(&semantic_lineage.projection_id)?
+        .ok_or("cognitive_projection_missing")?;
+    let SemanticContextArtifact::Projection(projection) = projection else {
+        return Err("cognitive_projection_required".into());
+    };
+    let working_id = projection
+        .bounds
+        .working_state_id
+        .as_deref()
+        .ok_or("cognitive_working_state_missing")?;
+    store.commit_cognitive_invocation(pending, working_id)?;
     if let Err(error) = append_record_to_journal(&session.journal_path, &record) {
         eprintln!("provider_invocation_journal_warning: {error}");
     }

@@ -122,6 +122,14 @@ publish reviewed Golden release policy deck
 /discover discovery issue
 ```
 
+Guided publication now displays extraction, normalized candidate rules and
+validation before asking for the publication reason. Inspect those results;
+unresolved clauses are a blocker, not consented-away warnings. For additional
+enterprise sources, `/policy extract /absolute/path/policy.md` (or `.pdf`)
+previews the supported [structured document profiles](reference/governance.md).
+The Golden deck and the remaining commands are unchanged; its policy is not
+replaced merely to test another format.
+
 Before policy publication the Case is not READY. Attachment alone grants no
 operation permission. After publication inspect READY and contributing source,
 artifact and binding identities. Copy the `digest` of the exact `issue/issue.md`

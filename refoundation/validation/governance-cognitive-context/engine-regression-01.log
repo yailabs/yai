@@ -1,0 +1,1161 @@
+   Compiling yai-engine v0.0.0-newcore (/home/mothx/computer-science/projects/YAI/yai/engine/yai-engine)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.88s
+     Running unittests src/lib.rs (target/debug/deps/yai_core_engine-a57a7344f94e1c5f)
+
+running 330 tests
+test cognitive::tests::continuation_is_lane_and_target_scoped_but_disposable ... ok
+test compatibility::tests::corpus_freezes_all_c_legacy_kinds_and_drift ... ok
+test compatibility::tests::malformed_and_missing_required_fields_are_rejected ... ok
+test compatibility::tests::corpus_report_classifies_without_collapsing_repeated_ids ... ok
+test compatibility::tests::unknown_future_kind_and_schema_are_preserved_opaque ... ok
+test compatibility::tests::record_plane_optional_fields_and_source_are_readable ... ok
+test compatibility::tests::repeated_ids_remain_separate_input_events ... ok
+test cognitive::tests::misleading_target_name_never_confers_suitability ... ok
+test context::tests::denied_provider_claim_is_not_promoted_to_resource_truth ... ok
+test context::tests::projection_visibility_fails_before_render ... ok
+test context::tests::graph_and_memory_availability_do_not_own_required_semantics ... ok
+test context::tests::indeterminate_effect_remains_explicitly_unresolved ... ok
+test context::tests::consolidation_projection_contains_only_identity_envelope ... ok
+test compatibility::tests::corpus_reads_all_rust_legacy_kinds ... ok
+test context::tests::frame_staleness_and_render_identity_are_explicit ... ok
+test context::tests::qualified_memory_enters_frame_with_typed_posture_and_full_provenance ... ok
+test context::tests::projection_rebuild_is_deterministic_and_frame_is_task_specific ... ok
+test context::tests::committed_multipart_turn_projects_in_exact_order_without_provider_lineage ... ok
+test context::tests::unknown_projection_and_frame_versions_fail_closed ... ok
+test context::tests::pending_human_review_is_mandatory_unresolved_context_with_provenance ... ok
+test context::tests::participant_visibility_excludes_other_participant_and_wrong_view ... ok
+test conversation::tests::identical_bytes_remain_case_and_tenant_scoped ... ok
+test context::tests::resource_envelope_disclosure_is_preserved_in_model_projection ... ok
+test case_policy::tests::binding_integrity_rejects_tampering ... ok
+test effect::access::tests::access_envelope_is_scoped_bounded_and_not_authority ... ok
+test context::tests::large_history_is_bounded_and_reports_omissions ... ok
+test effect::access::tests::confined_read_rejects_symlink_fifo_bound_and_replaced_root ... ok
+test effect::access::tests::network_resource_contract_refuses_ambient_addressing_and_header_injection ... ok
+test effect::access::tests::resource_request_shapes_fail_closed_without_name_inference ... ok
+test conversation::tests::identical_draft_labels_are_namespaced_by_case_and_preview_does_not_adopt_bytes ... ok
+test cognitive::tests::binding_replacement_changes_lane_and_replay_does_not ... ok
+test conversation::tests::incomplete_object_publication_is_never_accepted_as_adopted_content ... ok
+test effect::tests::h14_atomic_replace_does_not_mutate_an_outside_hard_link_inode ... ok
+test conversation::tests::corruption_and_internal_symlink_substitution_fail_closed ... ok
+test effect::tests::h14_process_signal_retry_matrix_defaults_to_observation_not_repetition ... ok
+test effect::tests::h14_descriptor_relative_carrier_rejects_final_symlink_and_preserves_outside ... ok
+test effect::tests::h14_post_prepare_parent_swap_cannot_escape_open_directory_descriptor ... ok
+test cognitive::tests::native_and_derived_plans_are_deterministic_without_execution ... ok
+test cognitive::tests::arbitration_never_infers_capability_and_reports_exact_exclusions ... ok
+test conversation::tests::rejects_cross_case_derivation_and_oversized_metadata ... ok
+test effect::access::tests::discovery_and_search_are_bounded_candidates_not_admissions ... ok
+test effect::tests::path_normalization_rejects_escape_forms ... ok
+test effect::tests::carrier_refuses_resource_pre_state_mismatch_without_mutation ... ok
+test effect::tests::sha256_contract_matches_standard_vectors ... ok
+test effect::tests::provider_candidate_is_strictly_normalized_before_operation_identity ... ok
+test effect::tests::observation_fails_closed_on_symlink_parent_escape ... ok
+test admission::tests::decision_basis_and_grant_integrity_detect_tampering ... ok
+test effect::tests::human_review_is_operation_bound_and_only_effective_allow_can_issue_grant ... ok
+test conversation::tests::provider_derived_content_binds_capability_shape_and_source_modality ... ok
+test effect::tests::deny_cannot_issue_grant_and_grant_tampering_is_detected ... ok
+test conversation::tests::multipart_order_and_duplicate_content_survive_publication ... ok
+test case_policy::tests::duplicate_active_lineage_is_a_blocking_materialization_conflict ... ok
+test conversation::tests::case_work_limits_are_immutable_explicit_intent_not_restart_local_budget ... ok
+test governance::tests::strict_json_rejects_duplicate_keys_bom_depth_and_invalid_shapes ... ok
+test effect::access::tests::sqlite_adapter_uses_real_engine_and_refuses_mutation_and_ambient_access ... ok
+test conversation::tests::original_machine_transcript_and_human_edit_are_distinct ... ok
+test handoff::tests::offer_identity_is_content_bound_and_same_case_is_rejected ... ok
+test governance::tests::lifecycle_is_small_explicit_and_integrity_bound ... ok
+test memory::tests::superseded_resource_state_cannot_outrank_latest_memory ... ok
+test memory::tests::denied_provider_claim_never_becomes_successful_operational_memory ... ok
+test memory_hierarchy::tests::empty_provider_result_retains_lineage_without_an_invented_assertion ... ok
+test memory::tests::visibility_is_filtered_before_ranking ... ok
+test memory_hierarchy::tests::w20_episode_and_semantic_scale_characterization ... ignored, explicit W20 scale characterization
+test journal::tests::inspect_reports_valid_duplicate_and_invalid_lines ... ok
+test handoff::tests::hardening17_payload_role_evidence_and_json_bounds_are_exact ... ok
+test memory_hierarchy::tests::w20_k01_inference_conflict_is_unresolved_without_class_inflation ... ok
+test memory::tests::indeterminate_memory_stays_unresolved_until_receipted_reconciliation ... ok
+test admission::tests::review_eligibility_and_source_provenance_are_mechanical ... ok
+test memory_hierarchy::tests::w20_k04_k05_only_unique_newer_grounded_state_supersedes ... ok
+test memory_hierarchy::tests::w20_e01_e02_e03_episode_identity_is_structural_and_provider_independent ... ok
+test memory_hierarchy::tests::w20_k02_k03_grounded_assertion_is_not_displaced_by_inference_or_claim ... ok
+test memory_hierarchy::tests::w20_cn03_cn09_support_is_exact_and_duplicate_candidates_deduplicate ... ok
+test admission::tests::explicit_allow_is_policy_bound_and_resource_legacy_fields_are_inert ... ok
+test memory_hierarchy::tests::w20_s04_provider_cannot_choose_epistemic_class ... ok
+test memory_hierarchy::tests::w20_s05_identity_deduplicates_repeated_provider_origin ... ok
+test memory_index::tests::concurrent_rebuild_child ... ignored
+test memory_hierarchy::tests::w20_s08_support_cycle_rejected_but_shared_ancestor_is_valid ... ok
+test memory_hierarchy::tests::w20_s06_s07_cross_case_and_hidden_support_fail_closed ... ok
+test governance::v3_authority_requirement_is_typed_provenanced_and_v2_remains_unchanged ... ok
+test governance::wave11_policy_validity_contract_is_explicit_ordered_and_identity_bearing ... ok
+test memory_index::tests::h19_realistic_vector_dimension_characterization ... ignored
+test governance::tests::deterministic_compilation_has_typed_provenance_and_no_case_authority ... ok
+test memory_index::tests::h19_s01_derived_parent_symlink_is_rejected_without_external_write ... ok
+test governance::tests::unsupported_and_conflicting_rules_cannot_qualify ... ok
+test governance::tests::parser_limits_conflicts_and_equivalent_obligations_are_explicit ... ok
+test memory_index::tests::h19_query_tokenization_is_bounded_and_control_safe ... ok
+test admission::tests::deny_no_match_resource_violation_and_missing_role_fail_closed ... ok
+test governance::tests::source_origin_and_validator_are_integrity_bound_with_v1_read_compatibility ... ok
+test memory_index::tests::exact_vector_scan_rejects_invalid_vectors_and_has_stable_ties ... ok
+test conversation::tests::i04_composition_intent_and_source_closure_are_deterministic_and_noncanonical ... ok
+test governance::tests::identifier_reason_rule_count_and_ordering_contracts_are_exact ... ok
+test memory_index::tests::h19_s02_lock_symlink_substitution_fails_closed ... ok
+test admission::tests::audit_reason_requires_real_review_action_evidence ... ok
+test memory_index::tests::h19_rrf_and_numeric_edges_are_checked_and_stably_tied ... ok
+test governance::tests::malformed_unknown_future_and_edited_sources_are_distinct_and_fail_closed ... ok
+
+running 1 test
+test memory_index::tests::h19_s20_vector_cross_product_is_an_enforced_admission_bound ... ok
+test memory_hierarchy::tests::w20_r04_active_support_keeps_old_episode_without_reopening_terminal_history ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test governance::document::tests::governance_document_prose_injection_ambiguity_and_malformed_fail_closed ... ok
+
+running 1 test
+test memory_index::tests::h19_s05_self_consistent_source_divergent_document_is_rejected ... ok
+
+running 1 test
+test governance::document::tests::governance_document_three_formats_same_semantics_exact_original_and_locations ... ok
+test memory_index::tests::h19_s06_selected_payload_is_canonical_operational_memory ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test memory_index::tests::corruption_is_detected_and_drop_preserves_source_material ... ok
+test memory_index::tests::memory_index_scale_characterization ... ignored
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test memory_index::tests::bm25_and_hybrid_fusion_are_query_sensitive_and_visibility_safe ... ok
+
+running 1 test
+test memory_index::tests::h19_hardlinked_pointer_and_insecure_root_are_refused ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered outtest memory_index::tests::h19_s24_historical_allow_remains_context_not_authority ... ok; finished in 0.03s
+
+
+
+running 1 test
+
+running 1 test
+test memory_hierarchy::tests::w20_support_depth_and_contradiction_storm_are_bounded ... ok
+
+running 1 test
+test memory_index::tests::h19_self_consistent_vector_steering_can_change_rank_but_not_content ... ok
+
+running 1 test
+test memory_index::tests::h19_s01_descriptor_anchored_profile_swap_cannot_redirect_publication ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+test memory_index::tests::h19_s18_query_encoder_unavailable_degrades_to_qualified_planes ... ok
+test memory_index::tests::h19_s17_resource_and_causal_qualification_precede_fuzzy_rank ... ok
+test memory_index::tests::h19_s23_provider_claim_ranking_never_changes_posture ... ok
+test memory_index::tests::hybrid_fixture_exposes_distinct_lexical_vector_and_exact_causal_ranks ... ok
+test memory_index::tests::h19_s03_oversized_pointer_is_refused_before_json_decode ... ok
+test memory_index::tests::provider_claim_similarity_never_changes_authority_posture ... ok
+test memory_index::tests::representation_and_profile_identity_are_deterministic_and_content_addressed ... ok
+test provider_governance::tests::embedding_capability_binds_observed_dimension_and_rejects_unsupported_vectors ... ok
+test provider_governance::tests::capability_is_derived_and_json_is_not_forgeable ... ok
+test memory_index::tests::representation_scrubs_sensitive_tokens_and_bounds_canonical_input ... ok
+test provider_governance::tests::historical_qualification_v1_remains_valid_without_extension_promotion ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test provider_governance::tests::indeterminate_delivery_is_never_retry_safe ... ok
+test provider_governance::tests::target_identity_is_tenant_and_configuration_bound ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+test provider_governance::tests::historical_qualification_v2_remains_valid_after_embedding_capability_versioning ... ok
+
+running 1 test
+test residency::tests::impossible_mandatory_budget_fails_explicitly ... ok
+
+running 1 test
+test memory_index::tests::w20_representation_v1_serialized_shape_remains_compatible ... ok
+test residency::tests::planning_is_deterministic_and_reacts_to_previous_residency ... ok
+test residency::tests::mandatory_truth_is_pinned_before_optional_memory ... ok
+test residency::tests::planning_reacts_to_purpose_and_qualified_resource_focus ... ok
+test resource_control::tests::filesystem_identity_and_relation_are_deterministic ... ok
+
+running 1 test
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test memory_index::tests::h19_s07_drop_query_race_returns_snapshot_or_unavailable ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test resource_control::tests::h14_resource_event_fsm_rebuilds_exact_state ... ok
+test memory_index::tests::h19_s04_pointer_rollback_is_loaded_but_reported_stale ... ok
+test provider_governance::tests::function_shape_requires_v5_evidence_and_preserves_historical_v4_shapes ... ok
+test provider_governance::tests::selector_filters_then_uses_health_and_explicit_order ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.01s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.06s
+
+test security::tests::posix_projection_is_stable_and_separate_from_roles ... ok
+test memory_index::tests::profile_replacement_never_compares_incompatible_vectors ... ok
+test resource_control::tests::network_endpoint_fence_versions_and_event_rebuild_are_exact ... ok
+test resource_control::tests::h14_resource_event_fsm_rejects_impossible_content_valid_histories ... ok
+test resource_control::tests::process_identity_rejects_pid_reuse_shape ... ok
+test memory_index::tests::profile_namespaces_are_independent_and_deletable ... ok
+test semantic_state::tests::qualified_state_refuses_materialization_history_or_case_drift ... ok
+test memory_index::tests::publication_and_automatic_profile_selection_enforce_tenant_case_scope ... ok
+test semantic_state::tests::canonical_executor_delegation_is_exact_not_ambient_visibility ... ok
+test store::lmdb::tests::canonical_commit_rejects_duplicate_stale_and_partial_writes ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.06s
+
+test memory::tests::large_history_retrieval_is_bounded_explainable_and_pure ... ok
+test semantic_state::tests::compatibility_lowering_is_target_independent_and_provenance_exact ... ok
+test memory_index::tests::stale_and_cross_case_candidates_fail_closed ... ok
+test semantic_state::tests::mandatory_budget_and_serialized_working_state_tamper_fail_closed ... ok
+test memory_index::tests::w20_selected_multifamily_payload_revalidates_current_source ... ok
+test store::lmdb::tests::canonical_transition_and_case_state_are_atomic_replayable_and_restart_safe ... ok
+test store::lmdb::tests::case_runtime_admission_is_exclusive_reclaimable_and_noncanonical ... ok
+test store::lmdb::tests::deleting_semantic_context_artifacts_cannot_delete_case_continuity ... ok
+test store::lmdb::tests::blocked_policy_and_source_payload_loss_fail_closed_without_erasing_provenance ... ok
+test store::lmdb::tests::h13_pid_reuse_discriminator_and_current_process_identity_are_explicit ... ok
+test semantic_state::tests::participant_disclosure_precedes_relevance_and_rendering ... ok
+test memory_index::tests::w20_multifamily_qualification_excludes_hidden_before_bm25_and_vector_top_k ... ok
+test store::lmdb::tests::h13_runtime_work_fsm_is_explicit_and_terminal_states_are_closed ... ok
+test store::lmdb::tests::freeze_supports_control_carrier_and_divergence_records ... ok
+test store::lmdb::tests::h13_owner_token_cannot_impersonate_another_process_identity ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.06s
+
+test memory_index::tests::h19_s08_rebuild_query_race_never_mixes_components ... ok
+test semantic_state::tests::delta_equivalence_rebuild_and_stale_request_refusal ... ok
+test memory_index::tests::build_crash_matrix_never_publishes_partial_index ... ok
+test store::lmdb::tests::h13_wave13_runtime_instance_schema_marker_upgrades_without_rejecting_store ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.07s
+
+test residency::tests::hundred_iteration_case_state_memory_context_endurance ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.08s
+
+test memory_index::tests::h19_s19_old_profile_remains_independent ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.08s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.09s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.10s
+
+test store::lmdb::tests::aborted_policy_transactions_leave_no_partial_lifecycle ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.10s
+
+test memory_index::tests::h19_s21_derived_gc_retains_a_bounded_number_of_builds ... ok
+test store::lmdb::tests::h15_process_workflow_start_contender ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.11s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.11s
+
+test effect::process_runner::tests::bounded_runner_real_process_confinement_exit_timeout_and_output ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.09s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.12s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.12s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.14s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.14s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.12s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.13s
+
+test memory_index::tests::h19_s22_crash_durability_boundaries_never_expose_partial_current ... ok
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.14s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.14s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.15s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.15s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.15s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.16s
+
+test memory_index::tests::concurrent_rebuild_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.15s
+
+test memory_index::tests::h19_s09_32_process_concurrent_rebuilds_publish_one_equivalent_manifest ... ok
+test store::lmdb::tests::h14_content_valid_fence_requires_exact_canonical_presence ... ok
+test store::lmdb::tests::h13_shared_environment_map_size_contract_is_explicit ... ok
+test memory_index::tests::h19_s16_superseded_documents_do_not_change_active_ranking ... ok
+test store::lmdb::tests::h10_historical_p1_authority_chain_replays_after_p2_and_cache_rebuild ... ok
+test store::lmdb::tests::h10_review_writes_rederive_roles_provenance_and_final_decision ... ok
+test store::lmdb::tests::h13_runtime_heartbeat_stays_inside_lease_margin_under_eight_writer_contention ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::h15_queue_backpressure_prevents_orphan_workflow_start ... ok
+test store::lmdb::tests::h15_content_valid_progression_objects_cannot_bypass_rederivation ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+test residency::tests::hundred_iteration_planning_remains_bounded ... ok
+test store::lmdb::tests::h15_process_workflow_start_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.01s
+
+test store::lmdb::tests::hardening17_tests::hardening17_handoff_forgery_and_empty_success_boundaries_are_exact ... ok
+test store::lmdb::tests::h15_definition_publication_integrity_retention_and_restoration_are_exact ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_concurrent_cycle_creation_never_commits_a_cycle ... ok
+test store::lmdb::tests::controlled_effect_is_atomic_replayable_and_reconciles_visible_crash ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_terminal_target_disposition_leaves_active_wait_graph ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::hardening18_tests::h18_capability_provenance_cannot_cross_promote ... ok
+test store::lmdb::tests::h15_process_workflow_start_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.01s
+
+test store::lmdb::tests::h15_deterministic_proposal_and_operation_recovery_are_exactly_once ... ok
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::h15_process_workflow_start_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::hardening18_tests::h18_credential_rotation_is_non_secret_and_invalidates_old_qualification ... ok
+test store::lmdb::tests::h15_process_workflow_start_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+
+test store::lmdb::tests::h15_process_workflow_start_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::h15_process_workflow_start_contender ... test store::lmdb::tests::h15_process_workflow_start_contender ... okok
+
+
+
+test result: test result: okok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s; finished in 0.02s
+
+
+
+test store::lmdb::tests::hardening18_tests::h18_health_and_circuit_time_do_not_resurrect_on_rollback ... ok
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::h15_process_workflow_start_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+
+running 1 test
+test store::lmdb::tests::hardening18_tests::h18_corrupt_qualification_and_missing_trust_sequence_fail_closed ... ok
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::h15_eight_process_same_node_start_is_atomic_and_exactly_once ... ok
+test store::lmdb::tests::hardening18_tests::h18_locality_predicate_closes_ip_literal_bypasses ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::hardening18_tests::h18_historical_selector_v1_and_attempt_boundaries_remain_exact ... ok
+test store::lmdb::tests::hardening18_tests::h18_process_provider_contender ... ok
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::hardening17_tests::hardening17_transitive_child_corruption_fails_closed_and_exact_restore_recovers ... ok
+test store::lmdb::tests::h15_eight_way_same_node_start_is_atomic_and_exactly_once ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::hardening17_tests::hardening17_amendment_races_with_human_and_passive_progress_are_serializable ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_planpatch_limits_and_future_schema_refusal_have_no_off_by_one ... ok
+test store::lmdb::tests::hardening18_tests::h18_qualification_and_trust_current_projections_are_not_authority ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_cancellation_close_and_handoff_writes_are_serializable ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_depth_four_deterministic_recovery_does_not_duplicate_proposal_or_operation ... ok
+test store::lmdb::tests::i01_conversation_turn_tenant_must_match_canonical_case_security_domain ... ok
+test store::lmdb::tests::hardening18_tests::h18_qualification_time_is_bounded_expiry_is_exclusive_and_rollback_safe ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.01s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02stest store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: 
+
+test store::lmdb::tests::hardening18_tests::h18_outage_recovery_twenty_cycles_has_no_stale_probe_owner ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... okok
+
+
+
+test result: test result: okok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s; finished in 0.03s
+
+
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+test store::lmdb::tests::h15_conflicting_human_input_and_passive_resolution_are_first_writer_wins ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test store::lmdb::tests::i02_tests::i02_binding_composition_and_name_inference_fail_closed ... test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... oktest store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... oktest store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... oktest store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... 
+ok
+
+test result: ok
+. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered outtest result: ok; finished in 0.03s. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out
+
+; finished in 0.05s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.06s
+
+
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... test result: oktest store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... . 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered outtest store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ; finished in 0.04s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.07s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.07s
+
+test store::lmdb::tests::i02_tests::i02_replacement_envelope_invalidation_unbind_and_replay_are_explicit ... ok
+test store::lmdb::tests::hardening18_tests::h18_half_open_probe_admits_one_and_dead_owner_is_reclaimed ... ok
+test store::lmdb::tests::i03_tests::i03_transition_v14_store_marker_upgrades_to_v15 ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::hardening17_tests::hardening17_depth_four_modelwork_recovery_preserves_qualified_identity ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::i03_tests::i03_semantic_suitability_without_wire_shape_refuses_before_selection ... ok
+test store::lmdb::tests::i03_tests::i03_exact_realization_selection_never_substitutes_provider_target ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::i02_tests::i02_native_derived_replay_and_zero_execution_contract ... ok
+test store::lmdb::tests::journal_import_report_is_idempotent ... ok
+
+running 1 test
+test store::lmdb::tests::legacy_compatibility_import_is_isolated_from_canonical_authority ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+
+test store::lmdb::tests::i06_tests::golden_reopens_workflow_v2_metadata_without_rewriting_definition_or_history ... ok
+test store::lmdb::tests::legacy_no_effect_receipt_does_not_derive_a_successful_effect_relation ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+
+test store::lmdb::tests::i06_tests::delegated_intent_is_exact_scoped_atomic_and_replayable ... ok
+test store::lmdb::tests::persisted_future_canonical_schema_is_not_overwritten ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::i05_tests::arbitration_changes_between_selection_and_invocation_fail_closed ... test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+
+ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.02s
+
+test semantic_state::tests::policy_big_picture_supersession_and_removal_match_full_delta ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::i06_tests::conversation_intent_atomic_adoption_security_replay_and_compatibility ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+test store::lmdb::tests::i06_tests::workflow_host_intent_is_unique_bounded_atomic_and_replayable ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.03s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+test store::lmdb::tests::i05_tests::arbitration_policy_security_bounds_and_historical_readers ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.06s
+
+test store::lmdb::tests::h13_shared_lmdb_environment_survives_read_write_thread_stress ... ok
+test store::lmdb::tests::provider_payloads_reduce_without_summary_semantics ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+test store::lmdb::tests::policy_intake_is_case_independent_idempotent_and_query_pure ... test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.06s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.04s
+
+ok
+test store::lmdb::tests::persisted_policy_corruption_and_future_schemas_fail_closed ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.06s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test store::lmdb::tests::hardening18_tests::h18_selector_64_way_contention_records_one_case_fact ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.07s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test store::lmdb::tests::resource_access_tests::published_i06_store_markers_upgrade_without_history_rewrite ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.07s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... oktest store::lmdb::tests::resource_access_tests::participant_setup_is_atomic_scoped_and_replayable ... ok
+test store::lmdb::tests::h14_resource_history_rebuild_is_exact_and_rejects_invalid_append ... ok
+
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.07s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.06s
+
+test store::lmdb::tests::i05_tests::arbitration_replay_shape_trust_envelope_and_pinning ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_handoff_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.09s
+
+test store::lmdb::tests::hardening17_tests::hardening17_result_and_reconciliation_process_races_have_one_truth ... ok
+test store::lmdb::tests::typed_human_review_replays_without_promoting_approval_to_effect_truth ... ok
+test store::lmdb::tests::hardening18_tests::h18_trust_contention_has_contiguous_history ... ok
+test store::lmdb::tests::policy_lifecycle_publishes_versions_without_mutating_history ... ok
+test store::lmdb::tests::wave11_cancellation_and_closure_are_atomic_terminal_and_replayable ... ok
+test store::lmdb::tests::policy_lineage_is_owner_scoped_and_declared_versions_are_immutable ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test store::lmdb::tests::hardening17_tests::hardening17_large_handoff_graph_and_derived_relations_rebuild_exactly ... ok
+test store::lmdb::tests::policy_publication_is_serialized_per_lineage_and_independent_across_lineages ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test store::lmdb::tests::wave12_cross_tenant_filesystem_roots_reject_exact_and_overlapping_aliases ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.05s
+
+test store::lmdb::tests::wave12_kernel_principals_tenants_and_case_links_are_isolated_and_restart_safe ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.06s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.07s
+
+test store::lmdb::tests::resource_access_tests::resource_observation_commit_failure_is_atomic_and_cannot_be_replayed_twice ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+test store::lmdb::tests::wave13_one_process_shares_one_lmdb_environment_across_workers ... ok
+test result: 
+test store::lmdb::tests::resource_access_tests::cognitive_authority_same_materializer_scoped_mandatory_revocation_rebuild ... ok
+ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.10s
+
+test store::lmdb::tests::wave13_runtime_instance_is_exclusive_reclaimable_and_noncanonical ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.10s
+
+test store::lmdb::tests::wave10_policy_mutation_between_decision_and_grant_fails_in_same_transaction ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.10s
+
+test store::lmdb::tests::wave13_work_items_are_idempotent_bounded_isolated_and_case_serialized ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.11s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.12s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.14s
+
+test store::lmdb::tests::wave15_definition_binding_human_input_condition_and_replay_are_deterministic ... ok
+test store::lmdb::tests::resource_access_tests::capability_view_is_current_scoped_policy_constrained_and_not_authority ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.15s
+
+test store::lmdb::tests::resource_access_tests::resource_read_real_filesystem_policy_lineage_replay_and_restart ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.15s
+
+test store::lmdb::tests::wave17_handoff_cycle_and_cross_tenant_edges_fail_closed ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.16s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.16stest store::lmdb::tests::wave11_grant_expiry_before_prepare_is_terminal_and_effect_free ... ok
+
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.19s
+
+test store::lmdb::tests::resource_access_tests::resource_read_denial_stale_policy_scope_and_request_identity_fail_closed ... ok
+test store::lmdb::tests::wave12_policy_namespace_is_tenant_bound_and_cross_tenant_binding_fails_closed ... ok
+test store::lmdb::tests::wave17_handoff_terminal_case_matrix_preserves_both_histories ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.21s
+
+test store::lmdb::tests::hardening17_tests::hardening17_adjacent_revision_late_writers_never_fork_lineage ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.19s
+
+test store::lmdb::tests::wave11_prepare_is_nonretroactive_cut_across_revoke_and_cancel ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.19s
+
+test store::lmdb::tests::wave17_planpatch_adoption_is_case_local_stale_safe_and_replayable ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered outtest store::lmdb::tests::wave18_tests::wave18_capability_trust_health_and_cross_tenant_filters_are_mechanical ... ok
+test store::lmdb::tests::wave17_subflow_progresses_inside_one_case_and_replays_without_run_owner ... ok
+; finished in 0.22s
+
+test store::lmdb::tests::wave17_same_tenant_handoff_moves_data_without_authority ... ok
+test store::lmdb::tests::wave17_four_case_handoff_chain_replays_without_process_owner ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: oktest store::lmdb::tests::wave18_tests::wave18_qualification_capabilities_are_evidence_bound ... ok
+. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.21s
+
+test store::lmdb::tests::wave17_eight_way_amendment_adoption_has_one_winner ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.22s
+
+test store::lmdb::tests::wave18_tests::wave18_governed_single_target_selection_is_case_canonical_and_replayable ... ok
+test store::lmdb::tests::wave17_model_planpatch_is_strict_candidate_and_cannot_self_adopt ... ok
+test store::lmdb::tests::wave18_tests::wave18_qualification_current_projection_never_rolls_back ... ok
+test store::lmdb::tests::wave17_workflow_handoff_waits_worker_free_until_source_reconciliation ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.24s
+
+test store::lmdb::tests::wave18_tests::wave18_circuit_and_delivery_contract_forbid_indeterminate_failover ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.25s
+
+test store::lmdb::tests::resource_access_tests::resource_process_canonical_prepare_fence_real_exit_terminal_and_replay ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: test store::lmdb::tests::wave18_tests::wave18_trust_revoke_and_invocation_start_serialize ... ok
+ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.24s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.27s
+
+test store::lmdb::tests::resource_access_tests::discovered_content_is_admitted_exactly_without_turn_or_external_authority ... ok
+test tests::append_record_and_build_projection_summary ... ok
+test tests::build_authority_projection_summary ... ok
+test tests::build_control_projection_summary ... ok
+test tests::build_filesystem_projection_summary ... ok
+test tests::build_graph_projection_summary ... ok
+test tests::build_hardened_projection_summary ... ok
+test tests::build_memory_projection_summary ... ok
+test tests::build_reconcile_projection_summary ... ok
+test tests::parse_jsonl_and_build_projection_summary ... ok
+test tests::query_records_by_kind_and_case ... ok
+test transition::tests::closure_is_mechanical_not_summary_based ... ok
+test transition::tests::transition_roundtrip_and_unknown_field_policy ... ok
+test transition::tests::version_and_unknown_kind_are_rejected ... ok
+test workflow::tests::case_work_requires_terminal_contract_and_version ... ok
+test workflow::tests::conditional_join_ignores_the_frozen_unselected_branch ... ok
+test workflow::tests::dag_validation_rejects_cycle_and_dangling_edge ... ok
+test workflow::tests::execution_filesystem_completion_path_is_normalized_and_identity_bound ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test workflow::tests::frozen_condition_selects_one_branch_and_skips_the_other ... test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.24s
+
+ok
+test workflow::tests::h15_definition_ordering_contract_is_explicit_and_json_keys_are_normalized ... ok
+test store::lmdb::tests::wave11_policy_time_postures_revoke_stale_refresh_and_clock_floor_contract ... ok
+test workflow::tests::h15_history_snapshot_rejects_generation_sequence_and_case_mismatch ... ok
+test store::lmdb::tests::wave18_tests::wave18_concurrent_selection_and_attempt_outcome_have_one_case_truth ... ok
+test workflow::tests::h15_predicate_scope_and_node_compatibility_are_mechanical ... ok
+test workflow::tests::h15_repeated_identical_provider_outputs_remain_causally_distinct ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.28s
+
+test workflow::tests::h15_semantic_dependency_cycles_are_rejected_before_persistence ... ok
+test workflow::tests::h15_unknown_definition_algebra_and_ambiguous_edges_fail_closed ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.27s
+
+test workflow::tests::h15_nested_and_multi_condition_joins_reduce_only_selected_dependencies ... ok
+test workflow::tests::immutable_identity_and_version_are_content_bound ... ok
+test workflow::tests::provider_done_claim_cannot_satisfy_effect_completion ... ok
+test workflow::tests::ready_work_is_stable_by_topological_rank_then_node_id ... ok
+test workflow::tests::wave17_same_child_definition_twice_has_qualified_instance_identity ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.28s
+
+test store::lmdb::tests::hardening18_tests::h18_independent_process_trust_probe_and_selection_are_serialized ... ok
+test store::lmdb::tests::wave9_derived_cache_failure_preserves_canonical_binding_and_repairs_without_duplication ... ok
+test store::lmdb::tests::wave9_missing_artifact_blocks_readiness_without_erasing_binding_history ... ok
+test store::lmdb::tests::wave11_revoked_review_is_durably_invalidated_and_cannot_approve ... test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok
+test store::lmdb::tests::wave9_binding_admission_rejects_candidate_validated_and_missing_case ... ok
+ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.31s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.29s
+
+test store::lmdb::tests::hardening17_tests::hardening17_process_amendment_contender ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 329 filtered out; finished in 0.29s
+
+test store::lmdb::tests::hardening17_tests::hardening17_thirty_two_process_amendment_race_has_one_winner ... ok
+test store::lmdb::tests::wave14_process_signal_uses_same_authority_spine_and_exact_birth_fence ... ok
+test store::lmdb::tests::wave9_multi_artifact_composition_is_order_independent_conservative_and_provenanced ... ok
+test store::lmdb::tests::wave9_exact_version_binding_replacement_replay_and_rebuild_are_deterministic ... ok
+test store::lmdb::tests::wave9_idempotence_unbind_multi_case_and_concurrent_mutation_are_safe ... ok
+test store::lmdb::tests::wave18_tests::wave18_selection_scale_is_bounded_and_deterministic ... ok
+test store::lmdb::tests::wave14_shared_resource_epoch_blocks_competitor_and_stale_carrier ... ok
+test workflow::tests::h15_maximum_definition_scale_is_bounded_and_deterministic ... ok
+test store::lmdb::tests::h13_runtime_work_historical_scan_scale_is_characterized ... ok
+test workflow::tests::wave17_amendment_and_expanded_subflow_bounds_are_operational ... ok
+test semantic_state::tests::case_age_locality_and_explicit_requirement_survive_task_switch ... ok
+test store::lmdb::tests::policy_catalog_scale_characterization_is_bounded ... ok
+test store::lmdb::tests::hardening17_tests::hardening17_long_amendment_lineage_replays_and_corruption_fails_closed ... ok
+test store::lmdb::tests::wave9_many_policy_materialization_characterization_is_bounded ... ok
+test store::lmdb::tests::hardening18_tests::h18_qualification_history_retains_256_immutable_runs ... ok
+test memory_index::tests::h19_s15_hidden_documents_do_not_change_visible_bm25_or_vector_rank ... ok
+test store::lmdb::tests::policy_catalog_capacity_contract_is_explicit_and_bounded ... ok
+test store::lmdb::tests::hardening18_tests::h18_full_provider_bounds_and_thousand_selection_endurance has been running for over 60 seconds
+test store::lmdb::tests::hardening18_tests::h18_full_provider_bounds_and_thousand_selection_endurance ... ok
+
+test result: ok. 326 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 94.05s
+
+   Doc-tests yai_core_engine
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

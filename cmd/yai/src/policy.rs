@@ -62,6 +62,46 @@ fn print_source(source: &PolicySourceArtifact) {
     }
     println!("source_bytes_retained: {}", source.content_utf8.len());
     println!("source_payload_display: withheld_by_default");
+    if let Some(doc) = &source.document {
+        println!("original_bytes_retained: {}", doc.original_bytes.len());
+        println!("source_media_type: {}", doc.media_type);
+        println!("extractor: {}", doc.extractor);
+        println!("source_block_location: {}", doc.block_location);
+    }
+}
+
+pub(crate) fn read_policy_input(path: &Path) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+    use std::os::unix::fs::OpenOptionsExt;
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|e| e.to_string())?;
+    if !file.metadata().map_err(|e| e.to_string())?.is_file() {
+        return Err("policy_regular_file_required".into());
+    }
+    let mut bytes = Vec::new();
+    file.take(yai_core_engine::governance::MAX_POLICY_SOURCE_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|e| e.to_string())?;
+    if bytes.len() > yai_core_engine::governance::MAX_POLICY_SOURCE_BYTES {
+        return Err("policy_source_too_large".into());
+    }
+    Ok(bytes)
+}
+
+pub(crate) fn inspect_policy_input(path: &Path) -> Result<serde_json::Value, String> {
+    let bytes = read_policy_input(path)?;
+    let mut extraction = yai_core_engine::governance::extract_policy_document(&bytes)?;
+    let original_digest = yai_core_engine::effect::digest_bytes(&bytes);
+    // Explicit local document inspection is not catalog publication or Case truth.
+    let compilation = compile_policy_source(&bytes);
+    let source = extraction.document.take().map(|d| serde_json::json!({"media_type":d.media_type,"extractor":d.extractor,"block_location":d.block_location}));
+    Ok(
+        serde_json::json!({"original_digest":original_digest,"original_bytes":bytes.len(),"extraction":extraction,"source":source,
+        "candidate":compilation.as_ref().ok().map(|c| &c.artifact),"interpretation_error":compilation.err(),"authority":"none_until_explicit_publication_binding_and_current_admission"}),
+    )
 }
 
 fn print_artifact(view: &PolicyArtifactView) {
@@ -206,8 +246,7 @@ fn policy_ingest(args: &[String]) -> Result<(), String> {
     let authenticated = authenticate_local()?;
     let principal_id = authenticated.projected_principal_id();
     reject_spoofed_as(args, &principal_id)?;
-    let bytes = fs::read(&source_path)
-        .map_err(|error| format!("failed to read {}: {error}", source_path.display()))?;
+    let bytes = read_policy_input(&source_path)?;
     let store = LmdbRecordStore::open(record_store_path())?;
     let context = store.resolve_security_context(&authenticated, &tenant_id)?;
     context.require_owner()?;
@@ -385,6 +424,15 @@ fn policy_list(args: &[String]) -> Result<(), String> {
 
 pub(super) fn policy_command(args: &[String]) -> Result<(), String> {
     match args.first().map(String::as_str) {
+        Some("extract") => {
+            let path = positional(&args[1..], "policy source path")?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&inspect_policy_input(Path::new(&path))?)
+                    .map_err(|e| e.to_string())?
+            );
+            Ok(())
+        }
         Some("ingest") => policy_ingest(&args[1..]),
         Some("inspect") => policy_inspect(&args[1..]),
         Some("validate") => policy_validate(&args[1..]),

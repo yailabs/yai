@@ -1,0 +1,12 @@
+artifact_kind: context_frame
+schema: yai.context_frame.v10
+frame_id: context-frame:657bba65690eeee3
+projection_id: projection:0d43f88c288b4a84
+case_id: case:policy-native
+case_generation: 15
+participant_id: participant:model
+purpose: conversation
+task: Realize the explicit YAI cognitive capability primary_conversation over committed Turn conversation-turn:sha256:c22441faebd51835aee6f2cbf8f5e71c8369b9a6a083ffd7...
+output_contract_id: output-contract:728e0a1e72edc60d
+selected_items: 10
+stale: true

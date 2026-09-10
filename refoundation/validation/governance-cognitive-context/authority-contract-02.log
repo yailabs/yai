@@ -1,0 +1,10 @@
+   Compiling yai-engine v0.0.0-newcore (/home/mothx/computer-science/projects/YAI/yai/engine/yai-engine)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.50s
+     Running unittests src/lib.rs (target/debug/deps/yai_core_engine-a57a7344f94e1c5f)
+
+running 1 test
+cognitive_authority exact_effective_policy=true relevant_rules=3 mandatory_budget_refusal=true absent_participant_refusal=true rebuild_equal=true revoke_without_case_generation_invalidates_W=true admission_refuses=true
+test store::lmdb::tests::resource_access_tests::cognitive_authority_same_materializer_scoped_mandatory_revocation_rebuild ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 330 filtered out; finished in 0.11s
+

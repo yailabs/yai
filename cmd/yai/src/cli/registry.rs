@@ -2010,6 +2010,17 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         &[pos("source", None)],
         POLICY_INGEST
     ),
+    op!(
+        "yai.policy.extract",
+        ["policy", "extract"],
+        "Inspect document extraction and unresolved candidate semantics without publication",
+        Product,
+        LocalDomain,
+        ReadOnly,
+        Structured,
+        &[pos("source", None)],
+        &[]
+    ),
     Descriptor {
         aliases: &[&["policy", "inspect"]],
         legacy_path: &["policy", "inspect"],

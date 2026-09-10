@@ -1,0 +1,947 @@
+run_id=yai-policy-native.eYDxwE cwd=/home/mothx/computer-science/projects/YAI/yai pre_state=fresh_home provider_mode=no_provider
+
+FORMAT json
+security_bootstrap: created
+authenticated: true
+authentication_kind: local_posix_effective_credential
+real_uid: 1000
+effective_uid: 1000
+real_gid: 1000
+effective_gid: 1000
+principal_id: principal:72cc156b82060120eac8f7e234dbfcef
+tenant_id: tenant:policy-json
+organization_ref: organization:engineering
+membership: owner
+security_events: 2
+case_created: true
+case_id: case:policy-json
+tenant_id: tenant:policy-json
+case_generation: 1
+lifecycle: open
+principal_id: principal:72cc156b82060120eac8f7e234dbfcef
+{
+  "original_digest": "sha256:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3",
+  "original_bytes": 1777,
+  "source": null,
+  "validation": {
+    "blockers": [],
+    "status": "qualified",
+    "validator_version": "yai.policy_validator.v2"
+  }
+}
+policy_ingest: candidate_created
+source_created: true
+artifact_created: true
+input_path: tests/cases/05-governance-cognitive/policy.json
+policy_source_schema: yai.policy_source_artifact.v4
+source_id: policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3
+source_digest: sha256:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3
+source_format: constrained_json
+policy_key: engineering
+source_version: 1
+owner_ref: organization:engineering
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_bytes_retained: 1777
+source_payload_display: withheld_by_default
+policy_artifact_schema: yai.policy_artifact.v5
+artifact_id: policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a
+policy_key: engineering
+artifact_version: 1
+owner_ref: organization:engineering
+tenant_id: tenant:policy-json
+organization_ref: organization:engineering
+policy_lineage_id: policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_id: policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3
+source_digest: sha256:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3
+validity_mode: Unbounded
+valid_from_unix_ms: none
+refresh_after_unix_ms: none
+expires_at_unix_ms: none
+parsed_schema: yai.parsed_policy.v2
+parsed_digest: sha256:6ecdc529ba7b6b5d02f1493b9be04f7d412c251b64f5f936923deb53924b03a3
+parsed_facts: 6
+parsed_fact: kind=operation_restriction fact_id=policy-fact:358db16dc3a37332cdd46c9fe7f0577af4d5bc87ae45776d2d4b8e405ca78d6b rule_id=read source_location=$.rules[0]
+parsed_fact: kind=operation_restriction fact_id=policy-fact:2146855d95169b6220562a678946796190f81bdcae691e7fd4b57edfd17e152c rule_id=search source_location=$.rules[1]
+parsed_fact: kind=operation_restriction fact_id=policy-fact:c7ba30f28ccb2ba9418bc39758d0a8f1dc417f0c6741a7cb5da95431a43e2b27 rule_id=write source_location=$.rules[2]
+parsed_fact: kind=review_requirement fact_id=policy-fact:d1f931040efed2c64bfaa84123eab1d039d11dfcd1f91ac460f5869f9e89e7ba rule_id=review source_location=$.rules[3]
+parsed_fact: kind=authority_requirement fact_id=policy-fact:7cdcb3fb3cfe3ec24e28b1421a24c720ac8d7a8e9daf7165c00f64b1d38cf4b8 rule_id=proposer source_location=$.rules[4]
+parsed_fact: kind=evidence_obligation fact_id=policy-fact:562820adf5351bc842e48c4c2adb7700dc4e971fb0c93b9d64f91c9781521270 rule_id=audit source_location=$.rules[5]
+policy_ir_schema: yai.policy_ir.v2
+policy_ir_digest: sha256:dfc7cd22dd797c37abdc6f79fdda90c1eedf26fafd8fde11870356da6b34612d
+normalized_rules: 6
+normalized_rule: kind=evidence_obligation rule_id=audit source_facts=policy-fact:562820adf5351bc842e48c4c2adb7700dc4e971fb0c93b9d64f91c9781521270 source_locations=$.rules[5]
+normalized_rule: kind=authority_requirement rule_id=proposer source_facts=policy-fact:7cdcb3fb3cfe3ec24e28b1421a24c720ac8d7a8e9daf7165c00f64b1d38cf4b8 source_locations=$.rules[4]
+normalized_rule: kind=operation_restriction rule_id=read source_facts=policy-fact:358db16dc3a37332cdd46c9fe7f0577af4d5bc87ae45776d2d4b8e405ca78d6b source_locations=$.rules[0]
+normalized_rule: kind=review_requirement rule_id=review source_facts=policy-fact:d1f931040efed2c64bfaa84123eab1d039d11dfcd1f91ac460f5869f9e89e7ba source_locations=$.rules[3]
+normalized_rule: kind=operation_restriction rule_id=search source_facts=policy-fact:2146855d95169b6220562a678946796190f81bdcae691e7fd4b57edfd17e152c source_locations=$.rules[1]
+normalized_rule: kind=operation_restriction rule_id=write source_facts=policy-fact:c7ba30f28ccb2ba9418bc39758d0a8f1dc417f0c6741a7cb5da95431a43e2b27 source_locations=$.rules[2]
+unresolved_items: 0
+conflicts: 0
+validation_status: qualified
+validation_blockers: 0
+lifecycle: candidate
+runtime_consumable: false
+superseded_by: none
+lifecycle_events: 1
+lifecycle_event: sequence=1 event_id=policy-event:4d75c9359e6f8b9e4ed8ebef2c5aedff7df2e8087a12cbd681844a60cdf2231a action=CandidateRegistered actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+case_binding: absent_without_explicit_case_action
+effective_policy: absent_without_case_binding
+decision_or_grant: never_emitted_by_policy_authoring
+yai: policy_artifact_must_be_validated_before_publish: current=Candidate
+policy_validate: validated
+policy_artifact_schema: yai.policy_artifact.v5
+artifact_id: policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a
+policy_key: engineering
+artifact_version: 1
+owner_ref: organization:engineering
+tenant_id: tenant:policy-json
+organization_ref: organization:engineering
+policy_lineage_id: policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_id: policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3
+source_digest: sha256:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3
+validity_mode: Unbounded
+valid_from_unix_ms: none
+refresh_after_unix_ms: none
+expires_at_unix_ms: none
+parsed_schema: yai.parsed_policy.v2
+parsed_digest: sha256:6ecdc529ba7b6b5d02f1493b9be04f7d412c251b64f5f936923deb53924b03a3
+parsed_facts: 6
+parsed_fact: kind=operation_restriction fact_id=policy-fact:358db16dc3a37332cdd46c9fe7f0577af4d5bc87ae45776d2d4b8e405ca78d6b rule_id=read source_location=$.rules[0]
+parsed_fact: kind=operation_restriction fact_id=policy-fact:2146855d95169b6220562a678946796190f81bdcae691e7fd4b57edfd17e152c rule_id=search source_location=$.rules[1]
+parsed_fact: kind=operation_restriction fact_id=policy-fact:c7ba30f28ccb2ba9418bc39758d0a8f1dc417f0c6741a7cb5da95431a43e2b27 rule_id=write source_location=$.rules[2]
+parsed_fact: kind=review_requirement fact_id=policy-fact:d1f931040efed2c64bfaa84123eab1d039d11dfcd1f91ac460f5869f9e89e7ba rule_id=review source_location=$.rules[3]
+parsed_fact: kind=authority_requirement fact_id=policy-fact:7cdcb3fb3cfe3ec24e28b1421a24c720ac8d7a8e9daf7165c00f64b1d38cf4b8 rule_id=proposer source_location=$.rules[4]
+parsed_fact: kind=evidence_obligation fact_id=policy-fact:562820adf5351bc842e48c4c2adb7700dc4e971fb0c93b9d64f91c9781521270 rule_id=audit source_location=$.rules[5]
+policy_ir_schema: yai.policy_ir.v2
+policy_ir_digest: sha256:dfc7cd22dd797c37abdc6f79fdda90c1eedf26fafd8fde11870356da6b34612d
+normalized_rules: 6
+normalized_rule: kind=evidence_obligation rule_id=audit source_facts=policy-fact:562820adf5351bc842e48c4c2adb7700dc4e971fb0c93b9d64f91c9781521270 source_locations=$.rules[5]
+normalized_rule: kind=authority_requirement rule_id=proposer source_facts=policy-fact:7cdcb3fb3cfe3ec24e28b1421a24c720ac8d7a8e9daf7165c00f64b1d38cf4b8 source_locations=$.rules[4]
+normalized_rule: kind=operation_restriction rule_id=read source_facts=policy-fact:358db16dc3a37332cdd46c9fe7f0577af4d5bc87ae45776d2d4b8e405ca78d6b source_locations=$.rules[0]
+normalized_rule: kind=review_requirement rule_id=review source_facts=policy-fact:d1f931040efed2c64bfaa84123eab1d039d11dfcd1f91ac460f5869f9e89e7ba source_locations=$.rules[3]
+normalized_rule: kind=operation_restriction rule_id=search source_facts=policy-fact:2146855d95169b6220562a678946796190f81bdcae691e7fd4b57edfd17e152c source_locations=$.rules[1]
+normalized_rule: kind=operation_restriction rule_id=write source_facts=policy-fact:c7ba30f28ccb2ba9418bc39758d0a8f1dc417f0c6741a7cb5da95431a43e2b27 source_locations=$.rules[2]
+unresolved_items: 0
+conflicts: 0
+validation_status: qualified
+validation_blockers: 0
+lifecycle: validated
+runtime_consumable: false
+superseded_by: none
+lifecycle_events: 2
+lifecycle_event: sequence=1 event_id=policy-event:4d75c9359e6f8b9e4ed8ebef2c5aedff7df2e8087a12cbd681844a60cdf2231a action=CandidateRegistered actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+lifecycle_event: sequence=2 event_id=policy-event:86b7ad656e1bed804b7eef41290efed5c91feb549aa31988d28ad7efd1aeba30 action=Validated actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+case_binding: absent_without_explicit_case_action
+effective_policy: absent_without_case_binding
+decision_or_grant: never_emitted_by_policy_authoring
+policy_publish: published
+policy_artifact_schema: yai.policy_artifact.v5
+artifact_id: policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a
+policy_key: engineering
+artifact_version: 1
+owner_ref: organization:engineering
+tenant_id: tenant:policy-json
+organization_ref: organization:engineering
+policy_lineage_id: policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_id: policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3
+source_digest: sha256:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3
+validity_mode: Unbounded
+valid_from_unix_ms: none
+refresh_after_unix_ms: none
+expires_at_unix_ms: none
+parsed_schema: yai.parsed_policy.v2
+parsed_digest: sha256:6ecdc529ba7b6b5d02f1493b9be04f7d412c251b64f5f936923deb53924b03a3
+parsed_facts: 6
+parsed_fact: kind=operation_restriction fact_id=policy-fact:358db16dc3a37332cdd46c9fe7f0577af4d5bc87ae45776d2d4b8e405ca78d6b rule_id=read source_location=$.rules[0]
+parsed_fact: kind=operation_restriction fact_id=policy-fact:2146855d95169b6220562a678946796190f81bdcae691e7fd4b57edfd17e152c rule_id=search source_location=$.rules[1]
+parsed_fact: kind=operation_restriction fact_id=policy-fact:c7ba30f28ccb2ba9418bc39758d0a8f1dc417f0c6741a7cb5da95431a43e2b27 rule_id=write source_location=$.rules[2]
+parsed_fact: kind=review_requirement fact_id=policy-fact:d1f931040efed2c64bfaa84123eab1d039d11dfcd1f91ac460f5869f9e89e7ba rule_id=review source_location=$.rules[3]
+parsed_fact: kind=authority_requirement fact_id=policy-fact:7cdcb3fb3cfe3ec24e28b1421a24c720ac8d7a8e9daf7165c00f64b1d38cf4b8 rule_id=proposer source_location=$.rules[4]
+parsed_fact: kind=evidence_obligation fact_id=policy-fact:562820adf5351bc842e48c4c2adb7700dc4e971fb0c93b9d64f91c9781521270 rule_id=audit source_location=$.rules[5]
+policy_ir_schema: yai.policy_ir.v2
+policy_ir_digest: sha256:dfc7cd22dd797c37abdc6f79fdda90c1eedf26fafd8fde11870356da6b34612d
+normalized_rules: 6
+normalized_rule: kind=evidence_obligation rule_id=audit source_facts=policy-fact:562820adf5351bc842e48c4c2adb7700dc4e971fb0c93b9d64f91c9781521270 source_locations=$.rules[5]
+normalized_rule: kind=authority_requirement rule_id=proposer source_facts=policy-fact:7cdcb3fb3cfe3ec24e28b1421a24c720ac8d7a8e9daf7165c00f64b1d38cf4b8 source_locations=$.rules[4]
+normalized_rule: kind=operation_restriction rule_id=read source_facts=policy-fact:358db16dc3a37332cdd46c9fe7f0577af4d5bc87ae45776d2d4b8e405ca78d6b source_locations=$.rules[0]
+normalized_rule: kind=review_requirement rule_id=review source_facts=policy-fact:d1f931040efed2c64bfaa84123eab1d039d11dfcd1f91ac460f5869f9e89e7ba source_locations=$.rules[3]
+normalized_rule: kind=operation_restriction rule_id=search source_facts=policy-fact:2146855d95169b6220562a678946796190f81bdcae691e7fd4b57edfd17e152c source_locations=$.rules[1]
+normalized_rule: kind=operation_restriction rule_id=write source_facts=policy-fact:c7ba30f28ccb2ba9418bc39758d0a8f1dc417f0c6741a7cb5da95431a43e2b27 source_locations=$.rules[2]
+unresolved_items: 0
+conflicts: 0
+validation_status: qualified
+validation_blockers: 0
+lifecycle: published
+runtime_consumable: true
+superseded_by: none
+lifecycle_events: 3
+lifecycle_event: sequence=1 event_id=policy-event:4d75c9359e6f8b9e4ed8ebef2c5aedff7df2e8087a12cbd681844a60cdf2231a action=CandidateRegistered actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+lifecycle_event: sequence=2 event_id=policy-event:86b7ad656e1bed804b7eef41290efed5c91feb549aa31988d28ad7efd1aeba30 action=Validated actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+lifecycle_event: sequence=3 event_id=policy-event:a9b0a1e5cc2964b52c33af2bdeca74837677d0b3463065b8d3bd9da370f7ccc8 action=Published actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+case_binding: absent_without_explicit_case_action
+effective_policy: absent_without_case_binding
+decision_or_grant: never_emitted_by_policy_authoring
+case_policy_bind: committed
+transition_id: transition:policy-bind:case-policy-binding:59ffd041a9a09ee242f690ec3b901e04
+case_generation: 2
+derived_cache: stored
+case_id: case:policy-json
+tenant_id: tenant:policy-json
+case_generation: 2
+case_lifecycle: Open
+case_cancelled: false
+transition_count: 2
+normative_readiness: ready
+policy_validity: Valid
+observed_wall_time: 1789067355000
+persisted_authority_floor: 1789067355000
+effective_authority_time: 1789067355000
+active_policy_bindings: 1
+policy_binding: binding_id=case-policy-binding:59ffd041a9a09ee242f690ec3b901e04 lineage_id=policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b owner_ref=organization:engineering policy_key=engineering artifact_id=policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a version=1 publication_event=policy-event:a9b0a1e5cc2964b52c33af2bdeca74837677d0b3463065b8d3bd9da370f7ccc8 bound_generation=2
+effective_policy_id: effective-policy:0bd783104b46c41758c3b4806128a9d0
+effective_policy_digest: sha256:0bd783104b46c41758c3b4806128a9d019a51f37208c76709b089ac5245455c2
+materializer_version: yai.policy_materializer.v3
+effective_input_rules: 6
+effective_output_rules: 6
+effective_merged_rules: 0
+effective_resolved_conflicts: 0
+effective_provenance_contributions: 6
+effective_rule: {"kind":"authority_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_roles":["operation-proposer"],"resolution":"required_roles_compose_all_of_under_yai.policy_materializer.v2","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"proposer","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:7cdcb3fb3cfe3ec24e28b1421a24c720ac8d7a8e9daf7165c00f64b1d38cf4b8"],"source_locations":["$.rules[4]"]}]}
+effective_rule: {"kind":"evidence_obligation","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"audit_reason","resolution":"obligation_set_union_with_provenance","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"audit","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:562820adf5351bc842e48c4c2adb7700dc4e971fb0c93b9d64f91c9781521270"],"source_locations":["$.rules[5]"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.read","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"read","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:358db16dc3a37332cdd46c9fe7f0577af4d5bc87ae45776d2d4b8e405ca78d6b"],"source_locations":["$.rules[0]"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.search","resource_kind":"filesystem","effect":"deny","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"search","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:2146855d95169b6220562a678946796190f81bdcae691e7fd4b57edfd17e152c"],"source_locations":["$.rules[1]"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"write","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:c7ba30f28ccb2ba9418bc39758d0a8f1dc417f0c6741a7cb5da95431a43e2b27"],"source_locations":["$.rules[2]"]}]}
+effective_rule: {"kind":"review_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","required":true,"resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"review","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:d1f931040efed2c64bfaa84123eab1d039d11dfcd1f91ac460f5869f9e89e7ba"],"source_locations":["$.rules[3]"]}]}
+blocking_conflicts: 0
+missing_inputs: 0
+catalog_drift: lineage_id=policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b status=current
+binding_validity: lineage_id=policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b binding_id=case-policy-binding:59ffd041a9a09ee242f690ec3b901e04 artifact_id=policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a posture=Valid reason=unbounded valid_from=none refresh_after=none expires_at=none revoke_event=none
+decision_count: 0
+execution_grant_count: 0
+prepared_effect_count: 0
+authority_emitted_by_case_policy: false
+case_id: case:policy-json
+tenant_id: tenant:policy-json
+case_generation: 2
+case_lifecycle: Open
+case_cancelled: false
+transition_count: 2
+normative_readiness: ready
+policy_validity: Valid
+observed_wall_time: 1789067355000
+persisted_authority_floor: 1789067355000
+effective_authority_time: 1789067355000
+active_policy_bindings: 1
+policy_binding: binding_id=case-policy-binding:59ffd041a9a09ee242f690ec3b901e04 lineage_id=policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b owner_ref=organization:engineering policy_key=engineering artifact_id=policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a version=1 publication_event=policy-event:a9b0a1e5cc2964b52c33af2bdeca74837677d0b3463065b8d3bd9da370f7ccc8 bound_generation=2
+effective_policy_id: effective-policy:0bd783104b46c41758c3b4806128a9d0
+effective_policy_digest: sha256:0bd783104b46c41758c3b4806128a9d019a51f37208c76709b089ac5245455c2
+materializer_version: yai.policy_materializer.v3
+effective_input_rules: 6
+effective_output_rules: 6
+effective_merged_rules: 0
+effective_resolved_conflicts: 0
+effective_provenance_contributions: 6
+effective_rule: {"kind":"authority_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_roles":["operation-proposer"],"resolution":"required_roles_compose_all_of_under_yai.policy_materializer.v2","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"proposer","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:7cdcb3fb3cfe3ec24e28b1421a24c720ac8d7a8e9daf7165c00f64b1d38cf4b8"],"source_locations":["$.rules[4]"]}]}
+effective_rule: {"kind":"evidence_obligation","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"audit_reason","resolution":"obligation_set_union_with_provenance","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"audit","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:562820adf5351bc842e48c4c2adb7700dc4e971fb0c93b9d64f91c9781521270"],"source_locations":["$.rules[5]"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.read","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"read","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:358db16dc3a37332cdd46c9fe7f0577af4d5bc87ae45776d2d4b8e405ca78d6b"],"source_locations":["$.rules[0]"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.search","resource_kind":"filesystem","effect":"deny","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"search","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:2146855d95169b6220562a678946796190f81bdcae691e7fd4b57edfd17e152c"],"source_locations":["$.rules[1]"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"write","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:c7ba30f28ccb2ba9418bc39758d0a8f1dc417f0c6741a7cb5da95431a43e2b27"],"source_locations":["$.rules[2]"]}]}
+effective_rule: {"kind":"review_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","required":true,"resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"review","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:d1f931040efed2c64bfaa84123eab1d039d11dfcd1f91ac460f5869f9e89e7ba"],"source_locations":["$.rules[3]"]}]}
+blocking_conflicts: 0
+missing_inputs: 0
+catalog_drift: lineage_id=policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b status=current
+binding_validity: lineage_id=policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b binding_id=case-policy-binding:59ffd041a9a09ee242f690ec3b901e04 artifact_id=policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a posture=Valid reason=unbounded valid_from=none refresh_after=none expires_at=none revoke_event=none
+decision_count: 0
+execution_grant_count: 0
+prepared_effect_count: 0
+authority_emitted_by_case_policy: false
+effective_policy_rebuild: completed
+canonical_transitions_before: 2
+canonical_transitions_after: 2
+case_id: case:policy-json
+tenant_id: tenant:policy-json
+case_generation: 2
+case_lifecycle: Open
+case_cancelled: false
+transition_count: 2
+normative_readiness: ready
+policy_validity: Valid
+observed_wall_time: 1789067355000
+persisted_authority_floor: 1789067355000
+effective_authority_time: 1789067355000
+active_policy_bindings: 1
+policy_binding: binding_id=case-policy-binding:59ffd041a9a09ee242f690ec3b901e04 lineage_id=policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b owner_ref=organization:engineering policy_key=engineering artifact_id=policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a version=1 publication_event=policy-event:a9b0a1e5cc2964b52c33af2bdeca74837677d0b3463065b8d3bd9da370f7ccc8 bound_generation=2
+effective_policy_id: effective-policy:0bd783104b46c41758c3b4806128a9d0
+effective_policy_digest: sha256:0bd783104b46c41758c3b4806128a9d019a51f37208c76709b089ac5245455c2
+materializer_version: yai.policy_materializer.v3
+effective_input_rules: 6
+effective_output_rules: 6
+effective_merged_rules: 0
+effective_resolved_conflicts: 0
+effective_provenance_contributions: 6
+effective_rule: {"kind":"authority_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_roles":["operation-proposer"],"resolution":"required_roles_compose_all_of_under_yai.policy_materializer.v2","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"proposer","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:7cdcb3fb3cfe3ec24e28b1421a24c720ac8d7a8e9daf7165c00f64b1d38cf4b8"],"source_locations":["$.rules[4]"]}]}
+effective_rule: {"kind":"evidence_obligation","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"audit_reason","resolution":"obligation_set_union_with_provenance","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"audit","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:562820adf5351bc842e48c4c2adb7700dc4e971fb0c93b9d64f91c9781521270"],"source_locations":["$.rules[5]"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.read","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"read","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:358db16dc3a37332cdd46c9fe7f0577af4d5bc87ae45776d2d4b8e405ca78d6b"],"source_locations":["$.rules[0]"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.search","resource_kind":"filesystem","effect":"deny","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"search","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:2146855d95169b6220562a678946796190f81bdcae691e7fd4b57edfd17e152c"],"source_locations":["$.rules[1]"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"write","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:c7ba30f28ccb2ba9418bc39758d0a8f1dc417f0c6741a7cb5da95431a43e2b27"],"source_locations":["$.rules[2]"]}]}
+effective_rule: {"kind":"review_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","required":true,"resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:59ffd041a9a09ee242f690ec3b901e04","artifact_id":"policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a","policy_ir_rule_id":"review","source_id":"policy-source:92d2db89eeac34120293e86ccfcceeb01bbafb15d2ca77b523acc95b5e39ace3","fact_refs":["policy-fact:d1f931040efed2c64bfaa84123eab1d039d11dfcd1f91ac460f5869f9e89e7ba"],"source_locations":["$.rules[3]"]}]}
+blocking_conflicts: 0
+missing_inputs: 0
+catalog_drift: lineage_id=policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b status=current
+binding_validity: lineage_id=policy-lineage:b1e27b7de8aa34ab15fadb9aa580197938ffa2eecfec53b4dbfd6b8e79ab894b binding_id=case-policy-binding:59ffd041a9a09ee242f690ec3b901e04 artifact_id=policy-artifact:726bb24fe04ac617b0ded5210250a35da3a8f07c14719ed396d4ee6e1eacea8a posture=Valid reason=unbounded valid_from=none refresh_after=none expires_at=none revoke_event=none
+decision_count: 0
+execution_grant_count: 0
+prepared_effect_count: 0
+authority_emitted_by_case_policy: false
+{
+  "authority": "transition_ledger",
+  "case_id": "case:policy-json",
+  "generation": 2,
+  "materialization": "equivalent_to_replay",
+  "mutation": "none",
+  "schema": "yai.case_state.v15"
+}
+
+FORMAT md
+security_bootstrap: created
+authenticated: true
+authentication_kind: local_posix_effective_credential
+real_uid: 1000
+effective_uid: 1000
+real_gid: 1000
+effective_gid: 1000
+principal_id: principal:72cc156b82060120eac8f7e234dbfcef
+tenant_id: tenant:policy-md
+organization_ref: organization:engineering
+membership: owner
+security_events: 1
+case_created: true
+case_id: case:policy-md
+tenant_id: tenant:policy-md
+case_generation: 1
+lifecycle: open
+principal_id: principal:72cc156b82060120eac8f7e234dbfcef
+{
+  "original_digest": "sha256:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab",
+  "original_bytes": 1800,
+  "source": {
+    "block_location": "markdown:line=1..markdown:line=66",
+    "extractor": "yai.markdown_policy_block.v1",
+    "media_type": "text/markdown"
+  },
+  "validation": {
+    "blockers": [],
+    "status": "qualified",
+    "validator_version": "yai.policy_validator.v2"
+  }
+}
+policy_ingest: candidate_created
+source_created: true
+artifact_created: true
+input_path: tests/cases/05-governance-cognitive/policy.md
+policy_source_schema: yai.policy_source_artifact.v5
+source_id: policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab
+source_digest: sha256:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab
+source_format: markdown_policy_sheet
+policy_key: engineering
+source_version: 1
+owner_ref: organization:engineering
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_bytes_retained: 1777
+source_payload_display: withheld_by_default
+original_bytes_retained: 1800
+source_media_type: text/markdown
+extractor: yai.markdown_policy_block.v1
+source_block_location: markdown:line=1..markdown:line=66
+policy_artifact_schema: yai.policy_artifact.v5
+artifact_id: policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165
+policy_key: engineering
+artifact_version: 1
+owner_ref: organization:engineering
+tenant_id: tenant:policy-md
+organization_ref: organization:engineering
+policy_lineage_id: policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_id: policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab
+source_digest: sha256:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab
+validity_mode: Unbounded
+valid_from_unix_ms: none
+refresh_after_unix_ms: none
+expires_at_unix_ms: none
+parsed_schema: yai.parsed_policy.v2
+parsed_digest: sha256:4f9775ca815c66c92cc318a356b2e85bd43331f6651854e9a07073aa3548f66f
+parsed_facts: 6
+parsed_fact: kind=operation_restriction fact_id=policy-fact:e32fefb9e2c45f86862080365e60ce407194ed2950b43fbc97b7618bba56de96 rule_id=read source_location=$.rules[0]@markdown:line=1..markdown:line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:c853d7c78224d48176ee1bfa110f436c83828db1c2e5099e17877fa902c4fda1 rule_id=search source_location=$.rules[1]@markdown:line=1..markdown:line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:3f6903f829b0498bf814b39dbce3ed69587824abfec5270090b4ffc94fa4b9cd rule_id=write source_location=$.rules[2]@markdown:line=1..markdown:line=66
+parsed_fact: kind=review_requirement fact_id=policy-fact:0d7ce68c1f88e7b2d8adbc385497295b027b40deffb99afac9447e971665316f rule_id=review source_location=$.rules[3]@markdown:line=1..markdown:line=66
+parsed_fact: kind=authority_requirement fact_id=policy-fact:87c1a7f59ab6cd895002cdc86fdc9061fff459bd28bd44bbf7187948876183a2 rule_id=proposer source_location=$.rules[4]@markdown:line=1..markdown:line=66
+parsed_fact: kind=evidence_obligation fact_id=policy-fact:d261351969d5b107de253570e8e64fc423c632e714fb1f3ba78f88e3decf146d rule_id=audit source_location=$.rules[5]@markdown:line=1..markdown:line=66
+policy_ir_schema: yai.policy_ir.v2
+policy_ir_digest: sha256:93887c4cade73fdaeed1ea22c0f1f4d37b106e1367a45709f6b3ba4bf9ef48df
+normalized_rules: 6
+normalized_rule: kind=evidence_obligation rule_id=audit source_facts=policy-fact:d261351969d5b107de253570e8e64fc423c632e714fb1f3ba78f88e3decf146d source_locations=$.rules[5]@markdown:line=1..markdown:line=66
+normalized_rule: kind=authority_requirement rule_id=proposer source_facts=policy-fact:87c1a7f59ab6cd895002cdc86fdc9061fff459bd28bd44bbf7187948876183a2 source_locations=$.rules[4]@markdown:line=1..markdown:line=66
+normalized_rule: kind=operation_restriction rule_id=read source_facts=policy-fact:e32fefb9e2c45f86862080365e60ce407194ed2950b43fbc97b7618bba56de96 source_locations=$.rules[0]@markdown:line=1..markdown:line=66
+normalized_rule: kind=review_requirement rule_id=review source_facts=policy-fact:0d7ce68c1f88e7b2d8adbc385497295b027b40deffb99afac9447e971665316f source_locations=$.rules[3]@markdown:line=1..markdown:line=66
+normalized_rule: kind=operation_restriction rule_id=search source_facts=policy-fact:c853d7c78224d48176ee1bfa110f436c83828db1c2e5099e17877fa902c4fda1 source_locations=$.rules[1]@markdown:line=1..markdown:line=66
+normalized_rule: kind=operation_restriction rule_id=write source_facts=policy-fact:3f6903f829b0498bf814b39dbce3ed69587824abfec5270090b4ffc94fa4b9cd source_locations=$.rules[2]@markdown:line=1..markdown:line=66
+unresolved_items: 0
+conflicts: 0
+validation_status: qualified
+validation_blockers: 0
+lifecycle: candidate
+runtime_consumable: false
+superseded_by: none
+lifecycle_events: 1
+lifecycle_event: sequence=4 event_id=policy-event:d2696d79ca568b6f37295644a337fc47b382cde2ce6aa08dd4b9dc1d523f5499 action=CandidateRegistered actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+case_binding: absent_without_explicit_case_action
+effective_policy: absent_without_case_binding
+decision_or_grant: never_emitted_by_policy_authoring
+yai: policy_artifact_must_be_validated_before_publish: current=Candidate
+policy_validate: validated
+policy_artifact_schema: yai.policy_artifact.v5
+artifact_id: policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165
+policy_key: engineering
+artifact_version: 1
+owner_ref: organization:engineering
+tenant_id: tenant:policy-md
+organization_ref: organization:engineering
+policy_lineage_id: policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_id: policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab
+source_digest: sha256:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab
+validity_mode: Unbounded
+valid_from_unix_ms: none
+refresh_after_unix_ms: none
+expires_at_unix_ms: none
+parsed_schema: yai.parsed_policy.v2
+parsed_digest: sha256:4f9775ca815c66c92cc318a356b2e85bd43331f6651854e9a07073aa3548f66f
+parsed_facts: 6
+parsed_fact: kind=operation_restriction fact_id=policy-fact:e32fefb9e2c45f86862080365e60ce407194ed2950b43fbc97b7618bba56de96 rule_id=read source_location=$.rules[0]@markdown:line=1..markdown:line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:c853d7c78224d48176ee1bfa110f436c83828db1c2e5099e17877fa902c4fda1 rule_id=search source_location=$.rules[1]@markdown:line=1..markdown:line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:3f6903f829b0498bf814b39dbce3ed69587824abfec5270090b4ffc94fa4b9cd rule_id=write source_location=$.rules[2]@markdown:line=1..markdown:line=66
+parsed_fact: kind=review_requirement fact_id=policy-fact:0d7ce68c1f88e7b2d8adbc385497295b027b40deffb99afac9447e971665316f rule_id=review source_location=$.rules[3]@markdown:line=1..markdown:line=66
+parsed_fact: kind=authority_requirement fact_id=policy-fact:87c1a7f59ab6cd895002cdc86fdc9061fff459bd28bd44bbf7187948876183a2 rule_id=proposer source_location=$.rules[4]@markdown:line=1..markdown:line=66
+parsed_fact: kind=evidence_obligation fact_id=policy-fact:d261351969d5b107de253570e8e64fc423c632e714fb1f3ba78f88e3decf146d rule_id=audit source_location=$.rules[5]@markdown:line=1..markdown:line=66
+policy_ir_schema: yai.policy_ir.v2
+policy_ir_digest: sha256:93887c4cade73fdaeed1ea22c0f1f4d37b106e1367a45709f6b3ba4bf9ef48df
+normalized_rules: 6
+normalized_rule: kind=evidence_obligation rule_id=audit source_facts=policy-fact:d261351969d5b107de253570e8e64fc423c632e714fb1f3ba78f88e3decf146d source_locations=$.rules[5]@markdown:line=1..markdown:line=66
+normalized_rule: kind=authority_requirement rule_id=proposer source_facts=policy-fact:87c1a7f59ab6cd895002cdc86fdc9061fff459bd28bd44bbf7187948876183a2 source_locations=$.rules[4]@markdown:line=1..markdown:line=66
+normalized_rule: kind=operation_restriction rule_id=read source_facts=policy-fact:e32fefb9e2c45f86862080365e60ce407194ed2950b43fbc97b7618bba56de96 source_locations=$.rules[0]@markdown:line=1..markdown:line=66
+normalized_rule: kind=review_requirement rule_id=review source_facts=policy-fact:0d7ce68c1f88e7b2d8adbc385497295b027b40deffb99afac9447e971665316f source_locations=$.rules[3]@markdown:line=1..markdown:line=66
+normalized_rule: kind=operation_restriction rule_id=search source_facts=policy-fact:c853d7c78224d48176ee1bfa110f436c83828db1c2e5099e17877fa902c4fda1 source_locations=$.rules[1]@markdown:line=1..markdown:line=66
+normalized_rule: kind=operation_restriction rule_id=write source_facts=policy-fact:3f6903f829b0498bf814b39dbce3ed69587824abfec5270090b4ffc94fa4b9cd source_locations=$.rules[2]@markdown:line=1..markdown:line=66
+unresolved_items: 0
+conflicts: 0
+validation_status: qualified
+validation_blockers: 0
+lifecycle: validated
+runtime_consumable: false
+superseded_by: none
+lifecycle_events: 2
+lifecycle_event: sequence=4 event_id=policy-event:d2696d79ca568b6f37295644a337fc47b382cde2ce6aa08dd4b9dc1d523f5499 action=CandidateRegistered actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+lifecycle_event: sequence=5 event_id=policy-event:f5565358b7fbdf2d2e63c24a1c8d34949b8eefea6627e9c2b2674e6b9fd77a6c action=Validated actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+case_binding: absent_without_explicit_case_action
+effective_policy: absent_without_case_binding
+decision_or_grant: never_emitted_by_policy_authoring
+policy_publish: published
+policy_artifact_schema: yai.policy_artifact.v5
+artifact_id: policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165
+policy_key: engineering
+artifact_version: 1
+owner_ref: organization:engineering
+tenant_id: tenant:policy-md
+organization_ref: organization:engineering
+policy_lineage_id: policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_id: policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab
+source_digest: sha256:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab
+validity_mode: Unbounded
+valid_from_unix_ms: none
+refresh_after_unix_ms: none
+expires_at_unix_ms: none
+parsed_schema: yai.parsed_policy.v2
+parsed_digest: sha256:4f9775ca815c66c92cc318a356b2e85bd43331f6651854e9a07073aa3548f66f
+parsed_facts: 6
+parsed_fact: kind=operation_restriction fact_id=policy-fact:e32fefb9e2c45f86862080365e60ce407194ed2950b43fbc97b7618bba56de96 rule_id=read source_location=$.rules[0]@markdown:line=1..markdown:line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:c853d7c78224d48176ee1bfa110f436c83828db1c2e5099e17877fa902c4fda1 rule_id=search source_location=$.rules[1]@markdown:line=1..markdown:line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:3f6903f829b0498bf814b39dbce3ed69587824abfec5270090b4ffc94fa4b9cd rule_id=write source_location=$.rules[2]@markdown:line=1..markdown:line=66
+parsed_fact: kind=review_requirement fact_id=policy-fact:0d7ce68c1f88e7b2d8adbc385497295b027b40deffb99afac9447e971665316f rule_id=review source_location=$.rules[3]@markdown:line=1..markdown:line=66
+parsed_fact: kind=authority_requirement fact_id=policy-fact:87c1a7f59ab6cd895002cdc86fdc9061fff459bd28bd44bbf7187948876183a2 rule_id=proposer source_location=$.rules[4]@markdown:line=1..markdown:line=66
+parsed_fact: kind=evidence_obligation fact_id=policy-fact:d261351969d5b107de253570e8e64fc423c632e714fb1f3ba78f88e3decf146d rule_id=audit source_location=$.rules[5]@markdown:line=1..markdown:line=66
+policy_ir_schema: yai.policy_ir.v2
+policy_ir_digest: sha256:93887c4cade73fdaeed1ea22c0f1f4d37b106e1367a45709f6b3ba4bf9ef48df
+normalized_rules: 6
+normalized_rule: kind=evidence_obligation rule_id=audit source_facts=policy-fact:d261351969d5b107de253570e8e64fc423c632e714fb1f3ba78f88e3decf146d source_locations=$.rules[5]@markdown:line=1..markdown:line=66
+normalized_rule: kind=authority_requirement rule_id=proposer source_facts=policy-fact:87c1a7f59ab6cd895002cdc86fdc9061fff459bd28bd44bbf7187948876183a2 source_locations=$.rules[4]@markdown:line=1..markdown:line=66
+normalized_rule: kind=operation_restriction rule_id=read source_facts=policy-fact:e32fefb9e2c45f86862080365e60ce407194ed2950b43fbc97b7618bba56de96 source_locations=$.rules[0]@markdown:line=1..markdown:line=66
+normalized_rule: kind=review_requirement rule_id=review source_facts=policy-fact:0d7ce68c1f88e7b2d8adbc385497295b027b40deffb99afac9447e971665316f source_locations=$.rules[3]@markdown:line=1..markdown:line=66
+normalized_rule: kind=operation_restriction rule_id=search source_facts=policy-fact:c853d7c78224d48176ee1bfa110f436c83828db1c2e5099e17877fa902c4fda1 source_locations=$.rules[1]@markdown:line=1..markdown:line=66
+normalized_rule: kind=operation_restriction rule_id=write source_facts=policy-fact:3f6903f829b0498bf814b39dbce3ed69587824abfec5270090b4ffc94fa4b9cd source_locations=$.rules[2]@markdown:line=1..markdown:line=66
+unresolved_items: 0
+conflicts: 0
+validation_status: qualified
+validation_blockers: 0
+lifecycle: published
+runtime_consumable: true
+superseded_by: none
+lifecycle_events: 3
+lifecycle_event: sequence=4 event_id=policy-event:d2696d79ca568b6f37295644a337fc47b382cde2ce6aa08dd4b9dc1d523f5499 action=CandidateRegistered actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+lifecycle_event: sequence=5 event_id=policy-event:f5565358b7fbdf2d2e63c24a1c8d34949b8eefea6627e9c2b2674e6b9fd77a6c action=Validated actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+lifecycle_event: sequence=6 event_id=policy-event:cd23021f14123b2d1b0e5b112dd282ccc0283127eead199eba42a2166565ca89 action=Published actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+case_binding: absent_without_explicit_case_action
+effective_policy: absent_without_case_binding
+decision_or_grant: never_emitted_by_policy_authoring
+case_policy_bind: committed
+transition_id: transition:policy-bind:case-policy-binding:bed2b88c4d28eace07fd398127dddc1d
+case_generation: 2
+derived_cache: stored
+case_id: case:policy-md
+tenant_id: tenant:policy-md
+case_generation: 2
+case_lifecycle: Open
+case_cancelled: false
+transition_count: 2
+normative_readiness: ready
+policy_validity: Valid
+observed_wall_time: 1789067356000
+persisted_authority_floor: 1789067356000
+effective_authority_time: 1789067356000
+active_policy_bindings: 1
+policy_binding: binding_id=case-policy-binding:bed2b88c4d28eace07fd398127dddc1d lineage_id=policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0 owner_ref=organization:engineering policy_key=engineering artifact_id=policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165 version=1 publication_event=policy-event:cd23021f14123b2d1b0e5b112dd282ccc0283127eead199eba42a2166565ca89 bound_generation=2
+effective_policy_id: effective-policy:f9e348910fbf6c24a38a6fc9ddd84862
+effective_policy_digest: sha256:f9e348910fbf6c24a38a6fc9ddd848629ed49186d25deec30dea26c443eebe4b
+materializer_version: yai.policy_materializer.v3
+effective_input_rules: 6
+effective_output_rules: 6
+effective_merged_rules: 0
+effective_resolved_conflicts: 0
+effective_provenance_contributions: 6
+effective_rule: {"kind":"authority_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_roles":["operation-proposer"],"resolution":"required_roles_compose_all_of_under_yai.policy_materializer.v2","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"proposer","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:87c1a7f59ab6cd895002cdc86fdc9061fff459bd28bd44bbf7187948876183a2"],"source_locations":["$.rules[4]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"evidence_obligation","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"audit_reason","resolution":"obligation_set_union_with_provenance","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"audit","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:d261351969d5b107de253570e8e64fc423c632e714fb1f3ba78f88e3decf146d"],"source_locations":["$.rules[5]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.read","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"read","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:e32fefb9e2c45f86862080365e60ce407194ed2950b43fbc97b7618bba56de96"],"source_locations":["$.rules[0]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.search","resource_kind":"filesystem","effect":"deny","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"search","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:c853d7c78224d48176ee1bfa110f436c83828db1c2e5099e17877fa902c4fda1"],"source_locations":["$.rules[1]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"write","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:3f6903f829b0498bf814b39dbce3ed69587824abfec5270090b4ffc94fa4b9cd"],"source_locations":["$.rules[2]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"review_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","required":true,"resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"review","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:0d7ce68c1f88e7b2d8adbc385497295b027b40deffb99afac9447e971665316f"],"source_locations":["$.rules[3]@markdown:line=1..markdown:line=66"]}]}
+blocking_conflicts: 0
+missing_inputs: 0
+catalog_drift: lineage_id=policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0 status=current
+binding_validity: lineage_id=policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0 binding_id=case-policy-binding:bed2b88c4d28eace07fd398127dddc1d artifact_id=policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165 posture=Valid reason=unbounded valid_from=none refresh_after=none expires_at=none revoke_event=none
+decision_count: 0
+execution_grant_count: 0
+prepared_effect_count: 0
+authority_emitted_by_case_policy: false
+case_id: case:policy-md
+tenant_id: tenant:policy-md
+case_generation: 2
+case_lifecycle: Open
+case_cancelled: false
+transition_count: 2
+normative_readiness: ready
+policy_validity: Valid
+observed_wall_time: 1789067356000
+persisted_authority_floor: 1789067356000
+effective_authority_time: 1789067356000
+active_policy_bindings: 1
+policy_binding: binding_id=case-policy-binding:bed2b88c4d28eace07fd398127dddc1d lineage_id=policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0 owner_ref=organization:engineering policy_key=engineering artifact_id=policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165 version=1 publication_event=policy-event:cd23021f14123b2d1b0e5b112dd282ccc0283127eead199eba42a2166565ca89 bound_generation=2
+effective_policy_id: effective-policy:f9e348910fbf6c24a38a6fc9ddd84862
+effective_policy_digest: sha256:f9e348910fbf6c24a38a6fc9ddd848629ed49186d25deec30dea26c443eebe4b
+materializer_version: yai.policy_materializer.v3
+effective_input_rules: 6
+effective_output_rules: 6
+effective_merged_rules: 0
+effective_resolved_conflicts: 0
+effective_provenance_contributions: 6
+effective_rule: {"kind":"authority_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_roles":["operation-proposer"],"resolution":"required_roles_compose_all_of_under_yai.policy_materializer.v2","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"proposer","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:87c1a7f59ab6cd895002cdc86fdc9061fff459bd28bd44bbf7187948876183a2"],"source_locations":["$.rules[4]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"evidence_obligation","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"audit_reason","resolution":"obligation_set_union_with_provenance","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"audit","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:d261351969d5b107de253570e8e64fc423c632e714fb1f3ba78f88e3decf146d"],"source_locations":["$.rules[5]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.read","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"read","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:e32fefb9e2c45f86862080365e60ce407194ed2950b43fbc97b7618bba56de96"],"source_locations":["$.rules[0]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.search","resource_kind":"filesystem","effect":"deny","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"search","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:c853d7c78224d48176ee1bfa110f436c83828db1c2e5099e17877fa902c4fda1"],"source_locations":["$.rules[1]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"write","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:3f6903f829b0498bf814b39dbce3ed69587824abfec5270090b4ffc94fa4b9cd"],"source_locations":["$.rules[2]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"review_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","required":true,"resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"review","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:0d7ce68c1f88e7b2d8adbc385497295b027b40deffb99afac9447e971665316f"],"source_locations":["$.rules[3]@markdown:line=1..markdown:line=66"]}]}
+blocking_conflicts: 0
+missing_inputs: 0
+catalog_drift: lineage_id=policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0 status=current
+binding_validity: lineage_id=policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0 binding_id=case-policy-binding:bed2b88c4d28eace07fd398127dddc1d artifact_id=policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165 posture=Valid reason=unbounded valid_from=none refresh_after=none expires_at=none revoke_event=none
+decision_count: 0
+execution_grant_count: 0
+prepared_effect_count: 0
+authority_emitted_by_case_policy: false
+effective_policy_rebuild: completed
+canonical_transitions_before: 2
+canonical_transitions_after: 2
+case_id: case:policy-md
+tenant_id: tenant:policy-md
+case_generation: 2
+case_lifecycle: Open
+case_cancelled: false
+transition_count: 2
+normative_readiness: ready
+policy_validity: Valid
+observed_wall_time: 1789067356000
+persisted_authority_floor: 1789067356000
+effective_authority_time: 1789067356000
+active_policy_bindings: 1
+policy_binding: binding_id=case-policy-binding:bed2b88c4d28eace07fd398127dddc1d lineage_id=policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0 owner_ref=organization:engineering policy_key=engineering artifact_id=policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165 version=1 publication_event=policy-event:cd23021f14123b2d1b0e5b112dd282ccc0283127eead199eba42a2166565ca89 bound_generation=2
+effective_policy_id: effective-policy:f9e348910fbf6c24a38a6fc9ddd84862
+effective_policy_digest: sha256:f9e348910fbf6c24a38a6fc9ddd848629ed49186d25deec30dea26c443eebe4b
+materializer_version: yai.policy_materializer.v3
+effective_input_rules: 6
+effective_output_rules: 6
+effective_merged_rules: 0
+effective_resolved_conflicts: 0
+effective_provenance_contributions: 6
+effective_rule: {"kind":"authority_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_roles":["operation-proposer"],"resolution":"required_roles_compose_all_of_under_yai.policy_materializer.v2","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"proposer","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:87c1a7f59ab6cd895002cdc86fdc9061fff459bd28bd44bbf7187948876183a2"],"source_locations":["$.rules[4]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"evidence_obligation","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"audit_reason","resolution":"obligation_set_union_with_provenance","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"audit","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:d261351969d5b107de253570e8e64fc423c632e714fb1f3ba78f88e3decf146d"],"source_locations":["$.rules[5]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.read","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"read","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:e32fefb9e2c45f86862080365e60ce407194ed2950b43fbc97b7618bba56de96"],"source_locations":["$.rules[0]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.search","resource_kind":"filesystem","effect":"deny","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"search","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:c853d7c78224d48176ee1bfa110f436c83828db1c2e5099e17877fa902c4fda1"],"source_locations":["$.rules[1]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"write","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:3f6903f829b0498bf814b39dbce3ed69587824abfec5270090b4ffc94fa4b9cd"],"source_locations":["$.rules[2]@markdown:line=1..markdown:line=66"]}]}
+effective_rule: {"kind":"review_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","required":true,"resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:bed2b88c4d28eace07fd398127dddc1d","artifact_id":"policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165","policy_ir_rule_id":"review","source_id":"policy-source:40cd96d6426b7a53536ec9e7db5f0fa6f202db2c0c8ca825f90ab22e5b7d2bab","fact_refs":["policy-fact:0d7ce68c1f88e7b2d8adbc385497295b027b40deffb99afac9447e971665316f"],"source_locations":["$.rules[3]@markdown:line=1..markdown:line=66"]}]}
+blocking_conflicts: 0
+missing_inputs: 0
+catalog_drift: lineage_id=policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0 status=current
+binding_validity: lineage_id=policy-lineage:fd2204b24e782b52f6d9ed7d4f59dd97d84c7bdd6c522c63283a7b6e04046ab0 binding_id=case-policy-binding:bed2b88c4d28eace07fd398127dddc1d artifact_id=policy-artifact:d7a417a6dd735936191ce1e81e51aedbb3e0dfa4618910305e634912ee077165 posture=Valid reason=unbounded valid_from=none refresh_after=none expires_at=none revoke_event=none
+decision_count: 0
+execution_grant_count: 0
+prepared_effect_count: 0
+authority_emitted_by_case_policy: false
+{
+  "authority": "transition_ledger",
+  "case_id": "case:policy-md",
+  "generation": 2,
+  "materialization": "equivalent_to_replay",
+  "mutation": "none",
+  "schema": "yai.case_state.v15"
+}
+
+FORMAT pdf
+security_bootstrap: created
+authenticated: true
+authentication_kind: local_posix_effective_credential
+real_uid: 1000
+effective_uid: 1000
+real_gid: 1000
+effective_gid: 1000
+principal_id: principal:72cc156b82060120eac8f7e234dbfcef
+tenant_id: tenant:policy-pdf
+organization_ref: organization:engineering
+membership: owner
+security_events: 1
+case_created: true
+case_id: case:policy-pdf
+tenant_id: tenant:policy-pdf
+case_generation: 1
+lifecycle: open
+principal_id: principal:72cc156b82060120eac8f7e234dbfcef
+{
+  "original_digest": "sha256:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6",
+  "original_bytes": 2921,
+  "source": {
+    "block_location": "pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66",
+    "extractor": "yai.pdf_policy_text.v1:lopdf-0.44.0",
+    "media_type": "application/pdf"
+  },
+  "validation": {
+    "blockers": [],
+    "status": "qualified",
+    "validator_version": "yai.policy_validator.v2"
+  }
+}
+policy_ingest: candidate_created
+source_created: true
+artifact_created: true
+input_path: tests/cases/05-governance-cognitive/policy.pdf
+policy_source_schema: yai.policy_source_artifact.v5
+source_id: policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6
+source_digest: sha256:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6
+source_format: pdf_policy_sheet
+policy_key: engineering
+source_version: 1
+owner_ref: organization:engineering
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_bytes_retained: 1777
+source_payload_display: withheld_by_default
+original_bytes_retained: 2921
+source_media_type: application/pdf
+extractor: yai.pdf_policy_text.v1:lopdf-0.44.0
+source_block_location: pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+policy_artifact_schema: yai.policy_artifact.v5
+artifact_id: policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d
+policy_key: engineering
+artifact_version: 1
+owner_ref: organization:engineering
+tenant_id: tenant:policy-pdf
+organization_ref: organization:engineering
+policy_lineage_id: policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_id: policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6
+source_digest: sha256:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6
+validity_mode: Unbounded
+valid_from_unix_ms: none
+refresh_after_unix_ms: none
+expires_at_unix_ms: none
+parsed_schema: yai.parsed_policy.v2
+parsed_digest: sha256:b37c28b9520938f461c036ae71e1ba4cc5a77326ff8e52803998235c2f7e33f4
+parsed_facts: 6
+parsed_fact: kind=operation_restriction fact_id=policy-fact:28a0cf39d59074a1f5c8c789a755d64eddeedeb54951cd4274ab1660221e973a rule_id=read source_location=$.rules[0]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:83cc642f2ca048eff3df6465cf229c47071467bab2f29fcff1ee997a9b6183b2 rule_id=search source_location=$.rules[1]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:bf06ecbc2c3c8178c3c0387057441524f0ce229a0db2929080ccd3cd55dcc85e rule_id=write source_location=$.rules[2]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=review_requirement fact_id=policy-fact:6f83587a3cc45361e18580b9e7bc010f639df38b5a5bd97e4e65d9ead681cb90 rule_id=review source_location=$.rules[3]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=authority_requirement fact_id=policy-fact:2d311ed4addd940dd22c38626a8d47b00841db395baa14c71b9c56ab413cbeca rule_id=proposer source_location=$.rules[4]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=evidence_obligation fact_id=policy-fact:a5ae31ce8fe7eac62f0f4fe611496cfe2507df3538067c3d19f578e9b14422ab rule_id=audit source_location=$.rules[5]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+policy_ir_schema: yai.policy_ir.v2
+policy_ir_digest: sha256:737d8059b034ee059a35a141dd66558d1174bdc07571874b63493d6f188fb0b4
+normalized_rules: 6
+normalized_rule: kind=evidence_obligation rule_id=audit source_facts=policy-fact:a5ae31ce8fe7eac62f0f4fe611496cfe2507df3538067c3d19f578e9b14422ab source_locations=$.rules[5]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=authority_requirement rule_id=proposer source_facts=policy-fact:2d311ed4addd940dd22c38626a8d47b00841db395baa14c71b9c56ab413cbeca source_locations=$.rules[4]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=operation_restriction rule_id=read source_facts=policy-fact:28a0cf39d59074a1f5c8c789a755d64eddeedeb54951cd4274ab1660221e973a source_locations=$.rules[0]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=review_requirement rule_id=review source_facts=policy-fact:6f83587a3cc45361e18580b9e7bc010f639df38b5a5bd97e4e65d9ead681cb90 source_locations=$.rules[3]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=operation_restriction rule_id=search source_facts=policy-fact:83cc642f2ca048eff3df6465cf229c47071467bab2f29fcff1ee997a9b6183b2 source_locations=$.rules[1]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=operation_restriction rule_id=write source_facts=policy-fact:bf06ecbc2c3c8178c3c0387057441524f0ce229a0db2929080ccd3cd55dcc85e source_locations=$.rules[2]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+unresolved_items: 0
+conflicts: 0
+validation_status: qualified
+validation_blockers: 0
+lifecycle: candidate
+runtime_consumable: false
+superseded_by: none
+lifecycle_events: 1
+lifecycle_event: sequence=7 event_id=policy-event:0398fb72cb56d052a93e8370573514c35258b83cd86672ef2658d52e6993462f action=CandidateRegistered actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+case_binding: absent_without_explicit_case_action
+effective_policy: absent_without_case_binding
+decision_or_grant: never_emitted_by_policy_authoring
+yai: policy_artifact_must_be_validated_before_publish: current=Candidate
+policy_validate: validated
+policy_artifact_schema: yai.policy_artifact.v5
+artifact_id: policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d
+policy_key: engineering
+artifact_version: 1
+owner_ref: organization:engineering
+tenant_id: tenant:policy-pdf
+organization_ref: organization:engineering
+policy_lineage_id: policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_id: policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6
+source_digest: sha256:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6
+validity_mode: Unbounded
+valid_from_unix_ms: none
+refresh_after_unix_ms: none
+expires_at_unix_ms: none
+parsed_schema: yai.parsed_policy.v2
+parsed_digest: sha256:b37c28b9520938f461c036ae71e1ba4cc5a77326ff8e52803998235c2f7e33f4
+parsed_facts: 6
+parsed_fact: kind=operation_restriction fact_id=policy-fact:28a0cf39d59074a1f5c8c789a755d64eddeedeb54951cd4274ab1660221e973a rule_id=read source_location=$.rules[0]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:83cc642f2ca048eff3df6465cf229c47071467bab2f29fcff1ee997a9b6183b2 rule_id=search source_location=$.rules[1]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:bf06ecbc2c3c8178c3c0387057441524f0ce229a0db2929080ccd3cd55dcc85e rule_id=write source_location=$.rules[2]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=review_requirement fact_id=policy-fact:6f83587a3cc45361e18580b9e7bc010f639df38b5a5bd97e4e65d9ead681cb90 rule_id=review source_location=$.rules[3]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=authority_requirement fact_id=policy-fact:2d311ed4addd940dd22c38626a8d47b00841db395baa14c71b9c56ab413cbeca rule_id=proposer source_location=$.rules[4]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=evidence_obligation fact_id=policy-fact:a5ae31ce8fe7eac62f0f4fe611496cfe2507df3538067c3d19f578e9b14422ab rule_id=audit source_location=$.rules[5]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+policy_ir_schema: yai.policy_ir.v2
+policy_ir_digest: sha256:737d8059b034ee059a35a141dd66558d1174bdc07571874b63493d6f188fb0b4
+normalized_rules: 6
+normalized_rule: kind=evidence_obligation rule_id=audit source_facts=policy-fact:a5ae31ce8fe7eac62f0f4fe611496cfe2507df3538067c3d19f578e9b14422ab source_locations=$.rules[5]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=authority_requirement rule_id=proposer source_facts=policy-fact:2d311ed4addd940dd22c38626a8d47b00841db395baa14c71b9c56ab413cbeca source_locations=$.rules[4]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=operation_restriction rule_id=read source_facts=policy-fact:28a0cf39d59074a1f5c8c789a755d64eddeedeb54951cd4274ab1660221e973a source_locations=$.rules[0]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=review_requirement rule_id=review source_facts=policy-fact:6f83587a3cc45361e18580b9e7bc010f639df38b5a5bd97e4e65d9ead681cb90 source_locations=$.rules[3]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=operation_restriction rule_id=search source_facts=policy-fact:83cc642f2ca048eff3df6465cf229c47071467bab2f29fcff1ee997a9b6183b2 source_locations=$.rules[1]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=operation_restriction rule_id=write source_facts=policy-fact:bf06ecbc2c3c8178c3c0387057441524f0ce229a0db2929080ccd3cd55dcc85e source_locations=$.rules[2]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+unresolved_items: 0
+conflicts: 0
+validation_status: qualified
+validation_blockers: 0
+lifecycle: validated
+runtime_consumable: false
+superseded_by: none
+lifecycle_events: 2
+lifecycle_event: sequence=7 event_id=policy-event:0398fb72cb56d052a93e8370573514c35258b83cd86672ef2658d52e6993462f action=CandidateRegistered actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+lifecycle_event: sequence=8 event_id=policy-event:80c4732f1df4149525481755a4f20739fee6c4cea43dc2ce84b832a93402f353 action=Validated actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+case_binding: absent_without_explicit_case_action
+effective_policy: absent_without_case_binding
+decision_or_grant: never_emitted_by_policy_authoring
+policy_publish: published
+policy_artifact_schema: yai.policy_artifact.v5
+artifact_id: policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d
+policy_key: engineering
+artifact_version: 1
+owner_ref: organization:engineering
+tenant_id: tenant:policy-pdf
+organization_ref: organization:engineering
+policy_lineage_id: policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913
+source_system: enterprise-policy
+source_uri: enterprise://engineering/policy/1
+source_id: policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6
+source_digest: sha256:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6
+validity_mode: Unbounded
+valid_from_unix_ms: none
+refresh_after_unix_ms: none
+expires_at_unix_ms: none
+parsed_schema: yai.parsed_policy.v2
+parsed_digest: sha256:b37c28b9520938f461c036ae71e1ba4cc5a77326ff8e52803998235c2f7e33f4
+parsed_facts: 6
+parsed_fact: kind=operation_restriction fact_id=policy-fact:28a0cf39d59074a1f5c8c789a755d64eddeedeb54951cd4274ab1660221e973a rule_id=read source_location=$.rules[0]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:83cc642f2ca048eff3df6465cf229c47071467bab2f29fcff1ee997a9b6183b2 rule_id=search source_location=$.rules[1]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=operation_restriction fact_id=policy-fact:bf06ecbc2c3c8178c3c0387057441524f0ce229a0db2929080ccd3cd55dcc85e rule_id=write source_location=$.rules[2]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=review_requirement fact_id=policy-fact:6f83587a3cc45361e18580b9e7bc010f639df38b5a5bd97e4e65d9ead681cb90 rule_id=review source_location=$.rules[3]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=authority_requirement fact_id=policy-fact:2d311ed4addd940dd22c38626a8d47b00841db395baa14c71b9c56ab413cbeca rule_id=proposer source_location=$.rules[4]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+parsed_fact: kind=evidence_obligation fact_id=policy-fact:a5ae31ce8fe7eac62f0f4fe611496cfe2507df3538067c3d19f578e9b14422ab rule_id=audit source_location=$.rules[5]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+policy_ir_schema: yai.policy_ir.v2
+policy_ir_digest: sha256:737d8059b034ee059a35a141dd66558d1174bdc07571874b63493d6f188fb0b4
+normalized_rules: 6
+normalized_rule: kind=evidence_obligation rule_id=audit source_facts=policy-fact:a5ae31ce8fe7eac62f0f4fe611496cfe2507df3538067c3d19f578e9b14422ab source_locations=$.rules[5]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=authority_requirement rule_id=proposer source_facts=policy-fact:2d311ed4addd940dd22c38626a8d47b00841db395baa14c71b9c56ab413cbeca source_locations=$.rules[4]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=operation_restriction rule_id=read source_facts=policy-fact:28a0cf39d59074a1f5c8c789a755d64eddeedeb54951cd4274ab1660221e973a source_locations=$.rules[0]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=review_requirement rule_id=review source_facts=policy-fact:6f83587a3cc45361e18580b9e7bc010f639df38b5a5bd97e4e65d9ead681cb90 source_locations=$.rules[3]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=operation_restriction rule_id=search source_facts=policy-fact:83cc642f2ca048eff3df6465cf229c47071467bab2f29fcff1ee997a9b6183b2 source_locations=$.rules[1]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+normalized_rule: kind=operation_restriction rule_id=write source_facts=policy-fact:bf06ecbc2c3c8178c3c0387057441524f0ce229a0db2929080ccd3cd55dcc85e source_locations=$.rules[2]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66
+unresolved_items: 0
+conflicts: 0
+validation_status: qualified
+validation_blockers: 0
+lifecycle: published
+runtime_consumable: true
+superseded_by: none
+lifecycle_events: 3
+lifecycle_event: sequence=7 event_id=policy-event:0398fb72cb56d052a93e8370573514c35258b83cd86672ef2658d52e6993462f action=CandidateRegistered actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+lifecycle_event: sequence=8 event_id=policy-event:80c4732f1df4149525481755a4f20739fee6c4cea43dc2ce84b832a93402f353 action=Validated actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+lifecycle_event: sequence=9 event_id=policy-event:9349db2c8bcee969d6b76e10baec96aac2146289f07455fb15e39d2a3fdc61ab action=Published actor=principal:72cc156b82060120eac8f7e234dbfcef related_artifact=none
+case_binding: absent_without_explicit_case_action
+effective_policy: absent_without_case_binding
+decision_or_grant: never_emitted_by_policy_authoring
+case_policy_bind: committed
+transition_id: transition:policy-bind:case-policy-binding:074ec46c92cb96e9a847082dcf0718e7
+case_generation: 2
+derived_cache: stored
+case_id: case:policy-pdf
+tenant_id: tenant:policy-pdf
+case_generation: 2
+case_lifecycle: Open
+case_cancelled: false
+transition_count: 2
+normative_readiness: ready
+policy_validity: Valid
+observed_wall_time: 1789067356000
+persisted_authority_floor: 1789067356000
+effective_authority_time: 1789067356000
+active_policy_bindings: 1
+policy_binding: binding_id=case-policy-binding:074ec46c92cb96e9a847082dcf0718e7 lineage_id=policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913 owner_ref=organization:engineering policy_key=engineering artifact_id=policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d version=1 publication_event=policy-event:9349db2c8bcee969d6b76e10baec96aac2146289f07455fb15e39d2a3fdc61ab bound_generation=2
+effective_policy_id: effective-policy:0d1afe9ed690a03b17ed2d7a04acb0f2
+effective_policy_digest: sha256:0d1afe9ed690a03b17ed2d7a04acb0f22f3f02617d6976b97c6214bf35ca3205
+materializer_version: yai.policy_materializer.v3
+effective_input_rules: 6
+effective_output_rules: 6
+effective_merged_rules: 0
+effective_resolved_conflicts: 0
+effective_provenance_contributions: 6
+effective_rule: {"kind":"authority_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_roles":["operation-proposer"],"resolution":"required_roles_compose_all_of_under_yai.policy_materializer.v2","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"proposer","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:2d311ed4addd940dd22c38626a8d47b00841db395baa14c71b9c56ab413cbeca"],"source_locations":["$.rules[4]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"evidence_obligation","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"audit_reason","resolution":"obligation_set_union_with_provenance","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"audit","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:a5ae31ce8fe7eac62f0f4fe611496cfe2507df3538067c3d19f578e9b14422ab"],"source_locations":["$.rules[5]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.read","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"read","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:28a0cf39d59074a1f5c8c789a755d64eddeedeb54951cd4274ab1660221e973a"],"source_locations":["$.rules[0]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.search","resource_kind":"filesystem","effect":"deny","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"search","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:83cc642f2ca048eff3df6465cf229c47071467bab2f29fcff1ee997a9b6183b2"],"source_locations":["$.rules[1]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"write","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:bf06ecbc2c3c8178c3c0387057441524f0ce229a0db2929080ccd3cd55dcc85e"],"source_locations":["$.rules[2]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"review_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","required":true,"resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"review","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:6f83587a3cc45361e18580b9e7bc010f639df38b5a5bd97e4e65d9ead681cb90"],"source_locations":["$.rules[3]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+blocking_conflicts: 0
+missing_inputs: 0
+catalog_drift: lineage_id=policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913 status=current
+binding_validity: lineage_id=policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913 binding_id=case-policy-binding:074ec46c92cb96e9a847082dcf0718e7 artifact_id=policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d posture=Valid reason=unbounded valid_from=none refresh_after=none expires_at=none revoke_event=none
+decision_count: 0
+execution_grant_count: 0
+prepared_effect_count: 0
+authority_emitted_by_case_policy: false
+case_id: case:policy-pdf
+tenant_id: tenant:policy-pdf
+case_generation: 2
+case_lifecycle: Open
+case_cancelled: false
+transition_count: 2
+normative_readiness: ready
+policy_validity: Valid
+observed_wall_time: 1789067356000
+persisted_authority_floor: 1789067356000
+effective_authority_time: 1789067356000
+active_policy_bindings: 1
+policy_binding: binding_id=case-policy-binding:074ec46c92cb96e9a847082dcf0718e7 lineage_id=policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913 owner_ref=organization:engineering policy_key=engineering artifact_id=policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d version=1 publication_event=policy-event:9349db2c8bcee969d6b76e10baec96aac2146289f07455fb15e39d2a3fdc61ab bound_generation=2
+effective_policy_id: effective-policy:0d1afe9ed690a03b17ed2d7a04acb0f2
+effective_policy_digest: sha256:0d1afe9ed690a03b17ed2d7a04acb0f22f3f02617d6976b97c6214bf35ca3205
+materializer_version: yai.policy_materializer.v3
+effective_input_rules: 6
+effective_output_rules: 6
+effective_merged_rules: 0
+effective_resolved_conflicts: 0
+effective_provenance_contributions: 6
+effective_rule: {"kind":"authority_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_roles":["operation-proposer"],"resolution":"required_roles_compose_all_of_under_yai.policy_materializer.v2","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"proposer","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:2d311ed4addd940dd22c38626a8d47b00841db395baa14c71b9c56ab413cbeca"],"source_locations":["$.rules[4]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"evidence_obligation","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"audit_reason","resolution":"obligation_set_union_with_provenance","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"audit","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:a5ae31ce8fe7eac62f0f4fe611496cfe2507df3538067c3d19f578e9b14422ab"],"source_locations":["$.rules[5]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.read","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"read","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:28a0cf39d59074a1f5c8c789a755d64eddeedeb54951cd4274ab1660221e973a"],"source_locations":["$.rules[0]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.search","resource_kind":"filesystem","effect":"deny","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"search","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:83cc642f2ca048eff3df6465cf229c47071467bab2f29fcff1ee997a9b6183b2"],"source_locations":["$.rules[1]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"write","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:bf06ecbc2c3c8178c3c0387057441524f0ce229a0db2929080ccd3cd55dcc85e"],"source_locations":["$.rules[2]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"review_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","required":true,"resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"review","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:6f83587a3cc45361e18580b9e7bc010f639df38b5a5bd97e4e65d9ead681cb90"],"source_locations":["$.rules[3]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+blocking_conflicts: 0
+missing_inputs: 0
+catalog_drift: lineage_id=policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913 status=current
+binding_validity: lineage_id=policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913 binding_id=case-policy-binding:074ec46c92cb96e9a847082dcf0718e7 artifact_id=policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d posture=Valid reason=unbounded valid_from=none refresh_after=none expires_at=none revoke_event=none
+decision_count: 0
+execution_grant_count: 0
+prepared_effect_count: 0
+authority_emitted_by_case_policy: false
+effective_policy_rebuild: completed
+canonical_transitions_before: 2
+canonical_transitions_after: 2
+case_id: case:policy-pdf
+tenant_id: tenant:policy-pdf
+case_generation: 2
+case_lifecycle: Open
+case_cancelled: false
+transition_count: 2
+normative_readiness: ready
+policy_validity: Valid
+observed_wall_time: 1789067356000
+persisted_authority_floor: 1789067356000
+effective_authority_time: 1789067356000
+active_policy_bindings: 1
+policy_binding: binding_id=case-policy-binding:074ec46c92cb96e9a847082dcf0718e7 lineage_id=policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913 owner_ref=organization:engineering policy_key=engineering artifact_id=policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d version=1 publication_event=policy-event:9349db2c8bcee969d6b76e10baec96aac2146289f07455fb15e39d2a3fdc61ab bound_generation=2
+effective_policy_id: effective-policy:0d1afe9ed690a03b17ed2d7a04acb0f2
+effective_policy_digest: sha256:0d1afe9ed690a03b17ed2d7a04acb0f22f3f02617d6976b97c6214bf35ca3205
+materializer_version: yai.policy_materializer.v3
+effective_input_rules: 6
+effective_output_rules: 6
+effective_merged_rules: 0
+effective_resolved_conflicts: 0
+effective_provenance_contributions: 6
+effective_rule: {"kind":"authority_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","subject":"proposer","required_roles":["operation-proposer"],"resolution":"required_roles_compose_all_of_under_yai.policy_materializer.v2","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"proposer","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:2d311ed4addd940dd22c38626a8d47b00841db395baa14c71b9c56ab413cbeca"],"source_locations":["$.rules[4]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"evidence_obligation","operation_kind":"filesystem.write","resource_kind":"filesystem","obligation":"audit_reason","resolution":"obligation_set_union_with_provenance","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"audit","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:a5ae31ce8fe7eac62f0f4fe611496cfe2507df3538067c3d19f578e9b14422ab"],"source_locations":["$.rules[5]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.read","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"read","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:28a0cf39d59074a1f5c8c789a755d64eddeedeb54951cd4274ab1660221e973a"],"source_locations":["$.rules[0]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.search","resource_kind":"filesystem","effect":"deny","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"search","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:83cc642f2ca048eff3df6465cf229c47071467bab2f29fcff1ee997a9b6183b2"],"source_locations":["$.rules[1]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"operation_restriction","operation_kind":"filesystem.write","resource_kind":"filesystem","effect":"allow","resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"write","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:bf06ecbc2c3c8178c3c0387057441524f0ce229a0db2929080ccd3cd55dcc85e"],"source_locations":["$.rules[2]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+effective_rule: {"kind":"review_requirement","operation_kind":"filesystem.write","resource_kind":"filesystem","required":true,"resolution":"identical_posture_provenance_merged","contributions":[{"binding_id":"case-policy-binding:074ec46c92cb96e9a847082dcf0718e7","artifact_id":"policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d","policy_ir_rule_id":"review","source_id":"policy-source:d2bc0bf6565cb1d45667bc9fb4268f01650a1ff48a9f526c4e520dbc48e2cdb6","fact_refs":["policy-fact:6f83587a3cc45361e18580b9e7bc010f639df38b5a5bd97e4e65d9ead681cb90"],"source_locations":["$.rules[3]@pdf:page=1:extracted-line=1..pdf:page=1:extracted-line=66"]}]}
+blocking_conflicts: 0
+missing_inputs: 0
+catalog_drift: lineage_id=policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913 status=current
+binding_validity: lineage_id=policy-lineage:555d9df7d325180ec89aad8734d0a8db4ddb0036139702d674a1815130045913 binding_id=case-policy-binding:074ec46c92cb96e9a847082dcf0718e7 artifact_id=policy-artifact:6da1bc3a2edada5564e32c0b09c8cb1b4ef375226e18de6b5c7dd612095f7e9d posture=Valid reason=unbounded valid_from=none refresh_after=none expires_at=none revoke_event=none
+decision_count: 0
+execution_grant_count: 0
+prepared_effect_count: 0
+authority_emitted_by_case_policy: false
+{
+  "authority": "transition_ledger",
+  "case_id": "case:policy-pdf",
+  "generation": 2,
+  "materialization": "equivalent_to_replay",
+  "mutation": "none",
+  "schema": "yai.case_state.v15"
+}
+true
+yai: policy_document_needs_interpretation: digest=sha256:dbdf2eebe2ea0cfc2dff28aa2b95b01ac2b65f82a126c85a8dcbe5307bcc5753 unresolved=1; inspect with yai policy extract
+product_policy_intake=PASS formats=JSON,Markdown,PDF publish_before_validation=REFUSED ambiguous=REFUSED model_invocations=0 retained_home=/tmp/yai-policy-native.eYDxwE/home

@@ -397,6 +397,11 @@ fn candidate(
 
 fn classify(entry: &ProjectionEntry) -> (ResidencyClass, i64, Vec<String>) {
     match (&entry.posture, &entry.value) {
+        (_, ProjectedValue::DecisionEvidence { .. }) => (
+            ResidencyClass::DerivedMemory,
+            650,
+            vec!["qualified_recent_decision_history_optional:+650".into()],
+        ),
         (AuthorityPosture::ObservedResourceState, _) => (
             ResidencyClass::ObservedConsequence,
             900,

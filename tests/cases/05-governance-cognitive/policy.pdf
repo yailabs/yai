@@ -1,0 +1,168 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R /MediaBox [0 0 612 792] >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+5 0 obj
+<< /Length 2377 >>
+stream
+BT
+/F1 6 Tf
+7 TL
+25 780 Td
+(YAI-POLICY-JSON-BEGIN) Tj
+T*
+({) Tj
+T*
+(  "schema": "yai.policy_source_input.v4",) Tj
+T*
+(  "policy_key": "engineering",) Tj
+T*
+(  "source_version": "1",) Tj
+T*
+(  "owner_ref": "organization:engineering",) Tj
+T*
+(  "source_origin": {) Tj
+T*
+(    "source_system": "enterprise-policy",) Tj
+T*
+(    "source_uri": "enterprise://engineering/policy/1") Tj
+T*
+(  },) Tj
+T*
+(  "validity": {) Tj
+T*
+(    "mode": "unbounded") Tj
+T*
+(  },) Tj
+T*
+(  "rules": [) Tj
+T*
+(    {) Tj
+T*
+(      "kind": "operation_restriction",) Tj
+T*
+(      "rule_id": "read",) Tj
+T*
+(      "operation_kind": "filesystem.read",) Tj
+T*
+(      "resource_kind": "filesystem",) Tj
+T*
+(      "effect": "allow",) Tj
+T*
+(      "reason": "Read only admitted source") Tj
+T*
+(    },) Tj
+T*
+(    {) Tj
+T*
+(      "kind": "operation_restriction",) Tj
+T*
+(      "rule_id": "search",) Tj
+T*
+(      "operation_kind": "filesystem.search",) Tj
+T*
+(      "resource_kind": "filesystem",) Tj
+T*
+(      "effect": "deny",) Tj
+T*
+(      "reason": "Bulk source search is prohibited") Tj
+T*
+(    },) Tj
+T*
+(    {) Tj
+T*
+(      "kind": "operation_restriction",) Tj
+T*
+(      "rule_id": "write",) Tj
+T*
+(      "operation_kind": "filesystem.write",) Tj
+T*
+(      "resource_kind": "filesystem",) Tj
+T*
+(      "effect": "allow",) Tj
+T*
+(      "reason": "Reviewed engineering changes only") Tj
+T*
+(    },) Tj
+T*
+(    {) Tj
+T*
+(      "kind": "review_requirement",) Tj
+T*
+(      "rule_id": "review",) Tj
+T*
+(      "operation_kind": "filesystem.write",) Tj
+T*
+(      "resource_kind": "filesystem",) Tj
+T*
+(      "required": true,) Tj
+T*
+(      "reason": "Human approval is required") Tj
+T*
+(    },) Tj
+T*
+(    {) Tj
+T*
+(      "kind": "authority_requirement",) Tj
+T*
+(      "rule_id": "proposer",) Tj
+T*
+(      "operation_kind": "filesystem.write",) Tj
+T*
+(      "resource_kind": "filesystem",) Tj
+T*
+(      "subject": "proposer",) Tj
+T*
+(      "required_role": "operation-proposer",) Tj
+T*
+(      "reason": "A bound proposer is required") Tj
+T*
+(    },) Tj
+T*
+(    {) Tj
+T*
+(      "kind": "evidence_obligation",) Tj
+T*
+(      "rule_id": "audit",) Tj
+T*
+(      "operation_kind": "filesystem.write",) Tj
+T*
+(      "resource_kind": "filesystem",) Tj
+T*
+(      "obligation": "audit_reason",) Tj
+T*
+(      "reason": "Reviewer must explain approval") Tj
+T*
+(    }) Tj
+T*
+(  ]) Tj
+T*
+(}) Tj
+T*
+(YAI-POLICY-JSON-END) Tj
+T*
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000309 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+2737
+%%EOF

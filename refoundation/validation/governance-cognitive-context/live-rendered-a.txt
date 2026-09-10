@@ -1,0 +1,9 @@
+artifact_kind: rendered_input_metadata
+schema: yai.rendered_input.v7
+rendered_input_id: rendered-input:b5b4571c580e4b16
+context_frame_id: context-frame:657bba65690eeee3
+provider_id: provider-target:adc8151d82a72fba982bc357ec5ac1ab
+model_id: deepseek-v4-flash-mixed-mxfp4-release-v1
+content_digest: b5b4571c580e4b16
+content_chars: 13617
+full_render_persisted: false

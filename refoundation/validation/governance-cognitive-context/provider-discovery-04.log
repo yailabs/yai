@@ -1,0 +1,13 @@
+run_id=governance-provider-04 time=2026-09-10T19:23:46Z
+7c5687effc4ffcd48cde93d83bab3667316e3e1b
+/home/mothx/computer-science/projects/YAI/yai
+pre_state=no model invocation in this wave; public discovery only
+command=curl -sS -i --max-time 10 http://127.0.0.1:18001/v1/models
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 1340
+Connection: close
+X-YVEX-OpenAI-Profile: yvex.openai.compat.v3
+
+{"object":"list","data":[{"id":"deepseek-v4-flash-mixed-mxfp4-release-v1","object":"model","created":0,"owned_by":"yvex","yvex_profile":"yvex.openai.compat.v3","engine_generation":1,"artifact_identity":"b669d80726cf83331c0d8016debbde44cf965a1503c33f605e92ea4e550ee87f","runtime_binding_identity":"9810f314aa1d9b80b3cddb72128cec8e9307071cbe698eb1888bfe8bbe36e0c5","runtime_model_identity":"e05d6574644e11235ced2f93c3fc1f455d8eee6e952bb53400505dd951ab04ce","specialization_identity":"7604985ea75253a9338877e3867d2f18daac3be036ffa66babe84aca8ae2554e","capacity_plan_identity":"fcba106cd99c97b9b41682a217c6006c7f9fa4ec526183bcfcad5d1542dba383","yvex_capacity":{"schema":"yvex.execution.capacity.v1","http_body_bytes":1048576,"http_header_bytes":32768,"http_header_count":64,"provider_wire_bytes":1048576,"message_count":128,"message_content_bytes":262144,"total_content_bytes":1048576,"tool_count":32,"tool_schema_bytes_per_tool":65536,"runtime_input_tokens":16384,"runtime_sequence_tokens":16384,"maximum_requested_output_tokens":16384,"maximum_output_bytes":1048576,"architectural_context_tokens":null,"session_capacity":8,"sessions_in_use":0,"resource_reservation":false,"output_policy":"ceiling_clamped_to_remaining_sequence","input_accounting":"exact_tokenizer_including_template_and_tools","preflight":"/v1/chat/completions/preflight"}}]}
+exit=0

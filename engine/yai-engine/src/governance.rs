@@ -40,6 +40,10 @@ pub const MAX_POLICY_SOURCE_BYTES: usize = 256 * 1024;
 pub const MAX_POLICY_RULES: usize = 128;
 pub const MAX_POLICY_JSON_DEPTH: usize = 32;
 
+mod document;
+pub use document::{extract_policy_document, PolicyDocumentExtraction, PolicyDocumentSource};
+const POLICY_DOCUMENT_SOURCE_SCHEMA: &str = "yai.policy_source_artifact.v5";
+
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PolicyValidityMode {
@@ -183,6 +187,8 @@ pub struct PolicySourceArtifact {
     #[serde(default)]
     pub validity: PolicyValidityContract,
     pub content_utf8: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub document: Option<PolicyDocumentSource>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -850,10 +856,16 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     if bytes.starts_with(&[0xef, 0xbb, 0xbf]) {
         return Err("policy_source_utf8_bom_not_supported".to_string());
     }
-    let content_utf8 = std::str::from_utf8(bytes)
+    let extracted = extract_policy_document(bytes)?;
+    let document_source = extracted.document.clone();
+    let content_utf8 = extracted.structured_json.clone().ok_or_else(|| format!(
+        "policy_document_needs_interpretation: digest={} unresolved={}; inspect with yai policy extract",
+        digest_bytes(bytes), extracted.unresolved.len()
+    ))?;
+    let content_utf8 = std::str::from_utf8(content_utf8.as_bytes())
         .map_err(|error| format!("policy_source_not_utf8: {error}"))?
         .to_string();
-    let strict_value = parse_strict_json(bytes)?;
+    let strict_value = parse_strict_json(content_utf8.as_bytes())?;
     let document: PolicySourceDocument = serde_json::from_value(strict_value)
         .map_err(|error| format!("policy_source_json_invalid: {error}"))?;
     if document.schema != POLICY_SOURCE_INPUT_SCHEMA
@@ -901,22 +913,27 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     let source_digest = digest_bytes(bytes);
     let source_id = format!("policy-source:{}", digest_suffix(&source_digest));
     let source = PolicySourceArtifact {
-        schema: match document.schema.as_str() {
-            POLICY_SOURCE_INPUT_SCHEMA => POLICY_SOURCE_ARTIFACT_SCHEMA,
-            POLICY_SOURCE_INPUT_SCHEMA_V3 => POLICY_SOURCE_ARTIFACT_SCHEMA_V3,
-            POLICY_SOURCE_INPUT_SCHEMA_V2 => POLICY_SOURCE_ARTIFACT_SCHEMA_V2,
-            _ => POLICY_SOURCE_ARTIFACT_SCHEMA_V1,
+        schema: if document_source.is_some() {
+            POLICY_DOCUMENT_SOURCE_SCHEMA
+        } else {
+            match document.schema.as_str() {
+                POLICY_SOURCE_INPUT_SCHEMA => POLICY_SOURCE_ARTIFACT_SCHEMA,
+                POLICY_SOURCE_INPUT_SCHEMA_V3 => POLICY_SOURCE_ARTIFACT_SCHEMA_V3,
+                POLICY_SOURCE_INPUT_SCHEMA_V2 => POLICY_SOURCE_ARTIFACT_SCHEMA_V2,
+                _ => POLICY_SOURCE_ARTIFACT_SCHEMA_V1,
+            }
         }
         .to_string(),
         source_id: source_id.clone(),
         content_digest: source_digest.clone(),
-        source_format: "constrained_json".to_string(),
+        source_format: extracted.source_format.clone(),
         policy_key: document.policy_key.clone(),
         source_version: document.source_version.clone(),
         owner_ref: document.owner_ref.clone(),
         source_origin: document.source_origin.clone(),
         validity: validity.clone(),
         content_utf8,
+        document: document_source,
     };
 
     let supports_authority_rules = matches!(
@@ -933,8 +950,14 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     } else {
         POLICY_COMPILER_VERSION_V1
     };
-    let (facts, unresolved) =
+    let (mut facts, mut unresolved) =
         parse_policy_rules(&source_id, &document.rules, supports_authority_rules)?;
+    if let Some(doc) = &source.document {
+        for fact in &mut facts {
+            document::locate_fact(fact, &doc.block_location);
+        }
+        unresolved.extend(extracted.unresolved);
+    }
     let parsed_digest = digest_serialized(&ParsedDigestMaterial {
         schema: parsed_schema,
         compiler_version,
@@ -1437,12 +1460,70 @@ impl PolicyCompilation {
         {
             return Err("policy_compilation_source_artifact_mismatch".to_string());
         }
+        let input: PolicySourceDocument =
+            serde_json::from_value(parse_strict_json(self.source.content_utf8.as_bytes())?)
+                .map_err(|e| format!("policy_source_json_invalid:{e}"))?;
+        let (mut facts, mut unresolved) = parse_policy_rules(
+            &self.source.source_id,
+            &input.rules,
+            matches!(
+                input.schema.as_str(),
+                POLICY_SOURCE_INPUT_SCHEMA | POLICY_SOURCE_INPUT_SCHEMA_V3
+            ),
+        )?;
+        if let Some(doc) = &self.source.document {
+            for fact in &mut facts {
+                document::locate_fact(fact, &doc.block_location);
+            }
+            unresolved.extend(extract_policy_document(&doc.original_bytes)?.unresolved);
+        }
+        if self.artifact.parsed.facts != facts || self.artifact.parsed.unresolved != unresolved {
+            return Err("policy_source_interpretation_mismatch".into());
+        }
         Ok(())
     }
 }
 
 impl PolicySourceArtifact {
+    pub fn original_bytes(&self) -> &[u8] {
+        self.document
+            .as_ref()
+            .map_or(self.content_utf8.as_bytes(), |d| {
+                d.original_bytes.as_slice()
+            })
+    }
     pub fn validate(&self) -> Result<(), String> {
+        if self.schema == POLICY_DOCUMENT_SOURCE_SCHEMA {
+            let doc = self
+                .document
+                .as_ref()
+                .ok_or("policy_document_original_missing")?;
+            let extracted = extract_policy_document(&doc.original_bytes)?;
+            if extracted.document.as_ref() != Some(doc)
+                || extracted.structured_json.as_ref() != Some(&self.content_utf8)
+                || extracted.source_format != self.source_format
+                || digest_bytes(&doc.original_bytes) != self.content_digest
+                || self.source_id
+                    != format!("policy-source:{}", digest_suffix(&self.content_digest))
+            {
+                return Err("policy_document_extraction_integrity_mismatch".into());
+            }
+            // Validate the extracted language through the unchanged strict JSON
+            // compiler; document extraction cannot introduce another semantics.
+            let inner = compile_policy_source(self.content_utf8.as_bytes())?;
+            if inner.source.policy_key != self.policy_key
+                || inner.source.source_version != self.source_version
+                || inner.source.owner_ref != self.owner_ref
+                || inner.source.source_origin != self.source_origin
+                || inner.source.validity != self.validity
+            {
+                return Err("policy_document_metadata_mismatch".into());
+            }
+            return Ok(());
+        }
+        if self.document.is_some() {
+            return Err("legacy_policy_source_cannot_claim_document".into());
+        }
         if self.schema != POLICY_SOURCE_ARTIFACT_SCHEMA
             && self.schema != POLICY_SOURCE_ARTIFACT_SCHEMA_V3
             && self.schema != POLICY_SOURCE_ARTIFACT_SCHEMA_V2

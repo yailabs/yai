@@ -1,0 +1,12 @@
+run_id=governance-provider-03 time=2026-09-10T19:07:56Z
+7c5687effc4ffcd48cde93d83bab3667316e3e1b
+/home/mothx/computer-science/projects/YAI/yai
+pre_state=no model invocation in this wave; public discovery only
+command=curl -sS -i --max-time 10 http://127.0.0.1:18001/v1/models
+curl: (56) Recv failure: Connection reset by peer
+
+exit=56
+command=curl -sS -i --max-time 10 http://127.0.0.1:18001/health
+curl: (56) Recv failure: Connection reset by peer
+
+exit=56
