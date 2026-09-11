@@ -1,8 +1,0 @@
-legacy_source	history	observed_property	recovery_verdict	current_owner
-src/orchestrator/planning/conversation.c	17e566b93 and adjacent history	string-prefix classification selects Agent-shaped execution	REJECT_MECHANISM	explicit CognitiveCompositionRequest intent
-src/orchestrator/composition/compose.c	e9ad7f498 / cffb318b9	composition entrypoint is a stub without replay or failure semantics	SCAFFOLDING_ONLY	none
-src/orchestrator/composition/validate.c	e9ad7f498 / cffb318b9	validation entrypoint is a stub	SCAFFOLDING_ONLY	none
-src/models/multimodal/multimodal_request.c	3907b2824 and adjacent history	multimodal request family is type scaffolding	REJECT_OWNER	ConversationTurn plus explicit derived request
-src/models/audio/transcription_bridge.c	c95acdb3d / cffb318b9	local-path Whisper-specific system dispatch and wall-clock identity	REJECT_MECHANISM	I02 semantic plan plus I03 provider realization
-src/models/audio/transcription_result.c	c95acdb3d / cffb318b9	explicit source/provider/result lineage	RECOVER_PROPERTY	ConversationDerivedContent and source closure
-src/runtime/conversation/* and Agent composition files	legacy runtime epoch	process-local Agent/turn ownership and incomplete stubs	REJECT_OWNER	Case continuity plus process-local derived composition

@@ -136,5 +136,5 @@ This boundary does not implement M07 documentary claims, entities, wiki pages,
 knowledge-aware Recall, Recall-aware W, model classification or YVEX state.
 The [Roadmap](../ROADMAP.md) owns maturity; the cumulative
 [ZERO-TO-CURRENT](zero-to-current.md) owns operator acceptance.
-The [bounded qualification report](../refoundation/validation/case-source-bootstrap/REPORT.md)
+The [bounded qualification report](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/case-source-bootstrap/REPORT.md)
 retains product transcripts, adversarial contracts, cost and remaining gaps.

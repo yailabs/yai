@@ -1,5 +1,0 @@
-observed_at	remote_ref	sha	availability	classification	finding
-2026-09-06	refs/heads/main	3f4a1c182d35e5a0e163adb81008ae7a366efcc6	remote_ref_available	NO_ISSUE	I04 uses no private YVEX ABI and requires no YVEX mutation
-2026-09-06	refs/heads/models1	absent	remote_ref_not_advertised	EXPECTED_LIMITATION	prompt-era alternate branch is not public remote truth
-2026-09-06	operator endpoint/model variables	not_available	live_test_not_run	DEPLOYMENT_LIMITATION	live YVEX composition cannot be claimed; real loopback OpenAI-compatible dispatch qualified both stages
-2026-09-06	public typed provider realization	unverified	black_box_inputs_unavailable	EXPECTED_LIMITATION	public YVEX typed-media adapter qualification remains external post-I04 work

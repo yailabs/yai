@@ -1,8 +1,0 @@
-legacy_source	history	observed_property	recovery_verdict	current_owner
-include/yai/models/audio/transcription_request.h	c95acdb3d / cffb318b9	explicit transcription input and requested output	RETAIN_SEMANTIC_PROPERTY	I03 typed realization input
-include/yai/models/audio/transcription_result.h	c95acdb3d / cffb318b9	explicit result and source linkage	RETAIN_SEMANTIC_PROPERTY	ProviderResult plus ConversationDerivedContent
-include/yai/models/audio/transcription_bridge.h	c95acdb3d / cffb318b9	request/result bridge boundary	RETAIN_BOUNDARY_ONLY	provider adapter
-include/yai/capabilities/audio/bindings/execution_binding.h	c95acdb3d / cffb318b9	audio runtime execution binding plane	REJECT_OWNER	I02 cognitive binding plus provider governance
-src/models/audio/speech_model_binding.c	c95acdb3d / cffb318b9	model-name/local-path audio binding	REJECT_MECHANISM	exact target/evidence binding
-src/models/audio/transcription_bridge.c	c95acdb3d / cffb318b9	Whisper-specific dispatch and wall-clock identity	REJECT_MECHANISM	provider-independent semantic capability and deterministic IDs
-src/models/audio/transcription_result.c	c95acdb3d / cffb318b9	result validation and provenance checks	RECOVER_VALIDATION	ConversationDerivedContent validation

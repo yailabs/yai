@@ -11,15 +11,16 @@ the then-qualified REPLAI pin. Golden subsequently converged governed resource
 access and the Case workbench; guided setup, public model discovery, single
 connection and separate model/system presentation extend that product consumer.
 The later qualified REPLAI repin is preserved. Historical checkpoints and exact
-evidence remain in `refoundation/foundation-recovery/`, `refoundation/validation/`
-and `refoundation/integration/`.
+captured evidence remain available through the immutable Git links below;
+current executable proof stays with the tests. Historical dossiers are not a
+second architecture tree in the working repository.
 
 This document includes current contradictions. It does not claim that the
 [Constitution](constitution.md) is implemented. Target changes and sequencing
 belong only in the [Roadmap](../ROADMAP.md).
 
 The [semantic cognitive-state target](semantic-state-execution-target.md) is
-deliberately separate. The [source refoundation](../refoundation/validation/semantic-state-refoundation/REPORT.md)
+deliberately separate. The [source refoundation](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/semantic-state-refoundation/REPORT.md)
 implements bounded replay-qualified S, scoped W and derived semantic deltas with
 full-recompilation fallback. General task sufficiency, a public model-state frame,
 optimized incremental compilation and semantic demand paging remain open.
@@ -138,7 +139,7 @@ I03/I04; changed governance triggers fresh planning or refusal. The controller's
 former direct provider-order/failover loop is removed. REPLAI supplies editing
 events only and remains pinned unchanged. Cancellation checks gate future
 stages; no transport abort is claimed. No new owner/database or CaseState field
-is introduced. See [I06](../refoundation/foundation-recovery/interlock-06/REPORT.md).
+is introduced. See [I06](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/interlock-06/REPORT.md).
 
 The normal CLI links [`yai-engine`](../engine/yai-engine/src/lib.rs) directly
 as Rust. There is no product C→Rust call edge or installed Rust C ABI. The
@@ -277,8 +278,9 @@ Workbench inspection includes exact operations before review, policy, resources,
 effects, Workflow, history, derived memory/graph and replay. `/rebuild` rebuilds
 disposable views while verifying unchanged canonical history. Scoped Handoff
 actions reuse existing source/target admission and never copy authority. The
-[reference evidence](../refoundation/validation/golden-case-lifecycle/REPORT.md)
-records the current qualification state; the [cumulative runbook](zero-to-current.md)
+[reference evidence](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/golden-case-lifecycle/REPORT.md)
+records that checkpoint's qualification; [Roadmap](../ROADMAP.md) owns the live
+qualification posture. The [cumulative runbook](zero-to-current.md)
 owns human acceptance. Loopback lifecycle proof is not live YVEX qualification.
 
 ## Current state and schema authority
@@ -411,7 +413,7 @@ already dispatched buffered request.
 
 [The native REPLAI frontend](replai-terminal.md) supplies `yai prompt` with
 terminal editing, history, paste, resize/redraw and scoped terminal ownership.
-It is the sole native interactive editor; [R5](../refoundation/integration/replai-r5/REPORT.md)
+It is the sole native interactive editor; [R5](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/integration/replai-r5/REPORT.md)
 removed the obsolete vendored linenoise, not the qualified REPLAI dependency.
 YAI translates events into controller actions; transient edits never publish
 content or commit a Turn. Submission commits ordered text before execution.
@@ -850,8 +852,8 @@ W20 representation v2 and RetrievalSet v3 admit operational, episodic and
 semantic families under the combined H19 bound. H19 selected-source revalidation
 still resolves current qualified sources for explicit indexed search; indexed text is not
 trusted authority. W and its Projection/ContextFrame retain family, epistemic class,
-lifecycle and support. See [W20](../refoundation/foundation-recovery/wave-20/WAVE-20-REPORT.md)
-and [H19](../refoundation/foundation-recovery/hardening-19/HARDENING-19-REPORT.md)
+lifecycle and support. See [W20](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/wave-20/WAVE-20-REPORT.md)
+and [H19](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/hardening-19/HARDENING-19-REPORT.md)
 for the bounded proof and historical external-acceptance limitations. These
 are access/derivation algorithms, not a universal Memory database or implemented
 semantic paging service. Normal working-state compilation reconstructs operational,
@@ -983,7 +985,7 @@ non-authoritative evidence, superseded lineage, removal, change and items not ye
 known at the historical coordinate. It is not a mutation or SemanticDelta.
 No caches or inference are required. Reconstruction cost includes full history
 verification and prefix replay; no Case-age-independent CPU claim is made.
-See the [historical qualification report](../refoundation/validation/historical-semantic-reconstruction/REPORT.md).
+See the [historical qualification report](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/historical-semantic-reconstruction/REPORT.md).
 That historical boundary left Transition v18 / CaseState v15, S/W/compiler and
 context contracts, canonical owners and LMDB **37/40** unchanged.
 
@@ -1061,7 +1063,7 @@ existing bounded historical profile (4096 items, 16 MiB); default graph output i
 not silent truncation. These are inspection bounds, not production scale or
 model-token limits. Each read rebuilds from sources; no provider or persisted
 compilation cache is required. See the
-[temporal experience evidence](../refoundation/validation/temporal-causal-experience-0/REPORT.md).
+[temporal experience evidence](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/temporal-causal-experience-0/REPORT.md).
 
 ## Query-conditioned Recall
 
@@ -1146,7 +1148,7 @@ fixtures prove mechanics, not real encoder suitability or memory usefulness.
 The 81/20,081-Transition oracle selects 8 events in 5 segments, with 64 visible
 distractors; the extra 20,000 records are unrelated control history, not 20,000
 visible semantic objects. Host reconstruction remains history-dependent.
-See [Recall evidence](../refoundation/validation/recall-trace-0/REPORT.md).
+See [Recall evidence](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/recall-trace-0/REPORT.md).
 That Recall boundary left Transition v18 / CaseState v15 and all
 S/W/Projection/ContextFrame schemas, semantic/operational owners and LMDB
 **37/40** unchanged. Source acquisition does not retroactively broaden Recall.

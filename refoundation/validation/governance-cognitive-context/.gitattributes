@@ -1,4 +1,0 @@
-# Raw process/PTY/HTTP evidence: preserve CRLF, trailing spaces and blank lines.
-*.log -text -whitespace
-# The forensic request must remain byte-identical, including its lack of LF.
-live-request-*.json -text

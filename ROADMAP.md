@@ -457,7 +457,7 @@ ESTABLISHED=32 PARTIAL=26 OPEN=11 LATER=4 TOTAL=73
 
 | ID | Property | Maturity | Evidence / precise boundary |
 |---|---|---|---|
-| A01 | Immutable policy source/IR/publication supply chain | 🟢 ESTABLISHED | [Governance hardening][governance], [Golden deck][golden]; [document intake](refoundation/validation/governance-cognitive-context/REPORT.md) adds exact JSON/Markdown-block/text-PDF representations of the same bounded grammar. Unsupported prose remains unresolved; no general enterprise-policy interpreter. |
+| A01 | Immutable policy source/IR/publication supply chain | 🟢 ESTABLISHED | [Governance hardening][governance], [Golden deck][golden]; [document intake](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/governance-cognitive-context/REPORT.md) adds exact JSON/Markdown-block/text-PDF representations of the same bounded grammar. Unsupported prose remains unresolved; no general enterprise-policy interpreter. |
 | A02 | Exact Case binding and READY EffectivePolicy materialization | 🟢 ESTABLISHED | [Materialization][policy], [Golden][golden]; publication alone grants no authority. |
 | A03 | ALLOW / DENY / REQUIRE_REVIEW, review and finite Grant | 🟢 ESTABLISHED | [Admission][admission], [Golden][golden]; DENY has no Grant/effect, model cannot self-approve. |
 | A04 | Local Principal/Tenant/Participant and disclosure isolation | 🟢 ESTABLISHED | [Security][security], [Golden isolation][golden]; local POSIX trust model, not enterprise authentication. |
@@ -479,14 +479,14 @@ ESTABLISHED=32 PARTIAL=26 OPEN=11 LATER=4 TOTAL=73
 | S09 | Task-local versus Case big-picture state | 🟡 PARTIAL | [State compiler][state-refoundation] retains current policy bindings and exact older requirements under task switches; no universal sufficiency oracle or general obligation algebra. |
 | S10 | Semantic replacement and supersession | 🟡 PARTIAL | Binding replacement and W20 mechanical supersession exist; general validity and supersession during active cognition require owner-specific admission/invalidation, not retrieval rank. |
 | S11 | Cross-model semantic continuity | 🟡 PARTIAL | [Effect/model replacement][continuity], [I05][i05]; mature cold-state substitution is not fully proven. |
-| S12 | Historical/as-of semantic reconstruction with temporal validity | 🟡 PARTIAL | [Historical reader](refoundation/validation/historical-semantic-reconstruction/REPORT.md): exact generation/Transition prefix, current disclosure, immutable policy/DecisionBasis and scoped resource evidence, comparison and explicit missingness. General event-time queries, complete catalog temporal cuts and all-owner reconstruction remain open. |
+| S12 | Historical/as-of semantic reconstruction with temporal validity | 🟡 PARTIAL | [Historical reader](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/historical-semantic-reconstruction/REPORT.md): exact generation/Transition prefix, current disclosure, immutable policy/DecisionBasis and scoped resource evidence, comparison and explicit missingness. General event-time queries, complete catalog temporal cuts and all-owner reconstruction remain open. |
 
 ### State Compilation and Cognitive-State Boundary
 
 | ID | Property | Maturity | Evidence / precise boundary |
 |---|---|---|---|
 | C01 | Provider-independent working-state selection | 🟢 ESTABLISHED | [State compiler][state-refoundation]: one deterministic qualified selector before context lowering; model profile does not rank W. |
-| C02 | Authority/disclosure-aware general compilation and refresh | 🟡 PARTIAL | Current admitted view, mandatory selection and stale-W refusal; [same-EffectivePolicy projection](refoundation/validation/governance-cognitive-context/REPORT.md) adds current rules and atomic policy-only revoke refusal before invocation. Live model understanding is unqualified; prompt-independent State Read invalidation and bounded-staleness enrichment remain targets. |
+| C02 | Authority/disclosure-aware general compilation and refresh | 🟡 PARTIAL | Current admitted view, mandatory selection and stale-W refusal; [same-EffectivePolicy projection](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/governance-cognitive-context/REPORT.md) adds current rules and atomic policy-only revoke refusal before invocation. Live model understanding is unqualified; prompt-independent State Read invalidation and bounded-staleness enrichment remain targets. |
 | C03 | Explicit SemanticState representation | 🟢 ESTABLISHED | [State compiler][state-refoundation]: immutable replay-qualified composition of existing Case owners, typed epistemic classes and exact provenance; no new canonical owner. |
 | C04 | Bounded SemanticWorkingState representation | 🟢 ESTABLISHED | [State compiler][state-refoundation]: source/request/generation-bound W; exact required refs, disclosure, budgets, omissions and stale/tamper refusal. Not a future public model-state schema. |
 | C05 | Derived SemanticDelta and full-compilation equivalence | 🟢 ESTABLISHED | [State compiler][state-refoundation]: forward source/destination/request-bound additions/replacements/removals; checked application explicitly uses full recompilation. No optimized incremental claim. |
@@ -538,7 +538,7 @@ ESTABLISHED=32 PARTIAL=26 OPEN=11 LATER=4 TOTAL=73
 |---|---|---|---|
 | M01 | Provenance-bound operational/episodic/assertion derivation | 🟢 ESTABLISHED | [W20][memory], [Golden rebuild][golden]; derived failure cannot change canonical truth. |
 | M02 | Qualified hybrid indexing and selected-source revalidation | 🟢 ESTABLISHED | [W19][index], [H19][index-hardening]; bounded BM25/exact-cosine oracle, hidden state cannot alter visible ranking. |
-| M03 | Graph/temporal/causal access | 🟡 PARTIAL | [Qualified experience](refoundation/validation/temporal-causal-experience-0/REPORT.md): exact-source scoped recording, structural/support, lifecycle and outcome relations; bounded directed paths, cross-Episode origin, missing-source and hidden-path controls. [Recall][recall] consumes these relations without promoting association to causality; generic causal understanding and all-owner traversal remain open. |
+| M03 | Graph/temporal/causal access | 🟡 PARTIAL | [Qualified experience](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/temporal-causal-experience-0/REPORT.md): exact-source scoped recording, structural/support, lifecycle and outcome relations; bounded directed paths, cross-Episode origin, missing-source and hidden-path controls. [Recall][recall] consumes these relations without promoting association to causality; generic causal understanding and all-owner traversal remain open. |
 | M04 | Analytical extraction | 🟡 PARTIAL | Existing DuckDB extractors are derived; not all declared fact families have producers. |
 | M05 | Semantic access quality and scale | 🟡 PARTIAL | Qualified exact/lexical/vector selection exists; learned candidate/path/rank navigation, optional semantic sparse/SAE features and scale remain research. Deterministic source revalidation retains truth/scope/validity decisions. |
 | M06 | Bounded temporal-causal Recall Trace compilation | 🟡 PARTIAL | [Recall v1][recall]: exact/BM25 and optional explicit pre-encoded vector candidates; qualified discontinuous segments, policy lineage, mechanical W20 supersession/contradiction, current/as-of scope, source closure/missingness and rebuild identity. 81/20,081-Transition oracle selects 8 events/5 segments; host cost grows with history. Future D/H/S candidate integration must preserve this resolver's truth/disclosure/source-closure boundary; knowledge-aware Recall, general query sufficiency, all-owner Recall, learned navigation and R → W remain unqualified. |
@@ -965,54 +965,55 @@ boundary; it cannot manufacture a green verdict.
 
 ## Evidence anchors
 
-Completed work remains navigable without controlling the live sequence:
-[foundation recovery](refoundation/foundation-recovery/FOUNDATION-RECOVERY-REPORT.md),
+Completed work remains navigable through immutable Git references without
+controlling the live sequence or requiring a dossier tree in the checkout:
+[foundation recovery](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/FOUNDATION-RECOVERY-REPORT.md),
 [W19][index] / [H19][index-hardening] / [W20][memory],
 [I01][i01] / [I02][i02] / [I03][i03] / [I04][i04] / [I05][i05] / [I06][i06],
 [test topology][topology], [REPLAI R4][replai] / [R5][r5] / [qualified repin][repin],
-[post-I10 doctrine alignment](refoundation/validation/post-i10-semantic-state-alignment/REPORT.md),
+[post-I10 doctrine alignment](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/post-i10-semantic-state-alignment/REPORT.md),
 [Golden][golden], [guided CLI][guided], [single connection][connection] and
 [conversation presentation][presentation]. These reports are bounded historical
 evidence, not a second live roadmap.
 
 The control format and documentation-only delta are qualified in the bounded
-[roadmap-refoundation report](refoundation/validation/semantic-cognitive-state-roadmap/REPORT.md);
+[roadmap-refoundation report](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/semantic-cognitive-state-roadmap/REPORT.md);
 the S → W → E clarification is scoped in the
-[experiential-state alignment evidence](refoundation/validation/experiential-state-architecture/REPORT.md).
+[experiential-state alignment evidence](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/experiential-state-architecture/REPORT.md).
 The historical/current/Recall and deliberation refinement, including reconciliation
 of the still-blocked external status, is bounded in the
-[temporal-causal doctrine report](refoundation/validation/temporal-causal-experience/REPORT.md).
+[temporal-causal doctrine report](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/temporal-causal-experience/REPORT.md).
 
 [kernel]: engine/yai-engine/src/store/lmdb.rs
 [continuity]: tests/characterization/agentless-case-runtime/test_agentless_case_runtime.sh
-[governance]: refoundation/foundation-recovery/hardening-8/HARDENING-8-REPORT.md
-[policy]: refoundation/foundation-recovery/wave-9/WAVE-9-REPORT.md
-[admission]: refoundation/foundation-recovery/wave-10/WAVE-10-REPORT.md
-[temporal]: refoundation/foundation-recovery/wave-11/WAVE-11-REPORT.md
-[security]: refoundation/foundation-recovery/wave-12/WAVE-12-REPORT.md
-[runtime]: refoundation/foundation-recovery/hardening-13/HARDENING-13-REPORT.md
-[fencing]: refoundation/foundation-recovery/hardening-14/HARDENING-14-REPORT.md
-[workflow]: refoundation/foundation-recovery/wave-17/WAVE-17-REPORT.md
-[workflow-hardening]: refoundation/foundation-recovery/hardening-17/HARDENING-17-REPORT.md
-[index]: refoundation/foundation-recovery/wave-19/WAVE-19-REPORT.md
-[index-hardening]: refoundation/foundation-recovery/hardening-19/HARDENING-19-REPORT.md
-[memory]: refoundation/foundation-recovery/wave-20/WAVE-20-REPORT.md
-[recall]: refoundation/validation/recall-trace-0/REPORT.md
-[source-bootstrap]: refoundation/validation/case-source-bootstrap/REPORT.md
-[i01]: refoundation/foundation-recovery/interlock-01/INTERLOCK-I01-REPORT.md
-[i02]: refoundation/foundation-recovery/interlock-02/INTERLOCK-I02-REPORT.md
-[i03]: refoundation/foundation-recovery/interlock-03/INTERLOCK-I03-REPORT.md
-[i04]: refoundation/foundation-recovery/interlock-04/INTERLOCK-I04-REPORT.md
-[i05]: refoundation/foundation-recovery/interlock-05/INTERLOCK-I05-REPORT.md
-[i06]: refoundation/foundation-recovery/interlock-06/REPORT.md
-[topology]: refoundation/validation/test-topology-0/REPORT.md
-[replai]: refoundation/integration/replai-r4/REPORT.md
-[r5]: refoundation/integration/replai-r5/REPORT.md
-[repin]: refoundation/integration/replai-repin/REPORT.md
-[golden]: refoundation/validation/golden-case-lifecycle/REPORT.md
-[guided]: refoundation/validation/guided-case-cli/REPORT.md
-[connection]: refoundation/validation/single-connect/REPORT.md
-[presentation]: refoundation/validation/conversation-presentation/REPORT.md
+[governance]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/hardening-8/HARDENING-8-REPORT.md
+[policy]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/wave-9/WAVE-9-REPORT.md
+[admission]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/wave-10/WAVE-10-REPORT.md
+[temporal]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/wave-11/WAVE-11-REPORT.md
+[security]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/wave-12/WAVE-12-REPORT.md
+[runtime]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/hardening-13/HARDENING-13-REPORT.md
+[fencing]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/hardening-14/HARDENING-14-REPORT.md
+[workflow]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/wave-17/WAVE-17-REPORT.md
+[workflow-hardening]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/hardening-17/HARDENING-17-REPORT.md
+[index]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/wave-19/WAVE-19-REPORT.md
+[index-hardening]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/hardening-19/HARDENING-19-REPORT.md
+[memory]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/wave-20/WAVE-20-REPORT.md
+[recall]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/recall-trace-0/REPORT.md
+[source-bootstrap]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/case-source-bootstrap/REPORT.md
+[i01]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/interlock-01/INTERLOCK-I01-REPORT.md
+[i02]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/interlock-02/INTERLOCK-I02-REPORT.md
+[i03]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/interlock-03/INTERLOCK-I03-REPORT.md
+[i04]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/interlock-04/INTERLOCK-I04-REPORT.md
+[i05]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/interlock-05/INTERLOCK-I05-REPORT.md
+[i06]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/foundation-recovery/interlock-06/REPORT.md
+[topology]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/test-topology-0/REPORT.md
+[replai]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/integration/replai-r4/REPORT.md
+[r5]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/integration/replai-r5/REPORT.md
+[repin]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/integration/replai-repin/REPORT.md
+[golden]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/golden-case-lifecycle/REPORT.md
+[guided]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/guided-case-cli/REPORT.md
+[connection]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/single-connect/REPORT.md
+[presentation]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/conversation-presentation/REPORT.md
 
-[state-refoundation]: refoundation/validation/semantic-state-refoundation/REPORT.md
-[external-closure]: refoundation/validation/temporal-causal-experience/REPORT.md#external-closure-checkpoint
+[state-refoundation]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/semantic-state-refoundation/REPORT.md
+[external-closure]: https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/temporal-causal-experience/REPORT.md#external-closure-checkpoint

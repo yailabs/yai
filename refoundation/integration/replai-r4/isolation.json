@@ -1,8 +1,0 @@
-{
-  "work": "/tmp/yai-r4-isolation-n93bpa_a",
-  "build_exit": 0,
-  "fresh_cargo_home": "/tmp/yai-r4-isolation-n93bpa_a/cargo-home",
-  "vendor_present": false,
-  "replai_source": "git+https://github.com/mothx9/replai?rev=df5538c718b8d068432032e7fb116fb8bfab158e#df5538c718b8d068432032e7fb116fb8bfab158e",
-  "replai_manifest": "/tmp/yai-r4-isolation-n93bpa_a/cargo-home/git/checkouts/replai-14400220d677b492/df5538c/Cargo.toml"
-}

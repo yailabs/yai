@@ -131,7 +131,7 @@ speed or YVEX experiential state. Golden free/Workflow additionally trace the
 real Invocation to its W and recompile it across derived-state rebuilds. The
 W19/W20 explicit index/search evidence remains; implicit model-preparation
 encoder/index refresh is retired in favor of canonical reconstruction, with
-no-encoder and unchanged-W checks. See the [bounded closure evidence](../refoundation/validation/semantic-state-refoundation/REPORT.md).
+no-encoder and unchanged-W checks. See the [bounded closure evidence](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/semantic-state-refoundation/REPORT.md).
 
 `smoke-guided-case-setup` separately proves the short `init`/`open` Product
 journey with a real REPLAI PTY and **no provider**: explicit consent,

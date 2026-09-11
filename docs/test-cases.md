@@ -128,7 +128,7 @@ rm -r -- "$YAI_VALIDATION_ROOT"
 unset YAI_HOME YAI_VALIDATION_ROOT
 ```
 
-See [TEST.TOPOLOGY.0](../refoundation/validation/test-topology-0/REPORT.md) for the
+See [TEST.TOPOLOGY.0](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/test-topology-0/REPORT.md) for the
 full procedure and retained evidence. [Test-case wrappers](../tests/cases/README.md)
 distinguish current inspection from archived fixture/lab evidence. Archived
 manual commands are not automatically current product acceptance.

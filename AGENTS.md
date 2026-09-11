@@ -66,12 +66,12 @@ historical source, recovered property, target owner, and reason for reuse.
 
 No rediscovery without archaeology.
 
-For Foundation Recovery work, `FOUNDATION-RECOVERY-LEDGER.tsv` is navigation,
-never authority. Reinspect `yai-dev` source, history, tests, consumers, and
-adjacent semantic families in every recovery wave, even when a ledger row says
-`refounded_proven`; do not search only the directory named by the current noun.
-Repository evidence wins over the ledger, which must be corrected when they
-conflict. Adjacent-family evidence may reopen any prior recovery verdict.
+Historical recovery ledgers in Git are navigation, never authority. Reinspect
+`yai-dev` source, history, tests, consumers, and adjacent semantic families when
+recovering a property, even when an old ledger says `refounded_proven`; do not
+search only the directory named by the current noun. Repository evidence wins
+over an old verdict. Record corrections in current contracts/tests or Roadmap,
+not by reviving a separate recovery ledger.
 
 ## Safe change discipline
 
@@ -101,19 +101,30 @@ implementation
 - Never include unrelated dirty work in a wave commit.
 - Do not begin the next wave from uncommitted or unpublished architectural
   work.
-- A versioned wave report records the baseline SHA, intended commit message,
-  implementation/test state, and pre-publication closure state. It must not try
-  to record the SHA of the commit that contains itself. The post-commit final
-  response records the actual final SHA, push result, and equality of `HEAD`,
-  `origin/master`, and the remote branch reference.
+- Git commits own change history; ROADMAP owns current project control;
+  architecture/reference documents own current contracts. Update these owners
+  in place. Do not create a report, ledger, before/after snapshot, or directory
+  for every wave. Do not recreate `refoundation/` or move that dossier pattern
+  wholesale under another name.
+- Preserve executable tests and fixtures under `tests/`, reusable validation
+  helpers under `tools/validation/`, and independently needed experimental or
+  external observations under the relevant `labs/` surface. Retain raw evidence
+  when it is needed to audit a non-reproducible observation or unresolved
+  qualification; do not replace it with a summary or a PASS cache. Historical
+  reports already committed remain available through immutable Git references.
+- The final handoff records baseline/final SHA, validation results, exact
+  blockers, push result, and equality of `HEAD`, `origin/master`, and the remote
+  branch reference. It does not require a duplicate committed wave report.
 - Every implementation or hardening wave must retain actual executable
-  evidence. Reports must identify the exact command, working directory and
-  relevant environment, real exit status, a bounded unedited stdout/stderr
-  excerpt, produced identifiers, and the invariant demonstrated. Each retained
+  evidence. Retained observations must identify the exact command, working
+  directory and relevant environment, real exit status, a bounded unedited
+  stdout/stderr excerpt, produced identifiers, and the invariant demonstrated. Each retained
   block also records a run ID, execution order, and material pre-state; outputs
-  from different runs must not be mixed into one causal proof. Product
-  commands and qualification suites are distinct evidence; use both when a
-  product surface exists. Never reconstruct, paraphrase as raw output, or
+  from different runs must not be mixed into one causal proof. The reusable
+  `tools/validation/capture_evidence.py` helper can capture command evidence
+  without creating a wave dossier. Product commands and qualification suites
+  are distinct evidence; use both when a product surface exists. Never
+  reconstruct, paraphrase as raw output, or
   fabricate a transcript after the fact.
 - A failed or rejected push leaves the wave blocked at publication; do not
   declare it complete and do not automatically pull, merge, rebase, or force

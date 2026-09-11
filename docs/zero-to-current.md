@@ -29,7 +29,7 @@ do not substitute a fake model or use a private protocol.
 
 Qualification of small synthetic inputs is not qualification of a complete
 Case context. Consult the [live qualification posture](../ROADMAP.md#product--research-qualification-path)
-before a human run. The earlier [HTTP 413 evidence](../refoundation/validation/provider-connect-hardening/REPORT.md)
+before a human run. The earlier [HTTP 413 evidence](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/provider-connect-hardening/REPORT.md)
 remains historical; it must not be mistaken for the current producer contract.
 Exact request-capacity admission and completed model execution are separate
 checks. Do not discard governed Case context to hide a refusal, infer token

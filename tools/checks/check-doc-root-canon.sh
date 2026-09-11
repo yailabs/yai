@@ -32,6 +32,7 @@ do
 done
 
 for forbidden in \
+  refoundation \
   docs/architecture \
   docs/internal \
   docs/engineering \

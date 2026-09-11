@@ -221,7 +221,7 @@ those and effect/control Transitions with mandatory provenance. The former `Case
 compatibility types. Remaining compatibility requires a named consumer,
 version policy, test, and removal/migration condition.
 
-The exhaustive ownership, durability, producer/consumer, aliases, current
-reality, target gap, documentation owner, and confidence fields are retained in
-`../refoundation/doc-refoundation/semantic-conflict-matrix.tsv` relative to the
-YAI repository root.
+Current meanings and aliases are owned by this reference, executable ownership
+by [Architecture](../architecture.md), and remaining target gaps by
+[Roadmap](../../ROADMAP.md). Historical conflict matrices are not a required
+local registry or an additional semantic authority.
