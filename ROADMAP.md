@@ -618,6 +618,9 @@ YAI Studio**, both living with YAI. “Privileged” means first-party product s
 not elevated authority: both obey ordinary Principal/Participant, scope,
 disclosure and admission. Language, UI technology, process model and exact
 directory layout remain unselected. No third Studio repository is required.
+Extracting Studio later requires a genuinely independent lifecycle, release
+cadence, ownership or distribution need. A Git branch is not its architectural
+boundary: Studio is a future application/component of the YAI repository.
 
 | Repository/component | Target ownership | Explicit non-ownership |
 |---|---|---|
@@ -653,6 +656,9 @@ Rust crate/API. It must expose qualified typed results/views, refusals, identity
 provenance and lifecycle facts sufficient for frontends without exposing
 persistence internals. Neither Studio nor external clients should need to spawn
 `./yai`, parse its prose or reimplement business rules found only in CLI handlers.
+Importing CLI parser/formatting internals to reach domain behavior is likewise
+not the shared application boundary. SDK semantics must not be reconstructed
+from CLI syntax; both consume the YAI-owned operation meaning.
 
 **Current gap, not an implemented API:** ConversationController provides typed
 actions/results and bounded event facts; engine owners expose qualified Recall,
@@ -768,8 +774,9 @@ supply reusable terminal/editor panes without owning the Studio application.
 Studio may own windows/workspaces, editor layout, activity bar, trees, graph and
 timeline rendering/layout, inspectors/panes, local UI state and keyboard/visual
 interaction. It must not read LMDB, parse Transition layouts or private graph
-tables, parse CLI output, or reconstruct Recall, policy, source validity,
-knowledge epistemic class, authority, Workflow or effect truth independently.
+tables, parse CLI output, or reconstruct Case truth, historical/as-of semantics,
+Recall, Policy/EffectivePolicy, source validity, D/H/S epistemic posture,
+authority, Workflow or Decision/effect truth independently.
 The direction is **YAI owner → typed application result/view → Studio presentation**.
 
 These surfaces consume current or separately qualified future contracts. Visual
