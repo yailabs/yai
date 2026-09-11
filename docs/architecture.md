@@ -331,7 +331,9 @@ observations, admitted immutable material and a typed capability-output contract
 ProviderQualification v5 separately qualifies native calls and JSON output.
 RetrievalSet v3 and RenderedInput v7 remain unchanged. Transition v18 and
 CaseState v15 carry bounded resource envelopes, observation/effect and immutable
-material-admission meaning. Composition request v2 separates Turn author from
+material-admission meaning. Source bootstrap subsequently advances them to
+Transition v19 / CaseState v16 for source declarations and acquisition progress;
+previous histories remain readable. Composition request v2 separates Turn author from
 an explicitly delegated cognitive Participant; v3 binds finite work budgets and
 optional exact Workflow execution identity. Existing request versions do not
 silently acquire work budgets. WorkflowDefinition v3 admits a finite CaseWork
@@ -622,8 +624,22 @@ digest/parsed/IR and declared origin inspectable, but byte-level recompilation
 then cannot be claimed. There is no product source-deletion lifecycle. Global
 source retention/privacy policy remains open.
 
-No policy authoring operation appends a Case Transition, invokes a provider or
+No standalone policy authoring operation appends a Case Transition, invokes a provider or
 carrier, creates a Decision/Grant, or modifies filesystem resources.
+
+The [unified source frontier](case-source-bootstrap.md) composes this authoring
+owner with existing Resource admission, immutable content and Case history.
+`CaseSourceDeclared` / `CaseSourceProgressed` persist exact role/scoped source
+relations and bounded progress; CaseState v16 replays them. There is no new
+canonical store or policy engine. Initial setup can read only exact declared
+policy files before the Case has ever bound policy; publication/binding remain
+explicit. Ordinary file/directory, SQLite observation and HTTP representation
+acquisition follow current EffectivePolicy. Denied sources are not acquired.
+Original policy bytes serve both policy and knowledge roles without duplication;
+knowledge-role acquisition produces no documentary claims or M07 semantics.
+Inventory/resume/revision/revoke and current-policy source reads are normal CLI
+actions; LMDB remains 37/40. Recall/W and model execution are not consumers of a
+new knowledge representation in this boundary.
 
 Wave 9 adds the distinct Case-native boundary in
 [`case_policy.rs`](../engine/yai-engine/src/case_policy.rs). One atomic catalog+
@@ -753,8 +769,10 @@ application verifies both qualified sources, exact forward history and the old W
 then explicitly reports `FullRecompilation`; all supported classes currently use
 this correctness fallback. Full/delta equality is qualified, incremental speed is
 not. No cache is needed for correctness. S/W/compiler/delta identity contracts are
-v2 for S/W/compiler and v1 for delta; Transition v18, CaseState v15, owner counts
-and LMDB 37/40 are unchanged. Policy-only changes without forward Case generation
+v2 for S/W/compiler and v1 for delta. The semantic refoundation itself left
+Transition v18, CaseState v15, owner counts and LMDB 37/40 unchanged; source
+bootstrap later advances only the Case source lifecycle to v19/v16.
+Policy-only changes without forward Case generation
 require full recompilation, not a fabricated forward semantic delta.
 At the invocation commit, the product revalidates W and its exact Participant,
 output contract and Projection in the same LMDB write transaction as canonical
@@ -949,8 +967,8 @@ known at the historical coordinate. It is not a mutation or SemanticDelta.
 No caches or inference are required. Reconstruction cost includes full history
 verification and prefix replay; no Case-age-independent CPU claim is made.
 See the [historical qualification report](../refoundation/validation/historical-semantic-reconstruction/REPORT.md).
-Transition v18 / CaseState v15, S/W/compiler and context contracts, canonical
-owners and LMDB **37/40** remain unchanged.
+That historical boundary left Transition v18 / CaseState v15, S/W/compiler and
+context contracts, canonical owners and LMDB **37/40** unchanged.
 
 ## Qualified experience relations
 
@@ -1112,8 +1130,9 @@ The 81/20,081-Transition oracle selects 8 events in 5 segments, with 64 visible
 distractors; the extra 20,000 records are unrelated control history, not 20,000
 visible semantic objects. Host reconstruction remains history-dependent.
 See [Recall evidence](../refoundation/validation/recall-trace-0/REPORT.md).
-Transition v18 / CaseState v15 and all S/W/Projection/ContextFrame schemas,
-semantic/operational owners and LMDB **37/40** are unchanged.
+That Recall boundary left Transition v18 / CaseState v15 and all
+S/W/Projection/ContextFrame schemas, semantic/operational owners and LMDB
+**37/40** unchanged. Source acquisition does not retroactively broaden Recall.
 
 ## Current agentless Case runtime
 
@@ -1220,7 +1239,7 @@ from one checkout.
 | provider replacement preserves semantic continuity | real HTTP Provider A→filesystem FINALIZE→Provider B, same-provider model replacement, continuation invalidation and provider restart are deterministic product tests; I05 adds bounded governed arbitration | learned/economic routing, general cold-state substitution and native state protocols are absent |
 | derived data rebuilds from canonical state | graph and OperationalMemory rebuild from typed transitions; W19 corpus/index manifests are content-addressed, stale/corrupt-aware, atomically replaceable and add no LMDB DB; profile replacement creates an independent namespace | adaptive background scheduling, compression and full typed analytics inputs |
 | governance source/artifact history | exact-byte source identity, typed deterministic parse/IR, immutable v5 Tenant ownership/validity and append-only authenticated lifecycle/revoke share LMDB while remaining independent from Cases | external organization/SSO assertion, retention policy and distributed revoke |
-| Case policy configuration and admission | Tenant-safe exact artifacts bind canonically; current Transition v18 retains typed Decision/review/temporal/Grant lineage and historical readers; cancellation/closure are durable barriers and historical basis is never rewritten | broader authority consumers and externally authenticated principals; single-host scheduling and Golden resource effects already exist |
+| Case policy configuration and admission | Tenant-safe exact artifacts bind canonically; current Transition v19 retains typed Decision/review/temporal/Grant lineage and historical readers and adds source-bootstrap relations; cancellation/closure are durable barriers and historical basis is never rewritten | broader authority consumers and externally authenticated principals; single-host scheduling and Golden resource effects already exist |
 | authenticated Principal and Tenant isolation | kernel eUID projection, immutable Principal/Tenant catalog, Owner/Member admin checks, immutable Case Tenant, Principal/Participant links, Tenant-filtered reads and cross-Tenant filesystem-root alias rejection; shared-resource fencing is implemented | local OS trust only; no SSO/account directory, membership removal or general VM/container trust boundary |
 
 These are current bounded contract limits, not a second live maturity registry.

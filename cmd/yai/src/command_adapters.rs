@@ -1215,6 +1215,16 @@ pub(crate) fn resource_application_command(
     controlled_effect::access::command(operation_id, args)
 }
 
+pub(crate) fn source_application_command(
+    operation: &str,
+    args: &[String],
+) -> Result<serde_json::Value, String> {
+    controlled_effect::source::command(operation, args)
+}
+pub(crate) fn render_source_inventory(value: &serde_json::Value) {
+    controlled_effect::source::render(value);
+}
+
 pub(crate) fn guided_initialization(
     tenant: Option<&str>,
     organization: Option<&str>,
@@ -1249,6 +1259,10 @@ pub(crate) fn dispatch_operation(operation_id: &str, args: &[String]) -> Result<
         "yai.case.resource.import" | "yai.case.resource.request" => {
             println!("{}", resource_application_command(operation_id, args)?);
             Ok(())
+        }
+        operation if operation.starts_with("yai.case.sources.") => {
+            let value = source_application_command(operation, args)?;
+            render_source_inventory(&value); Ok(())
         }
         operation if operation.starts_with("yai.case.memory.") => {
             memory_case_command(operation, args)

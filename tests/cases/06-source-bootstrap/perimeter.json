@@ -1,0 +1,21 @@
+{
+  "schema":"yai.source_perimeter.v1",
+  "name":"example-company",
+  "participant":"participant:operator",
+  "resources":[{
+    "schema":"yai.resource_definition.v1",
+    "attachment_id":"resource:company-sources",
+    "policy_owner":"participant:operator",
+    "participant_ids":["participant:operator"],
+    "operations":["discover","admit_content","content_read"],
+    "read_prefixes":["policy.json","documents"],
+    "names":[],
+    "max_output_bytes":65536,
+    "max_items":128,
+    "address":{"kind":"discovery","root":"tests/cases/06-source-bootstrap"}
+  }],
+  "sources":[
+    {"name":"security","resource":"resource:company-sources","roles":["policy","knowledge"],"action":{"action":"discover","path":"policy.json"},"media_type":"application/json","bootstrap_policy":true},
+    {"name":"architecture","resource":"resource:company-sources","roles":["knowledge","operational"],"action":{"action":"discover","path":"documents"},"media_type":"text/markdown","bootstrap_policy":false}
+  ]
+}

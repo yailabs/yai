@@ -1442,6 +1442,99 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         &[flag("--limit", Some("COUNT"), false)]
     ),
     op!(
+        "yai.case.sources.declare",
+        ["case", "sources", "declare"],
+        "Declare an explicit source perimeter and role intent; acquire no payload",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[flag("--file", Some("PERIMETER.json"), true)]
+    ),
+    op!(
+        "yai.case.sources.inventory",
+        ["case", "sources", "inventory"],
+        "Inspect declared source coverage, revisions and current authority",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        NO_FLAGS
+    ),
+    op!(
+        "yai.case.sources.acquire",
+        ["case", "sources", "acquire"],
+        "Acquire bootstrap policy candidates or the currently permitted remainder",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--source", Some("SOURCE"), false),
+            flag("--limit", Some("COUNT"), false),
+            flag("--refresh", None, false)
+        ]
+    ),
+    op!(
+        "yai.case.sources.resume",
+        ["case", "sources", "resume"],
+        "Resume bounded source acquisition using canonical completed work",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--source", Some("SOURCE"), false),
+            flag("--limit", Some("COUNT"), false)
+        ]
+    ),
+    op!(
+        "yai.case.sources.publish",
+        ["case", "sources", "publish"],
+        "Explicitly validate, publish and bind an acquired policy candidate",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--source", Some("SOURCE"), true),
+            flag("--reason", Some("REASON"), true)
+        ]
+    ),
+    op!(
+        "yai.case.sources.read",
+        ["case", "sources", "read"],
+        "Resolve exact acquired backing under current source disclosure",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--source", Some("SOURCE"), true),
+            flag("--revision", Some("REVISION"), false)
+        ]
+    ),
+    op!(
+        "yai.case.sources.revoke",
+        ["case", "sources", "revoke"],
+        "Revoke current source-frontier availability without rewriting history",
+        Product,
+        LocalDomain,
+        Mutating,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--source", Some("SOURCE"), true),
+            flag("--reason", Some("REASON"), true)
+        ]
+    ),
+    op!(
         "yai.case.recall",
         ["case", "recall"],
         "Reconstruct bounded query-conditioned experience under current disclosure",

@@ -34,6 +34,9 @@ const CONTROLLED_EFFECT_COMPONENT: &str = "yai.controlled_filesystem_effect";
 #[path = "controlled_effect/access.rs"]
 pub(super) mod access;
 
+#[path = "controlled_effect/source.rs"]
+pub(super) mod source;
+
 fn id_component(value: &str) -> String {
     value
         .chars()

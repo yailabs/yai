@@ -14,6 +14,9 @@
 //! Status:
 //!   active
 
+#[path = "lmdb/source.rs"]
+mod source;
+
 use crate::admission::{
     build_policy_review_request, evaluate_filesystem_admission, resolve_canonical_evidence,
     resolve_policy_review_decision, reviewer_is_eligible, AuthorityTemporalContext,
@@ -2539,7 +2542,7 @@ impl LmdbRecordStore {
         compilation: &PolicyCompilation,
         actor_ref: &str,
     ) -> Result<PolicyIngestOutcome, String> {
-        self.ingest_policy_compilation_inner(compilation, actor_ref, None)
+        self.ingest_policy_compilation_inner(compilation, actor_ref, None, None)
     }
 
     pub fn ingest_tenant_policy_compilation(
@@ -2561,7 +2564,12 @@ impl LmdbRecordStore {
         {
             return Err("policy_artifact_organization_projection_mismatch".to_string());
         }
-        self.ingest_policy_compilation_inner(compilation, context.principal_id(), Some(tenant_id))
+        self.ingest_policy_compilation_inner(
+            compilation,
+            context.principal_id(),
+            Some(tenant_id),
+            None,
+        )
     }
 
     fn ingest_policy_compilation_inner(
@@ -2569,6 +2577,7 @@ impl LmdbRecordStore {
         compilation: &PolicyCompilation,
         actor_ref: &str,
         authenticated_tenant: Option<&str>,
+        bootstrap: Option<(&str, &str, u64)>,
     ) -> Result<PolicyIngestOutcome, String> {
         compilation.validate()?;
         let rebuilt = compile_policy_source(compilation.source.original_bytes())?;
@@ -2601,6 +2610,22 @@ impl LmdbRecordStore {
             .env
             .begin_rw_txn()
             .map_err(|error| format!("failed to start policy intake transaction: {error}"))?;
+        if let Some((case_id, source_id, generation)) = bootstrap {
+            let state = self
+                .get_case_state_txn(&txn, case_id)?
+                .ok_or("case_not_found")?;
+            if state.generation != generation {
+                return Err("source_capture_generation_drift".into());
+            }
+            let declaration = state
+                .sources
+                .iter()
+                .find(|s| s.declaration.source_id == source_id)
+                .ok_or("source_not_visible")?
+                .declaration
+                .clone();
+            self.source_bootstrap_allowed_txn(&txn, &state, &declaration)?;
+        }
         if let Some(existing) = self.policy_artifact_for_declared_version_txn(
             &txn,
             &compilation.artifact.lineage(),
@@ -9189,6 +9214,8 @@ impl LmdbRecordStore {
                 | TransitionPayload::CaseCognitiveBindingRecorded { .. }
                 | TransitionPayload::CaseCognitiveBindingUnbound { .. }
                 | TransitionPayload::ResourceAttached { .. }
+                | TransitionPayload::CaseSourceDeclared { .. }
+                | TransitionPayload::CaseSourceProgressed { .. }
                 | TransitionPayload::CasePolicyBound { .. }
                 | TransitionPayload::CasePolicyReplaced { .. }
                 | TransitionPayload::CasePolicyUnbound { .. }
@@ -9205,6 +9232,19 @@ impl LmdbRecordStore {
             context.require_owner()?;
             if pending.source.principal_id.as_deref() != Some(context.principal_id()) {
                 return Err("administrative_principal_provenance_mismatch".to_string());
+            }
+        }
+
+        if let TransitionPayload::CaseSourceProgressed { progress } = &pending.payload {
+            let source = state
+                .sources
+                .iter()
+                .find(|s| s.declaration.source_id == progress.source_id)
+                .ok_or("source_not_visible")?;
+            if pending.source.principal_id.as_deref()
+                != Some(source.declaration.declared_by_principal_id.as_str())
+            {
+                return Err("source_not_visible".into());
             }
         }
 
@@ -10382,6 +10422,12 @@ impl LmdbRecordStore {
             None => return Ok(()),
         };
         match payload {
+            TransitionPayload::CaseSourceDeclared { declaration } => {
+                self.validate_source_declaration_txn(txn, state, declaration)?;
+            }
+            TransitionPayload::CaseSourceProgressed { progress } => {
+                self.validate_source_progress_txn(txn, state, progress)?;
+            }
             TransitionPayload::CaseContentAdmitted { admission } => {
                 let history = self.list_case_transitions_txn(txn, case_id)?;
                 let decision = Self::canonical_decision(state, &history, &admission.decision_id)?;
@@ -12718,6 +12764,7 @@ impl LmdbRecordStore {
             "meta:canonical_transition_schema",
             TRANSITION_SCHEMA,
             &[
+                crate::transition::TRANSITION_SCHEMA_V18,
                 crate::transition::TRANSITION_SCHEMA_V17,
                 TRANSITION_SCHEMA_V16,
                 TRANSITION_SCHEMA_V15,
@@ -12743,6 +12790,7 @@ impl LmdbRecordStore {
             "meta:case_state_schema",
             CASE_STATE_SCHEMA,
             &[
+                crate::transition::CASE_STATE_SCHEMA_V15,
                 crate::transition::CASE_STATE_SCHEMA_V14,
                 CASE_STATE_SCHEMA_V13,
                 CASE_STATE_SCHEMA_V12,
@@ -13640,6 +13688,9 @@ fn derive_graph_relations_from_transition(
     );
     match &transition.payload {
         TransitionPayload::CaseOpened { .. } => {}
+        // Source lifecycle is not documentary knowledge or a Recall candidate.
+        TransitionPayload::CaseSourceDeclared { .. }
+        | TransitionPayload::CaseSourceProgressed { .. } => {}
         TransitionPayload::TenantCaseOpened { tenant_id, .. } => add_transition_relation(
             &mut relations,
             skipped,
@@ -18611,6 +18662,8 @@ fn transition_contains_canonical_fact_ref(transition: &Transition, reference: &s
         return true;
     }
     match &transition.payload {
+        TransitionPayload::CaseSourceDeclared { declaration } => declaration.source_id == reference,
+        TransitionPayload::CaseSourceProgressed { progress } => progress.progress_id == reference,
         TransitionPayload::ParticipantBound { participant_id, .. }
         | TransitionPayload::ParticipantAdmitted { participant_id, .. }
         | TransitionPayload::ProviderAttached { participant_id, .. } => participant_id == reference,

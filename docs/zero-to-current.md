@@ -418,6 +418,49 @@ then perform one bounded current task. Record old/new SHA, model identity and
 `COMPATIBLE`, `BLOCKED` or `NOT_RUN`. Losing provider continuation must not require
 Case recreation. The canary is operator evidence, not a cached PASS or new owner.
 
+## Optional source bootstrap — no model required
+
+This independent product checkpoint exercises a fresh Case, not the operator
+canary and not Human Golden by itself. Keep the Golden shell/home unchanged;
+run this block in a **separate shell from the repository root**. It uses the
+normal product and an explicit example perimeter, not a fixture model driver.
+The policy is an example for inspection, not an enterprise policy recommendation.
+
+```sh
+source_run=$(mktemp -d /tmp/yai-source-operator.XXXXXX)
+export YAI_HOME="$source_run/home"
+./yai init --tenant tenant:sources --organization organization:sources
+./yai case create case:sources --tenant tenant:sources
+./yai case participant role add case:sources --participant participant:operator --role operation-proposer
+./yai case participant link-principal case:sources --participant participant:operator --principal self
+./yai case sources declare case:sources --file tests/cases/06-source-bootstrap/perimeter.json
+./yai case sources inventory case:sources
+./yai case sources acquire case:sources
+./yai case sources inventory case:sources --json
+```
+
+Expected: only `security` is acquired, with one original policy backing serving
+both roles; `architecture` remains discovered/pending. Inspect the exact artifact
+ID printed in inventory with `./yai policy show ARTIFACT_ID`. After reviewing the
+rules, explicitly consent to publication and Case binding:
+
+```sh
+./yai case sources publish case:sources --source security --reason 'Reviewed the bounded example policy'
+./yai case sources acquire case:sources --limit 1
+./yai case sources resume case:sources
+./yai case sources read case:sources --source architecture
+./yai case verify case:sources
+./yai case sources revoke case:sources --source architecture --reason 'Withdraw example source relationship'
+./yai case sources read case:sources --source architecture
+```
+
+Expected: EffectivePolicy READY; exact documentary bytes acquired without
+knowledge derivation; restarting each command preserves completed work; replay
+matches. The final read **must refuse**. Preserve the temporary home for your
+observations. Inventory/coverage, update/revision and unsupported profiles are
+documented in [Case source bootstrap](case-source-bootstrap.md). These commands
+do not alter the external/provider, human or canary verdicts above.
+
 ## Optional forensic inspection and cleanup
 
 Historical semantic inspection is now available without another model call.

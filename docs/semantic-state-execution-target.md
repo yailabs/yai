@@ -40,6 +40,13 @@ historical state or execution truth.
 
 YAI owns durable semantic continuity; model-visible context is a disposable
 execution working set. System memory architecture is not one Memory database.
+The [Case source frontier](case-source-bootstrap.md) now supplies bounded
+policy-first acquisition and exact original/revision backing through existing
+Resource, policy and content owners. It does not implement source-grounded
+knowledge D, knowledge-aware Recall or Recall-aware W. An acquisition can be
+recorded in Case history without turning its documentary content into current
+semantic truth. Generic bootstrap/knowledge horizons remain in the Roadmap.
+
 The following five concerns compose existing boundaries; they are not five new
 source subsystems:
 

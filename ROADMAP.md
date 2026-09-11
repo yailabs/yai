@@ -11,16 +11,16 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source frontier, source-grounded organizational knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **RECALL.TRACE.0 — COMPLETE**, bounded scope: query-conditioned reconstruction with exact source/disclosure qualification, independent product inspection and deterministic/Golden-local proof. No automatic Recall-aware W or provider execution; next implementation boundary UNSELECTED. |
+| Selected engineering boundary | **CASE.SOURCE.BOOTSTRAP.0 — COMPLETE** at bounded scope: declared source perimeter, policy-first acquisition, exact revisions, coverage and restart/resume through existing owners. [Product and deterministic evidence][source-bootstrap]. Next implementation UNSELECTED; M07 and model execution are not selected. |
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
-| Most important structural gap | Bounded S → W, exact as-of reconstruction and independent experience Recall exist. Unified source bootstrap, general source-grounded knowledge and knowledge-aware Recall are targets, alongside Recall-aware W, general temporal validity, prompt-independent refresh and a public W → E consumer. |
-| Executable foundation | Transition v18 / CaseState v15; immutable owned content; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
+| Most important structural gap | Bounded S → W, exact as-of reconstruction, independent experience Recall and bounded source bootstrap exist. General source-grounded knowledge and knowledge-aware Recall remain targets, alongside broader acquisition coverage, Recall-aware W, general temporal validity, prompt-independent refresh and a public W → E consumer. |
+| Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
 | Primary research boundary | Broader Recall coverage/usefulness, Recall-aware working state and bounded persistent deliberation; Experiential State Read/Update remain OPEN. These extend existing S/M/C/E/W/Q targets, not automatic implementation authorization. |
 | Current compatibility path | Governed exact OpenAI-compatible context/text, bounded typed content/functions/JSON when mechanically qualified; optional opaque continuation, not a native state contract. |
 | Target stateful path | Qualified source knowledge D_t + historical experience H_t + current state S_t → Recall R_t^q; S_t + relevant Recall → W_t → public boundary → YVEX E_t. D-aware Recall, automatic R → W, E and deliberation L are targets, not current capabilities. |
 | Human Golden acceptance | **PENDING_OPERATOR**; automated PTY evidence cannot supply this verdict. Continuity canary **NOT_RUN**. |
 | YVEX external posture | **FAIL / incomplete** at the retained YAI consumer run: no ProviderResult before the 300-second watchdog despite capacity-compatible preflight; no fallback/retry. [Exact evidence][external-closure]. Producer runtime diagnosis/progression belongs to the [public YVEX roadmap](https://github.com/yailabs/yvex/blob/models2/ROADMAP.md), not a duplicated live runtime snapshot here. |
-| Next decision point | Evaluate Case source bootstrap, then source-grounded knowledge and knowledge/experience Recall integration before Recall-aware W. These are dependency horizons, not selected work; retain measured Recall cost and scope. Compact live-model qualification stays independently NOT QUALIFIED; no new live attempt is selected. |
+| Next decision point | Evaluate source-grounded knowledge and knowledge/experience Recall integration before Recall-aware W, using bounded acquired sources. These are dependency horizons, not selected work; retain measured acquisition/Recall cost and scope. Compact live-model qualification stays independently NOT QUALIFIED; no new live attempt is selected. |
 
 **I01–I06 COMPLETE. I07 UNSELECTED.** Source refoundation, W19/H19/W20,
 TEST.TOPOLOGY.0, REPLAI R4/R5 and Golden/guided CLI remain completed evidence.
@@ -39,7 +39,7 @@ runtime. A model owns learned computation; a future model may learn to read and
 update persistent computational state. It never thereby acquires Case authority.
 
 ```text
-YAI: established owners + target unified admitted source frontier
+YAI: established owners + bounded unified admitted source frontier
   ├── D_t: qualified source-grounded organizational/domain knowledge (target)
   ├── H_t: qualified historical experience
   └── S_t: what presently holds
@@ -179,6 +179,16 @@ an operation's prohibition using both current EffectivePolicy and its exact
 source clause without independently reinterpreting policy or granting authority.
 Existing bounded policy document intake remains earned; unifying acquisition
 does not create a second policy language or EffectivePolicy.
+
+**Executable foothold:** [CASE.SOURCE.BOOTSTRAP.0][source-bootstrap] now supplies
+one explicit perimeter/role frontier for confined local files/directories and
+existing bounded SQLite/HTTP resource requests. Policy-only, full-perimeter and
+incremental modes are qualified through the actual product with LMDB. Narrow
+initial policy acquisition precedes explicit publication/binding; ordinary
+acquisition uses current admission. Dual-role policy originals, exact revisions,
+coverage/refusal, bounded stop/resume and revocation are qualified. This is O08
+PARTIAL, not the generic frontier below or M07 documentary knowledge. See the
+[executable contract](docs/case-source-bootstrap.md) for bounds and refusals.
 
 **Bootstrap is policy-first, not permission to crawl.** The target order is:
 
@@ -364,7 +374,7 @@ horizons. Temporal execution status is separate. Counts describe rows only,
 never percentage completion. Evidence promotion still requires human review.
 
 <!-- maturity-summary:start -->
-ESTABLISHED=32 PARTIAL=25 OPEN=12 LATER=4 TOTAL=73
+ESTABLISHED=32 PARTIAL=26 OPEN=11 LATER=4 TOTAL=73
 <!-- maturity-summary:end -->
 
 <!-- maturity:start -->
@@ -446,7 +456,7 @@ ESTABLISHED=32 PARTIAL=25 OPEN=12 LATER=4 TOTAL=73
 | O05 | Ordinary HTTP resource | 🟡 PARTIAL | [Golden][golden]: exact scoped GET, no redirects; state-changing HTTP not admitted. |
 | O06 | MCP resource/tool boundary | 🟡 PARTIAL | [Golden][golden]: bounded 2026-07-28 stateless Streamable HTTP, exact catalog/schema revalidation; not the full MCP ecosystem. |
 | O07 | Observation/effect separation, fencing and uncertainty | 🟢 ESTABLISHED | [Fencing][fencing], [Golden][golden]; PREPARE before effects, exact terminal evidence or INDETERMINATE, never blind retry. |
-| O08 | Unified Case source bootstrap and acquisition lifecycle | 🔴 OPEN | [Adopted source frontier](#case-source-bootstrap-and-source-grounded-knowledge--adopted-target): explicit perimeter, policy-first setup, inventory/roles, governed acquisition, coverage/refusal, resume, revision/reuse and revoke. Existing bounded discovery/policy intake does not qualify this end-to-end lifecycle. |
+| O08 | Unified Case source bootstrap and acquisition lifecycle | 🟡 PARTIAL | [Bounded source bootstrap][source-bootstrap]: actual CLI/LMDB policy-only/full/incremental modes; exact local sources and SQLite metadata, denied HTTP without acquisition, dual-role original reuse, current admission, coverage, restart/resume, revisions and revoke. 6-source then 40-source characterization. Generic connectors, arbitrary policy processing, general review-completion orchestration, ordinary cross-Case content reuse and continuous synchronization remain unqualified; no M07 derivation. |
 
 ### Workflow / composition / Handoff
 
@@ -525,10 +535,10 @@ Letters are local shorthand, not the numbering of historical W/I/R waves.
 | **S — Semantic Cognitive State**: preserve model-independent task and Case meaning | S01–S07/S10 foundations; bounded S12 historical/current policy and resource oracle; Recall preserves qualified historical/current and claim posture | Documentary D versus experienced H versus current S; general as-of validity, semantic timescales and task/big-picture state | Keep source assertions, observations, inferences and normative rules distinct; retain superseded material as history, not current truth | Qualified documentary/observed contradiction and historical/current oracle with owner-specific supersession | No mega-object; D/H are not new stores, E/L no semantic truth |
 | **C — State Compilation & Cognitive Boundary**: compile governed semantic working state | Bounded S → W, derived delta/full fallback, context-compatible Projection/ContextFrame | S + relevant D/H/S Recall → W, prompt-independent refresh, sufficiency/paging and public E contracts | Qualify knowledge/experience Recall independently before W integration; semantic sufficiency is not target capacity | Full/ΔW equivalence, mandatory state and freshness with scoped source closure; later public E reconciliation | No latent writes, model adapters, physical layouts or YVEX placement |
 | **E — Cognitive Execution**: exact responsibility and provider-independent intent | I02–I06 planning, arbitration, realization, composition and host | Suitability/capacity/setup; qualified computational source-derivation tasks and persistent deliberation/L lifecycle | Preserve independent external wait findings; future acquisition/derivation tasks use bounded existing execution, never an uncontrolled LLM loop | Exact execution plus budget/deadline/cancel/result and compatible resume/amnesia evidence | No acquisition/knowledge authority from computation, Agent continuity owner or latent-state owner in YAI |
-| **O — Operational World**: governed observations, attachments and effects | Golden filesystem/process/SQLite/HTTP/MCP/discovery verticals | O08 unified perimeter/inventory/acquisition lifecycle; broader adapters and external ambiguity | One source frontier, roles and exact revisions; acquire permitted remainder only after governance, preserving operational resource semantics | Policy-only/full/incremental bootstrap, coverage/refusal, duplicate/revision, resume and revoke oracles | No parallel policy/knowledge acquisition owners or ConnectorStore; a database Resource is not YAI memory |
+| **O — Operational World**: governed observations, attachments and effects | Golden filesystem/process/SQLite/HTTP/MCP/discovery verticals; bounded O08 source bootstrap | Broader acquisition profiles, review completion, cross-Case reuse and external ambiguity | One source frontier, roles and exact revisions; acquire permitted remainder only after governance, preserving operational resource semantics | Policy-only/full/incremental bootstrap, coverage/refusal, duplicate/revision, resume and revoke oracles | No parallel policy/knowledge acquisition owners or ConnectorStore; a database Resource is not YAI memory |
 | **W — Workflow & Composition**: explicit progression and bounded delegation | Workflow amendments/PlanPatch, I04 composition and exact Handoff | Resumable bounded acquisition/derivation work, persistent assignments, broader delegation and optional Agents | Reuse task/Workflow progression and execution owners for partial work/resume and future deliberation; normal effect authority still applies | Replayable progress, partial failure/resume, explicit adoption and cancellation through existing owners | No bootstrap-job or ThinkingJob store; Workflow/Agent is not Case memory or private execution |
 | **M — Derived State & Semantic Access**: rebuildable knowledge/experience and qualified Recall | W19/H19/W20; scoped historical sources/typed relations; bounded query-conditioned Recall v1 with independent CLI and cache-drop identity | M07 source structure/entities/claims/relations, graph/index/wiki views; D/H/S Recall integration, authorized reuse, quality/scale and learned navigation | Reuse exact-source/disclosure resolver after candidate discovery; new knowledge families must preserve epistemic class and measured history costs | Source-closed derivation plus discontinuous document/experience/current-state Recall, update/revoke, wrong-memory and rebuild controls | No Knowledge/Recall/MemoryStore; wiki edits do not rewrite originals, learned associations never decide truth or authority |
-| **X — Product Interfaces**: thin, usable views over Case semantics | Guided CLI, native REPLAI, application controller, cumulative runbook | Usable bootstrap/source roles, coverage/errors and source-management views; broader API clients; Studio later | Keep setup explicit and model/system output distinct; [retained intermittent setup Ctrl-C finding][recall] needs independent cancellation/readiness qualification | Product acceptance through typed seams, inspectable consent/partial coverage, no semantics moved into UI | REPLAI owns terminal mechanics only; no ChatStore or wiki authority |
+| **X — Product Interfaces**: thin, usable views over Case semantics | Guided CLI, native REPLAI, application controller, cumulative runbook; `case sources` declaration/acquisition/coverage/revision surface | Broader source-management clients and acquisition profiles; Studio later | Keep setup explicit and model/system output distinct; [retained intermittent setup Ctrl-C finding][recall] needs independent cancellation/readiness qualification | Product acceptance through typed seams, inspectable consent/partial coverage, no semantics moved into UI | REPLAI owns terminal mechanics only; no ChatStore or wiki authority |
 | **Q — Qualification**: independent evidence for each claimed property | TEST.TOPOLOGY.0, deterministic Golden; historical/current and discontinuous Recall, wrong-memory, late-evidence, source-loss and 20k-history controls | External/human/canary; source coverage/exactness/update/revoke, D/H/S Recall usefulness, feedback freshness, state and deliberation evaluation | Retain failures; separate acquisition success, documentary backing, semantic resolution and memory benefit | Dual-role and cross-Case negatives, temporal/source correctness, latency, task outcomes, State Read ablation and equal-compute controls | No dataset owner, fabricated benchmark thresholds or PASS cache authority |
 | **F — Federation & Scale**: future distributed continuity | Single-host multi-Case scheduling/fencing | Cross-host coordination and federation | Establish local state/authority correctness first | Explicit conflict, disclosure, revocation and recovery contracts across hosts | No global Space or shared database by implication |
 
@@ -553,10 +563,10 @@ Golden supplies a common Case/task workload; it owns none of these semantics.
 | Learned State Update versus semantic admission | OPEN | Exercise model-written E_t+1 with P_t absent, then valid/invalid explicit proposals. E evolution must not independently change Case truth; unauthorized or stale proposals refuse. Required execution evidence remains distinct from semantic admission. |
 | Computational-state / deliberation amnesia and resume | OPEN | Separately discard or resume E/L through a qualified provider/operator boundary. Preserve H/S/assignment, reconstruct R/W and compatible E; incompatible checkpoints refuse. Lost unfinished computation is not lost admitted meaning. Current continuation-loss tests do not prove L continuity. |
 | Discontinuous temporal-causal Recall and as-of meaning | PARTIAL, bounded query-conditioned trace | [Recall][recall]: 20,081 Transitions, distant segments, exact current Decision anchor, policy supersession and late claim; attractive wrong-memory/contradiction, missing-link, scope and backing-loss controls. 8 events remain bounded while CPU grows with history. Broader task sufficiency, complete event-time semantics and Recall-aware W remain unqualified. |
-| One source, policy and knowledge roles | OPEN | Derive documentary claims and normative candidates from one exact revision; only explicit governance publication/binding grants current authority. Knowledge-only indexing, model classification and repeated retrieval must never promote a rule. |
-| Policy-first bootstrap and acquisition coverage | OPEN | Narrow setup authority admits policy-bearing sources, then EffectivePolicy restricts the remainder: denied source is not acquired. Exercise policy-only/full/incremental modes, partial failure/resume and honest coverage/refusal without scope leakage. |
+| One source, policy and knowledge roles | PARTIAL, acquisition only | [Bootstrap][source-bootstrap] reuses one policy original/revision for both declared roles; a valid policy-shaped knowledge-only source cannot publish or add a PolicyArtifact. Documentary claim derivation is still OPEN; only explicit governance publication/binding grants authority. |
+| Policy-first bootstrap and acquisition coverage | PARTIAL, bounded | [Bootstrap][source-bootstrap]: exact initial setup file, no sibling acquisition/re-entry, current EffectivePolicy gates the remainder; denied HTTP has zero requests/retained payload. Policy-only/full/incremental, partial failure/restart/resume and explicit-declaration coverage qualified. Generic organization inventory remains OPEN. |
 | Documentary knowledge versus operational experience | OPEN | Recall a source claim contradicted by an observed deployment, with a design decision and corrective operation across distant Episodes; preserve D/H/S classes, exact sources and qualified relations rather than inventing one causal narrative. |
-| Source revision, reuse and historical backing | OPEN | New revision updates current derived knowledge without rewriting Case history; old exact revision still explains an old Decision. Duplicate acquisition reuses the same qualified revision identity without duplicate semantic identity or replacing missing backing with latest contents. |
+| Source revision, reuse and historical backing | PARTIAL, acquisition only | [Bootstrap][source-bootstrap]: unchanged exact source reuses revision/backing, changed bytes create a distinct revision and old backing remains readable under current authority. Future knowledge update and documentary explanation of historical Decisions remain OPEN; no substitution of latest contents for missing backing. |
 | Shared source with different Case permissions | OPEN | Reuse one organizational revision in visible Case A, denied B and unattached C; deduplication must not share access. Revoke A's access and remove current search/graph/wiki/Recall/context visibility, including hidden candidate counts and explanations. |
 | Extraction and editable navigation versus originals | OPEN | OCR/vision-derived material keeps declared extraction profile and epistemic/provenance limits, never invented exactness. Wiki edits/summaries retain their own provenance and exact source resolution; they cannot replace or rewrite original backing. |
 | Prompt-independent working/E refresh | OPEN | Tool/review/Workflow/source/authority changes without another prompt; compare full W and qualified ΔW, then future E reconciliation. Correctness-critical invalidation precedes affected State Read; enrichment may be bounded-staleness. No qualified removal means invalidate/reconstruct. |
@@ -577,16 +587,18 @@ Independent external/provider qualification tracks remain visible below; they
 are not additional selected implementation rows. Success never automatically
 authorizes the next experiment.
 
-Next implementation boundary: **UNSELECTED**.
+Most recent implementation boundary: **CASE.SOURCE.BOOTSTRAP.0**, complete at its
+bounded source-acquisition scope. Next implementation boundary: **UNSELECTED**.
 
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| RECALL.TRACE.0 | COMPLETE | M S K C Q | [Qualified Recall v1][recall]: exact anchors, query-conditioned discontinuous segments, temporal/epistemic posture, supersession/contradiction, source closure, current disclosure and bounds. Independent CLI, rebuild identity, full deterministic union and Golden local; no automatic W injection or provider execution. |
+| CASE.SOURCE.BOOTSTRAP.0 | COMPLETE | O K A W X Q | [Qualified source frontier][source-bootstrap]: real CLI/LMDB policy-first three-mode acquisition, exact roles/revisions, no denied payload, partial resume/restart, reuse/update and current revocation. O08 PARTIAL; no new owner/database. M07 and Recall-aware W remain out of scope. |
 <!-- execution:end -->
 
-**Primary programs: M / S / K / C / Q.** A / E / O / W / X retain their
-load-bearing contracts. This boundary does not authorize Recall-aware W, new audit
+**Primary programs: O / K / A / W / X / Q.** M / S / C / E retain their
+load-bearing contracts. [RECALL.TRACE.0][recall] is COMPLETE at its bounded scope.
+This boundary does not authorize knowledge derivation, Recall-aware W, new audit
 authority or YVEX optimization. GOVERNANCE.COGNITIVE.CONTEXT.0's YAI-owned
 implementation selection is finished; its real model-awareness evidence remains
 NOT QUALIFIED / externally blocked. Provider qualification is independent of
@@ -622,7 +634,7 @@ The adopted dependency spine after the bounded Recall primitive is:
 
 ```text
 RECALL.TRACE.0                         (published bounded primitive)
-  → CASE.SOURCE.BOOTSTRAP.0            (future steering, not selected)
+  → CASE.SOURCE.BOOTSTRAP.0            (completed bounded source frontier)
   → SOURCE.GROUNDED.KNOWLEDGE.0        (future steering, not selected)
   → KNOWLEDGE.RECALL.INTEGRATION.0     (future steering, not selected)
   → RECALL-AWARE.WORKING.STATE.0       (future steering, not selected)
@@ -634,11 +646,11 @@ RECALL.TRACE.0                         (published bounded primitive)
 
 These names express intended dependency order, not pre-authorized waves or a
 second execution-control list. The single selected-boundary row above remains
-unchanged. Source bootstrap and knowledge derivation require independent proof:
+authoritative. Source bootstrap is now independently qualified at bounded scope;
+knowledge derivation has not earned implementation evidence:
 
 | Future vertical | Required after-state / qualification pressure, not implementation evidence |
 |---|---|
-| CASE.SOURCE.BOOTSTRAP.0 | Fresh Case → declared perimeter/inventory/roles → acquire bootstrap policy → EffectivePolicy → govern remaining acquisition → bind permitted sources → coverage/errors/missingness → restart/resume. Qualify all three modes, one dual-role source, no knowledge-to-policy promotion, denied-not-acquired, partial failure/resume, revision/update, reuse and permission change/revoke. |
 | SOURCE.GROUNDED.KNOWLEDGE.0 | Admitted exact revision → extraction/structure → qualified page/section/span addressing → entities/topics/source-grounded claims → relations/contradictions → rebuildable graph/index/wiki/navigation. Source claim != verified Case fact != operational experience; exact source closure and explicit unsupported/missingness remain mandatory. |
 | KNOWLEDGE.RECALL.INTEGRATION.0 | Recall over D + H + S without flattening epistemic classes. “Why does this deployment use configuration X?” may reconstruct documentation, a historical design decision, failed deployment, corrective operation and current deployment state, each with exact backing and qualified relation meaning. Qualify this before automatic Recall-aware W. |
 
@@ -647,12 +659,12 @@ conceptually extensible beyond Episodes/Transitions. Future knowledge candidates
 must enter the same truth/disclosure/source-closure qualification boundary; no
 parallel resolver or authority. Current Recall v1's bounded experience/semantic
 coverage is valid at its published scope, not broken or retrospectively enlarged
-by this target. This documentation alignment changes neither Recall nor W.
+by this target. Source bootstrap changes neither Recall nor W selection.
 
 | Horizon | Property pressure | Dependency / admission to work |
 |---|---|---|
-| Now | Bounded historical reconstruction and independent query-conditioned Recall | Exact policy/Decision, scope, source closure and discontinuous oracles are earned without inference. Full External Golden and compact policy-awareness delivery remain independent unqualified provider tracks; no automatic next selection |
-| Near | Unified Case source bootstrap, then source-grounded organizational knowledge | O08 before M07 derivation over admitted sources: narrow setup authority, policy-first acquisition, exact revision/roles, coverage/resume/revoke; no ambient crawl |
+| Now | Bounded historical reconstruction, independent Recall and source bootstrap | Exact policy/Decision, scope, source closure, discontinuous Recall and governed acquisition oracles are earned without inference. Full External Golden and compact policy-awareness delivery remain independent unqualified provider tracks; no automatic next selection |
+| Near | Source-grounded organizational knowledge over admitted sources | Bounded O08 is earned; M07 derivation is not. Preserve narrow setup authority, policy-first acquisition, exact revision/roles, coverage/resume/revoke; no ambient crawl |
 | Near | Knowledge/experience Recall integration, then Recall-aware working state | Extend M06 with qualified D/H/S candidates before C06 consumption; preserve mandatory S/Case constraints, existing delta/full proof, disclosure and context compatibility |
 | Near / Mid | Scoped semantic paging/demand expansion, then prompt-independent refresh | Qualified source references after Recall-aware W; general historical validity, exact resolution/refusal and mandatory freshness; learned navigation remains optional |
 | Near / Mid | Public W_t → E_t boundary and first persistent State Read consumer | Scoped compilation/refresh plus truthful public capability and actual consumer; a qualified training-free KV/prefix bridge is admissible |
@@ -669,8 +681,8 @@ product/research properties, not a maturity percentage.
 
 | Gate / consumer | Current posture | What it authorizes |
 |---|---|---|
-| Deterministic software publication | [Current full publication/characterization union PASS][state-refoundation] | Classified no-provider and loopback properties, not live model interoperability |
-| Golden local product lifecycle | [Current PASS][state-refoundation], deterministic model with real local persistence/resource adapters and protocol peers; exact Invocation → W and rebuild equality | Bounded free/Workflow, authority, replay/rebuild/recovery/isolation lifecycle; separate Golden lane, not folded into `make check` |
+| Deterministic software publication | [Current full publication/characterization union PASS][source-bootstrap] | Classified no-provider and loopback properties, not live model interoperability |
+| Golden local product lifecycle | [Current PASS][source-bootstrap], deterministic model with real local persistence/resource adapters and protocol peers; exact Invocation → W and rebuild equality | Bounded free/Workflow, authority, replay/rebuild/recovery/isolation lifecycle; separate Golden lane, not folded into `make check` |
 | External YVEX Golden | FAIL: generation 2 first-request preflight compatible, fresh product run stopped after 300 seconds with no response; Workflow NOT_REACHED | Only exact public observations; compatible preflight is not completed execution or Golden PASS |
 | Human Golden | PENDING_OPERATOR | Only a human may report acceptance at an exact YAI/external identity |
 | Continuity canary | NOT_RUN | Operator-owned retained Case across upgrades; never reset by automated qualification |
@@ -772,12 +784,12 @@ test proof/provider metadata; a roadmap row never reclassifies test evidence.
 | General multi-timescale state / universally Case-age-independent working set | False. Target plus falsifiable research pressure. |
 | General temporal-causal memory / historical-as-of reconstruction | False at general scope. The qualified generation/Transition reader covers a declared subset with current disclosure and explicit missingness; it does not qualify wall-clock/event-time queries, complete historical catalog validity or general W20/Workflow/Handoff reconstruction. |
 | General Recall completeness / all-owner or learned Recall / automatic Recall-aware W | False. M06 is PARTIAL: bounded Recall v1 resolves scoped exact/BM25/explicit-vector candidates into qualified segments. It does not certify arbitrary task sufficiency, general consolidation/Workflow/Handoff Recall, encoder semantic quality, constant-cost history access or automatic R → W. |
-| Generic company knowledge bootstrap / automatic organization-wide crawling | False. O08 is OPEN; bounded policy intake and resource discovery do not prove unified perimeter/inventory/acquisition. Setup authority is not ambient organizational permission. |
+| Generic company knowledge bootstrap / automatic organization-wide crawling | False. O08 is PARTIAL: bounded explicit `case sources` lifecycle exists, not generic organizational discovery/knowledge. Setup authority is an exact initial policy-file read, not ambient permission. |
 | Arbitrary document understanding / general OCR / general repository, wiki or database knowledge extraction | False. M07 is OPEN; existing exact policy grammar and bounded resource operations remain qualified at their own scope, not general source interpretation. |
 | Source-grounded organizational knowledge graph / editable source-linked wiki | False. Adopted rebuildable views, not present organizational knowledge coverage or a new canonical authority. |
 | Cross-Case organizational knowledge reuse | False. Authorized exact-revision/profile reuse is a target; current content ownership or deduplication does not establish cross-Case permission or shared memory. |
 | Knowledge-aware Recall over D/H/S | False. Future M06 candidate integration; published experience/semantic Recall remains PARTIAL at its actual scope. No automatic knowledge-to-W injection. |
-| Continuous source synchronization | False. Revision acquisition, derived knowledge refresh, deletion/revoke and resumable coverage require independent lifecycle evidence. |
+| Continuous source synchronization | False. Explicit revision refresh, source revoke and bounded resume are qualified in O08; no watcher/daemon or automatic derived-knowledge refresh is implemented. |
 | Learned knowledge navigation / SAE/GNN knowledge routing / model-native knowledge state | False. Research directions, not bootstrap prerequisites or implemented capabilities; learned proposals cannot decide truth, validity, source roles or authority. |
 | Learned memory navigation / SAE memory | False. Optional research under M/S/C/Q; semantic features are not model-native E, and learned links cannot decide truth, validity or disclosure. |
 | Prompt-independent W/E feedback reconciliation | False. Current on-demand compilation and finite runtime loops do not prove the six-loop target or selective removal from latent state. |
@@ -809,7 +821,7 @@ traceability, not substantive correctness; reviewers must inspect its scope.
 |---|---|
 | Bounded Projection / ContextFrame | General State Compiler |
 | Retrieval/index or repeated assertion | Semantic truth |
-| Bounded policy document intake and resource discovery | Unified Case source bootstrap, general organizational knowledge or permission to crawl |
+| Bounded unified source bootstrap and policy/resource intake | General organizational acquisition/knowledge, automatic policy interpretation or permission to crawl |
 | Acquired/indexed document or classifier-proposed policy role | Current Case fact or EffectivePolicy authority; normative promotion requires existing governance admission |
 | Shared immutable bytes, generated wiki or compatible embedding | Shared disclosure, exact original replacement or knowledge-aware Recall qualification |
 | Ordered ledger replay or W20 mechanical supersession | General as-of/temporal-validity reconstruction |
@@ -885,6 +897,7 @@ of the still-blocked external status, is bounded in the
 [index-hardening]: refoundation/foundation-recovery/hardening-19/HARDENING-19-REPORT.md
 [memory]: refoundation/foundation-recovery/wave-20/WAVE-20-REPORT.md
 [recall]: refoundation/validation/recall-trace-0/REPORT.md
+[source-bootstrap]: refoundation/validation/case-source-bootstrap/REPORT.md
 [i01]: refoundation/foundation-recovery/interlock-01/INTERLOCK-I01-REPORT.md
 [i02]: refoundation/foundation-recovery/interlock-02/INTERLOCK-I02-REPORT.md
 [i03]: refoundation/foundation-recovery/interlock-03/INTERLOCK-I03-REPORT.md

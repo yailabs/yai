@@ -1,0 +1,10 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.59s
+     Running unittests src/lib.rs (target/debug/deps/yai_core_engine-a57a7344f94e1c5f)
+
+running 2 tests
+source_identity same_material_same_revision=true distinct_logical_sources=true changed_revision=true previous_schema_forgery=refused restart=true replay=true cache_amnesia=true read_transitions=0
+test store::lmdb::tests::resource_access_tests::source_bootstrap_tests::source_revision_identity_schema_readers_restart_and_cache_amnesia ... ok
+source_admission outsider=refused unlinked_participant=refused sibling=refused bootstrap_reentry=refused forged_coverage=refused stale_progress=refused revoke_without_case_generation=refused
+test store::lmdb::tests::resource_access_tests::source_bootstrap_tests::source_declaration_scope_bootstrap_reentry_and_forged_coverage_refuse ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 352 filtered out; finished in 0.28s

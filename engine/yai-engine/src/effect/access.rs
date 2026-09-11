@@ -14,6 +14,8 @@ use std::path::Path;
 
 pub const LOCAL_ACCESS_BINDING_SCHEMA: &str = "yai.local_resource_access_binding.v1";
 
+pub mod source;
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LocalAccessBinding {
@@ -301,6 +303,48 @@ pub fn inspect_confined_tree(
     }
     let root = super::open_verified_filesystem_root(binding)?;
     let mut pending = vec![(prefix.to_string(), 0u8)];
+    // Exact file discovery uses the same confined carrier, without enumerating
+    // or reading siblings. Directory discovery retains its existing bounds.
+    let fd = super::open_beneath(
+        &root,
+        Path::new(prefix),
+        libc::O_RDONLY | libc::O_NONBLOCK | libc::O_CLOEXEC,
+        0,
+    )
+    .map_err(|e| format!("resource_tree_open_refused:{e}"))?;
+    if fd.metadata().map_err(|e| e.to_string())?.is_file() {
+        let bytes = read_confined_file(binding, prefix, max_bytes)?;
+        let digest = digest_bytes(&bytes);
+        let entries = if let Some(needle) = needle {
+            let text = std::str::from_utf8(&bytes).map_err(|_| "resource_search_nontext_file")?;
+            let matches: Vec<_> = text
+                .lines()
+                .enumerate()
+                .filter(|(_, line)| line.contains(needle))
+                .map(|(line, text)| serde_json::json!({"line":line+1,"text":text}))
+                .collect();
+            if matches.is_empty() {
+                vec![]
+            } else {
+                vec![serde_json::json!({"path":prefix,"digest":digest,"matches":matches})]
+            }
+        } else {
+            vec![
+                serde_json::json!({"path":prefix,"digest":digest,"bytes":bytes.len(),"admitted":false}),
+            ]
+        };
+        if serde_json::to_vec(&entries)
+            .map_err(|e| e.to_string())?
+            .len()
+            > max_bytes
+        {
+            return Err("resource_tree_result_bound_exceeded".into());
+        }
+        return Ok(
+            serde_json::json!({"posture":"observed_candidates_not_admitted","prefix":prefix,
+            "entries":entries,"bytes_read":bytes.len(),"entries_inspected":1}),
+        );
+    }
     let mut inspected = 0usize;
     let mut bytes_read = 0usize;
     let mut result = Vec::new();

@@ -1,0 +1,13 @@
+{
+  "schema": "yai.policy_source_input.v4",
+  "policy_key": "source-bootstrap-example",
+  "source_version": "1",
+  "owner_ref": "organization:sources",
+  "source_origin": {"source_system":"operator-example","source_uri":"example://company/security/v1"},
+  "validity": {"mode":"unbounded"},
+  "rules": [
+    {"kind":"operation_restriction","rule_id":"inventory","operation_kind":"discovery.enumerate","resource_kind":"discovery","effect":"allow","reason":"Declared confined source perimeter only"},
+    {"kind":"operation_restriction","rule_id":"admit","operation_kind":"content.admit","resource_kind":"discovery","effect":"allow","reason":"Exact digest-checked material only"},
+    {"kind":"operation_restriction","rule_id":"read","operation_kind":"content.read","resource_kind":"discovery","effect":"allow","reason":"Currently scoped immutable backing only"}
+  ]
+}

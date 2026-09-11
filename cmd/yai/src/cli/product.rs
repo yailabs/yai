@@ -64,6 +64,19 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
             .map(|value| CliData::NativeJson { value })
             .map_err(|error| domain_error(classify_domain_code(&error), error))
         }
+        operation if operation.starts_with("yai.case.sources.") => {
+            let value = crate::command_adapters::source_application_command(
+                operation,
+                &invocation.legacy_args(),
+            )
+            .map_err(|error| domain_error(classify_domain_code(&error), error))?;
+            if invocation.json {
+                Ok(CliData::NativeJson { value })
+            } else {
+                crate::command_adapters::render_source_inventory(&value);
+                Ok(CliData::AlreadyRendered)
+            }
+        }
         "yai.case.show" if invocation.compatibility_syntax && !invocation.json => {
             crate::command_adapters::dispatch_operation("yai.case.show", &invocation.legacy_args())
                 .map_err(|error| domain_error(classify_domain_code(&error), error))?;

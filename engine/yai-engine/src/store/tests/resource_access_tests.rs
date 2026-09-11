@@ -11,6 +11,9 @@ const RESOURCE: &str = "resource:workspace";
 #[path = "historical_tests.rs"]
 mod historical_tests;
 
+#[path = "source_bootstrap_tests.rs"]
+mod source_bootstrap_tests;
+
 #[test]
 fn cognitive_authority_same_materializer_scoped_mandatory_revocation_rebuild() {
     use crate::semantic_state::{

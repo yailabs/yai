@@ -51,7 +51,8 @@ pub const TRANSITION_SCHEMA_V14: &str = "yai.transition.v14";
 pub const TRANSITION_SCHEMA_V15: &str = "yai.transition.v15";
 pub const TRANSITION_SCHEMA_V16: &str = "yai.transition.v16";
 pub const TRANSITION_SCHEMA_V17: &str = "yai.transition.v17";
-pub const TRANSITION_SCHEMA: &str = "yai.transition.v18";
+pub const TRANSITION_SCHEMA_V18: &str = "yai.transition.v18";
+pub const TRANSITION_SCHEMA: &str = "yai.transition.v19";
 pub const CASE_STATE_SCHEMA_V1: &str = "yai.case_state.v1";
 pub const CASE_STATE_SCHEMA_V2: &str = "yai.case_state.v2";
 pub const CASE_STATE_SCHEMA_V3: &str = "yai.case_state.v3";
@@ -66,7 +67,8 @@ pub const CASE_STATE_SCHEMA_V11: &str = "yai.case_state.v11";
 pub const CASE_STATE_SCHEMA_V12: &str = "yai.case_state.v12";
 pub const CASE_STATE_SCHEMA_V13: &str = "yai.case_state.v13";
 pub const CASE_STATE_SCHEMA_V14: &str = "yai.case_state.v14";
-pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v15";
+pub const CASE_STATE_SCHEMA_V15: &str = "yai.case_state.v15";
+pub const CASE_STATE_SCHEMA: &str = "yai.case_state.v16";
 pub const REVIEW_REQUEST_SCHEMA: &str = "yai.review_request.v2";
 pub const REVIEW_REQUEST_SCHEMA_V1: &str = "yai.review_request.v1";
 pub const REVIEW_ACTION_SCHEMA: &str = "yai.review_action.v2";
@@ -322,6 +324,12 @@ pub enum TransitionPayload {
     ResourceAttached {
         attachment: ResourceAttachmentState,
     },
+    CaseSourceDeclared {
+        declaration: crate::effect::access::source::CaseSourceDeclaration,
+    },
+    CaseSourceProgressed {
+        progress: crate::effect::access::source::SourceProgress,
+    },
     ResourceObservationRecorded {
         observation: crate::effect::access::ResourceObservation,
     },
@@ -498,6 +506,8 @@ impl TransitionPayload {
             }
             Self::ModelInterpretationRecorded { .. } => "model_interpretation_recorded",
             Self::ResourceAttached { .. } => "resource_attached",
+            Self::CaseSourceDeclared { .. } => "case_source_declared",
+            Self::CaseSourceProgressed { .. } => "case_source_progressed",
             Self::ResourceObservationRecorded { .. } => "resource_observation_recorded",
             Self::CaseContentAdmitted { .. } => "case_content_admitted",
             Self::OperationNormalizationFailed { .. } => "operation_normalization_failed",
@@ -899,6 +909,8 @@ pub struct CaseState {
     #[serde(default)]
     pub resources: Vec<ResourceAttachmentState>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<crate::effect::access::source::CaseSourceState>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub admitted_content: Vec<crate::effect::access::CaseContentAdmission>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_normalization_failure: Option<NormalizationFailureState>,
@@ -1240,6 +1252,7 @@ impl CaseState {
             handoff_results: Vec::new(),
             handoff_reconciliations: Vec::new(),
             resources: Vec::new(),
+            sources: Vec::new(),
             admitted_content: Vec::new(),
             last_normalization_failure: None,
             last_operation: None,
@@ -1282,6 +1295,24 @@ impl CaseState {
             return Err("case_cancelled_write_barrier".to_string());
         }
         match &transition.payload {
+            TransitionPayload::CaseSourceDeclared { declaration } => {
+                if declaration.case_id != self.case_id
+                    || !self
+                        .resources
+                        .iter()
+                        .any(|r| r.attachment_id == declaration.resource_attachment_id)
+                    || !self.principal_participant_links.iter().any(|l| {
+                        l.participant_id == declaration.participant_id
+                            && l.principal_id == declaration.declared_by_principal_id
+                    })
+                {
+                    return Err("case_source_scope_invalid".into());
+                }
+                crate::effect::access::source::reduce_declaration(&mut next.sources, declaration)?;
+            }
+            TransitionPayload::CaseSourceProgressed { progress } => {
+                crate::effect::access::source::reduce_progress(&mut next.sources, progress)?;
+            }
             TransitionPayload::CaseOpened { lifecycle } => {
                 if transition.sequence != 1 {
                     return Err("case_opened_must_be_first_transition".to_string());
@@ -2870,7 +2901,23 @@ impl CaseState {
     pub fn from_json(value: &str) -> Result<Self, String> {
         let mut state: Self = serde_json::from_str(value)
             .map_err(|error| format!("case_state_decode_failed: {error}"))?;
+        if state.schema != CASE_STATE_SCHEMA && !state.sources.is_empty() {
+            return Err("case_sources_require_case_state_v16".into());
+        }
+        if state.sources.len() > crate::effect::access::source::MAX_CASE_SOURCES
+            || state.sources.windows(2).any(|pair| pair[0].declaration.logical_name >= pair[1].declaration.logical_name) {
+            return Err("case_source_materialization_order_or_bound_invalid".into());
+        }
+        for source in &state.sources {
+            source.declaration.validate()?;
+            if source.declaration.case_id != state.case_id { return Err("case_source_materialization_scope_mismatch".into()); }
+            if let Some(progress) = &source.progress {
+                progress.validate()?;
+                if progress.source_id != source.declaration.source_id { return Err("case_source_materialization_progress_mismatch".into()); }
+            }
+        }
         if state.schema != CASE_STATE_SCHEMA
+            && state.schema != CASE_STATE_SCHEMA_V15
             && (!state.admitted_content.is_empty()
                 || state
                     .resources
@@ -2893,6 +2940,7 @@ impl CaseState {
             || state.schema == CASE_STATE_SCHEMA_V12
             || state.schema == CASE_STATE_SCHEMA_V13
             || state.schema == CASE_STATE_SCHEMA_V14
+            || state.schema == CASE_STATE_SCHEMA_V15
         {
             state.schema = CASE_STATE_SCHEMA.to_string();
         } else if state.schema != CASE_STATE_SCHEMA {
@@ -2905,6 +2953,16 @@ impl CaseState {
 impl Transition {
     pub fn validate(&self) -> Result<(), String> {
         if self.schema != TRANSITION_SCHEMA
+            && matches!(
+                &self.payload,
+                TransitionPayload::CaseSourceDeclared { .. }
+                    | TransitionPayload::CaseSourceProgressed { .. }
+            )
+        {
+            return Err("case_source_requires_yai_transition_v19".into());
+        }
+        if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V18
             && self.schema != TRANSITION_SCHEMA_V17
             && self.schema != TRANSITION_SCHEMA_V16
             && self.schema != TRANSITION_SCHEMA_V15
@@ -2926,6 +2984,7 @@ impl Transition {
             return Err(format!("unsupported_transition_schema: {}", self.schema));
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V18
             && self.schema != TRANSITION_SCHEMA_V17
             && self.schema != TRANSITION_SCHEMA_V16
             && matches!(&self.payload,
@@ -2955,6 +3014,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V18
                 | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
@@ -2973,6 +3033,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V18
                 | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
@@ -2989,6 +3050,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V18
                 | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
@@ -3005,6 +3067,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V18
                 | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
@@ -3020,6 +3083,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V18
                 | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
@@ -3034,6 +3098,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V18
                 | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
@@ -3045,6 +3110,7 @@ impl Transition {
             return Err("wave18_contract_requires_yai_transition_v12".to_string());
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V18
             && self.schema != TRANSITION_SCHEMA_V17
             && self.schema != TRANSITION_SCHEMA_V16
             && self.schema != TRANSITION_SCHEMA_V14
@@ -3057,6 +3123,7 @@ impl Transition {
         if !matches!(
             self.schema.as_str(),
             TRANSITION_SCHEMA
+                | TRANSITION_SCHEMA_V18
                 | TRANSITION_SCHEMA_V17
                 | TRANSITION_SCHEMA_V16
                 | TRANSITION_SCHEMA_V15
@@ -3066,6 +3133,7 @@ impl Transition {
             return Err("interlock_i02_contract_requires_yai_transition_v14".to_string());
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V18
             && self.schema != TRANSITION_SCHEMA_V17
             && self.schema != TRANSITION_SCHEMA_V16
             && self.schema != TRANSITION_SCHEMA_V15
@@ -3074,6 +3142,7 @@ impl Transition {
             return Err("interlock_i03_contract_requires_yai_transition_v15".to_string());
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V18
             && self.schema != TRANSITION_SCHEMA_V17
             && matches!(
                 self.payload,
@@ -3083,12 +3152,14 @@ impl Transition {
             return Err("conversation_execution_intent_requires_yai_transition_v17".to_string());
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V18
             && matches!(&self.payload, TransitionPayload::ConversationExecutionIntentRecorded { request }
                 if matches!(request.schema.as_str(), crate::conversation::DELEGATED_COMPOSITION_REQUEST_SCHEMA | crate::conversation::CASE_WORK_INTENT_SCHEMA))
         {
             return Err("delegated_conversation_intent_requires_yai_transition_v18".into());
         }
         if self.schema != TRANSITION_SCHEMA
+            && self.schema != TRANSITION_SCHEMA_V18
             && (matches!(
                 &self.payload,
                 TransitionPayload::ResourceObservationRecorded { .. }
@@ -3108,6 +3179,11 @@ impl Transition {
         require_value("transition_id", &self.transition_id)?;
         require_value("case_id", &self.case_id)?;
         require_value("source.component", &self.source.component)?;
+        match &self.payload {
+            TransitionPayload::CaseSourceDeclared { declaration } => declaration.validate()?,
+            TransitionPayload::CaseSourceProgressed { progress } => progress.validate()?,
+            _ => {}
+        }
         if self.sequence == 0 {
             return Err("transition_sequence_must_be_positive".to_string());
         }
@@ -3124,6 +3200,18 @@ impl Transition {
                 if self.sequence != 1 {
                     return Err("case_opened_must_be_first_transition".to_string());
                 }
+            }
+            TransitionPayload::CaseSourceDeclared { declaration } => {
+                declaration.validate()?;
+                if declaration.case_id != self.case_id
+                    || self.source.principal_id.as_deref()
+                        != Some(&declaration.declared_by_principal_id)
+                {
+                    return Err("case_source_transition_scope_mismatch".into());
+                }
+            }
+            TransitionPayload::CaseSourceProgressed { progress } => {
+                progress.validate()?;
             }
             TransitionPayload::TenantCaseOpened {
                 tenant_id,
@@ -4357,6 +4445,7 @@ fn supports_wave7_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V18
             | TRANSITION_SCHEMA_V17
             | TRANSITION_SCHEMA_V16
             | TRANSITION_SCHEMA_V15
@@ -4378,6 +4467,7 @@ fn supports_wave9_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V18
             | TRANSITION_SCHEMA_V17
             | TRANSITION_SCHEMA_V16
             | TRANSITION_SCHEMA_V15
@@ -4398,6 +4488,7 @@ fn supports_wave10_contract(schema: &str) -> bool {
     matches!(
         schema,
         TRANSITION_SCHEMA
+            | TRANSITION_SCHEMA_V18
             | TRANSITION_SCHEMA_V17
             | TRANSITION_SCHEMA_V16
             | TRANSITION_SCHEMA_V15
