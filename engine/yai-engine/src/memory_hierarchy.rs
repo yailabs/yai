@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+pub mod recall;
+
 pub const MEMORY_EPISODE_SCHEMA: &str = "yai.memory_episode.v1";
 pub const EPISODE_DERIVATION_VERSION: &str = "yai.memory_episode.derivation.v1";
 pub const EPISODE_BOUNDARY_POLICY: &str = "yai.memory_episode.boundary.structural_refs.v1";

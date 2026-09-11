@@ -132,7 +132,7 @@ SemanticStateFrame/Delta describe W_t representation/changes, not latent layouts
 **IMPLEMENTED FACT:** the bounded source implementation composes qualified
 SemanticState and compiles SemanticWorkingState before Projection/ContextFrame
 lowering. This is not a claim
-of general temporal/as-of reconstruction, a Recall Compiler, universal task
+of general temporal/as-of reconstruction, universal task
 sufficiency, semantic paging or a public E_t consumer. The existing Rust
 `SemanticState` wraps history and current materialization for qualification;
 the H/S target distinction does not rename/split that contract retroactively. See
@@ -155,6 +155,17 @@ an M03 foothold; it does not select a task-conditioned trajectory or close M06.
 Missing backing suppresses qualification, and hidden intermediate paths do not
 become explanations. General contradiction/causal discovery and broad
 Workflow/Handoff experience reconstruction remain targets, not new claims.
+
+The first [Recall implementation](architecture.md#query-conditioned-recall) now
+composes exact anchors, deterministic lexical or explicitly supplied qualified
+vector candidates, historical cuts, typed experience relations and mechanical
+W20 assertions into a bounded query-conditioned trace. It can retain several
+discontinuous segments, superseded historical material and contradictory claims
+without making selection a causal relation. Source loss is explicit; current
+disclosure governs both discovery and resolution. This bounded M06 foothold is
+not a general memory navigator or task-sufficiency guarantee. Recall remains an
+independent inspection contract: **S + relevant R → W is not implemented by it**.
+H stays a conceptual view over existing owners; no RecallStore or extra ledger.
 
 ### Independent computational and semantic evolution
 

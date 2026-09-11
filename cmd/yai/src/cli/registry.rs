@@ -1442,6 +1442,24 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         &[flag("--limit", Some("COUNT"), false)]
     ),
     op!(
+        "yai.case.recall",
+        ["case", "recall"],
+        "Reconstruct bounded query-conditioned experience under current disclosure",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case")), pos("query", None)],
+        &[
+            flag("--participant", Some("PARTICIPANT"), false),
+            flag("--at", Some("GENERATION_OR_TRANSITION"), false),
+            flag("--ref", Some("EXACT_REF"), false),
+            flag("--limit", Some("EVENTS"), false),
+            flag("--candidates", Some("COUNT"), false),
+            flag("--hops", Some("COUNT"), false)
+        ]
+    ),
+    op!(
         "yai.case.experience",
         ["case", "experience"],
         "Inspect qualified experience relations or an exact bounded path under current disclosure",

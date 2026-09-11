@@ -6,6 +6,9 @@ use crate::semantic_state::historical::{
 #[path = "experience_tests.rs"]
 mod experience_tests;
 
+#[path = "recall_tests.rs"]
+mod recall_tests;
+
 fn request(generation: u64) -> HistoricalRequest {
     let mut r = HistoricalRequest::inspection(HistoricalCoordinate::Generation(generation), HUMAN);
     r.consumer = "model".into();
@@ -800,6 +803,10 @@ fn historical_immutable_content_missingness_never_substitutes_live_resource() {
         .store
         .historical_semantic_view_authorized(&world.owner, CASE, r.clone(), Some(&content))
         .unwrap();
+    let mut recall_request=crate::memory_hierarchy::recall::RecallRequest::new(CASE,state.generation,HUMAN,"exact admitted content");
+    recall_request.required_refs=vec![state.admitted_content[0].object.object_id.clone()];
+    let recall_before=world.store.recall_trace_authorized(&world.owner,recall_request.clone(),Some(&content)).unwrap().trace;
+    assert!(recall_before.closure_complete);
     assert_eq!(before.content_backing.len(), 1);
     assert_eq!(
         before.content_backing[0].posture,
@@ -836,6 +843,10 @@ fn historical_immutable_content_missingness_never_substitutes_live_resource() {
         .store
         .historical_semantic_view_authorized(&world.owner, CASE, r, Some(&content))
         .unwrap();
+    let recall_missing=world.store.recall_trace_authorized(&world.owner,recall_request,Some(&content)).unwrap().trace;
+    assert!(!recall_missing.closure_complete);
+    assert_ne!(recall_missing.trace_id,recall_before.trace_id);
+    assert!(recall_missing.source_closure.iter().any(|s|s.posture=="original_unavailable_or_integrity_failed"));
     assert_eq!(
         missing.content_backing[0].posture,
         "original_unavailable_or_integrity_failed"

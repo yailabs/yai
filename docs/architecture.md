@@ -1028,6 +1028,93 @@ model-token limits. Each read rebuilds from sources; no provider or persisted
 compilation cache is required. See the
 [temporal experience evidence](../refoundation/validation/temporal-causal-experience-0/REPORT.md).
 
+## Query-conditioned Recall
+
+`yai case recall CASE QUERY` returns `yai.recall_trace.v1`, derived in
+[`memory_hierarchy::recall`](../engine/yai-engine/src/memory_hierarchy/recall.rs).
+It is independently inspectable, not automatically inserted into W or provider
+input. Current semantic working-state compilation and the runtime are unchanged.
+The public store method reuses the historical reader's single qualified snapshot
+and its original canonical history; no second replay engine, Recall database or
+persisted compilation cache is introduced.
+
+`RecallRequest v1` binds Case, expected current generation, current linked
+Participant, query, exact generation/Transition cut, required references and
+candidate/event/relation/segment/depth/unit/byte bounds. Product defaults to the
+current cut. Equivalent exact coordinates normalize to one generation; query
+normalization reuses W19's deterministic query document, with oversized input
+refused before normalization rather than silently truncated. Scope is the existing
+Principal-linked operator-inspection contract, not new audit/model authority.
+
+Candidate discovery and semantic resolution are different stages:
+
+1. The historical reader qualifies current disclosure and exact sources before
+   any public rank, candidate count, reference or explanation is produced.
+2. Exact event/object/resource refs and wholly disclosed W20 Episode IDs resolve
+   directly. Unknown and hidden required anchors share one refusal. An anchor
+   whose recorded object exists but original backing is unavailable remains an
+   explicitly incomplete trace, never substitution by a fuzzy match.
+3. Existing BM25 indexes freshly derived typed event labels and mechanical W20
+   assertion documents. No stored index text is trusted. An optional engine
+   `RecallVectorInput` consumes pre-encoded same-profile query/vector evidence;
+   each visible embedding is checked against its newly rebuilt v2 assertion.
+   Unknown/hidden documents contribute nothing, including corpus counts or hashes.
+   Malformed visible vectors, profile/query drift or source-integrity drift refuse.
+   The CLI baseline is exact/lexical: no implicit encoder, LLM or vector fallback.
+4. Required sources are selected first. Each optional candidate and its necessary
+   support/conflict context is an atomic group; event-budget overflow omits that
+   group without evicting required anchors. Mandatory context overflow refuses.
+   Current-at-cut policy lineage, W20 mechanical supersession and unresolved
+   contradiction cannot disappear because of a rank or expansion cutoff.
+5. Qualified graph relations expand the selected evidence. Recording proximity
+   is not an expansion rule. Support is followed towards backing, without
+   fanning out from a common policy ancestor to every unrelated operation.
+   Each candidate group starts from its own discovery seeds; repeated candidates
+   do not reset the depth of already expanded nodes. Source closure/conflict
+   resolution runs again after expansion and closed groups merge under the bound.
+6. Output is organized in recording order, with scoped typed Episode slices and
+   independent segments. Selection association is not a new graph edge; a trace
+   may be disconnected. Relations retain their existing kind/posture/backing.
+
+The trace carries event/object identities, recording/observation coordinates,
+labels, inclusion reasons, exact W20 assertion values/classes/lifecycles,
+contradiction sets, typed relations, source availability and budget omissions.
+Missing occurrence time stays missing. A late observation never enters an older
+cut. Policy replacement labels the earlier binding historical without changing
+its recorded DecisionBasis; a bound-at-cut policy is explicitly not permission
+for current execution. W20's single-current mechanical resource digest can
+supersede an older digest; conflicting provider claims remain claims and do not
+resolve by recency or majority. No general model narrative is generated.
+
+Request/trace SHA-256 identities bind version, normalized request, current scoped
+disclosure, qualified disclosed source material, selected semantics, availability,
+bounds and optional vector evidence. Private whole-history hashes and hidden
+vector IDs are excluded. Timing measurements are outside semantic identity.
+Re-running the same request reconstructs the same trace after restart or loss of
+graph/memory/Episode/index derivations. A new current generation, changed own
+scope, backing loss, query/budget/version change reidentifies or refuses it.
+
+Default output limits are 16 candidates, 64 events, 128 relations, 16 segments,
+4 expansion hops, 16,384 semantic units and 1 MiB. Maximum accepted request bounds
+are 256 candidates/events, 1,024 relations, 64 segments, 16 hops, 262,144 units and
+1 MiB. Units are serialized characters divided by four (rounded up), **not model
+tokens**. The separate historical preparation profile remains 4,096 items/16 MiB;
+excess source/output complexity refuses. Bytes/units/relations/segment limits are
+final all-or-refuse checks, not permission to trim mandatory context.
+
+The initial profile composes the historical/experience families and mechanical
+W20 assertions. It does not qualify arbitrary natural-language task understanding,
+general consolidation-derived inference, complete Workflow/Handoff Recall,
+universal source coverage, wall-clock as-of, learned navigation or Recall-aware W.
+Lexical hits are discoverability, not a completeness guarantee. Pre-encoded vector
+fixtures prove mechanics, not real encoder suitability or memory usefulness.
+The 81/20,081-Transition oracle selects 8 events in 5 segments, with 64 visible
+distractors; the extra 20,000 records are unrelated control history, not 20,000
+visible semantic objects. Host reconstruction remains history-dependent.
+See [Recall evidence](../refoundation/validation/recall-trace-0/REPORT.md).
+Transition v18 / CaseState v15 and all S/W/Projection/ContextFrame schemas,
+semantic/operational owners and LMDB **37/40** are unchanged.
+
 ## Current agentless Case runtime
 
 The scoped [experience inspection](#qualified-experience-relations) above is an

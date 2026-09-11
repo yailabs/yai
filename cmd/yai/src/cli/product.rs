@@ -26,7 +26,7 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.participant.list" => participant_list(invocation),
         "yai.case.resource.list" => resource_list(invocation),
         "yai.case.history" | "yai.case.verify" => canonical_case_inspection(invocation),
-        "yai.case.as_of" | "yai.case.experience" => historical_case_inspection(invocation),
+        "yai.case.as_of" | "yai.case.experience" | "yai.case.recall" => historical_case_inspection(invocation),
         "yai.case.open" | "yai.case.workbench" => {
             if invocation.json {
                 return Err(CliError::usage("interactive workbench has no JSON stream; use the structured Case inspection commands"));
@@ -543,15 +543,18 @@ fn historical_case_inspection(invocation: &Invocation) -> Result<CliData, CliErr
             linked[0].participant_id.clone()
         }
     };
+    let recall = invocation.descriptor.operation_id == "yai.case.recall";
     let at = invocation
         .positionals
         .get("coordinate")
+        .map(String::as_str)
+        .or_else(|| if recall { Some(invocation.flag("--at").unwrap_or("current")) } else { None })
         .ok_or_else(|| CliError::usage("use: yai case as-of CASE GENERATION_OR_TRANSITION"))?;
     let experience = invocation.descriptor.operation_id == "yai.case.experience";
-    let coordinate = if experience && at == "current" {
+    let coordinate = if (experience || recall) && at == "current" {
         HistoricalCoordinate::Generation(case.generation)
     } else if at.starts_with("transition:") {
-        HistoricalCoordinate::Transition(at.clone())
+        HistoricalCoordinate::Transition(at.to_string())
     } else {
         HistoricalCoordinate::Generation(at.parse().map_err(|_| CliError::usage("coordinate must be an exact generation or Transition ID; wall-clock queries are unsupported"))?)
     };
@@ -563,6 +566,41 @@ fn historical_case_inspection(invocation: &Invocation) -> Result<CliData, CliErr
     }
     let content =
         yai_core_engine::conversation::ConversationContentStore::open_existing(&yai_home()).ok();
+    if recall {
+        use yai_core_engine::memory_hierarchy::recall::RecallRequest;
+        let mut recall_request = RecallRequest::new(&case.case_id, case.generation,
+            &request.participant_id, invocation.positionals.get("query").ok_or_else(|| CliError::usage("use: yai case recall CASE QUERY"))?);
+        recall_request.at = request.coordinate;
+        if let Some(reference) = invocation.flag("--ref") { recall_request.required_refs.push(reference.into()); }
+        if invocation.flag("--limit").is_some() { recall_request.bounds.events = request.max_items; }
+        if let Some(value) = invocation.flag("--candidates") { recall_request.bounds.candidates = value.parse().map_err(|_| CliError::usage("--candidates must be an integer"))?; }
+        if let Some(value) = invocation.flag("--hops") { recall_request.bounds.expansion_depth = value.parse().map_err(|_| CliError::usage("--hops must be an integer"))?; }
+        let result = open_store()?.recall_trace_authorized(&authenticated, recall_request, content.as_ref())
+            .map_err(|e| domain_error("recall_unavailable", e))?;
+        if invocation.json {
+            return Ok(CliData::NativeJson { value: serde_json::to_value(result).map_err(|e| domain_error("recall_encoding", e.to_string()))? });
+        }
+        let t = &result.trace;
+        println!("CASE RECALL {} @{}", t.request.case_id, t.generation);
+        println!("Trace: {}", t.trace_id);
+        println!("Query: {} | Participant: {}", t.request.query, t.request.participant_id);
+        println!("Derived experience, not authority or automatic model context. Source closure: {}", if t.closure_complete { "complete" } else { "INCOMPLETE" });
+        for s in &t.segments {
+            println!("SEGMENT {} ({})", s.segment_id, s.grouping);
+            for id in &s.events {
+                if let Some(e) = t.events.iter().find(|e| &e.event.transition_id == id) {
+                    println!("  @{} {} — {}", e.event.recorded_generation, id, e.label);
+                    println!("    {:?}; {}; selected: {:?}", e.event.posture, e.validity_at_cut, e.reasons);
+                }
+            }
+        }
+        for a in &t.assertions { println!("ASSERTION {} {:?} {} = {:?}; {:?}/{:?}; backing: {}", a.assertion.assertion_id, a.assertion.subject, a.assertion.predicate, a.assertion.value, a.assertion.epistemic_class, a.assertion.lifecycle, a.source_events.join(", ")); }
+        for r in &t.relations { println!("RELATION {} --{:?}/{:?}--> {}", r.from_event, r.kind, r.posture, r.to_event); }
+        for s in &t.source_closure { println!("SOURCE {}: {}", s.source_ref, s.posture); }
+        println!("Omitted candidate groups: {}; expansion depth limited: {}; semantic units: {}; bytes: {}", t.omitted_candidates, t.expansion_stopped_at_depth, result.measurements.semantic_units, result.measurements.output_bytes);
+        println!("Recording order is not causality; a recalled claim is not an admitted fact.");
+        return Ok(CliData::AlreadyRendered);
+    }
     if experience {
         let mut query = yai_core_engine::graph::experience::ExperienceQuery::default();
         query.from = invocation.flag("--from").map(str::to_string);

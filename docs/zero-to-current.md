@@ -28,13 +28,14 @@ Workflow. A text-only public endpoint is insufficient. Record that limitation;
 do not substitute a fake model or use a private protocol.
 
 Qualification of small synthetic inputs is not qualification of a complete
-Case context. The 2026-09-08 [public-provider hardening evidence](../refoundation/validation/provider-connect-hardening/REPORT.md)
-records successful native function/result qualification, but a real cognitive
-SEND refused with HTTP 413 `request_too_large`. A separate bounded input returned
-`token output capacity exceeded` even with `max_tokens=1`. That deployment does
-not yet qualify this lifecycle. Resolve its public input-capacity contract with
-the provider operator; do not discard governed Case context to hide the refusal.
-An indeterminate submitted Turn must not be blindly retried after reconnection.
+Case context. Consult the [live qualification posture](../ROADMAP.md#product--research-qualification-path)
+before a human run. The earlier [HTTP 413 evidence](../refoundation/validation/provider-connect-hardening/REPORT.md)
+remains historical; it must not be mistaken for the current producer contract.
+Exact request-capacity admission and completed model execution are separate
+checks. Do not discard governed Case context to hide a refusal, infer token
+capacity from HTTP bytes, or blindly retry an indeterminate submitted Turn after
+reconnection. This runbook does not certify a deployment or a completed External
+Golden merely because connection/preflight succeeds.
 
 In Terminal A, start the **reference resources**, not a model fixture:
 
@@ -455,6 +456,24 @@ not silently drop evidence. Recording precedence enters path search only with
 mean undisclosed/unsupported evidence. This optional read appends no Transition,
 makes no model call and neither changes the Golden lifecycle nor supplies a
 human acceptance verdict.
+
+Query-conditioned Recall is a separate optional inspection, also without a model:
+
+```sh
+./yai case recall case:golden:free policy
+./yai case recall case:golden:free policy --at 1 --json
+```
+
+Use a relevant keyword/path instead of `policy`, or `--ref` with an exact visible
+event/object/Episode ID from inspection. `--at` accepts exact generation or
+Transition; current disclosure still applies. `--limit`, `--candidates` and
+`--hops` bound this inspection. Review segments, selection reasons, relations,
+historical/current-at-cut posture and source closure separately. Empty or
+incomplete Recall is not proof that no experience exists. Unknown/hidden required
+refs refuse equally; known missing backing is explicit, not replaced with a
+similar result. Reads append no Transition and never inject Recall into W.
+The Golden interaction/effect/Workflow lifecycle above is unchanged; this optional
+step adds no provider request and cannot supply Human Golden acceptance.
 
 One-shot `./yai case show CASE --json`, provider/resource/history and memory-index
 commands remain available for administration/forensics; they are not the primary

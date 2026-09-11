@@ -11,16 +11,16 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent semantic continuity over current Case state and qualified historical experience, with bounded Recall/working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **TEMPORAL.CAUSAL.EXPERIENCE.0 — COMPLETE** at its bounded no-provider scope: exact-source temporal/structural/support/consequence relations, scoped inspection and path negatives, restart/rebuild and Golden local ([evidence](refoundation/validation/temporal-causal-experience-0/REPORT.md)). No successor, Recall or external provider retry is selected. |
+| Selected engineering boundary | **RECALL.TRACE.0 — COMPLETE**, bounded scope: query-conditioned reconstruction with exact source/disclosure qualification, independent product inspection and deterministic/Golden-local proof. No automatic Recall-aware W or provider execution; next implementation boundary UNSELECTED. |
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
-| Most important structural gap | Bounded replay-qualified S → W and generation/Transition as-of reconstruction exist; general event/validity-time reconstruction, temporal-causal Recall, prompt-independent refresh, universal task sufficiency and a public W → E consumer do not. |
+| Most important structural gap | Bounded S → W, exact as-of reconstruction and independently inspectable Recall exist; Recall-aware W, general event/validity-time reconstruction, prompt-independent refresh, universal task sufficiency and a public W → E consumer do not. |
 | Executable foundation | Transition v18 / CaseState v15; immutable owned content; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
-| Primary research boundary | Qualified temporal-causal Recall, memory usefulness and bounded persistent deliberation; Experiential State Read/Update remain OPEN. These extend existing S/M/C/E/W/Q targets, not the selected implementation scope. |
+| Primary research boundary | Broader Recall coverage/usefulness, Recall-aware working state and bounded persistent deliberation; Experiential State Read/Update remain OPEN. These extend existing S/M/C/E/W/Q targets, not automatic implementation authorization. |
 | Current compatibility path | Governed exact OpenAI-compatible context/text, bounded typed content/functions/JSON when mechanically qualified; optional opaque continuation, not a native state contract. |
-| Target stateful path | Qualified H_t → task-conditioned Recall R_t^q; S_t + relevant Recall → W_t → public boundary → YVEX E_t. Current bounded S/W is a foothold, not implemented Recall, E or deliberation L. |
+| Target stateful path | Qualified H_t → task-conditioned Recall R_t^q; S_t + relevant Recall → W_t → public boundary → YVEX E_t. Bounded Recall and S/W exist independently; automatic R → W, E and deliberation L do not. |
 | Human Golden acceptance | **PENDING_OPERATOR**; automated PTY evidence cannot supply this verdict. Continuity canary **NOT_RUN**. |
-| YVEX external posture | **FAIL**. Generation 2 first-request capacity is compatible. Consumer received no response before its 300-second watchdog; operator-supplied producer logs locate the wait in prefill (918/12,055 tokens, zero generated), then cancellation/cleanup. Invocation without ProviderResult; no fallback/retry. [Exact evidence][external-closure]. |
-| Next decision point | Review broader temporal/source coverage and query-conditioned Recall pressure against the qualified relation substrate; the next implementation boundary remains UNSELECTED. Compact live-model qualification stays independent: no response within 300 s despite 4,448/16,384 compatible tokens, zero fallback/retry. No new live attempt is selected. |
+| YVEX external posture | **FAIL / incomplete** at the retained YAI consumer run: no ProviderResult before the 300-second watchdog despite capacity-compatible preflight; no fallback/retry. [Exact evidence][external-closure]. Producer runtime diagnosis/progression belongs to the [public YVEX roadmap](https://github.com/yailabs/yvex/blob/models2/ROADMAP.md), not a duplicated live runtime snapshot here. |
+| Next decision point | Evaluate broader Recall source coverage, measured reconstruction cost and a separately qualified Recall-aware W consumer before selecting further work. Compact live-model qualification stays independently NOT QUALIFIED; no new live attempt is selected. |
 
 **I01–I06 COMPLETE. I07 UNSELECTED.** Source refoundation, W19/H19/W20,
 TEST.TOPOLOGY.0, REPLAI R4/R5 and Golden/guided CLI remain completed evidence.
@@ -216,7 +216,7 @@ horizons. Temporal execution status is separate. Counts describe rows only,
 never percentage completion. Evidence promotion still requires human review.
 
 <!-- maturity-summary:start -->
-ESTABLISHED=32 PARTIAL=24 OPEN=11 LATER=4 TOTAL=71
+ESTABLISHED=32 PARTIAL=25 OPEN=10 LATER=4 TOTAL=71
 <!-- maturity-summary:end -->
 
 <!-- maturity:start -->
@@ -313,10 +313,10 @@ ESTABLISHED=32 PARTIAL=24 OPEN=11 LATER=4 TOTAL=71
 |---|---|---|---|
 | M01 | Provenance-bound operational/episodic/assertion derivation | 🟢 ESTABLISHED | [W20][memory], [Golden rebuild][golden]; derived failure cannot change canonical truth. |
 | M02 | Qualified hybrid indexing and selected-source revalidation | 🟢 ESTABLISHED | [W19][index], [H19][index-hardening]; bounded BM25/exact-cosine oracle, hidden state cannot alter visible ranking. |
-| M03 | Graph/temporal/causal access | 🟡 PARTIAL | [Qualified experience](refoundation/validation/temporal-causal-experience-0/REPORT.md): exact-source scoped recording, structural/support, lifecycle and outcome relations; bounded directed paths, cross-Episode origin, missing-source and hidden-path controls. Generic causal understanding, all-owner traversal and Recall remain open. |
+| M03 | Graph/temporal/causal access | 🟡 PARTIAL | [Qualified experience](refoundation/validation/temporal-causal-experience-0/REPORT.md): exact-source scoped recording, structural/support, lifecycle and outcome relations; bounded directed paths, cross-Episode origin, missing-source and hidden-path controls. [Recall][recall] consumes these relations without promoting association to causality; generic causal understanding and all-owner traversal remain open. |
 | M04 | Analytical extraction | 🟡 PARTIAL | Existing DuckDB extractors are derived; not all declared fact families have producers. |
 | M05 | Semantic access quality and scale | 🟡 PARTIAL | Qualified exact/lexical/vector selection exists; learned candidate/path/rank navigation, optional semantic sparse/SAE features and scale remain research. Deterministic source revalidation retains truth/scope/validity decisions. |
-| M06 | Bounded temporal-causal Recall Trace compilation | 🔴 OPEN | Query-conditioned discontinuous trajectory with scope, temporal/causal posture, validity/supersession and exact source closure or missingness; independently qualified beyond M03 traversal and M02 top-k retrieval. |
+| M06 | Bounded temporal-causal Recall Trace compilation | 🟡 PARTIAL | [Recall v1][recall]: exact/BM25 and optional explicit pre-encoded vector candidates; qualified discontinuous segments, policy lineage, mechanical W20 supersession/contradiction, current/as-of scope, source closure/missingness and rebuild identity. 81/20,081-Transition oracle selects 8 events/5 segments; host cost grows with history. General query sufficiency, all-owner Recall, learned navigation and R → W remain unqualified. |
 
 ### Product interfaces
 
@@ -372,14 +372,14 @@ Letters are local shorthand, not the numbering of historical W/I/R waves.
 | **R — Architecture Integrity & Refoundation**: preserve one honest owner per lifecycle | Source refoundation; Constitution; I01–I06 and Golden convergence | Duplicated/model-centric preparation assumptions; stale claims | Reconcile state selection and context rendering before adding representations | Remove a demonstrated duplicate while preserving its unique proof and consumer | No StateFabricStore, Agent runtime or module-per-noun redesign |
 | **K — Case Kernel & Canonical State**: durable identity, history and current truth | K01–K04; immutable payload/reference distinction; scoped prefix reader over existing replay | Portable upgrade coverage and general state relations | Preserve canonical history/identity as exact backing for H/S, without a new history owner | Typed relation with exact payload ownership, replay and recovery evidence | No blob ledger, ExperienceStore or universal attachment owner |
 | **A — Authority & Governance**: govern semantic and operational admission | A01–A05; Principal/Participant, policy, review, Grant, temporal authority | Broader disclosure and credential integrations; refresh/revocation consumers | Recall uses current disclosure, not historical permission; stale E/L must not evade revocation | Negative scope, revocation and current-generation proof before affected consumption | Neither model output, repeated Recall nor a catalog grants authority |
-| **S — Semantic Cognitive State**: preserve model-independent task and Case meaning | S01–S07/S10 foundations; bounded S12 historical/current policy and resource oracle | General as-of validity and owner coverage, semantic timescales and task/big-picture state | Retain superseded material as history without treating it as current; preserve relation epistemic class | Qualified historical/current oracle and owner-specific supersession across tasks | No mega-object; H is no ledger, E/L no semantic truth |
+| **S — Semantic Cognitive State**: preserve model-independent task and Case meaning | S01–S07/S10 foundations; bounded S12 historical/current policy and resource oracle; Recall preserves qualified historical/current and claim posture | General as-of validity and owner coverage, semantic timescales and task/big-picture state | Retain superseded material as history without treating it as current; preserve relation epistemic class | Qualified historical/current oracle and owner-specific supersession across tasks | No mega-object; H is no ledger, E/L no semantic truth |
 | **C — State Compilation & Cognitive Boundary**: compile governed semantic working state | Bounded S → W, derived delta/full fallback, context-compatible Projection/ContextFrame | S + relevant Recall → W, prompt-independent refresh, sufficiency/paging and public E contracts | Separate semantic sufficiency from target capacity; correctness-critical invalidation from enrichment | Full/ΔW equivalence and freshness with scoped source closure; later public E reconciliation | No latent writes, model adapters, physical layouts or YVEX placement |
 | **E — Cognitive Execution**: exact responsibility and provider-independent intent | I02–I06 planning, arbitration, realization, composition and host | Suitability/capacity/setup; authorized persistent deliberation and L lifecycle | Current external wait qualification first; future bounded assignment execution, not an uncontrolled LLM loop | Exact execution plus budget/deadline/cancel/result and compatible resume/amnesia evidence | No Agent continuity owner, model thinking mechanism or latent-state owner in YAI |
 | **O — Operational World**: governed observations, attachments and effects | Golden filesystem/process/SQLite/HTTP/MCP/discovery verticals | General adapter coverage and external ambiguity | Keep future model state requests within the existing capability/admission path | New concrete consumer plus DENY/review, drift, recovery and isolation proof | No ConnectorStore/ToolStore; a database Resource is not YAI memory |
 | **W — Workflow & Composition**: explicit progression and bounded delegation | Workflow amendments/PlanPatch, I04 composition and exact Handoff | Persistent assignment composition, broader delegation and optional Agents | Reuse task/Workflow authority for future deliberation; resource verification keeps ordinary effects | Replayable assignment/progression, explicit adoption and cancellation through existing owners | No ThinkingJobStore; Workflow/Agent is not Case memory or private execution |
-| **M — Derived State & Semantic Access**: rebuildable experience and qualified Recall | W19/H19/W20; scoped historical sources and qualified typed experience relations/paths; canonical reconstruction for W | Temporal-causal Recall Trace, broader owner/relation coverage, learned navigation, quality/scale | Exact-source and hidden-path controls before fuzzy access; measured full-history reconstruction remains a cost | Discontinuous scoped Recall with exact closure and rebuild invariance beyond exact traversal/top-k | No RecallStore/MemoryStore; learned associations never decide truth or authority |
-| **X — Product Interfaces**: thin, usable views over Case semantics | Guided CLI, native REPLAI, application controller, cumulative runbook | Broader API clients, setup ergonomics; Studio later | Keep short product actions and model/system output distinct | Product acceptance through typed seams, without shelling out or moving semantics into UI | REPLAI owns terminal mechanics only; no ChatStore |
-| **Q — Qualification**: independent evidence for each claimed property | TEST.TOPOLOGY.0, deterministic Golden and bounded historical/current, late-evidence and source-loss controls | External/human/canary; Recall, feedback freshness, state and deliberation evaluation | Retain failures; qualify usefulness with no/wrong-memory, State Read ablation and equal-compute controls | Temporal/causal/source correctness, refresh latency, task outcomes and scoped recovery/provider evidence | No dataset owner, fabricated benchmark thresholds or PASS cache authority |
+| **M — Derived State & Semantic Access**: rebuildable experience and qualified Recall | W19/H19/W20; scoped historical sources/typed relations; bounded query-conditioned Recall v1 with independent CLI and cache-drop identity | Broader Recall owner/relation coverage, query sufficiency, learned navigation, quality/scale | Reuse exact-source/disclosure resolver after candidate discovery; measured full-history reconstruction remains a cost | New source/query consumer with discontinuous, wrong-memory, missing-source and rebuild controls beyond current oracles | No RecallStore/MemoryStore; learned associations never decide truth or authority |
+| **X — Product Interfaces**: thin, usable views over Case semantics | Guided CLI, native REPLAI, application controller, cumulative runbook | Broader API clients, setup ergonomics; Studio later | Keep short product actions and model/system output distinct; [retained intermittent setup Ctrl-C finding][recall] needs independent cancellation/readiness qualification | Product acceptance through typed seams, without shelling out or moving semantics into UI | REPLAI owns terminal mechanics only; no ChatStore |
+| **Q — Qualification**: independent evidence for each claimed property | TEST.TOPOLOGY.0, deterministic Golden; historical/current and discontinuous Recall, wrong-memory, late-evidence, source-loss and 20k-history controls | External/human/canary; broad Recall usefulness, feedback freshness, state and deliberation evaluation | Retain failures; distinguish bounded resolution correctness from memory benefit, State Read ablation and equal-compute controls | Temporal/causal/source correctness, refresh latency, task outcomes and scoped recovery/provider evidence | No dataset owner, fabricated benchmark thresholds or PASS cache authority |
 | **F — Federation & Scale**: future distributed continuity | Single-host multi-Case scheduling/fencing | Cross-host coordination and federation | Establish local state/authority correctness first | Explicit conflict, disclosure, revocation and recovery contracts across hosts | No global Space or shared database by implication |
 
 ## Cognitive State Spectrum
@@ -402,7 +402,7 @@ Golden supplies a common Case/task workload; it owns none of these semantics.
 | State-augmented pretrained model / learned State Read | OPEN | Compare an exact pretrained backbone with/without its qualified state adapter/profile and targeted post-training, including a frozen-backbone experiment where appropriate. Show actual state dependence, relevant big-picture retention and supersession; no adapter/training implementation is claimed. |
 | Learned State Update versus semantic admission | OPEN | Exercise model-written E_t+1 with P_t absent, then valid/invalid explicit proposals. E evolution must not independently change Case truth; unauthorized or stale proposals refuse. Required execution evidence remains distinct from semantic admission. |
 | Computational-state / deliberation amnesia and resume | OPEN | Separately discard or resume E/L through a qualified provider/operator boundary. Preserve H/S/assignment, reconstruct R/W and compatible E; incompatible checkpoints refuse. Lost unfinished computation is not lost admitted meaning. Current continuation-loss tests do not prove L continuity. |
-| Discontinuous temporal-causal Recall and as-of meaning | PARTIAL, exact cuts/relations only | [Historical reader](refoundation/validation/historical-semantic-reconstruction/REPORT.md) plus [experience relations](refoundation/validation/temporal-causal-experience-0/REPORT.md): late-recorded evidence, policy replacement, exact-reference counterfactual, unrelated chronology, distinct Episode origins and hidden-path/source-loss controls. Task-conditioned discontinuous Recall and recall-aware W remain OPEN; bounded exact traversal does not prove M06. |
+| Discontinuous temporal-causal Recall and as-of meaning | PARTIAL, bounded query-conditioned trace | [Recall][recall]: 20,081 Transitions, distant segments, exact current Decision anchor, policy supersession and late claim; attractive wrong-memory/contradiction, missing-link, scope and backing-loss controls. 8 events remain bounded while CPU grows with history. Broader task sufficiency, complete event-time semantics and Recall-aware W remain unqualified. |
 | Prompt-independent working/E refresh | OPEN | Tool/review/Workflow/source/authority changes without another prompt; compare full W and qualified ΔW, then future E reconciliation. Correctness-critical invalidation precedes affected State Read; enrichment may be bounded-staleness. No qualified removal means invalidate/reconstruct. |
 | Persistent deliberation usefulness | OPEN | Equal-compute/time assignment baselines with/without persistent deliberation, no-memory/wrong-memory and State Read ablations. Measure justified outcomes, interference, cancellation and budget adherence; internal thought never authorizes an effect. |
 | Participants and explicit cross-Case Handoff | ESTABLISHED, bounded | [Security][security], [Golden][golden]: same Case with differing disclosure, typed refusal, exact Handoff without resource/authority cloning. Not federated sharing. |
@@ -416,19 +416,21 @@ No YAI test gains permission to administer YVEX internals or discard operator st
 ## Current Execution Sequence
 
 Temporal status is separate from maturity. The single control row records the
-implementation boundary, including its unresolved external closure, until a
-successor is explicitly selected; local success does not authorize the next experiment.
+selected implementation boundary until a successor is explicitly selected.
+Independent external/provider qualification tracks remain visible below; they
+are not additional selected implementation rows. Success never automatically
+authorizes the next experiment.
 
 Next implementation boundary: **UNSELECTED**.
 
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| TEMPORAL.CAUSAL.EXPERIENCE.0 | COMPLETE | M S K Q | Qualified exact-source typed relations and bounded paths; recording order, support, lifecycle and observed consequence remain distinct. Disclosure, missing backing, cross-Episode origin, restart, distractors and Golden local pass. No Recall or provider execution. |
+| RECALL.TRACE.0 | COMPLETE | M S K C Q | [Qualified Recall v1][recall]: exact anchors, query-conditioned discontinuous segments, temporal/epistemic posture, supersession/contradiction, source closure, current disclosure and bounds. Independent CLI, rebuild identity, full deterministic union and Golden local; no automatic W injection or provider execution. |
 <!-- execution:end -->
 
-**Primary programs: K / S / M / Q.** A / C / E / O / W / X retain their
-load-bearing contracts. This boundary does not authorize Recall, new audit
+**Primary programs: M / S / K / C / Q.** A / E / O / W / X retain their
+load-bearing contracts. This boundary does not authorize Recall-aware W, new audit
 authority or YVEX optimization. GOVERNANCE.COGNITIVE.CONTEXT.0's YAI-owned
 implementation selection is finished; its real model-awareness evidence remains
 NOT QUALIFIED / externally blocked. Provider qualification is independent of
@@ -443,16 +445,14 @@ not an automatic next wave.
 The [external capacity investigation][external-closure] remains repair of
 SEMANTIC.STATE.REFOUNDATION.0's external scope, independently incomplete; its
 implementation and deterministic/local qualification remain PASS. It is not a
-second selected implementation wave. The producer's compat.v3 generation 2
-now offers 16,384 input/sequence tokens. Original-request preflight is compatible;
-the fresh real Golden instead fails its 300-second terminal watchdog with no
-received response bytes. This is no longer a demonstrated first-request capacity
-blocker. Operator-supplied logs now locate the wait in prefill: 918 of 12,055
-tokens processed after 293.21 s, zero generated, then cancellation and session
-cleanup. The internal bottleneck is not established; producer diagnosis and
-YAI harness/transport budget alignment remain separate, with no blind retry.
-Earlier 413 and 512-token observations
-remain historical. Connection-probe cost remains separate E/X/Q pressure.
+second selected implementation wave. The retained YAI run observed compat.v3,
+generation 2, 16,384-token capacity and compatible original-request preflight,
+then failed its 300-second terminal watchdog without response bytes. This is
+not a demonstrated first-request capacity blocker. That consumer verdict and
+the earlier 413/512-token evidence remain historical facts. Current runtime
+diagnosis and progression belong to the [public YVEX roadmap](https://github.com/yailabs/yvex/blob/models2/ROADMAP.md);
+YAI harness/transport qualification remains separate, with no blind retry.
+Connection-probe cost remains separate E/X/Q pressure.
 I01–I06 are completed anchors; I07 is unselected. Historical “post-I10” naming
 does not require inventing four Interlock deliveries before selecting this work.
 
@@ -464,7 +464,7 @@ fall in later horizons.
 
 | Horizon | Property pressure | Dependency / admission to work |
 |---|---|---|
-| Now | Bounded historical reconstruction qualified; next semantic boundary unselected | Canonical prefix and exact policy/Decision evidence are earned without inference. Full External Golden and compact policy-awareness delivery remain independent unqualified provider tracks, not a freeze on semantic research |
+| Now | Bounded historical reconstruction and independent query-conditioned Recall | Exact policy/Decision, scope, source closure and discontinuous oracles are earned without inference. Full External Golden and compact policy-awareness delivery remain independent unqualified provider tracks; no automatic next selection |
 | Near | Generalize demonstrated state-source/full-delta consumer gaps | Preserve S/W qualification, owner-specific admission and context compatibility |
 | Near | Semantic locality, working-set compilation and scoped state references | Authority-aware selection; exact resolution and refusal; no ambient handles |
 | Near / Mid | Historical/as-of meaning, qualified Recall and prompt-independent W refresh | Existing H/S owners, source closure, temporal/causal oracles and mandatory freshness; learned navigation is optional |
@@ -578,7 +578,7 @@ test proof/provider metadata; a roadmap row never reclassifies test evidence.
 | State-augmented model training or model-state adapters owned by YAI | False. Frozen-backbone/post-training/read-write mechanisms are research options for model-side work; YAI supplies qualified working state and semantic evaluation, not adapters or latent state. |
 | General multi-timescale state / universally Case-age-independent working set | False. Target plus falsifiable research pressure. |
 | General temporal-causal memory / historical-as-of reconstruction | False at general scope. The qualified generation/Transition reader covers a declared subset with current disclosure and explicit missingness; it does not qualify wall-clock/event-time queries, complete historical catalog validity or general W20/Workflow/Handoff reconstruction. |
-| Recall Compiler / general source-closed Recall Trace | False. M06 is OPEN; bounded exact experience relations/paths, graph/index/top-k and current W do not select task-conditioned discontinuous Recall. |
+| General Recall completeness / all-owner or learned Recall / automatic Recall-aware W | False. M06 is PARTIAL: bounded Recall v1 resolves scoped exact/BM25/explicit-vector candidates into qualified segments. It does not certify arbitrary task sufficiency, general consolidation/Workflow/Handoff Recall, encoder semantic quality, constant-cost history access or automatic R → W. |
 | Learned memory navigation / SAE memory | False. Optional research under M/S/C/Q; semantic features are not model-native E, and learned links cannot decide truth, validity or disclosure. |
 | Prompt-independent W/E feedback reconciliation | False. Current on-demand compilation and finite runtime loops do not prove the six-loop target or selective removal from latent state. |
 | Persistent internal deliberation / autonomous overnight thinking | False. E06 is OPEN: authorized assignments, unfinished L and compatible checkpoints need independent runtime and usefulness qualification, not an uncontrolled Agent loop. |
@@ -681,6 +681,7 @@ of the still-blocked external status, is bounded in the
 [index]: refoundation/foundation-recovery/wave-19/WAVE-19-REPORT.md
 [index-hardening]: refoundation/foundation-recovery/hardening-19/HARDENING-19-REPORT.md
 [memory]: refoundation/foundation-recovery/wave-20/WAVE-20-REPORT.md
+[recall]: refoundation/validation/recall-trace-0/REPORT.md
 [i01]: refoundation/foundation-recovery/interlock-01/INTERLOCK-I01-REPORT.md
 [i02]: refoundation/foundation-recovery/interlock-02/INTERLOCK-I02-REPORT.md
 [i03]: refoundation/foundation-recovery/interlock-03/INTERLOCK-I03-REPORT.md

@@ -3864,7 +3864,7 @@ impl LmdbRecordStore {
         query: crate::graph::experience::ExperienceQuery,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::graph::experience::ExperienceView, String> {
-        let (history, scope) = self.qualified_historical_view(authenticated, case_id, request, content)?;
+        let (history, scope, _) = self.qualified_historical_view(authenticated, case_id, request, content)?;
         crate::graph::experience::derive(&history, query, &scope)
     }
 
@@ -3876,7 +3876,35 @@ impl LmdbRecordStore {
         request: crate::semantic_state::historical::HistoricalRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::semantic_state::historical::HistoricalSemanticView, String> {
-        self.qualified_historical_view(authenticated, case_id, request, content).map(|(view, _)| view)
+        self.qualified_historical_view(authenticated, case_id, request, content).map(|(view, _, _)| view)
+    }
+
+    /// Read-only Recall: exact sources and current disclosure are qualified in
+    /// the same snapshot as the historical reader. No compilation cache is used.
+    pub fn recall_trace_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        request: crate::memory_hierarchy::recall::RecallRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::memory_hierarchy::recall::RecallResult, String> {
+        self.recall_trace_with_vectors_authorized(authenticated, request, content, None)
+    }
+
+    pub fn recall_trace_with_vectors_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        request: crate::memory_hierarchy::recall::RecallRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+        vectors: Option<&crate::memory_hierarchy::recall::RecallVectorInput>,
+    ) -> Result<crate::memory_hierarchy::recall::RecallResult, String> {
+        request.validate()?;
+        let mut historical = crate::semantic_state::historical::HistoricalRequest::inspection(
+            request.at.clone(), request.participant_id.clone());
+        historical.max_items = 4096;
+        historical.max_bytes = 16_777_216;
+        let (view, scope, history) = self.qualified_historical_view(
+            authenticated, &request.case_id, historical, content)?;
+        crate::memory_hierarchy::recall::compile(&view, &scope, &history, request, vectors)
     }
 
     fn qualified_historical_view(
@@ -3885,7 +3913,7 @@ impl LmdbRecordStore {
         case_id: &str,
         request: crate::semantic_state::historical::HistoricalRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
-    ) -> Result<(crate::semantic_state::historical::HistoricalSemanticView, String), String> {
+    ) -> Result<(crate::semantic_state::historical::HistoricalSemanticView, String, Vec<Transition>), String> {
         use crate::semantic_state::historical as h;
         let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
         let current = self
@@ -4052,6 +4080,22 @@ impl LmdbRecordStore {
                 }),
             }
         }
+        // Older bindings can be selected by Recall even when no longer active.
+        // Resolve their original publication anchor, never today's lifecycle.
+        for item in &view.known_by_then {
+            if let TransitionPayload::CasePolicyBound { binding }
+                | TransitionPayload::CasePolicyReplaced { binding, .. } = &item.payload {
+                if !view.normative_then.source_closure.iter().any(|s| s.source_ref == binding.publication_event_id) {
+                    let available = self.policy_lifecycle_events_txn(&txn, Some(&binding.artifact_id))?.iter().any(|e|
+                        e.event_id == binding.publication_event_id && e.sequence == binding.publication_event_sequence
+                        && e.action == PolicyLifecycleAction::Published && e.tenant_id == current.tenant_id);
+                    view.normative_then.source_closure.push(h::SourceClosure {
+                        source_ref: binding.publication_event_id.clone(),
+                        posture: if available { "exact_binding_publication_anchor" } else { "publication_evidence_unavailable" }.into(),
+                    });
+                }
+            }
+        }
         let mut objects = BTreeMap::new();
         for item in &view.known_by_then {
             match &item.payload {
@@ -4079,7 +4123,7 @@ impl LmdbRecordStore {
             })
             .collect();
         view.seal()?;
-        Ok((view, scoped_disclosure))
+        Ok((view, scoped_disclosure, history))
     }
 
     /// Pure derivation from CaseState plus exact immutable PolicyArtifacts.
