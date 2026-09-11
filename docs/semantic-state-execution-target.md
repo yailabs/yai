@@ -48,8 +48,10 @@ YAI owns durable semantic continuity; model-visible context is a disposable
 execution working set. System memory architecture is not one Memory database.
 The [Case source frontier](case-source-bootstrap.md) now supplies bounded
 policy-first acquisition and exact original/revision backing through existing
-Resource, policy and content owners. It does not implement source-grounded
-domain knowledge D, knowledge-aware Recall or Recall-aware W. An acquisition can be
+Resource, policy and content owners. The separate bounded
+[source-grounded knowledge derivation](source-grounded-knowledge.md) now provides
+a deterministic D foothold; knowledge-aware Recall and Recall-aware W remain
+unimplemented. An acquisition can be
 recorded in Case history without turning its documentary content into current
 semantic truth. Generic bootstrap/knowledge horizons remain in the Roadmap.
 
@@ -135,12 +137,12 @@ Current Semantic State is **not the whole of memory**. Qualified source-grounded
 S_t are distinct semantic domains over established owners and qualified sources.
 D answers what sources state/represent; H answers what happened in the Case;
 S answers what currently holds. They are not three physical stores, a second
-ledger or a universal semantic truth object. D is an adopted target, not a new
-implemented knowledge API.
+ledger or a universal semantic truth object. D has a bounded deterministic
+source-derivation foothold, not a universal knowledge API or D-aware Recall.
 
 ```text
 YAI: governed source relations + canonical history + established owners/backing
-  ├── D_t: qualified source-grounded domain knowledge (target)
+  ├── D_t: source-grounded domain knowledge (bounded deterministic foothold)
   ├── H_t: qualified historical experience
   └── S_t: current semantic state
 
@@ -174,7 +176,7 @@ The notation is not a source-type, schema or API commitment:
 
 | State | Meaning | Ownership and limit |
 |---|---|---|
-| D_t — Source-grounded domain knowledge | What admitted exact sources state/represent: documentary structure, claims and relationships with declared provenance/epistemic posture | Target qualified derivation from existing source/content/resource owners; not current Case truth, policy authority, a database or a new canonical owner |
+| D_t — Source-grounded domain knowledge | What admitted exact sources state/represent: documentary structure, claims and relationships with declared provenance/epistemic posture | Bounded deterministic derivation from admitted revisions now exists; broader domain interpretation remains target. Not current Case truth, policy authority, a database or a new canonical owner |
 | H_t — Qualified historical experience | Recorded occurrences, decisions, observations, effects, Workflow history and admitted material, including what no longer holds | Conceptual qualified view over existing ledgers/content/established owners; not a new historical owner or a guarantee of complete knowledge |
 | S_t — Semantic State | What presently holds: model-independent Case meaning with provenance, authority and epistemic distinctions | YAI, through existing owners; current authority, derived assertion and model claim stay distinct |
 | R_t^q — Recall Trace | Bounded reconstruction of the qualified knowledge and experience relevant to question/task q, including potentially discontinuous sources, Events and Episodes | Derived, reconstructible, disposable; Participant/disclosure scoped, temporally coherent and causally coherent only where supported; exact source closure or explicit missingness. D-aware Recall remains future |
@@ -769,9 +771,11 @@ establish them. No trained adapter or looped/recurrent Transformer is claimed.
 research mechanisms, not YAI architecture names or requirements; no named model
 is assigned such a design without qualified external evidence.
 
-The bounded source-bootstrap lifecycle does not establish generic environment
-crawling, the general in-place/snapshot/cache lifecycle, Source Map, source-grounded
-domain knowledge derivation, arbitrary document/OCR understanding, source-linked
-wiki, cross-Case knowledge reuse or continuous source synchronization. These
-remain targets, as does Studio. No schema, owner, database, mount manager or new
-YAI/YVEX contract follows from this doctrine alignment.
+The bounded source-bootstrap and separate knowledge-derivation lifecycles do not
+establish generic environment crawling, the general in-place/snapshot/cache
+lifecycle, Source Map, arbitrary document/OCR understanding, editable source-linked
+wiki, general cross-Case knowledge reuse or continuous source synchronization.
+Deterministic source structure/claims and generated read-only navigation now
+exist at the [qualified profile](source-grounded-knowledge.md); broader knowledge
+and D/H/S Recall remain targets, as does Studio. No new canonical owner, database,
+mount manager or YAI/YVEX contract follows from this implementation.

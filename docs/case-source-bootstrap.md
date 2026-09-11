@@ -132,8 +132,11 @@ Policy originals may be reused across independently authorized Cases. Ordinary
 content objects remain Case-bound; generalized cross-Case content reuse remains
 an unimplemented pressure, not shared memory or shared permission.
 
-This boundary does not implement M07 documentary claims, entities, wiki pages,
-knowledge-aware Recall, Recall-aware W, model classification or YVEX state.
+Acquisition does not itself derive documentary claims or entities. The separate
+[source-grounded knowledge](source-grounded-knowledge.md) commands now consume
+admitted knowledge-role revisions without acquiring again or changing authority.
+Knowledge-aware Recall, Recall-aware W, model classification and YVEX state remain
+outside this source lifecycle.
 The [Roadmap](../ROADMAP.md) owns maturity; the cumulative
 [ZERO-TO-CURRENT](zero-to-current.md) owns operator acceptance.
 The [bounded qualification report](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/case-source-bootstrap/REPORT.md)

@@ -19,21 +19,13 @@ pub struct PolicyDocumentExtraction {
     pub document: Option<PolicyDocumentSource>,
 }
 
-pub fn extract_policy_document(bytes: &[u8]) -> Result<PolicyDocumentExtraction, String> {
+/// Shared bounded extraction, separate from policy interpretation/publication.
+/// Locations in PDF are extracted lines on a page, not original byte/glyph spans.
+pub(crate) fn extract_document_lines(
+    bytes: &[u8],
+) -> Result<(bool, Vec<(String, String)>), String> {
     if bytes.is_empty() || bytes.len() > MAX_POLICY_SOURCE_BYTES {
-        return Err("policy_document_size_bound".into());
-    }
-    if bytes.iter().copied().find(|b| !b.is_ascii_whitespace()) == Some(b'{') {
-        return Ok(PolicyDocumentExtraction {
-            source_format: "constrained_json".into(),
-            structured_json: Some(
-                std::str::from_utf8(bytes)
-                    .map_err(|_| "policy_source_not_utf8")?
-                    .into(),
-            ),
-            unresolved: Vec::new(),
-            document: None,
-        });
+        return Err("document_size_bound".into());
     }
     let pdf = bytes.starts_with(b"%PDF-");
     let mut lines = Vec::new();
@@ -145,6 +137,26 @@ pub fn extract_policy_document(bytes: &[u8]) -> Result<PolicyDocumentExtraction,
                 .map(|(i, s)| (format!("markdown:line={}", i + 1), s.to_string())),
         );
     }
+    Ok((pdf, lines))
+}
+
+pub fn extract_policy_document(bytes: &[u8]) -> Result<PolicyDocumentExtraction, String> {
+    if bytes.is_empty() || bytes.len() > MAX_POLICY_SOURCE_BYTES {
+        return Err("policy_document_size_bound".into());
+    }
+    if bytes.iter().copied().find(|b| !b.is_ascii_whitespace()) == Some(b'{') {
+        return Ok(PolicyDocumentExtraction {
+            source_format: "constrained_json".into(),
+            structured_json: Some(
+                std::str::from_utf8(bytes)
+                    .map_err(|_| "policy_source_not_utf8")?
+                    .into(),
+            ),
+            unresolved: Vec::new(),
+            document: None,
+        });
+    }
+    let (pdf, lines) = extract_document_lines(bytes)?;
     let (begin, end) = if pdf {
         ("YAI-POLICY-JSON-BEGIN", "YAI-POLICY-JSON-END")
     } else {

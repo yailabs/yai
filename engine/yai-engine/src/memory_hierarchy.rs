@@ -13,6 +13,7 @@ use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 pub mod recall;
+pub mod knowledge;
 
 pub const MEMORY_EPISODE_SCHEMA: &str = "yai.memory_episode.v1";
 pub const EPISODE_DERIVATION_VERSION: &str = "yai.memory_episode.derivation.v1";

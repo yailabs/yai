@@ -42,6 +42,10 @@ authoritative for their own non-architectural subjects.
 
 ## Canonical semantic owners
 
+- [Source-grounded domain knowledge](source-grounded-knowledge.md) defines the
+  bounded derived documentary contract over admitted source revisions; it owns
+  no canonical truth or second source registry.
+
 - [Semantics](reference/semantics.md) owns names, definitions, aliases,
   dispositions, and rejected meanings.
 - [State and transitions](reference/state-transitions.md) owns canonical state,

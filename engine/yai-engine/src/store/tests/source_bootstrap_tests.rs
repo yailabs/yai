@@ -24,6 +24,56 @@ fn declaration(w: &World) -> CaseSourceDeclaration {
 }
 
 #[test]
+fn knowledge_reader_requires_current_source_scope_and_never_acquires() {
+    use crate::memory_hierarchy::knowledge::KnowledgeRequest;
+    let w = World::with_access(AccessKind::Discover);
+    let request = KnowledgeRequest::new(CASE);
+    assert!(w
+        .store
+        .case_knowledge_authorized(&w.outsider, request.clone(), None)
+        .is_err());
+    let empty = w
+        .store
+        .case_knowledge_authorized(&w.owner, request.clone(), None)
+        .unwrap()
+        .view;
+    assert!(
+        empty.sources.is_empty(),
+        "resources alone are not knowledge sources"
+    );
+    w.store
+        .declare_case_source(&w.owner, declaration(&w))
+        .unwrap();
+    let history = w.store.list_case_transitions(CASE).unwrap();
+    let after = w
+        .store
+        .case_knowledge_authorized(&w.owner, request.clone(), None)
+        .unwrap()
+        .view;
+    assert_eq!(
+        empty, after,
+        "unacquired source must not leak through identity counts or search statistics"
+    );
+    let mut selected = request.clone();
+    selected.source = Some("source".into());
+    let denied = w
+        .store
+        .case_knowledge_authorized(&w.owner, selected.clone(), None)
+        .unwrap_err();
+    selected.source = Some("unknown".into());
+    assert_eq!(
+        denied,
+        w.store
+            .case_knowledge_authorized(&w.owner, selected, None)
+            .unwrap_err()
+    );
+    assert_eq!(w.store.list_case_transitions(CASE).unwrap(), history);
+    assert!(w.store.verify_case_state(CASE).unwrap());
+    println!("knowledge_scope owner_only=true source_roles_and_current_admission=true unacquired_is_not_knowledge=true hidden_unknown_same=true acquisition_calls=0 transitions_appended=0");
+    w.finish();
+}
+
+#[test]
 fn source_declaration_scope_bootstrap_reentry_and_forged_coverage_refuse() {
     let w = World::with_access(AccessKind::Discover);
     let d = declaration(&w);

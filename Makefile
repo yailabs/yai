@@ -795,6 +795,11 @@ smoke-governance-cognitive-context: build-rust
 .PHONY: smoke-temporal-experience
 .PHONY: smoke-recall-trace
 .PHONY: smoke-case-source-bootstrap
+.PHONY: smoke-source-grounded-knowledge
+smoke-source-grounded-knowledge: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/source-grounded-knowledge/test_knowledge.py
+
 smoke-case-source-bootstrap: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/case-source-bootstrap/test_bootstrap.py

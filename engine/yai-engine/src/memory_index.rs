@@ -1266,25 +1266,32 @@ fn tokenize(value: &str) -> Vec<String> {
 
 impl MemoryLexicalIndex {
     pub fn build(documents: &[MemoryRepresentationDocument]) -> Result<Self, String> {
+        Self::build_texts(documents.iter().map(|d| (d.document_id.as_str(), d.canonical_text.as_str())))
+    }
+
+    /// Candidate-only BM25 over already-qualified text. This does not create
+    /// memory assertions or transfer truth/visibility decisions to the index.
+    pub fn build_texts<'a>(documents: impl IntoIterator<Item = (&'a str, &'a str)>) -> Result<Self, String> {
+        let documents: Vec<_> = documents.into_iter().take(MAX_CORPUS_DOCUMENTS + 1).collect();
         if documents.len() > MAX_CORPUS_DOCUMENTS {
             return Err("memory_lexical_document_bound_exceeded".to_string());
         }
         let mut document_lengths = BTreeMap::new();
         let mut postings = BTreeMap::<String, Vec<LexicalPosting>>::new();
         let mut total_document_terms = 0u64;
-        for document in documents {
-            let tokens = tokenize(&document.canonical_text);
+        for (document_id, text) in &documents {
+            let tokens = tokenize(text);
             let length = u32::try_from(tokens.len())
                 .map_err(|_| "memory_lexical_document_length_overflow".to_string())?;
             total_document_terms = total_document_terms.saturating_add(u64::from(length));
-            document_lengths.insert(document.document_id.clone(), length);
+            document_lengths.insert((*document_id).to_string(), length);
             let mut frequencies = BTreeMap::<String, u32>::new();
             for token in tokens {
                 *frequencies.entry(token).or_default() += 1;
             }
             for (term, term_frequency) in frequencies {
                 postings.entry(term).or_default().push(LexicalPosting {
-                    document_id: document.document_id.clone(),
+                    document_id: (*document_id).to_string(),
                     term_frequency,
                 });
             }

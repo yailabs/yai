@@ -42,6 +42,7 @@ pub const MAX_POLICY_JSON_DEPTH: usize = 32;
 
 mod document;
 pub use document::{extract_policy_document, PolicyDocumentExtraction, PolicyDocumentSource};
+pub(crate) use document::extract_document_lines;
 const POLICY_DOCUMENT_SOURCE_SCHEMA: &str = "yai.policy_source_artifact.v5";
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]

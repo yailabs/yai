@@ -1535,6 +1535,96 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         ]
     ),
     op!(
+        "yai.case.knowledge.build",
+        ["case", "knowledge", "build"],
+        "Derive current source-grounded knowledge without canonical writes",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--source", Some("SOURCE"), false),
+            flag("--revision", Some("REVISION"), false),
+            flag("--limit", Some("UNITS"), false)
+        ]
+    ),
+    op!(
+        "yai.case.knowledge.inspect",
+        ["case", "knowledge", "inspect"],
+        "Inspect qualified documentary structure, claims and source closure",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--source", Some("SOURCE"), false),
+            flag("--revision", Some("REVISION"), false),
+            flag("--limit", Some("UNITS"), false)
+        ]
+    ),
+    op!(
+        "yai.case.knowledge.graph",
+        ["case", "knowledge", "graph"],
+        "Inspect source-qualified knowledge relations; no causal inference",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--source", Some("SOURCE"), false),
+            flag("--revision", Some("REVISION"), false),
+            flag("--limit", Some("UNITS"), false)
+        ]
+    ),
+    op!(
+        "yai.case.knowledge.wiki",
+        ["case", "knowledge", "wiki"],
+        "Render read-only source-linked knowledge navigation",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--source", Some("SOURCE"), false),
+            flag("--revision", Some("REVISION"), false),
+            flag("--limit", Some("UNITS"), false)
+        ]
+    ),
+    op!(
+        "yai.case.knowledge.search",
+        ["case", "knowledge", "search"],
+        "Find BM25 candidates in currently visible source-grounded knowledge",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case")), pos("query", None)],
+        &[
+            flag("--source", Some("SOURCE"), false),
+            flag("--revision", Some("REVISION"), false),
+            flag("--limit", Some("UNITS"), false)
+        ]
+    ),
+    op!(
+        "yai.case.knowledge.resolve",
+        ["case", "knowledge", "resolve"],
+        "Resolve an exact currently visible knowledge unit and backing",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case")), pos("reference", None)],
+        &[
+            flag("--source", Some("SOURCE"), false),
+            flag("--revision", Some("REVISION"), false),
+            flag("--limit", Some("UNITS"), false)
+        ]
+    ),
+    op!(
         "yai.case.recall",
         ["case", "recall"],
         "Reconstruct bounded query-conditioned experience under current disclosure",

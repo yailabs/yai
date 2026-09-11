@@ -53,3 +53,4 @@ impl GraphSummary {
     }
 }
 pub mod experience;
+pub mod knowledge;

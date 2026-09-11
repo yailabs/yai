@@ -27,6 +27,7 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.resource.list" => resource_list(invocation),
         "yai.case.history" | "yai.case.verify" => canonical_case_inspection(invocation),
         "yai.case.as_of" | "yai.case.experience" | "yai.case.recall" => historical_case_inspection(invocation),
+        operation if operation.starts_with("yai.case.knowledge.") => knowledge_inspection(invocation),
         "yai.case.open" | "yai.case.workbench" => {
             if invocation.json {
                 return Err(CliError::usage("interactive workbench has no JSON stream; use the structured Case inspection commands"));
@@ -707,6 +708,69 @@ fn canonical_case_inspection(invocation: &Invocation) -> Result<CliData, CliErro
         "authority":"transition_ledger","total_transitions":history.len(),
         "transitions":&history[history.len().saturating_sub(limit)..]}),
     })
+}
+
+fn knowledge_inspection(invocation: &Invocation) -> Result<CliData, CliError> {
+    use yai_core_engine::memory_hierarchy::knowledge::KnowledgeRequest;
+    let case = invocation.positional("case")
+        .ok_or_else(|| CliError::usage("Case is required"))?;
+    let authenticated = AuthenticatedPrincipal::authenticate_local()
+        .map_err(|e| domain_error("authentication_failed", e))?;
+    let content = yai_core_engine::conversation::ConversationContentStore::open_existing(&yai_home()).ok();
+    let mut request = KnowledgeRequest::new(case);
+    request.source = invocation.flag("--source").map(str::to_string);
+    request.revision = invocation.flag("--revision").map(str::to_string);
+    if let Some(limit) = invocation.flag("--limit") {
+        request.max_units = limit.parse()
+            .map_err(|_| CliError::usage("--limit must be an integer"))?;
+    }
+    let result = open_store()?
+        .case_knowledge_authorized(&authenticated, request, content.as_ref())
+        .map_err(|e| domain_error("knowledge_unavailable", e))?;
+    let view = &result.view;
+    let mut value = serde_json::to_value(&result)
+        .map_err(|e| domain_error("knowledge_encoding", e.to_string()))?;
+    match invocation.descriptor.operation_id {
+        "yai.case.knowledge.search" => {
+            let query = invocation.positional("query")
+                .ok_or_else(|| CliError::usage("query is required"))?;
+            let hits = view.search(query, 32).map_err(|e| domain_error("knowledge_search", e))?;
+            value["hits"] = serde_json::to_value(&hits).unwrap();
+            if !invocation.json {
+                for hit in &hits {
+                    let unit = view.resolve(&hit.document_id)
+                        .map_err(|e| domain_error("knowledge_reference", e))?;
+                    println!("{} score={} {:?}\n  {}", unit.id, hit.score_micros,
+                        unit.posture, serde_json::to_string(&unit.text).unwrap());
+                }
+            }
+        }
+        "yai.case.knowledge.resolve" => {
+            let id = invocation.positional("reference")
+                .ok_or_else(|| CliError::usage("reference is required"))?;
+            let unit = view.resolve(id).map_err(|e| domain_error("knowledge_reference", e))?;
+            value["resolved"] = serde_json::to_value(unit).unwrap();
+            if !invocation.json {
+                println!("{}", serde_json::to_string_pretty(unit).unwrap());
+            }
+        }
+        "yai.case.knowledge.graph" if !invocation.json => {
+            for edge in &view.relations {
+                println!("{} -- {:?} --> {}\n  {} backing={:?}", edge.from,
+                    edge.kind, edge.to, edge.posture, edge.backing_units);
+            }
+        }
+        _ => {
+            if !invocation.json {
+                print!("{}", view.navigation());
+            }
+        }
+    }
+    if invocation.json {
+        Ok(CliData::NativeJson { value })
+    } else {
+        Ok(CliData::AlreadyRendered)
+    }
 }
 
 fn load_case(invocation: &Invocation) -> Result<yai_core_engine::transition::CaseState, CliError> {

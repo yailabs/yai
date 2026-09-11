@@ -632,7 +632,7 @@ fn inventory(
     Ok(
         json!({"schema":"yai.source_inventory.v1","case_id":case,"generation":state.generation,
         "effective_policy":status,"coverage":{"denominator":"explicit_declared_sources_only_not_company_coverage","declared":items.len(),"counts":counts,
-        "acquisition_complete":complete,"knowledge_derivation":"not_implemented"},"sources":items}),
+        "acquisition_complete":complete,"knowledge_derivation":"not_performed_by_acquisition"},"sources":items}),
     )
 }
 

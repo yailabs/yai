@@ -450,16 +450,36 @@ rules, explicitly consent to publication and Case binding:
 ./yai case sources resume case:sources
 ./yai case sources read case:sources --source architecture
 ./yai case verify case:sources
+./yai case knowledge build case:sources
+./yai case knowledge inspect case:sources --json
+./yai case knowledge search case:sources 'architecture'
+./yai case knowledge graph case:sources
+./yai case knowledge wiki case:sources
 ./yai case sources revoke case:sources --source architecture --reason 'Withdraw example source relationship'
 ./yai case sources read case:sources --source architecture
 ```
 
 Expected: EffectivePolicy READY; exact documentary bytes acquired without
-knowledge derivation; restarting each command preserves completed work; replay
+implicit knowledge derivation. The explicit knowledge commands then derive
+source-addressed structure/values and read-only navigation, without making the
+source policy authority or current Case fact; restarting each command preserves
+completed work and rebuilds the same knowledge; replay
 matches. The final read **must refuse**. Preserve the temporary home for your
 observations. Inventory/coverage, update/revision and unsupported profiles are
 documented in [Case source bootstrap](case-source-bootstrap.md). These commands
 do not alter the external/provider, human or canary verdicts above.
+
+After revocation, `./yai case knowledge inspect case:sources --json` must exclude
+`architecture`; its historical existence does not restore access. Use an exact
+unit ID from a current view with
+`./yai case knowledge resolve case:sources UNIT_ID --json` to inspect location/backing.
+Old retained revisions can be inspected with
+`--source NAME --revision REVISION_ID` while current access still permits them.
+The [knowledge contract](source-grounded-knowledge.md) documents explicit entity/
+claim blocks, supported PDF/JSON/Markdown/SQLite profiles, bounds and missingness.
+`make smoke-source-grounded-knowledge` runs the independent actual CLI/LMDB
+multi-source, disagreement, revision, revoke and backing-loss oracle without a
+model. It does not run or declare Human Golden PASS.
 
 ## Optional forensic inspection and cleanup
 

@@ -678,7 +678,8 @@ policy files before the Case has ever bound policy; publication/binding remain
 explicit. Ordinary file/directory, SQLite observation and HTTP representation
 acquisition follow current EffectivePolicy. Denied sources are not acquired.
 Original policy bytes serve both policy and knowledge roles without duplication;
-knowledge-role acquisition produces no documentary claims or M07 semantics.
+acquisition alone produces no documentary claims. The separately invoked bounded
+[knowledge derivation](source-grounded-knowledge.md) now consumes these revisions.
 Inventory/resume/revision/revoke and current-policy source reads are normal CLI
 actions; LMDB remains 37/40. Recall/W and model execution are not consumers of a
 new knowledge representation in this boundary.
@@ -689,10 +690,36 @@ retained immutable content/provenance, policy intake/binding and derived
 graph/index/memory/Recall. The source-bootstrap profiles above retain exact
 original/observation backing; they do not implement the target's general choice
 of in-place access, permitted snapshots and disposable derived caches or a global
-retention/privacy lifecycle. Source-grounded **domain knowledge D_t**, semantic
-source organization, the Case Source Map and YAI Studio remain unimplemented
+retention/privacy lifecycle. General semantic source organization, the Case Source
+Map and YAI Studio remain unimplemented
 targets in the [Roadmap](../ROADMAP.md#case-source-bootstrap-and-source-grounded-knowledge--adopted-target).
 Bounded unified bootstrap is implemented; its generalization is not.
+
+Source-grounded **domain knowledge D_t** now has a bounded deterministic foothold.
+`LmdbRecordStore::case_knowledge_authorized` qualifies current source/Participant,
+policy, per-content access and exact retained backing in one read snapshot.
+`memory_hierarchy::knowledge` derives typed source/structure/entity/topic/value
+units; `graph::knowledge` derives provenance-bound documentary relations; the
+existing W19/H19 BM25 owner indexes qualified text. No derivation, index, graph or
+wiki build appends a Transition or creates a persistent M07 cache/database.
+
+`yai.source_knowledge.v1` retains source-stated, deterministic-structure and
+recorded-observation postures separately. Explicit entity/property disagreements
+do not select current truth. SQLite schema descriptions require an exact admitted
+schema-query profile; arbitrary query output is not silently a schema producer.
+The PDF text extractor is shared with governance, but no policy interpretation,
+publication or binding is performed by knowledge derivation. Current source or
+catalog revocation removes material before graph/search; missing backing is
+explicit, never replaced by a live file. Existing snapshot-only source profiles
+are not broadened into general source-in-place retention.
+
+The native `case knowledge build|inspect|search|graph|wiki|resolve` surface consumes
+typed engine results below presentation; future clients need not parse CLI text.
+Navigation is generated/read-only. Cross-Case policy-original/profile identity
+reuse does not transfer Case visibility or qualify general shared extraction
+caching. This boundary leaves Transition v19, CaseState v16, LMDB **37/40**, S/W
+and Recall contracts unchanged. Knowledge-aware Recall and automatic R → W are
+not implemented; see the [contract and executable oracle](source-grounded-knowledge.md).
 
 A host-visible mounted path may conceptually fit the existing filesystem resource
 model, subject to its confinement/identity/availability contract. No retained
