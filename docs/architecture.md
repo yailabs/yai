@@ -150,6 +150,46 @@ IPC, and core loop. Component-only C mechanics build into a separate
 characterization archive and are linked only by their tests. Static archive
 membership is no longer used to make those components look product-reachable.
 
+## Current application/client seams and limit
+
+`./yai` is YAI's handwritten native product CLI. Command metadata, parsing,
+help, guided interaction and output projection live in YAI, not in an external
+interface compiler. The current seams are useful but do not constitute a
+complete, stable frontend-independent Application API:
+
+- [`cli/product.rs`](../cmd/yai/src/cli/product.rs) maps parsed invocations to
+  owner queries or command adapters. Some results are typed CLI views or native
+  JSON; other paths still pass argument vectors and capture handler stdout.
+  `execute_structured_legacy` can turn printed fields into presentation output.
+  That compatibility behavior is not an application contract for other clients.
+- [`ConversationController`](../cmd/yai/src/conversation_controller.rs) exposes
+  typed actions, submission/execution results and application-event facts within
+  the CLI crate. Its `pub(super)` surface is not an exported client API; events
+  returned in a result are not a public progress/event stream. Some inspections
+  return `serde_json::Value`, and the controller opens the authorized store.
+- Source acquisition in [`controlled_effect/source.rs`](../cmd/yai/src/controlled_effect/source.rs)
+  composes existing resource, policy and history owners, but its command seam
+  still takes CLI arguments and returns JSON. Policy, graph and Workflow
+  handlers likewise mix command adaptation and orchestration. The shared typed
+  [`review action`](../cmd/yai/src/review.rs) reuses current authority checks,
+  yet still takes an LMDB store and prints outcomes. These are hardening gaps,
+  not independent semantic authorities or reasons to duplicate their behavior.
+- The [`yai-engine` crate exports](../engine/yai-engine/src/lib.rs) include
+  domain contracts and persistence modules. Its authorized historical,
+  experience and Recall readers return qualified typed values through
+  [`LmdbRecordStore`](../engine/yai-engine/src/store/lmdb.rs). A consumer still
+  needs store/content setup; public Rust visibility alone does not establish a
+  persistence-independent application facade or supported remote SDK.
+
+The [application/client target](../ROADMAP.md#application-and-client-boundary--adopted-target)
+requires native CLI and future native Studio to consume one typed YAI application
+boundary. Current CLI/store coupling is recorded above, not refactored by that
+decision. No stable public Application API, exported interface package,
+interfaces integration, generated official SDK or Studio implementation is
+claimed. Current builds have no interfaces dependency. The roadmap owns future
+export/client qualification; frontends must not acquire domain authority by
+presenting these values.
+
 ## Demonstrated product verticals
 
 “Complete” means that the bounded path has an entrypoint, consequence or
@@ -1207,7 +1247,9 @@ participates.
 
 | Surface | Executable role | Classification |
 |---|---|---|
-| `cmd/yai/src/main.rs` | parsing, dispatch, common CLI/process initiation and residual compatibility commands | product-reachable command boundary |
+| `cmd/yai/src/main.rs` | small process entrypoint calling the native CLI | product bootstrap, not an application API |
+| `cmd/yai/src/cli/` | command registry, parser, help, product dispatch and output projection | native product frontend; some current orchestration remains CLI/store-coupled |
+| `cmd/yai/src/command_adapters.rs` | adapt CLI operation IDs to existing handlers | command compatibility seam, not a second domain or public interface registry |
 | `cmd/yai/src/conversation_controller.rs` | host-independent commit, thread projection, retry/cancellation posture, and ordinary conversation execution over shared semantic/provider boundaries | native REPLAI consumer and host-independent typed actions; no terminal, Case, provider, or content owner |
 | `cmd/yai/src/conversation_cli.rs` | Advanced mutable draft preparation and SEND plumbing plus immutable Turn/content inspection | automation/reference-client boundary; no model or resource authority |
 | `cmd/yai/src/cognitive_cli.rs` | Advanced argument parsing and rendering over shared cognitive execution | no second execution algorithm |
@@ -1252,6 +1294,7 @@ from one checkout.
 | distinct ProviderResult, Observation, EffectReceipt | separate Rust types and canonical roles for filesystem/process/MCP effects and bounded resource reads; compatibility export retains old receipt-shaped rows | future resource families require their own truthful result and reconciliation contract |
 | Case plus materialized CaseState | implemented and replayable for provider/review/resource/operation/grant/effect refs and exact policy bindings | extend only for demonstrated future consumers; migrate daemon hot/fixture state only if it becomes canonical input |
 | summary is presentation only | canonical reducers and migrated paths do not parse it; old projection/frame and analytics records use the compatibility decoder | migrate or retire remaining legacy-only producers and views |
+| frontends consume one application meaning | bounded controller/review actions and authorized engine queries coexist with CLI argument/output adaptation and store-coupled orchestration | harden a frontend-independent typed boundary before qualifying interface export or native Studio; no CLI-output parsing or independent semantic registry for new clients |
 | Projection/Residency/ContextFrame/KV separation | typed Projection, pure `yai.residency_plan.v1`, independent ContextFrame and distinct render identity are implemented; opaque continuation is optional and tokens/KV are absent from canonical state | semantic units and rendered-size estimation are conservative rather than tokenizer-authoritative; no ContextDelta consumer |
 | provenance-bound memory | OperationalMemory remains derived; W19/H19 source-revalidate qualified BM25/exact-cosine retrieval; W20 adds Episodes, evidence-bound assertions and recorded-result consolidation rebuild through multi-family RetrievalSet v3 | ANN/learned reranking remain deferred; W20 generation-based retrieval retention is not universal deletion/privacy policy or general semantic paging |
 | agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops, typed human pause/resume, LMDB run admission and restart tests | generalized operation families, distributed admission and daemon scheduling are absent |

@@ -548,10 +548,10 @@ ESTABLISHED=32 PARTIAL=26 OPEN=11 LATER=4 TOTAL=73
 
 | ID | Property | Maturity | Evidence / precise boundary |
 |---|---|---|---|
-| X01 | Registry-backed CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; exact automation retained, no global current-Case authority or silent trust. |
+| X01 | Registry-backed native CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; handwritten YAI product CLI and exact automation retained, no global current-Case authority or silent trust. Generated reference clients do not replace `./yai` automatically. |
 | X02 | Native REPLAI Case workbench | 🟢 ESTABLISHED | [R4][replai], [R5][r5], [presentation][presentation]; real PTY and controller seams, no second terminal. |
-| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | Typed Rust host exists; generic remote API/SDK product and authentication are not qualified. |
-| X04 | YAI Studio / Case IDE | ⚪ LATER | [Case Workbench target](#yai-studio--case-ide-target); no implementation. Workspace, explorers and inspectors consume qualified YAI semantics, never own them. |
+| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | Bounded typed Rust/controller and owner-query seams exist; CLI arguments, output capture and store-coupled orchestration still cross application/presentation boundaries. Target: [one typed YAI application contract](#application-and-client-boundary--adopted-target) for native CLI/Studio and future generated clients. No complete stable public API, exported interface package, SDK or remote authentication qualification. |
+| X04 | YAI Studio / Case IDE | ⚪ LATER | [Native Case Workbench target](#yai-studio--case-ide-target), inside YAI; no implementation or required third repository. Consumes the same typed application boundary as the native CLI, never persistence internals or independently reconstructed semantics. |
 
 ### Qualification
 
@@ -604,18 +604,149 @@ Letters are local shorthand, not the numbering of historical W/I/R waves.
 | **O — Operational World**: governed observations, attachments and effects | Golden filesystem/process/SQLite/HTTP/MCP/discovery verticals; bounded O08 source bootstrap | Broader acquisition profiles, review completion, cross-Case reuse and external ambiguity | One source frontier, roles and exact revisions; acquire permitted remainder only after governance, preserving operational resource semantics | Policy-only/full/incremental bootstrap, coverage/refusal, duplicate/revision, resume and revoke oracles | No parallel policy/knowledge acquisition owners or ConnectorStore; a database Resource is not YAI memory |
 | **W — Workflow & Composition**: explicit progression and bounded delegation | Workflow amendments/PlanPatch, I04 composition and exact Handoff | Resumable bounded acquisition/derivation work, persistent assignments, broader delegation and optional Agents | Reuse task/Workflow progression and execution owners for partial work/resume and future deliberation; normal effect authority still applies | Replayable progress, partial failure/resume, explicit adoption and cancellation through existing owners | No bootstrap-job or ThinkingJob store; Workflow/Agent is not Case memory or private execution |
 | **M — Derived State & Semantic Access**: rebuildable knowledge/experience and qualified Recall | W19/H19/W20; scoped historical sources/typed relations; bounded query-conditioned Recall v1 with independent CLI and cache-drop identity | M07 source structure/entities/claims/relations, graph/index/wiki views; D/H/S Recall integration, authorized reuse, quality/scale and learned navigation | Reuse exact-source/disclosure resolver after candidate discovery; new knowledge families must preserve epistemic class and measured history costs | Source-closed derivation plus discontinuous document/experience/current-state Recall, update/revoke, wrong-memory and rebuild controls | No Knowledge/Recall/MemoryStore; wiki edits do not rewrite originals, learned associations never decide truth or authority |
-| **X — Product Interfaces**: thin, usable views over Case semantics | Guided CLI, native REPLAI, application controller, cumulative runbook; `case sources` declaration/acquisition/coverage/revision surface | Broader source-management clients and acquisition profiles; Source Map and [Studio Case IDE](#yai-studio--case-ide-target) later | Keep setup explicit and model/system output distinct; [retained intermittent setup Ctrl-C finding][recall] needs independent cancellation/readiness qualification | Product acceptance through typed seams, inspectable consent/partial coverage, no semantics moved into UI | REPLAI owns terminal mechanics only; no ChatStore or wiki authority |
+| **X — Product Interfaces**: thin, usable views over Case semantics | Native YAI CLI, REPLAI workbench, bounded application/controller and owner-query seams, cumulative runbook; `case sources` surface | X03 application contract hardening and qualified export; future generated external clients, Source Map and native [Studio Case IDE](#yai-studio--case-ide-target) | One operation meaning across native and generated consumers; preserve explicit consent and model/system distinction. [Retained setup Ctrl-C finding][recall] stays independent | Same-source frontend conformance, typed results/refusals/progress, qualified export and inspectable consent; no semantics moved into UI | No CLI-output API, duplicate semantic registry or Studio persistence access; REPLAI owns mechanics, interfaces owns generic tooling, not YAI runtime semantics |
 | **Q — Qualification**: independent evidence for each claimed property | TEST.TOPOLOGY.0, deterministic Golden; historical/current and discontinuous Recall, wrong-memory, late-evidence, source-loss and 20k-history controls | External/human/canary; source coverage/exactness/update/revoke, D/H/S Recall usefulness, feedback freshness, state and deliberation evaluation | Retain failures; separate acquisition success, documentary backing, semantic resolution and memory benefit | Dual-role and cross-Case negatives, temporal/source correctness, latency, task outcomes, State Read ablation and equal-compute controls | No dataset owner, fabricated benchmark thresholds or PASS cache authority |
 | **F — Federation & Scale**: future distributed continuity | Single-host multi-Case scheduling/fencing | Cross-host coordination and federation | Establish local state/authority correctness first | Explicit conflict, disclosure, revocation and recovery contracts across hosts | No global Space or shared database by implication |
 
+### Application and client boundary — adopted target
+
+**YAI owns semantics and the typed application contract; clients consume it.**
+`APPLICATION.CLIENT.BOUNDARY.0` aligns product/repository ownership, not a new
+public API or selected functional milestone. Exactly two privileged first-party
+product surface classes are in the current target: **native CLI** and **native
+YAI Studio**, both living with YAI. “Privileged” means first-party product status,
+not elevated authority: both obey ordinary Principal/Participant, scope,
+disclosure and admission. Language, UI technology, process model and exact
+directory layout remain unselected. No third Studio repository is required.
+
+| Repository/component | Target ownership | Explicit non-ownership |
+|---|---|---|
+| YAI | Semantic/core implementation; one typed application boundary; handwritten native product CLI and future native Studio | No delegation of Case/Policy/Recall/source/Workflow/effect meaning to a frontend or generator |
+| Future interfaces project, currently `mothx9/interfaces` | Generic interface compilation, normalized interface representation, SDK/client generation, protocol projections, transport adapters, reference CLI, documentation, conformance, compatibility analysis and generic runtime workbench | Not YAI's GUI repository, application semantic owner or mandatory middleware process; future name/identity remains its owner's decision |
+| REPLAI | Reusable terminal/editor mechanics for the native CLI and potentially Studio terminal/editor panes | No Case semantics, application API, SDK/protocol contract or interface compiler |
+| YVEX | Exact computational/model runtime realization and its qualified public capability/lifecycle | No YAI application, Case, Policy, Recall or UI semantics |
+
+The [interfaces roadmap read for this alignment](https://github.com/mothx9/interfaces/blob/339fca4371e1c7aced2d91c6595ecdc3cac0ea87/ROADMAP.md)
+describes generic interface engineering as a planning target. This is a read-only
+direction reference, not a dependency pin, accepted YAI consumer contract or
+claim that its future generators/workbench exist. No source or project control
+in that repository is changed by this decision.
+
+```text
+YAI semantic/domain owners
+            │
+            ▼
+one typed APPLICATION BOUNDARY ── qualified versioned export ──► interfaces
+            │                                                build/release tooling
+       ┌────┴─────┐                                                 │
+       ▼          ▼                                                 ▼
+ native CLI   native Studio                              SDKs / protocol adapters /
+   ./yai      Case IDE (target)                          reference clients / proof
+```
+
+**Native CLI != application boundary.** CLI syntax, human-oriented parsing,
+guided consent/setup, formatting, terminal presentation and REPLAI interaction
+belong to the native frontend. Operation meaning, scoped queries and execution
+outcomes belong below presentation. The target boundary needs commands, queries
+and events/progress as useful categories, not frozen schemas or a prescribed
+Rust crate/API. It must expose qualified typed results/views, refusals, identity,
+provenance and lifecycle facts sufficient for frontends without exposing
+persistence internals. Neither Studio nor external clients should need to spawn
+`./yai`, parse its prose or reimplement business rules found only in CLI handlers.
+
+**Current gap, not an implemented API:** ConversationController provides typed
+actions/results and bounded event facts; engine owners expose qualified Recall,
+historical, policy and resource contracts. However, some product orchestration
+still receives CLI argument vectors, accesses LMDB directly, returns generic JSON
+or prints output captured by another CLI layer. Even `--json` is not a complete
+stable frontend-independent application package. [Executable architecture](docs/architecture.md#current-applicationclient-seams-and-limit)
+records these seams; this alignment does not move them or change their behavior.
+
+#### One operation meaning, many interface projections
+
+The future integration must establish:
+
+```text
+one YAI-owned application operation meaning
+    → one qualified versioned exported interface representation
+    → many generated/projected surfaces
+```
+
+No independently editable semantic registries may accumulate in Rust operations,
+an Operational Interface Graph, CLI metadata and Studio definitions. Current CLI
+metadata owns spelling/help, not a second definition of domain semantics. Future
+archaeology must choose whether export derives from typed YAI declarations, an
+admitted source model generates YAI bindings, or another mechanically checked
+equivalent preserves one meaning. This decision freezes neither generation
+direction nor a file format and creates no placeholder operation registry.
+
+The interfaces **Operational Interface Graph** may be canonical for its compiled
+interface representation, never for YAI domain truth. YAI defines what an
+operation means; interfaces normalizes, projects, generates, transports and tests
+that accepted contract. It may preserve declared authorization, preconditions,
+validity, effects and errors; it cannot reinterpret policy, Recall truth, current
+Case state or grant authority. Unsupported projections must declare loss/refusal,
+not silently weaken the owner contract. Conformance qualifies the named interface
+scope, not YAI semantic correctness in general.
+
+YAI should eventually export one versioned machine-consumable application
+interface package/definition. It may support generated TypeScript/Python SDKs,
+Rust where useful, reference CLI, OpenAPI, event/AsyncAPI-like surfaces, MCP, A2A,
+docs, fixtures, conformance suites and compatibility reports. None is currently
+claimed for YAI. Official generated SDKs need not get one repository per language:
+release output may go directly to package registries, generated/client areas in
+YAI or another qualified packaging layout. Independent lifecycle/versioning
+pressure, not language count, must justify extracting a repository.
+
+**Native YAI must remain independently buildable and operable.** Core, CLI and
+future Studio require no interfaces process or installation at runtime. Ordinary
+YAI development should not require that toolchain to build either; any later
+generated-artifact build dependency needs separately justified, qualified release
+and reproducibility evidence. Export/generation is a build/release concern, not
+mandatory semantic middleware or a prerequisite for current CLI operation.
+
+An interfaces-generated CLI is initially a reference/conformance or generated
+operational client. The canonical product CLI stays handwritten **`./yai`**.
+Replacement requires independently selected migration and evidence preserving
+or improving product UX and semantics; interfaces adoption does not require it.
+
+| Workbench | Product purpose and boundary |
+|---|---|
+| Interfaces generic runtime workbench | Explore operations/schemas, build requests, inspect responses/events, cancellation and errors/refusals; compare transports, fixtures/replay, conformance and interface versions. Consumes the accepted public interface, not YAI-private state. |
+| Native YAI Studio | Work with Cases, Sources, Knowledge, Resources, Policies, History, Recall, Workflow, Cognitive State and editing/composition through YAI's typed application boundary. It is the Case IDE, not an interface debugger. |
+
+They may reuse qualified generated packages/components later without becoming
+the same product or transferring semantic ownership.
+
+#### Horizontal progression and INTERLOCK CHECK
+
+The application/client track is horizontal to the semantic implementation spine:
+current typed Rust/controller footholds → frontend-independent application
+contract hardening → qualified interface package/export → generated official
+SDK/protocol/conformance surfaces. Native Studio will consume that same hardened
+application boundary; generated surfaces are not a runtime/build prerequisite
+for it. This is a dependency horizon, not selected work or a new execution queue.
+M07 and the source knowledge → knowledge/experience Recall → Recall-aware W
+progression do not wait for interfaces or Studio.
+
+**INTERLOCK CHECK:** no current YAI interface package/consumer contract is being
+implemented, no shared API or producer version is selected, and no repository is
+pinned/migrated. No current cross-repository Interlock is established by this
+alignment; **I07 remains UNSELECTED**. Reconsider the shared public contract when
+a real versioned YAI export gains an independently qualified interfaces consumer.
+
 ### YAI Studio — Case IDE target
 
-**Studio is a Case IDE / Case Workbench**, not an enterprise dashboard. Its
+**Studio is YAI's native Case IDE / Case Workbench**, not an enterprise dashboard
+or the interfaces repository. It is a future application inside YAI, consuming
+the same typed application boundary as the native CLI. Its
 primary visual unit is one Case workspace/window: a coherent place to inspect
 and work with the Case's sources, knowledge, experience, authority and execution.
 This is product composition, not a requirement for one operating-system process
 per Case. X04 remains LATER; this table selects no implementation work and adds
-no semantic owner or maturity row. REPLAI remains the current terminal substrate.
+no semantic owner or maturity row. It freezes no language, UI framework or
+directory layout. REPLAI remains the current terminal substrate and may later
+supply reusable terminal/editor panes without owning the Studio application.
 
 | Surface | Target responsibility | Semantic owner |
 |---|---|---|
@@ -630,9 +761,16 @@ no semantic owner or maturity row. REPLAI remains the current terminal substrate
 | Authority Inspector | Policy, EffectivePolicy, DecisionBasis and review | A |
 | Editor / Compositor | Case/source artifacts and editable derived views with explicit save/admission | UI over existing/future owners; editing never rewrites source truth implicitly |
 | Workflow / Operations | Tasks, review, effects and execution progression | W/O/E |
-| Evidence Inspector | Provenance, source closure and exact retained backing or missingness | K/M |
+| Evidence / Provenance Inspector | Provenance, source closure and exact retained backing or missingness | K/M |
 | Cognitive State Inspector | S/W and future E identity, compatibility and capability | S/C; YVEX owns E |
 | Bottom Panel | Logs, evidence, tests and execution/output tools | Presentation over the responsible owners |
+
+Studio may own windows/workspaces, editor layout, activity bar, trees, graph and
+timeline rendering/layout, inspectors/panes, local UI state and keyboard/visual
+interaction. It must not read LMDB, parse Transition layouts or private graph
+tables, parse CLI output, or reconstruct Recall, policy, source validity,
+knowledge epistemic class, authority, Workflow or effect truth independently.
+The direction is **YAI owner → typed application result/view → Studio presentation**.
 
 These surfaces consume current or separately qualified future contracts. Visual
 proximity, editing, graph navigation or a workspace tab cannot grant authority,
@@ -897,7 +1035,9 @@ test proof/provider metadata; a roadmap row never reclassifies test evidence.
 | Persistent internal deliberation / autonomous overnight thinking | False. E06 is OPEN: authorized assignments, unfinished L and compatible checkpoints need independent runtime and usefulness qualification, not an uncontrolled Agent loop. |
 | Looped/recurrent Transformer or second residual implemented/required | False. Possible model-side mechanisms, not the name of the semantic architecture; no named-model claim without qualified external evidence. |
 | Full cold-model substitution / Qwen external state qualification | False. Exact binding replacement does not establish cold-state recovery. |
-| Agent implementation / YAI Studio Case IDE | False. Later product compositions; the Studio surface map is a target, not an implemented workspace, new semantic owner or replacement terminal. |
+| Agent implementation / YAI Studio Case IDE | False. Later product compositions; Studio is a future native YAI application, not an implemented workspace, separate required repository, new semantic owner or replacement terminal. |
+| Stable public Application API / exported interface package / interfaces integration | False. X03 is PARTIAL: bounded typed controller/owner seams exist alongside CLI/store coupling. No package export, selected producer/consumer version, middleware or generated-client conformance exists. |
+| Generated official SDKs, protocol surfaces or replacement product CLI | False. Build/release/interface targets only. Native `./yai` remains the product CLI; neither one repository per SDK nor interfaces as a native-client runtime dependency is required. |
 | Complete external YVEX Golden acceptance | False. Generation 2 first-request capacity is admitted, but the fresh real run fails its 300-second wait; free/Workflow execution remains unqualified. |
 | Human Golden PASS / continuity canary compatibility | False unless independently reported at the relevant revision; current PENDING_OPERATOR / NOT_RUN. |
 | Instantaneous provider setup or qualified performance | False. Published serial synthetic probes perform real inference; latency is not a new state-architecture proof. |
@@ -936,6 +1076,8 @@ traceability, not substantive correctness; reviewers must inspect its scope.
 | A long-running loop or retained reasoning text | Useful persistent deliberation, compatible L resume or equal-compute benefit |
 | Golden loopback model | External YVEX qualification |
 | Automated PTY | Human acceptance |
+| Typed Rust/controller seam or CLI JSON output | Complete frontend-independent application API, exported interface package or generated-client conformance |
+| Interface graph/generator or generic workbench | YAI semantic authority, native Studio implementation or automatic product CLI replacement |
 
 Failure evidence can narrow or demote a claim without reopening historical
 deliveries. Unknowns stay unknown; no fabricated quality/latency/cost score and

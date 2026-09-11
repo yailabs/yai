@@ -499,6 +499,12 @@ controller-local thread need not survive restart. No canonical Space, ChatStore
 or persistent empty-chat lifecycle is justified here. REPLAI owns terminal
 mechanics; YAI owns SEND, intent, admission and execution semantics.
 
+The [application/client target](../ROADMAP.md#application-and-client-boundary--adopted-target)
+places native CLI, future Studio and external clients over one typed YAI
+application boundary. Presenting a Recall Trace, S or W transfers no semantic
+ownership to the frontend or an interface generator. This target does not claim
+a complete public application API today.
+
 A future product-level Agent may compose Participant, cognitive role, bindings,
 working-state profile, authority/disclosure, allowed capabilities/resources,
 optional Workflow and budgets. It gains no ownership of Case, memory, model,
