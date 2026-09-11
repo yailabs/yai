@@ -1,7 +1,7 @@
 # Case source bootstrap
 
-The source frontier acquires exact material, not organizational knowledge. A
-source can declare `policy`, `knowledge` and `operational` roles together. Roles
+The source frontier acquires exact material, not source-grounded domain knowledge.
+A source can declare `policy`, `knowledge` and `operational` roles together. Roles
 grant no authority: policy publication and Case binding remain explicit.
 
 ## Product lifecycle
@@ -20,7 +20,7 @@ resource definitions and explicit `sources`. Each source declares `name`,
 definitions use the same contract as `case resource import`; there is no second
 connector registry. The authenticated Tenant Owner must be linked to that exact
 Participant. This bounded release supports at most 128 source declarations per
-Case and a 64-KiB perimeter input, not an organization-wide crawler.
+Case and a 64-KiB perimeter input, not an environment-wide crawler.
 
 Supported source requests are `discover` over a confined local file/directory,
 `database_query` over an existing bounded SQLite resource, and `http_fetch` over
@@ -74,7 +74,7 @@ mode does not regain bootstrap authority.
 
 `case sources inventory CASE` is a readable inventory; add `--json` for exact
 source/revision/backing and Decision references. Counts describe **explicitly
-declared sources only**, not a percentage of an unknown organizational perimeter.
+declared sources only**, not a percentage of an unknown source environment.
 `discovered` means declared for consideration, not payload acquisition. Acquiring,
 acquired, denied, awaiting-review, inaccessible, needs-processing and revoked
 remain distinct. Policy readiness is reported independently of partial ordinary
@@ -89,7 +89,8 @@ admissions complete while the source revision remains incomplete; resume resolve
 that canonical work rather than treating partial processing as policy authority.
 The existing filesystem bounds remain in force (128 entries, 64-KiB aggregate
 payload, depth 8); ordinary immutable content follows the existing non-empty
-content profile. These are supported request bounds, not universal company sizes.
+content profile. These are supported request bounds, not universal
+source-environment sizes.
 
 `case sources read CASE --source NAME [--revision REVISION]` resolves the exact
 retained backing, with current policy and scope checks before returning data.

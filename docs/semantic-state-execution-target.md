@@ -38,12 +38,18 @@ possibilities, not a claim that every attachment/capability family exists today.
 None becomes universal owner of continuity, memory, authority, resources,
 historical state or execution truth.
 
+The generic product subject is **user/authenticated Principal → Case → explicitly
+authorized source environment**, not a company-specific knowledge system. Tenant
+keeps its technical security/isolation meaning; it is not a required product
+persona. The source environment can belong to personal, research or organizational
+work without changing the Case ontology.
+
 YAI owns durable semantic continuity; model-visible context is a disposable
 execution working set. System memory architecture is not one Memory database.
 The [Case source frontier](case-source-bootstrap.md) now supplies bounded
 policy-first acquisition and exact original/revision backing through existing
 Resource, policy and content owners. It does not implement source-grounded
-knowledge D, knowledge-aware Recall or Recall-aware W. An acquisition can be
+domain knowledge D, knowledge-aware Recall or Recall-aware W. An acquisition can be
 recorded in Case history without turning its documentary content into current
 semantic truth. Generic bootstrap/knowledge horizons remain in the Roadmap.
 
@@ -63,6 +69,46 @@ database, daemon, canonical owner, registry, service, StateFabricStore or mutabl
 global WorkingMemory. A working copy of canonical intent, authority or content
 does not change the authority of its source. Existing governance and security
 histories remain with their established owners; a Case binds their exact facts.
+
+### Source relations and backing — adopted target
+
+Identifying the world relevant to a Case establishes governed **source relations**;
+acquisition does not universally require uploading/copying originals into YAI.
+One frontier supplies distinct governance, domain-knowledge and operational
+consumers. Source roles declare intended use, not permission or semantic truth.
+
+Distinguish physical postures without prescribing types or databases:
+
+- **Bound / referenced in place:** the source stays in its ordinary location;
+  YAI retains the governed relation, locator/logical identity where applicable,
+  scope, revision observation, provenance and current accessibility.
+- **Snapshot-backed:** exact immutable material is retained where historical or
+  source closure requires it and authority, retention and privacy permit it.
+  Qualified revision retention by the source owner can supply backing; not every
+  source requires a YAI byte copy.
+- **Derived cache:** extraction, OCR, structure, indexes, embeddings and similar
+  artifacts remain rebuildable/disposable under exact backing, derivation/profile
+  and disclosure contracts. They cannot silently replace original evidence.
+
+These postures can coexist. A logical identity or fingerprint is not proof that
+old bytes remain retrievable. If neither YAI nor the source system retains the
+old revision, historical backing is missing; no current source, summary or cache
+can be promoted into the absent original. Current bounded bootstrap retention
+does not implement the general physical-lifecycle or privacy/retention target.
+
+Local and already-mounted host paths need not create different Case ontologies.
+The host handles SMB/NFS or other mount mechanisms before YAI sees a filesystem
+path. A mounted NAS may conceptually fit the filesystem resource model under its
+actual guarantees; no YAI remote-protocol, mount, discovery, credential or
+cross-machine recovery qualification follows. Unsupported connectors stay
+unsupported.
+
+The [Roadmap source environment](../ROADMAP.md#case-source-bootstrap-and-source-grounded-knowledge--adopted-target)
+defines bootstrap ordering, modes, future Source Map and lifecycle falsifiers.
+The Source Map describes related sources/resources and accessibility, not their
+semantic knowledge graph. The [Studio Case IDE target](../ROADMAP.md#yai-studio--case-ide-target)
+consumes these views without becoming their owner. Neither product view exists
+merely because current resource attachments and bounded source inventory exist.
 
 ## Historical experience / semantic / working / computational state — adopted target
 
@@ -84,16 +130,21 @@ requirements now**, not removed from the architecture because current consumers
 are absent. Concrete mechanisms remain research pressure. Context-only execution
 is a compatibility realization, not the final paradigm.
 
-Current Semantic State is **not the whole of memory**. Qualified historical
-experience H_t and what presently holds S_t are different views of established
-owners. Neither introduces a second ledger or a universal semantic truth object.
+Current Semantic State is **not the whole of memory**. Qualified source-grounded
+**domain knowledge D_t**, historical Case experience H_t and what presently holds
+S_t are distinct semantic domains over established owners and qualified sources.
+D answers what sources state/represent; H answers what happened in the Case;
+S answers what currently holds. They are not three physical stores, a second
+ledger or a universal semantic truth object. D is an adopted target, not a new
+implemented knowledge API.
 
 ```text
-YAI: existing canonical history + immutable content + established owners
+YAI: governed source relations + canonical history + established owners/backing
+  ├── D_t: qualified source-grounded domain knowledge (target)
   ├── H_t: qualified historical experience
   └── S_t: current semantic state
 
-H_t + S_t + question/scope/authority/budget → Recall → R_t^q
+D_t + H_t + S_t + question/scope/authority/budget → Recall → R_t^q
 S_t + relevant R_t^q + task/Case constraints + authority/relevance/budget
   │ State Compilation
   ▼
@@ -112,7 +163,7 @@ MODEL / Exec(X_t, E_t)
 The target equations are:
 
 ```text
-R_t^q = Recall(H_t, S_t, q, scope, authority/disclosure, budget)
+R_t^q = Recall(D_t, H_t, S_t, q, scope, authority/disclosure, budget)
 W_t = Compile(S_t, R_t^q, active intent/task, Case big-picture constraints,
               authority/disclosure, relevance, execution budget)
 E_t = Lower(W_t, Model, StateProfile)
@@ -123,9 +174,10 @@ The notation is not a source-type, schema or API commitment:
 
 | State | Meaning | Ownership and limit |
 |---|---|---|
+| D_t — Source-grounded domain knowledge | What admitted exact sources state/represent: documentary structure, claims and relationships with declared provenance/epistemic posture | Target qualified derivation from existing source/content/resource owners; not current Case truth, policy authority, a database or a new canonical owner |
 | H_t — Qualified historical experience | Recorded occurrences, decisions, observations, effects, Workflow history and admitted material, including what no longer holds | Conceptual qualified view over existing ledgers/content/established owners; not a new historical owner or a guarantee of complete knowledge |
 | S_t — Semantic State | What presently holds: model-independent Case meaning with provenance, authority and epistemic distinctions | YAI, through existing owners; current authority, derived assertion and model claim stay distinct |
-| R_t^q — Recall Trace | Bounded reconstruction for question/task q through possibly discontinuous Events and Episodes | Derived, reconstructible, disposable; Participant/disclosure scoped, temporally coherent and causally coherent only where supported; exact source closure or explicit missingness |
+| R_t^q — Recall Trace | Bounded reconstruction of the qualified knowledge and experience relevant to question/task q, including potentially discontinuous sources, Events and Episodes | Derived, reconstructible, disposable; Participant/disclosure scoped, temporally coherent and causally coherent only where supported; exact source closure or explicit missingness. D-aware Recall remains future |
 | W_t — Semantic Working State | What must count for this execution: bounded, task-relative, Participant-scoped, provenance-carrying | Target compilation of current S plus relevant Recall, task and Case constraints; not the whole Case or a new memory history |
 | E_t — Experiential Computational State | Model-native realization of W_t, subsequently accumulated through execution | Computationally owned by YVEX/model: model-specific, potentially opaque, independently resident, derived and replaceable; never a second semantic ledger |
 
@@ -134,7 +186,7 @@ Recall, not a relevance score (the earlier notation used R_t for relevance).
 Compilation must explain what matters now, for whom, under which scope/budget
 and from which sources. Relevance cannot override disclosure. Case age does not require the
 entire Case to be lowered; boundedness cannot excuse dropping necessary state.
-YVEX need receive only qualified W_t/input, not all of H_t or S_t. Provisional
+YVEX need receive only qualified W_t/input, not all of D_t, H_t or S_t. Provisional
 SemanticStateFrame/Delta describe W_t representation/changes, not latent layouts.
 **IMPLEMENTED FACT:** the bounded source implementation composes qualified
 SemanticState and compiles SemanticWorkingState before Projection/ContextFrame
@@ -142,7 +194,7 @@ lowering. This is not a claim
 of general temporal/as-of reconstruction, universal task
 sufficiency, semantic paging or a public E_t consumer. The existing Rust
 `SemanticState` wraps history and current materialization for qualification;
-the H/S target distinction does not rename/split that contract retroactively. See
+the D/H/S target distinctions do not rename/split that contract retroactively. See
 [current architecture](architecture.md#current-provider-and-context-behavior).
 
 The first [historical semantic reader](architecture.md#historical-semantic-reconstruction)
@@ -172,7 +224,11 @@ without making selection a causal relation. Source loss is explicit; current
 disclosure governs both discovery and resolution. This bounded M06 foothold is
 not a general memory navigator or task-sufficiency guarantee. Recall remains an
 independent inspection contract: **S + relevant R → W is not implemented by it**.
-H stays a conceptual view over existing owners; no RecallStore or extra ledger.
+Published Recall v1 qualifies only its existing bounded experience/semantic
+families, not D-aware Recall. Future knowledge candidates must reuse deterministic
+truth/disclosure/source-closure resolution; memory is not conceptually restricted
+to Episodes/Transitions. H stays a conceptual view over existing owners; no
+RecallStore or extra ledger.
 
 ### Independent computational and semantic evolution
 
@@ -194,7 +250,9 @@ of required governed Invocation/Result/effect evidence. Recording execution is
 distinct from admitting its proposed consequence; external observations and
 human actions still use their applicable owners, not a mandatory model path.
 
-Changing DeepSeek to Qwen may invalidate E_t, never admitted H/S continuity.
+Model replacement may invalidate E_t, never admitted semantic D/H/S continuity.
+Source retention/availability and current disclosure still govern reconstruction;
+model independence does not promise perpetual access to external source bytes.
 Reconstruction resolves relevant R_t^q and required W_t under current intent,
 authority, relevance and budget, then realizes a new exact model/profile's E_t.
 Semantic recovery does not promise identical activations, stochastic output or
@@ -214,13 +272,39 @@ The model supplies learned computation, not authority to commit its output.
 
 An **Event/occurrence** is an individual recorded occurrence, observation or
 admitted change; recording a claim does not prove the claimed event happened.
-An **Episode** is a derived structured grouping of related Events/experience.
-S describes what currently holds. A Recall Trace reconstructs what matters to q
-across Events/Episodes, potentially far apart in time; W selects what counts
+An **Episode** is a derived structured grouping of related Events/experience in H.
+D preserves source-grounded domain knowledge; S describes what currently holds.
+A Recall Trace targets what matters to q across qualified D/H/S, including source
+material and Events/Episodes potentially far apart in time; W selects what counts
 for computation, and E realizes that working state below YAI. W20's bounded
 Episodes and SemanticAssertions remain derived and rebuildable, including
 recorded-result normalization without re-inference. Those facts do not establish
 the general target Recall process.
+
+Binding/acquiring a source is itself Case experience in H. Meaning extracted
+from that exact source belongs to D, with distinct postures for “source asserts”,
+deterministic extraction, inference and human authorship/correction. An operational
+observation is evidence in H and may affect S only through its proper owner.
+For example: H records manual revision 7 becoming related to the Case; D records
+its claim that retention is 90 days; H later records a 30-day operational
+observation; S reflects the qualified current deployment posture where admitted.
+A contradiction may connect the claim and observation without making either
+epistemic class the other. A later source revision cannot rewrite that history.
+
+A policy document may also be documentary knowledge. The same exact revision
+can feed normative candidates → explicit validation/publication → PolicyArtifact
+→ PolicyBinding → EffectivePolicy, and separately future D derivation. “The
+source states rule X” is not “X currently governs this operation.” Only the
+qualified governance path can govern; knowledge can inform. Indexing, retrieval,
+classification, summaries and model confidence never promote a knowledge-only
+source to authority or give raw source prose instruction priority.
+
+Where authorized, exact revision/backing and qualified extraction/profile
+artifacts may be reused across Cases. Binding, disclosure, applicability, Case
+relationships, Recall and W remain Case-specific. Deduplication grants no access
+and creates no global shared Case memory. A wiki/navigation view remains derived;
+a human correction needs its own explicit provenance/lifecycle, not an implicit
+rewrite of original source truth.
 
 Temporal meaning must distinguish **event time**, **observation time**,
 **admission/recording time**, **validity interval**, and **supersession/invalidation
@@ -248,6 +332,7 @@ The target Recall Compiler/process extends derived semantic access:
 
 ```text
 task/query → exact/current anchors → candidate discovery
+    → qualified source-knowledge / historical experience / current-state candidates
     → temporal / causal / exact / lexical / vector / learned access paths
     → bounded path expansion
     → identity + Case/Tenant/Participant + current disclosure revalidation
@@ -262,7 +347,7 @@ must not degrade to vector search. Budget path depth, source count and material;
 retain inclusion/omission and incompleteness posture. A Trace is not top-k
 retrieval, `summary.md`, or a model-generated story promoted into truth.
 Failure of derived accelerators requires qualified reconstruction/fallback or
-honest refusal, not invented experience. No EpisodeStore, RecallStore,
+honest refusal, not invented knowledge or experience. No EpisodeStore, RecallStore,
 MemoryStore, ExperienceStore or StateFabricStore follows from these concepts.
 
 ### Associative navigation and exact backing
@@ -273,13 +358,20 @@ facts and historical evidence. Compression cannot become the sole backing for
 exact claims when exact sources exist. Trace closure must resolve the relevant
 Transition/content identity, artifact version/digest, observation/effect proof,
 Decision/provenance or historical resource evidence, or explicitly report the
-missing source. A current mutable endpoint is not evidence of its past bytes.
+missing source. Documentary closure adds exact logical source/revision and
+qualified page/section/span where supported, resolving permitted snapshots or
+the source owner's retained revision. Neither a locator nor a derived cache
+alone supplies missing original bytes. A current mutable endpoint is not evidence
+of its past bytes. Original material, extracted representations and source-grounded
+knowledge retain different identities and provenance; parser/OCR precision cannot
+exceed its qualified profile.
 “Source closed” asserts identity/support closure, not omniscience or the truth
 of every recorded claim.
 
 Learned memory navigation is research within M/S/C/Q, not a new program. It may
-propose candidate Episodes, associations, traversal paths, ranking/search priority
-and relevance. It may not decide truth, authority, disclosure, current validity,
+propose candidate source-knowledge units, Episodes, associations, traversal paths,
+ranking/search priority and relevance. It may not decide truth, authority,
+source roles, disclosure, current validity,
 supersession, canonical causality or exact source identity. A deterministic
 resolver revalidates every selected source. Graph, vector index, BM25,
 embeddings, SAE features and learned rankers remain derived access paths.
@@ -300,8 +392,8 @@ authorized work, automatic semantic mutation or an uncontrolled Agent loop.
 | Loop | Trigger and consequence | Authority boundary |
 |---|---|---|
 | Semantic / world | Action, observation or explicit proposal → normalization, evidence, authority/admission → H/S change | Existing typed owners only; CaseState remains Transition-mediated |
-| Experience assimilation / recall | Admitted H/S change → rebuild/update derived experience/access structures → affected Recall may change | Derivation cannot invent or commit history |
-| Working-state refresh | Relevant ΔH / ΔS / ΔRecall → qualified ΔW or full W recompilation | Fresh scope/source identity, mandatory state and sufficiency must survive |
+| Knowledge/experience assimilation and Recall | Qualified source/revision or admitted H/S change → affected D/experience/access derivation changes → affected Recall may change | Source drift is not admitted truth; derivation cannot invent history or normative authority |
+| Working-state refresh | Relevant qualified D/H/S/Recall change → qualified ΔW or full W recompilation | Fresh scope/source identity, mandatory state and sufficiency must survive; no new source-delta schema is prescribed |
 | Computational reconciliation | Full W / qualified ΔW → YVEX Lower/Reconcile → refreshed E | Public capability and compatibility evidence; YAI does not write latent state |
 | Model computational | E plus current computation → E′ | Internal updates may be frequent; no automatic semantic Transition |
 | Semantic return | Explicit P or observed consequence → YAI admission → H/S change | Repetition of E, Recall or a learned association never grants authority |
@@ -309,6 +401,12 @@ authorized work, automatic semantic mutation or an uncontrolled Agent loop.
 **E_t → E_t+1 does NOT imply S_t → S_t+1.** Neither assimilation nor refresh
 is a new canonical mutation path. Current full-recompilation delta equivalence
 does not qualify these complete prompt-independent loops.
+
+In particular, a qualified source/revision change may affect D and access
+derivations, then Recall, W and later E through public reconciliation. This
+target does not introduce ΔD schemas, continuous synchronization or a new
+background owner. Only ordinary qualified State Compiler selection may change W;
+source acquisition alone supplies neither knowledge derivation nor model input.
 
 Relevant tool/result completion, Workflow progression, admitted observation,
 review outcome, policy/revocation, source/artifact change, effect reconciliation
@@ -341,7 +439,7 @@ assignment semantics, preferably through existing task/Workflow/authority and
 execution owners. No ThinkingJobStore or autonomous authority is justified.
 
 Distinguish internal deliberation (no environment action), deliberation with
-qualified Recall (additional scoped experience), and operational verification
+qualified Recall (additional scoped knowledge/experience), and operational verification
 (real resources/effects through ordinary Decision/Grant/PREPARE/reconciliation).
 The internal thinking loop is a model/runtime computational capability; an
 Agent is an optional application composition above it, not its state owner.
@@ -359,12 +457,12 @@ explicit. Internal reasoning stays computational unless surfaced by contract.
 
 | Continuity | Survives / may be lost |
 |---|---|
-| Semantic | Admitted H/S survives model loss/replacement; relevant R/W reconstructs from qualified sources |
+| Semantic | Admitted D/H/S backing and provenance survive model loss/replacement; relevant R/W reconstructs subject to source retention, availability and current disclosure, never a promise to recreate absent external bytes |
 | Experiential computational | E may persist/resume only with exact model/profile compatibility; replacement can require recompilation |
-| Deliberation | L may checkpoint/resume when compatible; cold replacement may lose the exact unfinished trajectory while preserving the admitted assignment and H/S |
+| Deliberation | L may checkpoint/resume when compatible; cold replacement may lose the exact unfinished trajectory while preserving the admitted assignment and D/H/S semantic continuity |
 
-Consolidation likewise has three meanings: **semantic** derivation of Episodes,
-relations, associations and summaries with provenance; **computational**
+Consolidation likewise has three meanings: **semantic** derivation of source-grounded
+representations, Episodes, relations, associations and summaries with provenance; **computational**
 reorganization of model-native E for reuse; **parametric** changes to
 model/encoder/adapter weights through training. None implies another. Parameter
 updates do not automatically write Case memory. Training and latent execution
@@ -431,7 +529,7 @@ composition and selection, followed by context-compatible Projection/ContextFram
 They are not the definition of memory. The target program still extends toward:
 
 ```text
-Current S + relevant qualified Recall from H + intent/task + Case constraints
+Current S + relevant qualified Recall over D/H/S + intent/task + Case constraints
     + authority/disclosure + relevance + active dependencies + execution budget
         ↓
 Working-state compilation
@@ -520,11 +618,13 @@ public capabilities or refusal; no private interface is invented here.
 Cases and Golden may provide derived, authority-scoped semantic trajectories:
 
 ```text
-(H_t, S_t) → R_t^q → W_t + input/task
+(D_t, H_t, S_t) → R_t^q → W_t + input/task
     → independently admitted consequences → (H_t+1, S_t+1)
 ```
 
-Compare required big-picture retention, rejection of irrelevant experience,
+Qualified source changes may separately trigger D rederivation; computational
+output does not directly mutate documentary truth. Compare required big-picture
+retention, rejection of irrelevant knowledge/experience,
 supersession, task switching without loss of constraints, long-history locality
 and correct semantic proposals. Record exact source/generation/scope and
 model/adapter/profile evidence where applicable. Do not treat all admitted
@@ -596,17 +696,18 @@ There is no automatic model-to-memory or model-to-state write path implied.
 | Evaluation | Controlled setup and observation | Falsifier |
 |---|---|---|
 | Whole Case versus working state | Compile W_t for one task/Participant from a mature S_t; independently check necessity, relevance, scope, budget and source provenance | The whole Case is lowered automatically, unauthorized state leaks, or boundedness hides missing required evidence |
-| Cold-model substitution | Mature Case, different qualified exact model/profile, invalidate incompatible E/L and reconstruct relevant R/W and new E, zero inherited continuation or full-history injection | Admitted H/S is lost; loss of the exact unfinished L trajectory alone is not semantic discontinuity |
+| Cold-model substitution | Mature Case, different qualified exact model/profile, invalidate incompatible E/L and reconstruct relevant R/W and new E, zero inherited continuation or full-history injection | Admitted D/H/S continuity is lost; loss of external bytes under declared retention or of the exact unfinished L trajectory is falsely hidden or confused with model-dependent semantic loss |
 | Case-age locality | Vary history length radically while holding current state, task and disclosure equivalent; measure sufficient working-set entries/units and actual tokens where available | Model-visible context grows linearly with unrelated history, or stays small only by losing required evidence |
 | Task/local versus big-picture | Switch task/subgoal while preserving relevant Case, slow/stable and episodic constraints; change or supersede material during active deliberation | Wrong-memory interference dominates, superseded facts retain current authority or task switching loses constraints |
 | Full working-state reconstruction versus delta | Compare semantic meaning, provenance, scope and dependencies of full W_t compilation and qualified delta application, including removal and restart | Stale or superseded material survives, source closure differs or only a byte-identical latent state is checked |
 | Derived-state amnesia | Snapshot canonical history/current replay and owned-object identities; drop only disposable graph/index/retrieval/memory artifacts, rebuild with pinned algorithms and recorded results | Canonical truth changes, original payload is lost, or semantic rebuild silently requires fresh inference; re-encoding cost is accounted separately |
-| Computational-state and deliberation amnesia | Through a qualified operator/provider boundary separately lose/resume E and L; preserve H/S, reconstruct relevant R/W and requalify the assignment | Admitted semantics depend on latent state, incompatible checkpoints resume, or lost unfinished thought is falsely claimed preserved |
+| Computational-state and deliberation amnesia | Through a qualified operator/provider boundary separately lose/resume E and L; preserve D/H/S backing/provenance, reconstruct relevant R/W under current disclosure and requalify the assignment | Admitted semantics depend on latent state, incompatible checkpoints resume, or lost unfinished thought is falsely claimed preserved |
 | Bounded persistent-KV State Read | Compile scoped W_t, lower it into an exact model/profile's persistent prefix/KV, observe actual reuse, then invalidate/rebuild under changed scope/model | Mere cache persistence is called semantic qualification, reuse is not demonstrated, or hidden/outdated state bypasses W_t admission |
 | State-augmented pretrained read | Compare exact backbone/adapter/profile with controlled W_t/E_t access, including targeted post-training and a frozen-backbone option | Model ignores supplied state, uses unrelated/leaked material or appears correct only through full prompt history; no read qualification follows from adapter existence |
 | Learned update without semantic proposal | Exec changes E_t with P_t absent; separately submit valid/invalid explicit P_t under current authority | Every computational micro-update requires a semantic Transition, or E_t/Y_t admits a fact without semantic validation; required execution evidence must still be recorded |
 | Discontinuous Recall / as-of reconstruction | Long Case, few widely separated relevant Episodes, many similar distractors, late evidence and a superseded conclusion; ask what held and what was recorded at distinct times | Wrong trajectory, unsupported causal edges, historical material used as current truth, missing exact source closure hidden, or unbounded W; exact backing and explicit missingness controls required |
-| Prompt-independent refresh | Complete tools/review/Workflow, admit observations and revoke disclosure without another prompt; compare full W with qualified refresh and future E reconciliation | Next affected State Read uses stale/forbidden material, or enrichment is treated as canonical admission; no qualified removal means invalidate/rebuild |
+| Source-grounded knowledge and experience Recall | Combine an exact source clause, historical Decision, contradictory observation and current state; change the source revision and revoke one Case's access while another remains authorized | Documentary claims become facts/rules, current bytes replace historical backing, cache/wiki content impersonates originals, or reuse leaks permissions. A lost in-place revision without retained backing must report missingness |
+| Prompt-independent refresh | Complete tools/review/Workflow, qualify source/revision or D/access changes, admit observations and revoke disclosure without another prompt; compare Recall/full W with qualified refresh and future E reconciliation | Next affected State Read uses stale/forbidden material, or enrichment is treated as canonical admission; no qualified removal means invalidate/rebuild |
 | Persistent deliberation usefulness | Same assignment and total compute/time budget, with/without memory and persistent deliberation; include State Read ablation, distractors, interruption and cancellation | No benefit over equal-compute controls, silent budget overrun, invented conclusions or side effects outside the normal governed path |
 | State-page locality | Start bounded, request one relevant temporal/causal/state region under explicit scope and expansion budget | Full-history replay into model context is required, expansion is unbounded or references bypass disclosure |
 | Authority isolation | Same Case and task, different admitted Participants/disclosure scopes; include unauthorized, stale and cross-Tenant references | Hidden content/counts leak, scopes are merged, or a handle grants ambient shared-state access instead of refusal |
@@ -623,15 +724,17 @@ evidence rather than substitute a fixture.
 Qualification must measure more than retrieval accuracy: recall precision and
 completeness, temporal ordering, relation correctness against its declared
 epistemic basis, supersession/current-versus-historical correctness, exact source
-closure, recall/assimilation/W-refresh latency and stale-read/invalidation posture.
+closure, source coverage/revision and extraction posture, recall/assimilation/
+W-refresh latency and stale-read/invalidation posture.
 Compare task success with/without memory, wrong-memory interference, State Read
 ablation and persistent deliberation against equal-compute baselines. Declare
 oracles and missing/unsupported causal evidence; no thresholds or results are
 fabricated here. Latency components and semantic correctness are separate axes.
 
-The learned-read/write, Recall and trajectory tests remain unqualified hypotheses, not
-new benchmark results. Computational-state deletion is performed only through
-an authorized provider/operator contract; this document does not permit YAI to
+The general learned-read/write, D-aware Recall and trajectory evaluations above
+remain future requirements, not new benchmark results. The published bounded
+experience Recall tests retain their earned scope. Computational-state deletion
+is performed only through an authorized provider/operator contract; this document does not permit YAI to
 administer producer internals or discard an operator's retained state.
 
 ## Program boundary
@@ -650,11 +753,19 @@ The source refoundation covers explicit qualified semantic-state meaning, bounde
 W_t compilation, semantic full/delta equivalence and context compatibility, not
 E_t in YAI. Current execution selection and maturity remain Roadmap-owned.
 
-General temporal-causal memory, general event/validity-time reconstruction, a Recall
-Compiler, learned navigation, SAE memory, prompt-independent E reconciliation,
+General temporal-causal memory, general event/validity-time reconstruction,
+knowledge-aware or all-owner Recall compilation, learned navigation, SAE memory,
+prompt-independent E reconciliation,
 persistent internal deliberation and autonomous overnight thinking are **not
 implemented claims**. Existing bounded replay, W20 and runtime loops do not
 establish them. No trained adapter or looped/recurrent Transformer is claimed.
 “Second residual” and recurrent/looped computation are possible model-side
 research mechanisms, not YAI architecture names or requirements; no named model
 is assigned such a design without qualified external evidence.
+
+The bounded source-bootstrap lifecycle does not establish generic environment
+crawling, the general in-place/snapshot/cache lifecycle, Source Map, source-grounded
+domain knowledge derivation, arbitrary document/OCR understanding, source-linked
+wiki, cross-Case knowledge reuse or continuous source synchronization. These
+remain targets, as does Studio. No schema, owner, database, mount manager or new
+YAI/YVEX contract follows from this doctrine alignment.

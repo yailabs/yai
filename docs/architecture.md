@@ -169,7 +169,7 @@ mean constitutional, general, or production-ready.
 | Human-reviewed filesystem effect | policy-driven `REQUIRE_REVIEW` → v2 request → per-command POSIX Principal authentication → Tenant membership → explicit Principal/Participant link → Case-role eligibility → ReviewAction v2 → effective Decision → same Grant/carrier path | local POSIX identity only; no SSO, remote signer or membership removal lifecycle |
 | Governance intake and admission | authenticated Tenant owner + JSON/explicit Markdown or text-PDF policy block → Tenant-owned immutable artifact/lifecycle → exact Tenant-safe Case binding → EffectivePolicy → operation-specific DecisionBasis and derived cognitive rules; P@1/P@2 remain distinct and validity/revoke contract future authority | unresolved prose never publishes; local ownership is enforced; external organization identity, credential security, retention and distributed revoke remain future work |
 | Journal compatibility | inspect/dry-run/import `yai.store.record.v0` or `yai.record.v1`, preserving unknowns opaquely in an isolated target; old replay still materializes legacy record indexes | general semantic promotion is deliberately absent; the old record plane remains compatibility data, not authority |
-| Graph / experience access | typed canonical transitions → replay-qualified historical evidence under current disclosure → exact-source experience relations and bounded directed paths; existing decoded legacy records → rebuildable RuntimeGraph remains a separate compatibility access path | general causal discovery, all-owner traversal and Recall remain absent; legacy-only cases still depend on compatibility translation |
+| Graph / experience access | typed canonical transitions → replay-qualified historical evidence under current disclosure → exact-source experience relations and bounded directed paths; existing decoded legacy records → rebuildable RuntimeGraph remains a separate compatibility access path | general causal discovery, all-owner traversal and knowledge-aware Recall remain absent; bounded experience Recall is described below; legacy-only cases still depend on compatibility translation |
 | Analytical facts | LMDB operational records → DuckDB extraction → reports | four declared families have no extractor; schema/orchestration remains embedded in the command crate |
 
 `yaid` startup, status/info/shutdown, restart, fixture loops, and hot snapshot
@@ -640,6 +640,23 @@ knowledge-role acquisition produces no documentary claims or M07 semantics.
 Inventory/resume/revision/revoke and current-policy source reads are normal CLI
 actions; LMDB remains 37/40. Recall/W and model execution are not consumers of a
 new knowledge representation in this boundary.
+
+These are bounded executable source relations, not generic source-environment
+coverage. Resource attachment/discovery and filesystem locators coexist with
+retained immutable content/provenance, policy intake/binding and derived
+graph/index/memory/Recall. The source-bootstrap profiles above retain exact
+original/observation backing; they do not implement the target's general choice
+of in-place access, permitted snapshots and disposable derived caches or a global
+retention/privacy lifecycle. Source-grounded **domain knowledge D_t**, semantic
+source organization, the Case Source Map and YAI Studio remain unimplemented
+targets in the [Roadmap](../ROADMAP.md#case-source-bootstrap-and-source-grounded-knowledge--adopted-target).
+Bounded unified bootstrap is implemented; its generalization is not.
+
+A host-visible mounted path may conceptually fit the existing filesystem resource
+model, subject to its confinement/identity/availability contract. No retained
+product evidence qualifies NAS/SMB/NFS integration here. Protocols, credentials,
+mount/discovery lifecycle and cross-machine recovery are separate host/external
+responsibilities, not capabilities conferred by a Case attachment.
 
 Wave 9 adds the distinct Case-native boundary in
 [`case_policy.rs`](../engine/yai-engine/src/case_policy.rs). One atomic catalog+
