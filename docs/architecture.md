@@ -717,9 +717,10 @@ The native `case knowledge build|inspect|search|graph|wiki|resolve` surface cons
 typed engine results below presentation; future clients need not parse CLI text.
 Navigation is generated/read-only. Cross-Case policy-original/profile identity
 reuse does not transfer Case visibility or qualify general shared extraction
-caching. This boundary leaves Transition v19, CaseState v16, LMDB **37/40**, S/W
-unchanged. The subsequent [Recall v2 integration](recall.md) consumes this
-qualified D alongside H/S; automatic R → W remains unimplemented. See the
+caching. Knowledge derivation leaves Transition v19, CaseState v16 and LMDB
+**37/40** unchanged. The subsequent [Recall v2 integration](recall.md) consumes
+this qualified D alongside H/S; the separate task-requested W v3 compiler consumes
+that Recall automatically, without direct knowledge injection or provider execution. See the
 [independent derivation contract and oracle](source-grounded-knowledge.md).
 
 A host-visible mounted path may conceptually fit the existing filesystem resource
@@ -798,6 +799,19 @@ same Principal may belong to multiple Tenants, but every operation resolves
 one Tenant context and never combines catalogs or Case-derived reads.
 
 ## Current provider and context behavior
+
+The read-only `case context compile CASE INTENT` application operation now obtains
+qualified D/H/S Recall v2 and compiles **W v3** through the same semantic-state
+compiler. It ends at W, with optional Projection lowering and no provider call.
+Current S/control is mandatory; recalled evidence is typed and group-atomic, not a
+serialized trace or another retrieval pass. One request-scoped LMDB read basis
+qualifies current authority and sources alongside historical evidence; an as-of
+Recall cut never rewinds current S/authority. Store revalidation detects backing
+or catalog changes outside Case generation and requires full recompilation.
+See the [working-state contract](recall.md#recall-aware-working-state-compilation)
+for exact request, budgets, missingness, freshness and product qualification.
+Existing provider/Workflow entrypoints described below retain their S-only v2
+invocation path; they are not silently migrated to Recall-aware execution.
 
 [`semantic_state.rs`](../engine/yai-engine/src/semantic_state.rs) composes a
 read-only `SemanticState` from CaseState and its exact ordered history, requiring
@@ -1218,7 +1232,8 @@ final all-or-refuse checks, not permission to trim mandatory context.
 The initial profile composes the historical/experience families and mechanical
 W20 assertions. It does not qualify arbitrary natural-language task understanding,
 general consolidation-derived inference, complete Workflow/Handoff Recall,
-universal source coverage, wall-clock as-of, learned navigation or Recall-aware W.
+universal source coverage, wall-clock as-of or learned navigation. The separate
+W v3 compiler now consumes qualified Recall without broadening those guarantees.
 Lexical hits are discoverability, not a completeness guarantee. Pre-encoded vector
 fixtures prove mechanics, not real encoder suitability or memory usefulness.
 The 81/20,081-Transition oracle selects 8 events in 5 segments, with 64 visible

@@ -51,7 +51,9 @@ policy-first acquisition and exact original/revision backing through existing
 Resource, policy and content owners. The separate bounded
 [source-grounded knowledge derivation](source-grounded-knowledge.md) now provides
 a deterministic D foothold. [Recall v2](recall.md) composes bounded D/H/S
-candidates under one qualified read basis; Recall-aware W remains unimplemented.
+candidates under one qualified read basis. The explicit working-state operation
+now compiles bounded Recall-aware W v3; no provider execution or public W→E path
+is implied.
 An acquisition can be
 recorded in Case history without turning its documentary content into current
 semantic truth. Generic bootstrap/knowledge horizons remain in the Roadmap.
@@ -191,7 +193,7 @@ The notation is not a source-type, schema or API commitment:
 | H_t — Qualified historical experience | Recorded occurrences, decisions, observations, effects, Workflow history and admitted material, including what no longer holds | Conceptual qualified view over existing ledgers/content/established owners; not a new historical owner or a guarantee of complete knowledge |
 | S_t — Semantic State | What presently holds: model-independent Case meaning with provenance, authority and epistemic distinctions | YAI, through existing owners; current authority, derived assertion and model claim stay distinct |
 | R_t^q — Recall Trace | Bounded reconstruction of the qualified knowledge and experience relevant to question/task q, including potentially discontinuous sources, Events and Episodes | Bounded D/H/S v2 now exists: derived, reconstructible, disposable, current-disclosure scoped; temporal/causal meaning only where supported, exact source closure or explicit missingness. General task sufficiency remains target |
-| W_t — Semantic Working State | What must count for this execution: bounded, task-relative, Participant-scoped, provenance-carrying | Target compilation of current S plus relevant Recall, task and Case constraints; not the whole Case or a new memory history |
+| W_t — Semantic Working State | What must count for this execution: bounded, task-relative, Participant-scoped, provenance-carrying | Bounded v3 compilation of mandatory current S plus qualified Recall groups, task and Case constraints; general task sufficiency, paging and ambient refresh remain targets. Not the whole Case or a new memory history |
 | E_t — Experiential Computational State | Model-native realization of W_t, subsequently accumulated through execution | Computationally owned by YVEX/model: model-specific, potentially opaque, independently resident, derived and replaceable; never a second semantic ledger |
 
 q identifies the current question/task; X_t is immediate input. R_t^q denotes
@@ -240,7 +242,8 @@ discontinuous segments, superseded historical material and contradictory claims
 without making selection a causal relation. Source loss is explicit; current
 disclosure governs both discovery and resolution. This bounded M06 foothold is
 not a general memory navigator or task-sufficiency guarantee. Recall remains an
-independent inspection contract: **S + relevant R → W is not implemented by it**.
+independent inspection contract; the separate [W operation](recall.md#recall-aware-working-state-compilation)
+now consumes its typed qualified groups alongside mandatory current S.
 Published Recall v1 retains its bounded experience/semantic families. V2 adds
 qualified documentary candidates to the same resolver, with family-local
 discovery, exact/current anchors and aggregate atomic output bounds. Documentary
@@ -249,7 +252,8 @@ source disclosure and revision-at-cut qualification precede discovery; source
 revocation cannot be bypassed through acquisition history. Explicit documentary
 references are not causal or normative support merely because their endpoints
 resolve. H stays a conceptual view over existing owners; no RecallStore or extra
-ledger, and no automatic knowledge/Recall-to-W path.
+ledger. Automatic Recall acquisition exists inside the explicit W compilation
+request, not as prompt-independent refresh or automatic provider execution.
 
 ### Independent computational and semantic evolution
 
@@ -554,11 +558,19 @@ well as bytes/tokens; a tiny context that omits required evidence fails.
 Host-side rebuild/query cost may still grow with history and must be measured
 separately from model-visible context size.
 
-## Working-state compilation — target; representation is provisional
+## Working-state compilation — bounded implementation and further target
 
 Current SemanticState/SemanticWorkingState contracts provide bounded qualified
 composition and selection, followed by context-compatible Projection/ContextFrame.
-They are not the definition of memory. The target program still extends toward:
+Working-state v3 obtains Recall v2 from intent/exact anchors, reuses one qualified
+source/disclosure basis and retains atomic evidentiary groups separately from
+mandatory current control. Required missing backing or mandatory envelope overflow
+refuses; optional omissions and Recall limitations remain explicit. A historical
+Recall cut cannot become current authority. Recall/backing change can require full
+recompilation with no S-only delta; no ambient refresh is implemented. The existing
+provider path remains S-only v2. Neither W contract is the definition of memory.
+The semantic composition below exists at bounded scope; the public computational
+lowering remains target:
 
 ```text
 Current S + relevant qualified Recall over D/H/S + intent/task + Case constraints
@@ -780,7 +792,7 @@ State Read/Update remain distinct from hypothetical implementations. No schema,
 H20/W21/W22, REPLAI change, Studio or runtime refactor is authorized by this
 documentation.
 
-The bounded S → W compiler is implemented; universal sufficiency, semantic paging
+The bounded S/qualified Recall → W compiler is implemented; universal sufficiency, semantic paging
 and optimized incremental compilation are not. E_t is not implemented inside YAI;
 no current model is claimed to possess a native experiential stream. No
 state-augmented training, model-state adapter or latent-state owner is introduced.

@@ -60,6 +60,8 @@ def main(recall_oracle=None):
                 elapsed_ms=round((time.perf_counter()-start)*1000,3), stdout=result.stdout[:2400],
                 stdout_excerpt=len(result.stdout)>2400, stderr=result.stderr[:2400])), flush=True)
             assert (result.returncode != 0) == reject, result
+            if reject:
+                return result.stdout + result.stderr
             return result.stdout if raw or reject or "--json" not in args else json.loads(result.stdout)["data"]["value"]
 
         def write(name, value):

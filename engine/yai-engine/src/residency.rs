@@ -397,6 +397,10 @@ fn candidate(
 
 fn classify(entry: &ProjectionEntry) -> (ResidencyClass, i64, Vec<String>) {
     match (&entry.posture, &entry.value) {
+        (_, ProjectedValue::RecalledEvidence { .. }) => (
+            ResidencyClass::DerivedMemory, 650,
+            vec!["qualified_recall_atomic_group_not_current_authority".into()],
+        ),
         (_, ProjectedValue::DecisionEvidence { .. }) => (
             ResidencyClass::DerivedMemory,
             650,

@@ -101,7 +101,11 @@ impl LmdbRecordStore {
             // No byte reads/derivations are required for this H visibility gate.
             if recall.is_some() {
                 let mut checked = BTreeSet::new();
-                for t in cut {
+                // Current disclosure is independent of the requested cut. The
+                // historical reader already restricts known-by-then evidence;
+                // current S must not lose a currently permitted observation
+                // merely because it was admitted after the Recall cut.
+                for t in history {
                     if let TransitionPayload::CaseSourceProgressed { progress } = &t.payload {
                         if progress.source_id != d.source_id {
                             continue;

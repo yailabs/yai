@@ -26,6 +26,7 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.participant.list" => participant_list(invocation),
         "yai.case.resource.list" => resource_list(invocation),
         "yai.case.history" | "yai.case.verify" => canonical_case_inspection(invocation),
+        "yai.case.context.compile" => working_state_compilation(invocation),
         "yai.case.as_of" | "yai.case.experience" | "yai.case.recall" => historical_case_inspection(invocation),
         operation if operation.starts_with("yai.case.knowledge.") => knowledge_inspection(invocation),
         "yai.case.open" | "yai.case.workbench" => {
@@ -534,6 +535,72 @@ fn resource_list(invocation: &Invocation) -> Result<CliData, CliError> {
             })
             .collect(),
     })
+}
+
+fn working_state_compilation(invocation: &Invocation) -> Result<CliData, CliError> {
+    use yai_core_engine::semantic_state::{CompilationRequest, SemanticScope, WorkingStateRequest};
+    use yai_core_engine::semantic_state::historical::HistoricalCoordinate;
+    let case = load_case(invocation)?;
+    let auth = AuthenticatedPrincipal::authenticate_local()
+        .map_err(|e| domain_error("authentication_failed", e))?;
+    let linked: Vec<_> = case.principal_participant_links.iter()
+        .filter(|l| l.principal_id == auth.projected_principal_id()).collect();
+    let participant = match invocation.flag("--participant") {
+        Some(p) => p.to_string(),
+        None if linked.len() == 1 => linked[0].participant_id.clone(),
+        _ => return Err(CliError::usage("select your linked Participant with --participant")),
+    };
+    let number = |flag, default| -> Result<usize, CliError> {
+        invocation.flag(flag).map(|s| s.parse().map_err(|_| CliError::usage(format!("{flag} must be an integer")))).unwrap_or(Ok(default))
+    };
+    let mut scope = SemanticScope::model(participant, yai_core_engine::context::ProjectionPurpose::Inspection);
+    scope.max_items = number("--limit", scope.max_items)?;
+    let mut recall_bounds = yai_core_engine::memory_hierarchy::recall::RecallBounds::default();
+    recall_bounds.candidates = number("--candidates", recall_bounds.candidates)?;
+    let at = invocation.flag("--at").map(|at| {
+        if at.starts_with("transition:") { Ok(HistoricalCoordinate::Transition(at.into())) }
+        else { at.parse().map(HistoricalCoordinate::Generation).map_err(|_| CliError::usage("--at requires an exact generation or Transition")) }
+    }).transpose()?;
+    let request = WorkingStateRequest {
+        case_id: case.case_id, expected_generation: case.generation, at,
+        compilation: CompilationRequest {
+            scope, intent: invocation.positionals["intent"].clone(),
+            output_contract_id: yai_core_engine::context::InvocationOutputContract::NaturalLanguage.contract_id(),
+            max_semantic_units: number("--units", 32768)?, max_derived_items: 16,
+            resource_refs: invocation.flag("--resource").map(str::to_string).into_iter().collect(),
+            required_refs: invocation.flag("--require").map(str::to_string).into_iter().collect(),
+            previous_item_ids: vec![], view_selection_id: None,
+        },
+        recall_required_refs: invocation.flag("--ref").map(str::to_string).into_iter().collect(),
+        recall_bounds, max_output_bytes: number("--bytes", 1024 * 1024)?,
+    };
+    let content = yai_core_engine::conversation::ConversationContentStore::open_existing(&yai_home()).ok();
+    let result = open_store()?.compile_working_state_authorized(&auth, request, content.as_ref())
+        .map_err(|e| domain_error("working_state_unavailable", e))?;
+    let lowering_started = std::time::Instant::now();
+    let projection = invocation.flags.contains_key("--projection").then(|| result.lower_context())
+        .transpose().map_err(|e| domain_error("working_lowering_unavailable", e))?;
+    let lowering_us = lowering_started.elapsed().as_micros();
+    if invocation.json {
+        let mut value = serde_json::to_value(&result).map_err(|e| domain_error("working_encoding", e.to_string()))?;
+        if let Some(projection) = projection {
+            value["projection"] = serde_json::to_value(projection).map_err(|e| domain_error("working_encoding", e.to_string()))?;
+            value["measurements"]["compatibility_lowering_us"] = serde_json::json!(lowering_us);
+        }
+        return Ok(CliData::NativeJson { value });
+    }
+    let w = &result.working_state;
+    println!("CASE WORKING STATE {}", w.id());
+    println!("Task: {}", w.request().intent);
+    println!("Recall: {} | present execution authority; recalled history never grants permission", w.recall().unwrap().recall_id);
+    for entry in w.entries() {
+        println!("{} [{:?}]", entry.entry_id, entry.posture);
+        println!("{}", serde_json::to_string_pretty(&entry.value).map_err(|e| domain_error("working_encoding", e.to_string()))?);
+        println!("Backing: {:?}", entry.provenance);
+    }
+    println!("Bounds/omissions: {:?}", w.bounds());
+    println!("Derived W only; no model call, no W -> E, no canonical mutation.");
+    Ok(CliData::AlreadyRendered)
 }
 
 fn historical_case_inspection(invocation: &Invocation) -> Result<CliData, CliError> {

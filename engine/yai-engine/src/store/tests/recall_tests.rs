@@ -87,6 +87,77 @@ fn recall(w: &World, query: &str, refs: &[&str], at: Option<u64>) -> Result<Reca
 }
 
 #[test]
+fn working_recall_policy_current_asof_freshness_tamper_and_atomic_budget() {
+    use crate::semantic_state::{CompilationRequest, SemanticScope, SemanticPurpose, SemanticValue,
+        WorkingStateRequest, DeltaCompilationMode, SemanticWorkingState};
+    let w = World::new();
+    let op = w.operation("request:working:allow", "src/retry.txt");
+    let (d1, cut) = w.store.derive_and_commit_policy_decision(CASE, &op.operation_id).unwrap();
+    let old_policy = d1.decision_basis.as_ref().unwrap().effective_policy_id.clone();
+    replace(&w, "2", "deny", false);
+    let state = w.store.get_case_state(CASE).unwrap().unwrap();
+    let history = w.store.list_case_transitions(CASE).unwrap();
+    let request = WorkingStateRequest {
+        case_id: CASE.into(), expected_generation: state.generation,
+        compilation: CompilationRequest {
+            scope: SemanticScope::model(HUMAN, SemanticPurpose::Inspection),
+            intent: "explain historical filesystem policy decision".into(),
+            output_contract_id: crate::context::InvocationOutputContract::NaturalLanguage.contract_id(),
+            max_semantic_units: 131072, max_derived_items: 16,
+            resource_refs: vec![], required_refs: vec![HUMAN.into()],
+            previous_item_ids: vec![], view_selection_id: None,
+        }, at: Some(HistoricalCoordinate::Generation(cut.state.generation)),
+        recall_required_refs: vec![d1.decision_id.clone()],
+        recall_bounds: Default::default(), max_output_bytes: 1024 * 1024,
+    };
+    let result = w.store.compile_working_state_authorized(&w.owner, request.clone(), None).unwrap();
+    let working = &result.working_state;
+    assert_eq!(result.compilation_mode, DeltaCompilationMode::FullRecompilation);
+    assert!(working.entries().iter().any(|e| matches!(&e.value,
+        SemanticValue::EffectiveAuthority { effective_policy_id: Some(id), .. } if *id != old_policy)));
+    assert!(working.entries().iter().any(|e| matches!(&e.value,
+        SemanticValue::RecalledEvidence { evidence } if evidence.events.iter().any(|e|
+            e.event.object_refs.contains(&d1.decision_id))
+            && evidence.events.iter().all(|e| e.event.recorded_generation <= cut.state.generation))));
+    assert_eq!(result.lower_context().unwrap().entries, working.entries());
+    let projection = result.lower_context().unwrap();
+    assert_eq!(projection.schema, crate::context::PROJECTION_SCHEMA_V11);
+    let frame = crate::context::build_context_frame(&projection, &request.compilation.intent,
+        crate::context::InvocationOutputContract::NaturalLanguage).unwrap();
+    assert_eq!(frame.schema, crate::context::CONTEXT_FRAME_SCHEMA_V11);
+    assert_eq!(frame.entries, working.entries());
+    assert!(crate::context::build_context_frame(&projection, "silently replace the task",
+        crate::context::InvocationOutputContract::NaturalLanguage).is_err());
+    let mut no_optional = request.clone(); no_optional.compilation.max_derived_items = 0;
+    let exact_only = w.store.compile_working_state_authorized(&w.owner, no_optional, None).unwrap();
+    assert_eq!(exact_only.working_state.entries().iter().filter(|e| matches!(e.value, SemanticValue::RecalledEvidence { .. })).count(), 1);
+    assert!(serde_json::to_string(&exact_only.working_state).unwrap().contains(&d1.decision_id));
+    w.store.validate_working_state_authorized(&w.owner, working, None).unwrap();
+    let mut forged = serde_json::to_value(working).unwrap();
+    forged["entries"] = serde_json::json!([]);
+    let forged: SemanticWorkingState = serde_json::from_value(forged).unwrap();
+    assert!(w.store.validate_working_state_authorized(&w.owner, &forged, None).is_err());
+    let mut tiny = request.clone(); tiny.compilation.max_semantic_units = 1;
+    assert!(w.store.compile_working_state_authorized(&w.owner, tiny, None).is_err());
+    let mut missing = request.clone(); missing.recall_required_refs = vec!["decision:absent".into()];
+    assert!(w.store.compile_working_state_authorized(&w.owner, missing, None).is_err());
+    assert!(w.store.compile_working_state_authorized(&w.outsider, request.clone(), None).is_err());
+    w.store.clear_semantic_context_artifacts().unwrap();
+    w.store.clear_case_operational_memory(CASE).unwrap();
+    w.store.rebuild_graph_relations_for_case(CASE).unwrap();
+    assert_eq!(*working, w.store.compile_working_state_authorized(&w.owner, request.clone(), None).unwrap().working_state);
+    let current_artifact = state.policy_bindings[0].artifact_id.clone();
+    w.store.revoke_tenant_policy_artifact(&w.owner, &current_artifact, "global current authority revoke").unwrap();
+    assert_eq!(w.store.get_case_state(CASE).unwrap().unwrap(), state);
+    assert!(w.store.validate_working_state_authorized(&w.owner, working, None).is_err());
+    let refreshed = w.store.compile_working_state_authorized(&w.owner, request, None).unwrap();
+    assert_ne!(refreshed.working_state.id(), working.id());
+    assert_eq!(w.store.list_case_transitions(CASE).unwrap(), history);
+    println!("working_policy asof_basis={} current_policy_not_rewound=true current_revoke_same_generation_invalidates=true tamper=refused exact_anchor_budget=refused outsider=refused cache_rebuild=equal lower_entries=identical models=0 transitions=0", d1.decision_basis.unwrap().basis_id);
+    w.finish();
+}
+
+#[test]
 fn recall_policy_lineage_discontinuous_current_asof_and_readonly() {
     let w = World::new();
     let before = w.store.get_case_state(CASE).unwrap().unwrap();

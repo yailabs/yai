@@ -305,6 +305,14 @@ pub(crate) fn restrict_acquisition_history(
     history: &[Transition],
     allowed: &BTreeSet<String>,
 ) {
+    let denied = hidden_acquisition_transitions(history, allowed);
+    h.known_by_then.retain(|e| !denied.contains(&e.transition_id));
+}
+
+pub(crate) fn hidden_acquisition_transitions(
+    history: &[Transition],
+    allowed: &BTreeSet<String>,
+) -> BTreeSet<String> {
     let source_ids: BTreeSet<_> = history
         .iter()
         .filter_map(|t| match &t.payload {
@@ -353,7 +361,7 @@ pub(crate) fn restrict_acquisition_history(
             }
         }
     }
-    h.known_by_then.retain(|e| match &e.payload {
+    history.iter().filter(|e| !match &e.payload {
         P::CaseContentAdmitted { admission } => !denied.contains(&admission.admission_id),
         P::OperationRecorded { operation } => !operations.contains(&operation.operation_id),
         P::DecisionRecorded { decision } => !operations.contains(&decision.operation_id),
@@ -361,7 +369,7 @@ pub(crate) fn restrict_acquisition_history(
             !operations.contains(&observation.operation_id)
         }
         _ => true,
-    });
+    }).map(|t| t.transition_id.clone()).collect()
 }
 pub(crate) fn backing_id(b: &SourceBacking) -> String {
     match b {

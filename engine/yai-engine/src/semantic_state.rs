@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub mod historical;
+pub mod working_recall;
+pub use working_recall::{QualifiedWorkingState, WorkingStateRequest};
 
 pub const SEMANTIC_STATE_SCHEMA: &str = "yai.semantic_state.v2";
 pub const WORKING_STATE_SCHEMA: &str = "yai.semantic_working_state.v2";
@@ -78,6 +80,7 @@ pub struct SemanticState {
     state: CaseState,
     history: Vec<Transition>,
     normative: Option<crate::case_policy::NormativeStatus>,
+    recall: Option<working_recall::QualifiedRecall>,
 }
 
 /// Explicit semantic selection, not a target/provider routing request.
@@ -125,6 +128,8 @@ pub struct SemanticWorkingState {
     entries: Vec<SemanticEntry>,
     bounds: WorkingStateBounds,
     decisions: Vec<crate::residency::ResidencyDecision>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    recall: Option<working_recall::WorkingRecall>,
 }
 
 fn identity<T: Serialize>(value: &T) -> Result<String, String> {
@@ -146,6 +151,7 @@ impl SemanticState {
             state: state.clone(),
             history: history.to_vec(),
             normative: None,
+            recall: None,
         })
     }
 
@@ -240,6 +246,10 @@ impl SemanticState {
     }
 
     fn candidates(&self, request: &CompilationRequest) -> Result<SemanticCandidates, String> {
+        self.candidates_mode(request, self.recall.is_some())
+    }
+
+    fn candidates_mode(&self, request: &CompilationRequest, current_only: bool) -> Result<SemanticCandidates, String> {
         if request.intent.trim().is_empty()
             || request.output_contract_id.is_empty()
             || request.scope.max_items == 0
@@ -284,7 +294,7 @@ impl SemanticState {
                 participant.admitted_views.push(view);
             }
         }
-        let derived = if scope.purpose == SemanticPurpose::MemoryConsolidation {
+        let derived = if scope.purpose == SemanticPurpose::MemoryConsolidation || current_only {
             DerivedProjectionInput::default()
         } else {
             canonical_memory(&qualified, &self.history, &scope)?
@@ -386,6 +396,39 @@ impl SemanticState {
                 }),
             _ => true,
         });
+        if current_only {
+            candidates.entries.retain(|e| {
+                !self.recall.as_ref().is_some_and(|recall| e.provenance.iter().any(|p| p.kind == ProvenanceKind::Transition && recall.excluded_transitions.contains(&p.source_ref)))
+                // Historical/documentary material belongs to qualified Recall,
+                // not a parallel recent-history memory selector in current S.
+                && !matches!(e.value, SemanticValue::CaseContent { .. }
+                    | SemanticValue::ProviderClaim { .. } | SemanticValue::DecisionEvidence { .. }
+                    | SemanticValue::DerivedMemory { .. })
+            });
+            candidates.entries.push(SemanticEntry {
+                entry_id: "execution:active-intent".into(),
+                posture: AuthorityPosture::ControlState,
+                value: SemanticValue::ExecutionIntent { intent: request.intent.clone(),
+                    output_contract_id: request.output_contract_id.clone() },
+                provenance: vec![],
+            });
+            if let Some(recall) = &self.recall {
+                candidates.entries.push(SemanticEntry {
+                    entry_id: "recall:qualification".into(), posture: AuthorityPosture::DerivedMemory,
+                    provenance: vec![SemanticProvenance { kind: ProvenanceKind::RecallTrace,
+                        source_ref: recall.metadata.recall_id.clone() }],
+                    value: SemanticValue::RecallQualification {
+                        recall_id: recall.metadata.recall_id.clone(),
+                        closure_complete: recall.metadata.recall_closure_complete,
+                        omitted_candidates: recall.metadata.omitted_recall_candidates,
+                        working_omitted_items: 0,
+                        expansion_stopped_at_depth: recall.metadata.expansion_stopped_at_depth,
+                        limitations: recall.metadata.limitations.clone(),
+                    },
+                });
+                candidates.entries.extend(recall.groups.iter().map(|(_, e)| e.clone()));
+            }
+        }
         let ids = candidates
             .entries
             .iter()
@@ -398,9 +441,16 @@ impl SemanticState {
     }
 
     pub fn compile(&self, request: &CompilationRequest) -> Result<SemanticWorkingState, String> {
+        if self.recall.as_ref().is_some_and(|r| r.metadata.request.compilation != *request) {
+            return Err("working_recall_request_mismatch".into());
+        }
         let candidates = self.candidates(request)?;
         let visible_candidates = candidates.entries.len();
         let mut mandatory_refs = BTreeSet::new();
+        if let Some(recall) = &self.recall {
+            mandatory_refs.insert("recall:qualification".into());
+            mandatory_refs.extend(recall.groups.iter().filter(|(required, _)| *required).map(|(_, e)| e.entry_id.clone()));
+        }
         for required in &request.required_refs {
             let matches = candidates
                 .entries
@@ -412,6 +462,11 @@ impl SemanticState {
             }
             mandatory_refs.extend(matches.into_iter().map(|e| e.entry_id.clone()));
         }
+        let allowed_recall: BTreeSet<_> = candidates.entries.iter()
+            .filter(|e| matches!(e.value, SemanticValue::RecalledEvidence { .. })
+                && !mandatory_refs.contains(&e.entry_id))
+            .take(request.max_derived_items)
+            .map(|e| e.entry_id.clone()).collect();
         // Qualify first; exact task references then locality; the shared semantic
         // budget selector runs once. No provider identity participates here.
         let mut remaining_turns = request.scope.max_interaction_turns;
@@ -425,6 +480,11 @@ impl SemanticState {
         for entry in candidates.entries.into_iter().rev() {
             let explicit = mandatory_refs.contains(&entry.entry_id);
             let retain = match &entry.value {
+                SemanticValue::RecalledEvidence { evidence } => {
+                    let relevant = request.resource_refs.is_empty()
+                        || request.resource_refs.iter().any(|r| evidence.matches(r));
+                    explicit || (relevant && allowed_recall.contains(&entry.entry_id))
+                }
                 SemanticValue::DecisionEvidence { .. } => {
                     let keep = explicit || remaining_decisions > 0;
                     remaining_decisions = remaining_decisions.saturating_sub(1);
@@ -464,6 +524,8 @@ impl SemanticState {
                 selected_candidates.push(entry);
             } else {
                 let reason = match &entry.value {
+                    SemanticValue::RecalledEvidence { .. } if !allowed_recall.contains(&entry.entry_id) => "derived_candidate_budget",
+                    SemanticValue::RecalledEvidence { .. } => "recall_outside_explicit_resource_focus",
                     SemanticValue::ResourceObservation { .. } => "recent_observation_window",
                     SemanticValue::CaseContent { .. } => "recent_content_window",
                     SemanticValue::ResourceConsequence { .. } => "recent_finalized_effect_window",
@@ -585,7 +647,13 @@ impl SemanticState {
             },
             entries,
             decisions: selection.decisions,
+            recall: self.recall.as_ref().map(|r| r.metadata.clone()),
         };
+        if self.recall.is_some() {
+            output.schema = working_recall::RECALL_WORKING_SCHEMA.into();
+            output.compiler = working_recall::RECALL_COMPILER_VERSION.into();
+            output.fit_recall_envelope()?;
+        }
         output.working_state_id = format!("working-state:{}", identity(&output)?);
         Ok(output)
     }
@@ -595,6 +663,9 @@ fn entry_matches(entry: &SemanticEntry, reference: &str) -> bool {
     entry.entry_id == reference
         || entry.provenance.iter().any(|p| p.source_ref == reference)
         || matches!(&entry.value, SemanticValue::DerivedMemory { memory_ref, .. } if memory_ref == reference)
+        || matches!(&entry.value, SemanticValue::RecalledEvidence { evidence } if evidence.matches(reference))
+        || matches!(&entry.value, SemanticValue::ResourceAttachment { attachment_id, .. } if attachment_id == reference)
+        || matches!(&entry.value, SemanticValue::ParticipantBinding { participant_id, .. } if participant_id == reference)
 }
 
 fn resource_visible(
@@ -631,8 +702,11 @@ impl SemanticWorkingState {
         source: &SemanticState,
         request: &CompilationRequest,
     ) -> Result<(), String> {
-        if self.schema != WORKING_STATE_SCHEMA
-            || self.compiler != STATE_COMPILER_VERSION
+        let (schema, compiler) = if source.recall.is_some() {
+            (working_recall::RECALL_WORKING_SCHEMA, working_recall::RECALL_COMPILER_VERSION)
+        } else { (WORKING_STATE_SCHEMA, STATE_COMPILER_VERSION) };
+        if self.schema != schema
+            || self.compiler != compiler
             || self.source_id != source.source_id
             || self.request != *request
         {
@@ -681,6 +755,9 @@ impl SemanticWorkingState {
                 working_state_id: Some(self.id().to_string()),
             },
         })?;
+        if self.recall.is_some() {
+            projection.schema = crate::context::PROJECTION_SCHEMA_V11.into();
+        }
         crate::context::refresh_projection_identity(&mut projection)?;
         Ok(projection)
     }
@@ -1045,6 +1122,7 @@ pub enum AuthorityPosture {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ProvenanceKind {
+    RecallTrace,
     PolicyBinding,
     ContentObject,
     Transition,
@@ -1063,6 +1141,13 @@ pub struct SemanticProvenance {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "snake_case")]
 pub enum SemanticValue {
+    RecallQualification {
+        recall_id: String, closure_complete: bool, omitted_candidates: usize,
+        working_omitted_items: usize, expansion_stopped_at_depth: bool,
+        limitations: Vec<String>,
+    },
+    ExecutionIntent { intent: String, output_contract_id: String },
+    RecalledEvidence { evidence: Box<working_recall::RecalledEvidence> },
     DecisionEvidence {
         operation_id: String,
         decision_id: String,

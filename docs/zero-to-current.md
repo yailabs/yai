@@ -542,11 +542,36 @@ revision first admitted after `--at` is excluded; revocation still governs old
 knowledge today. An exact source revision or knowledge-unit ID can be an anchor.
 `--limit` now bounds the combined historical/documentary items; optional groups
 may be omitted but mandatory context overflow refuses. No source is reacquired.
-Reads append no Transition and never inject Recall into W. See the [Recall
+These independent Recall reads append no Transition and do not change W. See the [Recall
 contract](recall.md); `make smoke-knowledge-recall` is the independent deterministic
 CLI/source/history oracle, not Human or External Golden.
 The Golden interaction/effect/Workflow lifecycle above is unchanged; this optional
 step adds no provider request and cannot supply Human Golden acceptance.
+
+To inspect Recall-aware working state without invoking a model, compile a working
+state directly from an intent using the same linked Participant and admitted view:
+
+```sh
+./yai case participant view admit case:sources --participant participant:operator --consumer model --view model_context
+./yai case context compile case:sources architecture --participant participant:operator
+./yai case context compile case:sources architecture --participant participant:operator --projection --json
+```
+
+Use the Participant actually linked during setup, not an invented identity. The
+admit action is explicit setup; compilation itself is read-only. This operation
+obtains Recall v2 internally, then compiles mandatory current S plus task-relative
+evidence into W v3. Inspect `effective_authority` versus `recalled_evidence`, exact
+document coordinates, historical/current posture, contradictions and omissions.
+`--ref EXACT_REF` requires remembered backing, `--require EXACT_REF` requires a
+current-or-remembered dependency, and `--at CUT` changes only remembered history.
+`--resource RESOURCE_ID` narrows optional remembered groups to exact task focus;
+`--units`, `--bytes`, `--limit` and `--candidates` expose bounded pressure. Required
+backing missing or mandatory budget overflow must refuse; optional groups may be
+omitted whole. A source update/revoke requires recompilation under current access.
+`--projection` only lowers the selected W; it adds no discovery or provider call.
+`make smoke-recall-working-state` runs the separate actual source/Case oracle,
+including restart/cache loss and four D/H size profiles. This does not migrate the
+Golden conversation/Workflow path, perform Human acceptance or implement W→E.
 
 One-shot `./yai case show CASE --json`, provider/resource/history and memory-index
 commands remain available for administration/forensics; they are not the primary

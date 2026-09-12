@@ -151,6 +151,104 @@ restored. The later substrate-drain epoch
 the ownership boundary, not a reason to recreate a legacy knowledge plane.
 
 No universal task sufficiency, arbitrary documentary interpretation, learned
-navigation, all-owner S/Workflow Recall, general event-time algebra, automatic
-R → W, or model-native state is claimed. The next W boundary is not selected by
-this contract.
+navigation, all-owner S/Workflow Recall, general event-time algebra or model-native
+state is claimed. Independent Recall inspection does not change W. The execution
+compiler below is a separate consumer of this qualified result.
+
+## Recall-aware working-state compilation
+
+`case context compile CASE INTENT` is a read-only native application operation,
+not provider execution. It automatically obtains Recall v2 and compiles W v3.
+Its typed owner is `LmdbRecordStore::compile_working_state_authorized`, returning
+`QualifiedWorkingState`; CLI formatting owns neither discovery nor selection.
+
+```text
+WorkingStateRequest (current generation, Participant, intent, exact refs, budget)
+  → one qualified read transaction: current S/EffectivePolicy + historical cut + D
+  → existing Recall v2 discovery/resolution
+  → private qualified atomic evidence groups
+  → existing SemanticState compiler and shared residency budget kernel
+  → SemanticWorkingState v3 (yai.state_compiler.v3)
+```
+
+The request embeds the existing `CompilationRequest`; intent mechanically becomes
+the Recall query. `--ref` requires exact remembered backing; `--require` first
+resolves current S and otherwise becomes a required Recall reference. `--at`
+qualifies remembered evidence by exact generation/Transition, never execution
+authority. `--resource` is exact execution focus, not fuzzy entity inference.
+The Participant must be currently linked and have the existing admitted model
+context view even though this operation performs no model call.
+
+Current authority, bindings, lifecycle, unresolved control, visible resources,
+Participant and task remain pinned independently of Recall ranking. The v3 path
+does not run S's older derived-memory retriever: remembered content comes from
+Recall. Each `RecalledEvidence` entry carries typed event/segment/assertion,
+documentary, relation and exact closure values from a resolver-qualified group.
+It does not carry a serialized RecallTrace, candidate list or narrative. Repeated
+hits resolving to the same semantic membership reuse a group and its first
+qualified selection explanation. Documentary `source_stated`, recorded observation,
+historical DecisionBasis and unresolved disagreements keep their nested posture;
+the outer entry remains derived memory, including when an exact requirement pins
+it. Selection does not admit a fact or reactivate historical policy.
+
+The inspection default uses the existing 48-item view and Recall 16-candidate /
+16,384-unit envelope, with a 32,768-unit final W and 1 MiB byte ceiling. This
+inspection envelope accommodates the measured bounded D/H groups plus current
+control and provenance; the 16,384-unit pressure oracle omits optional groups
+atomically. It is not a provider-capacity or universal-sufficiency promise. `--limit`,
+`--units`, `--bytes` and `--candidates` make pressure explicit. Semantic units remain
+serialized Unicode-character quarters, not model tokens. Final W charging includes
+identity, request, provenance and omission metadata, not just selected sentences.
+Optional groups may be omitted whole for exact task locality or final budget;
+mandatory current state and required recalled groups refuse on overflow. Required
+incomplete backing refuses. Optional incomplete Recall retains global limitations,
+closure posture and candidate omissions plus each included group's typed missing
+backing. None of these fields claims universal execution sufficiency.
+
+Identity binds compiler/schema, qualified current visible entries, current Case
+generation, scope, intent/output contract, exact requirements, budgets, Recall ID
+and disclosed source identity, selected evidence and omissions. Timing is outside
+identity. No private candidate universe is exported. One request reuses the same
+source/authorization basis: W never repeats BM25, graph discovery or source reads.
+Current-state projection and pure group assembly still scan/copy source-derived
+values; full-history CPU and overlapping closure cost are not constant.
+
+`validate_working_state_authorized` requalifies the current request and compares
+the entire W, including when Case generation is unchanged. Losing exact backing,
+catalog revocation or changed Recall invalidates old W independently of an S-only
+delta. This operation explicitly returns `FullRecompilation`; forward SemanticDelta
+v1 remains unchanged and cannot certify equal-generation Recall freshness.
+
+`QualifiedWorkingState::lower_context` (CLI `--projection`) lowers only its selected
+W entries as Projection v11 after integrity recompilation from the same in-process qualified basis;
+it performs no second read/discovery. This is snapshot-compatible lowering, not a
+claim that a retained snapshot remains authorized forever. A later consumer must
+requalify current authority/backing; no execution is performed here. Existing
+conversation/Workflow provider entrypoints retain their independently qualified
+S-only v2 path. This milestone neither migrates their invocation lifecycle to v3
+nor permits a v3 artifact to bypass existing transactional invocation admission.
+ContextFrame v11 preserves the same entries, requires the compiled intent/output
+contract and adds no memory. A pinned, non-authoritative `RecallQualification`
+entry carries Recall closure/limitations and W omissions through both lowerings;
+metadata cannot disappear while its selected evidence remains. V10 remains the
+existing provider path; v11 is explicit derived compatibility, not a W→E schema.
+
+W/Recall remain disposable. Transition v19, CaseState v16, canonical owners and
+37 LMDB databases are unchanged. No W→E transport, provider calls, paging, ambient
+refresh or learned navigation is involved.
+
+Executable oracles: `make smoke-recall-working-state` reuses the real source
+bootstrap/knowledge fixture (Markdown/JSON/PDF/filesystem/SQLite), with current
+control, distant history, exact Decision/Observation references, task switches,
+contradictions, revision/as-of, revoke, missing backing, atomic overflow, restart
+and graph/index/memory rebuild. The typed policy oracle in
+`engine/yai-engine/src/store/tests/recall_tests.rs` compares historical ALLOW
+basis with current replacement/revocation, stale/tampered W and identical lowering.
+
+Legacy archaeology additionally inspected `yai-dev` at
+`8a2b09e268fe6e20b1681dab7b22eac6b8239a8c`,
+`src/agents/grounding/context_pack_selection.c` and
+`context_pack_completeness.c`: required source references, explicit partial/stale
+postures and completeness distinct from sufficiency belong in this current
+compiler. Its Agent pack owner and `src/knowledge/workset/working.c` global
+hotness/upsert working-memory lifecycle remain rejected, not restored.

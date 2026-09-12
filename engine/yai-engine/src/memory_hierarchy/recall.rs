@@ -237,6 +237,10 @@ pub struct RecallMeasurements {
 pub struct RecallResult {
     pub trace: RecallTrace,
     pub measurements: RecallMeasurements,
+    /// In-process qualified atomic groups for the W compiler. Not a new Recall
+    /// wire contract, persisted cache, or caller-supplied qualification proof.
+    #[serde(skip)]
+    pub(crate) compilation_groups: Vec<(bool, RecallTrace)>,
 }
 
 fn label(payload: &P) -> String {
@@ -453,9 +457,21 @@ pub(crate) fn compile_integrated(
     h: &HistoricalSemanticView,
     disclosure: &str,
     history: &[Transition],
+    request: RecallRequest,
+    vectors: Option<&RecallVectorInput>,
+    knowledge: Option<&super::knowledge::KnowledgeView>,
+) -> Result<RecallResult, String> {
+    compile_for_working(h, disclosure, history, request, vectors, knowledge, false)
+}
+
+pub(crate) fn compile_for_working(
+    h: &HistoricalSemanticView,
+    disclosure: &str,
+    history: &[Transition],
     mut request: RecallRequest,
     vectors: Option<&RecallVectorInput>,
     knowledge: Option<&super::knowledge::KnowledgeView>,
+    retain_groups: bool,
 ) -> Result<RecallResult, String> {
     request.validate()?;
     if (request.schema == RECALL_REQUEST_V2) != knowledge.is_some() {
@@ -1115,6 +1131,7 @@ pub(crate) fn compile_integrated(
         Ok(RecallResult {
             trace,
             measurements: metrics,
+            compilation_groups: vec![],
         })
     };
     let assembly_started = Instant::now();
@@ -1138,6 +1155,16 @@ pub(crate) fn compile_integrated(
                 }
             }
             Ok(mut result) => {
+                if retain_groups {
+                    // Reuse the SAME qualified resolver's closure/assembly;
+                    // W must not rediscover sources or reconstruct group truth.
+                    if !required.is_empty() {
+                        result.compilation_groups.push((true, assemble(required.clone(), 0)?.trace));
+                    }
+                    for group in &accepted_groups {
+                        result.compilation_groups.push((false, assemble(group.clone(), 0)?.trace));
+                    }
+                }
                 result.measurements.assembly_us = assembly_started.elapsed().as_micros();
                 return Ok(result);
             }

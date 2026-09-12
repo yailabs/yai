@@ -3922,6 +3922,18 @@ impl LmdbRecordStore {
         content: Option<&crate::conversation::ConversationContentStore>,
         vectors: Option<&crate::memory_hierarchy::recall::RecallVectorInput>,
     ) -> Result<crate::memory_hierarchy::recall::RecallResult, String> {
+        self.recall_working_basis(authenticated, request, content, vectors, None).map(|(r, _, _, _)| r)
+    }
+
+    fn recall_working_basis(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        mut request: crate::memory_hierarchy::recall::RecallRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+        vectors: Option<&crate::memory_hierarchy::recall::RecallVectorInput>,
+        working: Option<&crate::semantic_state::WorkingStateRequest>,
+    ) -> Result<(crate::memory_hierarchy::recall::RecallResult,
+        Option<crate::semantic_state::SemanticState>, BTreeSet<String>, u128), String> {
         request.validate()?;
         let mut historical = crate::semantic_state::historical::HistoricalRequest::inspection(
             request.at.clone(), request.participant_id.clone());
@@ -3932,19 +3944,33 @@ impl LmdbRecordStore {
         let (mut view, scope, history, then) = self.qualified_historical_view_txn(
             &txn, authenticated, &request.case_id, historical, content)?;
         let historical_resolution_us = started.elapsed().as_micros();
+        let current = self.get_case_state_txn(&txn, &request.case_id)?.ok_or("case_not_visible")?;
+        let composition_started = std::time::Instant::now();
+        let semantic = if let Some(w) = working {
+            let s = self.compose_cognitive_state_txn(&txn, &current, &history)?;
+            request.required_refs.extend(s.recalled_requirements(&w.compilation)?);
+            request.required_refs.sort();
+            request.required_refs.dedup();
+            request.validate()?;
+            Some(s)
+        } else { None };
+        let current_composition_us = composition_started.elapsed().as_micros();
+        let mut excluded = BTreeSet::new();
         let knowledge = if request.schema == crate::memory_hierarchy::recall::RECALL_REQUEST_V2 {
-            let current = self.get_case_state_txn(&txn, &request.case_id)?.ok_or("case_not_visible")?;
             let (result, visible_backing) = self.qualified_knowledge_txn(&txn, authenticated,
                 crate::memory_hierarchy::knowledge::KnowledgeRequest::new(&request.case_id),
                 &current, &history, Some((&request, &then)), content)?;
             crate::memory_hierarchy::recall::documentary::restrict_acquisition_history(
                 &mut view, &history, &visible_backing);
+            if working.is_some() {
+                excluded = crate::memory_hierarchy::recall::documentary::hidden_acquisition_transitions(&history, &visible_backing);
+            }
             Some(result)
         } else { None };
         drop(txn);
         let qualified_read_us = started.elapsed().as_micros();
         let mut result = if let Some(d) = &knowledge {
-            crate::memory_hierarchy::recall::compile_integrated(&view, &scope, &history, request, vectors, Some(&d.view))?
+            crate::memory_hierarchy::recall::compile_for_working(&view, &scope, &history, request, vectors, Some(&d.view), working.is_some())?
         } else {
             crate::memory_hierarchy::recall::compile(&view, &scope, &history, request, vectors)?
         };
@@ -3955,7 +3981,49 @@ impl LmdbRecordStore {
             result.measurements.knowledge_derivation_us = d.measurements.derivation_us;
             result.measurements.knowledge_graph_us = d.measurements.graph_us;
         }
-        Ok(result)
+        Ok((result, semantic, excluded, current_composition_us))
+    }
+
+    /// Task → qualified Recall v2 → the existing W compiler. All current
+    /// authority and source visibility share Recall's LMDB read transaction.
+    /// No provider, persistent cache, second retriever or canonical write.
+    pub fn compile_working_state_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        request: crate::semantic_state::WorkingStateRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::semantic_state::QualifiedWorkingState, String> {
+        use crate::semantic_state::working_recall::{QualifiedRecall, QualifiedWorkingState, WorkingStateMeasurements};
+        let (recall, source, excluded, current_composition_us) = self.recall_working_basis(
+            authenticated, request.recall_request()?, content, None, Some(&request))?;
+        let started = std::time::Instant::now();
+        let input = QualifiedRecall::new(request.clone(), &recall, excluded)?;
+        let source = source.ok_or("working_semantic_basis_missing")?.with_recall(input)?;
+        let group_provenance_us = started.elapsed().as_micros();
+        let started = std::time::Instant::now();
+        let working_state = source.compile(&request.compilation)?;
+        let working_compilation_us = started.elapsed().as_micros();
+        let output_bytes = serde_json::to_vec(&working_state).map_err(|e| e.to_string())?.len();
+        let selected_semantic_units = working_state.bounds().selected_semantic_units;
+        Ok(QualifiedWorkingState { working_state, source,
+            compilation_mode: crate::semantic_state::DeltaCompilationMode::FullRecompilation,
+            measurements: WorkingStateMeasurements { recall: recall.measurements,
+                current_composition_us, group_provenance_us, working_compilation_us,
+                output_bytes, selected_semantic_units } })
+    }
+
+    /// Requalify CURRENT backing/authority even when Case generation is equal.
+    /// A SemanticDelta over S alone cannot attest Recall-aware W freshness.
+    pub fn validate_working_state_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        previous: &crate::semantic_state::SemanticWorkingState,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<(), String> {
+        let request = previous.recall().ok_or("working_recall_required")?.request.clone();
+        let current = self.compile_working_state_authorized(authenticated, request, content)?;
+        if current.working_state != *previous { return Err("stale_semantic_working_state".into()); }
+        Ok(())
     }
 
     fn qualified_historical_view(

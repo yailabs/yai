@@ -1625,6 +1625,28 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         ]
     ),
     op!(
+        "yai.case.context.compile",
+        ["case", "context", "compile"],
+        "Compile bounded current state and task-qualified Recall into W (no execution)",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case")), pos("intent", None)],
+        &[
+            flag("--participant", Some("PARTICIPANT"), false),
+            flag("--at", Some("GENERATION_OR_TRANSITION"), false),
+            flag("--ref", Some("REQUIRED_RECALL_REF"), false),
+            flag("--require", Some("REQUIRED_CURRENT_OR_RECALL_REF"), false),
+            flag("--resource", Some("EXACT_RESOURCE_FOCUS"), false),
+            flag("--limit", Some("WORKING_ITEMS"), false),
+            flag("--units", Some("WORKING_SEMANTIC_UNITS"), false),
+            flag("--bytes", Some("WORKING_BYTES"), false),
+            flag("--candidates", Some("RECALL_CANDIDATES"), false),
+            flag("--projection", None, false)
+        ]
+    ),
+    op!(
         "yai.case.recall",
         ["case", "recall"],
         "Reconstruct bounded query-conditioned experience under current disclosure",
