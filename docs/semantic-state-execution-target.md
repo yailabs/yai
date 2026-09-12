@@ -123,14 +123,17 @@ relationships. It does not flatten CaseState, policy and derived memory into a
 single mutable object. A human and a model participate through identity,
 capability, scope and authority contracts; neither automatically owns the Case.
 
-The adopted computational dual-stream target pairs primary token/input/activation
+The adopted computational dual-stream target pairs primary residual/input/activation
 computation **R** with the persistent **Experiential State Stream E**. This
 producer-side R is distinct from YAI's Recall R_t^q below; it introduces no YAI
 semantic owner. E may have independent identity, residency, update clock and
-lifecycle. A slow-update realization need not have token/KV geometry or change
-at token frequency. YAI supplies qualified semantic working state; exact
-model-native realization remains the [YVEX Program N target](https://github.com/yailabs/yvex/blob/models2/ROADMAP.md#native-cognitive-state),
-not implementation doctrine duplicated here. “Experiential” describes
+lifecycle. The [published YVEX N.B1 — Slow-Update Dual-Stream target](https://github.com/yailabs/yvex/blob/d7c292c2bccea34685931f99fd0fdc77870c9eb3/ROADMAP.md#nb1-slow-update-dual-stream)
+is now Program N's primary research realization: an independent model-native E
+tensor/state stream may use its own geometry and update more slowly than R,
+without token/KV geometry or a token-frequency obligation. YAI supplies qualified
+semantic working state; B1 model adaptation/post-training, State Read equations
+and physical compiler/runtime realization remain YVEX-owned research, not an
+implemented YAI consumer or doctrine duplicated here. “Experiential” describes
 computational state accumulated across ongoing execution and available beyond
 immediate context. It implies no consciousness, emotion, identity or personhood.
 The persistent stream has independently versioned/resident representation,

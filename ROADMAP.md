@@ -74,15 +74,20 @@ no private ABI, runtime administration or model-family branch closes a missing
 contract. Transformer KV, MLA, SSM, RWKV recurrence and latent banks are possible
 lowerings, never Case ontology.
 
-The computational dual-stream target pairs primary token/activation/current
+The computational dual-stream target pairs primary residual/activation/current
 computation **R** with the persistent **Experiential State Stream E**. That
 producer-side R is not YAI's Recall R_t^q. E is a model-native computational
-representation, not another YAI semantic memory. Its identity, residency,
-update clock and lifecycle may be independent of the primary stream: a
-slow-update realization need not update at token frequency or use token/KV
-geometry. YAI owns what should matter semantically; YVEX owns how an exact model
-carries and evolves it computationally. Concrete realization and qualification
-remain with the [public YVEX Program N target](https://github.com/yailabs/yvex/blob/models2/ROADMAP.md#native-cognitive-state).
+representation, not another YAI semantic memory or a synonym for persistent KV.
+YVEX's primary Program N research target is **N.B1 — Slow-Update Dual-Stream**,
+reconciled against its [published roadmap at d7c292c2bccea34685931f99fd0fdc77870c9eb3](https://github.com/yailabs/yvex/blob/d7c292c2bccea34685931f99fd0fdc77870c9eb3/ROADMAP.md#nb1-slow-update-dual-stream).
+This is a research reference, not a dependency pin or implemented consumer.
+B1 may realize E as an independent model-native tensor/state stream with its
+own geometry, identity, residency and lifecycle, updating more slowly than R;
+YAI assumes neither token-frequency updates nor token/KV geometry.
+YAI owns what should matter semantically; YVEX owns how an exact model carries
+and evolves it computationally. B1 geometry, model adaptation/post-training,
+State Read equations and physical execution/layout/scheduling remain
+producer-owned research doctrine, not YAI responsibilities.
 “Experiential” means accumulated through execution and available beyond immediate
 context; it implies no consciousness, emotion, identity or personhood.
 **State Read and State Update are OPEN target capabilities now**, not LATER
