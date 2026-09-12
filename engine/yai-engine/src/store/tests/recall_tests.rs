@@ -779,6 +779,16 @@ fn recall_current_disclosure_hides_private_events_counts_reasons_and_anchors() {
         .unwrap()
         .trace;
     assert!(trace.events.is_empty() && trace.candidates.is_empty() && trace.relations.is_empty());
+    let mut integrated = r.clone();
+    integrated.schema = crate::memory_hierarchy::recall::RECALL_REQUEST_V2.into();
+    let v2 = w.store.recall_trace_authorized(&w.outsider, integrated.clone(), None).unwrap().trace;
+    assert_eq!(v2.events, trace.events);
+    assert_eq!(v2.candidates, trace.candidates);
+    assert!(v2.documentary.as_ref().unwrap().sources.is_empty(), "Member H/S inspection survives the separate Owner-only D gate");
+    integrated.required_refs = vec![op.operation_id.clone()];
+    let denied = w.store.recall_trace_authorized(&w.outsider, integrated.clone(), None).unwrap_err();
+    integrated.required_refs = vec!["operation:absent".into()];
+    assert_eq!(denied, w.store.recall_trace_authorized(&w.outsider, integrated, None).unwrap_err());
     let output = serde_json::to_string(&trace).unwrap();
     for hidden in [
         &op.operation_id,

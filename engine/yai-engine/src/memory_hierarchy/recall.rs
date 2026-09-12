@@ -22,6 +22,9 @@ use std::time::Instant;
 
 pub const RECALL_REQUEST_SCHEMA: &str = "yai.recall_request.v1";
 pub const RECALL_TRACE_SCHEMA: &str = "yai.recall_trace.v1";
+pub const RECALL_REQUEST_V2: &str = "yai.recall_request.v2";
+pub const RECALL_TRACE_V2: &str = "yai.recall_trace.v2";
+pub mod documentary;
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RecallBounds {
@@ -87,9 +90,19 @@ impl RecallRequest {
             bounds: RecallBounds::default(),
         }
     }
+    pub fn integrated(
+        case: impl Into<String>,
+        generation: u64,
+        participant: impl Into<String>,
+        query: impl Into<String>,
+    ) -> Self {
+        let mut r = Self::new(case, generation, participant, query);
+        r.schema = RECALL_REQUEST_V2.into();
+        r
+    }
     pub fn validate(&self) -> Result<(), String> {
         let b = &self.bounds;
-        if self.schema != RECALL_REQUEST_SCHEMA
+        if (self.schema != RECALL_REQUEST_SCHEMA && self.schema != RECALL_REQUEST_V2)
             || self.case_id.is_empty()
             || self.participant_id.is_empty()
             || self.query.trim().is_empty()
@@ -191,15 +204,31 @@ pub struct RecallTrace {
     pub omitted_candidates: usize,
     pub expansion_stopped_at_depth: bool,
     pub limitations: Vec<String>,
+    /// Absent in v1. Typed documentary segments are not historical event arrays.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub documentary: Option<documentary::DocumentaryTrace>,
 }
 /// Measurements are not semantic identity and expose no hidden source counts.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RecallMeasurements {
+    pub qualified_read_us: u128,
+    pub historical_resolution_us: u128,
+    pub knowledge_resolution_us: u128,
+    pub knowledge_derivation_us: u128,
+    pub knowledge_graph_us: u128,
+    pub knowledge_discovery_us: u128,
+    pub knowledge_candidates: usize,
     pub qualified_events: usize,
     pub discovery_us: u128,
     pub relation_build_us: u128,
     pub qualification_us: u128,
     pub source_closure_us: u128,
+    pub assembly_us: u128,
+    pub selected_items: usize,
+    pub selected_documents: usize,
+    pub selected_knowledge_units: usize,
+    pub selected_relations: usize,
+    pub selected_segments: usize,
     pub semantic_units: usize,
     pub output_bytes: usize,
 }
@@ -413,10 +442,24 @@ pub(crate) fn compile(
     h: &HistoricalSemanticView,
     disclosure: &str,
     history: &[Transition],
-    mut request: RecallRequest,
+    request: RecallRequest,
     vectors: Option<&RecallVectorInput>,
 ) -> Result<RecallResult, String> {
+    compile_integrated(h, disclosure, history, request, vectors, None)
+}
+
+pub(crate) fn compile_integrated(
+    h: &HistoricalSemanticView,
+    disclosure: &str,
+    history: &[Transition],
+    mut request: RecallRequest,
+    vectors: Option<&RecallVectorInput>,
+    knowledge: Option<&super::knowledge::KnowledgeView>,
+) -> Result<RecallResult, String> {
     request.validate()?;
+    if (request.schema == RECALL_REQUEST_V2) != knowledge.is_some() {
+        return Err("recall_derived_version_input_mismatch".into());
+    }
     if h.case_id != request.case_id
         || h.current_generation != request.expected_generation
         || h.request.participant_id != request.participant_id
@@ -492,6 +535,12 @@ pub(crate) fn compile(
     // A resource anchor denotes all disclosed events with that exact typed subject,
     // not every event containing its spelling. Associations do not mint graph edges.
     for e in &h.known_by_then {
+        if let P::CaseContentAdmitted { admission } = &e.payload {
+            aliases
+                .entry(admission.admission_id.clone())
+                .or_default()
+                .insert(e.transition_id.clone());
+        }
         let resource = match &e.payload {
             P::OperationRecorded { operation } => Some(&operation.resource_attachment_id),
             P::ResourceObservationRecorded { observation }
@@ -537,6 +586,9 @@ pub(crate) fn compile(
             a.assertion_id.clone(),
             assertion_sources[&a.assertion_id].iter().cloned().collect(),
         );
+    }
+    if let Some(d) = knowledge {
+        documentary::aliases(d, &mut aliases);
     }
     let mut selected = BTreeMap::<String, BTreeSet<SelectionReason>>::new();
     for id in &request.required_refs {
@@ -656,39 +708,95 @@ pub(crate) fn compile(
             .collect();
     }
     metrics.discovery_us = start.elapsed().as_micros();
+    if let Some(d) = knowledge {
+        let start = Instant::now();
+        let documentary = documentary::discover(d, &request, cut)?;
+        metrics.knowledge_discovery_us = start.elapsed().as_micros();
+        metrics.knowledge_candidates = documentary.len();
+        // Independent corpus statistics; family round robin, never a global
+        // BM25 score competition. H/S receives the first slot even at budget 1.
+        let experience = candidates;
+        candidates = (0..request.bounds.candidates)
+            .flat_map(|i| {
+                let d = documentary.get(i).map(|c| RecallCandidate {
+                    source_ref: c.document_id.clone(),
+                    plane: "knowledge_bm25".into(),
+                    score_micros: c.score_micros,
+                    matched_terms: c.matched_terms.clone(),
+                });
+                [experience.get(i).cloned(), d]
+            })
+            .flatten()
+            .take(request.bounds.candidates)
+            .collect();
+    }
     let qualification_start = Instant::now();
+    let resolve = |group: Selection| -> Result<(Selection, bool), String> {
+        let mut group = group;
+        if let Some(d) = knowledge {
+            documentary::close(&mut group, d, &aliases, &request.bounds)?;
+        }
+        let (mut group, stopped) = resolve_group(
+            group,
+            &assertions,
+            &assertion_sources,
+            &contradictions,
+            &graph.relations,
+            &request.bounds,
+        )?;
+        if knowledge.is_some() {
+            // Reserve current-at-cut normative context inside every atomic
+            // group, before optional documentary volume can consume the budget.
+            let lineages: BTreeSet<_> = h
+                .known_by_then
+                .iter()
+                .filter(|e| group.contains_key(&e.transition_id))
+                .filter_map(|e| match &e.payload {
+                    P::CasePolicyBound { binding } | P::CasePolicyReplaced { binding, .. } => {
+                        Some(&binding.lineage_id)
+                    }
+                    _ => None,
+                })
+                .collect();
+            for b in &h.state_then.policy_bindings {
+                if lineages.contains(&b.lineage_id) {
+                    for id in aliases.get(&b.binding_id).into_iter().flatten() {
+                        group
+                            .entry(id.clone())
+                            .or_default()
+                            .insert(SelectionReason::CurrentStateAnchor);
+                    }
+                }
+            }
+            close_selection(
+                &mut group,
+                &assertions,
+                &assertion_sources,
+                &contradictions,
+                request.bounds.events,
+            )?;
+        }
+        Ok((group, stopped))
+    };
     // Each candidate plus its necessary context is an atomic optional group.
     // Exact anchors were inserted first and can never be evicted by ranking.
-    let (required, mut stopped) = resolve_group(
-        selected,
-        &assertions,
-        &assertion_sources,
-        &contradictions,
-        &graph.relations,
-        &request.bounds,
-    )?;
-    let mut selected = required;
+    let (required, mut stopped) = resolve(selected)?;
+    let mut selected = required.clone();
+    let mut accepted_groups = Vec::new();
     let mut omitted_candidates = 0;
     for candidate in &candidates {
         if let Some(nodes) = aliases.get(&candidate.source_ref) {
             let mut proposed = Selection::new();
             for node in nodes {
                 proposed.entry(node.clone()).or_default().insert(
-                    if candidate.plane == "lexical_bm25" {
+                    if candidate.plane != "exact_vector_candidate" {
                         SelectionReason::LexicalCandidate
                     } else {
                         SelectionReason::VectorCandidate
                     },
                 );
             }
-            let accepted = resolve_group(
-                proposed,
-                &assertions,
-                &assertion_sources,
-                &contradictions,
-                &graph.relations,
-                &request.bounds,
-            );
+            let accepted = resolve(proposed);
             match accepted {
                 Ok((group, cutoff))
                     if selected.len()
@@ -698,6 +806,7 @@ pub(crate) fn compile(
                             .count()
                         <= request.bounds.events =>
                 {
+                    accepted_groups.push(group.clone());
                     for (id, reasons) in group {
                         selected.entry(id).or_default().extend(reasons);
                     }
@@ -707,261 +816,333 @@ pub(crate) fn compile(
             }
         }
     }
-    // Current-at-cut policy is mandatory when recalling its lineage, independently
-    // of which historical version received a high lexical score.
-    let selected_policy_keys: BTreeSet<_> = h
-        .known_by_then
-        .iter()
-        .filter(|e| selected.contains_key(&e.transition_id))
-        .filter_map(|e| match &e.payload {
-            P::CasePolicyBound { binding } | P::CasePolicyReplaced { binding, .. } => {
-                Some(binding.lineage_id.clone())
-            }
-            _ => None,
-        })
-        .collect();
-    for binding in &h.state_then.policy_bindings {
-        if selected_policy_keys.contains(&binding.lineage_id) {
-            if let Some(nodes) = aliases.get(&binding.binding_id) {
-                for node in nodes {
-                    selected
-                        .entry(node.clone())
-                        .or_default()
-                        .insert(SelectionReason::CurrentStateAnchor);
-                }
-            }
-        }
-    }
-    close_selection(
-        &mut selected,
-        &assertions,
-        &assertion_sources,
-        &contradictions,
-        request.bounds.events,
-    )?;
-    let selected_assertions: Vec<_> = assertions
-        .iter()
-        .filter(|a| {
-            assertion_sources[&a.assertion_id]
-                .iter()
-                .any(|id| selected.contains_key(id))
-        })
-        .map(|a| RecallAssertion {
-            assertion: a.clone(),
-            source_events: assertion_sources[&a.assertion_id].clone(),
-            reasons: vec![SelectionReason::SourceClosure],
-        })
-        .collect();
-    // Every assertion's backing events must be present, not only its candidate label.
-    for a in &selected_assertions {
-        for id in &a.source_events {
-            selected
-                .entry(id.clone())
-                .or_default()
-                .insert(SelectionReason::SourceClosure);
-        }
-    }
-    let mut events = Vec::new();
-    for event in &graph.events {
-        let Some(reasons) = selected.get(&event.transition_id) else {
-            continue;
-        };
-        let mut validity = "recorded_evidence_not_current_authority";
-        if let Some(P::CasePolicyBound { binding } | P::CasePolicyReplaced { binding, .. }) = h
+    let group_qualification_us = qualification_start.elapsed().as_micros();
+    // Exact serialized-size qualification uses the same resolved source basis.
+    // If optional groups exceed aggregate output bounds, remove whole groups
+    // in reverse admission order, never a required anchor or conflict member.
+    let assemble = |mut selected: Selection,
+                    omitted_candidates: usize|
+     -> Result<RecallResult, String> {
+        let mut metrics = metrics.clone();
+        let request = request.clone();
+        let contradictions = contradictions.clone();
+        let candidates = candidates.clone();
+        let vector_evidence_digest = vector_evidence_digest.clone();
+        // Current-at-cut policy is mandatory when recalling its lineage, independently
+        // of which historical version received a high lexical score.
+        let selected_policy_keys: BTreeSet<_> = h
             .known_by_then
             .iter()
-            .find(|e| e.transition_id == event.transition_id)
-            .map(|e| &e.payload)
-        {
-            validity = if h
-                .state_then
-                .policy_bindings
-                .iter()
-                .any(|b| b.binding_id == binding.binding_id)
-            {
-                "bound_at_cut_not_execution_permission"
-            } else {
-                "historical_binding_not_current_at_cut"
-            };
-        }
-        events.push(RecallEvent {
-            event: event.clone(),
-            label: labels[&event.transition_id].clone(),
-            validity_at_cut: validity.into(),
-            reasons: reasons.iter().cloned().collect(),
-        });
-    }
-    let relations: Vec<_> = graph
-        .relations
-        .iter()
-        .filter(|r| selected.contains_key(&r.from_event) && selected.contains_key(&r.to_event))
-        .cloned()
-        .collect();
-    let mut segments = Vec::new();
-    let mut grouped = BTreeSet::new();
-    for s in &graph.episode_slices {
-        let ids: Vec<_> = s
-            .transition_ids
-            .iter()
-            .filter(|id| selected.contains_key(*id))
-            .cloned()
+            .filter(|e| selected.contains_key(&e.transition_id))
+            .filter_map(|e| match &e.payload {
+                P::CasePolicyBound { binding } | P::CasePolicyReplaced { binding, .. } => {
+                    Some(binding.lineage_id.clone())
+                }
+                _ => None,
+            })
             .collect();
-        if !ids.is_empty() {
-            grouped.extend(ids.clone());
-            segments.push(RecallSegment {
-                segment_id: s.slice_id.clone(),
-                events: ids,
-                grouping: "typed_episode_slice_not_causality".into(),
-            });
-        }
-    }
-    for event in &events {
-        if !grouped.contains(&event.event.transition_id) {
-            segments.push(RecallSegment {
-                segment_id: format!(
-                    "recall-segment:{}",
-                    digest(&(&request.case_id, &event.event.transition_id))
-                ),
-                events: vec![event.event.transition_id.clone()],
-                grouping: "independent_recorded_event".into(),
-            });
-        }
-    }
-    let order: BTreeMap<_, _> = events
-        .iter()
-        .map(|e| (e.event.transition_id.as_str(), e.event.recorded_generation))
-        .collect();
-    segments.sort_by_key(|s| {
-        s.events
-            .iter()
-            .filter_map(|id| order.get(id.as_str()))
-            .min()
-            .copied()
-            .unwrap_or(0)
-    });
-    let kept_assertions: BTreeSet<_> = selected_assertions
-        .iter()
-        .map(|a| a.assertion.assertion_id.clone())
-        .collect();
-    let contradictions = contradictions
-        .into_iter()
-        .filter(|c| {
-            c.competing_assertion_ids
-                .iter()
-                .all(|id| kept_assertions.contains(id))
-        })
-        .collect();
-    metrics.qualification_us += qualification_start.elapsed().as_micros();
-    let start = Instant::now();
-    let mut closure: Vec<_> = events
-        .iter()
-        .map(|e| SourceClosure {
-            source_ref: e.event.transition_id.clone(),
-            posture: if e.event.source_closed {
-                "exact_qualified_recorded_source"
-            } else {
-                "required_backing_unavailable"
-            }
-            .into(),
-        })
-        .collect();
-    let mut backing_refs = BTreeSet::new();
-    for item in h
-        .known_by_then
-        .iter()
-        .filter(|e| selected.contains_key(&e.transition_id))
-    {
-        match &item.payload {
-            P::CasePolicyBound { binding } | P::CasePolicyReplaced { binding, .. } => {
-                backing_refs.extend([
-                    binding.artifact_id.clone(),
-                    binding.source_id.clone(),
-                    binding.publication_event_id.clone(),
-                ]);
-            }
-            P::DecisionRecorded { decision } => {
-                if let Some(b) = &decision.decision_basis {
-                    backing_refs.extend(b.policy_artifact_refs.clone());
+        for binding in &h.state_then.policy_bindings {
+            if selected_policy_keys.contains(&binding.lineage_id) {
+                if let Some(nodes) = aliases.get(&binding.binding_id) {
+                    for node in nodes {
+                        selected
+                            .entry(node.clone())
+                            .or_default()
+                            .insert(SelectionReason::CurrentStateAnchor);
+                    }
                 }
             }
-            P::CaseContentAdmitted { admission } => {
-                backing_refs.insert(admission.object.object_id.clone());
-            }
-            P::ConversationTurnCommitted { turn } => {
-                backing_refs.extend(
-                    turn.ordered_parts
-                        .iter()
-                        .map(|p| p.object.object_id.clone()),
-                );
-            }
-            _ => (),
         }
-    }
-    for id in backing_refs {
-        if let Some(s) = h
-            .content_backing
+        close_selection(
+            &mut selected,
+            &assertions,
+            &assertion_sources,
+            &contradictions,
+            request.bounds.events,
+        )?;
+        let selected_assertions: Vec<_> = assertions
             .iter()
-            .chain(&h.normative_then.source_closure)
-            .find(|s| s.source_ref == id)
+            .filter(|a| {
+                assertion_sources[&a.assertion_id]
+                    .iter()
+                    .any(|id| selected.contains_key(id))
+            })
+            .map(|a| RecallAssertion {
+                assertion: a.clone(),
+                source_events: assertion_sources[&a.assertion_id].clone(),
+                reasons: vec![SelectionReason::SourceClosure],
+            })
+            .collect();
+        // Every assertion's backing events must be present, not only its candidate label.
+        for a in &selected_assertions {
+            for id in &a.source_events {
+                selected
+                    .entry(id.clone())
+                    .or_default()
+                    .insert(SelectionReason::SourceClosure);
+            }
+        }
+        let mut events = Vec::new();
+        for event in &graph.events {
+            let Some(reasons) = selected.get(&event.transition_id) else {
+                continue;
+            };
+            let mut validity = "recorded_evidence_not_current_authority";
+            if let Some(P::CasePolicyBound { binding } | P::CasePolicyReplaced { binding, .. }) = h
+                .known_by_then
+                .iter()
+                .find(|e| e.transition_id == event.transition_id)
+                .map(|e| &e.payload)
+            {
+                validity = if h
+                    .state_then
+                    .policy_bindings
+                    .iter()
+                    .any(|b| b.binding_id == binding.binding_id)
+                {
+                    "bound_at_cut_not_execution_permission"
+                } else {
+                    "historical_binding_not_current_at_cut"
+                };
+            }
+            events.push(RecallEvent {
+                event: event.clone(),
+                label: labels[&event.transition_id].clone(),
+                validity_at_cut: validity.into(),
+                reasons: reasons.iter().cloned().collect(),
+            });
+        }
+        let relations: Vec<_> = graph
+            .relations
+            .iter()
+            .filter(|r| selected.contains_key(&r.from_event) && selected.contains_key(&r.to_event))
+            .cloned()
+            .collect();
+        let mut segments = Vec::new();
+        let mut grouped = BTreeSet::new();
+        for s in &graph.episode_slices {
+            let ids: Vec<_> = s
+                .transition_ids
+                .iter()
+                .filter(|id| selected.contains_key(*id))
+                .cloned()
+                .collect();
+            if !ids.is_empty() {
+                grouped.extend(ids.clone());
+                segments.push(RecallSegment {
+                    segment_id: s.slice_id.clone(),
+                    events: ids,
+                    grouping: "typed_episode_slice_not_causality".into(),
+                });
+            }
+        }
+        for event in &events {
+            if !grouped.contains(&event.event.transition_id) {
+                segments.push(RecallSegment {
+                    segment_id: format!(
+                        "recall-segment:{}",
+                        digest(&(&request.case_id, &event.event.transition_id))
+                    ),
+                    events: vec![event.event.transition_id.clone()],
+                    grouping: "independent_recorded_event".into(),
+                });
+            }
+        }
+        let order: BTreeMap<_, _> = events
+            .iter()
+            .map(|e| (e.event.transition_id.as_str(), e.event.recorded_generation))
+            .collect();
+        segments.sort_by_key(|s| {
+            s.events
+                .iter()
+                .filter_map(|id| order.get(id.as_str()))
+                .min()
+                .copied()
+                .unwrap_or(0)
+        });
+        let kept_assertions: BTreeSet<_> = selected_assertions
+            .iter()
+            .map(|a| a.assertion.assertion_id.clone())
+            .collect();
+        let contradictions = contradictions
+            .into_iter()
+            .filter(|c| {
+                c.competing_assertion_ids
+                    .iter()
+                    .all(|id| kept_assertions.contains(id))
+            })
+            .collect();
+        metrics.qualification_us += group_qualification_us;
+        let start = Instant::now();
+        let mut closure: Vec<_> = events
+            .iter()
+            .map(|e| SourceClosure {
+                source_ref: e.event.transition_id.clone(),
+                posture: if e.event.source_closed {
+                    "exact_qualified_recorded_source"
+                } else {
+                    "required_backing_unavailable"
+                }
+                .into(),
+            })
+            .collect();
+        let mut backing_refs = BTreeSet::new();
+        for item in h
+            .known_by_then
+            .iter()
+            .filter(|e| selected.contains_key(&e.transition_id))
         {
-            closure.push(s.clone());
-        } else {
-            closure.push(SourceClosure {
-                source_ref: id,
-                posture: "exact_backing_not_resolved".into(),
-            });
+            match &item.payload {
+                P::CasePolicyBound { binding } | P::CasePolicyReplaced { binding, .. } => {
+                    backing_refs.extend([
+                        binding.artifact_id.clone(),
+                        binding.source_id.clone(),
+                        binding.publication_event_id.clone(),
+                    ]);
+                }
+                P::DecisionRecorded { decision } => {
+                    if let Some(b) = &decision.decision_basis {
+                        backing_refs.extend(b.policy_artifact_refs.clone());
+                    }
+                }
+                P::CaseContentAdmitted { admission } => {
+                    backing_refs.insert(admission.object.object_id.clone());
+                }
+                P::ConversationTurnCommitted { turn } => {
+                    backing_refs.extend(
+                        turn.ordered_parts
+                            .iter()
+                            .map(|p| p.object.object_id.clone()),
+                    );
+                }
+                _ => (),
+            }
         }
-    }
-    for a in &selected_assertions {
-        for support in &a.assertion.support_refs {
-            closure.push(SourceClosure {
-                source_ref: support.id().into(),
-                posture: "rebuilt_w20_support_from_qualified_recorded_sources".into(),
-            });
+        for id in backing_refs {
+            if let Some(s) = h
+                .content_backing
+                .iter()
+                .chain(&h.normative_then.source_closure)
+                .find(|s| s.source_ref == id)
+            {
+                closure.push(s.clone());
+            } else {
+                closure.push(SourceClosure {
+                    source_ref: id,
+                    posture: "exact_backing_not_resolved".into(),
+                });
+            }
         }
-    }
-    closure.sort_by(|a, b| a.source_ref.cmp(&b.source_ref));
-    closure.dedup();
-    let complete = closure.iter().all(|s| {
-        matches!(
-            s.posture.as_str(),
-            "exact_qualified_recorded_source"
-                | "exact_original_available"
-                | "exact_immutable_artifact"
-                | "exact_binding_publication_anchor"
-                | "exact_source_available"
-                | "rebuilt_w20_support_from_qualified_recorded_sources"
-        )
-    });
-    metrics.source_closure_us = start.elapsed().as_micros();
-    let mut trace = RecallTrace {
-        schema: RECALL_TRACE_SCHEMA.into(), trace_id: String::new(), request_id: format!("recall-request:{}", digest(&request)),
+        for a in &selected_assertions {
+            for support in &a.assertion.support_refs {
+                closure.push(SourceClosure {
+                    source_ref: support.id().into(),
+                    posture: "rebuilt_w20_support_from_qualified_recorded_sources".into(),
+                });
+            }
+        }
+        closure.sort_by(|a, b| a.source_ref.cmp(&b.source_ref));
+        closure.dedup();
+        let documentary =
+            knowledge.map(|d| documentary::assemble(d, &selected, &aliases, history, h.generation));
+        if let Some(d) = &documentary {
+            closure.extend(d.sources.iter().map(|s| {
+                SourceClosure {
+                    source_ref: s.source.id.clone(),
+                    posture: if s.source.status == super::knowledge::KnowledgeStatus::Qualified {
+                        "exact_source_available"
+                    } else {
+                        "documentary_derivation_or_backing_unavailable"
+                    }
+                    .into(),
+                }
+            }));
+        }
+        let complete = closure.iter().all(|s| {
+            matches!(
+                s.posture.as_str(),
+                "exact_qualified_recorded_source"
+                    | "exact_original_available"
+                    | "exact_immutable_artifact"
+                    | "exact_binding_publication_anchor"
+                    | "exact_source_available"
+                    | "rebuilt_w20_support_from_qualified_recorded_sources"
+            )
+        });
+        metrics.source_closure_us = start.elapsed().as_micros();
+        let mut trace = RecallTrace {
+        schema: if knowledge.is_some() { RECALL_TRACE_V2 } else { RECALL_TRACE_SCHEMA }.into(), trace_id: String::new(), request_id: format!("recall-request:{}", digest(&request)),
         request, generation: h.generation, disclosure_digest: disclosure.into(),
-        qualified_source_digest: digest(&(&graph.events, &graph.relations, &assertions)),
+        qualified_source_digest: if let Some(d) = knowledge { digest(&(&graph.events, &graph.relations, &assertions, d)) }
+            else { digest(&(&graph.events, &graph.relations, &assertions)) },
         events, relations, segments, assertions: selected_assertions, contradictions, candidates, vector_evidence_digest,
-        source_closure: closure, closure_complete: complete, omitted_candidates,
+        source_closure: closure, closure_complete: complete, omitted_candidates, documentary,
         expansion_stopped_at_depth: stopped,
         limitations: vec!["derived Recall; not authority, W or model input".into(),
             "recording order is not physical causality; occurrence time may be absent".into(),
             "bounded mechanical W20 assertions; general consolidation/Workflow/Handoff Recall not qualified".into(),
             "lexical discovery is not completeness; no implicit encoder/model call".into()],
     };
-    trace.trace_id = format!("recall-trace:{}", digest(&trace));
-    let encoded = serde_json::to_string(&trace).map_err(|e| e.to_string())?;
-    metrics.semantic_units = encoded.chars().count().div_ceil(4).max(1);
-    metrics.output_bytes = encoded.len();
-    if trace.events.len() > trace.request.bounds.events
-        || trace.relations.len() > trace.request.bounds.relations
-        || trace.segments.len() > trace.request.bounds.segments
-        || metrics.output_bytes > trace.request.bounds.bytes
-        || metrics.semantic_units > trace.request.bounds.semantic_units
-    {
-        return Err("recall_required_context_exceeds_output_budget".into());
+        trace.trace_id = format!("recall-trace:{}", digest(&trace));
+        let encoded = serde_json::to_string(&trace).map_err(|e| e.to_string())?;
+        metrics.semantic_units = encoded.chars().count().div_ceil(4).max(1);
+        metrics.output_bytes = encoded.len();
+        metrics.selected_items = selected.len();
+        metrics.selected_documents = trace.documentary.as_ref().map_or(0, |d| d.sources.len());
+        metrics.selected_knowledge_units = trace.documentary.as_ref().map_or(0, |d| d.units.len());
+        metrics.selected_relations = trace.relations.len()
+            + trace
+                .documentary
+                .as_ref()
+                .map_or(0, |d| d.relations.len() + d.cross_references.len());
+        metrics.selected_segments =
+            trace.segments.len() + trace.documentary.as_ref().map_or(0, |d| d.segments.len());
+        if selected.len() > trace.request.bounds.events
+            || trace.relations.len()
+                + trace
+                    .documentary
+                    .as_ref()
+                    .map_or(0, |d| d.relations.len() + d.cross_references.len())
+                > trace.request.bounds.relations
+            || trace.segments.len() + trace.documentary.as_ref().map_or(0, |d| d.segments.len())
+                > trace.request.bounds.segments
+            || metrics.output_bytes > trace.request.bounds.bytes
+            || metrics.semantic_units > trace.request.bounds.semantic_units
+        {
+            return Err("recall_required_context_exceeds_output_budget".into());
+        }
+        Ok(RecallResult {
+            trace,
+            measurements: metrics,
+        })
+    };
+    let assembly_started = Instant::now();
+    loop {
+        match assemble(selected.clone(), omitted_candidates) {
+            Err(e)
+                if knowledge.is_some()
+                    && e.starts_with("recall_required_context_exceeds_")
+                    && !accepted_groups.is_empty() =>
+            {
+                accepted_groups.pop();
+                omitted_candidates += 1;
+                selected = required.clone();
+                for group in &accepted_groups {
+                    for (id, reasons) in group {
+                        selected
+                            .entry(id.clone())
+                            .or_default()
+                            .extend(reasons.clone());
+                    }
+                }
+            }
+            Ok(mut result) => {
+                result.measurements.assembly_us = assembly_started.elapsed().as_micros();
+                return Ok(result);
+            }
+            Err(e) => return Err(e),
+        }
     }
-    Ok(RecallResult {
-        trace,
-        measurements: metrics,
-    })
 }
 
 #[cfg(test)]

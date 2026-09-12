@@ -525,6 +525,7 @@ Query-conditioned Recall is a separate optional inspection, also without a model
 ```sh
 ./yai case recall case:golden:free policy
 ./yai case recall case:golden:free policy --at 1 --json
+./yai case recall case:sources architecture --json
 ```
 
 Use a relevant keyword/path instead of `policy`, or `--ref` with an exact visible
@@ -534,7 +535,16 @@ Transition; current disclosure still applies. `--limit`, `--candidates` and
 historical/current-at-cut posture and source closure separately. Empty or
 incomplete Recall is not proof that no experience exists. Unknown/hidden required
 refs refuse equally; known missing backing is explicit, not replaced with a
-similar result. Reads append no Transition and never inject Recall into W.
+similar result. V2 also reconstructs admitted source knowledge in the same request:
+review DOCUMENT segments, exact source revisions/coordinates, source-stated versus
+recorded-observation posture, disagreements and current/cut applicability. A source
+revision first admitted after `--at` is excluded; revocation still governs old
+knowledge today. An exact source revision or knowledge-unit ID can be an anchor.
+`--limit` now bounds the combined historical/documentary items; optional groups
+may be omitted but mandatory context overflow refuses. No source is reacquired.
+Reads append no Transition and never inject Recall into W. See the [Recall
+contract](recall.md); `make smoke-knowledge-recall` is the independent deterministic
+CLI/source/history oracle, not Human or External Golden.
 The Golden interaction/effect/Workflow lifecycle above is unchanged; this optional
 step adds no provider request and cannot supply Human Golden acceptance.
 

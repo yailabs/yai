@@ -210,7 +210,7 @@ mean constitutional, general, or production-ready.
 | Human-reviewed filesystem effect | policy-driven `REQUIRE_REVIEW` → v2 request → per-command POSIX Principal authentication → Tenant membership → explicit Principal/Participant link → Case-role eligibility → ReviewAction v2 → effective Decision → same Grant/carrier path | local POSIX identity only; no SSO, remote signer or membership removal lifecycle |
 | Governance intake and admission | authenticated Tenant owner + JSON/explicit Markdown or text-PDF policy block → Tenant-owned immutable artifact/lifecycle → exact Tenant-safe Case binding → EffectivePolicy → operation-specific DecisionBasis and derived cognitive rules; P@1/P@2 remain distinct and validity/revoke contract future authority | unresolved prose never publishes; local ownership is enforced; external organization identity, credential security, retention and distributed revoke remain future work |
 | Journal compatibility | inspect/dry-run/import `yai.store.record.v0` or `yai.record.v1`, preserving unknowns opaquely in an isolated target; old replay still materializes legacy record indexes | general semantic promotion is deliberately absent; the old record plane remains compatibility data, not authority |
-| Graph / experience access | typed canonical transitions → replay-qualified historical evidence under current disclosure → exact-source experience relations and bounded directed paths; existing decoded legacy records → rebuildable RuntimeGraph remains a separate compatibility access path | general causal discovery, all-owner traversal and knowledge-aware Recall remain absent; bounded experience Recall is described below; legacy-only cases still depend on compatibility translation |
+| Graph / experience access | typed canonical transitions → replay-qualified historical evidence under current disclosure → exact-source experience relations and bounded directed paths; existing decoded legacy records → rebuildable RuntimeGraph remains a separate compatibility access path | general causal discovery and all-owner traversal remain absent; bounded D/H/S Recall is described below; legacy-only cases still depend on compatibility translation |
 | Analytical facts | LMDB operational records → DuckDB extraction → reports | four declared families have no extractor; schema/orchestration remains embedded in the command crate |
 
 `yaid` startup, status/info/shutdown, restart, fixture loops, and hot snapshot
@@ -681,8 +681,8 @@ Original policy bytes serve both policy and knowledge roles without duplication;
 acquisition alone produces no documentary claims. The separately invoked bounded
 [knowledge derivation](source-grounded-knowledge.md) now consumes these revisions.
 Inventory/resume/revision/revoke and current-policy source reads are normal CLI
-actions; LMDB remains 37/40. Recall/W and model execution are not consumers of a
-new knowledge representation in this boundary.
+actions; LMDB remains 37/40. Acquisition does not itself derive knowledge or
+invoke Recall/W. The separate bounded Recall integration is described below.
 
 These are bounded executable source relations, not generic source-environment
 coverage. Resource attachment/discovery and filesystem locators coexist with
@@ -718,8 +718,9 @@ typed engine results below presentation; future clients need not parse CLI text.
 Navigation is generated/read-only. Cross-Case policy-original/profile identity
 reuse does not transfer Case visibility or qualify general shared extraction
 caching. This boundary leaves Transition v19, CaseState v16, LMDB **37/40**, S/W
-and Recall contracts unchanged. Knowledge-aware Recall and automatic R → W are
-not implemented; see the [contract and executable oracle](source-grounded-knowledge.md).
+unchanged. The subsequent [Recall v2 integration](recall.md) consumes this
+qualified D alongside H/S; automatic R → W remains unimplemented. See the
+[independent derivation contract and oracle](source-grounded-knowledge.md).
 
 A host-visible mounted path may conceptually fit the existing filesystem resource
 model, subject to its confinement/identity/availability contract. No retained
@@ -1134,13 +1135,21 @@ compilation cache is required. See the
 
 ## Query-conditioned Recall
 
-`yai case recall CASE QUERY` returns `yai.recall_trace.v1`, derived in
+`yai case recall CASE QUERY` returns `yai.recall_trace.v2`, derived in
 [`memory_hierarchy::recall`](../engine/yai-engine/src/memory_hierarchy/recall.rs).
 It is independently inspectable, not automatically inserted into W or provider
 input. Current semantic working-state compilation and the runtime are unchanged.
 The public store method reuses the historical reader's single qualified snapshot
 and its original canonical history; no second replay engine, Recall database or
 persisted compilation cache is introduced.
+
+[The integrated contract](recall.md) adds documentary candidates to the same
+resolver, with current/as-of source qualification, shared historical read basis,
+family-local BM25, mandatory anchors and atomic aggregate-budget admission.
+Documentary segments preserve exact source/profile/coordinates and epistemic
+posture beside experience events, never an invented common causal timeline.
+Source-owned acquisition evidence cannot bypass source revocation through H.
+Typed v1 requests retain the following H/S contract without documentary fields.
 
 `RecallRequest v1` binds Case, expected current generation, current linked
 Participant, query, exact generation/Transition cut, required references and
@@ -1218,7 +1227,9 @@ visible semantic objects. Host reconstruction remains history-dependent.
 See [Recall evidence](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/recall-trace-0/REPORT.md).
 That Recall boundary left Transition v18 / CaseState v15 and all
 S/W/Projection/ContextFrame schemas, semantic/operational owners and LMDB
-**37/40** unchanged. Source acquisition does not retroactively broaden Recall.
+**37/40** unchanged. V2 evolves only derived Recall contracts; current canonical
+Transition v19 / CaseState v16 and LMDB 37/40 remain unchanged. Source acquisition
+alone does not retroactively broaden v1 Recall.
 
 ## Current agentless Case runtime
 

@@ -3927,9 +3927,35 @@ impl LmdbRecordStore {
             request.at.clone(), request.participant_id.clone());
         historical.max_items = 4096;
         historical.max_bytes = 16_777_216;
-        let (view, scope, history) = self.qualified_historical_view(
-            authenticated, &request.case_id, historical, content)?;
-        crate::memory_hierarchy::recall::compile(&view, &scope, &history, request, vectors)
+        let started = std::time::Instant::now();
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let (mut view, scope, history, then) = self.qualified_historical_view_txn(
+            &txn, authenticated, &request.case_id, historical, content)?;
+        let historical_resolution_us = started.elapsed().as_micros();
+        let knowledge = if request.schema == crate::memory_hierarchy::recall::RECALL_REQUEST_V2 {
+            let current = self.get_case_state_txn(&txn, &request.case_id)?.ok_or("case_not_visible")?;
+            let (result, visible_backing) = self.qualified_knowledge_txn(&txn, authenticated,
+                crate::memory_hierarchy::knowledge::KnowledgeRequest::new(&request.case_id),
+                &current, &history, Some((&request, &then)), content)?;
+            crate::memory_hierarchy::recall::documentary::restrict_acquisition_history(
+                &mut view, &history, &visible_backing);
+            Some(result)
+        } else { None };
+        drop(txn);
+        let qualified_read_us = started.elapsed().as_micros();
+        let mut result = if let Some(d) = &knowledge {
+            crate::memory_hierarchy::recall::compile_integrated(&view, &scope, &history, request, vectors, Some(&d.view))?
+        } else {
+            crate::memory_hierarchy::recall::compile(&view, &scope, &history, request, vectors)?
+        };
+        result.measurements.qualified_read_us = qualified_read_us;
+        result.measurements.historical_resolution_us = historical_resolution_us;
+        if let Some(d) = knowledge {
+            result.measurements.knowledge_resolution_us = d.measurements.source_resolution_us;
+            result.measurements.knowledge_derivation_us = d.measurements.derivation_us;
+            result.measurements.knowledge_graph_us = d.measurements.graph_us;
+        }
+        Ok(result)
     }
 
     fn qualified_historical_view(
@@ -3939,17 +3965,26 @@ impl LmdbRecordStore {
         request: crate::semantic_state::historical::HistoricalRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<(crate::semantic_state::historical::HistoricalSemanticView, String, Vec<Transition>), String> {
-        use crate::semantic_state::historical as h;
         let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        self.qualified_historical_view_txn(&txn, authenticated, case_id, request, content)
+            .map(|(view, scope, history, _)| (view, scope, history))
+    }
+
+    fn qualified_historical_view_txn<T: Transaction>(
+        &self, txn: &T, authenticated: &AuthenticatedPrincipal, case_id: &str,
+        request: crate::semantic_state::historical::HistoricalRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<(crate::semantic_state::historical::HistoricalSemanticView, String, Vec<Transition>, CaseState), String> {
+        use crate::semantic_state::historical as h;
         let current = self
-            .get_case_state_txn(&txn, case_id)?
+            .get_case_state_txn(txn, case_id)?
             .ok_or("case_not_visible")?;
         let tenant = current
             .tenant_id
             .as_deref()
             .ok_or("historical_unscoped_case_unsupported")?;
         let security = self
-            .resolve_security_context_txn(&txn, authenticated, tenant)
+            .resolve_security_context_txn(txn, authenticated, tenant)
             .map_err(|_| "case_not_visible")?;
         // No new audit authority: only an explicitly Principal-linked current
         // Participant can use this public reader, even when the caller owns the Tenant.
@@ -3962,14 +3997,14 @@ impl LmdbRecordStore {
         }
         h::validate_scope(&current, &request)?;
         let scoped_disclosure = h::scoped_disclosure_digest(&current, &request);
-        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let history = self.list_case_transitions_txn(txn, case_id)?;
         let cut = h::prefix(&history, &request.coordinate)?;
         let then = replay_case(case_id, cut)?;
         let mut inputs = Vec::new();
         let mut missing = Vec::new();
         let mut closure = Vec::new();
         for binding in &then.policy_bindings {
-            let artifact = match self.policy_artifact_txn(&txn, &binding.artifact_id) {
+            let artifact = match self.policy_artifact_txn(txn, &binding.artifact_id) {
                 Ok(a)
                     if a.tenant_id == current.tenant_id && binding.matches_artifact(&a).is_ok() =>
                 {
@@ -3984,7 +4019,7 @@ impl LmdbRecordStore {
                 }
             };
             let published = self
-                .policy_lifecycle_events_txn(&txn, Some(&artifact.artifact_id))?
+                .policy_lifecycle_events_txn(txn, Some(&artifact.artifact_id))?
                 .iter()
                 .any(|e| {
                     e.event_id == binding.publication_event_id
@@ -4042,9 +4077,9 @@ impl LmdbRecordStore {
             temporal_posture: "bound_artifact_semantics_only; global_catalog_cut_unavailable; exact_decision_validity_in_recorded_DecisionBasis".into(),
             source_closure: closure,
         };
-        let floor = self.authority_time_floor_txn(&txn)?;
+        let floor = self.authority_time_floor_txn(txn)?;
         let now = self.materialize_policy_for_state_txn(
-            &txn,
+            txn,
             &current,
             authority_wall_time_unix_ms().max(floor),
             floor,
@@ -4078,7 +4113,7 @@ impl LmdbRecordStore {
             {
                 continue;
             }
-            match self.policy_artifact_txn(&txn, &id) {
+            match self.policy_artifact_txn(txn, &id) {
                 Ok(a) if a.tenant_id == current.tenant_id => {
                     view.normative_then.source_closure.push(h::SourceClosure {
                         source_ref: id,
@@ -4111,7 +4146,7 @@ impl LmdbRecordStore {
             if let TransitionPayload::CasePolicyBound { binding }
                 | TransitionPayload::CasePolicyReplaced { binding, .. } = &item.payload {
                 if !view.normative_then.source_closure.iter().any(|s| s.source_ref == binding.publication_event_id) {
-                    let available = self.policy_lifecycle_events_txn(&txn, Some(&binding.artifact_id))?.iter().any(|e|
+                    let available = self.policy_lifecycle_events_txn(txn, Some(&binding.artifact_id))?.iter().any(|e|
                         e.event_id == binding.publication_event_id && e.sequence == binding.publication_event_sequence
                         && e.action == PolicyLifecycleAction::Published && e.tenant_id == current.tenant_id);
                     view.normative_then.source_closure.push(h::SourceClosure {
@@ -4148,7 +4183,7 @@ impl LmdbRecordStore {
             })
             .collect();
         view.seal()?;
-        Ok((view, scoped_disclosure, history))
+        Ok((view, scoped_disclosure, history, then))
     }
 
     /// Pure derivation from CaseState plus exact immutable PolicyArtifacts.

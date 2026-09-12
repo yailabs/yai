@@ -50,8 +50,9 @@ The [Case source frontier](case-source-bootstrap.md) now supplies bounded
 policy-first acquisition and exact original/revision backing through existing
 Resource, policy and content owners. The separate bounded
 [source-grounded knowledge derivation](source-grounded-knowledge.md) now provides
-a deterministic D foothold; knowledge-aware Recall and Recall-aware W remain
-unimplemented. An acquisition can be
+a deterministic D foothold. [Recall v2](recall.md) composes bounded D/H/S
+candidates under one qualified read basis; Recall-aware W remains unimplemented.
+An acquisition can be
 recorded in Case history without turning its documentary content into current
 semantic truth. Generic bootstrap/knowledge horizons remain in the Roadmap.
 
@@ -138,7 +139,8 @@ S_t are distinct semantic domains over established owners and qualified sources.
 D answers what sources state/represent; H answers what happened in the Case;
 S answers what currently holds. They are not three physical stores, a second
 ledger or a universal semantic truth object. D has a bounded deterministic
-source-derivation foothold, not a universal knowledge API or D-aware Recall.
+source-derivation foothold and a bounded Recall consumer, not a universal knowledge
+API or a guarantee of query sufficiency.
 
 ```text
 YAI: governed source relations + canonical history + established owners/backing
@@ -179,7 +181,7 @@ The notation is not a source-type, schema or API commitment:
 | D_t — Source-grounded domain knowledge | What admitted exact sources state/represent: documentary structure, claims and relationships with declared provenance/epistemic posture | Bounded deterministic derivation from admitted revisions now exists; broader domain interpretation remains target. Not current Case truth, policy authority, a database or a new canonical owner |
 | H_t — Qualified historical experience | Recorded occurrences, decisions, observations, effects, Workflow history and admitted material, including what no longer holds | Conceptual qualified view over existing ledgers/content/established owners; not a new historical owner or a guarantee of complete knowledge |
 | S_t — Semantic State | What presently holds: model-independent Case meaning with provenance, authority and epistemic distinctions | YAI, through existing owners; current authority, derived assertion and model claim stay distinct |
-| R_t^q — Recall Trace | Bounded reconstruction of the qualified knowledge and experience relevant to question/task q, including potentially discontinuous sources, Events and Episodes | Derived, reconstructible, disposable; Participant/disclosure scoped, temporally coherent and causally coherent only where supported; exact source closure or explicit missingness. D-aware Recall remains future |
+| R_t^q — Recall Trace | Bounded reconstruction of the qualified knowledge and experience relevant to question/task q, including potentially discontinuous sources, Events and Episodes | Bounded D/H/S v2 now exists: derived, reconstructible, disposable, current-disclosure scoped; temporal/causal meaning only where supported, exact source closure or explicit missingness. General task sufficiency remains target |
 | W_t — Semantic Working State | What must count for this execution: bounded, task-relative, Participant-scoped, provenance-carrying | Target compilation of current S plus relevant Recall, task and Case constraints; not the whole Case or a new memory history |
 | E_t — Experiential Computational State | Model-native realization of W_t, subsequently accumulated through execution | Computationally owned by YVEX/model: model-specific, potentially opaque, independently resident, derived and replaceable; never a second semantic ledger |
 
@@ -226,11 +228,15 @@ without making selection a causal relation. Source loss is explicit; current
 disclosure governs both discovery and resolution. This bounded M06 foothold is
 not a general memory navigator or task-sufficiency guarantee. Recall remains an
 independent inspection contract: **S + relevant R → W is not implemented by it**.
-Published Recall v1 qualifies only its existing bounded experience/semantic
-families, not D-aware Recall. Future knowledge candidates must reuse deterministic
-truth/disclosure/source-closure resolution; memory is not conceptually restricted
-to Episodes/Transitions. H stays a conceptual view over existing owners; no
-RecallStore or extra ledger.
+Published Recall v1 retains its bounded experience/semantic families. V2 adds
+qualified documentary candidates to the same resolver, with family-local
+discovery, exact/current anchors and aggregate atomic output bounds. Documentary
+source structure and Case chronology remain separate segment orders. Current
+source disclosure and revision-at-cut qualification precede discovery; source
+revocation cannot be bypassed through acquisition history. Explicit documentary
+references are not causal or normative support merely because their endpoints
+resolve. H stays a conceptual view over existing owners; no RecallStore or extra
+ledger, and no automatic knowledge/Recall-to-W path.
 
 ### Independent computational and semantic evolution
 
@@ -739,7 +745,7 @@ ablation and persistent deliberation against equal-compute baselines. Declare
 oracles and missing/unsupported causal evidence; no thresholds or results are
 fabricated here. Latency components and semantic correctness are separate axes.
 
-The general learned-read/write, D-aware Recall and trajectory evaluations above
+The general learned-read/write, task-sufficient D/H/S Recall and trajectory evaluations above
 remain future requirements, not new benchmark results. The published bounded
 experience Recall tests retain their earned scope. Computational-state deletion
 is performed only through an authorized provider/operator contract; this document does not permit YAI to
@@ -762,7 +768,7 @@ W_t compilation, semantic full/delta equivalence and context compatibility, not
 E_t in YAI. Current execution selection and maturity remain Roadmap-owned.
 
 General temporal-causal memory, general event/validity-time reconstruction,
-knowledge-aware or all-owner Recall compilation, learned navigation, SAE memory,
+universal knowledge-aware or all-owner Recall compilation, learned navigation, SAE memory,
 prompt-independent E reconciliation,
 persistent internal deliberation and autonomous overnight thinking are **not
 implemented claims**. Existing bounded replay, W20 and runtime loops do not

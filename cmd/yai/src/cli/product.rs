@@ -582,7 +582,7 @@ fn historical_case_inspection(invocation: &Invocation) -> Result<CliData, CliErr
         yai_core_engine::conversation::ConversationContentStore::open_existing(&yai_home()).ok();
     if recall {
         use yai_core_engine::memory_hierarchy::recall::RecallRequest;
-        let mut recall_request = RecallRequest::new(&case.case_id, case.generation,
+        let mut recall_request = RecallRequest::integrated(&case.case_id, case.generation,
             &request.participant_id, invocation.positionals.get("query").ok_or_else(|| CliError::usage("use: yai case recall CASE QUERY"))?);
         recall_request.at = request.coordinate;
         if let Some(reference) = invocation.flag("--ref") { recall_request.required_refs.push(reference.into()); }
@@ -598,7 +598,17 @@ fn historical_case_inspection(invocation: &Invocation) -> Result<CliData, CliErr
         println!("CASE RECALL {} @{}", t.request.case_id, t.generation);
         println!("Trace: {}", t.trace_id);
         println!("Query: {} | Participant: {}", t.request.query, t.request.participant_id);
-        println!("Derived experience, not authority or automatic model context. Source closure: {}", if t.closure_complete { "complete" } else { "INCOMPLETE" });
+        println!("Qualified knowledge / experience / current state; not authority or automatic model context. Source closure: {}", if t.closure_complete { "complete" } else { "INCOMPLETE" });
+        if let Some(d) = &t.documentary {
+            for s in &d.sources {
+                println!("DOCUMENT {} / {} @ {}: {:?}; admitted @{}; applicable at cut: {}; current revision: {}", s.source.logical_name, s.source.path, s.source.revision_id, s.source.status, s.admitted_at_generation, s.applicable_at_cut, s.source.current_revision);
+                for u in d.units.iter().filter(|u| u.unit.source == s.source.id) {
+                    println!("  {:?}: {}\n    {} at {:?}; selected: {:?}", u.unit.posture, u.unit.text, u.unit.id, u.unit.location, u.reasons);
+                }
+            }
+            for r in &d.cross_references { println!("DOCUMENT REFERENCE {} -> {}: {}", r.unit, r.event, r.posture); }
+            for c in &d.contradictions { println!("DISAGREEMENT {} / {}: {} (no winner)", c.entity, c.predicate, c.posture); }
+        }
         for s in &t.segments {
             println!("SEGMENT {} ({})", s.segment_id, s.grouping);
             for id in &s.events {

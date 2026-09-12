@@ -291,14 +291,25 @@ pub(crate) fn derive(
         .iter()
         .map(|e| event(e, closed(e, h)))
         .collect();
-    let mut aliases = BTreeMap::new();
+    let mut aliases = BTreeMap::<String, usize>::new();
+    let mut shared_payloads = BTreeSet::new();
     for (i, e) in events.iter().enumerate() {
         for id in std::iter::once(&e.transition_id).chain(e.object_refs.iter()) {
-            if aliases.insert(id.clone(), i).is_some() {
-                return Err("experience_ambiguous_source_identity".into());
+            if let Some(prior) = aliases.get(id).copied() {
+                // Immutable payload reuse is not duplicate admission identity.
+                // Keep both events; a payload alone cannot choose which event
+                // supplied evidence. Exact Transition anchors remain available.
+                if e.kind == "case_content_admitted" && events[prior].kind == e.kind {
+                    shared_payloads.insert(id.clone());
+                } else {
+                    return Err("experience_ambiguous_source_identity".into());
+                }
+            } else {
+                aliases.insert(id.clone(), i);
             }
         }
     }
+    for id in shared_payloads { aliases.remove(&id); }
     let mut relations = BTreeMap::new();
     let mut add = |from: &str, to: usize, kind: RelationKind, field: &str| {
         let Some(&a) = aliases.get(from) else {

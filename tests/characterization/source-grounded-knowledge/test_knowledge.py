@@ -42,7 +42,7 @@ def pdf(lines):
     return bytes(data)
 
 
-def main():
+def main(recall_oracle=None):
     with tempfile.TemporaryDirectory(prefix="yai-source-knowledge-") as directory:
         run = Path(directory)
         env = dict(os.environ, YAI_HOME=str(run / "home"), NO_COLOR="1")
@@ -115,9 +115,13 @@ def main():
         cli("case","sources","publish",CASE,"--source","policy","--reason","Reviewed exact bootstrap policy","--json")
         acquired=cli("case","sources","acquire",CASE,"--json")
         assert all(s["phase"]=="acquired" for s in acquired["sources"]), acquired
+        if recall_oracle:
+            recall_oracle("prepare", cli, run, None)
         policy_before=cli("policy","list","--tenant",TENANT)
         history_before=cli("case","history",CASE,"--limit","256","--json")
         result=knowledge("build");view=result["view"]
+        if recall_oracle:
+            recall_oracle("initial", cli, run, view)
         assert len(view["sources"])==10
         statuses={s["logical_name"]:s["status"] for s in view["sources"]}
         assert statuses["empty"]=="needs_processing" and statuses["unsupported"]=="unsupported"
@@ -152,6 +156,8 @@ def main():
         cli("case","memory","index","drop",CASE,"--profile","memory-profile:knowledge-unused","--json")
         assert knowledge()["view"]==view
         assert cli("case","history",CASE,"--limit","256","--json")==history_before
+        if recall_oracle:
+            recall_oracle("rebuild", cli, run, view)
         # Deliberately remove one exact immutable payload in this disposable
         # fixture while its original file still exists. Recover it afterward.
         handbook=next(s for s in view["sources"] if s["logical_name"]=="handbook")
@@ -167,6 +173,8 @@ def main():
             assert missing["source_closure"]=="incomplete"
             assert all(u["source"]!=absent["id"] for u in missing["units"])
             assert (files/"handbook.pdf").exists(), "live file must not substitute"
+            if recall_oracle:
+                recall_oracle("missing", cli, run, view)
         finally:
             held.rename(payload)
         assert knowledge()["view"]==view
@@ -182,6 +190,8 @@ def main():
         assert historical["sources"][0]["current_revision"] is False
         assert any(u["predicate"]=="retention_days" and u["value"]==90 for u in historical["units"])
         assert any(u["predicate"]=="retention_days" and u["value"]==60 for u in current["units"])
+        if recall_oracle:
+            recall_oracle("revision", cli, run, current)
         # Revocation filters before statistics, counts, graph and exact resolve.
         cli("case","sources","revoke",CASE,"--source","config","--reason","Withdraw current documentary access","--json")
         hidden=knowledge()["view"]
@@ -191,6 +201,8 @@ def main():
         assert denied==unknown
         config_source=next(s for s in view["sources"] if s["logical_name"]=="config")
         assert config_source["id"] not in json.dumps(knowledge("search","retention_days"))
+        if recall_oracle:
+            recall_oracle("revoke", cli, run, hidden)
         # Exact policy originals can be reused in a separately governed Case;
         # unit/applicability identity and disclosure remain Case-specific.
         other="case:knowledge-other";setup(other)
@@ -212,18 +224,24 @@ def main():
         large=knowledge("build")
         assert len(large["view"]["sources"])==len(hidden["sources"])+64
         print(json.dumps(dict(characterization="large",**large["measurements"])),flush=True)
+        if recall_oracle:
+            recall_oracle("large", cli, run, large["view"])
         cli("case","knowledge","inspect",CASE,"--limit","1","--json",reject=True)
         cli("case","verify",CASE)
         before=cli("case","history",CASE,"--limit","256","--json")
         cli("case","policy","rebuild","--case",CASE)
         assert knowledge()["view"]==large["view"]
         assert cli("case","history",CASE,"--limit","256","--json")==before
+        if recall_oracle:
+            recall_oracle("evolution", cli, run, large["view"])
         # Current catalog revocation does not need a Case generation change.
         artifact=original_policy["backing"]["artifact_id"]
         cli("policy","revoke",artifact,"--reason","Withdraw current source read authority")
         empty=knowledge()["view"]
         assert not empty["sources"] and not empty["units"] and not empty["relations"]
         assert not knowledge("search","billing")["hits"]
+        if recall_oracle:
+            recall_oracle("policy_revoke", cli, run, empty)
         print(json.dumps(dict(run_id=run.name, characterization_summary={"small":result["measurements"],"large":large["measurements"]},
             exact_source_example={"unit":chosen,"source":next(s for s in view["sources"] if s["id"]==chosen["source"])},
             cache_posture="graph rebuilt; hierarchy absent by design; unused vector namespace dropped; knowledge BM25 rebuilt each read",

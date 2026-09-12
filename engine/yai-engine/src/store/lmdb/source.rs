@@ -16,25 +16,61 @@ impl LmdbRecordStore {
         request: crate::memory_hierarchy::knowledge::KnowledgeRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::memory_hierarchy::knowledge::KnowledgeResult, String> {
-        use crate::memory_hierarchy::knowledge::{
-            self as k, KnowledgeSource, KnowledgeStatus, QualifiedSource,
-        };
-        let started = std::time::Instant::now();
         request.validate()?;
         let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
         let state = self
             .get_case_state_txn(&txn, &request.case_id)?
             .ok_or("case_not_visible")?;
+        let history = self.list_case_transitions_txn(&txn, &state.case_id)?;
+        self.qualified_knowledge_txn(&txn, auth, request, &state, &history, None, content)
+            .map(|(r, _)| r)
+    }
+
+    /// Reused by Recall in the same transaction/history snapshot as H. The cut
+    /// restricts knowledge availability; only CURRENT state admits disclosure.
+    pub(super) fn qualified_knowledge_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        auth: &AuthenticatedPrincipal,
+        request: crate::memory_hierarchy::knowledge::KnowledgeRequest,
+        state: &CaseState,
+        history: &[Transition],
+        recall_input: Option<(&crate::memory_hierarchy::recall::RecallRequest, &CaseState)>,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<
+        (
+            crate::memory_hierarchy::knowledge::KnowledgeResult,
+            BTreeSet<String>,
+        ),
+        String,
+    > {
+        use crate::memory_hierarchy::knowledge::{
+            self as k, KnowledgeSource, KnowledgeStatus, QualifiedSource,
+        };
+        let started = std::time::Instant::now();
+        let recall = recall_input.map(|(r, _)| r);
         let tenant = state.tenant_id.as_deref().ok_or("case_not_visible")?;
         let security = self
-            .resolve_security_context_txn(&txn, auth, tenant)
+            .resolve_security_context_txn(txn, auth, tenant)
             .map_err(|_| "case_not_visible")?;
-        security
-            .require_owner()
-            .map_err(|_| "knowledge_scope_unavailable")?;
         let principal = auth.projected_principal_id();
-        let history = self.list_case_transitions_txn(&txn, &state.case_id)?;
+        if security.require_owner().is_err() {
+            if recall.is_some() {
+                // Recall's existing H/S inspection scope is not narrowed just
+                // because M07 has a stronger Owner-only source contract.
+                return Ok((k::derive(&request, &principal, vec![])?, BTreeSet::new()));
+            }
+            return Err("knowledge_scope_unavailable".into());
+        }
+        let status = self.materialize_case_policy_txn(txn, &state.case_id)?;
+        let cut = if let Some(r) = recall {
+            crate::semantic_state::historical::prefix(history, &r.at)?
+        } else {
+            history
+        };
+        let then = recall_input.map_or(state, |(_, then)| then);
         let mut inputs = Vec::new();
+        let mut visible_backing = BTreeSet::new();
         let mut matched = false;
         for source in &state.sources {
             let d = &source.declaration;
@@ -43,6 +79,7 @@ impl LmdbRecordStore {
                 .as_ref()
                 .is_some_and(|s| *s != d.logical_name && *s != d.source_id)
                 || d.declared_by_principal_id != principal
+                || recall.is_some_and(|r| r.participant_id != d.participant_id)
                 || !d.roles.contains(&SourceRole::Knowledge)
                 || !state
                     .principal_participant_links
@@ -53,14 +90,52 @@ impl LmdbRecordStore {
                     .as_ref()
                     .is_none_or(|p| p.phase != SourcePhase::Acquired)
                 || !self
-                    .source_permission_txn(&txn, &state, d, d.action.clone())
+                    .source_permission_resolved(state, d, d.action.clone(), &status, history)
                     .is_ok_and(|v| v.outcome == DecisionOutcome::Allow)
             {
                 continue;
             }
             let current = source.progress.as_ref().and_then(|p| p.revision.as_ref());
+            // Qualify retained acquisition evidence once, even when current D
+            // discovery deliberately excludes obsolete documentary revisions.
+            // No byte reads/derivations are required for this H visibility gate.
+            if recall.is_some() {
+                let mut checked = BTreeSet::new();
+                for t in cut {
+                    if let TransitionPayload::CaseSourceProgressed { progress } = &t.payload {
+                        if progress.source_id != d.source_id {
+                            continue;
+                        }
+                        for item in progress.revision.iter().flat_map(|r| &r.items) {
+                            let id = crate::memory_hierarchy::recall::documentary::backing_id(
+                                &item.backing,
+                            );
+                            if !checked.insert(id.clone()) {
+                                continue;
+                            }
+                            let admitted = match &item.backing {
+                                SourceBacking::Content { admission_id } => self
+                                    .source_permission_resolved(
+                                        state,
+                                        d,
+                                        ResourceAction::ContentRead {
+                                            admission_id: admission_id.clone(),
+                                        },
+                                        &status,
+                                        history,
+                                    )
+                                    .is_ok_and(|v| v.outcome == DecisionOutcome::Allow),
+                                _ => true,
+                            };
+                            if admitted {
+                                visible_backing.insert(id);
+                            }
+                        }
+                    }
+                }
+            }
             let revision = if let Some(id) = &request.revision {
-                history.iter().rev().find_map(|t| match &t.payload {
+                cut.iter().rev().find_map(|t| match &t.payload {
                     TransitionPayload::CaseSourceProgressed { progress }
                         if progress.source_id == d.source_id =>
                     {
@@ -68,93 +143,133 @@ impl LmdbRecordStore {
                     }
                     _ => None,
                 })
+            } else if recall.is_some() {
+                then.sources
+                    .iter()
+                    .find(|s| s.declaration.source_id == d.source_id)
+                    .and_then(|s| s.progress.as_ref())
+                    .filter(|p| p.phase == SourcePhase::Acquired)
+                    .and_then(|p| p.revision.as_ref())
             } else {
                 current
             };
             let Some(revision) = revision else {
                 continue;
             };
-            // Each admitted content object retains its narrower current read
-            // permission. Reject the source as a whole before reading bytes.
-            if revision.items.iter().any(|item| match &item.backing {
-                SourceBacking::Content { admission_id } => !self
-                    .source_permission_txn(
-                        &txn,
-                        &state,
-                        d,
-                        ResourceAction::ContentRead {
-                            admission_id: admission_id.clone(),
-                        },
-                    )
-                    .is_ok_and(|v| v.outcome == DecisionOutcome::Allow),
-                _ => false,
-            }) {
-                continue;
-            }
-            matched = true;
-            for item in &revision.items {
-                let bytes = match &item.backing {
-                    SourceBacking::Policy {
-                        source_id,
-                        artifact_id,
-                    } => {
-                        let artifact = self.policy_artifact_txn(&txn, artifact_id)?;
-                        if artifact.tenant_id.as_deref() != Some(tenant)
-                            || artifact.source_id != *source_id
+            let mut revisions = vec![revision];
+            // Ordinary queries never search obsolete revisions. Exact revision
+            // anchors opt into their retained history. Opaque unit/source IDs
+            // require a bounded qualified historical derivation to resolve.
+            if let Some(r) = recall {
+                for t in cut {
+                    if let TransitionPayload::CaseSourceProgressed { progress } = &t.payload {
+                        if progress.source_id != d.source_id
+                            || progress.phase != SourcePhase::Acquired
                         {
-                            return Err("knowledge_source_not_available".into());
+                            continue;
                         }
-                        txn.get(self.policy_sources_by_id, &policy_source_key(source_id))
-                            .ok()
-                            .and_then(|b| decode_policy_source(b).ok())
-                            .map(|s| s.original_bytes().to_vec())
-                    }
-                    SourceBacking::Content { admission_id } => {
-                        let admission = history.iter().find_map(|t| match &t.payload {
-                            TransitionPayload::CaseContentAdmitted { admission }
-                                if admission.admission_id == *admission_id
-                                    && admission.source_resource_id == d.resource_attachment_id
-                                    && admission.source_configuration_digest
-                                        == d.configuration_digest
-                                    && admission.source_path == item.path
-                                    && admission.participant_ids.contains(&d.participant_id) =>
+                        if let Some(old) = &progress.revision {
+                            if r.required_refs.iter().any(|id| {
+                                id == &old.revision_id
+                                    || id.starts_with("knowledge-unit:")
+                                    || id.starts_with("knowledge-source:")
+                            }) && !revisions.iter().any(|v| v.revision_id == old.revision_id)
                             {
-                                Some(admission)
+                                revisions.push(old);
                             }
-                            _ => None,
-                        });
-                        admission.and_then(|a| content.and_then(|c| c.read_bytes(&a.object).ok()))
+                        }
                     }
-                    SourceBacking::Observation { observation_id } => {
-                        history.iter().find_map(|t| match &t.payload {
-                            TransitionPayload::ResourceObservationRecorded { observation }
-                                if observation.observation_id == *observation_id
-                                    && observation.resource_attachment_id
-                                        == d.resource_attachment_id
-                                    && observation.participant_id == d.participant_id
-                                    && observation.configuration_digest
-                                        == d.configuration_digest =>
-                            {
-                                serde_json::to_vec(&observation.result).ok()
-                            }
-                            _ => None,
-                        })
-                    }
-                };
-                let source_kind = if let ResourceAction::DatabaseQuery { name } = &d.action {
-                    let binding = txn
-                        .get(
-                            self.local_resource_bindings,
-                            &format!("access|{}|{}", state.case_id, d.resource_attachment_id),
+                }
+            }
+            for revision in revisions {
+                // Each admitted content object retains its narrower current read
+                // permission. Reject the source as a whole before reading bytes.
+                if revision.items.iter().any(|item| match &item.backing {
+                    SourceBacking::Content { admission_id } => !self
+                        .source_permission_resolved(
+                            state,
+                            d,
+                            ResourceAction::ContentRead {
+                                admission_id: admission_id.clone(),
+                            },
+                            &status,
+                            history,
                         )
-                        .ok()
-                        .and_then(|b| {
-                            serde_json::from_slice::<crate::effect::access::LocalAccessBinding>(b)
+                        .is_ok_and(|v| v.outcome == DecisionOutcome::Allow),
+                    _ => false,
+                }) {
+                    continue;
+                }
+                matched = true;
+                for item in &revision.items {
+                    let bytes = match &item.backing {
+                        SourceBacking::Policy {
+                            source_id,
+                            artifact_id,
+                        } => {
+                            let artifact = self.policy_artifact_txn(txn, artifact_id)?;
+                            if artifact.tenant_id.as_deref() != Some(tenant)
+                                || artifact.source_id != *source_id
+                            {
+                                return Err("knowledge_source_not_available".into());
+                            }
+                            txn.get(self.policy_sources_by_id, &policy_source_key(source_id))
                                 .ok()
-                        });
-                    // Only the exact admitted metadata query supplies schema
-                    // semantics. Other result JSON retains observation posture.
-                    if binding.as_ref().is_some_and(|b| b.digest() == d.configuration_digest
+                                .and_then(|b| decode_policy_source(b).ok())
+                                .map(|s| s.original_bytes().to_vec())
+                        }
+                        SourceBacking::Content { admission_id } => {
+                            let admission = history.iter().find_map(|t| match &t.payload {
+                                TransitionPayload::CaseContentAdmitted { admission }
+                                    if admission.admission_id == *admission_id
+                                        && admission.source_resource_id
+                                            == d.resource_attachment_id
+                                        && admission.source_configuration_digest
+                                            == d.configuration_digest
+                                        && admission.source_path == item.path
+                                        && admission
+                                            .participant_ids
+                                            .contains(&d.participant_id) =>
+                                {
+                                    Some(admission)
+                                }
+                                _ => None,
+                            });
+                            admission
+                                .and_then(|a| content.and_then(|c| c.read_bytes(&a.object).ok()))
+                        }
+                        SourceBacking::Observation { observation_id } => {
+                            history.iter().find_map(|t| match &t.payload {
+                                TransitionPayload::ResourceObservationRecorded { observation }
+                                    if observation.observation_id == *observation_id
+                                        && observation.resource_attachment_id
+                                            == d.resource_attachment_id
+                                        && observation.participant_id == d.participant_id
+                                        && observation.configuration_digest
+                                            == d.configuration_digest =>
+                                {
+                                    serde_json::to_vec(&observation.result).ok()
+                                }
+                                _ => None,
+                            })
+                        }
+                    };
+                    let source_kind = if let ResourceAction::DatabaseQuery { name } = &d.action {
+                        let binding = txn
+                            .get(
+                                self.local_resource_bindings,
+                                &format!("access|{}|{}", state.case_id, d.resource_attachment_id),
+                            )
+                            .ok()
+                            .and_then(|b| {
+                                serde_json::from_slice::<crate::effect::access::LocalAccessBinding>(
+                                    b,
+                                )
+                                .ok()
+                            });
+                        // Only the exact admitted metadata query supplies schema
+                        // semantics. Other result JSON retains observation posture.
+                        if binding.as_ref().is_some_and(|b| b.digest() == d.configuration_digest
                         && matches!(&b.address, crate::effect::access::ResourceAddress::Sqlite { queries, .. }
                             if queries.get(name).is_some_and(|q| q.split_whitespace()
                                 .collect::<Vec<_>>().join(" ").eq_ignore_ascii_case(
@@ -163,45 +278,45 @@ impl LmdbRecordStore {
                     } else {
                         "resource_observation"
                     }
-                } else if matches!(item.backing, SourceBacking::Observation { .. }) {
-                    "resource_observation"
-                } else {
-                    "document"
-                };
-                let source = KnowledgeSource {
-                    id: k::identity(
-                        "knowledge-source",
-                        &(&d.source_id, &revision.revision_id, &item.path),
-                    ),
-                    source_id: d.source_id.clone(),
-                    logical_name: d.logical_name.clone(),
-                    revision_id: revision.revision_id.clone(),
-                    current_revision: current
-                        .is_some_and(|r| r.revision_id == revision.revision_id),
-                    path: item.path.clone(),
-                    digest: item.digest.clone(),
-                    bytes: item.bytes,
-                    backing: item.backing.clone(),
-                    roles: d.roles.clone(),
-                    resource_id: d.resource_attachment_id.clone(),
-                    media_type: d.media_type.clone(),
-                    source_kind: source_kind.into(),
-                    extractor: k::DERIVATION_PROFILE.into(),
-                    extraction_id: String::new(),
-                    status: KnowledgeStatus::Qualified,
-                    detail: "exact_admitted_backing; no independent reacquisition".into(),
-                };
-                inputs.push(QualifiedSource { source, bytes });
+                    } else if matches!(item.backing, SourceBacking::Observation { .. }) {
+                        "resource_observation"
+                    } else {
+                        "document"
+                    };
+                    let source = KnowledgeSource {
+                        id: k::identity(
+                            "knowledge-source",
+                            &(&d.source_id, &revision.revision_id, &item.path),
+                        ),
+                        source_id: d.source_id.clone(),
+                        logical_name: d.logical_name.clone(),
+                        revision_id: revision.revision_id.clone(),
+                        current_revision: current
+                            .is_some_and(|r| r.revision_id == revision.revision_id),
+                        path: item.path.clone(),
+                        digest: item.digest.clone(),
+                        bytes: item.bytes,
+                        backing: item.backing.clone(),
+                        roles: d.roles.clone(),
+                        resource_id: d.resource_attachment_id.clone(),
+                        media_type: d.media_type.clone(),
+                        source_kind: source_kind.into(),
+                        extractor: k::DERIVATION_PROFILE.into(),
+                        extraction_id: String::new(),
+                        status: KnowledgeStatus::Qualified,
+                        detail: "exact_admitted_backing; no independent reacquisition".into(),
+                    };
+                    inputs.push(QualifiedSource { source, bytes });
+                }
             }
         }
         if request.source.is_some() && !matched {
             return Err("knowledge_source_not_available".into());
         }
-        drop(txn);
         let source_resolution_us = started.elapsed().as_micros();
         let mut result = k::derive(&request, &principal, inputs)?;
         result.measurements.source_resolution_us = source_resolution_us;
-        Ok(result)
+        Ok((result, visible_backing))
     }
 
     pub fn case_source_authorized(
@@ -483,6 +598,19 @@ impl LmdbRecordStore {
         d: &CaseSourceDeclaration,
         action: ResourceAction,
     ) -> Result<Decision, String> {
+        let status = self.materialize_case_policy_txn(txn, &state.case_id)?;
+        let history = self.list_case_transitions_txn(txn, &state.case_id)?;
+        self.source_permission_resolved(state, d, action, &status, &history)
+    }
+
+    fn source_permission_resolved(
+        &self,
+        state: &CaseState,
+        d: &CaseSourceDeclaration,
+        action: ResourceAction,
+        status: &NormativeStatus,
+        history: &[Transition],
+    ) -> Result<Decision, String> {
         let resource = state
             .resources
             .iter()
@@ -517,15 +645,14 @@ impl LmdbRecordStore {
                 participant_link_id: link.link_id.clone(),
             },
         )?;
-        let status = self.materialize_case_policy_txn(txn, &state.case_id)?;
         let policy = status
             .effective_policy
+            .as_ref()
             .filter(|_| {
                 status.readiness == NormativeReadiness::Ready
                     && status.validity == PolicyValidityPosture::Valid
             })
             .ok_or("source_requires_ready_effective_policy")?;
-        let history = self.list_case_transitions_txn(txn, &state.case_id)?;
         // For a matching recorded request, preserve ONLY exact canonical
         // provenance. Current policy, roles, scope and validity are still
         // evaluated below. An unrecorded shape keeps empty evidence and any
@@ -539,7 +666,7 @@ impl LmdbRecordStore {
                         if *principal_id == d.declared_by_principal_id && *participant_link_id == link.link_id) => Some(recorded.clone()),
             _ => None,
         }).unwrap_or(operation);
-        let evidence = resolve_canonical_evidence(&operation, &history, None)?;
+        let evidence = resolve_canonical_evidence(&operation, history, None)?;
         evaluate_filesystem_admission(
             &operation,
             state,
@@ -548,7 +675,7 @@ impl LmdbRecordStore {
             &evidence,
             &AuthorityTemporalContext {
                 authority_time_unix_ms: status.authority_time_unix_ms,
-                binding_validity: status.binding_validity.into_values().collect(),
+                binding_validity: status.binding_validity.values().cloned().collect(),
             },
         )
     }

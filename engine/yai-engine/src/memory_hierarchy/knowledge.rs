@@ -408,7 +408,7 @@ impl KnowledgeView {
                 c.members.len()
             ));
         }
-        out.push_str(&format!("\n## Source closure\n{}\nUse exact unit references with knowledge resolve. No Recall/W integration.\n",self.source_closure));
+        out.push_str(&format!("\n## Source closure\n{}\nUse exact unit references with knowledge resolve; case recall reconstructs qualified knowledge/experience. No automatic W integration.\n",self.source_closure));
         out
     }
 }

@@ -4,7 +4,9 @@
 operationally or currently authoritative. The bounded deterministic implementation
 consumes [Case source bootstrap](case-source-bootstrap.md) revisions. It does not
 acquire sources, publish policy, append knowledge facts to history, call a model,
-change Recall or inject material into Working State.
+own Recall or inject material into Working State. The separate [Recall v2
+contract](recall.md) now consumes qualified D and H/S in one request; standalone
+knowledge search remains candidate discovery, not another Recall primitive.
 
 ## Product and typed boundary
 

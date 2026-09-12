@@ -42,6 +42,8 @@ authoritative for their own non-architectural subjects.
 
 ## Canonical semantic owners
 
+- [Qualified Recall](recall.md) defines bounded D/H/S reconstruction, exact
+  current/as-of source qualification, disclosure and the independent R boundary.
 - [Source-grounded domain knowledge](source-grounded-knowledge.md) defines the
   bounded derived documentary contract over admitted source revisions; it owns
   no canonical truth or second source registry.
