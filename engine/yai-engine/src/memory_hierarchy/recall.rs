@@ -210,6 +210,7 @@ pub struct RecallTrace {
 }
 /// Measurements are not semantic identity and expose no hidden source counts.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct RecallMeasurements {
     pub qualified_read_us: u128,
     pub historical_resolution_us: u128,
@@ -1151,6 +1152,27 @@ mod tests {
     use crate::memory_hierarchy::{
         EpistemicClass, SemanticLifecycle, SemanticSubject, SemanticValue,
     };
+
+    #[test]
+    fn recall_v1_measurements_decode_without_v2_diagnostics() {
+        let original = serde_json::json!({
+            "qualified_events": 7, "discovery_us": 11, "relation_build_us": 13,
+            "qualification_us": 17, "source_closure_us": 19,
+            "semantic_units": 23, "output_bytes": 29
+        });
+        let decoded: RecallMeasurements = serde_json::from_value(original).unwrap();
+        assert_eq!(decoded.qualified_events, 7);
+        assert_eq!(decoded.discovery_us, 11);
+        assert_eq!(decoded.relation_build_us, 13);
+        assert_eq!(decoded.qualification_us, 17);
+        assert_eq!(decoded.source_closure_us, 19);
+        assert_eq!(decoded.semantic_units, 23);
+        assert_eq!(decoded.output_bytes, 29);
+        assert_eq!(decoded.knowledge_candidates, 0);
+        assert_eq!(decoded.qualified_read_us, 0);
+        assert_eq!(decoded.assembly_us, 0);
+        assert_eq!(decoded, serde_json::from_value(serde_json::to_value(&decoded).unwrap()).unwrap());
+    }
 
     #[test]
     fn recall_mechanical_supersession_is_mandatory_and_contradiction_is_not_replacement() {

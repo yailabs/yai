@@ -18,6 +18,8 @@ and consumes `yai.recall_trace.v2` from the existing authorized Recall entrypoin
 `RecallRequest::new` and explicit v1 requests retain the independently qualified
 H/S-only contract and v1 serialization, with no documentary field. V2 adds one
 typed documentary family, not a second Recall API or knowledge-search workflow.
+Older serialized diagnostic counters remain readable; absent additive v2
+measurements default to zero and are never used as semantic evidence.
 No canonical schema, storage owner or persistent Recall/knowledge cache is added.
 Future clients consume the same typed result below CLI formatting.
 
