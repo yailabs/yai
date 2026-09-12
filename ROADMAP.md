@@ -74,14 +74,25 @@ no private ABI, runtime administration or model-family branch closes a missing
 contract. Transformer KV, MLA, SSM, RWKV recurrence and latent banks are possible
 lowerings, never Case ontology.
 
-The target has two streams: ordinary token/activation/residual computation and
-the **Experiential State Stream**, a cross-context persistent, model-native,
-independently versioned/resident computational representation. “Experiential”
-means accumulated through ongoing execution and available beyond immediate
+The computational dual-stream target pairs primary token/activation/current
+computation **R** with the persistent **Experiential State Stream E**. That
+producer-side R is not YAI's Recall R_t^q. E is a model-native computational
+representation, not another YAI semantic memory. Its identity, residency,
+update clock and lifecycle may be independent of the primary stream: a
+slow-update realization need not update at token frequency or use token/KV
+geometry. YAI owns what should matter semantically; YVEX owns how an exact model
+carries and evolves it computationally. Concrete realization and qualification
+remain with the [public YVEX Program N target](https://github.com/yailabs/yvex/blob/models2/ROADMAP.md#native-cognitive-state).
+“Experiential” means accumulated through execution and available beyond immediate
 context; it implies no consciousness, emotion, identity or personhood.
 **State Read and State Update are OPEN target capabilities now**, not LATER
 because consumers require research. Context-only execution is a compatibility
 realization, not the final architecture.
+
+The public W → E contract is still unimplemented. This alignment selects no W
+wire format/schema, StateFrame/StateDelta ABI, YAI-specific YVEX adapter or public
+StateProfile protocol. Actual producer/consumer pressure and normal BOUNDARY /
+Interlock discipline must qualify that later seam; **I07 remains UNSELECTED**.
 
 ```text
 D_t = qualified source-grounded domain knowledge, not a new store
@@ -368,8 +379,8 @@ The two independent evolution loops expand into six linked processes:
 | Semantic/world | Action/observation/proposal → existing normalization/evidence/authority/admission → H/S change |
 | Knowledge/experience assimilation and Recall | Admitted source or H/S change → qualified D/experience/access rebuild → affected Recall may change; derivation is not semantic admission |
 | Working-state refresh | Relevant qualified source/revision or H/S/Recall change → qualified ΔW or full recompilation, preserving scope/mandatory state; no new source-delta schema follows from this target |
-| Computational reconciliation | W/qualified ΔW → public YVEX Lower/Reconcile → E; no YAI latent writes |
-| Model computational | E → execution → E′; frequent updates need not emit semantic events |
+| Computational reconciliation | Changed W/qualified ΔW → future public YVEX Reconcile or rebuild of E; external semantic change, not model-native State Update or YAI latent writes |
+| Model computational | E → execution → candidate E′ under the model/profile's update clock; independent of W refresh and not required at token frequency |
 | Semantic return | Explicit P or observed consequence → applicable YAI admission, not automatic feedback authority |
 
 “Continuous” means no new human prompt is required for relevant refresh, not
@@ -381,9 +392,11 @@ asynchronous work. If forbidden material may be embedded in E without qualified
 selective removal, invalidate/reconstruct E and dependent computation. Existing
 on-request freshness checks do not establish this general target feedback system.
 
-**E_t → E_t+1 does not imply S_t → S_t+1.** No P_t means no semantic mutation
-from that computational update. Existing governed Invocation/Result/effect
-evidence is still required; recording execution is not admitting its proposed
+**E_t → E_t+1 does not imply S_t → S_t+1.** Model-native State Update does not
+modify D, H, S, Policy or authority. Only an explicit semantic proposal through
+normal YAI normalization/admission may request such a consequence; no P_t means
+no semantic mutation from that computational update. Existing governed
+Invocation/Result/effect evidence is still required; recording execution is not admitting its proposed
 facts. A rejected P_t cannot acquire authority through persistence in E_t.
 
 **Persistent deliberation** is an OPEN research target: YAI owns the assignment's
@@ -391,13 +404,17 @@ objective, Participant, scope/sources, allowed resources/effects, authority,
 compute/time budget, deadline, output contract and cancellation/termination.
 Existing task/Workflow/execution owners are the footholds, not ThinkingJobStore
 or an Agent owner. Internal computation, qualified Recall and governed operational
-verification remain distinct. E is reusable experiential memory; **L_{t,k}** is
-unfinished computational deliberation. YAI needs typed candidates/progress where
+verification remain distinct. E is reusable experiential computational state;
+**L_{t,k} — Latent Deliberation State** is unfinished computation, not reusable E.
+YVEX owns their future computational checkpoint/resume realization, not the
+assignment or semantic admission. YAI needs typed candidates/progress where
 useful, not raw hidden chain-of-thought as memory.
 
-Semantic **D/H/S continuity**, compatible **E continuity** and compatible **L
-continuity** are different guarantees. DeepSeek → Qwen may invalidate E/L, never
-admitted semantic backing; source retention and current disclosure still govern D.
+YAI **semantic D/H/S continuity**, YVEX **experiential computational E continuity**
+and YVEX execution **unfinished deliberation L continuity** are different
+guarantees. Model/runtime loss or incompatible replacement may invalidate E/L,
+never admitted semantic backing; source retention and current disclosure still
+govern D.
 Reconstruct R/W and new E without promising the same unfinished
 latent trajectory. **Semantic consolidation** derives provenance-bound
 Episodes/relations/summaries; **computational consolidation** reorganizes E;
@@ -428,8 +445,9 @@ Case merely by participating. An Agent remains a possible composition.
 
 Persistent KV alone != cognitive State Read. Intentional scoped W_t compilation,
 exact model/profile lowering, observed reuse and invalidation/reconstruction can
-qualify a bounded KV/prefix realization without new training. This is a possible
-experiment, not a present YAI/YVEX interoperability claim.
+qualify a bounded KV/prefix realization without new training. That compatibility
+option does not define E: an independent model-native experiential tensor/state
+stream is also within the target. Neither is a present YAI/YVEX interoperability claim.
 
 A **state-augmented pretrained model** is a research option: a pretrained backbone
 plus a model-state adapter, exact StateProfile and targeted post-training. The

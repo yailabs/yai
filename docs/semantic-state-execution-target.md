@@ -123,8 +123,14 @@ relationships. It does not flatten CaseState, policy and derived memory into a
 single mutable object. A human and a model participate through identity,
 capability, scope and authority contracts; neither automatically owns the Case.
 
-The adopted execution target has two streams: ordinary token/input/activation
-computation and the **Experiential State Stream**. “Experiential” describes
+The adopted computational dual-stream target pairs primary token/input/activation
+computation **R** with the persistent **Experiential State Stream E**. This
+producer-side R is distinct from YAI's Recall R_t^q below; it introduces no YAI
+semantic owner. E may have independent identity, residency, update clock and
+lifecycle. A slow-update realization need not have token/KV geometry or change
+at token frequency. YAI supplies qualified semantic working state; exact
+model-native realization remains the [YVEX Program N target](https://github.com/yailabs/yvex/blob/models2/ROADMAP.md#native-cognitive-state),
+not implementation doctrine duplicated here. “Experiential” describes
 computational state accumulated across ongoing execution and available beyond
 immediate context. It implies no consciousness, emotion, identity or personhood.
 The persistent stream has independently versioned/resident representation,
@@ -191,7 +197,11 @@ Compilation must explain what matters now, for whom, under which scope/budget
 and from which sources. Relevance cannot override disclosure. Case age does not require the
 entire Case to be lowered; boundedness cannot excuse dropping necessary state.
 YVEX need receive only qualified W_t/input, not all of D_t, H_t or S_t. Provisional
-SemanticStateFrame/Delta describe W_t representation/changes, not latent layouts.
+SemanticStateFrame/Delta names describe target W_t representation/changes, not
+latent layouts or an implemented public contract. No W wire format/schema,
+StateFrame/StateDelta ABI, YAI-specific YVEX adapter or public StateProfile
+protocol is selected here. Actual producer/consumer pressure and normal BOUNDARY /
+Interlock qualification must establish that later seam.
 **IMPLEMENTED FACT:** the bounded source implementation composes qualified
 SemanticState and compiles SemanticWorkingState before Projection/ContextFrame
 lowering. This is not a claim
@@ -241,10 +251,13 @@ ledger, and no automatic knowledge/Recall-to-W path.
 ### Independent computational and semantic evolution
 
 Computational loop: **E_t → execution → E_t+1 → subsequent execution**.
-Lower describes initialization/reconstruction; Exec may evolve E_t frequently
-without recompiling W_t or creating semantic events. E_t → E_t+1 does not imply
-S_t → S_t+1. A model may eventually write its computational stream without
-permission to write canonical Case meaning.
+Lower describes initialization/reconstruction. Changed W later requires YVEX
+Reconcile or rebuild; this external semantic change is distinct from Exec
+producing candidate E′ under the exact model/profile's independent update clock.
+E_t → E_t+1 denotes computational evolution, not a token-frequency obligation
+or a W refresh. It does not modify D, H, S, Policy or authority. A model may
+eventually write its computational stream without permission to write canonical
+Case meaning; semantic consequences require the explicit admission path below.
 
 Semantic loop: **explicit model/human proposal P_t or observed external
 consequence → typed normalization → evidence/authority/policy/admission →
@@ -402,8 +415,8 @@ authorized work, automatic semantic mutation or an uncontrolled Agent loop.
 | Semantic / world | Action, observation or explicit proposal → normalization, evidence, authority/admission → H/S change | Existing typed owners only; CaseState remains Transition-mediated |
 | Knowledge/experience assimilation and Recall | Qualified source/revision or admitted H/S change → affected D/experience/access derivation changes → affected Recall may change | Source drift is not admitted truth; derivation cannot invent history or normative authority |
 | Working-state refresh | Relevant qualified D/H/S/Recall change → qualified ΔW or full W recompilation | Fresh scope/source identity, mandatory state and sufficiency must survive; no new source-delta schema is prescribed |
-| Computational reconciliation | Full W / qualified ΔW → YVEX Lower/Reconcile → refreshed E | Public capability and compatibility evidence; YAI does not write latent state |
-| Model computational | E plus current computation → E′ | Internal updates may be frequent; no automatic semantic Transition |
+| Computational reconciliation | Changed W / qualified ΔW → future YVEX Reconcile or rebuild → refreshed E | External semantic change; public capability and compatibility evidence, not YAI latent writes |
+| Model computational | E plus current computation → candidate E′ | Independent model/profile update clock, potentially slow; no automatic D/H/S, Policy or authority mutation |
 | Semantic return | Explicit P or observed consequence → YAI admission → H/S change | Repetition of E, Recall or a learned association never grants authority |
 
 **E_t → E_t+1 does NOT imply S_t → S_t+1.** Neither assimilation nor refresh
@@ -454,10 +467,12 @@ Agent is an optional application composition above it, not its state owner.
 Authorized work must stop/cancel or refuse honestly when its contract cannot
 be satisfied. No current long-running/overnight thinking capability is claimed.
 
-**L_{t,k}** denotes unfinished latent/in-progress deliberation for an assignment
-at step k; **E_t** denotes reusable experiential computational state. They may
-share future physical mechanisms but have different lifecycles. No Rust type or
-wire schema is prescribed. YAI does not require raw hidden chain-of-thought text
+**L_{t,k} — Latent Deliberation State** denotes unfinished computation for an
+assignment at step k, not reusable **E_t** experiential computational state.
+They may share future physical mechanisms but have different lifecycles. YVEX
+owns computational checkpoint/resume realization of E/L; YAI retains assignment
+semantics and admission. No Rust type or wire schema is prescribed.
+YAI does not require raw hidden chain-of-thought text
 as durable memory. Useful surfaced candidates may be conclusions, hypotheses,
 contradictions, unresolved questions, requested evidence, progress/checkpoint
 metadata or final proposals; their typed admission and epistemic class remain
@@ -465,9 +480,9 @@ explicit. Internal reasoning stays computational unless surfaced by contract.
 
 | Continuity | Survives / may be lost |
 |---|---|
-| Semantic | Admitted D/H/S backing and provenance survive model loss/replacement; relevant R/W reconstructs subject to source retention, availability and current disclosure, never a promise to recreate absent external bytes |
-| Experiential computational | E may persist/resume only with exact model/profile compatibility; replacement can require recompilation |
-| Deliberation | L may checkpoint/resume when compatible; cold replacement may lose the exact unfinished trajectory while preserving the admitted assignment and D/H/S semantic continuity |
+| Semantic — YAI | Admitted D/H/S backing and provenance survive model/runtime loss or replacement; relevant R/W reconstructs subject to source retention, availability and current disclosure, never a promise to recreate absent external bytes |
+| Experiential computational — E / YVEX | E may persist/resume only with exact model/profile compatibility; model/runtime loss or replacement can require recompilation |
+| Unfinished deliberation — L / YVEX execution | L may checkpoint/resume when compatible; model/runtime loss or replacement may lose the exact unfinished trajectory while preserving the admitted assignment and D/H/S semantic continuity |
 
 Consolidation likewise has three meanings: **semantic** derivation of source-grounded
 representations, Episodes, relations, associations and summaries with provenance; **computational**
@@ -581,6 +596,9 @@ prove source/scope provenance, exact model/profile compatibility, actual reuse
 and invalidation/reconstruction. A cache existing, a prefix being retained or a
 model being stateful by name proves none of those semantics automatically.
 The experiment remains unqualified, not an implemented YAI/YVEX contract.
+Prefix/KV is a compatibility/training-free option, not the definition of E; an
+independent model-native experiential tensor/state stream remains within the
+target without imposing its geometry or update cadence on YAI.
 
 YAI should be model-aware through typed capability contracts and model-independent
 in semantic ownership. Transformer, SSM, RWKV, Mamba and future architecture
