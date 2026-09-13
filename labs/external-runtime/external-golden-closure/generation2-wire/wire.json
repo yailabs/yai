@@ -1,0 +1,431 @@
+[
+  {
+    "order": 1,
+    "socket": "127.0.0.1:33528->127.0.0.1:18001",
+    "request_line": "GET /v1/models HTTP/1.1",
+    "http_request_bytes": 95,
+    "header_bytes": 95,
+    "body_bytes": 0,
+    "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "response_header": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 1340\r\nConnection: close\r\nX-YVEX-OpenAI-Profile: yvex.openai.compat.v3",
+    "response_body": "{\"object\":\"list\",\"data\":[{\"id\":\"deepseek-v4-flash-mixed-mxfp4-release-v1\",\"object\":\"model\",\"created\":0,\"owned_by\":\"yvex\",\"yvex_profile\":\"yvex.openai.compat.v3\",\"engine_generation\":2,\"artifact_identity\":\"b669d80726cf83331c0d8016debbde44cf965a1503c33f605e92ea4e550ee87f\",\"runtime_binding_identity\":\"9810f314aa1d9b80b3cddb72128cec8e9307071cbe698eb1888bfe8bbe36e0c5\",\"runtime_model_identity\":\"e05d6574644e11235ced2f93c3fc1f455d8eee6e952bb53400505dd951ab04ce\",\"specialization_identity\":\"7604985ea75253a9338877e3867d2f18daac3be036ffa66babe84aca8ae2554e\",\"capacity_plan_identity\":\"41b1af867448aec04f3b2893ec73c9e3043cf640a4bb90039baf1e7696b475a6\",\"yvex_capacity\":{\"schema\":\"yvex.execution.capacity.v1\",\"http_body_bytes\":1048576,\"http_header_bytes\":32768,\"http_header_count\":64,\"provider_wire_bytes\":1048576,\"message_count\":128,\"message_content_bytes\":262144,\"total_content_bytes\":1048576,\"tool_count\":32,\"tool_schema_bytes_per_tool\":65536,\"runtime_input_tokens\":16384,\"runtime_sequence_tokens\":16384,\"maximum_requested_output_tokens\":16384,\"maximum_output_bytes\":1048576,\"architectural_context_tokens\":null,\"session_capacity\":8,\"sessions_in_use\":0,\"resource_reservation\":false,\"output_policy\":\"ceiling_clamped_to_remaining_sequence\",\"input_accounting\":\"exact_tokenizer_including_template_and_tools\",\"preflight\":\"/v1/chat/completions/preflight\"}}]}",
+    "response_bytes": 1478
+  },
+  {
+    "order": 2,
+    "socket": "127.0.0.1:33538->127.0.0.1:18001",
+    "request_line": "GET /v1/models HTTP/1.1",
+    "http_request_bytes": 95,
+    "header_bytes": 95,
+    "body_bytes": 0,
+    "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "response_header": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 1340\r\nConnection: close\r\nX-YVEX-OpenAI-Profile: yvex.openai.compat.v3",
+    "response_body": "{\"object\":\"list\",\"data\":[{\"id\":\"deepseek-v4-flash-mixed-mxfp4-release-v1\",\"object\":\"model\",\"created\":0,\"owned_by\":\"yvex\",\"yvex_profile\":\"yvex.openai.compat.v3\",\"engine_generation\":2,\"artifact_identity\":\"b669d80726cf83331c0d8016debbde44cf965a1503c33f605e92ea4e550ee87f\",\"runtime_binding_identity\":\"9810f314aa1d9b80b3cddb72128cec8e9307071cbe698eb1888bfe8bbe36e0c5\",\"runtime_model_identity\":\"e05d6574644e11235ced2f93c3fc1f455d8eee6e952bb53400505dd951ab04ce\",\"specialization_identity\":\"7604985ea75253a9338877e3867d2f18daac3be036ffa66babe84aca8ae2554e\",\"capacity_plan_identity\":\"41b1af867448aec04f3b2893ec73c9e3043cf640a4bb90039baf1e7696b475a6\",\"yvex_capacity\":{\"schema\":\"yvex.execution.capacity.v1\",\"http_body_bytes\":1048576,\"http_header_bytes\":32768,\"http_header_count\":64,\"provider_wire_bytes\":1048576,\"message_count\":128,\"message_content_bytes\":262144,\"total_content_bytes\":1048576,\"tool_count\":32,\"tool_schema_bytes_per_tool\":65536,\"runtime_input_tokens\":16384,\"runtime_sequence_tokens\":16384,\"maximum_requested_output_tokens\":16384,\"maximum_output_bytes\":1048576,\"architectural_context_tokens\":null,\"session_capacity\":8,\"sessions_in_use\":0,\"resource_reservation\":false,\"output_policy\":\"ceiling_clamped_to_remaining_sequence\",\"input_accounting\":\"exact_tokenizer_including_template_and_tools\",\"preflight\":\"/v1/chat/completions/preflight\"}}]}",
+    "response_bytes": 1478
+  },
+  {
+    "order": 3,
+    "socket": "127.0.0.1:33550->127.0.0.1:18001",
+    "request_line": "POST /v1/chat/completions HTTP/1.1",
+    "http_request_bytes": 389,
+    "header_bytes": 159,
+    "body_bytes": 230,
+    "body_sha256": "70f3d693512abb8e3afe566002cae61194911dd597ae23f09f125187df5d2203",
+    "response_header": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 707\r\nConnection: close\r\nX-YVEX-OpenAI-Profile: yvex.openai.compat.v3",
+    "response_body": "{\"id\":\"chatcmpl-yvex-000000000008\",\"object\":\"chat.completion\",\"created\":1789043646,\"model\":\"deepseek-v4-flash-mixed-mxfp4-release-v1\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"YAI_OK\",\"reasoning_content\":\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":22,\"completion_tokens\":3,\"total_tokens\":25,\"completion_tokens_details\":{\"reasoning_tokens\":0}},\"yvex_completion_metrics\":{\"reasoning_tokens\":0,\"final_tokens\":3,\"reasoning_tokens_per_second\":0,\"final_tokens_per_second\":2.22799154,\"total_tokens_per_second\":0.964870466,\"time_to_first_reasoning_token\":0,\"time_to_first_final_token\":1.85687062,\"reasoning_seconds\":0,\"final_seconds\":1.34650421,\"total_completion_seconds\":3.10922565}}",
+    "response_bytes": 844,
+    "top_level_field_bytes": {
+      "max_tokens": 15,
+      "messages": 146,
+      "model": 50,
+      "stream": 14
+    },
+    "message_content_utf8_bytes": [
+      52,
+      22
+    ],
+    "message_content_json_bytes": [
+      54,
+      24
+    ]
+  },
+  {
+    "order": 4,
+    "socket": "127.0.0.1:43778->127.0.0.1:18001",
+    "request_line": "POST /v1/chat/completions HTTP/1.1",
+    "http_request_bytes": 447,
+    "header_bytes": 159,
+    "body_bytes": 288,
+    "body_sha256": "728c40803f3425937445c3e83224d8ba1312ebb50426eec65c2a81e692e393b9",
+    "response_header": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 719\r\nConnection: close\r\nX-YVEX-OpenAI-Profile: yvex.openai.compat.v3",
+    "response_body": "{\"id\":\"chatcmpl-yvex-000000000009\",\"object\":\"chat.completion\",\"created\":1789043651,\"model\":\"deepseek-v4-flash-mixed-mxfp4-release-v1\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"ok\\\": true\\n}\",\"reasoning_content\":\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":47,\"completion_tokens\":8,\"total_tokens\":55,\"completion_tokens_details\":{\"reasoning_tokens\":0}},\"yvex_completion_metrics\":{\"reasoning_tokens\":0,\"final_tokens\":8,\"reasoning_tokens_per_second\":0,\"final_tokens_per_second\":2.2217531,\"total_tokens_per_second\":1.19935516,\"time_to_first_reasoning_token\":0,\"time_to_first_final_token\":3.16893212,\"reasoning_seconds\":0,\"final_seconds\":3.60076014,\"total_completion_seconds\":6.67025101}}",
+    "response_bytes": 856,
+    "top_level_field_bytes": {
+      "max_tokens": 15,
+      "messages": 163,
+      "model": 50,
+      "response_format": 40,
+      "stream": 14
+    },
+    "message_content_utf8_bytes": [
+      57,
+      34
+    ],
+    "message_content_json_bytes": [
+      59,
+      36
+    ]
+  },
+  {
+    "order": 5,
+    "socket": "127.0.0.1:43780->127.0.0.1:18001",
+    "request_line": "POST /v1/chat/completions HTTP/1.1",
+    "http_request_bytes": 538,
+    "header_bytes": 159,
+    "body_bytes": 379,
+    "body_sha256": "7d0f916f6b9d71c9b22bd4c215b63d8a6a2c777d13b4a6d1eea750ab007718b9",
+    "response_header": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 707\r\nConnection: close\r\nX-YVEX-OpenAI-Profile: yvex.openai.compat.v3",
+    "response_body": "{\"id\":\"chatcmpl-yvex-000000000010\",\"object\":\"chat.completion\",\"created\":1789043660,\"model\":\"deepseek-v4-flash-mixed-mxfp4-release-v1\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"YAI_OK\",\"reasoning_content\":\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":43,\"completion_tokens\":3,\"total_tokens\":46,\"completion_tokens_details\":{\"reasoning_tokens\":0}},\"yvex_completion_metrics\":{\"reasoning_tokens\":0,\"final_tokens\":3,\"reasoning_tokens_per_second\":0,\"final_tokens_per_second\":2.20794085,\"total_tokens_per_second\":0.703214741,\"time_to_first_reasoning_token\":0,\"time_to_first_final_token\":3.00627586,\"reasoning_seconds\":0,\"final_seconds\":1.35873205,\"total_completion_seconds\":4.26612217}}",
+    "response_bytes": 844,
+    "top_level_field_bytes": {
+      "max_tokens": 15,
+      "messages": 295,
+      "model": 50,
+      "stream": 14
+    },
+    "message_content_utf8_bytes": [
+      57,
+      43,
+      43,
+      22
+    ],
+    "message_content_json_bytes": [
+      59,
+      45,
+      45,
+      24
+    ]
+  },
+  {
+    "order": 6,
+    "socket": "127.0.0.1:33780->127.0.0.1:18001",
+    "request_line": "POST /v1/chat/completions HTTP/1.1",
+    "http_request_bytes": 883,
+    "header_bytes": 159,
+    "body_bytes": 724,
+    "body_sha256": "bcfd571634e7eb458f152c105cb7fe13a0cf723085a48e7abb770ebdb5a35c50",
+    "response_header": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 866\r\nConnection: close\r\nX-YVEX-OpenAI-Profile: yvex.openai.compat.v3",
+    "response_body": "{\"id\":\"chatcmpl-yvex-000000000011\",\"object\":\"chat.completion\",\"created\":1789043667,\"model\":\"deepseek-v4-flash-mixed-mxfp4-release-v1\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":null,\"reasoning_content\":\"\",\"tool_calls\":[{\"id\":\"call_f9b19e809cdddc7bbc73_0\",\"type\":\"function\",\"function\":{\"name\":\"yai_contract_echo\",\"arguments\":\"{\\\"value\\\": \\\"yai-contract\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":330,\"completion_tokens\":48,\"total_tokens\":378,\"completion_tokens_details\":{\"reasoning_tokens\":0}},\"yvex_completion_metrics\":{\"reasoning_tokens\":0,\"final_tokens\":48,\"reasoning_tokens_per_second\":0,\"final_tokens_per_second\":1.77697864,\"total_tokens_per_second\":0.866206846,\"time_to_first_reasoning_token\":0,\"time_to_first_final_token\":28.5982903,\"reasoning_seconds\":0,\"final_seconds\":27.0121424,\"total_completion_seconds\":55.414016}}",
+    "response_bytes": 1003,
+    "top_level_field_bytes": {
+      "max_tokens": 15,
+      "messages": 257,
+      "model": 50,
+      "parallel_tool_calls": 27,
+      "stream": 14,
+      "tool_choice": 73,
+      "tools": 280
+    },
+    "message_content_utf8_bytes": [
+      85,
+      100
+    ],
+    "message_content_json_bytes": [
+      87,
+      102
+    ]
+  },
+  {
+    "order": 7,
+    "socket": "127.0.0.1:33906->127.0.0.1:18001",
+    "request_line": "POST /v1/chat/completions HTTP/1.1",
+    "http_request_bytes": 1117,
+    "header_bytes": 159,
+    "body_bytes": 958,
+    "body_sha256": "256c2ce4aff1dcbc795aef0be64ee1b518ff4cd7058bb4d749d19ccbfeb25ae3",
+    "response_header": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 725\r\nConnection: close\r\nX-YVEX-OpenAI-Profile: yvex.openai.compat.v3",
+    "response_body": "{\"id\":\"chatcmpl-yvex-000000000012\",\"object\":\"chat.completion\",\"created\":1789043725,\"model\":\"deepseek-v4-flash-mixed-mxfp4-release-v1\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"yai-result-1789043725274\",\"reasoning_content\":\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":398,\"completion_tokens\":8,\"total_tokens\":406,\"completion_tokens_details\":{\"reasoning_tokens\":0}},\"yvex_completion_metrics\":{\"reasoning_tokens\":0,\"final_tokens\":8,\"reasoning_tokens_per_second\":0,\"final_tokens_per_second\":1.676101,\"total_tokens_per_second\":0.180504796,\"time_to_first_reasoning_token\":0,\"time_to_first_final_token\":39.7870655,\"reasoning_seconds\":0,\"final_seconds\":4.77298204,\"total_completion_seconds\":44.3201521}}",
+    "response_bytes": 862,
+    "top_level_field_bytes": {
+      "max_tokens": 15,
+      "messages": 544,
+      "model": 50,
+      "parallel_tool_calls": 27,
+      "stream": 14,
+      "tool_choice": 20,
+      "tools": 280
+    },
+    "message_content_utf8_bytes": [
+      85,
+      100,
+      4,
+      24
+    ],
+    "message_content_json_bytes": [
+      87,
+      102,
+      4,
+      26
+    ]
+  },
+  {
+    "order": 8,
+    "socket": "127.0.0.1:58058->127.0.0.1:18001",
+    "request_line": "POST /v1/chat/completions HTTP/1.1",
+    "http_request_bytes": 499,
+    "header_bytes": 159,
+    "body_bytes": 340,
+    "body_sha256": "8b9cd2d6343d38c24346399c67b78943189ebbf33a2a23ca87fd1bd9d0af9d63",
+    "response_header": "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 752\r\nConnection: close\r\nX-YVEX-OpenAI-Profile: yvex.openai.compat.v3",
+    "response_body": "{\"id\":\"chatcmpl-yvex-000000000013\",\"object\":\"chat.completion\",\"created\":1789043771,\"model\":\"deepseek-v4-flash-mixed-mxfp4-release-v1\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"type\\\": \\\"json_object\\\",\\n  \\\"probe\\\": true\\n}\",\"reasoning_content\":\"\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":58,\"completion_tokens\":17,\"total_tokens\":75,\"completion_tokens_details\":{\"reasoning_tokens\":0}},\"yvex_completion_metrics\":{\"reasoning_tokens\":0,\"final_tokens\":17,\"reasoning_tokens_per_second\":0,\"final_tokens_per_second\":2.1824626,\"total_tokens_per_second\":1.47645595,\"time_to_first_reasoning_token\":0,\"time_to_first_final_token\":3.82454354,\"reasoning_seconds\":0,\"final_seconds\":7.789366,\"total_completion_seconds\":11.5140584}}",
+    "response_bytes": 889,
+    "top_level_field_bytes": {
+      "max_tokens": 15,
+      "messages": 215,
+      "model": 50,
+      "response_format": 40,
+      "stream": 14
+    },
+    "message_content_utf8_bytes": [
+      57,
+      86
+    ],
+    "message_content_json_bytes": [
+      59,
+      88
+    ]
+  },
+  {
+    "order": 9,
+    "socket": "127.0.0.1:35986->127.0.0.1:18001",
+    "request_line": "POST /v1/chat/completions HTTP/1.1",
+    "http_request_bytes": 40438,
+    "header_bytes": 161,
+    "body_bytes": 40277,
+    "body_sha256": "61a164eb3ae6f0c2683de6d0fdaa5dff5f1eb12bdef049c946c6c3d8d3fb248f",
+    "response_header": null,
+    "response_body": null,
+    "response_bytes": 0,
+    "top_level_field_bytes": {
+      "messages": 35751,
+      "model": 50,
+      "parallel_tool_calls": 27,
+      "stream": 14,
+      "tool_choice": 20,
+      "tools": 4408
+    },
+    "message_content_utf8_bytes": [
+      427,
+      32214,
+      280
+    ],
+    "message_content_json_bytes": [
+      429,
+      34945,
+      282
+    ],
+    "context_frame_bytes": 32190,
+    "context_frame_fields": {
+      "schema": 31,
+      "frame_id": 43,
+      "projection_id": 45,
+      "case_id": 28,
+      "case_generation": 20,
+      "participant_id": 36,
+      "purpose": 24,
+      "task": 362,
+      "semantic_instructions": 916,
+      "entries": 9779,
+      "output_contract": 20524,
+      "model_independent_constraints": 369
+    },
+    "context_frame_fields_escaped_in_message": {
+      "schema": 35,
+      "frame_id": 47,
+      "projection_id": 49,
+      "case_id": 32,
+      "case_generation": 22,
+      "participant_id": 40,
+      "purpose": 28,
+      "task": 366,
+      "semantic_instructions": 930,
+      "entries": 10679,
+      "output_contract": 22300,
+      "model_independent_constraints": 377
+    },
+    "entry_bytes": [
+      {
+        "id": "case:lifecycle",
+        "bytes": 295,
+        "posture": "committed_operational_fact",
+        "value_bytes": 54
+      },
+      {
+        "id": "case:tenant-security-domain",
+        "bytes": 325,
+        "posture": "committed_operational_fact",
+        "value_bytes": 71
+      },
+      {
+        "id": "participant:participant:model",
+        "bytes": 521,
+        "posture": "committed_operational_fact",
+        "value_bytes": 190
+      },
+      {
+        "id": "resource:resource:database",
+        "bytes": 445,
+        "posture": "committed_operational_fact",
+        "value_bytes": 182
+      },
+      {
+        "id": "resource:resource:discovery",
+        "bytes": 450,
+        "posture": "committed_operational_fact",
+        "value_bytes": 184
+      },
+      {
+        "id": "resource:resource:mcp",
+        "bytes": 426,
+        "posture": "committed_operational_fact",
+        "value_bytes": 172
+      },
+      {
+        "id": "resource:resource:runner",
+        "bytes": 446,
+        "posture": "committed_operational_fact",
+        "value_bytes": 186
+      },
+      {
+        "id": "resource:resource:service",
+        "bytes": 447,
+        "posture": "committed_operational_fact",
+        "value_bytes": 185
+      },
+      {
+        "id": "resource:resource:workspace",
+        "bytes": 457,
+        "posture": "committed_operational_fact",
+        "value_bytes": 191
+      },
+      {
+        "id": "decision:decision:21d018b842d6e6b8c6f08920a98f7dd9",
+        "bytes": 606,
+        "posture": "control_state",
+        "value_bytes": 317
+      },
+      {
+        "id": "case-content:56a36756d0dcbec31688f902325df82e",
+        "bytes": 1065,
+        "posture": "committed_application_content",
+        "value_bytes": 656
+      },
+      {
+        "id": "conversation-turn:sha256:5f57a707fca626728be613e8b4fa5c884668f2d8d0344e5669c153e342803922",
+        "bytes": 1627,
+        "posture": "committed_application_content",
+        "value_bytes": 972
+      },
+      {
+        "id": "memory:memory-episode:6eba7120842210c2",
+        "bytes": 602,
+        "posture": "derived_memory",
+        "value_bytes": 321
+      },
+      {
+        "id": "memory:memory-episode:0e0e30afa8136541",
+        "bytes": 663,
+        "posture": "derived_memory",
+        "value_bytes": 328
+      },
+      {
+        "id": "policy:case-policy-binding:3da40cc7580a191e2dabc4706609867e",
+        "bytes": 1378,
+        "posture": "control_state",
+        "value_bytes": 1186
+      }
+    ],
+    "output_contract_fields": {
+      "view": 20450,
+      "catalogs": 13
+    },
+    "tools_count": 10,
+    "capability_view_fields": {
+      "schema": 38,
+      "view_id": 104,
+      "case_id": 28,
+      "tenant_id": 27,
+      "case_generation": 20,
+      "participant_id": 36,
+      "effective_policy_id": 73,
+      "effective_policy_digest": 99,
+      "entries": 19868,
+      "exclusions": 139
+    },
+    "capability_resource_objects": {
+      "occurrences": 12,
+      "unique": 6,
+      "occurrence_bytes": 7382,
+      "unique_bytes": 3646
+    },
+    "policy_contribution_objects": {
+      "occurrences": 18,
+      "unique": 18,
+      "occurrence_bytes": 7555,
+      "unique_bytes": 7555
+    },
+    "working_state_bytes": 14800,
+    "working_state_fields": {
+      "schema": 40,
+      "compiler": 34,
+      "working_state_id": 106,
+      "source_id": 100,
+      "case_id": 28,
+      "case_generation": 20,
+      "participant_id": 36,
+      "request": 1118,
+      "entries": 9779,
+      "bounds": 198,
+      "decisions": 3329
+    },
+    "working_state_bounds": {
+      "selected_items": 15,
+      "selected_semantic_units": 2446,
+      "visible_candidates": 16,
+      "omitted_items": 1,
+      "omitted_by_locality": 1,
+      "omitted_by_budget": 0,
+      "locality_reasons": {
+        "no_current_intent_match": 1
+      }
+    },
+    "projection_bytes": 10519,
+    "projection_fields": {
+      "schema": 28,
+      "projection_id": 45,
+      "case_id": 28,
+      "case_generation": 20,
+      "participant_id": 36,
+      "purpose": 24,
+      "visibility": 61,
+      "entries": 9779,
+      "bounds": 488
+    },
+    "projection_bounds": {
+      "working_state_id": "working-state:sha256:ea8d46f1b39c9fd41712bfcf8a3569e1be24649c24911112599a9e6ba2a0c373",
+      "max_items": 64,
+      "selected_items": 15,
+      "omitted_items": 1,
+      "history_transitions_considered": 26,
+      "graph_available": false,
+      "memory_available": true,
+      "retrieval_candidates": 0,
+      "retrieval_selected": 2,
+      "retrieval_omitted": 0,
+      "residency_plan_id": "residency:sha256:03dc06f8145ccaeb354245606fe2b8e75696001313f67d95ef43cdc25a327be2",
+      "semantic_unit_budget": 16384,
+      "selected_semantic_units": 2446
+    },
+    "entries_exactly_equal_at_all_three_boundaries": true
+  }
+]

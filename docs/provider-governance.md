@@ -140,6 +140,47 @@ canonical Case state. Semantic continuity never lives in provider KV.
 
 ## Compatibility and YVEX
 
+External Golden is a separate characterization/qualification axis, not a
+default gate on YAI implementation or publication. A live-provider property
+gates only a wave that explicitly selects it. Historical failures below remain
+external findings; they neither block unrelated semantic/security work nor
+qualify a PASS. Exact-target capacity integration remains separate future work.
+
+Mechanical shape qualification does **not** qualify a general executable
+request envelope. Current YAI qualification does not integrate exact target
+HTTP-body/tokenizer/context capacity or automatic preflight. `minimum_context_units` explicitly fails
+closed when required; it must not be inferred from a model name. The capability
+work-loop `max_input_units` check over the complete serialized body is an
+application work bound (byte-derived units), not a model token count or an
+attestation of the remote HTTP/token envelope.
+
+The [external Golden forensic evidence](../labs/external-runtime/external-golden-closure/REPORT.md)
+shows why these contracts cannot be conflated: YVEX accepts a 40,277-byte
+whitespace-padded synthetic body but rejects the actual same-sized Golden body
+with `token output capacity exceeded`. Small synthetic shape probes do not
+authorize a complete Golden PASS. After deployment alignment, public compat.v3
+catalog and preflight distinguish these quantities. Generation 1 offered 512
+input/sequence tokens and refused the 12,146-token actual input. Generation 2
+offers 16,384: the same body is compatible, with 4,238 output tokens available.
+The fresh real product run nevertheless reached its 300-second terminal-test
+deadline without a response; canonical Invocation has no ProviderResult.
+Later operator-supplied logs locate this wait in prefill: 918/12,055 tokens
+processed after 293.21 seconds, zero generated, then cancellation and cleanup.
+The producer's internal status 499 was not an HTTP response received by YAI.
+This operational evidence neither writes a canonical terminal result nor grants
+general cancellation/retry authority; the internal performance cause remains
+unidentified. No larger token limit or guessed timeout follows from these logs.
+Its fresh body has 12,055 input tokens and 4,329 allowance in a separate
+postmortem preflight. New identities change tokenization despite equal byte size.
+Both bodies omit `max_tokens` (reported requested output 0); no zero-output
+budget was inserted. Compatible preflight still says
+`execution_or_resources_qualified=false`: it is neither execution nor a resource
+reservation, and cannot turn that failed lifecycle into PASS. Production
+automatic preflight is not implemented by this diagnostic resume.
+A future exact-target admission contract
+must distinguish body bytes, input/tokenization capacity, context and output
+budget, and account for native tool/schema lowering. Unknown remains unknown.
+
 Historical `ProviderAttached` Cases retain their exact pinned path and do not
 gain an approval/qualification requirement. New governed Cases use
 `provider add`, `provider qualify`, `provider trust approve`, and `case provider

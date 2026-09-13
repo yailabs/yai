@@ -33,6 +33,16 @@ qualified operator-updated REPLAI pin is preserved.
 
 ## Adopted thesis and cognitive-state boundary
 
+External Golden / live YVEX is an **independent characterization and evidence
+axis, not a default implementation gate**. Measured latency, unavailable or
+incomplete external execution does not block unrelated YAI selection, local
+semantic/security qualification or bounded publication. A later wave may select
+a real external-provider property as its own explicit closure gate. Continue to
+report external findings, Golden local, Human Golden and canary independently;
+historical external failure is neither erased nor promoted to PASS. See
+[validation doctrine](docs/test-cases.md#external-yvex) and the retained
+[external characterization](labs/external-runtime/external-golden-closure/REPORT.md).
+
 **YAI owns semantic cognitive state. YVEX owns computational cognitive state.**
 This is an architectural decision/target, not a claim of a deployed dual-stream
 runtime. A model owns learned computation; a future model may learn to read and

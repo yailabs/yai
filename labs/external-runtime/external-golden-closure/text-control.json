@@ -1,0 +1,40 @@
+{
+  "run_id": "text-control",
+  "order": 1,
+  "proof_class": "contract_diagnostic",
+  "provider_mode": "external_yvex",
+  "yai_sha": "844a708aecda4a41ede552a2f7b329ac4c0338ed",
+  "prestate": "fresh synthetic input, no Case work, no tools, no continuation",
+  "endpoint": "http://127.0.0.1:18001",
+  "model": "deepseek-v4-flash-mixed-mxfp4-release-v1",
+  "request_body_bytes": 40277,
+  "json_bytes_before_padding": 40277,
+  "json_whitespace_bytes": 0,
+  "density": "text",
+  "body_sha256": "870adecbe3651dbff5071864cd605b5ac4db22a8ccafc887f7fbd131326ba7af",
+  "max_tokens": 1,
+  "reference_body_sha256": "aed2b961b08f85d812f33cefcdf192dd56528ca7f44a23f4b5966e5ba6750306",
+  "fallback_count": 0,
+  "retry_count": 0,
+  "status": 413,
+  "headers": [
+    [
+      "Content-Type",
+      "application/json"
+    ],
+    [
+      "Content-Length",
+      "125"
+    ],
+    [
+      "Connection",
+      "close"
+    ],
+    [
+      "X-YVEX-OpenAI-Profile",
+      "yvex.openai.compat.v2"
+    ]
+  ],
+  "body": "{\"error\":{\"message\":\"token output capacity exceeded\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"request_too_large\"}}",
+  "elapsed_seconds": 2.4440934658050537
+}

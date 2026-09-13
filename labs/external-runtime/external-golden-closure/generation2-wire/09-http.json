@@ -1,0 +1,4 @@
+{
+  "request_header": "POST /v1/chat/completions HTTP/1.1\r\nHost: 127.0.0.1:18001\r\nConnection: close\r\nAccept: application/json\r\nContent-Type: application/json\r\nContent-Length: 40277\r\n\r\n",
+  "response": null
+}

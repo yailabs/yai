@@ -53,6 +53,16 @@ A C component assertion is not product-reachable effect qualification.
 
 ## External YVEX
 
+**External Golden is not a default YAI implementation/publication gate.** It is
+an independent external characterization, metric and qualification axis. Local
+deterministic correctness plus applicable Golden local evidence can close a
+bounded YAI wave despite a slow, unavailable or incomplete live producer. Only
+a wave explicitly selecting a real external-provider property makes that
+property's live qualification a closure gate. Human Golden and canary remain
+independent operator verdicts. Every implementation handoff still reports
+`YVEX EXTERNAL FINDINGS`, including NOT_RUN, MEASURED_LIMITATION or
+NO_NEW_FINDINGS where appropriate; no PASS is inferred.
+
 `make test-golden-external-yvex` is the separate full reference free/Workflow
 Product lane. It uses the same actual YAI workbench and reference resources but
 never starts a model fixture. Missing exact endpoint/model exits nonzero with
@@ -78,8 +88,9 @@ make test-external-yvex
 `qualification-yvex-provider` is the same explicit entrypoint. Missing
 configuration exits 3 from the script (nonzero through Make), reporting
 `blocked_external_dependency` / `DEPLOYMENT_LIMITATION` before any network
-request. An unreachable endpoint or unavailable exact model likewise blocks.
-Invocation/contract failures fail the lane. There is no fallback fixture and
+request. These labels describe the external lane, not a stop on unrelated YAI
+development. An unreachable endpoint or unavailable model prevents that lane's
+qualification. Invocation/contract failures fail that lane. There is no fallback fixture and
 YAI does not start or administer YVEX.
 
 Current external proof is **text Chat Completions** through the public generic

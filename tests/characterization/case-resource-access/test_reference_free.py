@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Golden free/Workflow Product proof; not external or human acceptance."""
 import fcntl
+from contextlib import nullcontext
 import hashlib
 import json
 import os
@@ -42,7 +43,12 @@ def main():
         if address.scheme not in ("http", "https") or not address.hostname or address.username or address.password or address.query or address.fragment:
             raise SystemExit("external endpoint must contain no credentials query or fragment")
     case_id = "case:golden:workflow" if workflow else CASE
-    with tempfile.TemporaryDirectory(prefix="yai-golden-free-") as directory:
+    # Explicit forensic opt-in retains only this fresh qualification world, never
+    # an operator Case/canary. It does not change requests or retry behavior.
+    retain = os.environ.get("YAI_GOLDEN_RETAIN_RUN") == "1"
+    run_context = (nullcontext(tempfile.mkdtemp(prefix="yai-golden-free-")) if retain
+                   else tempfile.TemporaryDirectory(prefix="yai-golden-free-"))
+    with run_context as directory:
         run = Path(directory)
         env = dict(os.environ, YAI_HOME=str(run / "home"), TERM="xterm-256color")
         evidence = os.environ.get("YAI_GOLDEN_FREE_EVIDENCE")
@@ -66,6 +72,8 @@ def main():
                endpoint=endpoint if external else "loopback fixture",model=model,
                provider_ref=os.environ.get("YAI_EXTERNAL_PROVIDER_REF") if external else None,
                ref_provenance="operator_supplied_not_source_inspected" if external else None)
+        if retain:
+            record(forensic_run_retained=str(run), cleanup="operator controlled; fresh qualification data only")
 
         def cli(*args, reject=False):
             result = subprocess.run(["./yai", *args], cwd=ROOT, env=env, capture_output=True, text=True, timeout=45)

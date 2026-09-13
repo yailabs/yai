@@ -99,8 +99,12 @@ implementation
 ```
 
 - Never include unrelated dirty work in a wave commit.
-- Do not begin the next wave from uncommitted or unpublished architectural
-  work.
+- Do not begin the next wave from overlapping uncommitted or unpublished
+  architectural work that makes its baseline/ownership ambiguous. Preserve and
+  separately reconcile that work; never silently mix owners in one commit.
+  Unrelated external observations or operator experiments do not automatically
+  block another wave merely because the worktree is dirty. Stage only owned
+  paths/hunks and keep each concern's commit and push separate.
 - Git commits own change history; ROADMAP owns current project control;
   architecture/reference documents own current contracts. Update these owners
   in place. Do not create a report, ledger, before/after snapshot, or directory
@@ -144,19 +148,23 @@ Never reset an operator-owned continuity canary as automated test setup.
 
 ## YVEX external consumer qualification
 
-From Wave 14 onward, a YAI wave that materially changes provider integration,
-Projection/ContextFrame, model execution, Case runtime, workflow execution,
-provider continuity or execution evidence uses YVEX as the primary owned
-external provider pressure test when a live YVEX provider endpoint is
-available.
+External YVEX qualification is an independent characterization/evidence axis,
+not a default implementation or publication gate. Slow, unavailable, incomplete
+or failing live execution does not block unrelated YAI semantic/security work.
+A wave is gated by live YVEX only when it explicitly selects an external-provider
+property whose correctness requires the real producer. Otherwise local
+deterministic correctness and the applicable Golden local lane can close the
+bounded YAI wave; external, human and canary results remain separately reported.
+YVEX remains the primary owned external provider pressure test when that lane
+is selected. Never turn a characterization timeout into an unrelated wave gate.
 
 - YVEX qualification is black-box provider consumption. YAI development does
   not inspect or administer YVEX source, repositories, CLI, profiles, engines,
   artifacts, sessions, or model-loading workflows. The YVEX operator supplies
   an endpoint and its provider-exposed model identity.
 - Every attempted qualification records the YAI SHA, exact exposed model,
-  endpoint and run ID. An unavailable endpoint/model is reported as a blocked
-  external dependency, never as a fabricated pass.
+  endpoint and run ID. An unavailable endpoint/model is an external-lane
+  DEPLOYMENT_LIMITATION, never a fabricated pass or an implicit YAI work stop.
 - Basic YAI↔YVEX invocation uses the same generic OpenAI-compatible provider
   boundary intended for llama.cpp, vLLM and other compatible providers. Core
   authority, Case, projection, workflow and provider semantics must never
@@ -168,7 +176,8 @@ available.
 - Every final implementation-wave handoff includes `YVEX EXTERNAL FINDINGS`
   with new findings, an explicit no-new-findings statement, or the exact reason
   live qualification was not executed.
-- Findings are classified as `YAI_DEFECT`, `YVEX_CANDIDATE`,
+- Findings/postures may be `NOT_RUN`, `MEASURED_LIMITATION`, `NO_NEW_FINDINGS`,
+  `YAI_DEFECT`, `YVEX_CANDIDATE`,
   `GENERIC_PROVIDER_CONTRACT_GAP`, `DEPLOYMENT_LIMITATION`, `MODEL_BEHAVIOR`,
   `EXPECTED_LIMITATION`, or `NO_ISSUE`. Never silently compensate for an
   external defect with a provider-brand special case.
