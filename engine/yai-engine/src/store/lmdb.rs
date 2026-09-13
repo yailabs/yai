@@ -3922,7 +3922,7 @@ impl LmdbRecordStore {
         content: Option<&crate::conversation::ConversationContentStore>,
         vectors: Option<&crate::memory_hierarchy::recall::RecallVectorInput>,
     ) -> Result<crate::memory_hierarchy::recall::RecallResult, String> {
-        self.recall_working_basis(authenticated, request, content, vectors, None).map(|(r, _, _, _)| r)
+        self.recall_working_basis(authenticated, request, content, vectors, None, false).map(|(r, _, _, _)| r)
     }
 
     fn recall_working_basis(
@@ -3932,19 +3932,26 @@ impl LmdbRecordStore {
         content: Option<&crate::conversation::ConversationContentStore>,
         vectors: Option<&crate::memory_hierarchy::recall::RecallVectorInput>,
         working: Option<&crate::semantic_state::WorkingStateRequest>,
+        refresh: bool,
     ) -> Result<(crate::memory_hierarchy::recall::RecallResult,
         Option<crate::semantic_state::SemanticState>, BTreeSet<String>, u128), String> {
         request.validate()?;
+        let started = std::time::Instant::now();
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let current = self.get_case_state_txn(&txn, &request.case_id)?.ok_or("case_not_visible")?;
+        if refresh {
+            request.expected_generation = current.generation;
+            if working.is_some_and(|w| w.at.is_none()) {
+                request.at = crate::semantic_state::historical::HistoricalCoordinate::Generation(current.generation);
+            }
+        }
         let mut historical = crate::semantic_state::historical::HistoricalRequest::inspection(
             request.at.clone(), request.participant_id.clone());
         historical.max_items = 4096;
         historical.max_bytes = 16_777_216;
-        let started = std::time::Instant::now();
-        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
         let (mut view, scope, history, then) = self.qualified_historical_view_txn(
             &txn, authenticated, &request.case_id, historical, content)?;
         let historical_resolution_us = started.elapsed().as_micros();
-        let current = self.get_case_state_txn(&txn, &request.case_id)?.ok_or("case_not_visible")?;
         let composition_started = std::time::Instant::now();
         let semantic = if let Some(w) = working {
             let s = self.compose_cognitive_state_txn(&txn, &current, &history)?;
@@ -3993,9 +4000,20 @@ impl LmdbRecordStore {
         request: crate::semantic_state::WorkingStateRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::semantic_state::QualifiedWorkingState, String> {
+        self.compile_working_state_request(authenticated, request, content, false)
+    }
+
+    fn compile_working_state_request(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        mut request: crate::semantic_state::WorkingStateRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+        refresh: bool,
+    ) -> Result<crate::semantic_state::QualifiedWorkingState, String> {
         use crate::semantic_state::working_recall::{QualifiedRecall, QualifiedWorkingState, WorkingStateMeasurements};
         let (recall, source, excluded, current_composition_us) = self.recall_working_basis(
-            authenticated, request.recall_request()?, content, None, Some(&request))?;
+            authenticated, request.recall_request()?, content, None, Some(&request), refresh)?;
+        request.expected_generation = recall.trace.request.expected_generation;
         let started = std::time::Instant::now();
         let input = QualifiedRecall::new(request.clone(), &recall, excluded)?;
         let source = source.ok_or("working_semantic_basis_missing")?.with_recall(input)?;
@@ -4031,6 +4049,25 @@ impl LmdbRecordStore {
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::semantic_state::QualifiedWorkingState, String> {
         self.compile_working_state_authorized(auth, request, content)?.enable_paging()
+    }
+
+    /// Consumer preflight for the SAME stored task, not a delta/epoch shortcut.
+    /// Current generation, source applicability and authority share Recall's
+    /// read transaction. Old evidence is never an input to semantic resolution.
+    pub fn refresh_working_state_authorized(
+        &self, auth: &AuthenticatedPrincipal, base: &crate::semantic_state::SemanticWorkingState,
+        request: crate::semantic_state::working_recall::WorkingRefreshRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::semantic_state::working_recall::WorkingRefreshResult, String> {
+        use crate::semantic_state::working_recall::WorkingRefreshResult;
+        let original = request.recover_request(base)?;
+        let mut current = self.compile_working_state_request(auth, original, content, true)?;
+        let started = std::time::Instant::now();
+        if base.paging().is_some() {
+            current = current.enable_paging()?.with_refreshed_paging_preferences(base)?;
+        }
+        let paging_recompilation_us = started.elapsed().as_micros();
+        WorkingRefreshResult::qualified(base, request, current, paging_recompilation_us)
     }
 
     /// Exact page-in/page-out. No call to Recall compilation/discovery, no

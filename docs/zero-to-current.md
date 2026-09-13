@@ -593,10 +593,30 @@ Recall pass. Inspect page closure, resident/deferred IDs, evictions and current
 authority separately. `--page-units`, `--page-items`, `--page-bytes` bound the
 atomic incoming page; the original W budget still bounds residency. Insufficient
 mandatory budget refuses. Page-out cannot remove mandatory task/current material.
-After a Case/source/task or authority change, compile again; do not edit an old
-export to manufacture freshness. `--projection` only lowers the resulting W4.
+After a task change, compile again; do not edit an old export to manufacture
+freshness. `--projection` only lowers the resulting W4.
 `make smoke-semantic-paging` qualifies this explicit no-provider path; it does not
 make paging part of the Golden provider/Workflow runtime.
+
+When the governed world changes but the task is the same, refresh its stored
+W3/W4 request without restating the prompt:
+
+```sh
+./yai case context refresh case:sources --working-file /tmp/yai-expanded-working.json --json > /tmp/yai-refreshed-working.json
+```
+
+Supply `--base-id EXPECTED_WORKING_ID` when the consumer must protect one exact
+predecessor artifact. The result reports current requalification, Recall/working
+basis changes, bounded missingness and whether the predecessor needs replacement.
+`--units`, `--bytes` and `--limit` explicitly adjust only the output envelope.
+Historical `--at` semantics already bound in the artifact stay pinned; present
+disclosure/authority is re-established. Required missing backing refuses, optional
+material may be omitted, and old page content is never carried across revocation.
+Use only the newly qualified result for subsequent consumption. `--projection`
+lowers that result without another read; no snapshot grants permanent authority.
+`make smoke-semantic-refresh` qualifies same-task changes and fresh-compilation
+equivalence through real persistence. There is no daemon, live model, provider
+path migration or public W→E contract.
 
 One-shot `./yai case show CASE --json`, provider/resource/history and memory-index
 commands remain available for administration/forensics; they are not the primary

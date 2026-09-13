@@ -5,6 +5,147 @@ use crate::memory_hierarchy::recall::{self, RecallBounds, RecallRequest, RecallT
 pub const RECALL_WORKING_SCHEMA: &str = "yai.semantic_working_state.v3";
 pub const RECALL_COMPILER_VERSION: &str = "yai.state_compiler.v3";
 
+pub const REFRESH_REQUEST_SCHEMA: &str = "yai.working_refresh_request.v1";
+pub const REFRESH_RESULT_SCHEMA: &str = "yai.working_refresh_result.v1";
+
+/// Explicit envelope adjustment, not a change of task, exact anchors or scope.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkingRefreshBudget {
+    pub max_items: usize,
+    pub max_semantic_units: usize,
+    pub max_output_bytes: usize,
+}
+
+/// No prompt/intent field. A different task must enter through compilation.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkingRefreshRequest {
+    pub schema: String,
+    pub case_id: String,
+    pub participant_id: String,
+    pub base_working_state_id: String,
+    pub budget: Option<WorkingRefreshBudget>,
+}
+
+impl WorkingRefreshRequest {
+    pub fn new(base: &SemanticWorkingState) -> Self {
+        Self { schema: REFRESH_REQUEST_SCHEMA.into(), case_id: base.case_id.clone(),
+            participant_id: base.participant_id.clone(), base_working_state_id: base.id().into(), budget: None }
+    }
+
+    pub(crate) fn recover_request(&self, base: &SemanticWorkingState) -> Result<WorkingStateRequest, String> {
+        base.validate_refresh_envelope()?;
+        if self.schema != REFRESH_REQUEST_SCHEMA || self.case_id != base.case_id
+            || self.participant_id != base.participant_id || self.base_working_state_id != base.id() {
+            return Err("working_refresh_request_or_base_mismatch".into());
+        }
+        let mut request = base.recall.as_ref().ok_or("working_recall_required")?.request.clone();
+        if let Some(budget) = &self.budget {
+            if budget.max_items == 0 || budget.max_semantic_units == 0 {
+                return Err("working_refresh_budget_invalid".into());
+            }
+            request.compilation.scope.max_items = budget.max_items;
+            request.compilation.max_semantic_units = budget.max_semantic_units;
+            request.max_output_bytes = budget.max_output_bytes;
+        }
+        request.recall_request()?;
+        Ok(request)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RefreshPosture { Unchanged, RecompiledEquivalent, Refreshed, Incomplete }
+
+/// Comparison of supplied predecessor and CURRENT qualified result. Removed
+/// identities/counts are deliberately absent: lost disclosure must not become
+/// an explanation channel. This is not a dependency database or freshness lease.
+#[derive(Clone, Debug, Serialize)]
+pub struct RefreshAssessment {
+    pub identity_equal: bool,
+    pub selected_material_equal: bool,
+    pub current_control_equal: bool,
+    pub recall_identity_equal: bool,
+    pub requires_replacement: bool,
+    pub historical_cut_pinned: bool,
+    pub qualification: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct WorkingRefreshResult {
+    pub schema: String,
+    pub request: WorkingRefreshRequest,
+    pub posture: RefreshPosture,
+    pub assessment: RefreshAssessment,
+    pub working_state: SemanticWorkingState,
+    pub compilation_mode: DeltaCompilationMode,
+    pub measurements: WorkingStateMeasurements,
+    pub paging_recompilation_us: u128,
+    #[serde(skip)]
+    pub(crate) source: SemanticState,
+}
+
+impl WorkingRefreshResult {
+    pub fn lower_context(&self) -> Result<crate::context::Projection, String> {
+        self.working_state.lower_context(&self.source, self.working_state.request())
+    }
+
+    pub(crate) fn qualified(base: &SemanticWorkingState, request: WorkingRefreshRequest,
+        current: QualifiedWorkingState, paging_recompilation_us: u128) -> Result<Self, String> {
+        let w = &current.working_state;
+        let identity_equal = base.id() == w.id();
+        let selected_material_equal = refresh_material(base, false)? == refresh_material(w, false)?;
+        let assessment = RefreshAssessment { identity_equal, selected_material_equal,
+            current_control_equal: refresh_material(base, true)? == refresh_material(w, true)?,
+            recall_identity_equal: base.recall.as_ref().map(|r| &r.recall_id) == w.recall.as_ref().map(|r| &r.recall_id),
+            requires_replacement: !identity_equal,
+            historical_cut_pinned: w.recall.as_ref().is_some_and(|r| r.request.at.is_some()),
+            qualification: "current_snapshot_full_requalification_before_use; no_authority_from_prior_artifact; relevance_rebuilt_not_delta_applied".into() };
+        let posture = if w.recall.as_ref().is_some_and(|r| !r.recall_closure_complete) {
+            RefreshPosture::Incomplete
+        } else if identity_equal { RefreshPosture::Unchanged }
+        else if selected_material_equal { RefreshPosture::RecompiledEquivalent }
+        else { RefreshPosture::Refreshed };
+        Ok(Self { schema: REFRESH_RESULT_SCHEMA.into(), request, posture, assessment,
+            working_state: current.working_state, compilation_mode: current.compilation_mode,
+            measurements: current.measurements, paging_recompilation_us, source: current.source })
+    }
+}
+
+fn refresh_material(w: &SemanticWorkingState, control_only: bool) -> Result<Vec<String>, String> {
+    let mut out = Vec::new();
+    for e in &w.entries {
+        match &e.value {
+            SemanticValue::RecallQualification { .. } | SemanticValue::SemanticPageReferences { .. } => {},
+            SemanticValue::RecalledEvidence { evidence } if !control_only => {
+                out.push(identity(&paging::normalize((**evidence).clone()))?);
+            },
+            SemanticValue::RecalledEvidence { .. } => {},
+            _ => out.push(identity(e)?),
+        }
+    }
+    out.sort();
+    Ok(out)
+}
+
+impl SemanticWorkingState {
+    pub(crate) fn validate_refresh_envelope(&self) -> Result<(), String> {
+        if self.paging.is_some() { return self.validate_paging_envelope(); }
+        let recall = self.recall.as_ref().ok_or("working_recall_required")?;
+        recall.request.recall_request()?;
+        let mut copy = self.clone(); copy.working_state_id.clear();
+        if self.schema != RECALL_WORKING_SCHEMA || self.compiler != RECALL_COMPILER_VERSION
+            || self.request != recall.request.compilation || self.case_id != recall.request.case_id
+            || self.case_generation != recall.request.expected_generation
+            || self.participant_id != self.request.scope.participant_id
+            || self.id() != format!("working-state:{}", identity(&copy)?) {
+            return Err("working_refresh_base_integrity_mismatch".into());
+        }
+        Ok(())
+    }
+}
+
 /// One execution request. Textual intent mechanically supplies the Recall query;
 /// explicit historical dependencies are separate from current S requirements.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

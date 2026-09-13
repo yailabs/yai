@@ -52,8 +52,9 @@ Resource, policy and content owners. The separate bounded
 [source-grounded knowledge derivation](source-grounded-knowledge.md) now provides
 a deterministic D foothold. [Recall v2](recall.md) composes bounded D/H/S
 candidates under one qualified read basis. The explicit working-state operation
-now compiles bounded Recall-aware W v3, with opt-in W4 exact-group references and
-explicit semantic page-in/page-out; no provider execution or public W→E path is implied.
+now compiles bounded Recall-aware W v3, with opt-in W4 exact-group references,
+explicit semantic page-in/page-out and same-task current requalification through
+the prompt-independent refresh operation. No provider execution or public W→E path is implied.
 An acquisition can be
 recorded in Case history without turning its documentary content into current
 semantic truth. Generic bootstrap/knowledge horizons remain in the Roadmap.
@@ -193,7 +194,7 @@ The notation is not a source-type, schema or API commitment:
 | H_t — Qualified historical experience | Recorded occurrences, decisions, observations, effects, Workflow history and admitted material, including what no longer holds | Conceptual qualified view over existing ledgers/content/established owners; not a new historical owner or a guarantee of complete knowledge |
 | S_t — Semantic State | What presently holds: model-independent Case meaning with provenance, authority and epistemic distinctions | YAI, through existing owners; current authority, derived assertion and model claim stay distinct |
 | R_t^q — Recall Trace | Bounded reconstruction of the qualified knowledge and experience relevant to question/task q, including potentially discontinuous sources, Events and Episodes | Bounded D/H/S v2 now exists: derived, reconstructible, disposable, current-disclosure scoped; temporal/causal meaning only where supported, exact source closure or explicit missingness. General task sufficiency remains target |
-| W_t — Semantic Working State | What must count for this execution: bounded, task-relative, Participant-scoped, provenance-carrying | Bounded v3 compilation of mandatory current S plus qualified Recall groups, task and Case constraints; opt-in v4 adds exact-group deferred references and explicit paging. General task sufficiency, arbitrary neighborhood expansion and ambient refresh remain targets. Not the whole Case or a new memory history |
+| W_t — Semantic Working State | What must count for this execution: bounded, task-relative, Participant-scoped, provenance-carrying | Bounded v3 compilation of mandatory current S plus qualified Recall groups, task and Case constraints; opt-in v4 adds exact-group deferred references and explicit paging. Explicit same-task refresh requalifies current Recall/W without another prompt. General task sufficiency, arbitrary neighborhood expansion and ambient refresh remain targets. Not the whole Case or a new memory history |
 | E_t — Experiential Computational State | Model-native realization of W_t, subsequently accumulated through execution | Computationally owned by YVEX/model: model-specific, potentially opaque, independently resident, derived and replaceable; never a second semantic ledger |
 
 q identifies the current question/task; X_t is immediate input. R_t^q denotes
@@ -253,7 +254,9 @@ revocation cannot be bypassed through acquisition history. Explicit documentary
 references are not causal or normative support merely because their endpoints
 resolve. H stays a conceptual view over existing owners; no RecallStore or extra
 ledger. Automatic Recall acquisition exists inside the explicit W compilation
-request, not as prompt-independent refresh or automatic provider execution.
+request. The separate same-task refresh operation now rebuilds that request
+against current qualified truth without a new prompt; neither selects automatic
+provider execution.
 
 ### Independent computational and semantic evolution
 
@@ -427,8 +430,13 @@ authorized work, automatic semantic mutation or an uncontrolled Agent loop.
 | Semantic return | Explicit P or observed consequence → YAI admission → H/S change | Repetition of E, Recall or a learned association never grants authority |
 
 **E_t → E_t+1 does NOT imply S_t → S_t+1.** Neither assimilation nor refresh
-is a new canonical mutation path. Current full-recompilation delta equivalence
-does not qualify these complete prompt-independent loops.
+is a new canonical mutation path. **IMPLEMENTED FACT:** the bounded
+[same-task refresh operation](recall.md#prompt-independent-semantic-refresh)
+reuses the request in W3/W4, qualifies current sources/control and reconstructs
+Recall plus W without a new prompt. Full recompilation is the reference path;
+SemanticDelta v1 remains S-only and cannot express equal-generation backing loss.
+This qualifies explicit semantic preflight, not these complete autonomous loops,
+event/watch infrastructure, provider convergence or computational reconciliation.
 
 In particular, a qualified source/revision change may affect D and access
 derivations, then Recall, W and later E through public reconciliation. This
@@ -567,14 +575,19 @@ source/disclosure basis and retains atomic evidentiary groups separately from
 mandatory current control. Required missing backing or mandatory envelope overflow
 refuses; optional omissions and Recall limitations remain explicit. A historical
 Recall cut cannot become current authority. Recall/backing change can require full
-recompilation with no S-only delta; no ambient refresh is implemented. The existing
+recompilation with no S-only delta. Same-task prompt-independent refresh now
+performs that current reconstruction explicitly; no ambient watcher is implemented. The existing
 provider path remains S-only v2. W4's bounded exact-group pager revalidates current
 control and source backing without another Recall discovery pass. Resident and
 deferred are distinct; reference possession is not authorization. Atomic pages
 have a separate envelope, and page-in/out uses the same W compiler without
 evicting mandatory current/task semantics or mutating Case history. It preserves
 the evidentiary cut under present authority. Fixed-generation continuation is
-not prompt-independent refresh, a new retriever or computational/KV paging.
+not itself prompt-independent refresh, a new retriever or computational/KV paging.
+The separate refresh operation rebuilds current Recall before compiling W and
+reapplies only still-qualified exact paging preferences. Identity equality and
+selected-backing equivalence remain distinct; current disclosure/removal precedes
+affected consumption, and an old working artifact is not an authorization lease.
 See the [scoped contract](recall.md#scoped-semantic-paging). None of these derived
 W versions is the definition of memory.
 The semantic composition below exists at bounded scope; the public computational

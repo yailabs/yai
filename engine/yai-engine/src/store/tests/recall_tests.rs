@@ -158,6 +158,110 @@ fn working_recall_policy_current_asof_freshness_tamper_and_atomic_budget() {
 }
 
 #[test]
+fn prompt_independent_refresh_policy_cut_paging_no_s_delta_and_current_requalification() {
+    use crate::semantic_state::{CompilationRequest, SemanticScope, SemanticPurpose, WorkingStateRequest,
+        SemanticWorkingState, SemanticValue, derive_delta};
+    use crate::semantic_state::working_recall::{WorkingRefreshRequest as Refresh, WorkingRefreshBudget, RefreshPosture};
+    use crate::semantic_state::paging::PageRequest;
+    let w = World::new();
+    let original_artifact = w.store.get_case_state(CASE).unwrap().unwrap().policy_bindings[0].artifact_id.clone();
+    let op = w.operation("request:refresh:allow", "src/retry.txt");
+    let (decision, cut) = w.store.derive_and_commit_policy_decision(CASE, &op.operation_id).unwrap();
+    let request = WorkingStateRequest {
+        case_id: CASE.into(), expected_generation: cut.state.generation,
+        compilation: CompilationRequest { scope: SemanticScope::model(HUMAN, SemanticPurpose::Inspection),
+            intent: "historical filesystem policy decision".into(),
+            output_contract_id: crate::context::InvocationOutputContract::NaturalLanguage.contract_id(),
+            max_semantic_units: 131072, max_derived_items: 16, resource_refs: vec![],
+            required_refs: vec![HUMAN.into()], previous_item_ids: vec![], view_selection_id: None },
+        at: Some(HistoricalCoordinate::Generation(cut.state.generation)), recall_required_refs: vec![decision.decision_id.clone()],
+        recall_bounds: Default::default(), max_output_bytes: 1024 * 1024 };
+    let base = w.store.compile_working_state_authorized(&w.owner, request.clone(), None).unwrap().working_state;
+    let stable = w.store.refresh_working_state_authorized(&w.owner, &base, Refresh::new(&base), None).unwrap();
+    assert_eq!(stable.posture, RefreshPosture::Unchanged);
+    assert_eq!(stable.working_state, base);
+    let mut page_request = request.clone(); page_request.recall_required_refs.clear();
+    page_request.compilation.max_derived_items = 0;
+    let page_base = w.store.compile_pageable_working_state_authorized(&w.owner, page_request, None).unwrap().working_state;
+    let reference = page_base.page_references().iter().find(|r| r.members.iter().any(|id| id.contains(&decision.decision_id))).unwrap();
+    let members = reference.members.clone();
+    let mut demand = PageRequest::new(&page_base, vec![reference.reference_id.clone()]); demand.bounds.semantic_units = 131072;
+    let resident = w.store.page_working_state_authorized(&w.owner, &page_base, demand, None).unwrap().working_state;
+    let restored = w.store.refresh_working_state_authorized(&w.owner, &resident, Refresh::new(&resident), None).unwrap();
+    assert!(restored.working_state.page_references().iter().any(|r| r.members == members
+        && restored.working_state.resident_page_references().contains(&r.reference_id)));
+    assert!(restored.assessment.selected_material_equal);
+    assert_eq!(restored.lower_context().unwrap().entries, restored.working_state.entries());
+    assert_eq!(restored.working_state, w.store.refresh_working_state_authorized(&w.owner,
+        &restored.working_state, Refresh::new(&restored.working_state), None).unwrap().working_state);
+    replace(&w, "2", "deny", false);
+    let state = w.store.get_case_state(CASE).unwrap().unwrap();
+    let history = w.store.list_case_transitions(CASE).unwrap();
+    let refreshed = w.store.refresh_working_state_authorized(&w.owner, &base, Refresh::new(&base), None).unwrap();
+    let mut fresh_request = request.clone(); fresh_request.expected_generation = state.generation;
+    let fresh = w.store.compile_working_state_authorized(&w.owner, fresh_request, None).unwrap();
+    assert_eq!(refreshed.working_state, fresh.working_state);
+    assert_eq!(refreshed.working_state.request(), base.request());
+    assert!(refreshed.assessment.historical_cut_pinned && !refreshed.assessment.current_control_equal);
+    assert!(w.store.validate_working_state_authorized(&w.owner, &base, None).is_err());
+    assert!(refreshed.working_state.entries().iter().any(|e| matches!(&e.value,
+        SemanticValue::RecalledEvidence { evidence } if evidence.events.iter().all(|e| e.event.recorded_generation <= cut.state.generation))));
+    assert!(w.store.refresh_working_state_authorized(&w.outsider, &base, Refresh::new(&base), None).is_err());
+    let mut wrong = Refresh::new(&base); wrong.base_working_state_id = "working-state:another-task".into();
+    assert!(w.store.refresh_working_state_authorized(&w.owner, &base, wrong, None).is_err());
+    let mut invalid_request = serde_json::to_value(Refresh::new(&base)).unwrap();
+    invalid_request["intent"] = "replace task".into();
+    assert!(serde_json::from_value::<Refresh>(invalid_request).is_err());
+    let mut invalid = serde_json::to_value(&base).unwrap(); invalid["request"]["intent"] = "new task".into();
+    let invalid: SemanticWorkingState = serde_json::from_value(invalid).unwrap();
+    assert!(w.store.refresh_working_state_authorized(&w.owner, &invalid, Refresh::new(&invalid), None).is_err());
+    // Rehashing a different task cannot update the caller's expected base.
+    let mut other = serde_json::to_value(&base).unwrap();
+    other["request"]["intent"] = "different task".into();
+    other["recall"]["request"]["compilation"]["intent"] = "different task".into();
+    other["recall"]["recall_request"]["query"] = "different task".into();
+    other["working_state_id"] = "".into();
+    let typed: SemanticWorkingState = serde_json::from_value(other.clone()).unwrap();
+    other["working_state_id"] = format!("working-state:{}", crate::effect::digest_bytes(&serde_json::to_vec(&typed).unwrap())).into();
+    let other: SemanticWorkingState = serde_json::from_value(other).unwrap();
+    assert_eq!(w.store.refresh_working_state_authorized(&w.owner, &other, Refresh::new(&base), None).unwrap_err(),
+        "working_refresh_request_or_base_mismatch");
+    let mut tiny = Refresh::new(&base); tiny.budget = Some(WorkingRefreshBudget {
+        max_items: 1, max_semantic_units: 1, max_output_bytes: 1 });
+    assert!(w.store.refresh_working_state_authorized(&w.owner, &base, tiny, None).is_err());
+    w.store.clear_semantic_context_artifacts().unwrap(); w.store.clear_case_operational_memory(CASE).unwrap();
+    w.store.rebuild_graph_relations_for_case(CASE).unwrap();
+    assert_eq!(refreshed.working_state, w.store.refresh_working_state_authorized(&w.owner, &base, Refresh::new(&base), None).unwrap().working_state);
+    assert_eq!(w.store.list_case_transitions(CASE).unwrap(), history);
+
+    // Real out-of-band historical backing loss: S is identical and there is
+    // no S delta, but Recall qualification changes. V1 accepts only forward
+    // history extensions; do not fabricate an equal-generation empty delta.
+    let before_s = w.store.compose_cognitive_state(&state, &history).unwrap();
+    let mut optional = request.clone(); optional.expected_generation = state.generation; optional.recall_required_refs.clear();
+    let before_w = w.store.compile_working_state_authorized(&w.owner, optional, None).unwrap().working_state;
+    w.store.discard_policy_artifact_for_test(&original_artifact).unwrap();
+    let now = w.store.get_case_state(CASE).unwrap().unwrap();
+    let history = w.store.list_case_transitions(CASE).unwrap();
+    let after_s = w.store.compose_cognitive_state(&now, &history).unwrap();
+    assert_eq!(before_s, after_s);
+    assert_eq!(derive_delta(&before_s, &after_s, &request.compilation).unwrap_err(),
+        "semantic_delta_history_not_forward_extension");
+    let incomplete = w.store.refresh_working_state_authorized(&w.owner, &before_w, Refresh::new(&before_w), None).unwrap();
+    assert!(!incomplete.assessment.recall_identity_equal);
+    assert_eq!(incomplete.posture, RefreshPosture::Incomplete);
+    assert!(w.store.refresh_working_state_authorized(&w.owner, &base, Refresh::new(&base), None).is_err());
+    // Current catalog change at equal Case generation must also be requalified.
+    w.store.revoke_tenant_policy_artifact(&w.owner, &now.policy_bindings[0].artifact_id, "refresh current control withdrawn").unwrap();
+    assert_eq!(w.store.get_case_state(CASE).unwrap().unwrap(), now);
+    let revoked = w.store.refresh_working_state_authorized(&w.owner, &before_w, Refresh::new(&before_w), None).unwrap();
+    assert!(!revoked.assessment.current_control_equal);
+    assert_eq!(w.store.list_case_transitions(CASE).unwrap(), history);
+    println!("prompt_independent_refresh same_task=true fresh_compile_equal=true current_authority=true historical_cut=true paging_preference=true identical_S_no_delta_changed_Recall=true same_generation_revoke=true restart_equal=true zero_refresh_transitions=true providers=0");
+    w.finish();
+}
+
+#[test]
 fn scoped_paging_exact_policy_group_rehydration_eviction_restart_and_no_discovery() {
     use crate::semantic_state::{CompilationRequest, SemanticScope, SemanticPurpose, WorkingStateRequest, SemanticWorkingState};
     use crate::semantic_state::paging::{PageRequest, PageAction};

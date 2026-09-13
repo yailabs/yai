@@ -331,3 +331,100 @@ not a source/disclosure-qualified pager. `context_pack_completeness.c` preserved
 the useful distinction between reference presence and consumability/partial/stale
 posture. Those failure distinctions belong in this compiler; historical Agent
 packs, mutable worksets and their ownership tree remain rejected.
+
+## Prompt-independent semantic refresh
+
+`case context refresh CASE --working-file FILE` reuses the task already carried
+by W3/W4. It accepts no prompt, intent, new exact reference or historical cut.
+The typed owner is `LmdbRecordStore::refresh_working_state_authorized`, with
+`yai.working_refresh_request.v1` and `yai.working_refresh_result.v1`. The request
+binds the expected base W ID, Case and Participant, plus an optional explicit
+item/unit/output-byte envelope. Scope, task, output contract, exact requirements,
+Recall bounds and an explicit evidentiary cut are otherwise preserved.
+
+```text
+prior W request (not its remembered contents)
+  → current generation/Participant/authority/source basis in one read transaction
+  → existing Recall v2 candidate discovery and qualified reconstruction
+  → existing full W compiler
+  → W3, or W4 with freshly qualified paging preferences
+```
+
+Unlike exact paging, refresh intentionally reconstructs global bounded Recall.
+There is no refresh-specific retriever or repeated source-discovery pass inside
+W. Current generation is resolved in Recall's own read transaction, not through
+a preliminary read followed by a different compilation snapshot. An absent
+historical cut advances to that current basis; an explicit generation/Transition
+cut stays pinned. Current disclosure and execution authority apply to both.
+Current DENY/blocked policy can be represented for inspection; a W is not a
+Grant and refresh never executes an operation.
+
+The returned private qualified basis supports downstream lowering without
+another read/retrieval. It is a snapshot, not a freshness lease: future consumers
+must perform current preflight before affected consumption. The operation is the
+explicit preflight/reconstruction seam, not a watcher or automatic migration of
+provider/Conversation/Workflow W2 consumers. Existing W3/Projection11 and
+W4/Projection12 versions are unchanged. Projection does not discover staleness,
+run Recall or recover old page contents.
+
+Correctness-critical invalidation and enrichment use the same reference path but
+mean different things: lost disclosure/mandatory backing must remove or refuse
+old affected material before use; newly admitted evidence can change relevance.
+The result reports current-control/Recall identity comparisons and whether the
+predecessor must be replaced, not a speculative diagnosis of every cause.
+It never returns removed hidden IDs/counts. Current outputs/identities derive
+only from the freshly qualified universe. Missing exact mandatory material or
+mandatory envelope overflow refuses. Optional material may disappear under
+existing omission rules; `incomplete` means the selected Recall closure is
+incomplete, not that every formerly relevant source was revisited successfully.
+No result claims universal task sufficiency.
+
+W4 refresh resets old page-in/out lineage to a newly compiled qualified basis.
+Only groups in the new Recall catalog can retain a working-set preference,
+matched by exact members, source/revision/path and normalized backing digest.
+Prior resident groups are preferentially pinned where they fit; prior deferred
+groups remain deferred where the same qualified group exists. New mandatory
+task/current requirements override optional preferences. Changed, undisclosed,
+unavailable or no-longer-discovered groups are not copied or silently sought by
+another exact/global retrieval pass. Failed optional preference fitting falls
+back to current bounded selection. A later page-in revalidates again.
+
+The result distinguishes `unchanged`, `recompiled_equivalent`, `refreshed` and
+`incomplete`; refusals use the existing typed-operation error path. Identity
+equality is exact. `selected_material_equal` is the narrower comparison of
+current entries and normalized selected evidentiary backing: it excludes Recall
+metadata, reference catalogs, selection reasons and derived segment organization.
+It does not promise equal task sufficiency, equal page lineage or universal
+semantic equivalence. Timings never participate in W identity. The predecessor
+ID is caller-supplied lineage, not a canonical LatestW record. Artifact hashes
+detect changed identity, not authenticity/permission; a consumer protecting a
+specific task artifact must retain and supply its expected base ID. A fully
+changed artifact is a different base, not an authorized update of the old task.
+
+Refresh always reports `FullRecompilation`. SemanticDelta v1 remains the forward
+S-only contract: equal-generation backing loss cannot be represented by it.
+The typed oracle proves identical qualified S before/after historical artifact
+loss while Recall changes; it does not fabricate an equal-generation empty
+delta. No global epoch, dependency database, W registry, Transition or canonical
+owner is added.
+
+`make smoke-semantic-refresh` exercises actual CLI/persistence, same-task source
+revision and new governed Observation, current/as-of, optional/mandatory backing
+loss, source and equal-generation policy revoke, W4 resident/deferred preferences,
+restart/drop/rebuild and zero mutation/model calls. It compares refresh against
+fresh compilation across short/long histories and small/larger source corpora.
+Measurements expose current composition, qualified history/source resolution,
+existing Recall discovery/assembly, W compile, W4 preference recompilation and
+compatibility lowering. Nested measurements are not additive; full-history/source
+CPU remains size-dependent and refresh is not claimed cheaper than compilation.
+
+Fresh legacy archaeology at `yai-dev`
+`8a2b09e268fe6e20b1681dab7b22eac6b8239a8c` inspected
+`src/agents/grounding/live_context_refresh.c`, `live_context_consumption.c` and
+`src/knowledge/context/case_state_refresh.c`, plus their consumers and history.
+The first pair rejects consumption of stale/refresh-required snapshots; that
+failure distinction is preserved here through current preflight. The latter
+applies a delta or updates a timestamp and persists cognition/checkpoint state;
+it is not qualified same-task Recall/W reconstruction. Its global cognition and
+Agent live-context ownership are not recovered. The substrate-drain commit
+`2a4018147219044dfe1fad2268759b1f2a585945` removed those historical owners.

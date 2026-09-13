@@ -214,6 +214,50 @@ fn control(entries: &[SemanticEntry]) -> Vec<&SemanticEntry> {
 }
 
 impl QualifiedWorkingState {
+    /// Carry preferences, never predecessor page content. Only exact groups
+    /// present in the newly qualified Recall catalog can match. Changed or
+    /// undisclosed groups have no match and yield no removed-ID diagnostics.
+    pub(crate) fn with_refreshed_paging_preferences(mut self, base: &SemanticWorkingState) -> Result<Self, String> {
+        let resident: BTreeSet<_> = base.resident_page_references().into_iter().collect();
+        let mut preferred = BTreeSet::new();
+        let mut deferred = BTreeSet::new();
+        for current in self.working_state.page_references() {
+            if let Some(old) = base.page_references().iter().find(|old|
+                old.members == current.members && old.sources == current.sources
+                    && old.evidence_digest == current.evidence_digest) {
+                if resident.contains(&old.reference_id) { preferred.insert(current.group_entry_id.clone()); }
+                else { deferred.insert(current.group_entry_id.clone()); }
+            }
+        }
+        let mut input = self.source.recall.clone().ok_or("paging_requires_recall_working_state")?;
+        input.groups.retain(|(required, e)| *required || !deferred.contains(&e.entry_id));
+        let basis = self.source.clone().with_recall(input.clone())?;
+        let request = self.working_state.request().clone();
+        let mut source = basis.clone();
+        let mut working = source.compile(&request)?;
+        // Bounded pure recompilation, not source revalidation/discovery per
+        // preference. Mandatory original task/current state keeps priority.
+        for id in preferred {
+            let mut candidate = input.clone();
+            for (required, e) in &mut candidate.groups {
+                *required |= e.entry_id == id;
+            }
+            let candidate_source = basis.clone().with_recall(candidate.clone())?;
+            match candidate_source.compile(&request) {
+                Ok(next) => { input = candidate; source = candidate_source; working = next; },
+                Err(e) if e.starts_with("residency_budget_below_mandatory_state")
+                    || e == "working_output_budget_below_mandatory_state" => {},
+                Err(e) => return Err(e),
+            }
+        }
+        self.source = source;
+        self.working_state = working;
+        self.working_state.validate_paging_envelope()?;
+        self.measurements.output_bytes = serde_json::to_vec(&self.working_state).map_err(|e| e.to_string())?.len();
+        self.measurements.selected_semantic_units = self.working_state.bounds.selected_semantic_units;
+        Ok(self)
+    }
+
     /// Opt-in derived v4; serialized v3 meaning and ordinary provider paths stay
     /// unchanged. Only already-qualified, source-closed groups become locators.
     pub(crate) fn enable_paging(mut self) -> Result<Self, String> {

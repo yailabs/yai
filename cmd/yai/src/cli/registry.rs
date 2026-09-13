@@ -1649,6 +1649,22 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         ]
     ),
     op!(
+        "yai.case.context.refresh",
+        ["case", "context", "refresh"],
+        "Requalify the same stored W task against current authority and Recall (no new prompt)",
+        Product, Inspection, ReadOnly, Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--working-file", Some("WORKING_STATE_JSON"), true),
+            flag("--base-id", Some("EXPECTED_WORKING_ID"), false),
+            flag("--participant", Some("PARTICIPANT"), false),
+            flag("--limit", Some("WORKING_ITEMS"), false),
+            flag("--units", Some("WORKING_SEMANTIC_UNITS"), false),
+            flag("--bytes", Some("WORKING_BYTES"), false),
+            flag("--projection", None, false)
+        ]
+    ),
+    op!(
         "yai.case.context.expand",
         ["case", "context", "expand"],
         "Resolve exact deferred semantic groups or page out optional material (no Recall search)",

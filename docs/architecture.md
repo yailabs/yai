@@ -824,7 +824,20 @@ immutable page-in/page-out. Page v1 and Projection/ContextFrame12 are derived;
 Transition v19, CaseState v16 and LMDB 37/40 are unchanged. Exact source scope is
 narrowed before byte derivation, while historical reconstruction still has
 history-dependent CPU cost. Fixed-generation paging refuses task/control/source
-staleness and does not implement prompt-independent refresh or public W→E.
+staleness; it is distinct from the refresh operation below and from public W→E.
+
+`case context refresh CASE --working-file FILE` now consumes the task already
+bound into W3/W4 through typed `refresh_working_state_authorized`. Current
+generation, authority/disclosure and exact source qualification share the existing
+Recall read transaction, followed by full W compilation. No new prompt, second
+retriever, delta shortcut or canonical mutation is involved. W4 preferences can
+survive only by matching freshly qualified exact groups; old page contents and
+lineage are not copied as authority. Refresh request/result v1 distinguish identity,
+selected backing and current-control changes, optional incomplete closure and
+mandatory refusal. [The contract](recall.md#prompt-independent-semantic-refresh)
+defines these bounded comparisons and current preflight requirements. W3/W4,
+Projection11/12, Transition19/CaseState16 and LMDB37/40 remain unchanged. No
+watcher, freshness lease, provider consumer migration or public W→E is implemented.
 
 [`semantic_state.rs`](../engine/yai-engine/src/semantic_state.rs) composes a
 read-only `SemanticState` from CaseState and its exact ordered history, requiring

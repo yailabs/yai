@@ -799,6 +799,11 @@ smoke-governance-cognitive-context: build-rust
 .PHONY: smoke-knowledge-recall
 .PHONY: smoke-recall-working-state
 .PHONY: smoke-semantic-paging
+.PHONY: smoke-semantic-refresh
+smoke-semantic-refresh: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/source-grounded-knowledge/test_refresh.py
+
 smoke-semantic-paging: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/source-grounded-knowledge/test_paging.py

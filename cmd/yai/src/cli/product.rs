@@ -28,6 +28,7 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.history" | "yai.case.verify" => canonical_case_inspection(invocation),
         "yai.case.context.compile" => working_state_compilation(invocation),
         "yai.case.context.expand" => working_state_expansion(invocation),
+        "yai.case.context.refresh" => working_state_refresh(invocation),
         "yai.case.as_of" | "yai.case.experience" | "yai.case.recall" => historical_case_inspection(invocation),
         operation if operation.starts_with("yai.case.knowledge.") => knowledge_inspection(invocation),
         "yai.case.open" | "yai.case.workbench" => {
@@ -607,10 +608,7 @@ fn working_state_compilation(invocation: &Invocation) -> Result<CliData, CliErro
     Ok(CliData::AlreadyRendered)
 }
 
-fn working_state_expansion(invocation: &Invocation) -> Result<CliData, CliError> {
-    use yai_core_engine::semantic_state::{SemanticWorkingState, paging::{PageRequest, PageAction}};
-    let auth = AuthenticatedPrincipal::authenticate_local()
-        .map_err(|e| domain_error("authentication_failed", e))?;
+fn working_state_file(invocation: &Invocation) -> Result<yai_core_engine::semantic_state::SemanticWorkingState, CliError> {
     let file = fs::File::open(invocation.flag("--working-file").ok_or_else(|| CliError::usage("--working-file required"))?)
         .map_err(|e| domain_error("working_file_unavailable", e.to_string()))?;
     let mut bytes = Vec::new();
@@ -619,7 +617,59 @@ fn working_state_expansion(invocation: &Invocation) -> Result<CliData, CliError>
     if bytes.len() > 4 * 1024 * 1024 { return Err(CliError::usage("working JSON exceeds 4 MiB")); }
     let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|e| domain_error("working_file_invalid", e.to_string()))?;
     let body = value.pointer("/data/value/working_state").or_else(|| value.get("working_state")).unwrap_or(&value);
-    let base: SemanticWorkingState = serde_json::from_value(body.clone()).map_err(|e| domain_error("working_file_invalid", e.to_string()))?;
+    serde_json::from_value(body.clone()).map_err(|e| domain_error("working_file_invalid", e.to_string()))
+}
+
+fn working_state_refresh(invocation: &Invocation) -> Result<CliData, CliError> {
+    use yai_core_engine::semantic_state::working_recall::{WorkingRefreshRequest, WorkingRefreshBudget};
+    let auth = AuthenticatedPrincipal::authenticate_local()
+        .map_err(|e| domain_error("authentication_failed", e))?;
+    let base = working_state_file(invocation)?;
+    let mut request = WorkingRefreshRequest::new(&base);
+    request.case_id = invocation.positionals["case"].clone();
+    if let Some(id) = invocation.flag("--participant") { request.participant_id = id.into(); }
+    if let Some(id) = invocation.flag("--base-id") { request.base_working_state_id = id.into(); }
+    let number = |flag, default| -> Result<usize, CliError> {
+        invocation.flag(flag).map(|s| s.parse().map_err(|_| CliError::usage(format!("{flag} must be an integer")))).unwrap_or(Ok(default))
+    };
+    if ["--units", "--limit", "--bytes"].iter().any(|f| invocation.flag(f).is_some()) {
+        request.budget = Some(WorkingRefreshBudget {
+            max_items: number("--limit", base.request().scope.max_items)?,
+            max_semantic_units: number("--units", base.request().max_semantic_units)?,
+            max_output_bytes: number("--bytes", base.recall().ok_or_else(|| CliError::usage("Recall-aware W required"))?.request.max_output_bytes)?,
+        });
+    }
+    let content = yai_core_engine::conversation::ConversationContentStore::open_existing(&yai_home()).ok();
+    let result = open_store()?.refresh_working_state_authorized(&auth, &base, request, content.as_ref())
+        .map_err(|e| domain_error("working_refresh_unavailable", e))?;
+    let started = std::time::Instant::now();
+    let projection = invocation.flags.contains_key("--projection").then(|| result.lower_context())
+        .transpose().map_err(|e| domain_error("working_lowering_unavailable", e))?;
+    let lowering_us = started.elapsed().as_micros();
+    if invocation.json {
+        let mut value = serde_json::to_value(&result).map_err(|e| domain_error("working_encoding", e.to_string()))?;
+        if let Some(p) = projection {
+            value["projection"] = serde_json::to_value(p).map_err(|e| domain_error("working_encoding", e.to_string()))?;
+            value["measurements"]["compatibility_lowering_us"] = serde_json::json!(lowering_us);
+        }
+        return Ok(CliData::NativeJson { value });
+    }
+    println!("SEMANTIC WORKING STATE REFRESH [{:?}]", result.posture);
+    println!("Task preserved: {}", result.working_state.request().intent);
+    println!("Current W: {}\nCurrent Recall: {}", result.working_state.id(), result.working_state.recall().unwrap().recall_id);
+    println!("Full current requalification; predecessor is not authority.\nAssessment: {:?}", result.assessment);
+    for entry in result.working_state.entries() {
+        println!("{} [{:?}]", entry.entry_id, entry.posture);
+    }
+    println!("Bounds/omissions: {:?}\nNo new prompt, canonical mutation or model call.", result.working_state.bounds());
+    Ok(CliData::AlreadyRendered)
+}
+
+fn working_state_expansion(invocation: &Invocation) -> Result<CliData, CliError> {
+    use yai_core_engine::semantic_state::paging::{PageRequest, PageAction};
+    let auth = AuthenticatedPrincipal::authenticate_local()
+        .map_err(|e| domain_error("authentication_failed", e))?;
+    let base = working_state_file(invocation)?;
     let mut request = PageRequest::new(&base, vec![invocation.flag("--ref").ok_or_else(|| CliError::usage("--ref required"))?.into()]);
     request.case_id = invocation.positionals["case"].clone();
     if let Some(id) = invocation.flag("--participant") { request.participant_id = id.into(); }
