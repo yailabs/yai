@@ -10,7 +10,7 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [{ "title": "YAI Studio — scaffolding", "width": 800, "height": 600 }],
+    "windows": [{ "title": "YAI Studio · Fixture Workbench", "width": 1440, "height": 900, "minWidth": 1100, "minHeight": 680 }],
     "security": {
       "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'",
       "devCsp": "default-src 'self'; connect-src 'self' ws://127.0.0.1:1420; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'",

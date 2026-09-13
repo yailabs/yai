@@ -594,7 +594,7 @@ ESTABLISHED=32 PARTIAL=28 OPEN=9 LATER=4 TOTAL=73
 | X01 | Registry-backed native CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; handwritten YAI product CLI and exact automation retained, no global current-Case authority or silent trust. Generated reference clients do not replace `./yai` automatically. |
 | X02 | Native REPLAI Case workbench | 🟢 ESTABLISHED | [R4][replai], [R5][r5], [presentation][presentation]; real PTY and controller seams, no second terminal. |
 | X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | Bounded typed Rust/controller and owner-query seams exist; CLI arguments, output capture and store-coupled orchestration still cross application/presentation boundaries. Target: [one typed YAI application contract](#application-and-client-boundary--adopted-target) for native CLI/Studio and future generated clients. No complete stable public API, exported interface package, SDK or remote authentication qualification. |
-| X04 | YAI Studio / Case IDE | ⚪ LATER | [Case Workbench specification](docs/studio.md), inside YAI; isolated bootstrap only, no qualified Studio product or required third repository. Consumes the same typed application boundary as the native CLI, never persistence internals or independently reconstructed semantics. |
+| X04 | YAI Studio / Case IDE | ⚪ LATER | [Case Workbench specification](docs/studio.md), inside YAI; offline fixture shell only, no qualified Studio product or required third repository. Consumes the same typed application boundary as the native CLI, never persistence internals or independently reconstructed semantics. |
 
 ### Qualification
 
@@ -794,7 +794,7 @@ a real versioned YAI export gains an independently qualified interfaces consumer
 ### YAI Studio — Case IDE target
 
 **Studio is YAI's official Case IDE / Case Workbench inside this repository.**
-X04 remains **LATER**: the isolated technical bootstrap is not product
+X04 remains **LATER**: the offline fixture workbench shell is not live product
 qualification. [docs/studio.md](docs/studio.md) is the canonical product/frontend
 specification, including surfaces, continuity, terminal, providers, fixture mode
 and desktop technology. This roadmap alone owns maturity, engineering selection,
@@ -1169,7 +1169,7 @@ test proof/provider metadata; a roadmap row never reclassifies test evidence.
 | Persistent internal deliberation / autonomous overnight thinking | False. E06 is OPEN: authorized assignments, unfinished L and compatible checkpoints need independent runtime and usefulness qualification, not an uncontrolled Agent loop. |
 | Looped/recurrent Transformer or second residual implemented/required | False. Possible model-side mechanisms, not the name of the semantic architecture; no named-model claim without qualified external evidence. |
 | Full cold-model substitution / Qwen external state qualification | False. Exact binding replacement does not establish cold-state recovery. |
-| Agent implementation / YAI Studio Case IDE | False. Studio has an isolated technical bootstrap and product specification only; no qualified Case workspace, separate required repository, new semantic owner or replacement terminal. |
+| Agent implementation / YAI Studio Case IDE | False. Studio has an offline fixture shell and product specification only; no qualified Case workspace, separate required repository, new semantic owner or replacement terminal. |
 | Stable public Application API / exported interface package / interfaces integration | False. X03 is PARTIAL: bounded typed controller/owner seams exist alongside CLI/store coupling. No package export, selected producer/consumer version, middleware or generated-client conformance exists. |
 | Generated official SDKs, protocol surfaces or replacement product CLI | False. Build/release/interface targets only. Native `./yai` remains the product CLI; neither one repository per SDK nor interfaces as a native-client runtime dependency is required. |
 | Complete external YVEX Golden acceptance | False. Generation 2 first-request capacity is admitted, but the fresh real run fails its 300-second wait; free/Workflow execution remains unqualified. |
@@ -1178,7 +1178,7 @@ test proof/provider metadata; a roadmap row never reclassifies test evidence.
 | Universal database/HTTP/MCP/process/framework support | False. Golden's implemented operations are bounded, governed verticals, not ambient tools or unrestricted shell. |
 | Named v0.1 scope / generic production readiness | Unselected; local proof is not product release qualification. |
 
-No I07, H20/W21/W22, experiential-state consumer, Studio, private YVEX
+No I07, H20/W21/W22, experiential-state consumer, live Studio client, private YVEX
 client, shared state database or computational-state ownership transfer begins
 here. Historical wave exclusions remain scoped to their reports: later Golden
 resources and guided product actions are not erased by an older non-goal.

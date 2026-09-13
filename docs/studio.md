@@ -19,9 +19,11 @@ replacement CLI, independent YVEX UI or new semantic owner. Native CLI, Studio
 and future Mobile are clients over the same YAI application meaning, subject to
 ordinary authentication, Participant scope, disclosure and admission.
 
-The current [bootstrap](../studio/README.md) contains only a minimal React page
-and Tauri window. All workbench surfaces below are targets. Documentation and
-compilation do not qualify the product or change its roadmap maturity.
+The current [shell](../studio/README.md) renders three authored, deterministic
+fixture Cases. Explorer, material tabs, document/diff/work views, contextual
+conversation and resizable tools are executable frontend interactions. They are
+offline presentation proof, not qualified YAI application consumption. The live
+workbench remains a target; neither fixtures nor compilation change maturity.
 
 ## Architectural Invariants
 
@@ -271,7 +273,8 @@ claim that all protocols or adapters exist today. Show actual capabilities,
 model identity, qualification, unavailable/refusal posture and provenance.
 Discovery, operator consent and suitability remain YAI application semantics.
 YVEX is a strategic first-party integration with additional qualified management
-capabilities; inference semantics remain generic. No provider UI exists yet.
+capabilities; inference semantics remain generic. Only static provider context is rendered;
+live provider configuration and management remain unimplemented.
 
 ## Progressive Disclosure
 
@@ -285,9 +288,11 @@ products or parallel simple/advanced state models.
 
 ## Case Workbench Surfaces
 
-Every row is a product target, not an implemented panel. The previous roadmap
-surface design is migrated here, with existing owner names retained rather than
-new frontend stores. A source explorer organizes the world related to a Case;
+Every row describes the product target, not live qualification. The fixture shell
+exercises a subset: Case/Sources/Files/Work/Providers navigation, documents and
+an illustrative diff, execution/review context, conversation and bottom tools.
+The broader surface design retains existing owner names rather than introducing
+frontend semantic stores. A source explorer organizes the world related to a Case;
 Knowledge organizes what qualified sources state. Neither owns the other.
 
 | Surface | Representation and interaction | Existing owner or prerequisite |
@@ -344,8 +349,9 @@ Studio dependency/build trees from source classification.
 React/TypeScript owns rendering and interaction; Tauri supplies the container
 and later strictly necessary native integration. Rust shell code must remain a
 thin qualified client/adapter, never a second business layer. No Next.js,
-Electron, editor, terminal emulator, graph library, design system or native
-plugin is added. Tauri requires a PNG at compile time; the shell uses one
+Electron, editor engine, terminal emulator, graph library or native plugin is
+added. A small CSS token set and local inline icons serve the fixture shell;
+there is no external UI kit or final design system. Tauri requires a PNG at compile time; the shell uses one
 transparent RGBA pixel, not a product icon design. Future modules grow when
 there is code to own; the conceptual
 `case`, `components`, `surfaces`, `state`, `terminal`, `yvex` placement is not a
@@ -359,24 +365,41 @@ signing and platform distribution are not qualified by an executable build.
 ## Live vs Fixture Mode
 
 ```text
-StudioClient (future qualified application consumer seam)
-├── LiveClient
-└── FixtureClient
-          -> the same React components
+StudioClient (frontend presentation seam, not a YAI API)
+└── FixtureClient -> authored synthetic scenarios -> React components
+
+LiveClient remains unimplemented; future mapping needs a qualified YAI contract.
 ```
 
-`src/clients/` reserves placement, without declaring an empty interface or
-inventing method names/DTOs. Once YAI qualifies its boundary, LiveClient adapts
-that single contract and preserves typed identity, scope, results/refusals and
-events. FixtureClient supplies deterministic instances of the same contract;
-it does not simulate a second Case engine or grant production actions.
+`src/clients/` owns a minimal synchronous presentation interface: scenario
+choices and one selected workspace presentation. Small types describe visible
+Case labels, Participants, material bodies, conversation/notice rows, provider
+context, execution states and evidence/problems. They are UI inputs, not Rust
+CaseState copies, operation schemas, authority checks or a proposed public API.
+FixtureClient reads the authored examples under `tests/fixtures/studio/`; it
+performs no I/O, timer-driven execution or semantic reconstruction.
 
-Future fixtures support visual development, screenshots, site/README/docs and
-visual regression. They must be plausible, recorded or sanitized with explicit
-origin, contract version and missingness. Label fixture mode visibly; never
-claim its values are real telemetry or silently fall back from live errors to
-fixtures. Neither client, mode selector nor fixture dataset exists in the
-bootstrap. There is no fake success path.
+Once YAI qualifies its application boundary, LiveClient must map that contract
+and preserve typed identity, scope, results/refusals and events. The current
+presentation seam may need to evolve; it does not constrain a future wire format
+or justify implementing missing backend semantics in React.
+
+Fixtures support visual development and deterministic screenshot evidence now;
+site/README/docs reuse and visual regression remain consumers of the same data.
+They must be plausible, recorded or sanitized with explicit origin, contract
+version and missingness. No fixture is presented as live telemetry or used as a
+silent fallback. The query `fixture=ordinary|developer|execution` selects exact
+authored state; unknown values show an explicit error. FIXTURE and no-runtime
+posture remain visible. Static running/review/failure labels are not live
+telemetry. Terminal has no input or host, and no review/send controls simulate
+authority. A local draft is unsubmitted and never persisted or dispatched.
+
+Layout sizes, collapse state and navigation are React state. Closing/reopening
+a panel retains its size and current tab/draft within the selected fixture.
+Switching scenarios resets material tabs and the draft, while retaining layout;
+reloading restores deterministic scenario defaults. This is frontend-local
+interaction, not Case attachment or multi-client continuity. The same rendering
+components consume each scenario without scenario-specific layout branches.
 
 ## Qualification
 
@@ -394,10 +417,12 @@ interrupt/EOF, cleanup and child-process lifecycle. Open in Terminal must retain
 the Case/authorized Participant/Thread without depending on a surviving window.
 Provider management and Computer Use each require independently qualified
 public capability and authority contracts. Usability/accessibility and visual
-regression follow real surfaces, not this scaffolding page.
+regression are separate frontend proof; they cannot establish application semantics.
 
 [Validation procedures](test-cases.md#studio-bootstrap-isolation) distinguish
 backend publication, frontend build and native shell build. The cumulative
 [Golden runbook](zero-to-current.md) remains the product acceptance procedure;
 human acceptance requires the operator's result at the relevant SHA. A compiling
-skeleton qualifies build isolation only. All promotion stays in ROADMAP.
+shell does not establish live product qualification. Fixture interaction and
+visual evidence qualify only their explicitly offline scope. All promotion stays
+in ROADMAP.

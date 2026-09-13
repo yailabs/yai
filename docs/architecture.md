@@ -189,16 +189,19 @@ The [application/client target](../ROADMAP.md#application-and-client-boundary--a
 requires native CLI and future native Studio to consume one typed YAI application
 boundary. Current CLI/store coupling is recorded above, not refactored by that
 decision. No stable public Application API, exported interface package,
-interfaces integration, generated official SDK or functional Studio Case client is
+interfaces integration, generated official SDK or live Studio Case client is
 claimed. Current builds have no interfaces dependency. The roadmap owns future
 export/client qualification; frontends must not acquire domain authority by
 presenting these values.
 
-[`studio/`](../studio/README.md) is an independent React/TypeScript/Vite bootstrap
-with a Tauri 2 window/assets shell. It displays only scaffolding text; it has no
-YAI engine dependency, commands, native plugins, application transport, fixture
-Case data or persistence access. Its npm/Cargo builds are separate from core/CLI
-and backend validation. [Studio](studio.md) owns product/frontend target design;
+[`studio/`](../studio/README.md) is an independent React/TypeScript/Vite fixture
+workbench with a Tauri 2 window/assets shell. A frontend-only FixtureClient feeds
+authored synthetic Case presentations into Explorer, material tabs, document/
+diff/work views, contextual conversation and resizable bottom tools. Local
+navigation, layout and drafts do not mutate Case truth. There is no live client,
+YAI engine dependency, native command/plugin, application transport or persistence
+access. Its npm/Cargo builds and browser harness are separate from core/CLI and
+backend validation. [Studio](studio.md) owns product/frontend target design;
 [ROADMAP](../ROADMAP.md#product-interfaces) alone owns X03/X04 maturity and promotion.
 The existing C daemon IPC serves status and compatibility fixture operations,
 not a qualified Studio application listener or event subscription service.
@@ -732,7 +735,7 @@ graph/index/memory/Recall. The source-bootstrap profiles above retain exact
 original/observation backing; they do not implement the target's general choice
 of in-place access, permitted snapshots and disposable derived caches or a global
 retention/privacy lifecycle. General semantic source organization, the Case Source
-Map and the functional YAI Studio Case client remain unimplemented
+Map and the live YAI Studio Case client remain unimplemented
 targets in the [Roadmap](../ROADMAP.md#case-source-bootstrap-and-source-grounded-knowledge--adopted-target).
 Bounded unified bootstrap is implemented; its generalization is not.
 

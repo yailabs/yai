@@ -11,6 +11,36 @@ human acceptance remain separate, unclaimed results.
 PASS, with the exact YAI SHA, endpoint and provider-exposed model identity.
 A previous PASS is not silently inherited by a changed product HEAD.
 
+## Studio offline visual acceptance
+
+This lane reviews the actual Studio shell with synthetic content. It needs no
+YAI_HOME, provider, live Case or operator continuity canary. It does not exercise
+the Golden runtime below and cannot supply a human live-provider verdict.
+
+From `studio/`, run `npm ci` and `npm run dev` (or `npm run desktop:dev`
+with the [desktop prerequisites](../studio/README.md)). Open the local web URL
+with `?fixture=ordinary`, `?fixture=developer` and `?fixture=execution`, or use
+the visible fixture selector in either shell. All content is explicitly fixture.
+
+1. Identify the Case, its Participants, source/artifact context and central
+   material without treating conversation or provider as the whole product.
+2. Change perspectives; open a source, switch/close/reopen material tabs. Inspect
+   the illustrative diff and static work/review states. No decision is submitted.
+3. Resize Explorer, conversation and bottom tools. Collapse/reopen panels; verify
+   local size/tab preservation. Try Ctrl/Command+J, Ctrl/Command+B and
+   Ctrl/Command+Shift+B, plus keyboard focus and splitter arrow/Home/End keys.
+4. Type a local draft, collapse/reopen conversation and confirm it remains. It
+   is never sent or saved; scenario switching/reload resets it.
+5. Inspect Terminal, Output, Executions, Evidence and Problems. Terminal must
+   report no host and accept no command. Review controls must not approve work.
+6. Review 1280×800, 1440×900, 1728×1117 and 1920×1080 screenshots and scrollable
+   content. Use the [browser harness](test-cases.md#studio-bootstrap-isolation)
+   for repeatable captures, then judge hierarchy, density and legibility.
+
+Record the exact SHA and viewport with any operator feedback. This is an offline
+visual/interaction verdict only; `HUMAN_GOLDEN_CASE = PENDING_OPERATOR` remains
+until the separate live product procedure has an operator result.
+
 ## Infrastructure, not the Case workflow
 
 ### Local security qualification versus external acceptance

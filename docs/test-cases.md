@@ -53,7 +53,7 @@ A C component assertion is not product-reachable effect qualification.
 
 ## Studio bootstrap isolation
 
-[Studio](studio.md) is a technical scaffold with a separate build surface.
+[Studio](studio.md) is an offline fixture shell with a separate build surface.
 Core/CLI publication remains `make check characterization`; Node and Tauri are
 not prerequisites for that graph. From `studio/`, independently:
 
@@ -63,19 +63,34 @@ npm run build
 npm run desktop:build -- -- --locked
 ```
 
-The first build typechecks and bundles the React bootstrap. The desktop build
+The first build typechecks and bundles the React fixture workbench. The desktop build
 requires Rust and native Tauri prerequisites and produces an executable without
 installer packaging. Neither proves a live application client, PTY, multi-client
-continuity, provider UX or human acceptance. Verify the empty page separately
-with `npm run dev` or `npm run desktop:dev`; no Case or provider setup is needed.
+continuity, live provider UX or human acceptance. Run the web surface with
+`npm run dev`, or the native shell with `npm run desktop:dev`; neither needs
+a Case or provider setup. With the dev server running, from `studio/`:
+
+```sh
+npm run test:browser -- --matrix --run studio-shell-local
+```
+
+The separate `tests/studio/workbench.mjs` harness uses the development-only
+Playwright library and host Chromium (`STUDIO_CHROMIUM` overrides its path).
+It checks interaction, keyboard focus, panel bounds, offline requests and
+byte-identical repeated screenshots for three fixtures at four desktop sizes.
+PNG files and their manifest go to ignored `build/studio-shell/`. Use `--url`
+for a local production preview and `--output` for a separate retained run.
+This harness is frontend proof, outside the backend classification/Make union;
+its test count is not added to the core validation catalog.
 No Studio test target is added to the backend Make graph.
 
 For retained command observations, use `tools/validation/capture_evidence.py`
 with a unique run ID, increasing execution order and exact material pre-state;
 put reproducible local captures under ignored `build/`, not a new wave dossier.
 Keep backend commands, frontend builds and desktop runtime observations separate.
-A Studio-only scaffold does not change the supported Golden Case lifecycle;
-`zero-to-current.md` is unchanged until an actual product interaction is added.
+The [cumulative runbook](zero-to-current.md#studio-offline-visual-acceptance)
+includes the fixture-only operator procedure separately from live Golden.
+A visual fixture verdict cannot promote backend or human live acceptance.
 
 ## External YVEX
 
