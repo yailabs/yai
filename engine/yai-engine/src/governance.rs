@@ -42,6 +42,7 @@ pub const MAX_POLICY_JSON_DEPTH: usize = 32;
 
 mod document;
 pub use document::{extract_policy_document, PolicyDocumentExtraction, PolicyDocumentSource};
+pub use document::{route_mixed_document, ContentRegion, ContentRouting, MIXED_ROUTING_PROFILE};
 pub(crate) use document::extract_document_lines;
 const POLICY_DOCUMENT_SOURCE_SCHEMA: &str = "yai.policy_source_artifact.v5";
 
@@ -845,6 +846,15 @@ pub(crate) fn parse_strict_json(bytes: &[u8]) -> Result<Value, String> {
 }
 
 pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> {
+    compile_policy_source_profile(bytes, false)
+}
+
+/// Opt-in explicit-region profile using existing validation; never publishes or binds.
+pub fn compile_mixed_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> {
+    compile_policy_source_profile(bytes, true)
+}
+
+fn compile_policy_source_profile(bytes: &[u8], mixed: bool) -> Result<PolicyCompilation, String> {
     if bytes.is_empty() {
         return Err("policy_source_empty".to_string());
     }
@@ -857,7 +867,8 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     if bytes.starts_with(&[0xef, 0xbb, 0xbf]) {
         return Err("policy_source_utf8_bom_not_supported".to_string());
     }
-    let extracted = extract_policy_document(bytes)?;
+    let extracted = if mixed { document::extract_mixed_policy_document(bytes)? }
+        else { extract_policy_document(bytes)? };
     let document_source = extracted.document.clone();
     let content_utf8 = extracted.structured_json.clone().ok_or_else(|| format!(
         "policy_document_needs_interpretation: digest={} unresolved={}; inspect with yai policy extract",
@@ -912,7 +923,7 @@ pub fn compile_policy_source(bytes: &[u8]) -> Result<PolicyCompilation, String> 
     }
 
     let source_digest = digest_bytes(bytes);
-    let source_id = format!("policy-source:{}", digest_suffix(&source_digest));
+    let source_id = document::source_identity(bytes, extracted.source_format == "mixed_explicit_policy_regions_v1");
     let source = PolicySourceArtifact {
         schema: if document_source.is_some() {
             POLICY_DOCUMENT_SOURCE_SCHEMA
@@ -1448,6 +1459,9 @@ fn merge_provenance(provenance: &mut PolicyRuleProvenance, fact: &ParsedPolicyFa
 }
 
 impl PolicyCompilation {
+    pub fn rebuild(&self) -> Result<Self, String> {
+        compile_policy_source_profile(self.source.original_bytes(), self.source.is_mixed())
+    }
     pub fn validate(&self) -> Result<(), String> {
         self.source.validate()?;
         self.artifact.validate()?;
@@ -1476,7 +1490,7 @@ impl PolicyCompilation {
             for fact in &mut facts {
                 document::locate_fact(fact, &doc.block_location);
             }
-            unresolved.extend(extract_policy_document(&doc.original_bytes)?.unresolved);
+            unresolved.extend(document::reextract(doc)?.unresolved);
         }
         if self.artifact.parsed.facts != facts || self.artifact.parsed.unresolved != unresolved {
             return Err("policy_source_interpretation_mismatch".into());
@@ -1486,6 +1500,9 @@ impl PolicyCompilation {
 }
 
 impl PolicySourceArtifact {
+    pub fn is_mixed(&self) -> bool {
+        self.document.as_ref().is_some_and(|d| d.extractor == MIXED_ROUTING_PROFILE)
+    }
     pub fn original_bytes(&self) -> &[u8] {
         self.document
             .as_ref()
@@ -1499,13 +1516,13 @@ impl PolicySourceArtifact {
                 .document
                 .as_ref()
                 .ok_or("policy_document_original_missing")?;
-            let extracted = extract_policy_document(&doc.original_bytes)?;
+            let extracted = document::reextract(doc)?;
             if extracted.document.as_ref() != Some(doc)
                 || extracted.structured_json.as_ref() != Some(&self.content_utf8)
                 || extracted.source_format != self.source_format
                 || digest_bytes(&doc.original_bytes) != self.content_digest
                 || self.source_id
-                    != format!("policy-source:{}", digest_suffix(&self.content_digest))
+                    != document::source_identity(&doc.original_bytes, self.is_mixed())
             {
                 return Err("policy_document_extraction_integrity_mismatch".into());
             }
@@ -1676,7 +1693,10 @@ impl PolicyArtifact {
         }
         validate_identifier("source_id", &self.source_id, 96)?;
         validate_sha256_digest("source_digest", &self.source_digest)?;
-        if self.source_id != format!("policy-source:{}", digest_suffix(&self.source_digest)) {
+        if self.source_id != format!("policy-source:{}", digest_suffix(&self.source_digest))
+            && self.source_id != format!("policy-source:{}", digest_suffix(&digest_serialized(&(
+                MIXED_ROUTING_PROFILE, &self.source_digest,
+            )))) {
             return Err("policy_artifact_source_identity_mismatch".to_string());
         }
         self.validity.validate()?;

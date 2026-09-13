@@ -345,6 +345,16 @@ receipt. [Observation cuts and limits](reference/governance.md#case-bound-resour
 distinguish these Case paths from operator compatibility diagnostics and ambient
 host access. Canonical schemas and storage ownership are unchanged.
 
+The unified source frontier also has an opt-in mixed Markdown/text-PDF profile:
+exact explicit policy regions enter existing candidate compilation, while prose
+and normative documentary values remain D. Typed source routing/read/publication
+operations live below native CLI formatting; no new ingestion or authority store
+exists. Documentary-only revisions may reuse an unchanged exact policy region
+without changing the bound artifact. [Mixed routing contract](reference/governance.md#mixed-source-explicit-region-routing)
+records profile/version identity, current disclosure, explicit publication and
+the limits of single-region deterministic extraction; general prose interpretation
+remains unimplemented.
+
 Workbench inspection includes exact operations before review, policy, resources,
 effects, Workflow, history, derived memory/graph and replay. `/rebuild` rebuilds
 disposable views while verifying unchanged canonical history. Scoped Handoff

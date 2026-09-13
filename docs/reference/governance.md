@@ -233,12 +233,11 @@ by default absent an explicitly qualified sharing contract. E/B1 remains YVEX
 research, not a YAI format or implementation.
 
 Physical source identity/role is not the semantic authority of every content
-unit. Mixed normative and documentary content remains future finer-grained
-routing pressure inside the unified frontier. Policy-like units require candidate
-validation/publication/binding; other units remain knowledge/evidence. Neither a
-whole-document governance role nor a model classification elevates every unit.
-The present strict policy grammar continues to refuse unresolved mixed prose;
-this paragraph does not claim that generic mixed-source routing is implemented.
+unit. The bounded [mixed explicit-region profile](#mixed-source-explicit-region-routing)
+now routes inside the unified frontier. General natural-language interpretation
+remains unqualified. Policy-like units require candidate validation/publication/
+binding; documentary units remain evidence. Neither a whole-document governance
+role nor model classification elevates every unit.
 
 ## Input grammar
 
@@ -318,15 +317,108 @@ Document sources use `yai.policy_source_artifact.v5` with original bytes, media
 type, extractor identity and block location. JSON sources remain v4. Revalidation
 re-extracts the original document and reconstructs parsed facts and unresolved
 items; the catalog must not recompile only the extracted JSON and lose identity.
-Changing bytes at the same policy lineage/version is a conflict, not an update.
+Changing bytes at the same policy lineage/version is a conflict, not an update
+of that artifact. The separately opted-in mixed profile below may retain a new
+original with byte-identical normative JSON while reusing the existing artifact;
+it does not replace that artifact's original provenance or declared version.
 
 Prose without a block is inspectable but cannot be ingested as authoritative
-policy. A block plus other prose retains unresolved items and cannot qualify.
+policy. Under this original policy-sheet profile, a block plus other prose
+retains unresolved items and cannot qualify.
 Ambiguity must be resolved by producing an explicit reviewed structured source
 and going through normal validation/publication/binding. No heuristic, confidence
 score, model interpretation or instruction embedded in a document creates rules.
 The original source remains data; cognition receives normalized EffectivePolicy
 semantics, not an elevated copy of arbitrary source instructions.
+
+### Mixed source explicit-region routing
+
+`yai.mixed_source.explicit_regions.v1` is an opt-in deterministic representation
+profile, not a new policy grammar or ingestion owner. Declare an exact bootstrap
+file with roles `policy` + `knowledge` and media type
+`text/markdown;profile=yai-mixed-v1` or
+`application/pdf;profile=yai-mixed-v1`. Existing unparameterized sources and
+standalone `policy extract`/ingest keep their original strict interpretation.
+
+The mixed profile accepts exactly one explicit `yai-policy-json` fenced region,
+or one same-page text-PDF `YAI-POLICY-JSON-BEGIN` / `YAI-POLICY-JSON-END` region.
+Multiple/unclosed regions, nested Markdown example fences and cross-page policy
+spans refuse. The inherited text-PDF restrictions apply: no OCR, glyph boxes,
+visual interpretation or arbitrary PDF support. Strict policy JSON itself still
+uses the unchanged grammar; malformed/duplicate keys refuse, unknown rules and
+conflicts remain blocked candidates. Standalone strict JSON remains compatible.
+
+`governance::route_mixed_document` accounts for the explicit region and every
+surrounding extracted line, including blanks. It returns `yai.content_routing.v1`:
+original digest, profile, declared roles, region digest/location and derived
+route set. A region may have both `governance_candidate` and `knowledge` routes.
+Ordinary lines have only the knowledge route when declared; otherwise their empty
+route set means unassigned, not policy. Knowledge-only roles never produce a
+governance route. Operational role does not create documentary extraction.
+No keywords, filename, rank or model confidence select normative regions.
+
+Source routes are exposed through typed `LmdbRecordStore::case_source_routing_authorized`
+and `case sources routes CASE --source NAME [--revision REVISION] [--json]`.
+`yai.source_routing.v1` binds Case/requester, logical source, exact revision/path/
+backing and content-routing identities. The result is disposable; coordinates
+are Markdown line spans or PDF page/extracted-line spans, compatible with policy
+fact locations and knowledge JSON Pointer containers. Content/route/profile
+changes produce new identities. Timing is not identity. Resolving originals and
+routes uses current source disclosure before returning payload or counts; no
+live-file substitution or canonical routing Transition occurs.
+
+Only the explicit region enters existing ParsedPolicy/PolicyIr compilation.
+Its source uses the existing v5 document representation with a new tagged
+extractor/profile-bound identity; old raw-digest identities retain their meaning.
+Catalog intake reconstructs the selected profile from the exact original.
+Surrounding prose is accounted documentary material, not unresolved policy rules.
+Instruction-like prose, "must" statements and administrative self-claims remain
+non-authoritative D. Existing knowledge extraction also derives documentary
+values from the normative JSON without calling governance publication.
+
+Original bytes remain once in the existing PolicySourceArtifact backing for a
+dual-role source, not copied into a knowledge store. Initial acquisition registers
+only a candidate; explicit `case sources publish` calls the existing validation,
+publication and binding/replacement lifecycle through a typed store operation.
+Acquisition, routing and D do not themselves alter EffectivePolicy.
+
+For this opted-in exact file, later `sources acquire --source NAME --refresh`
+uses current ordinary authority, never bootstrap permission after policy binding.
+All capture/publication checks retain the source's exact Resource/perimeter.
+If only documentary surroundings change, the new original/revision is retained
+and its backing may reference the existing artifact **only when both originals
+use this mixed profile and their extracted normative JSON strings are identical**.
+No new candidate or policy version is registered in that case; the old artifact
+continues to identify its old exact normative provenance. Current D identifies
+the new revision. This is not semantic-equivalence guessing or a version collision
+override: changed JSON under the same declared policy version still refuses.
+A changed region requires a new declared version, candidate and explicit
+publication/binding; old documentary units remain attributable to old revisions.
+
+Source relationship revocation prevents routing, D, source reads and source-
+publication reuse, including historical selectors. It is not PolicyArtifact
+revocation: already-bound authority retains its independent governance lifecycle.
+To revoke that authority use the existing policy revoke/unbind path. A documentary
+route never gains current access by referring to its independently bound policy.
+
+Bounds remain explicit: at most 8,192 routing regions and 256 KiB extractor input,
+with the tighter source acquisition envelope (currently 64 KiB) where applicable.
+The policy grammar retains its separate 128-rule limit. No new canonical schema
+fields, owner, LMDB database or public YVEX contract are introduced.
+
+`make smoke-mixed-source-routing` exercises the real CLI/LMDB Markdown and PDF
+frontier, candidate/binding separation, malicious prose, D/Recall/W, revisions,
+revocation and rebuild. The `mixed_regions_are_explicit_multiroute_and_never_prose_authority`
+engine oracle separately tests old-profile compatibility, malformed grammar,
+route identity and extraction/routing/candidate/rebuild costs. Neither path uses
+a model. Knowledge/Recall/W remain epistemically typed existing consumers.
+
+Archaeology inspected `yai-dev` at `5c1c7b9d0`, `8716e685f`'s policy-basis
+cutover, adjacent Case source-intake/materialization and policy binding code.
+The remaining intake/materialization contract files are anchors, not an executable
+mixed-region parser. Current Rust document intake (`a08ede2`) and documentary
+coordinates (`616fe3b`) provide the stronger source closure and strict grammar
+reused here. No legacy planes, registries or intake trees are restored.
 
 ### Two consumers of the same normative source
 

@@ -11,7 +11,7 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source environment, source-grounded domain knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **CASE.BOUND.RESOURCE.OBSERVATION.0 — COMPLETE** at bounded native filesystem/process carrier scope: current authorization precedes protected observations, including recovery; denied requests perform zero protected host observations. [Contract and limits](docs/reference/governance.md#case-bound-resource-observation). CASE.BOUND.MODEL.SECURITY.0 and semantic refresh retain independently COMPLETE scopes. No live provider requirement, ambient host/runtime isolation claim or W → E. |
+| Selected engineering boundary | **MIXED.SOURCE.SEMANTIC.ROUTING.0 — COMPLETE** at bounded opt-in explicit-region Markdown/text-PDF scope: one exact original, derived multi-routes, existing governance lifecycle and non-authoritative D/Recall/W. [Contract and limits](docs/reference/governance.md#mixed-source-explicit-region-routing). The two Case security boundaries and semantic refresh retain COMPLETE bounded scopes. No live provider requirement or W → E. |
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
 | Most important structural gap | Bounded S/Recall → W, exact-group paging, explicit same-task refresh, as-of reconstruction, source bootstrap, deterministic D and integrated D/H/S Recall exist. Broader task sufficiency/source interpretation, general neighborhood expansion/temporal validity, automatic consumer convergence and a public W → E consumer remain unqualified. |
 | Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
@@ -500,7 +500,7 @@ ESTABLISHED=32 PARTIAL=28 OPEN=9 LATER=4 TOTAL=73
 
 | ID | Property | Maturity | Evidence / precise boundary |
 |---|---|---|---|
-| A01 | Immutable policy source/IR/publication supply chain | 🟢 ESTABLISHED | [Governance hardening][governance], [Golden deck][golden]; [document intake](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/governance-cognitive-context/REPORT.md) adds exact JSON/Markdown-block/text-PDF representations of the same bounded grammar. Unsupported prose remains unresolved; no general enterprise-policy interpreter. |
+| A01 | Immutable policy source/IR/publication supply chain | 🟢 ESTABLISHED | [Governance hardening][governance], [Golden deck][golden]; [document intake](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/governance-cognitive-context/REPORT.md) adds exact JSON/Markdown-block/text-PDF representations of the same bounded grammar. [Opt-in mixed regions](docs/reference/governance.md#mixed-source-explicit-region-routing) account for surrounding documentary content without elevating it into PolicyIr; unchanged normative JSON can retain its existing artifact while documentary revisions advance. Legacy strict prose remains unresolved; no general natural-language policy interpreter. |
 | A02 | Exact Case binding and READY EffectivePolicy materialization | 🟢 ESTABLISHED | [Materialization][policy], [Golden][golden]; publication alone grants no authority. |
 | A03 | ALLOW / DENY / REQUIRE_REVIEW, review and finite Grant | 🟢 ESTABLISHED | [Admission][admission], [Golden][golden]; DENY has no Grant/effect, model cannot self-approve. [Case-bound security](docs/reference/governance.md#case-bound-model-security) adds noncompliant native model attempts and exact identity/argument negatives; no model refusal prerequisite or ambient runtime isolation claim. |
 | A04 | Local Principal/Tenant/Participant and disclosure isolation | 🟢 ESTABLISHED | [Security][security], [Golden isolation][golden]; local POSIX trust model, not enterprise authentication. |
@@ -855,7 +855,8 @@ Independent external/provider qualification tracks remain visible below; they
 are not additional selected implementation rows. Success never automatically
 authorizes the next experiment.
 
-Selected implementation boundary: **CASE.BOUND.RESOURCE.OBSERVATION.0**.
+Selected implementation boundary: **MIXED.SOURCE.SEMANTIC.ROUTING.0**.
+CASE.BOUND.RESOURCE.OBSERVATION.0 remains COMPLETE at bounded native carrier scope.
 CASE.BOUND.MODEL.SECURITY.0 remains COMPLETE at its independently qualified scope.
 PROMPT-INDEPENDENT.SEMANTIC.REFRESH.0 remains COMPLETE at bounded explicit-preflight scope.
 SCOPED.SEMANTIC.PAGING.0 retains its independently complete exact-group scope.
@@ -866,18 +867,18 @@ Next implementation boundary: **UNSELECTED**.
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| CASE.BOUND.RESOURCE.OBSERVATION.0 | COMPLETE | A E O Q | [Typed authorized observations and zero-host-read oracles](engine/yai-engine/src/store/lmdb.rs), exact filesystem/process carrier binding, current policy/review/finite-Grant qualification, same-generation revoke and hidden/absent controls. Native pre-PREPARE/recovery reads are mediated; independent PREPARE/final fences and recorded-effect settlement remain intact. Publication union, characterization, malicious-model regression and Golden local PASS. A05 evidence strengthened without maturity promotion; canonical schema/owner/database delta zero. [Bounded limits](docs/reference/governance.md#case-bound-resource-observation): no continuous host/authority lock or ambient isolation claim, no new owner/database, live YVEX requirement or W → E. |
+| MIXED.SOURCE.SEMANTIC.ROUTING.0 | COMPLETE | K A M O X Q | [Exact mixed-region contract](docs/reference/governance.md#mixed-source-explicit-region-routing) and [real CLI/LMDB oracle](tests/characterization/source-grounded-knowledge/test_mixed_routing.py): one explicit Markdown/text-PDF region, documentary surroundings, multi-route identity, strict candidate validation/publication/binding, independent documentary/policy revisions, current disclosure/revoke and exact historical backing. Existing D/Recall/W preserve epistemic classes; restart/rebuild and zero routing Transition/model calls qualified. Publication union, characterization, security regressions and Golden local PASS. A01 evidence strengthened without maturity promotion; canonical schema/owner/database delta zero. No general prose interpretation or W → E. |
 <!-- execution:end -->
 
-**Primary programs: A / E / O / Q; existing admission owns security.**
+**Primary programs: K / A / M / O / X / Q; existing source and governance owners retain authority.**
 [CASE.SOURCE.BOOTSTRAP.0][source-bootstrap], [SOURCE.GROUNDED.KNOWLEDGE.0][knowledge]
 and [RECALL.TRACE.0][recall] retain their independently earned bounded scopes.
 Integrated D/H/S Recall remains independently earned. The bounded W consumer
 does not create new audit authority or YVEX optimization. GOVERNANCE.COGNITIVE.CONTEXT.0's YAI-owned
 implementation selection is finished; its real model-awareness evidence remains
 NOT QUALIFIED / external qualification incomplete. That does not block unrelated
-YAI implementation selection; this security wave requires only local deterministic
-provider fixtures, not live YVEX.
+YAI implementation selection; this mixed-source wave requires deterministic local
+source/application fixtures, not live YVEX.
 
 **PROMPT-INDEPENDENT.SEMANTIC.REFRESH.0 INTERLOCK CHECK:** same-task recovery,
 request-scoped source/history revalidation, current authority, existing Recall and
@@ -954,13 +955,22 @@ qualification and exact carrier-target binding compose existing YAI owners.
 No YVEX execution, dependency pin, StateProfile, W → E or BOUNDARY registration;
 **I07 remains UNSELECTED**. Rings 3/4 remain runtime/host responsibilities.
 
-**Mixed policy/knowledge content routing — future, UNSELECTED:** physical source
+**MIXED.SOURCE.SEMANTIC.ROUTING.0 INTERLOCK CHECK:** source routing and profile-aware
+candidate reconstruction compose existing YAI owners. No shared public contract,
+producer pin or BOUNDARY registration is introduced; **I07 remains UNSELECTED**.
+
+**Mixed policy/knowledge content routing — COMPLETE at bounded explicit-region scope:** physical source
 identity/role is not semantic authority of every content unit. One exact revision
 may feed both pipelines, but policy-like units require candidate validation,
 publication and binding; documentary units remain evidence. Neither whole-file
 governance role nor model classification makes all text authoritative. This is
 finer-grained routing inside the existing unified source frontier, not another
-intake system; current strict policy extraction still refuses unresolved prose.
+intake system. The [opt-in explicit-region profile](docs/reference/governance.md#mixed-source-explicit-region-routing)
+qualifies exact single-region Markdown and same-page text-PDF routing; legacy
+strict policy sheets still refuse unresolved prose. A documentary-only revision
+does not republish unchanged normative JSON; a changed policy region requires the
+normal version/candidate/publication/binding lifecycle. Neither route bypasses
+current source disclosure. General learned/prose interpretation is not selected.
 
 The [implementation evidence][state-refoundation] records composition, compiler
 identities, scope/budget refusal and full/delta fallback. Only derived contracts

@@ -173,49 +173,22 @@ pub(crate) fn command(id: &str, args: &[String]) -> Result<Value, String> {
             }
         }
         "yai.case.sources.publish" => {
-            let name = named_arg(args, "--source")?;
-            let reason = named_arg(args, "--reason")?;
-            let (state, source) = store.case_source_authorized(&auth, &case, &name)?;
-            if !source.declaration.roles.contains(&SourceRole::Policy) {
-                return Err("knowledge_source_is_not_policy".into());
-            }
-            if state.sources.iter().any(|s| {
-                s.declaration.bootstrap_policy
-                    && !s
-                        .progress
-                        .as_ref()
-                        .is_some_and(|p| p.phase == SourcePhase::Acquired)
-            }) {
-                return Err(
-                    "all_bootstrap_policy_sources_must_be_acquired_before_publication".into(),
-                );
-            }
-            let revision = source
-                .progress
-                .as_ref()
-                .and_then(|p| p.revision.as_ref())
-                .ok_or("policy_source_not_acquired")?;
-            for item in &revision.items {
-                let SourceBacking::Policy { artifact_id, .. } = &item.backing else {
-                    return Err("source_has_no_policy_candidate".into());
-                };
-                store.validate_tenant_policy_artifact(&auth, artifact_id, &reason)?;
-                store.publish_tenant_policy_artifact(&auth, artifact_id, &reason)?;
-                let current = store.get_case_state_authorized(&auth, &case)?;
-                if !current
-                    .policy_bindings
-                    .iter()
-                    .any(|b| b.artifact_id == *artifact_id)
-                {
-                    store.bind_tenant_case_policy(
-                        &auth,
-                        &case,
-                        artifact_id,
-                        current.generation,
-                        &reason,
-                    )?;
-                }
-            }
+            store.publish_case_source_policy_authorized(
+                &auth,
+                &case,
+                &named_arg(args, "--source")?,
+                &named_arg(args, "--reason")?,
+            )?;
+        }
+        "yai.case.sources.routes" => {
+            let view = store.case_source_routing_authorized(
+                &auth,
+                &case,
+                &named_arg(args, "--source")?,
+                optional_arg(args, "--revision").as_deref(),
+                &yai_core_engine::conversation::ConversationContentStore::open(&yai_home())?,
+            )?;
+            return serde_json::to_value(view).map_err(|e| e.to_string());
         }
         "yai.case.sources.revoke" => {
             let name = named_arg(args, "--source")?;
@@ -643,103 +616,42 @@ fn read(
     name: &str,
     revision: Option<&str>,
 ) -> Result<Value, String> {
-    let (state, source) = store.case_source_authorized(auth, case, name)?;
-    if store
-        .case_source_permission(auth, case, name, None)?
-        .outcome
-        != DecisionOutcome::Allow
-    {
-        return Err("source_not_available".into());
-    }
-    let history = store.list_case_transitions(case)?;
-    let captured = if let Some(id) = revision {
-        history.iter().rev().find_map(|t| match &t.payload {
-            TransitionPayload::CaseSourceProgressed { progress }
-                if progress.source_id == source.declaration.source_id =>
-            {
-                progress
-                    .revision
-                    .as_ref()
-                    .filter(|r| r.revision_id == id)
-                    .cloned()
-            }
-            _ => None,
-        })
-    } else {
-        source.progress.and_then(|p| p.revision)
-    }
-    .ok_or("source_revision_not_available")?;
-    let mut output = Vec::new();
-    for item in &captured.items {
-        let bytes = match &item.backing {
-            SourceBacking::Policy { source_id, .. } => store
-                .get_policy_source_authorized(auth, state.tenant_id.as_deref().unwrap(), source_id)?
-                .original_bytes()
-                .to_vec(),
-            SourceBacking::Content { admission_id } => {
-                if store
-                    .case_source_permission(
-                        auth,
-                        case,
-                        name,
-                        Some(ResourceAction::ContentRead {
-                            admission_id: admission_id.clone(),
-                        }),
-                    )?
-                    .outcome
-                    != DecisionOutcome::Allow
-                {
-                    return Err("source_not_available".into());
-                }
-                let admission = history
-                    .iter()
-                    .find_map(|t| match &t.payload {
-                        TransitionPayload::CaseContentAdmitted { admission }
-                            if admission.admission_id == *admission_id =>
-                        {
-                            Some(admission)
-                        }
-                        _ => None,
-                    })
-                    .ok_or("source_backing_unavailable")?;
-                yai_core_engine::conversation::ConversationContentStore::open(&yai_home())?
-                    .read_bytes(&admission.object)?
-            }
-            SourceBacking::Observation { observation_id } => {
-                let o = history
-                    .iter()
-                    .find_map(|t| match &t.payload {
-                        TransitionPayload::ResourceObservationRecorded { observation }
-                            if observation.observation_id == *observation_id =>
-                        {
-                            Some(observation)
-                        }
-                        _ => None,
-                    })
-                    .ok_or("source_backing_unavailable")?;
-                serde_json::to_vec(&o.result).map_err(|e| e.to_string())?
-            }
-        };
-        if digest_bytes(&bytes) != item.digest || bytes.len() as u64 != item.bytes {
-            return Err("source_backing_integrity_mismatch".into());
-        }
-        output.push(json!({"path":item.path,"digest":item.digest,"bytes":item.bytes,"backing":item.backing,"text":std::str::from_utf8(&bytes).ok(),
-            "binary_posture":if std::str::from_utf8(&bytes).is_err() { "exact_binary_backing_not_rendered" } else { "text" }}));
-    }
-    if store.get_case_state_authorized(auth, case)?.generation != state.generation
-        || store
-            .case_source_permission(auth, case, name, None)?
-            .outcome
-            != DecisionOutcome::Allow
-    {
-        return Err("source_visibility_changed_during_read".into());
-    }
+    let resolved = store.resolve_case_source_authorized(
+        auth,
+        case,
+        name,
+        revision,
+        &yai_core_engine::conversation::ConversationContentStore::open(&yai_home())?,
+    )?;
+    let output: Vec<_> = resolved.items.iter().map(|(item, bytes)| json!({
+        "path":item.path,"digest":item.digest,"bytes":item.bytes,"backing":item.backing,
+        "text":std::str::from_utf8(bytes).ok(),
+        "binary_posture":if std::str::from_utf8(bytes).is_err() {"exact_binary_backing_not_rendered"} else {"text"}
+    })).collect();
     Ok(
-        json!({"case_id":case,"source_id":source.declaration.source_id,"revision_id":captured.revision_id,"items":output,"authority":"current_policy_only"}),
+        json!({"case_id":case,"source_id":resolved.declaration.source_id,
+        "revision_id":resolved.revision.revision_id,"items":output,"authority":"current_policy_only"}),
     )
 }
 
 pub(crate) fn render(value: &Value) {
+    if value["schema"] == "yai.source_routing.v1" {
+        println!(
+            "Case source routing — {}\n{}\n{}",
+            value["case_id"], value["source_id"], value["revision_id"]
+        );
+        for item in value["items"].as_array().into_iter().flatten() {
+            println!("{} roles={}", item[0]["path"], item[1]["roles"]);
+            for region in item[1]["regions"].as_array().into_iter().flatten() {
+                println!(
+                    "  {}  {}  {}",
+                    region["location"], region["routes"], region["id"]
+                );
+            }
+        }
+        println!("Routes are derived eligibility, never publication or current authority.");
+        return;
+    }
     println!(
         "Case sources — {} @ {}",
         value["case_id"].as_str().unwrap_or(""),

@@ -1507,6 +1507,20 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         ]
     ),
     op!(
+        "yai.case.sources.routes",
+        ["case", "sources", "routes"],
+        "Inspect exact derived content routes under current source disclosure",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--source", Some("SOURCE"), true),
+            flag("--revision", Some("REVISION"), false)
+        ]
+    ),
+    op!(
         "yai.case.sources.read",
         ["case", "sources", "read"],
         "Resolve exact acquired backing under current source disclosure",

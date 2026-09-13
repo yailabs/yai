@@ -54,6 +54,22 @@ Non-bootstrap policy-role material is acquired as ordinary exact material; this
 release does not automatically interpret or publish it. The standalone policy
 authoring lifecycle remains available under its existing authority.
 
+The opt-in [mixed explicit-region profile](reference/governance.md#mixed-source-explicit-region-routing)
+supports `policy` + `knowledge` exact files with
+`text/markdown;profile=yai-mixed-v1` or `application/pdf;profile=yai-mixed-v1`.
+Only the explicit normative region produces a candidate; surrounding material
+remains documentary. `case sources routes CASE --source NAME --json` shows exact
+region roles and backing under current disclosure. Its typed owner is below CLI
+formatting. Routing is not publication and is not a new acquisition registry.
+
+For these opted-in files, refresh after bootstrap uses current ordinary authority.
+A documentary-only change retains a new exact original/revision while reusing the
+old PolicyArtifact only for byte-identical extracted JSON. No new EffectivePolicy
+is produced. Changed normative JSON needs its normal new declared version and
+explicit publication/replacement. Both consumers reuse the PolicySourceArtifact
+original; no second original is acquired for the knowledge role. Pure legacy
+policy-sheet profiles retain their previous bounded behavior.
+
 Then `case sources acquire CASE` or `case sources resume CASE` executes ordinary
 Resource requests, Decisions and content admission/observations. DENY precedes
 payload acquisition; REQUIRE_REVIEW pauses through the existing review owner.

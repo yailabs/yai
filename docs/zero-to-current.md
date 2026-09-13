@@ -50,6 +50,17 @@ zero-host-observation counters. `make check characterization` and
 malicious-model smoke remains independently required. No new security command,
 provider execution or operator canary reset is needed.
 
+For a mixed handbook, declare the exact file with `policy` and `knowledge` roles
+and `text/markdown;profile=yai-mixed-v1` (or the supported text-PDF equivalent).
+Surrounding prose remains documentary; exactly one explicit policy JSON region
+enters candidate intake. Use existing `case sources acquire`, inspect the
+candidate with `policy show`, and explicitly `case sources publish` after review.
+After governance is READY, `case sources routes CASE --source NAME --json` shows
+the exact derived regions; `case knowledge inspect` and `case context compile`
+retain documentary versus current-control posture. Routing requires no model.
+`make smoke-mixed-source-routing` is the automated product proof, not Human Golden.
+See [profile, revision and revocation limits](reference/governance.md#mixed-source-explicit-region-routing).
+
 ### Human live-provider preparation
 
 Use an unprivileged Linux x86_64 host with Landlock ABI 6 or newer, seccomp and

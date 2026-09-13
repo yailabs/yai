@@ -117,6 +117,23 @@ pub struct SourceRevision {
     pub items: Vec<SourceRevisionItem>,
 }
 
+/// Derived application inspection; physical regions never constitute authority.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct SourceRoutingView {
+    pub schema: String,
+    pub id: String,
+    pub case_id: String,
+    pub source_id: String,
+    pub revision_id: String,
+    pub items: Vec<(SourceRevisionItem, crate::governance::ContentRouting)>,
+}
+
+pub struct ResolvedCaseSource {
+    pub declaration: CaseSourceDeclaration,
+    pub revision: SourceRevision,
+    pub items: Vec<(SourceRevisionItem, Vec<u8>)>,
+}
+
 impl SourceRevision {
     pub fn new(source_id: &str, mut items: Vec<SourceRevisionItem>) -> Result<Self, String> {
         items.sort_by(|a, b| a.path.cmp(&b.path));

@@ -6,6 +6,153 @@ use crate::effect::access::{read_confined_file, ResourceAction, ResourceRequest}
 use crate::effect::DecisionOutcome;
 
 impl LmdbRecordStore {
+    /// Exact source closure under current disclosure, shared by native reads and
+    /// routing inspection. Never rereads live files; no canonical writes.
+    pub fn resolve_case_source_authorized(
+        &self, auth: &AuthenticatedPrincipal, case: &str, name: &str, revision: Option<&str>,
+        content: &crate::conversation::ConversationContentStore,
+    ) -> Result<ResolvedCaseSource, String> {
+        let (state, source) = self.case_source_authorized(auth, case, name)?;
+        if source.progress.as_ref().is_none_or(|p| p.phase != SourcePhase::Acquired) {
+            return Err("source_not_available".into());
+        }
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        if self.source_permission_txn(&txn, &state, &source.declaration, source.declaration.action.clone())?.outcome != DecisionOutcome::Allow {
+            return Err("source_not_available".into());
+        }
+        let history = self.list_case_transitions_txn(&txn, case)?;
+        let captured = if let Some(id) = revision {
+            history.iter().rev().find_map(|t| match &t.payload {
+                TransitionPayload::CaseSourceProgressed { progress } if progress.source_id == source.declaration.source_id =>
+                    progress.revision.as_ref().filter(|r| r.revision_id == id).cloned(),
+                _ => None,
+            })
+        } else { source.progress.as_ref().and_then(|p| p.revision.clone()) }.ok_or("source_not_available")?;
+        let mut items = Vec::new();
+        for item in &captured.items {
+            let bytes = match &item.backing {
+                SourceBacking::Policy { source_id, artifact_id } => self.source_policy_original_txn(
+                    &txn, state.tenant_id.as_deref().ok_or("source_requires_tenant")?, source_id, artifact_id
+                )?.original_bytes().to_vec(),
+                SourceBacking::Content { admission_id } => {
+                    if self.source_permission_txn(&txn, &state, &source.declaration,
+                        ResourceAction::ContentRead { admission_id: admission_id.clone() })?.outcome != DecisionOutcome::Allow {
+                        return Err("source_not_available".into());
+                    }
+                    let a = history.iter().find_map(|t| match &t.payload {
+                        TransitionPayload::CaseContentAdmitted { admission } if admission.admission_id == *admission_id => Some(admission),
+                        _ => None,
+                    }).ok_or("source_backing_unavailable")?;
+                    content.read_bytes(&a.object)?
+                }
+                SourceBacking::Observation { observation_id } => {
+                    let o = history.iter().find_map(|t| match &t.payload {
+                        TransitionPayload::ResourceObservationRecorded { observation } if observation.observation_id == *observation_id => Some(observation),
+                        _ => None,
+                    }).ok_or("source_backing_unavailable")?;
+                    serde_json::to_vec(&o.result).map_err(|e| e.to_string())?
+                }
+            };
+            if digest_bytes(&bytes) != item.digest || bytes.len() as u64 != item.bytes { return Err("source_backing_integrity_mismatch".into()); }
+            items.push((item.clone(), bytes));
+        }
+        drop(txn);
+        if self.get_case_state_authorized(auth, case)?.generation != state.generation
+            || self.case_source_permission(auth, case, name, None)?.outcome != DecisionOutcome::Allow {
+            return Err("source_visibility_changed_during_read".into());
+        }
+        Ok(ResolvedCaseSource { declaration: source.declaration, revision: captured, items })
+    }
+
+    pub fn case_source_routing_authorized(
+        &self, auth: &AuthenticatedPrincipal, case: &str, name: &str, revision: Option<&str>,
+        content: &crate::conversation::ConversationContentStore,
+    ) -> Result<SourceRoutingView, String> {
+        let resolved = self.resolve_case_source_authorized(auth, case, name, revision, content)?;
+        let mut items = Vec::new();
+        for (item, bytes) in resolved.items {
+            let routing = crate::governance::route_mixed_document(&bytes, &resolved.declaration.roles)?;
+            items.push((item, routing));
+        }
+        let mut view = SourceRoutingView { schema: "yai.source_routing.v1".into(), id: String::new(), case_id: case.into(),
+            source_id: resolved.declaration.source_id, revision_id: resolved.revision.revision_id, items };
+        view.id = format!("source-routing:{}", &digest_bytes(&serde_json::to_vec(&(&view, auth.projected_principal_id())).map_err(|e| e.to_string())?)[7..]);
+        Ok(view)
+    }
+
+    /// Explicit operator publication, through the existing catalog and exact
+    /// binding/replacement owners. Source role/routing alone cannot call this.
+    pub fn publish_case_source_policy_authorized(
+        &self, auth: &AuthenticatedPrincipal, case: &str, name: &str, reason: &str,
+    ) -> Result<(), String> {
+        let (state, source) = self.case_source_authorized(auth, case, name)?;
+        if !source.declaration.roles.contains(&SourceRole::Policy) { return Err("knowledge_source_is_not_policy".into()); }
+        if source.progress.as_ref().is_none_or(|p| p.phase != SourcePhase::Acquired)
+            || state.sources.iter().any(|s| s.declaration.bootstrap_policy
+                && s.progress.as_ref().is_none_or(|p| p.phase != SourcePhase::Acquired)) {
+            return Err("all_bootstrap_policy_sources_must_be_acquired_before_publication".into());
+        }
+        for item in &source.progress.as_ref().unwrap().revision.as_ref().ok_or("policy_source_not_acquired")?.items {
+            let SourceBacking::Policy { artifact_id, .. } = &item.backing else { return Err("source_has_no_policy_candidate".into()); };
+            self.validate_tenant_policy_artifact(auth, artifact_id, reason)?;
+            self.publish_tenant_policy_artifact(auth, artifact_id, reason)?;
+            let current = self.get_case_state_authorized(auth, case)?;
+            if current.policy_bindings.iter().any(|b| b.artifact_id == *artifact_id) { continue; }
+            let artifact = self.get_policy_artifact(artifact_id)?.ok_or("policy_source_not_acquired")?;
+            let prior = current.policy_bindings.iter().find(|b| self.get_policy_artifact(&b.artifact_id)
+                .ok().flatten().is_some_and(|a| a.lineage() == artifact.lineage()));
+            if let Some(prior) = prior {
+                self.replace_tenant_case_policy(auth, case, &prior.binding_id, artifact_id, current.generation, reason)?;
+            } else { self.bind_tenant_case_policy(auth, case, artifact_id, current.generation, reason)?; }
+        }
+        Ok(())
+    }
+
+    /// Current authority for the declared exact policy file. Setup is available
+    /// only before any binding; later revision capture uses ordinary policy.
+    pub(super) fn source_policy_capture_allowed_txn<T: Transaction>(
+        &self, txn: &T, state: &CaseState, d: &CaseSourceDeclaration,
+    ) -> Result<(), String> {
+        if !d.bootstrap_policy || !d.roles.contains(&SourceRole::Policy)
+            || state.sources.iter().find(|s| s.declaration.source_id == d.source_id)
+                .and_then(|s| s.progress.as_ref()).is_some_and(|p| p.phase == SourcePhase::Revoked) {
+            return Err("source_policy_capture_not_authorized".into());
+        }
+        state.resources.iter().find(|r| r.attachment_id == d.resource_attachment_id)
+            .and_then(|r| r.access.as_ref()).ok_or("source_resource_unavailable")?
+            .admits_request(&d.participant_id, &d.request())?;
+        let governed = self.list_case_transitions_txn(txn, &state.case_id)?.iter().any(|t|
+            matches!(t.payload, TransitionPayload::CasePolicyBound { .. }
+                | TransitionPayload::CasePolicyReplaced { .. } | TransitionPayload::CasePolicyUnbound { .. }));
+        if governed {
+            if !d.media_type.ends_with(";profile=yai-mixed-v1") {
+                return Err("source_bootstrap_authority_unavailable".into());
+            }
+            if self.source_permission_txn(txn, state, d, d.action.clone())?.outcome != DecisionOutcome::Allow {
+                return Err("source_current_authority_refused".into());
+            }
+            Ok(())
+        } else { self.source_bootstrap_allowed_txn(txn, state, d) }
+    }
+
+    /// Mixed profile only: newer documentary surroundings may retain the exact
+    /// already-catalogued normative JSON, without republishing its authority.
+    fn source_policy_original_txn<T: Transaction>(
+        &self, txn: &T, tenant: &str, source_id: &str, artifact_id: &str,
+    ) -> Result<crate::governance::PolicySourceArtifact, String> {
+        let artifact = self.policy_artifact_txn(txn, artifact_id)?;
+        if artifact.tenant_id.as_deref() != Some(tenant) { return Err("source_backing_unavailable".into()); }
+        let original = decode_policy_source(txn.get(self.policy_sources_by_id, &policy_source_key(source_id))
+            .map_err(|_| "source_backing_unavailable")?)?;
+        if artifact.source_id != source_id {
+            let normative = decode_policy_source(txn.get(self.policy_sources_by_id, &policy_source_key(&artifact.source_id))
+                .map_err(|_| "source_backing_unavailable")?)?;
+            if !original.is_mixed() || !normative.is_mixed() || original.content_utf8 != normative.content_utf8 {
+                return Err("source_policy_region_mismatch".into());
+            }
+        }
+        Ok(original)
+    }
     /// Qualified D inputs in one current authorization/catalog/history snapshot.
     /// No live-source read, acquisition, canonical write or cached-view trust.
     /// Missing and hidden source selectors share the same refusal. Hidden
@@ -237,15 +384,7 @@ impl LmdbRecordStore {
                             source_id,
                             artifact_id,
                         } => {
-                            let artifact = self.policy_artifact_txn(txn, artifact_id)?;
-                            if artifact.tenant_id.as_deref() != Some(tenant)
-                                || artifact.source_id != *source_id
-                            {
-                                return Err("knowledge_source_not_available".into());
-                            }
-                            txn.get(self.policy_sources_by_id, &policy_source_key(source_id))
-                                .ok()
-                                .and_then(|b| decode_policy_source(b).ok())
+                            self.source_policy_original_txn(txn, tenant, source_id, artifact_id).ok()
                                 .map(|s| s.original_bytes().to_vec())
                         }
                         SourceBacking::Content { admission_id } => {
@@ -542,8 +681,7 @@ impl LmdbRecordStore {
         let (state, source) = self.case_source_authorized(auth, case, name)?;
         let d = &source.declaration;
         let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
-        self.validate_source_declaration_txn(&txn, &state, d)?;
-        self.source_bootstrap_allowed_txn(&txn, &state, d)?;
+        self.source_policy_capture_allowed_txn(&txn, &state, d)?;
         drop(txn);
         let ResourceAction::Discover { path } = &d.action else {
             return Err("bootstrap_policy_requires_exact_file".into());
@@ -570,12 +708,16 @@ impl LmdbRecordStore {
         )?;
         let tenant_id = state.tenant_id.as_deref().ok_or("source_requires_tenant")?;
         let tenant = self.get_tenant(tenant_id)?.ok_or("tenant_not_visible")?;
+        let compiled = if d.media_type.ends_with(";profile=yai-mixed-v1") {
+            if !d.roles.contains(&SourceRole::Knowledge) { return Err("mixed_policy_capture_requires_dual_roles".into()); }
+            crate::governance::compile_mixed_policy_source(&bytes)?
+        } else { compile_policy_source(&bytes)? };
         let compilation = scope_policy_compilation(
-            &compile_policy_source(&bytes)?,
+            &compiled,
             tenant_id,
             &tenant.organization_ref,
         )?;
-        self.ingest_policy_compilation_inner(
+        let ingested = self.ingest_policy_compilation_inner(
             &compilation,
             &auth.projected_principal_id(),
             Some(tenant_id),
@@ -589,7 +731,7 @@ impl LmdbRecordStore {
                 bytes: bytes.len() as u64,
                 backing: SourceBacking::Policy {
                     source_id: compilation.source.source_id,
-                    artifact_id: compilation.artifact.artifact_id,
+                    artifact_id: ingested.view.artifact.artifact_id,
                 },
             }],
         )
@@ -832,15 +974,9 @@ impl LmdbRecordStore {
                     source_id,
                     artifact_id,
                 } => {
-                    self.source_bootstrap_allowed_txn(txn, state, d)?;
-                    let artifact = self.policy_artifact_view_txn(txn, artifact_id)?.artifact;
-                    if artifact.source_id != *source_id || artifact.tenant_id != state.tenant_id {
-                        return Err("source_policy_backing_scope_mismatch".into());
-                    }
-                    let bytes = txn
-                        .get(self.policy_sources_by_id, &policy_source_key(source_id))
-                        .map_err(|_| "source_backing_unavailable")?;
-                    let original = decode_policy_source(bytes)?;
+                    self.source_policy_capture_allowed_txn(txn, state, d)?;
+                    let original = self.source_policy_original_txn(txn,
+                        state.tenant_id.as_deref().ok_or("source_requires_tenant")?, source_id, artifact_id)?;
                     if let ResourceAction::Discover { path } = &d.action {
                         if item.path != *path
                             || digest_bytes(original.original_bytes()) != item.digest

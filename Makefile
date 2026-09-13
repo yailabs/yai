@@ -820,6 +820,11 @@ smoke-source-grounded-knowledge: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/source-grounded-knowledge/test_knowledge.py
 
+.PHONY: smoke-mixed-source-routing
+smoke-mixed-source-routing: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/source-grounded-knowledge/test_mixed_routing.py
+
 smoke-case-source-bootstrap: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/case-source-bootstrap/test_bootstrap.py

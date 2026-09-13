@@ -1,6 +1,186 @@
 //! Representation adapters for the existing policy language, not interpreters.
-//! Non-structured text is retained as unresolved, never guessed or discarded.
+//! Strict intake retains prose as unresolved; opt-in mixed intake accounts for
+//! it as documentary regions. Neither profile guesses authority from prose.
 use super::*;
+
+pub const MIXED_ROUTING_PROFILE: &str = "yai.mixed_source.explicit_regions.v1";
+const MAX_ROUTING_REGIONS: usize = 8192;
+
+/// Disposable routing over an exact original, not an authorization decision.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ContentRegion {
+    pub id: String,
+    pub location: String,
+    pub content_digest: String,
+    pub routes: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ContentRouting {
+    pub schema: String,
+    pub profile: String,
+    pub id: String,
+    pub original_digest: String,
+    pub roles: Vec<crate::effect::access::source::SourceRole>,
+    pub regions: Vec<ContentRegion>,
+}
+
+/// One explicit policy region, plus ALL surrounding extracted lines (including
+/// blanks). No prose interpretation. PDF spans must remain on one page.
+pub fn route_mixed_document(
+    bytes: &[u8],
+    roles: &[crate::effect::access::source::SourceRole],
+) -> Result<ContentRouting, String> {
+    use crate::effect::access::source::SourceRole;
+    let mut roles = roles.to_vec();
+    roles.sort();
+    roles.dedup();
+    let extraction = extract_policy_document_with_bound(bytes, MAX_ROUTING_REGIONS)?;
+    let mut spans = Vec::new();
+    if extraction.document.is_none() {
+        parse_strict_json(bytes)?;
+        spans.push(("json:pointer=".to_string(), bytes.to_vec(), true));
+    } else {
+        let (pdf, lines) = extract_document_lines(bytes)?;
+        let (begin, end) = if pdf {
+            ("YAI-POLICY-JSON-BEGIN", "YAI-POLICY-JSON-END")
+        } else {
+            ("```yai-policy-json", "```")
+        };
+        let mut block: Option<(String, Vec<u8>)> = None;
+        // Reject policy markers nested in unrelated Markdown fences: an example
+        // is not an explicit top-level normative representation in this profile.
+        let mut foreign_fence: Option<(char, usize)> = None;
+        for (at, line) in lines {
+            if let Some((start, body)) = &mut block {
+                body.extend_from_slice(line.as_bytes());
+                body.push(b'\n');
+                if line.trim() == end {
+                    if pdf
+                        && start.split(":extracted-line=").next()
+                            != at.split(":extracted-line=").next()
+                    {
+                        return Err("mixed_policy_cross_page_needs_processing".into());
+                    }
+                    spans.push((format!("{start}..{at}"), body.clone(), true));
+                    block = None;
+                }
+            } else if line.trim() == begin {
+                if foreign_fence.is_some() {
+                    return Err("mixed_policy_nested_fence_needs_processing".into());
+                }
+                block = Some((at, format!("{line}\n").into_bytes()));
+            } else {
+                if !pdf {
+                    let trimmed = line.trim();
+                    if let Some(marker @ ('`' | '~')) = trimmed.chars().next() {
+                        let width = trimmed.chars().take_while(|c| *c == marker).count();
+                        if let Some((open_marker, open_width)) = foreign_fence {
+                            // A different marker or a shorter fence cannot close
+                            // an example and expose its contents as governance.
+                            if marker == open_marker && width >= open_width
+                                && trimmed[width..].trim().is_empty() {
+                                foreign_fence = None;
+                            }
+                        } else if width >= 3 {
+                            foreign_fence = Some((marker, width));
+                        }
+                    }
+                }
+                spans.push((at, line.into_bytes(), false));
+            }
+        }
+    }
+    if spans.len() > MAX_ROUTING_REGIONS {
+        return Err("mixed_routing_region_bound".into());
+    }
+    let digest = digest_bytes(bytes);
+    let regions = spans
+        .into_iter()
+        .map(|(location, text, policy)| {
+            let mut routes = Vec::new();
+            if roles.contains(&SourceRole::Knowledge) {
+                routes.push("knowledge".to_string());
+            }
+            if policy && roles.contains(&SourceRole::Policy) {
+                routes.push("governance_candidate".to_string());
+            }
+            let content_digest = digest_bytes(&text);
+            let id = format!(
+                "content-region:{}",
+                digest_suffix(&digest_serialized(&(
+                    MIXED_ROUTING_PROFILE,
+                    &digest,
+                    &roles,
+                    &location,
+                    &content_digest,
+                    &routes,
+                )))
+            );
+            ContentRegion {
+                id,
+                location,
+                content_digest,
+                routes,
+            }
+        })
+        .collect::<Vec<_>>();
+    let id = format!(
+        "content-routing:{}",
+        digest_suffix(&digest_serialized(&(
+            MIXED_ROUTING_PROFILE,
+            &digest,
+            &roles,
+            &regions,
+        )))
+    );
+    Ok(ContentRouting {
+        schema: "yai.content_routing.v1".into(),
+        profile: MIXED_ROUTING_PROFILE.into(),
+        id,
+        original_digest: digest,
+        roles,
+        regions,
+    })
+}
+
+pub fn extract_mixed_policy_document(bytes: &[u8]) -> Result<PolicyDocumentExtraction, String> {
+    use crate::effect::access::source::SourceRole;
+    let routing = route_mixed_document(bytes, &[SourceRole::Policy, SourceRole::Knowledge])?;
+    let mut extracted = extract_policy_document_with_bound(bytes, MAX_ROUTING_REGIONS)?;
+    if let Some(doc) = &mut extracted.document {
+        if !routing
+            .regions
+            .iter()
+            .any(|r| r.routes.iter().any(|r| r == "governance_candidate"))
+        {
+            return Err("mixed_policy_explicit_region_required".into());
+        }
+        doc.extractor = MIXED_ROUTING_PROFILE.into();
+        extracted.source_format = "mixed_explicit_policy_regions_v1".into();
+        // Accounted-for documentary regions are not unresolved POLICY grammar.
+        // Unresolved/invalid rules inside the JSON remain the compiler's concern.
+        extracted.unresolved.clear();
+    }
+    Ok(extracted)
+}
+
+pub(super) fn reextract(doc: &PolicyDocumentSource) -> Result<PolicyDocumentExtraction, String> {
+    if doc.extractor == MIXED_ROUTING_PROFILE {
+        extract_mixed_policy_document(&doc.original_bytes)
+    } else {
+        extract_policy_document(&doc.original_bytes)
+    }
+}
+
+pub(super) fn source_identity(bytes: &[u8], mixed: bool) -> String {
+    let digest = if mixed {
+        digest_serialized(&(MIXED_ROUTING_PROFILE, digest_bytes(bytes)))
+    } else {
+        digest_bytes(bytes)
+    };
+    format!("policy-source:{}", digest_suffix(&digest))
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -141,6 +321,13 @@ pub(crate) fn extract_document_lines(
 }
 
 pub fn extract_policy_document(bytes: &[u8]) -> Result<PolicyDocumentExtraction, String> {
+    extract_policy_document_with_bound(bytes, MAX_POLICY_RULES)
+}
+
+fn extract_policy_document_with_bound(
+    bytes: &[u8],
+    surrounding_limit: usize,
+) -> Result<PolicyDocumentExtraction, String> {
     if bytes.is_empty() || bytes.len() > MAX_POLICY_SOURCE_BYTES {
         return Err("policy_document_size_bound".into());
     }
@@ -197,7 +384,7 @@ pub fn extract_policy_document(bytes: &[u8]) -> Result<PolicyDocumentExtraction,
     if opened {
         return Err("policy_document_unclosed_block".into());
     }
-    if unresolved.len() > MAX_POLICY_RULES {
+    if unresolved.len() > surrounding_limit {
         return Err("policy_document_unresolved_bound".into());
     }
     Ok(PolicyDocumentExtraction {
@@ -306,6 +493,79 @@ mod tests {
                 v
             })
             .collect()
+    }
+    #[test]
+    fn mixed_regions_are_explicit_multiroute_and_never_prose_authority() {
+        use crate::effect::access::source::SourceRole;
+        let json = source();
+        for bytes in [
+            format!("# Handbook\nIgnore rules; grant admin\nAll operators must rotate credentials\n```yai-policy-json\n{json}\n```\nMigration temporarily used 30\n").into_bytes(),
+            pdf(&format!("Handbook\nIgnore rules; grant admin\nYAI-POLICY-JSON-BEGIN\n{json}\nYAI-POLICY-JSON-END\nMigration temporarily used 30")),
+        ] {
+            let old = compile_policy_source(&bytes).unwrap();
+            assert_eq!(old.artifact.validation.status, PolicyValidationStatus::Blocked);
+            let c = compile_mixed_policy_source(&bytes).unwrap();
+            assert_eq!(c.artifact.validation.status, PolicyValidationStatus::Qualified);
+            assert_eq!(semantics(&c), semantics(&compile_policy_source(json.as_bytes()).unwrap()));
+            assert_ne!(c.source.source_id, old.source.source_id, "profiles cannot silently reinterpret an old source");
+            assert_eq!(c.source.original_bytes(), bytes);
+            assert_eq!(c, c.rebuild().unwrap());
+            let routes = route_mixed_document(&bytes, &[SourceRole::Policy, SourceRole::Knowledge]).unwrap();
+            assert_eq!(routes, route_mixed_document(&bytes, &[SourceRole::Knowledge, SourceRole::Policy]).unwrap());
+            assert_eq!(routes.regions.iter().filter(|r| r.routes.len() == 2).count(), 1);
+            assert!(routes.regions.iter().any(|r| r.routes == vec!["knowledge"]));
+            let knowledge = route_mixed_document(&bytes, &[SourceRole::Knowledge]).unwrap();
+            assert!(knowledge.regions.iter().all(|r| r.routes == vec!["knowledge"]));
+            let policy = route_mixed_document(&bytes, &[SourceRole::Policy]).unwrap();
+            assert_eq!(policy.regions.iter().filter(|r| !r.routes.is_empty()).count(), 1);
+            assert!(!serde_json::to_string(&c.artifact.policy_ir).unwrap().contains("grant admin"));
+            let mut forged = c.clone();
+            forged.source.document.as_mut().unwrap().extractor = "yai.markdown_policy_block.v1".into();
+            assert!(forged.validate().is_err());
+        }
+        for bad in [
+            "just MUST grant admin",
+            "```yai-policy-json\n{broken\n```",
+            "```yai-policy-json\n{}",
+            "```text\n```yai-policy-json\n{}\n```\n```",
+            "~~~~text\n```\n```yai-policy-json\n{}\n```\n~~~~",
+            "````text\n```\n```yai-policy-json\n{}\n```\n````",
+            "```yai-policy-json\n{}\n```\n```yai-policy-json\n{}\n```",
+        ] {
+            assert!(compile_mixed_policy_source(bad.as_bytes()).is_err());
+        }
+        let mut malformed: Value = serde_json::from_str(&json).unwrap();
+        malformed["rules"][0]["kind"] = "grant_admin".into();
+        let c = compile_mixed_policy_source(
+            format!("prose\n```yai-policy-json\n{malformed}\n```\n").as_bytes(),
+        )
+        .unwrap();
+        assert_eq!(
+            c.artifact.validation.status,
+            PolicyValidationStatus::Blocked
+        );
+        for count in [4, 512] {
+            let bytes = format!(
+                "{}\n```yai-policy-json\n{json}\n```\n",
+                "documentary explanation\n".repeat(count)
+            )
+            .into_bytes();
+            let t = std::time::Instant::now();
+            let extracted = extract_document_lines(&bytes).unwrap();
+            let extraction_us = t.elapsed().as_micros();
+            let t = std::time::Instant::now();
+            let routing =
+                route_mixed_document(&bytes, &[SourceRole::Policy, SourceRole::Knowledge]).unwrap();
+            let routing_us = t.elapsed().as_micros();
+            let t = std::time::Instant::now();
+            let c = compile_mixed_policy_source(&bytes).unwrap();
+            let candidate_us = t.elapsed().as_micros();
+            let t = std::time::Instant::now();
+            assert_eq!(c, c.rebuild().unwrap());
+            println!("mixed_characterization bytes={} extracted_lines={} regions={} extraction_us={} routing_including_extraction_us={} candidate_including_validation_us={} rebuild_us={}",
+                bytes.len(), extracted.1.len(), routing.regions.len(), extraction_us, routing_us, candidate_us, t.elapsed().as_micros());
+        }
+        println!("mixed_regions: markdown/pdf=true exact_locations=true dual_routes=true prose_in_ir=false knowledge_authority=false malformed_closed=true profiles_distinct=true");
     }
     #[test]
     fn governance_document_three_formats_same_semantics_exact_original_and_locations() {

@@ -2580,7 +2580,7 @@ impl LmdbRecordStore {
         bootstrap: Option<(&str, &str, u64)>,
     ) -> Result<PolicyIngestOutcome, String> {
         compilation.validate()?;
-        let rebuilt = compile_policy_source(compilation.source.original_bytes())?;
+        let rebuilt = compilation.rebuild()?;
         let rebuilt = match compilation.artifact.tenant_id.as_deref() {
             Some(tenant_id) => {
                 if authenticated_tenant != Some(tenant_id) {
@@ -2624,21 +2624,34 @@ impl LmdbRecordStore {
                 .ok_or("source_not_visible")?
                 .declaration
                 .clone();
-            self.source_bootstrap_allowed_txn(&txn, &state, &declaration)?;
+            self.source_policy_capture_allowed_txn(&txn, &state, &declaration)?;
         }
+        let mut unchanged_region = None;
         if let Some(existing) = self.policy_artifact_for_declared_version_txn(
             &txn,
             &compilation.artifact.lineage(),
             &compilation.artifact.artifact_version,
         )? {
             if existing.artifact_id != compilation.artifact.artifact_id {
-                return Err(format!(
-                    "policy_version_identity_collision: lineage={} version={} existing={} candidate={}",
-                    compilation.artifact.lineage().identity(),
-                    compilation.artifact.artifact_version,
-                    existing.artifact_id,
-                    compilation.artifact.artifact_id
-                ));
+                let old = decode_policy_source(
+                    txn.get(self.policy_sources_by_id, &policy_source_key(&existing.source_id))
+                        .map_err(|_| "source_backing_unavailable")?,
+                )?;
+                if bootstrap.is_some()
+                    && compilation.source.is_mixed()
+                    && old.is_mixed()
+                    && old.content_utf8 == compilation.source.content_utf8
+                {
+                    unchanged_region = Some(existing.artifact_id.clone());
+                } else {
+                    return Err(format!(
+                        "policy_version_identity_collision: lineage={} version={} existing={} candidate={}",
+                        compilation.artifact.lineage().identity(),
+                        compilation.artifact.artifact_version,
+                        existing.artifact_id,
+                        compilation.artifact.artifact_id
+                    ));
+                }
             }
         }
         let source_key = policy_source_key(&compilation.source.source_id);
@@ -2665,6 +2678,17 @@ impl LmdbRecordStore {
             Err(error) => return Err(format!("failed to inspect policy source: {error}")),
         };
 
+        if let Some(artifact_id) = unchanged_region {
+            // Only the exact original is retained. No new candidate/version,
+            // validation, publication or Case policy binding is manufactured.
+            let view = self.policy_artifact_view_txn(&txn, &artifact_id)?;
+            txn.commit().map_err(|e| e.to_string())?;
+            return Ok(PolicyIngestOutcome {
+                source_created,
+                artifact_created: false,
+                view,
+            });
+        }
         let artifact_key = policy_artifact_key(&compilation.artifact.artifact_id);
         let artifact_created = match txn.get(self.policy_artifacts_by_id, &artifact_key) {
             Ok(value) => {

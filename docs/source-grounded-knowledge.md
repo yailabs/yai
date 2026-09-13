@@ -113,6 +113,16 @@ original. Its documentary values say what that source contains; EffectivePolicy
 independently governs current operations. Building/searching/wiki rendering
 neither republishes nor rebinds it. Imported instruction-like text remains data.
 
+The [mixed source profile](reference/governance.md#mixed-source-explicit-region-routing)
+now permits exact normative blocks and surrounding prose in the same admitted
+Markdown/text-PDF original. Knowledge continues to derive both documentary prose
+and source-stated values inside the normative block using this unchanged v1
+contract. A companion `case sources routes` typed view identifies exact region
+eligibility; it does not make a knowledge unit authoritative. Documentary-only
+revision changes do not republish policy, and a policy replacement never rewrites
+old D coordinates. Recall/W consume those classes through their existing owners,
+without routing-specific ranking or prompt assembly.
+
 ## Source closure, freshness and reuse
 
 Current source access follows the bounded bootstrap contract: authenticated
