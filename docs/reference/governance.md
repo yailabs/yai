@@ -77,16 +77,88 @@ dispatch authority cuts. This is not continuous locking of arbitrary remote
 systems through a potentially long external call. Prepared uncertainty retains
 its existing reconciliation semantics.
 
-The bounded read claim concerns the typed Resource/source reads and returned
-Resource payloads above. Legacy filesystem/process carrier-internal pre-PREPARE
-observations (digest/metadata) and post-effect reconciliation are separate
-operational inspection paths: they retain their existing authority/fence
-lifecycle, not a newly qualified per-observation reference-monitor cut. In
-particular, this wave does not prove cancellation before every such host read
-when authority changes after Grant issuance. Final mutation remains gated and
-uncommitted pre-observation material is not thereby admitted or disclosed to a
-model. Stronger pre-observation mediation remains an explicit hardening gap,
-not an unexamined claim that every host I/O is contained.
+The original model-security boundary excluded legacy carrier-internal
+pre-PREPARE observations. The current Case-bound Resource observation contract
+below closes that exclusion for the native filesystem-write and process-signal
+paths, including explicit recovery reads. It does not turn every host I/O or
+operator compatibility diagnostic into a governed Case operation.
+
+### Case-bound Resource observation
+
+No protected native Case carrier observation precedes its current authority
+cut. `LmdbRecordStore::observe_filesystem_authorized` and
+`observe_process_authorized` are typed application operations, not CLI rendering.
+They authenticate the current caller, resolve exact canonical Operation,
+Decision and issued/prepared Grant, and reuse existing policy/review admission.
+Current roles, current Ready/Valid EffectivePolicy identity/digest, Grant expiry,
+Case cancellation and Resource scope are requalified. Knowing an old Grant or
+an attachment ID is not authorization. The caller supplies no substitute path,
+PID, Participant, Resource object or local binding.
+For deterministic Workflow operations the existing canonical proposal/assignment
+and the Principal on the committed Operation identify the executor; this is not
+provider impersonation or a blanket Tenant-owner exception. A different Tenant
+member cannot reuse that assignment, and hidden/absent operation references have
+the same refusal before host observation.
+
+`qualify_carrier_observation_txn` composes these existing owners in one bounded
+authorization transaction. Only after it succeeds is the persisted exact local
+binding passed to the host observation primitive. No Transition, new Grant or
+security database is produced by this read; the existing authority-time floor
+may advance. No Recall, W or retrieval is involved.
+
+| Read site / purpose | Qualification and physical boundary |
+|---|---|
+| Filesystem pre-PREPARE digest/size/type/existence | Authenticated application operation; canonical relative target and admitted root; descriptor-relative confinement. Planning/precondition evidence is still a protected read. |
+| Process pre-PREPARE `/proc` state and birth identity | Same current-authority operation, exact persisted process binding; no caller PID substitution. |
+| Filesystem carrier re-observation before replacement | Existing `ResourceFenceAuthority` implementation now checks current policy/Grant/admission as well as live fence ownership before inspection, and again at the final mutation fence. Root identity must match the fence before host I/O. |
+| Process carrier re-observation before signal | Fence/current authority now precede the `/proc` read, not only `kill`; exact process-birth target must match the fence. The final signal fence remains separate. |
+| Explicit reconciliation and uncertain process recovery | Native consumers use the authorized observation operations. Denial leaves PREPARE/indeterminate uncertainty intact; it cannot manufacture a terminal result or justify redispatch. |
+| Post-dispatch observations/receipts | Bounded completion of the just-authorized carrier attempt. Existing receipt, terminal publication and lease settlement retain their separate owners; a recorded external effect is not erased by later policy contraction. |
+| Setup and infrastructure metadata | Explicit attachment setup already authenticates the Tenant owner before root/PID capture. Reading YAI's own process birth identity to validate a fence owner is infrastructure bookkeeping, not observation of a requested protected Resource. Resource identity hashing itself performs no host read. |
+
+The named confined `ProcessRun` carrier already qualifies current Resource
+dispatch before opening/hashing its executable in `BoundedProcess::prepare`,
+then revalidates before spawn. It is not the legacy process-signal gap.
+Low-level Rust observation helpers remain host primitives for carriers and
+component fixtures; the native Case application no longer calls them directly.
+C component carriers and the operator-only `carrier fs-read` compatibility
+diagnostic are not model-offered Case Resource operations and do not acquire a
+new Case-security guarantee from this change.
+
+This is a temporal cut, not a continuous authority/host lock. Authority may
+change after qualification; the later PREPARE and final dispatch cuts remain
+independent. A failed pre-observation read appends no canonical mutation.
+PREPARE may separately record the existing legitimate Grant invalidation.
+A denied fresh inspection after PREPARE does not erase external uncertainty:
+existing receipts can still settle already-observed effects, while a new
+recovery read needs current authorization. Expired/revoked authority receives
+no permanent recovery lease. Host contents can still change between checks;
+descriptor confinement, exact process birth identity and precondition/fence
+checks retain their bounded TOCTOU responsibilities, not a global atomicity claim.
+
+Executable evidence extends the existing tests in `store/lmdb.rs`:
+`carrier_observation_current_authority_precedes_host_io`,
+`wave14_process_signal_uses_same_authority_spine_and_exact_birth_fence` and
+`h10_review_writes_rederive_roles_provenance_and_final_decision`.
+Thread-local test counters at both host observation entrypoints prove zero
+protected observations for refused calls. Positive reads, approved review,
+policy scope contraction, same-generation revoke, cross-Case/absent identity,
+binding substitution, restart and refusal before PREPARE/dispatch are covered.
+Participant role re-evaluation is additionally tested against a contracted
+current snapshot; no durable role-removal API is claimed from the additive
+ParticipantBound lifecycle. The durable scope-loss oracle uses real policy
+publication/replacement. Timings separate current-authority qualification from
+host I/O and make no constant-history-cost claim.
+
+Observation archaeology rechecked `yai-dev` at `5c1c7b9d0`, its
+`dda93ee3a` runtime admission/dispatch relocation and adjacent carrier/control
+guards (`check-runtime-control-admission-hook.py`,
+`check-ipc-dispatch-control-spine.py`). Those prove bounded call-context
+admission/deferred mutation, not an exact policy-current host-read mechanism.
+Current Rust carrier history (`0b48ede`, `f6c7c8b`) supplies the stronger
+Grant/PREPARE/shared-resource fence algorithms preserved here. Recover the
+fail-closed-before-dispatch property in these owners, not old planes, registries
+or runtime loops. No historical tree or separate recovery ledger is restored.
 
 Authorized input access cannot authorize an unrelated sink. External publication,
 send/write/network effects require their own admitted target and operation.

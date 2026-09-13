@@ -336,6 +336,15 @@ documents the shared admission path and adversarial local fixture. Model obedien
 is not enforcement; ambient provider/runtime/host access outside YAI mediation
 is explicitly outside this guarantee. No new security store or W → E is added.
 
+Native filesystem-write/process-signal pre-observations and recovery inspections
+now use typed authorized store operations before touching the protected host
+target. The shared carrier fence also requalifies current admission before
+inspection and final dispatch; exact root/process identity prevents binding
+substitution. Denial does not erase PREPARE uncertainty or admit a fabricated
+receipt. [Observation cuts and limits](reference/governance.md#case-bound-resource-observation)
+distinguish these Case paths from operator compatibility diagnostics and ambient
+host access. Canonical schemas and storage ownership are unchanged.
+
 Workbench inspection includes exact operations before review, policy, resources,
 effects, Workflow, history, derived memory/graph and replay. `/rebuild` rebuilds
 disposable views while verifying unchanged canonical history. Scoped Handoff

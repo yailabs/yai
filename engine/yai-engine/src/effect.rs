@@ -2224,12 +2224,21 @@ impl LocalFilesystemBinding {
     }
 }
 
+#[cfg(test)]
+thread_local! {
+    pub(crate) static PROTECTED_OBSERVATIONS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Low-level host primitive. Native Case consumers use the store's authorized
+/// observation operation; fenced carriers qualify before entering this helper.
 pub fn observe_filesystem(
     binding: &LocalFilesystemBinding,
     resource: &ResourceAttachmentState,
     relative_path: &str,
     observation_id: impl Into<String>,
 ) -> FilesystemObservation {
+    #[cfg(test)]
+    PROTECTED_OBSERVATIONS.with(|count| count.set(count.get() + 1));
     let observation_id = observation_id.into();
     if binding.schema == LOCAL_FILESYSTEM_BINDING_SCHEMA {
         return observe_filesystem_secure(binding, resource, relative_path, observation_id);
@@ -2621,6 +2630,12 @@ pub fn execute_fenced_filesystem_write<A: ResourceFenceAuthority>(
         .as_ref()
         .ok_or_else(|| "prepared_effect_resource_fence_missing".to_string())?;
     if prepared.schema != PREPARED_EFFECT_SCHEMA
+        || crate::resource_control::ResourceIdentity::filesystem(
+            &fence.tenant_id,
+            &binding.canonical_root,
+        )?
+        .resource_id
+            != fence.resource_id
         || case_state.tenant_id.as_deref() != Some(fence.tenant_id.as_str())
         || prepared_fence.resource_id != fence.resource_id
         || prepared_fence.tenant_id != fence.tenant_id
@@ -2799,6 +2814,8 @@ pub fn observe_process(
     binding: &LocalProcessBinding,
     observation_id: impl Into<String>,
 ) -> ProcessObservation {
+    #[cfg(test)]
+    PROTECTED_OBSERVATIONS.with(|count| count.set(count.get() + 1));
     let observation_id = observation_id.into();
     let pid = binding.process.pid;
     let stat_path = format!("/proc/{pid}/stat");
@@ -2930,6 +2947,15 @@ pub fn execute_fenced_process_signal<A: ResourceFenceAuthority>(
         || effect.grant_id != grant.grant_id
     {
         return Err("process_grant_is_not_current_prepared_authority".to_string());
+    }
+    // The mutation fence below is not permission to observe first. Qualify
+    // current authority before even reading /proc identity/state.
+    authority.validate_carrier_fence(fence)?;
+    if crate::resource_control::ResourceIdentity::process(&fence.tenant_id, &binding.process)?
+        .resource_id
+        != fence.resource_id
+    {
+        return Err("process_observation_target_mismatch".into());
     }
     let current = observe_process(
         binding,

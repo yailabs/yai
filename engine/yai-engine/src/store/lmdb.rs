@@ -5803,6 +5803,204 @@ impl LmdbRecordStore {
         Ok(PreparedCommitOutcome::Prepared(commit))
     }
 
+    /// A fresh observation is not authorized by possession of an old Grant.
+    /// Reuse canonical admission/review under current policy, before resolving
+    /// any host target. PREPARE uncertainty is never erased by a refusal here.
+    fn qualify_carrier_observation_txn(
+        &self,
+        txn: &mut RwTransaction<'_>,
+        state: &CaseState,
+        operation_id: &str,
+        grant_id: &str,
+    ) -> Result<Operation, String> {
+        if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
+            return Err("carrier_observation_not_authorized".into());
+        }
+        let history = self.list_case_transitions_txn(txn, &state.case_id)?;
+        let operation = Self::canonical_operation(state, &history, operation_id)?;
+        let current_grant = state
+            .grants
+            .iter()
+            .find(|g| g.grant_id == grant_id)
+            .filter(|g| matches!(g.status, GrantLifecycle::Issued | GrantLifecycle::Prepared))
+            .ok_or("carrier_observation_grant_not_current")?;
+        let grants: Vec<_> = history
+            .iter()
+            .filter_map(|t| match &t.payload {
+                TransitionPayload::ExecutionGrantIssued { grant } if grant.grant_id == grant_id => {
+                    Some(grant)
+                }
+                _ => None,
+            })
+            .collect();
+        let [grant] = grants.as_slice() else {
+            return Err("carrier_observation_grant_not_current".into());
+        };
+        let decision = Self::canonical_decision(state, &history, &grant.decision_id)?;
+        crate::effect::validate_grant(
+            &operation,
+            &decision,
+            grant,
+            grant.expected_case_generation,
+        )?;
+        if current_grant.operation_id != operation_id || !grant.has_current_policy_basis() {
+            return Err("carrier_observation_grant_not_current".into());
+        }
+        let now = self.advance_authority_time_txn(txn, authority_wall_time_unix_ms())?;
+        if now >= grant.expires_at_unix_ms {
+            return Err("carrier_observation_grant_expired".into());
+        }
+        let current = self.derive_expected_policy_decision_at_time_txn(
+            txn,
+            state,
+            &history,
+            &decision,
+            Some(now),
+        )?;
+        let old_basis = decision
+            .decision_basis
+            .as_ref()
+            .ok_or("carrier_observation_policy_required")?;
+        let basis = current
+            .decision_basis
+            .as_ref()
+            .ok_or("carrier_observation_policy_required")?;
+        if current.outcome != crate::effect::DecisionOutcome::Allow
+            || basis.effective_policy_id != old_basis.effective_policy_id
+            || basis.effective_policy_digest != old_basis.effective_policy_digest
+        {
+            return Err("carrier_observation_not_authorized".into());
+        }
+        Ok(operation)
+    }
+
+    /// Typed application read: no caller-provided path, binding, Decision or
+    /// Participant can replace the exact canonical Operation/Resource target.
+    pub fn observe_filesystem_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        operation_id: &str,
+        grant_id: &str,
+        observation_id: &str,
+    ) -> Result<crate::effect::FilesystemObservation, String> {
+        let mut txn = self.env.begin_rw_txn().map_err(|e| e.to_string())?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or("case_not_visible")?;
+        let context = self.resolve_security_context_txn(
+            &txn,
+            authenticated,
+            state
+                .tenant_id
+                .as_deref()
+                .ok_or("carrier_requires_tenant")?,
+        )?;
+        // Authenticate the caller before exposing operation/Grant availability.
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let operation = Self::canonical_operation(&state, &history, operation_id)
+            .map_err(|_| "carrier_observation_not_available")?;
+        Self::authorize_carrier_observer(&state, &context, &history, &operation)
+            .map_err(|_| "carrier_observation_not_available")?;
+        let operation =
+            self.qualify_carrier_observation_txn(&mut txn, &state, operation_id, grant_id)?;
+        if operation.kind != crate::effect::OperationKind::FilesystemWrite {
+            return Err("carrier_observation_kind_mismatch".into());
+        }
+        let resource = state
+            .resources
+            .iter()
+            .find(|r| r.attachment_id == operation.resource_attachment_id)
+            .ok_or("carrier_observation_not_authorized")?;
+        let binding = self
+            .local_filesystem_binding_txn(&txn, case_id, &resource.attachment_id)?
+            .ok_or("carrier_observation_binding_unavailable")?;
+        txn.commit().map_err(|e| e.to_string())?;
+        Ok(crate::effect::observe_filesystem(
+            &binding,
+            resource,
+            &operation.filesystem_write.relative_path,
+            observation_id,
+        ))
+    }
+
+    /// Process birth/state inspection uses the same authority cut as filesystem
+    /// inspection, then resolves only the persisted exact process binding.
+    pub fn observe_process_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        operation_id: &str,
+        grant_id: &str,
+        observation_id: &str,
+    ) -> Result<crate::effect::ProcessObservation, String> {
+        let mut txn = self.env.begin_rw_txn().map_err(|e| e.to_string())?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or("case_not_visible")?;
+        let context = self.resolve_security_context_txn(
+            &txn,
+            authenticated,
+            state
+                .tenant_id
+                .as_deref()
+                .ok_or("carrier_requires_tenant")?,
+        )?;
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        let operation = Self::canonical_operation(&state, &history, operation_id)
+            .map_err(|_| "carrier_observation_not_available")?;
+        Self::authorize_carrier_observer(&state, &context, &history, &operation)
+            .map_err(|_| "carrier_observation_not_available")?;
+        let operation =
+            self.qualify_carrier_observation_txn(&mut txn, &state, operation_id, grant_id)?;
+        if operation.kind != crate::effect::OperationKind::ProcessSignal {
+            return Err("carrier_observation_kind_mismatch".into());
+        }
+        let binding = self
+            .local_process_binding_txn(&txn, case_id, &operation.resource_attachment_id)?
+            .ok_or("carrier_observation_binding_unavailable")?;
+        txn.commit().map_err(|e| e.to_string())?;
+        Ok(crate::effect::observe_process(&binding, observation_id))
+    }
+
+    fn authorize_carrier_observer(
+        state: &CaseState,
+        context: &SecurityContext,
+        history: &[Transition],
+        operation: &Operation,
+    ) -> Result<(), String> {
+        if Self::authorize_resource_operation(state, context, operation).is_ok() {
+            return Ok(());
+        }
+        // Deterministic Workflow execution has its own already-admitted
+        // assignment, not a provider impersonating a Participant. Preserve the
+        // authenticated executor recorded by that canonical operation owner.
+        if let OperationOrigin::WorkflowDeterministicProposal {
+            proposal_id,
+            workflow_execution_id,
+        } = &operation.origin
+        {
+            let assigned = state.workflow_deterministic_proposals.iter().any(|p| {
+                p.proposal_id == *proposal_id
+                    && p.execution_id == *workflow_execution_id
+                    && p.participant_id == operation.participant_id
+                    && p.resource_attachment_id == operation.resource_attachment_id
+                    && state
+                        .workflow_binding
+                        .as_ref()
+                        .is_some_and(|b| b.binding_id == p.binding_id)
+            });
+            let executor = history.iter().any(|t| {
+                t.source.principal_id.as_deref() == Some(context.principal_id())
+                    && matches!(&t.payload, TransitionPayload::OperationRecorded { operation: exact } if exact == operation)
+            });
+            if assigned && executor {
+                return Ok(());
+            }
+        }
+        Err("carrier_observation_not_available".into())
+    }
+
     fn authorize_resource_operation(
         state: &CaseState,
         context: &SecurityContext,
@@ -19248,11 +19446,21 @@ fn transition_contains_canonical_fact_ref(transition: &Transition, reference: &s
 
 impl ResourceFenceAuthority for LmdbRecordStore {
     fn validate_carrier_fence(&self, fence: &ResourceFence) -> Result<(), String> {
-        let txn = self
+        let mut txn = self
             .env
-            .begin_ro_txn()
+            .begin_rw_txn()
             .map_err(|error| format!("failed to validate carrier fence: {error}"))?;
-        self.validate_carrier_fence_txn(&txn, fence, true)
+        self.validate_carrier_fence_txn(&txn, fence, true)?;
+        let state = self
+            .get_case_state_txn(&txn, &fence.case_id)?
+            .ok_or("case_not_visible")?;
+        self.qualify_carrier_observation_txn(
+            &mut txn,
+            &state,
+            &fence.operation_id,
+            &fence.grant_id,
+        )?;
+        txn.commit().map_err(|e| e.to_string())
     }
 }
 
@@ -19273,7 +19481,7 @@ mod tests {
         classify_reconciliation, decide_filesystem_write, execute_fenced_filesystem_write,
         execute_fenced_process_signal, execute_filesystem_write, issue_execution_grant,
         issue_policy_execution_grant, normalize_filesystem_write_candidate,
-        normalize_process_signal_candidate, observe_filesystem, observe_process, prepare_effect,
+        normalize_process_signal_candidate, observe_filesystem, prepare_effect,
         prepare_fenced_effect, prepare_process_effect, reseal_policy_execution_grant_for_test,
         resolve_filesystem_review_decision, validate_finalized_effect_chain, CarrierFailpoint,
         CarrierResult, EffectOutcome, LocalFilesystemBinding, LocalProcessBinding,
@@ -23095,6 +23303,73 @@ mod tests {
         );
         assert_eq!(final_commit.state.generation, 13);
         assert!(final_commit.state.grants.is_empty());
+        // Review resolution alone is not an observation Grant. The same
+        // pre-observation qualifier used by native carriers refuses first.
+        crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.set(0));
+        let mut txn = store.env.begin_rw_txn().unwrap();
+        assert!(store
+            .qualify_carrier_observation_txn(
+                &mut txn,
+                &review_commit.state,
+                &operation.operation_id,
+                "grant:absent"
+            )
+            .is_err());
+        assert!(store
+            .qualify_carrier_observation_txn(
+                &mut txn,
+                &final_commit.state,
+                &operation.operation_id,
+                "grant:absent"
+            )
+            .is_err());
+        txn.abort();
+        assert_eq!(crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+        let grant = issue_policy_execution_grant(
+            &operation,
+            &final_decision,
+            final_commit.state.generation,
+        )
+        .unwrap();
+        let basis = final_decision.decision_basis.as_ref().unwrap();
+        let granted = commit_typed(
+            &store,
+            "transition:h10:reviewed-observation-grant",
+            case_id,
+            final_commit.state.generation,
+            TransitionPayload::ExecutionGrantIssued {
+                grant: grant.clone(),
+            },
+            Some(operation.scope.clone()),
+            vec![
+                operation.operation_id.clone(),
+                final_decision.decision_id.clone(),
+                basis.basis_id.clone(),
+                basis.effective_policy_id.clone(),
+            ],
+        );
+        let mut txn = store.env.begin_rw_txn().unwrap();
+        store
+            .qualify_carrier_observation_txn(
+                &mut txn,
+                &granted.state,
+                &operation.operation_id,
+                &grant.grant_id,
+            )
+            .unwrap();
+        txn.commit().unwrap();
+        let root = temp_store_path("reviewed-observation-root");
+        fs::create_dir_all(root.join("allowed")).unwrap();
+        let binding = LocalFilesystemBinding::new(case_id, &resource.attachment_id, &root).unwrap();
+        let observed = observe_filesystem(
+            &binding,
+            &resource,
+            &operation.filesystem_write.relative_path,
+            "observation:reviewed",
+        );
+        assert_ne!(observed.state, crate::effect::ResourceState::Unavailable);
+        assert_eq!(crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.get()), 1);
+        fs::remove_dir_all(root).unwrap();
         assert!(store.verify_case_state(case_id).expect("historical replay"));
         println!(
             "h10_review_rederivation: caller_evidence={} forged_request={} wrong_reviewer={} forged_final={} canonical_final=true crash_c3_c4=true",
@@ -25639,6 +25914,318 @@ mod tests {
     }
 
     #[test]
+    fn carrier_observation_current_authority_precedes_host_io() {
+        use crate::effect::PROTECTED_OBSERVATIONS;
+        let path = temp_store_path("carrier-observation-authority");
+        let root = temp_store_path("carrier-observation-root");
+        fs::create_dir_all(root.join("allowed")).unwrap();
+        fs::write(root.join("allowed/shared.txt"), b"protected pre-state").unwrap();
+        let store = LmdbRecordStore::open(&path).unwrap();
+        let owner = AuthenticatedPrincipal::for_test(14901);
+        let outsider = AuthenticatedPrincipal::for_test(14902);
+        let tenant = "tenant:observation";
+        let case_id = "case:observation";
+        store
+            .bootstrap_local_security(&owner, tenant, "organization:wave14", 1_490_001)
+            .unwrap();
+        let chain = setup_wave14_filesystem_authority(
+            &store,
+            &owner,
+            tenant,
+            case_id,
+            "observation",
+            &root,
+            "authorized replacement",
+        );
+        let second = setup_wave14_filesystem_authority(
+            &store,
+            &owner,
+            tenant,
+            "case:observation-foreign",
+            "observation-foreign",
+            &root,
+            "foreign",
+        );
+        let observe = |store: &LmdbRecordStore,
+                       who: &AuthenticatedPrincipal,
+                       operation: &str,
+                       grant: &str| {
+            store.observe_filesystem_authorized(
+                who,
+                case_id,
+                operation,
+                grant,
+                "observation:qualified",
+            )
+        };
+        PROTECTED_OBSERVATIONS.with(|c| c.set(0));
+        let history = store.list_case_transitions(case_id).unwrap();
+        let start = std::time::Instant::now();
+        for _ in 0..20 {
+            let mut txn = store.env.begin_rw_txn().unwrap();
+            let state = store.get_case_state_txn(&txn, case_id).unwrap().unwrap();
+            store
+                .qualify_carrier_observation_txn(
+                    &mut txn,
+                    &state,
+                    &chain.operation.operation_id,
+                    &chain.grant.grant_id,
+                )
+                .unwrap();
+            txn.commit().unwrap();
+        }
+        println!(
+            "carrier_observation_authority: requests=20 qualification_us={} history={}",
+            start.elapsed().as_micros(),
+            history.len()
+        );
+        assert_eq!(PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+        let allowed = observe(
+            &store,
+            &owner,
+            &chain.operation.operation_id,
+            &chain.grant.grant_id,
+        )
+        .unwrap();
+        assert_eq!(
+            allowed.content_digest,
+            Some(digest_bytes(b"protected pre-state"))
+        );
+        assert_eq!(PROTECTED_OBSERVATIONS.with(|c| c.get()), 1);
+        PROTECTED_OBSERVATIONS.with(|c| c.set(0));
+        assert!(observe(
+            &store,
+            &outsider,
+            &chain.operation.operation_id,
+            &chain.grant.grant_id
+        )
+        .is_err());
+        let foreign = observe(
+            &store,
+            &owner,
+            &second.operation.operation_id,
+            &second.grant.grant_id,
+        )
+        .unwrap_err();
+        let absent = observe(&store, &owner, "operation:absent", "grant:absent").unwrap_err();
+        assert_eq!(foreign, absent);
+        assert!(observe(
+            &store,
+            &owner,
+            &chain.operation.operation_id,
+            &second.grant.grant_id
+        )
+        .is_err());
+        assert_eq!(PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+        assert_eq!(history, store.list_case_transitions(case_id).unwrap());
+
+        // Current-snapshot unit pressure: do not infer an unimplemented durable
+        // role-removal lifecycle from additive ParticipantBound transitions.
+        let mut without_role = store.get_case_state(case_id).unwrap().unwrap();
+        without_role
+            .participants
+            .iter_mut()
+            .find(|p| p.participant_id == "participant:model")
+            .unwrap()
+            .roles
+            .clear();
+        let mut txn = store.env.begin_rw_txn().unwrap();
+        assert!(store
+            .qualify_carrier_observation_txn(
+                &mut txn,
+                &without_role,
+                &chain.operation.operation_id,
+                &chain.grant.grant_id
+            )
+            .is_err());
+        txn.abort();
+        assert_eq!(PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+
+        // Authority contracts out of band: no Case generation change, no read.
+        let state = store.get_case_state(case_id).unwrap().unwrap();
+        store
+            .revoke_tenant_policy_artifact(
+                &owner,
+                &state.policy_bindings[0].artifact_id,
+                "revoke between observation and PREPARE",
+            )
+            .unwrap();
+        assert_eq!(
+            state.generation,
+            store.get_case_state(case_id).unwrap().unwrap().generation
+        );
+        PROTECTED_OBSERVATIONS.with(|c| c.set(0));
+        assert!(observe(
+            &store,
+            &owner,
+            &chain.operation.operation_id,
+            &chain.grant.grant_id
+        )
+        .is_err());
+        assert_eq!(PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+        assert_eq!(state, store.get_case_state(case_id).unwrap().unwrap());
+        drop(store);
+        let store = LmdbRecordStore::open(&path).unwrap();
+        assert!(store.verify_case_state(case_id).unwrap());
+        assert!(observe(
+            &store,
+            &owner,
+            &chain.operation.operation_id,
+            &chain.grant.grant_id
+        )
+        .is_err());
+        assert_eq!(PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+        // Previously observed material does not bypass the independent PREPARE cut.
+        assert!(matches!(
+            store
+                .commit_fenced_effect_prepared(
+                    wave14_prepare_pending(&store, "observation-revoked", &chain),
+                    std::process::id()
+                )
+                .unwrap(),
+            PreparedCommitOutcome::GrantInvalidated(_)
+        ));
+        assert_eq!(PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+        assert_eq!(
+            fs::read(root.join("allowed/shared.txt")).unwrap(),
+            b"protected pre-state"
+        );
+        // A separate prepared Case tests target substitution and revoke before
+        // dispatch. Refusal must leave the prepared uncertainty intact.
+        let commit = match store
+            .commit_fenced_effect_prepared(
+                wave14_prepare_pending(&store, "observation-foreign", &second),
+                std::process::id(),
+            )
+            .unwrap()
+        {
+            PreparedCommitOutcome::Prepared(commit) => commit,
+            _ => panic!("valid second Grant"),
+        };
+        let TransitionPayload::EffectPrepared { prepared } = &commit.transition.payload else {
+            unreachable!()
+        };
+        let fence = prepared.resource_fence.as_ref().unwrap();
+        let binding = store
+            .get_local_filesystem_binding(&second.operation.case_id, "resource:shared")
+            .unwrap()
+            .unwrap();
+        let mut wrong_target = binding.clone();
+        wrong_target.canonical_root = root.join("allowed").to_string_lossy().into();
+        assert!(execute_fenced_filesystem_write(
+            &store,
+            fence,
+            &second.operation,
+            &second.decision,
+            &second.grant,
+            prepared,
+            &commit.state,
+            &wrong_target,
+            &second.resource,
+            CarrierFailpoint::None
+        )
+        .is_err());
+        assert_eq!(PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+        store
+            .revoke_tenant_policy_artifact(
+                &owner,
+                &commit.state.policy_bindings[0].artifact_id,
+                "revoke after PREPARE before carrier read",
+            )
+            .unwrap();
+        assert!(execute_fenced_filesystem_write(
+            &store,
+            fence,
+            &second.operation,
+            &second.decision,
+            &second.grant,
+            prepared,
+            &commit.state,
+            &binding,
+            &second.resource,
+            CarrierFailpoint::None
+        )
+        .is_err());
+        assert_eq!(PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+        assert_eq!(
+            store
+                .get_case_state(&second.operation.case_id)
+                .unwrap()
+                .unwrap(),
+            commit.state
+        );
+        // Real authority contraction: a new published policy removes this
+        // Participant's permission. No fabricated materialization/role removal.
+        let third = setup_wave14_filesystem_authority(
+            &store,
+            &owner,
+            tenant,
+            "case:observation-scope",
+            "observation-scope",
+            &root,
+            "scope",
+        );
+        let mut source: serde_json::Value = serde_json::from_slice(&h10_authority_policy(
+            "observation-deny",
+            "1",
+            "deny",
+            false,
+        ))
+        .unwrap();
+        source["owner_ref"] = serde_json::json!("organization:wave14");
+        source["policy_key"] = serde_json::json!("wave14.shared.observation-scope");
+        source["source_version"] = serde_json::json!("2");
+        let global = compile_policy_source(&serde_json::to_vec(&source).unwrap()).unwrap();
+        let policy = scope_policy_compilation(&global, tenant, "organization:wave14").unwrap();
+        store
+            .ingest_tenant_policy_compilation(&owner, tenant, &policy)
+            .unwrap();
+        store
+            .validate_tenant_policy_artifact(
+                &owner,
+                &policy.artifact.artifact_id,
+                "scope contraction",
+            )
+            .unwrap();
+        store
+            .publish_tenant_policy_artifact(
+                &owner,
+                &policy.artifact.artifact_id,
+                "scope contraction",
+            )
+            .unwrap();
+        let current = store
+            .get_case_state(&third.operation.case_id)
+            .unwrap()
+            .unwrap();
+        store
+            .replace_tenant_case_policy(
+                &owner,
+                &third.operation.case_id,
+                &current.policy_bindings[0].binding_id,
+                &policy.artifact.artifact_id,
+                current.generation,
+                "remove operation permission",
+            )
+            .unwrap();
+        PROTECTED_OBSERVATIONS.with(|c| c.set(0));
+        assert!(store
+            .observe_filesystem_authorized(
+                &owner,
+                &third.operation.case_id,
+                &third.operation.operation_id,
+                &third.grant.grant_id,
+                "observation:scope-loss"
+            )
+            .is_err());
+        assert_eq!(PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+        println!("carrier_observation_security: allowed=true denied_host_observations=0 foreign_equals_absent=true scope_contraction=true role_snapshot_requalified=true same_generation_revoke=true restart=true prepare_refused=true");
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn wave14_shared_resource_epoch_blocks_competitor_and_stale_carrier() {
         let path = temp_store_path("wave14-shared-resource");
         let root = temp_store_path("wave14-shared-root");
@@ -26304,7 +26891,27 @@ mod tests {
                 basis.effective_policy_id.clone(),
             ],
         );
-        let pre = observe_process(&binding, "observation:w14:process:pre");
+        crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.set(0));
+        assert!(store
+            .observe_process_authorized(
+                &owner,
+                case_id,
+                &operation.operation_id,
+                "grant:absent",
+                "observation:denied"
+            )
+            .is_err());
+        assert_eq!(crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+        let pre = store
+            .observe_process_authorized(
+                &owner,
+                case_id,
+                &operation.operation_id,
+                &grant.grant_id,
+                "observation:w14:process:pre",
+            )
+            .unwrap();
+        assert_eq!(crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.get()), 1);
         let prepared_intent = prepare_process_effect(&operation, &decision, &grant, pre).unwrap();
         let mut prepare = PendingTransition::new(
             "transition:w14:process:prepare",
@@ -26338,6 +26945,7 @@ mod tests {
         let fence = prepared.resource_fence.clone().unwrap();
         let mut reused_pid_binding = binding.clone();
         reused_pid_binding.process.start_ticks += 1;
+        crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.set(0));
         let reused = execute_fenced_process_signal(
             &store,
             &fence,
@@ -26348,10 +26956,9 @@ mod tests {
             &prepare_commit.state,
             &reused_pid_binding,
         )
-        .unwrap();
-        assert_eq!(reused.outcome, EffectOutcome::Conflict);
-        assert!(!reused.signal_attempted);
-        assert!(!reused.syscall_accepted);
+        .unwrap_err();
+        assert_eq!(reused, "process_observation_target_mismatch");
+        assert_eq!(crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
         let result = execute_fenced_process_signal(
             &store,
             &fence,
@@ -26365,6 +26972,36 @@ mod tests {
         .unwrap();
         assert!(result.signal_attempted);
         assert!(result.syscall_accepted);
+        // A fresh read/signal after revocation cannot use the prepared Grant.
+        store
+            .revoke_tenant_policy_artifact(
+                &owner,
+                &prepare_commit.state.policy_bindings[0].artifact_id,
+                "process read revoke after accepted signal",
+            )
+            .unwrap();
+        crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.set(0));
+        assert!(store
+            .observe_process_authorized(
+                &owner,
+                case_id,
+                &operation.operation_id,
+                &grant.grant_id,
+                "observation:revoked"
+            )
+            .is_err());
+        assert!(execute_fenced_process_signal(
+            &store,
+            &fence,
+            &operation,
+            &decision,
+            &grant,
+            &prepared,
+            &prepare_commit.state,
+            &binding
+        )
+        .is_err());
+        assert_eq!(crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
         let indeterminate = commit_typed(
             &store,
             "transition:w14:process:indeterminate",
@@ -27299,6 +27936,62 @@ mod tests {
         let history = store
             .list_case_transitions("case:h15-deterministic")
             .unwrap();
+        let state = store
+            .get_case_state("case:h15-deterministic")
+            .unwrap()
+            .unwrap();
+        let context = store
+            .resolve_security_context(&owner, "tenant:h15-deterministic")
+            .unwrap();
+        LmdbRecordStore::authorize_carrier_observer(&state, &context, &history, &first_operation)
+            .unwrap();
+        let stranger = AuthenticatedPrincipal::for_test(15199);
+        let enrolled = store
+            .bootstrap_local_security(&stranger, "tenant:h15-other", "organization:h15-other", 2)
+            .unwrap();
+        store
+            .add_tenant_member(
+                &owner,
+                "tenant:h15-deterministic",
+                &enrolled.principal.principal_id,
+                3,
+            )
+            .unwrap();
+        let other = store
+            .resolve_security_context(&stranger, "tenant:h15-deterministic")
+            .unwrap();
+        assert!(LmdbRecordStore::authorize_carrier_observer(
+            &state,
+            &other,
+            &history,
+            &first_operation
+        )
+        .is_err());
+        crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.set(0));
+        let hidden = store
+            .observe_filesystem_authorized(
+                &stranger,
+                &state.case_id,
+                &first_operation.operation_id,
+                "grant:absent",
+                "observation:hidden",
+            )
+            .unwrap_err();
+        let absent = store
+            .observe_filesystem_authorized(
+                &stranger,
+                &state.case_id,
+                "operation:absent",
+                "grant:absent",
+                "observation:absent",
+            )
+            .unwrap_err();
+        assert_eq!(hidden, absent);
+        assert_eq!(crate::effect::PROTECTED_OBSERVATIONS.with(|c| c.get()), 0);
+        assert_eq!(
+            history,
+            store.list_case_transitions(&state.case_id).unwrap()
+        );
         assert_eq!(
             history
                 .iter()

@@ -13,13 +13,13 @@ use yai_core_engine::effect::{
     build_effect_receipt, build_process_effect_receipt, classify_reconciliation,
     execute_fenced_filesystem_write, execute_fenced_process_signal, execute_filesystem_write,
     issue_policy_execution_grant, normalize_filesystem_write_candidate,
-    normalize_process_signal_candidate, normalize_write_prefix, observe_filesystem,
-    observe_process, prepare_fenced_effect, prepare_process_effect, process_signal_retry_posture,
-    validate_finalized_effect_chain, CarrierFailpoint, CarrierResult, Decision, DecisionOutcome,
-    EffectOutcome, ExecutionGrant, FilesystemObservation, LocalFilesystemBinding,
-    LocalProcessBinding, NormalizationContext, Operation, OperationKind, PreparedEffect,
-    PreparedProcessEffect, ProcessCarrierResult, ProcessSignalAction, ReconciliationConclusion,
-    ResourceState, OPERATION_PROPOSAL_SCHEMA, PROCESS_SIGNAL_PROPOSAL_SCHEMA,
+    normalize_process_signal_candidate, normalize_write_prefix, prepare_fenced_effect,
+    prepare_process_effect, process_signal_retry_posture, validate_finalized_effect_chain,
+    CarrierFailpoint, CarrierResult, Decision, DecisionOutcome, EffectOutcome, ExecutionGrant,
+    FilesystemObservation, LocalFilesystemBinding, LocalProcessBinding, NormalizationContext,
+    Operation, OperationKind, PreparedEffect, PreparedProcessEffect, ProcessCarrierResult,
+    ProcessSignalAction, ReconciliationConclusion, ResourceState, OPERATION_PROPOSAL_SCHEMA,
+    PROCESS_SIGNAL_PROPOSAL_SCHEMA,
 };
 use yai_core_engine::resource_control::{ResourceFence, ResourceFenceAuthority};
 use yai_core_engine::store::lmdb::PreparedCommitOutcome;
@@ -1345,12 +1345,13 @@ fn advance_canonical_controlled_operation_with_reporting(
         }
         (prepared, current)
     } else {
-        let pre_observation = observe_filesystem(
-            &binding,
-            &resource,
-            &operation.filesystem_write.relative_path,
-            format!("observation:{}:pre", grant.grant_id),
-        );
+        let pre_observation = store.observe_filesystem_authorized(
+            &authenticate_local()?,
+            case_id,
+            &operation.operation_id,
+            &grant.grant_id,
+            &format!("observation:{}:pre", grant.grant_id),
+        )?;
         if pre_observation.state == ResourceState::Unavailable {
             return Err(format!(
                 "pre_effect_observation_unavailable: {}",
@@ -1585,10 +1586,13 @@ fn advance_process_signal_after_grant(
                 });
             }
             if effect.status == EffectLifecycle::Prepared {
-                let observation = observe_process(
-                    &binding,
-                    format!("observation:{}:uncertain-recovery", prepared.effect_id),
-                );
+                let observation = store.observe_process_authorized(
+                    &authenticate_local()?,
+                    &operation.case_id,
+                    &operation.operation_id,
+                    &grant.grant_id,
+                    &format!("observation:{}:uncertain-recovery", prepared.effect_id),
+                )?;
                 let posture = process_signal_retry_posture(&prepared.action);
                 let state = commit_process_indeterminate(
                     store,
@@ -1618,7 +1622,13 @@ fn advance_process_signal_after_grant(
         }
         (prepared, current)
     } else {
-        let pre = observe_process(&binding, format!("observation:{}:pre", grant.grant_id));
+        let pre = store.observe_process_authorized(
+            &authenticate_local()?,
+            &operation.case_id,
+            &operation.operation_id,
+            &grant.grant_id,
+            &format!("observation:{}:pre", grant.grant_id),
+        )?;
         if matches!(
             pre.state,
             yai_core_engine::effect::ProcessObservedState::Unavailable
@@ -2143,13 +2153,13 @@ pub(super) fn controlled_effect_reconcile(args: &[String]) -> Result<(), String>
                 _ => None,
             })
             .ok_or_else(|| "prepared process effect missing".to_string())?;
-        let binding = store
-            .get_local_process_binding(&case_id, &prepared.resource_attachment_id)?
-            .ok_or_else(|| "local process binding unavailable for reconciliation".to_string())?;
-        let observation = observe_process(
-            &binding,
-            format!("observation:{}:reconcile", prepared.effect_id),
-        );
+        let observation = store.observe_process_authorized(
+            &authenticate_local()?,
+            &case_id,
+            &prepared.operation_id,
+            &prepared.grant_id,
+            &format!("observation:{}:reconcile", prepared.effect_id),
+        )?;
         let posture = process_signal_retry_posture(&prepared.action);
         if effect_state.status == EffectLifecycle::Prepared {
             commit_process_indeterminate(
@@ -2178,12 +2188,13 @@ pub(super) fn controlled_effect_reconcile(args: &[String]) -> Result<(), String>
     let binding = store
         .get_local_filesystem_binding(&case_id, &resource.attachment_id)?
         .ok_or_else(|| "local filesystem binding unavailable for reconciliation".to_string())?;
-    let observation = observe_filesystem(
-        &binding,
-        &resource,
-        &chain.prepared.relative_path,
-        format!("observation:{}:reconcile", chain.prepared.effect_id),
-    );
+    let observation = store.observe_filesystem_authorized(
+        &authenticate_local()?,
+        &case_id,
+        &chain.operation.operation_id,
+        &chain.grant.grant_id,
+        &format!("observation:{}:reconcile", chain.prepared.effect_id),
+    )?;
     let mut conclusion = classify_reconciliation(&chain.prepared, &observation);
 
     if conclusion == ReconciliationConclusion::NoEffectObserved

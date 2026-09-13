@@ -114,6 +114,25 @@ PROVIDER_PID=""
 require_text "$prepare_output" "effect_state: prepared_durable_before_mutation"
 trace_product 05 "YAI_HOME=$CASE_HOME YAI_JOURNAL=$CASE_JOURNAL $YAI_BIN effect filesystem-write --case case:new12-filesystem --subject subject:llm-provider --attachment workspace --prompt 'prepare one temporal write' --provider-id provider:temporal --base-url http://127.0.0.1:$PROVIDER_PORT/v1/chat/completions --model controlled-model --failpoint after_effect_before_finalize" "$prepare_output" "$prepare_exit"
 
+# The crashed command has closed its store. Preserve a separate exact fixture
+# world for the authorized recovery/closure positive control; the original world
+# remains PREPARED and will contract authority below. This is not a Git worktree.
+AUTHORIZED_HOME="$TEST_DIR/authorized-home"
+cp -a "$CASE_HOME" "$AUTHORIZED_HOME"
+reconcile_output=$(YAI_HOME="$AUTHORIZED_HOME" "$YAI_BIN" effect reconcile --case case:new12-filesystem --retry)
+require_text "$reconcile_output" "reconciliation: EffectObserved"
+trace_product 05a "YAI_HOME=$AUTHORIZED_HOME $YAI_BIN effect reconcile --case case:new12-filesystem --retry" "$reconcile_output" 0
+authorized_cancel=$(YAI_HOME="$AUTHORIZED_HOME" "$YAI_BIN" case cancel --case case:new12-filesystem \
+  --reason "stop after authorized settlement")
+require_text "$authorized_cancel" "unresolved_effects: 0"
+trace_product 05b "YAI_HOME=$AUTHORIZED_HOME $YAI_BIN case cancel --case case:new12-filesystem --reason 'stop after authorized settlement'" "$authorized_cancel" 0
+close_output=$(YAI_HOME="$AUTHORIZED_HOME" "$YAI_BIN" case close --case case:new12-filesystem \
+  --reason "safe after authorized reconciliation")
+require_text "$close_output" "case_close: closed"
+require_text "$close_output" "case_lifecycle: Closed"
+require_text "$close_output" "unresolved_effects: 0"
+trace_product 05c "YAI_HOME=$AUTHORIZED_HOME $YAI_BIN case close --case case:new12-filesystem --reason 'safe after authorized reconciliation'" "$close_output" 0
+
 revoke_output=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" policy revoke "$p2" \
   --reason "withdraw before future authority")
 require_text "$revoke_output" "policy_revoke: revoked"
@@ -136,18 +155,24 @@ set -e
 require_text "$unsafe_close" "case_close_blocked: unresolved_effect:"
 trace_product 08 "YAI_HOME=$CASE_HOME $YAI_BIN case close --case case:new12-filesystem --reason 'unsafe close'" "$unsafe_close" "$unsafe_close_exit"
 
-reconcile_output=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" effect reconcile --case case:new12-filesystem --retry)
-require_text "$reconcile_output" "reconciliation: EffectObserved"
-trace_product 09 "YAI_HOME=$CASE_HOME $YAI_BIN effect reconcile --case case:new12-filesystem --retry" "$reconcile_output" 0
+set +e
+reconcile_output=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" effect reconcile --case case:new12-filesystem --retry 2>&1)
+reconcile_exit=$?
+set -e
+[[ "$reconcile_exit" -ne 0 ]]
+require_text "$reconcile_output" "carrier_observation_not_authorized"
+trace_product 09 "YAI_HOME=$CASE_HOME $YAI_BIN effect reconcile --case case:new12-filesystem --retry" "$reconcile_output" "$reconcile_exit"
+set +e
 close_output=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" case close --case case:new12-filesystem \
-  --reason "safe after reconciliation")
-require_text "$close_output" "case_close: closed"
-require_text "$close_output" "case_lifecycle: Closed"
-require_text "$close_output" "unresolved_effects: 0"
-trace_product 10 "YAI_HOME=$CASE_HOME $YAI_BIN case close --case case:new12-filesystem --reason 'safe after reconciliation'" "$close_output" 0
+  --reason "refused observation cannot erase uncertainty" 2>&1)
+close_exit=$?
+set -e
+[[ "$close_exit" -ne 0 ]]
+require_text "$close_output" "case_close_blocked: unresolved_effect:"
+trace_product 10 "YAI_HOME=$CASE_HOME $YAI_BIN case close --case case:new12-filesystem --reason 'refused observation cannot erase uncertainty'" "$close_output" "$close_exit"
 
 set +e
-closed_effect=$(YAI_HOME="$CASE_HOME" "$YAI_BIN" effect filesystem-write --case case:new12-filesystem \
+closed_effect=$(YAI_HOME="$AUTHORIZED_HOME" "$YAI_BIN" effect filesystem-write --case case:new12-filesystem \
   --subject subject:llm-provider --attachment workspace --prompt "must not invoke" \
   --base-url http://127.0.0.1:1/v1/chat/completions --model controlled-model 2>&1)
 closed_effect_exit=$?
@@ -155,7 +180,7 @@ set -e
 [[ "$closed_effect_exit" -ne 0 ]]
 require_text "$closed_effect" "provider_invocations: 0"
 require_text "$closed_effect" "case_closed_new_effect_forbidden"
-trace_product 11 "YAI_HOME=$CASE_HOME $YAI_BIN effect filesystem-write --case case:new12-filesystem --subject subject:llm-provider --attachment workspace --prompt 'must not invoke' --base-url http://127.0.0.1:1/v1/chat/completions --model controlled-model" "$closed_effect" "$closed_effect_exit"
+trace_product 11 "YAI_HOME=$AUTHORIZED_HOME $YAI_BIN effect filesystem-write --case case:new12-filesystem --subject subject:llm-provider --attachment workspace --prompt 'must not invoke' --base-url http://127.0.0.1:1/v1/chat/completions --model controlled-model" "$closed_effect" "$closed_effect_exit"
 
 cargo test --manifest-path "$ROOT/engine/yai-engine/Cargo.toml" wave11_ -- --nocapture
 printf 'temporal_governance_characterization: pass\n'

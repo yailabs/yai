@@ -11,7 +11,7 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source environment, source-grounded domain knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **CASE.BOUND.MODEL.SECURITY.0 — COMPLETE** at bounded native Resource/effect scope: noncompliant source-driven requests are refused through existing owners; completed Resource payload reuse requalifies current authority, including same-generation revoke. [Contract and limits](docs/reference/governance.md#case-bound-model-security). No ambient host/runtime isolation claim, live provider requirement or W → E. Semantic refresh remains independently COMPLETE. |
+| Selected engineering boundary | **CASE.BOUND.RESOURCE.OBSERVATION.0 — COMPLETE** at bounded native filesystem/process carrier scope: current authorization precedes protected observations, including recovery; denied requests perform zero protected host observations. [Contract and limits](docs/reference/governance.md#case-bound-resource-observation). CASE.BOUND.MODEL.SECURITY.0 and semantic refresh retain independently COMPLETE scopes. No live provider requirement, ambient host/runtime isolation claim or W → E. |
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
 | Most important structural gap | Bounded S/Recall → W, exact-group paging, explicit same-task refresh, as-of reconstruction, source bootstrap, deterministic D and integrated D/H/S Recall exist. Broader task sufficiency/source interpretation, general neighborhood expansion/temporal validity, automatic consumer convergence and a public W → E consumer remain unqualified. |
 | Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
@@ -504,7 +504,7 @@ ESTABLISHED=32 PARTIAL=28 OPEN=9 LATER=4 TOTAL=73
 | A02 | Exact Case binding and READY EffectivePolicy materialization | 🟢 ESTABLISHED | [Materialization][policy], [Golden][golden]; publication alone grants no authority. |
 | A03 | ALLOW / DENY / REQUIRE_REVIEW, review and finite Grant | 🟢 ESTABLISHED | [Admission][admission], [Golden][golden]; DENY has no Grant/effect, model cannot self-approve. [Case-bound security](docs/reference/governance.md#case-bound-model-security) adds noncompliant native model attempts and exact identity/argument negatives; no model refusal prerequisite or ambient runtime isolation claim. |
 | A04 | Local Principal/Tenant/Participant and disclosure isolation | 🟢 ESTABLISHED | [Security][security], [Golden isolation][golden]; local POSIX trust model, not enterprise authentication. |
-| A05 | Validity/revoke, generation and PREPARE authority cut | 🟢 ESTABLISHED | [Temporal governance][temporal]; contracting authority cannot erase prepared external uncertainty. Completed Resource-result reuse also requalifies present authority: same-generation policy revoke refuses cached disclosure, historical results do not become current executable control, and review eligibility remains current. |
+| A05 | Validity/revoke, generation and PREPARE authority cut | 🟢 ESTABLISHED | [Temporal governance][temporal]; contracting authority cannot erase prepared external uncertainty. Completed Resource-result reuse requalifies current authority. [Carrier observation](docs/reference/governance.md#case-bound-resource-observation) adds current policy/review/Grant qualification before native filesystem/process inspection, zero-observation denials, same-generation revoke, exact binding and separate final fence; revoked recovery cannot erase PREPARE uncertainty. No continuous host/authority lock or ambient runtime isolation claim. |
 | A06 | Production identity, credentials and privacy lifecycle | 🟡 PARTIAL | Local identity and credential references exist; SSO, membership removal and general retention/deletion remain unresolved. |
 
 ### Semantic Cognitive State
@@ -855,7 +855,8 @@ Independent external/provider qualification tracks remain visible below; they
 are not additional selected implementation rows. Success never automatically
 authorizes the next experiment.
 
-Selected implementation boundary: **CASE.BOUND.MODEL.SECURITY.0**.
+Selected implementation boundary: **CASE.BOUND.RESOURCE.OBSERVATION.0**.
+CASE.BOUND.MODEL.SECURITY.0 remains COMPLETE at its independently qualified scope.
 PROMPT-INDEPENDENT.SEMANTIC.REFRESH.0 remains COMPLETE at bounded explicit-preflight scope.
 SCOPED.SEMANTIC.PAGING.0 retains its independently complete exact-group scope.
 RECALL-AWARE.WORKING.STATE.0 and KNOWLEDGE.RECALL.INTEGRATION.0 retain their
@@ -865,10 +866,10 @@ Next implementation boundary: **UNSELECTED**.
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| CASE.BOUND.MODEL.SECURITY.0 | COMPLETE | A E O C Q | [Native adversarial product oracle](cmd/yai/src/conversation_controller.rs), [typed Resource/source tests](engine/yai-engine/src/store/tests/resource_access_tests.rs) and existing admission/review/Grant/fence owners: nine source-driven malicious attempts require exact refusal codes; allowed read, current-authority historical result reuse, same-generation revoke, identity isolation and zero unauthorized policy/Grant/effect mutation. Publication union, characterization and Golden local PASS. A03/A05 evidence strengthened without maturity promotion; canonical schema/owner/database delta zero. [Explicit bounded exclusions](docs/reference/governance.md#case-bound-model-security) include ambient runtime/host capabilities and legacy carrier-internal per-observation mediation. No new security store, live YVEX requirement or W → E. |
+| CASE.BOUND.RESOURCE.OBSERVATION.0 | COMPLETE | A E O Q | [Typed authorized observations and zero-host-read oracles](engine/yai-engine/src/store/lmdb.rs), exact filesystem/process carrier binding, current policy/review/finite-Grant qualification, same-generation revoke and hidden/absent controls. Native pre-PREPARE/recovery reads are mediated; independent PREPARE/final fences and recorded-effect settlement remain intact. Publication union, characterization, malicious-model regression and Golden local PASS. A05 evidence strengthened without maturity promotion; canonical schema/owner/database delta zero. [Bounded limits](docs/reference/governance.md#case-bound-resource-observation): no continuous host/authority lock or ambient isolation claim, no new owner/database, live YVEX requirement or W → E. |
 <!-- execution:end -->
 
-**Primary programs: A / E / O / C / Q; existing admission owns security.**
+**Primary programs: A / E / O / Q; existing admission owns security.**
 [CASE.SOURCE.BOOTSTRAP.0][source-bootstrap], [SOURCE.GROUNDED.KNOWLEDGE.0][knowledge]
 and [RECALL.TRACE.0][recall] retain their independently earned bounded scopes.
 Integrated D/H/S Recall remains independently earned. The bounded W consumer
@@ -948,6 +949,11 @@ pin, W format, StateProfile protocol or YVEX adapter is introduced. No YAI/YVEX
 BOUNDARY registration is justified; **I07 remains UNSELECTED**. Reconsider only
 when a real public producer capability and consumer contract can be bound.
 
+**CASE.BOUND.RESOURCE.OBSERVATION.0 INTERLOCK CHECK:** current observation
+qualification and exact carrier-target binding compose existing YAI owners.
+No YVEX execution, dependency pin, StateProfile, W → E or BOUNDARY registration;
+**I07 remains UNSELECTED**. Rings 3/4 remain runtime/host responsibilities.
+
 **Mixed policy/knowledge content routing — future, UNSELECTED:** physical source
 identity/role is not semantic authority of every content unit. One exact revision
 may feed both pipelines, but policy-like units require candidate validation,
@@ -993,6 +999,7 @@ RECALL.TRACE.0                         (published bounded primitive)
   → SCOPED.SEMANTIC.PAGING.0           (completed bounded exact-group demand)
   → PROMPT-INDEPENDENT.SEMANTIC.REFRESH.0 (completed bounded same-task preflight)
   → CASE.BOUND.MODEL.SECURITY.0        (completed bounded native security scope)
+  → CASE.BOUND.RESOURCE.OBSERVATION.0  (completed bounded native observation cuts)
   → public YAI ↔ YVEX cognitive-state boundary (UNSELECTED; producer not ready)
   → State Read / Update and later computational research
 ```

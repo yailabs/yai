@@ -35,6 +35,21 @@ Case generation; do not interpret possession of its ID as an authorization token
 See [the bounded security contract](reference/governance.md#case-bound-model-security)
 for mediated paths, current authority cuts and the runtime/host isolation nonclaim.
 
+Filesystem/process controlled operations also requalify current authority before
+digest/metadata/process-state inspection, including a resumed operation with an
+old Grant. Revocation can refuse before any protected host observation, even at
+unchanged Case generation. An unresolved PREPARE is not deleted by that refusal;
+do not interpret it as proof that the external effect never occurred or retry it
+blindly. Recovery inspection itself needs current authority.
+
+For deterministic observation qualification from the repository root, run
+`CARGO_TARGET_DIR=target cargo test --manifest-path engine/Cargo.toml -p yai-engine carrier_observation_current_authority -- --nocapture --test-threads=1`.
+The existing process-signal and reviewed-admission tests complement its explicit
+zero-host-observation counters. `make check characterization` and
+`make test-golden-local` retain the normal product regression; the existing
+malicious-model smoke remains independently required. No new security command,
+provider execution or operator canary reset is needed.
+
 ### Human live-provider preparation
 
 Use an unprivileged Linux x86_64 host with Landlock ABI 6 or newer, seccomp and
