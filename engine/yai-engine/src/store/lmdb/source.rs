@@ -44,6 +44,20 @@ impl LmdbRecordStore {
         ),
         String,
     > {
+        self.qualified_knowledge_scope_txn(txn, auth, request, state, history,
+            recall_input, content, None)
+    }
+
+    /// Exact paging narrows source/revision/path BEFORE authorization and byte
+    /// derivation. Inventory/history iteration is still linear, not O(1).
+    pub(super) fn qualified_knowledge_scope_txn<T: Transaction>(
+        &self, txn: &T, auth: &AuthenticatedPrincipal,
+        request: crate::memory_hierarchy::knowledge::KnowledgeRequest,
+        state: &CaseState, history: &[Transition],
+        recall_input: Option<(&crate::memory_hierarchy::recall::RecallRequest, &CaseState)>,
+        content: Option<&crate::conversation::ConversationContentStore>,
+        exact: Option<&BTreeSet<(String, String, String)>>,
+    ) -> Result<(crate::memory_hierarchy::knowledge::KnowledgeResult, BTreeSet<String>), String> {
         use crate::memory_hierarchy::knowledge::{
             self as k, KnowledgeSource, KnowledgeStatus, QualifiedSource,
         };
@@ -74,6 +88,9 @@ impl LmdbRecordStore {
         let mut matched = false;
         for source in &state.sources {
             let d = &source.declaration;
+            if exact.is_some_and(|scope| !scope.iter().any(|(s, _, _)| s == &d.source_id)) {
+                continue;
+            }
             if request
                 .source
                 .as_ref()
@@ -173,11 +190,12 @@ impl LmdbRecordStore {
                             continue;
                         }
                         if let Some(old) = &progress.revision {
-                            if r.required_refs.iter().any(|id| {
+                            if (exact.is_some_and(|scope| scope.iter().any(|(s, rev, _)|
+                                s == &d.source_id && rev == &old.revision_id)) || r.required_refs.iter().any(|id| {
                                 id == &old.revision_id
                                     || id.starts_with("knowledge-unit:")
                                     || id.starts_with("knowledge-source:")
-                            }) && !revisions.iter().any(|v| v.revision_id == old.revision_id)
+                            })) && !revisions.iter().any(|v| v.revision_id == old.revision_id)
                             {
                                 revisions.push(old);
                             }
@@ -186,6 +204,10 @@ impl LmdbRecordStore {
                 }
             }
             for revision in revisions {
+                if exact.is_some_and(|scope| !scope.iter().any(|(s, r, _)|
+                    s == &d.source_id && r == &revision.revision_id)) {
+                    continue;
+                }
                 // Each admitted content object retains its narrower current read
                 // permission. Reject the source as a whole before reading bytes.
                 if revision.items.iter().any(|item| match &item.backing {
@@ -206,6 +228,10 @@ impl LmdbRecordStore {
                 }
                 matched = true;
                 for item in &revision.items {
+                    if exact.is_some_and(|scope| !scope.contains(&(
+                        d.source_id.clone(), revision.revision_id.clone(), item.path.clone()))) {
+                        continue;
+                    }
                     let bytes = match &item.backing {
                         SourceBacking::Policy {
                             source_id,

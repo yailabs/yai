@@ -1643,6 +1643,26 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
             flag("--units", Some("WORKING_SEMANTIC_UNITS"), false),
             flag("--bytes", Some("WORKING_BYTES"), false),
             flag("--candidates", Some("RECALL_CANDIDATES"), false),
+            flag("--paged", None, false),
+            flag("--resident-groups", Some("OPTIONAL_GROUPS"), false),
+            flag("--projection", None, false)
+        ]
+    ),
+    op!(
+        "yai.case.context.expand",
+        ["case", "context", "expand"],
+        "Resolve exact deferred semantic groups or page out optional material (no Recall search)",
+        Product, Inspection, ReadOnly, Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--working-file", Some("WORKING_STATE_JSON"), true),
+            flag("--ref", Some("SEMANTIC_REFERENCE"), true),
+            flag("--base-id", Some("EXPECTED_WORKING_ID"), false),
+            flag("--participant", Some("PARTICIPANT"), false),
+            flag("--page-out", None, false),
+            flag("--page-units", Some("SEMANTIC_UNITS"), false),
+            flag("--page-bytes", Some("BYTES"), false),
+            flag("--page-items", Some("ITEMS"), false),
             flag("--projection", None, false)
         ]
     ),

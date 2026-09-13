@@ -234,8 +234,8 @@ metadata cannot disappear while its selected evidence remains. V10 remains the
 existing provider path; v11 is explicit derived compatibility, not a W→E schema.
 
 W/Recall remain disposable. Transition v19, CaseState v16, canonical owners and
-37 LMDB databases are unchanged. No W→E transport, provider calls, paging, ambient
-refresh or learned navigation is involved.
+37 LMDB databases are unchanged. The v3 operation introduces no W→E transport,
+provider calls, paging, ambient refresh or learned navigation.
 
 Executable oracles: `make smoke-recall-working-state` reuses the real source
 bootstrap/knowledge fixture (Markdown/JSON/PDF/filesystem/SQLite), with current
@@ -252,3 +252,82 @@ Legacy archaeology additionally inspected `yai-dev` at
 postures and completeness distinct from sufficiency belong in this current
 compiler. Its Agent pack owner and `src/knowledge/workset/working.c` global
 hotness/upsert working-memory lifecycle remain rejected, not restored.
+
+## Scoped semantic paging
+
+`case context compile CASE INTENT --paged` opts into **SemanticWorkingState v4**
+and compiler v4; omitting the flag preserves v3. It uses the same qualified Recall
+and W compiler, not another retriever. `--resident-groups` bounds optional evidence
+residency independently of mandatory current state and exact task dependencies.
+
+The bounded `yai.exact_semantic_group.v1` reference profile locates an already
+qualified, closed Recall group: exact event/unit/source-descriptor members,
+source/revision/path coordinates, historical cut and normalized semantic digest.
+The reference catalog is itself bounded and charged to W. Incomplete or oversized
+groups are explicitly counted as nonpageable; they cannot masquerade as closed
+pages. References are locators, not capability tokens or resident evidence.
+Deferred means revalidation required, not false, deleted or permanently readable.
+
+`LmdbRecordStore::page_working_state_authorized` consumes a serialized derived W,
+authenticated Principal and `yai.semantic_page_request.v1` (base identity,
+Participant, exact catalog references, page-in/page-out and existing RecallBounds).
+The native consumer is `case context expand CASE --working-file FILE --ref REF`.
+It returns typed **SemanticPage v1**, expanded W v4, evictions and measurements.
+No canonical page store or Transition is created.
+
+One read transaction requalifies current Participant/disclosure, current control
+and source permissions. Exact source/revision/path scope is applied before source
+authorization/byte derivation; acquisition Decisions also inherit their exact
+source's visibility gate. Retained resident groups and requested incoming groups
+are rebuilt through existing historical, documentary and experience owners.
+The shared resolver skips candidate discovery, BM25 search, vectors and graph fanout;
+it resolves only declared members and required closure. Closure escaping the
+declared scope, changed semantic backing, missing material or overflow refuses.
+No live file substitutes for missing captured backing. Historical evidence stays
+at its original cut; current EffectivePolicy remains the present control basis.
+
+This is fixed-generation working-set continuation, not task refresh. Case/task
+replacement requires compilation; same-generation current control changes also
+refuse. The caller names its expected base W identity; there is no global mutable
+"latest W" registry or server-side task session. Every retained/requested group is revalidated, including backing loss
+outside Case generation. Unrequested deferred backing is not eagerly read and
+has no promised availability. W/file hashes detect identity changes but grant no
+authority: current owners independently qualify selected material. This does not
+certify freshness of the original global relevance universe; a new question or
+new relevance discovery belongs to Recall/full compilation.
+
+Page bounds cover aggregate items, relations, segments, serialized bytes and
+Unicode-character-quarter semantic units, not model tokens. The exact profile
+has no recursive depth/crawler mode. Required closure is atomic. The unchanged
+resident W envelope separately includes control, references, provenance and
+resident groups. Incoming groups must fit or refuse; optional resident groups
+may leave through deterministic existing compiler selection. `--page-out` only
+removes optional residency, never source/history or mandatory task dependencies.
+Page-in does not permanently turn an optional group into a task requirement.
+
+W identities bind original Recall/compilation basis, current semantics, catalog,
+parent W, exact page/request, budgets and omissions. Page identity binds its
+request, base W, current control and exact resolved groups; timings are excluded.
+Page-out and later page-in reproduce qualified content, not the old lineage ID.
+Projection/ContextFrame **v12** lower only selected W4 entries, including deferred
+reference posture; they never fetch a page. Provider/Conversation/Workflow still
+use their qualified S-only W2/Projection10 path. W3/Projection11 remain compatible.
+
+`make smoke-semantic-paging` exercises the actual CLI and real persistence;
+the adjacent typed policy oracle covers old-cut evidence under current DENY,
+reopen/cache rebuild, missing/hidden and zero discovery/mutation. Characterization
+separates scoped source resolution, exact group qualification, closure, W compile
+and page-out. History/access derivation still scans history and repeats bounded
+experience derivation per retained group; exact paging is not O(1).
+The existing M07 derivation also validates a lexical index over the scoped sources;
+it performs no search and does not index the whole Case on a page request.
+Arbitrary source continuations, neighborhood crawling, optimal eviction, automatic refresh,
+provider demand loops and computational/KV paging are not qualified here.
+
+Legacy archaeology at `yai-dev` commit
+`8a2b09e268fe6e20b1681dab7b22eac6b8239a8c` inspected
+`src/knowledge/retrieval/exact.c`: its caller-supplied high-score references were
+not a source/disclosure-qualified pager. `context_pack_completeness.c` preserved
+the useful distinction between reference presence and consumability/partial/stale
+posture. Those failure distinctions belong in this compiler; historical Agent
+packs, mutable worksets and their ownership tree remain rejected.

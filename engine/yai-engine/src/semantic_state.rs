@@ -15,6 +15,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 pub mod historical;
 pub mod working_recall;
+pub mod paging;
 pub use working_recall::{QualifiedWorkingState, WorkingStateRequest};
 
 pub const SEMANTIC_STATE_SCHEMA: &str = "yai.semantic_state.v2";
@@ -81,6 +82,7 @@ pub struct SemanticState {
     history: Vec<Transition>,
     normative: Option<crate::case_policy::NormativeStatus>,
     recall: Option<working_recall::QualifiedRecall>,
+    paging: Option<paging::QualifiedPaging>,
 }
 
 /// Explicit semantic selection, not a target/provider routing request.
@@ -130,6 +132,8 @@ pub struct SemanticWorkingState {
     decisions: Vec<crate::residency::ResidencyDecision>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recall: Option<working_recall::WorkingRecall>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    paging: Option<paging::WorkingPaging>,
 }
 
 fn identity<T: Serialize>(value: &T) -> Result<String, String> {
@@ -152,6 +156,7 @@ impl SemanticState {
             history: history.to_vec(),
             normative: None,
             recall: None,
+            paging: None,
         })
     }
 
@@ -412,6 +417,18 @@ impl SemanticState {
                     output_contract_id: request.output_contract_id.clone() },
                 provenance: vec![],
             });
+            if let Some(p) = &self.paging {
+                // Page-in does not rerank current S. Its already qualified
+                // current resident envelope remains mandatory and unchanged.
+                candidates.entries.retain(|e| p.metadata.current_material_ids.contains(&e.entry_id));
+                candidates.entries.push(SemanticEntry {
+                    entry_id: "paging:references".into(), posture: AuthorityPosture::DerivedMemory,
+                    provenance: vec![], value: SemanticValue::SemanticPageReferences {
+                        references: p.references.clone(), resident_references: vec![],
+                        posture: "exact_deferred_locators; resolve_again_under_current_authority; not_resident_is_not_false_or_deleted".into(),
+                    },
+                });
+            }
             if let Some(recall) = &self.recall {
                 candidates.entries.push(SemanticEntry {
                     entry_id: "recall:qualification".into(), posture: AuthorityPosture::DerivedMemory,
@@ -450,6 +467,10 @@ impl SemanticState {
         if let Some(recall) = &self.recall {
             mandatory_refs.insert("recall:qualification".into());
             mandatory_refs.extend(recall.groups.iter().filter(|(required, _)| *required).map(|(_, e)| e.entry_id.clone()));
+        }
+        if let Some(p) = &self.paging {
+            mandatory_refs.insert("paging:references".into());
+            mandatory_refs.extend(p.metadata.current_material_ids.iter().cloned());
         }
         for required in &request.required_refs {
             let matches = candidates
@@ -648,10 +669,15 @@ impl SemanticState {
             entries,
             decisions: selection.decisions,
             recall: self.recall.as_ref().map(|r| r.metadata.clone()),
+            paging: self.paging.as_ref().map(|p| p.metadata.clone()),
         };
         if self.recall.is_some() {
             output.schema = working_recall::RECALL_WORKING_SCHEMA.into();
             output.compiler = working_recall::RECALL_COMPILER_VERSION.into();
+            if self.paging.is_some() {
+                output.schema = paging::PAGED_WORKING_SCHEMA.into();
+                output.compiler = paging::PAGED_COMPILER.into();
+            }
             output.fit_recall_envelope()?;
         }
         output.working_state_id = format!("working-state:{}", identity(&output)?);
@@ -702,7 +728,9 @@ impl SemanticWorkingState {
         source: &SemanticState,
         request: &CompilationRequest,
     ) -> Result<(), String> {
-        let (schema, compiler) = if source.recall.is_some() {
+        let (schema, compiler) = if source.paging.is_some() {
+            (paging::PAGED_WORKING_SCHEMA, paging::PAGED_COMPILER)
+        } else if source.recall.is_some() {
             (working_recall::RECALL_WORKING_SCHEMA, working_recall::RECALL_COMPILER_VERSION)
         } else { (WORKING_STATE_SCHEMA, STATE_COMPILER_VERSION) };
         if self.schema != schema
@@ -755,7 +783,9 @@ impl SemanticWorkingState {
                 working_state_id: Some(self.id().to_string()),
             },
         })?;
-        if self.recall.is_some() {
+        if self.paging.is_some() {
+            projection.schema = crate::context::PROJECTION_SCHEMA_V12.into();
+        } else if self.recall.is_some() {
             projection.schema = crate::context::PROJECTION_SCHEMA_V11.into();
         }
         crate::context::refresh_projection_identity(&mut projection)?;
@@ -1148,6 +1178,7 @@ pub enum SemanticValue {
     },
     ExecutionIntent { intent: String, output_contract_id: String },
     RecalledEvidence { evidence: Box<working_recall::RecalledEvidence> },
+    SemanticPageReferences { references: Vec<paging::SemanticReference>, resident_references: Vec<String>, posture: String },
     DecisionEvidence {
         operation_id: String,
         decision_id: String,

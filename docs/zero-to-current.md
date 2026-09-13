@@ -573,6 +573,31 @@ omitted whole. A source update/revoke requires recompilation under current acces
 including restart/cache loss and four D/H size profiles. This does not migrate the
 Golden conversation/Workflow path, perform Human acceptance or implement W→E.
 
+For bounded demand expansion, use the same operation with opt-in pageable W:
+
+```sh
+./yai case context compile case:sources architecture --participant participant:operator --paged --resident-groups 1 --json > /tmp/yai-pageable-working.json
+```
+
+Inspect the `semantic_page_references` entry in the returned working state. Copy
+an exact deferred `reference_id` from this result, not a guessed document name:
+
+```sh
+./yai case context expand case:sources --working-file /tmp/yai-pageable-working.json --ref EXACT_SEMANTIC_REFERENCE --json > /tmp/yai-expanded-working.json
+./yai case context expand case:sources --working-file /tmp/yai-expanded-working.json --ref EXACT_SEMANTIC_REFERENCE --page-out
+```
+
+These files contain disposable derived exports, not new Case authority. Expansion
+revalidates current access and retained exact backing, without a second global
+Recall pass. Inspect page closure, resident/deferred IDs, evictions and current
+authority separately. `--page-units`, `--page-items`, `--page-bytes` bound the
+atomic incoming page; the original W budget still bounds residency. Insufficient
+mandatory budget refuses. Page-out cannot remove mandatory task/current material.
+After a Case/source/task or authority change, compile again; do not edit an old
+export to manufacture freshness. `--projection` only lowers the resulting W4.
+`make smoke-semantic-paging` qualifies this explicit no-provider path; it does not
+make paging part of the Golden provider/Workflow runtime.
+
 One-shot `./yai case show CASE --json`, provider/resource/history and memory-index
 commands remain available for administration/forensics; they are not the primary
 interactive workflow. Retain exact IDs, exit states and relevant output from each

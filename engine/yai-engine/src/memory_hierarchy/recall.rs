@@ -212,6 +212,7 @@ pub struct RecallTrace {
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RecallMeasurements {
+    pub candidate_discovery_passes: usize,
     pub qualified_read_us: u128,
     pub historical_resolution_us: u128,
     pub knowledge_resolution_us: u128,
@@ -468,10 +469,39 @@ pub(crate) fn compile_for_working(
     h: &HistoricalSemanticView,
     disclosure: &str,
     history: &[Transition],
+    request: RecallRequest,
+    vectors: Option<&RecallVectorInput>,
+    knowledge: Option<&super::knowledge::KnowledgeView>,
+    retain_groups: bool,
+) -> Result<RecallResult, String> {
+    resolve(h, disclosure, history, request, vectors, knowledge, retain_groups, None)
+}
+
+/// Exact scoped rehydration shares closure/assembly, never candidate discovery.
+/// The caller qualifies the fixed member/source scope again; it is not authority.
+pub(crate) fn resolve_exact(
+    h: &HistoricalSemanticView,
+    disclosure: &str,
+    history: &[Transition],
+    request: RecallRequest,
+    members: &BTreeSet<String>,
+    knowledge: &super::knowledge::KnowledgeView,
+) -> Result<RecallResult, String> {
+    if members.is_empty() || members.len() > 256 {
+        return Err("semantic_page_member_bound_invalid".into());
+    }
+    resolve(h, disclosure, history, request, None, Some(knowledge), false, Some(members))
+}
+
+fn resolve(
+    h: &HistoricalSemanticView,
+    disclosure: &str,
+    history: &[Transition],
     mut request: RecallRequest,
     vectors: Option<&RecallVectorInput>,
     knowledge: Option<&super::knowledge::KnowledgeView>,
     retain_groups: bool,
+    exact: Option<&BTreeSet<String>>,
 ) -> Result<RecallResult, String> {
     request.validate()?;
     if (request.schema == RECALL_REQUEST_V2) != knowledge.is_some() {
@@ -607,8 +637,17 @@ pub(crate) fn compile_for_working(
     if let Some(d) = knowledge {
         documentary::aliases(d, &mut aliases);
     }
+    if let Some(members) = exact {
+        // No graph fanout or implicit source/entity alias expansion. An exact
+        // page can rehydrate only this already-declared semantic group.
+        for nodes in aliases.values_mut() {
+            nodes.retain(|id| members.contains(id));
+        }
+    }
     let mut selected = BTreeMap::<String, BTreeSet<SelectionReason>>::new();
-    for id in &request.required_refs {
+    let required: Vec<_> = exact.map_or_else(
+        || request.required_refs.iter().collect(), |ids| ids.iter().collect());
+    for id in required {
         let nodes = aliases
             .get(id)
             .ok_or("recall_required_anchor_unavailable")?;
@@ -622,6 +661,10 @@ pub(crate) fn compile_for_working(
                 .insert(SelectionReason::ExactRequiredRef);
         }
     }
+    let (candidates, vector_evidence_digest) = if exact.is_some() {
+        (vec![], None)
+    } else {
+    metrics.candidate_discovery_passes += 1;
     let start = Instant::now();
     let mut documents: Vec<_> = graph
         .events
@@ -747,20 +790,26 @@ pub(crate) fn compile_for_working(
             .take(request.bounds.candidates)
             .collect();
     }
+    (candidates, vector_evidence_digest)
+    };
     let qualification_start = Instant::now();
     let resolve = |group: Selection| -> Result<(Selection, bool), String> {
         let mut group = group;
         if let Some(d) = knowledge {
             documentary::close(&mut group, d, &aliases, &request.bounds)?;
         }
-        let (mut group, stopped) = resolve_group(
+        let (mut group, stopped) = if exact.is_some() {
+            close_selection(&mut group, &assertions, &assertion_sources,
+                &contradictions, request.bounds.events)?;
+            (group, false)
+        } else { resolve_group(
             group,
             &assertions,
             &assertion_sources,
             &contradictions,
             &graph.relations,
             &request.bounds,
-        )?;
+        )? };
         if knowledge.is_some() {
             // Reserve current-at-cut normative context inside every atomic
             // group, before optional documentary volume can consume the budget.
@@ -792,6 +841,9 @@ pub(crate) fn compile_for_working(
                 &contradictions,
                 request.bounds.events,
             )?;
+        }
+        if exact.is_some_and(|members| group.keys().any(|id| !members.contains(id))) {
+            return Err("semantic_page_scope_closure_changed".into());
         }
         Ok((group, stopped))
     };

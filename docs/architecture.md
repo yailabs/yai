@@ -23,7 +23,10 @@ The [semantic cognitive-state target](semantic-state-execution-target.md) is
 deliberately separate. The [source refoundation](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/semantic-state-refoundation/REPORT.md)
 implements bounded replay-qualified S, scoped W and derived semantic deltas with
 full-recompilation fallback. General task sufficiency, a public model-state frame,
-optimized incremental compilation and semantic demand paging remain open.
+optimized incremental compilation and general semantic demand paging remain open.
+The bounded [exact-group pager](recall.md#scoped-semantic-paging) now requalifies
+deferred references and compiles W4 through existing owners; it is not a general
+source crawler or ambient refresh mechanism.
 State Read and State Update are OPEN target capabilities, not current execution
 contracts. Bounded locality evidence is not universal Case-age independence or
 arbitrary target-native state lowering. Context-only preparation is the current compatibility path, not the
@@ -812,6 +815,16 @@ See the [working-state contract](recall.md#recall-aware-working-state-compilatio
 for exact request, budgets, missingness, freshness and product qualification.
 Existing provider/Workflow entrypoints described below retain their S-only v2
 invocation path; they are not silently migrated to Recall-aware execution.
+
+Opt-in `--paged` produces W4 with bounded exact closed-group references and
+resident/deferred posture. The typed `page_working_state_authorized` operation
+rechecks present authority and exact historical backing, shares existing closure
+resolution without Recall candidate discovery, then uses the same W compiler for
+immutable page-in/page-out. Page v1 and Projection/ContextFrame12 are derived;
+Transition v19, CaseState v16 and LMDB 37/40 are unchanged. Exact source scope is
+narrowed before byte derivation, while historical reconstruction still has
+history-dependent CPU cost. Fixed-generation paging refuses task/control/source
+staleness and does not implement prompt-independent refresh or public W→E.
 
 [`semantic_state.rs`](../engine/yai-engine/src/semantic_state.rs) composes a
 read-only `SemanticState` from CaseState and its exact ordered history, requiring

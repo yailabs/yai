@@ -4026,6 +4026,148 @@ impl LmdbRecordStore {
         Ok(())
     }
 
+    pub fn compile_pageable_working_state_authorized(
+        &self, auth: &AuthenticatedPrincipal, request: crate::semantic_state::WorkingStateRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::semantic_state::QualifiedWorkingState, String> {
+        self.compile_working_state_authorized(auth, request, content)?.enable_paging()
+    }
+
+    /// Exact page-in/page-out. No call to Recall compilation/discovery, no
+    /// persisted page authority, and no source outside the declared fixed scope.
+    pub fn page_working_state_authorized(
+        &self, auth: &AuthenticatedPrincipal, base: &crate::semantic_state::SemanticWorkingState,
+        mut request: crate::semantic_state::paging::PageRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::semantic_state::paging::PageResult, String> {
+        use crate::semantic_state::{paging::*, historical as h, SemanticValue};
+        use crate::memory_hierarchy::{recall, knowledge};
+        base.validate_paging_envelope()?;
+        request.validate(base)?;
+        request.references.sort();
+        let metadata = base.paging().ok_or("semantic_paging_requires_v4")?;
+        let recall = base.recall().ok_or("semantic_paging_requires_recall")?;
+        let requested: BTreeSet<_> = request.references.iter().cloned().collect();
+        let catalog = base.page_references();
+        let resident: BTreeSet<_> = base.resident_page_references().into_iter().collect();
+        let mut wanted = resident.clone();
+        match request.action {
+            PageAction::PageIn => wanted.extend(requested.iter().cloned()),
+            PageAction::PageOut => wanted.retain(|id| !requested.contains(id)),
+        }
+        let refs: Vec<_> = catalog.iter().filter(|r| wanted.contains(&r.reference_id)).collect();
+        let started = std::time::Instant::now();
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let current = self.get_case_state_txn(&txn, &request.case_id)?.ok_or("case_not_visible")?;
+        let mut hr = h::HistoricalRequest::inspection(recall.recall_request.at.clone(), request.participant_id.clone());
+        hr.max_items = 4096; hr.max_bytes = 16_777_216;
+        let (mut view, disclosure, history, then) = self.qualified_historical_view_txn(
+            &txn, auth, &request.case_id, hr, content)?;
+        if current.generation != recall.request.expected_generation {
+            return Err("semantic_page_stale_base_recompile_required".into());
+        }
+        let source = self.compose_cognitive_state_txn(&txn, &current, &history)?;
+        source.validate_paging_current(base)?;
+        if requested.iter().any(|id| !catalog.iter().any(|r| &r.reference_id == id)) {
+            return Err("semantic_reference_unavailable".into());
+        }
+        if request.action == PageAction::PageOut && catalog.iter().any(|r|
+            requested.contains(&r.reference_id) && (r.mandatory_task_dependency || !resident.contains(&r.reference_id))) {
+            return Err("semantic_page_out_requires_optional_resident".into());
+        }
+        let mut measurements = PagingMeasurements { qualified_history_us: started.elapsed().as_micros(), ..Default::default() };
+        let mut scope: BTreeSet<_> = refs.iter().flat_map(|r| r.sources.iter())
+            .map(|s| (s.source_id.clone(), s.revision_id.clone(), s.path.clone())).collect();
+        // H-only groups can reference source-owned acquisition observations.
+        // Resolve their exact owning source gate too, without all-source lookup.
+        let members: BTreeSet<_> = refs.iter().flat_map(|r| r.members.iter().cloned()).collect();
+        let mut backing: BTreeSet<_> = view.known_by_then.iter().filter(|e| members.contains(&e.transition_id))
+            .flat_map(|e| match &e.payload {
+                TransitionPayload::ResourceObservationRecorded { observation }
+                | TransitionPayload::ResourceEffectFinalized { observation, .. } => vec![observation.observation_id.clone()],
+                TransitionPayload::CaseContentAdmitted { admission } => vec![admission.admission_id.clone()],
+                _ => vec![],
+            }).collect();
+        let operations: BTreeSet<_> = view.known_by_then.iter().filter(|e| members.contains(&e.transition_id))
+            .filter_map(|e| match &e.payload {
+                TransitionPayload::OperationRecorded { operation } => Some(operation.operation_id.clone()),
+                TransitionPayload::DecisionRecorded { decision } => Some(decision.operation_id.clone()),
+                _ => None,
+            }).collect();
+        let observations: BTreeSet<_> = history.iter().filter_map(|t| match &t.payload {
+            TransitionPayload::ResourceObservationRecorded { observation }
+                if operations.contains(&observation.operation_id) => Some(observation.observation_id.clone()),
+            _ => None,
+        }).collect();
+        backing.extend(observations.iter().cloned());
+        // A selected admission/discovery Decision inherits the same source gate
+        // as its exact acquisition result, even if that result is not resident.
+        backing.extend(history.iter().filter_map(|t| match &t.payload {
+            TransitionPayload::CaseContentAdmitted { admission }
+                if operations.contains(&admission.operation_id)
+                    || observations.contains(&admission.discovery_observation_id) => Some(admission.admission_id.clone()),
+            _ => None,
+        }));
+        for t in h::prefix(&history, &recall.recall_request.at)? {
+            if let TransitionPayload::CaseSourceProgressed { progress } = &t.payload {
+                if let Some(revision) = &progress.revision {
+                    for item in &revision.items {
+                        if backing.contains(&recall::documentary::backing_id(&item.backing)) {
+                            scope.insert((progress.source_id.clone(), revision.revision_id.clone(), item.path.clone()));
+                        }
+                    }
+                }
+            }
+        }
+        let (d, visible) = self.qualified_knowledge_scope_txn(&txn, auth,
+            knowledge::KnowledgeRequest::new(&request.case_id), &current, &history,
+            Some((&recall.recall_request, &then)), content, Some(&scope))?;
+        measurements.exact_source_resolution_us = d.measurements.source_resolution_us;
+        measurements.source_derivation_us = d.measurements.derivation_us + d.measurements.graph_us;
+        measurements.source_documents_resolved = d.measurements.source_documents;
+        measurements.source_bytes = d.measurements.original_bytes;
+        recall::documentary::restrict_acquisition_history(&mut view, &history, &visible);
+        drop(txn);
+        let started = std::time::Instant::now();
+        let mut entries = Vec::new(); let mut page_groups = Vec::new();
+        for reference in refs {
+            let mut exact = recall::RecallRequest::integrated(&request.case_id, current.generation,
+                &request.participant_id, "exact semantic group resolution");
+            exact.at = reference.at.clone();
+            // Revalidation has its own bounded maximum; the requested incoming
+            // page and the unchanged W envelope are checked independently below.
+            exact.bounds.events = 256; exact.bounds.relations = 1024; exact.bounds.segments = 64;
+            exact.bounds.semantic_units = 262144;
+            let result = recall::resolve_exact(&view, &disclosure, &history, exact,
+                &reference.members, &d.view).map_err(|e| if e == "recall_required_anchor_unavailable" {
+                    "semantic_reference_unavailable".into() } else { e })?;
+            measurements.candidate_discovery_passes += result.measurements.candidate_discovery_passes;
+            measurements.relation_build_us += result.measurements.relation_build_us;
+            measurements.groups_revalidated += 1;
+            let entry = rehydrated_entry(reference, result.trace, &metadata.origin_recall_id)?;
+            if requested.contains(&reference.reference_id) && request.action == PageAction::PageIn {
+                if let SemanticValue::RecalledEvidence { evidence } = &entry.value { page_groups.push((**evidence).clone()); }
+            }
+            // Incoming material must fit or refuse. It is not permanently made
+            // mandatory: only the original exact task dependencies are protected
+            // from later explicit page-out / deterministic optional eviction.
+            entries.push((reference.mandatory_task_dependency || requested.contains(&reference.reference_id), entry));
+        }
+        measurements.exact_group_resolution_us = started.elapsed().as_micros();
+        let started = std::time::Instant::now();
+        let page = SemanticPage::build(request.clone(), metadata.current_control_digest.clone(), page_groups)?;
+        measurements.page_closure_assembly_us = started.elapsed().as_micros();
+        measurements.page_bytes = serde_json::to_vec(&page).map_err(|e| e.to_string())?.len();
+        let started = std::time::Instant::now();
+        let source = source.with_page_groups(base, &request, &page, entries)?;
+        let working_state = source.compile(base.request())?;
+        measurements.working_recompilation_us = started.elapsed().as_micros();
+        measurements.working_bytes = serde_json::to_vec(&working_state).map_err(|e| e.to_string())?.len();
+        let after: BTreeSet<_> = working_state.resident_page_references().into_iter().collect();
+        let evicted_references = resident.difference(&after).cloned().collect();
+        Ok(PageResult { page, working_state, evicted_references, measurements, source })
+    }
+
     fn qualified_historical_view(
         &self,
         authenticated: &AuthenticatedPrincipal,

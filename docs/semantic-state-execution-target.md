@@ -52,8 +52,8 @@ Resource, policy and content owners. The separate bounded
 [source-grounded knowledge derivation](source-grounded-knowledge.md) now provides
 a deterministic D foothold. [Recall v2](recall.md) composes bounded D/H/S
 candidates under one qualified read basis. The explicit working-state operation
-now compiles bounded Recall-aware W v3; no provider execution or public W→E path
-is implied.
+now compiles bounded Recall-aware W v3, with opt-in W4 exact-group references and
+explicit semantic page-in/page-out; no provider execution or public W→E path is implied.
 An acquisition can be
 recorded in Case history without turning its documentary content into current
 semantic truth. Generic bootstrap/knowledge horizons remain in the Roadmap.
@@ -193,7 +193,7 @@ The notation is not a source-type, schema or API commitment:
 | H_t — Qualified historical experience | Recorded occurrences, decisions, observations, effects, Workflow history and admitted material, including what no longer holds | Conceptual qualified view over existing ledgers/content/established owners; not a new historical owner or a guarantee of complete knowledge |
 | S_t — Semantic State | What presently holds: model-independent Case meaning with provenance, authority and epistemic distinctions | YAI, through existing owners; current authority, derived assertion and model claim stay distinct |
 | R_t^q — Recall Trace | Bounded reconstruction of the qualified knowledge and experience relevant to question/task q, including potentially discontinuous sources, Events and Episodes | Bounded D/H/S v2 now exists: derived, reconstructible, disposable, current-disclosure scoped; temporal/causal meaning only where supported, exact source closure or explicit missingness. General task sufficiency remains target |
-| W_t — Semantic Working State | What must count for this execution: bounded, task-relative, Participant-scoped, provenance-carrying | Bounded v3 compilation of mandatory current S plus qualified Recall groups, task and Case constraints; general task sufficiency, paging and ambient refresh remain targets. Not the whole Case or a new memory history |
+| W_t — Semantic Working State | What must count for this execution: bounded, task-relative, Participant-scoped, provenance-carrying | Bounded v3 compilation of mandatory current S plus qualified Recall groups, task and Case constraints; opt-in v4 adds exact-group deferred references and explicit paging. General task sufficiency, arbitrary neighborhood expansion and ambient refresh remain targets. Not the whole Case or a new memory history |
 | E_t — Experiential Computational State | Model-native realization of W_t, subsequently accumulated through execution | Computationally owned by YVEX/model: model-specific, potentially opaque, independently resident, derived and replaceable; never a second semantic ledger |
 
 q identifies the current question/task; X_t is immediate input. R_t^q denotes
@@ -211,7 +211,7 @@ Interlock qualification must establish that later seam.
 SemanticState and compiles SemanticWorkingState before Projection/ContextFrame
 lowering. This is not a claim
 of general temporal/as-of reconstruction, universal task
-sufficiency, semantic paging or a public E_t consumer. The existing Rust
+sufficiency, general semantic paging or a public E_t consumer. The existing Rust
 `SemanticState` wraps history and current materialization for qualification;
 the D/H/S target distinctions do not rename/split that contract retroactively. See
 [current architecture](architecture.md#current-provider-and-context-behavior).
@@ -568,7 +568,15 @@ mandatory current control. Required missing backing or mandatory envelope overfl
 refuses; optional omissions and Recall limitations remain explicit. A historical
 Recall cut cannot become current authority. Recall/backing change can require full
 recompilation with no S-only delta; no ambient refresh is implemented. The existing
-provider path remains S-only v2. Neither W contract is the definition of memory.
+provider path remains S-only v2. W4's bounded exact-group pager revalidates current
+control and source backing without another Recall discovery pass. Resident and
+deferred are distinct; reference possession is not authorization. Atomic pages
+have a separate envelope, and page-in/out uses the same W compiler without
+evicting mandatory current/task semantics or mutating Case history. It preserves
+the evidentiary cut under present authority. Fixed-generation continuation is
+not prompt-independent refresh, a new retriever or computational/KV paging.
+See the [scoped contract](recall.md#scoped-semantic-paging). None of these derived
+W versions is the definition of memory.
 The semantic composition below exists at bounded scope; the public computational
 lowering remains target:
 
@@ -792,8 +800,9 @@ State Read/Update remain distinct from hypothetical implementations. No schema,
 H20/W21/W22, REPLAI change, Studio or runtime refactor is authorized by this
 documentation.
 
-The bounded S/qualified Recall → W compiler is implemented; universal sufficiency, semantic paging
-and optimized incremental compilation are not. E_t is not implemented inside YAI;
+The bounded S/qualified Recall → W compiler and exact closed-group semantic paging
+are implemented; universal sufficiency, general demand expansion and optimized
+incremental compilation are not. E_t is not implemented inside YAI;
 no current model is claimed to possess a native experiential stream. No
 state-augmented training, model-state adapter or latent-state owner is introduced.
 The source refoundation covers explicit qualified semantic-state meaning, bounded

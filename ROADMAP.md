@@ -11,16 +11,16 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source environment, source-grounded domain knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **RECALL-AWARE.WORKING.STATE.0 — COMPLETE** at bounded deterministic scope: typed task → Recall v2 + mandatory current S → W v3 through the existing compiler; actual CLI/LMDB adversarial oracles, publication/characterization union and Golden local PASS. C06/M06/M07 remain PARTIAL. No model execution or W → E selected. |
+| Selected engineering boundary | **SCOPED.SEMANTIC.PAGING.0 — COMPLETE** at bounded exact-group scope: opt-in W4 deferred references, current-authority/backing requalification, atomic Page v1 and bounded page-in/page-out through the existing compiler. [Contract](docs/recall.md#scoped-semantic-paging), [product oracle](tests/characterization/source-grounded-knowledge/test_paging.py). No provider migration, ambient refresh or W → E. |
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
-| Most important structural gap | Bounded S/Recall → W, exact as-of reconstruction, source bootstrap, deterministic D and integrated D/H/S Recall exist. Broader task sufficiency/source interpretation, scoped paging/demand expansion, general temporal validity, prompt-independent refresh and a public W → E consumer remain unqualified. |
+| Most important structural gap | Bounded S/Recall → W, exact-group paging, as-of reconstruction, source bootstrap, deterministic D and integrated D/H/S Recall exist. Broader task sufficiency/source interpretation, general neighborhood expansion/temporal validity, prompt-independent refresh and a public W → E consumer remain unqualified. |
 | Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
-| Primary research boundary | Broader Recall/W sufficiency, scoped paging/demand expansion, refresh and bounded persistent deliberation; Experiential State Read/Update remain OPEN. These extend existing S/M/C/E/W/Q targets, not automatic implementation authorization. |
+| Primary research boundary | Broader Recall/W sufficiency, semantic refresh, broader demand expansion and bounded persistent deliberation; Experiential State Read/Update remain OPEN. These extend existing S/M/C/E/W/Q targets, not automatic implementation authorization. |
 | Current compatibility path | Governed exact OpenAI-compatible context/text, bounded typed content/functions/JSON when mechanically qualified; optional opaque continuation, not a native state contract. |
-| Target stateful path | Qualified D_t + H_t + S_t → Recall R_t^q and explicit task → automatic Recall acquisition + mandatory S → bounded W v3 exist. Paging, ambient refresh, public W → YVEX E_t and deliberation L remain targets, not current capabilities. |
+| Target stateful path | Qualified D_t + H_t + S_t → Recall R_t^q and explicit task → automatic Recall acquisition + mandatory S → bounded W v3 exist; opt-in W4 adds exact deferred references and explicit Page v1 expansion. Ambient refresh, general paging, public W → YVEX E_t and deliberation L remain targets. |
 | Human Golden acceptance | **PENDING_OPERATOR**; automated PTY evidence cannot supply this verdict. Continuity canary **NOT_RUN**. |
 | YVEX external posture | **FAIL / incomplete** at the retained YAI consumer run: no ProviderResult before the 300-second watchdog despite capacity-compatible preflight; no fallback/retry. [Exact evidence][external-closure]. Producer runtime diagnosis/progression belongs to the [public YVEX roadmap](https://github.com/yailabs/yvex/blob/models2/ROADMAP.md), not a duplicated live runtime snapshot here. |
-| Next decision point | Evaluate scoped semantic paging / demand expansion over bounded Recall-aware W; implementation remains UNSELECTED. No ambient refresh, public W → E or B1 execution is selected. Compact live-model qualification stays independently NOT QUALIFIED. |
+| Next decision point | Prompt-independent semantic refresh, independently UNSELECTED; no automatic successor, provider convergence, public W → E or B1 execution. Compact live-model qualification stays independently NOT QUALIFIED. |
 
 **I01–I06 COMPLETE. I07 UNSELECTED.** Source refoundation, W19/H19/W20,
 TEST.TOPOLOGY.0, REPLAI R4/R5 and Golden/guided CLI remain completed evidence.
@@ -142,7 +142,7 @@ and sufficient for this execution. Compilation must explain what matters now,
 for which Participant/task, under which disclosure/budget and from which sources.
 It never implies lowering the entire long-lived Case. Relevance cannot widen
 authority. Current bounded W and derived SemanticDelta contracts precede
-Projection/ContextFrame compatibility lowering. General public frames, paging
+Projection/ContextFrame compatibility lowering. General public frames, paging beyond the bounded exact-group profile
 and universal sufficiency remain open; existing owners retain admission. The
 implemented `SemanticState` wraps history plus current materialization for
 qualification; D/H/S/Recall is a target distinction, not a retroactive type split.
@@ -473,7 +473,7 @@ horizons. Temporal execution status is separate. Counts describe rows only,
 never percentage completion. Evidence promotion still requires human review.
 
 <!-- maturity-summary:start -->
-ESTABLISHED=32 PARTIAL=27 OPEN=10 LATER=4 TOTAL=73
+ESTABLISHED=32 PARTIAL=28 OPEN=9 LATER=4 TOTAL=73
 <!-- maturity-summary:end -->
 
 <!-- maturity:start -->
@@ -524,7 +524,7 @@ ESTABLISHED=32 PARTIAL=27 OPEN=10 LATER=4 TOTAL=73
 | C04 | Bounded SemanticWorkingState representation | 🟢 ESTABLISHED | [State compiler][state-refoundation]: source/request/generation-bound W; exact required refs, disclosure, budgets, omissions and stale/tamper refusal. Not a future public model-state schema. |
 | C05 | Derived SemanticDelta and full-compilation equivalence | 🟢 ESTABLISHED | [State compiler][state-refoundation]: forward source/destination/request-bound additions/replacements/removals; checked application explicitly uses full recompilation. No optimized incremental claim. |
 | C06 | Active working-set compilation and Case-age locality | 🟡 PARTIAL | [Recall-aware W](docs/recall.md#recall-aware-working-state-compilation) adds one typed task → Recall v2 → existing compiler path, pinned current S and exact dependencies, atomic evidentiary groups, as-of/current-authority separation, missingness, source freshness and explicit full recompilation. [Product oracle](tests/characterization/source-grounded-knowledge/test_working_state.py) pressures 10/73 sources and 82/594 versus 289/801 Transitions. Earlier 8/1,206-Transition S-only locality stays earned. No constant-cost CPU, general task sufficiency, optimized ΔRecall or ambient refresh. |
-| C07 | Exact scoped state references / demand expansion | 🔴 OPEN | Current exact IDs are foundations, not a semantic paging API or ambient access. |
+| C07 | Exact scoped state references / demand expansion | 🟡 PARTIAL | [Scoped paging](docs/recall.md#scoped-semantic-paging) and [actual CLI/LMDB oracle](tests/characterization/source-grounded-knowledge/test_paging.py): W4 exact closed-group locators, Page v1, current authority/backing and historical-cut requalification, atomic page/resident budgets, optional page-out and deterministic rebuild without global Recall discovery or canonical writes. 10/73 source documents and short/long history profiles. Fixed-generation continuation, not arbitrary source/graph crawling, optimal eviction, ambient refresh or a provider demand loop. |
 | C08 | Context-compatible lowering with exact execution lineage | 🟢 ESTABLISHED | [I03][i03], [I06][i06], [Golden][golden]; bounded generic adapter proof in loopback, not every live deployment. |
 | C09 | Target capability negotiation | 🟡 PARTIAL | Semantic suitability and mechanical shapes are separate; public persistent-state capabilities are not integrated. |
 | C10 | Public YAI/YVEX cognitive-state contract | 🔴 OPEN | No implemented semantic-frame-to-model-state consumer in YAI; private protocols are excluded. |
@@ -632,7 +632,7 @@ Letters are local shorthand, not the numbering of historical W/I/R waves.
 | **K — Case Kernel & Canonical State**: durable identity, history and current truth | K01–K04; immutable payload/reference distinction; scoped prefix reader over existing replay | Portable upgrade coverage, source logical/revision identity and general state relations | Preserve exact immutable backing for D/H/S; newer source revisions must not replace historical evidence | Typed source/revision relation, provenance, replay and recovery evidence | No blob ledger, ExperienceStore or universal attachment owner |
 | **A — Authority & Governance**: govern semantic and operational admission | A01–A05; Principal/Participant, policy, review, Grant, temporal authority | Narrow bootstrap authority, source-role admission, disclosure and credential integrations; refresh/revocation consumers | Policy-first acquisition; knowledge never auto-promotes to policy; current disclosure governs shared sources/Recall and stale E/L | DENY/review, dual-role non-promotion, cross-Case isolation and revocation before affected consumption | Neither acquisition, knowledge, model output, repeated Recall nor a catalog grants authority |
 | **S — Semantic Cognitive State**: preserve model-independent task and Case meaning | S01–S07/S10 foundations; bounded S12 historical/current policy and resource oracle; Recall preserves qualified historical/current and claim posture | Documentary D versus experienced H versus current S; general as-of validity, semantic timescales and task/big-picture state | Keep source assertions, observations, inferences and normative rules distinct; retain superseded material as history, not current truth | Qualified documentary/observed contradiction and historical/current oracle with owner-specific supersession | No mega-object; D/H are not new stores, E/L no semantic truth |
-| **C — State Compilation & Cognitive Boundary**: compile governed semantic working state | Bounded S-only v2 and Recall-aware W v3, derived delta/full fallback, context-compatible Projection/ContextFrame | Broader task sufficiency, scoped paging/demand expansion, prompt-independent refresh and public E contracts | Preserve Recall reconstruction versus W execution selection; current control and exact evidentiary groups precede optional relevance; semantic sufficiency is not target capacity | Full/ΔW equivalence, mandatory state and freshness with scoped source closure; later public E reconciliation | No latent writes, model adapters, physical layouts or YVEX placement |
+| **C — State Compilation & Cognitive Boundary**: compile governed semantic working state | S-only W2, Recall-aware W3, opt-in exact-group W4/Page1, derived delta/full fallback and context-compatible lowering | Broader task sufficiency/demand expansion, prompt-independent refresh and public E contracts | Preserve Recall discovery versus exact paging and W execution selection; current control and exact evidentiary groups precede optional relevance; semantic sufficiency is not target capacity | Full/ΔW equivalence, mandatory state and current authority/backing with atomic scoped closure; later public E reconciliation | No latent writes, model adapters, physical layouts or YVEX placement |
 | **E — Cognitive Execution**: exact responsibility and provider-independent intent | I02–I06 planning, arbitration, realization, composition and host | Suitability/capacity/setup; qualified computational source-derivation tasks and persistent deliberation/L lifecycle | Preserve independent external wait findings; future acquisition/derivation tasks use bounded existing execution, never an uncontrolled LLM loop | Exact execution plus budget/deadline/cancel/result and compatible resume/amnesia evidence | No acquisition/knowledge authority from computation, Agent continuity owner or latent-state owner in YAI |
 | **O — Operational World**: governed observations, attachments and effects | Golden filesystem/process/SQLite/HTTP/MCP/discovery verticals; bounded O08 source bootstrap | Broader acquisition profiles, review completion, cross-Case reuse and external ambiguity | One source frontier, roles and exact revisions; acquire permitted remainder only after governance, preserving operational resource semantics | Policy-only/full/incremental bootstrap, coverage/refusal, duplicate/revision, resume and revoke oracles | No parallel policy/knowledge acquisition owners or ConnectorStore; a database Resource is not YAI memory |
 | **W — Workflow & Composition**: explicit progression and bounded delegation | Workflow amendments/PlanPatch, I04 composition and exact Handoff | Resumable bounded acquisition/derivation work, persistent assignments, broader delegation and optional Agents | Reuse task/Workflow progression and execution owners for partial work/resume and future deliberation; normal effect authority still applies | Replayable progress, partial failure/resume, explicit adoption and cancellation through existing owners | No bootstrap-job or ThinkingJob store; Workflow/Agent is not Case memory or private execution |
@@ -833,6 +833,7 @@ Golden supplies a common Case/task workload; it owns none of these semantics.
 | Task-local versus Case/big-picture state | PARTIAL | Current binding/older requirement survive task switches. General timescales remain OPEN: test memory interference, task switching and supersession during active deliberation without losing Case constraints. |
 | Full W_t reconstruction versus semantic delta | ESTABLISHED, bounded | [State compiler][state-refoundation]: checked forward deltas equal full W for supported changes; stale sources/requests refuse. Explicit full fallback, not incremental speed or E_t equivalence. |
 | Derived-state amnesia | ESTABLISHED, bounded | [Golden][golden] drops/rebuilds its disposable graph/index/memory and compares canonical truth. Owned immutable bytes and canonical ledgers are NOT disposable; this does not qualify every future derivation family. |
+| Scoped semantic paging / demand expansion | PARTIAL, exact closed groups | [Product oracle](tests/characterization/source-grounded-knowledge/test_paging.py): resident/deferred distinction, exact source and historical backing, current disclosure, atomic page-in/out budgets, same-generation policy revoke, missing backing despite a live original, counterfactual relation, rebuild and zero search/Transition controls. No arbitrary neighborhood traversal, silent current-authority rollback or global Recall on page demand. |
 | Training-free persistent-state realization | OPEN | Qualified W_t → exact persistent prefix/KV/hidden E_t → observed model reuse may qualify bounded State Read. Prove provenance, model/profile, reuse, invalidation and reconstruction; persistence alone and an unqualified endpoint cannot pass. |
 | Experiential State Read and incremental external update | OPEN | Consume independently persistent E_t; apply qualified working-state deltas through YVEX and compare task semantics with full reconstruction. Stale scope/profile or ignored state must fail; YAI does not write latent bytes. |
 | State-augmented pretrained model / learned State Read | OPEN | Compare an exact pretrained backbone with/without its qualified state adapter/profile and targeted post-training, including a frozen-backbone experiment where appropriate. Show actual state dependence, relevant big-picture retention and supersession; no adapter/training implementation is claimed. |
@@ -864,16 +865,15 @@ Independent external/provider qualification tracks remain visible below; they
 are not additional selected implementation rows. Success never automatically
 authorizes the next experiment.
 
-Most recent implementation boundary: **RECALL-AWARE.WORKING.STATE.0**, complete
-at bounded deterministic task/Recall/current-state compilation scope.
-KNOWLEDGE.RECALL.INTEGRATION.0 retains its independently complete bounded D/H/S
-reconstruction scope. The single control row remains until a successor is selected.
+Selected implementation boundary: **SCOPED.SEMANTIC.PAGING.0**.
+RECALL-AWARE.WORKING.STATE.0 and KNOWLEDGE.RECALL.INTEGRATION.0 retain their
+independently complete bounded scopes.
 Next implementation boundary: **UNSELECTED**.
 
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| RECALL-AWARE.WORKING.STATE.0 | COMPLETE | C S M K Q | [W v3 contract](docs/recall.md#recall-aware-working-state-compilation): one typed task → Recall v2 → existing compiler, mandatory current S/exact dependencies, atomic evidentiary groups, current authority over as-of memory, explicit omissions/refusals and full freshness requalification. Actual CLI/LMDB four-profile oracle, typed policy/revoke/tamper/lowering proof, deterministic publication/characterization union and Golden local PASS. C06/M06/M07 PARTIAL; no inference, W → E or new canonical owner. |
+| SCOPED.SEMANTIC.PAGING.0 | COMPLETE | C S M K Q | [Qualified W4/Page1](docs/recall.md#scoped-semantic-paging): exact deferred groups, current disclosure/backing and cut revalidation, atomic page/resident budgets, immutable page-in/page-out and rebuild with zero discovery/canonical mutation. [Typed oracle](engine/yai-engine/src/store/tests/recall_tests.rs), [product/characterization](tests/characterization/source-grounded-knowledge/test_paging.py), publication union and Golden local. C07 PARTIAL only; M06/M07/C06 unchanged. No provider migration, new canonical owner/database or W → E. |
 <!-- execution:end -->
 
 **Primary programs: C / S / M / K / Q; A/O protect disclosure and source/Resource semantics.**
@@ -885,12 +885,13 @@ implementation selection is finished; its real model-awareness evidence remains
 NOT QUALIFIED / externally blocked. Provider qualification is independent of
 selection of this canonical, no-provider semantic milestone.
 
-**RECALL-AWARE.WORKING.STATE.0 INTERLOCK CHECK:** request-scoped source/history
-qualification, Recall groups, current authority and the existing W compiler / typed
-application result compose existing YAI owners. No YVEX/interfaces consumer, shared public
+**SCOPED.SEMANTIC.PAGING.0 INTERLOCK CHECK:** qualified exact-group locators,
+request-scoped source/history revalidation, current authority and the existing W
+compiler / typed page application result compose existing YAI owners. No YVEX/interfaces consumer, shared public
 contract, dependency pin or producer version is selected. No new cross-repository
-Interlock is demonstrated; **I07 remains UNSELECTED**. W v3 ends at semantic
-compilation/compatibility lowering, not public computational-state consumption.
+Interlock is demonstrated; **I07 remains UNSELECTED**. W4/Page1 end at semantic
+residency and Projection/ContextFrame12 lowering, not public computational-state
+consumption. Provider/Conversation/Workflow still use their S-only W2 path.
 
 The [implementation evidence][state-refoundation] records composition, compiler
 identities, scope/budget refusal and full/delta fallback. Only derived contracts
@@ -926,8 +927,8 @@ RECALL.TRACE.0                         (published bounded primitive)
   → SOURCE.GROUNDED.KNOWLEDGE.0        (completed bounded deterministic D)
   → KNOWLEDGE.RECALL.INTEGRATION.0     (completed bounded D/H/S Recall)
   → RECALL-AWARE.WORKING.STATE.0       (completed bounded W consumer)
-  → scoped semantic paging / demand expansion
-  → prompt-independent semantic refresh
+  → SCOPED.SEMANTIC.PAGING.0           (completed bounded exact-group demand)
+  → prompt-independent semantic refresh (UNSELECTED)
   → public YAI ↔ YVEX cognitive-state boundary
   → State Read / Update and later computational research
 ```
@@ -953,7 +954,8 @@ source bootstrap and knowledge derivation do not themselves own Recall or W.
 |---|---|---|
 | Now | Bounded historical reconstruction, source bootstrap, deterministic D and integrated D/H/S Recall | Exact policy/Decision, scope, closure, discontinuous Recall, acquisition and source-derived knowledge oracles are earned without inference. Full External Golden and compact policy-awareness delivery remain independent unqualified provider tracks; no automatic next selection |
 | Now | Bounded Recall-aware working state | C06 consumes qualified R through the existing compiler, preserving mandatory S/Case constraints, full requalification and compatibility lowering. Broader sufficiency/refresh remains unqualified; no automatic next selection |
-| Near / Mid | Scoped semantic paging/demand expansion, then prompt-independent refresh | Qualified source references after Recall-aware W; general historical validity, exact resolution/refusal and mandatory freshness; learned navigation remains optional |
+| Now | Bounded exact-group semantic paging | C07 revalidates declared references under current access, preserves cut/closure and compiles immutable bounded W4 page-in/out without global Recall search. Broader expansion remains unqualified |
+| Near / Mid | Prompt-independent semantic refresh / broader demand expansion | No automatic selection. General historical validity, source/control freshness, consumer convergence and safe removal remain pressure; learned navigation is optional |
 | Near / Mid | Public W_t → E_t boundary and first persistent State Read consumer | Scoped compilation/refresh plus truthful public capability and actual consumer; a qualified training-free KV/prefix bridge is admissible |
 | Mid | Cross-model W_t/E_t recompilation, trajectory evaluation and admission of explicit P_t | Reconstruction/invalidation and independent full/delta oracles; E_t updates need not emit P_t |
 | Mid / Later | State-augmented pretrained and native dual-stream Read/Write consumers | Exact model-side adapter/profile and targeted post-training or native training, real runtime support and independent evidence; no training owner in YAI |
@@ -968,8 +970,8 @@ product/research properties, not a maturity percentage.
 
 | Gate / consumer | Current posture | What it authorizes |
 |---|---|---|
-| Deterministic software publication | [Current full publication/characterization union PASS][knowledge] | Classified no-provider and loopback properties, not live model interoperability |
-| Golden local product lifecycle | [Current PASS][knowledge], deterministic model with real local persistence/resource adapters and protocol peers; exact Invocation → W and rebuild equality | Bounded free/Workflow, authority, replay/rebuild/recovery/isolation lifecycle; separate Golden lane, not folded into `make check` |
+| Deterministic software publication | [Current full publication/characterization union PASS](docs/recall.md#scoped-semantic-paging) | Classified no-provider and loopback properties, not live model interoperability |
+| Golden local product lifecycle | Current PASS, deterministic model with real local persistence/resource adapters and protocol peers; exact Invocation → W and rebuild equality | Bounded free/Workflow, authority, replay/rebuild/recovery/isolation lifecycle; separate Golden lane, not folded into `make check`; provider W2 remains independent of explicit paging |
 | External YVEX Golden | FAIL: generation 2 first-request preflight compatible, fresh product run stopped after 300 seconds with no response; Workflow NOT_REACHED | Only exact public observations; compatible preflight is not completed execution or Golden PASS |
 | Human Golden | PENDING_OPERATOR | Only a human may report acceptance at an exact YAI/external identity |
 | Continuity canary | NOT_RUN | Operator-owned retained Case across upgrades; never reset by automated qualification |

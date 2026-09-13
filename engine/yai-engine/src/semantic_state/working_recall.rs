@@ -280,6 +280,9 @@ impl SemanticState {
                 &self.recall.as_ref().unwrap().metadata,
             ))?
         );
+        if let Some(paging) = &self.paging {
+            self.source_id = format!("semantic-paging-basis:{}", identity(&(&self.source_id, &paging.metadata))?);
+        }
         Ok(self)
     }
 }
@@ -292,7 +295,11 @@ impl SemanticWorkingState {
     pub(super) fn fit_recall_envelope(&mut self) -> Result<(), String> {
         let max_bytes = self.recall.as_ref().unwrap().request.max_output_bytes;
         loop {
+            let resident = self.resident_page_references();
             for entry in &mut self.entries {
+                if let SemanticValue::SemanticPageReferences { resident_references, .. } = &mut entry.value {
+                    *resident_references = resident.clone();
+                }
                 if let SemanticValue::RecallQualification {
                     working_omitted_items,
                     ..

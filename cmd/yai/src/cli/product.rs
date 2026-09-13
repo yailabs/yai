@@ -27,6 +27,7 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.resource.list" => resource_list(invocation),
         "yai.case.history" | "yai.case.verify" => canonical_case_inspection(invocation),
         "yai.case.context.compile" => working_state_compilation(invocation),
+        "yai.case.context.expand" => working_state_expansion(invocation),
         "yai.case.as_of" | "yai.case.experience" | "yai.case.recall" => historical_case_inspection(invocation),
         operation if operation.starts_with("yai.case.knowledge.") => knowledge_inspection(invocation),
         "yai.case.open" | "yai.case.workbench" => {
@@ -566,7 +567,7 @@ fn working_state_compilation(invocation: &Invocation) -> Result<CliData, CliErro
         compilation: CompilationRequest {
             scope, intent: invocation.positionals["intent"].clone(),
             output_contract_id: yai_core_engine::context::InvocationOutputContract::NaturalLanguage.contract_id(),
-            max_semantic_units: number("--units", 32768)?, max_derived_items: 16,
+            max_semantic_units: number("--units", 32768)?, max_derived_items: number("--resident-groups", 16)?,
             resource_refs: invocation.flag("--resource").map(str::to_string).into_iter().collect(),
             required_refs: invocation.flag("--require").map(str::to_string).into_iter().collect(),
             previous_item_ids: vec![], view_selection_id: None,
@@ -575,7 +576,10 @@ fn working_state_compilation(invocation: &Invocation) -> Result<CliData, CliErro
         recall_bounds, max_output_bytes: number("--bytes", 1024 * 1024)?,
     };
     let content = yai_core_engine::conversation::ConversationContentStore::open_existing(&yai_home()).ok();
-    let result = open_store()?.compile_working_state_authorized(&auth, request, content.as_ref())
+    let store = open_store()?;
+    let result = if invocation.flags.contains_key("--paged") {
+        store.compile_pageable_working_state_authorized(&auth, request, content.as_ref())
+    } else { store.compile_working_state_authorized(&auth, request, content.as_ref()) }
         .map_err(|e| domain_error("working_state_unavailable", e))?;
     let lowering_started = std::time::Instant::now();
     let projection = invocation.flags.contains_key("--projection").then(|| result.lower_context())
@@ -600,6 +604,69 @@ fn working_state_compilation(invocation: &Invocation) -> Result<CliData, CliErro
     }
     println!("Bounds/omissions: {:?}", w.bounds());
     println!("Derived W only; no model call, no W -> E, no canonical mutation.");
+    Ok(CliData::AlreadyRendered)
+}
+
+fn working_state_expansion(invocation: &Invocation) -> Result<CliData, CliError> {
+    use yai_core_engine::semantic_state::{SemanticWorkingState, paging::{PageRequest, PageAction}};
+    let auth = AuthenticatedPrincipal::authenticate_local()
+        .map_err(|e| domain_error("authentication_failed", e))?;
+    let file = fs::File::open(invocation.flag("--working-file").ok_or_else(|| CliError::usage("--working-file required"))?)
+        .map_err(|e| domain_error("working_file_unavailable", e.to_string()))?;
+    let mut bytes = Vec::new();
+    file.take(4 * 1024 * 1024 + 1).read_to_end(&mut bytes)
+        .map_err(|e| domain_error("working_file_unavailable", e.to_string()))?;
+    if bytes.len() > 4 * 1024 * 1024 { return Err(CliError::usage("working JSON exceeds 4 MiB")); }
+    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|e| domain_error("working_file_invalid", e.to_string()))?;
+    let body = value.pointer("/data/value/working_state").or_else(|| value.get("working_state")).unwrap_or(&value);
+    let base: SemanticWorkingState = serde_json::from_value(body.clone()).map_err(|e| domain_error("working_file_invalid", e.to_string()))?;
+    let mut request = PageRequest::new(&base, vec![invocation.flag("--ref").ok_or_else(|| CliError::usage("--ref required"))?.into()]);
+    request.case_id = invocation.positionals["case"].clone();
+    if let Some(id) = invocation.flag("--participant") { request.participant_id = id.into(); }
+    if let Some(id) = invocation.flag("--base-id") { request.base_working_state_id = id.into(); }
+    if invocation.flags.contains_key("--page-out") { request.action = PageAction::PageOut; }
+    let number = |flag, default| -> Result<usize, CliError> {
+        invocation.flag(flag).map(|s| s.parse().map_err(|_| CliError::usage(format!("{flag} must be an integer")))).unwrap_or(Ok(default))
+    };
+    request.bounds.semantic_units = number("--page-units", request.bounds.semantic_units)?;
+    request.bounds.bytes = number("--page-bytes", request.bounds.bytes)?;
+    request.bounds.events = number("--page-items", request.bounds.events)?;
+    let content = yai_core_engine::conversation::ConversationContentStore::open_existing(&yai_home()).ok();
+    let result = open_store()?.page_working_state_authorized(&auth, &base, request, content.as_ref())
+        .map_err(|e| domain_error("semantic_page_unavailable", e))?;
+    let projection = invocation.flags.contains_key("--projection").then(|| result.lower_context())
+        .transpose().map_err(|e| domain_error("working_lowering_unavailable", e))?;
+    if invocation.json {
+        let mut value = serde_json::to_value(&result).map_err(|e| domain_error("page_encoding", e.to_string()))?;
+        if let Some(p) = projection { value["projection"] = serde_json::to_value(p).map_err(|e| domain_error("page_encoding", e.to_string()))?; }
+        return Ok(CliData::NativeJson { value });
+    }
+    println!("SEMANTIC PAGE {}", result.page.page_id);
+    println!("Task: {}\nExpanded W: {}", result.working_state.request().intent, result.working_state.id());
+    println!("Closure: {}\nCurrent authority revalidated; no global Recall discovery", result.page.closure);
+    for (number, group) in result.page.groups.iter().enumerate() {
+        println!("Group {}: {} events, {} experience relations; closure complete={}",
+            number + 1, group.events.len(), group.relations.len(), group.closure_complete);
+        for event in &group.events {
+            println!("  Historical event {}: {:?}", event.event.transition_id, event.event.object_refs);
+        }
+        if let Some(d) = &group.documentary {
+            for source in &d.sources {
+                println!("  Source {} @ {} [{}]", source.source.path, source.source.revision_id, source.source.id);
+            }
+            for unit in &d.units {
+                println!("  {:?} {}: {}", unit.unit.posture, unit.unit.id,
+                    unit.unit.text.chars().take(160).collect::<String>());
+            }
+            println!("  Documentary relations: {}; unresolved disagreements: {} (no winner)",
+                d.relations.len(), d.contradictions.len());
+        }
+    }
+    let resident = result.working_state.resident_page_references();
+    for r in result.working_state.page_references() {
+        println!("{} [{}] {}", r.reference_id, if resident.contains(&r.reference_id) { "resident" } else { "deferred; authorization required on demand" }, r.family);
+    }
+    println!("Evicted optional groups: {:?}\nNo canonical mutation or model call.", result.evicted_references);
     Ok(CliData::AlreadyRendered)
 }
 

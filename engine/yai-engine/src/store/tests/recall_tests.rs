@@ -158,6 +158,84 @@ fn working_recall_policy_current_asof_freshness_tamper_and_atomic_budget() {
 }
 
 #[test]
+fn scoped_paging_exact_policy_group_rehydration_eviction_restart_and_no_discovery() {
+    use crate::semantic_state::{CompilationRequest, SemanticScope, SemanticPurpose, WorkingStateRequest, SemanticWorkingState};
+    use crate::semantic_state::paging::{PageRequest, PageAction};
+    let w = World::new();
+    let op = w.operation("request:paging:allow", "src/retry.txt");
+    let (d1, cut) = w.store.derive_and_commit_policy_decision(CASE, &op.operation_id).unwrap();
+    replace(&w, "2", "deny", false);
+    let state = w.store.get_case_state(CASE).unwrap().unwrap();
+    let history = w.store.list_case_transitions(CASE).unwrap();
+    let request = WorkingStateRequest {
+        case_id: CASE.into(), expected_generation: state.generation,
+        compilation: CompilationRequest { scope: SemanticScope::model(HUMAN, SemanticPurpose::Inspection),
+            intent: "historical filesystem policy decision".into(),
+            output_contract_id: crate::context::InvocationOutputContract::NaturalLanguage.contract_id(),
+            max_semantic_units: 131072, max_derived_items: 0, resource_refs: vec![],
+            required_refs: vec![HUMAN.into()], previous_item_ids: vec![], view_selection_id: None },
+        at: Some(HistoricalCoordinate::Generation(cut.state.generation)), recall_required_refs: vec![],
+        recall_bounds: Default::default(), max_output_bytes: 1024 * 1024 };
+    let base = w.store.compile_pageable_working_state_authorized(&w.owner, request.clone(), None).unwrap();
+    let reference = base.working_state.page_references().iter().find(|r| r.members.iter().any(|id| id.contains(&d1.decision_id))).unwrap().clone();
+    assert!(base.working_state.resident_page_references().is_empty());
+    let mut demand = PageRequest::new(&base.working_state, vec![reference.reference_id.clone()]);
+    demand.bounds.semantic_units = 131072;
+    let page = w.store.page_working_state_authorized(&w.owner, &base.working_state, demand.clone(), None).unwrap();
+    assert_eq!(page.measurements.candidate_discovery_passes, 0);
+    assert_ne!(page.working_state.id(), base.working_state.id());
+    assert_eq!(page.working_state.resident_page_references(), vec![reference.reference_id.clone()]);
+    assert!(page.page.groups.iter().flat_map(|g| &g.events).all(|e| e.event.recorded_generation <= cut.state.generation));
+    assert_eq!(base.working_state.paging().unwrap().current_control_digest, page.working_state.paging().unwrap().current_control_digest);
+    let projection = page.lower_context().unwrap();
+    assert_eq!(projection.entries, page.working_state.entries());
+    assert_eq!(projection.schema, crate::context::PROJECTION_SCHEMA_V12);
+    let frame = crate::context::build_context_frame(&projection, &request.compilation.intent,
+        crate::context::InvocationOutputContract::NaturalLanguage).unwrap();
+    assert_eq!(frame.schema, crate::context::CONTEXT_FRAME_SCHEMA_V12);
+    let restored: SemanticWorkingState = serde_json::from_slice(&serde_json::to_vec(&base.working_state).unwrap()).unwrap();
+    // A content hash is not semantic qualification: even a rehashed export
+    // cannot carry contradictory copies of the task/compilation contract.
+    let mut inconsistent = serde_json::to_value(&restored).unwrap();
+    inconsistent["recall"]["request"]["compilation"]["intent"] = serde_json::json!("another task");
+    inconsistent["working_state_id"] = serde_json::json!("");
+    let typed: SemanticWorkingState = serde_json::from_value(inconsistent.clone()).unwrap();
+    inconsistent["working_state_id"] = serde_json::json!(format!("working-state:{}",
+        crate::effect::digest_bytes(&serde_json::to_vec(&typed).unwrap())));
+    let typed: SemanticWorkingState = serde_json::from_value(inconsistent).unwrap();
+    assert_eq!(w.store.page_working_state_authorized(&w.owner, &typed,
+        PageRequest::new(&typed, vec![reference.reference_id.clone()]), None).unwrap_err(),
+        "semantic_page_base_integrity_mismatch");
+    w.store.clear_semantic_context_artifacts().unwrap();
+    w.store.clear_case_operational_memory(CASE).unwrap();
+    w.store.rebuild_graph_relations_for_case(CASE).unwrap();
+    let again = w.store.page_working_state_authorized(&w.owner, &restored, demand.clone(), None).unwrap();
+    assert_eq!(page.page, again.page); assert_eq!(page.working_state, again.working_state);
+    let mut out = PageRequest::new(&page.working_state, vec![reference.reference_id.clone()]); out.action = PageAction::PageOut;
+    let removed = w.store.page_working_state_authorized(&w.owner, &page.working_state, out, None).unwrap();
+    assert!(removed.working_state.resident_page_references().is_empty());
+    let mut input = PageRequest::new(&removed.working_state, vec![reference.reference_id.clone()]); input.bounds.semantic_units = 131072;
+    let reread = w.store.page_working_state_authorized(&w.owner, &removed.working_state, input, None).unwrap();
+    assert_eq!(page.page.groups, reread.page.groups);
+    let mut tiny = demand.clone(); tiny.bounds.semantic_units = 1;
+    assert!(w.store.page_working_state_authorized(&w.owner, &restored, tiny, None).is_err());
+    let mut wrong = demand.clone(); wrong.base_working_state_id = "working-state:wrong-task".into();
+    assert!(w.store.page_working_state_authorized(&w.owner, &restored, wrong, None).is_err());
+    assert!(w.store.page_working_state_authorized(&w.outsider, &restored, demand.clone(), None).is_err());
+    let mut unknown = demand.clone(); unknown.references = vec!["semantic-reference:absent".into()];
+    let mut hidden = unknown.clone(); hidden.references = vec!["semantic-reference:hidden".into()];
+    assert_eq!(w.store.page_working_state_authorized(&w.owner, &restored, unknown.clone(), None).unwrap_err(),
+        w.store.page_working_state_authorized(&w.owner, &restored, hidden, None).unwrap_err());
+    w.store.revoke_tenant_policy_artifact(&w.owner, &state.policy_bindings[0].artifact_id, "current paging authority withdrawn").unwrap();
+    assert_eq!(w.store.get_case_state(CASE).unwrap().unwrap(), state);
+    assert_eq!(w.store.page_working_state_authorized(&w.owner, &restored, demand, None).unwrap_err(),
+        w.store.page_working_state_authorized(&w.owner, &restored, unknown, None).unwrap_err());
+    assert_eq!(w.store.list_case_transitions(CASE).unwrap(), history);
+    println!("scoped_paging policy_asof_current_authority=true exact_group=true page_out_in=equal cache_restart=equal candidate_discovery_passes=0 current_revoke_refuses=true canonical_mutations=0 providers=0");
+    w.finish();
+}
+
+#[test]
 fn recall_policy_lineage_discontinuous_current_asof_and_readonly() {
     let w = World::new();
     let before = w.store.get_case_state(CASE).unwrap().unwrap();
