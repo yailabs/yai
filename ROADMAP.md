@@ -594,7 +594,7 @@ ESTABLISHED=32 PARTIAL=28 OPEN=9 LATER=4 TOTAL=73
 | X01 | Registry-backed native CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; handwritten YAI product CLI and exact automation retained, no global current-Case authority or silent trust. Generated reference clients do not replace `./yai` automatically. |
 | X02 | Native REPLAI Case workbench | 🟢 ESTABLISHED | [R4][replai], [R5][r5], [presentation][presentation]; real PTY and controller seams, no second terminal. |
 | X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | Bounded typed Rust/controller and owner-query seams exist; CLI arguments, output capture and store-coupled orchestration still cross application/presentation boundaries. Target: [one typed YAI application contract](#application-and-client-boundary--adopted-target) for native CLI/Studio and future generated clients. No complete stable public API, exported interface package, SDK or remote authentication qualification. |
-| X04 | YAI Studio / Case IDE | ⚪ LATER | [Native Case Workbench target](#yai-studio--case-ide-target), inside YAI; no implementation or required third repository. Consumes the same typed application boundary as the native CLI, never persistence internals or independently reconstructed semantics. |
+| X04 | YAI Studio / Case IDE | ⚪ LATER | [Case Workbench specification](docs/studio.md), inside YAI; isolated bootstrap only, no qualified Studio product or required third repository. Consumes the same typed application boundary as the native CLI, never persistence internals or independently reconstructed semantics. |
 
 ### Qualification
 
@@ -659,8 +659,10 @@ public API or selected functional milestone. Exactly two privileged first-party
 product surface classes are in the current target: **native CLI** and **native
 YAI Studio**, both living with YAI. “Privileged” means first-party product status,
 not elevated authority: both obey ordinary Principal/Participant, scope,
-disclosure and admission. Language, UI technology, process model and exact
-directory layout remain unselected. No third Studio repository is required.
+disclosure and admission. The [Studio specification](docs/studio.md) selects
+React/TypeScript/Vite with an isolated Tauri 2 desktop shell under `studio/`.
+Application hosting/transport qualification remains open; Mobile and remote
+clients are future consumers, not new semantic owners. No third Studio repository is required.
 Extracting Studio later requires a genuinely independent lifecycle, release
 cadence, ownership or distribution need. A Git branch is not its architectural
 boundary: Studio is a future application/component of the YAI repository.
@@ -668,15 +670,20 @@ boundary: Studio is a future application/component of the YAI repository.
 | Repository/component | Target ownership | Explicit non-ownership |
 |---|---|---|
 | YAI | Semantic/core implementation; one typed application boundary; handwritten native product CLI and future native Studio | No delegation of Case/Policy/Recall/source/Workflow/effect meaning to a frontend or generator |
-| Future interfaces project, currently `mothx9/interfaces` | Generic interface compilation, normalized interface representation, SDK/client generation, protocol projections, transport adapters, reference CLI, documentation, conformance, compatibility analysis and generic runtime workbench | Not YAI's GUI repository, application semantic owner or mandatory middleware process; future name/identity remains its owner's decision |
+| Interfaces (`yailabs/interfaces`; inspected checkout) | Generic interface compilation, normalized interface representation, SDK/client generation, protocol projections, transport adapters, reference CLI, documentation, conformance, compatibility analysis and generic runtime workbench | Not YAI's GUI repository, application semantic owner or mandatory middleware process; future name/identity remains its owner's decision |
 | REPLAI | Reusable terminal/editor mechanics for the native CLI and potentially Studio terminal/editor panes | No Case semantics, application API, SDK/protocol contract or interface compiler |
 | YVEX | Exact computational/model runtime realization and its qualified public capability/lifecycle | No YAI application, Case, Policy, Recall or UI semantics |
 
-The [interfaces roadmap read for this alignment](https://github.com/mothx9/interfaces/blob/339fca4371e1c7aced2d91c6595ecdc3cac0ea87/ROADMAP.md)
-describes generic interface engineering as a planning target. This is a read-only
-direction reference, not a dependency pin, accepted YAI consumer contract or
-claim that its future generators/workbench exist. No source or project control
-in that repository is changed by this decision.
+The inspected Interfaces checkout is
+[`yailabs/interfaces` at bae6cdf7](https://github.com/yailabs/interfaces/tree/bae6cdf7cf17f3e6a58c0323852c7c0efeb26147),
+as confirmed by its local Git remote and source. It contains transport contracts,
+SDK code and historical Studio packages, not merely generator plans. Their
+Session/Agent/runtime ontology and old readiness claims are not a qualified
+contract for current YAI. The previously cited `mothx9/interfaces` planning SHA
+is absent from this checkout; it is not treated as current authority.
+[Studio's reconciliation](docs/studio.md#interfaces-and-historical-reconciliation)
+records the inspected scope. No dependency pin, producer/consumer version,
+repository migration or external project-control change is selected here.
 
 ```text
 YAI semantic/domain owners
@@ -786,47 +793,20 @@ a real versioned YAI export gains an independently qualified interfaces consumer
 
 ### YAI Studio — Case IDE target
 
-**Studio is YAI's native Case IDE / Case Workbench**, not an enterprise dashboard
-or the interfaces repository. It is a future application inside YAI, consuming
-the same typed application boundary as the native CLI. Its
-primary visual unit is one Case workspace/window: a coherent place to inspect
-and work with the Case's sources, knowledge, experience, authority and execution.
-This is product composition, not a requirement for one operating-system process
-per Case. X04 remains LATER; this table selects no implementation work and adds
-no semantic owner or maturity row. It freezes no language, UI framework or
-directory layout. REPLAI remains the current terminal substrate and may later
-supply reusable terminal/editor panes without owning the Studio application.
+**Studio is YAI's official Case IDE / Case Workbench inside this repository.**
+X04 remains **LATER**: the isolated technical bootstrap is not product
+qualification. [docs/studio.md](docs/studio.md) is the canonical product/frontend
+specification, including surfaces, continuity, terminal, providers, fixture mode
+and desktop technology. This roadmap alone owns maturity, engineering selection,
+promotion and interlock.
 
-| Surface | Target responsibility | Semantic owner |
-|---|---|---|
-| Case Workspace | Primary visual boundary for one Case | UI composition only |
-| Case Explorer | Participants, Resources, Workflow, artifacts and status | Existing YAI owners |
-| Source Explorer | Source Map: local/mounted sources, repos, DB, APIs, MCP, roles, revisions/backing and coverage | K/A/O source target seams; not a second acquisition registry |
-| Resource Explorer | Operational resources, capabilities and current scope | O |
-| Knowledge Explorer | Documents, entities, topics, claims, contradictions, wiki/navigation | M07 bounded typed derivation; broader coverage future |
-| Knowledge / Experience Graph | Navigate distinct D/H/S, resources and qualified relations | M/S/O; graph is derived access |
-| Timeline / Experience | Events, Episodes, Decisions, effects and historical state | Existing history owners; S12/M03 readers over H |
-| Recall Inspector | Request/trace, documentary/experience segments, sources, selection reasons and missingness | M06 bounded typed D/H/S Recall; Studio presentation remains future |
-| Authority Inspector | Policy, EffectivePolicy, DecisionBasis and review | A |
-| Editor / Compositor | Case/source artifacts and editable derived views with explicit save/admission | UI over existing/future owners; editing never rewrites source truth implicitly |
-| Workflow / Operations | Tasks, review, effects and execution progression | W/O/E |
-| Evidence / Provenance Inspector | Provenance, source closure and exact retained backing or missingness | K/M |
-| Cognitive State Inspector | S/W and future E identity, compatibility and capability | S/C; YVEX owns E |
-| Bottom Panel | Logs, evidence, tests and execution/output tools | Presentation over the responsible owners |
-
-Studio may own windows/workspaces, editor layout, activity bar, trees, graph and
-timeline rendering/layout, inspectors/panes, local UI state and keyboard/visual
-interaction. It must not read LMDB, parse Transition layouts or private graph
-tables, parse CLI output, or reconstruct Case truth, historical/as-of semantics,
-Recall, Policy/EffectivePolicy, source validity, D/H/S epistemic posture,
-authority, Workflow or Decision/effect truth independently.
-The direction is **YAI owner → typed application result/view → Studio presentation**.
-
-These surfaces consume current or separately qualified future contracts. Visual
-proximity, editing, graph navigation or a workspace tab cannot grant authority,
-invent knowledge or bypass current disclosure. Source Explorer organizes what
-world is related to the Case; Knowledge Explorer organizes what qualified sources
-state. Neither is the other's authority or a new canonical database.
+Live Studio depends on X03 hardening the same typed YAI application boundary
+consumed by the native CLI: qualified queries/actions, identity/disclosure,
+results/refusals and lifecycle/events; qualified transport/export where needed.
+The current daemon IPC is not that listener. Multi-client convergence and
+external-change observation remain backend gaps, not automatically selected
+waves. Core/CLI development and operation do not depend on Studio or Node/Tauri.
+No current interlock or maturity row is added by the skeleton.
 
 ## Cognitive State Spectrum
 
@@ -1107,7 +1087,7 @@ test proof/provider metadata; a roadmap row never reclassifies test evidence.
 | Persistent internal deliberation / autonomous overnight thinking | False. E06 is OPEN: authorized assignments, unfinished L and compatible checkpoints need independent runtime and usefulness qualification, not an uncontrolled Agent loop. |
 | Looped/recurrent Transformer or second residual implemented/required | False. Possible model-side mechanisms, not the name of the semantic architecture; no named-model claim without qualified external evidence. |
 | Full cold-model substitution / Qwen external state qualification | False. Exact binding replacement does not establish cold-state recovery. |
-| Agent implementation / YAI Studio Case IDE | False. Later product compositions; Studio is a future native YAI application, not an implemented workspace, separate required repository, new semantic owner or replacement terminal. |
+| Agent implementation / YAI Studio Case IDE | False. Studio has an isolated technical bootstrap and product specification only; no qualified Case workspace, separate required repository, new semantic owner or replacement terminal. |
 | Stable public Application API / exported interface package / interfaces integration | False. X03 is PARTIAL: bounded typed controller/owner seams exist alongside CLI/store coupling. No package export, selected producer/consumer version, middleware or generated-client conformance exists. |
 | Generated official SDKs, protocol surfaces or replacement product CLI | False. Build/release/interface targets only. Native `./yai` remains the product CLI; neither one repository per SDK nor interfaces as a native-client runtime dependency is required. |
 | Complete external YVEX Golden acceptance | False. Generation 2 first-request capacity is admitted, but the fresh real run fails its 300-second wait; free/Workflow execution remains unqualified. |

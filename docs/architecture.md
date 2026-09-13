@@ -16,8 +16,9 @@ current executable proof stays with the tests. Historical dossiers are not a
 second architecture tree in the working repository.
 
 This document includes current contradictions. It does not claim that the
-[Constitution](constitution.md) is implemented. Target changes and sequencing
-belong only in the [Roadmap](../ROADMAP.md).
+[Constitution](constitution.md) is implemented. Project selection and sequencing
+belong only in the [Roadmap](../ROADMAP.md); the
+[Studio specification](studio.md) owns its product/frontend target design.
 
 The [semantic cognitive-state target](semantic-state-execution-target.md) is
 deliberately separate. The [source refoundation](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/semantic-state-refoundation/REPORT.md)
@@ -188,10 +189,19 @@ The [application/client target](../ROADMAP.md#application-and-client-boundary--a
 requires native CLI and future native Studio to consume one typed YAI application
 boundary. Current CLI/store coupling is recorded above, not refactored by that
 decision. No stable public Application API, exported interface package,
-interfaces integration, generated official SDK or Studio implementation is
+interfaces integration, generated official SDK or functional Studio Case client is
 claimed. Current builds have no interfaces dependency. The roadmap owns future
 export/client qualification; frontends must not acquire domain authority by
 presenting these values.
+
+[`studio/`](../studio/README.md) is an independent React/TypeScript/Vite bootstrap
+with a Tauri 2 window/assets shell. It displays only scaffolding text; it has no
+YAI engine dependency, commands, native plugins, application transport, fixture
+Case data or persistence access. Its npm/Cargo builds are separate from core/CLI
+and backend validation. [Studio](studio.md) owns product/frontend target design;
+[ROADMAP](../ROADMAP.md#product-interfaces) alone owns X03/X04 maturity and promotion.
+The existing C daemon IPC serves status and compatibility fixture operations,
+not a qualified Studio application listener or event subscription service.
 
 ## Demonstrated product verticals
 
@@ -694,7 +704,7 @@ graph/index/memory/Recall. The source-bootstrap profiles above retain exact
 original/observation backing; they do not implement the target's general choice
 of in-place access, permitted snapshots and disposable derived caches or a global
 retention/privacy lifecycle. General semantic source organization, the Case Source
-Map and YAI Studio remain unimplemented
+Map and the functional YAI Studio Case client remain unimplemented
 targets in the [Roadmap](../ROADMAP.md#case-source-bootstrap-and-source-grounded-knowledge--adopted-target).
 Bounded unified bootstrap is implemented; its generalization is not.
 

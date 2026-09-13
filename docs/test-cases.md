@@ -51,6 +51,32 @@ Failure isolation: `test-unit`, `test-component`, `test-contract`,
 Loopback tests use actual HTTP/TLS, stores, processes and temporary files.
 A C component assertion is not product-reachable effect qualification.
 
+## Studio bootstrap isolation
+
+[Studio](studio.md) is a technical scaffold with a separate build surface.
+Core/CLI publication remains `make check characterization`; Node and Tauri are
+not prerequisites for that graph. From `studio/`, independently:
+
+```sh
+npm ci
+npm run build
+npm run desktop:build -- -- --locked
+```
+
+The first build typechecks and bundles the React bootstrap. The desktop build
+requires Rust and native Tauri prerequisites and produces an executable without
+installer packaging. Neither proves a live application client, PTY, multi-client
+continuity, provider UX or human acceptance. Verify the empty page separately
+with `npm run dev` or `npm run desktop:dev`; no Case or provider setup is needed.
+No Studio test target is added to the backend Make graph.
+
+For retained command observations, use `tools/validation/capture_evidence.py`
+with a unique run ID, increasing execution order and exact material pre-state;
+put reproducible local captures under ignored `build/`, not a new wave dossier.
+Keep backend commands, frontend builds and desktop runtime observations separate.
+A Studio-only scaffold does not change the supported Golden Case lifecycle;
+`zero-to-current.md` is unchanged until an actual product interaction is added.
+
 ## External YVEX
 
 **External Golden is not a default YAI implementation/publication gate.** It is

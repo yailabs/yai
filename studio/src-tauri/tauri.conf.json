@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "YAI Studio",
+  "version": "0.0.0",
+  "identifier": "org.yailabs.studio",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{ "title": "YAI Studio — scaffolding", "width": 800, "height": 600 }],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'",
+      "devCsp": "default-src 'self'; connect-src 'self' ws://127.0.0.1:1420; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'self'",
+      "capabilities": []
+    }
+  },
+  "bundle": { "active": false, "icon": ["icons/icon.png"] }
+}

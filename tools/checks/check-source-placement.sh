@@ -38,21 +38,23 @@ if [ -e "$ROOT/lib" ]; then
   exit 1
 fi
 
-bad_rs=$(find "$ROOT" -name '*.rs' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/engine/*" ! -path "$ROOT/cmd/yai/*" -print)
+# Studio dependencies/build output are isolated generated trees, not core source.
+# Allow only the desktop entrypoint tree and build script as additional Rust.
+bad_rs=$(find "$ROOT" \( -path "$ROOT/studio/node_modules" -o -path "$ROOT/studio/src-tauri/target" -o -path "$ROOT/studio/src-tauri/gen" \) -prune -o -name '*.rs' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/engine/*" ! -path "$ROOT/cmd/yai/*" ! -path "$ROOT/studio/src-tauri/src/*" ! -path "$ROOT/studio/src-tauri/build.rs" -print)
 if [ -n "$bad_rs" ]; then
   printf '%s\n' "$bad_rs" >&2
-  printf 'Rust files are only allowed under engine/ or cmd/yai/\n' >&2
+  printf 'Rust files are only allowed under engine/, cmd/yai/, or the Studio desktop shell\n' >&2
   exit 1
 fi
 
-bad_c=$(find "$ROOT" -name '*.c' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/system/*" ! -path "$ROOT/cmd/yaid/*" ! -path "$ROOT/tests/*" -print)
+bad_c=$(find "$ROOT" \( -path "$ROOT/studio/node_modules" -o -path "$ROOT/studio/src-tauri/target" -o -path "$ROOT/studio/src-tauri/gen" \) -prune -o -name '*.c' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/system/*" ! -path "$ROOT/cmd/yaid/*" ! -path "$ROOT/tests/*" -print)
 if [ -n "$bad_c" ]; then
   printf '%s\n' "$bad_c" >&2
   printf 'C files are only allowed under system/, cmd/yaid/, tests/\n' >&2
   exit 1
 fi
 
-bad_h=$(find "$ROOT" -name '*.h' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/include/yai/*" -print)
+bad_h=$(find "$ROOT" \( -path "$ROOT/studio/node_modules" -o -path "$ROOT/studio/src-tauri/target" -o -path "$ROOT/studio/src-tauri/gen" \) -prune -o -name '*.h' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/include/yai/*" -print)
 if [ -n "$bad_h" ]; then
   printf '%s\n' "$bad_h" >&2
   printf 'Headers are only allowed under include/yai/\n' >&2
