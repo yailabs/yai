@@ -13,6 +13,30 @@ A previous PASS is not silently inherited by a changed product HEAD.
 
 ## Infrastructure, not the Case workflow
 
+### Local security qualification versus external acceptance
+
+External YVEX is an independent characterization axis, not a default gate on
+unrelated YAI work. The live endpoint requirements below apply to this human
+external acceptance run, not to deterministic Case-security qualification.
+Human acceptance remains PENDING_OPERATOR; the continuity canary is operator-owned.
+
+From the repository root, `make smoke-case-capability-realization` exercises the
+native typed ConversationController with an intentionally noncompliant local
+provider fixture, including an admitted malicious Markdown source. The fixture
+attempts protected reads, identity/target substitution and forbidden effects;
+YAI must refuse while an allowed confined read succeeds. `make test-golden-local`
+separately checks the full local product/Workflow lifecycle. Neither requires
+live YVEX or demonstrates model behavioral safety.
+
+Reopening/retrying a completed Resource request does not grant access from its
+old result. Current policy/subject/review are checked before cached results are
+returned. After policy revocation a stale result can refuse even without a new
+Case generation; do not interpret possession of its ID as an authorization token.
+See [the bounded security contract](reference/governance.md#case-bound-model-security)
+for mediated paths, current authority cuts and the runtime/host isolation nonclaim.
+
+### Human live-provider preparation
+
 Use an unprivileged Linux x86_64 host with Landlock ABI 6 or newer, seccomp and
 a root-owned `/usr/bin/python3`. The deliberately confined reference test runner
 cannot write files, create children or access the network. Unsupported hosts

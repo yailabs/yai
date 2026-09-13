@@ -916,6 +916,60 @@ pub(crate) fn resolve_policy_review_decision(
     evidence: &CanonicalEvidenceResolution,
     temporal: &AuthorityTemporalContext,
 ) -> Result<Decision, String> {
+    resolve_review_under_current_authority(
+        operation,
+        state,
+        resource,
+        effective_policy,
+        review,
+        action,
+        evidence,
+        temporal,
+        true,
+    )
+}
+
+/// A historical result may be disclosed without making its operation current
+/// again. Reuse all current policy/reviewer/evidence checks, but return no
+/// executable Decision or Grant. Only new execution requires last_operation.
+pub(crate) fn qualify_reviewed_result_disclosure(
+    operation: &Operation,
+    state: &CaseState,
+    resource: &ResourceAttachmentState,
+    effective_policy: &EffectivePolicy,
+    review: &ReviewState,
+    action: &ReviewAction,
+    evidence: &CanonicalEvidenceResolution,
+    temporal: &AuthorityTemporalContext,
+) -> Result<(), String> {
+    let decision = resolve_review_under_current_authority(
+        operation,
+        state,
+        resource,
+        effective_policy,
+        review,
+        action,
+        evidence,
+        temporal,
+        false,
+    )?;
+    if decision.outcome != crate::effect::DecisionOutcome::Allow {
+        return Err("resource_result_not_available".into());
+    }
+    Ok(())
+}
+
+fn resolve_review_under_current_authority(
+    operation: &Operation,
+    state: &CaseState,
+    resource: &ResourceAttachmentState,
+    effective_policy: &EffectivePolicy,
+    review: &ReviewState,
+    action: &ReviewAction,
+    evidence: &CanonicalEvidenceResolution,
+    temporal: &AuthorityTemporalContext,
+    require_current_operation: bool,
+) -> Result<Decision, String> {
     action.validate_integrity()?;
     if review.schema != REVIEW_REQUEST_SCHEMA
         || review.case_id != state.case_id
@@ -930,10 +984,11 @@ pub(crate) fn resolve_policy_review_decision(
         || action.operation_id != operation.operation_id
         || action.case_id != operation.case_id
         || !reviewer_is_eligible(state, review, &action.reviewer_participant_id)
-        || state.last_operation.as_ref().is_none_or(|current| {
-            current.operation_id != operation.operation_id
-                || current.operation_digest != operation.operation_digest
-        })
+        || (require_current_operation
+            && state.last_operation.as_ref().is_none_or(|current| {
+                current.operation_id != operation.operation_id
+                    || current.operation_digest != operation.operation_digest
+            }))
     {
         return Err("review_policy_basis_stale_or_ineligible".to_string());
     }
@@ -1962,7 +2017,44 @@ mod tests {
             .find(|obligation| obligation.obligation == EvidenceObligationKind::AuditReason)
             .unwrap();
         assert_eq!(audit.status, ObligationStatus::Satisfied);
-        assert_eq!(audit.evidence_refs, vec![action.action_id]);
+        assert_eq!(audit.evidence_refs, vec![action.action_id.clone()]);
+        // Old approved evidence can be disclosed without making it current
+        // executable control. Current reviewer eligibility still applies.
+        state.last_operation = None;
+        assert!(resolve_policy_review_decision(
+            &operation,
+            &state,
+            &resource(),
+            &policy,
+            &review,
+            &action,
+            &review_evidence,
+            &temporal(),
+        )
+        .is_err());
+        qualify_reviewed_result_disclosure(
+            &operation,
+            &state,
+            &resource(),
+            &policy,
+            &review,
+            &action,
+            &review_evidence,
+            &temporal(),
+        )
+        .unwrap();
+        state.participants.clear();
+        assert!(qualify_reviewed_result_disclosure(
+            &operation,
+            &state,
+            &resource(),
+            &policy,
+            &review,
+            &action,
+            &review_evidence,
+            &temporal(),
+        )
+        .is_err());
     }
 
     #[test]

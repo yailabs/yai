@@ -11822,6 +11822,149 @@ impl LmdbRecordStore {
         Ok(operation)
     }
 
+    /// Reusing a completed Resource result is a new disclosure, not a new
+    /// carrier execution. Historical ALLOW and cached bytes cannot resurrect
+    /// current authority. This gate composes the same admission owner and never
+    /// issues a Grant, appends a Transition or redispatches an external effect.
+    pub fn validate_resource_result_reuse_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
+        operation_id: &str,
+        decision_id: &str,
+    ) -> Result<(), String> {
+        let mut txn = self
+            .env
+            .begin_rw_txn()
+            .map_err(|e| format!("resource_result_reuse:{e}"))?;
+        let state = self
+            .get_case_state_txn(&txn, case_id)?
+            .ok_or("case_not_visible")?;
+        let context = self.resolve_security_context_txn(
+            &txn,
+            authenticated,
+            state
+                .tenant_id
+                .as_deref()
+                .ok_or("resource_requires_tenant")?,
+        )?;
+        if state.lifecycle == CaseLifecycle::Closed || state.cancellation.is_some() {
+            return Err("resource_result_not_available".into());
+        }
+        let history = self.list_case_transitions_txn(&txn, case_id)?;
+        // Exact committed history, not last_operation/last_decision: returning
+        // old evidence must not rewind current control state or execute it again.
+        let operations: Vec<_> = history
+            .iter()
+            .filter_map(|t| match &t.payload {
+                TransitionPayload::OperationRecorded { operation }
+                    if operation.operation_id == operation_id =>
+                {
+                    Some(operation)
+                }
+                _ => None,
+            })
+            .collect();
+        let decisions: Vec<_> = history
+            .iter()
+            .filter_map(|t| match &t.payload {
+                TransitionPayload::DecisionRecorded { decision }
+                    if decision.decision_id == decision_id =>
+                {
+                    Some(decision)
+                }
+                _ => None,
+            })
+            .collect();
+        let ([operation], [original]) = (operations.as_slice(), decisions.as_slice()) else {
+            return Err("resource_result_not_available".into());
+        };
+        operation.validate()?;
+        original.validate_integrity()?;
+        Self::authorize_resource_operation(&state, &context, operation)?;
+        if operation.case_id != state.case_id
+            || original.operation_id != operation_id
+            || original.operation_digest != operation.operation_digest
+            || original.outcome != crate::effect::DecisionOutcome::Allow
+        {
+            return Err("resource_result_not_available".into());
+        }
+        let now = self.advance_authority_time_txn(&mut txn, authority_wall_time_unix_ms())?;
+        let floor = self.authority_time_floor_txn(&txn)?;
+        let status = self.materialize_case_policy_at_txn(&txn, case_id, now, floor)?;
+        if status.readiness != NormativeReadiness::Ready
+            || status.validity != PolicyValidityPosture::Valid
+        {
+            return Err("resource_result_authority_stale".into());
+        }
+        let effective = status
+            .effective_policy
+            .as_ref()
+            .ok_or("resource_result_authority_stale")?;
+        let basis = original
+            .decision_basis
+            .as_ref()
+            .ok_or("resource_result_policy_basis_required")?;
+        if effective.effective_policy_id != basis.effective_policy_id
+            || effective.semantic_digest != basis.effective_policy_digest
+            || basis
+                .earliest_policy_expiry_unix_ms
+                .is_some_and(|expiry| now >= expiry)
+        {
+            return Err("resource_result_authority_stale".into());
+        }
+        // Re-evaluate current roles, constraints and review rather than merely
+        // comparing the policy ID (roles/reviews can change independently).
+        let resource = state
+            .resources
+            .iter()
+            .find(|r| r.attachment_id == operation.resource_attachment_id)
+            .ok_or("resource_result_not_available")?;
+        let temporal = AuthorityTemporalContext {
+            authority_time_unix_ms: status.authority_time_unix_ms,
+            binding_validity: status.binding_validity.into_values().collect(),
+        };
+        if let Some(action_id) = &basis.review_action_ref {
+            let review = state
+                .reviews
+                .iter()
+                .find(|review| {
+                    review.operation_id == operation_id
+                        && review.latest_action_id.as_ref() == Some(action_id)
+                })
+                .ok_or("resource_result_review_stale")?;
+            let actions: Vec<_> = history
+                .iter()
+                .filter_map(|t| match &t.payload {
+                    TransitionPayload::ReviewActionRecorded { action }
+                        if &action.action_id == action_id =>
+                    {
+                        Some(action)
+                    }
+                    _ => None,
+                })
+                .collect();
+            let [action] = actions.as_slice() else {
+                return Err("resource_result_review_stale".into());
+            };
+            let evidence = resolve_canonical_evidence(operation, &history, Some(action_id))?;
+            crate::admission::qualify_reviewed_result_disclosure(
+                operation, &state, resource, effective, review, action, &evidence, &temporal,
+            )?;
+        } else {
+            let evidence = resolve_canonical_evidence(operation, &history, None)?;
+            let current = evaluate_filesystem_admission(
+                operation, &state, resource, effective, &evidence, &temporal,
+            )?;
+            if current.outcome != crate::effect::DecisionOutcome::Allow {
+                return Err("resource_result_not_available".into());
+            }
+        }
+        txn.commit()
+            .map_err(|e| format!("resource_result_reuse:{e}"))?;
+        Ok(())
+    }
+
     /// Immediate pre-dispatch read admission. No external I/O or long-lived
     /// writer lock is performed here. A policy Decision is not a filesystem or
     /// network address; resolve the exact, digest-bound local attachment too.

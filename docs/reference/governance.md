@@ -33,6 +33,141 @@ input, not authority. Only Wave-10 evaluation of a normalized Operation under a
 Ready EffectivePolicy can produce DecisionBasis and a Decision; only final
 ALLOW under the same current basis can issue an ExecutionGrant.
 
+## Case-bound model security
+
+MODEL COMPLIANCE IS NEVER A SECURITY PREREQUISITE. Model/provider computation
+is untrusted with respect to Case authority. A request is not authorization;
+output is not Case truth; a proposal is not an admitted mutation; model state
+is not authority. Policy projected into context informs computation but does
+not enforce it. Enforcement remains outside the model even when the model
+deliberately follows injected instructions.
+
+The control plane is the authenticated Principal/Participant, Case, current
+EffectivePolicy and admission, review/Grant, Workflow and Resource contracts.
+The cognitive/data plane includes documents, D, Recall, tool output, model
+plans/output and future computational E. Untrusted semantic content may
+influence cognition, but cannot directly influence authorization. There is no
+prompt filter, model-trust boolean or second policy engine in this boundary.
+
+### Current mediated paths
+
+| YAI-mediated path | Current enforcement owner / bounded responsibility |
+|---|---|
+| Native model tool proposal | Provider function-contract validation and canonical ProviderResult/Invocation lineage; `record_provider_capability_request` normalizes against the current CaseCapabilityView. Case/Participant/Resource identity comes from qualified owners, not model-added fields. |
+| Filesystem read and discovery, immutable content admission/read | Current typed resource admission, exact Case-local binding and access contract, confined paths and bounded output; publication revalidates authority. Source acquisition composes these owners. |
+| SQLite | Exact bound database and named read-only query/profile, not arbitrary SQL or a model-selected database. |
+| HTTP | Exact admitted endpoint and named bounded GET; no arbitrary recipient, redirect or generic send privilege. |
+| MCP | Admitted endpoint/catalog/tool and validated arguments; effect tools use current Decision/review/Grant and PREPARE fence. Arbitrary effects inside a remote server are not a YAI sandbox guarantee. |
+| Process and filesystem effects | Existing named/confined runner or exact filesystem/signal carrier, current ALLOW, finite Grant, canonical PREPARE and dispatch fence. No arbitrary shell authority follows from a tool name. |
+| Workflow/review/Grant and semantic admission | Existing authenticated transition/admission owners; model candidates cannot self-approve, issue Grants or publish policy. Valid admitted proposals remain possible; arbitrary model prose is not a Transition. |
+| Reuse of completed Resource outcomes | `validate_resource_result_reuse_authorized` rechecks authenticated subject, current policy/roles/review and original Decision basis before the application returns cached observation/content/effect outcomes. Historical ALLOW is not present disclosure permission. |
+
+The shared `controlled_effect::access` application path serves native product
+consumers; it is not CLI formatting or a second retriever. Existing typed
+CaseCapabilityView, Operation, DecisionBasis and ResourceActionOutcome provide
+requestability/decision evidence. No new security-envelope schema, canonical
+owner, database or long-lived capability lease is introduced.
+
+Reusing a result does not repeat an external effect. A changed/revoked policy
+basis refuses reuse, even at the same Case generation; re-evaluating current
+roles/review prevents an unchanged policy ID from standing in for authority.
+The check appends no Transition or Grant. Fresh reads use their pre-dispatch
+admission and publication checks; effects retain the established PREPARE and
+dispatch authority cuts. This is not continuous locking of arbitrary remote
+systems through a potentially long external call. Prepared uncertainty retains
+its existing reconciliation semantics.
+
+The bounded read claim concerns the typed Resource/source reads and returned
+Resource payloads above. Legacy filesystem/process carrier-internal pre-PREPARE
+observations (digest/metadata) and post-effect reconciliation are separate
+operational inspection paths: they retain their existing authority/fence
+lifecycle, not a newly qualified per-observation reference-monitor cut. In
+particular, this wave does not prove cancellation before every such host read
+when authority changes after Grant issuance. Final mutation remains gated and
+uncommitted pre-observation material is not thereby admitted or disclosed to a
+model. Stronger pre-observation mediation remains an explicit hardening gap,
+not an unexamined claim that every host I/O is contained.
+
+Authorized input access cannot authorize an unrelated sink. External publication,
+send/write/network effects require their own admitted target and operation.
+Returning output to its authorized caller is not automatic declassification for
+broader recipients. Credentials/privileged handles remain brokered outside
+model-visible tool arguments where the existing adapters own them.
+
+### Evidence and limits
+
+`make smoke-case-capability-realization` drives the actual ConversationController
+against a deterministic noncompliant loopback peer. An admitted Markdown source
+derives as `source_stated`, then reaches the peer through a governed read. The
+peer follows its instructions and attempts protected reads, target/path escape,
+identity substitution, unoffered writes/process/network calls, self-grant and
+review bypass. Normalization/admission must refuse while the legitimate confined
+read still succeeds. Policy/grants/effects are not widened, protected bytes are
+not observed, and same-generation policy revoke prevents cached read reuse.
+The resource-access engine tests additionally exercise authenticated reuse,
+restart, foreign identities and canonical-history invariance. Existing admission,
+temporal authority, resource-adapter and Golden local suites remain the evidence
+for review/Grant/fence and Workflow behavior; the local fixture is not live-model
+qualification or universal prompt-injection detection.
+
+Qualification is reproducible through the native command above and
+`CARGO_TARGET_DIR=target cargo test --manifest-path engine/Cargo.toml -p yai-engine resource_access_tests:: -- --nocapture --test-threads=1`.
+The latter includes source-revoke, hidden/unknown equality, exact cross-Case
+candidate refusal and restart tests. `audit_reason_requires_real_review_action_evidence`
+also proves historical reviewed disclosure can remain allowed while a new effect
+under a non-current operation is refused; losing reviewer eligibility refuses both.
+`wave11_revoked_review_is_durably_invalidated_and_cannot_approve` and
+`wave11_grant_expiry_before_prepare_is_terminal_and_effect_free` retain the
+existing review/Grant temporal oracles.
+
+The tests print separate reuse-gate timing and full native attack timings. Cost
+includes current policy qualification and canonical history/evidence resolution;
+there is no Recall/W compilation or provider request inside the reuse gate, and
+no claim of constant Case-age cost. The native adversarial corpus is bounded to
+nine distinct attempts; a larger cumulative fixture encountered a transport
+response limitation before its final attack and is not claimed as a security
+PASS. That limitation was not repaired by changing transport or relaxing security.
+
+Legacy archaeology: `yai-dev` at `5c1c7b9d0` retains the C runtime-control
+admission hook and its guard under `src/runtime/decision/` and `tools/checks/runtime/`;
+the adjacent decision mediation/capability runtime context did not provide a
+stronger qualified effect monitor. Recover the fail-closed control-versus-data
+property in current Rust admission, not the old planes/registries or stub context.
+Current executable Rust owners and tests, not the historical hook's existence,
+establish this boundary.
+
+Four rings remain distinct:
+
+| Ring | Owner and claim |
+|---|---|
+| Semantic/authority security | YAI: current truth, disclosure and admission. |
+| Case reference-monitor/capability security | YAI: bounded mediated Resource reads/effects and result reuse. |
+| Computational isolation | YVEX/provider/process/container/runtime: ambient capabilities of model computation; not established by this YAI wave. |
+| Infrastructure isolation | Host/kernel/filesystem/network/secrets/GPU/external systems; not established by this YAI wave. |
+
+A model process with direct host filesystem/network/credential access outside
+YAI mediation is **not contained by this guarantee**. Future provider/runtime
+capability negotiation must describe actual isolation posture and exact
+model/artifact/composition/deployment/runtime/configuration identity; an alias
+is not evidence of trust. No such new capability protocol is implemented here.
+
+### Future computational state and mixed sources
+
+Future E is untrusted computation: it may be stale, poisoned, wrong or cross-Case.
+State Update cannot mutate D/H/S/Policy/authority. Revoked W material requires
+qualified removal/Reconcile, or E invalidation and rebuild when selective removal
+is unqualified; never assume latent forgetting. Cross-Case E sharing is forbidden
+by default absent an explicitly qualified sharing contract. E/B1 remains YVEX
+research, not a YAI format or implementation.
+
+Physical source identity/role is not the semantic authority of every content
+unit. Mixed normative and documentary content remains future finer-grained
+routing pressure inside the unified frontier. Policy-like units require candidate
+validation/publication/binding; other units remain knowledge/evidence. Neither a
+whole-document governance role nor a model classification elevates every unit.
+The present strict policy grammar continues to refuse unresolved mixed prose;
+this paragraph does not claim that generic mixed-source routing is implemented.
+
 ## Input grammar
 
 `yai.policy_source_input.v4` is bounded UTF-8 JSON with no unknown top-level

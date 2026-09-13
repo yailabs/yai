@@ -369,6 +369,12 @@ pub(crate) fn advance(
         {
             return Err("case_content_participant_not_admitted".into());
         }
+        store.validate_resource_result_reuse_authorized(
+            authenticated,
+            &state.case_id,
+            &operation.operation_id,
+            &admission.decision_id,
+        )?;
         return Ok(ResourceActionOutcome::ContentAdmitted {
             admission: Box::new(admission.clone()),
             reused: true,
@@ -391,6 +397,12 @@ pub(crate) fn advance(
                 .resource_request
                 .as_ref()
                 .ok_or_else(|| "resource_request_missing".to_string())?,
+        )?;
+        store.validate_resource_result_reuse_authorized(
+            authenticated,
+            &state.case_id,
+            &operation.operation_id,
+            &observation.decision_id,
         )?;
         return Ok(ResourceActionOutcome::Observed {
             observation: Box::new(observation.clone()),
@@ -415,6 +427,12 @@ pub(crate) fn advance(
                 .resource_request
                 .as_ref()
                 .ok_or("resource_request_missing")?,
+        )?;
+        store.validate_resource_result_reuse_authorized(
+            authenticated,
+            &state.case_id,
+            &operation.operation_id,
+            &observation.decision_id,
         )?;
         return Ok(ResourceActionOutcome::Effect {
             observation: Box::new(observation.clone()),

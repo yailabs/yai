@@ -326,6 +326,15 @@ CaseContentAdmitted identity/provenance/disclosure. Candidate drift refuses.
 The original Turn is unchanged and material does not become semantic truth.
 Model capability feedback and restart reuse are reconstructed from canonical
 ProviderResult/Operation/Observation/effect/admission relations, not a second log.
+Returning a completed Resource outcome now requalifies current authenticated
+subject, policy and review through `validate_resource_result_reuse_authorized`.
+Exact historical Operation/Decision resolution does not rewind last-operation
+control or authorize redispatch. Policy revocation at the same generation
+refuses cached disclosure; review eligibility remains current. The
+[Case-bound model security contract](reference/governance.md#case-bound-model-security)
+documents the shared admission path and adversarial local fixture. Model obedience
+is not enforcement; ambient provider/runtime/host access outside YAI mediation
+is explicitly outside this guarantee. No new security store or W → E is added.
 
 Workbench inspection includes exact operations before review, policy, resources,
 effects, Workflow, history, derived memory/graph and replay. `/rebuild` rebuilds

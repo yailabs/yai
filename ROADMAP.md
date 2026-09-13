@@ -11,7 +11,7 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source environment, source-grounded domain knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **PROMPT-INDEPENDENT.SEMANTIC.REFRESH.0 — COMPLETE** at bounded explicit-preflight scope: the task already bound in W3/W4 is requalified through current authority, existing Recall and full W compilation; paging preferences survive only over freshly qualified groups. [Contract](docs/recall.md#prompt-independent-semantic-refresh), [product oracle](tests/characterization/source-grounded-knowledge/test_refresh.py). No watcher, provider migration or W → E. Scoped semantic paging remains independently COMPLETE. |
+| Selected engineering boundary | **CASE.BOUND.MODEL.SECURITY.0 — COMPLETE** at bounded native Resource/effect scope: noncompliant source-driven requests are refused through existing owners; completed Resource payload reuse requalifies current authority, including same-generation revoke. [Contract and limits](docs/reference/governance.md#case-bound-model-security). No ambient host/runtime isolation claim, live provider requirement or W → E. Semantic refresh remains independently COMPLETE. |
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
 | Most important structural gap | Bounded S/Recall → W, exact-group paging, explicit same-task refresh, as-of reconstruction, source bootstrap, deterministic D and integrated D/H/S Recall exist. Broader task sufficiency/source interpretation, general neighborhood expansion/temporal validity, automatic consumer convergence and a public W → E consumer remain unqualified. |
 | Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
@@ -502,9 +502,9 @@ ESTABLISHED=32 PARTIAL=28 OPEN=9 LATER=4 TOTAL=73
 |---|---|---|---|
 | A01 | Immutable policy source/IR/publication supply chain | 🟢 ESTABLISHED | [Governance hardening][governance], [Golden deck][golden]; [document intake](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/governance-cognitive-context/REPORT.md) adds exact JSON/Markdown-block/text-PDF representations of the same bounded grammar. Unsupported prose remains unresolved; no general enterprise-policy interpreter. |
 | A02 | Exact Case binding and READY EffectivePolicy materialization | 🟢 ESTABLISHED | [Materialization][policy], [Golden][golden]; publication alone grants no authority. |
-| A03 | ALLOW / DENY / REQUIRE_REVIEW, review and finite Grant | 🟢 ESTABLISHED | [Admission][admission], [Golden][golden]; DENY has no Grant/effect, model cannot self-approve. |
+| A03 | ALLOW / DENY / REQUIRE_REVIEW, review and finite Grant | 🟢 ESTABLISHED | [Admission][admission], [Golden][golden]; DENY has no Grant/effect, model cannot self-approve. [Case-bound security](docs/reference/governance.md#case-bound-model-security) adds noncompliant native model attempts and exact identity/argument negatives; no model refusal prerequisite or ambient runtime isolation claim. |
 | A04 | Local Principal/Tenant/Participant and disclosure isolation | 🟢 ESTABLISHED | [Security][security], [Golden isolation][golden]; local POSIX trust model, not enterprise authentication. |
-| A05 | Validity/revoke, generation and PREPARE authority cut | 🟢 ESTABLISHED | [Temporal governance][temporal]; contracting authority cannot erase prepared external uncertainty. |
+| A05 | Validity/revoke, generation and PREPARE authority cut | 🟢 ESTABLISHED | [Temporal governance][temporal]; contracting authority cannot erase prepared external uncertainty. Completed Resource-result reuse also requalifies present authority: same-generation policy revoke refuses cached disclosure, historical results do not become current executable control, and review eligibility remains current. |
 | A06 | Production identity, credentials and privacy lifecycle | 🟡 PARTIAL | Local identity and credential references exist; SSO, membership removal and general retention/deletion remain unresolved. |
 
 ### Semantic Cognitive State
@@ -855,7 +855,8 @@ Independent external/provider qualification tracks remain visible below; they
 are not additional selected implementation rows. Success never automatically
 authorizes the next experiment.
 
-Selected implementation boundary: **PROMPT-INDEPENDENT.SEMANTIC.REFRESH.0**.
+Selected implementation boundary: **CASE.BOUND.MODEL.SECURITY.0**.
+PROMPT-INDEPENDENT.SEMANTIC.REFRESH.0 remains COMPLETE at bounded explicit-preflight scope.
 SCOPED.SEMANTIC.PAGING.0 retains its independently complete exact-group scope.
 RECALL-AWARE.WORKING.STATE.0 and KNOWLEDGE.RECALL.INTEGRATION.0 retain their
 independently complete bounded scopes.
@@ -864,17 +865,18 @@ Next implementation boundary: **UNSELECTED**.
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| PROMPT-INDEPENDENT.SEMANTIC.REFRESH.0 | COMPLETE | C S M K Q A | [Typed oracle](engine/yai-engine/src/store/tests/recall_tests.rs) and [CLI/characterization](tests/characterization/source-grounded-knowledge/test_refresh.py): same stored task → one current qualified basis → existing Recall v2 → full W3/W4 compilation; same-generation backing/policy change, current disclosure, pinned historical cut, mandatory refusal and requalified resident/deferred preferences. Restart/drop/rebuild and fresh-compile equality; no new prompt, Transition or model call. Publication union and Golden local PASS. C02 evidence strengthened, maturity counts unchanged; no new canonical owner/database, provider convergence or W → E. |
+| CASE.BOUND.MODEL.SECURITY.0 | COMPLETE | A E O C Q | [Native adversarial product oracle](cmd/yai/src/conversation_controller.rs), [typed Resource/source tests](engine/yai-engine/src/store/tests/resource_access_tests.rs) and existing admission/review/Grant/fence owners: nine source-driven malicious attempts require exact refusal codes; allowed read, current-authority historical result reuse, same-generation revoke, identity isolation and zero unauthorized policy/Grant/effect mutation. Publication union, characterization and Golden local PASS. A03/A05 evidence strengthened without maturity promotion; canonical schema/owner/database delta zero. [Explicit bounded exclusions](docs/reference/governance.md#case-bound-model-security) include ambient runtime/host capabilities and legacy carrier-internal per-observation mediation. No new security store, live YVEX requirement or W → E. |
 <!-- execution:end -->
 
-**Primary programs: C / S / M / K / Q; A/O protect disclosure and source/Resource semantics.**
+**Primary programs: A / E / O / C / Q; existing admission owns security.**
 [CASE.SOURCE.BOOTSTRAP.0][source-bootstrap], [SOURCE.GROUNDED.KNOWLEDGE.0][knowledge]
 and [RECALL.TRACE.0][recall] retain their independently earned bounded scopes.
 Integrated D/H/S Recall remains independently earned. The bounded W consumer
 does not create new audit authority or YVEX optimization. GOVERNANCE.COGNITIVE.CONTEXT.0's YAI-owned
 implementation selection is finished; its real model-awareness evidence remains
-NOT QUALIFIED / externally blocked. Provider qualification is independent of
-selection of this canonical, no-provider semantic milestone.
+NOT QUALIFIED / external qualification incomplete. That does not block unrelated
+YAI implementation selection; this security wave requires only local deterministic
+provider fixtures, not live YVEX.
 
 **PROMPT-INDEPENDENT.SEMANTIC.REFRESH.0 INTERLOCK CHECK:** same-task recovery,
 request-scoped source/history revalidation, current authority, existing Recall and
@@ -891,6 +893,68 @@ is not universal readiness: all-owner semantic coverage, general task sufficienc
 automatic preflight/consumer convergence and remote invalidation acknowledgement
 remain gaps. A real consumer must determine which are prerequisites for its
 selected contract; no W wire format, StateProfile protocol or adapter is selected.
+
+### Case-bound zero-trust model security and producer readiness
+
+MODEL COMPLIANCE IS NEVER A SECURITY PREREQUISITE. Model/provider output is
+untrusted computation, not authority: model request ≠ authorization, output ≠
+Case truth, proposal ≠ admitted mutation, model state ≠ authority, and readable
+policy ≠ enforcement. The [Case security contract](docs/reference/governance.md#case-bound-model-security)
+locates current mediation in existing authenticated admission, Resource and
+effect owners, including fresh authorization before returning cached results.
+It does not create another security store or semantic owner.
+
+Control-plane identity, current EffectivePolicy/admission, review/Grant, scope
+and resource permissions remain YAI-owned. Documents, D, Recall, tool results,
+model plans/output and future E are cognitive/data-plane material. Untrusted
+semantic content may influence cognition but cannot directly influence
+authorization. A deliberately noncompliant fixture must attempt the prohibited
+operation; the security oracle is SYSTEM DENIES, not MODEL REFUSES. Knowing an
+exact Resource ID grants nothing; authorized reads do not authorize unrelated
+send/write sinks, and historical permission cannot resurrect current access.
+
+Four security rings are distinct: (1) YAI semantic/authority security;
+(2) YAI Case-bound mediation of reads/effects; (3) YVEX/provider/runtime
+computational isolation; (4) host/kernel/network/secrets/GPU infrastructure
+isolation. This wave qualifies bounded properties only in rings 1–2. Ambient filesystem/network or
+credentials available directly to a model outside YAI mediation are not
+contained by that guarantee. Future capability negotiation must expose actual
+isolation posture and exact artifact/composition/deployment/runtime identity;
+model aliases or safety training are not substitutes. No ambient privileged
+capability should follow merely from running a model; brokered credentials
+remain outside model-visible state where YAI owns the adapter.
+
+Future E may be poisoned, stale, wrong or cross-Case and never grants authority.
+E State Update cannot mutate D/H/S/Policy. Revocation requires qualified
+removal/Reconcile or invalidate/rebuild; unqualified latent forgetting is not
+acceptable. Cross-Case E sharing is forbidden by default without a qualified
+sharing contract. These are future consumer requirements, not E/B1 implementation.
+
+Read-only reconciliation against YVEX `models2`
+[`ac8a34a9c6ce163813f097e003945db73a414564`](https://github.com/yailabs/yvex/blob/ac8a34a9c6ce163813f097e003945db73a414564/ROADMAP.md)
+preserves the **NOT READY** finding for a first real public W → E consumer.
+This updates the earlier observation at `2146aefb1c4c517d9a5defbc482d7102ae7bab07`;
+it is not a dependency pin or a freeze of later producer progress. Refoundation.1
+is ACTIVE and its qualification is NEXT. Persistent-state capability/StateProfile,
+qualified ingress, provenance-bound realization, independent state lifecycle,
+identity/generation/invalidation and actual State Read evidence remain missing.
+Program N/N.B1 remains OPEN research. A training-free producer milestone such as
+`N.CONTEXT.DERIVED.STATE.READ.0` was proposed, not selected or scheduled by YAI.
+Producer refoundation/qualification and later State Read work progress independently
+of YAI security. The public cognitive-state boundary is not the automatic next wave.
+
+**CASE.BOUND.MODEL.SECURITY.0 INTERLOCK CHECK:** no shared producer/consumer API,
+pin, W format, StateProfile protocol or YVEX adapter is introduced. No YAI/YVEX
+BOUNDARY registration is justified; **I07 remains UNSELECTED**. Reconsider only
+when a real public producer capability and consumer contract can be bound.
+
+**Mixed policy/knowledge content routing — future, UNSELECTED:** physical source
+identity/role is not semantic authority of every content unit. One exact revision
+may feed both pipelines, but policy-like units require candidate validation,
+publication and binding; documentary units remain evidence. Neither whole-file
+governance role nor model classification makes all text authoritative. This is
+finer-grained routing inside the existing unified source frontier, not another
+intake system; current strict policy extraction still refuses unresolved prose.
 
 The [implementation evidence][state-refoundation] records composition, compiler
 identities, scope/budget refusal and full/delta fallback. Only derived contracts
@@ -928,7 +992,8 @@ RECALL.TRACE.0                         (published bounded primitive)
   → RECALL-AWARE.WORKING.STATE.0       (completed bounded W consumer)
   → SCOPED.SEMANTIC.PAGING.0           (completed bounded exact-group demand)
   → PROMPT-INDEPENDENT.SEMANTIC.REFRESH.0 (completed bounded same-task preflight)
-  → public YAI ↔ YVEX cognitive-state boundary (UNSELECTED)
+  → CASE.BOUND.MODEL.SECURITY.0        (completed bounded native security scope)
+  → public YAI ↔ YVEX cognitive-state boundary (UNSELECTED; producer not ready)
   → State Read / Update and later computational research
 ```
 
