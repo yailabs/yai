@@ -1,10 +1,13 @@
 import type {
+  Activity,
   MaterialView,
+  MemoryMode,
   Posture,
   WorkspacePresentation,
 } from "../clients/presentation";
 import { Icon } from "../components/Icon";
 import { Tabs } from "../components/Tabs";
+import { SectionSurface } from "./SectionSurface";
 
 export function Status({ posture }: { posture: Posture }) {
   const icon =
@@ -197,32 +200,83 @@ export function WorkSurface({
   data,
   tabs,
   active,
+  memoryMode,
+  setMemoryMode,
+  step,
   select,
   close,
   open,
+  inspect,
 }: {
   data: WorkspacePresentation;
   tabs: readonly string[];
   active: string;
+  memoryMode: MemoryMode;
+  setMemoryMode: (mode: MemoryMode) => void;
+  step: number;
   select: (id: string) => void;
   close: (id: string) => void;
   open: (id: string) => void;
+  inspect: (id: string) => void;
 }) {
   const material = data.materials.find((item) => item.id === active);
+  const section = active.startsWith("section:")
+    ? (active.slice("section:".length) as Activity)
+    : null;
   return (
     <main className="work-surface" aria-label="Case work surface">
       <Tabs
         id="surface"
         label="Open materials"
         items={tabs.map((id) => {
-          const item = data.materials.find((item) => item.id === id)!;
-          return { id, label: item.name, changed: item.changed };
+          const item = data.materials.find((item) => item.id === id);
+          return {
+            id,
+            label: item?.name ?? id.replace("section:", ""),
+            changed: item?.changed,
+          };
         })}
         active={active}
         onSelect={select}
         onClose={close}
       />
-      {material ? (
+      {section ? (
+        <div
+          role="tabpanel"
+          id="surface-panel"
+          aria-labelledby={`surface-${active}`}
+          tabIndex={0}
+          className="surface-panel section-panel"
+        >
+          <div className="breadcrumbs">
+            <Icon name="case" size={14} />
+            <span>{data.case.label}</span>
+            <Icon name="chevron" size={12} />
+            <span>{section}</span>
+            <span className="material-format">Fixture view</span>
+          </div>
+          <div
+            className="material-scroll"
+            key={active}
+            tabIndex={0}
+            aria-label={`${section} content`}
+          >
+            <SectionSurface
+              activity={section}
+              data={data}
+              memoryMode={memoryMode}
+              setMemoryMode={setMemoryMode}
+              step={step}
+              open={open}
+              inspect={inspect}
+            />
+          </div>
+          <div className="provenance">
+            <Icon name="evidence" size={13} />
+            <span>Authored synthetic projection · no live Case data</span>
+          </div>
+        </div>
+      ) : material ? (
         <div
           role="tabpanel"
           id="surface-panel"
@@ -255,12 +309,8 @@ export function WorkSurface({
           <Icon name="case" size={32} />
           <h2>{data.case.label}</h2>
           <p>Choose a material from the Case Explorer.</p>
-          <button onClick={() => open(data.initial.active)}>
-            Reopen{" "}
-            {
-              data.materials.find((item) => item.id === data.initial.active)
-                ?.name
-            }
+          <button onClick={() => open("section:Overview")}>
+            Reopen Overview
             <Icon name="arrow" size={15} />
           </button>
         </div>

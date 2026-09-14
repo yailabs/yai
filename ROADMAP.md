@@ -594,7 +594,7 @@ ESTABLISHED=32 PARTIAL=28 OPEN=9 LATER=4 TOTAL=73
 | X01 | Registry-backed native CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; handwritten YAI product CLI and exact automation retained, no global current-Case authority or silent trust. Generated reference clients do not replace `./yai` automatically. |
 | X02 | Native REPLAI Case workbench | 🟢 ESTABLISHED | [R4][replai], [R5][r5], [presentation][presentation]; real PTY and controller seams, no second terminal. |
 | X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | Bounded typed Rust/controller and owner-query seams exist; CLI arguments, output capture and store-coupled orchestration still cross application/presentation boundaries. Target: [one typed YAI application contract](#application-and-client-boundary--adopted-target) for native CLI/Studio and future generated clients. No complete stable public API, exported interface package, SDK or remote authentication qualification. |
-| X04 | YAI Studio / Case IDE | ⚪ LATER | [Case Workbench specification](docs/studio.md), inside YAI; offline fixture shell only, no qualified Studio product or required third repository. Consumes the same typed application boundary as the native CLI, never persistence internals or independently reconstructed semantics. |
+| X04 | YAI Studio / Case IDE | ⚪ LATER | [Case Workbench specification](docs/studio.md), inside YAI; offline fixture shell has a Start Center, Case composition view and Overview/Environment/Knowledge/Memory/Authority/Work/Compute IA, but no qualified live Studio product or required third repository. Consumes the same typed application boundary as the native CLI, never persistence internals or independently reconstructed semantics. |
 
 ### Qualification
 
@@ -799,6 +799,11 @@ qualification. [docs/studio.md](docs/studio.md) is the canonical product/fronten
 specification, including surfaces, continuity, terminal, providers, fixture mode
 and desktop technology. This roadmap alone owns maturity, engineering selection,
 promotion and interlock.
+
+The offline shell currently establishes a Case-first Start Center, an authored
+Case composition flow and Overview/Environment/Knowledge/Memory/Authority/Work/
+Compute perspectives. Its timeline, relation graph and fixture generations are
+deterministic presentation evidence, not a live event projection or Case replay.
 
 Live Studio depends on X03 hardening the same typed YAI application boundary
 consumed by the native CLI: qualified queries/actions, identity/disclosure,

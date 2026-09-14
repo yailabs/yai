@@ -1,10 +1,12 @@
 import type { WorkspacePresentation } from "../../../studio/src/clients/presentation";
 
+type BaseWorkspacePresentation = Omit<WorkspacePresentation, "information">;
+
 // Authored synthetic visual scenarios. No private Case export, legal advice,
 // actual provider measurements, filesystem observations, or execution receipts.
 const provenance =
   "Authored synthetic scenario · presentation fixture v1 · no live Case or runtime";
-export const scenarios: readonly WorkspacePresentation[] = [
+export const scenarios: readonly BaseWorkspacePresentation[] = [
   {
     fixture: {
       id: "ordinary",

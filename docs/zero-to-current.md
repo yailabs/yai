@@ -18,24 +18,38 @@ YAI_HOME, provider, live Case or operator continuity canary. It does not exercis
 the Golden runtime below and cannot supply a human live-provider verdict.
 
 From `studio/`, run `npm ci` and `npm run dev` (or `npm run desktop:dev`
-with the [desktop prerequisites](../studio/README.md)). Open the local web URL
-with `?fixture=ordinary`, `?fixture=developer` and `?fixture=execution`, or use
-the visible fixture selector in either shell. All content is explicitly fixture.
+with the [desktop prerequisites](../studio/README.md)). Open the bare local URL
+for the Start Center. Use its recent Cases and New Case actions, then open
+`?fixture=ordinary`, `?fixture=developer` and `?fixture=execution`, or use the
+application `File` menu in either shell. All content is explicitly fixture.
 
-1. Identify the Case, its Participants, source/artifact context and central
-   material without treating conversation or provider as the whole product.
-2. Change perspectives; open a source, switch/close/reopen material tabs. Inspect
-   the illustrative diff and static work/review states. No decision is submitted.
-3. Resize Explorer, conversation and bottom tools. Collapse/reopen panels; verify
+1. Confirm the Start Center presents several Cases and Case-first entry actions,
+   without becoming a filesystem opener or KPI dashboard. Enter the New Case
+   composer and inspect Identity, Sources, Participants, Authority, Resources and
+   Compute together in its single tab. It must create or submit nothing.
+2. Open each authored Case. Identify its Participants, environment, current work
+   and central material without treating conversation or provider as the whole
+   product. Navigate Overview, Environment, Knowledge, Memory, Authority, Work
+   and Compute. Use mouse/browser Back and confirm that it does not reopen the
+   Start Center after the window has entered a Case.
+3. In Memory, switch Timeline/Graph and step fixture generations. Confirm that
+   authored events, relations, work and evidence change coherently without timer,
+   streaming or live-runtime claims. Inspect policy/review and provider posture.
+4. Switch Conversation, Inspector and Activity in the Context Panel. Open a
+   source, switch/close/reopen material tabs, inspect the illustrative diff and
+   static work/review states. No decision is submitted.
+5. Resize Explorer, Context Panel and bottom tools. Collapse/reopen panels; verify
    local size/tab preservation. Try Ctrl/Command+J, Ctrl/Command+B and
    Ctrl/Command+Shift+B, plus keyboard focus and splitter arrow/Home/End keys.
-4. Type a local draft, collapse/reopen conversation and confirm it remains. It
-   is never sent or saved; scenario switching/reload resets it.
-5. Inspect Terminal, Output, Executions, Evidence and Problems. Terminal must
+6. Type a local draft, collapse/reopen the Context Panel and confirm it remains.
+   It is never sent or saved; scenario switching/reload resets it.
+7. Inspect Terminal, Output, Executions, Evidence and Problems. Terminal must
    report no host and accept no command. Review controls must not approve work.
-6. Review 1280×800, 1440×900, 1728×1117 and 1920×1080 screenshots and scrollable
-   content. Use the [browser harness](test-cases.md#studio-bootstrap-isolation)
-   for repeatable captures, then judge hierarchy, density and legibility.
+8. Review the Start Center, Case composer and all seven perspectives at 1440×900,
+   plus 1280×800, 1728×1117 and 1920×1080 samples. Use the
+   [browser harness](test-cases.md#studio-bootstrap-isolation) for repeatable
+   captures, then judge hierarchy, density, legibility, tonal separation and the
+   absence of unnecessary border grids.
 
 Record the exact SHA and viewport with any operator feedback. This is an offline
 visual/interaction verdict only; `HUMAN_GOLDEN_CASE = PENDING_OPERATOR` remains

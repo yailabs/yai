@@ -34,7 +34,7 @@ export function useLayout() {
         event.preventDefault();
         restoreFocus(
           event.shiftKey ? "#case-conversation" : "#case-sidebar",
-          event.shiftKey ? "Toggle conversation" : "Toggle Case explorer",
+          event.shiftKey ? "Toggle context panel" : "Toggle Case explorer",
         );
         (event.shiftKey ? setRightOpen : setLeftOpen)((value) => !value);
       }

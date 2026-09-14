@@ -17,6 +17,7 @@ export function BottomPanel({
   collapse,
   open,
   height,
+  step,
 }: {
   data: WorkspacePresentation;
   active: BottomTab;
@@ -24,7 +25,21 @@ export function BottomPanel({
   collapse: () => void;
   open: (id: string) => void;
   height: number;
+  step: number;
 }) {
+  const stepCount = data.information.progression.steps.length;
+  const visibleExecutions = data.executions.slice(
+    0,
+    Math.max(1, Math.ceil((data.executions.length * step) / stepCount)),
+  );
+  const visibleEvidence = data.evidence.slice(
+    0,
+    Math.max(1, Math.ceil((data.evidence.length * step) / stepCount)),
+  );
+  const visibleProblems = data.problems.slice(
+    0,
+    Math.ceil((data.problems.length * Math.max(0, step - 1)) / stepCount),
+  );
   return (
     <section
       className="bottom-panel"
@@ -89,7 +104,7 @@ export function BottomPanel({
               </tr>
             </thead>
             <tbody>
-              {data.executions.map((item) => (
+              {visibleExecutions.map((item) => (
                 <tr key={item.id}>
                   <td>
                     <strong>{item.title}</strong>
@@ -115,7 +130,7 @@ export function BottomPanel({
               </tr>
             </thead>
             <tbody>
-              {data.evidence.map((item) => (
+              {visibleEvidence.map((item) => (
                 <tr key={item.id}>
                   <td>
                     {item.material ? (
@@ -140,9 +155,9 @@ export function BottomPanel({
           </table>
         )}
         {active === "Problems" &&
-          (data.problems.length ? (
+          (visibleProblems.length ? (
             <ul className="problem-list">
-              {data.problems.map((item) => (
+              {visibleProblems.map((item) => (
                 <li key={item.id}>
                   <span className={`problem-level ${item.severity}`}>
                     <Icon name="review" size={14} />

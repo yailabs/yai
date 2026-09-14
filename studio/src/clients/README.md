@@ -1,9 +1,11 @@
 # Frontend presentation seam
 
-`StudioClient` exposes scenario choices and a workspace presentation to the
-offline shell. `FixtureClient` supplies authored synthetic values from
-`tests/fixtures/studio/`. The small types describe what the implemented views
-render; they do not copy Rust CaseState or declare a YAI API/protocol.
+`StudioClient` exposes an authored Start Center catalog, Case-composition sections,
+scenario choices and a workspace presentation to the offline shell.
+`FixtureClient` supplies synthetic values from `tests/fixtures/studio/`. Small
+types describe what the implemented views render, including grouped explorer
+items, temporal events, graph relations and inspector content. They do not copy
+Rust CaseState or declare a YAI API/protocol.
 
 No LiveClient, I/O, execution simulation or silent fallback exists. A future
 live adapter must consume a qualified YAI application contract and may require

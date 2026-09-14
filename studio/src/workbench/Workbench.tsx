@@ -1,27 +1,50 @@
 import { useState } from "react";
-import type { Activity, WorkspacePresentation } from "../clients/presentation";
+import type {
+  Activity,
+  ContextMode,
+  MemoryMode,
+  WorkspacePresentation,
+} from "../clients/presentation";
 import type { Layout } from "./layout";
 import { Splitter } from "./layout";
 import { ActivityBar, Sidebar } from "./Sidebar";
 import { WorkSurface } from "./WorkSurface";
-import { Conversation } from "./Conversation";
+import { ContextPanel } from "./ContextPanel";
 import { BottomPanel } from "./BottomPanel";
 
 export function Workbench({
   data,
   layout,
+  stepId,
 }: {
   data: WorkspacePresentation;
   layout: Layout;
+  stepId: string;
 }) {
-  const [activity, setActivity] = useState<Activity>("Case");
-  const [tabs, setTabs] = useState([...data.initial.tabs]);
-  const [active, setActive] = useState(data.initial.active);
+  const [activity, setActivity] = useState<Activity>("Overview");
+  const [tabs, setTabs] = useState([
+    "section:Overview",
+    ...data.initial.tabs.slice(0, 2),
+  ]);
+  const [active, setActive] = useState("section:Overview");
   const [bottomTab, setBottomTab] = useState(data.initial.bottom);
   const [draft, setDraft] = useState("");
+  const [contextMode, setContextMode] = useState<ContextMode>("Inspector");
+  const [selectedContext, setSelectedContext] = useState("case");
+  const [memoryMode, setMemoryMode] = useState<MemoryMode>("Timeline");
+  const step =
+    data.information.progression.steps.find((item) => item.id === stepId)
+      ?.index ?? 1;
   function open(id: string) {
     setTabs((current) => (current.includes(id) ? current : [...current, id]));
     setActive(id);
+    if (id.startsWith("section:"))
+      setActivity(id.slice("section:".length) as Activity);
+    else setSelectedContext(id);
+  }
+  function inspect(id: string) {
+    setSelectedContext(id);
+    setContextMode("Inspector");
   }
   function close(id: string) {
     const next = tabs.filter((tab) => tab !== id);
@@ -47,6 +70,7 @@ export function Workbench({
         active={activity}
         select={(value) => {
           setActivity(value);
+          open(`section:${value}`);
           layout.setLeftOpen(true);
         }}
       />
@@ -58,6 +82,8 @@ export function Workbench({
               activity={activity}
               selected={active}
               open={open}
+              inspect={inspect}
+              setMemoryMode={setMemoryMode}
             />
           </div>
           <Splitter
@@ -76,9 +102,18 @@ export function Workbench({
           data={data}
           tabs={tabs}
           active={active}
-          select={setActive}
+          memoryMode={memoryMode}
+          setMemoryMode={setMemoryMode}
+          step={step}
+          select={(id) => {
+            setActive(id);
+            if (id.startsWith("section:"))
+              setActivity(id.slice("section:".length) as Activity);
+            else setSelectedContext(id);
+          }}
           close={close}
           open={open}
+          inspect={inspect}
         />
         {layout.bottomOpen && (
           <>
@@ -106,6 +141,7 @@ export function Workbench({
               }}
               open={open}
               height={layout.bottom}
+              step={step}
             />
           </>
         )}
@@ -113,7 +149,7 @@ export function Workbench({
       {layout.rightOpen && (
         <>
           <Splitter
-            label="Resize conversation"
+            label="Resize context panel"
             controls="case-conversation"
             axis="x"
             reverse
@@ -123,8 +159,12 @@ export function Workbench({
             onChange={layout.setRight}
           />
           <div className="conversation-slot" style={{ width: layout.right }}>
-            <Conversation
+            <ContextPanel
               data={data}
+              mode={contextMode}
+              setMode={setContextMode}
+              selected={selectedContext}
+              step={step}
               open={open}
               draft={draft}
               setDraft={setDraft}
@@ -132,7 +172,7 @@ export function Workbench({
                 layout.setRightOpen(false);
                 document
                   .querySelector<HTMLButtonElement>(
-                    '[aria-label="Toggle conversation"]',
+                    '[aria-label="Toggle context panel"]',
                   )
                   ?.focus();
               }}

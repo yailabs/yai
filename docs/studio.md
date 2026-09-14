@@ -19,11 +19,14 @@ replacement CLI, independent YVEX UI or new semantic owner. Native CLI, Studio
 and future Mobile are clients over the same YAI application meaning, subject to
 ordinary authentication, Participant scope, disclosure and admission.
 
-The current [shell](../studio/README.md) renders three authored, deterministic
-fixture Cases. Explorer, material tabs, document/diff/work views, contextual
-conversation and resizable tools are executable frontend interactions. They are
-offline presentation proof, not qualified YAI application consumption. The live
-workbench remains a target; neither fixtures nor compilation change maturity.
+The current [shell](../studio/README.md) has an offline product root, recent Case
+index, single-surface Case composition view and three authored deterministic fixture
+Cases. Its primary visible taxonomy is Overview, Environment, Knowledge, Memory,
+Authority, Work and Compute. Fixture timeline/graph generations, material tabs,
+Context Panel modes and resizable tools are executable frontend interactions.
+They are offline presentation proof, not qualified YAI application consumption.
+The live workbench remains a target; neither fixtures nor compilation change
+maturity.
 
 ## Architectural Invariants
 
@@ -289,11 +292,31 @@ products or parallel simple/advanced state models.
 ## Case Workbench Surfaces
 
 Every row describes the product target, not live qualification. The fixture shell
-exercises a subset: Case/Sources/Files/Work/Providers navigation, documents and
-an illustrative diff, execution/review context, conversation and bottom tools.
-The broader surface design retains existing owner names rather than introducing
-frontend semantic stores. A source explorer organizes the world related to a Case;
-Knowledge organizes what qualified sources state. Neither owns the other.
+now establishes two product levels: a Start Center for entering or composing a
+Case, and a Case Workbench organized by Overview, Environment, Knowledge, Memory,
+Authority, Work and Compute. These are presentation perspectives over one Case,
+not frontend domain owners. Environment organizes the material and operational
+world attached to a Case; Knowledge organizes what qualified sources can support;
+Memory presents derived temporal and relational navigation; Authority presents
+policy, scope, reviews and decisions; Work presents activity and transformations;
+Compute presents generic inference and runtime context. The current examples are
+authored fixtures. Their labels, graph edges and generation steps establish no
+backend event, history or authority contract.
+
+Case composition is a single local work-surface tab: Identity, Sources,
+Participants, Authority, Resources and Compute remain visible together rather
+than implying a server-owned wizard lifecycle. After entering a Case, Studio
+does not use its brand chrome as a route back to the Start Center. The desktop
+application menu owns opening or composing another Case, while the current Case
+continues to be the Workbench context. Back navigation may leave a local surface
+for that Case, but must not reinterpret the product root as the previous Case
+attachment.
+
+The right-hand Context Panel can represent Conversation, Inspector and Activity
+without making conversation the product root. The central work surface remains a
+generic local tab host. The fixture graph is a lightweight rendered projection,
+not an inference engine or causal model. A source may also be a Resource, but the
+views preserve those distinct semantic roles.
 
 | Surface | Representation and interaction | Existing owner or prerequisite |
 |---|---|---|
@@ -351,7 +374,11 @@ and later strictly necessary native integration. Rust shell code must remain a
 thin qualified client/adapter, never a second business layer. No Next.js,
 Electron, editor engine, terminal emulator, graph library or native plugin is
 added. A small CSS token set and local inline icons serve the fixture shell;
-there is no external UI kit or final design system. Tauri requires a PNG at compile time; the shell uses one
+there is no external UI kit or final design system. The dark desktop grammar
+uses tonal surface layers, spacing and typography for most separation, reserving
+visible dividers for structural splits. Controls and grouped surfaces use modest
+radius while the application frame and terminal-like regions stay comparatively
+hard. Tauri requires a PNG at compile time; the shell uses one
 transparent RGBA pixel, not a product icon design. Future modules grow when
 there is code to own; the conceptual
 `case`, `components`, `surfaces`, `state`, `terminal`, `yvex` placement is not a
@@ -366,16 +393,18 @@ signing and platform distribution are not qualified by an executable build.
 
 ```text
 StudioClient (frontend presentation seam, not a YAI API)
-└── FixtureClient -> authored synthetic scenarios -> React components
+└── FixtureClient -> authored catalog/composition/Case projections -> React components
 
 LiveClient remains unimplemented; future mapping needs a qualified YAI contract.
 ```
 
-`src/clients/` owns a minimal synchronous presentation interface: scenario
-choices and one selected workspace presentation. Small types describe visible
-Case labels, Participants, material bodies, conversation/notice rows, provider
-context, execution states and evidence/problems. They are UI inputs, not Rust
-CaseState copies, operation schemas, authority checks or a proposed public API.
+`src/clients/` owns a minimal synchronous presentation interface: an authored
+Start Center catalog, offline composition sections, scenario choices and one selected
+workspace presentation. Small composable types describe visible Case labels,
+Participants, material bodies, explorer groups, conversation/notice rows,
+timeline events, graph nodes/relations, inspector content, provider context,
+execution states and evidence/problems. They are UI inputs, not Rust CaseState
+copies, operation schemas, authority checks or a proposed public API.
 FixtureClient reads the authored examples under `tests/fixtures/studio/`; it
 performs no I/O, timer-driven execution or semantic reconstruction.
 
@@ -390,12 +419,20 @@ They must be plausible, recorded or sanitized with explicit origin, contract
 version and missingness. No fixture is presented as live telemetry or used as a
 silent fallback. The query `fixture=ordinary|developer|execution` selects exact
 authored state; unknown values show an explicit error. FIXTURE and no-runtime
-posture remain visible. Static running/review/failure labels are not live
-telemetry. Terminal has no input or host, and no review/send controls simulate
-authority. A local draft is unsubmitted and never persisted or dispatched.
+posture remain visible. The bare URL opens the authored Start Center;
+`view=new` selects the complete offline composer, optional `focus=sources`
+emphasizes its Sources section, and `snapshot=1|2|3` selects an authored
+generation for one Case. Generation changes reveal coherent fixture timeline,
+graph, work and evidence content; they are not event replay, streaming or runtime
+progress. Static running/review/failure labels are not live telemetry. Terminal
+has no input or host, and no review/send controls simulate authority. A local
+draft is unsubmitted and never persisted or dispatched.
 
-Layout sizes, collapse state and navigation are React state. Closing/reopening
-a panel retains its size and current tab/draft within the selected fixture.
+Layout sizes, collapse state, perspective, Context Panel mode, graph/timeline
+selection and work-surface tabs are React state. URL query state selects only
+authored Start/Case/composition/snapshot inputs for deterministic rendering.
+Closing/reopening a panel retains its size and current tab/draft within the
+selected fixture.
 Switching scenarios resets material tabs and the draft, while retaining layout;
 reloading restores deterministic scenario defaults. This is frontend-local
 interaction, not Case attachment or multi-client continuity. The same rendering

@@ -17,6 +17,21 @@ const paths = {
   evidence: "M7 3h10v4H7z M7 5H4v16h16V5h-3 M8 11h8 M8 15h5",
   people:
     "M16 21v-3a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v3 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0 M17 4a4 4 0 0 1 0 8 M19 15a4 4 0 0 1 3 4v2",
+  overview: "M4 5h16v5H4z M4 14h7v5H4z M15 14h5v5h-5z",
+  environment: "M4 6h7l2 3h7v10H4z M4 9h16",
+  knowledge:
+    "M4 5a3 3 0 0 1 3-3h11v17H7a3 3 0 0 0-3 3z M7 2v17 M10 7h5 M10 11h6",
+  memory: "M12 3a9 9 0 1 1-8.5 6 M3 4v5h5 M12 7v5l4 2",
+  authority: "M12 3l8 3v5c0 5-3.3 8.5-8 10-4.7-1.5-8-5-8-10V6z M9 12l2 2 4-5",
+  compute: "M7 3v4 M17 3v4 M5 7h14v4a7 7 0 0 1-14 0z M12 18v3 M8 21h8",
+  graph:
+    "M6 5a2 2 0 1 0 0 .1 M18 7a2 2 0 1 0 0 .1 M8 18a2 2 0 1 0 0 .1 M8 6l8 1 M7 7l1 9 M17 9l-7 7",
+  search: "M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z M17 17l4 4",
+  plus: "M12 5v14 M5 12h14",
+  repository: "M4 4h16v16H4z M8 8h8 M8 12h5 M8 16h7",
+  database:
+    "M5 5c0-2 14-2 14 0v14c0 2-14 2-14 0z M5 5v5c0 2 14 2 14 0V5 M5 10v5c0 2 14 2 14 0",
+  arrowBack: "M19 12H5 M10 7l-5 5 5 5",
 } as const;
 export type IconName = keyof typeof paths;
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {

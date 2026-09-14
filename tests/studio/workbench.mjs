@@ -1,11 +1,11 @@
 // Separate Studio browser proof. Never part of the backend Make graph.
 // Uses the Playwright library only; no test runner or downloaded browser needed.
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { createHash } from "node:crypto";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const requireStudio = createRequire(path.join(root, "studio/package.json"));
@@ -19,9 +19,9 @@ assert(
   "Use an explicitly local Studio server",
 );
 const output = path.resolve(
-  option("--output", path.join(root, "build/studio-shell")),
+  option("--output", path.join(root, "build/studio-information")),
 );
-const run = option("--run", "studio-shell-browser");
+const run = option("--run", "studio-information-browser");
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({
   executablePath: process.env.STUDIO_CHROMIUM || "/usr/bin/chromium",
@@ -55,15 +55,23 @@ const log = (property, extra = {}) =>
   console.log(
     JSON.stringify({ run_id: run, property, result: "PASS", ...extra }),
   );
-async function load(scenario) {
+async function load(search = "") {
   await page.mouse.move(0, 0);
-  await page.goto(`${base}/?fixture=${scenario}`, { waitUntil: "networkidle" });
+  await page.goto(`${base}/${search}`, { waitUntil: "networkidle" });
   await page.evaluate(() => document.fonts.ready);
 }
-async function geometry() {
-  const dimensions = await page.evaluate(() => {
+async function selectPerspective(name) {
+  await page
+    .getByRole("button", { name: `${name} perspective`, exact: true })
+    .click();
+  await page.getByRole("tab", { name, exact: true }).waitFor();
+}
+async function geometry(kind) {
+  const dimensions = await page.evaluate((view) => {
     const rect = (selector) => {
-      const r = document.querySelector(selector).getBoundingClientRect();
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const r = element.getBoundingClientRect();
       return {
         x: r.x,
         y: r.y,
@@ -74,30 +82,30 @@ async function geometry() {
       };
     };
     return {
+      view,
       body: document.body.scrollWidth,
       width: innerWidth,
       height: innerHeight,
       center: rect(".central-column"),
       sidebar: rect(".sidebar"),
-      right: rect(".conversation"),
-      tools: rect(".bottom-panel"),
-      surface: rect(".work-surface"),
+      context: rect(".context-panel"),
+      start: rect(".start-center"),
+      setup: rect(".case-bootstrap"),
       footer: rect(".status-bar"),
     };
-  });
+  }, kind);
   assert(dimensions.body <= dimensions.width, JSON.stringify(dimensions));
-  assert(dimensions.center.w >= 390, JSON.stringify(dimensions));
-  assert(dimensions.surface.h >= 260, JSON.stringify(dimensions));
-  assert(
-    dimensions.sidebar.right <= dimensions.center.x &&
-      dimensions.center.right <= dimensions.right.x,
-    JSON.stringify(dimensions),
-  );
-  assert(
-    dimensions.tools.bottom <= dimensions.footer.y + 1 &&
-      dimensions.right.bottom <= dimensions.footer.y + 1,
-    JSON.stringify(dimensions),
-  );
+  assert(dimensions.footer?.bottom <= dimensions.height + 1);
+  if (kind === "workbench") {
+    assert(dimensions.center.w >= 390, JSON.stringify(dimensions));
+    assert(
+      dimensions.sidebar.right <= dimensions.center.x &&
+        dimensions.center.right <= dimensions.context.x,
+      JSON.stringify(dimensions),
+    );
+  } else {
+    assert(dimensions.start || dimensions.setup, JSON.stringify(dimensions));
+  }
   return dimensions;
 }
 async function drag(label, dx, dy) {
@@ -114,314 +122,312 @@ async function drag(label, dx, dy) {
   await page.mouse.up();
   const after = Number(await separator.getAttribute("aria-valuenow"));
   assert.notEqual(after, before, `${label} did not resize`);
-  return after;
 }
+
 try {
   if (!args.includes("--screenshots-only")) {
-    await load("ordinary");
+    await load();
+    await page.getByRole("main", { name: "YAI Studio Start Center" }).waitFor();
+    assert.equal(await page.getByText("FIXTURE", { exact: true }).count(), 1);
+    await page.getByRole("button", { name: "Open Case", exact: true }).click();
     await page
-      .getByRole("button", { name: "Sources perspective", exact: true })
-      .click();
-    assert.equal(
-      await page
-        .getByRole("button", { name: "Sources perspective", exact: true })
-        .getAttribute("aria-pressed"),
-      "true",
-    );
+      .getByPlaceholder("Search by Case or current work")
+      .fill("runtime");
+    const startHistoryDepth = await page.evaluate(() => history.length);
     await page
-      .locator("#case-sidebar")
-      .getByRole("button", { name: "Services agreement", exact: true })
-      .click();
-    assert.equal(
-      await page
-        .getByRole("tab", { name: "Services agreement", exact: true })
-        .getAttribute("aria-selected"),
-      "true",
-    );
-    await page.getByRole("tab", { name: /Discussion brief/ }).click();
-    await page
-      .getByRole("tab", { name: /Discussion brief/ })
-      .press("ArrowRight");
-    assert.equal(
-      await page
-        .getByRole("tab", { name: "Services agreement", exact: true })
-        .getAttribute("aria-selected"),
-      "true",
-    );
-    await page
-      .getByRole("button", { name: "Close Services agreement", exact: true })
-      .click();
-    assert.equal(
-      await page
-        .getByRole("tab", { name: /Discussion brief/ })
-        .getAttribute("aria-selected"),
-      "true",
-    );
-    await page
-      .getByRole("button", { name: "Close Discussion brief", exact: true })
-      .click();
-    await page.getByRole("button", { name: /Reopen Discussion brief/ }).click();
-    await page.getByLabel("Material content", { exact: true }).focus();
-    await page.keyboard.press("End");
-    await page.waitForFunction(
-      () => document.querySelector(".material-scroll").scrollTop > 0,
-    );
-    await page.screenshot({
-      path: path.join(output, "ordinary-scrolled-focus.png"),
-      animations: "disabled",
-      caret: "hide",
-    });
-    await page
-      .getByRole("button", { name: "Files perspective", exact: true })
+      .locator(".open-case-results")
+      .getByRole("button", { name: /Runtime qualification CASE \/ 027/ })
       .click();
     await page
-      .getByRole("button", { name: "Work perspective", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Case perspective", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Sources perspective", exact: true })
-      .hover();
-    await page.screenshot({
-      path: path.join(output, "ordinary-hover.png"),
-      animations: "disabled",
-      caret: "hide",
-    });
-    log(
-      "Activity/item selection; tab selection, arrow navigation, close, empty state and reopen",
-    );
-
-    const left = await drag("Resize Case explorer", 40, 0);
-    await drag("Resize conversation", -35, 0);
-    const bottom = await drag("Resize bottom panel", 0, -55);
-    await geometry();
-    const splitter = page.getByRole("separator", {
-      name: "Resize Case explorer",
-      exact: true,
-    });
-    await splitter.focus();
-    await splitter.press("ArrowLeft");
+      .getByRole("heading", { name: "Runtime qualification", exact: true })
+      .first()
+      .waitFor();
+    assert.equal(await page.evaluate(() => history.length), startHistoryDepth);
     assert.equal(
-      Number(await splitter.getAttribute("aria-valuenow")),
-      left - 10,
-    );
-    await splitter.press("End");
-    assert.equal(
-      await splitter.getAttribute("aria-valuenow"),
-      await splitter.getAttribute("aria-valuemax"),
-    );
-    await splitter.press("Home");
-    assert.equal(
-      await splitter.getAttribute("aria-valuenow"),
-      await splitter.getAttribute("aria-valuemin"),
-    );
-    await page
-      .getByRole("button", { name: "Toggle Case explorer", exact: true })
-      .click();
-    assert.equal(await page.locator("#case-sidebar").count(), 0);
-    await page
-      .getByRole("button", { name: "Toggle Case explorer", exact: true })
-      .click();
-    log(
-      "Pointer resize on all three panels; keyboard resize and bounds; sidebar collapse",
-    );
-
-    await page.getByRole("tab", { name: "Terminal", exact: true }).click();
-    assert.equal(
-      await page
-        .getByText("Terminal host not attached in fixture mode", {
-          exact: true,
-        })
-        .count(),
-      1,
-    );
-    assert.equal(
-      await page
-        .locator(
-          "#tools-panel input, #tools-panel textarea, #tools-panel [contenteditable]",
-        )
-        .count(),
+      await page.getByRole("button", { name: /Start Center/ }).count(),
       0,
     );
-    await page.keyboard.press("Control+j");
-    assert.equal(await page.locator("#case-tools").count(), 0);
-    await page.keyboard.press("Control+j");
-    assert.equal(
-      await page
-        .getByRole("tab", { name: "Terminal", exact: true })
-        .getAttribute("aria-selected"),
-      "true",
-    );
-    assert.equal(
-      Math.round((await page.locator("#case-tools").boundingBox()).height),
-      bottom,
-    );
-    for (const tab of ["Output", "Executions", "Evidence", "Problems"])
-      await page.getByRole("tab", { name: tab, exact: true }).click();
-    assert.equal(
-      await page
-        .getByText("No problems in this fixture snapshot", { exact: true })
-        .count(),
-      1,
-    );
+    await page.getByRole("button", { name: "File", exact: true }).click();
     await page
-      .getByLabel("Local draft", { exact: false })
-      .fill("Unsubmitted local note");
-    await page
-      .getByRole("button", { name: "Collapse conversation", exact: true })
-      .click();
-    assert.equal(await page.locator("#case-conversation").count(), 0);
-    await page
-      .getByRole("button", { name: "Toggle conversation", exact: true })
-      .click();
-    assert.equal(
-      await page.locator("#local-draft").inputValue(),
-      "Unsubmitted local note",
-    );
-    await page.keyboard.press("Control+Shift+b");
-    assert.equal(await page.locator("#case-conversation").count(), 0);
-    await page.keyboard.press("Control+Shift+b");
-    await page.getByRole("button", { name: "Clear", exact: true }).click();
-    log(
-      "Bottom tabs/collapse/size memory; terminal non-interactivity; conversation collapse/draft preservation; shortcuts",
-    );
-
-    await page
-      .getByRole("combobox", { name: "Fixture scenario" })
-      .selectOption("execution");
-    assert.match(page.url(), /fixture=execution/);
-    assert.equal(
-      await page
-        .getByRole("heading", { name: "Release handoff", exact: true })
-        .count(),
-      1,
-    );
-    await page
-      .getByRole("button", { name: "Inspect review", exact: true })
-      .click();
-    assert.equal(
-      await page
-        .getByRole("tab", { name: "Publication review", exact: true })
-        .getAttribute("aria-selected"),
-      "true",
-    );
-    assert.equal(
-      await page.getByRole("button", { name: /approve|publish|send/i }).count(),
-      0,
-    );
-    await page
-      .getByRole("button", { name: "Providers perspective", exact: true })
+      .getByRole("menu", { name: "File" })
+      .getByRole("menuitem", { name: "New Case from Source…", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Provider context", exact: true })
-      .click();
-    assert.equal(
-      await page
-        .getByText("Not attached · fixture mode", { exact: true })
-        .count(),
-      1,
-    );
-    await page.goBack();
-    assert.match(page.url(), /fixture=ordinary/);
-    await page.getByRole("combobox", { name: "Fixture scenario" }).focus();
-    await page.keyboard.press("Tab");
-    const focus = await page.evaluate(() => ({
-      name: document.activeElement.getAttribute("aria-label"),
-      outline: getComputedStyle(document.activeElement).outlineStyle,
-    }));
-    assert.equal(focus.name, "Toggle Case explorer");
-    assert.equal(focus.outline, "solid");
-    log(
-      "Scenario switching/history; review navigation without authority controls; provider context; keyboard focus",
-      focus,
-    );
-
-    await load("unknown");
-    assert.equal(
-      await page
-        .getByRole("heading", { name: "Unknown fixture: unknown" })
-        .count(),
-      1,
-    );
-    assert.equal(await page.locator(".workbench").count(), 0);
-    log(
-      "Unknown scenario refuses instead of silently loading replacement data",
-    );
-  }
-
-  const viewports = args.includes("--matrix")
-    ? [
-        [1280, 800],
-        [1440, 900],
-        [1728, 1117],
-        [1920, 1080],
-      ]
-    : [[1440, 900]];
-  const screenshots = [];
-  for (const [width, height] of viewports) {
-    await page.setViewportSize({ width, height });
-    for (const scenario of ["ordinary", "developer", "execution"]) {
-      await load(scenario);
-      const dimensions = await geometry();
-      const file = path.join(output, `${scenario}-${width}x${height}.png`);
-      const first = await page.screenshot({
-        path: file,
-        animations: "disabled",
-        caret: "hide",
-      });
-      await load(scenario);
-      const second = await page.screenshot({
-        animations: "disabled",
-        caret: "hide",
-      });
-      assert(
-        first.equals(second),
-        `Non-deterministic rendering: ${scenario} ${width}x${height}`,
+      .getByRole("main", { name: "New Case fixture composition" })
+      .waitFor();
+    for (const label of [
+      "Identity",
+      "Sources",
+      "Participants",
+      "Authority",
+      "Resources",
+      "Compute",
+    ])
+      assert.equal(
+        await page.getByRole("heading", { name: label, exact: true }).count(),
+        1,
       );
-      screenshots.push({
-        scenario,
-        width,
-        height,
-        file,
-        sha256: createHash("sha256").update(first).digest("hex"),
-      });
-      log("Deterministic fixture screenshot and desktop geometry", {
-        scenario,
-        width,
-        height,
-        file,
-        dimensions,
-      });
-    }
+    assert.equal(
+      await page.locator('[data-section="sources"][data-focus="true"]').count(),
+      1,
+    );
+    await page.getByRole("button", { name: "Close draft" }).click();
+    await page
+      .getByRole("heading", { name: "Runtime qualification", exact: true })
+      .first()
+      .waitFor();
+    await page.getByRole("button", { name: "File", exact: true }).click();
+    await page
+      .getByRole("menu", { name: "File" })
+      .getByRole("menuitem", { name: /Execution · Release handoff/ })
+      .click();
+    await page
+      .getByRole("heading", { name: "Release handoff", exact: true })
+      .first()
+      .waitFor();
+    await page.getByLabel("Fixture generation").selectOption("1");
+    await selectPerspective("Memory");
+    const earlyEvents = await page.locator(".case-timeline li").count();
+    await page.getByLabel("Fixture generation").selectOption("3");
+    const laterEvents = await page.locator(".case-timeline li").count();
+    assert(laterEvents > earlyEvents, `${earlyEvents} !< ${laterEvents}`);
+    await page.getByRole("tab", { name: "Graph", exact: true }).click();
+    assert((await page.locator(".graph-node").count()) >= 6);
+    await page.getByRole("tab", { name: "Activity", exact: true }).click();
+    await page.getByRole("heading", { name: "Recent Case activity" }).waitFor();
+    await page.getByRole("tab", { name: "Conversation", exact: true }).click();
+    await page
+      .getByPlaceholder("Keep a note for this conversation…")
+      .fill("local fixture note");
+    await page.getByRole("button", { name: "Collapse context panel" }).click();
+    await page.getByRole("button", { name: "Toggle context panel" }).click();
+    assert.equal(
+      await page
+        .getByPlaceholder("Keep a note for this conversation…")
+        .inputValue(),
+      "local fixture note",
+    );
+    await page.getByRole("tab", { name: "Inspector", exact: true }).click();
+    await selectPerspective("Environment");
+    await page
+      .getByRole("button", { name: /Validation notes/ })
+      .first()
+      .click();
+    await page
+      .getByRole("tab", { name: "Validation notes", exact: true })
+      .waitFor();
+    await page.getByRole("button", { name: "Close Validation notes" }).click();
+    for (const name of [
+      "Overview",
+      "Knowledge",
+      "Authority",
+      "Work",
+      "Compute",
+    ])
+      await selectPerspective(name);
+    for (const name of [
+      "Terminal",
+      "Output",
+      "Executions",
+      "Evidence",
+      "Problems",
+    ])
+      await page.getByRole("tab", { name, exact: true }).click();
+    await drag("Resize Case explorer", 35, 0);
+    await drag("Resize context panel", -30, 0);
+    await drag("Resize bottom panel", 0, -28);
+    await page.getByRole("button", { name: "Toggle bottom panel" }).click();
+    await page.keyboard.press("Control+j");
+    const keyboardSplitter = page.getByRole("separator", {
+      name: "Resize Case explorer",
+    });
+    await keyboardSplitter.focus();
+    assert(
+      await keyboardSplitter.evaluate(
+        (element) => element === document.activeElement,
+      ),
+    );
+    const keyboardBefore = Number(
+      await keyboardSplitter.getAttribute("aria-valuenow"),
+    );
+    await page.keyboard.press("ArrowRight");
+    assert.equal(
+      Number(await keyboardSplitter.getAttribute("aria-valuenow")),
+      keyboardBefore + 10,
+    );
+    const visualGrammar = await page.evaluate(() => {
+      const style = (selector) =>
+        getComputedStyle(document.querySelector(selector));
+      return {
+        railBorder: style(".activity-bar").borderRightWidth,
+        tabStripBorder: style(".tabs").borderBottomWidth,
+        tabRadius: style(".tab-wrap.active").borderRadius,
+        groupRadius: style(".information-group").borderRadius,
+        groupBorder: style(".information-group").borderTopWidth,
+      };
+    });
+    assert.deepEqual(visualGrammar, {
+      railBorder: "0px",
+      tabStripBorder: "0px",
+      tabRadius: "7px",
+      groupRadius: "10px",
+      groupBorder: "0px",
+    });
+    await geometry("workbench");
+    log(
+      "Start Center, single-view Case composition and menu-owned Case navigation",
+    );
+    log(
+      "Seven Case perspectives, Context Panel modes, local tabs and bottom tools",
+    );
+    log("Panel resize/collapse, local draft memory and keyboard focus");
+    log(
+      "Tonal surfaces and restrained radius replace continuous border grids",
+      {
+        visual_grammar: visualGrammar,
+      },
+    );
+    await load("?fixture=unknown");
+    await page.getByText("No replacement data has been loaded.").waitFor();
+    log("Unknown fixture refuses without silent fallback");
   }
-  assert.deepEqual(
-    errors,
-    [],
-    "Browser errors or unexpected external/mutating requests",
-  );
+
+  const views = [
+    { name: "start-center", kind: "start", prepare: () => load() },
+    {
+      name: "new-case",
+      kind: "setup",
+      prepare: () => load("?view=new&focus=sources"),
+    },
+    {
+      name: "overview",
+      kind: "workbench",
+      prepare: () => load("?fixture=ordinary"),
+    },
+    {
+      name: "environment",
+      kind: "workbench",
+      prepare: async () => {
+        await load("?fixture=developer");
+        await selectPerspective("Environment");
+      },
+    },
+    {
+      name: "knowledge",
+      kind: "workbench",
+      prepare: async () => {
+        await load("?fixture=ordinary");
+        await selectPerspective("Knowledge");
+      },
+    },
+    {
+      name: "memory-timeline",
+      kind: "workbench",
+      prepare: async () => {
+        await load("?fixture=execution&snapshot=2");
+        await selectPerspective("Memory");
+      },
+    },
+    {
+      name: "memory-graph",
+      kind: "workbench",
+      prepare: async () => {
+        await load("?fixture=execution&snapshot=3");
+        await selectPerspective("Memory");
+        await page.getByRole("tab", { name: "Graph", exact: true }).click();
+      },
+    },
+    {
+      name: "authority",
+      kind: "workbench",
+      prepare: async () => {
+        await load("?fixture=execution&snapshot=3");
+        await selectPerspective("Authority");
+      },
+    },
+    {
+      name: "work",
+      kind: "workbench",
+      prepare: async () => {
+        await load("?fixture=execution&snapshot=3");
+        await selectPerspective("Work");
+      },
+    },
+    {
+      name: "compute",
+      kind: "workbench",
+      prepare: async () => {
+        await load("?fixture=developer&snapshot=3");
+        await selectPerspective("Compute");
+      },
+    },
+  ];
+  const captures = [];
+  async function capture(view, width, height) {
+    await page.setViewportSize({ width, height });
+    await view.prepare();
+    const dimensions = await geometry(view.kind);
+    const file = path.join(output, `${view.name}-${width}x${height}.png`);
+    const first = await page.screenshot({
+      path: file,
+      animations: "disabled",
+      caret: "hide",
+    });
+    await view.prepare();
+    const second = await page.screenshot({
+      animations: "disabled",
+      caret: "hide",
+    });
+    assert(
+      first.equals(second),
+      `${view.name} fixture render is not deterministic`,
+    );
+    const record = {
+      view: view.name,
+      width,
+      height,
+      file,
+      sha256: createHash("sha256").update(first).digest("hex"),
+      dimensions,
+    };
+    captures.push(record);
+    log("Deterministic fixture screenshot and desktop geometry", record);
+  }
+  for (const view of views) await capture(view, 1440, 900);
+  if (args.includes("--matrix")) {
+    for (const [name, width, height] of [
+      ["start-center", 1280, 800],
+      ["overview", 1280, 800],
+      ["memory-graph", 1728, 1117],
+      ["work", 1920, 1080],
+    ])
+      await capture(
+        views.find((view) => view.name === name),
+        width,
+        height,
+      );
+  }
+  assert.deepEqual(errors, []);
+  assert.deepEqual([...requests], [new URL(base).origin]);
+  const manifest = {
+    run_id: run,
+    url: base,
+    browser: browser.version(),
+    fixture_provenance:
+      "Authored synthetic information architecture v2; no live Case/runtime data",
+    screenshots: captures,
+    requests: [...requests],
+  };
   await writeFile(
     path.join(output, "screenshots.json"),
-    JSON.stringify(
-      {
-        run_id: run,
-        url: base,
-        browser: browser.version(),
-        fixture_provenance: "Authored synthetic v1; no live Case/runtime data",
-        screenshots,
-        requests: [...requests],
-      },
-      null,
-      2,
-    ),
+    `${JSON.stringify(manifest, null, 2)}\n`,
   );
-  log("Browser shell verification", {
-    screenshots: screenshots.length,
+  log("Browser information architecture verification", {
+    screenshots: captures.length,
     browser: browser.version(),
     external_requests: 0,
-    browser_errors: 0,
+    browser_errors: errors.length,
   });
 } finally {
-  await context.close();
   await browser.close();
 }

@@ -196,9 +196,15 @@ presenting these values.
 
 [`studio/`](../studio/README.md) is an independent React/TypeScript/Vite fixture
 workbench with a Tauri 2 window/assets shell. A frontend-only FixtureClient feeds
-authored synthetic Case presentations into Explorer, material tabs, document/
-diff/work views, contextual conversation and resizable bottom tools. Local
-navigation, layout and drafts do not mutate Case truth. There is no live client,
+an authored Start Center, single-surface Case composition view and three synthetic
+Case presentations into the seven-part Overview/Environment/Knowledge/Memory/
+Authority/Work/Compute workbench. Timeline/graph generations, material tabs,
+Context Panel modes and resizable bottom tools are presentation proof. Local
+navigation, application menus, layout, fixture progression and drafts do not
+mutate Case truth. Once a Case is open, opening or composing another Case is an
+application-menu action rather than a brand-chrome route back to the Start Center.
+Local Back navigation retains the attached Case instead of reopening that root.
+There is no live client,
 YAI engine dependency, native command/plugin, application transport or persistence
 access. Its npm/Cargo builds and browser harness are separate from core/CLI and
 backend validation. [Studio](studio.md) owns product/frontend target design;

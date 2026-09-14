@@ -76,10 +76,15 @@ npm run test:browser -- --matrix --run studio-shell-local
 
 The separate `tests/studio/workbench.mjs` harness uses the development-only
 Playwright library and host Chromium (`STUDIO_CHROMIUM` overrides its path).
-It checks interaction, keyboard focus, panel bounds, offline requests and
-byte-identical repeated screenshots for three fixtures at four desktop sizes.
-PNG files and their manifest go to ignored `build/studio-shell/`. Use `--url`
-for a local production preview and `--output` for a separate retained run.
+It checks Start Center and single-surface Case composition, application-menu Case
+switching, Back-navigation attachment retention, authored Case progression, the seven
+Workbench perspectives, Context Panel modes, local tabs, keyboard focus, panel
+bounds, offline requests and byte-identical repeated screenshots. The primary
+1440×900 set covers Start Center, New Case, Overview, Environment, Knowledge,
+Memory timeline/graph, Authority, Work and Compute; the matrix adds 1280×800,
+1728×1117 and 1920×1080 samples. PNG files and their manifest go to ignored
+`build/studio-information/`. Use `--url` for a local production preview and
+`--output` for a separate retained run.
 This harness is frontend proof, outside the backend classification/Make union;
 its test count is not added to the core validation catalog.
 No Studio test target is added to the backend Make graph.
