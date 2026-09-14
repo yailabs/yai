@@ -564,7 +564,7 @@ fn working_state_compilation(invocation: &Invocation) -> Result<CliData, CliErro
         else { at.parse().map(HistoricalCoordinate::Generation).map_err(|_| CliError::usage("--at requires an exact generation or Transition")) }
     }).transpose()?;
     let request = WorkingStateRequest {
-        case_id: case.case_id, expected_generation: case.generation, at,
+        case_id: case.case_id, expected_generation: case.generation, at, recall_query: None,
         compilation: CompilationRequest {
             scope, intent: invocation.positionals["intent"].clone(),
             output_contract_id: yai_core_engine::context::InvocationOutputContract::NaturalLanguage.contract_id(),

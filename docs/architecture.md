@@ -225,7 +225,7 @@ mean constitutional, general, or production-ready.
 | Cognitive capability planning | explicit requirement → pinned or ordered Case/Participant cognitive binding → exact semantic, governance and known mechanical eligibility → first eligible candidate with inspectable exclusions → exact native/derived/unresolved plan and lane; planning remains execution-free | learned/economic routing remains absent; I06 connects the conversation host |
 | Typed provider realization | fresh I02 plan + exact current binding/evidence/envelope + ProviderQualification v5 wire-shape evidence + canonical Turn parts → exact-target governed selection → ordered OpenAI-compatible typed request → ProviderInvocation/ProviderResult; derived routes preserve immutable text/source/result provenance; native function calls and JSON-object output have separate mechanical probes | production STT/vision adapters, public YVEX typed-media compatibility and streaming remain later work |
 | Cognitive execution composition | explicit primary goal + ordered canonical source selection → content-addressed composition request → proven direct primary bypass or one exact auxiliary I02/I03 realization → canonical derived content → deterministic original/derived source closure → fresh exact primary I02/I03 realization; I05 arbitrates before each exact plan, and compatible prerequisites resume without redispatch | only depth-two speech/image-to-text prerequisites are admitted; recursive graphs remain absent; I06 consumes this bounded composition in the host |
-| Case-bound provider prompt | replay-qualified SemanticState + current EffectivePolicy → bounded scoped W → Projection/ContextFrame v10 → exact provider render → Invocation/Result lineage; existing residency report describes W selection, not a second compiler | context compatibility only, not persistent model state; optional public target preflight belongs to execution admission, not W; interactive conversation uses cognitive realization; --once/piped legacy diagnostics remain separate |
+| Case-bound provider prompt | current S/EffectivePolicy + qualified Recall v2 → bounded W3 → Projection/ContextFrame11 → exact provider render → current Invocation admission/Result lineage; residency reports W selection, not a second compiler | context compatibility only, not persistent model state; target preflight belongs to execution admission; explicit historical pinned-provider/consolidation and --once/piped diagnostics remain separate |
 | Governed provider routing | immutable Tenant ProviderTarget → synthetic evidence-bound qualification → Tenant-Owner approval → shared fresh health/circuit → exact Case provider binding → mechanical requirement/filtering → canonical ProviderSelection and attempt outcome; local fixtures prove qualified capability differences, deterministic exclusions, pre-dispatch safe failover and indeterminate-delivery refusal | H18 adds HTTPS/credential/circuit hardening; real provider capacity and full external Golden qualification remain separate evidence requirements |
 | Agentless Case runtime | authenticated Tenant owner starts a disposable bounded runner which reloads CaseState → reconciles effects/review → gates on normative readiness and temporal validity → repairs memory → invokes provider → normalizes/admits/effects → repeats from canonical reality; one admitted runner per Case is executable | this bounded runner is not a universal capability loop; the separate single-host multi-Case scheduler is implemented, not a distributed lease/consensus system |
 | Controlled external effect | Tenant-scoped attachment + Ready/Valid EffectivePolicy → exact Operation → DecisionBasis/Decision/finite ExecutionGrant → durable fenced PREPARE → filesystem replacement, confined process or admitted MCP tool call → Observation/Receipt → FINALIZE/INDETERMINATE | process confinement is bounded Linux x86_64; arbitrary shell, general database mutation and state-changing HTTP are not admitted |
@@ -860,8 +860,16 @@ Recall cut never rewinds current S/authority. Store revalidation detects backing
 or catalog changes outside Case generation and requires full recompilation.
 See the [working-state contract](recall.md#recall-aware-working-state-compilation)
 for exact request, budgets, missingness, freshness and product qualification.
-Existing provider/Workflow entrypoints described below retain their S-only v2
-invocation path; they are not silently migrated to Recall-aware execution.
+Ordinary governed Conversation and Workflow entrypoints now invoke this same
+typed compiler automatically. The committed Turn supplies a mechanical Recall
+query separately from the execution instruction; current admitted model view and
+source Resource disclosure constrain discovery. No human identity is transferred
+to the model. Projection/ContextFrame11 lower W3 without retrieval, then the
+authorized Invocation commit fully requalifies W in its current transaction.
+Changed authority/backing refuses stale dispatch, never falls back to W2. Exact
+W → Projection → Frame → Invocation lineage uses existing artifact owners.
+Explicit historical ProviderAttached and W20 consolidation compatibility remain;
+see [consumer convergence](recall.md#ordinary-execution-consumer-convergence).
 
 Opt-in `--paged` produces W4 with bounded exact closed-group references and
 resident/deferred posture. The typed `page_working_state_authorized` operation
@@ -884,7 +892,8 @@ selected backing and current-control changes, optional incomplete closure and
 mandatory refusal. [The contract](recall.md#prompt-independent-semantic-refresh)
 defines these bounded comparisons and current preflight requirements. W3/W4,
 Projection11/12, Transition19/CaseState16 and LMDB37/40 remain unchanged. No
-watcher, freshness lease, provider consumer migration or public W→E is implemented.
+watcher, freshness lease or public W→E is implemented. Ordinary new governed
+invocations perform full current reconstruction, not ambient background refresh.
 
 [`semantic_state.rs`](../engine/yai-engine/src/semantic_state.rs) composes a
 read-only `SemanticState` from CaseState and its exact ordered history, requiring
@@ -909,7 +918,8 @@ validity and normalized rules relevant to visible resource kinds, including DENY
 review, roles and evidence obligations. This is a derived cognitive view, not a
 second policy evaluator or permission to execute. Current governance,
 expiry/revoke, Grants and dispatch checks remain in their existing owners.
-Raw imported prose is not injected as policy instructions. The bounded recent
+Raw imported prose is not injected as policy instructions. The S-only compatibility
+profile's bounded recent
 `DecisionEvidence` family carries the executing Participant's source-closed
 DecisionBasis, rule refs, resource, canonical sequence/recorded time, review and
 result references. Its optional six-decision window is not general Recall or
@@ -924,9 +934,9 @@ material are optional. Selected/budget-omitted candidates have per-entry reasons
 locality omissions have aggregate counts, without exporting hidden IDs. Semantic
 units are the existing serialized-character estimate, not authoritative tokens.
 
-Normal conversation, Golden work, Workflow and bounded Case execution lower W
-through [`context.rs`](../engine/yai-engine/src/context.rs) into Projection v10 and
-ContextFrame v10, then the existing exact provider adapter. W's identity is reachable
+Normal governed conversation, Golden work, Workflow and bounded Case execution lower W3
+through [`context.rs`](../engine/yai-engine/src/context.rs) into Projection v11 and
+ContextFrame v11, then the existing exact provider adapter. W's identity is reachable
 from `projection.bounds.working_state_id` through existing invocation lineage.
 `context inspect --id <working-state-id>` recompiles the Case snapshot against
 current catalog truth and checks equality. A changed catalog can invalidate that
@@ -943,7 +953,8 @@ application verifies both qualified sources, exact forward history and the old W
 then explicitly reports `FullRecompilation`; all supported classes currently use
 this correctness fallback. Full/delta equality is qualified, incremental speed is
 not. No cache is needed for correctness. S/W/compiler/delta identity contracts are
-v2 for S/W/compiler and v1 for delta. The semantic refoundation itself left
+v2 for S and explicit S-only W compatibility, v3 for Recall-aware W, v4 for opt-in
+paging and v1 for delta. The semantic refoundation itself left
 Transition v18, CaseState v15, owner counts and LMDB 37/40 unchanged; source
 bootstrap later advances only the Case source lifecycle to v19/v16.
 Policy-only changes without forward Case generation
@@ -1019,11 +1030,13 @@ support must remain visible; removed/inactive support cannot launder an assertio
 
 The compiler fails before rendering if the participant lacks the exact
 `model/model_context` admission (or the established exact governed selection proof).
-It includes the participant's own binding,
+Its current-state candidate universe includes the participant's own binding,
 current provider/model binding, logical resources, latest Decision, all
 unresolved effects, the four most recent finalized effects, bounded recent
 typed legacy interactions, ordered multipart conversation Turns, provider
-claims, and typed provenance-bearing retrieved memory. A conversation entry
+claims, and typed provenance-bearing memory. Recall-aware W obtains historical
+evidentiary groups through Recall instead of the old recent-memory shortcut.
+A conversation entry
 preserves part order, modality, digest and original/derived/human-edit posture;
 it does not turn a transcript into an Observation or semantic fact. Candidate
 selection is intentionally broader than provider input.
@@ -1033,7 +1046,8 @@ every omission has an inspectable reason. Provider claims carry an explicit
 non-authoritative posture;
 finalized resource consequences cite Transition, Observation and EffectReceipt
 refs; indeterminate effects remain unresolved. Runtime selection defaults to
-24 items and 4,096 semantic units, never dumps the complete ledger, reports
+64 items and 32,768 semantic units for new application/runtime requests, with
+explicit Workflow/task limits still honored. Compilation never dumps the complete ledger, reports
 omitted material, and rejects a budget smaller than mandatory current state.
 
 ContextFrame has separate identity because one Projection supports different

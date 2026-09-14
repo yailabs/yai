@@ -162,6 +162,22 @@ pub struct RecallEvent {
     pub label: String,
     pub validity_at_cut: String,
     pub reasons: Vec<SelectionReason>,
+    /// Exact admitted content locator, not permission or fetched bytes. V2
+    /// execution consumers need the owning admission ID to propose a read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_reference: Option<RecallContentReference>,
+    /// Typed subject of an independently recorded Resource event, not an
+    /// inferred relation or permission. Supports exact W Resource locality.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resource_reference: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct RecallContentReference {
+    pub admission_id: String,
+    pub object_id: String,
+    pub source_resource_id: String,
+    pub source_path: String,
 }
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RecallSegment {
@@ -565,10 +581,22 @@ fn resolve(
         .collect();
     assertions.retain(|a| !assertion_sources[&a.assertion_id].is_empty());
     metrics.qualification_us = start.elapsed().as_micros();
+    // Source-frontier admissions already have their qualified D route. Do not
+    // make their carrier locators a competing H discovery surface. Only an
+    // independently admitted CaseContent object needs this execution locator.
+    let source_owned = documentary::hidden_acquisition_transitions(history, &BTreeSet::new());
     let labels: BTreeMap<_, _> = h
         .known_by_then
         .iter()
-        .map(|e| (e.transition_id.clone(), label(&e.payload)))
+        .map(|e| {
+            let text = match &e.payload {
+                P::CaseContentAdmitted { admission } if request.schema == RECALL_REQUEST_V2
+                    && !source_owned.contains(&e.transition_id) =>
+                    format!("admitted documentary content {}", admission.source_path),
+                _ => label(&e.payload),
+            };
+            (e.transition_id.clone(), text)
+        })
         .collect();
     let mut aliases = BTreeMap::<String, BTreeSet<String>>::new();
     for e in &graph.events {
@@ -979,6 +1007,32 @@ fn resolve(
                 label: labels[&event.transition_id].clone(),
                 validity_at_cut: validity.into(),
                 reasons: reasons.iter().cloned().collect(),
+                content_reference: if request.schema == RECALL_REQUEST_V2
+                    && !source_owned.contains(&event.transition_id) {
+                    h.known_by_then.iter().find_map(|e| match &e.payload {
+                        P::CaseContentAdmitted { admission } if e.transition_id == event.transition_id =>
+                            Some(RecallContentReference {
+                                admission_id: admission.admission_id.clone(),
+                                object_id: admission.object.object_id.clone(),
+                                source_resource_id: admission.source_resource_id.clone(),
+                                source_path: admission.source_path.clone(),
+                            }),
+                        _ => None,
+                    })
+                } else { None },
+                resource_reference: if request.schema == RECALL_REQUEST_V2
+                    && !source_owned.contains(&event.transition_id) {
+                    h.known_by_then.iter().find_map(|e| {
+                        if e.transition_id != event.transition_id { return None; }
+                        match &e.payload {
+                            P::OperationRecorded { operation } => Some(operation.resource_attachment_id.clone()),
+                            P::ResourceObservationRecorded { observation }
+                            | P::ResourceEffectFinalized { observation, .. } => Some(observation.resource_attachment_id.clone()),
+                            P::EffectPrepared { prepared } => Some(prepared.resource_attachment_id.clone()),
+                            _ => None,
+                        }
+                    })
+                } else { None },
             });
         }
         let relations: Vec<_> = graph

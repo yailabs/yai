@@ -115,6 +115,17 @@ ambient interactive view: invocation start revalidates the binding, target,
 qualification, trust and circuit in its Case transaction before any network
 dispatch.
 
+Ordinary governed Conversation and Workflow compile current Recall-aware W3
+before that dispatch. The exact committed input supplies a deterministic Recall
+query; task/output-contract and current control remain separate compilation
+requirements. The common store compiler owns Recall and W, and the compatibility
+lowerer only consumes W. Invocation admission requalifies the complete W under
+current authority/backing in its transaction and refuses stale material. This
+adds a full qualification pass at the final fence; it is not a freshness lease
+or a provider-specific retrieval path. See the [typed contract](recall.md#ordinary-execution-consumer-convergence).
+Old ProviderAttached pins and explicit W20 consolidation retain declared S-only
+compatibility, never as a fallback from a failed governed W3 compilation.
+
 Endpoint locality is revalidated against every resolved address before each
 new governed connection. Mixed address classes fail closed. Loopback and
 private targets cannot drift to public addresses, while remote targets cannot

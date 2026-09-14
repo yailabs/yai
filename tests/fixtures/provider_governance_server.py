@@ -38,6 +38,7 @@ parser.add_argument("--catalog-mode", choices=("normal", "empty", "malformed", "
 parser.add_argument("--catalog-auth", action="store_true")
 parser.add_argument("--requests", type=int, default=32)
 parser.add_argument("--log")
+parser.add_argument("--log-context", action="store_true", help="Retain received synthetic-fixture Case frames for local semantic consumer oracles")
 parser.add_argument("--release-file", help="Bounded test barrier before non-synthetic replies")
 args = parser.parse_args()
 MEMORY_TURNS = 0
@@ -117,6 +118,10 @@ class Handler(BaseHTTPRequestHandler):
         if not typed_parts:
             typed_kinds = ["text" for m in messages if m.get("role") == "user" and isinstance(m.get("content"), str)]
         if args.log:
+            received_context = None
+            if args.log_context and not is_synthetic:
+                from golden_model import frame_from_request
+                received_context = frame_from_request(request)
             unexpected_yai_fields = [
                 sorted(key for key in part if key.startswith("yai_"))
                 for part in typed_parts
@@ -132,6 +137,7 @@ class Handler(BaseHTTPRequestHandler):
                             "typed_kinds": typed_kinds,
                             "wire_layout": "content_array" if typed_parts else "string_messages",
                             "unexpected_yai_fields": unexpected_yai_fields,
+                            **({"received_context": received_context} if received_context is not None else {}),
                         },
                         sort_keys=True,
                         separators=(",", ":"),

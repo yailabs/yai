@@ -21,6 +21,7 @@ def frame_from_request(request):
 
 def plan_patch_reply(request):
     frame = frame_from_request(request)
+    assert frame["schema"] == "yai.context_frame.v11", "Workflow must consume W3"
     contract = frame["output_contract"]
     assert contract["kind"] == "workflow_plan_patch"
     contract = contract["contract"]
@@ -38,6 +39,7 @@ def plan_patch_reply(request):
 
 
 def native_reply(request):
+    assert frame_from_request(request)["schema"] == "yai.context_frame.v11", "Golden ordinary execution must consume W3, not a silent W2 downgrade"
     tools = [tool["function"] for tool in request["tools"]]
     messages = request["messages"]
     results = [json.loads(message["content"]) for message in messages if message["role"] == "tool"]

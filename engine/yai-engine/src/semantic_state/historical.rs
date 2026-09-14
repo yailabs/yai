@@ -190,6 +190,16 @@ pub(crate) fn validate_scope(
     Ok(())
 }
 
+pub(crate) fn validate_execution_scope(
+    current: &CaseState, request: &HistoricalRequest, selection: Option<&str>,
+) -> Result<(), String> {
+    if let Some(id) = selection {
+        let qualified = super::qualify_execution_view(current,
+            &request.participant_id, &request.consumer, &request.view_kind, id)?;
+        validate_scope(&qualified, request)
+    } else { validate_scope(current, request) }
+}
+
 fn resource_visible(resource: &ResourceAttachmentState, participant: &str) -> bool {
     resource
         .access
@@ -495,11 +505,19 @@ fn comparison_items(
 pub(crate) fn reconstruct(
     current: &CaseState,
     history: &[Transition],
-    mut request: HistoricalRequest,
+    request: HistoricalRequest,
     normative_then: HistoricalNormative,
     normative_now: NormativeStatus,
 ) -> Result<HistoricalSemanticView, String> {
-    validate_scope(current, &request)?;
+    reconstruct_for_execution(current, history, request, normative_then, normative_now, None)
+}
+
+pub(crate) fn reconstruct_for_execution(
+    current: &CaseState, history: &[Transition], mut request: HistoricalRequest,
+    normative_then: HistoricalNormative, normative_now: NormativeStatus,
+    selection: Option<&str>,
+) -> Result<HistoricalSemanticView, String> {
+    validate_execution_scope(current, &request, selection)?;
     if replay_case(&current.case_id, history)? != *current {
         return Err("historical_replay_mismatch".into());
     }

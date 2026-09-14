@@ -45,7 +45,7 @@ use yai_core_engine::query::{QueryFilter, QueryResult};
 use yai_core_engine::reconcile::ReconcileSummary;
 use yai_core_engine::record::{Record, RecordKind};
 use yai_core_engine::residency::{
-    ResidencyPlan, DEFAULT_MAX_RESIDENT_ITEMS, DEFAULT_SEMANTIC_UNIT_BUDGET,
+    ResidencyPlan, DEFAULT_SEMANTIC_UNIT_BUDGET,
 };
 use yai_core_engine::store::lmdb::{
     GraphMaterializeReport, LmdbRecordStore, RecordStoreStatusKind, ReplayMetadata,

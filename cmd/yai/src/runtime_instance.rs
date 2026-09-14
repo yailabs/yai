@@ -87,9 +87,10 @@ fn work_budgets(args: &[String]) -> Result<RuntimeCaseBudgets, String> {
         max_semantic_units: positive_arg(
             args,
             "--max-semantic-units",
-            DEFAULT_SEMANTIC_UNIT_BUDGET,
+            super::provider::SemanticInvocationOptions::default().max_semantic_units,
         )?,
-        max_resident_items: positive_arg(args, "--max-resident-items", DEFAULT_MAX_RESIDENT_ITEMS)?,
+        max_resident_items: positive_arg(args, "--max-resident-items",
+            super::provider::SemanticInvocationOptions::default().max_resident_items)?,
         max_estimated_input_units: positive_arg(
             args,
             "--max-estimated-input-units",

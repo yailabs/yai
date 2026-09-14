@@ -223,15 +223,15 @@ v1 remains unchanged and cannot certify equal-generation Recall freshness.
 W entries as Projection v11 after integrity recompilation from the same in-process qualified basis;
 it performs no second read/discovery. This is snapshot-compatible lowering, not a
 claim that a retained snapshot remains authorized forever. A later consumer must
-requalify current authority/backing; no execution is performed here. Existing
-conversation/Workflow provider entrypoints retain their independently qualified
-S-only v2 path. This milestone neither migrates their invocation lifecycle to v3
-nor permits a v3 artifact to bypass existing transactional invocation admission.
+requalify current authority/backing. Ordinary governed Conversation/Workflow
+entrypoints now use this compiler and transactional invocation admission as
+described under [consumer convergence](#ordinary-execution-consumer-convergence).
 ContextFrame v11 preserves the same entries, requires the compiled intent/output
 contract and adds no memory. A pinned, non-authoritative `RecallQualification`
 entry carries Recall closure/limitations and W omissions through both lowerings;
 metadata cannot disappear while its selected evidence remains. V10 remains the
-existing provider path; v11 is explicit derived compatibility, not a W→E schema.
+explicit historical compatibility path; v11 is current governed execution
+lowering, not a W→E schema.
 
 W/Recall remain disposable. Transition v19, CaseState v16, canonical owners and
 37 LMDB databases are unchanged. The v3 operation introduces no W→E transport,
@@ -252,6 +252,132 @@ Legacy archaeology additionally inspected `yai-dev` at
 postures and completeness distinct from sufficiency belong in this current
 compiler. Its Agent pack owner and `src/knowledge/workset/working.c` global
 hotness/upsert working-memory lifecycle remain rejected, not restored.
+
+## Ordinary execution consumer convergence
+
+The common application path used by governed Conversation and Workflow is:
+
+```text
+committed Turn / structured assignment + canonical provider selection
+  → compile_working_state_authorized
+  → current qualified Recall v2 + current S → W3
+  → QualifiedWorkingState::lower_context → Projection/ContextFrame11
+  → commit_cognitive_invocation_authorized → generic provider transport
+```
+
+The authenticated caller, qualified executor view and canonical provider binding
+are checked independently. Recall and S reuse the existing exact provider-selection
+proof for a model view when no explicit view admission exists; the derived view
+does not mutate Participant admission or grant operator inspection. A model
+executor need not impersonate the human or
+receive a Principal link. Documentary disclosure is the intersection of current
+source-owner authorization and the exact Resource envelope admitting the model
+recipient. It does not delegate the owner's Resource-operation or review powers.
+The bounded execution profile currently requires the binding owner's source
+declarations; it is not general cross-owner source delegation.
+
+`WorkingStateRequest.recall_query` is an optional, stored mechanical query from
+the committed Turn's inline input. Absent that field, the existing intent is used.
+The generated execution instruction remains the compilation intent; Workflow's
+structured assignment/output contract and exact Resource/Turn references remain
+constraints, not query-rewriter output. Immediate input X is still supplied by
+the existing multipart Turn path. No additional input entry is created merely
+for Recall; existing Turn entries may themselves retain their qualified text.
+The existing bounded lexical contract still applies (2,048 query characters /
+128 terms). Oversized automatic queries refuse rather than silently truncating
+the task or falling back to S-only execution; multilingual/learned rewriting is
+not introduced.
+
+New governed invocations use W3, never an error fallback to W2. Explicit historical
+`ProviderAttached` pins and the separately selected W20 MemoryConsolidation
+contract retain their earlier S-only interpretation. Old artifacts remain
+readable. Ordinary execution does not implicitly opt into W4, fetch deferred
+references or run the page resolver. The semantic inspection/refresh commands
+remain available without invoking a provider.
+
+Initial compilation uses one qualified read transaction. Lowering consumes that
+typed result without discovery. The final Invocation commit deliberately performs
+**another full current qualification and compilation in its write transaction**,
+compares W, and refuses a stale result before admitting dispatch. This repeated
+qualification is a freshness cost, not a second retriever or an incremental
+optimization. Projection does not refresh anything. Missing mandatory closure or
+budget overflow refuses; optional evidence may disappear under current policy.
+W does not authorize effects: current effect-time admission still applies.
+Authority changes after the commit remain subject to the existing bounded
+dispatch/effect fences, not an impossible continuous authorization lease.
+
+`validate_archived_working_state_authorized` separately supports W3 artifact
+inspection after later lifecycle events. It reconstructs the original evidentiary
+basis under current disclosure/backing and compares the artifact. This forensic
+operation is not the current-dispatch fence; it cannot certify freshness for a
+new invocation. Archived W4 uses the existing explicit paging/refresh surfaces.
+
+Recall v2 now optionally carries the exact independently admitted CaseContent
+admission/object/Resource/source-path locator from an already disclosed historical
+event. Source-frontier carrier admissions retain their D route rather than gaining
+a competing H locator-discovery surface. The locator contains no
+raw content and grants no read permission. This lets the existing lexical and
+exact-reference owners retain an admitted resource document, without copying the
+whole ledger into W. An optional exact Resource subject on operational events
+also preserves Resource-local Operation/Observation/Prepared groups during W
+selection; it comes from typed historical payloads, not text similarity. This
+does not infer causality or authorize that Resource. Source-frontier acquisitions
+remain under the D owner. Recall v1 serialization is unchanged. These additive
+fields and the request query default to absent on older serialized contracts;
+no canonical version changes.
+
+Executable controls are retained in `smoke-conversation-executor-delegation`,
+`smoke-case-capability-realization` and both `test-golden-local` journeys. Actual
+received fixture frames bind W → lowering → Invocation; free and Workflow Golden
+reject a W2 frame. The distinct-human/model oracle exercises a mixed source,
+documentary revision change without policy replacement, same-generation policy
+revoke, optional removal versus exact dependency refusal and zero compilation
+Transitions. The malicious fixture receives injected source-stated material
+and exact recalled Decisions/Observations in actual provider frames, and still
+gets denied when it requests unauthorized effects. Retry/cancel and
+uncertain-delivery owners are unchanged; semantic compilation cannot authorize
+blind redispatch. The governed provider route continues to omit opaque provider
+continuation references and reconstructs semantic input; historical explicit
+continuation compatibility is not a fresh-authority lease.
+
+The default application envelope is 64 entries / 32,768 semantic units, with
+explicit task/runtime budgets still enforced and recorded. Consumer Recall uses
+the selected execution semantic-unit envelope rather than a smaller independent
+default; W still reserves mandatory current material and omits optional groups
+atomically. The W20 product oracle retains its original task and now proves exact
+W3 reconstruction after actually dropping the index, replacing a legacy S-only
+ranking-reason string check. Units are not model
+tokens. Source/history qualification remains corpus/Case-age dependent, and the
+final fence repeats that cost. No provider call occurs until the intended
+cognitive dispatch. Legacy archaeology rechecked `yai-dev` at `5c1c7b9d0`,
+including `live_context_consumption.c` / `live_context_refresh.c` and their drain
+history: stale snapshot refusal is retained through current owners, not by
+reviving an Agent/global-context owner.
+
+No public W→E, StateProfile, YVEX adapter, B1 implementation or Interlock is
+introduced. This is generic context-compatible consumption of YAI semantic W.
+
+The retained `consumer_convergence` measurement lines are emitted by the real
+delegated Conversation oracle. One local run (`consumer-convergence-measure-final`,
+`make smoke-conversation-executor-delegation`, `TMPDIR=/tmp`, exit 0) measured:
+
+| Sources / history after invocation | Invocation total | Fresh qualified read | W compile / provenance | Pure lowering | W bytes / entries |
+|---|---:|---:|---:|---:|---:|
+| 1 / 41 | 466 ms | 82 ms | 13.7 / 11.5 ms | 16.8 ms | 73,835 / 19 |
+| 1 / 50, revised documentary value | 495 ms | 89 ms | 12.6 / 11.7 ms | 16.8 ms | 75,516 / 20 |
+| 13 / 165 | 3,177 ms | 994 ms | 13.4 / 12.5 ms | 17.7 ms | 78,035 / 22 |
+
+These are characterization, not an SLA. The fresh-compiler control is measured
+separately after the invocation; its timings are not summed into the earlier
+invocation as if they were one causal execution. Its historical/source resolution
+grew from 37/12 ms to 175/628 ms; H/D discovery from 2.2/2.3 ms to 4.1/21.5 ms.
+Recall assembly grew from 58 to 356 ms. Each qualified compile reports one
+candidate-discovery pass; the final admission deliberately recompiles. The actual
+invocation total includes transport/fixture response and canonical lifecycle;
+transport/inference was not independently timed in this oracle. No page operation
+is involved. Larger-source admission also lengthens history, so this is not an
+orthogonal source-count versus Case-age experiment. Existing independent Recall/W
+characterization covers those additional bounded profiles.
 
 ## Scoped semantic paging
 
@@ -310,8 +436,8 @@ parent W, exact page/request, budgets and omissions. Page identity binds its
 request, base W, current control and exact resolved groups; timings are excluded.
 Page-out and later page-in reproduce qualified content, not the old lineage ID.
 Projection/ContextFrame **v12** lower only selected W4 entries, including deferred
-reference posture; they never fetch a page. Provider/Conversation/Workflow still
-use their qualified S-only W2/Projection10 path. W3/Projection11 remain compatible.
+reference posture; they never fetch a page. Ordinary governed execution uses
+W3/Projection11; it does not implicitly select W4 or resolve deferred references.
 
 `make smoke-semantic-paging` exercises the actual CLI and real persistence;
 the adjacent typed policy oracle covers old-cut evidence under current DENY,
@@ -362,8 +488,9 @@ Grant and refresh never executes an operation.
 The returned private qualified basis supports downstream lowering without
 another read/retrieval. It is a snapshot, not a freshness lease: future consumers
 must perform current preflight before affected consumption. The operation is the
-explicit preflight/reconstruction seam, not a watcher or automatic migration of
-provider/Conversation/Workflow W2 consumers. Existing W3/Projection11 and
+explicit preflight/reconstruction seam, not a watcher. Ordinary governed
+execution now performs full current reconstruction at each new invocation.
+Existing W3/Projection11 and
 W4/Projection12 versions are unchanged. Projection does not discover staleness,
 run Recall or recover old page contents.
 

@@ -3952,17 +3952,28 @@ impl LmdbRecordStore {
     fn recall_working_basis(
         &self,
         authenticated: &AuthenticatedPrincipal,
-        mut request: crate::memory_hierarchy::recall::RecallRequest,
+        request: crate::memory_hierarchy::recall::RecallRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
         vectors: Option<&crate::memory_hierarchy::recall::RecallVectorInput>,
         working: Option<&crate::semantic_state::WorkingStateRequest>,
         refresh: bool,
     ) -> Result<(crate::memory_hierarchy::recall::RecallResult,
         Option<crate::semantic_state::SemanticState>, BTreeSet<String>, u128), String> {
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        self.recall_working_basis_txn(&txn, authenticated, request, content, vectors, working, refresh, false)
+    }
+
+    fn recall_working_basis_txn<T: Transaction>(
+        &self, txn: &T, authenticated: &AuthenticatedPrincipal,
+        mut request: crate::memory_hierarchy::recall::RecallRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+        vectors: Option<&crate::memory_hierarchy::recall::RecallVectorInput>,
+        working: Option<&crate::semantic_state::WorkingStateRequest>, refresh: bool, forensic: bool,
+    ) -> Result<(crate::memory_hierarchy::recall::RecallResult,
+        Option<crate::semantic_state::SemanticState>, BTreeSet<String>, u128), String> {
         request.validate()?;
         let started = std::time::Instant::now();
-        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
-        let current = self.get_case_state_txn(&txn, &request.case_id)?.ok_or("case_not_visible")?;
+        let current = self.get_case_state_txn(txn, &request.case_id)?.ok_or("case_not_visible")?;
         if refresh {
             request.expected_generation = current.generation;
             if working.is_some_and(|w| w.at.is_none()) {
@@ -3973,12 +3984,21 @@ impl LmdbRecordStore {
             request.at.clone(), request.participant_id.clone());
         historical.max_items = 4096;
         historical.max_bytes = 16_777_216;
-        let (mut view, scope, history, then) = self.qualified_historical_view_txn(
-            &txn, authenticated, &request.case_id, historical, content)?;
+        let execution = working.and_then(|w| w.compilation.view_selection_id.as_deref());
+        if execution.is_some() {
+            historical.consumer = "model".into();
+            historical.view_kind = "model_context".into();
+        }
+        let (mut view, scope, history, then) = self.qualified_historical_view_for_execution_txn(
+            txn, authenticated, &request.case_id, historical, content, execution)?;
         let historical_resolution_us = started.elapsed().as_micros();
         let composition_started = std::time::Instant::now();
         let semantic = if let Some(w) = working {
-            let s = self.compose_cognitive_state_txn(&txn, &current, &history)?;
+            let s = if forensic {
+                let prefix = crate::semantic_state::historical::prefix(&history,
+                    &crate::semantic_state::historical::HistoricalCoordinate::Generation(w.expected_generation))?;
+                self.compose_cognitive_state_txn(txn, &replay_case(&current.case_id, prefix)?, prefix)?
+            } else { self.compose_cognitive_state_txn(txn, &current, &history)? };
             request.required_refs.extend(s.recalled_requirements(&w.compilation)?);
             request.required_refs.sort();
             request.required_refs.dedup();
@@ -3988,9 +4008,9 @@ impl LmdbRecordStore {
         let current_composition_us = composition_started.elapsed().as_micros();
         let mut excluded = BTreeSet::new();
         let knowledge = if request.schema == crate::memory_hierarchy::recall::RECALL_REQUEST_V2 {
-            let (result, visible_backing) = self.qualified_knowledge_txn(&txn, authenticated,
+            let (result, visible_backing) = self.qualified_knowledge_scope_txn(txn, authenticated,
                 crate::memory_hierarchy::knowledge::KnowledgeRequest::new(&request.case_id),
-                &current, &history, Some((&request, &then)), content)?;
+                &current, &history, Some((&request, &then)), content, None, execution.is_some())?;
             crate::memory_hierarchy::recall::documentary::restrict_acquisition_history(
                 &mut view, &history, &visible_backing);
             if working.is_some() {
@@ -3998,8 +4018,11 @@ impl LmdbRecordStore {
             }
             Some(result)
         } else { None };
-        drop(txn);
         let qualified_read_us = started.elapsed().as_micros();
+        // Forensic reconstruction is explicitly NOT current execution. Current
+        // disclosure/source qualification above still applies to the old cut;
+        // only the original compilation generation is reconstructed below.
+        if forensic { view.current_generation = request.expected_generation; }
         let mut result = if let Some(d) = &knowledge {
             crate::memory_hierarchy::recall::compile_for_working(&view, &scope, &history, request, vectors, Some(&d.view), working.is_some())?
         } else {
@@ -4030,13 +4053,22 @@ impl LmdbRecordStore {
     fn compile_working_state_request(
         &self,
         authenticated: &AuthenticatedPrincipal,
-        mut request: crate::semantic_state::WorkingStateRequest,
+        request: crate::semantic_state::WorkingStateRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
         refresh: bool,
     ) -> Result<crate::semantic_state::QualifiedWorkingState, String> {
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        self.compile_working_state_request_txn(&txn, authenticated, request, content, refresh, false)
+    }
+
+    fn compile_working_state_request_txn<T: Transaction>(
+        &self, txn: &T, authenticated: &AuthenticatedPrincipal,
+        mut request: crate::semantic_state::WorkingStateRequest,
+        content: Option<&crate::conversation::ConversationContentStore>, refresh: bool, forensic: bool,
+    ) -> Result<crate::semantic_state::QualifiedWorkingState, String> {
         use crate::semantic_state::working_recall::{QualifiedRecall, QualifiedWorkingState, WorkingStateMeasurements};
-        let (recall, source, excluded, current_composition_us) = self.recall_working_basis(
-            authenticated, request.recall_request()?, content, None, Some(&request), refresh)?;
+        let (recall, source, excluded, current_composition_us) = self.recall_working_basis_txn(
+            txn, authenticated, request.recall_request()?, content, None, Some(&request), refresh, forensic)?;
         request.expected_generation = recall.trace.request.expected_generation;
         let started = std::time::Instant::now();
         let input = QualifiedRecall::new(request.clone(), &recall, excluded)?;
@@ -4065,6 +4097,24 @@ impl LmdbRecordStore {
         let request = previous.recall().ok_or("working_recall_required")?.request.clone();
         let current = self.compile_working_state_authorized(authenticated, request, content)?;
         if current.working_state != *previous { return Err("stale_semantic_working_state".into()); }
+        Ok(())
+    }
+
+    /// Inspect a retained W3 under CURRENT disclosure, reconstructing its exact
+    /// historical compilation. This neither marks it fresh nor admits dispatch.
+    /// A changed visibility/backing/control basis may make it unreproducible.
+    pub fn validate_archived_working_state_authorized(
+        &self, auth: &AuthenticatedPrincipal, base: &crate::semantic_state::SemanticWorkingState,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<(), String> {
+        base.validate_refresh_envelope()?;
+        if base.paging().is_some() { return Err("archived_paged_working_inspection_requires_refresh".into()); }
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let restored = self.compile_working_state_request_txn(&txn, auth,
+            base.recall().ok_or("working_recall_required")?.request.clone(), content, false, true)?;
+        if restored.working_state != *base {
+            return Err("archived_working_state_unavailable_under_current_qualification".into());
+        }
         Ok(())
     }
 
@@ -4122,8 +4172,10 @@ impl LmdbRecordStore {
         let current = self.get_case_state_txn(&txn, &request.case_id)?.ok_or("case_not_visible")?;
         let mut hr = h::HistoricalRequest::inspection(recall.recall_request.at.clone(), request.participant_id.clone());
         hr.max_items = 4096; hr.max_bytes = 16_777_216;
-        let (mut view, disclosure, history, then) = self.qualified_historical_view_txn(
-            &txn, auth, &request.case_id, hr, content)?;
+        let execution = recall.request.compilation.view_selection_id.as_deref();
+        if execution.is_some() { hr.consumer = "model".into(); hr.view_kind = "model_context".into(); }
+        let (mut view, disclosure, history, then) = self.qualified_historical_view_for_execution_txn(
+            &txn, auth, &request.case_id, hr, content, execution)?;
         if current.generation != recall.request.expected_generation {
             return Err("semantic_page_stale_base_recompile_required".into());
         }
@@ -4182,7 +4234,7 @@ impl LmdbRecordStore {
         }
         let (d, visible) = self.qualified_knowledge_scope_txn(&txn, auth,
             knowledge::KnowledgeRequest::new(&request.case_id), &current, &history,
-            Some((&recall.recall_request, &then)), content, Some(&scope))?;
+            Some((&recall.recall_request, &then)), content, Some(&scope), execution.is_some())?;
         measurements.exact_source_resolution_us = d.measurements.source_resolution_us;
         measurements.source_derivation_us = d.measurements.derivation_us + d.measurements.graph_us;
         measurements.source_documents_resolved = d.measurements.source_documents;
@@ -4246,6 +4298,15 @@ impl LmdbRecordStore {
         request: crate::semantic_state::historical::HistoricalRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<(crate::semantic_state::historical::HistoricalSemanticView, String, Vec<Transition>, CaseState), String> {
+        self.qualified_historical_view_for_execution_txn(txn, authenticated, case_id, request, content, None)
+    }
+
+    fn qualified_historical_view_for_execution_txn<T: Transaction>(
+        &self, txn: &T, authenticated: &AuthenticatedPrincipal, case_id: &str,
+        request: crate::semantic_state::historical::HistoricalRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+        execution_selection: Option<&str>,
+    ) -> Result<(crate::semantic_state::historical::HistoricalSemanticView, String, Vec<Transition>, CaseState), String> {
         use crate::semantic_state::historical as h;
         let current = self
             .get_case_state_txn(txn, case_id)?
@@ -4257,16 +4318,36 @@ impl LmdbRecordStore {
         let security = self
             .resolve_security_context_txn(txn, authenticated, tenant)
             .map_err(|_| "case_not_visible")?;
-        // No new audit authority: only an explicitly Principal-linked current
-        // Participant can use this public reader, even when the caller owns the Tenant.
-        if !current.principal_participant_links.iter().any(|l| {
+        // Public inspection still requires a current Principal link. The
+        // separately qualified execution-recipient branch below grants no
+        // interactive/audit identity to the model.
+        let linked = current.principal_participant_links.iter().any(|l| {
             l.tenant_id == tenant
                 && l.principal_id == security.principal_id()
                 && l.participant_id == request.participant_id
-        }) {
+        });
+        if let Some(selection_id) = execution_selection {
+            // An execution recipient is NOT an impersonated human Participant.
+            // Only the current binding's authenticated owner may disclose the
+            // already-admitted model view through this exact canonical selection.
+            security.require_owner()?;
+            if request.consumer != "model" || request.view_kind != "model_context"
+                || !current.provider_selections.iter().any(|s|
+                    s.selection_id == selection_id && s.case_id == case_id
+                    && s.tenant_id == tenant && s.participant_id == request.participant_id
+                    && current.provider_binding.as_ref().is_some_and(|b|
+                        b.binding_id == s.binding_id && b.participant_id == s.participant_id
+                        && b.bound_by_principal_id == security.principal_id()
+                        && b.ordered_target_ids.contains(&s.selected_target_id))) {
+                return Err("historical_scope_unavailable".into());
+            }
+        } else if !linked {
             return Err("historical_scope_unavailable".into());
         }
-        h::validate_scope(&current, &request)?;
+        // Reuse the S compiler's existing selection-qualified model view.
+        // The authenticated binding owner was checked above; this does not
+        // create a Principal link, audit view or Resource authorization.
+        h::validate_execution_scope(&current, &request, execution_selection)?;
         let scoped_disclosure = h::scoped_disclosure_digest(&current, &request);
         let history = self.list_case_transitions_txn(txn, case_id)?;
         let cut = h::prefix(&history, &request.coordinate)?;
@@ -4355,7 +4436,10 @@ impl LmdbRecordStore {
             authority_wall_time_unix_ms().max(floor),
             floor,
         )?;
-        let mut view = h::reconstruct(&current, &history, request, normative_then, now)?;
+        let mut view = if execution_selection.is_some() {
+            h::reconstruct_for_execution(&current, &history, request,
+                normative_then, now, execution_selection)?
+        } else { h::reconstruct(&current, &history, request, normative_then, now)? };
         // Recorded bindings and Decisions may reference an older policy than
         // the prefix's active binding, even if no Decision used that policy.
         // Resolve exact backing without replacing the recorded evidence.
@@ -6442,6 +6526,23 @@ impl LmdbRecordStore {
         pending: PendingTransition,
         working_id: &str,
     ) -> Result<CanonicalCommit, String> {
+        self.commit_cognitive_invocation_qualified(pending, working_id, None, None)
+    }
+
+    /// Current Recall/source qualification and Invocation admission share the
+    /// write transaction. A cached W is evidence, never an authorization lease.
+    pub fn commit_cognitive_invocation_authorized(
+        &self, authenticated: &AuthenticatedPrincipal, pending: PendingTransition,
+        working_id: &str, content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<CanonicalCommit, String> {
+        self.commit_cognitive_invocation_qualified(pending, working_id, Some(authenticated), content)
+    }
+
+    fn commit_cognitive_invocation_qualified(
+        &self, pending: PendingTransition, working_id: &str,
+        authenticated: Option<&AuthenticatedPrincipal>,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<CanonicalCommit, String> {
         let mut txn = self.env.begin_rw_txn().map_err(|e| e.to_string())?;
         let TransitionPayload::ProviderInvocationStarted {
             participant_id,
@@ -6461,11 +6562,24 @@ impl LmdbRecordStore {
         let SemanticContextArtifact::WorkingState(working) = artifact else {
             return Err("cognitive_working_state_required".into());
         };
+        if working.case_id() != pending.case_id {
+            return Err("cognitive_working_state_invocation_mismatch".into());
+        }
         let state = self
             .get_case_state_txn(&txn, &pending.case_id)?
             .ok_or("case_not_visible")?;
-        let history = self.list_case_transitions_txn(&txn, &pending.case_id)?;
-        let source = self.compose_cognitive_state_txn(&txn, &state, &history)?;
+        let source = if let Some(recall) = working.recall() {
+            let qualified = self.compile_working_state_request_txn(&txn,
+                authenticated.ok_or("cognitive_working_state_current_authentication_required")?,
+                recall.request.clone(), content, false, false)?;
+            if qualified.working_state != working {
+                return Err("stale_semantic_working_state".into());
+            }
+            qualified.source
+        } else {
+            let history = self.list_case_transitions_txn(&txn, &pending.case_id)?;
+            self.compose_cognitive_state_txn(&txn, &state, &history)?
+        };
         working.validate_current(&source, working.request())?;
         if participant_id != &working.request().scope.participant_id
             || lineage.case_generation != state.generation

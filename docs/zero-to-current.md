@@ -709,8 +709,23 @@ material may be omitted, and old page content is never carried across revocation
 Use only the newly qualified result for subsequent consumption. `--projection`
 lowers that result without another read; no snapshot grants permanent authority.
 `make smoke-semantic-refresh` qualifies same-task changes and fresh-compilation
-equivalence through real persistence. There is no daemon, live model, provider
-path migration or public W→E contract.
+equivalence through real persistence. There is no daemon or public W→E contract.
+
+Ordinary governed Conversation and Workflow execution now prepares Recall-aware
+W automatically; the commands above are inspection controls, not prerequisites
+for asking a question. In a Case with admitted sources, ask a source-dependent
+question in the workbench, then inspect the returned Invocation's Projection /
+ContextFrame lineage: the Working State must be Recall-aware and the frame v11.
+Documentary evidence must remain `source_stated`, separately from current policy.
+`make smoke-conversation-executor-delegation` executes a mixed-source question
+with distinct human/model Participants, changes the document, and revokes source
+policy at the same generation. It checks actual provider input, removed optional
+evidence and refused exact dependencies without manual memory preparation.
+`make smoke-case-capability-realization` proves that recalled injection can reach
+the model but cannot authorize its forbidden requests. `make test-golden-local`
+exercises free Conversation and Workflow through the same compiler, including
+ordinary read/write/review/retry/rebuild behavior. No live YVEX is required.
+See [consumer contracts and explicit compatibility limits](recall.md#ordinary-execution-consumer-convergence).
 
 One-shot `./yai case show CASE --json`, provider/resource/history and memory-index
 commands remain available for administration/forensics; they are not the primary

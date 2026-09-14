@@ -149,15 +149,23 @@ pub(super) fn semantic_context_inspect(args: &[String]) -> Result<(), String> {
         SemanticContextArtifact::WorkingState(working) => {
             // Forensic inspection recompiles the exact historical generation;
             // this does not make an old W current or authorize its dispatch.
-            let history = store.list_case_transitions(working.case_id())?;
-            let prefix = history
-                .iter()
-                .take_while(|t| t.sequence <= working.generation())
-                .cloned()
-                .collect::<Vec<_>>();
-            let state = yai_core_engine::transition::replay_case(working.case_id(), &prefix)?;
-            let source = store.compose_cognitive_state(&state, &prefix)?;
-            working.validate_current(&source, working.request())?;
+            if working.recall().is_some() {
+                let auth = authenticate_local()?;
+                let content = yai_core_engine::conversation::ConversationContentStore::open_existing(
+                    &yai_home(),
+                ).ok();
+                store.validate_archived_working_state_authorized(&auth, &working, content.as_ref())?;
+            } else {
+                let history = store.list_case_transitions(working.case_id())?;
+                let prefix = history
+                    .iter()
+                    .take_while(|t| t.sequence <= working.generation())
+                    .cloned()
+                    .collect::<Vec<_>>();
+                let state = yai_core_engine::transition::replay_case(working.case_id(), &prefix)?;
+                let source = store.compose_cognitive_state(&state, &prefix)?;
+                working.validate_current(&source, working.request())?;
+            }
             println!("artifact_kind: semantic_working_state");
             println!("recompiled_from_canonical_history: true");
             println!(
@@ -2808,9 +2816,12 @@ pub(super) struct SemanticInvocationOptions {
 impl Default for SemanticInvocationOptions {
     fn default() -> Self {
         Self {
-            max_resident_items: DEFAULT_MAX_RESIDENT_ITEMS,
-            max_semantic_units: DEFAULT_SEMANTIC_UNIT_BUDGET,
-            max_estimated_input_units: DEFAULT_SEMANTIC_UNIT_BUDGET * 2,
+            // W3 accounts for typed Recall/source closure as well as current
+            // control. Explicit Workflow/work budgets still override these
+            // bounded conversation defaults; no automatic target-capacity bump.
+            max_resident_items: 64,
+            max_semantic_units: 32_768,
+            max_estimated_input_units: 65_536,
             retrieval_limit: DEFAULT_RETRIEVAL_LIMIT,
             previous_item_ids: Vec::new(),
             workflow_execution_id: None,
@@ -2932,7 +2943,28 @@ fn compile_semantic_invocation(
         ),
         continuation_supported: session.provider.continuation_supported,
     };
-    let source = store.compose_cognitive_state(&state, &transitions)?;
+    let auth = authenticate_local()?;
+    let content =
+        yai_core_engine::conversation::ConversationContentStore::open_existing(&yai_home()).ok();
+    let recall_query = if let Some(turn_id) = &options.conversation_turn_id {
+        let turn = transitions
+            .iter()
+            .find_map(|t| match &t.payload {
+                TransitionPayload::ConversationTurnCommitted { turn }
+                    if &turn.turn_id == turn_id => Some(turn),
+                _ => None,
+            })
+            .ok_or("working_execution_turn_unavailable")?;
+        yai_core_engine::conversation::authorize_turn_execution(
+            &state, &transitions, turn, &session.subject_ref, &auth.projected_principal_id(),
+        )?;
+        let text = turn.ordered_parts.iter()
+            .filter_map(|p| p.object.inline_text.as_deref())
+            .collect::<Vec<_>>().join("\n");
+        if text.trim().is_empty() { None } else { Some(text) }
+    } else {
+        None
+    };
     let compilation = yai_core_engine::semantic_state::CompilationRequest {
         scope: request,
         intent: task.to_string(),
@@ -2948,8 +2980,42 @@ fn compile_semantic_invocation(
             .as_ref()
             .map(|g| g.selection_id.clone()),
     };
-    let working = source.compile(&compilation)?;
-    let mut projection = working.lower_context(&source, &compilation)?;
+    // Deliberate compatibility contracts, never an error fallback: historical
+    // ProviderAttached pins and the explicit W20 consolidation operation keep
+    // their established S-only interpretation. Normal governed Conversation /
+    // Workflow execution always takes current Recall-aware compilation below.
+    let legacy_pinned = session.provider.governance.is_none()
+        && state.provider_binding.is_none()
+        && state.provider.is_some();
+    let (working, mut projection) = if legacy_pinned || is_memory_consolidation {
+        let source = store.compose_cognitive_state(&state, &transitions)?;
+        let working = source.compile(&compilation)?;
+        let projection = working.lower_context(&source, &compilation)?;
+        (working, projection)
+    } else {
+        let qualified = store.compile_working_state_authorized(
+            &auth,
+            yai_core_engine::semantic_state::WorkingStateRequest {
+                case_id: state.case_id.clone(),
+                expected_generation: state.generation,
+                compilation,
+                recall_query,
+                at: None,
+                recall_required_refs: vec![],
+                recall_bounds: yai_core_engine::memory_hierarchy::recall::RecallBounds {
+                    // Discovery's qualified closure may use the execution
+                    // envelope; W still reserves mandatory current state and
+                    // atomically omits optional evidence to fit that envelope.
+                    semantic_units: options.max_semantic_units,
+                    ..Default::default()
+                },
+                max_output_bytes: 4 * 1024 * 1024,
+            },
+            content.as_ref(),
+        )?;
+        let projection = qualified.lower_context()?;
+        (qualified.working_state, projection)
+    };
     let residency = working.residency_report(
         &projection,
         profile.provider_id.clone(),
@@ -3261,7 +3327,9 @@ fn append_model_prompt_attempt(
         .working_state_id
         .as_deref()
         .ok_or("cognitive_working_state_missing")?;
-    store.commit_cognitive_invocation(pending, working_id)?;
+    let auth = authenticate_local()?;
+    let content = yai_core_engine::conversation::ConversationContentStore::open_existing(&yai_home()).ok();
+    store.commit_cognitive_invocation_authorized(&auth, pending, working_id, content.as_ref())?;
     if let Err(error) = append_record_to_journal(&session.journal_path, &record) {
         eprintln!("provider_invocation_journal_warning: {error}");
     }

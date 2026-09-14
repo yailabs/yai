@@ -192,7 +192,7 @@ impl LmdbRecordStore {
         String,
     > {
         self.qualified_knowledge_scope_txn(txn, auth, request, state, history,
-            recall_input, content, None)
+            recall_input, content, None, false)
     }
 
     /// Exact paging narrows source/revision/path BEFORE authorization and byte
@@ -204,6 +204,7 @@ impl LmdbRecordStore {
         recall_input: Option<(&crate::memory_hierarchy::recall::RecallRequest, &CaseState)>,
         content: Option<&crate::conversation::ConversationContentStore>,
         exact: Option<&BTreeSet<(String, String, String)>>,
+        execution_disclosure: bool,
     ) -> Result<(crate::memory_hierarchy::knowledge::KnowledgeResult, BTreeSet<String>), String> {
         use crate::memory_hierarchy::knowledge::{
             self as k, KnowledgeSource, KnowledgeStatus, QualifiedSource,
@@ -243,7 +244,22 @@ impl LmdbRecordStore {
                 .as_ref()
                 .is_some_and(|s| *s != d.logical_name && *s != d.source_id)
                 || d.declared_by_principal_id != principal
-                || recall.is_some_and(|r| r.participant_id != d.participant_id)
+                || recall.is_some_and(|r| {
+                    if !execution_disclosure { return r.participant_id != d.participant_id; }
+                    // The source owner's CURRENT source permission remains
+                    // necessary below. Execution disclosure additionally takes
+                    // the intersection with the exact recipient's Resource
+                    // envelope. Neither a provider selection nor source roles
+                    // transfer the operator's Resource permissions.
+                    !state.resources.iter().any(|resource|
+                        resource.attachment_id == d.resource_attachment_id
+                        && resource.access.as_ref().is_some_and(|a|
+                            a.admits_request(&r.participant_id, &ResourceRequest {
+                                schema: crate::effect::access::RESOURCE_REQUEST_SCHEMA.into(),
+                                configuration_digest: d.configuration_digest.clone(),
+                                action: d.action.clone(),
+                            }).is_ok()))
+                })
                 || !d.roles.contains(&SourceRole::Knowledge)
                 || !state
                     .principal_participant_links

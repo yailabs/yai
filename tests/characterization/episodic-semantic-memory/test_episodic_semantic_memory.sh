@@ -204,17 +204,23 @@ final_turn="$("$YAI_BIN" case run case:w20-memory \
   --prompt 'Qual è il valore operativo finale, quale valore precedente è stato sostituito, quale claim contraddittorio è apparso e su quali evidenze si basa questa distinzione?' \
   --max-invocations 1 --max-runtime-ms 5000)"
 grep -Fq 'runtime_status: Completed' <<<"$final_turn"
-"$YAI_BIN" case context show case:w20-memory --kind projection | \
-  grep -Fq 'artifact_kind: projection'
-"$YAI_BIN" case context show case:w20-memory --kind context-frame | \
-  grep -Fq 'artifact_kind: context_frame'
 projection="$("$YAI_BIN" case context show case:w20-memory --kind projection)"
+grep -Fq 'artifact_kind: projection' <<<"$projection"
+context_frame="$("$YAI_BIN" case context show case:w20-memory --kind context-frame)"
+grep -Fq 'artifact_kind: context_frame' <<<"$context_frame"
 WORKING_ID="$(sed -n 's/^working_state_id: //p' <<<"$projection")"
 [[ "$WORKING_ID" == working-state:* ]]
 working="$("$YAI_BIN" context inspect --id "$WORKING_ID")"
 grep -Fq 'recompiled_from_canonical_history: true' <<<"$working"
 grep -Fq 'derived_memory' <<<"$working"
-grep -Fq 'canonical_reconstruction_no_index_dependency' <<<"$working"
+# Ordinary execution now retains qualified Recall groups rather than relying
+# on an S-only DerivedMemoryInput ranking-reason string. Prove the original
+# no-index-dependency property by actually dropping the index and rebuilding W.
+grep -Fq 'yai.semantic_working_state.v3' <<<"$working"
+grep -Fq 'recalled_evidence' <<<"$working"
+"$YAI_BIN" case memory index drop case:w20-memory >/dev/null
+working_without_index="$("$YAI_BIN" context inspect --id "$WORKING_ID")"
+[[ "$working" == "$working_without_index" ]]
 
 printf 'episodic_semantic_memory: pass\n'
 printf 'episode_schema: yai.memory_episode.v1\n'
@@ -228,3 +234,4 @@ printf 'hierarchy_rebuild_exact: true\n'
 printf 'provider_reinference_on_rebuild: zero\n'
 printf 'cross_case_isolation: true\n'
 printf 'index_drop_preserved_hierarchy: true\n'
+printf 'working_recall_rebuild_after_index_drop_exact: true\n'

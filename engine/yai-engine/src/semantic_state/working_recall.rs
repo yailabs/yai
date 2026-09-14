@@ -153,6 +153,12 @@ pub struct WorkingStateRequest {
     pub case_id: String,
     pub expected_generation: u64,
     pub compilation: CompilationRequest,
+    /// Mechanical query from the exact current input, when distinct from the
+    /// execution instruction. Bound into W provenance/refresh, not a second
+    /// copy of immediate input in compatibility lowering. Old requests retain
+    /// their intent-as-query meaning.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recall_query: Option<String>,
     pub at: Option<historical::HistoricalCoordinate>,
     pub recall_required_refs: Vec<String>,
     pub recall_bounds: RecallBounds,
@@ -168,7 +174,7 @@ impl WorkingStateRequest {
             &self.case_id,
             self.expected_generation,
             &self.compilation.scope.participant_id,
-            &self.compilation.intent,
+            self.recall_query.as_deref().unwrap_or(&self.compilation.intent),
         );
         if let Some(at) = &self.at {
             r.at = at.clone();
@@ -214,6 +220,9 @@ impl RecalledEvidence {
     pub(super) fn matches(&self, reference: &str) -> bool {
         self.events.iter().any(|e| {
             e.event.transition_id == reference || e.event.object_refs.iter().any(|r| r == reference)
+                || e.resource_reference.as_deref() == Some(reference)
+                || e.content_reference.as_ref().is_some_and(|c|
+                    c.admission_id == reference || c.object_id == reference || c.source_resource_id == reference)
         }) || self
             .source_closure
             .iter()

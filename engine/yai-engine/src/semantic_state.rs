@@ -48,6 +48,39 @@ impl SemanticScope {
     }
 }
 
+/// Existing canonical provider-selection proof, shared by S and Recall
+/// execution disclosure. This is a derived view only: no Participant role,
+/// Principal link, Resource permission or admitted Case state is mutated.
+pub(crate) fn qualify_execution_view(
+    state: &CaseState, participant_id: &str, consumer: &str,
+    view_kind: &str, selection_id: &str,
+) -> Result<CaseState, String> {
+    if consumer != "model" || view_kind != "model_context"
+        || !state.provider_selections.iter().any(|s| {
+            s.selection_id == selection_id && s.participant_id == participant_id
+                && s.case_id == state.case_id
+                && state.tenant_id.as_deref() == Some(s.tenant_id.as_str())
+                && state.provider_binding.as_ref().is_some_and(|binding| {
+                    binding.binding_id == s.binding_id
+                        && binding.participant_id == participant_id
+                        && binding.ordered_target_ids.contains(&s.selected_target_id)
+                })
+        }) {
+        return Err("semantic_view_selection_not_qualified".into());
+    }
+    let mut qualified = state.clone();
+    let participant = qualified.participants.iter_mut()
+        .find(|p| p.participant_id == participant_id)
+        .ok_or("semantic_participant_not_bound")?;
+    let view = crate::transition::AdmittedView {
+        consumer: consumer.into(), view_kind: view_kind.into(),
+    };
+    if !participant.admitted_views.contains(&view) {
+        participant.admitted_views.push(view);
+    }
+    Ok(qualified)
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct DerivedMemoryInput {
     pub memory_ref: String,
@@ -268,37 +301,10 @@ impl SemanticState {
         scope.max_items = usize::MAX;
         scope.max_interaction_turns = usize::MAX;
         scope.max_provider_claims = usize::MAX;
-        let mut qualified = self.state.clone();
-        if let Some(id) = &request.view_selection_id {
-            if scope.consumer != "model"
-                || scope.view_kind != "model_context"
-                || !qualified.provider_selections.iter().any(|s| {
-                    &s.selection_id == id
-                        && s.participant_id == scope.participant_id
-                        && s.case_id == qualified.case_id
-                        && qualified.tenant_id.as_deref() == Some(s.tenant_id.as_str())
-                        && qualified.provider_binding.as_ref().is_some_and(|binding| {
-                            binding.binding_id == s.binding_id
-                                && binding.participant_id == scope.participant_id
-                                && binding.ordered_target_ids.contains(&s.selected_target_id)
-                        })
-                })
-            {
-                return Err("semantic_view_selection_not_qualified".into());
-            }
-            let participant = qualified
-                .participants
-                .iter_mut()
-                .find(|p| p.participant_id == scope.participant_id)
-                .ok_or("semantic_participant_not_bound")?;
-            let view = crate::transition::AdmittedView {
-                consumer: scope.consumer.clone(),
-                view_kind: scope.view_kind.clone(),
-            };
-            if !participant.admitted_views.contains(&view) {
-                participant.admitted_views.push(view);
-            }
-        }
+        let qualified = if let Some(id) = &request.view_selection_id {
+            qualify_execution_view(&self.state, &scope.participant_id,
+                &scope.consumer, &scope.view_kind, id)?
+        } else { self.state.clone() };
         let derived = if scope.purpose == SemanticPurpose::MemoryConsolidation || current_only {
             DerivedProjectionInput::default()
         } else {

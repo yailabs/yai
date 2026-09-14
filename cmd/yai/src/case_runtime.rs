@@ -458,12 +458,12 @@ fn initial_checkpoint_with_journal(
         max_semantic_units: parse_positive(
             args,
             "--max-semantic-units",
-            DEFAULT_SEMANTIC_UNIT_BUDGET,
+            super::provider::SemanticInvocationOptions::default().max_semantic_units,
         )?,
         max_resident_items: parse_positive(
             args,
             "--max-resident-items",
-            DEFAULT_MAX_RESIDENT_ITEMS,
+            super::provider::SemanticInvocationOptions::default().max_resident_items,
         )?,
         max_cumulative_estimated_input_units: parse_positive(
             args,

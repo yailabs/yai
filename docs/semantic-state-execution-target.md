@@ -436,7 +436,9 @@ reuses the request in W3/W4, qualifies current sources/control and reconstructs
 Recall plus W without a new prompt. Full recompilation is the reference path;
 SemanticDelta v1 remains S-only and cannot express equal-generation backing loss.
 This qualifies explicit semantic preflight, not these complete autonomous loops,
-event/watch infrastructure, provider convergence or computational reconciliation.
+event/watch infrastructure or computational reconciliation. Ordinary governed
+Conversation/Workflow now performs current Recall/W preflight at new invocation,
+through the same compiler rather than an independent refresh/retrieval owner.
 
 In particular, a qualified source/revision change may affect D and access
 derivations, then Recall, W and later E through public reconciliation. This
@@ -577,7 +579,9 @@ refuses; optional omissions and Recall limitations remain explicit. A historical
 Recall cut cannot become current authority. Recall/backing change can require full
 recompilation with no S-only delta. Same-task prompt-independent refresh now
 performs that current reconstruction explicitly; no ambient watcher is implemented. The existing
-provider path remains S-only v2. W4's bounded exact-group pager revalidates current
+governed provider path now uses W3 and Projection/ContextFrame11, with full current
+qualification again at Invocation admission; legacy pinned-provider and explicit
+W20 consolidation compatibility remain S-only. W4's bounded exact-group pager revalidates current
 control and source backing without another Recall discovery pass. Resident and
 deferred are distinct; reference possession is not authorization. Atomic pages
 have a separate envelope, and page-in/out uses the same W compiler without

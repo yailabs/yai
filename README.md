@@ -18,382 +18,285 @@ repository licensing documents, including LICENSE.md and docs/legal.md.
 </p>
 
 <p align="center">
+  <strong>Durable semantic state. Case-bound AI execution.</strong><br>
   The work should outlive the model.
 </p>
 
 <p align="center">
-  <a href="docs/architecture.md"><img src="https://img.shields.io/badge/runtime-local-64748b?style=flat&amp;labelColor=334155" alt="Runtime: local"></a>
-  <a href="#architecture-and-ownership"><img src="https://img.shields.io/badge/core-semantic%20state-64748b?style=flat&amp;labelColor=334155" alt="Core: semantic state"></a>
-  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-source--available-64748b?style=flat&amp;labelColor=334155" alt="License: source-available"></a>
-</p>
-
-<p align="center">
   <a href="#quick-start">Quick start</a> ·
-  <a href="#working-inside-a-case">Inside a Case</a> ·
-  <a href="#yai--yvex">YAI + YVEX</a> ·
+  <a href="#architecture-and-ownership">Architecture</a> ·
+  <a href="#security-without-model-compliance">Security</a> ·
   <a href="docs/index.md">Documentation</a> ·
   <a href="ROADMAP.md">Roadmap</a>
 </p>
 
-AI work often carries its past forward by adding more text to the next context
-window. As the work grows, the application must keep deciding what to replay,
-what to summarize and what it can afford to forget.
+**YAI is a local control plane for governed AI work.** It gives an ongoing
+matter—a **Case**—durable history, qualified memory, current authority and
+mediated access to resources. Conversations, Workflows and replaceable models
+operate inside that boundary; none owns the Case merely by executing.
 
-**YAI is building around a different unit: the Case.** A Case holds the history,
-evidence, decisions, resources and unresolved work of an ongoing matter.
-Conversations and model executions happen within it. Its continuity belongs to
-the work, not to the chat, the model or the provider session.
+YAI is not a model, an inference engine or a retrieval layer around a prompt.
+It determines what should matter semantically and what may happen operationally.
+Today, generic providers execute context-compatible input compiled by YAI.
+[YVEX](https://github.com/yailabs/yvex) is the computational substrate counterpart;
+a public model-native working-state contract remains a target.
 
-The goal is to reconstruct the experience that matters now, combine it with
-what currently holds, and compile a bounded working state. Together, YAI and
-YVEX are designed to let models carry that state computationally, rather than
-always reconstructing the past from text. Replacing the model should change
-the computation, not erase the Case.
+This is actively developed systems software with bounded executable
+qualification, not a production-readiness or certification claim.
+[ROADMAP.md](ROADMAP.md) owns live maturity and selection.
 
-YAI is under active implementation. This README describes the product direction
-and [what you can run today](#run-yai-today); [ROADMAP.md](ROADMAP.md) tracks
-exact maturity and current engineering state.
+## Why a Case
 
-## The Case outlives the conversation
+An investigation, software change or operational decision outlasts any one chat.
+Its useful state includes evidence, rejected approaches, policy, approvals,
+resources, consequences and unresolved obligations—not just message history.
 
-Consider a software change that takes several weeks. The issue arrives before
-the implementation. A release constraint changes. Tests fail, a reviewer asks
-for evidence, and an earlier decision turns out to rest on a false assumption.
-The useful memory is not just the messages exchanged along the way. It is the
-relationship between the request, the evidence, the decisions and what actually
-happened.
+The Case keeps those relationships under explicit identity and authority.
+A new Turn supplies immediate input; the system reconstructs relevant memory
+and compiles the semantic working state for that execution. Closing a terminal,
+switching models or rebuilding a derived index does not erase canonical history.
 
-A Case gives that work a durable home. A conversation explores it. A Workflow
-organizes part of it. A human reviews a proposed change. A model investigates
-an unresolved question. A terminal session or an automated evaluation accesses
-the same Case under its own permissions. Leaving one interaction does not
-mean exporting its memory into the next.
+| Question | YAI boundary |
+|---|---|
+| What persists? | Committed Transition history and exact owned content/artifacts; CaseState materializes current Case meaning. |
+| What is rebuildable? | CaseState, knowledge derivations, graph/indexes, Recall, working state and compatibility projections. |
+| Who has authority? | Authenticated Principals and admitted Participants, current Policy/admission, review and finite Grants—not model output. |
+| What can a model cause? | Proposals evaluated through existing Case, Resource and effect owners. Knowing a tool name or Resource ID grants nothing. |
+| What follows a restart? | Canonical lifecycle and exact provenance; uncertain external delivery requires reconciliation, not blind replay. |
 
-The Case retains both consequences and unfinished work: what was observed,
-what was decided, which sources supported it, what remains uncertain and which
-resources are available. Models contribute computation and proposals over
-that state. They are replaceable participants, not its owners.
+## Architecture and ownership
 
-## Memory beyond context
+One semantic compiler sits between qualified memory and model execution.
+The authority plane remains outside model computation:
 
-**What happened is not the same as what holds now.** A rejected approach can
-still explain a later decision. A superseded constraint may be essential to
-understanding an old failure while being wrong for today's release.
+```text
+SOURCES / OPERATIONAL WORLD                 CASE AUTHORITY
+        │                                  identity · Policy · review
+        ▼                                  Grants · Resource scope
+governed source frontier / admitted events          │
+        │                                          │
+   D: source statements   H: experience   S: current meaning/control
+        └─────────────────┬──────────────────┘     │
+                          ▼                        │
+                 qualified Recall                  │
+                          │                        │
+              S + Recall + task + constraints ◄────┘
+                          ▼
+                bounded working state W
+                          │
+         ┌────────────────┴───────────────────┐
+         ▼                                    ▼
+context-compatible lowering          future public W → YVEX E
+Projection / ContextFrame            NOT IMPLEMENTED
+         │
+         ▼
+generic provider / model  ◄── immediate input X
+         │
+         ▼
+output / tool request / semantic proposal
+         │
+current YAI admission + Case-bound Resource mediation
+         ▼
+governed consequences / canonical evidence
+```
 
-YAI's target is temporal-causal **Recall**: reconstructing the relevant
-experience for a particular question, even when it spans Episodes separated
-by months of unrelated work. Recall should recover what was recorded then,
-what changed, what supported a decision and where the exact evidence lives.
-Where causality is not established, it must preserve that uncertainty rather
-than turn chronological order into an explanation.
+Ordinary governed Conversation and Workflow execution use the same typed
+Recall-aware working-state operation before compatibility lowering. Manual
+Recall, context compilation, paging and refresh commands remain inspection and
+administration surfaces; they are not prerequisites for an ordinary Turn.
 
-Vector similarity, lexical search, graph traversal and possible learned or
-sparse representations can help find the path. They do not decide what is
-true. A useful Recall Trace must resolve back to its sources, retain historical
-supersession and respect the reader's current access. Missing evidence stays
-missing; a plausible summary cannot replace it.
+A new invocation requalifies current sources, disclosure and control. Projection
+does not retrieve, expand pages or reinterpret authority. Failure to construct
+the required working state does not silently downgrade that governed execution
+to S-only context. Historical compatibility paths retain their explicit
+[contracts and limits](docs/recall.md).
 
-The target is not a larger prompt. It is a working state shaped by the task:
-relevant experience plus current facts, unresolved questions and Case-level
-constraints, within an explicit budget. A Case should be able to grow for years
-without requiring every year to become the next prompt. Difficult work may
-need more state; unrelated age should not be the reason.
+## Qualified memory, not a second truth store
+
+| Semantic material | Meaning |
+|---|---|
+| **D — domain knowledge** | What admitted exact source revisions state, with source coordinates and extraction provenance. |
+| **H — experience** | What was recorded in the Case, including observations, Decisions and consequences. |
+| **S — current state** | What currently holds through established semantic and authority owners. |
+| **R — Recall** | Task-conditioned reconstruction across D/H/S, with qualified relations, missingness and current disclosure. |
+| **W — working state** | The bounded semantic material selected for this execution: mandatory current constraints plus relevant evidence. |
+
+Bounded D/H/S Recall, Recall-aware W, exact-group semantic paging and explicit
+same-task refresh are implemented. Search discovers candidates; deterministic
+resolution establishes identity, scope, historical applicability and backing.
+Ranking does not decide truth, authority or causality.
+
+A document can state “retention is 90” while an observation records 30.
+Recall and W preserve both epistemic classes and unresolved disagreements.
+Historical evidence never rewinds present execution authority.
+
+Paging makes exact, non-resident groups available for explicit demand expansion.
+A reference is a locator, not a lasting permission. Refresh reuses the stored
+task and reconstructs current Recall/W without another prompt. Neither implies
+a background reasoning loop, model-directed paging or constant cost as a Case
+grows. [Memory and working-state contracts](docs/recall.md).
+
+## One source frontier, several consumers
+
+Sources retain logical identity, exact revision/backing, declared roles and
+current Case applicability. Acquisition and interpretation are separate:
+
+```text
+one exact source revision
+  ├── knowledge → documentary units / claims → D / Recall
+  ├── governance candidate → validation → publication → binding → EffectivePolicy
+  └── operational relation → admitted Resource / world identity
+```
+
+**Policy may govern; knowledge may inform. Source role ≠ content route ≠ authority.**
+
+Bounded mixed-source routing recognizes explicit policy regions in supported
+Markdown and text-PDF profiles while preserving surrounding documentary content.
+One clause can feed both consumers with the same provenance. A governance role,
+“must” in prose, a filename or a model classification does not publish Policy.
+
+Current deterministic knowledge profiles cover structured text/Markdown, JSON,
+text-bearing PDF, admitted filesystem trees and SQLite schema/metadata.
+Exact historical backing is required; unavailable bytes stay unavailable.
+This is not arbitrary web crawling, Office interpretation, OCR or continuous
+synchronization. [Source bootstrap](docs/case-source-bootstrap.md) ·
+[Knowledge](docs/source-grounded-knowledge.md) ·
+[Mixed-source governance](docs/reference/governance.md#mixed-source-explicit-region-routing).
+
+## Security without model compliance
+
+**Model compliance is not a security prerequisite.**
+
+Model/provider computation and source content are untrusted with respect to
+Case authority. Policy rendered to a model is information, not enforcement.
+A model may follow an injected instruction and request a prohibited action;
+YAI's current authorization path must still deny it or require review.
+
+The bounded mediated surface includes Resource reads as well as writes and
+effects: exact filesystem targets, named process execution, SQLite queries,
+HTTP endpoints, MCP operations and immutable content access. Protected native
+filesystem/process observations are qualified before touching host state;
+later PREPARE, dispatch fences and reconciliation keep their distinct roles.
+Cross-Case identity substitution and stale authority do not grant access.
+
+| Security ring | Owner / current claim |
+|---|---|
+| Semantic truth, visibility and authority | YAI; bounded qualified contracts. |
+| Case-bound Resource/effect mediation | YAI; current admission, exact bindings and controlled adapters. |
+| Computational isolation | Provider/runtime; not supplied by Case policy alone. |
+| Host and infrastructure isolation | Platform/kernel/filesystem/network/secrets; independently required. |
+
+YAI does **not** contain ambient filesystem, network or credential access that
+a model process has outside YAI mediation. It does not claim universal
+prompt-injection immunity, complete sandboxing or automatic declassification.
+Credentials and privileged handles belong outside model-visible state where
+brokered adapters can exercise them.
+[Security contract](docs/reference/governance.md#case-bound-model-security) ·
+[Reporting vulnerabilities](SECURITY.md).
 
 ## YAI + YVEX
 
-YAI preserves model-independent meaning. YVEX determines how an exact model can
-carry and compute over it.
+| Owner | Responsibility |
+|---|---|
+| **YAI** | Case continuity, D/H/S, Recall, W, authority, admission, Resources, Workflow and provenance. |
+| **YVEX** | Exact model/composition/runtime realization; model-native state, physical residency and checkpoint mechanics. StateProfile and experiential State Read/Update remain research targets. |
+| **Model** | Learned computation. Outputs and future state updates do not create Case authority. |
 
-This separates two problems that a context window tends to collapse. YAI must
-decide which experience and current state matter for this task and Participant.
-YVEX must realize that qualified working state in a form the model can use,
-with an exact execution, residency and recovery contract.
+YAI does not require YVEX: current execution uses a generic OpenAI-compatible
+provider contract. It does not load models or administer the inference runtime.
 
-The architecture we are building is one feedback loop with distinct semantic
-and computational ownership:
+Future **E** denotes experiential computational state, not another semantic
+memory owner or necessarily KV. **L** denotes unfinished deliberation, distinct
+from reusable E. YVEX's N.B1 slow-update dual-stream realization is producer-owned
+research—not implemented YAI behavior. Public W→E, StateProfile transport and
+cross-model latent portability are not implemented.
+[Semantic/computational boundary](docs/semantic-state-execution-target.md).
 
-```text
-WORLD / HUMAN
-      |
-      v
-YAI CASE <----------------------------------------------------+
-  |                                                           |
-  +-- Historical experience H -> Recall R --+                 |
-  |                                         |                 |
-  +-- Current semantic state S -------------+                 |
-                                            v                 |
-                                   State Compiler -> W        |
-                                 intent / scope / budget      |
-                                            |                 |
-                             public cognitive-state boundary  |
-                                            v                 |
-                                     YVEX -> State E          |
-                                            |                 |
-                    immediate input X ---> MODEL              |
-                                            |                 |
-                                output / action proposal      |
-                                            |                 |
-                               YAI validation + admission ----+
-```
+## Product surfaces
 
-**W** is Semantic Working State: what must count for this execution, not the
-entire Case. **E** is Experiential Computational State: its model-native
-realization, reusable across an execution history. The target includes
-**State Read** and **State Update**, so a model can consume and evolve
-computational state beyond the immediate input stream.
+| Surface | What runs today |
+|---|---|
+| **YAI Studio** | Native/browser Case Workbench development preview with real navigation, tabs, layout and local drafts over authored offline fixtures. No live Case backend, provider execution or resource access. |
+| **REPLAI Case workbench** | Native terminal interaction for real Cases: guided setup, conversations, capability work, review, Workflow and exact inspection. REPLAI owns reusable editor/terminal mechanics; YAI owns semantics. |
+| **`./yai` CLI** | Administration, automation and exact source, policy, resource, history and semantic-state inspection. The CLI is a frontend, not the application API itself. |
+| **Typed application boundary** | Existing Rust/controller operations beneath presentation. Not a complete stable public SDK or generated interface package. |
 
-Today's YAI compiles W and lowers it into ordinary provider context. The
-research path extends from qualified reusable prefix/KV state to learned or
-architecture-native persistent state. Physical representations, checkpoints
-and model-side mechanisms belong to YVEX and the model; YAI does not need to
-become a tensor runtime to preserve semantic continuity.
-
-Computational state can evolve without changing what the Case knows. **E → E′
-does not imply S → S′.** Output remains output; only an explicit proposal or
-observed consequence can pass through YAI's admission rules. Replacing a model
-may require discarding its computational state and rebuilding from the Case,
-not rebuilding the Case from scratch.
-
-## Beyond request and response
-
-### When the world changes, working state should follow
-
-A test finishes. A review resolves. Another Participant supplies evidence.
-A Workflow advances or a source changes. None needs to begin as another human
-message.
-
-The continuous-feedback target is for relevant admitted changes to refresh
-Recall and working state, and eventually reconcile the model's computational
-state before its next affected read. Revoked access or invalidated evidence
-must prevent stale consumption; useful enrichment can happen asynchronously
-within bounds. Continuity does not mean invoking a model endlessly when there
-is no authorized work.
-
-### An assignment can outlast the exchange
-
-> Review everything we learned about this subsystem today. Reconsider the
-> unresolved assumptions. We'll continue tomorrow.
-
-Persistent deliberation is the research direction behind that request. YAI
-would retain the assignment, sources, permissions, compute budget, deadline and
-cancellation conditions. A compatible model/runtime could continue bounded
-internal computation, revisit qualified Case experience, checkpoint unfinished
-deliberation and return with new candidate conclusions or questions.
-
-That is different from keeping a tool loop running overnight. Thinking need not
-act on the environment. Testing a hypothesis against a real resource still
-requires ordinary governed execution. Reusable experiential state and unfinished
-deliberation have different lifecycles: losing a latent line of thought must
-not lose the admitted assignment or Case history. YAI needs justified candidate
-outputs, not a transcript of hidden reasoning promoted into memory.
-
-The [target doctrine](docs/semantic-state-execution-target.md) develops this
-design; the [Roadmap](ROADMAP.md) records the work still needed to realize it.
-
-## Run YAI today
-
-There is already a local Rust application with durable Case persistence, an
-explicit semantic-state/working-state compiler and a native **REPLAI Case
-workbench**. You can create a Case, connect a provider, converse, attach
-resources, inspect policy, review operations and follow their consequences.
-Bounded filesystem, process, SQLite, HTTP and MCP capabilities share the same
-authority path. Workflow progression, scoped Handoff and rebuildable
-operational, episodic and semantic access are part of that foundation.
-
-The **Golden Case — Governed Software Change & Release Qualification** gives it
-a concrete workload: investigate a small defect using source, database, service
-and MCP evidence; propose a reviewed repair; run the real test; continue through
-Workflow, restart and replay. Start with the interactive path below, then use
-[ZERO-TO-CURRENT](docs/zero-to-current.md) for the complete operator lifecycle.
-[Architecture](docs/architecture.md) documents the exact implemented contracts.
+Studio and the native CLI belong in this repository. A future generic interfaces
+toolchain is not their runtime dependency.
+[Studio preview and build](studio/README.md) ·
+[REPLAI integration](docs/replai-terminal.md) ·
+[Application/client boundary](docs/architecture.md).
 
 ## Quick start
 
-### 1. Build
-
-Use a Linux development host with Rust/Cargo, a native C toolchain, GNU Make,
-Python 3 and SQLite development libraries. The confined Golden process runner
-has additional Linux requirements listed in the
-[operator runbook](docs/zero-to-current.md#infrastructure-not-the-case-workflow).
-Model weights are not part of YAI; a provider is a separate prerequisite for
-cognitive execution.
-
-Clone and build:
+Use a Linux development host with Rust/Cargo, a C toolchain, GNU Make,
+Python 3 and SQLite development libraries. Model weights are not included.
 
 ```sh
 git clone https://github.com/yailabs/yai.git
 cd yai
 make build-rust
-./yai help
-```
-
-Already cloned? Run the last two commands from the repository root. The build
-creates the local `./yai` launcher; it executes this checkout's binary.
-
-### 2. Initialize and open a Case
-
-For a disposable evaluation, select a fresh home, then follow the guided setup:
-
-```sh
-YAI_DEMO_DIR="$(mktemp -d /tmp/yai-demo.XXXXXX)"
-export YAI_HOME="$YAI_DEMO_DIR/home"
 ./yai init
 ./yai open demo
 ```
 
-`init` asks for the Tenant and organization, then explicit `create` consent.
-`open` guides Case creation and Participant admission. Read the proposed roles
-and type the requested confirmation word; Enter alone is not approval.
-The model Participant does not inherit the operator's Principal identity.
+Use a private persistent YAI home; `YAI_HOME` selects an alternate location.
+Guided setup asks for explicit consent to create the Tenant, Case and
+Participants. Participant admission alone grants no Resource or provider access.
 
-Keep the same `YAI_HOME` to reopen this Case. For durable work, use a private
-persistent directory instead of `/tmp`; creating a fresh home is not a retry.
-Participant setup does not by itself grant policy, resource or provider access.
-
-### 3. Connect a provider
-
-Inside the Case:
+Inside the terminal workbench:
 
 ```text
 /connect
 ```
 
-Supply the public OpenAI-compatible endpoint of an already reachable provider.
-YAI discovers its model catalog: one exact entry is selected automatically;
-several entries require a choice. Credential references are requested when
-needed, never secret tokens in ordinary input or URLs.
+Supply an already reachable public provider endpoint and review the exact model
+before approving. Connection probes perform real inference. Use credential
+references, never secret tokens in ordinary input or URLs. Then submit a Turn;
+`/details` exposes execution lineage. `/work TASK` requests bounded capability
+work; `/review` handles eligible human review. `/retry` preserves delivery
+safety, and `/cancel` does not promise to abort an already delivered request.
 
-Review the exact target before typing `approve`. This explicitly approves
-mechanical probes, provider trust and your suitability attestation for the
-conversation role; it grants no resource authority. Text, native functions and
-JSON are tested separately. Probes perform real inference, so setup time depends
-on the provider. Answer each guided question before entering the next action.
+Resources and effects need explicit bindings and ready policy. Follow the
+[cumulative operator runbook](docs/zero-to-current.md) for the complete governed
+free-work/Workflow lifecycle, provider requirements and recovery.
+Studio starts independently through its [preview instructions](studio/README.md).
 
-Then submit ordinary text. YAI records your Turn before execution and keeps
-model replies separate from system notices. `/details` exposes execution
-lineage; `/retry` preserves the same Turn and refuses unsafe redispatch after
-uncertain delivery. `/cancel` gates further work, not a guaranteed abort of an
-already dispatched request.
+## Engineering and validation
 
-YAI does not launch YVEX or load models. The provider must already be reachable
-and have capacity for the intended workload; a catalog entry or small probe
-alone does not establish that. See [provider setup and contracts](docs/provider-governance.md)
-for exact capability and deployment requirements.
+Committed Transitions are canonical; derived failure cannot rewrite Case truth.
+Executable source and tests outrank documentation claims. New semantic owners
+require a real lifecycle or contract, not a new UI noun.
 
-## Working inside a Case
+```sh
+make check characterization
+make test-golden-local
+```
 
-Remain in the Case while inspecting and advancing the work. These are
-interactive actions, not shell commands; use one at a time.
+Component checks, deterministic local qualification and Golden local establish
+different evidence. External YVEX is a separate characterization axis—not a
+default implementation gate. Human acceptance and an operator-owned continuity
+canary remain separate from automated results.
+[Validation rules](docs/test-cases.md) · [Contributing](CONTRIBUTING.md).
 
-| Action | Purpose |
-| --- | --- |
-| `/help` / `/help all` | Compact actions or the complete interactive vocabulary |
-| `/case` / `/participants` | Current Case and execution identities |
-| `/attach` / `/resources` / `/artifacts` | Guided attachment and inspection of the admitted world |
-| `/policy publish` / `/policy` | Governed policy setup and current readiness |
-| `/work TASK` | Bounded model-requested capability work under Case authority |
-| `/review` | Inspect an exact pending operation and record an eligible human action |
-| `/workflow` | Inspect the bound Workflow; `/help all` exposes its actions |
-| `/history` / `/effects` / `/details` | Canonical history, external outcomes and execution lineage |
-| `/memory` / `/graph` / `/verify` | Derived views and replay verification |
-| `/retry` / `/cancel` / `/exit` | Delivery-safe retry, truthful cancellation and leaving the interaction |
-
-Resource operations require admitted bindings and ready policy; they are not
-ambient tools. The [runbook](docs/zero-to-current.md) supplies the reference
-resources and the complete free-work/Workflow procedure. It also explains how
-to retain an operator-owned continuity canary across upgrades. One-shot CLI
-commands remain available for automation, administration and exact inspection.
-
-## Architecture and ownership
-
-The product thesis rests on boundaries that can be inspected and tested:
-
-- **History and current authority.** The Transition Ledger is canonical Case
-  history; CaseState is its rebuildable current materialization, committed
-  atomically in LMDB. Immutable Content/Artifacts retain payloads that the ledger
-  cannot reconstruct. Historical experience H is a qualified view of existing
-  owners, not another ledger.
-- **Meaning and selection.** The current `SemanticState` composes replay-qualified
-  history and state without a new store. The compiler produces deterministic W
-  for an exact generation, Participant, intent, disclosure and budget. Control,
-  observations, derived assertions and model claims retain their distinct
-  evidence status. Relevance cannot widen access or silently omit required state.
-- **Compilation and compatibility.** Projection and ContextFrame lower W into
-  provider-compatible input; they do not own semantic selection or memory.
-  Working state is disposable; lowering rejects stale working state. Derived
-  semantic deltas have checked full-compilation equivalence; their current
-  application uses full recompilation, not an incremental speedup.
-- **Admission and consequences.** Model output does not create authority.
-  Operations require current policy, Decisions, review where required and
-  finite Grants. External effects retain PREPARE, terminal evidence and
-  reconciliation; ambiguous delivery is not permission to repeat an action.
-- **Derived access and product views.** Graph, operational memory, Episodes,
-  semantic assertions, indexes and analytics remain rebuildable. Neither
-  retrieval rank nor a repeated claim promotes truth. Workflow/Handoff preserve
-  scoped continuity without cloning authority. REPLAI owns terminal mechanics;
-  YAI owns application actions and content classification. An optional Agent
-  composition would own none of this merely by existing.
-
-The H/S/Recall/W/E diagram expresses the target architecture, not a renaming of
-every current type. General Recall and a public model-state consumer remain
-targets. YAI owns neither tensors, latent state nor GPU placement; YVEX
-does not acquire Case, Policy or Workflow authority. Current provider execution
-uses generic OpenAI-compatible contracts, not model-name branches or private
-YVEX protocols.
-
-For source-level ownership, read [Architecture](docs/architecture.md).
-`cmd/yai/` hosts the Rust application; `engine/yai-engine/` holds reusable
-semantic contracts and algorithms. `cmd/yaid/` and the production subset of
-`system/` provide the bounded C daemon/platform surface, not a second semantic
-engine.
-
-## Development and validation
-
-Build it, follow a Case through the [Golden workload](docs/zero-to-current.md),
-and inspect where the architecture holds or breaks. For development, start with
-[CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). The
-[validation guide](docs/test-cases.md) selects evidence for the boundary being
-changed:
-
-| Command | Evidence surface |
-| --- | --- |
-| `make test-fast` | Documentation/layout guards, unit and bounded component proof; no provider |
-| `make test-local` | Deterministic local contract, product and recovery proof, including real loopback transport |
-| `make check` | Deterministic publication union (`test-release`); no external provider required |
-| `make test-golden-local` | Separate integrated Golden lifecycle; real resources, loopback model |
-| `make test-golden-external-yvex` | Complete reference product lifecycle against an operator-supplied real target |
-
-Local Golden uses a deterministic model with real persistence, resource
-adapters and protocol peers. External YVEX qualification and human acceptance
-are separate: neither follows from local success. Their live posture belongs
-in the [Roadmap](ROADMAP.md), not a historical test count. This is development
-software, not a production-readiness claim.
-
-Golden is also the intended common workload for deeper research: compare
-context and persistent-state execution, correct and misleading memories,
-source-closed Recall, and deliberation against equal-compute baselines. The
-question is whether state improves justified task outcomes, not just whether
-more material can be retrieved.
+Current nonclaims include general memory sufficiency, all-source understanding,
+autonomous continuous thinking, universal runtime isolation and production
+readiness. Exact limitations and research progression belong in the
+[Roadmap](ROADMAP.md).
 
 ## Documentation
 
-- [Documentation index](docs/index.md) — canonical navigation and authority map.
-- [Constitution](docs/constitution.md) — long-lived invariants and ownership.
-- [Architecture](docs/architecture.md) — current executable truth and limits.
-- [Roadmap](ROADMAP.md) — sole live project control and target direction.
-- [Semantic-state target](docs/semantic-state-execution-target.md) — Recall,
-  continuous feedback, experiential state and deliberation.
-- [ZERO-TO-CURRENT](docs/zero-to-current.md) — cumulative operator acceptance.
-- [Reference contracts](docs/reference/semantics.md) and
-  [state/transitions](docs/reference/state-transitions.md) — semantic boundaries.
-- [Provider governance](docs/provider-governance.md) and
-  [REPLAI integration](docs/replai-terminal.md) — execution and interaction.
+- [Documentation index](docs/index.md) — navigation and authority map.
+- [Architecture](docs/architecture.md) · [Constitution](docs/constitution.md) — executable boundaries and durable invariants.
+- [Governance](docs/reference/governance.md) · [Provider contracts](docs/provider-governance.md) — authority and execution.
+- [Recall / working state](docs/recall.md) · [Semantic-state target](docs/semantic-state-execution-target.md) — implemented memory and future computation.
+- [ZERO-TO-CURRENT](docs/zero-to-current.md) — complete operator acceptance.
+- [Roadmap](ROADMAP.md) — current maturity and selected engineering work.
 
 ## License
 
-YAI is [source-available](LICENSE.md) for technical evaluation and review, not
-offered under an OSI-approved open-source license by default. See
-[legal posture](docs/legal.md),
-[third-party notices](LICENSE.md#third-party-notices), [security](SECURITY.md) and
-[contribution policy](CONTRIBUTING.md). [Brand assets](docs/assets/brand/README.md)
-retain the supplied identity and do not change the repository's licensing terms.
+YAI is [source-available](LICENSE.md) for technical evaluation and review,
+not an OSI-approved open-source offering by default. See
+[legal terms](docs/legal.md), [third-party notices](LICENSE.md#third-party-notices)
+and the [contribution policy](CONTRIBUTING.md).
+[Brand assets](docs/assets/brand/README.md) retain their supplied identity.

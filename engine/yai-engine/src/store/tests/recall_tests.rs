@@ -98,7 +98,7 @@ fn working_recall_policy_current_asof_freshness_tamper_and_atomic_budget() {
     let state = w.store.get_case_state(CASE).unwrap().unwrap();
     let history = w.store.list_case_transitions(CASE).unwrap();
     let request = WorkingStateRequest {
-        case_id: CASE.into(), expected_generation: state.generation,
+        case_id: CASE.into(), expected_generation: state.generation, recall_query: None,
         compilation: CompilationRequest {
             scope: SemanticScope::model(HUMAN, SemanticPurpose::Inspection),
             intent: "explain historical filesystem policy decision".into(),
@@ -146,10 +146,32 @@ fn working_recall_policy_current_asof_freshness_tamper_and_atomic_budget() {
     w.store.clear_case_operational_memory(CASE).unwrap();
     w.store.rebuild_graph_relations_for_case(CASE).unwrap();
     assert_eq!(*working, w.store.compile_working_state_authorized(&w.owner, request.clone(), None).unwrap().working_state);
+    w.store.put_semantic_context_artifact(&crate::store::lmdb::SemanticContextArtifact::WorkingState(working.clone())).unwrap();
+    let pending = secured_pending("transition:working:dispatch-fence", CASE,
+        state.generation, &w.owner.projected_principal_id(),
+        TransitionPayload::ProviderInvocationStarted {
+            invocation_id:"invocation:working:dispatch-fence".into(), participant_id:HUMAN.into(),
+            provider_id:"provider:test".into(), provider_kind:"openai_compatible".into(),
+            model_id:"test".into(), governance:None,
+            semantic_lineage:Some(crate::transition::ProviderInvocationLineage {
+                projection_id:projection.projection_id.clone(),context_frame_id:frame.frame_id.clone(),
+                case_generation:state.generation,rendered_input_id:"render:test".into(),
+                rendered_input_digest:"digest:test".into(),
+                output_contract_id:request.compilation.output_contract_id.clone(),
+                continuation_disposition:"not_provided".into(),
+            }),
+        });
+    let mut foreign = pending.clone(); foreign.case_id = "case:foreign".into();
+    assert_eq!(w.store.commit_cognitive_invocation_authorized(&w.owner, foreign, working.id(), None).unwrap_err(),
+        "cognitive_working_state_invocation_mismatch");
+    assert_eq!(w.store.commit_cognitive_invocation(pending.clone(), working.id()).unwrap_err(),
+        "cognitive_working_state_current_authentication_required", "old entrypoint cannot bypass W3 qualification");
     let current_artifact = state.policy_bindings[0].artifact_id.clone();
     w.store.revoke_tenant_policy_artifact(&w.owner, &current_artifact, "global current authority revoke").unwrap();
     assert_eq!(w.store.get_case_state(CASE).unwrap().unwrap(), state);
     assert!(w.store.validate_working_state_authorized(&w.owner, working, None).is_err());
+    assert_eq!(w.store.commit_cognitive_invocation_authorized(&w.owner, pending, working.id(), None).unwrap_err(),
+        "stale_semantic_working_state", "same-generation revoke blocks W3 at Invocation transaction");
     let refreshed = w.store.compile_working_state_authorized(&w.owner, request, None).unwrap();
     assert_ne!(refreshed.working_state.id(), working.id());
     assert_eq!(w.store.list_case_transitions(CASE).unwrap(), history);
@@ -168,7 +190,7 @@ fn prompt_independent_refresh_policy_cut_paging_no_s_delta_and_current_requalifi
     let op = w.operation("request:refresh:allow", "src/retry.txt");
     let (decision, cut) = w.store.derive_and_commit_policy_decision(CASE, &op.operation_id).unwrap();
     let request = WorkingStateRequest {
-        case_id: CASE.into(), expected_generation: cut.state.generation,
+        case_id: CASE.into(), expected_generation: cut.state.generation, recall_query: None,
         compilation: CompilationRequest { scope: SemanticScope::model(HUMAN, SemanticPurpose::Inspection),
             intent: "historical filesystem policy decision".into(),
             output_contract_id: crate::context::InvocationOutputContract::NaturalLanguage.contract_id(),
@@ -272,7 +294,7 @@ fn scoped_paging_exact_policy_group_rehydration_eviction_restart_and_no_discover
     let state = w.store.get_case_state(CASE).unwrap().unwrap();
     let history = w.store.list_case_transitions(CASE).unwrap();
     let request = WorkingStateRequest {
-        case_id: CASE.into(), expected_generation: state.generation,
+        case_id: CASE.into(), expected_generation: state.generation, recall_query: None,
         compilation: CompilationRequest { scope: SemanticScope::model(HUMAN, SemanticPurpose::Inspection),
             intent: "historical filesystem policy decision".into(),
             output_contract_id: crate::context::InvocationOutputContract::NaturalLanguage.contract_id(),
