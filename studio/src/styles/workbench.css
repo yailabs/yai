@@ -1,21 +1,21 @@
 /* Studio owns these rendering tokens. They convey no YAI semantic state. */
 :root {
   color-scheme: dark;
-  --bg: #0b0d0e;
-  --surface: #101314;
-  --surface-raised: #171b1d;
-  --surface-hover: #202628;
-  --surface-selected: #202d29;
-  --border: #272e30;
-  --border-strong: #46524e;
-  --text: #e2e8e5;
-  --text-secondary: #aebbb5;
-  --text-muted: #86948e;
-  --accent: #b0d9c6;
-  --success: #a4c9ae;
-  --warning: #d6bb82;
-  --error: #e1a29d;
-  --info: #a1bed5;
+  --bg: #0f0f10;
+  --surface: #181818;
+  --surface-raised: #1f1f1f;
+  --surface-hover: #2a2d2e;
+  --surface-selected: #37373d;
+  --border: #2b2b2b;
+  --border-strong: #4b4b4b;
+  --text: #d4d4d4;
+  --text-secondary: #b3b3b3;
+  --text-muted: #858585;
+  --accent: #75beff;
+  --success: #89d185;
+  --warning: #cca700;
+  --error: #f48771;
+  --info: #75beff;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -109,12 +109,12 @@ time {
   white-space: nowrap;
 }
 ::selection {
-  background: #365547;
+  background: #264f78;
   color: #fff;
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: #3a4540 transparent;
+  scrollbar-color: #424242 transparent;
 }
 .studio {
   height: 100dvh;
@@ -201,7 +201,7 @@ time {
 }
 .fixture-picker > span {
   color: var(--warning);
-  border: 1px solid #60533a;
+  border: 1px solid #6a5b00;
   border-radius: 2px;
   padding: 3px 5px;
   font: 9px var(--mono);
@@ -386,9 +386,9 @@ summary span {
 }
 .avatar.ai {
   border-radius: 3px;
-  border-color: #456253;
+  border-color: #0e639c;
   color: var(--accent);
-  background: #19241f;
+  background: #1f2f3d;
 }
 .person-row strong {
   display: block;
@@ -572,7 +572,7 @@ summary span {
   padding: 0 20px;
   font-size: 10px;
   color: var(--text-muted);
-  border-bottom: 1px solid #1b2022;
+  border-bottom: 1px solid #252526;
   white-space: nowrap;
 }
 .breadcrumbs > span:first-of-type {
@@ -716,14 +716,14 @@ summary span {
   padding: 0 26px 0 0;
   display: flex;
   white-space: pre;
-  color: #bbc6c2;
+  color: #d4d4d4;
 }
 .line-number {
   width: 47px;
   flex-shrink: 0;
   text-align: right;
   padding-right: 15px;
-  color: #7f8d86;
+  color: #858585;
   font-size: 10px;
   user-select: none;
 }
@@ -732,12 +732,12 @@ summary span {
   flex-shrink: 0;
 }
 .code-line.add {
-  color: #b8d5c3;
-  background: #17271f;
+  color: #89d185;
+  background: #1e3a2b;
 }
 .code-line.remove {
-  color: #d6aaa5;
-  background: #2c1c1c;
+  color: #f48771;
+  background: #3a1d1d;
 }
 .code-line code {
   font: inherit;
@@ -959,7 +959,7 @@ summary span {
   color: var(--accent);
 }
 .ai-turn p {
-  color: #c3d1c9;
+  color: #cccccc;
 }
 .case-notice {
   display: flex;
@@ -1002,7 +1002,7 @@ summary span {
   color: var(--accent);
 }
 .case-notice.review {
-  border-left: 2px solid #8e794d;
+  border-left: 2px solid #cca700;
   padding-left: 10px;
 }
 .case-notice.review strong,
@@ -1101,7 +1101,7 @@ summary span {
   font: 8px var(--mono);
   color: var(--text-muted);
   letter-spacing: 0.3px;
-  border-bottom: 1px solid #1d2325;
+  border-bottom: 1px solid #252526;
 }
 .tool-content {
   flex: 1;
