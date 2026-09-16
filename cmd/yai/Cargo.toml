@@ -8,7 +8,7 @@ name = "yai"
 path = "src/main.rs"
 
 [dependencies]
-replai = { git = "https://github.com/mothx9/replai", rev = "6365f84e12865871bf26ecf0d984b48213d81ebc" }
+replai = { git = "https://github.com/mothx9/replai", rev = "6230713c3c80140e609f836918811835bd847da4" }
 signal-hook = "0.3.18"
 libc = "0.2"
 yai-engine = { path = "../../engine/yai-engine" }

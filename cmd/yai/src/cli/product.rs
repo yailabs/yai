@@ -3,6 +3,9 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
 use yai_core_engine::security::AuthenticatedPrincipal;
 use yai_core_engine::store::lmdb::{LmdbRecordStore, RecordStoreStatusKind};
 
@@ -149,6 +152,19 @@ fn init(invocation: &Invocation) -> Result<CliData, CliError> {
         effective.flags.insert("--organization", vec![organization]);
     }
     let home = yai_home();
+    fs::create_dir_all(&home).map_err(|error| {
+        CliError::domain(
+            "initialization_failed",
+            format!("cannot prepare YAI_HOME: {error}"),
+        )
+    })?;
+    #[cfg(unix)]
+    fs::set_permissions(&home, fs::Permissions::from_mode(0o700)).map_err(|error| {
+        CliError::domain(
+            "initialization_failed",
+            format!("cannot make YAI_HOME private: {error}"),
+        )
+    })?;
     for relative in ["run", "store", "log", "tmp", "cases", "sockets", "config"] {
         fs::create_dir_all(home.join(relative)).map_err(|error| {
             CliError::domain(

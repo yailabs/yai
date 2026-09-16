@@ -1151,8 +1151,8 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "replai"
-version = "0.1.0-dev.0"
-source = "git+https://github.com/mothx9/replai?rev=6365f84e12865871bf26ecf0d984b48213d81ebc#6365f84e12865871bf26ecf0d984b48213d81ebc"
+version = "0.1.0"
+source = "git+https://github.com/mothx9/replai?rev=6230713c3c80140e609f836918811835bd847da4#6230713c3c80140e609f836918811835bd847da4"
 dependencies = [
  "nix",
  "rustix",

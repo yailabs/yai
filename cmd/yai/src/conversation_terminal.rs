@@ -691,6 +691,13 @@ pub(super) fn run(args: &[String]) -> Result<(), String> {
                 .map_err(|e| e.to_string())?
             {
                 Some(Event::Submitted(text)) => break Some(text),
+                // The Direct submission policy (never set_submission_policy) is
+                // the consumer's contract: Enter submits one entire draft with no
+                // host validation. REPLAI therefore never emits this opt-in
+                // revision-bound validation request.
+                Some(Event::SubmissionRequested(_)) => {
+                    unreachable!("Direct submission policy requests no host validation")
+                }
                 Some(Event::Interrupted) => break None,
                 Some(Event::EndOfInput) => return Ok(()),
                 Some(Event::CompletionRequested) => {

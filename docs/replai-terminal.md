@@ -1,7 +1,7 @@
 # Native REPLAI terminal consumer
 
 `yai prompt` uses the native Rust `replai` library at exact revision
-`6365f84e12865871bf26ecf0d984b48213d81ebc` from `mothx9/replai`.
+`6230713c3c80140e609f836918811835bd847da4` from `mothx9/replai`.
 `cmd/yai/Cargo.toml` and its lockfile govern acquisition. There is no adjacent
 checkout requirement, C binding, installed shared-library requirement or
 fallback editor. The obsolete `vendor/linenoise` source has been removed. No vendor tree,
@@ -23,6 +23,15 @@ Enter submits one entire draft. The frontend calls `commit_parts`, reports the
 committed Turn identity, then calls `execute_committed_turn`. Provider failure
 cannot erase the committed user Turn. No edit-by-edit synchronization into a
 Case draft, second conversation state machine or provider policy exists here.
+
+The consumer uses REPLAI's Direct submission policy (it never calls
+`set_submission_policy`): Enter submits one entire draft with no host
+validation. The revision-bound `Event::SubmissionRequested` validation request
+is an opt-in host contract the consumer deliberately does not enable, so REPLAI
+never emits it; the poll loop's `SubmissionRequested` arm is an
+`unreachable!` guard against a future policy drift rather than a hosted
+revision-approval path. This revision pins that contract in
+`cmd/yai/Cargo.toml`/lockfile.
 
 I06 changes only the YAI application consumer: SEND atomically commits Turn and
 execution intent, then the controller invokes the shared cognitive arbitration,
