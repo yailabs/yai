@@ -125,6 +125,9 @@ pub struct SourceRoutingView {
     pub case_id: String,
     pub source_id: String,
     pub revision_id: String,
+    /// Exact captured material identity, deliberately independent of the
+    /// Case-local source relationship identity.
+    pub material_revision_id: String,
     pub items: Vec<(SourceRevisionItem, crate::governance::ContentRouting)>,
 }
 
@@ -153,6 +156,18 @@ impl SourceRevision {
             .collect();
         let revision_id = format!("source-revision:{}", &digest(&(source_id, material))[7..]);
         Ok(Self { revision_id, items })
+    }
+
+    /// Identity of the ordered exact captured material only. This is useful
+    /// for proving physical equality across independently governed Case source
+    /// relationships; it conveys no applicability or authority.
+    pub fn material_revision_id(&self) -> String {
+        let material: Vec<_> = self
+            .items
+            .iter()
+            .map(|item| (&item.path, &item.digest, item.bytes))
+            .collect();
+        format!("source-material-revision:{}", &digest(&material)[7..])
     }
 }
 

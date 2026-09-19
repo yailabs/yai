@@ -28,6 +28,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub const CONTENT_OBJECT_SCHEMA: &str = "yai.conversation_content_object.v1";
+pub const CONTENT_BACKING_SCHEMA: &str = "yai.conversation_content_backing.v1";
 pub const CONTENT_PART_SCHEMA: &str = "yai.conversation_content_part.v1";
 pub const CONTENT_DERIVATION_SCHEMA: &str = "yai.content_derivation.v1";
 pub const CONVERSATION_TURN_SCHEMA: &str = "yai.conversation_turn.v1";
@@ -248,6 +249,77 @@ pub struct ConversationContentObject {
     pub inline_text: Option<String>,
 }
 
+/// Exact immutable payload identity inside one Tenant security domain.
+///
+/// This is a storage identity, not a Case relationship or a capability. A
+/// caller must already hold a qualified Case-owned content object before the
+/// store will resolve these bytes. Equal backing identities therefore permit
+/// physical reuse without transferring applicability, disclosure or authority
+/// between Cases.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub struct ConversationContentBacking {
+    pub schema: String,
+    pub backing_id: String,
+    pub tenant_id: String,
+    pub byte_length: u64,
+    pub content_digest: String,
+}
+
+impl ConversationContentBacking {
+    fn new(tenant_id: &str, byte_length: u64, content_digest: &str) -> Result<Self, String> {
+        validate_scope_id("tenant_id", tenant_id, "tenant:")?;
+        if byte_length == 0 || byte_length > MAX_CONTENT_OBJECT_BYTES {
+            return Err("conversation_content_backing_size_invalid".to_string());
+        }
+        require_digest(content_digest)?;
+        let digest = digest_json(&(
+            CONTENT_BACKING_SCHEMA,
+            tenant_id,
+            byte_length,
+            content_digest,
+        ))?;
+        let value = Self {
+            schema: CONTENT_BACKING_SCHEMA.to_string(),
+            backing_id: format!("content-backing:{}", digest_token(&digest)?),
+            tenant_id: tenant_id.to_string(),
+            byte_length,
+            content_digest: content_digest.to_string(),
+        };
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        validate_scope_id("tenant_id", &self.tenant_id, "tenant:")?;
+        if self.schema != CONTENT_BACKING_SCHEMA
+            || self.byte_length == 0
+            || self.byte_length > MAX_CONTENT_OBJECT_BYTES
+        {
+            return Err("conversation_content_backing_contract_invalid".to_string());
+        }
+        require_digest(&self.content_digest)?;
+        let digest = digest_json(&(
+            CONTENT_BACKING_SCHEMA,
+            &self.tenant_id,
+            self.byte_length,
+            &self.content_digest,
+        ))?;
+        if self.backing_id != format!("content-backing:{}", digest_token(&digest)?) {
+            return Err("conversation_content_backing_identity_mismatch".to_string());
+        }
+        Ok(())
+    }
+
+    fn token(&self) -> Result<&str, String> {
+        let token = self
+            .backing_id
+            .strip_prefix("content-backing:")
+            .ok_or_else(|| "conversation_content_backing_identity_mismatch".to_string())?;
+        validate_safe_component(token)?;
+        Ok(token)
+    }
+}
+
 impl ConversationContentObject {
     pub fn new(
         tenant_id: &str,
@@ -334,6 +406,11 @@ impl ConversationContentObject {
             return Err("conversation_content_object_identity_mismatch".to_string());
         }
         Ok(())
+    }
+
+    pub fn backing(&self) -> Result<ConversationContentBacking, String> {
+        self.validate()?;
+        ConversationContentBacking::new(&self.tenant_id, self.byte_length, &self.content_digest)
     }
 }
 
@@ -1608,6 +1685,7 @@ impl ConversationContentStore {
             .map_err(|error| format!("conversation_content_root_open_failed: {error}"))?;
             validate_owned_directory(&root_directory)?;
             open_child_directory(&root_directory, "objects", true)?;
+            open_child_directory(&root_directory, "backings", true)?;
             open_child_directory(&root_directory, "drafts", true)?;
             Ok(Self { root_directory })
         }
@@ -1758,16 +1836,48 @@ impl ConversationContentStore {
         validate_safe_component(digest)?;
         let objects = open_child_directory(&self.root_directory, "objects", false)?;
         let object_dir = open_child_directory(&objects, digest, false)?;
-        let bytes = read_bounded_at(&object_dir, "payload", object.byte_length as usize)?;
-        if bytes.len() as u64 != object.byte_length || digest_bytes(&bytes) != object.content_digest
-        {
-            return Err("conversation_content_object_integrity_mismatch".to_string());
-        }
         let metadata = read_bounded_at(&object_dir, "object.json", 16 * 1024)?;
         let stored: ConversationContentObject = serde_json::from_slice(&metadata)
             .map_err(|error| format!("conversation_content_object_decode_failed: {error}"))?;
         if &stored != object {
             return Err("conversation_content_object_metadata_mismatch".to_string());
+        }
+        // Historical objects own their payload locally. New objects resolve
+        // through the private immutable backing pool, but there is deliberately
+        // no backing-only read API: the Case-owned object remains required.
+        let bytes = if exists_at(&object_dir, "payload")? {
+            read_bounded_at(&object_dir, "payload", object.byte_length as usize)?
+        } else {
+            self.read_backing(&object.backing()?)?
+        };
+        if bytes.len() as u64 != object.byte_length || digest_bytes(&bytes) != object.content_digest
+        {
+            return Err("conversation_content_object_integrity_mismatch".to_string());
+        }
+        Ok(bytes)
+    }
+
+    fn read_backing(&self, backing: &ConversationContentBacking) -> Result<Vec<u8>, String> {
+        let backings = open_child_directory(&self.root_directory, "backings", false)
+            .map_err(|_| "conversation_content_backing_unavailable".to_string())?;
+        let directory = open_child_directory(&backings, backing.token()?, false)
+            .map_err(|_| "conversation_content_backing_unavailable".to_string())?;
+        let metadata = read_bounded_at(&directory, "backing.json", 8 * 1024)
+            .map_err(|_| "conversation_content_backing_unavailable".to_string())?;
+        let stored: ConversationContentBacking = serde_json::from_slice(&metadata)
+            .map_err(|_| "conversation_content_backing_unavailable".to_string())?;
+        stored
+            .validate()
+            .map_err(|_| "conversation_content_backing_unavailable".to_string())?;
+        if stored != *backing {
+            return Err("conversation_content_backing_metadata_mismatch".to_string());
+        }
+        let bytes = read_bounded_at(&directory, "payload", backing.byte_length as usize)
+            .map_err(|_| "conversation_content_backing_unavailable".to_string())?;
+        if bytes.len() as u64 != backing.byte_length
+            || digest_bytes(&bytes) != backing.content_digest
+        {
+            return Err("conversation_content_backing_integrity_mismatch".to_string());
         }
         Ok(bytes)
     }
@@ -1854,6 +1964,7 @@ impl ConversationContentStore {
         if exists_at(&objects, digest)? {
             return self.verify_object(object);
         }
+        self.publish_backing(&object.backing()?, bytes)?;
         let sequence = CONTENT_TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
         let temp_name = format!(
             "publish-{}-{sequence}-{}",
@@ -1865,7 +1976,6 @@ impl ConversationContentStore {
         }
         let temp = open_child_directory(&objects, &temp_name, true)?;
         let result = (|| {
-            write_new_at(&temp, "payload", bytes, MAX_CONTENT_OBJECT_BYTES as usize)?;
             write_json_create_new_at(&temp, "object.json", object, 16 * 1024)?;
             sync_directory_fd(&temp)?;
             match rename_at(&objects, &temp_name, digest) {
@@ -1881,6 +1991,52 @@ impl ConversationContentStore {
         })();
         if result.is_err() {
             let _ = remove_tree_at(&objects, &temp_name);
+        }
+        result
+    }
+
+    fn publish_backing(
+        &self,
+        backing: &ConversationContentBacking,
+        bytes: &[u8],
+    ) -> Result<(), String> {
+        let backing = backing.clone();
+        backing.validate()?;
+        if bytes.len() as u64 != backing.byte_length
+            || digest_bytes(bytes) != backing.content_digest
+        {
+            return Err("conversation_content_backing_integrity_mismatch".to_string());
+        }
+        let token = backing.token()?;
+        let backings = open_child_directory(&self.root_directory, "backings", false)?;
+        if exists_at(&backings, token)? {
+            self.read_backing(&backing)?;
+            return Ok(());
+        }
+        let sequence = CONTENT_TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let temp_name = format!("publish-{}-{sequence}-{}", std::process::id(), &token[..24]);
+        if exists_at(&backings, &temp_name)? {
+            return Err("conversation_content_backing_publication_collision".to_string());
+        }
+        let temp = open_child_directory(&backings, &temp_name, true)?;
+        let result = (|| {
+            write_new_at(&temp, "payload", bytes, MAX_CONTENT_OBJECT_BYTES as usize)?;
+            write_json_create_new_at(&temp, "backing.json", &backing, 8 * 1024)?;
+            sync_directory_fd(&temp)?;
+            match rename_at(&backings, &temp_name, token) {
+                Ok(()) => {}
+                Err(_error) if exists_at(&backings, token)? => {
+                    remove_tree_at(&backings, &temp_name)?;
+                    self.read_backing(&backing)?;
+                    return Ok(());
+                }
+                Err(error) => return Err(error),
+            }
+            sync_directory_fd(&backings)?;
+            self.read_backing(&backing).map(|_| ())
+        })();
+        if result.is_err() {
+            let _ = remove_tree_at(&backings, &temp_name);
         }
         result
     }
@@ -2988,6 +3144,50 @@ mod tests {
         assert_ne!(a.object_id, case_b.object_id);
         assert_ne!(a.object_id, tenant_b.object_id);
         assert_eq!(a.content_digest, case_b.content_digest);
+        assert_eq!(a.backing().unwrap(), case_b.backing().unwrap());
+        assert_ne!(a.backing().unwrap(), tenant_b.backing().unwrap());
+
+        let home = root("tenant-backing-reuse");
+        let store = ConversationContentStore::open(&home).unwrap();
+        let published_a = store
+            .publish_owned_file_bytes("tenant:a", "case:a", bytes)
+            .unwrap();
+        let published_b = store
+            .publish_owned_file_bytes("tenant:a", "case:b", bytes)
+            .unwrap();
+        let published_other_tenant = store
+            .publish_owned_file_bytes("tenant:b", "case:c", bytes)
+            .unwrap();
+        assert_ne!(published_a.object_id, published_b.object_id);
+        assert_eq!(
+            published_a.backing().unwrap(),
+            published_b.backing().unwrap()
+        );
+        assert_ne!(
+            published_a.backing().unwrap(),
+            published_other_tenant.backing().unwrap()
+        );
+        assert_eq!(
+            fs::read_dir(home.join("conversation-content-v1/objects"))
+                .unwrap()
+                .count(),
+            3,
+            "Case-owned object metadata remains independent"
+        );
+        assert_eq!(
+            fs::read_dir(home.join("conversation-content-v1/backings"))
+                .unwrap()
+                .count(),
+            2,
+            "same-Tenant equal bytes share one immutable backing"
+        );
+        assert_eq!(store.read_bytes(&published_a).unwrap(), bytes);
+        assert_eq!(store.read_bytes(&published_b).unwrap(), bytes);
+        drop(store);
+        let reopened = ConversationContentStore::open_existing(&home).unwrap();
+        assert_eq!(reopened.read_bytes(&published_a).unwrap(), bytes);
+        assert_eq!(reopened.read_bytes(&published_b).unwrap(), bytes);
+        let _ = fs::remove_dir_all(home);
     }
 
     #[test]

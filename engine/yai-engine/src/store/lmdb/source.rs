@@ -74,8 +74,10 @@ impl LmdbRecordStore {
             let routing = crate::governance::route_mixed_document(&bytes, &resolved.declaration.roles)?;
             items.push((item, routing));
         }
-        let mut view = SourceRoutingView { schema: "yai.source_routing.v1".into(), id: String::new(), case_id: case.into(),
-            source_id: resolved.declaration.source_id, revision_id: resolved.revision.revision_id, items };
+        let material_revision_id = resolved.revision.material_revision_id();
+        let mut view = SourceRoutingView { schema: "yai.source_routing.v2".into(), id: String::new(), case_id: case.into(),
+            source_id: resolved.declaration.source_id, revision_id: resolved.revision.revision_id,
+            material_revision_id, items };
         view.id = format!("source-routing:{}", &digest_bytes(&serde_json::to_vec(&(&view, auth.projected_principal_id())).map_err(|e| e.to_string())?)[7..]);
         Ok(view)
     }

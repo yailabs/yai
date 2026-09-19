@@ -478,6 +478,25 @@ object metadata, exact ordered part identity and provenance. A missing or
 corrupt owned object makes inspection/execution fail closed; it cannot inject
 Case truth.
 
+New v1 publications separate Case-owned object metadata under `objects/` from
+Tenant-scoped immutable bytes under `backings/`. Equal bytes in two Cases of the
+same Tenant produce distinct object/admission identities but one
+`ConversationContentBacking v1`; another Tenant gets another backing identity.
+The existing object `storage_ref` remains a logical store resolver and legacy
+object-local payloads remain readable. No public backing-only read exists: the
+store resolves backing bytes only after receiving and validating the exact
+Case-owned object. Backing retention currently has no automatic last-reference
+garbage collection and never determines source roles, disclosure, Recall
+membership or Policy applicability.
+
+Legacy archaeology on `yai-dev` (`refoundation/phase-02`, including attachment
+lifecycle commits `e659f15b5` and `81b356a1c`) recovered the durable invariant
+that object/origin identity and Case attachment/applicability are separate, and
+that detach/revoke does not imply byte deletion. The current target owners are
+`ConversationContentStore` for immutable bytes and the existing
+CaseContentAdmission/source relation for applicability. The historical separate
+object-attachment LMDB plane was deliberately not restored.
+
 Drafts are mutable application state and are Case-namespaced. Previewing a
 draft computes stable identities without publishing objects. SEND first
 publishes/verifies all immutable objects and then commits the Turn transition;

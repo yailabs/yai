@@ -233,14 +233,13 @@ fn source_revision_identity_schema_readers_restart_and_cache_amnesia() {
             .unwrap()
             .revision_id
     );
+    let other = SourceRevision::new("case-source:other", vec![item.clone()]).unwrap();
+    assert_eq!(r1.material_revision_id(), other.material_revision_id());
     let mut changed = item;
     changed.digest = digest_bytes(b"two");
-    assert_ne!(
-        r1.revision_id,
-        SourceRevision::new(&d.source_id, vec![changed])
-            .unwrap()
-            .revision_id
-    );
+    let changed = SourceRevision::new(&d.source_id, vec![changed]).unwrap();
+    assert_ne!(r1.revision_id, changed.revision_id);
+    assert_ne!(r1.material_revision_id(), changed.material_revision_id());
     let history = w.store.list_case_transitions(CASE).unwrap();
     let mut old = history.last().unwrap().clone();
     old.schema = crate::transition::TRANSITION_SCHEMA_V18.into();
@@ -274,7 +273,7 @@ fn source_revision_identity_schema_readers_restart_and_cache_amnesia() {
     );
     assert_eq!(reopened.rebuild_case_state(CASE).unwrap(), state);
     assert!(reopened.verify_case_state(CASE).unwrap());
-    println!("source_identity same_material_same_revision=true distinct_logical_sources=true changed_revision=true previous_schema_forgery=refused restart=true replay=true cache_amnesia=true read_transitions=0");
+    println!("source_identity same_material_same_revision=true distinct_logical_sources=true shared_material_identity=true changed_revision=true previous_schema_forgery=refused restart=true replay=true cache_amnesia=true read_transitions=0");
     drop(reopened);
     fs::remove_dir_all(path).unwrap();
 }

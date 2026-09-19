@@ -618,6 +618,17 @@ claim blocks, supported PDF/JSON/Markdown/SQLite profiles, bounds and missingnes
 multi-source, disagreement, revision, revoke and backing-loss oracle without a
 model. It does not run or declare Human Golden PASS.
 
+`make smoke-cross-case-source-reuse` is the bounded same-Tenant isolation proof.
+It creates Cases A/B/C over byte-identical source material, verifies one immutable
+backing with independent Case objects/source relations, different A/B roles and
+no C visibility, then advances only A to R2 and revokes only A. Search, graph,
+wiki, exact references, Recall, W and ambient refresh must all follow the
+requesting Case; hidden and absent references must remain indistinguishable.
+Revoking the last relation leaves the backing physically retained but
+semantically unavailable: this runbook does not claim garbage collection or
+cross-Tenant reuse. The fixture invokes no provider/model and derived access or
+refresh adds no Transition.
+
 ## Optional forensic inspection and cleanup
 
 Historical semantic inspection is now available without another model call.

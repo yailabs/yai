@@ -824,14 +824,14 @@ fn historical_immutable_content_missingness_never_substitutes_live_resource() {
             .unwrap(),
         before
     );
-    let id = state.admitted_content[0]
-        .object
-        .object_id
-        .strip_prefix("content-object:")
+    let backing = state.admitted_content[0].object.backing().unwrap();
+    let id = backing
+        .backing_id
+        .strip_prefix("content-backing:")
         .unwrap();
     let payload = world
         .path
-        .join("conversation-content-v1/objects")
+        .join("conversation-content-v1/backings")
         .join(id)
         .join("payload");
     fs::rename(

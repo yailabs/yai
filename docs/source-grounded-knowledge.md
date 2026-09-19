@@ -149,11 +149,20 @@ permitted. Source applicability is attached to each document, not inferred from
 the age of its claims. Existing returned values are snapshots, not fresh access
 tokens; each product query resolves current authorization/backing again.
 
-Exact policy originals and their content/profile extraction identity can be
-reused across independently governed Cases. Case-bound source/unit identities,
-Resource links and visibility remain independent. No persistent shared extraction
-cache is introduced; ordinary content's cross-Case lifecycle remains unqualified.
-Matching digest, extraction identity or entity spelling never grants permission.
+Exact policy originals and Tenant-scoped immutable ordinary-content backing may
+be reused across independently governed Cases. Qualification starts from the
+requesting Case source relation before payload resolution, corpus counts or
+candidate discovery. Case-bound source/unit/edge identities, roles, Resource
+links, revisions and visibility remain independent; foreign exact IDs and the
+shared backing ID resolve like absent material. No knowledge view, graph, index,
+Recall trace or persistent extraction cache is shared. Matching digest, material
+revision, extraction identity or entity spelling never grants permission.
+
+Revoking one Case relation removes that Case from search, graph, wiki, exact
+resolution, Recall and subsequent W without deleting another Case's semantics.
+One Case may advance to R2 while another remains on R1; current revision is not a
+global mutable value. Last-reference physical retention grants no semantic
+visibility and is not a qualified garbage-collection lifecycle.
 
 ## Bounds, rebuild and qualification
 
@@ -192,6 +201,11 @@ Transitions. Every invocation starts a fresh process. Knowledge graph/BM25 are
 rebuilt in memory on every call; no persistent M07 cache exists to drop. The
 existing hierarchy is likewise absent-by-design; an unused vector namespace is
 dropped without pretending it was a populated M07 index.
+
+`make smoke-cross-case-source-reuse` is the companion same-Tenant A/B/C product
+oracle for ordinary immutable backing reuse, independent roles/revisions,
+hidden/absent exact-reference attacks, A-only revoke with B continuity, ambient
+consumer isolation, restart/rebuild and retained-but-invisible last backing.
 
 The engine tests independently exercise malformed extraction, source-scope
 refusal, explicit IDs versus similar text, relation counterfactuals, disagreement,

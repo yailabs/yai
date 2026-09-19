@@ -48,6 +48,14 @@ Source-owned acquisition contents/observations are also filtered before H/W20
 discovery: source revocation cannot be bypassed by asking historical Recall.
 Independent operational evidence retains its own historical disclosure contract.
 
+Equal Tenant-scoped backing in another Case never enters this qualified basis.
+The requesting Case relation is resolved before D discovery, corpus counts and
+exact-reference resolution; another Case's source, unit, relation or backing ID
+therefore grants nothing and has the same non-leaking posture as an absent ref.
+Recall traces and W are not reused across Cases merely because material identity
+matches. One Case's revoke or R2 adoption reidentifies only that Case's qualified
+input; another Case may remain authorized on R1.
+
 Default queries discover the applicable revision at the requested cut. Old
 documentary revisions enter only through explicit historical/exact requests;
 opaque old unit IDs require bounded retained-source derivation to resolve.

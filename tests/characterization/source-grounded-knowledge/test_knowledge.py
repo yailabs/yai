@@ -163,7 +163,8 @@ def main(recall_oracle=None):
         # Deliberately remove one exact immutable payload in this disposable
         # fixture while its original file still exists. Recover it afterward.
         handbook=next(s for s in view["sources"] if s["logical_name"]=="handbook")
-        payloads=[p for p in (run/"home/conversation-content-v1/objects").glob("*/payload")
+        payloads=[p for family in ("objects", "backings")
+            for p in (run/f"home/conversation-content-v1/{family}").glob("*/payload")
             if "sha256:"+hashlib.sha256(p.read_bytes()).hexdigest()==handbook["digest"]]
         assert len(payloads)==1
         payload=payloads[0];held=payload.with_name("payload-unavailable")

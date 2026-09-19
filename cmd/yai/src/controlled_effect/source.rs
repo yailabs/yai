@@ -596,14 +596,21 @@ fn inventory(
             && store
                 .case_source_permission(auth, case, &d.source_id, None)
                 .is_ok_and(|d| d.outcome == DecisionOutcome::Allow);
+        let material_revision_id = source.progress.as_ref().and_then(|progress| {
+            progress
+                .revision
+                .as_ref()
+                .map(SourceRevision::material_revision_id)
+        });
         items.push(json!({"name":d.logical_name,"source_id":d.source_id,"perimeter":d.perimeter,"roles":d.roles,
             "resource":d.resource_attachment_id,"action":d.action,"bootstrap_policy":d.bootstrap_policy,"media_type":d.media_type,
-            "phase":phase,"progress":source.progress,"available_under_current_authority":available}));
+            "phase":phase,"progress":source.progress,"material_revision_id":material_revision_id,
+            "available_under_current_authority":available}));
     }
     let status = store.case_policy_status(case)?;
     let complete = !items.is_empty() && items.iter().all(|s| s["phase"] == "acquired");
     Ok(
-        json!({"schema":"yai.source_inventory.v1","case_id":case,"generation":state.generation,
+        json!({"schema":"yai.source_inventory.v2","case_id":case,"generation":state.generation,
         "effective_policy":status,"coverage":{"denominator":"explicit_declared_sources_only_not_company_coverage","declared":items.len(),"counts":counts,
         "acquisition_complete":complete,"knowledge_derivation":"not_performed_by_acquisition"},"sources":items}),
     )
@@ -629,13 +636,15 @@ fn read(
         "binary_posture":if std::str::from_utf8(bytes).is_err() {"exact_binary_backing_not_rendered"} else {"text"}
     })).collect();
     Ok(
-        json!({"case_id":case,"source_id":resolved.declaration.source_id,
-        "revision_id":resolved.revision.revision_id,"items":output,"authority":"current_policy_only"}),
+        json!({"schema":"yai.source_read.v2","case_id":case,"source_id":resolved.declaration.source_id,
+        "revision_id":resolved.revision.revision_id,
+        "material_revision_id":resolved.revision.material_revision_id(),
+        "items":output,"authority":"current_policy_only"}),
     )
 }
 
 pub(crate) fn render(value: &Value) {
-    if value["schema"] == "yai.source_routing.v1" {
+    if value["schema"] == "yai.source_routing.v2" {
         println!(
             "Case source routing — {}\n{}\n{}",
             value["case_id"], value["source_id"], value["revision_id"]

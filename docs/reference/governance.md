@@ -359,7 +359,8 @@ No keywords, filename, rank or model confidence select normative regions.
 
 Source routes are exposed through typed `LmdbRecordStore::case_source_routing_authorized`
 and `case sources routes CASE --source NAME [--revision REVISION] [--json]`.
-`yai.source_routing.v1` binds Case/requester, logical source, exact revision/path/
+`yai.source_routing.v2` binds Case/requester, logical source, exact Case-local
+revision, derived exact material revision, path/
 backing and content-routing identities. The result is disposable; coordinates
 are Markdown line spans or PDF page/extracted-line spans, compatible with policy
 fact locations and knowledge JSON Pointer containers. Content/route/profile
@@ -400,6 +401,13 @@ publication reuse, including historical selectors. It is not PolicyArtifact
 revocation: already-bound authority retains its independent governance lifecycle.
 To revoke that authority use the existing policy revoke/unbind path. A documentary
 route never gains current access by referring to its independently bound policy.
+
+Equal backing may serve independently authorized Cases, but source role and
+content route remain Case-local. A dual-role source in A does not make equal
+material governance-eligible in knowledge-only B, and A's publication/binding
+does not govern B. The material/backing identity is provenance, never an
+authorization input; an unattached Case cannot inspect routes or learn hidden
+source/unit/count identities from it.
 
 Bounds remain explicit: at most 8,192 routing regions and 256 KiB extractor input,
 with the tighter source acquisition envelope (currently 64 KiB) where applicable.

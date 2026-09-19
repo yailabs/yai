@@ -89,7 +89,10 @@ mode does not regain bootstrap authority.
 ## Inventory, revisions and recovery
 
 `case sources inventory CASE` is a readable inventory; add `--json` for exact
-source/revision/backing and Decision references. Counts describe **explicitly
+source/revision/backing and Decision references. Inventory v2 distinguishes the
+Case-local relation `revision_id` from `material_revision_id`, the exact ordered
+path/digest/size identity that may match another Case. The latter is evidence of
+equal captured material only and grants no visibility or authority. Counts describe **explicitly
 declared sources only**, not a percentage of an unknown source environment.
 `discovered` means declared for consideration, not payload acquisition. Acquiring,
 acquired, denied, awaiting-review, inaccessible, needs-processing and revoked
@@ -143,10 +146,20 @@ Dual policy+knowledge setup uses the **same existing PolicySourceArtifact
 original**, with no second byte copy for its knowledge role. Ordinary file bytes
 use the existing immutable ConversationContentStore plus CaseContentAdmission;
 operational metadata uses ResourceObservation. Identical bytes can share the
-existing physical/content identity without collapsing logical provenance.
-Policy originals may be reused across independently authorized Cases. Ordinary
-content objects remain Case-bound; generalized cross-Case content reuse remains
-an unimplemented pressure, not shared memory or shared permission.
+Tenant-scoped `ConversationContentBacking v1` while retaining distinct
+Case-owned content objects/admissions. The Case source declaration/progress owns
+logical provenance, roles, applicability, revision movement and revoke. Neither
+the backing ID nor the material revision ID is a read capability. Policy
+originals may likewise be reused across independently authorized Cases, but
+publication/binding remains Case-owned.
+
+Bounded same-Tenant A/B/C reuse is qualified: A and B may independently attach
+equal captured material with different roles or current revisions while C has no
+relation and observes the same hidden/absent refusal as an unknown source.
+Revoking A removes only A's current source/knowledge/Recall/W eligibility and
+leaves B on its independently selected revision. The immutable backing currently
+remains after the last relation is revoked; no garbage-collection lifecycle or
+cross-Tenant reuse is claimed.
 
 Acquisition does not itself derive documentary claims or entities. The separate
 [source-grounded knowledge](source-grounded-knowledge.md) commands now consume
