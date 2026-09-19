@@ -479,22 +479,26 @@ meaning.
 
 ### Platform
 
-The target Platform provides commands, context keys, keybindings, menus,
-configuration, navigation, semantic theme tokens, lifecycle and local UI state.
+CURRENT: the bounded Platform implementation provides scoped commands, context
+keys, keybindings, menus, in-memory Workbench configuration, navigation,
+semantic theme selection, lifecycle/disposables and explicit host capabilities.
+Registrations belong to a Workbench instance and are disposed on teardown; no
+global extension registry survives tests or hot reload. Persistence, a command
+palette and the broader context-expression language remain OPEN.
 A command such as `studio.go.back` or `studio.terminal.new` is a frontend action
 identity, not a YAI application operation. A command may invoke an admitted YAI
 operation through the application boundary, but its UI identity grants no
 authority.
 
-Context-driven presentation is selected for future implementation. Facts such
-as `case.open`, `case.hasWorkflow`, `selection.kind == review`, `panel.visible`
-or `terminal.focused` allow shared menu/keybinding/action placement without
-spreading feature-specific conditionals through the shell. Context keys remain
+Current typed predicates gate commands, menus and keybindings with keys including
+the data source, native host, Case attachment, active view/panel, selection,
+layout visibility and terminal availability/focus. Broader keys such as exact
+typed review selection grow only with real consumers. Context keys remain
 ephemeral presentation facts; they do not become Case policy.
 
 ### Workbench Kernel
 
-The target Kernel owns stable regions and layout services:
+CURRENT: one Kernel owns stable regions and layout services:
 
 ```text
 Workbench Kernel
@@ -509,7 +513,10 @@ Workbench Kernel
 ```
 
 The Kernel does not know the semantics of Memory, Knowledge, Authority, Work or
-providers. It renders registered internal contributions. Editor inputs let the
+providers. It renders registered internal contributions. One visible Editor
+Group currently owns inputs, active selection, preview reuse, pinning, close and
+previous/next behavior; the model does not preclude later groups, while split
+interaction remains OPEN. Editor inputs let the
 central work surface host files, documents, artifacts, graphs, timelines,
 Settings, provider detail and future Computer surfaces without an ever-growing
 feature type switch. Panel and auxiliary views use the same rule.
@@ -532,8 +539,9 @@ controls from fragmenting the product.
 
 Menu locations are themselves Workbench surfaces: application, editor context,
 tree context, graph node/edge context, Inspector context and terminal context.
-The bounded command/menu foundation already in the desktop shell is a foothold,
-not proof that the generalized registries and context expression system exist.
+The application menu consumes the scoped command and menu services now. The
+other locations are accepted internal locations but remain unpopulated until a
+real contribution needs them.
 
 ### Design foundation ownership
 
@@ -712,9 +720,19 @@ signing and platform distribution are not qualified by an executable build.
 ## Live vs Fixture Mode
 
 ```text
-StudioClient (frontend presentation seam, not a YAI API)
-├── LiveClient    -> versioned local application operations/update invalidation
-└── FixtureClient -> explicit authored development/visual-regression input
+CaseDataSource (frontend presentation seam, not a YAI API)
+├── LiveDataSource    -> LiveClient application operations/update invalidation
+└── FixtureDataSource -> FixtureClient authored development input
+             │
+             ▼
+      one CasePresentation
+             │
+             ▼
+ StudioApplication + WorkbenchKernel
+
+HostServices (independent axis)
+├── desktop-native -> PTY/window controls available
+└── web            -> explicit capability absence
 ```
 
 `LiveClient` maps the bounded `yai.studio.application.v1` result envelope into
@@ -725,7 +743,9 @@ The application projection is intentionally smaller than `CaseState` and does
 not predeclare every future operation. Its in-process transport is not a stable
 public SDK or remote service qualification.
 
-FixtureClient reads authored examples under `tests/fixtures/studio/`. It performs
+FixtureClient reads authored examples under `tests/fixtures/studio/`. A bounded
+adapter maps those authored values into the same frontend Case presentation
+contract consumed by built-in contributions. It performs
 no I/O, timer-driven execution or semantic reconstruction and can be selected
 only when `VITE_STUDIO_MODE=fixture` is set before the build/dev process.
 
@@ -734,20 +754,17 @@ site/README/docs reuse and visual regression remain consumers of the same data.
 They must be plausible, recorded or sanitized with explicit origin, contract
 version and missingness. No fixture is presented as live telemetry or used as a
 silent fallback. In the explicit fixture build,
-`fixture=ordinary|developer|execution` selects exact
-authored state; unknown values show an explicit error. FIXTURE and no-runtime
-posture remain visible. The bare fixture URL opens the authored Start Center;
-`view=new` selects the complete offline composer, optional `focus=sources`
-emphasizes its Sources section, and `snapshot=1|2|3` selects an authored
-generation for one Case. Generation changes reveal coherent fixture timeline,
-graph, work and evidence content; they are not event replay, streaming or runtime
-progress. Static running/review/failure labels are not live telemetry. Terminal
-has no input or host, and no review/send controls simulate authority. A local
-draft is unsubmitted and never persisted or dispatched.
+`fixture=ordinary|developer|execution` selects exact authored data. Fixture data
+posture remains visible. The bare fixture URL opens the authored Start Center
+and the composition action opens the complete offline composer. Static
+running/review/failure labels are not live telemetry. On Tauri desktop the
+normal Terminal contribution owns a real PTY even when Case data is
+fixture-authored; in a browser the same contribution reports that the desktop
+host is required. No review/send controls simulate authority.
 
 Layout sizes, collapse state, perspective, Context Panel mode, graph/timeline
 selection and work-surface tabs are React state. URL query state selects only
-authored Start/Case/composition/snapshot inputs for deterministic rendering.
+authored Start/Case inputs for deterministic rendering.
 Closing/reopening a panel retains its size and current tab/draft within the
 selected fixture.
 Switching scenarios resets material tabs and the draft, while retaining layout;

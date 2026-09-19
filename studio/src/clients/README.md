@@ -1,15 +1,17 @@
-# Frontend presentation seam
+# Frontend Case-data seam
 
-`StudioClient` exposes an authored Start Center catalog, Case-composition sections,
-scenario choices and a workspace presentation to the offline shell.
-`FixtureClient` supplies synthetic values from `tests/fixtures/studio/`. Small
-types describe what the implemented views render, including grouped explorer
-items, temporal events, graph relations and inspector content. They do not copy
-Rust CaseState or declare a YAI API/protocol.
+`CaseDataSource` is the bounded input to the single Studio Workbench.
+`LiveDataSource` maps the qualified local `LiveClient` application projections;
+`FixtureDataSource` maps deterministic authored values supplied by
+`FixtureClient`. Both produce the same small `CasePresentation` types consumed
+by built-in contributions. These types describe only implemented presentation
+needs and neither copy Rust `CaseState` nor declare a YAI wire protocol.
 
-No LiveClient, I/O, execution simulation or silent fallback exists. A future
-live adapter must consume a qualified YAI application contract and may require
-these presentation types to evolve. UI demand does not create backend authority.
+`FixtureClient` retains its authored Start Center catalog, composition sections
+and scenarios under `tests/fixtures/studio/`. It performs no I/O or execution
+simulation and is never a live-failure fallback. Host capabilities are resolved
+separately, so choosing fixture data does not disable native desktop facilities.
+UI demand does not create backend authority.
 
 See [Live vs Fixture Mode](../../../docs/studio.md#live-vs-fixture-mode) and
 the [application boundary](../../../docs/architecture.md#current-applicationclient-seams-and-limit).

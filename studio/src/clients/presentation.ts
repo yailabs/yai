@@ -239,9 +239,9 @@ export interface WorkspacePresentation {
   initial: { tabs: readonly string[]; active: string; bottom: BottomTab };
 }
 
-// A synchronous presentation seam for this offline shell only. Future live
-// mapping must follow a qualified YAI contract; this declares no wire protocol.
-export interface StudioClient {
+// Authored fixture input consumed by FixtureDataSource. This remains a
+// development-data contract and declares no YAI wire protocol or shell owner.
+export interface FixturePresentationClient {
   readonly mode: "fixture";
   catalog(): StartCenterPresentation;
   composition(): readonly CompositionSection[];

@@ -42,12 +42,12 @@ The host and Workbench Kernel programs may progress in parallel where their
 contracts are independent. Later programs may overlap only after their required
 application and Workbench seams exist.
 
-- **CURRENT:** `STUDIO.PRODUCT.ARCHITECTURE.0` freezes product topology and the
-  internal Workbench architecture. It does not implement either target.
-- **NEXT implementation foundations:** S1 Product Host & Lifecycle and S2
-  Workbench Kernel.
-- **NEXT feature program after those footholds:** S4 Memory / Inspector /
-  Navigation.
+- **CURRENT:** `STUDIO.WORKBENCH.KERNEL.0` establishes the bounded S2
+  implementation: one Workbench, internal contributions and independent Case
+  data, host-capability and backend-posture axes.
+- **NEXT implementation foundation:** S1 Product Host & Lifecycle.
+- **NEXT feature program after the host foothold:** S4 Memory / Inspector /
+  Navigation, using the established S2 seams.
 - **HORIZON:** S5 through S12, subject to root ROADMAP selection and interlocks.
 
 ## Earned milestones
@@ -60,6 +60,7 @@ application and Workbench seams exist.
 | UI foundation | Shared tokens and controls, navigation history, preview/pinned tabs and graph primitives. |
 | Bounded live local Case vertical | Authorized Case list/open/summary projections and generation invalidation through `yai-application`; fixtures remain opt-in. |
 | Desktop shell and PTY | Compact desktop chrome, command/menu plumbing and a real transient local PTY on the qualified Linux path. |
+| Workbench Kernel | One shell for live and fixture Case data; scoped Platform services, registered internal views/editors/panels/auxiliary views and host-capability-driven Terminal. |
 
 These are bounded implementation facts. Their maturity remains whatever the
 root ROADMAP says.
@@ -102,20 +103,28 @@ root ROADMAP says.
 
 ## S2 — Workbench Kernel
 
-**Posture:** partial shell seams; kernel implementation open.
+**Posture:** bounded implementation established; broader hardening remains open.
 
 - **Purpose:** make desktop regions and frontend infrastructure stable hosts for
   internally authored YAI contributions.
-- **Established:** activity rail, sidebar, work tabs, context bar, bottom panel,
-  command/menu foothold, navigation history and shared visual primitives.
+- **Established:** one `StudioApplication` and `WorkbenchKernel` for LiveClient
+  and FixtureClient; scoped command, context-key, menu, keybinding,
+  configuration, navigation, theme, lifecycle and host-capability services;
+  registered View Containers/Views, editor inputs and one Editor Group, Panel,
+  Auxiliary Bar and Inspector seam. Terminal is a built-in Panel contribution
+  and desktop availability is independent from the Case data source.
 - **Target properties:** Platform services, registered view containers/views,
   editor inputs/groups, panels, context keys, keybindings, menus, configuration,
   lifecycle and layout services.
 - **Dependencies:** S0 ownership rules and existing UI foundation.
-- **Current gaps:** feature components still compose several regions directly;
-  context keys and generalized editor/view contribution seams are absent.
-- **Completion boundary:** built-in features contribute through stable internal
-  seams while the Kernel remains ignorant of Case feature semantics.
+- **Current gaps:** only one visible Editor Group is exposed; contribution
+  contracts are internal and bounded to current consumers; Settings persistence,
+  split editors, richer typed Inspectors and broader context-menu locations
+  remain open.
+- **Completion boundary:** the selected bounded boundary is earned: built-in
+  features register through internal seams while the Kernel owns regions and
+  remains ignorant of Case feature semantics. Production-complete S2 still
+  requires broader interaction/platform qualification.
 - **Non-goals:** public extension SDK, marketplace or third-party compatibility.
 
 ## S3 — Desktop Shell & Terminal

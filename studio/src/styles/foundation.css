@@ -108,7 +108,7 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .case-switcher { width: min(600px,calc(100vw - 40px)); max-height: 68vh; overflow: auto; padding: 6px; border-radius: var(--radius-floating); background: var(--yai-floating); box-shadow: 0 28px 90px rgba(0,0,0,.65); }
 .case-switcher > .ui-search { width: calc(100% - 16px); margin: 4px 8px 10px; }
 
-.live-case-shell { min-width: 0; min-height: 0; display: grid; grid-template-rows: 34px 1fr; overflow: hidden; animation: case-enter .16s ease-out; }
+.live-case-shell { min-width: 0; min-height: 0; display: grid; grid-template-rows: 34px minmax(0,1fr) 22px; overflow: hidden; animation: case-enter .16s ease-out; }
 @keyframes case-enter { from { opacity: .7; transform: scale(.997); } to { opacity: 1; transform: scale(1); } }
 .case-titlebar { position: relative; z-index: 30; min-width: 0; display: grid; grid-template-columns: auto minmax(260px, 1fr) auto; align-items: center; padding: 0; background: #0b0c0e; box-shadow: inset 0 -1px var(--yai-divider); user-select: none; }
 .desktop-menu { min-width: 0; display: flex; align-items: center; height: 100%; }
@@ -122,6 +122,7 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .desktop-menu-popover button:disabled { color: var(--yai-text-muted); }
 .desktop-menu-popover kbd { color: var(--yai-text-muted); font-size: 11px; font-weight: 400; }
 .desktop-menu-popover hr { height: 1px; margin: 5px 3px; border: 0; background: var(--yai-divider); }
+.registered-menu-item { display: contents; }
 .titlebar-menu, .titlebar-center, .titlebar-layout { min-width: 0; display: flex; align-items: center; gap: 2px; }
 .titlebar-menu { position: relative; }
 .titlebar-menu > strong { margin: 0 8px 0 3px; font-size: 13px; letter-spacing: .06em; }
@@ -294,6 +295,14 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .tool-pane { width: 100%; height: 100%; min-height: 0; overflow: auto; }
 .tool-pane.padded { padding: 12px 16px; }
 .tool-content pre { margin: 0; color: var(--yai-text-secondary); font-size: 12px; line-height: 1.6; }
+.kernel-status { height: 22px; display: flex; align-items: center; gap: 14px; padding: 0 9px; background: #0b0c0e; color: var(--yai-text-muted); font-size: 11px; box-shadow: inset 0 1px var(--yai-divider); }
+.kernel-status span:first-child { color: var(--yai-text-secondary); }
+.fixture-material .material-document > h2 { margin: 0 0 12px; color: var(--yai-text); font-size: 22px; }
+.fixture-material .material-document > p,
+.fixture-material .material-document section p,
+.fixture-material .material-document li { color: var(--yai-text-secondary); font-size: 13px; line-height: 1.65; }
+.fixture-material .material-document section { margin-top: 24px; }
+.fixture-material .material-document section h3 { margin: 0 0 8px; color: var(--yai-text); font-size: 15px; }
 .terminal-unavailable { height: 100%; display: grid; align-content: center; justify-items: center; gap: 6px; text-align: center; }
 .terminal-unavailable strong { font-size: 13px; }.terminal-unavailable p { margin: 0; color: var(--yai-text-muted); font-size: 12px; }
 .terminal-surface { height: 100%; min-height: 0; display: flex; flex-direction: column; background: #0d0f12; }

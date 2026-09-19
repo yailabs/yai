@@ -19,6 +19,12 @@ PTY. The browser surface explicitly reports that the desktop host is required
 and never fakes a shell. Conversation is read-only because SEND is outside this
 vertical.
 
+Live and fixture data use the same `StudioApplication`, Workbench Kernel,
+registered built-in contributions and editor/panel/navigation owners. Selecting
+fixture data changes only the Case presentation source. Native desktop
+capabilities are detected independently, so fixture mode inside Tauri still has
+the real integrated PTY while fixture mode in a browser does not.
+
 ## Run the live desktop
 
 From `studio/`, with Node 22.12+, npm, Rust and the
@@ -127,10 +133,16 @@ Fixtures survive only as an opt-in development and visual-regression mode:
 npm run dev:fixture
 ```
 
-In that process, the existing deterministic routes remain available:
-`?fixture=ordinary`, `?fixture=developer`, `?fixture=execution&snapshot=1..3`
-and `?view=new`. They are visibly marked `FIXTURE`; there is no automatic switch
+In that process, the deterministic routes remain available:
+`?fixture=ordinary`, `?fixture=developer` and `?fixture=execution`.
+They are visibly marked as fixture Case data; there is no automatic switch
 from live to fixture mode.
+
+Run fixture data in the native host, including the real PTY, with:
+
+```sh
+VITE_STUDIO_MODE=fixture npm run desktop:dev
+```
 
 The permanent UI primitives have a development-only gallery at `?gallery=1`.
 It covers typography, surfaces, controls, rows, statuses, empty states and focus
@@ -141,6 +153,7 @@ states. Production builds do not expose the gallery route.
 ```sh
 npm ci
 npm run typecheck
+npm run test:kernel
 npm run build
 npm run desktop:build -- -- --locked
 ```
@@ -160,10 +173,17 @@ SHA. See the cumulative [operator runbook](../docs/zero-to-current.md).
 
 - `application/yai-application/`: typed, authorized application projections;
   no persistence or Case semantic ownership.
-- `src/clients/live.ts`: LiveClient and small presentation types.
-- `src/live/`: live workbench, reusable graphs and development gallery.
+- `src/platform/`: scoped commands, context, menus, keybindings, configuration,
+  navigation, theme, lifecycle and host-capability services.
+- `src/workbench/`: the single Kernel, region registries and Editor Group/input
+  ownership.
+- `src/contrib/`: statically authored YAI views, editors, auxiliary views and
+  panel contributions.
+- `src/clients/live.ts`: bounded LiveClient transport and application views;
+  `src/clients/dataSource.ts` owns the common presentation seam and adapters.
+- `src/live/`: reusable graph viewport and development gallery only.
 - `src/terminal/`: xterm rendering and desktop-only terminal lifecycle UI.
-- `src/clients/fixture.ts`, `src/start/`, `src/workbench/`: explicit fixture mode.
+- `src/clients/fixture.ts` and `src/start/`: explicit fixture data and bootstrap.
 - `src/components/` and `src/styles/`: shared controls, icons and visual tokens.
 - `src-tauri/`: local invocation/event adapter, narrow PTY host and desktop lifecycle.
 

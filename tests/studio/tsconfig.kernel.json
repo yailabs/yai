@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "rootDir": "../..",
+    "outDir": "../../build/studio-kernel-test",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "verbatimModuleSyntax": false,
+    "noEmit": false
+  },
+  "include": [
+    "../../studio/src/platform/lifecycle.ts",
+    "../../studio/src/platform/context.ts",
+    "../../studio/src/platform/commands.ts",
+    "../../studio/src/platform/menus.ts",
+    "../../studio/src/platform/keybindings.ts",
+    "../../studio/src/platform/configuration.ts",
+    "../../studio/src/platform/navigation.ts",
+    "../../studio/src/platform/theme.ts",
+    "../../studio/src/workbench/editor/model.ts",
+    "../../studio/src/workbench/kernel/registry.ts"
+  ]
+}

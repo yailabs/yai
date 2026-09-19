@@ -4,9 +4,9 @@ import {
   informationByScenario,
   startCenter,
 } from "../../../tests/fixtures/studio/information";
-import type { ScenarioId, StudioClient } from "./presentation";
+import type { FixturePresentationClient, ScenarioId } from "./presentation";
 
-export class FixtureClient implements StudioClient {
+export class FixtureClient implements FixturePresentationClient {
   readonly mode = "fixture" as const;
   catalog() {
     return startCenter;

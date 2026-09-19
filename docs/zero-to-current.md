@@ -39,6 +39,9 @@ populate Studio through frontend fixtures.
    bottom tools between its bounds, maximize/restore it and resize the window;
    it must retain a usable central work surface. Mouse/browser Back must not
    reopen Start Center after attachment.
+   Repeat the same navigation once with `VITE_STUDIO_MODE=fixture` in Tauri:
+   Activity Bar, Sidebar, Editor Group, Panel and Auxiliary Bar must be the same
+   Workbench owners; only the Case data posture changes.
 6. In the desktop Terminal tool, create two terminals and confirm selection,
    input/output, ANSI, Unicode, scrollback and copy/paste. Resize the bottom,
    Explorer and Context panels and verify `stty size` changes. Exercise `vim`
@@ -75,7 +78,7 @@ the Golden runtime below and cannot supply a human live-provider verdict.
 From `studio/`, run `npm ci` and `npm run dev:fixture`. Open the bare local URL
 for the Start Center. Use its recent Cases and New Case actions, then open
 `?fixture=ordinary`, `?fixture=developer` and `?fixture=execution`, or use the
-application `File` menu in either shell. All content is explicitly fixture.
+application Case switcher. All content is explicitly fixture.
 
 1. Confirm the Start Center presents several Cases and Case-first entry actions,
    without becoming a filesystem opener or KPI dashboard. Enter the New Case
@@ -86,19 +89,22 @@ application `File` menu in either shell. All content is explicitly fixture.
    product. Navigate Overview, Environment, Knowledge, Memory, Authority, Work
    and Compute. Use mouse/browser Back and confirm that it does not reopen the
    Start Center after the window has entered a Case.
-3. In Memory, switch Timeline/Graph and step fixture generations. Confirm that
-   authored events, relations, work and evidence change coherently without timer,
-   streaming or live-runtime claims. Inspect policy/review and provider posture.
+3. In Memory, switch Timeline/Graph. Confirm that authored events, relations,
+   work and evidence remain deterministic without timer, streaming or
+   live-runtime claims. Inspect policy/review and provider posture.
 4. Switch Conversation, Inspector and Activity in the Context Panel. Open a
    source, switch/close/reopen material tabs, inspect the illustrative diff and
    static work/review states. No decision is submitted.
 5. Resize Explorer, Context Panel and bottom tools. Collapse/reopen panels; verify
    local size/tab preservation. Try Ctrl/Command+J, Ctrl/Command+B and
    Ctrl/Command+Shift+B, plus keyboard focus and splitter arrow/Home/End keys.
-6. Type a local draft, collapse/reopen the Context Panel and confirm it remains.
-   It is never sent or saved; scenario switching/reload resets it.
-7. Inspect Terminal, Output, Executions, Evidence and Problems. Terminal must
-   report no host and accept no command. Review controls must not approve work.
+6. Confirm Conversation is read-only and no control fake-sends or persists a
+   Turn. Scenario switching/reload resets all transient selection state.
+7. Inspect Terminal, Output, Executions, Evidence and Problems. In the browser,
+   Terminal must report that the desktop host is required and accept no command.
+   Repeat fixture mode in Tauri and confirm the same Terminal contribution owns
+   a real PTY; Case data selection must not control native capability. Review
+   controls must not approve work.
 8. Review the Start Center, Case composer and all seven perspectives at 1440×900,
    plus 1280×800, 1728×1117 and 1920×1080 samples. Use the
    [browser harness](test-cases.md#studio-bootstrap-isolation) for repeatable
