@@ -216,7 +216,7 @@ cross-model latent portability are not implemented.
 
 | Surface | What runs today |
 |---|---|
-| **YAI Studio** | Native/browser Case Workbench development preview with real navigation, tabs, layout and local drafts over authored offline fixtures. No live Case backend, provider execution or resource access. |
+| **YAI Studio** | Native Tauri Case Workbench with bounded in-process live local Case consumption through `yai-application`, real owner-backed projections, generation invalidation and a transient desktop PTY. Browser mode supports explicit fixtures but cannot host live YAI. No resident Local Host, remote transport, mutation-complete API or YVEX management is qualified. |
 | **REPLAI Case workbench** | Native terminal interaction for real Cases: guided setup, conversations, capability work, review, Workflow and exact inspection. REPLAI owns reusable editor/terminal mechanics; YAI owns semantics. |
 | **`./yai` CLI** | Administration, automation and exact source, policy, resource, history and semantic-state inspection. The CLI is a frontend, not the application API itself. |
 | **Typed application boundary** | Existing Rust/controller operations beneath presentation. Not a complete stable public SDK or generated interface package. |
@@ -224,6 +224,7 @@ cross-model latent portability are not implemented.
 Studio and the native CLI belong in this repository. A future generic interfaces
 toolchain is not their runtime dependency.
 [Studio preview and build](studio/README.md) ·
+[Studio product architecture](docs/studio.md#yai-product-topology) ·
 [REPLAI integration](docs/replai-terminal.md) ·
 [Application/client boundary](docs/architecture.md).
 

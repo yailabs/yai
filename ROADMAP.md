@@ -668,11 +668,11 @@ general events and mutation qualification remain open; Mobile and remote
 clients are future consumers, not new semantic owners. No third Studio repository is required.
 Extracting Studio later requires a genuinely independent lifecycle, release
 cadence, ownership or distribution need. A Git branch is not its architectural
-boundary: Studio is a future application/component of the YAI repository.
+boundary: Studio is a current application/component of the YAI repository.
 
 | Repository/component | Target ownership | Explicit non-ownership |
 |---|---|---|
-| YAI | Semantic/core implementation; one typed application boundary; handwritten native product CLI and future native Studio | No delegation of Case/Policy/Recall/source/Workflow/effect meaning to a frontend or generator |
+| YAI | Semantic/core implementation; one typed application boundary; handwritten native product CLI and native Studio | No delegation of Case/Policy/Recall/source/Workflow/effect meaning to a frontend or generator |
 | Interfaces (`yailabs/interfaces`; inspected checkout) | Generic interface compilation, normalized interface representation, SDK/client generation, protocol projections, transport adapters, reference CLI, documentation, conformance, compatibility analysis and generic runtime workbench | Not YAI's GUI repository, application semantic owner or mandatory middleware process; future name/identity remains its owner's decision |
 | REPLAI | Reusable terminal/editor mechanics for the native CLI and potentially Studio terminal/editor panes | No Case semantics, application API, SDK/protocol contract or interface compiler |
 | YVEX | Exact computational/model runtime realization and its qualified public capability/lifecycle | No YAI application, Case, Policy, Recall or UI semantics |
@@ -820,11 +820,13 @@ and conversation SEND remain backend/application gaps. The integrated PTY is
 desktop-local terminal mechanics and does not close those gaps. Core/CLI build and operation
 do not depend on Studio or Node/Tauri.
 
-The selected Studio milestone is `STUDIO.DESKTOP.SHELL.PTY.0`; its subordinate
-progression and Backend Sync rule live in [studio/ROADMAP.md](studio/ROADMAP.md).
-`STUDIO.MEMORY.INSPECTOR.0` is next there. `STUDIO.YVEX.CONTROL.0` remains a
-future first-party management surface and must preserve the generic provider
-inference plane; no provider-brand branch belongs in cognitive execution.
+Studio product topology and its internal Workbench architecture are now selected
+in [docs/studio.md](docs/studio.md), without implementation or maturity
+promotion. The subordinate [Studio roadmap](studio/ROADMAP.md) records S0–S12:
+resident Local Host and Workbench Kernel are the next implementation foundations,
+followed by Memory/Inspector/Navigation. `STUDIO.YVEX.CONTROL` remains a future
+first-party management program and must preserve the generic provider inference
+plane; no provider-brand branch belongs in cognitive execution.
 
 ## Cognitive State Spectrum
 

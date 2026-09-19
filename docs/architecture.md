@@ -223,6 +223,25 @@ no arbitrary command specification from Case data, supplies no application
 result, parses no CLI output and owns no Case, Workflow, effect or authority
 meaning. Browser mode has no PTY.
 
+### Current process topology and resident-host gap
+
+At current HEAD there is no resident YAI Local Host. Studio embeds
+`LocalApplication` in its own Tauri process. The native CLI runs its application
+and controller adapters in the `yai` command process. `yai runtime serve` can
+run the bounded tenant-fair multi-Case `RuntimeInstance`, but that scheduler is
+not a complete application service or general client endpoint. `yaid` is the
+separate narrow C daemon described above; it is not a host for
+`yai-application`.
+
+Consequently, starting Studio does not discover or start a shared resident YAI
+process, multiple Studio windows do not share one application-service process,
+and closing Studio tears down its in-process application adapter and transient
+PTY children. The durable Case remains owned by YAI persistence and is not
+closed by that process exit. The selected resident-host and Workbench targets
+belong to the [Studio product architecture](studio.md#yai-product-topology) and
+[Studio roadmap](../studio/ROADMAP.md); they are not executable claims in this
+current-architecture document.
+
 ## Demonstrated product verticals
 
 “Complete” means that the bounded path has an entrypoint, consequence or

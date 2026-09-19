@@ -29,6 +29,145 @@ Fixtures remain an explicit development mode only. This vertical does not
 establish remote, general multi-client or complete application-API qualification;
 ROADMAP owns its exact maturity.
 
+## YAI Product Topology
+
+### CURRENT — bounded in-process desktop vertical
+
+Today the Tauri process constructs `application/yai-application` in-process.
+That bounded application facade authenticates the local operating-system
+principal and supplies Case list/open/summary projections plus generation
+invalidation. Studio does not start a resident YAI application service. Closing
+the desktop process ends this adapter and its transient PTYs, while the durable
+Case remains unchanged. The native CLI still reaches several owners through
+CLI/store-coupled adapters. The current C `yaid` process is a separate narrow
+daemon for status/info/shutdown and compatibility behavior; it is not the
+complete application host.
+
+### TARGET — one YAI product, many client surfaces
+
+YAI is one product with a resident local application host and multiple client
+surfaces:
+
+```text
+YAI PRODUCT
+
+├── YAI Local Host
+│   ├── Application Service
+│   ├── RuntimeInstance / scheduling
+│   ├── Update / Event Service
+│   ├── Client Attachment Service
+│   └── Host / system lifecycle and telemetry
+│
+└── Client Surfaces
+    ├── YAI Studio
+    ├── CLI
+    ├── future structured external clients
+    └── future remote / Mobile clients
+```
+
+The adopted target is normally one resident YAI Local Host for each explicit
+`YAI_HOME` / local profile. It serves many Cases and many clients. Studio is the
+primary first-party desktop client; it is not a frontend that owns or embeds a
+second backend. Headless CLI/API clients attach to the same application meaning.
+Launching Studio should discover an existing host or start it, wait for declared
+readiness, and attach. Users must not need to start a daemon or configure a
+socket manually for the ordinary desktop path.
+
+```text
+close Studio
+    != stop YAI Local Host
+    != close a Case
+    != cancel background work
+```
+
+This is selected product architecture, not current executable behavior.
+
+### Target process cardinality
+
+| Entity | Target cardinality |
+|---|---:|
+| YAI Local Host | normally 1 per `YAI_HOME` |
+| RuntimeInstance | normally 1 per Local Host |
+| Cases | N |
+| Studio windows | N |
+| CLI clients | N |
+| external clients | N |
+| client attachments | N |
+| Threads | N |
+| Work / executions | N |
+| provider runtimes | independently managed |
+
+Multiple Studio windows attach to one host. Window A and Window C may observe
+the same Case while Window B observes another; CLI and external clients may be
+attached concurrently. Each window owns only tabs, layout, local navigation,
+graph positions, scroll, selected material and transient drafts. YAI continues
+to own Cases, Participants, history, knowledge, authority, Workflow, Resources,
+provider posture and executions.
+
+Different explicit environments such as `~/.yai`, `~/company/.yai` and
+`~/research/.yai` may each have an isolated Local Host. No global cross-profile
+authority owner is introduced. The consumer default is one environment;
+advanced/operator use may select more than one explicitly.
+
+### RuntimeInstance and `yaid`
+
+CURRENT: `cmd/yai/src/runtime_instance.rs` is a bounded, tenant-fair,
+single-host multi-Case scheduler with its own serve/status/shutdown lifecycle.
+It advances admitted work but owns neither Case history nor Case semantics.
+`cmd/yaid` remains a limited C daemon with narrow status/info/shutdown,
+fixture-loop and compatibility journal/projection behavior.
+
+TARGET: the resident Rust-owned Local Host progressively supervises normally
+one RuntimeInstance alongside the application and update services. This
+placement does not make RuntimeInstance the Case owner. The host target is
+Rust-owned because the current application composition, runtime scheduler and
+Case owners are Rust; this does not authorize a second C/Rust lifecycle owner.
+
+OPEN: the implementation must characterize remaining `yaid` consumers and
+compatibility obligations before any drain. Current `yaid` is not promoted or
+renamed into the product host, and this specification does not remove it.
+
+### Lifecycle, autostart and host telemetry targets
+
+The implementation program may finalize names, but the intended headless
+lifecycle surface is:
+
+```text
+yai host status
+yai host start
+yai host stop
+yai host restart
+yai host logs
+yai host serve       # low-level foreground/service entrypoint
+```
+
+These commands manage the host process, never Case lifecycle. Desktop settings
+will eventually offer `Start YAI automatically` using qualified user-level
+platform mechanisms such as a Linux user service, macOS LaunchAgent or Windows
+user startup/service mechanism. Studio must still be able to start the host when
+it is absent.
+
+The future singleton `Settings > YAI Host` surface displays only authoritative
+facts: status, PID, uptime, version/build, `YAI_HOME`, protocol, transport,
+authenticated principal, RuntimeInstance workers/work/queues, visible Cases,
+attached clients, RSS/CPU/threads, heartbeat, last error and restart count where
+the host actually exposes them. Host telemetry is operational process state, not
+Case state, and unavailable values remain unavailable.
+
+Provider processes have an independent lifecycle. Starting YAI does not load a
+model, allocate a GPU, launch YVEX or start llama.cpp/vLLM. Cloud and local
+providers remain selected capabilities with their own availability. Future YVEX
+supervision belongs to its native management plane, not generic host readiness.
+
+### OPEN implementation boundaries
+
+The resident host still requires a versioned local transport, discovery,
+authentication, readiness, reconnect/resync, update ordering, attachment
+lifecycle, telemetry, packaging/autostart, CLI convergence and multi-client
+qualification. None is implied by the present in-process bridge. No LAN listener,
+remote serving, mutation-complete API or provider supervision is selected by
+this document alone.
+
 ## Architectural Invariants
 
 ```text
@@ -144,6 +283,15 @@ its transport adapter. Reuse is semantic only: no historical runtime plane,
 session store, registry, C/Rust duplicate owner or SDK ontology is imported.
 Current controller restart tests already derive Threads from committed Turns;
 that stronger executable continuity contract is preserved unchanged.
+
+For the resident-host target, the same archaeology recovers four more bounded
+properties: same-machine-only endpoints, a private endpoint root and `0600`
+socket posture, explicit discovery source/status, and handshake/version mismatch
+as a first-class refusal. The historical listener removed only a stale socket it
+owned and cleaned its socket/discovery paths on failure and stop. These belong
+to future transport qualification. Its dev-only single-client probe dispatcher,
+old operation vocabulary and C runtime ownership are rejected because they do
+not cover current Case/application semantics or multi-client lifecycle.
 
 ## Multi-client Continuity
 
@@ -309,6 +457,132 @@ permission. Simpler presentation must not hide indeterminate delivery, stale
 data, required consent or missing evidence. There are no separate semantic
 products or parallel simple/advanced state models.
 
+## Studio Workbench Architecture
+
+### Selected structure
+
+React, TypeScript, Vite and Tauri remain the renderer and desktop-host
+technologies. The adopted product architecture above them is:
+
+```text
+YAI Studio
+├── Platform
+├── Workbench Kernel
+├── YAI Built-in Contributions
+└── Desktop Host
+```
+
+The Platform and Kernel own frontend mechanics and local UI state. Built-in
+contributions present typed YAI application facts. The Desktop Host owns the
+window and narrow native integrations such as PTY lifecycle. None owns Case
+meaning.
+
+### Platform
+
+The target Platform provides commands, context keys, keybindings, menus,
+configuration, navigation, semantic theme tokens, lifecycle and local UI state.
+A command such as `studio.go.back` or `studio.terminal.new` is a frontend action
+identity, not a YAI application operation. A command may invoke an admitted YAI
+operation through the application boundary, but its UI identity grants no
+authority.
+
+Context-driven presentation is selected for future implementation. Facts such
+as `case.open`, `case.hasWorkflow`, `selection.kind == review`, `panel.visible`
+or `terminal.focused` allow shared menu/keybinding/action placement without
+spreading feature-specific conditionals through the shell. Context keys remain
+ephemeral presentation facts; they do not become Case policy.
+
+### Workbench Kernel
+
+The target Kernel owns stable regions and layout services:
+
+```text
+Workbench Kernel
+├── Activity Bar and registered View Containers
+├── Sidebar and Views
+├── Editor Groups, Editor Inputs and Tabs
+├── Bottom Panel
+├── Auxiliary / Context Bar
+├── Inspector Host
+├── Status / desktop chrome
+└── layout services
+```
+
+The Kernel does not know the semantics of Memory, Knowledge, Authority, Work or
+providers. It renders registered internal contributions. Editor inputs let the
+central work surface host files, documents, artifacts, graphs, timelines,
+Settings, provider detail and future Computer surfaces without an ever-growing
+feature type switch. Panel and auxiliary views use the same rule.
+
+### Internal built-in contributions
+
+Overview, Participants, Environment, Knowledge, Memory, Authority, Work,
+Compute, Conversation, Terminal, Settings and future YVEX management are
+YaiLabs-authored built-in contributions. A contribution may register commands,
+context keys, menu placements, view containers/views, editor inputs, inspectors,
+settings and justified status items. It does not modify Workbench regions
+directly.
+
+Studio is contribution-driven internally, not an externally extensible plugin
+platform. No third-party SDK, public plugin API, extension host, marketplace or
+compatibility guarantee is selected. The internal model still matters because
+it isolates features from layout, centralizes commands/menus/keyboard behavior,
+keeps generated code and coding-agent work on stable seams, and prevents ad hoc
+controls from fragmenting the product.
+
+Menu locations are themselves Workbench surfaces: application, editor context,
+tree context, graph node/edge context, Inspector context and terminal context.
+The bounded command/menu foundation already in the desktop shell is a foothold,
+not proof that the generalized registries and context expression system exist.
+
+### Design foundation ownership
+
+The Workbench owns fonts, semantic typography, spacing, row heights, icon
+optical size, focus states, tooltips, tabs, borders, radius and semantic colors.
+Contributions use shared tokens and primitives rather than defining local visual
+systems. This is a product constraint, not a theme preference.
+
+### Inspector, navigation and traversability
+
+Inspector is a navigation surface, not a generic property dump. Typed
+inspectors for Participants, Sources, Resources, Artifacts, Claims, Events,
+Episodes, Reviews, Decisions, Workflows, Executions and Providers progressively
+expose readable identity, summary, relations, provenance, authority, technical
+detail and admitted actions. Technical IDs remain available but do not dominate
+the first-level experience.
+
+The product invariant is: **no dead objects; no dead edges.** Every meaningful
+object shown in Studio must be selectable, inspectable and resolvable, and open
+where that action has meaning. Every meaningful relation must explain its kind,
+expose provenance/backing and navigate to both endpoints. Inspector is the
+bridge; it need not be the final destination. Local Back/Forward preserves these
+transitions without modifying Case history.
+
+Settings is one editor surface with internal navigation and history. Its target
+sections are General, Appearance, YAI Host, Workbench, Terminal, Providers,
+YVEX, Security and Advanced. Opening a section does not create another Settings
+tab.
+
+### Graph and temporal infrastructure
+
+Knowledge, Experience/Memory, Authority and Workflow graphs share canvas
+mechanics such as pan/zoom, selection, filters, navigation and Inspector
+integration. They do not necessarily share vocabulary, clustering, layout or
+edge semantics. Each graph is a derived application projection, never canonical
+truth or an independent frontend store.
+
+Memory's target temporal view is a horizontal canvas able to present lanes,
+branches, overlapping activity, generation markers, event selection and links
+to graph/Inspector. Chronology never implies causality. Timeline, Graph,
+Inspector and Work Surface are coordinated ways to traverse the same Case:
+
+```text
+Timeline ↔ Graph ↔ Inspector ↔ Work Surface
+```
+
+Transitions between them require a typed relation; visual proximity alone does
+not create one.
+
 ## Case Workbench Surfaces
 
 Every row describes the product target; only the bounded fields named in the
@@ -427,7 +701,7 @@ bindings; Activity Bar items select view containers; the primary sidebar,
 editor/work tabs, auxiliary context panel, bottom panel and desktop chrome have
 stable responsibilities; and visual roles use shared semantic tokens. This is
 frontend-local contribution plumbing, not a YAI operation registry and not a
-plugin host. A future extension system may contribute through these seams
+plugin host. Future YaiLabs-authored built-in contributions use these seams
 without receiving Case authority or depending on component-private styling.
 
 The bootstrap follows the official [Vite guide](https://vite.dev/guide/) and
@@ -444,8 +718,8 @@ StudioClient (frontend presentation seam, not a YAI API)
 ```
 
 `LiveClient` maps the bounded `yai.studio.application.v1` result envelope into
-small presentation types. Normal mode requires the Tauri-local host; absent host,
-authentication failure and unsupported projections remain explicit result
+small presentation types. Normal mode currently requires the Tauri-local
+adapter; an absent adapter, authentication failure and unsupported projections remain explicit result
 states. It never knows LMDB layout, CLI syntax or private Rust domain structs.
 The application projection is intentionally smaller than `CaseState` and does
 not predeclare every future operation. Its in-process transport is not a stable

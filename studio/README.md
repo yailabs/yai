@@ -55,6 +55,13 @@ start `yai start`, a daemon, a provider or YVEX. Those runtime services retain
 their own configured lifecycle; the integrated PTY is likewise an independent
 user shell.
 
+This is the **current** executable topology. The selected product target is a
+resident YAI Local Host, normally one per `YAI_HOME`, shared by Studio, CLI and
+future structured clients. Host discovery/startup, lifecycle commands,
+autostart, shared attachments and host telemetry remain unimplemented; see the
+[product topology](../docs/studio.md#yai-product-topology) and
+[S1 program](ROADMAP.md#s1--product-host--lifecycle).
+
 The Start Center lists authorized local Cases using `case.list`. Opening one
 uses `case.open`, which requires a real principal-to-Participant link and returns
 an ephemeral attachment. `case.summary` composes presentation views from current
