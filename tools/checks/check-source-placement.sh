@@ -39,11 +39,12 @@ if [ -e "$ROOT/lib" ]; then
 fi
 
 # Studio dependencies/build output are isolated generated trees, not core source.
-# Allow only the desktop entrypoint tree and build script as additional Rust.
-bad_rs=$(find "$ROOT" \( -path "$ROOT/studio/node_modules" -o -path "$ROOT/studio/src-tauri/target" -o -path "$ROOT/studio/src-tauri/gen" \) -prune -o -name '*.rs' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/engine/*" ! -path "$ROOT/cmd/yai/*" ! -path "$ROOT/studio/src-tauri/src/*" ! -path "$ROOT/studio/src-tauri/build.rs" -print)
+# Allow the YAI application boundary and only the desktop entrypoint/build script
+# as additional Rust source.
+bad_rs=$(find "$ROOT" \( -path "$ROOT/studio/node_modules" -o -path "$ROOT/studio/src-tauri/target" -o -path "$ROOT/studio/src-tauri/gen" \) -prune -o -name '*.rs' ! -path "$ROOT/.venv/*" ! -path "$ROOT/build/*" ! -path "$ROOT/target/*" ! -path "$ROOT/engine/*" ! -path "$ROOT/cmd/yai/*" ! -path "$ROOT/application/*" ! -path "$ROOT/studio/src-tauri/src/*" ! -path "$ROOT/studio/src-tauri/build.rs" -print)
 if [ -n "$bad_rs" ]; then
   printf '%s\n' "$bad_rs" >&2
-  printf 'Rust files are only allowed under engine/, cmd/yai/, or the Studio desktop shell\n' >&2
+  printf 'Rust files are only allowed under engine/, cmd/yai/, application/, or the Studio desktop shell\n' >&2
   exit 1
 fi
 

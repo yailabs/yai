@@ -7,11 +7,24 @@ import { CaseComposer } from "../start/CaseBootstrap";
 import { StartCenter } from "../start/StartCenter";
 import { useLayout } from "../workbench/layout";
 import { Workbench } from "../workbench/Workbench";
+import { ComponentGallery } from "../live/ComponentGallery";
+import { LiveStudio } from "../live/LiveStudio";
 import "../styles/workbench.css";
+import "../styles/foundation.css";
 
 const client = new FixtureClient();
 
 export function App() {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("gallery") === "1") {
+    return <ComponentGallery />;
+  }
+  if (import.meta.env.VITE_STUDIO_MODE !== "fixture") {
+    return <LiveStudio />;
+  }
+  return <FixtureApp />;
+}
+
+function FixtureApp() {
   const [location, setLocation] = useState(window.location.search);
   const layout = useLayout();
   const params = useMemo(() => new URLSearchParams(location), [location]);

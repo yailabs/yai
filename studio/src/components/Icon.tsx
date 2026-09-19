@@ -32,6 +32,11 @@ const paths = {
   database:
     "M5 5c0-2 14-2 14 0v14c0 2-14 2-14 0z M5 5v5c0 2 14 2 14 0V5 M5 10v5c0 2 14 2 14 0",
   arrowBack: "M19 12H5 M10 7l-5 5 5 5",
+  back: "M19 12H5 M10 7l-5 5 5 5",
+  forward: "M5 12h14 M14 7l5 5-5 5",
+  refresh: "M20 6v5h-5 M4 18v-5h5 M18 10a7 7 0 0 0-12-3 M6 14a7 7 0 0 0 12 3",
+  warning: "M12 3 2 21h20z M12 9v5 M12 17v1",
+  settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z M4 12H2 M22 12h-2 M12 4V2 M12 22v-2 M6.3 6.3 4.9 4.9 M19.1 19.1l-1.4-1.4 M17.7 6.3l1.4-1.4 M4.9 19.1l1.4-1.4",
 } as const;
 export type IconName = keyof typeof paths;
 export function Icon({ name, size = 18 }: { name: IconName; size?: number }) {

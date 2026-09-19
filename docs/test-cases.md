@@ -53,22 +53,28 @@ A C component assertion is not product-reachable effect qualification.
 
 ## Studio bootstrap isolation
 
-[Studio](studio.md) is an offline fixture shell with a separate build surface.
-Core/CLI publication remains `make check characterization`; Node and Tauri are
-not prerequisites for that graph. From `studio/`, independently:
+[Studio](studio.md) has a bounded local live mode and an explicit fixture mode,
+with a separate build surface. Core/CLI publication remains `make check
+characterization`; Node and Tauri are not prerequisites for that graph. From
+the repository root and then `studio/`, independently:
 
 ```sh
+cargo test --manifest-path application/Cargo.toml
 npm ci
 npm run build
 npm run desktop:build -- -- --locked
 ```
 
-The first build typechecks and bundles the React fixture workbench. The desktop build
-requires Rust and native Tauri prerequisites and produces an executable without
-installer packaging. Neither proves a live application client, PTY, multi-client
-continuity, live provider UX or human acceptance. Run the web surface with
-`npm run dev`, or the native shell with `npm run desktop:dev`; neither needs
-a Case or provider setup. With the dev server running, from `studio/`:
+The Rust test exercises authorized real Case list/open/summary and typed stale
+refusal against a disposable YAI store. The frontend build typechecks and bundles
+the React workbench. The desktop build requires Rust and native Tauri prerequisites
+and produces an executable without installer packaging. Together they do not
+prove PTY, multi-client mutation, remote transport, live provider control or human
+acceptance. Normal `npm run dev` is the host-unavailable negative; run a real
+Case through `YAI_HOME=/dedicated/home npm run desktop:dev`.
+
+For fixture visual regression, start `npm run dev:fixture`. With that server
+running, from `studio/`:
 
 ```sh
 npm run test:browser -- --matrix --run studio-shell-local
@@ -93,8 +99,8 @@ For retained command observations, use `tools/validation/capture_evidence.py`
 with a unique run ID, increasing execution order and exact material pre-state;
 put reproducible local captures under ignored `build/`, not a new wave dossier.
 Keep backend commands, frontend builds and desktop runtime observations separate.
-The [cumulative runbook](zero-to-current.md#studio-offline-visual-acceptance)
-includes the fixture-only operator procedure separately from live Golden.
+The [cumulative runbook](zero-to-current.md#studio-bounded-live-local-acceptance)
+separates real local and fixture-only operator procedures from live-provider Golden.
 A visual fixture verdict cannot promote backend or human live acceptance.
 
 ## External YVEX

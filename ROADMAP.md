@@ -483,7 +483,7 @@ horizons. Temporal execution status is separate. Counts describe rows only,
 never percentage completion. Evidence promotion still requires human review.
 
 <!-- maturity-summary:start -->
-ESTABLISHED=32 PARTIAL=28 OPEN=9 LATER=4 TOTAL=73
+ESTABLISHED=32 PARTIAL=29 OPEN=9 LATER=3 TOTAL=73
 <!-- maturity-summary:end -->
 
 <!-- maturity:start -->
@@ -593,8 +593,8 @@ ESTABLISHED=32 PARTIAL=28 OPEN=9 LATER=4 TOTAL=73
 |---|---|---|---|
 | X01 | Registry-backed native CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; handwritten YAI product CLI and exact automation retained, no global current-Case authority or silent trust. Generated reference clients do not replace `./yai` automatically. |
 | X02 | Native REPLAI Case workbench | 🟢 ESTABLISHED | [R4][replai], [R5][r5], [presentation][presentation]; real PTY and controller seams, no second terminal. |
-| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | Bounded typed Rust/controller and owner-query seams exist; CLI arguments, output capture and store-coupled orchestration still cross application/presentation boundaries. Target: [one typed YAI application contract](#application-and-client-boundary--adopted-target) for native CLI/Studio and future generated clients. No complete stable public API, exported interface package, SDK or remote authentication qualification. |
-| X04 | YAI Studio / Case IDE | ⚪ LATER | [Case Workbench specification](docs/studio.md), inside YAI; offline fixture shell has a Start Center, Case composition view and Overview/Environment/Knowledge/Memory/Authority/Work/Compute IA, but no qualified live Studio product or required third repository. Consumes the same typed application boundary as the native CLI, never persistence internals or independently reconstructed semantics. |
+| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | A bounded `yai-application` Rust boundary now supplies authorized local Case list/open/summary projections and generation invalidation to native Studio. CLI arguments, output capture and store-coupled orchestration still cross application/presentation boundaries; no complete stable public API, standalone listener, exported interface package, SDK or remote authentication qualification. |
+| X04 | YAI Studio / Case IDE | 🟡 PARTIAL | [Case Workbench specification](docs/studio.md), inside YAI. A bounded single-host local real-Case vertical now lists/attaches authorized Cases and presents real Overview/Environment/Knowledge/Memory/Authority/Work/Compute/Conversation facts or explicit missingness through LiveClient; fixtures are opt-in only. This is not general product readiness, multi-client mutation qualification, remote transport, PTY or YVEX management. |
 
 ### Qualification
 
@@ -647,7 +647,7 @@ Letters are local shorthand, not the numbering of historical W/I/R waves.
 | **O — Operational World**: governed observations, attachments and effects | Golden filesystem/process/SQLite/HTTP/MCP/discovery verticals; bounded O08 source bootstrap | Broader acquisition profiles, review completion, cross-Case reuse and external ambiguity | One source frontier, roles and exact revisions; acquire permitted remainder only after governance, preserving operational resource semantics | Policy-only/full/incremental bootstrap, coverage/refusal, duplicate/revision, resume and revoke oracles | No parallel policy/knowledge acquisition owners or ConnectorStore; a database Resource is not YAI memory |
 | **W — Workflow & Composition**: explicit progression and bounded delegation | Workflow amendments/PlanPatch, I04 composition and exact Handoff | Resumable bounded acquisition/derivation work, persistent assignments, broader delegation and optional Agents | Reuse task/Workflow progression and execution owners for partial work/resume and future deliberation; normal effect authority still applies | Replayable progress, partial failure/resume, explicit adoption and cancellation through existing owners | No bootstrap-job or ThinkingJob store; Workflow/Agent is not Case memory or private execution |
 | **M — Derived State & Semantic Access**: rebuildable knowledge/experience and qualified Recall | W19/H19/W20; scoped historical relations, preserved Recall v1 and bounded D/H/S Recall v2; M07 deterministic source structure/claims, graph/BM25/read-only navigation with revision/disclosure/rebuild proof | Broader extraction/interpretation, authorized reuse, task sufficiency, quality/scale and learned navigation | Reuse exact-source/disclosure qualification; new knowledge families preserve epistemic class and measured source/history costs | Source-closed derivation plus discontinuous document/experience/current-state Recall, update/revoke, wrong-memory and rebuild controls | No Knowledge/Recall/MemoryStore; wiki edits do not rewrite originals, learned associations never decide truth or authority |
-| **X — Product Interfaces**: thin, usable views over Case semantics | Native YAI CLI, REPLAI workbench, bounded application/controller and owner-query seams, cumulative runbook; `case sources` surface | X03 application contract hardening and qualified export; future generated external clients, Source Map and native [Studio Case IDE](#yai-studio--case-ide-target) | One operation meaning across native and generated consumers; preserve explicit consent and model/system distinction. [Retained setup Ctrl-C finding][recall] stays independent | Same-source frontend conformance, typed results/refusals/progress, qualified export and inspectable consent; no semantics moved into UI | No CLI-output API, duplicate semantic registry or Studio persistence access; REPLAI owns mechanics, interfaces owns generic tooling, not YAI runtime semantics |
+| **X — Product Interfaces**: thin, usable views over Case semantics | Native YAI CLI, REPLAI workbench, bounded `yai-application` local read boundary and real-Case Studio vertical, cumulative runbook; `case sources` surface | X03 application contract convergence/export and general events; `STUDIO.YVEX.CONTROL.0`; future generated/remote clients and Source Map | One operation meaning across native and generated consumers; preserve explicit consent and model/system distinction. [Retained setup Ctrl-C finding][recall] stays independent | Same-source frontend conformance, typed results/refusals/progress, qualified export and inspectable consent; no semantics moved into UI | No CLI-output API, duplicate semantic registry or Studio persistence access; REPLAI owns mechanics, interfaces owns generic tooling, not YAI runtime semantics |
 | **Q — Qualification**: independent evidence for each claimed property | TEST.TOPOLOGY.0, deterministic Golden; historical/current and discontinuous Recall, wrong-memory, late-evidence, source-loss and 20k-history controls | External/human/canary; source coverage/exactness/update/revoke, D/H/S Recall usefulness, feedback freshness, state and deliberation evaluation | Retain failures; separate acquisition success, documentary backing, semantic resolution and memory benefit | Dual-role and cross-Case negatives, temporal/source correctness, latency, task outcomes, State Read ablation and equal-compute controls | No dataset owner, fabricated benchmark thresholds or PASS cache authority |
 | **F — Federation & Scale**: future distributed continuity | Single-host multi-Case scheduling/fencing | Cross-host coordination and federation | Establish local state/authority correctness first | Explicit conflict, disclosure, revocation and recovery contracts across hosts | No global Space or shared database by implication |
 
@@ -655,13 +655,16 @@ Letters are local shorthand, not the numbering of historical W/I/R waves.
 
 **YAI owns semantics and the typed application contract; clients consume it.**
 `APPLICATION.CLIENT.BOUNDARY.0` aligns product/repository ownership, not a new
-public API or selected functional milestone. Exactly two privileged first-party
+unbounded public API. Exactly two privileged first-party
 product surface classes are in the current target: **native CLI** and **native
 YAI Studio**, both living with YAI. “Privileged” means first-party product status,
 not elevated authority: both obey ordinary Principal/Participant, scope,
 disclosure and admission. The [Studio specification](docs/studio.md) selects
 React/TypeScript/Vite with an isolated Tauri 2 desktop shell under `studio/`.
-Application hosting/transport qualification remains open; Mobile and remote
+The selected bounded `STUDIO.LIVE.LOCAL.CASE.0` vertical adds a YAI-owned typed
+read boundary and in-process authenticated Tauri adapter for local Case
+list/open/summary plus generation invalidation. Standalone hosting/transport,
+general events and mutation qualification remain open; Mobile and remote
 clients are future consumers, not new semantic owners. No third Studio repository is required.
 Extracting Studio later requires a genuinely independent lifecycle, release
 cadence, ownership or distribution need. A Git branch is not its architectural
@@ -794,24 +797,32 @@ a real versioned YAI export gains an independently qualified interfaces consumer
 ### YAI Studio — Case IDE target
 
 **Studio is YAI's official Case IDE / Case Workbench inside this repository.**
-X04 remains **LATER**: the offline fixture workbench shell is not live product
-qualification. [docs/studio.md](docs/studio.md) is the canonical product/frontend
+X04 is **PARTIAL** at the exact boundary “bounded single-host local real-Case
+Studio vertical.” [docs/studio.md](docs/studio.md) is the canonical product/frontend
 specification, including surfaces, continuity, terminal, providers, fixture mode
 and desktop technology. This roadmap alone owns maturity, engineering selection,
 promotion and interlock.
 
-The offline shell currently establishes a Case-first Start Center, an authored
-Case composition flow and Overview/Environment/Knowledge/Memory/Authority/Work/
-Compute perspectives. Its timeline, relation graph and fixture generations are
-deterministic presentation evidence, not a live event projection or Case replay.
+Normal Studio now uses a real authorized local Case list, an ephemeral
+principal/Participant attachment, owner-backed projections and generation-based
+refresh. Missing Knowledge, policy, workflow and provider facts remain explicit;
+no product fixture fallback exists. The dark UI foundation, graph views, Context
+Panel, preview/pinned navigation and resizable bottom tools are presentation
+mechanics, not new semantic owners. Fixture scenarios remain explicit development
+and visual-regression input.
 
-Live Studio depends on X03 hardening the same typed YAI application boundary
-consumed by the native CLI: qualified queries/actions, identity/disclosure,
-results/refusals and lifecycle/events; qualified transport/export where needed.
-The current daemon IPC is not that listener. Multi-client convergence and
-external-change observation remain backend gaps, not automatically selected
-waves. Core/CLI development and operation do not depend on Studio or Node/Tauri.
-No current interlock or maturity row is added by the skeleton.
+X03 remains **PARTIAL** because the native CLI has not fully converged on this
+boundary and no stable exported interface package, standalone host, general
+event stream or remote authentication contract is qualified. Multi-client
+mutation correctness, external-change observation, PTY/Open in Terminal and
+conversation SEND remain backend/application gaps. Core/CLI build and operation
+do not depend on Studio or Node/Tauri.
+
+The next named Studio program is `STUDIO.YVEX.CONTROL.0`: a future first-party
+YVEX management surface for admitted models, engine generations, deployment,
+devices, residency, compilation, runtime sessions and authoritative evidence.
+It does not start here and must preserve the generic provider inference plane;
+no provider-brand branch belongs in cognitive execution.
 
 ## Cognitive State Spectrum
 
@@ -1182,8 +1193,8 @@ test proof/provider metadata; a roadmap row never reclassifies test evidence.
 | Persistent internal deliberation / autonomous overnight thinking | False. E06 is OPEN: authorized assignments, unfinished L and compatible checkpoints need independent runtime and usefulness qualification, not an uncontrolled Agent loop. |
 | Looped/recurrent Transformer or second residual implemented/required | False. Possible model-side mechanisms, not the name of the semantic architecture; no named-model claim without qualified external evidence. |
 | Full cold-model substitution / Qwen external state qualification | False. Exact binding replacement does not establish cold-state recovery. |
-| Agent implementation / YAI Studio Case IDE | False. Studio has an offline fixture shell and product specification only; no qualified Case workspace, separate required repository, new semantic owner or replacement terminal. |
-| Stable public Application API / exported interface package / interfaces integration | False. X03 is PARTIAL: bounded typed controller/owner seams exist alongside CLI/store coupling. No package export, selected producer/consumer version, middleware or generated-client conformance exists. |
+| Agent implementation / general YAI Studio readiness | False. Studio has one bounded local real-Case read vertical; no Agent owner, remote/multi-client qualification, replacement terminal or general production readiness. |
+| Stable public Application API / exported interface package / interfaces integration | False. X03 is PARTIAL: bounded `yai-application` local read projections exist alongside CLI/store coupling. No package export, standalone protocol producer, middleware or generated-client conformance exists. |
 | Generated official SDKs, protocol surfaces or replacement product CLI | False. Build/release/interface targets only. Native `./yai` remains the product CLI; neither one repository per SDK nor interfaces as a native-client runtime dependency is required. |
 | Complete external YVEX Golden acceptance | False. Generation 2 first-request capacity is admitted, but the fresh real run fails its 300-second wait; free/Workflow execution remains unqualified. |
 | Human Golden PASS / continuity canary compatibility | False unless independently reported at the relevant revision; current PENDING_OPERATOR / NOT_RUN. |
@@ -1191,8 +1202,8 @@ test proof/provider metadata; a roadmap row never reclassifies test evidence.
 | Universal database/HTTP/MCP/process/framework support | False. Golden's implemented operations are bounded, governed verticals, not ambient tools or unrestricted shell. |
 | Named v0.1 scope / generic production readiness | Unselected; local proof is not product release qualification. |
 
-No I07, H20/W21/W22, experiential-state consumer, live Studio client, private YVEX
-client, shared state database or computational-state ownership transfer begins
+No I07, H20/W21/W22, experiential-state consumer, private YVEX client, shared
+state database or computational-state ownership transfer begins
 here. Historical wave exclusions remain scoped to their reports: later Golden
 resources and guided product actions are not erased by an older non-goal.
 

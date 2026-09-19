@@ -19,14 +19,13 @@ replacement CLI, independent YVEX UI or new semantic owner. Native CLI, Studio
 and future Mobile are clients over the same YAI application meaning, subject to
 ordinary authentication, Participant scope, disclosure and admission.
 
-The current [shell](../studio/README.md) has an offline product root, recent Case
-index, single-surface Case composition view and three authored deterministic fixture
-Cases. Its primary visible taxonomy is Overview, Environment, Knowledge, Memory,
-Authority, Work and Compute. Fixture timeline/graph generations, material tabs,
-Context Panel modes and resizable tools are executable frontend interactions.
-They are offline presentation proof, not qualified YAI application consumption.
-The live workbench remains a target; neither fixtures nor compilation change
-maturity.
+The current [shell](../studio/README.md) has a bounded single-host live mode. Its
+Start Center lists Cases visible to the authenticated local principal and its
+Workbench consumes authorized application projections for Overview, Environment,
+Knowledge, Memory, Authority, Work, Compute and committed Conversation Turns.
+Fixtures remain an explicit development mode only. This vertical does not
+establish remote, general multi-client or complete application-API qualification;
+ROADMAP owns its exact maturity.
 
 ## Architectural Invariants
 
@@ -59,15 +58,16 @@ interface representation and qualified projections, never independent operation
 meaning competing with YAI. No duplicate registry, DTO model, persistence or
 canonical `Session` is introduced for a frontend.
 
-## Existing Application Boundary and Backend Gaps
+## Current Application Boundary and Backend Gaps
 
 [Executable architecture](architecture.md#current-applicationclient-seams-and-limit)
-is authoritative for current seams. `ConversationController` has typed actions
-and results inside the CLI crate, with `pub(super)` visibility. Its result events
-are buffered facts, not a subscription service. Some inspections return generic
-JSON; other CLI adapters still take argument vectors, open stores and capture
-printed output. Public engine types still require authorized store/content setup.
-These are useful existing mechanisms, not an exported frontend-independent API.
+is authoritative for current seams. `application/yai-application` now composes a
+small set of typed, authorized read projections from existing engine owners:
+runtime readiness, Case list/open/summary and generation invalidation. It owns no
+persistence or semantic state. `case.open` requires the current authenticated
+principal's admitted Participant link and returns only an ephemeral attachment.
+The native CLI still has store-coupled adapters and `ConversationController`
+remains inside its crate, so X03 is not a complete stable shared/public API.
 
 The existing `yaid` Unix socket handles status/info/shutdown and compatibility
 fixture/journal/projection operations. It does not serve those controller
@@ -76,16 +76,18 @@ that the existence of a socket proves application coverage.
 
 | Gap exposed by Studio | Responsible boundary and required qualification |
 |---|---|
-| Stable typed queries/actions/results/refusals outside CLI adaptation | YAI application layer; preserve owner checks and one operation meaning |
-| Local application hosting/listener and versioned transport mapping | YAI host plus qualified Interfaces projection; discovery, authentication, negotiation, disposal and unavailable posture |
-| Incremental progress and scoped subscriptions | YAI lifecycle facts plus transport; ordering, identity, missed updates, resync, backpressure, cancellation and redaction |
+| Broader typed queries/actions/results/refusals shared with the native CLI | YAI application layer; preserve owner checks and one operation meaning |
+| Standalone local listener and general transport qualification | YAI host plus qualified Interfaces projection; discovery, authentication, negotiation, disposal and unavailable posture beyond the bounded in-process bridge |
+| Incremental progress and general scoped subscriptions | YAI lifecycle facts plus transport; current generation invalidation needs broader ordering, missed-update, backpressure, cancellation and redaction qualification |
 | Simultaneous attachments and reattachment | YAI; current Principal/Participant/Thread resolution, concurrent mutation/refusal, stale generations, idempotency and recovery |
 | Resource/file changes outside YAI actions | YAI observation/source boundaries; provenance, revision, confinement and explicit admission, including watcher gaps |
 | Native provider management evidence | Public provider/YVEX management contracts; truthful capability/version/permission and failure exposure |
 | Remote/Mobile consumption | YAI/Interfaces authentication, disclosure and transport contracts beyond local OS trust |
 
-These gaps do not automatically select work or establish an Interlock. X03 and
-its dependency/promotion decisions remain in ROADMAP. React cannot close them.
+These gaps do not automatically select work or establish an Interlock. The
+current Tauri bridge is an in-process local adapter: it authenticates through
+YAI for every request, binds no network socket and exposes one versioned call
+surface plus generation invalidations. React cannot close the remaining gaps.
 
 ## Interfaces and Historical Reconciliation
 
@@ -161,13 +163,14 @@ close the Case or erase committed work.
 | PTY/process | Native process/FD lifecycle; distinct from Case and execution authority |
 | Local UI state | Window, navigation and rendering preferences; never Case truth |
 
-Current `open` resolves a locally authenticated Participant and its last
-committed thread; a new empty thread stays controller-local until SEND. Current
-runtime admission provides single-host mutual exclusion for active Case
-advancement. Neither this nor LMDB write serialization qualifies simultaneous
-Studio/CLI subscriptions, concurrent SEND semantics, background execution after
-detachment or distributed operation. Those behaviors need explicit tests of
-conflicts, revocation, reconnect and recovery at the application boundary.
+Current application `case.open` resolves the locally authenticated principal's
+linked Participant and last committed thread, where one exists. The attachment
+is not persisted and closing Studio changes no Case lifecycle. Current runtime
+admission provides single-host mutual exclusion for active Case advancement.
+Generation invalidation proves one bounded observer path; it does not qualify
+simultaneous mutations, concurrent SEND, background execution after detachment
+or distributed operation. Those behaviors need explicit conflict, revocation,
+reconnect and recovery tests at the application boundary.
 
 ## Open in Terminal
 
@@ -230,10 +233,14 @@ boundary must expose adequate views and update facts for the UI.
 | Participant activity | Disclosed committed activity or explicitly qualified ephemeral presence; no invented presence badges |
 | Provider/runtime state | Public authoritative evidence when available, otherwise unknown/stale/unavailable |
 
-Subscription loss, missing events and stale views must be visible. Reconnect
-uses qualified snapshots/resync; a frontend must not replay guessed mutations
-or independently reduce private Transitions. External file observation and full
-dynamic projection remain unimplemented in Studio.
+Subscription loss, missing events and stale views must be visible. The current
+local bridge emits Case identity, generation, sequence, cursor and affected view
+families after a real authorized generation change. A typed authorized heartbeat
+compares the attached Case generation and closes event-delivery gaps; LiveClient
+invalidates, refetches `case.summary` and performs a full resync after stale
+generation. It does not expose private Transitions or claim a general event
+stream. External file observation, progress streaming and full dynamic
+projection remain unimplemented.
 
 ## Computer Use
 
@@ -276,8 +283,9 @@ claim that all protocols or adapters exist today. Show actual capabilities,
 model identity, qualification, unavailable/refusal posture and provenance.
 Discovery, operator consent and suitability remain YAI application semantics.
 YVEX is a strategic first-party integration with additional qualified management
-capabilities; inference semantics remain generic. Only static provider context is rendered;
-live provider configuration and management remain unimplemented.
+capabilities; inference semantics remain generic. Studio now renders the generic
+provider target/posture already exposed by YAI, with sanitized endpoint identity.
+Live provider configuration and YVEX management remain unimplemented.
 
 ## Progressive Disclosure
 
@@ -291,19 +299,26 @@ products or parallel simple/advanced state models.
 
 ## Case Workbench Surfaces
 
-Every row describes the product target, not live qualification. The fixture shell
-now establishes two product levels: a Start Center for entering or composing a
-Case, and a Case Workbench organized by Overview, Environment, Knowledge, Memory,
-Authority, Work and Compute. These are presentation perspectives over one Case,
-not frontend domain owners. Environment organizes the material and operational
-world attached to a Case; Knowledge organizes what qualified sources can support;
-Memory presents derived temporal and relational navigation; Authority presents
-policy, scope, reviews and decisions; Work presents activity and transformations;
-Compute presents generic inference and runtime context. The current examples are
-authored fixtures. Their labels, graph edges and generation steps establish no
-backend event, history or authority contract.
+Every row describes the product target; only the bounded fields named in the
+current application projection are live. The Start Center enters a Case and the
+Workbench is organized by Overview, Environment, Knowledge, Memory, Authority,
+Work and Compute. These are presentation perspectives over one Case, not frontend
+domain owners. Environment presents admitted Sources, their acquired revision
+file inventory and operational Resources; it never scans the filesystem from
+React. Knowledge shows
+qualified derivation or explicit absence; Memory presents committed history and
+derived graph relations; Authority presents current policy/review/grant facts;
+Work presents current workflow definition/resolution; Compute presents generic
+provider posture. Unsupported families use explicit empty/unavailable states.
 
-Case composition is a single local work-surface tab: Identity, Sources,
+Overview is the Case lens, not a generic home dashboard. It keeps durable Case
+identity and attachment facts central, then presents Environment, Knowledge,
+Memory, Authority, Work and Compute as navigable dimensions of that same Case.
+The sidebar repeats this composition as a compact outline and Inspector can show
+the complete bounded Case posture. This is how the product communicates entry
+into a Case without turning labels or KPI tiles into substitute semantics.
+
+In explicit fixture mode, Case composition is a single local work-surface tab: Identity, Sources,
 Participants, Authority, Resources and Compute remain visible together rather
 than implying a server-owned wizard lifecycle. After entering a Case, Studio
 does not use its brand chrome as a route back to the Start Center. The desktop
@@ -313,10 +328,15 @@ for that Case, but must not reinterpret the product root as the previous Case
 attachment.
 
 The right-hand Context Panel can represent Conversation, Inspector and Activity
-without making conversation the product root. The central work surface remains a
-generic local tab host. The fixture graph is a lightweight rendered projection,
-not an inference engine or causal model. A source may also be a Resource, but the
-views preserve those distinct semantic roles.
+without making conversation the product root. Inspector identifies the selected
+fact type, properties and qualified Case relations; materials may be explicitly
+opened from it. Primary perspectives retain distinct tabs. Files, documents and
+sources use one reusable preview tab until explicitly pinned, so quick material
+navigation does not replace an open Environment or Knowledge perspective. The
+central work surface remains a generic local tab host. The fixture graph is a
+lightweight rendered projection, not an inference engine or causal model. A
+source may also be a Resource, but the views preserve those distinct semantic
+roles.
 
 | Surface | Representation and interaction | Existing owner or prerequisite |
 |---|---|---|
@@ -364,17 +384,18 @@ Selected initial direction: **React + TypeScript + Vite + Tauri 2**, under
 `studio/`. No concrete incompatibility was found with the current independent
 engine workspace and CLI Cargo package. No existing root Node workspace or
 frontend CI was found to inherit; npm is local to Studio, with its own lockfile. The native shell
-has its own Cargo workspace/lockfile and no engine dependency. Core/CLI Make
+has its own Cargo workspace/lockfile and depends on the bounded YAI application
+crate, not a second semantic layer. Core/CLI Make
 targets remain independent of Node, Tauri and Studio. The source-placement guard
 admits only the added desktop Rust source/build script and excludes generated
 Studio dependency/build trees from source classification.
 
 React/TypeScript owns rendering and interaction; Tauri supplies the container
-and later strictly necessary native integration. Rust shell code must remain a
-thin qualified client/adapter, never a second business layer. No Next.js,
-Electron, editor engine, terminal emulator, graph library or native plugin is
-added. A small CSS token set and local inline icons serve the fixture shell;
-there is no external UI kit or final design system. The dark desktop grammar
+and the in-process request/update adapter. Rust shell code remains thin; typed
+application composition lives below it and existing YAI owners remain canonical.
+No Next.js, Electron, editor engine, terminal emulator, graph library or native
+plugin is added. CSS tokens, reusable controls and one inline icon system form
+the permanent UI foundation without an external UI kit. The dark desktop grammar
 uses tonal surface layers, spacing and typography for most separation, reserving
 visible dividers for structural splits. Controls and grouped surfaces use modest
 radius while the application frame and terminal-like regions stay comparatively
@@ -393,33 +414,30 @@ signing and platform distribution are not qualified by an executable build.
 
 ```text
 StudioClient (frontend presentation seam, not a YAI API)
-└── FixtureClient -> authored catalog/composition/Case projections -> React components
-
-LiveClient remains unimplemented; future mapping needs a qualified YAI contract.
+├── LiveClient    -> versioned local application operations/update invalidation
+└── FixtureClient -> explicit authored development/visual-regression input
 ```
 
-`src/clients/` owns a minimal synchronous presentation interface: an authored
-Start Center catalog, offline composition sections, scenario choices and one selected
-workspace presentation. Small composable types describe visible Case labels,
-Participants, material bodies, explorer groups, conversation/notice rows,
-timeline events, graph nodes/relations, inspector content, provider context,
-execution states and evidence/problems. They are UI inputs, not Rust CaseState
-copies, operation schemas, authority checks or a proposed public API.
-FixtureClient reads the authored examples under `tests/fixtures/studio/`; it
-performs no I/O, timer-driven execution or semantic reconstruction.
+`LiveClient` maps the bounded `yai.studio.application.v1` result envelope into
+small presentation types. Normal mode requires the Tauri-local host; absent host,
+authentication failure and unsupported projections remain explicit result
+states. It never knows LMDB layout, CLI syntax or private Rust domain structs.
+The application projection is intentionally smaller than `CaseState` and does
+not predeclare every future operation. Its in-process transport is not a stable
+public SDK or remote service qualification.
 
-Once YAI qualifies its application boundary, LiveClient must map that contract
-and preserve typed identity, scope, results/refusals and events. The current
-presentation seam may need to evolve; it does not constrain a future wire format
-or justify implementing missing backend semantics in React.
+FixtureClient reads authored examples under `tests/fixtures/studio/`. It performs
+no I/O, timer-driven execution or semantic reconstruction and can be selected
+only when `VITE_STUDIO_MODE=fixture` is set before the build/dev process.
 
 Fixtures support visual development and deterministic screenshot evidence now;
 site/README/docs reuse and visual regression remain consumers of the same data.
 They must be plausible, recorded or sanitized with explicit origin, contract
 version and missingness. No fixture is presented as live telemetry or used as a
-silent fallback. The query `fixture=ordinary|developer|execution` selects exact
+silent fallback. In the explicit fixture build,
+`fixture=ordinary|developer|execution` selects exact
 authored state; unknown values show an explicit error. FIXTURE and no-runtime
-posture remain visible. The bare URL opens the authored Start Center;
+posture remain visible. The bare fixture URL opens the authored Start Center;
 `view=new` selects the complete offline composer, optional `focus=sources`
 emphasizes its Sources section, and `snapshot=1|2|3` selects an authored
 generation for one Case. Generation changes reveal coherent fixture timeline,

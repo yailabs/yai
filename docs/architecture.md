@@ -186,31 +186,32 @@ complete, stable frontend-independent Application API:
   persistence-independent application facade or supported remote SDK.
 
 The [application/client target](../ROADMAP.md#application-and-client-boundary--adopted-target)
-requires native CLI and future native Studio to consume one typed YAI application
-boundary. Current CLI/store coupling is recorded above, not refactored by that
-decision. No stable public Application API, exported interface package,
-interfaces integration, generated official SDK or live Studio Case client is
-claimed. Current builds have no interfaces dependency. The roadmap owns future
-export/client qualification; frontends must not acquire domain authority by
-presenting these values.
+requires native CLI and Studio to converge on one typed YAI application meaning.
+[`application/yai-application`](../application/yai-application/src/lib.rs) is now a
+bounded read-only foothold: it authenticates the local principal and composes
+versioned Case list/open/summary projections plus generation invalidation from
+existing authorized engine owners. It owns no persistence or Case semantics.
+CLI/store coupling recorded above remains, so this is neither a complete shared
+application API nor an exported/public Interfaces package.
 
-[`studio/`](../studio/README.md) is an independent React/TypeScript/Vite fixture
-workbench with a Tauri 2 window/assets shell. A frontend-only FixtureClient feeds
-an authored Start Center, single-surface Case composition view and three synthetic
-Case presentations into the seven-part Overview/Environment/Knowledge/Memory/
-Authority/Work/Compute workbench. Timeline/graph generations, material tabs,
-Context Panel modes and resizable bottom tools are presentation proof. Local
-navigation, application menus, layout, fixture progression and drafts do not
-mutate Case truth. Once a Case is open, opening or composing another Case is an
-application-menu action rather than a brand-chrome route back to the Start Center.
-Local Back navigation retains the attached Case instead of reopening that root.
-There is no live client,
-YAI engine dependency, native command/plugin, application transport or persistence
-access. Its npm/Cargo builds and browser harness are separate from core/CLI and
-backend validation. [Studio](studio.md) owns product/frontend target design;
-[ROADMAP](../ROADMAP.md#product-interfaces) alone owns X03/X04 maturity and promotion.
-The existing C daemon IPC serves status and compatibility fixture operations,
-not a qualified Studio application listener or event subscription service.
+[`studio/`](../studio/README.md) is an independent React/TypeScript/Vite Case
+Workbench with a thin Tauri 2 local bridge. Normal mode uses LiveClient and the
+application crate; it never opens LMDB or parses CLI output in TypeScript. The
+Tauri process binds no listener or LAN socket, authenticates through YAI on each
+call and polls authorized generation identities only to emit typed invalidation
+facts. An authorized generation heartbeat closes missed-delivery gaps and gives
+LiveClient an explicit resync signal. LiveClient then refetches `case.summary`; private Transitions never cross
+the renderer boundary. Local navigation, layout, graph positions and tabs remain
+frontend state. Explicit fixture builds retain the authored Start Center,
+composer and three scenarios for deterministic visual regression, with no live
+failure fallback.
+
+The native desktop build is separate from core/CLI validation and remains a
+bounded single-host client. It does not qualify remote transport, general event
+delivery, simultaneous mutation or SEND. [Studio](studio.md) owns product/frontend
+design; [ROADMAP](../ROADMAP.md#product-interfaces) alone owns X03/X04 maturity.
+The existing C daemon IPC remains unrelated status/compatibility machinery and
+is not repurposed as the Studio host.
 
 ## Demonstrated product verticals
 
@@ -741,7 +742,7 @@ graph/index/memory/Recall. The source-bootstrap profiles above retain exact
 original/observation backing; they do not implement the target's general choice
 of in-place access, permitted snapshots and disposable derived caches or a global
 retention/privacy lifecycle. General semantic source organization, the Case Source
-Map and the live YAI Studio Case client remain unimplemented
+Map generalization remains unimplemented
 targets in the [Roadmap](../ROADMAP.md#case-source-bootstrap-and-source-grounded-knowledge--adopted-target).
 Bounded unified bootstrap is implemented; its generalization is not.
 
@@ -1388,6 +1389,7 @@ participates.
 | Surface | Executable role | Classification |
 |---|---|---|
 | `cmd/yai/src/main.rs` | small process entrypoint calling the native CLI | product bootstrap, not an application API |
+| `application/yai-application` | bounded authenticated Case list/open/summary projection and generation invalidation over existing engine owners | no persistence, Case, policy, workflow, graph or provider semantic ownership; not yet a stable public API |
 | `cmd/yai/src/cli/` | command registry, parser, help, product dispatch and output projection | native product frontend; some current orchestration remains CLI/store-coupled |
 | `cmd/yai/src/command_adapters.rs` | adapt CLI operation IDs to existing handlers | command compatibility seam, not a second domain or public interface registry |
 | `cmd/yai/src/conversation_controller.rs` | host-independent commit, thread projection, retry/cancellation posture, and ordinary conversation execution over shared semantic/provider boundaries | native REPLAI consumer and host-independent typed actions; no terminal, Case, provider, or content owner |
@@ -1412,6 +1414,7 @@ participates.
 | `cmd/yai/src/graph_runtime.rs` | graph relation materialization, rebuild and query | product-reachable derived owner |
 | `cmd/yai/src/analytics.rs` | DuckDB schemas, extraction and reports | product-reachable derived owner |
 | `engine/yai-engine` | canonical Transition/CaseState semantics, LMDB authority, typed semantic-context compiler, legacy decoder, and reusable derived algorithms | product-reachable semantic/data authority |
+| `studio/src-tauri` + `studio/src` | in-process local application adapter plus React Case Workbench, graph/layout/navigation and explicit fixture development mode | no direct persistence, CLI-output parsing, Case semantics, PTY or YVEX management |
 | `cmd/yaid` + selected `system/` sources | daemon IPC, fixture loops, C journal/projection/hot snapshot | product-reachable process/platform boundary |
 | separate C component archive | gates, carriers, process/observation and compatibility mechanics | component characterization; not product capability |
 | tests/labs/history | current proof, research, and historical specification | evidence, never implementation authority |
@@ -1434,7 +1437,7 @@ from one checkout.
 | distinct ProviderResult, Observation, EffectReceipt | separate Rust types and canonical roles for filesystem/process/MCP effects and bounded resource reads; compatibility export retains old receipt-shaped rows | future resource families require their own truthful result and reconciliation contract |
 | Case plus materialized CaseState | implemented and replayable for provider/review/resource/operation/grant/effect refs and exact policy bindings | extend only for demonstrated future consumers; migrate daemon hot/fixture state only if it becomes canonical input |
 | summary is presentation only | canonical reducers and migrated paths do not parse it; old projection/frame and analytics records use the compatibility decoder | migrate or retire remaining legacy-only producers and views |
-| frontends consume one application meaning | bounded controller/review actions and authorized engine queries coexist with CLI argument/output adaptation and store-coupled orchestration | harden a frontend-independent typed boundary before qualifying interface export or native Studio; no CLI-output parsing or independent semantic registry for new clients |
+| frontends consume one application meaning | bounded `yai-application` read projections now feed native Studio through a local Tauri bridge; controller/review actions and CLI/store adaptation remain separate | converge more native CLI/actions, then qualify standalone/public interface export and general events; no CLI-output parsing or independent semantic registry |
 | Projection/Residency/ContextFrame/KV separation | typed Projection, pure `yai.residency_plan.v1`, independent ContextFrame and distinct render identity are implemented; opaque continuation is optional and tokens/KV are absent from canonical state | semantic units and rendered-size estimation are conservative rather than tokenizer-authoritative; no ContextDelta consumer |
 | provenance-bound memory | OperationalMemory remains derived; W19/H19 source-revalidate qualified BM25/exact-cosine retrieval; W20 adds Episodes, evidence-bound assertions and recorded-result consolidation rebuild through multi-family RetrievalSet v3 | ANN/learned reranking remain deferred; W20 generation-based retrieval retention is not universal deletion/privacy policy or general semantic paging |
 | agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops, typed human pause/resume, LMDB run admission and restart tests | generalized operation families, distributed admission and daemon scheduling are absent |

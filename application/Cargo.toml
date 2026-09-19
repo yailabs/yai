@@ -1,0 +1,3 @@
+[workspace]
+members = ["yai-application"]
+resolver = "2"

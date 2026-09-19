@@ -11,14 +11,57 @@ human acceptance remain separate, unclaimed results.
 PASS, with the exact YAI SHA, endpoint and provider-exposed model identity.
 A previous PASS is not silently inherited by a changed product HEAD.
 
+## Studio bounded live local acceptance
+
+This lane exercises the bounded single-host real-Case Studio vertical. Use a
+dedicated non-Golden YAI home; never reset the operator continuity canary or
+populate Studio through frontend fixtures.
+
+1. Build the current product CLI and create a small Tenant-scoped Case through
+   normal `yai` operations. Bind a Participant, link the authenticated local
+   principal, and admit a bounded source/resource perimeter. Record the exact
+   YAI SHA, `YAI_HOME`, Case ID and starting generation.
+2. From `studio/`, run `npm ci`, `npm run typecheck`, `npm run build` and
+   `npm run desktop:build -- -- --locked`. Launch with
+   `YAI_HOME=/dedicated/home npm run desktop:dev`. The bare web Vite surface is
+   a negative path and must show `transport_unavailable` rather than fixtures.
+3. Confirm Start Center lists only Cases returned to the local principal. Open
+   the qualification Case and verify its real Participant attachment, generation,
+   sources/resources, committed timeline and graph relations. Knowledge,
+   Authority, Workflow and Compute must show owner-backed facts or explicit
+   empty/unavailable states.
+4. Inspect Memory Timeline/Graph, Authority, Work and Compute. Graph selection
+   changes Inspector only. Exercise pan, zoom, fit, drag, search/filter and both
+   relational and directed layouts where data exists. Conversation contains only
+   committed Turns and remains read-only until SEND is separately qualified.
+5. Exercise preview/pinned tabs, Back/Forward, Case switching through `File`,
+   panel collapse and all three splitters. Resize the bottom tools between its
+   bounds and resize the window; it must retain a usable central work surface.
+   Mouse/browser Back must not reopen Start Center after attachment.
+6. Perform one harmless real YAI mutation against the qualification Case from a
+   second product invocation. Without reloading Studio, observe the generation
+   invalidation, `case.summary` resync and affected Overview/Memory/Inspector
+   content. Record before/after generation and cursor.
+7. Exercise negative paths with an unavailable YAI home, unknown/invisible Case,
+   missing principal/Participant link and stale expected generation. Confirm
+   typed refusal/unavailable/stale states and no fixture substitution.
+8. Capture the real Start Center, all seven perspectives, Memory graph, Context
+   Inspector, bottom panel and development-only component gallery. Each retained
+   capture records SHA, Case ID, generation, viewport and live posture without
+   credentials or unsanitized endpoints.
+
+This lane does not qualify remote transport, concurrent mutation, conversation
+SEND, PTY, Open in Terminal, filesystem watching, Computer Use or YVEX management.
+`HUMAN_GOLDEN_CASE = PENDING_OPERATOR` until the operator reports a verdict at
+the exact SHA.
+
 ## Studio offline visual acceptance
 
 This lane reviews the actual Studio shell with synthetic content. It needs no
 YAI_HOME, provider, live Case or operator continuity canary. It does not exercise
 the Golden runtime below and cannot supply a human live-provider verdict.
 
-From `studio/`, run `npm ci` and `npm run dev` (or `npm run desktop:dev`
-with the [desktop prerequisites](../studio/README.md)). Open the bare local URL
+From `studio/`, run `npm ci` and `npm run dev:fixture`. Open the bare local URL
 for the Start Center. Use its recent Cases and New Case actions, then open
 `?fixture=ordinary`, `?fixture=developer` and `?fixture=execution`, or use the
 application `File` menu in either shell. All content is explicitly fixture.

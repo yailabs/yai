@@ -8,12 +8,14 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:fixture": "VITE_STUDIO_MODE=fixture vite",
     "typecheck": "tsc --noEmit",
     "build": "npm run typecheck && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build --no-bundle",
-    "test:browser": "node ../tests/studio/workbench.mjs"
+    "test:browser": "node ../tests/studio/workbench.mjs",
+    "test:browser:fixture": "node ../tests/studio/workbench.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",
