@@ -1,0 +1,114 @@
+{
+  "schema": "yai.semantic_working_state_sufficiency_oracle.v1",
+  "description": "Independent bounded semantic prerequisites for the deterministic qualification fixture. Labels are resolved to exact fixture identities before Recall or W output is inspected.",
+  "control_labels": [
+    "current.case_lifecycle",
+    "current.tenant_security_domain",
+    "current.effective_authority",
+    "task.execution_intent"
+  ],
+  "tasks": [
+    {
+      "name": "current_state_lookup",
+      "class": "current-state lookup",
+      "required": [],
+      "forbidden": ["historical.superseded_architecture_revision"]
+    },
+    {
+      "name": "historical_reconstruction",
+      "class": "historical reconstruction",
+      "required": ["documentary.architecture_retention_r1", "source.architecture_revision_r1"],
+      "forbidden": ["source.architecture_revision_r2"]
+    },
+    {
+      "name": "documentary_knowledge",
+      "class": "documentary knowledge",
+      "required": ["documentary.architecture_retention_r1"],
+      "distractors": ["documentary.unrelated_repository"]
+    },
+    {
+      "name": "documentary_operational_contradiction",
+      "class": "documentary and operational contradiction",
+      "required": ["documentary.config_sql", "observation.database_sql", "contradiction.sql"],
+      "forbidden": ["authority.documentary_claim"]
+    },
+    {
+      "name": "temporal_causal_explanation",
+      "class": "temporal-causal explanation",
+      "required": ["history.database_decision", "history.database_observation", "relation.decision_observation"],
+      "distractors": ["history.unrelated_decision"]
+    },
+    {
+      "name": "mixed_source_governance_knowledge",
+      "class": "mixed-source governance and knowledge",
+      "required": ["documentary.policy_unit", "current.effective_authority"],
+      "forbidden": ["authority.documentary_claim"]
+    },
+    {
+      "name": "cross_case_source_reuse",
+      "class": "cross-Case source reuse",
+      "required": ["cross_case.a_visible", "cross_case.b_visible"],
+      "forbidden": ["cross_case.c_visibility", "cross_case.policy_sharing"]
+    },
+    {
+      "name": "revoked_evidence",
+      "class": "revoked evidence",
+      "required": ["documentary.architecture_retention_r2"],
+      "forbidden": ["source.config", "source.config_revision"]
+    },
+    {
+      "name": "task_switch",
+      "class": "task switch",
+      "required": ["current.case_lifecycle", "current.effective_authority"],
+      "forbidden": ["task.previous_only_evidence"]
+    },
+    {
+      "name": "exact_mandatory_reference",
+      "class": "exact mandatory reference",
+      "required": ["history.database_decision"]
+    },
+    {
+      "name": "long_history_distractor_pressure",
+      "class": "long-history distractor pressure",
+      "required": ["history.database_decision", "history.database_observation", "relation.decision_observation"],
+      "distractors": ["history.unrelated_role_changes"]
+    },
+    {
+      "name": "large_source_distractor_pressure",
+      "class": "large-source distractor pressure",
+      "required": ["documentary.architecture_retention_r2", "history.database_decision"],
+      "distractors": ["source.scale_documents"]
+    },
+    {
+      "name": "wrong_memory_lure",
+      "class": "wrong-memory lure",
+      "required": ["documentary.architecture_retention_r1", "source.architecture_revision_r1"],
+      "distractors": ["source.architecture_revision_r2"],
+      "forbidden": ["authority.historical_evidence"]
+    },
+    {
+      "name": "missing_backing",
+      "class": "missing backing",
+      "required": ["source.handbook_revision"],
+      "permitted": ["REFUSED_CORRECTLY"]
+    },
+    {
+      "name": "hidden_evidence",
+      "class": "hidden evidence",
+      "required": [],
+      "forbidden": ["cross_case.c_visibility", "cross_case.hidden_identifier"]
+    }
+  ],
+  "budget_profiles": {
+    "generous": 131072,
+    "normal": 32768,
+    "constrained": 16384,
+    "impossible": 1
+  },
+  "nonclaims": [
+    "not a model-answer benchmark",
+    "not universal Recall or W sufficiency",
+    "not a production authority or persisted Case result",
+    "not a W-to-E or State Read evaluation"
+  ]
+}

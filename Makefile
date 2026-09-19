@@ -830,6 +830,11 @@ smoke-cross-case-source-reuse: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/source-grounded-knowledge/test_cross_case_reuse.py
 
+.PHONY: smoke-semantic-working-state-sufficiency
+smoke-semantic-working-state-sufficiency: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/semantic-working-state-sufficiency/test_sufficiency.py
+
 smoke-case-source-bootstrap: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/case-source-bootstrap/test_bootstrap.py

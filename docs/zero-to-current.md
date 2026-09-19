@@ -803,6 +803,22 @@ adds no Transition; it does not replace the final Invocation admission fence or
 implicitly page W4 references. A different objective requires a new Turn/task,
 not edited refresh input.
 
+To reproduce the bounded model-independent sufficiency qualification, run:
+
+```sh
+RUSTUP_TOOLCHAIN=1.98.1 make smoke-semantic-working-state-sufficiency
+```
+
+The suite constructs fresh real Cases, loads its independent versioned semantic
+oracle before Recall/W inspection, and reports required-evidence coverage,
+current-control preservation, distractors, forbidden disclosure, closure,
+budgets, paging, refresh and size/cost profiles separately. `PASS` means the
+qualification completed and retained its findings; inspect the per-task
+`SUFFICIENT`, `INSUFFICIENT` and `REFUSED_CORRECTLY` postures rather than treating
+it as a model-answer score. It uses no provider. See the
+[evaluation report](../tests/characterization/semantic-working-state-sufficiency/REPORT.md)
+for the exact bounded result and nonclaims.
+
 Ordinary governed Conversation and Workflow execution now prepares Recall-aware
 W automatically; the commands above are inspection controls, not prerequisites
 for asking a question. In a Case with admitted sources, ask a source-dependent

@@ -163,6 +163,42 @@ navigation, all-owner S/Workflow Recall, general event-time algebra or model-nat
 state is claimed. Independent Recall inspection does not change W. The execution
 compiler below is a separate consumer of this qualified result.
 
+## Bounded semantic working-state sufficiency evaluation
+
+`make smoke-semantic-working-state-sufficiency` is the first independent,
+model-free evaluation surface above Recall v2 and W. Its versioned JSON oracle
+declares mandatory evidence, optional material, distractors, mandatory current
+control and forbidden disclosure before the fixture binds those labels to exact
+source/unit/Transition/Decision/Observation/relation identities. Recall and W do
+not generate their own ground truth, and the evaluation result is neither
+persisted nor admitted as Case truth.
+
+The bounded suite covers 15 task classes: current lookup, historical
+reconstruction, documentary knowledge, documentary/operational disagreement,
+temporal-causal explanation, mixed-source governance/knowledge, cross-Case
+reuse, revoke, task switch, exact reference, long history, large source corpus,
+wrong-memory lure, missing backing and hidden evidence. Metrics keep mandatory
+W coverage, Recall-stage coverage, control preservation, distractors, forbidden
+disclosure, closure, epistemic posture, size and phase timings separate. A
+correct refusal is not rewritten as a complete W, and deferred W4 material is
+not counted as resident evidence.
+
+At the qualified fixture scope, 12 classes are sufficient and missing backing
+refuses correctly. Current controls survive every compilable task, forbidden
+disclosure is zero, exact paging and ambient refresh preserve their existing
+owners, and W omits no required material supplied by Recall. Two temporal-causal
+classes remain insufficient because Recall supplies the exact Decision and
+Observation endpoints but not their independently required
+`decision_observation` relation. One unrelated documentary unit is admitted in
+the documentary lookup. These are retained findings, not fixture-specific
+ranking exceptions. The exact task vector, budgets, scale timings and nonclaims
+are in the [durable evaluation report](../tests/characterization/semantic-working-state-sufficiency/REPORT.md).
+
+This establishes bounded evaluation infrastructure, not general M06/C06
+sufficiency. The oracle is above computational realization so future W versus
+W → E / State Read comparisons can hold semantic prerequisites constant. No
+public W → E contract or model/provider call is introduced here.
+
 ## Recall-aware working-state compilation
 
 `case context compile CASE INTENT` is a read-only native application operation,

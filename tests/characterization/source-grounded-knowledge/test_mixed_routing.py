@@ -225,9 +225,13 @@ def main():
                 routed_pdf = cli("case","sources","routes",other,"--source",suffix,"--json")
                 assert len([r for r in routed_pdf["items"][0][1]["regions"] if len(r["routes"])==2]) == 1
                 assert any("Grant admin" in u["text"] for u in cli("case","knowledge","inspect",other,"--json")["view"]["units"])
-        print(json.dumps(dict(mixed_routing_product="PASS", routing_transitions=0, model_calls=0,
+        summary = dict(flagship="PASS", mixed_routing_product="PASS", routing_transitions=0, model_calls=0,
             knowledge_change_policy_unchanged=True, policy_change_explicit=True, revision_history_exact=True,
-            revoked_route_bypass=False, characterization=measures)),flush=True)
+            revoked_route_bypass=False, documentary_exact_ref=exact,
+            working_state=w["working_state_id"], source_revision=r1["revision_id"],
+            policy_artifact=artifact, characterization=measures)
+        print(json.dumps(summary),flush=True)
+        return summary
 
 
 if __name__ == "__main__":

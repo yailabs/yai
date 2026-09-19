@@ -551,9 +551,7 @@ def main():
             stage: dict(calls=len(values), total_ms=round(sum(values), 3), max_ms=max(values))
             for stage, values in sorted(aggregates.items())
         }
-        print(
-            json.dumps(
-                dict(
+        summary = dict(
                     run_id=run.name,
                     flagship="PASS",
                     backing_id=backing_id,
@@ -568,13 +566,12 @@ def main():
                     derived_transitions=0,
                     characterization=characterization,
                 )
-            ),
-            flush=True,
-        )
+        print(json.dumps(summary), flush=True)
         print(
             "cross_case_source_reuse=PASS physical_backing_reused=true case_applicability_independent=true hidden_absent_equal=true revoke_a_preserves_b=true revision_divergence=true policy_route_case_local=true provider_calls=0",
             flush=True,
         )
+        return summary
 
 
 if __name__ == "__main__":
