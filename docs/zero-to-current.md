@@ -35,23 +35,34 @@ populate Studio through frontend fixtures.
    relational and directed layouts where data exists. Conversation contains only
    committed Turns and remains read-only until SEND is separately qualified.
 5. Exercise preview/pinned tabs, Back/Forward, Case switching through `File`,
-   panel collapse and all three splitters. Resize the bottom tools between its
-   bounds and resize the window; it must retain a usable central work surface.
-   Mouse/browser Back must not reopen Start Center after attachment.
-6. Perform one harmless real YAI mutation against the qualification Case from a
+   the full desktop menu, panel collapse and all three splitters. Resize the
+   bottom tools between its bounds, maximize/restore it and resize the window;
+   it must retain a usable central work surface. Mouse/browser Back must not
+   reopen Start Center after attachment.
+6. In the desktop Terminal tool, create two terminals and confirm selection,
+   input/output, ANSI, Unicode, scrollback and copy/paste. Resize the bottom,
+   Explorer and Context panels and verify `stty size` changes. Exercise `vim`
+   and `less`, then run `yai help`; terminal output must stay terminal bytes and
+   must not alter Case views. Close/kill both terminals, reload once and close
+   Studio normally; verify no child shell remains. In bare browser mode the same
+   tool must say that the desktop host is required and create no process.
+7. Perform one harmless real YAI mutation against the qualification Case from a
    second product invocation. Without reloading Studio, observe the generation
    invalidation, `case.summary` resync and affected Overview/Memory/Inspector
    content. Record before/after generation and cursor.
-7. Exercise negative paths with an unavailable YAI home, unknown/invisible Case,
+8. Exercise negative paths with an unavailable YAI home, unknown/invisible Case,
    missing principal/Participant link and stale expected generation. Confirm
    typed refusal/unavailable/stale states and no fixture substitution.
-8. Capture the real Start Center, all seven perspectives, Memory graph, Context
-   Inspector, bottom panel and development-only component gallery. Each retained
-   capture records SHA, Case ID, generation, viewport and live posture without
-   credentials or unsanitized endpoints.
+9. Capture the real Start Center, compact Overview/Environment shell, Activity
+   Rail tooltip, application menu, real terminal, multiple terminals, fullscreen
+   `vim`, Memory graph, Context Inspector and development-only component gallery.
+   Each retained capture records SHA, Case ID, generation, viewport and live
+   posture without credentials or unsanitized endpoints.
 
 This lane does not qualify remote transport, concurrent mutation, conversation
-SEND, PTY, Open in Terminal, filesystem watching, Computer Use or YVEX management.
+SEND, Case-attached Open in Terminal, persistent terminal continuity, filesystem
+watching, Computer Use or YVEX management. The integrated PTY qualifies only
+local desktop terminal mechanics.
 `HUMAN_GOLDEN_CASE = PENDING_OPERATOR` until the operator reports a verdict at
 the exact SHA.
 

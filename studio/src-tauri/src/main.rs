@@ -1,15 +1,99 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod terminal;
+
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
-use tauri::Emitter;
+use tauri::{AppHandle, Emitter, State, WebviewWindow};
+use terminal::{PtyHost, TerminalCreated, TerminalEvents, TerminalExit, TerminalOutput};
 use yai_application::{LocalApplication, OperationRequest, OperationResult};
 
 #[tauri::command]
 fn studio_call(request: OperationRequest) -> OperationResult {
     LocalApplication::default().call(request)
+}
+
+struct TauriTerminalEvents(AppHandle);
+
+impl TerminalEvents for TauriTerminalEvents {
+    fn output(&self, payload: TerminalOutput) {
+        let _ = self.0.emit("yai://terminal-output", payload);
+    }
+
+    fn exited(&self, payload: TerminalExit) {
+        let _ = self.0.emit("yai://terminal-exit", payload);
+    }
+}
+
+#[tauri::command]
+fn terminal_create(
+    app: AppHandle,
+    host: State<'_, PtyHost>,
+    rows: u16,
+    cols: u16,
+) -> Result<TerminalCreated, String> {
+    host.create(rows, cols, Arc::new(TauriTerminalEvents(app)))
+}
+
+#[tauri::command]
+fn terminal_write(
+    host: State<'_, PtyHost>,
+    terminal_id: String,
+    data: Vec<u8>,
+) -> Result<(), String> {
+    host.write(&terminal_id, &data)
+}
+
+#[tauri::command]
+fn terminal_resize(
+    host: State<'_, PtyHost>,
+    terminal_id: String,
+    rows: u16,
+    cols: u16,
+) -> Result<(), String> {
+    host.resize(&terminal_id, rows, cols)
+}
+
+#[tauri::command]
+fn terminal_kill(host: State<'_, PtyHost>, terminal_id: String) -> Result<(), String> {
+    host.kill(&terminal_id)
+}
+
+#[tauri::command]
+fn terminal_dispose_all(host: State<'_, PtyHost>) {
+    host.kill_all();
+}
+
+#[tauri::command]
+fn desktop_close(window: WebviewWindow) -> Result<(), String> {
+    window
+        .close()
+        .map_err(|error| format!("desktop_close_failed: {error}"))
+}
+
+#[tauri::command]
+fn desktop_minimize(window: WebviewWindow) -> Result<(), String> {
+    window
+        .minimize()
+        .map_err(|error| format!("desktop_minimize_failed: {error}"))
+}
+
+#[tauri::command]
+fn desktop_toggle_maximize(window: WebviewWindow) -> Result<(), String> {
+    if window
+        .is_maximized()
+        .map_err(|error| format!("desktop_maximize_state_failed: {error}"))?
+    {
+        window
+            .unmaximize()
+            .map_err(|error| format!("desktop_restore_failed: {error}"))
+    } else {
+        window
+            .maximize()
+            .map_err(|error| format!("desktop_maximize_failed: {error}"))
+    }
 }
 
 fn start_case_update_bridge(app: tauri::AppHandle, running: Arc<AtomicBool>) {
@@ -44,8 +128,21 @@ fn start_case_update_bridge(app: tauri::AppHandle, running: Arc<AtomicBool>) {
 fn main() {
     let running = Arc::new(AtomicBool::new(true));
     let shutdown = running.clone();
+    let terminal_host = PtyHost::default();
+    let shutdown_terminals = terminal_host.clone();
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![studio_call])
+        .manage(terminal_host)
+        .invoke_handler(tauri::generate_handler![
+            studio_call,
+            terminal_create,
+            terminal_write,
+            terminal_resize,
+            terminal_kill,
+            terminal_dispose_all,
+            desktop_close,
+            desktop_minimize,
+            desktop_toggle_maximize
+        ])
         .setup(move |app| {
             start_case_update_bridge(app.handle().clone(), running.clone());
             Ok(())
@@ -53,6 +150,7 @@ fn main() {
         .on_window_event(move |_window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 shutdown.store(false, Ordering::Relaxed);
+                shutdown_terminals.kill_all();
             }
         })
         .run(tauri::generate_context!())

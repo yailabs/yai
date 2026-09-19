@@ -2,6 +2,7 @@
 
 Authority: local development, source placement and frontend verification.
 [Studio architecture](../docs/studio.md) owns the product specification;
+[Studio progression](ROADMAP.md) owns implementation ordering; the repository
 [ROADMAP](../ROADMAP.md#product-interfaces) alone owns maturity and selection.
 
 Normal Studio mode is a bounded, single-host live vertical. The desktop shell
@@ -13,9 +14,10 @@ a live failure.
 
 The visible perspectives are Overview, Environment, Knowledge, Memory,
 Authority, Work and Compute. The Context Panel separates Conversation,
-Inspector and Activity. The bottom tool surface is real layout, while Terminal
-explicitly reports that no PTY is attached. Conversation is read-only because
-SEND is outside this vertical.
+Inspector and Activity. In the desktop build, Terminal is a real transient local
+PTY. The browser surface explicitly reports that the desktop host is required
+and never fakes a shell. Conversation is read-only because SEND is outside this
+vertical.
 
 ## Run the live desktop
 
@@ -41,9 +43,17 @@ npm run desktop:build -- -- --locked
 
 The build produces an executable without installer/signing qualification.
 Default window: 1440×900, minimum 1100×680. Studio owns its npm and Tauri Cargo
-lockfiles; backend builds do not require Node or Tauri.
+lockfiles; backend builds do not require Node or Tauri. The Tauri window uses
+Studio-owned compact chrome so application menus, Case navigation and native
+minimize/maximize/close controls occupy one desktop title row.
 
 ## Live behavior
+
+Launching the Tauri desktop loads the typed `yai-application` boundary in the
+Studio process. It does not run the CLI, parse terminal output, or automatically
+start `yai start`, a daemon, a provider or YVEX. Those runtime services retain
+their own configured lifecycle; the integrated PTY is likewise an independent
+user shell.
 
 The Start Center lists authorized local Cases using `case.list`. Opening one
 uses `case.open`, which requires a real principal-to-Participant link and returns
@@ -72,6 +82,30 @@ sections. Drag the left, right and bottom splitters. Useful shortcuts are:
 | Ctrl/Command + B | Case sidebar |
 | Ctrl/Command + Shift + B | Context Panel |
 | Ctrl/Command + J | Bottom tools |
+| Ctrl/Command + ` | Focus the integrated terminal |
+| Ctrl/Command + Shift + ` | Create a terminal |
+
+## Integrated terminal
+
+The Terminal bottom tool uses `@xterm/xterm` in React and `portable-pty` in the
+Tauri host. It starts the user's configured shell where available, with the
+user's home as a deliberate generic working directory. It supports multiple
+terminal instances, selection, ANSI/full-screen programs, Unicode, scrollback,
+clipboard, input, process exit/kill and PTY resize propagation. Panel resize,
+window resize and adjacent panel changes refit xterm and send the resulting
+rows/columns to the PTY.
+
+Terminal lifecycle is desktop-local. It is not a Case attachment, YAI execution,
+Workflow or Computer Use surface. Studio never inserts Case text into the shell,
+parses terminal output or treats PTY bytes as application facts. You may invoke
+`yai` or other tools yourself; rendered Case truth continues to arrive only from
+LiveClient. Closing the window kills all terminal children. Terminals do not
+persist across reload or restart, and Case-aware cwd / Open in Terminal remain
+unimplemented.
+
+Linux is the currently built and interactively qualified platform. The selected
+libraries expose macOS and Windows implementations, but those targets remain
+unverified until native CI or operator acceptance runs there.
 
 The reusable graph viewport supports pan, zoom, fit, drag, search/filter,
 neighbor emphasis and selection. Relational layout is used for Memory;
@@ -121,11 +155,13 @@ SHA. See the cumulative [operator runbook](../docs/zero-to-current.md).
   no persistence or Case semantic ownership.
 - `src/clients/live.ts`: LiveClient and small presentation types.
 - `src/live/`: live workbench, reusable graphs and development gallery.
+- `src/terminal/`: xterm rendering and desktop-only terminal lifecycle UI.
 - `src/clients/fixture.ts`, `src/start/`, `src/workbench/`: explicit fixture mode.
 - `src/components/` and `src/styles/`: shared controls, icons and visual tokens.
-- `src-tauri/`: local invocation/event adapter and desktop lifecycle.
+- `src-tauri/`: local invocation/event adapter, narrow PTY host and desktop lifecycle.
 
-This vertical does not implement conversation SEND, PTY, Open in Terminal,
-filesystem observation, remote service transport, multi-client mutation
-correctness, Computer Use, YVEX management, provider configuration, Mobile,
-packaging/signing or the complete public application contract.
+This vertical does not implement conversation SEND, Case-attached Open in
+Terminal, persistent PTY sessions, filesystem observation, remote service
+transport, multi-client mutation correctness, Computer Use, YVEX management,
+provider configuration, Mobile, packaging/signing or the complete public
+application contract.

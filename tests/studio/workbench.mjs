@@ -266,10 +266,24 @@ try {
         groupBorder: style(".information-group").borderTopWidth,
       };
     });
+    const activityButtons = page.locator(".activity-bar button");
+    assert.equal(await activityButtons.count(), 7);
+    for (let index = 0; index < 7; index += 1)
+      assert.equal(await activityButtons.nth(index).getAttribute("title"), null);
+    const environmentActivity = page.getByRole("button", {
+      name: "Environment perspective",
+    });
+    await environmentActivity.hover();
+    const tooltipGeometry = await environmentActivity.locator("span").evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return { width: rect.width, height: rect.height, left: rect.left };
+    });
+    assert(tooltipGeometry.width > tooltipGeometry.height);
+    assert(tooltipGeometry.left >= 44);
     assert.deepEqual(visualGrammar, {
       railBorder: "0px",
-      tabStripBorder: "0px",
-      tabRadius: "7px",
+      tabStripBorder: "1px",
+      tabRadius: "0px",
       groupRadius: "10px",
       groupBorder: "0px",
     });
@@ -280,9 +294,9 @@ try {
     log(
       "Seven Case perspectives, Context Panel modes, local tabs and bottom tools",
     );
-    log("Panel resize/collapse, local draft memory and keyboard focus");
+    log("Panel resize/collapse, icon-only rail tooltip and keyboard focus");
     log(
-      "Tonal surfaces and restrained radius replace continuous border grids",
+      "Tonal surfaces, attached work tabs and restrained group radius replace continuous border grids",
       {
         visual_grammar: visualGrammar,
       },

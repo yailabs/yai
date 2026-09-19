@@ -31,7 +31,6 @@ export function ActivityBar({
         <button
           key={name}
           aria-label={`${name} perspective`}
-          title={name}
           aria-pressed={active === name}
           onClick={() => select(name)}
         >
@@ -39,9 +38,6 @@ export function ActivityBar({
           <span>{name}</span>
         </button>
       ))}
-      <span className="rail-end" title="Offline fixture workspace">
-        F
-      </span>
     </nav>
   );
 }
@@ -143,14 +139,8 @@ export function Sidebar({
     >
       <div className="region-heading">
         <span>{activity.toUpperCase()}</span>
-        <span className="micro">FIXTURE</span>
       </div>
       <div className="sidebar-scroll">
-        <div className="case-identity">
-          <span className="eyebrow">{data.case.reference}</span>
-          <h1>{data.case.label}</h1>
-          <p>{data.case.purpose}</p>
-        </div>
         {activity === "Overview" && (
           <>
             <details open>

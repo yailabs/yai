@@ -9,6 +9,7 @@ import { useLayout } from "../workbench/layout";
 import { Workbench } from "../workbench/Workbench";
 import { ComponentGallery } from "../live/ComponentGallery";
 import { LiveStudio } from "../live/LiveStudio";
+import { DesktopWindowControls } from "./DesktopWindowControls";
 import "../styles/workbench.css";
 import "../styles/foundation.css";
 
@@ -128,18 +129,15 @@ function FixtureApp() {
 
   return (
     <div className={`studio studio-${view}`}>
-      <ApplicationMenu
-        view={view}
-        cases={choices}
-        currentCase={validScenario ? (scenario as ScenarioId) : returnCase}
-        layout={layout}
-        openCase={openCase}
-        newCase={newCase}
-      />
-      <header className="case-chrome">
-        <span className="brand">
-          YAI<span>STUDIO</span>
-        </span>
+      <header className="case-chrome" data-tauri-drag-region>
+        <ApplicationMenu
+          view={view}
+          cases={choices}
+          currentCase={validScenario ? (scenario as ScenarioId) : returnCase}
+          layout={layout}
+          openCase={openCase}
+          newCase={newCase}
+        />
         <div className="chrome-case">
           <Icon name={view === "new" ? "plus" : "case"} size={17} />
           <strong>
@@ -148,28 +146,29 @@ function FixtureApp() {
           <span className="chrome-path">
             {data?.case.context ??
               (view === "new" ? "Fixture composition" : "Start Center")}
-          </span>
-        </div>
-        {participant && (
-          <div
-            className="chrome-participant"
-            title={`Current participant · ${participant.name}`}
-          >
-            <span className="avatar">{participant.initials}</span>
-            <span>{participant.name}</span>
-          </div>
-        )}
-        {data && (
-          <div className="chrome-provider" title={data.provider.note}>
-            <Icon name="compute" size={14} />
-            <span>
-              {data.provider.location} / {data.provider.name}
             </span>
-          </div>
-        )}
-        <span className="fixture-badge">FIXTURE</span>
-        {data && (
-          <>
+        </div>
+        <div className="chrome-right">
+          {participant && (
+            <div
+              className="chrome-participant"
+              title={`Current participant · ${participant.name}`}
+            >
+              <span className="avatar">{participant.initials}</span>
+              <span>{participant.name}</span>
+            </div>
+          )}
+          {data && (
+            <div className="chrome-provider" title={data.provider.note}>
+              <Icon name="compute" size={14} />
+              <span>
+                {data.provider.location} / {data.provider.name}
+              </span>
+            </div>
+          )}
+          <span className="fixture-badge">FIXTURE</span>
+          {data && (
+            <>
             <label className="snapshot-picker">
               <span className="sr-only">Fixture generation</span>
               <select
@@ -216,8 +215,10 @@ function FixtureApp() {
                 <Icon name="right" size={17} />
               </button>
             </div>
-          </>
-        )}
+            </>
+          )}
+          <DesktopWindowControls />
+        </div>
       </header>
 
       {view === "start" && (

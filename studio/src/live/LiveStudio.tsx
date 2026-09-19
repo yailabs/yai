@@ -4,13 +4,19 @@ import type { CaseAttachment, CaseUpdate, LiveCaseRow, LiveEdge, LiveNode, LiveW
 import { Badge, Button, EmptyState, IconButton, PanelHeader, SearchInput } from "../components/primitives";
 import { Icon } from "../components/Icon";
 import { GraphViewport } from "./GraphViewport";
+import { DesktopMenu } from "../app/DesktopMenu";
+import type { StudioCommand, StudioMenu } from "../app/commands";
+import { dispatchTerminalCommand } from "../terminal/TerminalPanel";
+import { LiveBottomPanel } from "./LiveBottomPanel";
+import { DesktopWindowControls } from "../app/DesktopWindowControls";
+import type { BottomMode } from "./LiveBottomPanel";
 
 const client = new LiveClient();
+const closeStudioWindow = () => window.__TAURI__ ? void window.__TAURI__.core.invoke("desktop_close") : window.close();
 const perspectives = ["Overview", "Environment", "Knowledge", "Memory", "Authority", "Work", "Compute"] as const;
 type Perspective = typeof perspectives[number];
 type SurfaceKind = Perspective | "Settings" | "Material";
 type ContextMode = "Conversation" | "Inspector" | "Activity";
-type BottomMode = "Terminal" | "Output" | "Executions" | "Evidence" | "Problems";
 interface Tab { id: string; label: string; perspective: SurfaceKind; pinned: boolean; materialRef?: string }
 interface NavigationEntry { surface: SurfaceKind; selected: string; context: ContextMode }
 
@@ -83,12 +89,14 @@ export function LiveStudio() {
   const cases = casesResult?.data?.cases ?? [];
   const workspace = workspaceResult?.data;
   return <div className={`live-studio ${attachment ? "case-attached" : ""}`}>
-    {!attachment && <nav className="native-menu" aria-label="Application menu">
+    {!attachment && <nav className="native-menu" aria-label="Application menu" data-tauri-drag-region>
       <strong>YAI</strong>
       <button onClick={() => setMenu(menu === "File" ? null : "File")}>File</button>
       <button onClick={() => setMenu(menu === "View" ? null : "View")}>View</button>
-      {menu === "File" && <div className="native-menu-popover"><button onClick={() => { setSwitcher(true); setMenu(null); }}>Open Case…</button><button disabled>New Case <kbd>Unavailable</kbd></button><button onClick={() => window.close()}>Close Window</button></div>}
+      {menu === "File" && <div className="native-menu-popover"><button onClick={() => { setSwitcher(true); setMenu(null); }}>Open Case…</button><button disabled>New Case <kbd>Unavailable</kbd></button><button onClick={closeStudioWindow}>Close Window</button></div>}
       {menu === "View" && <div className="native-menu-popover view"><button onClick={() => setMenu(null)}>Reset local view</button><button disabled>Command palette <kbd>Later</kbd></button></div>}
+      <span className="native-menu-drag" data-tauri-drag-region>YAI Studio</span>
+      <DesktopWindowControls />
     </nav>}
     {!attachment && <LiveStartCenter result={casesResult} cases={cases} open={loadCase} retry={loadCases} />}
     {attachment && workspace && <LiveWorkbench workspace={workspace} stream={stream} refresh={() => void refresh()} openSwitcher={() => setSwitcher(true)} />}
@@ -123,11 +131,12 @@ function LiveWorkbench({ workspace, stream, refresh, openSwitcher }: { workspace
   const [selected, setSelected] = useState(workspace.case.case_ref);
   const [bottom, setBottom] = useState<BottomMode>("Terminal");
   const [leftOpen, setLeftOpen] = useState(true); const [rightOpen, setRightOpen] = useState(true); const [bottomOpen, setBottomOpen] = useState(true);
-  const [leftWidth, setLeftWidth] = useState(228); const [rightWidth, setRightWidth] = useState(330); const [bottomHeight, setBottomHeight] = useState(300);
-  const [bottomMax, setBottomMax] = useState(() => Math.max(240, Math.min(520, Math.floor(window.innerHeight * .55))));
+  const [leftWidth, setLeftWidth] = useState(204); const [rightWidth, setRightWidth] = useState(320); const [bottomHeight, setBottomHeight] = useState(() => Math.max(260, Math.floor(window.innerHeight * .36)));
+  const [bottomLimit, setBottomLimit] = useState(() => Math.max(340, Math.floor(window.innerHeight * .72)));
+  const [bottomMaximized, setBottomMaximized] = useState(false);
+  const restoredBottomHeight = useRef(bottomHeight);
   const [tabs, setTabs] = useState<Tab[]>([{ id: "perspective:Overview", label: "Overview", perspective: "Overview", pinned: true }]);
   const [activeTab, setActiveTab] = useState("perspective:Overview");
-  const [titleMenu, setTitleMenu] = useState<"File" | "View" | null>(null);
   const history = useRef<NavigationEntry[]>([{ surface: "Overview", selected: workspace.case.case_ref, context: "Inspector" }]); const historyIndex = useRef(0); const [, renderHistory] = useState(0);
   const recordNavigation = (entry: NavigationEntry) => {
     const current = history.current[historyIndex.current];
@@ -184,12 +193,74 @@ function LiveWorkbench({ workspace, stream, refresh, openSwitcher }: { workspace
       setTabs((current) => current.some((tab) => tab.id === "perspective:Overview") ? current : [{ id: "perspective:Overview", label: "Overview", perspective: "Overview", pinned: true }, ...current]);
     }
   };
+  const activateTab = (tab: Tab) => {
+    setActiveTab(tab.id);
+    if (tab.perspective === "Settings") openSettings();
+    else if (tab.perspective === "Material") { if (tab.materialRef) openMaterial(tab.materialRef, tab.label, tab.pinned); }
+    else navigate(tab.perspective);
+  };
+  const switchTab = (delta: number) => {
+    const index = tabs.findIndex((tab) => tab.id === activeTab);
+    if (index < 0 || !tabs.length) return;
+    activateTab(tabs[(index + delta + tabs.length) % tabs.length]);
+  };
+  const terminalCommand = (command: "new" | "kill" | "clear" | "focus") => {
+    setBottom("Terminal");
+    setBottomOpen(true);
+    requestAnimationFrame(() => dispatchTerminalCommand(command));
+  };
+  const resetLayout = () => {
+    setLeftOpen(true); setRightOpen(true); setBottomOpen(true);
+    setLeftWidth(204); setRightWidth(320);
+    const height = Math.max(260, Math.floor(window.innerHeight * .36));
+    restoredBottomHeight.current = height; setBottomHeight(height); setBottomMaximized(false);
+  };
+  const commands: StudioCommand[] = [
+    { id: "studio.file.openCase", label: "Open Case…", shortcut: "Ctrl O", run: openSwitcher },
+    { id: "studio.file.settings", label: "Settings…", run: () => openSettings() },
+    { id: "studio.window.close", label: "Close Window", shortcut: "Alt F4", run: closeStudioWindow },
+    { id: "studio.edit.cut", label: "Cut", shortcut: "Ctrl X", run: () => document.execCommand("cut") },
+    { id: "studio.edit.copy", label: "Copy", shortcut: "Ctrl C", run: () => document.execCommand("copy") },
+    { id: "studio.edit.paste", label: "Paste", shortcut: "Ctrl V", run: () => document.execCommand("paste") },
+    { id: "studio.view.toggleExplorer", label: "Explorer", shortcut: "Ctrl B", checked: leftOpen, run: () => setLeftOpen((value) => !value) },
+    { id: "studio.view.toggleContext", label: "Context Panel", shortcut: "Ctrl Shift B", checked: rightOpen, run: () => setRightOpen((value) => !value) },
+    { id: "studio.view.toggleBottomPanel", label: "Bottom Panel", shortcut: "Ctrl J", checked: bottomOpen, run: () => setBottomOpen((value) => !value) },
+    { id: "studio.view.resetLayout", label: "Reset Layout", run: resetLayout },
+    { id: "studio.go.back", label: "Back", shortcut: "Alt Left", enabled: historyIndex.current > 0, run: () => moveHistory(-1) },
+    { id: "studio.go.forward", label: "Forward", shortcut: "Alt Right", enabled: historyIndex.current < history.current.length - 1, run: () => moveHistory(1) },
+    { id: "studio.go.previousTab", label: "Previous Tab", run: () => switchTab(-1) },
+    { id: "studio.go.nextTab", label: "Next Tab", run: () => switchTab(1) },
+    ...perspectives.map((item, index) => ({ id: `studio.case.${item.toLowerCase()}` as const, label: item, shortcut: `Ctrl ${index + 1}`, checked: perspective === item, run: () => navigate(item) })),
+    { id: "studio.case.refresh", label: "Refresh / Resync Case", run: refresh },
+    { id: "studio.terminal.new", label: "New Terminal", shortcut: "Ctrl Shift `", run: () => terminalCommand("new") },
+    { id: "studio.terminal.kill", label: "Kill Terminal", run: () => terminalCommand("kill") },
+    { id: "studio.terminal.clear", label: "Clear", run: () => terminalCommand("clear") },
+    { id: "studio.terminal.focus", label: "Focus Terminal", shortcut: "Ctrl `", run: () => terminalCommand("focus") },
+    { id: "studio.help.about", label: "About YAI Studio", run: () => openSettings() },
+  ];
+  const menus: StudioMenu[] = [
+    { label: "YAI", items: ["studio.file.settings", "separator", "studio.window.close"] },
+    { label: "File", items: ["studio.file.openCase", "separator", "studio.file.settings", "separator", "studio.window.close"] },
+    { label: "Edit", items: ["studio.edit.cut", "studio.edit.copy", "studio.edit.paste"] },
+    { label: "View", items: ["studio.view.toggleExplorer", "studio.view.toggleContext", "studio.view.toggleBottomPanel", "separator", "studio.view.resetLayout"] },
+    { label: "Go", items: ["studio.go.back", "studio.go.forward", "separator", "studio.go.previousTab", "studio.go.nextTab"] },
+    { label: "Case", items: [...perspectives.map((item) => `studio.case.${item.toLowerCase()}` as const), "separator", "studio.case.refresh", "studio.file.openCase"] },
+    { label: "Terminal", items: ["studio.terminal.new", "studio.terminal.kill", "studio.terminal.clear", "studio.terminal.focus", "separator", "studio.view.toggleBottomPanel"] },
+    { label: "Help", items: ["studio.help.about"] },
+  ];
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
+      if (event.altKey && event.key === "ArrowLeft") { event.preventDefault(); moveHistory(-1); return; }
+      if (event.altKey && event.key === "ArrowRight") { event.preventDefault(); moveHistory(1); return; }
       if (!(event.ctrlKey || event.metaKey)) return;
-      if (event.key.toLowerCase() === "j") { event.preventDefault(); setBottomOpen((value) => !value); }
-      if (event.key.toLowerCase() === "b" && event.shiftKey) { event.preventDefault(); setRightOpen((value) => !value); }
-      else if (event.key.toLowerCase() === "b") { event.preventDefault(); setLeftOpen((value) => !value); }
+      const key = event.key.toLowerCase();
+      if (key === "j") { event.preventDefault(); setBottomOpen((value) => !value); return; }
+      if (key === "`") { event.preventDefault(); terminalCommand(event.shiftKey ? "new" : "focus"); return; }
+      const inTerminal = event.target instanceof Element && Boolean(event.target.closest(".xterm"));
+      if (inTerminal) return;
+      if (key === "o") { event.preventDefault(); openSwitcher(); return; }
+      if (key === "b" && event.shiftKey) { event.preventDefault(); setRightOpen((value) => !value); }
+      else if (key === "b") { event.preventDefault(); setLeftOpen((value) => !value); }
       const index = Number(event.key) - 1;
       if (index >= 0 && index < perspectives.length) { event.preventDefault(); navigate(perspectives[index]); }
     };
@@ -197,26 +268,27 @@ function LiveWorkbench({ workspace, stream, refresh, openSwitcher }: { workspace
   }, []);
   useEffect(() => {
     const clampBottom = () => {
-      const nextMax = Math.max(240, Math.min(520, Math.floor(window.innerHeight * .55)));
-      setBottomMax(nextMax);
-      setBottomHeight((value) => Math.max(180, Math.min(nextMax, value)));
+      const nextLimit = Math.max(340, Math.floor(window.innerHeight * .72));
+      setBottomLimit(nextLimit);
+      setBottomHeight((value) => Math.max(190, Math.min(nextLimit, value)));
     };
     window.addEventListener("resize", clampBottom);
     return () => window.removeEventListener("resize", clampBottom);
   }, []);
   return <div className="live-case-shell" style={{ "--left-width": `${leftWidth}px`, "--right-width": `${rightWidth}px`, "--bottom-height": `${bottomHeight}px` } as React.CSSProperties}>
-    <nav className="case-titlebar" aria-label="Application and workspace controls">
-      <div className="titlebar-menu"><strong>YAI</strong><button onClick={() => setTitleMenu(titleMenu === "File" ? null : "File")}>File</button><button onClick={() => setTitleMenu(titleMenu === "View" ? null : "View")}>View</button>{titleMenu === "File" && <div className="native-menu-popover"><button onClick={() => { openSwitcher(); setTitleMenu(null); }}>Open Case…</button><button disabled>New Case <kbd>Unavailable</kbd></button><button onClick={() => { openSettings(); setTitleMenu(null); }}>Settings…</button><button onClick={() => window.close()}>Close Window</button></div>}{titleMenu === "View" && <div className="native-menu-popover view"><button onClick={() => { setLeftOpen((value) => !value); setTitleMenu(null); }}>Toggle Case sidebar <kbd>Ctrl B</kbd></button><button onClick={() => { setBottomOpen((value) => !value); setTitleMenu(null); }}>Toggle bottom tools <kbd>Ctrl J</kbd></button><button onClick={() => { setRightOpen((value) => !value); setTitleMenu(null); }}>Toggle Context Panel</button></div>}</div>
-      <div className="titlebar-center"><IconButton aria-label="Back" disabled={historyIndex.current === 0} onClick={() => moveHistory(-1)}><Icon name="back" /></IconButton><IconButton aria-label="Forward" disabled={historyIndex.current === history.current.length - 1} onClick={() => moveHistory(1)}><Icon name="forward" /></IconButton><button className="titlebar-case" onClick={openSwitcher}><Icon name="case" size={14} /><span>{workspace.case.case_ref}</span><small>Generation {workspace.case.generation}</small><Icon name="chevron" size={12} /></button></div>
-      <div className="titlebar-layout">{stream !== "live" && <Badge tone={stream === "unavailable" ? "error" : "warning"}>{stream}</Badge>}<IconButton aria-label="Refresh real Case" onClick={refresh}><Icon name="refresh" /></IconButton><IconButton aria-label="Toggle Case sidebar" onClick={() => setLeftOpen((value) => !value)}><Icon name="left" /></IconButton><IconButton aria-label="Toggle bottom panel" onClick={() => setBottomOpen((value) => !value)}><Icon name="bottom" /></IconButton><IconButton aria-label="Toggle context panel" onClick={() => setRightOpen((value) => !value)}><Icon name="right" /></IconButton></div>
+    <nav className="case-titlebar" aria-label="Application and workspace controls" data-tauri-drag-region>
+      <DesktopMenu commands={commands} menus={menus} />
+      <div className="titlebar-center" data-tauri-drag-region><IconButton aria-label="Back" disabled={historyIndex.current === 0} onClick={() => moveHistory(-1)}><Icon name="back" /></IconButton><IconButton aria-label="Forward" disabled={historyIndex.current === history.current.length - 1} onClick={() => moveHistory(1)}><Icon name="forward" /></IconButton><button className="titlebar-case" onClick={openSwitcher}><Icon name="case" size={14} /><span>{workspace.case.case_ref}</span><small>Generation {workspace.case.generation}</small><Icon name="chevron" size={12} /></button></div>
+      <div className="titlebar-layout">{stream !== "live" && <Badge tone={stream === "unavailable" ? "error" : "warning"}>{stream}</Badge>}<IconButton aria-label="Refresh real Case" onClick={refresh}><Icon name="refresh" /></IconButton><IconButton aria-label="Toggle Case sidebar" onClick={() => setLeftOpen((value) => !value)}><Icon name="left" /></IconButton><IconButton aria-label="Toggle bottom panel" onClick={() => setBottomOpen((value) => !value)}><Icon name="bottom" /></IconButton><IconButton aria-label="Toggle context panel" onClick={() => setRightOpen((value) => !value)}><Icon name="right" /></IconButton><DesktopWindowControls /></div>
     </nav>
     <div className="live-workbench">
-    <aside className="live-rail" aria-label="Case perspectives">{perspectives.map((item) => <button key={item} title={item} aria-label={item} aria-pressed={perspective === item} onClick={() => navigate(item)}><Icon name={perspectiveIcon(item)} size={20} /><span>{item}</span></button>)}</aside>
-    {leftOpen && <><aside className="live-sidebar"><PanelHeader title={perspective} detail={`Generation ${workspace.case.generation}`} /><CaseSidebar workspace={workspace} perspective={perspective} selected={selected} inspect={inspect} navigate={navigate} openMaterial={openMaterial} /></aside><Splitter label="Resize Case explorer" axis="x" value={leftWidth} min={200} max={360} set={setLeftWidth} /></>}
+    <aside className="live-rail" aria-label="Case perspectives">{perspectives.map((item) => <button key={item} aria-label={item} aria-pressed={perspective === item} onClick={() => navigate(item)}><Icon name={perspectiveIcon(item)} size={20} /><span role="tooltip">{item}</span></button>)}</aside>
+    {leftOpen && <><aside className="live-sidebar"><PanelHeader title={perspective} /><CaseSidebar workspace={workspace} perspective={perspective} selected={selected} inspect={inspect} navigate={navigate} openMaterial={openMaterial} /></aside><Splitter label="Resize Case explorer" axis="x" value={leftWidth} min={170} max={320} set={setLeftWidth} /></>}
     <section className="live-center">
-      <div className="live-tabs" role="tablist">{tabs.map((tab) => { const tabIcon = tab.perspective === "Material" ? "sources" : tab.perspective === "Settings" ? "overview" : perspectiveIcon(tab.perspective); return <button key={tab.id} role="tab" aria-selected={activeTab === tab.id} onClick={() => { setActiveTab(tab.id); if (tab.perspective === "Settings") openSettings(); else if (tab.perspective === "Material") { if (tab.materialRef) openMaterial(tab.materialRef, tab.label, tab.pinned); } else navigate(tab.perspective); }} onDoubleClick={() => pinMaterialTab(tab)}><Icon name={tabIcon} size={14} />{tab.label}{!tab.pinned && <i>Preview</i>}<span role="button" aria-label={`Close ${tab.label}`} onClick={(event) => { event.stopPropagation(); closeTab(tab.id); }}>×</span></button>; })}</div>
+      <div className="live-tabs" role="tablist">{tabs.map((tab) => { const tabIcon = tab.perspective === "Material" ? "sources" : tab.perspective === "Settings" ? "overview" : perspectiveIcon(tab.perspective); return <button key={tab.id} role="tab" aria-selected={activeTab === tab.id} onClick={() => activateTab(tab)} onDoubleClick={() => pinMaterialTab(tab)}><Icon name={tabIcon} size={14} />{tab.label}{!tab.pinned && <i>Preview</i>}<span role="button" aria-label={`Close ${tab.label}`} onClick={(event) => { event.stopPropagation(); closeTab(tab.id); }}>×</span></button>; })}</div>
       <main className="live-surface"><Surface workspace={workspace} surface={surface} inspect={inspect} selected={selected} navigate={navigate} openMaterial={openMaterial} recordSettings={(id) => recordNavigation({ surface: "Settings", selected: id, context })} /></main>
-      {bottomOpen && <><Splitter label="Resize bottom panel" axis="y" reverse value={bottomHeight} min={180} max={bottomMax} set={setBottomHeight} /><BottomPanel workspace={workspace} active={bottom} setActive={setBottom} close={() => setBottomOpen(false)} height={bottomHeight} /></>}
+      {bottomOpen && <Splitter label="Resize bottom panel" axis="y" reverse value={bottomHeight} min={190} max={bottomLimit} set={(value) => { setBottomMaximized(false); restoredBottomHeight.current = value; setBottomHeight(value); }} />}
+      <LiveBottomPanel workspace={workspace} active={bottom} setActive={setBottom} close={() => setBottomOpen(false)} height={bottomHeight} open={bottomOpen} maximized={bottomMaximized} toggleMaximized={() => { if (bottomMaximized) { setBottomHeight(restoredBottomHeight.current); setBottomMaximized(false); } else { restoredBottomHeight.current = bottomHeight; setBottomHeight(bottomLimit); setBottomMaximized(true); } }} />
     </section>
     {rightOpen && <><Splitter label="Resize context panel" axis="x" reverse value={rightWidth} min={290} max={470} set={setRightWidth} /><ContextPanel workspace={workspace} mode={context} setMode={setContext} selected={selected} inspect={inspect} close={() => setRightOpen(false)} openMaterial={openMaterial} /></>}
     </div>
@@ -230,7 +302,14 @@ function Splitter({ label, axis, reverse = false, value, min, max, set }: { labe
 
 function CaseSidebar({ workspace, perspective, selected, inspect, navigate, openMaterial }: { workspace: LiveWorkspace; perspective: Perspective; selected: string; inspect: (id: string) => void; navigate: (p: Perspective) => void; openMaterial: (id: string, label: string, pinned?: boolean) => void }) {
   const rows = perspectiveRows(workspace, perspective);
-  return <div className="live-sidebar-content"><button className={`case-identity ${selected === workspace.case.case_ref ? "selected" : ""}`} onClick={() => inspect(workspace.case.case_ref)}><small>{workspace.case.case_status} · generation {workspace.case.generation}</small><h1>{workspace.case.display_name}</h1><p>{workspace.case.tenant_ref ?? "Tenant unavailable"}</p></button>{perspective === "Overview" && <><section className="sidebar-group case-outline"><h2>Case structure <span>Real</span></h2>{overviewDimensions(workspace).map((item) => <button key={item.perspective} onClick={() => navigate(item.perspective)}><Icon name={perspectiveIcon(item.perspective)} /><span><strong>{item.perspective}</strong><small>{item.detail}</small></span></button>)}</section><section className="sidebar-group"><h2>Participants <span>{workspace.overview.participants.length}</span></h2>{workspace.overview.participants.map((person) => <button key={person.id} className={selected === person.id ? "selected" : ""} onClick={() => inspect(person.id)}><Icon name="people" /><span><strong>{person.id}</strong><small>{person.roles.join(", ") || "No role exposed"}</small></span>{person.is_current && <Badge tone="info">Current</Badge>}</button>)}</section></>}{rows.map((group) => <section className="sidebar-group" key={group.label}><h2>{group.label}<span>{group.items.length}</span></h2>{group.items.map((item) => <button key={item.id} className={selected === item.id ? "selected" : ""} onClick={() => ("material" in item && item.material) ? openMaterial(item.id, item.label) : inspect(item.id)} onDoubleClick={() => { if ("material" in item && item.material) openMaterial(item.id, item.label, true); }}><Icon name={item.icon} /><span><strong>{item.label}</strong><small>{item.detail}</small></span></button>)}{!group.items.length && <p className="sidebar-empty">No qualified items.</p>}</section>)}</div>;
+  return <div className="live-sidebar-content">
+    {perspective === "Overview" && <>
+      <section className="sidebar-group"><h2>Case</h2><button title={workspace.case.case_ref} className={selected === workspace.case.case_ref ? "selected" : ""} onClick={() => inspect(workspace.case.case_ref)}><Icon name="case" /><span><strong>{workspace.case.display_name}</strong><small>{workspace.case.case_ref}</small></span></button></section>
+      <section className="sidebar-group case-outline"><h2>Perspectives</h2>{overviewDimensions(workspace).map((item) => <button key={item.perspective} title={item.detail} onClick={() => navigate(item.perspective)}><Icon name={perspectiveIcon(item.perspective)} /><span><strong>{item.perspective}</strong><small>{item.detail}</small></span></button>)}</section>
+      <section className="sidebar-group"><h2>Participants <span>{workspace.overview.participants.length}</span></h2>{workspace.overview.participants.map((person) => <button key={person.id} title={person.roles.join(", ") || "No role exposed"} className={selected === person.id ? "selected" : ""} onClick={() => inspect(person.id)}><Icon name="people" /><span><strong>{person.id}</strong><small>{person.roles.join(", ") || "No role exposed"}</small></span>{person.is_current && <Badge tone="info">Current</Badge>}</button>)}</section>
+    </>}
+    {rows.map((group) => <section className="sidebar-group" key={group.label}><h2>{group.label}<span>{group.items.length}</span></h2>{group.items.map((item) => <button key={item.id} title={`${item.label} · ${item.detail}`} className={selected === item.id ? "selected" : ""} onClick={() => ("material" in item && item.material) ? openMaterial(item.id, item.label) : inspect(item.id)} onDoubleClick={() => { if ("material" in item && item.material) openMaterial(item.id, item.label, true); }}><Icon name={item.icon} /><span><strong>{item.label}</strong><small>{item.detail}</small></span></button>)}{!group.items.length && <p className="sidebar-empty">No qualified items.</p>}</section>)}
+  </div>;
 }
 
 function Surface({ workspace, surface, inspect, selected, navigate, openMaterial, recordSettings }: { workspace: LiveWorkspace; surface: SurfaceKind; inspect: (id: string) => void; selected: string; navigate: (perspective: Perspective) => void; openMaterial: (id: string, label: string, pinned?: boolean) => void; recordSettings: (id: string) => void }) {
@@ -293,8 +372,6 @@ function ContextPanel({ workspace, mode, setMode, selected, inspect, close, open
     {mode === "Activity" && <div className="context-scroll"><PanelHeader title="Activity" detail={`Through generation ${workspace.case.generation}`} />{workspace.memory.timeline.slice(-20).reverse().map((entry) => <div className="context-event" key={entry.id}><time>{formatTime(entry.committed_at_unix_ms)}</time><span><strong>{humanize(entry.kind)}</strong><small>{entry.component}</small></span></div>)}</div>}
   </aside>;
 }
-
-function BottomPanel({ workspace, active, setActive, close, height }: { workspace: LiveWorkspace; active: BottomMode; setActive: (mode: BottomMode) => void; close: () => void; height: number }) { const tabs: BottomMode[] = ["Terminal", "Output", "Executions", "Evidence", "Problems"]; return <section className="live-bottom" style={{ height }}><header>{tabs.map((tab) => <button key={tab} aria-pressed={active === tab} onClick={() => setActive(tab)}>{tab}</button>)}<span /><IconButton aria-label="Close bottom panel" onClick={close}><Icon name="close" /></IconButton></header><div className="tool-content">{active === "Terminal" && <div className="terminal-unavailable"><code>YAI Studio</code><strong>Terminal host not attached</strong><p>This live Case vertical does not provide PTY capability.</p></div>}{active === "Output" && <pre>application.protocol={"yai.studio.application.v1"}{"\n"}case={workspace.case.case_ref}{"\n"}generation={workspace.case.generation}{"\n"}projection=case.summary</pre>}{active === "Executions" && <EmptyState title="No execution projection" body="No dedicated execution view is exposed by this bounded host." />}{active === "Evidence" && <EmptyState title="No evidence projection" body="Evidence remains linked through the real authority and workflow facts where present." />}{active === "Problems" && <EmptyState title="No client problems" body="Unavailable YAI facts are rendered in their owning surface." />}</div></section>; }
 
 function perspectiveRows(workspace: LiveWorkspace, perspective: Perspective) { const icon = (name: string) => name as Parameters<typeof Icon>[0]["name"]; if (perspective === "Environment") return [{ label: "Files", items: workspace.environment.files.map((item) => ({ id: item.id, label: fileName(item.path), detail: item.path, icon: icon("sources"), material: true })) }, { label: "Sources", items: workspace.environment.sources.map((item) => ({ id: item.id, label: item.label, detail: item.posture ?? "declared", icon: icon("sources"), material: true })) }, { label: "Resources", items: workspace.environment.resources.map((item) => ({ id: item.id, label: item.id, detail: item.kind, icon: icon("environment") })) }]; if (perspective === "Knowledge") return [{ label: "Documents", items: workspace.knowledge.sources.map((item) => ({ id: item.id, label: item.label, detail: item.path, icon: icon("sources"), material: true })) }, { label: "Entities", items: workspace.knowledge.entities.map((item) => ({ id: item.id, label: compact(item.id), detail: `${item.definitions.length} definitions`, icon: icon("knowledge") })) }]; if (perspective === "Authority") return [{ label: "Reviews", items: workspace.authority.reviews.map((item) => ({ id: item.id, label: item.id, detail: item.status, icon: icon("review") })) }]; if (perspective === "Work") return [{ label: "Workflow", items: workspace.work.nodes.map((item) => ({ id: item.node_id, label: item.node_id, detail: item.posture, icon: icon("work") })) }]; if (perspective === "Compute") return [{ label: "Targets", items: workspace.compute.targets.map((item) => ({ id: item.id, label: item.provider_key, detail: item.model_id, icon: icon("compute") })) }]; if (perspective === "Memory") return [{ label: "History", items: workspace.memory.timeline.slice(-12).reverse().map((item) => ({ id: item.id, label: humanize(item.kind), detail: `Generation ${item.sequence}`, icon: icon("memory") })) }]; return []; }
 function relationGraph(workspace: LiveWorkspace) { const kinds = new Map<string, string>(); workspace.memory.relations.forEach((edge) => { kinds.set(edge.from, edge.from_kind ?? "fact"); kinds.set(edge.to, edge.to_kind ?? "fact"); }); return { nodes: [...kinds].map(([id, kind]) => ({ id, label: compact(id), kind })), edges: workspace.memory.relations }; }

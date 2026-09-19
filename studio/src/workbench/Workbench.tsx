@@ -91,7 +91,7 @@ export function Workbench({
             controls="case-sidebar"
             axis="x"
             value={layout.left}
-            min={190}
+            min={170}
             max={layout.leftMax}
             onChange={layout.setLeft}
           />

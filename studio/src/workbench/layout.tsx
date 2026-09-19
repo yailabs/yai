@@ -7,7 +7,7 @@ export function useLayout() {
     width: window.innerWidth,
     height: window.innerHeight,
   });
-  const [left, setLeft] = useState(238);
+  const [left, setLeft] = useState(204);
   const [right, setRight] = useState(316);
   const [bottom, setBottom] = useState(206);
   const [leftOpen, setLeftOpen] = useState(true);
@@ -51,12 +51,12 @@ export function useLayout() {
   );
   const rightSize = clamp(right, 260, rightMax);
   const leftMax = Math.max(
-    190,
+    170,
     Math.min(340, viewport.width - (rightOpen ? rightSize + 5 : 0) - 460),
   );
   const bottomMax = Math.max(140, Math.min(420, viewport.height - 380));
   return {
-    left: clamp(left, 190, leftMax),
+    left: clamp(left, 170, leftMax),
     right: rightSize,
     bottom: clamp(bottom, 140, bottomMax),
     leftMax,

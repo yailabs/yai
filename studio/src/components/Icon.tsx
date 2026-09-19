@@ -28,6 +28,10 @@ const paths = {
     "M6 5a2 2 0 1 0 0 .1 M18 7a2 2 0 1 0 0 .1 M8 18a2 2 0 1 0 0 .1 M8 6l8 1 M7 7l1 9 M17 9l-7 7",
   search: "M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16z M17 17l4 4",
   plus: "M12 5v14 M5 12h14",
+  trash: "M4 7h16 M9 7V4h6v3 M7 7l1 14h8l1-14 M10 11v6 M14 11v6",
+  maximize: "M4 9V4h5 M15 4h5v5 M20 15v5h-5 M9 20H4v-5",
+  restore: "M8 4h12v12h-4 M4 8h12v12H4z",
+  minimize: "M5 17h14",
   repository: "M4 4h16v16H4z M8 8h8 M8 12h5 M8 16h7",
   database:
     "M5 5c0-2 14-2 14 0v14c0 2-14 2-14 0z M5 5v5c0 2 14 2 14 0V5 M5 10v5c0 2 14 2 14 0",

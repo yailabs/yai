@@ -5,6 +5,8 @@ Authority: canonical Studio product/frontend architecture, subordinate to the
 [ROADMAP](../ROADMAP.md#product-interfaces) alone owns macro state, maturity,
 engineering selection, promotion, interlock and backend prerequisites. This
 specification is neither an implementation queue nor evidence of promotion.
+The subordinate [Studio roadmap](../studio/ROADMAP.md) records implementation
+progression and dependencies without owning maturity.
 
 ## Purpose and Product Position
 
@@ -211,9 +213,19 @@ shell / yai / yvex / tools
 Structured process execution takes an admitted command/profile and returns
 qualified observations/receipts. It is not simulated typing into a shell. PTY
 bytes cannot replace an execution receipt, and terminal output must not be parsed
-into Case authority. REPLAI remains the current CLI mechanics owner; whether any
-of its mechanics fit a future pane requires separate integration qualification.
-No emulator, PTY host, shell plugin or process launcher is implemented here.
+into Case authority. REPLAI remains the current CLI mechanics owner. Studio's
+desktop shell now uses `@xterm/xterm` as its terminal renderer and a narrow
+`portable-pty` Tauri host. The bridge accepts only terminal lifecycle, input and
+resize operations; it does not expose a generic process command. It starts the
+user's ordinary local shell in a deliberate local home directory, supports
+multiple transient terminals and cleans them up with the desktop window.
+Browser mode reports that the desktop host is required and never emulates a PTY.
+
+PTY bytes remain presentation mechanics. Studio does not parse them, inject Case
+labels as commands or use them as application results. A user may invoke `yai`
+inside the shell, but all Case facts rendered elsewhere still come only through
+LiveClient's typed YAI boundary. The current shell is generic and local; it is
+not Case-attached Open in Terminal and has no persistent terminal sessions.
 
 ## Dynamic Case Projection
 
@@ -359,7 +371,7 @@ roles.
 | Editor / work surface | Composition, Case/source artifacts and editable derived views | Explicit save/admission through existing or future YAI contracts; no silent source rewriting |
 | Computer surface | Targets, frames, observations/actions and receipts | Future governed Computer Use capability |
 | Bottom Panel | Logs, evidence, tests, execution/output tools | Presentation of facts from responsible owners |
-| Terminal | Real shell/REPL/tool processes | Future native PTY host and terminal frontend |
+| Terminal | Real shell/REPL/tool processes | Qualified desktop-local xterm + portable-pty mechanics; Case-attached handoff remains future work |
 
 ## Local UI State vs Case State
 
@@ -393,8 +405,12 @@ Studio dependency/build trees from source classification.
 React/TypeScript owns rendering and interaction; Tauri supplies the container
 and the in-process request/update adapter. Rust shell code remains thin; typed
 application composition lives below it and existing YAI owners remain canonical.
-No Next.js, Electron, editor engine, terminal emulator, graph library or native
-plugin is added. CSS tokens, reusable controls and one inline icon system form
+The desktop window uses one Studio-owned title row with native window controls;
+this removes redundant OS/application/Case bars without moving product behavior
+into the Tauri shell.
+No Next.js, Electron, editor engine, graph library or native plugin is added.
+The deliberately selected terminal renderer is the narrow xterm surface described
+above. CSS tokens, reusable controls and one inline icon system form
 the permanent UI foundation without an external UI kit. The dark desktop grammar
 uses tonal surface layers, spacing and typography for most separation, reserving
 visible dividers for structural splits. Controls and grouped surfaces use modest
@@ -404,6 +420,15 @@ transparent RGBA pixel, not a product icon design. Future modules grow when
 there is code to own; the conceptual
 `case`, `components`, `surfaces`, `state`, `terminal`, `yvex` placement is not a
 requirement to create empty noun directories.
+
+The desktop workbench adopts the structural seams needed by an extensible IDE:
+UI commands are registered independently from menu placement and keyboard
+bindings; Activity Bar items select view containers; the primary sidebar,
+editor/work tabs, auxiliary context panel, bottom panel and desktop chrome have
+stable responsibilities; and visual roles use shared semantic tokens. This is
+frontend-local contribution plumbing, not a YAI operation registry and not a
+plugin host. A future extension system may contribute through these seams
+without receiving Case authority or depending on component-private styling.
 
 The bootstrap follows the official [Vite guide](https://vite.dev/guide/) and
 [Tauri Vite integration](https://v2.tauri.app/start/frontend/vite/). Desktop

@@ -216,6 +216,13 @@ design; [ROADMAP](../ROADMAP.md#product-interfaces) alone owns X03/X04 maturity.
 The existing C daemon IPC remains unrelated status/compatibility machinery and
 is not repurposed as the Studio host.
 
+The desktop shell additionally owns a narrow transient PTY boundary: xterm
+renders bytes, Tauri creates/resizes/writes/kills `portable-pty` processes, and
+window teardown disposes them. This is local terminal mechanics only. It accepts
+no arbitrary command specification from Case data, supplies no application
+result, parses no CLI output and owns no Case, Workflow, effect or authority
+meaning. Browser mode has no PTY.
+
 ## Demonstrated product verticals
 
 “Complete” means that the bounded path has an entrypoint, consequence or
@@ -1451,7 +1458,7 @@ participates.
 | `cmd/yai/src/graph_runtime.rs` | graph relation materialization, rebuild and query | product-reachable derived owner |
 | `cmd/yai/src/analytics.rs` | DuckDB schemas, extraction and reports | product-reachable derived owner |
 | `engine/yai-engine` | canonical Transition/CaseState semantics, LMDB authority, typed semantic-context compiler, legacy decoder, and reusable derived algorithms | product-reachable semantic/data authority |
-| `studio/src-tauri` + `studio/src` | in-process local application adapter plus React Case Workbench, graph/layout/navigation and explicit fixture development mode | no direct persistence, CLI-output parsing, Case semantics, PTY or YVEX management |
+| `studio/src-tauri` + `studio/src` | in-process local application adapter plus React Case Workbench, graph/layout/navigation, transient local PTY mechanics and explicit fixture development mode | no direct persistence, CLI-output parsing, Case semantics, Case-attached terminal handoff or YVEX management |
 | `cmd/yaid` + selected `system/` sources | daemon IPC, fixture loops, C journal/projection/hot snapshot | product-reachable process/platform boundary |
 | separate C component archive | gates, carriers, process/observation and compatibility mechanics | component characterization; not product capability |
 | tests/labs/history | current proof, research, and historical specification | evidence, never implementation authority |

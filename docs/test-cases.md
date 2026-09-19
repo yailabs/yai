@@ -62,16 +62,21 @@ the repository root and then `studio/`, independently:
 cargo test --manifest-path application/Cargo.toml
 npm ci
 npm run build
+cargo test --manifest-path src-tauri/Cargo.toml --locked terminal::tests -- --nocapture
 npm run desktop:build -- -- --locked
 ```
 
-The Rust test exercises authorized real Case list/open/summary and typed stale
-refusal against a disposable YAI store. The frontend build typechecks and bundles
-the React workbench. The desktop build requires Rust and native Tauri prerequisites
-and produces an executable without installer packaging. Together they do not
-prove PTY, multi-client mutation, remote transport, live provider control or human
-acceptance. Normal `npm run dev` is the host-unavailable negative; run a real
-Case through `YAI_HOME=/dedicated/home npm run desktop:dev`.
+The application Rust test exercises authorized real Case list/open/summary and
+typed stale refusal against a disposable YAI store. The frontend build typechecks
+and bundles the React workbench. The terminal Rust tests exercise create,
+input/output, resize, exit, kill, cleanup, multiple instances, invalid IDs and,
+where installed, full-screen tools plus `yai help` as unparsed PTY bytes. The
+desktop build requires Rust and native Tauri prerequisites and produces an
+executable without installer packaging. Together they do not prove Case-attached
+Open in Terminal, persistent PTY sessions, multi-client mutation, remote
+transport, live provider control or human acceptance. Normal `npm run dev` is
+the host-unavailable negative; run a real Case through
+`YAI_HOME=/dedicated/home npm run desktop:dev`.
 
 For fixture visual regression, start `npm run dev:fixture`. With that server
 running, from `studio/`:

@@ -594,7 +594,7 @@ ESTABLISHED=32 PARTIAL=29 OPEN=9 LATER=3 TOTAL=73
 | X01 | Registry-backed native CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; handwritten YAI product CLI and exact automation retained, no global current-Case authority or silent trust. Generated reference clients do not replace `./yai` automatically. |
 | X02 | Native REPLAI Case workbench | 🟢 ESTABLISHED | [R4][replai], [R5][r5], [presentation][presentation]; real PTY and controller seams, no second terminal. |
 | X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | A bounded `yai-application` Rust boundary now supplies authorized local Case list/open/summary projections and generation invalidation to native Studio. CLI arguments, output capture and store-coupled orchestration still cross application/presentation boundaries; no complete stable public API, standalone listener, exported interface package, SDK or remote authentication qualification. |
-| X04 | YAI Studio / Case IDE | 🟡 PARTIAL | [Case Workbench specification](docs/studio.md), inside YAI. A bounded single-host local real-Case vertical now lists/attaches authorized Cases and presents real Overview/Environment/Knowledge/Memory/Authority/Work/Compute/Conversation facts or explicit missingness through LiveClient; fixtures are opt-in only. This is not general product readiness, multi-client mutation qualification, remote transport, PTY or YVEX management. |
+| X04 | YAI Studio / Case IDE | 🟡 PARTIAL | [Case Workbench specification](docs/studio.md) and [Studio progression](studio/ROADMAP.md), inside YAI. A bounded single-host local real-Case vertical now lists/attaches authorized Cases and presents real Overview/Environment/Knowledge/Memory/Authority/Work/Compute/Conversation facts or explicit missingness through LiveClient; the desktop shell also owns a real local PTY while fixtures stay opt-in. This is not general product readiness, multi-client mutation qualification, remote transport, Case-attached Open in Terminal or YVEX management. |
 
 ### Qualification
 
@@ -800,8 +800,9 @@ a real versioned YAI export gains an independently qualified interfaces consumer
 X04 is **PARTIAL** at the exact boundary “bounded single-host local real-Case
 Studio vertical.” [docs/studio.md](docs/studio.md) is the canonical product/frontend
 specification, including surfaces, continuity, terminal, providers, fixture mode
-and desktop technology. This roadmap alone owns maturity, engineering selection,
-promotion and interlock.
+and desktop technology. [studio/ROADMAP.md](studio/ROADMAP.md) records the
+subordinate Studio implementation progression. This roadmap alone owns maturity,
+engineering selection, promotion and interlock.
 
 Normal Studio now uses a real authorized local Case list, an ephemeral
 principal/Participant attachment, owner-backed projections and generation-based
@@ -814,15 +815,16 @@ and visual-regression input.
 X03 remains **PARTIAL** because the native CLI has not fully converged on this
 boundary and no stable exported interface package, standalone host, general
 event stream or remote authentication contract is qualified. Multi-client
-mutation correctness, external-change observation, PTY/Open in Terminal and
-conversation SEND remain backend/application gaps. Core/CLI build and operation
+mutation correctness, external-change observation, Case-attached Open in Terminal
+and conversation SEND remain backend/application gaps. The integrated PTY is
+desktop-local terminal mechanics and does not close those gaps. Core/CLI build and operation
 do not depend on Studio or Node/Tauri.
 
-The next named Studio program is `STUDIO.YVEX.CONTROL.0`: a future first-party
-YVEX management surface for admitted models, engine generations, deployment,
-devices, residency, compilation, runtime sessions and authoritative evidence.
-It does not start here and must preserve the generic provider inference plane;
-no provider-brand branch belongs in cognitive execution.
+The selected Studio milestone is `STUDIO.DESKTOP.SHELL.PTY.0`; its subordinate
+progression and Backend Sync rule live in [studio/ROADMAP.md](studio/ROADMAP.md).
+`STUDIO.MEMORY.INSPECTOR.0` is next there. `STUDIO.YVEX.CONTROL.0` remains a
+future first-party management surface and must preserve the generic provider
+inference plane; no provider-brand branch belongs in cognitive execution.
 
 ## Cognitive State Spectrum
 
