@@ -1109,7 +1109,7 @@ fn recall_discontinuous_short_long_characterization() {
             .binding_id
             .clone();
         let old = w.operation("request:recall:original", "src/retry.txt");
-        let (d1, _) = w
+        let (d1, d1_commit) = w
             .store
             .derive_and_commit_policy_decision(CASE, &old.operation_id)
             .unwrap();
@@ -1206,11 +1206,85 @@ fn recall_discontinuous_short_long_characterization() {
             .relations
             .iter()
             .any(|r| r.kind == K::PolicyReplacement));
-        assert!(r
+        let decision_event = r
+            .trace
+            .events
+            .iter()
+            .find(|e| e.event.object_refs.contains(&d1.decision_id))
+            .unwrap();
+        let observation_event = r
+            .trace
+            .events
+            .iter()
+            .find(|e| e.event.object_refs.contains(&observation.observation_id))
+            .unwrap();
+        let decision_observation: Vec<_> = r
             .trace
             .relations
             .iter()
-            .any(|r| r.kind == K::DecisionObservation));
+            .filter(|relation| {
+                relation.kind == K::DecisionObservation
+                    && relation.from_event == decision_event.event.transition_id
+                    && relation.to_event == observation_event.event.transition_id
+            })
+            .collect();
+        assert_eq!(decision_observation.len(), 1);
+        let relation = decision_observation[0];
+        assert_eq!(
+            relation.posture,
+            crate::graph::experience::RelationPosture::ObservedConsequence
+        );
+        assert_eq!(
+            relation.known_at_generation,
+            observation_event.event.recorded_generation
+        );
+        assert_eq!(relation.sources.len(), 2);
+        assert_eq!(relation.sources[0].transition_id, decision_event.event.transition_id);
+        assert_eq!(relation.sources[0].field, "typed_object_identity");
+        assert_eq!(relation.sources[1].transition_id, observation_event.event.transition_id);
+        assert_eq!(relation.sources[1].field, "observation.decision_id");
+        assert!(!r.trace.relations.iter().any(|candidate| {
+            candidate.kind == K::DecisionObservation
+                && candidate.from_event == observation_event.event.transition_id
+                && candidate.to_event == decision_event.event.transition_id
+        }));
+        let current_decision_event = r
+            .trace
+            .events
+            .iter()
+            .find(|e| e.event.object_refs.contains(&d2.decision_id))
+            .unwrap();
+        assert!(!r.trace.relations.iter().any(|candidate| {
+            candidate.kind == K::DecisionObservation
+                && candidate.from_event == current_decision_event.event.transition_id
+                && candidate.to_event == observation_event.event.transition_id
+        }));
+        let before_observation = recall(
+            &w,
+            "retry",
+            &[&d1.decision_id],
+            Some(d1_commit.state.generation),
+        )
+        .unwrap();
+        assert!(!before_observation
+            .trace
+            .events
+            .iter()
+            .any(|e| e.event.object_refs.contains(&observation.observation_id)));
+        assert!(!before_observation
+            .trace
+            .relations
+            .iter()
+            .any(|relation| relation.kind == K::DecisionObservation));
+        let mut bounded = RecallRequest::new(CASE, generation, HUMAN, "retry");
+        bounded.required_refs = vec![d1.decision_id.clone()];
+        bounded.bounds.relations = 1;
+        assert_eq!(
+            w.store
+                .recall_trace_authorized(&w.owner, bounded, None)
+                .unwrap_err(),
+            "recall_required_context_exceeds_output_budget"
+        );
         assert!(r
             .trace
             .events
@@ -1226,7 +1300,7 @@ fn recall_discontinuous_short_long_characterization() {
             r.trace.relations.len(),
             r.trace.segments.len(),
         ));
-        println!("recall_characterization history={} gap_each={} source_visible_events={} candidate_count={} candidate_discovery_us={} relation_build_us={} qualification_us={} closure_us={} end_to_end_us={} selected_events={} selected_relations={} segments={} units={} bytes={} zero_transitions=true",generation,gap,r.measurements.qualified_events,r.trace.candidates.len(),r.measurements.discovery_us,r.measurements.relation_build_us,r.measurements.qualification_us,r.measurements.source_closure_us,total_us,r.trace.events.len(),r.trace.relations.len(),r.trace.segments.len(),r.measurements.semantic_units,r.measurements.output_bytes);
+        println!("recall_characterization history={} gap_each={} source_visible_events={} candidate_count={} candidate_discovery_us={} relation_build_us={} qualification_us={} closure_us={} end_to_end_us={} selected_events={} selected_relations={} segments={} units={} bytes={} exact_decision_observation=true direction=decision_to_observation provenance=typed_object_identity+observation.decision_id false_causal_links=0 pre_observation_cut_relation=0 relation_budget_refused=true zero_transitions=true",generation,gap,r.measurements.qualified_events,r.trace.candidates.len(),r.measurements.discovery_us,r.measurements.relation_build_us,r.measurements.qualification_us,r.measurements.source_closure_us,total_us,r.trace.events.len(),r.trace.relations.len(),r.trace.segments.len(),r.measurements.semantic_units,r.measurements.output_bytes);
         println!(
             "recall_raw_candidates={}",
             serde_json::to_string(&r.trace.candidates).unwrap()
@@ -1350,18 +1424,68 @@ fn recall_current_disclosure_hides_private_events_counts_reasons_and_anchors() {
 fn recall_relation_counterfactual_and_hidden_intermediate_do_not_become_memory() {
     let w = World::new();
     let op = w.operation("request:recall:counterfactual", "src/retry.txt");
-    let (d, c) = w
+    let (d, _) = w
         .store
         .derive_and_commit_policy_decision(CASE, &op.operation_id)
         .unwrap();
-    let h = view(&w, c.state.generation);
+    let access = w
+        .store
+        .admit_resource_read_authorized(&w.owner, CASE, &op.operation_id)
+        .unwrap();
+    let observation = w
+        .store
+        .record_resource_observation_authorized(&w.owner, &access, w.result(&access))
+        .unwrap();
+    let generation = w.store.get_case_state(CASE).unwrap().unwrap().generation;
+    let h = view(&w, generation);
     let history = w.store.list_case_transitions(CASE).unwrap();
-    let mut r = RecallRequest::new(CASE, c.state.generation, HUMAN, "no-lexical-hit");
+    let mut r = RecallRequest::new(CASE, generation, HUMAN, "no-lexical-hit");
     r.required_refs = vec![d.decision_id.clone()];
     let a = crate::memory_hierarchy::recall::compile(&h, "fixed-scope", &history, r.clone(), None)
         .unwrap()
         .trace;
     assert!(a.relations.iter().any(|r| r.kind == K::PolicyBasis));
+    assert!(a.relations.iter().any(|r| r.kind == K::DecisionObservation));
+    // Resolver-only counterfactual: both same-Resource endpoints and their
+    // order remain, but the exact typed observation link does not. No edge is
+    // reconstructed from chronology, subject identity or lexical similarity.
+    let mut no_observation_link = h.clone();
+    for evidence in &mut no_observation_link.known_by_then {
+        if let TransitionPayload::ResourceObservationRecorded { observation } = &mut evidence.payload {
+            observation.decision_id = "decision:unlinked-counterfactual".into();
+        }
+    }
+    let no_link_graph = crate::graph::experience::derive(
+        &no_observation_link,
+        crate::graph::experience::ExperienceQuery::default(),
+        "fixed-scope",
+    ).unwrap();
+    assert!(no_link_graph
+        .events
+        .iter()
+        .any(|event| event.object_refs.contains(&d.decision_id)));
+    assert!(no_link_graph
+        .events
+        .iter()
+        .any(|event| event.object_refs.contains(&observation.observation_id)));
+    assert!(!no_link_graph
+        .relations
+        .iter()
+        .any(|relation| relation.kind == K::DecisionObservation));
+    // Exact normative backing is part of the Decision endpoint closure. When
+    // it is unavailable, the relation is unavailable rather than retained as
+    // an unbacked causal-looking edge.
+    let mut missing_backing = h.clone();
+    missing_backing.normative_then.source_closure.clear();
+    let missing_graph = crate::graph::experience::derive(
+        &missing_backing,
+        crate::graph::experience::ExperienceQuery::default(),
+        "fixed-scope",
+    ).unwrap();
+    assert!(!missing_graph
+        .relations
+        .iter()
+        .any(|relation| relation.kind == K::DecisionObservation));
     // Resolver-only counterfactual, not a fabricated admitted Decision: qualified
     // input has no normative link. Same chronology/text cannot reconstruct it.
     let mut no_basis = h.clone();
@@ -1397,6 +1521,6 @@ fn recall_relation_counterfactual_and_hidden_intermediate_do_not_become_memory()
     assert_eq!(b, x);
     assert!(!serde_json::to_string(&x).unwrap().contains("hidden:"));
     assert_eq!(history, w.store.list_case_transitions(CASE).unwrap());
-    println!("recall_counterfactual scope=resolver_contract normative_link=present_vs_absent chronology=unchanged missing_link_not_invented=true hidden_intermediate=semantic_identity_equal canonical_mutation=0");
+    println!("recall_counterfactual scope=resolver_contract normative_link=present_vs_absent observation_link=typed_decision_id chronology=unchanged same_resource_without_link=false_causal_relations_0 missing_backing_relation_0 hidden_intermediate=semantic_identity_equal canonical_mutation=0");
     w.finish();
 }

@@ -11,11 +11,11 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source environment, source-grounded domain knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **SEMANTIC.WORKING.STATE.SUFFICIENCY.0 — COMPLETE as a bounded qualification boundary**: an independent 15-class semantic oracle now measures Recall/W prerequisites, controls, distractors, disclosure, refusal, budgets, paging, refresh and scale without a model. Twelve classes are sufficient, missing backing refuses correctly, and two temporal-causal classes retain an exact missing-relation finding. No general sufficiency or W → E claim. |
+| Selected engineering boundary | **TEMPORAL.CAUSAL.RECALL.RELATION.CLOSURE.0 — COMPLETE at bounded exact recorded-relation scope**: the retained `0.67` temporal findings were traced to an evaluation selector mismatch, not production Recall. The canonical exact Decision→Observation relation existed before Recall and already survived closure; the corrected independent oracle now verifies its identity, direction and typed provenance. Fourteen classes are sufficient, missing backing refuses correctly, and false-causality controls remain zero. No general causal reasoning, Recall sufficiency or W → E claim. |
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
-| Most important structural gap | Bounded S/Recall → W, exact-group paging, explicit same-task refresh, ordinary governed consumers, derived active-consumer invalidation and same-Tenant physical source-backing reuse with Case-local applicability now exist. Bounded sufficiency evaluation is executable and exposes missing temporal-causal relation coverage; general task sufficiency/source interpretation, shared derivation/cache lifecycle, cross-Tenant reuse, general neighborhood expansion/temporal validity, all-owner notification/remote acknowledgement and a public W → E consumer remain unqualified. |
+| Most important structural gap | Bounded S/Recall → W, exact-group paging, explicit same-task refresh, ordinary governed consumers, derived active-consumer invalidation and same-Tenant physical source-backing reuse with Case-local applicability now exist. The bounded sufficiency oracle now reads exact canonical temporal relations correctly; general task sufficiency/source interpretation, shared derivation/cache lifecycle, cross-Tenant reuse, general causal inference/neighborhood expansion/temporal validity, all-owner notification/remote acknowledgement and a public W → E consumer remain unqualified. |
 | Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
-| Primary research boundary | Close the observed Recall relation-coverage and broader Recall/W sufficiency gaps, all-owner/remote refresh acknowledgement, broader demand expansion and bounded persistent deliberation; Experiential State Read/Update remain OPEN. These extend existing S/M/C/E/W/Q targets, not automatic implementation authorization. |
+| Primary research boundary | Extend broader Recall/W sufficiency, all-owner/remote refresh acknowledgement, broader demand expansion and bounded persistent deliberation; Experiential State Read/Update remain OPEN. Exact recorded Decision→Observation closure is now qualified, but general causal understanding remains open. These extend existing S/M/C/E/W/Q targets, not automatic implementation authorization. |
 | Current compatibility path | Governed exact OpenAI-compatible context/text, bounded typed content/functions/JSON when mechanically qualified; optional opaque continuation, not a native state contract. |
 | Target stateful path | Qualified D_t + H_t + S_t → Recall R_t^q and explicit task → automatic Recall acquisition + mandatory S → bounded W v3 exist; opt-in W4 adds exact deferred references and explicit Page v1 expansion. Explicit refresh and bounded active-consumer change assessment reuse the stored task through current qualification/full Recall/W reconstruction. General paging, public W → YVEX E_t and deliberation L remain targets. |
 | Human Golden acceptance | **PENDING_OPERATOR**; automated PTY evidence cannot supply this verdict. Continuity canary **NOT_RUN**. |
@@ -581,10 +581,10 @@ ESTABLISHED=32 PARTIAL=30 OPEN=8 LATER=3 TOTAL=73
 |---|---|---|---|
 | M01 | Provenance-bound operational/episodic/assertion derivation | 🟢 ESTABLISHED | [W20][memory], [Golden rebuild][golden]; derived failure cannot change canonical truth. |
 | M02 | Qualified hybrid indexing and selected-source revalidation | 🟢 ESTABLISHED | [W19][index], [H19][index-hardening]; bounded BM25/exact-cosine oracle, hidden state cannot alter visible ranking. |
-| M03 | Graph/temporal/causal access | 🟡 PARTIAL | [Qualified experience](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/temporal-causal-experience-0/REPORT.md): exact-source scoped recording, structural/support, lifecycle and outcome relations; bounded directed paths, cross-Episode origin, missing-source and hidden-path controls. [Recall][recall] consumes these relations without promoting association to causality; generic causal understanding and all-owner traversal remain open. |
+| M03 | Graph/temporal/causal access | 🟡 PARTIAL | [Qualified experience](https://github.com/yailabs/yai/blob/c187648e9d9909d4d9b6711f131fa726d48cd585/refoundation/validation/temporal-causal-experience-0/REPORT.md): exact-source scoped recording, structural/support, lifecycle and outcome relations; bounded directed paths, cross-Episode origin, missing-source and hidden-path controls. [Recall][recall] preserves an exact recorded Decision→Observation relation with typed provenance, cut/disclosure/backing qualification and atomic bounds. Chronology, shared Resource and lexical similarity do not mint it. Generic causal understanding and all-owner traversal remain open. |
 | M04 | Analytical extraction | 🟡 PARTIAL | Existing DuckDB extractors are derived; not all declared fact families have producers. |
 | M05 | Semantic access quality and scale | 🟡 PARTIAL | Qualified exact/lexical/vector selection exists; learned candidate/path/rank navigation, optional semantic sparse/SAE features and scale remain research. Deterministic source revalidation retains truth/scope/validity decisions. |
-| M06 | Bounded temporal-causal Recall Trace compilation | 🟡 PARTIAL | [Recall v2](docs/recall.md) integrates bounded D/H/S under one qualified source/history snapshot, family-aware BM25, exact/current anchors and atomic output bounds. Documentary/observed/control classes, cut-specific revisions, exact references, current disclosure, backing loss and rebuild remain explicit. Same-Tenant physical backing reuse is filtered through the requesting Case before discovery; no trace/result is shared across Cases. [Recall v1][recall] and its 81/20,081-Transition evidence remain valid at the original scope. The bounded Q06 oracle identifies Decision/Observation endpoint coverage but missing `decision_observation` relation coverage in two temporal-causal tasks; W has zero additional stage failures. Host cost grows with sources/history; general query sufficiency, all-owner Recall and learned navigation remain unqualified. |
+| M06 | Bounded temporal-causal Recall Trace compilation | 🟡 PARTIAL | [Recall v2](docs/recall.md) integrates bounded D/H/S under one qualified source/history snapshot, family-aware BM25, exact/current anchors and atomic output bounds. Documentary/observed/control classes, cut-specific revisions, exact references, current disclosure, backing loss and rebuild remain explicit. Same-Tenant physical backing reuse is filtered through the requesting Case before discovery; no trace/result is shared across Cases. [Recall v1][recall] and its 81/20,081-Transition evidence remain valid at the original scope. The bounded Q06 oracle now verifies that the canonical exact `decision_observation` relation already survives Recall closure in both short and 256-change tasks; the prior missing result was an evaluator field mismatch. Host cost grows with sources/history; general query sufficiency, all-owner Recall and learned navigation remain unqualified. |
 | M07 | Source-grounded domain knowledge derivation | 🟡 PARTIAL | [Typed deterministic D contract][knowledge] and [actual CLI/LMDB oracle](tests/characterization/source-grounded-knowledge/test_knowledge.py): Markdown/JSON/text-PDF/tree/SQLite structure, explicit entities/claims, unresolved documentary/observation disagreement, source-bound graph/BM25/read-only wiki; current disclosure, revision/revoke, missing-backing and rebuild controls. A bounded A/B/C oracle reuses exact same-Tenant backing while retaining Case-local source/unit/graph identities, roles and visibility. 10/73-document characterization. M06 consumes this bounded D contract; W consumes its qualified Recall, not a direct knowledge dump. No generic M07 gap is thereby closed: general prose/NER/OCR, editable wiki, cross-Tenant reuse and shared extraction cache remain unqualified. |
 
 ### Product interfaces
@@ -605,7 +605,7 @@ ESTABLISHED=32 PARTIAL=30 OPEN=8 LATER=3 TOTAL=73
 | Q03 | External YVEX product qualification | 🟡 PARTIAL | [Current external checkpoint][external-closure]: generation 2 capacity compatible; first-work wait FAIL, Workflow NOT_REACHED. No full external Golden PASS or model-quality claim. |
 | Q04 | Human Golden acceptance | 🔴 OPEN | [Runbook](docs/zero-to-current.md) prepared; PENDING_OPERATOR, not automated human PASS. |
 | Q05 | Long-lived continuity canary | 🔴 OPEN | Operator procedure recorded; retained cross-upgrade Case not exercised by this closure. |
-| Q06 | Cognitive-state, Recall and deliberation evaluation | 🟡 PARTIAL | [Bounded semantic oracle and report](tests/characterization/semantic-working-state-sufficiency/REPORT.md) establish a YAI-owned 15-class, model-independent D/H/S → Recall → W evaluation surface with exact fixture identities, required/control/distractor/forbidden vectors, budgets, W4 paging, ambient refresh and 10/73-source plus 83/338-Transition characterization. It retains two Recall relation insufficiencies and one distractor admission rather than tuning the fixture. No persistent State Read ablation, E comparison, general dataset, learned navigation or equal-compute deliberation baseline. |
+| Q06 | Cognitive-state, Recall and deliberation evaluation | 🟡 PARTIAL | [Bounded semantic oracle and report](tests/characterization/semantic-working-state-sufficiency/REPORT.md) establish a YAI-owned 15-class, model-independent D/H/S → Recall → W evaluation surface with exact fixture identities, required/control/distractor/forbidden vectors, budgets, W4 paging, ambient refresh and 10/73-source plus 83/338-Transition characterization. Fourteen classes are sufficient, one missing-backing case refuses correctly, and the retained prior temporal finding is transparently corrected as an oracle-contract defect. One documentary distractor remains measured; temporal false-causality and forbidden disclosure counts are zero. No persistent State Read ablation, E comparison, general dataset, learned navigation or equal-compute deliberation baseline. |
 
 ### Federation / scale
 
@@ -875,7 +875,10 @@ Independent external/provider qualification tracks remain visible below; they
 are not additional selected implementation rows. Success never automatically
 authorizes the next experiment.
 
-Selected implementation boundary: **SEMANTIC.WORKING.STATE.SUFFICIENCY.0 — COMPLETE as bounded qualification**.
+Selected implementation boundary: **TEMPORAL.CAUSAL.RECALL.RELATION.CLOSURE.0 — COMPLETE at bounded exact recorded-relation scope**.
+SEMANTIC.WORKING.STATE.SUFFICIENCY.0 remains COMPLETE as a bounded qualification
+surface; its original two `0.67` findings remain documented with their corrected
+oracle-contract diagnosis.
 CROSS.CASE.SOURCE.REUSE.ISOLATION.0 remains COMPLETE at bounded same-Tenant
 immutable-backing scope.
 AMBIENT.SEMANTIC.REFRESH.CONSUMERS.0 remains COMPLETE at bounded derived active
@@ -894,7 +897,7 @@ Next implementation boundary: **UNSELECTED**.
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| SEMANTIC.WORKING.STATE.SUFFICIENCY.0 | COMPLETE | M C Q | Independent fixture-owned semantic prerequisites evaluate 15 bounded task classes above Recall/W: 12 sufficient, one correct missing-backing refusal and two retained temporal-causal Recall relation insufficiencies. Controls survive, forbidden disclosure and W-stage failures are zero; budget, paging, refresh and scale vectors remain explicit. Qualification complete does not mean general Recall/W sufficient. |
+| TEMPORAL.CAUSAL.RECALL.RELATION.CLOSURE.0 | COMPLETE | M C Q | Exact canonical Decision→Observation identity, direction and typed provenance are bound before Recall and verified unchanged in Recall/W. The prior two `0.67` results were an evaluator selector mismatch, not a producer/resolver loss: both are now `1.00`; Recall/W failures, false-causality controls and forbidden disclosure are zero. Relation bounds refuse atomically. No production schema or general causal reasoning claim. |
 <!-- execution:end -->
 
 **Primary programs: M / C / Q, with A / K / S preserving disclosure, canonical and derived identity semantics.**
@@ -940,6 +943,12 @@ oracle evaluates existing YAI Recall/W, paging, refresh and Case-isolation owner
 It adds no producer/consumer ABI, model-state format, StateProfile, dependency
 pin or BOUNDARY registration; **I07 remains UNSELECTED**. Its oracle is suitable
 for a future W-versus-E comparison but does not select or implement that seam.
+
+**TEMPORAL.CAUSAL.RECALL.RELATION.CLOSURE.0 INTERLOCK CHECK:** the correction is
+inside YAI's existing qualification surface. Canonical Transition evidence,
+qualified experience relations, Recall closure and W are unchanged owners; no
+producer/consumer ABI, StateProfile, YVEX dependency, BOUNDARY registration or
+model-state format is introduced. **I07 remains UNSELECTED**.
 
 The bounded semantic producer now has Recall-aware compilation, exact paging,
 same-task current requalification and a derived active-consumer lifecycle. No
@@ -987,17 +996,17 @@ acceptable. Cross-Case E sharing is forbidden by default without a qualified
 sharing contract. These are future consumer requirements, not E/B1 implementation.
 
 Read-only reconciliation against YVEX `models2`
-[`ac8a34a9c6ce163813f097e003945db73a414564`](https://github.com/yailabs/yvex/blob/ac8a34a9c6ce163813f097e003945db73a414564/ROADMAP.md)
+[`ebf9aa834be56da0a0822c4bec91d6a27c10d3c9`](https://github.com/yailabs/yvex/blob/ebf9aa834be56da0a0822c4bec91d6a27c10d3c9/ROADMAP.md)
 preserves the **NOT READY** finding for a first real public W → E consumer.
-This updates the earlier observation at `2146aefb1c4c517d9a5defbc482d7102ae7bab07`;
-it is not a dependency pin or a freeze of later producer progress. Refoundation.1
-is ACTIVE and its qualification is NEXT. Persistent-state capability/StateProfile,
+This is an observation, not a dependency pin or a freeze of later producer
+progress. Refoundation.1 and its qualification are now COMPLETE at their claimed
+compiler/runtime scopes; `SPECTRUM.MAMBA2.QUALIFICATION.0` is active. Persistent-state capability/StateProfile,
 qualified ingress, provenance-bound realization, independent state lifecycle,
 identity/generation/invalidation and actual State Read evidence remain missing.
 Program N/N.B1 remains OPEN research. A training-free producer milestone such as
 `N.CONTEXT.DERIVED.STATE.READ.0` was proposed, not selected or scheduled by YAI.
-Producer refoundation/qualification and later State Read work progress independently
-of YAI security. The public cognitive-state boundary is not the automatic next wave.
+Producer architecture qualification and later State Read work progress independently
+of YAI semantics. The public cognitive-state boundary is not the automatic next wave.
 
 **CASE.BOUND.MODEL.SECURITY.0 INTERLOCK CHECK:** no shared producer/consumer API,
 pin, W format, StateProfile protocol or YVEX adapter is introduced. No YAI/YVEX
@@ -1066,7 +1075,8 @@ RECALL.TRACE.0                         (published bounded primitive)
   → CASE.BOUND.MODEL.SECURITY.0        (completed bounded native security scope)
   → CASE.BOUND.RESOURCE.OBSERVATION.0  (completed bounded native observation cuts)
   → CROSS.CASE.SOURCE.REUSE.ISOLATION.0 (completed bounded same-Tenant backing isolation)
-  → SEMANTIC.WORKING.STATE.SUFFICIENCY.0 (completed bounded evaluation; retained gaps)
+  → SEMANTIC.WORKING.STATE.SUFFICIENCY.0 (completed bounded evaluation)
+  → TEMPORAL.CAUSAL.RECALL.RELATION.CLOSURE.0 (completed exact relation-oracle correction)
   → public YAI ↔ YVEX cognitive-state boundary (UNSELECTED; producer not ready)
   → State Read / Update and later computational research
 ```
@@ -1079,7 +1089,7 @@ independently qualified at bounded scope; the wider target remains:
 | Future vertical | Required after-state / qualification pressure, not implementation evidence |
 |---|---|
 | Broader source-grounded knowledge | Extend the bounded [M07 profile][knowledge] only with qualified extraction/coordinates, epistemic posture, source closure and disclosure. General prose interpretation, OCR, editable views and shared derivation lifecycle need independent evidence, not more source-format names. |
-| Broader D/H/S Recall sufficiency | Extend the bounded [Recall v2](docs/recall.md) without flattening epistemic classes. The first independent suite now proves 12 classes plus one correct refusal and retains missing `decision_observation` relation coverage in two tasks. A deployment explanation may need documentation, a historical design decision, failed deployment, corrective operation and current state. Every selected owner/relation requires exact backing; this bounded oracle does not prove general task sufficiency. |
+| Broader D/H/S Recall sufficiency | Extend the bounded [Recall v2](docs/recall.md) without flattening epistemic classes. The independent suite now proves 14 classes plus one correct refusal, including exact recorded Decision→Observation closure under short and 256-change history. A deployment explanation may need documentation, a historical design decision, failed deployment, corrective operation and current state. Every selected owner/relation requires exact backing; this bounded oracle does not prove general task sufficiency or causal inference. |
 
 **Recall compatibility expectation:** v2 admits the bounded M07 documentary
 family through the same disclosure/validity/source-closure resolver as H/S, with
@@ -1092,7 +1102,7 @@ source bootstrap and knowledge derivation do not themselves own Recall or W.
 |---|---|---|
 | Now | Bounded historical reconstruction, source bootstrap, deterministic D and integrated D/H/S Recall | Exact policy/Decision, scope, closure, discontinuous Recall, acquisition and source-derived knowledge oracles are earned without inference. Full External Golden and compact policy-awareness delivery remain independent unqualified provider tracks; no automatic next selection |
 | Now | Bounded Recall-aware working state | C06 consumes qualified R through the existing compiler, preserving mandatory S/Case constraints, full requalification and compatibility lowering. Broader sufficiency remains unqualified; no automatic next selection |
-| Now | Bounded model-independent Recall/W sufficiency evaluation | Q06 owns exact task prerequisites and separate coverage/control/distractor/disclosure/refusal vectors across 15 classes. The retained temporal-causal relation and distractor findings remain work, not an automatic next selection |
+| Now | Bounded model-independent Recall/W sufficiency evaluation | Q06 owns exact task prerequisites and separate coverage/control/distractor/disclosure/refusal vectors across 15 classes. Exact recorded Decision→Observation closure is verified after correcting the oracle contract; general causal reasoning and general task sufficiency remain unqualified |
 | Now | Bounded exact-group semantic paging | C07 revalidates declared references under current access, preserves cut/closure and compiles immutable bounded W4 page-in/out without global Recall search. Broader expansion remains unqualified |
 | Now | Bounded prompt-independent semantic refresh | Explicit typed/CLI preflight reuses W3/W4 task semantics, current qualification and full Recall/W reconstruction. No prompt, model or new store; optional page preferences survive only over freshly qualified exact groups. Ordinary governed execution uses full current compilation at each new invocation |
 | Now | Bounded active-consumer semantic refresh | Exact Conversation/Workflow lineage plus typed admitted-change pressure coalesces into one existing current refresh and a fresh/replacement-required/invalidated result. Lazy explicit notification; no daemon, provider call, canonical W owner or replacement for Invocation admission |

@@ -23,24 +23,43 @@ enter production requests or persisted Case truth.
 
 Qualification run:
 
-- run ID: `semantic-working-state-sufficiency-final`
+- run ID: `temporal-causal-relation-closure-final`
 - inner run: `semantic-working-sufficiency-38`
-- order: `1`
-- material pre-state: `f5bc25e928c2d89ce2ba292d6f0dc62b04b7ca78`
+- order: `11`
+- material pre-state: `03916815ff8b371b4646028b6b608236d380a6d0`
+  plus the six wave-owned oracle/test/documentation edits
 - working directory: `/home/mothx/computer-science/projects/YAI/yai`
 - oracle digest: `sha256:a104fb2971abb4169852e8796427aaa086ccb9a9386dac031984b628ee3c0e6f`
 - provider/network posture: none / none
 - exit status: `0`
-- elapsed: `176.990 s` wrapper, `176.802 s` evaluator
+- elapsed: `169.709 s` wrapper, `169.530 s` evaluator
 
-Bounded unedited final stdout line:
+Bounded unedited closure stdout line:
 
 ```text
-semantic_working_state_sufficiency=PASS tasks=15 sufficient=12 refused_correctly=1 insufficient=2 forbidden_disclosure=0 provider_calls=0 model_calls=0 evaluation_transitions=0
+semantic_working_state_sufficiency=PASS tasks=15 sufficient=14 refused_correctly=1 insufficient=0 forbidden_disclosure=0 provider_calls=0 model_calls=0 evaluation_transitions=0
 ```
 
 `PASS` means the evaluation contract executed and reported all selected results;
-it does not rewrite the two `INSUFFICIENT` task findings as successes.
+it is not a model-answer score or a general sufficiency claim.
+
+The same retained run ID carries two separately executed relation controls:
+
+- order `2`, pre-state `exact-case-fixture-short-and-20081-transition-profiles`,
+  command `cargo test --manifest-path engine/Cargo.toml
+  recall_discontinuous_short_long_characterization -- --nocapture`, exit `0`;
+- order `3`, pre-state `resolver-counterfactual-over-qualified-historical-view`,
+  command `cargo test --manifest-path engine/Cargo.toml
+  recall_relation_counterfactual_and_hidden_intermediate_do_not_become_memory
+  -- --nocapture`, exit `0`.
+
+Bounded unedited stdout excerpts:
+
+```text
+recall_characterization history=81 gap_each=0 source_visible_events=72 candidate_count=3 candidate_discovery_us=10895 relation_build_us=11537 qualification_us=516 closure_us=21 end_to_end_us=145975 selected_events=8 selected_relations=14 segments=5 units=5294 bytes=21176 exact_decision_observation=true direction=decision_to_observation provenance=typed_object_identity+observation.decision_id false_causal_links=0 pre_observation_cut_relation=0 relation_budget_refused=true zero_transitions=true
+recall_characterization history=20081 gap_each=10000 source_visible_events=72 candidate_count=3 candidate_discovery_us=10739 relation_build_us=11291 qualification_us=13418 closure_us=20 end_to_end_us=1037041 selected_events=8 selected_relations=14 segments=5 units=5308 bytes=21230 exact_decision_observation=true direction=decision_to_observation provenance=typed_object_identity+observation.decision_id false_causal_links=0 pre_observation_cut_relation=0 relation_budget_refused=true zero_transitions=true
+recall_counterfactual scope=resolver_contract normative_link=present_vs_absent observation_link=typed_decision_id chronology=unchanged same_resource_without_link=false_causal_relations_0 missing_backing_relation_0 hidden_intermediate=semantic_identity_equal canonical_mutation=0
+```
 
 ## Oracle and metrics
 
@@ -59,12 +78,12 @@ evaluator reports a vector rather than one product score:
 - Recall-stage versus W-stage missing identities;
 - semantic units, output bytes, omission counts and phase timings.
 
-The aggregate mandatory coverage was `0.88`. This intentionally counts the
+The aggregate mandatory coverage is `0.96`. This intentionally counts the
 missing-backing task's unavailable required item as not resident even though W
 correctly refused; it must be read with `REFUSED_CORRECTLY=1`, not as an opaque
-score. All 14 compilable task outcomes preserved current control. Forbidden
-disclosure was `0`. One unrelated repository documentary unit was admitted in
-the documentary lookup, recorded as distractor pressure rather than hidden.
+score. All 14 compilable task outcomes preserved current control. One unrelated
+repository documentary unit was admitted in the documentary lookup; the two
+temporal tasks admitted zero distractors. Forbidden disclosure was `0`.
 
 ## Task results
 
@@ -74,13 +93,13 @@ the documentary lookup, recorded as distractor pressure rather than hidden.
 | historical reconstruction | SUFFICIENT | 1.00 | 1.00 | yes | 0 | 0 |
 | documentary knowledge | SUFFICIENT | 1.00 | 1.00 | yes | 1 | 0 |
 | documentary/operational contradiction | SUFFICIENT | 1.00 | 1.00 | yes | 0 | 0 |
-| temporal-causal explanation | INSUFFICIENT | 0.67 | 0.67 | yes | 0 | 0 |
+| temporal-causal explanation | SUFFICIENT | 1.00 | 1.00 | yes | 0 | 0 |
 | mixed-source governance/knowledge | SUFFICIENT | 1.00 | 1.00 | yes | 0 | 0 |
 | cross-Case source reuse | SUFFICIENT | 1.00 | 1.00 | yes | 0 | 0 |
 | revoked evidence | SUFFICIENT | 1.00 | 1.00 | yes | 0 | 0 |
 | task switch | SUFFICIENT | 1.00 | 1.00 | yes | 0 | 0 |
 | exact mandatory reference | SUFFICIENT | 1.00 | 1.00 | yes | 0 | 0 |
-| long-history distractor pressure | INSUFFICIENT | 0.67 | 0.67 | yes | 0 | 0 |
+| long-history distractor pressure | SUFFICIENT | 1.00 | 1.00 | yes | 0 | 0 |
 | large-source distractor pressure | SUFFICIENT | 1.00 | 1.00 | yes | 0 | 0 |
 | wrong-memory lure | SUFFICIENT | 1.00 | 1.00 | yes | 0 | 0 |
 | missing backing | REFUSED_CORRECTLY | 0.00 resident | 1.00 candidate | n/a | 0 | 0 |
@@ -94,15 +113,32 @@ documentary unit reached Recall/W, while EffectivePolicy came only from the
 independent publication/binding path. Cross-Case A/B visibility and C absence
 used one exact same-Tenant backing without sharing authority.
 
-## Findings
+## Temporal-causal finding and correction
 
-Both insufficient tasks fail at Recall, not at W. Their exact Decision and
-Observation endpoints are present, but the independently required
-`decision_observation` relation is absent from qualified Recall. W drops no
-required item that Recall supplied: `working_stage_failures=0`. The same gap is
-visible in the short temporal-causal task and after 256 unrelated historical
-role changes, so this run does not attribute it to Case age alone. No fixture ID,
-query term or ranking bonus was added to hide it.
+The original qualification at `f5bc25e928c2d89ce2ba292d6f0dc62b04b7ca78`
+reported both temporal tasks at `0.67`: exact Decision and Observation endpoints
+were found, the relation selector reported `decision_observation` missing, and
+`working_stage_failures=0`. That retained finding triggered a full producer →
+graph → Recall → W trace rather than a ranking change.
+
+The exact relation already existed before Recall and already survived Recall
+closure. The evaluator was wrong: its generic selector required fields named
+`from`/`source` and `to`/`target`, while the canonical `ExperienceRelation`
+contract uses `relation_id`, `from_event`, `to_event`, `posture`,
+`known_at_generation` and exact `sources`. The corrected oracle now binds the
+database source's exact Observation backing to its canonical Transition, finds
+the exact Decision endpoint and relation in the qualified experience view
+*before* Recall, and requires that identical identity, direction and provenance
+in Recall and W. It does not derive ground truth from Recall output.
+
+No production relation producer, graph resolver, Recall ranking, Recall closure
+or W selection code changed. The short and 256-change tasks both reach `1.00`;
+Recall-stage and W-stage failures are `0`. The independent controls also prove
+that same-Resource endpoints, immediate recording order, lexical similarity and
+an unrelated Decision do not mint an edge. A pre-Observation cut, missing exact
+Decision backing, hidden endpoint or crossed Case scope does not expose one;
+relation-bound overflow refuses instead of returning endpoints as a falsely
+complete group.
 
 Task switching changed W, turned over 31 task-specific knowledge identities,
 preserved all mandatory control and admitted zero previous-task identities.
@@ -114,13 +150,13 @@ material produced zero forbidden disclosure.
 
 | Budget | Semantic units | Result | Selected units | Optional omissions |
 |---|---:|---|---:|---:|
-| generous | 131,072 | SUFFICIENT | 25,589 | 0 |
-| normal | 32,768 | SUFFICIENT | 25,589 | 0 |
-| constrained | 16,384 | SUFFICIENT | 15,666 | 2 |
+| generous | 131,072 | SUFFICIENT | 18,100 | 0 |
+| normal | 32,768 | SUFFICIENT | 18,100 | 0 |
+| constrained | 16,384 | SUFFICIENT | 15,594 | 1 |
 | impossible | 1 | REFUSED_CORRECTLY | — | — |
 
-The exact mandatory Decision survived the constrained profile while two optional
-items were omitted atomically. The impossible profile refused rather than
+The exact mandatory Decision survived the constrained profile while one optional
+item was omitted atomically. The impossible profile refused rather than
 truncating mandatory semantics.
 
 W4 with zero requested resident recalled groups kept the target documentary
@@ -139,9 +175,15 @@ the qualified-read and assembly measurements contain nested work.
 
 | Profile | Transitions/generation | Sources | Qualified read | Historical resolve | Knowledge resolve | Recall assembly | W selection | W units / bytes |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| short history / small source set | 83 | 10 | 469,351 | 130,290 | 258,573 | 387,342 | 13,663 | 22,236 / 88,942 |
-| short history / large source set | 290 | 73 | 7,197,587 | 584,494 | 6,222,242 | 1,965,501 | 17,102 | 25,914 / 103,655 |
-| 256-change history pressure / small source set | 338 | 10 | 536,674 | 162,528 | 261,961 | 444,903 | 13,851 | 20,865 / 83,460 |
+| short history / small source set | 83 | 10 | 452,261 | 125,287 | 248,955 | 376,395 | 13,110 | 22,236 / 88,942 |
+| short history / large source set | 290 | 73 | 6,868,591 | 563,513 | 5,929,289 | 1,895,803 | 16,493 | 25,914 / 103,655 |
+| 256-change history pressure / small source set | 338 | 10 | 508,139 | 154,528 | 248,431 | 421,619 | 12,360 | 20,731 / 82,922 |
+
+For the corrected temporal task specifically, relation production took
+`10,898 µs`, qualified assembly `386,794 µs`, and W selection `14,082 µs`;
+the 256-change control measured `10,821 µs`, `421,619 µs`, and `12,360 µs`.
+Each used one candidate-discovery pass. These are single-run characterizations,
+not latency bounds.
 
 The 73-source profile makes source/knowledge resolution the dominant cost.
 Irrelevant history/source growth did not force unbounded W growth, but no
@@ -149,23 +191,23 @@ constant Case-age, source-count, or latency property is claimed.
 
 ## Legacy archaeology
 
-`yai-dev` history and current retained sources were reinspected, including
-commit `dda93ee3a` and `src/agents/grounding/context_pack_completeness.c` plus
-`context_pack_selection.c`. The strongest retained mechanism checks required
-references/input-family presence, selected/omitted/stale posture and materialized
-consumability; its own comment explicitly says a complete pack is not proof of
-sufficiency for live consumption. Those useful distinctions are recovered here
-as independent prerequisites, omissions and freshness controls. The historical
-Agent Context/Context Pack owner, C global structures and presence-only
-"complete" predicate are not restored. Current Recall/W and Case authority
-remain the owners under evaluation.
+`yai-dev` at `5c1c7b9d099eea9f2947146cd821d6501c4a6ddf` and its relevant
+history were reinspected, including `src/lineage/README.md`,
+`substrate_graph_relationship_contract.c` and
+`substrate_graph_reconstruction_contract.c`. The reusable doctrine is that an
+owned relationship has exact provenance and direction, graph queries consume
+rather than invent its semantics, and reconstruction uses structured records.
+The historical Lineage plane, C ownership tree and registries are not restored.
+The current Rust experience graph is the existing relation owner; Recall and W
+remain downstream derived consumers.
 
 ## Nonclaims and remaining work
 
 - This is not a model-answer benchmark or a universal sufficiency claim.
-- The suite does not qualify the missing temporal-causal relation, learned
-  navigation, arbitrary prose understanding, general paging, all-owner Recall,
-  or constant-scale cost.
+- The suite qualifies only the exact recorded Decision→Observation relation
+  closure used by these bounded fixtures. It does not establish general causal
+  inference, learned navigation, arbitrary prose understanding, general paging,
+  all-owner Recall or constant-scale cost.
 - It creates no Transition, CaseState, LMDB, canonical owner, Recall/W schema,
   provider dependency or persisted benchmark result.
 - It makes no W → E, StateProfile, State Read, Program N or B1 claim.

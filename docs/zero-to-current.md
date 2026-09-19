@@ -825,6 +825,31 @@ it as a model-answer score. It uses no provider. See the
 [evaluation report](../tests/characterization/semantic-working-state-sufficiency/REPORT.md)
 for the exact bounded result and nonclaims.
 
+The retained first run reported two temporal tasks at `0.67`. To reproduce the
+qualified diagnosis and correction, run the suite above plus the two exact
+relation controls:
+
+```sh
+RUSTUP_TOOLCHAIN=1.98.1 CARGO_TARGET_DIR=target cargo test \
+  --manifest-path engine/Cargo.toml \
+  recall_discontinuous_short_long_characterization -- --nocapture
+RUSTUP_TOOLCHAIN=1.98.1 CARGO_TARGET_DIR=target cargo test \
+  --manifest-path engine/Cargo.toml \
+  recall_relation_counterfactual_and_hidden_intermediate_do_not_become_memory \
+  -- --nocapture
+```
+
+The canonical Decision→Observation relation must carry exact Transition
+endpoints and `typed_object_identity` / `observation.decision_id` provenance.
+The sufficiency oracle binds that relation in the qualified experience view
+before inspecting Recall/W. Same Resource, recording order and lexical
+similarity without the typed link must yield zero such relations; a cut before
+the Observation, missing backing, hidden endpoints or an insufficient relation
+budget must exclude or refuse the relation rather than invent or truncate it.
+The corrected bounded result is 14 `SUFFICIENT`, one
+`REFUSED_CORRECTLY`, zero Recall/W-stage failures and zero forbidden disclosure.
+This is exact recorded-relation closure, not general causal inference.
+
 Ordinary governed Conversation and Workflow execution now prepares Recall-aware
 W automatically; the commands above are inspection controls, not prerequisites
 for asking a question. In a Case with admitted sources, ask a source-dependent

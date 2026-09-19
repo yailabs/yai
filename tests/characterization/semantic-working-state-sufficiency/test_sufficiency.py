@@ -101,11 +101,15 @@ def present(value, expected):
             and "object_refs" in item
             for item in walk(value)
         )
-    if kind == "relation_kind":
+    if kind == "experience_relation":
         return any(
             item.get("kind") == expected["value"]
-            and ("from" in item or "source" in item)
-            and ("to" in item or "target" in item)
+            and item.get("relation_id") == expected["relation_id"]
+            and item.get("from_event") == expected["from_event"]
+            and item.get("to_event") == expected["to_event"]
+            and item.get("posture") == expected["posture"]
+            and item.get("known_at_generation") == expected["known_at_generation"]
+            and item.get("sources") == expected["sources"]
             for item in walk(value)
         )
     if kind == "claim":
@@ -294,35 +298,55 @@ def evaluation(stage, cli, run, view):
             if item.get("source") == sources["repo"]["id"] and item.get("posture") == "source_stated"
         )
         history = cli("case", "history", CASE, "--limit", "256", "--json")["transitions"]
-        database_decisions = []
-        database_observations = []
-        for transition in history:
-            if "resource:database" not in transition.get("scope", {}).get("resource_refs", []):
-                continue
-            values = set(strings(transition))
-            database_decisions.extend(sorted(value for value in values if value.startswith("decision:")))
-            database_observations.extend(sorted(value for value in values if value.startswith("resource-observation:")))
-        if evaluation_mode == "age_only":
-            # The public history surface intentionally exposes only a bounded
-            # tail.  For the old-Case profile the independently declared
-            # Resource anchor and event/relation classes are the oracle; exact
-            # Decision identity is separately exercised by the short fixture.
-            decision = None
-            observation = None
-        else:
-            assert database_decisions and database_observations
-            decision = database_decisions[-1]
-            observation = database_observations[-1]
+        observation = sources["database"]["backing"]["observation_id"]
+        experience = cli(
+            "case", "experience", CASE, "current", "--limit", "4096", "--json"
+        )
+        observation_event = next(
+            item for item in experience["events"] if observation in item["object_refs"]
+        )
+        decision_observation = next(
+            item
+            for item in experience["relations"]
+            if item["kind"] == "decision_observation"
+            and item["to_event"] == observation_event["transition_id"]
+        )
+        decision_event = next(
+            item
+            for item in experience["events"]
+            if item["transition_id"] == decision_observation["from_event"]
+        )
+        decision = next(
+            item for item in decision_event["object_refs"] if item.startswith("decision:")
+        )
+        assert decision_observation["posture"] == "observed_consequence"
+        assert decision_observation["sources"] == [
+            {
+                "transition_id": decision_event["transition_id"],
+                "field": "typed_object_identity",
+            },
+            {
+                "transition_id": observation_event["transition_id"],
+                "field": "observation.decision_id",
+            },
+        ]
         labels = {
             "retention_r1": selector("exact_id", value=architecture_90["id"]),
             "config_sql": selector("exact_id", value=config_sql["id"]),
             "observed_sql": selector("exact_id", value=observed_sql["id"]),
             "sql_conflict": selector("exact_id", value=sql_conflict["id"]),
-            "decision": selector("event_kind", value="decision_recorded")
-            if decision is None else selector("exact_id", value=decision),
-            "observation": selector("event_kind", value="resource_observation_recorded")
-            if observation is None else selector("exact_id", value=observation),
-            "decision_observation": selector("relation_kind", value="decision_observation"),
+            "decision": selector("exact_id", value=decision),
+            "observation": selector("exact_id", value=observation),
+            "decision_observation": selector(
+                "experience_relation",
+                value="decision_observation",
+                relation_id=decision_observation["relation_id"],
+                from_event=decision_observation["from_event"],
+                to_event=decision_observation["to_event"],
+                posture=decision_observation["posture"],
+                known_at_generation=decision_observation["known_at_generation"],
+                sources=decision_observation["sources"],
+            ),
             "repository_unit": selector("exact_id", value=repository_unit["id"]),
             "architecture_r1": selector("source_revision", value=sources["architecture"]["revision_id"]),
             "config_source": selector("source_id", value=sources["config"]["source_id"]),

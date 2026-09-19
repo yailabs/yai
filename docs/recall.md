@@ -183,16 +183,29 @@ disclosure, closure, epistemic posture, size and phase timings separate. A
 correct refusal is not rewritten as a complete W, and deferred W4 material is
 not counted as resident evidence.
 
-At the qualified fixture scope, 12 classes are sufficient and missing backing
-refuses correctly. Current controls survive every compilable task, forbidden
-disclosure is zero, exact paging and ambient refresh preserve their existing
-owners, and W omits no required material supplied by Recall. Two temporal-causal
-classes remain insufficient because Recall supplies the exact Decision and
-Observation endpoints but not their independently required
-`decision_observation` relation. One unrelated documentary unit is admitted in
-the documentary lookup. These are retained findings, not fixture-specific
-ranking exceptions. The exact task vector, budgets, scale timings and nonclaims
-are in the [durable evaluation report](../tests/characterization/semantic-working-state-sufficiency/REPORT.md).
+At the qualified fixture scope, 14 classes are sufficient and missing backing
+refuses correctly. Current controls survive every compilable task; forbidden
+disclosure, Recall-stage failures and W-stage failures are zero. One unrelated
+documentary unit remains a measured distractor in the documentary lookup, while
+both temporal tasks admit none. Exact paging and ambient refresh preserve their
+existing owners.
+
+The first qualification had reported two temporal-causal classes at `0.67` even
+though the exact Decision and Observation endpoints were present. Archaeology
+proved the canonical `decision_observation` relation already existed before
+Recall and already survived Recall closure. The defect was in the evaluation
+selector: it looked for generic `from/to` fields instead of the canonical exact
+`relation_id`, `from_event`, `to_event`, posture, generation and typed sources.
+The corrected oracle binds that exact experience relation before Recall and
+requires the identical relation in Recall/W. No ranking, relation producer,
+Recall resolver or W selection semantics changed.
+
+Bounded negative controls preserve the architectural limit: chronology, the
+same Resource, lexical similarity and endpoint co-selection do not mint a
+causal relation. Direction is Decision→Observation and requires the exact typed
+`observation.decision_id`; historical cuts, disclosure, source closure and
+relation budgets still apply. The exact task vector, retained original finding,
+budgets, scale timings and nonclaims are in the [durable evaluation report](../tests/characterization/semantic-working-state-sufficiency/REPORT.md).
 
 This establishes bounded evaluation infrastructure, not general M06/C06
 sufficiency. The oracle is above computational realization so future W versus
