@@ -4144,6 +4144,45 @@ impl LmdbRecordStore {
         WorkingRefreshResult::qualified(base, request, current, paging_recompilation_us)
     }
 
+    /// One bounded active-consumer assessment. Multiple owner-produced change
+    /// signals coalesce into one full current Recall/W reconstruction. The
+    /// predecessor is neither an authority lease nor an input to relevance;
+    /// malformed requests fail, while current authority/source/backing refusal
+    /// is returned as a non-leaking typed invalidation.
+    pub fn refresh_active_semantic_consumer_authorized(
+        &self,
+        auth: &AuthenticatedPrincipal,
+        base: &crate::semantic_state::SemanticWorkingState,
+        request: crate::semantic_state::working_recall::AmbientRefreshRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::semantic_state::working_recall::AmbientRefreshResult, String> {
+        use crate::semantic_state::working_recall::{
+            AmbientRefreshResult, WorkingRefreshRequest,
+        };
+        request.validate(base)?;
+        let started = std::time::Instant::now();
+        match self.refresh_working_state_authorized(
+            auth,
+            base,
+            WorkingRefreshRequest::new(base),
+            content,
+        ) {
+            Ok(refresh) => {
+                let elapsed = started.elapsed().as_micros();
+                AmbientRefreshResult::qualified(
+                    base,
+                    request,
+                    refresh,
+                    elapsed,
+                )
+            }
+            Err(_) => Ok(AmbientRefreshResult::invalidated(
+                request,
+                started.elapsed().as_micros(),
+            )),
+        }
+    }
+
     /// Exact page-in/page-out. No call to Recall compilation/discovery, no
     /// persisted page authority, and no source outside the declared fixed scope.
     pub fn page_working_state_authorized(

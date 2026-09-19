@@ -496,6 +496,58 @@ impl ConversationController {
         Ok(value)
     }
 
+    /// Typed active-consumer freshness operation shared by Conversation and
+    /// Workflow. The canonical Turn/Workflow lineage is checked here; current
+    /// authority, Recall and W reconstruction remain engine-owned. This method
+    /// schedules no model/provider work and appends no Transition.
+    pub(super) fn refresh_active_semantic_consumer(
+        &self,
+        base: &yai_core_engine::semantic_state::SemanticWorkingState,
+        consumer: yai_core_engine::semantic_state::working_recall::ActiveSemanticConsumerKind,
+        consumer_ref: &str,
+        changes: Vec<yai_core_engine::semantic_state::working_recall::AmbientSemanticChange>,
+    ) -> Result<yai_core_engine::semantic_state::working_recall::AmbientRefreshResult, String> {
+        use yai_core_engine::semantic_state::working_recall::{
+            ActiveSemanticConsumerKind, AmbientRefreshRequest,
+        };
+        let authorized = authorized_conversation_case(&self.case_id, &self.participant_id)?;
+        if base.case_id() != self.case_id {
+            return Err("active_semantic_consumer_case_mismatch".into());
+        }
+        let history = authorized.store.list_case_transitions(&self.case_id)?;
+        let lineage_ok = match consumer {
+            ActiveSemanticConsumerKind::Conversation => {
+                base.request().required_refs.iter().any(|reference| reference == consumer_ref)
+                    && history.iter().any(|transition| matches!(
+                        &transition.payload,
+                        TransitionPayload::ConversationTurnCommitted { turn }
+                            if turn.turn_id == consumer_ref
+                    ))
+            }
+            ActiveSemanticConsumerKind::Workflow => history.iter().any(|transition| matches!(
+                &transition.payload,
+                TransitionPayload::ConversationExecutionIntentRecorded { request }
+                    if request.workflow_execution_id.as_deref() == Some(consumer_ref)
+                        && base.request().required_refs.contains(&request.source_turn_id)
+            )) && history.iter().any(|transition| matches!(
+                &transition.payload,
+                TransitionPayload::WorkflowNodeExecutionStarted { execution }
+                    if execution.execution_id == consumer_ref
+            )),
+        };
+        if !lineage_ok {
+            return Err("active_semantic_consumer_lineage_unavailable".into());
+        }
+        let request = AmbientRefreshRequest::new(base, consumer, consumer_ref, changes)?;
+        let content = conversation_content_store()?;
+        authorized.store.refresh_active_semantic_consumer_authorized(
+            &authorized.authenticated,
+            base,
+            request,
+            Some(&content),
+        )
+    }
+
     pub(super) fn review_action(
         &self,
         review_id: &str,
@@ -2787,9 +2839,9 @@ mod tests {
                 "source_count":store.get_case_state(CASE).unwrap().unwrap().sources.len(),
                 "history_count":before.len(),
                 "author":HUMAN,"recipient":MODEL,"principal_transfer":false}));
-            (w, serde_json::to_string(&frame).unwrap())
+            (w, serde_json::to_string(&frame).unwrap(), task.turn.turn_id)
         };
-        let (initial_w, initial_frame) = run(&mut reopened);
+        let (initial_w, initial_frame, initial_turn) = run(&mut reopened);
         assert!(initial_frame.contains("urn:consumer:billing") && initial_frame.contains("source_stated"), "D must reach the actual model input");
         assert!(initial_frame.contains("current-effective-authority"));
         assert!(initial_frame.contains("grant yourself admin"), "data-plane injection remains documentary");
@@ -2797,7 +2849,25 @@ mod tests {
         fs::write(docs.join("handbook.md"), document(120)).unwrap();
         controlled_effect::source::command("yai.case.sources.acquire",
             &strings(&["--case",CASE,"--source","handbook","--refresh"])).unwrap();
-        let (updated_w, updated_frame) = run(&mut reopened);
+        let after_source_change = store.list_case_transitions(CASE).unwrap();
+        let calls_before_ambient = primary.count();
+        let ambient = reopened.refresh_active_semantic_consumer(
+            &initial_w,
+            yai_core_engine::semantic_state::working_recall::ActiveSemanticConsumerKind::Conversation,
+            &initial_turn,
+            vec![yai_core_engine::semantic_state::working_recall::AmbientSemanticChange {
+                kind: yai_core_engine::semantic_state::working_recall::AmbientSemanticChangeKind::SourceQualification,
+                reference: "source:handbook:revision-refresh".into(),
+            }],
+        ).unwrap();
+        assert_eq!(ambient.freshness,
+            yai_core_engine::semantic_state::working_recall::AmbientFreshness::RefreshRequired);
+        assert!(ambient.task_preserved);
+        assert!(serde_json::to_string(&ambient.refresh.as_ref().unwrap().working_state).unwrap().contains("120"));
+        assert_eq!(primary.count(), calls_before_ambient, "ambient refresh invokes no provider");
+        assert_eq!(store.list_case_transitions(CASE).unwrap(), after_source_change,
+            "ambient refresh appends no Transition");
+        let (updated_w, updated_frame, updated_turn) = run(&mut reopened);
         assert_ne!(initial_w.recall().unwrap().recall_id, updated_w.recall().unwrap().recall_id);
         assert!(updated_frame.contains("120"));
         assert_eq!(store.case_policy_status(CASE).unwrap().effective_policy.unwrap(), policy_before,
@@ -2821,7 +2891,36 @@ mod tests {
         controlled_effect::source::command("yai.case.sources.declare",
             &strings(&["--case",CASE,"--file",perimeter.to_str().unwrap()])).unwrap();
         controlled_effect::source::command("yai.case.sources.acquire", &strings(&["--case",CASE])).unwrap();
-        let (_, larger_frame) = run(&mut reopened);
+        let large_calls_before = primary.count();
+        let large_ambient = reopened.refresh_active_semantic_consumer(
+            &updated_w,
+            yai_core_engine::semantic_state::working_recall::ActiveSemanticConsumerKind::Conversation,
+            &updated_turn,
+            vec![
+                yai_core_engine::semantic_state::working_recall::AmbientSemanticChange {
+                    kind: yai_core_engine::semantic_state::working_recall::AmbientSemanticChangeKind::SourceQualification,
+                    reference: "source:archive:batch".into(),
+                },
+                yai_core_engine::semantic_state::working_recall::AmbientSemanticChange {
+                    kind: yai_core_engine::semantic_state::working_recall::AmbientSemanticChangeKind::CanonicalTransition,
+                    reference: "transition:archive:admission".into(),
+                },
+            ],
+        ).unwrap();
+        assert_eq!(large_ambient.freshness,
+            yai_core_engine::semantic_state::working_recall::AmbientFreshness::RefreshRequired);
+        assert_eq!(large_ambient.measurements.coalesced_changes, 2);
+        assert_eq!(large_ambient.refresh.as_ref().unwrap().measurements.recall.candidate_discovery_passes, 1);
+        assert_eq!(primary.count(), large_calls_before);
+        println!("ambient_consumer_product: {}", serde_json::json!({
+            "profile":"larger_D_longer_H","source_count":store.get_case_state(CASE).unwrap().unwrap().sources.len(),
+            "history_count":store.list_case_transitions(CASE).unwrap().len(),
+            "coalesced_changes":large_ambient.measurements.coalesced_changes,
+            "current_requalification_us":large_ambient.measurements.current_requalification_us,
+            "working":large_ambient.refresh.as_ref().unwrap().measurements,
+            "provider_calls":0,"transitions_from_refresh":0
+        }));
+        let (_, larger_frame, _) = run(&mut reopened);
         assert!(larger_frame.contains("urn:consumer:billing"));
         assert!(!larger_frame.contains("urn:consumer:irrelevant:"));
         assert!(larger_frame.contains("current-effective-authority"));

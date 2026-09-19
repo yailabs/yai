@@ -183,7 +183,11 @@ fn working_recall_policy_current_asof_freshness_tamper_and_atomic_budget() {
 fn prompt_independent_refresh_policy_cut_paging_no_s_delta_and_current_requalification() {
     use crate::semantic_state::{CompilationRequest, SemanticScope, SemanticPurpose, WorkingStateRequest,
         SemanticWorkingState, SemanticValue, derive_delta};
-    use crate::semantic_state::working_recall::{WorkingRefreshRequest as Refresh, WorkingRefreshBudget, RefreshPosture};
+    use crate::semantic_state::working_recall::{
+        ActiveSemanticConsumerKind as Consumer, AmbientFreshness, AmbientRefreshRequest,
+        AmbientSemanticChange, AmbientSemanticChangeKind as Change, RefreshPosture,
+        WorkingRefreshBudget, WorkingRefreshRequest as Refresh,
+    };
     use crate::semantic_state::paging::PageRequest;
     let w = World::new();
     let original_artifact = w.store.get_case_state(CASE).unwrap().unwrap().policy_bindings[0].artifact_id.clone();
@@ -216,10 +220,43 @@ fn prompt_independent_refresh_policy_cut_paging_no_s_delta_and_current_requalifi
     assert_eq!(restored.lower_context().unwrap().entries, restored.working_state.entries());
     assert_eq!(restored.working_state, w.store.refresh_working_state_authorized(&w.owner,
         &restored.working_state, Refresh::new(&restored.working_state), None).unwrap().working_state);
+    let ambient_page = w.store.refresh_active_semantic_consumer_authorized(
+        &w.owner,
+        &restored.working_state,
+        AmbientRefreshRequest::new(
+            &restored.working_state,
+            Consumer::Conversation,
+            "turn:paged-ambient",
+            vec![AmbientSemanticChange {
+                kind: Change::SourceQualification,
+                reference: "source:paged-current".into(),
+            }],
+        ).unwrap(),
+        None,
+    ).unwrap();
+    assert_eq!(ambient_page.freshness, AmbientFreshness::Fresh);
+    assert_eq!(ambient_page.refresh.as_ref().unwrap().working_state.resident_page_references(),
+        resident.resident_page_references());
     replace(&w, "2", "deny", false);
     let state = w.store.get_case_state(CASE).unwrap().unwrap();
     let history = w.store.list_case_transitions(CASE).unwrap();
     let refreshed = w.store.refresh_working_state_authorized(&w.owner, &base, Refresh::new(&base), None).unwrap();
+    let ambient_page_changed = w.store.refresh_active_semantic_consumer_authorized(
+        &w.owner,
+        &restored.working_state,
+        AmbientRefreshRequest::new(
+            &restored.working_state,
+            Consumer::Conversation,
+            "turn:paged-ambient",
+            vec![AmbientSemanticChange {
+                kind: Change::AuthorityOrDisclosure,
+                reference: "policy:replacement".into(),
+            }],
+        ).unwrap(),
+        None,
+    ).unwrap();
+    assert_eq!(ambient_page_changed.freshness, AmbientFreshness::RefreshRequired);
+    assert!(ambient_page_changed.refresh.as_ref().unwrap().working_state.paging().is_some());
     let mut fresh_request = request.clone(); fresh_request.expected_generation = state.generation;
     let fresh = w.store.compile_working_state_authorized(&w.owner, fresh_request, None).unwrap();
     assert_eq!(refreshed.working_state, fresh.working_state);
@@ -280,6 +317,221 @@ fn prompt_independent_refresh_policy_cut_paging_no_s_delta_and_current_requalifi
     assert!(!revoked.assessment.current_control_equal);
     assert_eq!(w.store.list_case_transitions(CASE).unwrap(), history);
     println!("prompt_independent_refresh same_task=true fresh_compile_equal=true current_authority=true historical_cut=true paging_preference=true identical_S_no_delta_changed_Recall=true same_generation_revoke=true restart_equal=true zero_refresh_transitions=true providers=0");
+    w.finish();
+}
+
+#[test]
+fn ambient_consumer_coalesces_changes_reuses_task_and_requalifies_without_provider_or_transition() {
+    use crate::semantic_state::{
+        CompilationRequest, SemanticPurpose, SemanticScope, WorkingStateRequest,
+    };
+    use crate::semantic_state::working_recall::{
+        ActiveSemanticConsumerKind as Consumer, AmbientFreshness,
+        AmbientRefreshRequest, AmbientSemanticChange, AmbientSemanticChangeKind as Change,
+    };
+    let w = World::new();
+    let operation = w.operation("request:ambient:allow", "src/retry.txt");
+    let (decision, cut) = w
+        .store
+        .derive_and_commit_policy_decision(CASE, &operation.operation_id)
+        .unwrap();
+    let state = w.store.get_case_state(CASE).unwrap().unwrap();
+    let request = WorkingStateRequest {
+        case_id: CASE.into(),
+        expected_generation: state.generation,
+        recall_query: Some("filesystem policy decision".into()),
+        compilation: CompilationRequest {
+            scope: SemanticScope::model(HUMAN, SemanticPurpose::Inspection),
+            intent: "explain the current and historical filesystem decision".into(),
+            output_contract_id: crate::context::InvocationOutputContract::NaturalLanguage
+                .contract_id(),
+            max_semantic_units: 131_072,
+            max_derived_items: 16,
+            resource_refs: vec![],
+            required_refs: vec![HUMAN.into()],
+            previous_item_ids: vec![],
+            view_selection_id: None,
+        },
+        at: None,
+        recall_required_refs: vec![decision.decision_id],
+        recall_bounds: Default::default(),
+        max_output_bytes: 1024 * 1024,
+    };
+    let mut historical_request = request.clone();
+    historical_request.at = Some(HistoricalCoordinate::Generation(cut.state.generation));
+    let base = w
+        .store
+        .compile_working_state_authorized(&w.owner, request, None)
+        .unwrap()
+        .working_state;
+    let historical_base = w
+        .store
+        .compile_working_state_authorized(&w.owner, historical_request, None)
+        .unwrap()
+        .working_state;
+    let changes = vec![
+        AmbientSemanticChange {
+            kind: Change::CanonicalTransition,
+            reference: "transition:ambient:observation".into(),
+        },
+        AmbientSemanticChange {
+            kind: Change::SourceQualification,
+            reference: "source-revision:ambient".into(),
+        },
+    ];
+    let stable_request = AmbientRefreshRequest::new(
+        &base,
+        Consumer::Conversation,
+        "turn:ambient",
+        changes.clone(),
+    )
+    .unwrap();
+    let before = w.store.list_case_transitions(CASE).unwrap();
+    let stable = w
+        .store
+        .refresh_active_semantic_consumer_authorized(&w.owner, &base, stable_request, None)
+        .unwrap();
+    assert_eq!(stable.freshness, AmbientFreshness::Fresh);
+    assert!(stable.task_preserved);
+    assert_eq!(stable.measurements.coalesced_changes, 2);
+    assert_eq!(
+        stable
+            .refresh
+            .as_ref()
+            .unwrap()
+            .measurements
+            .recall
+            .candidate_discovery_passes,
+        1,
+        "coalesced signals cause one existing Recall reconstruction"
+    );
+    assert_eq!(w.store.list_case_transitions(CASE).unwrap(), before);
+
+    claim(
+        &w,
+        "ambient-relevant",
+        "provider:ambient-fixture",
+        "filesystem policy decision observation changed",
+    );
+    let changed_request = AmbientRefreshRequest::new(
+        &base,
+        Consumer::Workflow,
+        "workflow-execution:ambient",
+        changes,
+    )
+    .unwrap();
+    let after_event = w.store.list_case_transitions(CASE).unwrap();
+    let changed = w
+        .store
+        .refresh_active_semantic_consumer_authorized(&w.owner, &base, changed_request, None)
+        .unwrap();
+    assert_eq!(changed.freshness, AmbientFreshness::RefreshRequired);
+    assert!(changed.task_preserved);
+    let current = &changed.refresh.as_ref().unwrap().working_state;
+    assert_ne!(current.id(), base.id());
+    assert_eq!(current.semantic_task_id().unwrap(), base.semantic_task_id().unwrap());
+    assert!(!changed
+        .refresh
+        .as_ref()
+        .unwrap()
+        .assessment
+        .selected_material_equal);
+    assert_eq!(w.store.list_case_transitions(CASE).unwrap(), after_event);
+
+    let historical = w
+        .store
+        .refresh_active_semantic_consumer_authorized(
+            &w.owner,
+            &historical_base,
+            AmbientRefreshRequest::new(
+                &historical_base,
+                Consumer::Conversation,
+                "turn:ambient-historical",
+                vec![AmbientSemanticChange {
+                    kind: Change::CanonicalTransition,
+                    reference: "transition:ambient:future-of-cut".into(),
+                }],
+            )
+            .unwrap(),
+            None,
+        )
+        .unwrap();
+    assert!(historical
+        .refresh
+        .as_ref()
+        .unwrap()
+        .assessment
+        .historical_cut_pinned);
+
+    let recovered_request = AmbientRefreshRequest::new(
+        current,
+        Consumer::Workflow,
+        "workflow-execution:ambient",
+        vec![AmbientSemanticChange {
+            kind: Change::ConsumerRecovery,
+            reference: "restart:ambient".into(),
+        }],
+    )
+    .unwrap();
+    let recovered = w
+        .store
+        .refresh_active_semantic_consumer_authorized(
+            &w.owner,
+            current,
+            recovered_request,
+            None,
+        )
+        .unwrap();
+    assert_eq!(recovered.freshness, AmbientFreshness::Fresh);
+    assert_eq!(w.store.list_case_transitions(CASE).unwrap(), after_event);
+
+    let denied_request = AmbientRefreshRequest::new(
+        current,
+        Consumer::Conversation,
+        "turn:ambient",
+        vec![AmbientSemanticChange {
+            kind: Change::AuthorityOrDisclosure,
+            reference: "authority:ambient".into(),
+        }],
+    )
+    .unwrap();
+    let denied = w
+        .store
+        .refresh_active_semantic_consumer_authorized(
+            &w.outsider,
+            current,
+            denied_request,
+            None,
+        )
+        .unwrap();
+    assert_eq!(denied.freshness, AmbientFreshness::Invalidated);
+    assert!(denied.refresh.is_none());
+    assert!(denied.current_working_state_id.is_none());
+    assert_eq!(w.store.list_case_transitions(CASE).unwrap(), after_event);
+
+    let mut wrong_task = AmbientRefreshRequest::new(
+        current,
+        Consumer::Conversation,
+        "turn:ambient",
+        vec![AmbientSemanticChange {
+            kind: Change::Other,
+            reference: "change:ambient".into(),
+        }],
+    )
+    .unwrap();
+    wrong_task.task_id = "semantic-task:different".into();
+    assert_eq!(
+        w.store
+            .refresh_active_semantic_consumer_authorized(
+                &w.owner,
+                current,
+                wrong_task,
+                None,
+            )
+            .unwrap_err(),
+        "ambient_refresh_request_or_base_mismatch"
+    );
+    println!("ambient_refresh consumers=conversation,workflow coalesced=2 recall_passes=1 no_prompt=true provider_calls=0 transitions=0 relevant_change=refresh_required restart=fresh outsider=invalidated historical_cut=pinned task_change=refused");
     w.finish();
 }
 

@@ -754,6 +754,33 @@ lowers that result without another read; no snapshot grants permanent authority.
 `make smoke-semantic-refresh` qualifies same-task changes and fresh-compilation
 equivalence through real persistence. There is no daemon or public W→E contract.
 
+For an already active canonical Conversation Turn or Workflow execution, the
+typed application boundary can also assess an admitted change without another
+prompt. Given an exported W from that exact Invocation and its canonical Turn or
+Workflow execution ID, the operator inspection form is:
+
+```sh
+./yai case context ambient case:golden:free \
+  --working-file /tmp/active-working.json \
+  --operator participant:operator \
+  --consumer conversation \
+  --consumer-ref turn:EXACT_ID \
+  --change-kind source \
+  --change-ref source-revision:EXACT_ID \
+  --json
+```
+
+Workflow uses `--consumer workflow` and its exact canonical execution ID.
+Accepted change classes are `transition`, `source`, `authority`, `backing`,
+`recovery` and conservative `other`. The signal is not authority and cannot
+declare the old W fresh: YAI performs one current existing Recall/W refresh and
+returns `fresh`, `refresh_required` with the replacement W, or non-leaking
+`invalidated`. Multiple signals coalesce through the typed operation even though
+the compact CLI accepts one per call. This operation makes no provider call and
+adds no Transition; it does not replace the final Invocation admission fence or
+implicitly page W4 references. A different objective requires a new Turn/task,
+not edited refresh input.
+
 Ordinary governed Conversation and Workflow execution now prepares Recall-aware
 W automatically; the commands above are inspection controls, not prerequisites
 for asking a question. In a Case with admitted sources, ask a source-dependent

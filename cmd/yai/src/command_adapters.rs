@@ -1047,6 +1047,20 @@ use memory_cli::*;
 #[path = "conversation_controller.rs"]
 mod conversation_controller;
 
+/// Typed application seam for active Conversation/Workflow semantic freshness.
+/// CLI/REPLAI/Studio presentation must not reconstruct Recall or W itself.
+pub(crate) fn refresh_active_semantic_consumer(
+    case_id: &str,
+    operator: Option<&str>,
+    base: &yai_core_engine::semantic_state::SemanticWorkingState,
+    consumer: yai_core_engine::semantic_state::working_recall::ActiveSemanticConsumerKind,
+    consumer_ref: &str,
+    changes: Vec<yai_core_engine::semantic_state::working_recall::AmbientSemanticChange>,
+) -> Result<yai_core_engine::semantic_state::working_recall::AmbientRefreshResult, String> {
+    conversation_controller::ConversationController::open(case_id, operator)?
+        .refresh_active_semantic_consumer(base, consumer, consumer_ref, changes)
+}
+
 #[path = "conversation_terminal.rs"]
 mod conversation_terminal;
 

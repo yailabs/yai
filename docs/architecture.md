@@ -27,7 +27,10 @@ full-recompilation fallback. General task sufficiency, a public model-state fram
 optimized incremental compilation and general semantic demand paging remain open.
 The bounded [exact-group pager](recall.md#scoped-semantic-paging) now requalifies
 deferred references and compiles W4 through existing owners; it is not a general
-source crawler or ambient refresh mechanism.
+source crawler. The bounded
+[active-consumer refresh operation](recall.md#ambient-semantic-refresh-consumers)
+coalesces explicit change pressure through existing Recall/W refresh without a
+daemon or continuous synchronization claim.
 State Read and State Update are OPEN target capabilities, not current execution
 contracts. Bounded locality evidence is not universal Case-age independence or
 arbitrary target-native state lowering. Context-only preparation is the current compatibility path, not the
@@ -894,7 +897,22 @@ mandatory refusal. [The contract](recall.md#prompt-independent-semantic-refresh)
 defines these bounded comparisons and current preflight requirements. W3/W4,
 Projection11/12, Transition19/CaseState16 and LMDB37/40 remain unchanged. No
 watcher, freshness lease or public W→E is implemented. Ordinary new governed
-invocations perform full current reconstruction, not ambient background refresh.
+invocations perform full current reconstruction.
+
+The bounded `case context ambient` / typed controller operation adds a derived
+active-consumer posture for an exact canonical Conversation Turn or Workflow
+execution. Owner-produced canonical/source/authority/backing signals coalesce
+into one call to the same explicit refresh path. The result is `fresh`,
+`refresh_required` with a current replacement W, or a non-leaking
+`invalidated`; change signals are neither authority nor a freshness proof.
+Conversation and Workflow share the controller/engine operation, while Recall
+remains the only relevance owner. No daemon, event bus, active-W registry,
+Transition, database, provider call or implicit W4 page-in is added. Restart can
+reconstruct from canonical task lineage/current truth, and final Invocation
+admission still fully requalifies W in its transaction. This is bounded ambient
+semantic invalidation/refresh, not continuous source synchronization, automatic
+model execution or a W→E protocol. See
+[ambient semantic refresh consumers](recall.md#ambient-semantic-refresh-consumers).
 
 [`semantic_state.rs`](../engine/yai-engine/src/semantic_state.rs) composes a
 read-only `SemanticState` from CaseState and its exact ordered history, requiring

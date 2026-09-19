@@ -32,6 +32,7 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
         "yai.case.context.compile" => working_state_compilation(invocation),
         "yai.case.context.expand" => working_state_expansion(invocation),
         "yai.case.context.refresh" => working_state_refresh(invocation),
+        "yai.case.context.ambient" => ambient_consumer_refresh(invocation),
         "yai.case.as_of" | "yai.case.experience" | "yai.case.recall" => historical_case_inspection(invocation),
         operation if operation.starts_with("yai.case.knowledge.") => knowledge_inspection(invocation),
         "yai.case.open" | "yai.case.workbench" => {
@@ -678,6 +679,68 @@ fn working_state_refresh(invocation: &Invocation) -> Result<CliData, CliError> {
         println!("{} [{:?}]", entry.entry_id, entry.posture);
     }
     println!("Bounds/omissions: {:?}\nNo new prompt, canonical mutation or model call.", result.working_state.bounds());
+    Ok(CliData::AlreadyRendered)
+}
+
+fn ambient_consumer_refresh(invocation: &Invocation) -> Result<CliData, CliError> {
+    use yai_core_engine::semantic_state::working_recall::{
+        ActiveSemanticConsumerKind as Consumer, AmbientSemanticChange,
+        AmbientSemanticChangeKind as Change,
+    };
+    let base = working_state_file(invocation)?;
+    if base.case_id() != invocation.positionals["case"] {
+        return Err(CliError::usage("working state and Case do not match"));
+    }
+    let consumer = match invocation.flag("--consumer") {
+        Some("conversation") => Consumer::Conversation,
+        Some("workflow") => Consumer::Workflow,
+        _ => return Err(CliError::usage("--consumer requires conversation or workflow")),
+    };
+    let kind = match invocation.flag("--change-kind") {
+        Some("transition") => Change::CanonicalTransition,
+        Some("source") => Change::SourceQualification,
+        Some("authority") => Change::AuthorityOrDisclosure,
+        Some("backing") => Change::BackingAvailability,
+        Some("recovery") => Change::ConsumerRecovery,
+        Some("other") => Change::Other,
+        _ => return Err(CliError::usage(
+            "--change-kind requires transition, source, authority, backing, recovery or other",
+        )),
+    };
+    let result = crate::command_adapters::refresh_active_semantic_consumer(
+        base.case_id(),
+        invocation.flag("--operator"),
+        &base,
+        consumer,
+        invocation
+            .flag("--consumer-ref")
+            .ok_or_else(|| CliError::usage("--consumer-ref required"))?,
+        vec![AmbientSemanticChange {
+            kind,
+            reference: invocation
+                .flag("--change-ref")
+                .ok_or_else(|| CliError::usage("--change-ref required"))?
+                .into(),
+        }],
+    )
+        .map_err(|error| domain_error("ambient_refresh_unavailable", error))?;
+    if invocation.json {
+        return Ok(CliData::NativeJson {
+            value: serde_json::to_value(result)
+                .map_err(|error| domain_error("ambient_refresh_encoding", error.to_string()))?,
+        });
+    }
+    println!("ACTIVE SEMANTIC CONSUMER [{:?}]", result.freshness);
+    println!("Task: {}", result.request.task_id);
+    println!("Consumer: {:?} {}", result.request.consumer, result.request.consumer_ref);
+    println!("Reason: {}", result.reason);
+    if let Some(id) = result.current_working_state_id {
+        println!("Current W: {id}");
+    }
+    println!(
+        "Coalesced changes: {}; no prompt, provider call or canonical mutation.",
+        result.measurements.coalesced_changes
+    );
     Ok(CliData::AlreadyRendered)
 }
 

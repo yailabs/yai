@@ -235,7 +235,8 @@ lowering, not a W→E schema.
 
 W/Recall remain disposable. Transition v19, CaseState v16, canonical owners and
 37 LMDB databases are unchanged. The v3 operation introduces no W→E transport,
-provider calls, paging, ambient refresh or learned navigation.
+provider calls, paging or learned navigation. The later active-consumer
+lifecycle composes this compiler; it does not change v3 selection semantics.
 
 Executable oracles: `make smoke-recall-working-state` reuses the real source
 bootstrap/knowledge fixture (Markdown/JSON/PDF/filesystem/SQLite), with current
@@ -555,3 +556,66 @@ applies a delta or updates a timestamp and persists cognition/checkpoint state;
 it is not qualified same-task Recall/W reconstruction. Its global cognition and
 Agent live-context ownership are not recovered. The substrate-drain commit
 `2a4018147219044dfe1fad2268759b1f2a585945` removed those historical owners.
+
+## Ambient semantic refresh consumers
+
+`AmbientRefreshRequest v1` and `AmbientRefreshResult v1` add a bounded active-
+consumer lifecycle above the existing explicit refresh owner. A Conversation
+Turn or Workflow execution supplies its canonical consumer reference, the exact
+task identity derived from its W3/W4 request, the expected base W identity and
+one or more owner-produced change signals. Signals distinguish canonical
+Transitions, source qualification, authority/disclosure, backing availability,
+consumer recovery and conservative other pressure. They explain why assessment
+was requested; they neither authorize content nor prove that the predecessor is
+fresh.
+
+```text
+active Conversation Turn / Workflow execution + prior W
+  + bounded admitted-change signals (coalesced)
+  -> one current WorkingRefreshRequest
+  -> existing Recall v2 + full W compiler
+  -> FRESH | REFRESH_REQUIRED with replacement W | INVALIDATED
+```
+
+The engine owner is
+`LmdbRecordStore::refresh_active_semantic_consumer_authorized`. It validates the
+base/task envelope, then invokes `refresh_working_state_authorized` exactly once,
+regardless of the number of coalesced signals. `FRESH` requires an identical
+currently requalified W identity. A current but different result is
+`REFRESH_REQUIRED` and carries the replacement W; semantic equivalence alone
+does not make an old-generation artifact dispatchable. Failed current
+authority/source/mandatory-backing qualification returns `INVALIDATED` without
+the hidden target, removed IDs or the internal refusal detail. Malformed base,
+task or consumer envelopes remain ordinary typed errors.
+
+`ConversationController` provides the application seam shared by Conversation
+and Workflow. It first proves the referenced Turn or Workflow execution and its
+source Turn in canonical history; presentation code cannot invent an active
+task by naming a W. `case context ambient` is the bounded operator inspection
+surface over that same operation. No prompt is accepted, and a changed task
+must enter normal compilation. Conversation and Workflow do not own separate
+retrievers or refresh algorithms.
+
+The posture is explicit and lazy: YAI can consume a typed change notification,
+mark/rebuild the still-live task without a new human/model prompt, and coalesce a
+change storm into one current reconstruction. Correctness does not require a
+daemon, watcher, refresh queue or persisted active-consumer registry. After
+restart the canonical Turn/Workflow lineage and current Case/source owners can
+reconstruct the same assessment. A signal lost with process memory does not
+weaken dispatch because every later Invocation retains the independently
+authoritative in-transaction W requalification fence.
+
+W3 is recompiled normally. W4 uses the existing refresh path: resident and
+deferred exact groups are requalified, qualified working-set preference may be
+retained, revoked/missing groups do not survive and no deferred reference is
+implicitly paged in. Explicit historical cuts remain pinned while present
+authority and backing remain current. One active-consumer refresh makes zero
+provider/model calls and appends zero Transitions; timings are diagnostics and
+do not enter W/task identity.
+
+This bounded foothold is not continuous source synchronization, automatic
+model execution, all-owner notification coverage, a bounded-staleness SLA or a
+public W → E invalidation protocol. Conservative `REFRESH_REQUIRED` is correct
+when exact irrelevance cannot be proven. Projection/provider preparation still
+perform no retrieval, and ambient posture never replaces final Invocation
+admission.

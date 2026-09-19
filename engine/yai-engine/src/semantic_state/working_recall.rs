@@ -7,6 +7,8 @@ pub const RECALL_COMPILER_VERSION: &str = "yai.state_compiler.v3";
 
 pub const REFRESH_REQUEST_SCHEMA: &str = "yai.working_refresh_request.v1";
 pub const REFRESH_RESULT_SCHEMA: &str = "yai.working_refresh_result.v1";
+pub const AMBIENT_REFRESH_REQUEST_SCHEMA: &str = "yai.ambient_refresh_request.v1";
+pub const AMBIENT_REFRESH_RESULT_SCHEMA: &str = "yai.ambient_refresh_result.v1";
 
 /// Explicit envelope adjustment, not a change of task, exact anchors or scope.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -113,6 +115,193 @@ impl WorkingRefreshResult {
     }
 }
 
+/// Presentation-independent identity of the still-live semantic consumer. The
+/// reference is lineage only; it grants no access and is rechecked by the
+/// Conversation/Workflow application owner before this engine operation.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActiveSemanticConsumerKind {
+    Conversation,
+    Workflow,
+}
+
+/// A bounded notification from an existing canonical/source/control owner.
+/// These signals explain why freshness is being assessed; they never prove
+/// freshness or authorize the resulting W. Full current requalification below
+/// remains the decision oracle.
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AmbientSemanticChangeKind {
+    CanonicalTransition,
+    SourceQualification,
+    AuthorityOrDisclosure,
+    BackingAvailability,
+    ConsumerRecovery,
+    Other,
+}
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AmbientSemanticChange {
+    pub kind: AmbientSemanticChangeKind,
+    /// Exact owner-produced identity when it is already visible to the caller.
+    /// It is never resolved as authority and is not returned on refusal.
+    pub reference: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AmbientRefreshRequest {
+    pub schema: String,
+    pub consumer: ActiveSemanticConsumerKind,
+    pub consumer_ref: String,
+    pub case_id: String,
+    pub participant_id: String,
+    pub base_working_state_id: String,
+    pub task_id: String,
+    pub changes: Vec<AmbientSemanticChange>,
+}
+
+impl AmbientRefreshRequest {
+    pub fn new(
+        base: &SemanticWorkingState,
+        consumer: ActiveSemanticConsumerKind,
+        consumer_ref: impl Into<String>,
+        changes: Vec<AmbientSemanticChange>,
+    ) -> Result<Self, String> {
+        let request = Self {
+            schema: AMBIENT_REFRESH_REQUEST_SCHEMA.into(),
+            consumer,
+            consumer_ref: consumer_ref.into(),
+            case_id: base.case_id.clone(),
+            participant_id: base.participant_id.clone(),
+            base_working_state_id: base.id().into(),
+            task_id: base.semantic_task_id()?,
+            changes,
+        };
+        request.validate(base)?;
+        Ok(request)
+    }
+
+    pub(crate) fn validate(&self, base: &SemanticWorkingState) -> Result<(), String> {
+        base.validate_refresh_envelope()?;
+        let unique: BTreeSet<_> = self.changes.iter().collect();
+        if self.schema != AMBIENT_REFRESH_REQUEST_SCHEMA
+            || self.case_id != base.case_id
+            || self.participant_id != base.participant_id
+            || self.base_working_state_id != base.id()
+            || self.task_id != base.semantic_task_id()?
+            || self.consumer_ref.is_empty()
+            || self.consumer_ref.len() > 512
+            || self.changes.is_empty()
+            || self.changes.len() > 64
+            || unique.len() != self.changes.len()
+            || self
+                .changes
+                .iter()
+                .any(|change| change.reference.is_empty() || change.reference.len() > 512)
+        {
+            return Err("ambient_refresh_request_or_base_mismatch".into());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AmbientFreshness {
+    Fresh,
+    RefreshRequired,
+    Invalidated,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct AmbientRefreshMeasurements {
+    pub coalesced_changes: usize,
+    pub current_requalification_us: u128,
+}
+
+/// Derived active-consumer posture. `refresh` contains the one current
+/// WorkingRefresh result when requalification succeeded. An invalidation never
+/// exports hidden object identities or the internal refusal detail.
+#[derive(Debug, Serialize)]
+pub struct AmbientRefreshResult {
+    pub schema: String,
+    pub request: AmbientRefreshRequest,
+    pub freshness: AmbientFreshness,
+    pub reason: String,
+    pub task_preserved: bool,
+    pub current_working_state_id: Option<String>,
+    pub current_recall_id: Option<String>,
+    pub refresh: Option<WorkingRefreshResult>,
+    pub measurements: AmbientRefreshMeasurements,
+}
+
+impl AmbientRefreshResult {
+    pub(crate) fn qualified(
+        base: &SemanticWorkingState,
+        request: AmbientRefreshRequest,
+        refresh: WorkingRefreshResult,
+        current_requalification_us: u128,
+    ) -> Result<Self, String> {
+        let coalesced_changes = request.changes.len();
+        let task_preserved = base.semantic_task_id()? == refresh.working_state.semantic_task_id()?;
+        if !task_preserved {
+            return Err("ambient_refresh_task_changed".into());
+        }
+        let freshness = if refresh.assessment.identity_equal {
+            AmbientFreshness::Fresh
+        } else {
+            AmbientFreshness::RefreshRequired
+        };
+        let reason = match freshness {
+            AmbientFreshness::Fresh => "current_qualified_basis_equal".into(),
+            AmbientFreshness::RefreshRequired => {
+                "current_qualified_basis_changed_replacement_ready".into()
+            }
+            AmbientFreshness::Invalidated => unreachable!(),
+        };
+        Ok(Self {
+            schema: AMBIENT_REFRESH_RESULT_SCHEMA.into(),
+            request,
+            freshness,
+            reason,
+            task_preserved,
+            current_working_state_id: Some(refresh.working_state.id().into()),
+            current_recall_id: refresh
+                .working_state
+                .recall()
+                .map(|recall| recall.recall_id.clone()),
+            measurements: AmbientRefreshMeasurements {
+                coalesced_changes,
+                current_requalification_us,
+            },
+            refresh: Some(refresh),
+        })
+    }
+
+    pub(crate) fn invalidated(
+        request: AmbientRefreshRequest,
+        current_requalification_us: u128,
+    ) -> Self {
+        let coalesced_changes = request.changes.len();
+        Self {
+            schema: AMBIENT_REFRESH_RESULT_SCHEMA.into(),
+            request,
+            freshness: AmbientFreshness::Invalidated,
+            reason: "current_authority_source_or_required_backing_refused".into(),
+            task_preserved: true,
+            current_working_state_id: None,
+            current_recall_id: None,
+            refresh: None,
+            measurements: AmbientRefreshMeasurements {
+                coalesced_changes,
+                current_requalification_us,
+            },
+        }
+    }
+}
+
 fn refresh_material(w: &SemanticWorkingState, control_only: bool) -> Result<Vec<String>, String> {
     let mut out = Vec::new();
     for e in &w.entries {
@@ -130,6 +319,31 @@ fn refresh_material(w: &SemanticWorkingState, control_only: bool) -> Result<Vec<
 }
 
 impl SemanticWorkingState {
+    /// Stable task/objective identity across generations and qualification
+    /// bases. Budgets, provider selection and current authority are deliberately
+    /// excluded: changing them requires requalification, not a new objective.
+    pub fn semantic_task_id(&self) -> Result<String, String> {
+        self.validate_refresh_envelope()?;
+        let request = &self.recall.as_ref().ok_or("working_recall_required")?.request;
+        Ok(format!(
+            "semantic-task:{}",
+            identity(&(
+                &request.case_id,
+                &request.compilation.scope.participant_id,
+                &request.compilation.scope.purpose,
+                &request.compilation.scope.consumer,
+                &request.compilation.scope.view_kind,
+                &request.compilation.intent,
+                &request.recall_query,
+                &request.at,
+                &request.recall_required_refs,
+                &request.compilation.resource_refs,
+                &request.compilation.required_refs,
+                &request.compilation.output_contract_id,
+            ))?
+        ))
+    }
+
     pub(crate) fn validate_refresh_envelope(&self) -> Result<(), String> {
         if self.paging.is_some() { return self.validate_paging_envelope(); }
         let recall = self.recall.as_ref().ok_or("working_recall_required")?;

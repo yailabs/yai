@@ -1679,6 +1679,21 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         ]
     ),
     op!(
+        "yai.case.context.ambient",
+        ["case", "context", "ambient"],
+        "Requalify one active Conversation/Workflow task after an admitted semantic change",
+        Product, Inspection, ReadOnly, Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--working-file", Some("WORKING_STATE_JSON"), true),
+            flag("--operator", Some("PARTICIPANT"), false),
+            flag("--consumer", Some("conversation|workflow"), true),
+            flag("--consumer-ref", Some("TURN_OR_WORKFLOW_EXECUTION"), true),
+            flag("--change-kind", Some("CHANGE_CLASS"), true),
+            flag("--change-ref", Some("CHANGE_REFERENCE"), true)
+        ]
+    ),
+    op!(
         "yai.case.context.expand",
         ["case", "context", "expand"],
         "Resolve exact deferred semantic groups or page out optional material (no Recall search)",
