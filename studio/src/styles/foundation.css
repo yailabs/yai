@@ -138,6 +138,16 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .desktop-window-controls button { width: 44px; height: 34px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--yai-text-secondary); cursor: default; }
 .desktop-window-controls button:hover { background: var(--yai-raised); color: var(--yai-text); }
 .desktop-window-controls button.close:hover { background: #c42b1c; color: #fff; }
+.desktop-resize-frame { position: fixed; z-index: 10000; inset: 0; pointer-events: none; }
+.desktop-resize-handle { position: absolute; pointer-events: auto; }
+.desktop-resize-handle.north { top: 0; left: 10px; right: 10px; height: 5px; cursor: n-resize; }
+.desktop-resize-handle.north-east { top: 0; right: 0; width: 10px; height: 10px; cursor: ne-resize; }
+.desktop-resize-handle.east { top: 10px; right: 0; bottom: 10px; width: 5px; cursor: e-resize; }
+.desktop-resize-handle.south-east { right: 0; bottom: 0; width: 10px; height: 10px; cursor: se-resize; }
+.desktop-resize-handle.south { right: 10px; bottom: 0; left: 10px; height: 5px; cursor: s-resize; }
+.desktop-resize-handle.south-west { bottom: 0; left: 0; width: 10px; height: 10px; cursor: sw-resize; }
+.desktop-resize-handle.west { top: 10px; bottom: 10px; left: 0; width: 5px; cursor: w-resize; }
+.desktop-resize-handle.north-west { top: 0; left: 0; width: 10px; height: 10px; cursor: nw-resize; }
 .titlebar-layout .ui-icon-button, .titlebar-center .ui-icon-button { min-height: 28px; width: 28px; background: transparent; }
 .titlebar-menu .native-menu-popover { top: 29px; left: 38px; }
 .titlebar-menu .native-menu-popover.view { left: 76px; }

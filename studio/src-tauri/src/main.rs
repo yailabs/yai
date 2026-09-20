@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, State, WebviewWindow};
+use tauri_runtime::ResizeDirection;
 use terminal::{PtyHost, TerminalCreated, TerminalEvents, TerminalExit, TerminalOutput};
 use yai_application::{LocalApplication, OperationRequest, OperationResult};
 
@@ -96,6 +97,34 @@ fn desktop_toggle_maximize(window: WebviewWindow) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+fn desktop_start_dragging(window: WebviewWindow) -> Result<(), String> {
+    window
+        .start_dragging()
+        .map_err(|error| format!("desktop_drag_failed: {error}"))
+}
+
+fn resize_direction(direction: &str) -> Result<ResizeDirection, String> {
+    match direction {
+        "north" => Ok(ResizeDirection::North),
+        "north-east" => Ok(ResizeDirection::NorthEast),
+        "east" => Ok(ResizeDirection::East),
+        "south-east" => Ok(ResizeDirection::SouthEast),
+        "south" => Ok(ResizeDirection::South),
+        "south-west" => Ok(ResizeDirection::SouthWest),
+        "west" => Ok(ResizeDirection::West),
+        "north-west" => Ok(ResizeDirection::NorthWest),
+        _ => Err(format!("desktop_resize_direction_invalid: {direction}")),
+    }
+}
+
+#[tauri::command]
+fn desktop_start_resize_dragging(window: tauri::Window, direction: String) -> Result<(), String> {
+    window
+        .start_resize_dragging(resize_direction(&direction)?)
+        .map_err(|error| format!("desktop_resize_failed: {error}"))
+}
+
 fn start_case_update_bridge(app: tauri::AppHandle, running: Arc<AtomicBool>) {
     std::thread::spawn(move || {
         let application = LocalApplication::default();
@@ -141,7 +170,9 @@ fn main() {
             terminal_dispose_all,
             desktop_close,
             desktop_minimize,
-            desktop_toggle_maximize
+            desktop_toggle_maximize,
+            desktop_start_dragging,
+            desktop_start_resize_dragging
         ])
         .setup(move |app| {
             start_case_update_bridge(app.handle().clone(), running.clone());
@@ -155,4 +186,27 @@ fn main() {
         })
         .run(tauri::generate_context!())
         .expect("YAI Studio desktop bootstrap failed");
+}
+
+#[cfg(test)]
+mod window_tests {
+    use super::resize_direction;
+
+    #[test]
+    fn resize_directions_are_strictly_bounded() {
+        for direction in [
+            "north",
+            "north-east",
+            "east",
+            "south-east",
+            "south",
+            "south-west",
+            "west",
+            "north-west",
+        ] {
+            assert!(resize_direction(direction).is_ok());
+        }
+        assert!(resize_direction("center").is_err());
+        assert!(resize_direction("north; run something").is_err());
+    }
 }

@@ -48,10 +48,13 @@ npm run desktop:build -- -- --locked
 ```
 
 The build produces an executable without installer/signing qualification.
-Default window: 1440×900, minimum 1100×680. Studio owns its npm and Tauri Cargo
-lockfiles; backend builds do not require Node or Tauri. The Tauri window uses
-Studio-owned compact chrome so application menus, Case navigation and native
-minimize/maximize/close controls occupy one desktop title row.
+Default window: 1600×960, minimum 1000×650. Studio owns its npm and Tauri Cargo
+lockfiles; backend builds do not require Node or Tauri. The undecorated Tauri
+window uses Studio-owned compact chrome so application menus, Case navigation
+and native minimize/maximize/close controls occupy one desktop title row. Empty
+title-bar space moves the window, double-click maximizes/restores it, and bounded
+native operations resize it from every edge and corner. Interactive title-bar
+controls remain controls and do not initiate dragging.
 
 ## Live behavior
 

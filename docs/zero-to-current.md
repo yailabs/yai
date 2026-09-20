@@ -56,6 +56,10 @@ populate Studio through frontend fixtures.
    must not alter Case views. Close/kill both terminals, reload once and close
    Studio normally; verify no child shell remains. In bare browser mode the same
    tool must say that the desktop host is required and create no process.
+   With native decorations disabled, drag Studio from empty title-bar space,
+   double-click that space to maximize/restore, and resize from every edge and
+   corner. Controls inside the title bar must remain clickable and must not begin
+   a window drag.
 7. Perform one harmless real YAI mutation against the qualification Case from a
    second product invocation. Without reloading Studio, observe the generation
    invalidation, `case.summary` resync and affected Overview/Memory/Inspector

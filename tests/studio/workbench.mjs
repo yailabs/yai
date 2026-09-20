@@ -40,6 +40,7 @@ try {
   await shell.waitFor();
   if (await shell.getAttribute("data-case-source") !== "fixture") throw new Error("fixture data posture missing");
   if (await shell.getAttribute("data-host") !== "web") throw new Error("web host posture missing");
+  if (await page.locator(".desktop-resize-handle").count()) throw new Error("browser mode exposed native resize handles");
   if (await page.locator(".live-rail button").count() !== 7) throw new Error("registered View Containers missing");
   if (await page.locator(".live-sidebar [data-view-container='Overview']").count() !== 1) throw new Error("registered Sidebar View missing");
   await page.getByText("Terminal requires desktop host").waitFor();

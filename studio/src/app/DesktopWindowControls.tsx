@@ -4,6 +4,26 @@ function invoke(command: string) {
   return window.__TAURI__?.core.invoke(command);
 }
 
+const resizeDirections = [
+  "north", "north-east", "east", "south-east",
+  "south", "south-west", "west", "north-west",
+] as const;
+
+export function DesktopWindowFrame() {
+  if (!window.__TAURI__) return null;
+  return <div className="desktop-resize-frame" aria-hidden="true">
+    {resizeDirections.map((direction) => <div
+      className={`desktop-resize-handle ${direction}`}
+      key={direction}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        void window.__TAURI__?.core.invoke("desktop_start_resize_dragging", { direction });
+      }}
+    />)}
+  </div>;
+}
+
 export function DesktopWindowControls() {
   if (!window.__TAURI__) return null;
   return (

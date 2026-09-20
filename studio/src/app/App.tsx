@@ -9,6 +9,7 @@ import { registerContributions } from "../workbench/kernel/contributions";
 import { builtInContributions } from "../contrib/builtins";
 import { StudioApplication } from "./StudioApplication";
 import { ComponentGallery } from "../live/ComponentGallery";
+import { DesktopWindowFrame } from "./DesktopWindowControls";
 import "../styles/workbench.css";
 import "../styles/foundation.css";
 
@@ -39,5 +40,5 @@ export function App() {
   }, []);
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("gallery") === "1") return <ComponentGallery />;
   if (!composition) return null;
-  return <StudioApplication dataSource={composition.dataSource} platform={composition.platform} registry={composition.registry} />;
+  return <><StudioApplication dataSource={composition.dataSource} platform={composition.platform} registry={composition.registry} /><DesktopWindowFrame /></>;
 }
