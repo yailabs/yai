@@ -840,6 +840,11 @@ smoke-cognitive-decision-plane: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/cognitive-decision-plane/test_decision_plane.py
 
+.PHONY: smoke-cognitive-decision-frontier
+smoke-cognitive-decision-frontier: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/cognitive-decision-frontier/test_frontier.py
+
 smoke-case-source-bootstrap: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/case-source-bootstrap/test_bootstrap.py

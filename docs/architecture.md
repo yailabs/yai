@@ -134,6 +134,22 @@ prior delivery for the same semantic source requirement blocks cross-target
 redispatch. No arbitration database, provider session, runtime owner or automatic
 retry controller is introduced.
 
+The derived Cognitive Decision Plane is separate from that provider-target
+arbitration and from canonical governed `Decision`. A current qualified W/task
+plus 2–32 exact disclosed candidates yields `CognitiveDecisionRequest v1`; a
+producer result can be qualified as `CognitiveDecisionDistribution v1` only
+after current-W revalidation. The upstream `CognitiveDecisionFrontier v1` now
+constructs that finite set without a model from four existing typed origin
+families: ready Workflow work, mechanically resolvable Workflow progress, exact
+task-bound Resources resident in W and exact deferred W4 group references.
+Required candidates precede optional candidates, required overflow refuses and
+optional omission is explicit. A deferred group supplies only an expansion
+opportunity, never its hidden content or implicit page-in. Frontier construction
+does not rank, score, execute, append a Transition or grant authority; the
+unchanged admission/effect owners remain final. Both Frontier and distribution
+are reconstructible derived application/domain contracts, not canonical Case
+state or a YAI↔YVEX wire ABI.
+
 I06 makes ConversationController the application consumer of that stack.
 Normal SEND binds PrimaryConversation because the action is conversational;
 media never implies SpeechToText or ImageUnderstanding. An optional explicit

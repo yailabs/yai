@@ -924,6 +924,30 @@ authorization token: only the normal canonical Decision/admission path may
 create governed consequences. This test-only producer is not a production
 fallback, YVEX adapter, adaptive router or W → E contract.
 
+To reproduce the bounded deterministic Decision Frontier upstream of that
+request, run:
+
+```sh
+RUSTUP_TOOLCHAIN=1.98.1 make smoke-cognitive-decision-frontier
+```
+
+The first lane compiles a real qualified W with current Workflow and task-bound
+Resource structure. It derives exact ready/resolvable Workflow and Resource
+candidates, advances the Workflow through its normal canonical owner and shows
+that the frontier changes without scoring or generation. It also checks
+hidden/wrong-Case absence, stale-W refusal, restart determinism, duplicate and
+multi-origin closure, exact optional omission at the 32-candidate bound and
+refusal when mandatory candidates exceed that bound. The derived operation
+performs zero scoring/model/provider calls and adds no Transition or effect.
+
+The second lane uses current W4 paging. An exact deferred group may become an
+expansion candidate, but its content is not exposed and no implicit page-in or
+second retrieval pass occurs. After explicit page-in the opportunity disappears;
+same-generation authority revoke makes the retained frontier/W unusable. These
+tests qualify the four current typed origin families only. They do not establish
+general next-action planning, optimal candidate coverage, adaptive routing,
+long-horizon speedup, a production scorer or a YVEX Decision Core.
+
 Ordinary governed Conversation and Workflow execution now prepares Recall-aware
 W automatically; the commands above are inspection controls, not prerequisites
 for asking a question. In a Case with admitted sources, ask a source-dependent

@@ -730,14 +730,54 @@ current qualified W + exact task + 2..32 disclosed candidates
 
 The request binds Case, generation, Participant, task and exact W identity; its
 candidate set is finite, order-independent and namespaced by candidate kind.
-Candidate semantic references must already be resident in W. A hidden,
-wrong-Case or merely deferred W4 reference is unavailable rather than a signal
-to page or disclose it. The qualified distribution binds the request,
+Candidate semantic references supplied for scoring must already be resident in
+W. A hidden or wrong-Case reference is unavailable; a deferred W4 reference is
+not resident evidence and can only appear through the separately typed exact
+expansion opportunity described below. The qualified distribution binds the request,
 producer/capability evidence, fixed-point score vector and any separately named
 uncertainty metric. It is derived, disposable and non-authoritative: producing
 or preferring a candidate appends no Transition and creates no Decision, Grant,
 Operation or effect. A later governed consequence still crosses the ordinary
 proposal/admission and authority path.
+
+The bounded **Cognitive Decision Frontier v1** supplies the missing upstream
+control primitive without adding a planner or scorer:
+
+```text
+current qualified W + exact task + current typed Workflow/Resource structure
+    → CognitiveDecisionFrontierRequest v1
+    → exact typed candidate origins
+    → CognitiveDecisionFrontier v1
+    → unchanged CognitiveDecisionRequest v1
+```
+
+Its qualified origin families are deliberately narrow: ready Workflow work,
+mechanically resolvable passive Workflow progress, exact task-bound Resources
+already resident in W and exact deferred W4 semantic groups. Arbitrary prose,
+filenames, embeddings and model output do not create candidates. A deferred
+group contributes only its exact expansion opportunity; the frontier exposes no
+deferred members and performs no page-in. Workflow and Resource candidates are
+possibilities for later cognition, never effect authority.
+
+Each frontier records exact W/task/Participant/Case binding, canonical candidate
+membership, typed origin closure, required versus optional posture and either
+`complete_at_typed_profile` or an exact optional-omission count. Required
+candidates are never truncated: exceeding the 32-candidate Decision Plane bound
+refuses. Optional pressure is bounded only after required candidates, using
+typed family precedence rather than similarity ranking. Equivalent candidate
+membership is order-independent, duplicate origins cannot create duplicate
+choices, and multiple origins for one exact subject remain inspectable.
+Frontier construction and later Decision Plane preparation both re-establish
+current W/authority; Workflow evolution, revoke or stale W therefore changes or
+refuses the old frontier. The result is reconstructible after restart and adds
+no Transition, score, model/provider call, Operation or effect.
+
+Legacy archaeology found an earlier `yai-dev` next-action helper, later drained
+into the orchestrator, which returned hard-coded string suggestions such as
+`refresh-context`, `open-decision` and `collect-evidence` with fixed priority.
+That Agent/planner-shaped ownership and string heuristic remain rejected. The
+current frontier recovers only the valid principle that explicit alternatives
+may inform cognition while ordinary YAI admission alone authorizes consequences.
 
 Score meaning is explicit. A raw score is only the producer-declared measure; a
 normalized relative-candidate distribution is not a calibrated correctness

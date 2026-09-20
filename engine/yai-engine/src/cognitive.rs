@@ -8,7 +8,7 @@
 use crate::effect::digest_bytes;
 use crate::provider_governance::ProviderRealizationShape;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const SEMANTIC_SUITABILITY_EVIDENCE_SCHEMA: &str = "yai.semantic_suitability_evidence.v1";
 pub const CASE_COGNITIVE_BINDING_SCHEMA: &str = "yai.case_cognitive_binding.v1";
@@ -1669,6 +1669,455 @@ pub struct CognitiveDecisionQualification {
     pub schema: String,
     pub distribution: CognitiveDecisionDistribution,
     pub current_requalification_us: u128,
+    pub output_bytes: usize,
+}
+
+// The frontier is a derived, model-free input to the Decision Plane. It names
+// only opportunities already established by typed Case owners; it neither
+// scores them nor makes them executable.
+pub const COGNITIVE_DECISION_FRONTIER_REQUEST_SCHEMA: &str =
+    "yai.cognitive_decision_frontier_request.v1";
+pub const COGNITIVE_DECISION_FRONTIER_SCHEMA: &str = "yai.cognitive_decision_frontier.v1";
+pub const COGNITIVE_DECISION_FRONTIER_QUALIFICATION_SCHEMA: &str =
+    "yai.cognitive_decision_frontier_qualification.v1";
+pub const COGNITIVE_DECISION_FRONTIER_PROFILE: &str = "yai.current_typed_opportunities.v1";
+
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CognitiveDecisionCandidateRequirement {
+    Required,
+    Optional,
+}
+
+/// Exact typed reason why a candidate exists. No variant is inferred from
+/// arbitrary prose. Workflow variants are qualified by the existing Workflow
+/// resolver; task Resources and paging references are qualified by W.
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CognitiveDecisionCandidateOrigin {
+    WorkflowReadyWork {
+        workflow_definition_id: String,
+        workflow_binding_id: String,
+        effective_topology_digest: String,
+        node_id: String,
+        node_kind: String,
+        topological_rank: usize,
+    },
+    WorkflowResolvableProgress {
+        workflow_definition_id: String,
+        workflow_binding_id: String,
+        effective_topology_digest: String,
+        node_id: String,
+        node_kind: String,
+        resolution_reason: String,
+        evidence_refs: Vec<String>,
+    },
+    TaskResource {
+        resource_ref: String,
+        exact_required: bool,
+    },
+    DeferredSemanticGroup {
+        reference_id: String,
+        group_entry_id: String,
+        family: String,
+        evidence_digest: String,
+        mandatory_task_dependency: bool,
+    },
+}
+
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum CognitiveDecisionCandidateSubject<'a> {
+    WorkflowReadyWork {
+        workflow_definition_id: &'a str,
+        workflow_binding_id: &'a str,
+        effective_topology_digest: &'a str,
+        node_id: &'a str,
+    },
+    WorkflowResolvableProgress {
+        workflow_definition_id: &'a str,
+        workflow_binding_id: &'a str,
+        effective_topology_digest: &'a str,
+        node_id: &'a str,
+    },
+    TaskResource {
+        resource_ref: &'a str,
+    },
+    DeferredSemanticGroup {
+        reference_id: &'a str,
+    },
+}
+
+impl CognitiveDecisionCandidateOrigin {
+    fn requirement(&self) -> CognitiveDecisionCandidateRequirement {
+        match self {
+            Self::WorkflowReadyWork { .. } | Self::WorkflowResolvableProgress { .. } => {
+                CognitiveDecisionCandidateRequirement::Required
+            }
+            Self::TaskResource { exact_required, .. } => {
+                if *exact_required {
+                    CognitiveDecisionCandidateRequirement::Required
+                } else {
+                    CognitiveDecisionCandidateRequirement::Optional
+                }
+            }
+            Self::DeferredSemanticGroup {
+                mandatory_task_dependency,
+                ..
+            } => {
+                if *mandatory_task_dependency {
+                    CognitiveDecisionCandidateRequirement::Required
+                } else {
+                    CognitiveDecisionCandidateRequirement::Optional
+                }
+            }
+        }
+    }
+
+    fn precedence(&self) -> u8 {
+        match self {
+            Self::WorkflowReadyWork { .. } | Self::WorkflowResolvableProgress { .. } => 0,
+            Self::TaskResource { .. } => 1,
+            Self::DeferredSemanticGroup { .. } => 2,
+        }
+    }
+
+    fn candidate_material(&self) -> (&'static str, &'static str, Vec<String>) {
+        match self {
+            Self::WorkflowReadyWork { .. } => (
+                "yai.frontier.workflow-ready-work.v1",
+                "Advance an exact ready Workflow work item",
+                Vec::new(),
+            ),
+            Self::WorkflowResolvableProgress { .. } => (
+                "yai.frontier.workflow-resolvable-progress.v1",
+                "Advance exact mechanically resolvable Workflow progression",
+                Vec::new(),
+            ),
+            Self::TaskResource { resource_ref, .. } => (
+                "yai.frontier.inspect-task-resource.v1",
+                "Inspect an exact task-bound Resource",
+                vec![resource_ref.clone()],
+            ),
+            Self::DeferredSemanticGroup { .. } => (
+                "yai.frontier.expand-semantic-group.v1",
+                "Expand one exact deferred semantic group",
+                Vec::new(),
+            ),
+        }
+    }
+
+    fn candidate_subject(&self) -> CognitiveDecisionCandidateSubject<'_> {
+        match self {
+            Self::WorkflowReadyWork {
+                workflow_definition_id,
+                workflow_binding_id,
+                effective_topology_digest,
+                node_id,
+                ..
+            } => CognitiveDecisionCandidateSubject::WorkflowReadyWork {
+                workflow_definition_id,
+                workflow_binding_id,
+                effective_topology_digest,
+                node_id,
+            },
+            Self::WorkflowResolvableProgress {
+                workflow_definition_id,
+                workflow_binding_id,
+                effective_topology_digest,
+                node_id,
+                ..
+            } => CognitiveDecisionCandidateSubject::WorkflowResolvableProgress {
+                workflow_definition_id,
+                workflow_binding_id,
+                effective_topology_digest,
+                node_id,
+            },
+            Self::TaskResource { resource_ref, .. } => {
+                CognitiveDecisionCandidateSubject::TaskResource { resource_ref }
+            }
+            Self::DeferredSemanticGroup { reference_id, .. } => {
+                CognitiveDecisionCandidateSubject::DeferredSemanticGroup { reference_id }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionFrontierRequest {
+    pub schema: String,
+    pub request_id: String,
+    pub case_id: String,
+    pub case_generation: u64,
+    pub participant_id: String,
+    pub task_id: String,
+    pub working_state_id: String,
+    pub profile: String,
+    pub max_candidates: usize,
+}
+
+#[derive(Serialize)]
+struct CognitiveDecisionFrontierRequestIdentity<'a> {
+    schema: &'a str,
+    case_id: &'a str,
+    case_generation: u64,
+    participant_id: &'a str,
+    task_id: &'a str,
+    working_state_id: &'a str,
+    profile: &'a str,
+    max_candidates: usize,
+}
+
+impl CognitiveDecisionFrontierRequest {
+    pub fn new(
+        working: &crate::semantic_state::SemanticWorkingState,
+        max_candidates: usize,
+    ) -> Result<Self, String> {
+        working.validate_refresh_envelope()?;
+        if !(2..=MAX_DECISION_CANDIDATES).contains(&max_candidates) {
+            return Err("cognitive_decision_frontier_bound_invalid".to_string());
+        }
+        let task_id = working.semantic_task_id()?;
+        let participant_id = working.request().scope.participant_id.clone();
+        let identity = CognitiveDecisionFrontierRequestIdentity {
+            schema: COGNITIVE_DECISION_FRONTIER_REQUEST_SCHEMA,
+            case_id: working.case_id(),
+            case_generation: working.generation(),
+            participant_id: &participant_id,
+            task_id: &task_id,
+            working_state_id: working.id(),
+            profile: COGNITIVE_DECISION_FRONTIER_PROFILE,
+            max_candidates,
+        };
+        let digest = digest_of(&identity, "cognitive_decision_frontier_request_identity")?;
+        Ok(Self {
+            schema: COGNITIVE_DECISION_FRONTIER_REQUEST_SCHEMA.to_string(),
+            request_id: short_identity("cognitive-decision-frontier-request", &digest),
+            case_id: working.case_id().to_string(),
+            case_generation: working.generation(),
+            participant_id,
+            task_id,
+            working_state_id: working.id().to_string(),
+            profile: COGNITIVE_DECISION_FRONTIER_PROFILE.to_string(),
+            max_candidates,
+        })
+    }
+
+    pub fn validate_against(
+        &self,
+        working: &crate::semantic_state::SemanticWorkingState,
+    ) -> Result<(), String> {
+        if Self::new(working, self.max_candidates)? != *self {
+            return Err("cognitive_decision_frontier_request_integrity_mismatch".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionFrontierCandidate {
+    pub candidate: CognitiveDecisionCandidate,
+    pub requirement: CognitiveDecisionCandidateRequirement,
+    pub origins: Vec<CognitiveDecisionCandidateOrigin>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CognitiveDecisionFrontierCompleteness {
+    CompleteAtTypedProfile,
+    OptionalCandidatesOmitted { omitted_count: usize },
+}
+
+#[derive(Serialize)]
+struct CognitiveDecisionFrontierIdentity<'a> {
+    schema: &'a str,
+    request: &'a CognitiveDecisionFrontierRequest,
+    candidates: &'a [CognitiveDecisionFrontierCandidate],
+    completeness: &'a CognitiveDecisionFrontierCompleteness,
+    visible_candidate_count: usize,
+    required_candidate_count: usize,
+    optional_candidate_count: usize,
+    omitted_optional_candidates: usize,
+    visible_origin_count: usize,
+}
+
+/// Reconstructible current frontier. Candidate order is canonical
+/// representation only; membership and typed origins define meaning.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionFrontier {
+    pub schema: String,
+    pub frontier_id: String,
+    pub request: CognitiveDecisionFrontierRequest,
+    pub candidates: Vec<CognitiveDecisionFrontierCandidate>,
+    pub completeness: CognitiveDecisionFrontierCompleteness,
+    pub visible_candidate_count: usize,
+    pub required_candidate_count: usize,
+    pub optional_candidate_count: usize,
+    pub omitted_optional_candidates: usize,
+    pub visible_origin_count: usize,
+}
+
+impl CognitiveDecisionFrontier {
+    pub(crate) fn derive(
+        request: &CognitiveDecisionFrontierRequest,
+        working: &crate::semantic_state::SemanticWorkingState,
+        mut workflow_origins: Vec<CognitiveDecisionCandidateOrigin>,
+    ) -> Result<Self, String> {
+        request.validate_against(working)?;
+        let mut origins = Vec::new();
+        origins.append(&mut workflow_origins);
+
+        let required_refs = working
+            .request()
+            .required_refs
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        for resource_ref in &working.request().resource_refs {
+            if working.contains_resident_reference(resource_ref) {
+                origins.push(CognitiveDecisionCandidateOrigin::TaskResource {
+                    resource_ref: resource_ref.clone(),
+                    exact_required: required_refs.contains(resource_ref),
+                });
+            }
+        }
+
+        let resident = working
+            .resident_page_references()
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        for reference in working.page_references() {
+            if !resident.contains(&reference.reference_id) {
+                origins.push(CognitiveDecisionCandidateOrigin::DeferredSemanticGroup {
+                    reference_id: reference.reference_id.clone(),
+                    group_entry_id: reference.group_entry_id.clone(),
+                    family: reference.family.clone(),
+                    evidence_digest: reference.evidence_digest.clone(),
+                    mandatory_task_dependency: reference.mandatory_task_dependency,
+                });
+            }
+        }
+
+        origins.sort();
+        origins.dedup();
+        let visible_origin_count = origins.len();
+        let mut candidates = BTreeMap::<String, CognitiveDecisionFrontierCandidate>::new();
+        for origin in origins {
+            let (candidate_kind, description, semantic_refs) = origin.candidate_material();
+            let subject_digest = digest_of(
+                &origin.candidate_subject(),
+                "cognitive_decision_frontier_candidate_subject",
+            )?;
+            let candidate_id = short_identity("cognitive-frontier-candidate", &subject_digest);
+            let requirement = origin.requirement();
+            let entry = candidates.entry(candidate_id.clone()).or_insert_with(|| {
+                CognitiveDecisionFrontierCandidate {
+                    candidate: CognitiveDecisionCandidate {
+                        candidate_id,
+                        candidate_kind: candidate_kind.to_string(),
+                        description: description.to_string(),
+                        semantic_refs,
+                    },
+                    requirement: requirement.clone(),
+                    origins: Vec::new(),
+                }
+            });
+            if requirement == CognitiveDecisionCandidateRequirement::Required {
+                entry.requirement = CognitiveDecisionCandidateRequirement::Required;
+            }
+            entry.origins.push(origin);
+            entry.origins.sort();
+            entry.origins.dedup();
+        }
+
+        let mut required = Vec::new();
+        let mut optional = Vec::new();
+        for candidate in candidates.into_values() {
+            if candidate.requirement == CognitiveDecisionCandidateRequirement::Required {
+                required.push(candidate);
+            } else {
+                optional.push(candidate);
+            }
+        }
+        if required.len() > request.max_candidates {
+            return Err("cognitive_decision_frontier_required_bound_exceeded".to_string());
+        }
+        optional.sort_by(|left, right| {
+            let left_precedence = left.origins.iter().map(|origin| origin.precedence()).min();
+            let right_precedence = right.origins.iter().map(|origin| origin.precedence()).min();
+            left_precedence.cmp(&right_precedence).then(
+                left.candidate
+                    .candidate_id
+                    .cmp(&right.candidate.candidate_id),
+            )
+        });
+        let visible_candidate_count = required.len() + optional.len();
+        let required_candidate_count = required.len();
+        let optional_candidate_count = optional.len();
+        let optional_capacity = request.max_candidates - required.len();
+        let omitted_optional_candidates = optional.len().saturating_sub(optional_capacity);
+        required.extend(optional.into_iter().take(optional_capacity));
+        if required.len() < 2 {
+            return Err("cognitive_decision_frontier_insufficient_candidates".to_string());
+        }
+        required.sort_by(|left, right| {
+            left.candidate
+                .candidate_id
+                .cmp(&right.candidate.candidate_id)
+        });
+        let completeness = if omitted_optional_candidates == 0 {
+            CognitiveDecisionFrontierCompleteness::CompleteAtTypedProfile
+        } else {
+            CognitiveDecisionFrontierCompleteness::OptionalCandidatesOmitted {
+                omitted_count: omitted_optional_candidates,
+            }
+        };
+        let identity = CognitiveDecisionFrontierIdentity {
+            schema: COGNITIVE_DECISION_FRONTIER_SCHEMA,
+            request,
+            candidates: &required,
+            completeness: &completeness,
+            visible_candidate_count,
+            required_candidate_count,
+            optional_candidate_count,
+            omitted_optional_candidates,
+            visible_origin_count,
+        };
+        let digest = digest_of(&identity, "cognitive_decision_frontier_identity")?;
+        Ok(Self {
+            schema: COGNITIVE_DECISION_FRONTIER_SCHEMA.to_string(),
+            frontier_id: short_identity("cognitive-decision-frontier", &digest),
+            request: request.clone(),
+            candidates: required,
+            completeness,
+            visible_candidate_count,
+            required_candidate_count,
+            optional_candidate_count,
+            omitted_optional_candidates,
+            visible_origin_count,
+        })
+    }
+
+    pub fn decision_candidates(&self) -> Vec<CognitiveDecisionCandidate> {
+        self.candidates
+            .iter()
+            .map(|item| item.candidate.clone())
+            .collect()
+    }
+}
+
+/// Typed application result. Measurements are not part of frontier identity.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionFrontierQualification {
+    pub schema: String,
+    pub frontier: CognitiveDecisionFrontier,
+    pub current_requalification_us: u128,
+    pub candidate_generation_us: u128,
+    pub origin_count: usize,
     pub output_bytes: usize,
 }
 

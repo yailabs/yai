@@ -537,6 +537,7 @@ fn ambient_consumer_coalesces_changes_reuses_task_and_requalifies_without_provid
 
 #[test]
 fn scoped_paging_exact_policy_group_rehydration_eviction_restart_and_no_discovery() {
+    use crate::cognitive::{CognitiveDecisionCandidateOrigin, CognitiveDecisionFrontierRequest};
     use crate::semantic_state::{CompilationRequest, SemanticScope, SemanticPurpose, WorkingStateRequest, SemanticWorkingState};
     use crate::semantic_state::paging::{PageRequest, PageAction};
     let w = World::new();
@@ -550,19 +551,60 @@ fn scoped_paging_exact_policy_group_rehydration_eviction_restart_and_no_discover
         compilation: CompilationRequest { scope: SemanticScope::model(HUMAN, SemanticPurpose::Inspection),
             intent: "historical filesystem policy decision".into(),
             output_contract_id: crate::context::InvocationOutputContract::NaturalLanguage.contract_id(),
-            max_semantic_units: 131072, max_derived_items: 0, resource_refs: vec![],
+            max_semantic_units: 131072, max_derived_items: 0, resource_refs: vec![RESOURCE.into()],
             required_refs: vec![HUMAN.into()], previous_item_ids: vec![], view_selection_id: None },
         at: Some(HistoricalCoordinate::Generation(cut.state.generation)), recall_required_refs: vec![],
         recall_bounds: Default::default(), max_output_bytes: 1024 * 1024 };
     let base = w.store.compile_pageable_working_state_authorized(&w.owner, request.clone(), None).unwrap();
-    let reference = base.working_state.page_references().iter().find(|r| r.members.iter().any(|id| id.contains(&d1.decision_id))).unwrap().clone();
-    assert!(base.working_state.resident_page_references().is_empty());
-    let mut demand = PageRequest::new(&base.working_state, vec![reference.reference_id.clone()]);
+    let normalized = w.store.refresh_working_state_authorized(
+        &w.owner,
+        &base.working_state,
+        crate::semantic_state::working_recall::WorkingRefreshRequest::new(&base.working_state),
+        None,
+    ).unwrap();
+    assert!(normalized.assessment.selected_material_equal);
+    let frontier_base = normalized.working_state;
+    let reference = frontier_base.page_references().iter().find(|r| r.members.iter().any(|id| id.contains(&d1.decision_id))).unwrap().clone();
+    assert!(frontier_base.resident_page_references().is_empty());
+    let frontier = w.store.derive_cognitive_decision_frontier_authorized(
+        &w.owner,
+        &frontier_base,
+        CognitiveDecisionFrontierRequest::new(&frontier_base, 8).unwrap(),
+        None,
+    ).unwrap();
+    let expansion = frontier.frontier.candidates.iter().find(|candidate| {
+        candidate.origins.iter().any(|origin| matches!(origin,
+            CognitiveDecisionCandidateOrigin::DeferredSemanticGroup { reference_id, .. }
+                if reference_id == &reference.reference_id))
+    }).unwrap();
+    assert!(expansion.candidate.semantic_refs.is_empty(),
+        "a deferred expansion opportunity must not expose deferred members");
+    assert!(frontier_base.resident_page_references().is_empty(),
+        "frontier derivation must not page in deferred evidence");
+    let mut demand = PageRequest::new(&frontier_base, vec![reference.reference_id.clone()]);
     demand.bounds.semantic_units = 131072;
-    let page = w.store.page_working_state_authorized(&w.owner, &base.working_state, demand.clone(), None).unwrap();
+    let page = w.store.page_working_state_authorized(&w.owner, &frontier_base, demand.clone(), None).unwrap();
     assert_eq!(page.measurements.candidate_discovery_passes, 0);
     assert_ne!(page.working_state.id(), base.working_state.id());
     assert_eq!(page.working_state.resident_page_references(), vec![reference.reference_id.clone()]);
+    let normalized_resident = w.store.refresh_working_state_authorized(
+        &w.owner,
+        &page.working_state,
+        crate::semantic_state::working_recall::WorkingRefreshRequest::new(&page.working_state),
+        None,
+    ).unwrap();
+    assert!(normalized_resident.assessment.selected_material_equal);
+    let resident_frontier = w.store.derive_cognitive_decision_frontier_authorized(
+        &w.owner,
+        &normalized_resident.working_state,
+        CognitiveDecisionFrontierRequest::new(&normalized_resident.working_state, 8).unwrap(),
+        None,
+    ).unwrap();
+    assert!(!resident_frontier.frontier.candidates.iter().any(|candidate| {
+        candidate.origins.iter().any(|origin| matches!(origin,
+            CognitiveDecisionCandidateOrigin::DeferredSemanticGroup { reference_id, .. }
+                if reference_id == &reference.reference_id))
+    }), "resident evidence is no longer an expansion opportunity");
     assert!(page.page.groups.iter().flat_map(|g| &g.events).all(|e| e.event.recorded_generation <= cut.state.generation));
     assert_eq!(base.working_state.paging().unwrap().current_control_digest, page.working_state.paging().unwrap().current_control_digest);
     let projection = page.lower_context().unwrap();
@@ -571,7 +613,7 @@ fn scoped_paging_exact_policy_group_rehydration_eviction_restart_and_no_discover
     let frame = crate::context::build_context_frame(&projection, &request.compilation.intent,
         crate::context::InvocationOutputContract::NaturalLanguage).unwrap();
     assert_eq!(frame.schema, crate::context::CONTEXT_FRAME_SCHEMA_V12);
-    let restored: SemanticWorkingState = serde_json::from_slice(&serde_json::to_vec(&base.working_state).unwrap()).unwrap();
+    let restored: SemanticWorkingState = serde_json::from_slice(&serde_json::to_vec(&frontier_base).unwrap()).unwrap();
     // A content hash is not semantic qualification: even a rehashed export
     // cannot carry contradictory copies of the task/compilation contract.
     let mut inconsistent = serde_json::to_value(&restored).unwrap();
@@ -606,10 +648,16 @@ fn scoped_paging_exact_policy_group_rehydration_eviction_restart_and_no_discover
         w.store.page_working_state_authorized(&w.owner, &restored, hidden, None).unwrap_err());
     w.store.revoke_tenant_policy_artifact(&w.owner, &state.policy_bindings[0].artifact_id, "current paging authority withdrawn").unwrap();
     assert_eq!(w.store.get_case_state(CASE).unwrap().unwrap(), state);
+    assert_eq!(w.store.derive_cognitive_decision_frontier_authorized(
+        &w.owner,
+        &frontier_base,
+        frontier.frontier.request.clone(),
+        None,
+    ).unwrap_err(), "stale_semantic_working_state");
     assert_eq!(w.store.page_working_state_authorized(&w.owner, &restored, demand, None).unwrap_err(),
         w.store.page_working_state_authorized(&w.owner, &restored, unknown, None).unwrap_err());
     assert_eq!(w.store.list_case_transitions(CASE).unwrap(), history);
-    println!("scoped_paging policy_asof_current_authority=true exact_group=true page_out_in=equal cache_restart=equal candidate_discovery_passes=0 current_revoke_refuses=true canonical_mutations=0 providers=0");
+    println!("scoped_paging policy_asof_current_authority=true exact_group=true page_out_in=equal cache_restart=equal candidate_discovery_passes=0 frontier_deferred_opportunity=true frontier_content_exposed=false frontier_implicit_page_in=false frontier_resident_removed=true frontier_current_revoke_refuses=true current_revoke_refuses=true canonical_mutations=0 providers=0");
     w.finish();
 }
 

@@ -4095,7 +4095,12 @@ impl LmdbRecordStore {
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<(), String> {
         let request = previous.recall().ok_or("working_recall_required")?.request.clone();
-        let current = self.compile_working_state_authorized(authenticated, request, content)?;
+        let mut current = self.compile_working_state_authorized(authenticated, request, content)?;
+        if previous.paging().is_some() {
+            current = current
+                .enable_paging()?
+                .with_refreshed_paging_preferences(previous)?;
+        }
         if current.working_state != *previous { return Err("stale_semantic_working_state".into()); }
         Ok(())
     }
@@ -4149,6 +4154,161 @@ impl LmdbRecordStore {
             current_requalification_us,
             output_bytes,
         })
+    }
+
+    fn cognitive_decision_workflow_origins_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        working: &crate::semantic_state::SemanticWorkingState,
+    ) -> Result<Vec<crate::cognitive::CognitiveDecisionCandidateOrigin>, String> {
+        use crate::cognitive::CognitiveDecisionCandidateOrigin;
+
+        let state = self.get_case_state_authorized(authenticated, working.case_id())?;
+        let Some(binding) = state.workflow_binding.as_ref() else {
+            return Ok(Vec::new());
+        };
+        let resolution = self.workflow_status_authorized(authenticated, working.case_id())?;
+        if resolution.case_id != working.case_id()
+            || resolution.case_generation != working.generation()
+            || resolution.workflow_binding_id != binding.binding_id
+        {
+            return Err("stale_semantic_working_state".to_string());
+        }
+        let topology = self.workflow_effective_topology_authorized(authenticated, working.case_id())?;
+        if topology.topology_digest != resolution.effective_topology_digest {
+            return Err("cognitive_decision_frontier_workflow_basis_mismatch".to_string());
+        }
+        let participant_id = working.request().scope.participant_id.as_str();
+        let ready = resolution
+            .ready_work
+            .iter()
+            .map(|item| (item.node_id.as_str(), item))
+            .collect::<BTreeMap<_, _>>();
+        let mut origins = Vec::new();
+        for node in &resolution.nodes {
+            if let Some(ready) = ready.get(node.node_id.as_str()) {
+                let effective = topology
+                    .node(&node.node_id)
+                    .ok_or("cognitive_decision_frontier_workflow_node_missing")?;
+                let slot = match &effective.node.kind {
+                    WorkflowNodeKind::ModelWork { executor_slot, .. } => executor_slot,
+                    WorkflowNodeKind::DeterministicWork { proposer_slot, .. } => proposer_slot,
+                    _ => return Err("cognitive_decision_frontier_workflow_ready_kind_invalid".into()),
+                };
+                if binding.executor_bindings.iter().any(|executor| {
+                    executor.slot == *slot && executor.participant_id == participant_id
+                }) {
+                    origins.push(CognitiveDecisionCandidateOrigin::WorkflowReadyWork {
+                        workflow_definition_id: resolution.workflow_definition_id.clone(),
+                        workflow_binding_id: resolution.workflow_binding_id.clone(),
+                        effective_topology_digest: resolution.effective_topology_digest.clone(),
+                        node_id: node.node_id.clone(),
+                        node_kind: node.node_kind.clone(),
+                        topological_rank: ready.topological_rank,
+                    });
+                }
+                continue;
+            }
+            let mechanically_resolvable = matches!(
+                (&node.posture, node.reason.as_str()),
+                (WorkflowNodePosture::WaitingCondition, "condition_resolvable_true")
+                    | (
+                        WorkflowNodePosture::WaitingEffect,
+                        "passive_predicate_satisfied_pending_commit"
+                    )
+            );
+            if mechanically_resolvable {
+                let mut evidence_refs = node.evidence_refs.clone();
+                evidence_refs.sort();
+                evidence_refs.dedup();
+                origins.push(CognitiveDecisionCandidateOrigin::WorkflowResolvableProgress {
+                    workflow_definition_id: resolution.workflow_definition_id.clone(),
+                    workflow_binding_id: resolution.workflow_binding_id.clone(),
+                    effective_topology_digest: resolution.effective_topology_digest.clone(),
+                    node_id: node.node_id.clone(),
+                    node_kind: node.node_kind.clone(),
+                    resolution_reason: node.reason.clone(),
+                    evidence_refs,
+                });
+            }
+        }
+        origins.sort();
+        origins.dedup();
+        Ok(origins)
+    }
+
+    /// Current-authority application boundary for deterministic candidate
+    /// construction. The frontier reads typed W/Workflow structure only; it
+    /// performs no scoring, model call, external effect or canonical write.
+    pub fn derive_cognitive_decision_frontier_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        working: &crate::semantic_state::SemanticWorkingState,
+        request: crate::cognitive::CognitiveDecisionFrontierRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::cognitive::CognitiveDecisionFrontierQualification, String> {
+        let requalification_started = std::time::Instant::now();
+        self.validate_working_state_authorized(authenticated, working, content)?;
+        request.validate_against(working)?;
+        let mut current_requalification_us = requalification_started.elapsed().as_micros();
+        let started = std::time::Instant::now();
+        let workflow_origins =
+            self.cognitive_decision_workflow_origins_authorized(authenticated, working)?;
+        let frontier = crate::cognitive::CognitiveDecisionFrontier::derive(
+            &request,
+            working,
+            workflow_origins,
+        )?;
+        let candidate_generation_us = started.elapsed().as_micros();
+        // Close the read window against same-generation policy/source changes.
+        // This is not a permanent lease; every later consumer requalifies too.
+        let requalification_started = std::time::Instant::now();
+        self.validate_working_state_authorized(authenticated, working, content)?;
+        current_requalification_us += requalification_started.elapsed().as_micros();
+        let output_bytes = serde_json::to_vec(&frontier)
+            .map_err(|error| format!("cognitive_decision_frontier_encode_failed: {error}"))?
+            .len();
+        Ok(crate::cognitive::CognitiveDecisionFrontierQualification {
+            schema: crate::cognitive::COGNITIVE_DECISION_FRONTIER_QUALIFICATION_SCHEMA.to_string(),
+            origin_count: frontier.visible_origin_count,
+            frontier,
+            current_requalification_us,
+            candidate_generation_us,
+            output_bytes,
+        })
+    }
+
+    /// Compose an already qualified frontier with Decision Plane v1. This is a
+    /// current re-derivation, not a second request schema or an authority path.
+    pub fn prepare_cognitive_decision_request_from_frontier_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        working: &crate::semantic_state::SemanticWorkingState,
+        frontier: &crate::cognitive::CognitiveDecisionFrontier,
+        decision_kind: impl Into<String>,
+        budget: crate::cognitive::CognitiveDecisionBudget,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::cognitive::CognitiveDecisionRequest, String> {
+        if budget.max_candidates != frontier.request.max_candidates {
+            return Err("cognitive_decision_frontier_budget_mismatch".to_string());
+        }
+        let current = self.derive_cognitive_decision_frontier_authorized(
+            authenticated,
+            working,
+            frontier.request.clone(),
+            content,
+        )?;
+        if current.frontier != *frontier {
+            return Err("stale_cognitive_decision_frontier".to_string());
+        }
+        self.prepare_cognitive_decision_request_authorized(
+            authenticated,
+            working,
+            decision_kind,
+            frontier.decision_candidates(),
+            budget,
+            content,
+        )
     }
 
     /// Inspect a retained W3 under CURRENT disclosure, reconstructing its exact
