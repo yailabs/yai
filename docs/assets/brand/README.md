@@ -14,7 +14,7 @@ cropping or resampling was performed.
 | [yai-organization-512.png](yai-organization-512.png) | `00-pronti/avatar-yai-512.png` | Black-backed YAI avatar for the organization profile; 512 × 512 |
 
 The root README selects the approved dark/light export from the viewer's color
-scheme and renders it at width 480 with its original aspect ratio. Preserve the
+scheme and renders it at width 320 with its original aspect ratio. Preserve the
 intentional image and avatar padding. YAI's identity is distinct from YVEX's
 identity.
 

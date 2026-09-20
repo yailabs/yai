@@ -13,13 +13,19 @@ repository licensing documents, including LICENSE.md and docs/legal.md.
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/yai-readme-horizontal-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/brand/yai-readme-horizontal-light.svg">
-    <img src="docs/assets/brand/yai-readme-horizontal-light.svg" alt="YAI" width="480">
+    <img src="docs/assets/brand/yai-readme-horizontal-light.svg" alt="YAI" width="320">
   </picture>
 </p>
 
 <p align="center">
   <strong>Durable semantic state. Case-bound AI execution.</strong><br>
   The work should outlive the model.
+</p>
+
+<p align="center">
+  <a href="docs/architecture.md"><img src="https://img.shields.io/badge/runtime-local-64748b?style=flat&amp;labelColor=334155" alt="Runtime: local"></a>
+  <a href="#architecture-and-ownership"><img src="https://img.shields.io/badge/core-semantic%20state-64748b?style=flat&amp;labelColor=334155" alt="Core: semantic state"></a>
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/license-source--available-64748b?style=flat&amp;labelColor=334155" alt="License: source-available"></a>
 </p>
 
 <p align="center">
