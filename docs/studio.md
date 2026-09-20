@@ -480,11 +480,12 @@ meaning.
 ### Platform
 
 CURRENT: the bounded Platform implementation provides scoped commands, context
-keys, keybindings, menus, in-memory Workbench configuration, navigation,
+keys, keybindings, menus, versioned local Workbench preferences, navigation,
 semantic theme selection, lifecycle/disposables and explicit host capabilities.
 Registrations belong to a Workbench instance and are disposed on teardown; no
-global extension registry survives tests or hot reload. Persistence, a command
-palette and the broader context-expression language remain OPEN.
+global extension registry survives tests or hot reload. Command Palette and
+Quick Open consume those existing registries rather than duplicate command or
+navigation ownership. A broader context-expression language remains OPEN.
 A command such as `studio.go.back` or `studio.terminal.new` is a frontend action
 identity, not a YAI application operation. A command may invoke an admitted YAI
 operation through the application boundary, but its UI identity grants no
@@ -547,18 +548,29 @@ Case object / Artifact / Projection / Tool
               Work Surface
 ```
 
-CURRENT: perspective, Markdown, text, image, PDF, structured table, timeline,
-graph and Settings renderers use the same Surface Group and tab mechanics.
-Qualified media types select material renderers; random React components do not
-infer representation from filename extensions. The PDF foothold renders a
-qualified source when one exists and otherwise states that content is
-unavailable. Surface capabilities such as read, select, navigate or zoom
-describe UI interaction only and never grant YAI authority.
+CURRENT: presentation roles distinguish Content, Projection, System and
+Interactive Case Surfaces without introducing Case ontology. Renderer-declared
+capabilities such as previewable, pinnable, singleton, editable, dirty-aware,
+searchable, zoomable, navigable and selectable control Workbench behavior only;
+they never grant YAI authority. Tabs express preview/pinned, genuine dirty,
+read-only and unavailable posture with restrained affordances rather than
+pretending every Surface is an editable file.
 
-TARGET: trusted reusable data surfaces include Table, Calendar, Form, Board,
-Chart, Timeline, Graph, Gallery and Detail/Object. Audio, video, databases,
-provider tools and Computer surfaces can add trusted renderer types without a
-Kernel change. A Surface is a representation, not the underlying object: a PDF
+Perspective, Markdown, text, structured text, browser-safe image/vector, PDF,
+structured table, audio/video, timeline, graph and Settings renderers use the
+same Surface Group and tab mechanics. Qualified MIME/media types select material
+renderers; random React components do not infer representation from filename
+extensions or raw bytes. PDF supports lazy multi-page canvas rendering, zoom,
+fit-width, page navigation and text search. Tables support filtering, sorting,
+row selection and horizontal/column resizing. Unknown media opens a first-class
+metadata/unavailable Surface and is never coerced into binary text. External
+open remains unavailable until YAI exposes a qualified local path or permitted
+temporary representation.
+
+TARGET: trusted reusable data surfaces include Calendar, Form, Board, Chart,
+Gallery and Detail/Object in addition to the current bounded renderer families.
+Databases, provider tools and Computer surfaces can add trusted renderer types
+without a Kernel change. A Surface is a representation, not the underlying object: a PDF
 artifact can open in a PDF Surface, appointment facts in a Calendar Surface and
 qualified relations in a Graph Surface while YAI retains truth and authority.
 
@@ -577,6 +589,33 @@ result and refreshed projection
 ```
 
 React state alone never commits a business mutation.
+
+CURRENT editable state is deliberately narrow: Studio-local Settings may change
+versioned local preferences. Case materials remain read-only because no general
+save/admission operation is qualified. A future editable Case Surface holds
+local dirty state until an explicit typed application action succeeds, then
+refreshes from the resulting projection; it never silently writes a source from
+React.
+
+### Search and Settings infrastructure
+
+Search is one Workbench interaction grammar with distinct owners. Command
+Palette searches enabled commands and executes through `CommandService`; Quick
+Open searches open/recent Surface inputs plus presentation references already
+exposed to Studio; current-Surface search delegates to the active renderer; and
+Settings search delegates to the Settings registry. A Case-search provider seam
+exists, but the current live YAI application boundary exposes no qualified
+semantic/content search query, so live mode reports that exact unavailability.
+Fixture mode supplies deterministic Case-search results only for Workbench
+qualification. Studio never scans the filesystem or LMDB to fill that gap.
+
+Settings is one singleton System Surface. Built-in contributions register
+entries under General, Appearance, Workbench, Terminal, YAI Host, Providers,
+YVEX, Security and Advanced. Scope is explicit: local Studio, Case-backed or
+Host. Only genuine local preferences are editable today, persisted as a small
+versioned browser/WebView local-storage representation. Case or Host settings
+require their respective typed operations and otherwise remain explanatory or
+unavailable. No settings database or Case truth is created.
 
 ### Declarative Case Views — target
 
@@ -636,6 +675,14 @@ optical size, focus states, tooltips, tabs, borders, radius and semantic colors.
 Contributions use shared tokens and primitives rather than defining local visual
 systems. This is a product constraint, not a theme preference.
 
+Every Studio implementation milestone performs a proportionate Product Quality
+Pass on the visible regions it materially changes: ownership, hierarchy,
+typography, spacing, icon alignment, semantic color, interactive states,
+surface separation, keyboard/accessibility, empty/error/unavailable posture,
+resizing, duplicated patterns and visual regression. Compilation alone does not
+close a visible Studio wave. The pass does not authorize unrelated redesign or
+override executable truth and root ROADMAP maturity.
+
 ### Inspector, navigation and traversability
 
 Inspector is a navigation surface, not a generic property dump. Typed
@@ -652,10 +699,10 @@ expose provenance/backing and navigate to both endpoints. Inspector is the
 bridge; it need not be the final destination. Local Back/Forward preserves these
 transitions without modifying Case history.
 
-Settings is one singleton Surface with internal navigation and history. Its target
-sections are General, Appearance, YAI Host, Workbench, Terminal, Providers,
-YVEX, Security and Advanced. Opening a section does not create another Settings
-tab.
+Settings is one singleton Surface with internal navigation and history. Its
+current sections are General, Appearance, Workbench, Terminal, YAI Host,
+Providers, YVEX, Security and Advanced. Opening or searching a section does not
+create another Settings tab.
 
 ### Graph and temporal infrastructure
 

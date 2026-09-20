@@ -28,6 +28,11 @@ export interface DocumentSection {
 }
 export type MaterialBody =
   | {
+      kind: "text";
+      content: string;
+      language?: string;
+    }
+  | {
       kind: "document";
       eyebrow: string;
       title: string;
@@ -61,6 +66,13 @@ export type MaterialBody =
       kind: "table";
       columns: readonly { key: string; label: string }[];
       rows: readonly { id: string; values: Readonly<Record<string, string>> }[];
+    }
+  | {
+      kind: "audio" | "video";
+      source?: string;
+      unavailableReason?: string;
+      durationSeconds?: number;
+      caption?: string;
     }
   | { kind: "work"; title: string; description: string }
   | { kind: "provider"; title: string };

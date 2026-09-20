@@ -42,13 +42,20 @@ populate Studio through frontend fixtures.
    Repeat the same navigation once with `VITE_STUDIO_MODE=fixture` in Tauri:
    Activity Bar, Sidebar, Surface Group, Panel and Auxiliary Bar must be the same
    Workbench owners; only the Case data posture changes.
-   In the `developer` fixture, open the authored Markdown/text, image, structured
-   table and PDF inputs through Environment. Confirm one preview input is reused,
-   double-click pins it, each renderer uses the same tab/group mechanics, image
-   and table selection reaches Inspector, and PDF without qualified bytes states
-   unavailability rather than coercing itself into text. Open Case Timeline and
+   In the `developer` fixture, open the authored Markdown/text/structured text,
+   image/SVG, table, PDF, audio, video and unknown-media inputs through
+   Environment. Confirm one preview input is reused, double-click pins it, each
+   renderer uses the same tab/group mechanics, table selection reaches
+   Inspector, PDF page/zoom/search works, media uses native playback, and unknown
+   binary content opens metadata instead of text. Open Case Timeline and
    Experience Graph as registered Surfaces, then use Back/Forward across a
    Surface selection and its Inspector context.
+   Exercise Command Palette (`Ctrl/Command+Shift+P`), Quick Open
+   (`Ctrl/Command+P`) and current-Surface search (`Ctrl/Command+F`). Live Case
+   search must report unavailable until the application boundary exposes it;
+   fixture Case search is test data only. Open Settings twice and confirm one
+   singleton tab, internal section/search navigation, persistence of real local
+   preferences and explicit unavailable Host/provider/YVEX entries.
 6. In the desktop Terminal tool, create two terminals and confirm selection,
    input/output, ANSI, Unicode, scrollback and copy/paste. Resize the bottom,
    Explorer and Context panels and verify `stty size` changes. Exercise `vim`
@@ -72,6 +79,10 @@ populate Studio through frontend fixtures.
    `vim`, Memory graph, Context Inspector and development-only component gallery.
    Each retained capture records SHA, Case ID, generation, viewport and live
    posture without credentials or unsanitized endpoints.
+10. Review Command Palette, Quick Open, Settings, PDF/table/media/unknown
+    Surfaces, Conversation, Inspector, Activity and consolidated bottom-panel
+    toolbar at 1600×960, 1440×900 and 1280×800. Check focus, semantic color,
+    empty/error states, clipping and resize behavior in every touched region.
 
 This lane does not qualify remote transport, concurrent mutation, conversation
 SEND, Case-attached Open in Terminal, persistent terminal continuity, filesystem
@@ -121,6 +132,12 @@ application Case switcher. All content is explicitly fixture.
    [browser harness](test-cases.md#studio-bootstrap-isolation) for repeatable
    captures, then judge hierarchy, density, legibility, tonal separation and the
    absence of unnecessary border grids.
+9. In the developer Case, exercise Command Palette, Quick Open, current-Surface
+   search, deterministic fixture Case search and singleton Settings. Inspect the
+   structured table, PDF, image/SVG, audio, video and unknown-media fallback.
+   Confirm the bottom-tool selector remains one compact header row, terminal
+   instances appear in the resizable vertical pane inside the Terminal tool, and
+   browser Terminal still states that a desktop host is required.
 
 Record the exact SHA and viewport with any operator feedback. This is an offline
 visual/interaction verdict only; `HUMAN_GOLDEN_CASE = PENDING_OPERATOR` remains

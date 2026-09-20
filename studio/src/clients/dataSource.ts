@@ -18,6 +18,13 @@ export interface CaseCatalog {
   authority: string;
 }
 
+export interface CaseSearchResult {
+  id: string;
+  label: string;
+  detail: string;
+  object_ref?: string;
+}
+
 export interface CaseDataSource {
   readonly kind: CaseDataKind;
   listCases(): Promise<OperationResult<CaseCatalog>>;
@@ -25,6 +32,7 @@ export interface CaseDataSource {
   caseSummary(caseRef: string, expectedGeneration?: number): Promise<OperationResult<CasePresentation>>;
   subscribe?(resumeToken?: string): Promise<OperationResult<unknown>>;
   heartbeat?(caseRef: string): Promise<OperationResult<{ case_ref: string; generation: number; cursor: string; stream_state: string }>>;
+  searchCase?(caseRef: string, query: string): Promise<OperationResult<readonly CaseSearchResult[]>>;
   listen?(handler: (update: CaseUpdate) => void): Promise<() => void>;
   composition?(): readonly import("./presentation").CompositionSection[];
 }
@@ -239,6 +247,15 @@ export class FixtureDataSource implements CaseDataSource {
         };
       }),
     });
+  }
+
+  async searchCase(caseRef: string, query: string) {
+    const id = caseRef.replace(/^fixture:/, "") as import("./presentation").ScenarioId;
+    let workspace: WorkspacePresentation;
+    try { workspace = this.fixture.workspace(id); } catch { return missingFixture<readonly CaseSearchResult[]>("studio.fixture.search_case", caseRef); }
+    const needle = query.trim().toLocaleLowerCase();
+    const results = needle ? workspace.materials.filter((material) => `${material.name} ${material.path} ${material.mediaType} ${material.provenance}`.toLocaleLowerCase().includes(needle)).map((material) => ({ id: material.id, label: material.name, detail: `${material.mediaType} · ${material.path}`, object_ref: material.id })) : [];
+    return fixtureResult<readonly CaseSearchResult[]>("studio.fixture.search_case", results);
   }
 
   async openCase(caseRef: string) {

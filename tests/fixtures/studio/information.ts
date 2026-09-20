@@ -642,11 +642,15 @@ const developer: CaseInformation = {
       item(
         "runtime-contract-pdf",
         "Runtime contract",
-        "PDF identity · bytes unavailable",
+        "PDF · two-page deterministic fixture",
         "document",
         "runtime-contract-pdf",
-        "unavailable",
+        "current",
       ),
+      item("runtime-config-json", "Runtime configuration", "JSON · structured text", "document", "runtime-config-json", "current"),
+      item("qualification-audio", "Qualification tone", "Audio · deterministic fixture", "document", "qualification-audio", "current"),
+      item("qualification-video", "Qualification clip", "Video · deterministic fixture", "document", "qualification-video", "current"),
+      item("runtime-binary", "Runtime capture", "Unknown binary format", "document", "runtime-binary", "unavailable"),
     ]),
     group(
       "Resources",

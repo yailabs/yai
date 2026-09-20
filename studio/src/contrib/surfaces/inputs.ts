@@ -6,8 +6,11 @@ export const surfaceTypes = {
   perspective: "case.perspective",
   markdown: "material.markdown",
   text: "material.text",
+  structuredText: "material.structured-text",
   image: "material.image",
   pdf: "material.pdf",
+  audio: "material.audio",
+  video: "material.video",
   table: "data.table",
   timeline: "case.timeline",
   graph: "case.graph",
@@ -61,9 +64,19 @@ export function materialInput(
 
 export function resolveMaterialSurfaceType(mediaType?: string): string {
   if (mediaType === "text/markdown") return surfaceTypes.markdown;
+  if (mediaType && structuredTextTypes.has(mediaType.split(";")[0])) return surfaceTypes.structuredText;
   if (mediaType?.startsWith("text/")) return surfaceTypes.text;
-  if (mediaType?.startsWith("image/")) return surfaceTypes.image;
+  if (mediaType && safeImageTypes.has(mediaType.split(";")[0])) return surfaceTypes.image;
   if (mediaType === "application/pdf") return surfaceTypes.pdf;
+  if (mediaType?.startsWith("audio/")) return surfaceTypes.audio;
+  if (mediaType?.startsWith("video/")) return surfaceTypes.video;
   if (mediaType === "application/vnd.yai.table+json") return surfaceTypes.table;
   return surfaceTypes.unavailable;
 }
+
+const structuredTextTypes = new Set([
+  "application/json", "application/ld+json", "application/yaml", "application/x-yaml",
+  "application/toml", "application/xml", "text/xml", "text/csv", "text/tab-separated-values",
+]);
+
+const safeImageTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif", "image/svg+xml"]);

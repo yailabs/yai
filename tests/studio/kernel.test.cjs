@@ -22,6 +22,7 @@ test("commands register, gate, execute and dispose without global state", async 
   context.update("case.attached", true);
   assert.equal(await commands.executeCommand("studio.test"), true);
   assert.equal(executions, 1);
+  assert.deepEqual(commands.entries(), [{ id: "studio.test", title: "Test", enabled: true }]);
   assert.throws(() => commands.registerCommand({ id: "studio.test", title: "Duplicate", handler() {} }), /already registered/);
   registration.dispose();
   assert.equal(commands.has("studio.test"), false);
@@ -83,6 +84,9 @@ test("qualified media types resolve without file-extension guessing", () => {
   assert.equal(resolveMaterialSurfaceType("text/markdown"), "material.markdown");
   assert.equal(resolveMaterialSurfaceType("image/png"), "material.image");
   assert.equal(resolveMaterialSurfaceType("application/pdf"), "material.pdf");
+  assert.equal(resolveMaterialSurfaceType("application/json"), "material.structured-text");
+  assert.equal(resolveMaterialSurfaceType("audio/wav"), "material.audio");
+  assert.equal(resolveMaterialSurfaceType("video/webm"), "material.video");
   assert.equal(resolveMaterialSurfaceType("application/vnd.yai.table+json"), "data.table");
   assert.equal(resolveMaterialSurfaceType("application/octet-stream"), "material.unavailable");
 });
@@ -104,17 +108,18 @@ test("Workbench registries expose registered regions and remove disposed contrib
   registry.registerViewContainer({ id: "Memory", title: "Memory", icon: "memory", order: 1, surface });
   registry.registerViewContainer({ id: "Overview", title: "Overview", icon: "overview", order: 0, surface: { ...surface, id: "perspective:Overview", identity: "perspective:Overview", title: "Overview", icon: "overview" } });
   const view = registry.registerView({ id: "Memory.timeline", containerId: "Memory", title: "Timeline", order: 0, component });
-  registry.registerSurfaceRenderer({ type: "case.perspective", capabilities: ["read", "navigate"], component });
-  registry.registerSurfaceRenderer({ type: "material.markdown", capabilities: ["read", "select"], component });
-  registry.registerSurfaceRenderer({ type: "material.image", capabilities: ["read", "select", "zoom"], component });
-  registry.registerSurfaceRenderer({ type: "data.table", capabilities: ["read", "select"], component });
+  registry.registerSurfaceRenderer({ type: "case.perspective", role: "projection", capabilities: ["navigable"], component });
+  registry.registerSurfaceRenderer({ type: "material.markdown", role: "content", capabilities: ["previewable", "searchable"], component });
+  registry.registerSurfaceRenderer({ type: "material.image", role: "content", capabilities: ["previewable", "zoomable"], component });
+  registry.registerSurfaceRenderer({ type: "data.table", role: "projection", capabilities: ["previewable", "selectable"], component });
   registry.registerPanelView({ id: "Terminal", title: "Terminal", order: 0, component });
   registry.registerAuxiliaryView({ id: "Inspector", title: "Inspector", order: 0, component });
   registry.registerInspector({ kind: "default", component });
   assert.deepEqual(registry.viewContainers().map((item) => item.id), ["Overview", "Memory"]);
   assert.equal(registry.viewsFor("Memory").length, 1);
   assert.equal(registry.surfaceRenderer("case.perspective").component, component);
-  assert.deepEqual(registry.surfaceRenderer("case.perspective").capabilities, ["read", "navigate"]);
+  assert.deepEqual(registry.surfaceRenderer("case.perspective").capabilities, ["navigable"]);
+  assert.equal(registry.surfaceRenderer("material.image").role, "content");
   assert.equal(registry.surfaceRenderer("material.image").type, "material.image");
   assert.equal(registry.surfaceRenderer("data.table").type, "data.table");
   assert.equal(registry.panelViews()[0].id, "Terminal");
@@ -122,4 +127,13 @@ test("Workbench registries expose registered regions and remove disposed contrib
   assert.equal(registry.inspector("source").component, component);
   view.dispose();
   assert.equal(registry.viewsFor("Memory").length, 0);
+});
+
+test("settings registry owns ordered definitions and disposal", () => {
+  const registry = new WorkbenchRegistry();
+  const local = registry.settings.register({ id: "workbench.preview", title: "Preview", description: "Reuse preview", section: "Workbench", scope: "local", control: "boolean", defaultValue: true, available: true });
+  registry.settings.register({ id: "host.status", title: "Host", description: "Resident host posture", section: "YAI Host", scope: "host", control: "information", available: false, unavailableReason: "Not implemented" });
+  assert.deepEqual(registry.settings.entries().map((item) => item.id), ["workbench.preview", "host.status"]);
+  local.dispose();
+  assert.deepEqual(registry.settings.entries().map((item) => item.id), ["host.status"]);
 });

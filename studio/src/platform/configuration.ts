@@ -4,8 +4,15 @@ export class ConfigurationService implements Disposable {
   private readonly values = new Map<string, unknown>();
   private readonly listeners = new Set<(key: string) => void>();
 
+  private readonly storageKey = "yai.studio.preferences.v1";
+
   constructor(defaults: Record<string, unknown>) {
     Object.entries(defaults).forEach(([key, value]) => this.values.set(key, value));
+    try {
+      const stored = window.localStorage.getItem(this.storageKey);
+      const parsed = stored ? JSON.parse(stored) as { version?: number; values?: Record<string, unknown> } : undefined;
+      if (parsed?.version === 1 && parsed.values) Object.entries(parsed.values).forEach(([key, value]) => this.values.set(key, value));
+    } catch { /* storage can be unavailable in hardened webviews */ }
   }
 
   get<T>(key: string): T | undefined {
@@ -14,6 +21,9 @@ export class ConfigurationService implements Disposable {
 
   update<T>(key: string, value: T) {
     this.values.set(key, value);
+    try {
+      window.localStorage.setItem(this.storageKey, JSON.stringify({ version: 1, values: Object.fromEntries(this.values) }));
+    } catch { /* keep the preference for the current renderer lifecycle */ }
     this.listeners.forEach((listener) => listener(key));
   }
 

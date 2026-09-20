@@ -11,10 +11,14 @@ const option = (name, fallback) => { const index = args.indexOf(name); return in
 const base = option("--url", "http://127.0.0.1:1420");
 const output = path.resolve(option("--output", "/tmp/yai-studio-workbench"));
 const executablePath = process.env.CHROMIUM_PATH || "/usr/bin/chromium";
+const width = Number(option("--width", "1440"));
+const height = Number(option("--height", "900"));
+const viewportLabel = `${width}x${height}`;
 await mkdir(output, { recursive: true });
 
 const browser = await chromium.launch({ executablePath, headless: true, args: ["--no-sandbox", "--disable-gpu"] });
-const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
+page.setDefaultTimeout(10_000);
 const browserErrors = [];
 const externalRequests = [];
 page.on("pageerror", (error) => browserErrors.push(String(error)));
@@ -22,10 +26,10 @@ page.on("request", (request) => { if (!request.url().startsWith(base)) externalR
 
 const report = (property, result = "PASS", detail = {}) => console.log(JSON.stringify({ run_id: "studio-workbench-kernel-browser", property, result, ...detail }));
 const screenshot = async (name) => {
-  const file = path.join(output, `${name}-1440x900.png`);
+  const file = path.join(output, `${name}-${viewportLabel}.png`);
   await page.screenshot({ path: file });
   const sha256 = createHash("sha256").update(await readFile(file)).digest("hex");
-  report("Deterministic Workbench screenshot", "PASS", { name, file, sha256, viewport: "1440x900" });
+  report("Deterministic Workbench screenshot", "PASS", { name, file, sha256, viewport: viewportLabel });
 };
 
 try {
@@ -73,14 +77,63 @@ try {
   if (await previews.count()) throw new Error("double click did not pin preview input");
   await environmentSidebar.getByRole("button", { name: /qualification-matrix/ }).click();
   await page.locator("[data-surface-type='data.table'] table").waitFor();
+  await page.getByRole("button", { name: "Owner", exact: true }).click();
+  await page.getByPlaceholder("Filter rows").fill("Qualified");
+  if (await page.locator("[data-surface-type='data.table'] tbody tr").count() < 4) throw new Error("Table filtering did not retain qualified structured rows");
+  await page.getByPlaceholder("Filter rows").fill("");
   await page.getByRole("row", { name: /Result reuse/ }).click();
   await page.getByRole("heading", { name: "matrix:reuse" }).waitFor();
   await screenshot("fixture-table-surface");
   await environmentSidebar.getByRole("button", { name: /runtime-contract\.pdf/ }).click();
   await page.locator("[data-surface-type='material.pdf']").waitFor();
-  await page.getByText("PDF content unavailable").waitFor();
-  await screenshot("fixture-pdf-unavailable-surface");
-  report("Surface Group applies one preview/pin/tab model across text, image, table and PDF renderers");
+  await page.locator("[data-surface-type='material.pdf'] canvas").waitFor();
+  await page.getByRole("button", { name: "Next page" }).click();
+  await page.getByText(/of 2/).waitFor();
+  await page.waitForTimeout(250);
+  await screenshot("fixture-pdf-surface");
+  report("Lazy PDF Surface renders qualified bytes with page and zoom controls");
+
+  await page.keyboard.press("Control+p");
+  const quickOpen = page.getByRole("dialog", { name: "Quick Open" });
+  await quickOpen.waitFor();
+  await quickOpen.getByRole("textbox").fill("runtime configuration");
+  await screenshot("quick-open");
+  await page.keyboard.press("Enter");
+  await page.locator("[data-surface-type='material.structured-text']").waitFor();
+  await page.keyboard.press("Control+f");
+  const surfaceSearch = page.getByRole("dialog", { name: /Find in Runtime configuration/ });
+  await surfaceSearch.getByRole("textbox").fill("generation");
+  await surfaceSearch.getByRole("option").first().waitFor();
+  await page.keyboard.press("Escape");
+  report("Quick Open and current Surface search use shared Workbench navigation and renderer capability");
+
+  await page.keyboard.press("Control+Shift+f");
+  const caseSearch = page.getByRole("dialog", { name: "Search Current Case" });
+  await caseSearch.getByRole("textbox").fill("boundary map");
+  await caseSearch.getByRole("option").first().waitFor();
+  await page.keyboard.press("Enter");
+  await page.locator("[data-surface-type='material.image']").waitFor();
+  report("Fixture Case search provider navigates through the shared Surface model");
+
+  await page.keyboard.press("Control+p");
+  await page.getByRole("dialog", { name: "Quick Open" }).getByRole("textbox").fill("Qualification tone");
+  await page.keyboard.press("Enter");
+  await page.locator("[data-surface-type='material.audio'] audio").waitFor();
+  await page.keyboard.press("Control+p");
+  await page.getByRole("dialog", { name: "Quick Open" }).getByRole("textbox").fill("Runtime capture");
+  await page.keyboard.press("Enter");
+  await page.getByText("No trusted renderer").waitFor();
+  await page.getByRole("button", { name: "Open externally unavailable" }).waitFor();
+  report("Media and unknown material resolve deterministically without binary-to-text fallback");
+
+  await page.keyboard.press("Control+Shift+p");
+  const palette = page.getByRole("dialog", { name: "Command Palette" });
+  await palette.getByRole("textbox").fill("settings");
+  await screenshot("command-palette");
+  await page.keyboard.press("Enter");
+  await page.getByRole("heading", { name: "Settings" }).waitFor();
+  await screenshot("settings-surface");
+  report("Command Palette consumes CommandService and opens singleton Settings");
 
   await page.locator(".live-rail button[aria-label='Memory']").click();
   await page.getByRole("heading", { name: "Memory" }).waitFor();
@@ -90,8 +143,10 @@ try {
 
   await page.getByRole("button", { name: "Conversation", exact: true }).click();
   await page.getByPlaceholder("Send is not qualified").waitFor();
+  await screenshot("conversation-quality-pass");
   await page.getByRole("button", { name: "Activity", exact: true }).click();
   await page.getByText(/Through generation/).waitFor();
+  await screenshot("activity-quality-pass");
   report("Auxiliary Bar switches registered Conversation, Inspector and Activity contributions");
 
   await page.getByRole("button", { name: "View", exact: true }).click();
@@ -113,8 +168,10 @@ try {
 
   await page.getByRole("button", { name: "YAI", exact: true }).click();
   await page.getByRole("menuitem", { name: /Settings/ }).click();
-  await page.getByRole("heading", { name: "Settings" }).waitFor();
   if (await page.locator(".surface-tabs button", { hasText: "Settings" }).count() !== 1) throw new Error("Settings is not singleton");
+  await page.locator(".settings-surface > aside").getByRole("button", { name: "YAI Host", exact: true }).click();
+  await page.locator(".settings-content").getByRole("heading", { name: "YAI Host", exact: true }).waitFor();
+  await page.getByText(/bounded local application boundary/).waitFor();
   report("Settings resolves through the registered singleton Surface contribution");
 
   await page.goto(`${base}/?fixture=ordinary`, { waitUntil: "networkidle" });

@@ -1,7 +1,9 @@
 import type { ComponentType } from "react";
 import type { CasePresentation } from "../../clients/dataSource";
 import type { IconName } from "../../components/Icon";
-import type { SurfaceCapability, SurfaceInput } from "../surface/model";
+import type { PlatformServices } from "../../platform/services";
+import type { SettingsRegistry } from "../settings/registry";
+import type { SurfaceCapability, SurfaceInput, SurfaceRole } from "../surface/model";
 
 export interface WorkbenchActions {
   inspect(id: string): void;
@@ -14,6 +16,15 @@ export interface WorkbenchRenderContext {
   workspace: CasePresentation;
   selection: string;
   actions: WorkbenchActions;
+  platform: PlatformServices;
+  settings: SettingsRegistry;
+}
+
+export interface SurfaceSearchResult {
+  id: string;
+  label: string;
+  detail?: string;
+  objectRef?: string;
 }
 
 export interface ViewContainerContribution {
@@ -42,12 +53,15 @@ export interface SurfaceRendererProps extends WorkbenchRenderContext {
 
 export interface SurfaceRendererContribution {
   type: string;
+  role: SurfaceRole;
   capabilities: readonly SurfaceCapability[];
   component: ComponentType<SurfaceRendererProps>;
+  search?: (context: WorkbenchRenderContext, input: SurfaceInput, query: string) => readonly SurfaceSearchResult[] | Promise<readonly SurfaceSearchResult[]>;
 }
 
 export interface PanelViewProps extends WorkbenchRenderContext {
   available: boolean;
+  toolbarTarget: HTMLElement | null;
 }
 
 export interface PanelViewContribution {

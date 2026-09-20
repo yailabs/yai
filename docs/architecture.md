@@ -218,11 +218,19 @@ deterministic visual regression, with no live failure fallback.
 The central region is currently a universal Work Surface. `SurfaceInput` holds
 frontend navigation/presentation identity; `SurfaceGroupService` owns preview,
 pinning, activation and close; built-in contributions register trusted
-renderers. Perspective, Markdown/text, image, PDF, structured table, timeline,
-graph and Settings inputs therefore share one group without a product-specific
-Kernel switch. Material selection is driven by qualified media type. PDF or
-other content without qualified bytes renders explicit unavailability. These
-mechanics own no object, View persistence, mutation authority or Case meaning.
+renderers. Presentation roles and renderer capabilities drive preview,
+singleton, read-only, search and zoom mechanics without granting Case authority.
+Perspective, Markdown/text/structured text, image/vector, PDF, structured table,
+audio/video, timeline, graph and Settings inputs therefore share one group
+without a product-specific Kernel switch. Material selection is driven by
+qualified media type; unknown formats render explicit metadata/unavailability
+rather than binary text. Command Palette uses the scoped command service, Quick
+Open uses only exposed presentation references, and current-Surface search
+delegates to renderer contributions. The live boundary exposes no Case search
+query, so that scope is explicitly unavailable. Settings is a singleton System
+Surface; only versioned Studio-local preferences persist in WebView/browser
+local storage. These mechanics own no object, View persistence, mutation
+authority or Case meaning.
 
 The native desktop build is separate from core/CLI validation and remains a
 bounded single-host client. It does not qualify remote transport, general event

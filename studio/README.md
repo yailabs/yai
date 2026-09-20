@@ -100,6 +100,18 @@ sections. Drag the left, right and bottom splitters. Useful shortcuts are:
 | Ctrl/Command + J | Bottom tools |
 | Ctrl/Command + ` | Focus the integrated terminal |
 | Ctrl/Command + Shift + ` | Create a terminal |
+| Ctrl/Command + Shift + P | Command Palette |
+| Ctrl/Command + P | Quick Open exposed Case material and open Surfaces |
+| Ctrl/Command + F | Search the active Surface through its renderer |
+| Ctrl/Command + Shift + F | Search the Case when the data source exposes it |
+
+Live Case search currently reports unavailable because the bounded application
+facade exposes no qualified semantic/content search query. It does not scan the
+filesystem or persistence. Command Palette, Quick Open, renderer search and
+Settings search remain available. Settings is one singleton Surface; actual
+editable entries are Studio-local preferences stored in the versioned
+`yai.studio.preferences.v1` browser/WebView local-storage record. Case and Host
+settings remain read-only or unavailable without typed owner operations.
 
 ## Integrated terminal
 
@@ -109,7 +121,9 @@ user's home as a deliberate generic working directory. It supports multiple
 terminal instances, selection, ANSI/full-screen programs, Unicode, scrollback,
 clipboard, input, process exit/kill and PTY resize propagation. Panel resize,
 window resize and adjacent panel changes refit xterm and send the resulting
-rows/columns to the PTY.
+rows/columns to the PTY. Terminal instances live in a compact vertical pane
+inside the Terminal tool, separate from the shared bottom-tool header; drag its
+splitter to resize the list.
 
 Terminal lifecycle is desktop-local. It is not a Case attachment, YAI execution,
 Workflow or Computer Use surface. Studio never inserts Case text into the shell,
@@ -152,12 +166,14 @@ It covers typography, surfaces, controls, rows, statuses, empty states and focus
 states. Production builds do not expose the gallery route.
 
 The `developer` fixture also qualifies heterogeneous Work Surface renderers.
-Open Environment and select `runtime-boundary.svg`, `qualification-matrix` or
-`runtime-contract.pdf` to exercise image, structured table and explicit PDF
-unavailable presentation. Markdown/text, Timeline, Experience Graph and
-Settings use the same Surface Group, preview/pinning, navigation and Inspector
-seams. Fixture media is visibly authored development input and never appears as
-a live fallback.
+Open Environment and select `runtime-boundary.svg`, `qualification-matrix`,
+`runtime-contract.pdf`, `qualification-tone.wav`, `qualification-clip.webm` or
+the unknown binary example. These exercise inert SVG/image presentation,
+sortable/filterable table, lazy multi-page searchable PDF, native audio/video
+playback and explicit unknown-media metadata fallback. Markdown/text/structured
+text, Timeline, Experience Graph and Settings use the same Surface Group,
+preview/pinning, navigation, search and Inspector seams. Fixture media is visibly
+authored development input and never appears as a live fallback.
 
 ## Verification
 

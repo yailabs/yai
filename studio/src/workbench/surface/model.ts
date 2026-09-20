@@ -1,15 +1,22 @@
 import type { IconName } from "../../components/Icon";
 import { toDisposable, type Disposable } from "../../platform/lifecycle";
 
+export type SurfaceRole = "content" | "projection" | "system" | "interactive-case";
+
+// These capabilities describe Workbench interaction only. They never grant
+// Case authority or imply that a YAI application mutation exists.
 export type SurfaceCapability =
-  | "read"
-  | "edit"
-  | "select"
-  | "navigate"
-  | "zoom"
-  | "search"
-  | "mutate"
-  | "export";
+  | "previewable"
+  | "pinnable"
+  | "singleton"
+  | "editable"
+  | "dirty-aware"
+  | "searchable"
+  | "zoomable"
+  | "navigable"
+  | "selectable";
+
+export type SurfacePosture = "ready" | "read-only" | "unavailable" | "error";
 
 // SurfaceInput is transient Workbench interaction state. It identifies a
 // representation; it is never a canonical Case object or authority grant.
@@ -20,6 +27,8 @@ export interface SurfaceInput {
   title: string;
   icon: IconName;
   pinned: boolean;
+  dirty?: boolean;
+  posture?: SurfacePosture;
   objectRef?: string;
   viewId?: string;
   metadata?: Readonly<Record<string, string>>;

@@ -23,6 +23,7 @@
     "../../studio/src/platform/navigation.ts",
     "../../studio/src/platform/theme.ts",
     "../../studio/src/workbench/surface/model.ts",
+    "../../studio/src/workbench/settings/registry.ts",
     "../../studio/src/contrib/surfaces/inputs.ts",
     "../../studio/src/workbench/kernel/registry.ts"
   ]

@@ -88,7 +88,7 @@ export function StudioApplication({ dataSource, platform, registry }: { dataSour
   return <div className={`live-studio ${attachment ? "case-attached" : ""}`}>
     {!attachment && <StartChrome platform={platform} />}
     {!attachment && <StartCenter result={catalog} cases={cases} dataKind={dataSource.kind} open={loadCase} retry={loadCases} newCase={dataSource.composition ? () => setComposer(true) : undefined} />}
-    {attachment && workspace?.data && <WorkbenchKernel key={attachment.case_ref} workspace={workspace.data} stream={stream} platform={platform} registry={registry} refresh={() => void refresh()} openCaseSwitcher={() => setSwitcher(true)} />}
+    {attachment && workspace?.data && <WorkbenchKernel key={attachment.case_ref} workspace={workspace.data} stream={stream} platform={platform} registry={registry} searchCase={dataSource.searchCase?.bind(dataSource)} refresh={() => void refresh()} openCaseSwitcher={() => setSwitcher(true)} />}
     {attachment && workspace && workspace.result_state !== "success" && <HostFailure result={workspace} retry={() => void refresh()} />}
     {switcher && <CaseSwitcher cases={cases} dataKind={dataSource.kind} close={() => setSwitcher(false)} open={(id) => { setSwitcher(false); void loadCase(id); }} />}
   </div>;

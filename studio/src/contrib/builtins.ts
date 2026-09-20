@@ -1,8 +1,12 @@
 import type { StudioContribution } from "../workbench/kernel/contributions";
-import { ActivityView, CaseSidebarView, ConversationView, GraphSurface, InspectorView, perspectiveMeta, perspectives, PerspectiveSurface, SettingsSurface, TimelineSurface } from "./case/CaseViews";
+import { lazy } from "react";
+import { ActivityView, CaseSidebarView, ConversationView, GraphSurface, InspectorView, perspectiveMeta, perspectives, PerspectiveSurface, TimelineSurface, searchGraphSurface, searchTimelineSurface } from "./case/CaseViews";
 import { EmptyToolView, OutputPanelView, TerminalPanelView } from "./terminal/TerminalContribution";
-import { ImageSurface, MarkdownSurface, PdfSurface, TableSurface, TextSurface, UnavailableMaterialSurface } from "./surfaces/MaterialSurfaces";
+import { AudioSurface, ImageSurface, MarkdownSurface, StructuredTextSurface, TableSurface, TextSurface, UnavailableMaterialSurface, VideoSurface, searchMaterialSurface, searchPdfSurface } from "./surfaces/MaterialSurfaces";
 import { perspectiveInput, surfaceTypes } from "./surfaces/inputs";
+import { searchSettingsSurface, SettingsSurface } from "./settings/SettingsSurface";
+
+const PdfSurface = lazy(() => import("./surfaces/PdfSurface"));
 
 export const builtInContributions: readonly StudioContribution[] = [
   {
@@ -16,18 +20,30 @@ export const builtInContributions: readonly StudioContribution[] = [
   },
   {
     id: "yai.work-surfaces",
-    register({ workbench }) {
+    register({ workbench, platform }) {
       return [
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.perspective, capabilities: ["read", "select", "navigate"], component: PerspectiveSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.markdown, capabilities: ["read", "select", "navigate", "search"], component: MarkdownSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.text, capabilities: ["read", "select", "navigate", "search"], component: TextSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.image, capabilities: ["read", "select", "navigate", "zoom"], component: ImageSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.pdf, capabilities: ["read", "select", "navigate", "zoom", "search"], component: PdfSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.table, capabilities: ["read", "select", "navigate"], component: TableSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.timeline, capabilities: ["read", "select", "navigate", "zoom"], component: TimelineSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.graph, capabilities: ["read", "select", "navigate", "zoom", "search"], component: GraphSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.settings, capabilities: ["read", "navigate"], component: SettingsSurface }),
-        workbench.registerSurfaceRenderer({ type: surfaceTypes.unavailable, capabilities: ["read"], component: UnavailableMaterialSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.perspective, role: "projection", capabilities: ["pinnable", "navigable", "selectable"], component: PerspectiveSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.markdown, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: MarkdownSurface, search: searchMaterialSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.text, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: TextSurface, search: searchMaterialSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.structuredText, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: StructuredTextSurface, search: searchMaterialSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.image, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable"], component: ImageSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.pdf, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable", "searchable"], component: PdfSurface, search: searchPdfSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.audio, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: AudioSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.video, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: VideoSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.table, role: "projection", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: TableSurface, search: searchMaterialSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.timeline, role: "projection", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable", "searchable"], component: TimelineSurface, search: searchTimelineSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.graph, role: "projection", capabilities: ["previewable", "pinnable", "navigable", "selectable", "zoomable", "searchable"], component: GraphSurface, search: searchGraphSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.settings, role: "system", capabilities: ["singleton", "navigable", "searchable"], component: SettingsSurface, search: searchSettingsSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.unavailable, role: "content", capabilities: ["previewable", "pinnable", "navigable"], component: UnavailableMaterialSurface }),
+        workbench.settings.register({ id: "workbench.openPreview", title: "Open material in preview", description: "Single-click reuses one preview tab. Double-click pins the Surface.", section: "Workbench", scope: "local", control: "boolean", defaultValue: true, available: true }),
+        workbench.settings.register({ id: "general.caseContinuity", title: "Case continuity", description: "Back and Forward traverse local Studio navigation. Closing a tab or window does not close the durable Case.", section: "General", scope: "local", control: "information", available: true }),
+        workbench.settings.register({ id: "appearance.reducedMotion", title: "Reduce motion", description: "Minimize nonessential Workbench transitions.", section: "Appearance", scope: "local", control: "boolean", defaultValue: false, available: true }),
+        workbench.settings.register({ id: "terminal.scrollback", title: "Terminal scrollback", description: "Maximum number of lines retained by a local terminal renderer.", section: "Terminal", scope: "local", control: "number", defaultValue: 5000, available: platform.host.capabilities.terminalAvailable, unavailableReason: "Requires the desktop host" }),
+        workbench.settings.register({ id: "host.currentTopology", title: "Current YAI topology", description: "Studio currently uses the bounded local application boundary. A resident YAI Local Host is not implemented.", section: "YAI Host", scope: "host", control: "information", available: true }),
+        workbench.settings.register({ id: "providers.management", title: "Provider management", description: "Provider configuration requires a qualified YAI application contract.", section: "Providers", scope: "case", control: "information", available: false, unavailableReason: "No management contract exposed" }),
+        workbench.settings.register({ id: "yvex.management", title: "YVEX control plane", description: "Inventory, deployments and telemetry belong to STUDIO.YVEX.CONTROL.0.", section: "YVEX", scope: "host", control: "information", available: false, unavailableReason: "YVEX management is not implemented" }),
+        workbench.settings.register({ id: "security.authority", title: "Case authority", description: "Authority remains YAI-owned and cannot be changed through local Studio preferences.", section: "Security", scope: "case", control: "information", available: false, unavailableReason: "Use qualified YAI authority operations" }),
+        workbench.settings.register({ id: "advanced.persistence", title: "Preference storage", description: "Versioned local preferences use browser/WebView local storage; no Case database is created.", section: "Advanced", scope: "local", control: "information", available: true }),
       ];
     },
   },

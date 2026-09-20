@@ -7,8 +7,10 @@ import type {
   SidebarViewContribution,
   ViewContainerContribution,
 } from "./types";
+import { SettingsRegistry } from "../settings/registry";
 
 export class WorkbenchRegistry implements Disposable {
+  readonly settings = new SettingsRegistry();
   private readonly containers = new Map<string, ViewContainerContribution>();
   private readonly views = new Map<string, SidebarViewContribution>();
   private readonly surfaces = new Map<string, SurfaceRendererContribution>();
@@ -33,6 +35,7 @@ export class WorkbenchRegistry implements Disposable {
   dispose() {
     this.containers.clear(); this.views.clear(); this.surfaces.clear();
     this.panels.clear(); this.auxiliary.clear(); this.inspectors.clear();
+    this.settings.dispose();
   }
 
   private insert<T>(target: Map<string, T>, id: string, value: T, kind: string): Disposable {

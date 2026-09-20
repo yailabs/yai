@@ -17,6 +17,9 @@ export class PlatformServices extends DisposableStore {
     "workbench.sidebar.width": 204,
     "workbench.auxiliary.width": 320,
     "workbench.panel.heightRatio": 0.36,
+    "workbench.openPreview": true,
+    "appearance.reducedMotion": false,
+    "terminal.scrollback": 5000,
   }));
   readonly navigation = this.add(new NavigationService());
   readonly theme = this.add(new ThemeService());

@@ -34,6 +34,14 @@ export class CommandService implements Disposable {
     return this.commands.get(id)?.title;
   }
 
+  entries() {
+    return [...this.commands.values()].map(({ id, title, when }) => ({
+      id,
+      title,
+      enabled: this.context.matches(when),
+    }));
+  }
+
   async executeCommand(id: string, ...args: unknown[]) {
     const command = this.commands.get(id);
     if (!command) throw new Error(`Unknown command: ${id}`);

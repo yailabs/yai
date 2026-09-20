@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { GraphViewport } from "../../live/GraphViewport";
+import { lazy } from "react";
 import { Icon, type IconName } from "../../components/Icon";
 import { Badge, Button, EmptyState, PanelHeader } from "../../components/primitives";
 import type { CasePresentation } from "../../clients/dataSource";
 import type { SurfaceInput } from "../../workbench/surface/model";
-import type { AuxiliaryViewProps, SidebarViewProps, SurfaceRendererProps } from "../../workbench/kernel/types";
+import type { AuxiliaryViewProps, SidebarViewProps, SurfaceRendererProps, SurfaceSearchResult } from "../../workbench/kernel/types";
 import { graphInput, materialInput, timelineInput } from "../surfaces/inputs";
+
+const GraphViewport = lazy(() => import("../../live/GraphViewport").then((module) => ({ default: module.GraphViewport })));
 
 export const perspectives = ["Overview", "Environment", "Knowledge", "Memory", "Authority", "Work", "Compute"] as const;
 export type Perspective = typeof perspectives[number];
@@ -63,18 +64,29 @@ export function GraphSurface({ workspace, input, actions }: SurfaceRendererProps
   return <div className="live-page graph-surface" data-surface-type="case.graph"><SurfaceHeader workspace={workspace} title={input.title} body={projection === "knowledge" ? "Qualified source-grounded relations presented as a navigable graph." : "Derived Case relationships presented without becoming canonical truth."} />{graph.nodes.length ? <GraphViewport nodes={graph.nodes} edges={graph.edges} layout="relational" onInspect={actions.inspect} /> : <EmptyState title={`No ${input.title}`} body="No qualified relation projection is available for this Case." />}</div>;
 }
 
-export function SettingsSurface({ workspace, actions }: SurfaceRendererProps) {
-  const sections = ["General", "Appearance", "YAI Host", "Workbench", "Terminal", "Providers"] as const;
-  const [section, setSection] = useState<typeof sections[number]>("General");
-  return <div className="settings-surface" data-surface-type="studio.settings"><aside><h1>Settings</h1>{sections.map((item) => <button key={item} aria-pressed={section === item} onClick={() => { setSection(item); actions.inspect(`settings:${item.toLowerCase()}`); }}>{item}</button>)}</aside><div className="settings-content"><span>Studio local preferences</span><h2>{section}</h2>{section === "General" && <section><h3>Case navigation</h3><p>Back and Forward traverse Studio UI history. Durable Case continuity remains in YAI.</p></section>}{section === "Appearance" && <section><h3>Interface foundation</h3><p>Studio uses shared Workbench typography, surfaces, controls and semantic tokens.</p></section>}{section === "YAI Host" && <section><h3>Backend posture</h3><dl><div><dt>Case data</dt><dd>{workspace.presentation.dataKind}</dd></div><div><dt>Backend</dt><dd>{workspace.presentation.backendPosture}</dd></div><div><dt>Generation</dt><dd>{workspace.case.generation}</dd></div></dl></section>}{section === "Terminal" && <section><h3>Integrated terminal</h3><p>PTY availability follows the desktop host, independently from Case data.</p></section>}</div></div>;
+export function searchTimelineSurface({ workspace }: Pick<SurfaceRendererProps, "workspace">, _input: SurfaceRendererProps["input"], query: string): readonly SurfaceSearchResult[] {
+  const needle = query.trim().toLocaleLowerCase();
+  if (!needle) return [];
+  return workspace.memory.timeline
+    .filter((entry) => `${entry.kind} ${entry.component} ${entry.summary ?? ""} ${entry.sequence}`.toLocaleLowerCase().includes(needle))
+    .map((entry) => ({ id: entry.id, label: humanize(entry.kind), detail: `${entry.component} · generation ${entry.sequence}`, objectRef: entry.id }));
+}
+
+export function searchGraphSurface({ workspace }: Pick<SurfaceRendererProps, "workspace">, input: SurfaceRendererProps["input"], query: string): readonly SurfaceSearchResult[] {
+  const needle = query.trim().toLocaleLowerCase();
+  if (!needle) return [];
+  const graph = input.metadata?.projection === "knowledge" ? knowledgeGraph(workspace) : relationGraph(workspace);
+  return graph.nodes
+    .filter((node) => `${node.label} ${node.id} ${node.kind}`.toLocaleLowerCase().includes(needle))
+    .map((node) => ({ id: node.id, label: node.label, detail: humanize(node.kind), objectRef: node.id }));
 }
 
 export function ConversationView({ workspace }: AuxiliaryViewProps) {
-  return <div className="context-scroll"><PanelHeader title="Conversation" detail={workspace.conversation.read_only ? "Read only" : "Available"} />{workspace.conversation.turns.map((turn) => <article className="real-turn" key={turn.id}><header><strong>{turn.participant_ref}</strong><Badge>Generation {turn.generation}</Badge></header>{turn.parts.map((part, index) => <p key={index}>{part.text ?? `[${part.modality} · ${part.media_type}]`}</p>)}</article>)}{!workspace.conversation.turns.length && <EmptyState title="No committed turns" body="This Case has no conversation Turns visible to the current participant." />}<div className="read-only-draft"><textarea disabled placeholder="Send is not qualified" /><small>Studio will not fake-send.</small></div></div>;
+  return <div className="context-scroll conversation-view"><PanelHeader title="Conversation" detail={workspace.conversation.read_only ? "Committed turns · read only" : "Available"} />{workspace.conversation.turns.map((turn) => { const participant = workspace.overview.participants.find((item) => item.id === turn.participant_ref); const tone = participant?.roles.some((role) => /assistant|ai|model/i.test(role)) ? "ai" : turn.participant_ref.startsWith("yai") ? "system" : "human"; return <article className={`real-turn turn-${tone}`} key={turn.id}><header><span className="turn-avatar">{turn.participant_ref.slice(0, 2).toUpperCase()}</span><strong>{turn.participant_ref}</strong><Badge>Generation {turn.generation}</Badge></header>{turn.parts.map((part, index) => <p key={index}>{part.text ?? `[${part.modality} · ${part.media_type}]`}</p>)}</article>; })}{!workspace.conversation.turns.length && <EmptyState title="No committed turns" body="This Case has no conversation Turns visible to the current participant." />}<div className="read-only-draft"><textarea disabled placeholder="Send is not qualified" aria-label="Conversation draft unavailable" /><small>Conversation is part of this Case. Sending is not qualified at this boundary.</small></div></div>;
 }
 
 export function ActivityView({ workspace, actions }: AuxiliaryViewProps) {
-  return <div className="context-scroll"><PanelHeader title="Activity" detail={`Through generation ${workspace.case.generation}`} />{workspace.memory.timeline.slice(-20).reverse().map((entry) => <button className="context-event" key={entry.id} onClick={() => actions.inspect(entry.id)}><time>{formatTime(entry.committed_at_unix_ms)}</time><span><strong>{humanize(entry.kind)}</strong><small>{entry.component}</small></span></button>)}{!workspace.memory.timeline.length && <EmptyState title="No committed activity" body="No history is exposed for the current Case projection." />}</div>;
+  return <div className="context-scroll activity-view"><PanelHeader title="Activity" detail={`Through generation ${workspace.case.generation}`} />{workspace.memory.timeline.slice(-20).reverse().map((entry) => <button className={`context-event event-${activityTone(entry.kind)}`} key={entry.id} onClick={() => actions.inspect(entry.id)}><time>{formatTime(entry.committed_at_unix_ms)}</time><i /><span><strong>{humanize(entry.kind)}</strong><small>{entry.component} · generation {entry.sequence}</small></span></button>)}{!workspace.memory.timeline.length && <EmptyState title="No committed activity" body="No history is exposed for the current Case projection." />}</div>;
 }
 
 export function InspectorView({ workspace, selection, actions }: AuxiliaryViewProps) {
@@ -82,7 +94,7 @@ export function InspectorView({ workspace, selection, actions }: AuxiliaryViewPr
   const kind = factKind(workspace, selection);
   const material = isMaterial(workspace, selection);
   const relations = workspace.memory.relations.filter((edge) => edge.from === selection || edge.to === selection).slice(0, 8);
-  return <div className="context-scroll inspector"><PanelHeader title="Inspector" detail="Context in this Case" /><section className="inspector-hero"><div><Icon name={factIcon(kind)} size={18} /></div><span>{humanize(kind)}</span><h2>{fact.title}</h2><p>{fact.detail}</p>{material && <Button onClick={() => actions.openSurface(materialInput(workspace, selection, materialLabel(workspace, selection), true))}>Open in work surface</Button>}</section><section className="inspector-group"><h3>Properties</h3><dl>{fact.values.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></section><section className="inspector-group"><h3>Case relationships <span>{relations.length}</span></h3>{relations.map((edge) => { const related = edge.from === selection ? edge.to : edge.from; return <button key={edge.id} onClick={() => actions.inspect(related)}><span>{edge.from === selection ? "To" : "From"}</span><strong>{compact(related)}</strong><small>{humanize(edge.kind)}</small></button>; })}{!relations.length && <p>No qualified graph relation is exposed for this fact.</p>}</section><footer>Inspector selection is local UI state. Case facts remain owned by YAI.</footer></div>;
+  return <div className="context-scroll inspector"><PanelHeader title="Inspector" detail="Context in this Case" /><section className="inspector-hero"><div><Icon name={factIcon(kind)} size={18} /></div><span>{humanize(kind)}</span><h2>{fact.title}</h2><p>{fact.detail}</p>{material && <Button onClick={() => actions.openSurface(materialInput(workspace, selection, materialLabel(workspace, selection), true))}>Open in work surface</Button>}</section><section className="inspector-group"><h3>Case relationships <span>{relations.length}</span></h3>{relations.map((edge) => { const related = edge.from === selection ? edge.to : edge.from; return <button key={edge.id} onClick={() => actions.inspect(related)}><span>{edge.from === selection ? "→" : "←"}</span><strong>{compact(related)}</strong><small>{humanize(edge.kind)} · {edge.from === selection ? "outgoing" : "incoming"}</small></button>; })}{!relations.length && <p>No qualified graph relation is exposed for this fact.</p>}</section><details className="inspector-technical"><summary>Technical details</summary><dl>{fact.values.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></details><footer>Inspector selection is local UI state. Case facts remain owned by YAI.</footer></div>;
 }
 
 function SurfaceHeader({ workspace, title, body }: { workspace: CasePresentation; title: string; body: string }) { return <header className="surface-title"><small>{workspace.case.case_ref} · Generation {workspace.case.generation}</small><h1>{title}</h1><p>{body}</p></header>; }
@@ -117,3 +129,4 @@ function compact(value: string) { return value.length > 38 ? `${value.slice(0, 2
 function fileName(value: string) { return value.split(/[\\/]/).filter(Boolean).at(-1) ?? value; }
 function humanize(value: string) { return value.replaceAll("_", " ").replace(/^./, (char) => char.toUpperCase()); }
 function formatTime(value: number) { return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(value); }
+function activityTone(value: string) { if (/fail|deny|revoke/i.test(value)) return "error"; if (/review|wait|request/i.test(value)) return "warning"; if (/complete|commit|create|admit/i.test(value)) return "success"; return "info"; }

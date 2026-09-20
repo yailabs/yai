@@ -35,6 +35,10 @@ export class KeybindingService implements Disposable {
     return toDisposable(() => this.bindings.delete(binding.id));
   }
 
+  shortcutFor(command: string) {
+    return [...this.bindings.values()].find((binding) => binding.command === command)?.key;
+  }
+
   attach(target: Window = window): Disposable {
     if (this.listener) throw new Error("Keybinding service is already attached");
     this.listener = (event) => {

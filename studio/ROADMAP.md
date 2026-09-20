@@ -14,6 +14,14 @@ authority, Recall/W, providers, Sources and Resources, and why each changed type
 is imported or rejected. Backend internals never become frontend contracts by
 proximity.
 
+Every Studio implementation milestone also includes a **Product Quality Pass**
+for the Workbench regions and Surfaces it materially changes. The pass checks
+component ownership, visual hierarchy, typography, spacing, icon alignment,
+semantic color, focus/hover/selection, surface separation, keyboard behavior,
+empty/error/unavailable states, resizing, duplicated controls and proportionate
+visual regression. It is not permission to redesign unrelated regions, and it
+does not replace executable semantic evidence.
+
 Program postures below are implementation planning facts, not root maturity
 states. `CURRENT`, `TARGET` and `OPEN` deliberately distinguish executable
 behavior from selected architecture and unfinished work.
@@ -25,7 +33,7 @@ architecture formalization
         ↓
 Workbench Kernel foundation
         ↓
-Universal Work Surface hardening
+Universal Work Surface and productization hardening
         ↓
 resident Local Host foundation
         ↓
@@ -44,10 +52,11 @@ The host and Workbench Kernel programs may progress in parallel where their
 contracts are independent. Later programs may overlap only after their required
 application and Workbench seams exist.
 
-- **CURRENT:** `STUDIO.UNIVERSAL.WORK.SURFACE.0` hardens S2 around one generic
-  Work Surface: registered trusted renderers and Surface Inputs/Groups replace
-  the remaining text-editor assumption without changing Case ownership.
-- **NEXT implementation foundation:** S1 Product Host & Lifecycle.
+- **CURRENT bounded foundation:** `STUDIO.WORKBENCH.PRODUCTIZATION.0` completes
+  the planned horizontal S2 pass: Surface roles/capabilities, scoped search,
+  singleton Settings, deterministic material resolution and shared Panel
+  toolbar mechanics extend the same contribution-driven Workbench.
+- **NEXT:** S1 Product Host & Lifecycle.
 - **NEXT feature program after the host foothold:** S4 Memory / Inspector /
   Navigation, using the established S2 seams.
 - **HORIZON:** S5 through S12, subject to root ROADMAP selection and interlocks.
@@ -64,6 +73,7 @@ application and Workbench seams exist.
 | Desktop shell and PTY | Compact desktop chrome, command/menu plumbing and a real transient local PTY on the qualified Linux path. |
 | Workbench Kernel | One shell for live and fixture Case data; scoped Platform services, registered internal views/surfaces/panels/auxiliary views and host-capability-driven Terminal. |
 | Universal Work Surface | Surface Input/Group/Registry mechanics; shared preview/pinning/navigation for perspective, text, Markdown, image, PDF, table, timeline, graph and Settings surfaces; qualified media-type resolution. |
+| Workbench productization | Surface roles/capabilities and read-only posture; Command Palette, Quick Open and renderer-owned search; singleton searchable Settings with versioned local preferences; trusted structured text, image/vector, PDF, table, audio/video and unknown-material paths; lazy heavy renderers, shared Panel toolbar seams and a resizable in-tool terminal instance pane. |
 
 These are bounded implementation facts. Their maturity remains whatever the
 root ROADMAP says.
@@ -106,7 +116,7 @@ root ROADMAP says.
 
 ## S2 — Workbench Kernel
 
-**Posture:** bounded implementation established; broader hardening remains open.
+**Posture:** bounded horizontal foundation established; S1 is next.
 
 - **Purpose:** make desktop regions and frontend infrastructure stable hosts for
   internally authored YAI contributions.
@@ -120,19 +130,31 @@ root ROADMAP says.
   Trusted renderer registration, media-aware material resolution and bounded UI
   capability declarations let heterogeneous representations use the same tabs,
   preview, pinning, close, navigation and Inspector selection seams.
+- **Established productization:** Content, Projection, System and Interactive
+  Case presentation roles remain frontend-only; renderer capabilities govern
+  preview/singleton/search/zoom/edit affordances. Command Palette, qualified
+  Quick Open, current-Surface search, fixture-only Case search proof, searchable
+  singleton Settings and versioned local preferences use existing registries.
+  Trusted renderers cover text/Markdown/structured text, browser-safe raster and
+  inert SVG image presentation, PDF, table, native audio/video and an explicit
+  unknown-material fallback. PDF and graph code load outside the initial shell
+  chunk. Panel contributions can place compact actions in the shared header.
 - **Target properties:** Platform services, registered view containers/views,
   Surface Inputs/Groups/renderers, panels, context keys, keybindings, menus,
   configuration, lifecycle and layout services. Trusted generic data surfaces
   and future declarative Case Views compose through these seams.
 - **Dependencies:** S0 ownership rules and existing UI foundation.
 - **Current gaps:** only one visible Surface Group is exposed; contribution
-  contracts are internal and bounded to current consumers; Settings persistence,
-  split groups, richer typed Inspectors, Calendar/Form/Board/Chart renderers and
-  any admitted persistence for shared declarative Case Views remain open.
-- **Completion boundary:** the selected bounded boundary is earned: built-in
+  contracts are internal and bounded to current consumers; live Case search,
+  qualified external-open paths, split groups, richer typed Inspectors,
+  Calendar/Form/Board/Chart renderers and any admitted persistence for shared
+  declarative Case Views remain open.
+- **Completion boundary:** the selected bounded horizontal boundary is earned:
+  built-in
   features register through internal seams while the Kernel owns regions and
-  remains ignorant of Case feature semantics. Production-complete S2 still
-  requires broader interaction/platform qualification.
+  remains ignorant of Case feature semantics. Later feature waves extend those
+  seams and apply the permanent Product Quality Pass; continued minor S2 polish
+  does not block S1.
 - **Non-goals:** public extension SDK, marketplace, arbitrary generated
   JavaScript or a frontend-owned canonical View store.
 
