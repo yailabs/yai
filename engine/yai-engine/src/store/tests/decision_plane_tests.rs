@@ -79,6 +79,30 @@ fn output(request_id: &str, scores: Vec<(&str, i64)>) -> CognitiveDecisionOutput
     }
 }
 
+fn hot_path_output(
+    request: &crate::cognitive::CognitiveDecisionRequest,
+) -> CognitiveDecisionOutput {
+    CognitiveDecisionOutput {
+        schema: COGNITIVE_DECISION_OUTPUT_SCHEMA.into(),
+        request_id: request.request_id.clone(),
+        producer: producer(),
+        score_semantics: CognitiveScoreSemantics::RelativeCandidateProbability {
+            normalization: "fixture:hot-path".into(),
+        },
+        score_direction: CognitiveScoreDirection::HigherIsPreferred,
+        score_scale: request.candidates.len() as u64 * 1_000,
+        scores: request
+            .candidates
+            .iter()
+            .map(|candidate| CognitiveDecisionScore {
+                candidate_id: candidate.candidate_id.clone(),
+                value: 1_000,
+            })
+            .collect(),
+        uncertainty: None,
+    }
+}
+
 fn working_request(world: &World) -> WorkingStateRequest {
     let state = world.store.get_case_state(CASE).unwrap().unwrap();
     WorkingStateRequest {
@@ -967,6 +991,404 @@ fn cognitive_decision_frontier_is_typed_bounded_and_evolves_without_scoring() {
         pressure.candidate_generation_us,
         pressure_wall_us,
         pressure.output_bytes,
+    );
+    world.finish();
+}
+
+#[test]
+fn cognitive_decision_hot_path_composes_one_snapshot_and_retains_final_fence() {
+    let world = World::new();
+    bind_frontier_workflow(&world);
+    let mut working_request = working_request(&world);
+    working_request.compilation.scope.max_items = 128;
+    working_request.expected_generation = world
+        .store
+        .get_case_state(CASE)
+        .unwrap()
+        .unwrap()
+        .generation;
+    let working = world
+        .store
+        .compile_working_state_authorized(&world.owner, working_request, None)
+        .unwrap()
+        .working_state;
+    let frontier_request = CognitiveDecisionFrontierRequest::new(&working, 8).unwrap();
+    let history_before = world.store.list_case_transitions(CASE).unwrap();
+
+    let total_started = Instant::now();
+    let preparation = world
+        .store
+        .prepare_cognitive_decision_step_authorized(
+            &world.owner,
+            &working,
+            frontier_request,
+            "yai.next-cognitive-step.v1",
+            budget(8),
+            None,
+        )
+        .unwrap();
+    assert_eq!(preparation.measurements.qualified_read_transactions, 1);
+    assert_eq!(preparation.measurements.working_state_recompilations, 1);
+    assert_eq!(preparation.measurements.recall_reconstructions, 1);
+    assert_eq!(preparation.measurements.source_knowledge_qualifications, 1);
+    assert_eq!(preparation.measurements.candidate_discovery_passes, 1);
+    assert_eq!(preparation.measurements.current_authority_qualifications, 1);
+    assert_eq!(preparation.frontier.candidates.len(), 2);
+    assert_eq!(
+        preparation.request.candidates,
+        preparation.frontier.decision_candidates()
+    );
+
+    let producer_started = Instant::now();
+    let fixture_output = hot_path_output(&preparation.request);
+    let producer_us = producer_started.elapsed().as_micros();
+
+    let distribution_started = Instant::now();
+    let qualification = world
+        .store
+        .qualify_cognitive_decision_distribution_authorized(
+            &world.owner,
+            &working,
+            &preparation.request,
+            fixture_output,
+            None,
+        )
+        .unwrap();
+    let distribution_us = distribution_started.elapsed().as_micros();
+    let total_us = total_started.elapsed().as_micros();
+
+    assert_eq!(qualification.distribution.request, preparation.request);
+    assert_eq!(qualification.qualified_read_transactions, 1);
+    assert_eq!(qualification.working_state_recompilations, 1);
+    assert_eq!(qualification.recall_reconstructions, 1);
+    assert_eq!(qualification.source_knowledge_qualifications, 1);
+    assert_eq!(
+        world.store.list_case_transitions(CASE).unwrap(),
+        history_before
+    );
+    assert_eq!(
+        world
+            .store
+            .derive_policy_decision(CASE, &qualification.distribution.distribution_id)
+            .unwrap_err(),
+        "authority_operation_not_current"
+    );
+
+    let repeated = world
+        .store
+        .prepare_cognitive_decision_step_authorized(
+            &world.owner,
+            &working,
+            CognitiveDecisionFrontierRequest::new(&working, 8).unwrap(),
+            "yai.next-cognitive-step.v1",
+            budget(8),
+            None,
+        )
+        .unwrap();
+    assert_eq!(repeated.frontier, preparation.frontier);
+    assert_eq!(repeated.request, preparation.request);
+
+    let mut tampered = preparation.frontier.clone();
+    tampered.candidates[0]
+        .candidate
+        .description
+        .push_str(" tampered");
+    assert_eq!(
+        world
+            .store
+            .prepare_cognitive_decision_request_from_frontier_authorized(
+                &world.owner,
+                &working,
+                &tampered,
+                "yai.next-cognitive-step.v1",
+                budget(8),
+                None,
+            )
+            .unwrap_err(),
+        "stale_cognitive_decision_frontier"
+    );
+    let mut tampered_request = preparation.request.clone();
+    tampered_request.candidates[0]
+        .description
+        .push_str(" tampered");
+    assert_eq!(
+        world
+            .store
+            .qualify_cognitive_decision_distribution_authorized(
+                &world.owner,
+                &working,
+                &tampered_request,
+                hot_path_output(&tampered_request),
+                None,
+            )
+            .unwrap_err(),
+        "cognitive_decision_request_integrity_mismatch"
+    );
+    let mut tampered_output = hot_path_output(&preparation.request);
+    tampered_output.request_id = "cognitive-decision-request:tampered".into();
+    assert_eq!(
+        world
+            .store
+            .qualify_cognitive_decision_distribution_authorized(
+                &world.owner,
+                &working,
+                &preparation.request,
+                tampered_output,
+                None,
+            )
+            .unwrap_err(),
+        "cognitive_decision_output_request_mismatch"
+    );
+    assert!(world
+        .store
+        .prepare_cognitive_decision_step_authorized(
+            &world.outsider,
+            &working,
+            CognitiveDecisionFrontierRequest::new(&working, 8).unwrap(),
+            "yai.next-cognitive-step.v1",
+            budget(8),
+            None,
+        )
+        .is_err());
+    let mut cross_case = CognitiveDecisionFrontierRequest::new(&working, 8).unwrap();
+    cross_case.case_id = "case:foreign".into();
+    assert_eq!(
+        world
+            .store
+            .prepare_cognitive_decision_step_authorized(
+                &world.owner,
+                &working,
+                cross_case,
+                "yai.next-cognitive-step.v1",
+                budget(8),
+                None,
+            )
+            .unwrap_err(),
+        "cognitive_decision_frontier_request_integrity_mismatch"
+    );
+
+    let generation_before_revoke = world
+        .store
+        .get_case_state(CASE)
+        .unwrap()
+        .unwrap()
+        .generation;
+    world
+        .store
+        .revoke_tenant_policy_artifact(
+            &world.owner,
+            &world.artifact_id,
+            "hot path final-fence revoke",
+        )
+        .unwrap();
+    assert_eq!(
+        world
+            .store
+            .get_case_state(CASE)
+            .unwrap()
+            .unwrap()
+            .generation,
+        generation_before_revoke
+    );
+    let stale_output = hot_path_output(&preparation.request);
+    assert_eq!(
+        world
+            .store
+            .qualify_cognitive_decision_distribution_authorized(
+                &world.owner,
+                &working,
+                &preparation.request,
+                stale_output,
+                None,
+            )
+            .unwrap_err(),
+        "stale_semantic_working_state"
+    );
+    let reopened = LmdbRecordStore::open(world.path.join("store")).unwrap();
+    assert_eq!(
+        reopened
+            .prepare_cognitive_decision_request_from_frontier_authorized(
+                &world.owner,
+                &working,
+                &preparation.frontier,
+                "yai.next-cognitive-step.v1",
+                budget(8),
+                None,
+            )
+            .unwrap_err(),
+        "stale_semantic_working_state"
+    );
+    drop(reopened);
+    let final_state = world.store.get_case_state(CASE).unwrap().unwrap();
+    assert!(final_state.last_operation.is_none());
+    assert!(final_state.effects.is_empty());
+
+    println!(
+        "cognitive_decision_hot_path schema=v1 baseline_total_us_range=199571..201138 baseline_read_transactions=12 baseline_w_recompilations=6 baseline_recall_reconstructions=6 baseline_source_qualifications=6 baseline_candidate_discovery_passes=2 preparation_us={} working_requalification_us={} source_knowledge_us={} origin_resolution_us={} frontier_candidate_us={} frontier_identity_us={} request_construction_us={} request_identity_us={} preparation_serialization_us={} producer_us={} distribution_wall_us={} distribution_requalification_us={} distribution_validation_us={} distribution_identity_us={} distribution_serialization_us={} total_us={} optimized_read_transactions=2 optimized_w_recompilations=2 optimized_recall_reconstructions=2 optimized_source_qualifications=2 optimized_candidate_discovery_passes=1 same_generation_revoke=stale tampered_frontier=refused tampered_request=refused tampered_output=refused wrong_participant=refused cross_case=refused permutation=stable score_authority=false restart_stale=refused transitions=0 effects=0 model_calls=0 provider_calls=0",
+        preparation.measurements.total_us,
+        preparation.measurements.working_state_requalification_us,
+        preparation.measurements.source_knowledge_qualification_us,
+        preparation.measurements.candidate_origin_resolution_us,
+        preparation.measurements.frontier_candidate_construction_us,
+        preparation.measurements.frontier_identity_us,
+        preparation.measurements.decision_request_construction_us,
+        preparation.measurements.decision_request_identity_us,
+        preparation.measurements.output_serialization_us,
+        producer_us,
+        distribution_us,
+        qualification.current_requalification_us,
+        qualification.distribution_validation_us,
+        qualification.distribution_identity_us,
+        qualification.output_serialization_us,
+        total_us,
+    );
+    world.finish();
+}
+
+#[test]
+fn cognitive_decision_hot_path_repeated_and_pressure_characterization() {
+    let world = World::new();
+    bind_frontier_workflow(&world);
+    let mut request = working_request(&world);
+    request.compilation.scope.max_items = 128;
+    request.expected_generation = world
+        .store
+        .get_case_state(CASE)
+        .unwrap()
+        .unwrap()
+        .generation;
+    let working = world
+        .store
+        .compile_working_state_authorized(&world.owner, request.clone(), None)
+        .unwrap()
+        .working_state;
+    let history_before = world.store.list_case_transitions(CASE).unwrap();
+
+    let profile = |steps: usize| -> (u128, usize, usize, usize, usize, usize) {
+        let started = Instant::now();
+        let mut read_transactions = 0;
+        let mut working_recompilations = 0;
+        let mut recall_reconstructions = 0;
+        let mut source_qualifications = 0;
+        let mut candidate_discovery_passes = 0;
+        for _ in 0..steps {
+            let preparation = world
+                .store
+                .prepare_cognitive_decision_step_authorized(
+                    &world.owner,
+                    &working,
+                    CognitiveDecisionFrontierRequest::new(&working, 8).unwrap(),
+                    "yai.next-cognitive-step.v1",
+                    budget(8),
+                    None,
+                )
+                .unwrap();
+            read_transactions += preparation.measurements.qualified_read_transactions;
+            working_recompilations += preparation.measurements.working_state_recompilations;
+            recall_reconstructions += preparation.measurements.recall_reconstructions;
+            source_qualifications += preparation.measurements.source_knowledge_qualifications;
+            candidate_discovery_passes += preparation.measurements.candidate_discovery_passes;
+            let qualification = world
+                .store
+                .qualify_cognitive_decision_distribution_authorized(
+                    &world.owner,
+                    &working,
+                    &preparation.request,
+                    hot_path_output(&preparation.request),
+                    None,
+                )
+                .unwrap();
+            read_transactions += qualification.qualified_read_transactions;
+            working_recompilations += qualification.working_state_recompilations;
+            recall_reconstructions += qualification.recall_reconstructions;
+            source_qualifications += qualification.source_knowledge_qualifications;
+        }
+        (
+            started.elapsed().as_micros(),
+            read_transactions,
+            working_recompilations,
+            recall_reconstructions,
+            source_qualifications,
+            candidate_discovery_passes,
+        )
+    };
+    let one = profile(1);
+    let ten = profile(10);
+    let hundred = profile(100);
+    assert_eq!((one.1, one.2, one.3, one.4, one.5), (2, 2, 2, 2, 1));
+    assert_eq!((ten.1, ten.2, ten.3, ten.4, ten.5), (20, 20, 20, 20, 10));
+    assert_eq!(
+        (hundred.1, hundred.2, hundred.3, hundred.4, hundred.5),
+        (200, 200, 200, 200, 100)
+    );
+    assert_eq!(
+        world.store.list_case_transitions(CASE).unwrap(),
+        history_before
+    );
+
+    // A Case mutation unrelated to the current task is conservatively stale:
+    // current owners do not yet prove dependency-local irrelevance.
+    let resource_ids = attach_frontier_resources(&world, 40);
+    let irrelevant_change = world
+        .store
+        .prepare_cognitive_decision_step_authorized(
+            &world.owner,
+            &working,
+            CognitiveDecisionFrontierRequest::new(&working, 8).unwrap(),
+            "yai.next-cognitive-step.v1",
+            budget(8),
+            None,
+        )
+        .unwrap_err();
+    assert!(matches!(
+        irrelevant_change.as_str(),
+        "stale_semantic_working_state" | "recall_source_generation_or_scope_mismatch"
+    ));
+
+    let mut pressure_request = request;
+    pressure_request.expected_generation = world
+        .store
+        .get_case_state(CASE)
+        .unwrap()
+        .unwrap()
+        .generation;
+    pressure_request.compilation.resource_refs = resource_ids;
+    pressure_request.compilation.required_refs = vec![HUMAN.into()];
+    let pressure_working = world
+        .store
+        .compile_working_state_authorized(&world.owner, pressure_request, None)
+        .unwrap()
+        .working_state;
+    let pressure = world
+        .store
+        .prepare_cognitive_decision_step_authorized(
+            &world.owner,
+            &pressure_working,
+            CognitiveDecisionFrontierRequest::new(&pressure_working, 32).unwrap(),
+            "yai.next-cognitive-step.v1",
+            budget(32),
+            None,
+        )
+        .unwrap();
+    assert_eq!(pressure.frontier.candidates.len(), 32);
+    assert_eq!(pressure.frontier.omitted_optional_candidates, 9);
+    assert_eq!(pressure.measurements.qualified_read_transactions, 1);
+
+    println!(
+        "cognitive_decision_hot_path_repeated steps_1_us={} steps_10_us={} steps_100_us={} steps_1_reads={} steps_10_reads={} steps_100_reads={} steps_1_w={} steps_10_w={} steps_100_w={} candidate_passes_1={} candidate_passes_10={} candidate_passes_100={} coalesced_cache=absent irrelevant_change=conservative_stale pressure_selected=32 pressure_omitted=9 pressure_preparation_us={} pressure_reads=1 model_calls=0 provider_calls=0 transitions_from_decisions=0",
+        one.0,
+        ten.0,
+        hundred.0,
+        one.1,
+        ten.1,
+        hundred.1,
+        one.2,
+        ten.2,
+        hundred.2,
+        one.5,
+        ten.5,
+        hundred.5,
+        pressure.measurements.total_us,
     );
     world.finish();
 }

@@ -767,10 +767,28 @@ refuses. Optional pressure is bounded only after required candidates, using
 typed family precedence rather than similarity ranking. Equivalent candidate
 membership is order-independent, duplicate origins cannot create duplicate
 choices, and multiple origins for one exact subject remain inspectable.
-Frontier construction and later Decision Plane preparation both re-establish
-current W/authority; Workflow evolution, revoke or stale W therefore changes or
-refuses the old frontier. The result is reconstructible after restart and adds
-no Transition, score, model/provider call, Operation or effect.
+The qualified preparation operation re-establishes current W/authority once and,
+inside that same operation-scoped read snapshot, resolves Workflow origins and
+derives both Frontier and the unchanged Decision Request. It does not serialize
+or export the internal qualified basis. Workflow evolution, revoke or stale W
+therefore still changes or refuses the old frontier. Producer execution remains
+a temporal boundary: distribution qualification opens a separate current read
+and performs a full W/Recall/source requalification before accepting the result.
+The result is reconstructible after restart and adds no Transition, score,
+model/provider call, Operation or effect.
+
+The bounded hot-path characterization explains the prior cost as API
+composition rather than candidate generation. One complete model-free step
+previously opened 12 qualified reads and rebuilt W, Recall and source knowledge
+six times; the composed path uses two reads and two such qualifications—one
+before the producer and one after it—and performs frontier discovery once. In
+the retained ordinary fixture total overhead falls from roughly 199.6–201.1 ms
+to roughly 67.7–71.4 ms across observed runs. These are characterization values,
+not an SLA. The post-producer fence is intentionally retained because generation
+alone cannot detect same-generation policy, disclosure, source, backing or candidate-origin
+change. No correct false-negative-free dependency-local witness exists yet, so
+even an unrelated intervening Case mutation may conservatively invalidate the
+prepared artifact.
 
 Legacy archaeology found an earlier `yai-dev` next-action helper, later drained
 into the orchestrator, which returned hard-coded string suggestions such as
@@ -778,6 +796,14 @@ into the orchestrator, which returned hard-coded string suggestions such as
 That Agent/planner-shaped ownership and string heuristic remain rejected. The
 current frontier recovers only the valid principle that explicit alternatives
 may inform cognition while ordinary YAI admission alone authorizes consequences.
+
+The hot-path archaeology also re-inspected `yai-dev` State Decision active
+snapshots. Those structures classify canonical Decision lifecycle projection;
+their contract explicitly forbids persistence, receipt append and outcome
+mutation. They are not reusable current semantic-authority witnesses. The
+current private LMDB snapshot recovers only the valid operation-scoped
+projection boundary and deliberately does not revive the legacy State/Decision
+plane or create a capability token.
 
 Score meaning is explicit. A raw score is only the producer-declared measure; a
 normalized relative-candidate distribution is not a calibrated correctness

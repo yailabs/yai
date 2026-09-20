@@ -948,6 +948,28 @@ tests qualify the four current typed origin families only. They do not establish
 general next-action planning, optimal candidate coverage, adaptive routing,
 long-horizon speedup, a production scorer or a YVEX Decision Core.
 
+To reproduce the bounded Decision Plane hot-path qualification, run:
+
+```sh
+RUSTUP_TOOLCHAIN=1.98.1 make smoke-cognitive-decision-hot-path
+```
+
+The single-step lane measures a real W-qualified Frontier → Request → deterministic
+producer → Distribution path. It proves one preparation read plus one independent
+post-producer read, rather than the former 12 reads and six W/Recall/source
+reconstructions. It also checks same-generation Policy revoke, wrong Participant,
+cross-Case and tampered Frontier/Request/output refusal, restart stale-artifact
+refusal, score ≠ authority, and zero Transition/effect/model/provider calls. The
+post-producer full current-W fence is intentional and remains authoritative.
+
+The repeated lane reports exact 1/10/100-step read, W, Recall, source and candidate-
+discovery counts and retains the 32-candidate/optional-omission pressure case.
+An unrelated admitted Case change currently refuses conservatively because the
+existing owners do not prove dependency-local irrelevance. The W4 lane preserves
+deferred non-residency and same-generation revoke behavior. These timings are
+local deterministic characterization, not a latency SLA, production scorer result,
+adaptive-routing claim or YVEX qualification.
+
 Ordinary governed Conversation and Workflow execution now prepares Recall-aware
 W automatically; the commands above are inspection controls, not prerequisites
 for asking a question. In a Case with admitted sources, ask a source-dependent

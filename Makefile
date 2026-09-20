@@ -845,6 +845,11 @@ smoke-cognitive-decision-frontier: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/cognitive-decision-frontier/test_frontier.py
 
+.PHONY: smoke-cognitive-decision-hot-path
+smoke-cognitive-decision-hot-path: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/cognitive-decision-hot-path/test_hot_path.py
+
 smoke-case-source-bootstrap: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/case-source-bootstrap/test_bootstrap.py

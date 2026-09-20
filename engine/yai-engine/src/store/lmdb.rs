@@ -205,6 +205,19 @@ pub enum ProviderAttemptStoreOutcome {
     AlreadyRecorded(ProviderAttemptOutcome),
 }
 
+/// One operation-scoped LMDB snapshot for Decision Frontier preparation.
+/// This never leaves the store boundary and is not an authority capability.
+struct CurrentCognitiveDecisionFrontier {
+    current_working: crate::semantic_state::QualifiedWorkingState,
+    frontier: crate::cognitive::CognitiveDecisionFrontier,
+    working_state_requalification_us: u128,
+    source_knowledge_qualification_us: u128,
+    candidate_origin_resolution_us: u128,
+    frontier_request_validation_us: u128,
+    frontier_candidate_construction_us: u128,
+    frontier_identity_us: u128,
+}
+
 pub struct LmdbRecordStore {
     env: Arc<Environment>,
     records_by_id: Database,
@@ -2634,8 +2647,11 @@ impl LmdbRecordStore {
         )? {
             if existing.artifact_id != compilation.artifact.artifact_id {
                 let old = decode_policy_source(
-                    txn.get(self.policy_sources_by_id, &policy_source_key(&existing.source_id))
-                        .map_err(|_| "source_backing_unavailable")?,
+                    txn.get(
+                        self.policy_sources_by_id,
+                        &policy_source_key(&existing.source_id),
+                    )
+                    .map_err(|_| "source_backing_unavailable")?,
                 )?;
                 if bootstrap.is_some()
                     && compilation.source.is_mixed()
@@ -3913,7 +3929,8 @@ impl LmdbRecordStore {
         query: crate::graph::experience::ExperienceQuery,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::graph::experience::ExperienceView, String> {
-        let (history, scope, _) = self.qualified_historical_view(authenticated, case_id, request, content)?;
+        let (history, scope, _) =
+            self.qualified_historical_view(authenticated, case_id, request, content)?;
         crate::graph::experience::derive(&history, query, &scope)
     }
 
@@ -3925,7 +3942,8 @@ impl LmdbRecordStore {
         request: crate::semantic_state::historical::HistoricalRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::semantic_state::historical::HistoricalSemanticView, String> {
-        self.qualified_historical_view(authenticated, case_id, request, content).map(|(view, _, _)| view)
+        self.qualified_historical_view(authenticated, case_id, request, content)
+            .map(|(view, _, _)| view)
     }
 
     /// Read-only Recall: exact sources and current disclosure are qualified in
@@ -3946,7 +3964,8 @@ impl LmdbRecordStore {
         content: Option<&crate::conversation::ConversationContentStore>,
         vectors: Option<&crate::memory_hierarchy::recall::RecallVectorInput>,
     ) -> Result<crate::memory_hierarchy::recall::RecallResult, String> {
-        self.recall_working_basis(authenticated, request, content, vectors, None, false).map(|(r, _, _, _)| r)
+        self.recall_working_basis(authenticated, request, content, vectors, None, false)
+            .map(|(r, _, _, _)| r)
     }
 
     fn recall_working_basis(
@@ -3957,31 +3976,64 @@ impl LmdbRecordStore {
         vectors: Option<&crate::memory_hierarchy::recall::RecallVectorInput>,
         working: Option<&crate::semantic_state::WorkingStateRequest>,
         refresh: bool,
-    ) -> Result<(crate::memory_hierarchy::recall::RecallResult,
-        Option<crate::semantic_state::SemanticState>, BTreeSet<String>, u128), String> {
+    ) -> Result<
+        (
+            crate::memory_hierarchy::recall::RecallResult,
+            Option<crate::semantic_state::SemanticState>,
+            BTreeSet<String>,
+            u128,
+        ),
+        String,
+    > {
         let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
-        self.recall_working_basis_txn(&txn, authenticated, request, content, vectors, working, refresh, false)
+        self.recall_working_basis_txn(
+            &txn,
+            authenticated,
+            request,
+            content,
+            vectors,
+            working,
+            refresh,
+            false,
+        )
     }
 
     fn recall_working_basis_txn<T: Transaction>(
-        &self, txn: &T, authenticated: &AuthenticatedPrincipal,
+        &self,
+        txn: &T,
+        authenticated: &AuthenticatedPrincipal,
         mut request: crate::memory_hierarchy::recall::RecallRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
         vectors: Option<&crate::memory_hierarchy::recall::RecallVectorInput>,
-        working: Option<&crate::semantic_state::WorkingStateRequest>, refresh: bool, forensic: bool,
-    ) -> Result<(crate::memory_hierarchy::recall::RecallResult,
-        Option<crate::semantic_state::SemanticState>, BTreeSet<String>, u128), String> {
+        working: Option<&crate::semantic_state::WorkingStateRequest>,
+        refresh: bool,
+        forensic: bool,
+    ) -> Result<
+        (
+            crate::memory_hierarchy::recall::RecallResult,
+            Option<crate::semantic_state::SemanticState>,
+            BTreeSet<String>,
+            u128,
+        ),
+        String,
+    > {
         request.validate()?;
         let started = std::time::Instant::now();
-        let current = self.get_case_state_txn(txn, &request.case_id)?.ok_or("case_not_visible")?;
+        let current = self
+            .get_case_state_txn(txn, &request.case_id)?
+            .ok_or("case_not_visible")?;
         if refresh {
             request.expected_generation = current.generation;
             if working.is_some_and(|w| w.at.is_none()) {
-                request.at = crate::semantic_state::historical::HistoricalCoordinate::Generation(current.generation);
+                request.at = crate::semantic_state::historical::HistoricalCoordinate::Generation(
+                    current.generation,
+                );
             }
         }
         let mut historical = crate::semantic_state::historical::HistoricalRequest::inspection(
-            request.at.clone(), request.participant_id.clone());
+            request.at.clone(),
+            request.participant_id.clone(),
+        );
         historical.max_items = 4096;
         historical.max_bytes = 16_777_216;
         let execution = working.and_then(|w| w.compilation.view_selection_id.as_deref());
@@ -3990,41 +4042,88 @@ impl LmdbRecordStore {
             historical.view_kind = "model_context".into();
         }
         let (mut view, scope, history, then) = self.qualified_historical_view_for_execution_txn(
-            txn, authenticated, &request.case_id, historical, content, execution)?;
+            txn,
+            authenticated,
+            &request.case_id,
+            historical,
+            content,
+            execution,
+        )?;
         let historical_resolution_us = started.elapsed().as_micros();
         let composition_started = std::time::Instant::now();
         let semantic = if let Some(w) = working {
             let s = if forensic {
-                let prefix = crate::semantic_state::historical::prefix(&history,
-                    &crate::semantic_state::historical::HistoricalCoordinate::Generation(w.expected_generation))?;
-                self.compose_cognitive_state_txn(txn, &replay_case(&current.case_id, prefix)?, prefix)?
-            } else { self.compose_cognitive_state_txn(txn, &current, &history)? };
-            request.required_refs.extend(s.recalled_requirements(&w.compilation)?);
+                let prefix = crate::semantic_state::historical::prefix(
+                    &history,
+                    &crate::semantic_state::historical::HistoricalCoordinate::Generation(
+                        w.expected_generation,
+                    ),
+                )?;
+                self.compose_cognitive_state_txn(
+                    txn,
+                    &replay_case(&current.case_id, prefix)?,
+                    prefix,
+                )?
+            } else {
+                self.compose_cognitive_state_txn(txn, &current, &history)?
+            };
+            request
+                .required_refs
+                .extend(s.recalled_requirements(&w.compilation)?);
             request.required_refs.sort();
             request.required_refs.dedup();
             request.validate()?;
             Some(s)
-        } else { None };
+        } else {
+            None
+        };
         let current_composition_us = composition_started.elapsed().as_micros();
         let mut excluded = BTreeSet::new();
         let knowledge = if request.schema == crate::memory_hierarchy::recall::RECALL_REQUEST_V2 {
-            let (result, visible_backing) = self.qualified_knowledge_scope_txn(txn, authenticated,
+            let (result, visible_backing) = self.qualified_knowledge_scope_txn(
+                txn,
+                authenticated,
                 crate::memory_hierarchy::knowledge::KnowledgeRequest::new(&request.case_id),
-                &current, &history, Some((&request, &then)), content, None, execution.is_some())?;
+                &current,
+                &history,
+                Some((&request, &then)),
+                content,
+                None,
+                execution.is_some(),
+            )?;
             crate::memory_hierarchy::recall::documentary::restrict_acquisition_history(
-                &mut view, &history, &visible_backing);
+                &mut view,
+                &history,
+                &visible_backing,
+            );
             if working.is_some() {
-                excluded = crate::memory_hierarchy::recall::documentary::hidden_acquisition_transitions(&history, &visible_backing);
+                excluded =
+                    crate::memory_hierarchy::recall::documentary::hidden_acquisition_transitions(
+                        &history,
+                        &visible_backing,
+                    );
             }
             Some(result)
-        } else { None };
+        } else {
+            None
+        };
         let qualified_read_us = started.elapsed().as_micros();
         // Forensic reconstruction is explicitly NOT current execution. Current
         // disclosure/source qualification above still applies to the old cut;
         // only the original compilation generation is reconstructed below.
-        if forensic { view.current_generation = request.expected_generation; }
+        if forensic {
+            view.current_generation = request.expected_generation;
+        }
         let mut result = if let Some(d) = &knowledge {
-            crate::memory_hierarchy::recall::compile_for_working(&view, &scope, &history, request, vectors, Some(&d.view), working.is_some())?
+            crate::memory_hierarchy::recall::compile_for_working(
+                &view,
+                &scope,
+                &history,
+                request,
+                vectors,
+                Some(&d.view),
+                working.is_some(),
+            )?
         } else {
             crate::memory_hierarchy::recall::compile(&view, &scope, &history, request, vectors)?
         };
@@ -4058,32 +4157,65 @@ impl LmdbRecordStore {
         refresh: bool,
     ) -> Result<crate::semantic_state::QualifiedWorkingState, String> {
         let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
-        self.compile_working_state_request_txn(&txn, authenticated, request, content, refresh, false)
+        self.compile_working_state_request_txn(
+            &txn,
+            authenticated,
+            request,
+            content,
+            refresh,
+            false,
+        )
     }
 
     fn compile_working_state_request_txn<T: Transaction>(
-        &self, txn: &T, authenticated: &AuthenticatedPrincipal,
+        &self,
+        txn: &T,
+        authenticated: &AuthenticatedPrincipal,
         mut request: crate::semantic_state::WorkingStateRequest,
-        content: Option<&crate::conversation::ConversationContentStore>, refresh: bool, forensic: bool,
+        content: Option<&crate::conversation::ConversationContentStore>,
+        refresh: bool,
+        forensic: bool,
     ) -> Result<crate::semantic_state::QualifiedWorkingState, String> {
-        use crate::semantic_state::working_recall::{QualifiedRecall, QualifiedWorkingState, WorkingStateMeasurements};
+        use crate::semantic_state::working_recall::{
+            QualifiedRecall, QualifiedWorkingState, WorkingStateMeasurements,
+        };
         let (recall, source, excluded, current_composition_us) = self.recall_working_basis_txn(
-            txn, authenticated, request.recall_request()?, content, None, Some(&request), refresh, forensic)?;
+            txn,
+            authenticated,
+            request.recall_request()?,
+            content,
+            None,
+            Some(&request),
+            refresh,
+            forensic,
+        )?;
         request.expected_generation = recall.trace.request.expected_generation;
         let started = std::time::Instant::now();
         let input = QualifiedRecall::new(request.clone(), &recall, excluded)?;
-        let source = source.ok_or("working_semantic_basis_missing")?.with_recall(input)?;
+        let source = source
+            .ok_or("working_semantic_basis_missing")?
+            .with_recall(input)?;
         let group_provenance_us = started.elapsed().as_micros();
         let started = std::time::Instant::now();
         let working_state = source.compile(&request.compilation)?;
         let working_compilation_us = started.elapsed().as_micros();
-        let output_bytes = serde_json::to_vec(&working_state).map_err(|e| e.to_string())?.len();
+        let output_bytes = serde_json::to_vec(&working_state)
+            .map_err(|e| e.to_string())?
+            .len();
         let selected_semantic_units = working_state.bounds().selected_semantic_units;
-        Ok(QualifiedWorkingState { working_state, source,
+        Ok(QualifiedWorkingState {
+            working_state,
+            source,
             compilation_mode: crate::semantic_state::DeltaCompilationMode::FullRecompilation,
-            measurements: WorkingStateMeasurements { recall: recall.measurements,
-                current_composition_us, group_provenance_us, working_compilation_us,
-                output_bytes, selected_semantic_units } })
+            measurements: WorkingStateMeasurements {
+                recall: recall.measurements,
+                current_composition_us,
+                group_provenance_us,
+                working_compilation_us,
+                output_bytes,
+                selected_semantic_units,
+            },
+        })
     }
 
     /// Requalify CURRENT backing/authority even when Case generation is equal.
@@ -4094,15 +4226,40 @@ impl LmdbRecordStore {
         previous: &crate::semantic_state::SemanticWorkingState,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<(), String> {
-        let request = previous.recall().ok_or("working_recall_required")?.request.clone();
-        let mut current = self.compile_working_state_authorized(authenticated, request, content)?;
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        self.requalify_working_state_txn(&txn, authenticated, previous, content)?;
+        Ok(())
+    }
+
+    fn requalify_working_state_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        authenticated: &AuthenticatedPrincipal,
+        previous: &crate::semantic_state::SemanticWorkingState,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::semantic_state::QualifiedWorkingState, String> {
+        let request = previous
+            .recall()
+            .ok_or("working_recall_required")?
+            .request
+            .clone();
+        let mut current = self.compile_working_state_request_txn(
+            txn,
+            authenticated,
+            request,
+            content,
+            false,
+            false,
+        )?;
         if previous.paging().is_some() {
             current = current
                 .enable_paging()?
                 .with_refreshed_paging_preferences(previous)?;
         }
-        if current.working_state != *previous { return Err("stale_semantic_working_state".into()); }
-        Ok(())
+        if current.working_state != *previous {
+            return Err("stale_semantic_working_state".into());
+        }
+        Ok(current)
     }
 
     /// Current-authority application boundary for a finite cognitive choice.
@@ -4120,12 +4277,7 @@ impl LmdbRecordStore {
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::cognitive::CognitiveDecisionRequest, String> {
         self.validate_working_state_authorized(authenticated, working, content)?;
-        crate::cognitive::CognitiveDecisionRequest::new(
-            working,
-            decision_kind,
-            candidates,
-            budget,
-        )
+        crate::cognitive::CognitiveDecisionRequest::new(working, decision_kind, candidates, budget)
     }
 
     /// Accept a producer's finite scores only after re-establishing the exact
@@ -4139,42 +4291,95 @@ impl LmdbRecordStore {
         output: crate::cognitive::CognitiveDecisionOutput,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::cognitive::CognitiveDecisionQualification, String> {
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
         let started = std::time::Instant::now();
-        self.validate_working_state_authorized(authenticated, working, content)?;
-        request.validate_against(working)?;
+        let current = self.requalify_working_state_txn(&txn, authenticated, working, content)?;
+        let working_state_requalification_us = started.elapsed().as_micros();
+        let recall = &current.measurements.recall;
+        let source_knowledge_qualification_us = recall.knowledge_resolution_us
+            + recall.knowledge_derivation_us
+            + recall.knowledge_graph_us;
+        let request_started = std::time::Instant::now();
+        request.validate_against(&current.working_state)?;
+        let request_revalidation_us = request_started.elapsed().as_micros();
         let current_requalification_us = started.elapsed().as_micros();
-        let output_bytes = serde_json::to_vec(&output)
-            .map_err(|error| format!("cognitive_decision_output_encode_failed: {error}"))?
-            .len();
-        let distribution =
-            crate::cognitive::CognitiveDecisionDistribution::qualify(request, output)?;
+        let (
+            distribution,
+            distribution_validation_us,
+            distribution_identity_us,
+            output_serialization_us,
+            output_bytes,
+        ) = crate::cognitive::CognitiveDecisionDistribution::qualify_measured(request, output)?;
         Ok(crate::cognitive::CognitiveDecisionQualification {
             schema: crate::cognitive::COGNITIVE_DECISION_QUALIFICATION_SCHEMA.to_string(),
             distribution,
             current_requalification_us,
+            working_state_requalification_us,
+            source_knowledge_qualification_us,
+            request_revalidation_us,
+            distribution_validation_us,
+            distribution_identity_us,
+            output_serialization_us,
             output_bytes,
+            qualified_read_transactions: 1,
+            working_state_recompilations: 1,
+            recall_reconstructions: 1,
+            source_knowledge_qualifications: 1,
         })
     }
 
-    fn cognitive_decision_workflow_origins_authorized(
+    fn cognitive_decision_workflow_origins_txn<T: Transaction>(
         &self,
+        txn: &T,
         authenticated: &AuthenticatedPrincipal,
         working: &crate::semantic_state::SemanticWorkingState,
     ) -> Result<Vec<crate::cognitive::CognitiveDecisionCandidateOrigin>, String> {
         use crate::cognitive::CognitiveDecisionCandidateOrigin;
 
-        let state = self.get_case_state_authorized(authenticated, working.case_id())?;
+        let state = self
+            .get_case_state_txn(txn, working.case_id())?
+            .ok_or_else(|| "case_not_visible".to_string())?;
+        let tenant_id = state
+            .tenant_id
+            .as_deref()
+            .ok_or_else(|| "workflow_requires_tenant_case".to_string())?;
+        self.resolve_security_context_txn(txn, authenticated, tenant_id)
+            .map_err(|_| "case_not_visible".to_string())?;
         let Some(binding) = state.workflow_binding.as_ref() else {
             return Ok(Vec::new());
         };
-        let resolution = self.workflow_status_authorized(authenticated, working.case_id())?;
+        let definition = self
+            .workflow_definition_txn(txn, &binding.workflow_definition_id)?
+            .ok_or_else(|| "bound_workflow_definition_missing".to_string())?;
+        if definition.integrity_digest != binding.workflow_definition_digest {
+            return Err("bound_workflow_definition_digest_mismatch".to_string());
+        }
+        let definitions = self.workflow_definition_graph_for_operations_txn(
+            txn,
+            &definition,
+            &state.workflow_amendments,
+            &[],
+        )?;
+        let history = self.list_case_transitions_txn(txn, working.case_id())?;
+        let resolution = resolve_workflow_with_definitions(
+            &definition,
+            binding,
+            &state,
+            &history,
+            &definitions,
+        )?;
         if resolution.case_id != working.case_id()
             || resolution.case_generation != working.generation()
             || resolution.workflow_binding_id != binding.binding_id
         {
             return Err("stale_semantic_working_state".to_string());
         }
-        let topology = self.workflow_effective_topology_authorized(authenticated, working.case_id())?;
+        let topology = derive_effective_workflow_topology(
+            &definition,
+            binding,
+            &state.workflow_amendments,
+            &definitions,
+        )?;
         if topology.topology_digest != resolution.effective_topology_digest {
             return Err("cognitive_decision_frontier_workflow_basis_mismatch".to_string());
         }
@@ -4193,7 +4398,9 @@ impl LmdbRecordStore {
                 let slot = match &effective.node.kind {
                     WorkflowNodeKind::ModelWork { executor_slot, .. } => executor_slot,
                     WorkflowNodeKind::DeterministicWork { proposer_slot, .. } => proposer_slot,
-                    _ => return Err("cognitive_decision_frontier_workflow_ready_kind_invalid".into()),
+                    _ => {
+                        return Err("cognitive_decision_frontier_workflow_ready_kind_invalid".into())
+                    }
                 };
                 if binding.executor_bindings.iter().any(|executor| {
                     executor.slot == *slot && executor.participant_id == participant_id
@@ -4211,30 +4418,80 @@ impl LmdbRecordStore {
             }
             let mechanically_resolvable = matches!(
                 (&node.posture, node.reason.as_str()),
-                (WorkflowNodePosture::WaitingCondition, "condition_resolvable_true")
-                    | (
-                        WorkflowNodePosture::WaitingEffect,
-                        "passive_predicate_satisfied_pending_commit"
-                    )
+                (
+                    WorkflowNodePosture::WaitingCondition,
+                    "condition_resolvable_true"
+                ) | (
+                    WorkflowNodePosture::WaitingEffect,
+                    "passive_predicate_satisfied_pending_commit"
+                )
             );
             if mechanically_resolvable {
                 let mut evidence_refs = node.evidence_refs.clone();
                 evidence_refs.sort();
                 evidence_refs.dedup();
-                origins.push(CognitiveDecisionCandidateOrigin::WorkflowResolvableProgress {
-                    workflow_definition_id: resolution.workflow_definition_id.clone(),
-                    workflow_binding_id: resolution.workflow_binding_id.clone(),
-                    effective_topology_digest: resolution.effective_topology_digest.clone(),
-                    node_id: node.node_id.clone(),
-                    node_kind: node.node_kind.clone(),
-                    resolution_reason: node.reason.clone(),
-                    evidence_refs,
-                });
+                origins.push(
+                    CognitiveDecisionCandidateOrigin::WorkflowResolvableProgress {
+                        workflow_definition_id: resolution.workflow_definition_id.clone(),
+                        workflow_binding_id: resolution.workflow_binding_id.clone(),
+                        effective_topology_digest: resolution.effective_topology_digest.clone(),
+                        node_id: node.node_id.clone(),
+                        node_kind: node.node_kind.clone(),
+                        resolution_reason: node.reason.clone(),
+                        evidence_refs,
+                    },
+                );
             }
         }
         origins.sort();
         origins.dedup();
         Ok(origins)
+    }
+
+    fn current_cognitive_decision_frontier_txn<T: Transaction>(
+        &self,
+        txn: &T,
+        authenticated: &AuthenticatedPrincipal,
+        working: &crate::semantic_state::SemanticWorkingState,
+        request: &crate::cognitive::CognitiveDecisionFrontierRequest,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<CurrentCognitiveDecisionFrontier, String> {
+        let requalification_started = std::time::Instant::now();
+        let current_working =
+            self.requalify_working_state_txn(txn, authenticated, working, content)?;
+        let working_state_requalification_us = requalification_started.elapsed().as_micros();
+        let recall = &current_working.measurements.recall;
+        let source_knowledge_qualification_us = recall.knowledge_resolution_us
+            + recall.knowledge_derivation_us
+            + recall.knowledge_graph_us;
+
+        let origins_started = std::time::Instant::now();
+        let workflow_origins = self.cognitive_decision_workflow_origins_txn(
+            txn,
+            authenticated,
+            &current_working.working_state,
+        )?;
+        let candidate_origin_resolution_us = origins_started.elapsed().as_micros();
+        let (
+            frontier,
+            frontier_request_validation_us,
+            frontier_candidate_construction_us,
+            frontier_identity_us,
+        ) = crate::cognitive::CognitiveDecisionFrontier::derive_measured(
+            request,
+            &current_working.working_state,
+            workflow_origins,
+        )?;
+        Ok(CurrentCognitiveDecisionFrontier {
+            current_working,
+            frontier,
+            working_state_requalification_us,
+            source_knowledge_qualification_us,
+            candidate_origin_resolution_us,
+            frontier_request_validation_us,
+            frontier_candidate_construction_us,
+            frontier_identity_us,
+        })
     }
 
     /// Current-authority application boundary for deterministic candidate
@@ -4247,24 +4504,19 @@ impl LmdbRecordStore {
         request: crate::cognitive::CognitiveDecisionFrontierRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::cognitive::CognitiveDecisionFrontierQualification, String> {
-        let requalification_started = std::time::Instant::now();
-        self.validate_working_state_authorized(authenticated, working, content)?;
-        request.validate_against(working)?;
-        let mut current_requalification_us = requalification_started.elapsed().as_micros();
-        let started = std::time::Instant::now();
-        let workflow_origins =
-            self.cognitive_decision_workflow_origins_authorized(authenticated, working)?;
-        let frontier = crate::cognitive::CognitiveDecisionFrontier::derive(
-            &request,
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let current = self.current_cognitive_decision_frontier_txn(
+            &txn,
+            authenticated,
             working,
-            workflow_origins,
+            &request,
+            content,
         )?;
-        let candidate_generation_us = started.elapsed().as_micros();
-        // Close the read window against same-generation policy/source changes.
-        // This is not a permanent lease; every later consumer requalifies too.
-        let requalification_started = std::time::Instant::now();
-        self.validate_working_state_authorized(authenticated, working, content)?;
-        current_requalification_us += requalification_started.elapsed().as_micros();
+        let frontier = current.frontier;
+        let candidate_generation_us = current.candidate_origin_resolution_us
+            + current.frontier_request_validation_us
+            + current.frontier_candidate_construction_us
+            + current.frontier_identity_us;
         let output_bytes = serde_json::to_vec(&frontier)
             .map_err(|error| format!("cognitive_decision_frontier_encode_failed: {error}"))?
             .len();
@@ -4272,9 +4524,72 @@ impl LmdbRecordStore {
             schema: crate::cognitive::COGNITIVE_DECISION_FRONTIER_QUALIFICATION_SCHEMA.to_string(),
             origin_count: frontier.visible_origin_count,
             frontier,
-            current_requalification_us,
+            current_requalification_us: current.working_state_requalification_us,
             candidate_generation_us,
             output_bytes,
+        })
+    }
+
+    /// Compose one exact current W/Workflow snapshot into Frontier and
+    /// DecisionRequest. The returned values carry no reusable authority; a
+    /// producer output still crosses `qualify_*_distribution_authorized`.
+    pub fn prepare_cognitive_decision_step_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        working: &crate::semantic_state::SemanticWorkingState,
+        frontier_request: crate::cognitive::CognitiveDecisionFrontierRequest,
+        decision_kind: impl Into<String>,
+        budget: crate::cognitive::CognitiveDecisionBudget,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::cognitive::CognitiveDecisionPreparation, String> {
+        if budget.max_candidates != frontier_request.max_candidates {
+            return Err("cognitive_decision_frontier_budget_mismatch".to_string());
+        }
+        let total_started = std::time::Instant::now();
+        let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
+        let current = self.current_cognitive_decision_frontier_txn(
+            &txn,
+            authenticated,
+            working,
+            &frontier_request,
+            content,
+        )?;
+        let (request, decision_request_construction_us, decision_request_identity_us) =
+            crate::cognitive::CognitiveDecisionRequest::new_measured(
+                &current.current_working.working_state,
+                decision_kind,
+                current.frontier.decision_candidates(),
+                budget,
+            )?;
+        let serialization_started = std::time::Instant::now();
+        let output_bytes = serde_json::to_vec(&(&current.frontier, &request))
+            .map_err(|error| format!("cognitive_decision_preparation_encode_failed: {error}"))?
+            .len();
+        let output_serialization_us = serialization_started.elapsed().as_micros();
+        let total_us = total_started.elapsed().as_micros();
+        Ok(crate::cognitive::CognitiveDecisionPreparation {
+            schema: crate::cognitive::COGNITIVE_DECISION_PREPARATION_SCHEMA.to_string(),
+            frontier: current.frontier,
+            request,
+            measurements: crate::cognitive::CognitiveDecisionPreparationMeasurements {
+                qualified_read_transactions: 1,
+                working_state_recompilations: 1,
+                recall_reconstructions: 1,
+                source_knowledge_qualifications: 1,
+                candidate_discovery_passes: 1,
+                current_authority_qualifications: 1,
+                working_state_requalification_us: current.working_state_requalification_us,
+                source_knowledge_qualification_us: current.source_knowledge_qualification_us,
+                candidate_origin_resolution_us: current.candidate_origin_resolution_us,
+                frontier_request_validation_us: current.frontier_request_validation_us,
+                frontier_candidate_construction_us: current.frontier_candidate_construction_us,
+                frontier_identity_us: current.frontier_identity_us,
+                decision_request_construction_us,
+                decision_request_identity_us,
+                output_serialization_us,
+                output_bytes,
+                total_us,
+            },
         })
     }
 
@@ -4292,37 +4607,45 @@ impl LmdbRecordStore {
         if budget.max_candidates != frontier.request.max_candidates {
             return Err("cognitive_decision_frontier_budget_mismatch".to_string());
         }
-        let current = self.derive_cognitive_decision_frontier_authorized(
+        let current = self.prepare_cognitive_decision_step_authorized(
             authenticated,
             working,
             frontier.request.clone(),
+            decision_kind,
+            budget,
             content,
         )?;
         if current.frontier != *frontier {
             return Err("stale_cognitive_decision_frontier".to_string());
         }
-        self.prepare_cognitive_decision_request_authorized(
-            authenticated,
-            working,
-            decision_kind,
-            frontier.decision_candidates(),
-            budget,
-            content,
-        )
+        Ok(current.request)
     }
 
     /// Inspect a retained W3 under CURRENT disclosure, reconstructing its exact
     /// historical compilation. This neither marks it fresh nor admits dispatch.
     /// A changed visibility/backing/control basis may make it unreproducible.
     pub fn validate_archived_working_state_authorized(
-        &self, auth: &AuthenticatedPrincipal, base: &crate::semantic_state::SemanticWorkingState,
+        &self,
+        auth: &AuthenticatedPrincipal,
+        base: &crate::semantic_state::SemanticWorkingState,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<(), String> {
         base.validate_refresh_envelope()?;
-        if base.paging().is_some() { return Err("archived_paged_working_inspection_requires_refresh".into()); }
+        if base.paging().is_some() {
+            return Err("archived_paged_working_inspection_requires_refresh".into());
+        }
         let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
-        let restored = self.compile_working_state_request_txn(&txn, auth,
-            base.recall().ok_or("working_recall_required")?.request.clone(), content, false, true)?;
+        let restored = self.compile_working_state_request_txn(
+            &txn,
+            auth,
+            base.recall()
+                .ok_or("working_recall_required")?
+                .request
+                .clone(),
+            content,
+            false,
+            true,
+        )?;
         if restored.working_state != *base {
             return Err("archived_working_state_unavailable_under_current_qualification".into());
         }
@@ -4330,17 +4653,22 @@ impl LmdbRecordStore {
     }
 
     pub fn compile_pageable_working_state_authorized(
-        &self, auth: &AuthenticatedPrincipal, request: crate::semantic_state::WorkingStateRequest,
+        &self,
+        auth: &AuthenticatedPrincipal,
+        request: crate::semantic_state::WorkingStateRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::semantic_state::QualifiedWorkingState, String> {
-        self.compile_working_state_authorized(auth, request, content)?.enable_paging()
+        self.compile_working_state_authorized(auth, request, content)?
+            .enable_paging()
     }
 
     /// Consumer preflight for the SAME stored task, not a delta/epoch shortcut.
     /// Current generation, source applicability and authority share Recall's
     /// read transaction. Old evidence is never an input to semantic resolution.
     pub fn refresh_working_state_authorized(
-        &self, auth: &AuthenticatedPrincipal, base: &crate::semantic_state::SemanticWorkingState,
+        &self,
+        auth: &AuthenticatedPrincipal,
+        base: &crate::semantic_state::SemanticWorkingState,
         request: crate::semantic_state::working_recall::WorkingRefreshRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::semantic_state::working_recall::WorkingRefreshResult, String> {
@@ -4349,7 +4677,9 @@ impl LmdbRecordStore {
         let mut current = self.compile_working_state_request(auth, original, content, true)?;
         let started = std::time::Instant::now();
         if base.paging().is_some() {
-            current = current.enable_paging()?.with_refreshed_paging_preferences(base)?;
+            current = current
+                .enable_paging()?
+                .with_refreshed_paging_preferences(base)?;
         }
         let paging_recompilation_us = started.elapsed().as_micros();
         WorkingRefreshResult::qualified(base, request, current, paging_recompilation_us)
@@ -4367,9 +4697,7 @@ impl LmdbRecordStore {
         request: crate::semantic_state::working_recall::AmbientRefreshRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::semantic_state::working_recall::AmbientRefreshResult, String> {
-        use crate::semantic_state::working_recall::{
-            AmbientRefreshResult, WorkingRefreshRequest,
-        };
+        use crate::semantic_state::working_recall::{AmbientRefreshResult, WorkingRefreshRequest};
         request.validate(base)?;
         let started = std::time::Instant::now();
         match self.refresh_working_state_authorized(
@@ -4380,12 +4708,7 @@ impl LmdbRecordStore {
         ) {
             Ok(refresh) => {
                 let elapsed = started.elapsed().as_micros();
-                AmbientRefreshResult::qualified(
-                    base,
-                    request,
-                    refresh,
-                    elapsed,
-                )
+                AmbientRefreshResult::qualified(base, request, refresh, elapsed)
             }
             Err(_) => Ok(AmbientRefreshResult::invalidated(
                 request,
@@ -4397,12 +4720,14 @@ impl LmdbRecordStore {
     /// Exact page-in/page-out. No call to Recall compilation/discovery, no
     /// persisted page authority, and no source outside the declared fixed scope.
     pub fn page_working_state_authorized(
-        &self, auth: &AuthenticatedPrincipal, base: &crate::semantic_state::SemanticWorkingState,
+        &self,
+        auth: &AuthenticatedPrincipal,
+        base: &crate::semantic_state::SemanticWorkingState,
         mut request: crate::semantic_state::paging::PageRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<crate::semantic_state::paging::PageResult, String> {
-        use crate::semantic_state::{paging::*, historical as h, SemanticValue};
-        use crate::memory_hierarchy::{recall, knowledge};
+        use crate::memory_hierarchy::{knowledge, recall};
+        use crate::semantic_state::{historical as h, paging::*, SemanticValue};
         base.validate_paging_envelope()?;
         request.validate(base)?;
         request.references.sort();
@@ -4416,59 +4741,119 @@ impl LmdbRecordStore {
             PageAction::PageIn => wanted.extend(requested.iter().cloned()),
             PageAction::PageOut => wanted.retain(|id| !requested.contains(id)),
         }
-        let refs: Vec<_> = catalog.iter().filter(|r| wanted.contains(&r.reference_id)).collect();
+        let refs: Vec<_> = catalog
+            .iter()
+            .filter(|r| wanted.contains(&r.reference_id))
+            .collect();
         let started = std::time::Instant::now();
         let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
-        let current = self.get_case_state_txn(&txn, &request.case_id)?.ok_or("case_not_visible")?;
-        let mut hr = h::HistoricalRequest::inspection(recall.recall_request.at.clone(), request.participant_id.clone());
-        hr.max_items = 4096; hr.max_bytes = 16_777_216;
+        let current = self
+            .get_case_state_txn(&txn, &request.case_id)?
+            .ok_or("case_not_visible")?;
+        let mut hr = h::HistoricalRequest::inspection(
+            recall.recall_request.at.clone(),
+            request.participant_id.clone(),
+        );
+        hr.max_items = 4096;
+        hr.max_bytes = 16_777_216;
         let execution = recall.request.compilation.view_selection_id.as_deref();
-        if execution.is_some() { hr.consumer = "model".into(); hr.view_kind = "model_context".into(); }
-        let (mut view, disclosure, history, then) = self.qualified_historical_view_for_execution_txn(
-            &txn, auth, &request.case_id, hr, content, execution)?;
+        if execution.is_some() {
+            hr.consumer = "model".into();
+            hr.view_kind = "model_context".into();
+        }
+        let (mut view, disclosure, history, then) = self
+            .qualified_historical_view_for_execution_txn(
+                &txn,
+                auth,
+                &request.case_id,
+                hr,
+                content,
+                execution,
+            )?;
         if current.generation != recall.request.expected_generation {
             return Err("semantic_page_stale_base_recompile_required".into());
         }
         let source = self.compose_cognitive_state_txn(&txn, &current, &history)?;
         source.validate_paging_current(base)?;
-        if requested.iter().any(|id| !catalog.iter().any(|r| &r.reference_id == id)) {
+        if requested
+            .iter()
+            .any(|id| !catalog.iter().any(|r| &r.reference_id == id))
+        {
             return Err("semantic_reference_unavailable".into());
         }
-        if request.action == PageAction::PageOut && catalog.iter().any(|r|
-            requested.contains(&r.reference_id) && (r.mandatory_task_dependency || !resident.contains(&r.reference_id))) {
+        if request.action == PageAction::PageOut
+            && catalog.iter().any(|r| {
+                requested.contains(&r.reference_id)
+                    && (r.mandatory_task_dependency || !resident.contains(&r.reference_id))
+            })
+        {
             return Err("semantic_page_out_requires_optional_resident".into());
         }
-        let mut measurements = PagingMeasurements { qualified_history_us: started.elapsed().as_micros(), ..Default::default() };
-        let mut scope: BTreeSet<_> = refs.iter().flat_map(|r| r.sources.iter())
-            .map(|s| (s.source_id.clone(), s.revision_id.clone(), s.path.clone())).collect();
+        let mut measurements = PagingMeasurements {
+            qualified_history_us: started.elapsed().as_micros(),
+            ..Default::default()
+        };
+        let mut scope: BTreeSet<_> = refs
+            .iter()
+            .flat_map(|r| r.sources.iter())
+            .map(|s| (s.source_id.clone(), s.revision_id.clone(), s.path.clone()))
+            .collect();
         // H-only groups can reference source-owned acquisition observations.
         // Resolve their exact owning source gate too, without all-source lookup.
-        let members: BTreeSet<_> = refs.iter().flat_map(|r| r.members.iter().cloned()).collect();
-        let mut backing: BTreeSet<_> = view.known_by_then.iter().filter(|e| members.contains(&e.transition_id))
+        let members: BTreeSet<_> = refs
+            .iter()
+            .flat_map(|r| r.members.iter().cloned())
+            .collect();
+        let mut backing: BTreeSet<_> = view
+            .known_by_then
+            .iter()
+            .filter(|e| members.contains(&e.transition_id))
             .flat_map(|e| match &e.payload {
                 TransitionPayload::ResourceObservationRecorded { observation }
-                | TransitionPayload::ResourceEffectFinalized { observation, .. } => vec![observation.observation_id.clone()],
-                TransitionPayload::CaseContentAdmitted { admission } => vec![admission.admission_id.clone()],
+                | TransitionPayload::ResourceEffectFinalized { observation, .. } => {
+                    vec![observation.observation_id.clone()]
+                }
+                TransitionPayload::CaseContentAdmitted { admission } => {
+                    vec![admission.admission_id.clone()]
+                }
                 _ => vec![],
-            }).collect();
-        let operations: BTreeSet<_> = view.known_by_then.iter().filter(|e| members.contains(&e.transition_id))
+            })
+            .collect();
+        let operations: BTreeSet<_> = view
+            .known_by_then
+            .iter()
+            .filter(|e| members.contains(&e.transition_id))
             .filter_map(|e| match &e.payload {
-                TransitionPayload::OperationRecorded { operation } => Some(operation.operation_id.clone()),
-                TransitionPayload::DecisionRecorded { decision } => Some(decision.operation_id.clone()),
+                TransitionPayload::OperationRecorded { operation } => {
+                    Some(operation.operation_id.clone())
+                }
+                TransitionPayload::DecisionRecorded { decision } => {
+                    Some(decision.operation_id.clone())
+                }
                 _ => None,
-            }).collect();
-        let observations: BTreeSet<_> = history.iter().filter_map(|t| match &t.payload {
-            TransitionPayload::ResourceObservationRecorded { observation }
-                if operations.contains(&observation.operation_id) => Some(observation.observation_id.clone()),
-            _ => None,
-        }).collect();
+            })
+            .collect();
+        let observations: BTreeSet<_> = history
+            .iter()
+            .filter_map(|t| match &t.payload {
+                TransitionPayload::ResourceObservationRecorded { observation }
+                    if operations.contains(&observation.operation_id) =>
+                {
+                    Some(observation.observation_id.clone())
+                }
+                _ => None,
+            })
+            .collect();
         backing.extend(observations.iter().cloned());
         // A selected admission/discovery Decision inherits the same source gate
         // as its exact acquisition result, even if that result is not resident.
         backing.extend(history.iter().filter_map(|t| match &t.payload {
             TransitionPayload::CaseContentAdmitted { admission }
                 if operations.contains(&admission.operation_id)
-                    || observations.contains(&admission.discovery_observation_id) => Some(admission.admission_id.clone()),
+                    || observations.contains(&admission.discovery_observation_id) =>
+            {
+                Some(admission.admission_id.clone())
+            }
             _ => None,
         }));
         for t in h::prefix(&history, &recall.recall_request.at)? {
@@ -4476,15 +4861,27 @@ impl LmdbRecordStore {
                 if let Some(revision) = &progress.revision {
                     for item in &revision.items {
                         if backing.contains(&recall::documentary::backing_id(&item.backing)) {
-                            scope.insert((progress.source_id.clone(), revision.revision_id.clone(), item.path.clone()));
+                            scope.insert((
+                                progress.source_id.clone(),
+                                revision.revision_id.clone(),
+                                item.path.clone(),
+                            ));
                         }
                     }
                 }
             }
         }
-        let (d, visible) = self.qualified_knowledge_scope_txn(&txn, auth,
-            knowledge::KnowledgeRequest::new(&request.case_id), &current, &history,
-            Some((&recall.recall_request, &then)), content, Some(&scope), execution.is_some())?;
+        let (d, visible) = self.qualified_knowledge_scope_txn(
+            &txn,
+            auth,
+            knowledge::KnowledgeRequest::new(&request.case_id),
+            &current,
+            &history,
+            Some((&recall.recall_request, &then)),
+            content,
+            Some(&scope),
+            execution.is_some(),
+        )?;
         measurements.exact_source_resolution_us = d.measurements.source_resolution_us;
         measurements.source_derivation_us = d.measurements.derivation_us + d.measurements.graph_us;
         measurements.source_documents_resolved = d.measurements.source_documents;
@@ -4492,43 +4889,83 @@ impl LmdbRecordStore {
         recall::documentary::restrict_acquisition_history(&mut view, &history, &visible);
         drop(txn);
         let started = std::time::Instant::now();
-        let mut entries = Vec::new(); let mut page_groups = Vec::new();
+        let mut entries = Vec::new();
+        let mut page_groups = Vec::new();
         for reference in refs {
-            let mut exact = recall::RecallRequest::integrated(&request.case_id, current.generation,
-                &request.participant_id, "exact semantic group resolution");
+            let mut exact = recall::RecallRequest::integrated(
+                &request.case_id,
+                current.generation,
+                &request.participant_id,
+                "exact semantic group resolution",
+            );
             exact.at = reference.at.clone();
             // Revalidation has its own bounded maximum; the requested incoming
             // page and the unchanged W envelope are checked independently below.
-            exact.bounds.events = 256; exact.bounds.relations = 1024; exact.bounds.segments = 64;
+            exact.bounds.events = 256;
+            exact.bounds.relations = 1024;
+            exact.bounds.segments = 64;
             exact.bounds.semantic_units = 262144;
-            let result = recall::resolve_exact(&view, &disclosure, &history, exact,
-                &reference.members, &d.view).map_err(|e| if e == "recall_required_anchor_unavailable" {
-                    "semantic_reference_unavailable".into() } else { e })?;
-            measurements.candidate_discovery_passes += result.measurements.candidate_discovery_passes;
+            let result = recall::resolve_exact(
+                &view,
+                &disclosure,
+                &history,
+                exact,
+                &reference.members,
+                &d.view,
+            )
+            .map_err(|e| {
+                if e == "recall_required_anchor_unavailable" {
+                    "semantic_reference_unavailable".into()
+                } else {
+                    e
+                }
+            })?;
+            measurements.candidate_discovery_passes +=
+                result.measurements.candidate_discovery_passes;
             measurements.relation_build_us += result.measurements.relation_build_us;
             measurements.groups_revalidated += 1;
             let entry = rehydrated_entry(reference, result.trace, &metadata.origin_recall_id)?;
             if requested.contains(&reference.reference_id) && request.action == PageAction::PageIn {
-                if let SemanticValue::RecalledEvidence { evidence } = &entry.value { page_groups.push((**evidence).clone()); }
+                if let SemanticValue::RecalledEvidence { evidence } = &entry.value {
+                    page_groups.push((**evidence).clone());
+                }
             }
             // Incoming material must fit or refuse. It is not permanently made
             // mandatory: only the original exact task dependencies are protected
             // from later explicit page-out / deterministic optional eviction.
-            entries.push((reference.mandatory_task_dependency || requested.contains(&reference.reference_id), entry));
+            entries.push((
+                reference.mandatory_task_dependency || requested.contains(&reference.reference_id),
+                entry,
+            ));
         }
         measurements.exact_group_resolution_us = started.elapsed().as_micros();
         let started = std::time::Instant::now();
-        let page = SemanticPage::build(request.clone(), metadata.current_control_digest.clone(), page_groups)?;
+        let page = SemanticPage::build(
+            request.clone(),
+            metadata.current_control_digest.clone(),
+            page_groups,
+        )?;
         measurements.page_closure_assembly_us = started.elapsed().as_micros();
         measurements.page_bytes = serde_json::to_vec(&page).map_err(|e| e.to_string())?.len();
         let started = std::time::Instant::now();
         let source = source.with_page_groups(base, &request, &page, entries)?;
         let working_state = source.compile(base.request())?;
         measurements.working_recompilation_us = started.elapsed().as_micros();
-        measurements.working_bytes = serde_json::to_vec(&working_state).map_err(|e| e.to_string())?.len();
-        let after: BTreeSet<_> = working_state.resident_page_references().into_iter().collect();
+        measurements.working_bytes = serde_json::to_vec(&working_state)
+            .map_err(|e| e.to_string())?
+            .len();
+        let after: BTreeSet<_> = working_state
+            .resident_page_references()
+            .into_iter()
+            .collect();
         let evicted_references = resident.difference(&after).cloned().collect();
-        Ok(PageResult { page, working_state, evicted_references, measurements, source })
+        Ok(PageResult {
+            page,
+            working_state,
+            evicted_references,
+            measurements,
+            source,
+        })
     }
 
     fn qualified_historical_view(
@@ -4537,26 +4974,62 @@ impl LmdbRecordStore {
         case_id: &str,
         request: crate::semantic_state::historical::HistoricalRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
-    ) -> Result<(crate::semantic_state::historical::HistoricalSemanticView, String, Vec<Transition>), String> {
+    ) -> Result<
+        (
+            crate::semantic_state::historical::HistoricalSemanticView,
+            String,
+            Vec<Transition>,
+        ),
+        String,
+    > {
         let txn = self.env.begin_ro_txn().map_err(|e| e.to_string())?;
         self.qualified_historical_view_txn(&txn, authenticated, case_id, request, content)
             .map(|(view, scope, history, _)| (view, scope, history))
     }
 
     fn qualified_historical_view_txn<T: Transaction>(
-        &self, txn: &T, authenticated: &AuthenticatedPrincipal, case_id: &str,
+        &self,
+        txn: &T,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
         request: crate::semantic_state::historical::HistoricalRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
-    ) -> Result<(crate::semantic_state::historical::HistoricalSemanticView, String, Vec<Transition>, CaseState), String> {
-        self.qualified_historical_view_for_execution_txn(txn, authenticated, case_id, request, content, None)
+    ) -> Result<
+        (
+            crate::semantic_state::historical::HistoricalSemanticView,
+            String,
+            Vec<Transition>,
+            CaseState,
+        ),
+        String,
+    > {
+        self.qualified_historical_view_for_execution_txn(
+            txn,
+            authenticated,
+            case_id,
+            request,
+            content,
+            None,
+        )
     }
 
     fn qualified_historical_view_for_execution_txn<T: Transaction>(
-        &self, txn: &T, authenticated: &AuthenticatedPrincipal, case_id: &str,
+        &self,
+        txn: &T,
+        authenticated: &AuthenticatedPrincipal,
+        case_id: &str,
         request: crate::semantic_state::historical::HistoricalRequest,
         content: Option<&crate::conversation::ConversationContentStore>,
         execution_selection: Option<&str>,
-    ) -> Result<(crate::semantic_state::historical::HistoricalSemanticView, String, Vec<Transition>, CaseState), String> {
+    ) -> Result<
+        (
+            crate::semantic_state::historical::HistoricalSemanticView,
+            String,
+            Vec<Transition>,
+            CaseState,
+        ),
+        String,
+    > {
         use crate::semantic_state::historical as h;
         let current = self
             .get_case_state_txn(txn, case_id)?
@@ -4581,14 +5054,21 @@ impl LmdbRecordStore {
             // Only the current binding's authenticated owner may disclose the
             // already-admitted model view through this exact canonical selection.
             security.require_owner()?;
-            if request.consumer != "model" || request.view_kind != "model_context"
-                || !current.provider_selections.iter().any(|s|
-                    s.selection_id == selection_id && s.case_id == case_id
-                    && s.tenant_id == tenant && s.participant_id == request.participant_id
-                    && current.provider_binding.as_ref().is_some_and(|b|
-                        b.binding_id == s.binding_id && b.participant_id == s.participant_id
-                        && b.bound_by_principal_id == security.principal_id()
-                        && b.ordered_target_ids.contains(&s.selected_target_id))) {
+            if request.consumer != "model"
+                || request.view_kind != "model_context"
+                || !current.provider_selections.iter().any(|s| {
+                    s.selection_id == selection_id
+                        && s.case_id == case_id
+                        && s.tenant_id == tenant
+                        && s.participant_id == request.participant_id
+                        && current.provider_binding.as_ref().is_some_and(|b| {
+                            b.binding_id == s.binding_id
+                                && b.participant_id == s.participant_id
+                                && b.bound_by_principal_id == security.principal_id()
+                                && b.ordered_target_ids.contains(&s.selected_target_id)
+                        })
+                })
+            {
                 return Err("historical_scope_unavailable".into());
             }
         } else if !linked {
@@ -4687,9 +5167,17 @@ impl LmdbRecordStore {
             floor,
         )?;
         let mut view = if execution_selection.is_some() {
-            h::reconstruct_for_execution(&current, &history, request,
-                normative_then, now, execution_selection)?
-        } else { h::reconstruct(&current, &history, request, normative_then, now)? };
+            h::reconstruct_for_execution(
+                &current,
+                &history,
+                request,
+                normative_then,
+                now,
+                execution_selection,
+            )?
+        } else {
+            h::reconstruct(&current, &history, request, normative_then, now)?
+        };
         // Recorded bindings and Decisions may reference an older policy than
         // the prefix's active binding, even if no Decision used that policy.
         // Resolve exact backing without replacing the recorded evidence.
@@ -4749,14 +5237,31 @@ impl LmdbRecordStore {
         // Resolve their original publication anchor, never today's lifecycle.
         for item in &view.known_by_then {
             if let TransitionPayload::CasePolicyBound { binding }
-                | TransitionPayload::CasePolicyReplaced { binding, .. } = &item.payload {
-                if !view.normative_then.source_closure.iter().any(|s| s.source_ref == binding.publication_event_id) {
-                    let available = self.policy_lifecycle_events_txn(txn, Some(&binding.artifact_id))?.iter().any(|e|
-                        e.event_id == binding.publication_event_id && e.sequence == binding.publication_event_sequence
-                        && e.action == PolicyLifecycleAction::Published && e.tenant_id == current.tenant_id);
+            | TransitionPayload::CasePolicyReplaced { binding, .. } = &item.payload
+            {
+                if !view
+                    .normative_then
+                    .source_closure
+                    .iter()
+                    .any(|s| s.source_ref == binding.publication_event_id)
+                {
+                    let available = self
+                        .policy_lifecycle_events_txn(txn, Some(&binding.artifact_id))?
+                        .iter()
+                        .any(|e| {
+                            e.event_id == binding.publication_event_id
+                                && e.sequence == binding.publication_event_sequence
+                                && e.action == PolicyLifecycleAction::Published
+                                && e.tenant_id == current.tenant_id
+                        });
                     view.normative_then.source_closure.push(h::SourceClosure {
                         source_ref: binding.publication_event_id.clone(),
-                        posture: if available { "exact_binding_publication_anchor" } else { "publication_evidence_unavailable" }.into(),
+                        posture: if available {
+                            "exact_binding_publication_anchor"
+                        } else {
+                            "publication_evidence_unavailable"
+                        }
+                        .into(),
                     });
                 }
             }
@@ -6782,14 +7287,24 @@ impl LmdbRecordStore {
     /// Current Recall/source qualification and Invocation admission share the
     /// write transaction. A cached W is evidence, never an authorization lease.
     pub fn commit_cognitive_invocation_authorized(
-        &self, authenticated: &AuthenticatedPrincipal, pending: PendingTransition,
-        working_id: &str, content: Option<&crate::conversation::ConversationContentStore>,
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        pending: PendingTransition,
+        working_id: &str,
+        content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<CanonicalCommit, String> {
-        self.commit_cognitive_invocation_qualified(pending, working_id, Some(authenticated), content)
+        self.commit_cognitive_invocation_qualified(
+            pending,
+            working_id,
+            Some(authenticated),
+            content,
+        )
     }
 
     fn commit_cognitive_invocation_qualified(
-        &self, pending: PendingTransition, working_id: &str,
+        &self,
+        pending: PendingTransition,
+        working_id: &str,
         authenticated: Option<&AuthenticatedPrincipal>,
         content: Option<&crate::conversation::ConversationContentStore>,
     ) -> Result<CanonicalCommit, String> {
@@ -6819,9 +7334,14 @@ impl LmdbRecordStore {
             .get_case_state_txn(&txn, &pending.case_id)?
             .ok_or("case_not_visible")?;
         let source = if let Some(recall) = working.recall() {
-            let qualified = self.compile_working_state_request_txn(&txn,
+            let qualified = self.compile_working_state_request_txn(
+                &txn,
                 authenticated.ok_or("cognitive_working_state_current_authentication_required")?,
-                recall.request.clone(), content, false, false)?;
+                recall.request.clone(),
+                content,
+                false,
+                false,
+            )?;
             if qualified.working_state != working {
                 return Err("stale_semantic_working_state".into());
             }

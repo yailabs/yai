@@ -1151,6 +1151,7 @@ pub const COGNITIVE_DECISION_REQUEST_SCHEMA: &str = "yai.cognitive_decision_requ
 pub const COGNITIVE_DECISION_OUTPUT_SCHEMA: &str = "yai.cognitive_decision_output.v1";
 pub const COGNITIVE_DECISION_DISTRIBUTION_SCHEMA: &str = "yai.cognitive_decision_distribution.v1";
 pub const COGNITIVE_DECISION_QUALIFICATION_SCHEMA: &str = "yai.cognitive_decision_qualification.v1";
+pub const COGNITIVE_DECISION_PREPARATION_SCHEMA: &str = "yai.cognitive_decision_preparation.v1";
 pub const MAX_DECISION_CANDIDATES: usize = 32;
 pub const MAX_DECISION_REFS_PER_CANDIDATE: usize = 16;
 pub const MAX_DECISION_PRODUCER_EVIDENCE_REFS: usize = 16;
@@ -1261,6 +1262,16 @@ impl CognitiveDecisionRequest {
         candidates: Vec<CognitiveDecisionCandidate>,
         budget: CognitiveDecisionBudget,
     ) -> Result<Self, String> {
+        Self::new_measured(working, decision_kind, candidates, budget).map(|value| value.0)
+    }
+
+    pub(crate) fn new_measured(
+        working: &crate::semantic_state::SemanticWorkingState,
+        decision_kind: impl Into<String>,
+        candidates: Vec<CognitiveDecisionCandidate>,
+        budget: CognitiveDecisionBudget,
+    ) -> Result<(Self, u128, u128), String> {
+        let construction_started = std::time::Instant::now();
         working.validate_refresh_envelope()?;
         budget.validate()?;
         let decision_kind = decision_kind.into();
@@ -1292,6 +1303,8 @@ impl CognitiveDecisionRequest {
         }
         let task_id = working.semantic_task_id()?;
         let participant_id = working.request().scope.participant_id.clone();
+        let construction_us = construction_started.elapsed().as_micros();
+        let identity_started = std::time::Instant::now();
         let identity = CognitiveDecisionRequestIdentity {
             schema: COGNITIVE_DECISION_REQUEST_SCHEMA,
             case_id: working.case_id(),
@@ -1304,7 +1317,7 @@ impl CognitiveDecisionRequest {
             budget: &budget,
         };
         let digest = digest_of(&identity, "cognitive_decision_request_identity")?;
-        Ok(Self {
+        let value = Self {
             schema: COGNITIVE_DECISION_REQUEST_SCHEMA.to_string(),
             request_id: short_identity("cognitive-decision-request", &digest),
             case_id: working.case_id().to_string(),
@@ -1315,7 +1328,9 @@ impl CognitiveDecisionRequest {
             decision_kind,
             candidates,
             budget,
-        })
+        };
+        let identity_us = identity_started.elapsed().as_micros();
+        Ok((value, construction_us, identity_us))
     }
 
     pub fn validate_against(
@@ -1541,8 +1556,16 @@ pub struct CognitiveDecisionDistribution {
 impl CognitiveDecisionDistribution {
     pub fn qualify(
         request: &CognitiveDecisionRequest,
-        mut output: CognitiveDecisionOutput,
+        output: CognitiveDecisionOutput,
     ) -> Result<Self, String> {
+        Self::qualify_measured(request, output).map(|value| value.0)
+    }
+
+    pub(crate) fn qualify_measured(
+        request: &CognitiveDecisionRequest,
+        mut output: CognitiveDecisionOutput,
+    ) -> Result<(Self, u128, u128, u128, usize), String> {
+        let validation_started = std::time::Instant::now();
         if output.schema != COGNITIVE_DECISION_OUTPUT_SCHEMA
             || output.request_id != request.request_id
         {
@@ -1608,11 +1631,16 @@ impl CognitiveDecisionDistribution {
                 return Err("cognitive_decision_uncertainty_value_invalid".to_string());
             }
         }
+        let validation_us = validation_started.elapsed().as_micros();
+        let serialization_started = std::time::Instant::now();
         let encoded = serde_json::to_vec(&output)
             .map_err(|error| format!("cognitive_decision_output_encode_failed: {error}"))?;
-        if encoded.len() > request.budget.max_result_bytes {
+        let output_bytes = encoded.len();
+        if output_bytes > request.budget.max_result_bytes {
             return Err("cognitive_decision_result_budget_exceeded".to_string());
         }
+        let output_serialization_us = serialization_started.elapsed().as_micros();
+        let identity_started = std::time::Instant::now();
         let identity = CognitiveDecisionDistributionIdentity {
             schema: COGNITIVE_DECISION_DISTRIBUTION_SCHEMA,
             request_id: &request.request_id,
@@ -1625,7 +1653,7 @@ impl CognitiveDecisionDistribution {
             uncertainty: &output.uncertainty,
         };
         let digest = digest_of(&identity, "cognitive_decision_distribution_identity")?;
-        Ok(Self {
+        let value = Self {
             schema: COGNITIVE_DECISION_DISTRIBUTION_SCHEMA.to_string(),
             distribution_id: short_identity("cognitive-decision-distribution", &digest),
             request: request.clone(),
@@ -1635,7 +1663,15 @@ impl CognitiveDecisionDistribution {
             score_scale: output.score_scale,
             scores: output.scores,
             uncertainty: output.uncertainty,
-        })
+        };
+        let identity_us = identity_started.elapsed().as_micros();
+        Ok((
+            value,
+            validation_us,
+            identity_us,
+            output_serialization_us,
+            output_bytes,
+        ))
     }
 
     pub fn preferred_candidate_id(&self) -> Result<&str, String> {
@@ -1669,7 +1705,27 @@ pub struct CognitiveDecisionQualification {
     pub schema: String,
     pub distribution: CognitiveDecisionDistribution,
     pub current_requalification_us: u128,
+    #[serde(default)]
+    pub working_state_requalification_us: u128,
+    #[serde(default)]
+    pub source_knowledge_qualification_us: u128,
+    #[serde(default)]
+    pub request_revalidation_us: u128,
+    #[serde(default)]
+    pub distribution_validation_us: u128,
+    #[serde(default)]
+    pub distribution_identity_us: u128,
+    #[serde(default)]
+    pub output_serialization_us: u128,
     pub output_bytes: usize,
+    #[serde(default)]
+    pub qualified_read_transactions: usize,
+    #[serde(default)]
+    pub working_state_recompilations: usize,
+    #[serde(default)]
+    pub recall_reconstructions: usize,
+    #[serde(default)]
+    pub source_knowledge_qualifications: usize,
 }
 
 // The frontier is a derived, model-free input to the Decision Plane. It names
@@ -1961,12 +2017,24 @@ pub struct CognitiveDecisionFrontier {
 }
 
 impl CognitiveDecisionFrontier {
+    #[cfg(test)]
     pub(crate) fn derive(
         request: &CognitiveDecisionFrontierRequest,
         working: &crate::semantic_state::SemanticWorkingState,
-        mut workflow_origins: Vec<CognitiveDecisionCandidateOrigin>,
+        workflow_origins: Vec<CognitiveDecisionCandidateOrigin>,
     ) -> Result<Self, String> {
+        Self::derive_measured(request, working, workflow_origins).map(|value| value.0)
+    }
+
+    pub(crate) fn derive_measured(
+        request: &CognitiveDecisionFrontierRequest,
+        working: &crate::semantic_state::SemanticWorkingState,
+        mut workflow_origins: Vec<CognitiveDecisionCandidateOrigin>,
+    ) -> Result<(Self, u128, u128, u128), String> {
+        let request_validation_started = std::time::Instant::now();
         request.validate_against(working)?;
+        let request_validation_us = request_validation_started.elapsed().as_micros();
+        let construction_started = std::time::Instant::now();
         let mut origins = Vec::new();
         origins.append(&mut workflow_origins);
 
@@ -2075,6 +2143,8 @@ impl CognitiveDecisionFrontier {
                 omitted_count: omitted_optional_candidates,
             }
         };
+        let candidate_construction_us = construction_started.elapsed().as_micros();
+        let identity_started = std::time::Instant::now();
         let identity = CognitiveDecisionFrontierIdentity {
             schema: COGNITIVE_DECISION_FRONTIER_SCHEMA,
             request,
@@ -2087,7 +2157,7 @@ impl CognitiveDecisionFrontier {
             visible_origin_count,
         };
         let digest = digest_of(&identity, "cognitive_decision_frontier_identity")?;
-        Ok(Self {
+        let value = Self {
             schema: COGNITIVE_DECISION_FRONTIER_SCHEMA.to_string(),
             frontier_id: short_identity("cognitive-decision-frontier", &digest),
             request: request.clone(),
@@ -2098,7 +2168,14 @@ impl CognitiveDecisionFrontier {
             optional_candidate_count,
             omitted_optional_candidates,
             visible_origin_count,
-        })
+        };
+        let identity_us = identity_started.elapsed().as_micros();
+        Ok((
+            value,
+            request_validation_us,
+            candidate_construction_us,
+            identity_us,
+        ))
     }
 
     pub fn decision_candidates(&self) -> Vec<CognitiveDecisionCandidate> {
@@ -2119,6 +2196,41 @@ pub struct CognitiveDecisionFrontierQualification {
     pub candidate_generation_us: u128,
     pub origin_count: usize,
     pub output_bytes: usize,
+}
+
+/// Model-free composition result for one decision preparation operation.
+/// It is derived, non-canonical and explicitly not a transferable freshness or
+/// authority token. A producer result still crosses the later current fence.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionPreparation {
+    pub schema: String,
+    pub frontier: CognitiveDecisionFrontier,
+    pub request: CognitiveDecisionRequest,
+    pub measurements: CognitiveDecisionPreparationMeasurements,
+}
+
+/// Counts and timings are outside Frontier/Request semantic identity.
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionPreparationMeasurements {
+    pub qualified_read_transactions: usize,
+    pub working_state_recompilations: usize,
+    pub recall_reconstructions: usize,
+    pub source_knowledge_qualifications: usize,
+    pub candidate_discovery_passes: usize,
+    pub current_authority_qualifications: usize,
+    pub working_state_requalification_us: u128,
+    pub source_knowledge_qualification_us: u128,
+    pub candidate_origin_resolution_us: u128,
+    pub frontier_request_validation_us: u128,
+    pub frontier_candidate_construction_us: u128,
+    pub frontier_identity_us: u128,
+    pub decision_request_construction_us: u128,
+    pub decision_request_identity_us: u128,
+    pub output_serialization_us: u128,
+    pub output_bytes: usize,
+    pub total_us: u128,
 }
 
 #[cfg(test)]

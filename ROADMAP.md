@@ -11,7 +11,7 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source environment, source-grounded domain knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **COGNITIVE.DECISION.FRONTIER.0 — COMPLETE at bounded model-independent typed-origin scope**: current qualified W/task plus current Workflow, task-Resource and W4 exact-reference structure now produces a finite disclosed candidate frontier that composes unchanged with Decision Plane v1. Required candidates never truncate, optional omission is exact, and construction performs no ranking, scoring, model call or effect. No general planner, production scorer, adaptive router, W → E ABI or canonical Decision is implied. |
+| Selected engineering boundary | **COGNITIVE.DECISION.HOT.PATH.0 — COMPLETE at bounded model-free composition scope; next boundary UNSELECTED**. One operation-scoped LMDB snapshot now requalifies W and derives Frontier → DecisionRequest once; a separate full current-W fence remains after producer execution. No cache, authority token, adaptive router, production scorer or W → E ABI is selected. |
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
 | Most important structural gap | Bounded S/Recall → W, exact-group paging, refresh/ordinary consumers, Case-local source reuse and typed candidate-frontier/decision primitives now exist. There is no production decision producer, general next-action planner or adaptive cognitive router; general task sufficiency/source interpretation, cross-Tenant reuse, general causal inference/neighborhood expansion/temporal validity, all-owner refresh acknowledgement and a public W → E consumer remain unqualified. |
 | Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
@@ -553,7 +553,7 @@ ESTABLISHED=32 PARTIAL=31 OPEN=8 LATER=3 TOTAL=74
 | E04 | Explicit finite composition and host intent | 🟢 ESTABLISHED | [I04][i04], [I06][i06]; direct bypass or one explicit speech/image prerequisite; no modality inference. |
 | E05 | Real-provider context fit and setup performance | 🟡 PARTIAL | [Current capacity/prefill checkpoint][external-closure]: first real request fits generation 2 but does not complete within the test wait; no automatic product preflight integration or qualified latency. Small probes prove neither. |
 | E06 | Authorized persistent deliberation and resumable computation | 🔴 OPEN | Finite composition/task/Workflow are footholds, not internal overnight thinking. Need assignment scope/budget/deadline/cancel/result contracts and independently qualified L resume/amnesia; no Agent owner. |
-| E07 | Typed non-generative cognitive decision inference | 🟡 PARTIAL | [Decision Plane v1](tests/characterization/cognitive-decision-plane/test_decision_plane.py) binds current qualified W/task/Participant to 2–32 exact disclosed candidates and qualifies fixed-point raw, normalized or evidence-bound calibrated score semantics without creating a canonical Decision, Transition or effect. [Frontier v1](tests/characterization/cognitive-decision-frontier/test_frontier.py) now constructs that set deterministically from exact ready/resolvable Workflow, task-Resource and deferred W4 origins, with required-first bounds and explicit optional omission. The deterministic score producer remains test-only; no general candidate planner, production scorer, calibration corpus, adaptive router, YVEX Decision Core or W → E path is qualified. |
+| E07 | Typed non-generative cognitive decision inference | 🟡 PARTIAL | [Decision Plane v1](tests/characterization/cognitive-decision-plane/test_decision_plane.py) binds current qualified W/task/Participant to 2–32 exact disclosed candidates and qualifies fixed-point raw, normalized or evidence-bound calibrated score semantics without creating a canonical Decision, Transition or effect. [Frontier v1](tests/characterization/cognitive-decision-frontier/test_frontier.py) constructs that set deterministically from exact ready/resolvable Workflow, task-Resource and deferred W4 origins, with required-first bounds and explicit optional omission. The [qualified hot path](tests/characterization/cognitive-decision-hot-path/test_hot_path.py) composes W requalification, Frontier and Request inside one current read basis, reducing a complete model-free step from 12 to 2 read transactions and from six to two Recall/W/source qualifications while preserving the independent post-producer fence. The deterministic score producer remains test-only; no general candidate planner, production scorer, calibration corpus, adaptive router, YVEX Decision Core or W → E path is qualified. |
 
 ### Operational resources and external effects
 
@@ -878,7 +878,9 @@ Independent external/provider qualification tracks remain visible below; they
 are not additional selected implementation rows. Success never automatically
 authorizes the next experiment.
 
-Selected implementation boundary: **COGNITIVE.DECISION.FRONTIER.0 — COMPLETE at bounded model-independent typed-origin scope**.
+Selected implementation boundary: **COGNITIVE.DECISION.HOT.PATH.0 — COMPLETE at bounded model-free composition and measurement scope**.
+COGNITIVE.DECISION.FRONTIER.0 remains COMPLETE at bounded model-independent
+typed-origin scope.
 COGNITIVE.DECISION.PLANE.0 remains COMPLETE at bounded model-independent
 semantic scope.
 TEMPORAL.CAUSAL.RECALL.RELATION.CLOSURE.0 remains COMPLETE at bounded exact
@@ -904,7 +906,7 @@ Next implementation boundary: **UNSELECTED**.
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| COGNITIVE.DECISION.FRONTIER.0 | COMPLETE | E C A Q W O | `CognitiveDecisionFrontier v1` reconstructs 2–32 exact candidates from current qualified W/task plus ready/resolvable Workflow, resident task-Resource and deferred W4-reference origins. Candidate membership/origin closure is deterministic and order-independent; required overflow refuses and optional omission is explicit. It composes unchanged with `CognitiveDecisionRequest v1` and creates no ranking, score, model/provider call, Transition, Operation or effect. |
+| COGNITIVE.DECISION.HOT.PATH.0 | COMPLETE | E C A Q W O | One operation-scoped current LMDB read basis requalifies W and constructs Frontier plus `CognitiveDecisionRequest v1` once. The full post-producer current-W fence remains separate and catches same-generation authority/source/backing change. The bounded fixture measures 12→2 read transactions, 6→2 Recall/W/source qualifications and 2→1 frontier-discovery passes for one complete model-free step; no cache, authority lease, model/provider call, Transition or effect is introduced. |
 <!-- execution:end -->
 
 **Primary programs: E / C / A / Q, with K / S / M preserving canonical, semantic and derived identity semantics.**
@@ -978,6 +980,18 @@ UNSELECTED**. `yai-dev` archaeology found a hard-coded string next-action helper
 later drained into orchestrator planning. Its Agent/planner ownership and fixed
 priority suggestions remain rejected; only the principle that explicit
 alternatives never authorize consequences is retained.
+
+**COGNITIVE.DECISION.HOT.PATH.0 INTERLOCK CHECK:** the optimization composes
+existing YAI W, Workflow, Frontier and Decision Plane owners inside one private
+operation-scoped read snapshot. That snapshot is neither serialized nor usable
+as authority; producer output still crosses a new full current-W qualification
+that detects same-generation policy, disclosure, source, backing and candidate-
+origin change. No scorer, YVEX adapter, StateProfile, W → E contract, dependency
+pin, BOUNDARY registration or cache is introduced; **I07 remains UNSELECTED**.
+Legacy `yai-dev` active Decision snapshots were re-inspected and remain rejected
+as freshness witnesses: they classify durable canonical Decision lifecycle and
+explicitly do not persist, append receipts or mutate outcome. Their valid
+projection-versus-authority separation is preserved by the transient basis.
 
 The bounded semantic producer now has Recall-aware compilation, exact paging,
 same-task current requalification and a derived active-consumer lifecycle. No
@@ -1111,6 +1125,7 @@ RECALL.TRACE.0                         (published bounded primitive)
   → TEMPORAL.CAUSAL.RECALL.RELATION.CLOSURE.0 (completed exact relation-oracle correction)
   → COGNITIVE.DECISION.PLANE.0          (completed bounded semantic primitive)
   → COGNITIVE.DECISION.FRONTIER.0       (completed bounded typed candidate construction)
+  → COGNITIVE.DECISION.HOT.PATH.0       (completed bounded qualified composition)
   → public YAI ↔ YVEX cognitive-state boundary (UNSELECTED; producer not ready)
   → State Read / Update and later computational research
 ```
@@ -1142,6 +1157,7 @@ source bootstrap and knowledge derivation do not themselves own Recall or W.
 | Now | Bounded active-consumer semantic refresh | Exact Conversation/Workflow lineage plus typed admitted-change pressure coalesces into one existing current refresh and a fresh/replacement-required/invalidated result. Lazy explicit notification; no daemon, provider call, canonical W owner or replacement for Invocation admission |
 | Now | Bounded model-independent Cognitive Decision Plane | A current qualified W/task and 2–32 exact disclosed candidates produce a request identity and a non-authoritative distribution with mechanically honest raw/relative/calibrated score posture. The only producer is a deterministic fixture; production readout, calibration and adaptive routing remain unselected |
 | Now | Bounded model-independent Cognitive Decision Frontier | Current qualified W/task plus exact ready/resolvable Workflow, resident task-Resource and deferred W4-reference origins produce 2–32 order-independent candidates. Mandatory overflow refuses and optional omission is exact. No prose inference, score, execution, general planner or speedup claim |
+| Now | Bounded measured Cognitive Decision hot path | One current read basis derives W-qualified Frontier and Request; a separate post-producer full fence remains authoritative. The retained model-free fixture measures preparation, producer and final qualification independently plus 1/10/100-step counts. Unrelated changes invalidate conservatively because dependency-local irrelevance is not yet proven; no latency SLA or production-readout speedup is claimed |
 | Near / Mid | Broader refresh acknowledgement / demand expansion | No automatic selection. General historical validity, all-owner notification, remote acknowledgement and safe removal remain pressure; learned navigation is optional |
 | Near / Mid | Public W_t → E_t boundary and first persistent State Read consumer | Scoped compilation/refresh plus truthful public capability and actual consumer; a qualified training-free KV/prefix bridge is admissible |
 | Mid | Cross-model W_t/E_t recompilation, trajectory evaluation and admission of explicit P_t | Reconstruction/invalidation and independent full/delta oracles; E_t updates need not emit P_t |

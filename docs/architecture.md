@@ -150,6 +150,17 @@ unchanged admission/effect owners remain final. Both Frontier and distribution
 are reconstructible derived application/domain contracts, not canonical Case
 state or a YAI↔YVEX wire ABI.
 
+The bounded preparation hot path composes current-W requalification, typed
+Workflow-origin resolution, Frontier construction and `CognitiveDecisionRequest
+v1` inside one operation-scoped LMDB read snapshot. The private qualified basis
+never leaves the store boundary, is not serialized and is not an authority
+lease. Producer execution is a temporal boundary, so distribution qualification
+still opens a separate current snapshot and fully requalifies W, Recall,
+disclosure and source/backing truth. This removes repeated composition work
+without weakening same-generation revoke detection; unrelated intervening Case
+changes remain conservatively invalidating when existing owners cannot prove
+dependency-local irrelevance.
+
 I06 makes ConversationController the application consumer of that stack.
 Normal SEND binds PrimaryConversation because the action is conversational;
 media never implies SpeechToText or ImageUnderstanding. An optional explicit
