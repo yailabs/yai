@@ -2,19 +2,21 @@
 
 Authority: asset provenance and usage only, not architecture or project status.
 
-These are unchanged owner-supplied exports. Keep the full master/export kit
-outside the source repository; only the public assets used by the README and
-organization profile live here. No regeneration, recoloring, cropping or
-resampling was performed.
+These are exact exports from the operator-supplied YAI brand kit. Keep the full
+master/export kit outside the source repository; only the public assets used by
+the README and organization profile live here. No regeneration, recoloring,
+cropping or resampling was performed.
 
 | Repository file | Source filename | Use |
 | --- | --- | --- |
-| [yai-readme-logo.png](yai-readme-logo.png) | `ChatGPT Image Sep 19, 2026, 09_40_03 PM (1).png` | Current white YAI mark on black for the root README; 1448 × 1086 |
-| [yai-organization-512.png](yai-organization-512.png) | `organization-yai-512.png` | Transparent square eye for the organization avatar; 512 × 512 |
+| [yai-readme-horizontal-dark.png](yai-readme-horizontal-dark.png) | `06-github/assets/yai-readme-horizontal-dark.png` | White horizontal mark for dark GitHub themes; 1280 × 360 |
+| [yai-readme-horizontal-light.png](yai-readme-horizontal-light.png) | `06-github/assets/yai-readme-horizontal-light.png` | Black horizontal mark for light GitHub themes; 1280 × 360 |
+| [yai-organization-512.png](yai-organization-512.png) | `00-pronti/avatar-yai-512.png` | Black-backed YAI avatar for the organization profile; 512 × 512 |
 
-The root README renders the current logo at width 520 with its original aspect
-ratio. Preserve the intentional image and avatar padding. YAI's identity is
-distinct from YVEX's identity.
+The root README selects the approved dark/light export from the viewer's color
+scheme and renders it at width 640 with its original aspect ratio. Preserve the
+intentional image and avatar padding. YAI's identity is distinct from YVEX's
+identity.
 
 Verify the imported bytes from this directory:
 
