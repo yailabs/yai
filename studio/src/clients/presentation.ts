@@ -43,6 +43,25 @@ export type MaterialBody =
       after: string;
       lines: readonly { text: string; change?: "add" | "remove" }[];
     }
+  | {
+      kind: "image";
+      source: string;
+      alt: string;
+      width: number;
+      height: number;
+      caption?: string;
+    }
+  | {
+      kind: "pdf";
+      pageCount?: number;
+      source?: string;
+      unavailableReason?: string;
+    }
+  | {
+      kind: "table";
+      columns: readonly { key: string; label: string }[];
+      rows: readonly { id: string; values: Readonly<Record<string, string>> }[];
+    }
   | { kind: "work"; title: string; description: string }
   | { kind: "provider"; title: string };
 export interface MaterialView {
@@ -51,6 +70,7 @@ export interface MaterialView {
   path: string;
   category: "source" | "artifact" | "work" | "provider";
   format: string;
+  mediaType: string;
   provenance: string;
   changed?: boolean;
   body: MaterialBody;

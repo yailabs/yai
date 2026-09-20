@@ -504,7 +504,7 @@ CURRENT: one Kernel owns stable regions and layout services:
 Workbench Kernel
 ├── Activity Bar and registered View Containers
 ├── Sidebar and Views
-├── Editor Groups, Editor Inputs and Tabs
+├── Surface Groups, Surface Inputs and Tabs
 ├── Bottom Panel
 ├── Auxiliary / Context Bar
 ├── Inspector Host
@@ -513,21 +513,107 @@ Workbench Kernel
 ```
 
 The Kernel does not know the semantics of Memory, Knowledge, Authority, Work or
-providers. It renders registered internal contributions. One visible Editor
+providers. It renders registered internal contributions. One visible Surface
 Group currently owns inputs, active selection, preview reuse, pinning, close and
 previous/next behavior; the model does not preclude later groups, while split
-interaction remains OPEN. Editor inputs let the
-central work surface host files, documents, artifacts, graphs, timelines,
-Settings, provider detail and future Computer surfaces without an ever-growing
-feature type switch. Panel and auxiliary views use the same rule.
+interaction remains OPEN. A Surface Input identifies presentation/navigation
+state, while a registered trusted renderer owns its representation. The Kernel
+therefore hosts files, documents, artifacts, graphs, timelines, Settings,
+provider detail and future Computer surfaces without an ever-growing feature
+switch. Panel and auxiliary views use the same rule.
+
+### Universal Work Surface
+
+The central Workbench region is a **Work Surface**, not a code editor. An editor
+is one possible renderer. No Workbench primitive assumes that its primary input
+is a text file, source file or document.
+
+```text
+Case object / Artifact / Projection / Tool
+                  │
+                  ▼
+             Surface Input
+                  │
+                  ▼
+            Surface Registry
+                  │
+                  ▼
+          trusted Surface Renderer
+                  │
+                  ▼
+             Surface Group
+                  │
+                  ▼
+              Work Surface
+```
+
+CURRENT: perspective, Markdown, text, image, PDF, structured table, timeline,
+graph and Settings renderers use the same Surface Group and tab mechanics.
+Qualified media types select material renderers; random React components do not
+infer representation from filename extensions. The PDF foothold renders a
+qualified source when one exists and otherwise states that content is
+unavailable. Surface capabilities such as read, select, navigate or zoom
+describe UI interaction only and never grant YAI authority.
+
+TARGET: trusted reusable data surfaces include Table, Calendar, Form, Board,
+Chart, Timeline, Graph, Gallery and Detail/Object. Audio, video, databases,
+provider tools and Computer surfaces can add trusted renderer types without a
+Kernel change. A Surface is a representation, not the underlying object: a PDF
+artifact can open in a PDF Surface, appointment facts in a Calendar Surface and
+qualified relations in a Graph Surface while YAI retains truth and authority.
+
+Editable surface gestures follow one admission path:
+
+```text
+Surface gesture
+      ↓
+typed application action
+      ↓
+YAI authority / validation
+      ↓
+Case mutation and/or governed effect
+      ↓
+result and refreshed projection
+```
+
+React state alone never commits a business mutation.
+
+### Declarative Case Views — target
+
+A future Case may define a trusted view through supported Surface primitives.
+For example, call transcripts could become admitted source/events, then
+classified appointment candidates, authority-confirmed appointment facts and a
+Calendar Surface that operators use directly. A conceptual `Appointments` view
+might name a calendar surface, a qualified appointment projection and mappings
+for start, end, label and operator. This selects a product property, not a
+schema, syntax, persistence owner or currently implemented Calendar system.
+
+There are two distinct extension classes. **Built-in Workbench Contributions**
+are statically authored YaiLabs code for deep capabilities such as Memory,
+Knowledge, Authority, Terminal, YVEX and Computer Use; they may register new
+trusted renderers. **Declarative Case Views** compose renderers already trusted
+by Studio and do not execute arbitrary code. Natural-language composition
+normally proposes a declarative view for YAI validation/admission rather than
+executing model-generated React or JavaScript inside Studio. A future shared,
+persistent Case View needs a qualified YAI-owned persistence and admission
+contract; no frontend View store is selected here.
+
+Tab selection, calendar zoom, graph positions, scroll, column widths and
+temporary filters remain frontend-local. Desktop composes Surfaces inside its
+Activity Bar, Sidebar, Work Surface, Auxiliary Bar and Panel. A future mobile
+client may present the same Calendar, Participant or Workflow surface semantics
+full-screen in a mobile composition; the desktop Workbench layout itself is not
+portable product truth. Surface selection reports meaningful typed selection to
+the shared Inspector/navigation seam rather than creating private navigation
+stacks.
 
 ### Internal built-in contributions
 
 Overview, Participants, Environment, Knowledge, Memory, Authority, Work,
 Compute, Conversation, Terminal, Settings and future YVEX management are
 YaiLabs-authored built-in contributions. A contribution may register commands,
-context keys, menu placements, view containers/views, editor inputs, inspectors,
-settings and justified status items. It does not modify Workbench regions
+context keys, menu placements, view containers/views, Surface Inputs and
+renderers, inspectors, settings and justified status items. It does not modify Workbench regions
 directly.
 
 Studio is contribution-driven internally, not an externally extensible plugin
@@ -537,7 +623,7 @@ it isolates features from layout, centralizes commands/menus/keyboard behavior,
 keeps generated code and coding-agent work on stable seams, and prevents ad hoc
 controls from fragmenting the product.
 
-Menu locations are themselves Workbench surfaces: application, editor context,
+Menu locations are themselves Workbench surfaces: application, surface context,
 tree context, graph node/edge context, Inspector context and terminal context.
 The application menu consumes the scoped command and menu services now. The
 other locations are accepted internal locations but remain unpopulated until a
@@ -566,7 +652,7 @@ expose provenance/backing and navigate to both endpoints. Inspector is the
 bridge; it need not be the final destination. Local Back/Forward preserves these
 transitions without modifying Case history.
 
-Settings is one editor surface with internal navigation and history. Its target
+Settings is one singleton Surface with internal navigation and history. Its target
 sections are General, Appearance, YAI Host, Workbench, Terminal, Providers,
 YVEX, Security and Advanced. Opening a section does not create another Settings
 tab.
@@ -650,7 +736,7 @@ roles.
 | Cognitive State | S/W, future E identity/compatibility/capability | YAI semantic compilation; YVEX computational E |
 | Providers | Common discovery/connection/qualification experience | Generic YAI provider boundary |
 | YVEX | Additional native product management capabilities | Future public YVEX management contract |
-| Editor / work surface | Composition, Case/source artifacts and editable derived views | Explicit save/admission through existing or future YAI contracts; no silent source rewriting |
+| Work Surface | Trusted representations of Case objects, artifacts, projections and tools | Explicit save/admission through existing or future YAI contracts; no silent source rewriting |
 | Computer surface | Targets, frames, observations/actions and receipts | Future governed Computer Use capability |
 | Bottom Panel | Logs, evidence, tests, execution/output tools | Presentation of facts from responsible owners |
 | Terminal | Real shell/REPL/tool processes | Qualified desktop-local xterm + portable-pty mechanics; Case-attached handoff remains future work |
@@ -661,7 +747,7 @@ roles.
 |---|---|---|
 | Active tab, viewed file, layout, panels, scroll, graph positions | Yes | Selection does not change authority or scope |
 | Selected terminal, window size and keyboard preferences | Yes | Native host owns real process/FD facts |
-| Unsubmitted text, local draft, editor selection | Yes | Explicit SEND/save uses YAI admission; no implicit Turn |
+| Unsubmitted text, local draft, surface selection | Yes | Explicit SEND/save uses YAI admission; no implicit Turn |
 | Existing persisted Advanced application draft | Only a local edit buffer/view | Existing Case-namespaced draft owner; draft is still not committed history |
 | Selected Case/Participant/Thread | Local attachment selection/reference | YAI resolves identity, access and committed Thread facts |
 | Case lifecycle, historical/current truth | No | Committed history and qualified CaseState/readers |
@@ -706,7 +792,7 @@ requirement to create empty noun directories.
 The desktop workbench adopts the structural seams needed by an extensible IDE:
 UI commands are registered independently from menu placement and keyboard
 bindings; Activity Bar items select view containers; the primary sidebar,
-editor/work tabs, auxiliary context panel, bottom panel and desktop chrome have
+Surface tabs, auxiliary context panel, bottom panel and desktop chrome have
 stable responsibilities; and visual roles use shared semantic tokens. This is
 frontend-local contribution plumbing, not a YAI operation registry and not a
 plugin host. Future YaiLabs-authored built-in contributions use these seams

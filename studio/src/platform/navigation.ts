@@ -1,7 +1,7 @@
 export interface NavigationLocation {
   caseRef: string;
   view: string;
-  editorId: string;
+  surfaceId: string;
   selection?: string;
   auxiliary?: string;
 }

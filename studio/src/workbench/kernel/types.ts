@@ -1,11 +1,11 @@
 import type { ComponentType } from "react";
 import type { CasePresentation } from "../../clients/dataSource";
 import type { IconName } from "../../components/Icon";
-import type { EditorInput } from "../editor/model";
+import type { SurfaceCapability, SurfaceInput } from "../surface/model";
 
 export interface WorkbenchActions {
   inspect(id: string): void;
-  openMaterial(id: string, label: string, pinned?: boolean): void;
+  openSurface(input: SurfaceInput): void;
   openPerspective(id: string): void;
   openSettings(): void;
 }
@@ -21,6 +21,7 @@ export interface ViewContainerContribution {
   title: string;
   icon: IconName;
   order: number;
+  surface: SurfaceInput;
 }
 
 export interface SidebarViewProps extends WorkbenchRenderContext {
@@ -35,13 +36,14 @@ export interface SidebarViewContribution {
   component: ComponentType<SidebarViewProps>;
 }
 
-export interface EditorRendererProps extends WorkbenchRenderContext {
-  input: EditorInput;
+export interface SurfaceRendererProps extends WorkbenchRenderContext {
+  input: SurfaceInput;
 }
 
-export interface EditorContribution {
-  type: EditorInput["type"];
-  component: ComponentType<EditorRendererProps>;
+export interface SurfaceRendererContribution {
+  type: string;
+  capabilities: readonly SurfaceCapability[];
+  component: ComponentType<SurfaceRendererProps>;
 }
 
 export interface PanelViewProps extends WorkbenchRenderContext {

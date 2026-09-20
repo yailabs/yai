@@ -171,13 +171,14 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .live-splitter:hover { background: var(--yai-accent); }
 
 .live-center { min-width: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.live-tabs { height: 35px; flex: 0 0 35px; display: flex; align-items: stretch; gap: 0; padding: 0; overflow-x: auto; background: var(--yai-panel); box-shadow: inset 0 -1px var(--yai-divider); scrollbar-width: none; }
-.live-tabs > button { position: relative; height: 35px; min-width: 104px; max-width: 210px; padding: 0 7px 0 10px; display: flex; align-items: center; gap: 7px; border: 0; border-right: 1px solid var(--yai-divider); border-radius: 0; background: transparent; color: var(--yai-text-muted); font-size: 13px; cursor: pointer; }
-.live-tabs > button[aria-selected=true] { background: var(--yai-canvas); color: var(--yai-text); }
-.live-tabs > button[aria-selected=true]::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--yai-accent); }
-.live-tabs i { margin-left: auto; font-size: 11px; color: var(--yai-text-muted); font-style: normal; }
-.live-tabs [role=button] { margin-left: auto; padding: 2px 4px; border-radius: 4px; }
-.live-tabs [role=button]:hover { background: var(--yai-floating); }
+.surface-tabs { height: 35px; flex: 0 0 35px; display: flex; align-items: stretch; gap: 0; padding: 0; overflow-x: auto; background: var(--yai-panel); box-shadow: inset 0 -1px var(--yai-divider); scrollbar-width: none; }
+.surface-tabs > button { position: relative; height: 35px; min-width: 104px; max-width: 210px; padding: 0 7px 0 10px; display: flex; align-items: center; gap: 7px; border: 0; border-right: 1px solid var(--yai-divider); border-radius: 0; background: transparent; color: var(--yai-text-muted); font-size: 13px; cursor: pointer; white-space: nowrap; }
+.surface-tabs > button[aria-selected=true] { background: var(--yai-canvas); color: var(--yai-text); }
+.surface-tabs > button[aria-selected=true]::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--yai-accent); }
+.surface-tabs i { margin-left: auto; font-size: 11px; color: var(--yai-text-muted); font-style: normal; }
+.surface-tab-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.surface-tabs [role=button] { margin-left: auto; padding: 2px 4px; border-radius: 4px; }
+.surface-tabs [role=button]:hover { background: var(--yai-floating); }
 .live-surface { min-height: 0; flex: 1; overflow: auto; background: var(--yai-canvas); }
 .live-page { max-width: 1120px; min-height: 100%; padding: 34px clamp(28px,4.2vw,68px) 70px; }
 .settings-surface { min-height: 100%; display: grid; grid-template-columns: 220px minmax(0,760px); gap: 42px; padding: 38px clamp(28px,4.2vw,68px) 70px; }
@@ -203,6 +204,31 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .material-document { padding: 26px clamp(20px,4vw,54px); border-radius: var(--radius-surface); background: var(--yai-inset); color: var(--yai-text-secondary); }
 .material-document .body { margin: 0 0 12px; font-size: 13px; line-height: 1.65; white-space: pre-wrap; }
 .material-document .heading { margin: 26px 0 10px; color: var(--yai-text); font-size: 17px; font-weight: 620; }
+.material-header span { color: var(--yai-text-muted); font-size: 12px; }
+.material-header h1 { margin: 7px 0 8px; font-size: 25px; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.material-header p { margin: 0; color: var(--yai-text-secondary); font-size: 12px; }
+.surface-toolbar { margin: 22px 0 12px; display: flex; align-items: center; gap: 10px; }
+.image-stage { width: 100%; min-height: 380px; padding: 20px; overflow: auto; display: grid; place-items: center; border: 0; border-radius: var(--radius-surface); background: var(--yai-inset); cursor: zoom-in; }
+.image-stage img { display: block; background: #101216; }
+.image-stage.fit img { max-width: 100%; max-height: 62vh; width: auto; height: auto; object-fit: contain; }
+.image-stage.natural { place-items: start center; cursor: zoom-out; }
+.image-stage.natural img { max-width: none; }
+.surface-caption { color: var(--yai-text-muted); font-size: 12px; line-height: 1.5; }
+.pdf-surface object { width: 100%; min-height: 620px; margin-top: 22px; border: 0; border-radius: var(--radius-surface); background: var(--yai-inset); }
+.text-surface-content { margin: 24px 0 0; padding: 22px; overflow: auto; border-radius: var(--radius-surface); background: var(--yai-inset); color: var(--yai-text-secondary); font: 12px/1.6 ui-monospace, monospace; white-space: pre; }
+.table-scroll { margin-top: 24px; overflow: auto; border-radius: var(--radius-surface); background: var(--yai-panel); }
+.table-surface table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table-surface th { padding: 10px 14px; background: var(--yai-inset); color: var(--yai-text-muted); font-size: 11px; font-weight: 600; text-align: left; }
+.table-surface td { padding: 11px 14px; color: var(--yai-text-secondary); box-shadow: inset 0 1px var(--yai-divider); }
+.table-surface tbody tr { cursor: pointer; }
+.table-surface tbody tr:hover, .table-surface tbody tr:focus-visible { background: var(--yai-raised); outline: none; }
+.surface-launch { margin: 0 0 18px; padding: 14px 16px; display: flex; align-items: center; gap: 13px; border-radius: var(--radius-surface); background: var(--yai-panel); }
+.surface-launch > span { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.surface-launch small, .surface-launch-grid small { color: var(--yai-text-muted); font-size: 11px; }
+.surface-launch-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.surface-launch-grid > button { min-height: 112px; padding: 18px; display: flex; align-items: flex-start; gap: 13px; border: 0; border-radius: var(--radius-surface); background: var(--yai-panel); color: var(--yai-text); text-align: left; cursor: pointer; }
+.surface-launch-grid > button:hover { background: var(--yai-raised); }
+.surface-launch-grid > button span { display: flex; flex-direction: column; gap: 5px; }
 .surface-title { max-width: 760px; margin-bottom: 32px; }
 .surface-title small { color: var(--yai-text-muted); font-size: 11px; }
 .surface-title h1 { margin: 7px 0 8px; font-size: 27px; line-height: 1.15; letter-spacing: -.025em; }

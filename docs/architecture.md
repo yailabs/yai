@@ -206,7 +206,7 @@ facts. An authorized generation heartbeat closes missed-delivery gaps and gives
 LiveClient an explicit resync signal. LiveClient then refetches `case.summary`; private Transitions never cross
 the renderer boundary. Local navigation, layout, graph positions and tabs remain
 frontend state. One contribution-driven Workbench Kernel owns Activity Bar,
-Sidebar, Editor Group/tabs, bottom Panel, Auxiliary Bar, Inspector host, layout
+Sidebar, Surface Group/tabs, bottom Panel, Auxiliary Bar, Inspector host, layout
 and chrome for both live and fixture Case presentation sources. Scoped frontend
 Platform services own commands, context keys, menu placement, keybindings,
 configuration, navigation, theme and lifecycle. Host capabilities are a separate
@@ -214,6 +214,15 @@ axis: the same Terminal contribution receives a real PTY in Tauri for live or
 fixture data and reports explicit unavailability in a browser. Explicit fixture
 builds retain the authored Start Center, composer and three scenarios for
 deterministic visual regression, with no live failure fallback.
+
+The central region is currently a universal Work Surface. `SurfaceInput` holds
+frontend navigation/presentation identity; `SurfaceGroupService` owns preview,
+pinning, activation and close; built-in contributions register trusted
+renderers. Perspective, Markdown/text, image, PDF, structured table, timeline,
+graph and Settings inputs therefore share one group without a product-specific
+Kernel switch. Material selection is driven by qualified media type. PDF or
+other content without qualified bytes renders explicit unavailability. These
+mechanics own no object, View persistence, mutation authority or Case meaning.
 
 The native desktop build is separate from core/CLI validation and remains a
 bounded single-host client. It does not qualify remote transport, general event

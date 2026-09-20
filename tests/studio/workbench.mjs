@@ -56,23 +56,34 @@ try {
   await page.locator("[data-view-container='Environment']").waitFor();
   report("Registered View Container selection changes registered Sidebar content");
 
-  const materialRows = page.locator("[data-view-container='Environment'] .sidebar-group button");
-  if (await materialRows.count() < 2) throw new Error("fixture Environment did not expose material rows");
-  await materialRows.nth(0).click();
-  await page.locator(".live-tabs i", { hasText: "Preview" }).waitFor();
-  const firstPreviewTitle = await page.locator(".live-tabs button[aria-selected='true']").innerText();
-  await materialRows.nth(1).click();
-  const previews = page.locator(".live-tabs i", { hasText: "Preview" });
-  if (await previews.count() !== 1) throw new Error("preview editor was not reused");
-  const secondPreviewTitle = await page.locator(".live-tabs button[aria-selected='true']").innerText();
-  if (firstPreviewTitle === secondPreviewTitle) throw new Error("preview editor did not change resource");
-  await page.locator(".live-tabs button[aria-selected='true']").dblclick();
+  const environmentSidebar = page.locator("[data-view-container='Environment']");
+  await environmentSidebar.getByRole("button", { name: /result_reuse\.test/ }).click();
+  await page.locator("[data-surface-type='material.text']").waitFor();
+  await page.locator(".surface-tabs i", { hasText: "Preview" }).waitFor();
+  const firstPreviewTitle = await page.locator(".surface-tabs button[aria-selected='true']").innerText();
+  await environmentSidebar.getByRole("button", { name: /runtime-boundary\.svg/ }).click();
+  await page.locator("[data-surface-type='material.image'] img").waitFor();
+  const previews = page.locator(".surface-tabs i", { hasText: "Preview" });
+  if (await previews.count() !== 1) throw new Error("preview Surface was not reused");
+  const secondPreviewTitle = await page.locator(".surface-tabs button[aria-selected='true']").innerText();
+  if (firstPreviewTitle === secondPreviewTitle) throw new Error("preview Surface did not change representation");
+  await screenshot("fixture-image-surface");
+  await page.locator(".surface-tabs button[aria-selected='true']").dblclick();
   if (await previews.count()) throw new Error("double click did not pin preview input");
-  report("Editor Group reuses preview input and pins it explicitly");
+  await environmentSidebar.getByRole("button", { name: /qualification-matrix/ }).click();
+  await page.locator("[data-surface-type='data.table'] table").waitFor();
+  await page.getByRole("row", { name: /Result reuse/ }).click();
+  await page.getByRole("heading", { name: "matrix:reuse" }).waitFor();
+  await screenshot("fixture-table-surface");
+  await environmentSidebar.getByRole("button", { name: /runtime-contract\.pdf/ }).click();
+  await page.locator("[data-surface-type='material.pdf']").waitFor();
+  await page.getByText("PDF content unavailable").waitFor();
+  await screenshot("fixture-pdf-unavailable-surface");
+  report("Surface Group applies one preview/pin/tab model across text, image, table and PDF renderers");
 
   await page.locator(".live-rail button[aria-label='Memory']").click();
   await page.getByRole("heading", { name: "Memory" }).waitFor();
-  await page.getByRole("button", { name: "Graph" }).click();
+  await page.locator("[data-view-container='Memory']").getByRole("button", { name: /Experience Graph/ }).click();
   await page.locator(".graph-viewport").waitFor();
   await screenshot("fixture-memory-graph");
 
@@ -102,13 +113,16 @@ try {
   await page.getByRole("button", { name: "YAI", exact: true }).click();
   await page.getByRole("menuitem", { name: /Settings/ }).click();
   await page.getByRole("heading", { name: "Settings" }).waitFor();
-  if (await page.locator(".live-tabs button", { hasText: "Settings" }).count() !== 1) throw new Error("Settings is not singleton");
-  report("Settings resolves through registered singleton editor contribution");
+  if (await page.locator(".surface-tabs button", { hasText: "Settings" }).count() !== 1) throw new Error("Settings is not singleton");
+  report("Settings resolves through the registered singleton Surface contribution");
 
   await page.goto(`${base}/?fixture=ordinary`, { waitUntil: "networkidle" });
   await page.locator(".workbench-kernel[data-case-source='fixture'][data-host='web']").waitFor();
+  await page.locator(".live-rail button[aria-label='Environment']").click();
+  await page.locator("[data-view-container='Environment']").getByRole("button", { name: /client-notes\.md/ }).click();
+  await page.locator("[data-surface-type='material.markdown']").waitFor();
   await screenshot("fixture-ordinary-same-kernel");
-  report("Distinct FixtureClient Cases use the same Workbench Kernel");
+  report("Distinct FixtureClient Cases use the same Workbench and Markdown Surface renderer");
 
   await page.goto(`${base}/?fixture=missing`, { waitUntil: "networkidle" });
   await page.getByRole("heading", { name: "Local YAI unavailable" }).waitFor();

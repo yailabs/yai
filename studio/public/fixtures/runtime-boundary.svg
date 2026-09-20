@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title description">
+  <title id="title">YAI Case runtime boundary</title>
+  <desc id="description">A deterministic fixture diagram showing Case continuity, application views, participants, sources and governed work.</desc>
+  <rect width="1200" height="720" fill="#101216"/>
+  <g fill="none" stroke="#343a44" stroke-width="2">
+    <path d="M600 196V286M600 382V472"/>
+    <path d="M600 334H280V472M600 334H920V472"/>
+  </g>
+  <g font-family="system-ui, sans-serif" text-anchor="middle">
+    <rect x="420" y="92" width="360" height="104" rx="16" fill="#20242b"/>
+    <text x="600" y="136" fill="#f2f4f7" font-size="28" font-weight="650">Case continuity</text>
+    <text x="600" y="168" fill="#9ba3ae" font-size="16">durable YAI application truth</text>
+    <rect x="420" y="286" width="360" height="96" rx="16" fill="#182d2b"/>
+    <text x="600" y="326" fill="#d9f3ec" font-size="24" font-weight="620">Qualified application views</text>
+    <text x="600" y="356" fill="#87afa5" font-size="15">typed projections and actions</text>
+    <rect x="120" y="472" width="320" height="112" rx="16" fill="#20242b"/>
+    <text x="280" y="518" fill="#f2f4f7" font-size="22" font-weight="620">Sources &amp; participants</text>
+    <text x="280" y="550" fill="#9ba3ae" font-size="15">identity · provenance · scope</text>
+    <rect x="440" y="472" width="320" height="112" rx="16" fill="#20242b"/>
+    <text x="600" y="518" fill="#f2f4f7" font-size="22" font-weight="620">Studio surfaces</text>
+    <text x="600" y="550" fill="#9ba3ae" font-size="15">representation · navigation</text>
+    <rect x="760" y="472" width="320" height="112" rx="16" fill="#20242b"/>
+    <text x="920" y="518" fill="#f2f4f7" font-size="22" font-weight="620">Governed work</text>
+    <text x="920" y="550" fill="#9ba3ae" font-size="15">authority · execution · evidence</text>
+    <text x="600" y="656" fill="#69717d" font-size="14">AUTHORED FIXTURE · NO LIVE TELEMETRY</text>
+  </g>
+</svg>

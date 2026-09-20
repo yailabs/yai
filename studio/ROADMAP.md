@@ -23,9 +23,11 @@ behavior from selected architecture and unfinished work.
 ```text
 architecture formalization
         ↓
-resident Local Host foundation
-        +
 Workbench Kernel foundation
+        ↓
+Universal Work Surface hardening
+        ↓
+resident Local Host foundation
         ↓
 Memory / Inspector / Navigation
         ↓
@@ -42,9 +44,9 @@ The host and Workbench Kernel programs may progress in parallel where their
 contracts are independent. Later programs may overlap only after their required
 application and Workbench seams exist.
 
-- **CURRENT:** `STUDIO.WORKBENCH.KERNEL.0` establishes the bounded S2
-  implementation: one Workbench, internal contributions and independent Case
-  data, host-capability and backend-posture axes.
+- **CURRENT:** `STUDIO.UNIVERSAL.WORK.SURFACE.0` hardens S2 around one generic
+  Work Surface: registered trusted renderers and Surface Inputs/Groups replace
+  the remaining text-editor assumption without changing Case ownership.
 - **NEXT implementation foundation:** S1 Product Host & Lifecycle.
 - **NEXT feature program after the host foothold:** S4 Memory / Inspector /
   Navigation, using the established S2 seams.
@@ -60,7 +62,8 @@ application and Workbench seams exist.
 | UI foundation | Shared tokens and controls, navigation history, preview/pinned tabs and graph primitives. |
 | Bounded live local Case vertical | Authorized Case list/open/summary projections and generation invalidation through `yai-application`; fixtures remain opt-in. |
 | Desktop shell and PTY | Compact desktop chrome, command/menu plumbing and a real transient local PTY on the qualified Linux path. |
-| Workbench Kernel | One shell for live and fixture Case data; scoped Platform services, registered internal views/editors/panels/auxiliary views and host-capability-driven Terminal. |
+| Workbench Kernel | One shell for live and fixture Case data; scoped Platform services, registered internal views/surfaces/panels/auxiliary views and host-capability-driven Terminal. |
+| Universal Work Surface | Surface Input/Group/Registry mechanics; shared preview/pinning/navigation for perspective, text, Markdown, image, PDF, table, timeline, graph and Settings surfaces; qualified media-type resolution. |
 
 These are bounded implementation facts. Their maturity remains whatever the
 root ROADMAP says.
@@ -110,22 +113,28 @@ root ROADMAP says.
 - **Established:** one `StudioApplication` and `WorkbenchKernel` for LiveClient
   and FixtureClient; scoped command, context-key, menu, keybinding,
   configuration, navigation, theme, lifecycle and host-capability services;
-  registered View Containers/Views, editor inputs and one Editor Group, Panel,
+  registered View Containers/Views, Surface Inputs and one Surface Group, Panel,
   Auxiliary Bar and Inspector seam. Terminal is a built-in Panel contribution
   and desktop availability is independent from the Case data source.
+- **Established hardening:** the central region is a universal Work Surface.
+  Trusted renderer registration, media-aware material resolution and bounded UI
+  capability declarations let heterogeneous representations use the same tabs,
+  preview, pinning, close, navigation and Inspector selection seams.
 - **Target properties:** Platform services, registered view containers/views,
-  editor inputs/groups, panels, context keys, keybindings, menus, configuration,
-  lifecycle and layout services.
+  Surface Inputs/Groups/renderers, panels, context keys, keybindings, menus,
+  configuration, lifecycle and layout services. Trusted generic data surfaces
+  and future declarative Case Views compose through these seams.
 - **Dependencies:** S0 ownership rules and existing UI foundation.
-- **Current gaps:** only one visible Editor Group is exposed; contribution
+- **Current gaps:** only one visible Surface Group is exposed; contribution
   contracts are internal and bounded to current consumers; Settings persistence,
-  split editors, richer typed Inspectors and broader context-menu locations
-  remain open.
+  split groups, richer typed Inspectors, Calendar/Form/Board/Chart renderers and
+  any admitted persistence for shared declarative Case Views remain open.
 - **Completion boundary:** the selected bounded boundary is earned: built-in
   features register through internal seams while the Kernel owns regions and
   remains ignorant of Case feature semantics. Production-complete S2 still
   requires broader interaction/platform qualification.
-- **Non-goals:** public extension SDK, marketplace or third-party compatibility.
+- **Non-goals:** public extension SDK, marketplace, arbitrary generated
+  JavaScript or a frontend-owned canonical View store.
 
 ## S3 — Desktop Shell & Terminal
 
@@ -158,7 +167,7 @@ root ROADMAP says.
 - **Target properties:** typed inspectors, no dead objects or edges, horizontal
   temporal canvas, Experience and Knowledge graphs, and preserved contextual
   navigation.
-- **Dependencies:** adequate typed application projections and S2 editor,
+- **Dependencies:** adequate typed application projections and S2 Surface,
   Inspector, navigation and context seams.
 - **Current gaps:** current inspectors and temporal views remain bounded and
   several relations cannot resolve a navigable endpoint.

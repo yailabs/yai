@@ -67,6 +67,7 @@ export function fixtureToCasePresentation(
   const workItems = source.information.work.flatMap((group) => group.items);
   const computeItems = source.information.compute.flatMap((group) => group.items);
   const sourceMaterials = source.materials.filter((material) => material.category === "source");
+  const fileMaterials = source.materials.filter((material) => material.category === "source" || material.category === "artifact");
   const environmentSources = environmentItems.filter((item) => item.kind === "source" || item.kind === "document" || item.kind === "repository");
   const sources = (environmentSources.length ? environmentSources : sourceMaterials.map((material) => ({
     id: material.id, label: material.name, detail: material.path, kind: "source" as const,
@@ -77,7 +78,7 @@ export function fixtureToCasePresentation(
       id: item.id,
       label: item.label,
       perimeter: material?.path ?? item.detail,
-      media_type: material?.format ?? item.kind,
+      media_type: material?.mediaType ?? item.kind,
       roles: ["fixture-source"],
       resource_ref: `fixture:resource:${item.id}`,
       posture: posture(item.posture),
@@ -85,7 +86,7 @@ export function fixtureToCasePresentation(
       items: 1,
     };
   });
-  const files = sourceMaterials.map((material) => ({
+  const files = fileMaterials.map((material) => ({
     id: material.id,
     source_ref: material.id,
     source_label: material.name,
@@ -186,7 +187,7 @@ export function fixtureToCasePresentation(
       sources: sourceMaterials.map((material) => ({
         id: material.id, source_ref: material.id, label: material.name,
         revision_ref: "fixture:authored", path: material.path,
-        digest: "unavailable-in-authored-fixture", media_type: material.format,
+        digest: "unavailable-in-authored-fixture", media_type: material.mediaType,
         extractor: "fixture-author", status: "synthetic", detail: material.provenance,
       })),
       units,

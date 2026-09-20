@@ -40,8 +40,15 @@ populate Studio through frontend fixtures.
    it must retain a usable central work surface. Mouse/browser Back must not
    reopen Start Center after attachment.
    Repeat the same navigation once with `VITE_STUDIO_MODE=fixture` in Tauri:
-   Activity Bar, Sidebar, Editor Group, Panel and Auxiliary Bar must be the same
+   Activity Bar, Sidebar, Surface Group, Panel and Auxiliary Bar must be the same
    Workbench owners; only the Case data posture changes.
+   In the `developer` fixture, open the authored Markdown/text, image, structured
+   table and PDF inputs through Environment. Confirm one preview input is reused,
+   double-click pins it, each renderer uses the same tab/group mechanics, image
+   and table selection reaches Inspector, and PDF without qualified bytes states
+   unavailability rather than coercing itself into text. Open Case Timeline and
+   Experience Graph as registered Surfaces, then use Back/Forward across a
+   Surface selection and its Inspector context.
 6. In the desktop Terminal tool, create two terminals and confirm selection,
    input/output, ANSI, Unicode, scrollback and copy/paste. Resize the bottom,
    Explorer and Context panels and verify `stty size` changes. Exercise `vim`

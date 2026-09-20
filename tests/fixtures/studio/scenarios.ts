@@ -63,6 +63,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Artifacts / discussion-brief.md",
         category: "artifact",
         format: "Document",
+        mediaType: "text/markdown",
         provenance: "Synthetic artifact · revision 3 · Review assistant",
         changed: true,
         body: {
@@ -98,6 +99,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Sources / services-agreement.pdf",
         category: "source",
         format: "Text excerpt",
+        mediaType: "text/plain",
         provenance: "Synthetic source excerpt · section 4 · no PDF renderer",
         body: {
           kind: "document",
@@ -127,6 +129,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Sources / data-addendum.pdf",
         category: "source",
         format: "Text excerpt",
+        mediaType: "text/plain",
         provenance: "Synthetic source excerpt · section 8",
         body: {
           kind: "document",
@@ -147,6 +150,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Sources / client-notes.md",
         category: "source",
         format: "Document",
+        mediaType: "text/markdown",
         provenance: "Synthetic human notes · Elena Rossi",
         body: {
           kind: "document",
@@ -171,6 +175,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Work / review-preparation",
         category: "work",
         format: "Work",
+        mediaType: "application/vnd.yai.work+json",
         provenance: "Synthetic work snapshot · no live workflow",
         body: {
           kind: "work",
@@ -185,6 +190,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Providers / review-model",
         category: "provider",
         format: "Provider",
+        mediaType: "application/vnd.yai.provider+json",
         provenance: "Synthetic provider presentation",
         body: { kind: "provider", title: "Review model" },
       },
@@ -315,6 +321,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Files / src / result_access.rs",
         category: "artifact",
         format: "Diff",
+        mediaType: "text/x-diff",
         changed: true,
         provenance:
           "Illustrative code · proposed change · not repository contents",
@@ -374,6 +381,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Artifacts / qualification-notes.md",
         category: "artifact",
         format: "Document",
+        mediaType: "text/markdown",
         provenance: "Synthetic technical notes · revision 2",
         body: {
           kind: "document",
@@ -408,6 +416,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Files / tests / result_reuse.test",
         category: "artifact",
         format: "Document",
+        mediaType: "text/plain",
         provenance: "Synthetic test specification",
         body: {
           kind: "document",
@@ -437,6 +446,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Sources / yailabs/yai",
         category: "source",
         format: "Repository",
+        mediaType: "application/vnd.yai.repository+json",
         provenance: "Synthetic repository description · host files not read",
         body: {
           kind: "document",
@@ -454,11 +464,65 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         },
       },
       {
+        id: "runtime-map",
+        name: "Runtime boundary map",
+        path: "Sources / runtime-boundary.svg",
+        category: "source",
+        format: "Image",
+        mediaType: "image/svg+xml",
+        provenance: "Authored deterministic diagram · visual qualification only",
+        body: {
+          kind: "image",
+          source: "/fixtures/runtime-boundary.svg",
+          alt: "Case continuity connected to application views and governed execution",
+          width: 1200,
+          height: 720,
+          caption: "A sanitized fixture image used to qualify the trusted Image Surface.",
+        },
+      },
+      {
+        id: "qualification-matrix",
+        name: "Qualification matrix",
+        path: "Sources / qualification-matrix",
+        category: "source",
+        format: "Structured rows",
+        mediaType: "application/vnd.yai.table+json",
+        provenance: "Authored deterministic rows · no live execution evidence",
+        body: {
+          kind: "table",
+          columns: [
+            { key: "control", label: "Control" },
+            { key: "posture", label: "Posture" },
+            { key: "owner", label: "Owner" },
+          ],
+          rows: [
+            { id: "matrix:disclosure", values: { control: "Current disclosure", posture: "Review", owner: "Authority" } },
+            { id: "matrix:reuse", values: { control: "Result reuse", posture: "Qualified", owner: "Application" } },
+            { id: "matrix:provider", values: { control: "Provider dispatch", posture: "Unavailable", owner: "Runtime" } },
+          ],
+        },
+      },
+      {
+        id: "runtime-contract-pdf",
+        name: "Runtime contract",
+        path: "Sources / runtime-contract.pdf",
+        category: "source",
+        format: "PDF",
+        mediaType: "application/pdf",
+        provenance: "Synthetic PDF identity · document bytes intentionally absent",
+        body: {
+          kind: "pdf",
+          pageCount: 4,
+          unavailableReason: "The fixture qualifies PDF identity and metadata, but supplies no document bytes.",
+        },
+      },
+      {
         id: "work",
         name: "Result reuse qualification",
         path: "Work / result-reuse",
         category: "work",
         format: "Work",
+        mediaType: "application/vnd.yai.work+json",
         provenance: "Synthetic work snapshot",
         body: {
           kind: "work",
@@ -473,6 +537,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Providers / local-inference",
         category: "provider",
         format: "Provider",
+        mediaType: "application/vnd.yai.provider+json",
         provenance: "Synthetic provider context",
         body: { kind: "provider", title: "Local inference" },
       },
@@ -615,6 +680,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Work / release-preparation",
         category: "work",
         format: "Work",
+        mediaType: "application/vnd.yai.work+json",
         provenance: "Frozen synthetic execution snapshot · 16:24",
         body: {
           kind: "work",
@@ -629,6 +695,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Reviews / publication-review",
         category: "artifact",
         format: "Review",
+        mediaType: "application/vnd.yai.review+json",
         provenance: "Synthetic review request · no decision controls",
         body: {
           kind: "document",
@@ -659,6 +726,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Artifacts / handoff-manifest.md",
         category: "artifact",
         format: "Document",
+        mediaType: "text/markdown",
         changed: true,
         provenance: "Synthetic artifact · candidate revision",
         body: {
@@ -685,6 +753,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Sources / validation-notes.txt",
         category: "source",
         format: "Document",
+        mediaType: "text/plain",
         provenance: "Synthetic validation source · no real test transcript",
         body: {
           kind: "document",
@@ -710,6 +779,7 @@ export const scenarios: readonly BaseWorkspacePresentation[] = [
         path: "Providers / release-model",
         category: "provider",
         format: "Provider",
+        mediaType: "application/vnd.yai.provider+json",
         provenance: "Synthetic provider context",
         body: { kind: "provider", title: "Release model" },
       },

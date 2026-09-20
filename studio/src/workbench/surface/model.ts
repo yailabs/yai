@@ -1,29 +1,45 @@
+import type { IconName } from "../../components/Icon";
 import { toDisposable, type Disposable } from "../../platform/lifecycle";
 
-export interface EditorInput {
+export type SurfaceCapability =
+  | "read"
+  | "edit"
+  | "select"
+  | "navigate"
+  | "zoom"
+  | "search"
+  | "mutate"
+  | "export";
+
+// SurfaceInput is transient Workbench interaction state. It identifies a
+// representation; it is never a canonical Case object or authority grant.
+export interface SurfaceInput {
   id: string;
-  type: "perspective" | "material" | "settings";
+  identity: string;
+  surfaceType: string;
   title: string;
+  icon: IconName;
   pinned: boolean;
-  resourceRef?: string;
-  perspective?: string;
+  objectRef?: string;
+  viewId?: string;
+  metadata?: Readonly<Record<string, string>>;
 }
 
-export interface EditorGroupSnapshot {
-  inputs: readonly EditorInput[];
+export interface SurfaceGroupSnapshot {
+  inputs: readonly SurfaceInput[];
   activeId?: string;
 }
 
-export class EditorGroupService implements Disposable {
-  private inputs: EditorInput[] = [];
+export class SurfaceGroupService implements Disposable {
+  private inputs: SurfaceInput[] = [];
   private activeId?: string;
   private readonly listeners = new Set<() => void>();
 
-  snapshot(): EditorGroupSnapshot {
+  snapshot(): SurfaceGroupSnapshot {
     return { inputs: this.inputs, activeId: this.activeId };
   }
 
-  open(input: EditorInput) {
+  open(input: SurfaceInput) {
     if (!input.pinned) {
       this.inputs = this.inputs.filter((candidate) => candidate.pinned || candidate.id === input.id);
     }
@@ -43,10 +59,10 @@ export class EditorGroupService implements Disposable {
   pin(id: string) {
     const current = this.inputs.find((input) => input.id === id);
     if (!current || current.pinned) return;
-    const pinnedId = current.type === "material" && current.resourceRef
-      ? `material:${current.resourceRef}`
-      : current.id;
-    this.inputs = this.inputs.map((input) => input.id === id ? { ...input, id: pinnedId, pinned: true } : input);
+    const pinnedId = current.identity;
+    this.inputs = this.inputs.map((input) => input.id === id
+      ? { ...input, id: pinnedId, pinned: true }
+      : input);
     if (this.activeId === id) this.activeId = pinnedId;
     this.emit();
   }
