@@ -218,9 +218,16 @@ complete, stable frontend-independent Application API:
 The [application/client target](../ROADMAP.md#application-and-client-boundary--adopted-target)
 requires native CLI and Studio to converge on one typed YAI application meaning.
 [`application/yai-application`](../application/yai-application/src/lib.rs) is now a
-bounded read-only foothold: it authenticates the local principal and composes
+bounded read foothold: it authenticates the local principal and composes
 versioned Case list/open/summary projections plus generation invalidation from
-existing authorized engine owners. For source-grounded Knowledge it opens the
+existing authorized engine owners. `material.read` reuses
+`LmdbRecordStore::resolve_case_source_authorized`: it requires an acquired
+Source, re-evaluates the current permission, resolves the requested exact
+revision from immutable retained backing, verifies digest and byte length, then
+rechecks generation/permission before returning UTF-8 or base64 content. The
+application projection also discloses canonical Source action families and
+authorized Resource-contract operations/scopes; these facts remain owned by the
+existing Source/Resource contracts. For source-grounded Knowledge it opens the
 existing YAI content store through `ConversationContentStore` and passes that
 owner to the authorized derivation; it does not reread repository paths or
 duplicate extraction. Case summaries preserve the canonical `case:` ref while
@@ -263,6 +270,25 @@ query, so that scope is explicitly unavailable. Settings is a singleton System
 Surface; only versioned Studio-local preferences persist in WebView/browser
 local storage. These mechanics own no object, View persistence, mutation
 authority or Case meaning.
+
+Environment currently routes Files, Sources and Resources as distinct typed
+objects. Its hierarchy is derived only from application-projected qualified
+paths. Files can resolve exact retained content through `material.read`; Source
+and Resource Surfaces show only their respective projected relationship and
+capability facts. The text/code renderer owns a frontend-local buffer and dirty
+state, but Save remains disabled: no current participant-origin
+filesystem-content mutation carries typed admission, expected-revision conflict
+handling and a resulting observed revision through the application boundary.
+Current controlled filesystem effects are operation/workflow-owned and are not
+reinterpreted as an interactive human Save path.
+
+Legacy archaeology inspected `yai-dev` commits `d82edf082` (protocol filesystem
+canonicalization) and `00cda7375` (container projected-root/filesystem
+governance) plus their consumers. They established filesystem/path organization
+and container projection rather than a Case-authorized participant file-edit
+contract. No historical owner was recovered. The valid retained property is
+fail-closed path/resource governance, which stays in the current Resource,
+authority and controlled-effect owners instead of being copied into Studio.
 
 The native desktop build is separate from core/CLI validation and remains a
 bounded single-host client. It does not qualify remote transport, general event

@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use yai_core_engine::conversation::{turns_from_history, ConversationContentStore};
+use yai_core_engine::effect::access::ResourceAction;
 use yai_core_engine::memory_hierarchy::knowledge::KnowledgeRequest;
 use yai_core_engine::security::AuthenticatedPrincipal;
 use yai_core_engine::store::lmdb::LmdbRecordStore;
@@ -154,6 +155,7 @@ impl LocalApplication {
                 | "case.recent"
                 | "case.open"
                 | "case.summary"
+                | "material.read"
                 | "events.subscribe"
                 | "events.resume"
                 | "events.heartbeat"
@@ -183,6 +185,30 @@ impl LocalApplication {
                     &auth,
                     case_ref,
                     content.as_ref(),
+                    request
+                        .input
+                        .get("expected_generation")
+                        .and_then(Value::as_u64),
+                )
+            }
+            "material.read" => {
+                let case_ref = input_case_ref(request)?;
+                material_read(
+                    &store,
+                    &auth,
+                    &self.home_path,
+                    case_ref,
+                    request
+                        .input
+                        .get("source_ref")
+                        .and_then(Value::as_str)
+                        .ok_or("source_ref_invalid")?,
+                    request.input.get("revision_ref").and_then(Value::as_str),
+                    request
+                        .input
+                        .get("path")
+                        .and_then(Value::as_str)
+                        .ok_or("material_path_invalid")?,
                     request
                         .input
                         .get("expected_generation")
@@ -232,6 +258,88 @@ fn input_case_ref(request: &OperationRequest) -> Result<&str, String> {
         .and_then(Value::as_str)
         .filter(|value| value.starts_with("case:"))
         .ok_or_else(|| "case_ref_invalid".to_string())
+}
+
+fn material_read(
+    store: &LmdbRecordStore,
+    auth: &AuthenticatedPrincipal,
+    home: &Path,
+    case_ref: &str,
+    source_ref: &str,
+    revision_ref: Option<&str>,
+    path: &str,
+    expected_generation: Option<u64>,
+) -> Result<Value, String> {
+    let state = store.get_case_state_authorized(auth, case_ref)?;
+    if expected_generation.is_some_and(|expected| expected != state.generation) {
+        return Err(format!(
+            "stale_generation:expected={}:actual={}",
+            expected_generation.unwrap_or_default(),
+            state.generation
+        ));
+    }
+    let content = ConversationContentStore::open_existing(home)
+        .map_err(|_| "source_backing_unavailable".to_string())?;
+    let resolved =
+        store.resolve_case_source_authorized(auth, case_ref, source_ref, revision_ref, &content)?;
+    let (item, bytes) = resolved
+        .items
+        .into_iter()
+        .find(|(item, _)| item.path == path)
+        .ok_or("material_not_found")?;
+    let current = store.get_case_state_authorized(auth, case_ref)?;
+    if current.generation != state.generation {
+        return Err(format!(
+            "stale_generation:expected={}:actual={}",
+            state.generation, current.generation
+        ));
+    }
+    let media_type = resolved.declaration.media_type;
+    let utf8 = String::from_utf8(bytes.clone()).ok();
+    Ok(json!({
+        "case_ref": case_ref,
+        "generation": state.generation,
+        "source_ref": resolved.declaration.source_id,
+        "revision_ref": resolved.revision.revision_id,
+        "path": item.path,
+        "digest": item.digest,
+        "bytes": item.bytes,
+        "media_type": media_type,
+        "encoding": if utf8.is_some() { "utf-8" } else { "base64" },
+        "content": utf8.unwrap_or_else(|| encode_base64(&bytes))
+    }))
+}
+
+fn encode_base64(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut output = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let value = (u32::from(chunk[0]) << 16)
+            | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
+            | u32::from(*chunk.get(2).unwrap_or(&0));
+        output.push(TABLE[((value >> 18) & 63) as usize] as char);
+        output.push(TABLE[((value >> 12) & 63) as usize] as char);
+        output.push(if chunk.len() > 1 {
+            TABLE[((value >> 6) & 63) as usize] as char
+        } else {
+            '='
+        });
+        output.push(if chunk.len() > 2 {
+            TABLE[(value & 63) as usize] as char
+        } else {
+            '='
+        });
+    }
+    output
+}
+
+fn source_kind(action: &ResourceAction) -> &'static str {
+    match action {
+        ResourceAction::Discover { .. } => "discovery",
+        ResourceAction::DatabaseQuery { .. } => "database_query",
+        ResourceAction::HttpFetch { .. } => "http_fetch",
+        _ => "unsupported",
+    }
 }
 
 /// Produce a human presentation label without changing canonical Case identity.
@@ -352,6 +460,7 @@ fn case_snapshot(
     let sources = state.sources.iter().map(|source| json!({
         "id": source.declaration.source_id,
         "label": source.declaration.logical_name,
+        "kind": source_kind(&source.declaration.action),
         "perimeter": source.declaration.perimeter,
         "media_type": source.declaration.media_type,
         "roles": source.declaration.roles,
@@ -374,6 +483,7 @@ fn case_snapshot(
                 "path": item.path,
                 "digest": item.digest,
                 "bytes": item.bytes,
+                "media_type": source.declaration.media_type,
                 "backing": item.backing
             }))
                 })
@@ -388,7 +498,14 @@ fn case_snapshot(
                 "id": resource.attachment_id,
                 "kind": format!("{:?}", resource.kind).to_lowercase(),
                 "policy_ref": resource.policy_id,
-                "review_requirement": format!("{:?}", resource.review_requirement).to_lowercase()
+                "review_requirement": format!("{:?}", resource.review_requirement).to_lowercase(),
+                "allowed_write_prefix": resource.allowed_write_prefix,
+                "max_write_bytes": resource.max_write_bytes,
+                "operations": resource.access.as_ref().map(|access| access.operations.iter().map(|operation| operation.operation_name()).collect::<Vec<_>>()).unwrap_or_default(),
+                "read_prefixes": resource.access.as_ref().map(|access| access.read_prefixes.clone()).unwrap_or_default(),
+                "names": resource.access.as_ref().map(|access| access.names.clone()).unwrap_or_default(),
+                "max_output_bytes": resource.access.as_ref().map(|access| access.max_output_bytes),
+                "max_items": resource.access.as_ref().map(|access| access.max_items)
             })
         })
         .collect::<Vec<_>>();
@@ -873,5 +990,33 @@ mod tests {
             "Studio Live Qualification"
         );
         assert_eq!(case_display_name("not-a-case-ref"), "not-a-case-ref");
+    }
+
+    #[test]
+    fn exact_material_transport_encodes_binary_without_coercing_it_to_text() {
+        assert_eq!(encode_base64(b"YAI"), "WUFJ");
+        assert_eq!(encode_base64(&[0, 255, 16, 32]), "AP8QIA==");
+    }
+
+    #[test]
+    fn source_kind_comes_from_the_typed_action() {
+        assert_eq!(
+            source_kind(&ResourceAction::Discover {
+                path: "studio".into()
+            }),
+            "discovery"
+        );
+        assert_eq!(
+            source_kind(&ResourceAction::DatabaseQuery {
+                name: "inventory".into()
+            }),
+            "database_query"
+        );
+        assert_eq!(
+            source_kind(&ResourceAction::HttpFetch {
+                name: "documentation".into()
+            }),
+            "http_fetch"
+        );
     }
 }

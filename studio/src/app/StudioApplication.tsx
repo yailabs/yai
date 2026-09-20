@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CaseAttachment, CaseUpdate, LiveCaseRow, OperationResult } from "../clients/live";
 import type { CaseCatalog, CaseDataSource, CasePresentation } from "../clients/dataSource";
 import type { PlatformServices } from "../platform/services";
@@ -18,6 +18,8 @@ export function StudioApplication({ dataSource, platform, registry }: { dataSour
   const [composer, setComposer] = useState(false);
   const [stream, setStream] = useState<"connecting" | "live" | "reconnecting" | "unavailable" | "fixture">(dataSource.kind === "fixture" ? "fixture" : "connecting");
   const [cursor, setCursor] = useState<string>();
+  const readMaterial = useMemo(() => dataSource.readMaterial.bind(dataSource), [dataSource]);
+  const searchCase = useMemo(() => dataSource.searchCase?.bind(dataSource), [dataSource]);
   const loadCases = useCallback(async () => setCatalog(await dataSource.listCases()), [dataSource]);
   const loadCase = useCallback(async (caseRef: string) => {
     const opened = await dataSource.openCase(caseRef);
@@ -88,7 +90,7 @@ export function StudioApplication({ dataSource, platform, registry }: { dataSour
   return <div className={`live-studio ${attachment ? "case-attached" : ""}`}>
     {!attachment && <StartChrome platform={platform} />}
     {!attachment && <StartCenter result={catalog} cases={cases} dataKind={dataSource.kind} open={loadCase} retry={loadCases} newCase={dataSource.composition ? () => setComposer(true) : undefined} />}
-    {attachment && workspace?.data && <WorkbenchKernel key={attachment.case_ref} workspace={workspace.data} stream={stream} platform={platform} registry={registry} searchCase={dataSource.searchCase?.bind(dataSource)} refresh={() => void refresh()} openCaseSwitcher={() => setSwitcher(true)} />}
+    {attachment && workspace?.data && <WorkbenchKernel key={attachment.case_ref} workspace={workspace.data} stream={stream} platform={platform} registry={registry} readMaterial={readMaterial} searchCase={searchCase} refresh={() => void refresh()} openCaseSwitcher={() => setSwitcher(true)} />}
     {attachment && workspace && workspace.result_state !== "success" && <HostFailure result={workspace} retry={() => void refresh()} />}
     {switcher && <CaseSwitcher cases={cases} dataKind={dataSource.kind} close={() => setSwitcher(false)} open={(id) => { setSwitcher(false); void loadCase(id); }} />}
   </div>;

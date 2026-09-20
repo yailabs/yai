@@ -56,7 +56,28 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    the qualification Case and verify its real Participant attachment, generation,
    sources/resources, committed timeline and graph relations. Knowledge,
    Authority, Workflow and Compute must show owner-backed facts or explicit
-   empty/unavailable states.
+   empty/unavailable states. In Environment, verify that projected file paths
+   form a hierarchy and that a File, Source and Resource each open a different
+   typed Surface. Open `studio/README.md`: the center must primarily show its
+   exact retained text, while path, Source, revision, digest and media type stay
+   in Inspector technical details. Exercise `Open With…` between Text Editor and
+   Markdown Preview. Edit the local buffer, confirm the tab dirty marker and
+   Revert; Save must remain disabled while the participant-origin governed
+   filesystem-content mutation is absent. Closing a dirty Surface must require
+   explicit discard.
+
+   Independently probe the same exact read through the application boundary,
+   using Source/revision identities returned by inventory:
+
+   ```sh
+   YAI_HOME=/dedicated/home cargo run --manifest-path application/Cargo.toml \
+     --example material_read -- \
+     case:studio-live-qualification CASE_SOURCE_REF SOURCE_REVISION_REF studio/README.md
+   ```
+
+   The returned digest, byte length, media type and content must match the
+   authorized acquired revision. This is a read-only operation and must not
+   change the Case generation.
 4. Inspect Memory Timeline/Graph, Authority, Work and Compute. Graph selection
    changes Inspector only. Exercise pan, zoom, fit, drag, search/filter and both
    relational and directed layouts where data exists. Conversation contains only

@@ -4,6 +4,9 @@ import type { SurfaceInput } from "../../workbench/surface/model";
 
 export const surfaceTypes = {
   perspective: "case.perspective",
+  source: "environment.source",
+  resource: "environment.resource",
+  textEditor: "material.text-editor",
   markdown: "material.markdown",
   text: "material.text",
   structuredText: "material.structured-text",
@@ -55,11 +58,82 @@ export function materialInput(
     identity,
     surfaceType: resolveMaterialSurfaceType(mediaType),
     title,
-    icon: "file",
+    icon: fileIconForMedia(mediaType),
     pinned,
     objectRef,
     metadata: mediaType ? { mediaType } : undefined,
   };
+}
+
+export function fileInput(
+  workspace: CasePresentation,
+  objectRef: string,
+  pinned = false,
+  surfaceType?: string,
+): SurfaceInput {
+  const file = workspace.environment.files.find((item) => item.id === objectRef);
+  if (!file) return materialInput(workspace, objectRef, objectRef, pinned);
+  const identity = `material:${objectRef}`;
+  const resolved = surfaceType ?? resolveFileSurfaceType(file.media_type);
+  return {
+    id: pinned ? identity : "surface:preview",
+    identity,
+    surfaceType: resolved,
+    title: file.path.split("/").at(-1) ?? file.path,
+    icon: fileIconForMedia(file.media_type),
+    pinned,
+    posture: "ready",
+    objectRef,
+    metadata: {
+      mediaType: file.media_type,
+      path: file.path,
+      sourceRef: file.source_ref,
+      revisionRef: file.revision_ref,
+      digest: file.digest,
+      size: String(file.bytes),
+    },
+  };
+}
+
+export function sourceInput(workspace: CasePresentation, objectRef: string, pinned = false): SurfaceInput {
+  const source = workspace.environment.sources.find((item) => item.id === objectRef);
+  const identity = `source:${objectRef}`;
+  return { id: pinned ? identity : "surface:preview", identity, surfaceType: surfaceTypes.source, title: source?.label ?? objectRef, icon: "source", pinned, objectRef, viewId: "Environment" };
+}
+
+export function resourceInput(workspace: CasePresentation, objectRef: string, pinned = false): SurfaceInput {
+  const resource = workspace.environment.resources.find((item) => item.id === objectRef);
+  const identity = `resource:${objectRef}`;
+  return { id: pinned ? identity : "surface:preview", identity, surfaceType: surfaceTypes.resource, title: resource?.label ?? resource?.id ?? objectRef, icon: resource?.kind === "database" ? "database" : "resource", pinned, objectRef, viewId: "Environment" };
+}
+
+export function fileIconForMedia(mediaType?: string): IconName {
+  const type = mediaType?.split(";")[0];
+  if (type === "application/pdf") return "pdf";
+  if (type?.startsWith("image/")) return "image";
+  if (type?.startsWith("audio/")) return "audio";
+  if (type?.startsWith("video/")) return "video";
+  if (type?.startsWith("text/") || structuredTextTypes.has(type ?? "")) return "codeFile";
+  return "file";
+}
+
+export interface RendererChoice { type: string; title: string }
+export function rendererChoices(mediaType?: string): readonly RendererChoice[] {
+  const type = mediaType?.split(";")[0];
+  if (type === "text/markdown") return [{ type: surfaceTypes.textEditor, title: "Text Editor" }, { type: surfaceTypes.markdown, title: "Markdown Preview" }];
+  if (type === "image/svg+xml") return [{ type: surfaceTypes.textEditor, title: "SVG/Text Editor" }, { type: surfaceTypes.image, title: "Image Preview" }];
+  if (type === "text/csv" || type === "text/tab-separated-values") return [{ type: surfaceTypes.textEditor, title: "Text Editor" }, { type: surfaceTypes.table, title: "Table" }];
+  if (type?.startsWith("text/") || structuredTextTypes.has(type ?? "")) return [{ type: surfaceTypes.textEditor, title: "Text Editor" }];
+  return [{ type: resolveMaterialSurfaceType(mediaType), title: rendererTitle(resolveMaterialSurfaceType(mediaType)) }];
+}
+
+function resolveFileSurfaceType(mediaType?: string) {
+  const type = mediaType?.split(";")[0];
+  return type?.startsWith("text/") || structuredTextTypes.has(type ?? "") ? surfaceTypes.textEditor : resolveMaterialSurfaceType(mediaType);
+}
+
+function rendererTitle(type: string) {
+  return ({ [surfaceTypes.image]: "Image Preview", [surfaceTypes.pdf]: "PDF Viewer", [surfaceTypes.audio]: "Audio Player", [surfaceTypes.video]: "Video Player", [surfaceTypes.table]: "Table", [surfaceTypes.unavailable]: "Metadata" } as Record<string, string>)[type] ?? "Viewer";
 }
 
 export function resolveMaterialSurfaceType(mediaType?: string): string {

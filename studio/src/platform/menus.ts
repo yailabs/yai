@@ -36,7 +36,7 @@ export class MenuService implements Disposable {
     return [...this.items.values()]
       .filter((item) => item.location === location && this.context.matches(item.when))
       .sort((left, right) => (left.group ?? "").localeCompare(right.group ?? "") || (left.order ?? 0) - (right.order ?? 0))
-      .map((item) => ({ ...item, enabled: true, checked: this.context.matches(item.checkedWhen) }));
+      .map((item) => ({ ...item, enabled: true, checked: item.checkedWhen !== undefined && this.context.matches(item.checkedWhen) }));
   }
 
   dispose() {

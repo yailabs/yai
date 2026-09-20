@@ -28,20 +28,24 @@ behavior from selected architecture and unfinished work.
 
 ## Studio execution board
 
-`CASE.PRODUCT.VERTICAL.COHERENCE.0` is the current integration bridge between
-the established S2 Workbench and S1. It maintains
-`case:studio-live-qualification` as a durable operator-owned product oracle;
-the Case is advanced through normal YAI operations and is never reset by Studio
-tests.
+`CASE.PRODUCT.VERTICAL.COHERENCE.0` established
+`case:studio-live-qualification` as the durable operator-owned product oracle.
+`STUDIO.ENVIRONMENT.AUTHORING.0` has established the bounded Environment
+interaction model: Files, Sources and Resources are distinct Surfaces, exact
+material reads remain governed, and local editing stops at the current
+application/authority boundary. Governed participant-origin Save remains an
+explicit backend/application gap rather than a frontend workaround. S1 is next.
+The persistent Case is advanced only through normal YAI operations and is never
+reset by Studio tests.
 
 | Lane | Owner | Current executable truth | Selected next milestone | Backend dependency | Status |
 |---|---|---|---|---|---|
 | Workbench | Studio S2 | One contribution-driven Workbench and universal Surface system | Feature-local Product Quality Passes | Typed presentation facts | Established, bounded |
-| Product Case vertical | Cross-surface qualification | Persistent Case with real Sources, Knowledge, policy, Workflow and generation refresh | Keep the product oracle coherent as owners grow | Normal CLI/domain operations | Current bridge qualified |
+| Product Case vertical | Cross-surface qualification | Persistent Case with real Sources, Knowledge, policy, Workflow and generation refresh | Keep the product oracle coherent as owners grow | Normal CLI/domain operations | Established, bounded |
 | Application / X03 | `yai-application` plus existing owners | Authorized local list/open/summary, retained content resolution and generation invalidation | Broader typed read/mutation parity | Owner projections and disclosure contracts | Partial, unblocked |
-| Host / S1 | YAI product host | Embedded local application adapter only | Resident Local Host foundation | Lifecycle, transport, discovery and authentication | Selected next |
+| Host / S1 | YAI product host | Embedded local application adapter only | Resident Local Host foundation | Lifecycle, transport, discovery and authentication | Next after Environment authoring |
 | Memory / S4 | Transition/graph/Recall plus Studio | Bounded timeline and derived relations | Typed navigation, Inspector and temporal canvas | Resolvable typed relations | After S1 foothold |
-| Environment / S5 | Sources/Resources plus Studio | Bounded real Source, revision, file and Resource reads | Rich Source/product exploration | Typed material/read projections | Horizon, unblocked |
+| Environment / S5 | Sources/Resources plus Studio | Typed File/Source/Resource exploration, governed exact reads, renderer selection and local dirty/revert | Continue feature-local quality through later S5 depth | Participant-origin admitted file mutation and revision-conflict contract | Established, authoring partial |
 | Authority / S6 | Policy/Review/Grant/Workflow plus Studio | Bound policy and Workflow resolution reads | Actions and workflow progression UX | Mutation-complete application operations | Horizon, blocked on boundary |
 | Compute / S7 | Provider governance plus Studio | Case-bound targets only; model/runtime/deployment facts remain distinct | Generic models/providers/targets experience | Provider discovery/configuration contracts | Horizon, partial |
 | YVEX / S8 | YVEX public management plane | Generic inference posture only | Native management plane | Versioned public YVEX capabilities | Horizon, blocked |
@@ -51,7 +55,7 @@ tests.
 
 | Studio surface | YAI owner | Application status | Missing-fact classification |
 |---|---|---|---|
-| Environment | Sources / Resources | Bounded Sources, exact revisions, files and Resources | Rich exploration and live material bytes remain S5/application work |
+| Environment | Sources / Resources | Typed Sources/Resources and hierarchical files; exact retained reads through the authorized Source resolver | Participant-origin filesystem mutation, save receipt and stale-revision refusal are not qualified |
 | Knowledge | M07 derived source knowledge | Bounded authorized derivation with retained backing | Rich navigation remains Studio/S4; absent derivation stays empty |
 | Memory | Transition ledger, graph and Recall | Timeline bounded; Experience relations may be empty | Typed relation traversal remains S4 |
 | Authority | Policy / Review / Grant | Bound policies and reviews bounded | Actions and complete chains remain S6/application work |
@@ -71,6 +75,8 @@ Universal Work Surface and productization hardening
         ↓
 persistent cross-surface Product Case coherence
         ↓
+Environment exploration and local-authoring boundary
+        ↓
 resident Local Host foundation
         ↓
 Memory / Inspector / Navigation
@@ -88,10 +94,15 @@ The host and Workbench Kernel programs may progress in parallel where their
 contracts are independent. Later programs may overlap only after their required
 application and Workbench seams exist.
 
-- **CURRENT integration bridge:** `CASE.PRODUCT.VERTICAL.COHERENCE.0` establishes
-  one persistent real Case as the CLI/application/Studio product oracle after
-  the bounded S2 foundation.
-- **NEXT:** S1 Product Host & Lifecycle. Continued minor S2 polish does not
+- **ESTABLISHED integration bridge:** `CASE.PRODUCT.VERTICAL.COHERENCE.0`
+  maintains one persistent real Case as the CLI/application/Studio product
+  oracle after the bounded S2 foundation.
+- **ESTABLISHED, bounded:** `STUDIO.ENVIRONMENT.AUTHORING.0` provides distinct
+  File, Source and Resource Surfaces, hierarchical qualified files, exact
+  governed material reads, trusted `Open With…`, and a local dirty/revert
+  editor. Persistence remains partial because YAI exposes no admitted
+  participant-origin filesystem-content mutation or stale-revision contract.
+- **NEXT:** S1 Product Host & Lifecycle. Continued Environment polish does not
   displace this selection.
 - **NEXT feature program after the host foothold:** S4 Memory / Inspector /
   Navigation, using the established S2 seams.
@@ -110,6 +121,7 @@ application and Workbench seams exist.
 | Workbench Kernel | One shell for live and fixture Case data; scoped Platform services, registered internal views/surfaces/panels/auxiliary views and host-capability-driven Terminal. |
 | Universal Work Surface | Surface Input/Group/Registry mechanics; shared preview/pinning/navigation for perspective, text, Markdown, image, PDF, table, timeline, graph and Settings surfaces; qualified media-type resolution. |
 | Workbench productization | Surface roles/capabilities and read-only posture; Command Palette, Quick Open and renderer-owned search; singleton searchable Settings with versioned local preferences; trusted structured text, image/vector, PDF, table, audio/video and unknown-material paths; lazy heavy renderers, shared Panel toolbar seams and a resizable in-tool terminal instance pane. |
+| Environment exploration / authoring boundary | File hierarchy from qualified projected paths; distinct Source and Resource Surfaces; authorized exact retained material read; trusted renderer selection; local text dirty/revert lifecycle with Save disabled until YAI qualifies participant-origin mutation and revision conflict handling. |
 
 These are bounded implementation facts. Their maturity remains whatever the
 root ROADMAP says.
@@ -236,18 +248,21 @@ root ROADMAP says.
 
 ## S5 — Participants / Environment
 
-**Posture:** horizon; bounded read foundation exists.
+**Posture:** partial; bounded exploration and local authoring foundation exists.
 
 - **Purpose:** expose who participates and what material/operational world is
   attached to the Case.
-- **Established:** real Participant summaries and Source/Resource/file
-  presentation from qualified application views.
+- **Established:** real Participant summaries; hierarchical file presentation;
+  distinct typed Source and Resource Surfaces; exact retained material reads;
+  trusted renderer selection; local dirty/revert editing without authority
+  bypass.
 - **Target properties:** rich Participant, Source and Resource inspection,
   acquisition posture, provenance and explicit unavailable backing.
 - **Dependencies:** S1 application coverage, S2 views and S4 Inspector
   traversability.
-- **Current gaps:** mutations, external observation and complete resource
-  families are not available.
+- **Current gaps:** participant-origin governed file mutation, save receipts,
+  expected-revision conflict refusal, finer repository/directory/file Source
+  kinds, external observation and complete Resource families are not available.
 - **Completion boundary:** ordinary Case exploration needs no filesystem scan or
   private persistence read in Studio.
 - **Non-goals:** browser-owned source admission or a second filesystem truth.

@@ -76,6 +76,21 @@ export class SurfaceGroupService implements Disposable {
     this.emit();
   }
 
+  update(id: string, patch: Partial<Omit<SurfaceInput, "id" | "identity">>) {
+    const index = this.inputs.findIndex((input) => input.id === id);
+    if (index < 0) return;
+    this.inputs = this.inputs.map((input) => input.id === id ? { ...input, ...patch } : input);
+    this.emit();
+  }
+
+  replace(id: string, input: SurfaceInput) {
+    const index = this.inputs.findIndex((candidate) => candidate.id === id);
+    if (index < 0) { this.open(input); return; }
+    this.inputs = this.inputs.map((candidate) => candidate.id === id ? { ...input, id } : candidate);
+    this.activeId = id;
+    this.emit();
+  }
+
   close(id: string) {
     const index = this.inputs.findIndex((input) => input.id === id);
     if (index < 0) return;

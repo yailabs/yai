@@ -95,13 +95,25 @@ Once attached, browser or mouse Back does not return to the Start Center. Use
 another real Case. Back/Forward in that titlebar navigates frontend-local
 perspectives and selections only.
 
-Each primary Case perspective opens in its own persistent tab. Files, documents
-and sources open in one reusable preview tab; double click or `Open in work
-surface` pins the material. Environment contains the source-qualified Files,
-Sources and Resources inventory. Studio does not scan the filesystem: an
-unacquired source shows explicit missingness. Other secondary facts reveal in
-the contextual Inspector. Settings uses one singleton surface with internal
-sections. Drag the left, right and bottom splitters. Useful shortcuts are:
+Each primary Case perspective opens in its own persistent tab. Environment is a
+typed explorer: Files use the hierarchy already projected by YAI, Sources open
+a Source Surface and Resources open an operational Resource Surface. A Source
+is never opened as if it were a file. Files use one reusable preview tab until
+pinned; the center prioritizes their exact content while path, Source, revision,
+digest, media type and provenance live in Inspector. Studio never scans the
+filesystem and an unacquired Source shows explicit missingness.
+
+Textual files default to the bounded text/code editor. It provides line numbers,
+selection, native undo/redo, find/replace, a Workbench-owned dirty marker and
+explicit Revert. Markdown, SVG and CSV expose trusted alternatives through
+`File > Open With…` without changing the underlying material identity. Exact
+live text comes from authorized `material.read` resolution of immutable retained
+Source backing. Local edits are deliberately not saveable at current HEAD:
+there is no qualified participant-origin filesystem-content mutation in YAI, so
+Save is disabled and dirty close requires confirmation. Studio never writes the
+repository through Tauri or React. Settings uses one singleton Surface with
+internal sections. Drag the left, right and bottom splitters. Useful shortcuts
+are:
 
 | Shortcut | Local interaction |
 |---|---|
@@ -203,8 +215,19 @@ npm run desktop:build -- -- --locked
 The Rust application boundary has independent tests from the repository root:
 
 ```sh
-cargo test --manifest-path application/Cargo.toml
+cargo test --manifest-path application/Cargo.toml --locked
 ```
+
+For a read-only product probe against an already acquired Source revision:
+
+```sh
+YAI_HOME=/dedicated/home cargo run --manifest-path application/Cargo.toml \
+  --example material_read -- \
+  case:studio-live-qualification CASE_SOURCE_REF SOURCE_REVISION_REF studio/README.md
+```
+
+This command exercises the same application operation used by LiveClient. It
+does not read a checkout path directly and does not mutate the Case.
 
 The existing fixture browser harness remains under `tests/studio/` and runs only
 against an explicit fixture-mode server. Real desktop acceptance requires a
@@ -229,7 +252,8 @@ SHA. See the cumulative [operator runbook](../docs/zero-to-current.md).
 - `src/components/` and `src/styles/`: shared controls, icons and visual tokens.
 - `src-tauri/`: local invocation/event adapter, narrow PTY host and desktop lifecycle.
 
-This vertical does not implement conversation SEND, Case-attached Open in
+This vertical does not implement governed participant-origin file Save,
+stale-revision authoring resolution, conversation SEND, Case-attached Open in
 Terminal, persistent PTY sessions, filesystem observation, remote service
 transport, multi-client mutation correctness, Computer Use, YVEX management,
 provider configuration, Mobile, packaging/signing or the complete public

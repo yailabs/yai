@@ -47,7 +47,10 @@ That bounded application facade authenticates the local operating-system
 principal and supplies Case list/open/summary projections plus generation
 invalidation. Summary composition resolves authorized retained source content
 through the existing YAI content owner before deriving Knowledge; Tauri and
-React do not read backing files or private storage. Studio does not start a
+React do not read backing files or private storage. The same application
+boundary exposes `material.read` for one exact acquired Source revision: it
+rechecks disclosure and Source authority, resolves immutable retained backing,
+verifies digest and length, then returns text or base64 bytes. Studio does not start a
 resident YAI application service. Closing
 the desktop process ends this adapter and its transient PTYs, while the durable
 Case remains unchanged. The native CLI still reaches several owners through
@@ -623,12 +626,16 @@ result and refreshed projection
 
 React state alone never commits a business mutation.
 
-CURRENT editable state is deliberately narrow: Studio-local Settings may change
-versioned local preferences. Case materials remain read-only because no general
-save/admission operation is qualified. A future editable Case Surface holds
-local dirty state until an explicit typed application action succeeds, then
-refreshes from the resulting projection; it never silently writes a source from
-React.
+CURRENT editable state is deliberately bounded. Studio-local Settings may
+change versioned local preferences. A trusted text/code Surface can hold an
+exact retained text revision in a local buffer, with cursor/selection, line
+numbers, undo/redo, find/replace, dirty state and explicit revert. This editing
+capability does not authorize persistence. No participant-origin filesystem
+content mutation is currently qualified, so Save is disabled and closing a
+dirty Surface requires explicit discard. A future governed Save must pass the
+typed application boundary, existing Resource/authority/admission owners and
+revision conflict checks before a refreshed projection can become clean; React
+never writes a source path directly.
 
 ### Search and Settings infrastructure
 
@@ -771,6 +778,26 @@ derived graph relations; Authority presents current policy/review/grant facts;
 Work presents current workflow definition/resolution; Compute presents generic
 provider posture. Unsupported families use explicit empty/unavailable states.
 
+Environment preserves three object kinds. A **File / Material** is one concrete
+readable revision. A **Source** is the governed Case relationship that declares
+perimeter, roles, Resource, acquisition posture and revision. A **Resource** is
+an attached operational capability with its own type, policy/review posture and
+disclosed operations. The Environment sidebar builds the file hierarchy only
+from qualified projected `file.path` facts, while Source and Resource rows open
+dedicated typed Surfaces. Opening a Source therefore never masquerades as
+opening its file. File content stays central and minimal; path, canonical refs,
+digest, revision, media type, Source, Resource and provenance belong to
+Inspector technical detail.
+
+Qualified media type selects the default trusted renderer. Textual formats use
+the text/code Surface, browser-safe images use image presentation, PDF uses its
+document renderer and audio/video use native media playback. `Open With…`
+selects another admitted renderer for the same Surface identity, including
+Markdown edit/preview, SVG code/preview and CSV text/table; this choice is local
+interaction state and does not create a Case object. Finer Source distinctions
+than the current canonical actions (`discovery`, `database_query`, `http_fetch`)
+remain a backend model gap rather than a filename guess in React.
+
 Overview is the Case lens, not a generic home dashboard. It keeps durable Case
 identity and attachment facts central, then presents Environment, Knowledge,
 Memory, Authority, Work and Compute as navigable dimensions of that same Case.
@@ -791,8 +818,9 @@ The right-hand Context Panel can represent Conversation, Inspector and Activity
 without making conversation the product root. Inspector identifies the selected
 fact type, properties and qualified Case relations; materials may be explicitly
 opened from it. Primary perspectives retain distinct tabs. Files, documents and
-sources use one reusable preview tab until explicitly pinned, so quick material
-navigation does not replace an open Environment or Knowledge perspective. The
+other content use one reusable preview tab until explicitly pinned; Source and
+Resource Surfaces retain their own typed identity. Quick material navigation
+does not replace an open Environment or Knowledge perspective. The
 central work surface remains a generic local tab host. The fixture graph is a
 lightweight rendered projection, not an inference engine or causal model. A
 source may also be a Resource, but the views preserve those distinct semantic
@@ -820,6 +848,12 @@ roles.
 | Computer surface | Targets, frames, observations/actions and receipts | Future governed Computer Use capability |
 | Bottom Panel | Logs, evidence, tests, execution/output tools | Presentation of facts from responsible owners |
 | Terminal | Real shell/REPL/tool processes | Qualified desktop-local xterm + portable-pty mechanics; Case-attached handoff remains future work |
+
+Every primary Case perspective evolves from passive readiness/reporting toward
+a real operational Surface as typed YAI application capabilities become
+available. That evolution never licenses a frontend workaround: when an owner,
+projection or mutation contract is absent, Studio reports the gap and retains
+read-only/local interaction posture.
 
 ## Local UI State vs Case State
 

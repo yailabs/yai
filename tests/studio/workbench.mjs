@@ -63,7 +63,7 @@ try {
 
   const environmentSidebar = page.locator("[data-view-container='Environment']");
   await environmentSidebar.getByRole("button", { name: /result_reuse\.test/ }).click();
-  await page.locator("[data-surface-type='material.text']").waitFor();
+  await page.locator("[data-surface-type='material.text-editor']").waitFor();
   await page.locator(".surface-tabs i", { hasText: "Preview" }).waitFor();
   const firstPreviewTitle = await page.locator(".surface-tabs button[aria-selected='true']").innerText();
   await environmentSidebar.getByRole("button", { name: /runtime-boundary\.svg/ }).click();
@@ -177,7 +177,47 @@ try {
   await page.goto(`${base}/?fixture=ordinary`, { waitUntil: "networkidle" });
   await page.locator(".workbench-kernel[data-case-source='fixture'][data-host='web']").waitFor();
   await page.locator(".live-rail button[aria-label='Environment']").click();
-  await page.locator("[data-view-container='Environment']").getByRole("button", { name: /client-notes\.md/ }).click();
+  const ordinaryEnvironment = page.locator("[data-view-container='Environment']");
+  await ordinaryEnvironment.getByRole("button", { name: /Meeting notes/ }).click();
+  await page.locator("[data-surface-type='environment.source']").waitFor();
+  await screenshot("environment-source-surface");
+  await ordinaryEnvironment.getByRole("button", { name: /Review workspace/i }).click();
+  await page.locator("[data-surface-type='environment.resource']").waitFor();
+  await screenshot("environment-resource-surface");
+  report("Environment routes Files, Sources and Resources to distinct typed Surfaces");
+
+  await ordinaryEnvironment.getByRole("button", { name: /client-notes\.md/ }).click();
+  await page.locator("[data-surface-type='material.text-editor']").waitFor();
+  const editor = page.getByRole("textbox", { name: "Edit client-notes.md" });
+  const baseline = await editor.inputValue();
+  await editor.fill(`${baseline}\nLocal qualification edit.`);
+  await page.getByLabel("Unsaved changes").waitFor();
+  await screenshot("environment-text-editor-dirty");
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  const fileMenu = page.getByRole("menu", { name: "File menu" });
+  await fileMenu.waitFor();
+  if (!(await fileMenu.getByRole("menuitem", { name: "Save", exact: true }).isDisabled())) throw new Error("Save was enabled without a governed application mutation");
+  await fileMenu.getByRole("menuitem", { name: /^Revert File/ }).click();
+  if (await editor.inputValue() !== baseline) throw new Error("Revert did not restore the exact retained buffer");
+  await page.getByLabel("Unsaved changes").waitFor({ state: "hidden" });
+  await editor.fill(`${baseline}\nDiscard this local edit.`);
+  let discardPrompt = "";
+  page.once("dialog", async (dialog) => { discardPrompt = dialog.message(); await dialog.accept(); });
+  await page.getByRole("button", { name: "Close client-notes.md" }).click();
+  if (!discardPrompt.includes("Discard unsaved changes")) throw new Error("dirty Surface closed without an explicit discard prompt");
+  await ordinaryEnvironment.getByRole("button", { name: /client-notes\.md/ }).click();
+  await page.locator("[data-surface-type='material.text-editor']").waitFor();
+  if (await page.getByRole("textbox", { name: "Edit client-notes.md" }).inputValue() !== baseline) throw new Error("discarded buffer survived Surface close");
+  report("Text Surface retains local dirty state, reverts or discards explicitly, and keeps governed Save unavailable");
+
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Open With/ }).click();
+  await page.getByRole("dialog", { name: /Open client-notes\.md with/ }).waitFor();
+  await page.keyboard.press("Escape");
+  await page.getByRole("dialog", { name: /Open client-notes\.md with/ }).waitFor({ state: "hidden" });
+  await page.getByRole("button", { name: "File", exact: true }).click();
+  await page.getByRole("menuitem", { name: /Open With/ }).click();
+  await page.getByRole("button", { name: /Markdown Preview/ }).click();
   await page.locator("[data-surface-type='material.markdown']").waitFor();
   await screenshot("fixture-ordinary-same-kernel");
   report("Distinct FixtureClient Cases use the same Workbench and Markdown Surface renderer");

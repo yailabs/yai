@@ -10,8 +10,10 @@ const { MenuService } = require(path.join(studio, "platform/menus.js"));
 const { KeybindingService } = require(path.join(studio, "platform/keybindings.js"));
 const { NavigationService } = require(path.join(studio, "platform/navigation.js"));
 const { SurfaceGroupService } = require(path.join(studio, "workbench/surface/model.js"));
+const { SurfaceBufferService } = require(path.join(studio, "workbench/surface/buffers.js"));
 const { WorkbenchRegistry } = require(path.join(studio, "workbench/kernel/registry.js"));
-const { resolveMaterialSurfaceType } = require(path.join(studio, "contrib/surfaces/inputs.js"));
+const { rendererChoices, resolveMaterialSurfaceType } = require(path.join(studio, "contrib/surfaces/inputs.js"));
+const { buildFileTree } = require(path.join(studio, "contrib/case/environment.js"));
 
 test("commands register, gate, execute and dispose without global state", async () => {
   const context = new ContextKeyService();
@@ -45,6 +47,7 @@ test("menu contributions are ordered, hidden by context and disposable", () => {
   assert.deepEqual(menus.getMenu("View").map((item) => item.id), ["later"]);
   context.update("case.attached", true);
   assert.deepEqual(menus.getMenu("View").map((item) => item.id), ["first", "later"]);
+  assert.deepEqual(menus.getMenu("View").map((item) => item.checked), [false, false]);
   later.dispose();
   assert.deepEqual(menus.getMenu("View").map((item) => item.id), ["first"]);
 });
@@ -89,6 +92,35 @@ test("qualified media types resolve without file-extension guessing", () => {
   assert.equal(resolveMaterialSurfaceType("video/webm"), "material.video");
   assert.equal(resolveMaterialSurfaceType("application/vnd.yai.table+json"), "data.table");
   assert.equal(resolveMaterialSurfaceType("application/octet-stream"), "material.unavailable");
+});
+
+test("Open With exposes trusted alternatives from qualified media type", () => {
+  assert.deepEqual(rendererChoices("text/markdown").map((item) => item.title), ["Text Editor", "Markdown Preview"]);
+  assert.deepEqual(rendererChoices("image/svg+xml").map((item) => item.title), ["SVG/Text Editor", "Image Preview"]);
+  assert.deepEqual(rendererChoices("text/csv").map((item) => item.title), ["Text Editor", "Table"]);
+});
+
+test("qualified file paths form a hierarchy without a filesystem scan", () => {
+  const files = [
+    { id: "cargo", path: "application/yai-application/Cargo.toml" },
+    { id: "readme", path: "studio/README.md" },
+    { id: "roadmap", path: "studio/ROADMAP.md" },
+  ];
+  const tree = buildFileTree(files);
+  assert.deepEqual(tree.map((node) => node.name), ["application", "studio"]);
+  assert.equal(tree[0].children[0].children[0].fileId, "cargo");
+  assert.deepEqual(tree[1].children.map((node) => node.fileId), ["readme", "roadmap"]);
+});
+
+test("surface buffers retain dirty edits across renderer unmounts and revert explicitly", () => {
+  const buffers = new SurfaceBufferService();
+  assert.equal(buffers.initialize("material:readme", "alpha").dirty, false);
+  buffers.update("material:readme", "alpha beta");
+  assert.equal(buffers.snapshot("material:readme").dirty, true);
+  buffers.revert("material:readme");
+  assert.deepEqual(buffers.snapshot("material:readme"), { baseline: "alpha", value: "alpha", dirty: false });
+  buffers.discard("material:readme");
+  assert.equal(buffers.snapshot("material:readme"), undefined);
 });
 
 test("surface and Inspector locations share the Workbench navigation history", () => {

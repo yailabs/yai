@@ -58,9 +58,9 @@ export interface LiveWorkspace {
     participants: Array<{ id: string; roles: string[]; is_current: boolean }>;
   };
   environment: {
-    sources: Array<{ id: string; label: string; perimeter: string; media_type: string; roles: string[]; resource_ref: string; posture?: string; revision_ref?: string; items?: number }>;
-    files: Array<{ id: string; source_ref: string; source_label: string; revision_ref: string; path: string; digest: string; bytes: number; backing: unknown }>;
-    resources: Array<{ id: string; kind: string; policy_ref: string; review_requirement: string }>;
+    sources: Array<{ id: string; label: string; kind: string; perimeter: string; media_type: string; roles: string[]; resource_ref: string; posture?: string; revision_ref?: string; items?: number }>;
+    files: Array<{ id: string; source_ref: string; source_label: string; revision_ref: string; path: string; digest: string; bytes: number; media_type: string; backing: unknown }>;
+    resources: Array<{ id: string; label?: string; kind: string; policy_ref: string; review_requirement: string; allowed_write_prefix: string; max_write_bytes: number; operations: string[]; read_prefixes: string[]; names: string[]; max_output_bytes?: number; max_items?: number }>;
     artifacts: unknown[];
   };
   knowledge: {
@@ -85,6 +85,19 @@ export interface LiveWorkspace {
   compute: { status: string; message: string; targets: Array<{ id: string; provider_key: string; adapter: string; model_id: string; locality: string; endpoint: string; posture?: unknown; management: string }> };
   conversation: { read_only: boolean; turns: Array<{ id: string; thread_ref: string; participant_ref: string; generation: number; parts: Array<{ modality: string; media_type: string; text?: string }> }> };
   freshness: { generation: number; resync_operation: string };
+}
+
+export interface MaterialReadProjection {
+  case_ref: string;
+  generation: number;
+  source_ref: string;
+  revision_ref: string;
+  path: string;
+  digest: string;
+  bytes: number;
+  media_type: string;
+  encoding: "utf-8" | "base64";
+  content: string;
 }
 
 export interface CaseUpdate {
@@ -123,6 +136,7 @@ export class LiveClient {
   listCases() { return this.call<CaseListProjection>("case.list"); }
   openCase(case_ref: string) { return this.call<CaseAttachment>("case.open", { case_ref, reason: "studio_local_attachment" }); }
   caseSummary(case_ref: string, expected_generation?: number) { return this.call<LiveWorkspace>("case.summary", { case_ref, expected_generation }); }
+  readMaterial(input: { case_ref: string; source_ref: string; revision_ref?: string; path: string; expected_generation?: number }) { return this.call<MaterialReadProjection>("material.read", input); }
   subscribe(resume_token?: string) { return this.call("events.subscribe", { resume_token }); }
   heartbeat(case_ref: string) { return this.call<{ case_ref: string; generation: number; cursor: string; stream_state: string }>("events.heartbeat", { case_ref }); }
   async listen(handler: (update: CaseUpdate) => void): Promise<() => void> {

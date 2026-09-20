@@ -1,15 +1,19 @@
 import type { ComponentType } from "react";
 import type { CasePresentation } from "../../clients/dataSource";
+import type { MaterialReadProjection, OperationResult } from "../../clients/live";
 import type { IconName } from "../../components/Icon";
 import type { PlatformServices } from "../../platform/services";
 import type { SettingsRegistry } from "../settings/registry";
 import type { SurfaceCapability, SurfaceInput, SurfaceRole } from "../surface/model";
+import type { SurfaceBufferService } from "../surface/buffers";
 
 export interface WorkbenchActions {
   inspect(id: string): void;
   openSurface(input: SurfaceInput): void;
   openPerspective(id: string): void;
   openSettings(): void;
+  updateSurface(id: string, patch: Partial<Omit<SurfaceInput, "id" | "identity">>): void;
+  replaceSurface(id: string, input: SurfaceInput): void;
 }
 
 export interface WorkbenchRenderContext {
@@ -18,6 +22,8 @@ export interface WorkbenchRenderContext {
   actions: WorkbenchActions;
   platform: PlatformServices;
   settings: SettingsRegistry;
+  readMaterial(input: { case_ref: string; source_ref: string; revision_ref?: string; path: string; expected_generation?: number }): Promise<OperationResult<MaterialReadProjection>>;
+  buffers: SurfaceBufferService;
 }
 
 export interface SurfaceSearchResult {

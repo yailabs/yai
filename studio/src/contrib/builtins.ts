@@ -1,8 +1,8 @@
 import type { StudioContribution } from "../workbench/kernel/contributions";
 import { lazy } from "react";
-import { ActivityView, CaseSidebarView, ConversationView, GraphSurface, InspectorView, perspectiveMeta, perspectives, PerspectiveSurface, TimelineSurface, searchGraphSurface, searchTimelineSurface } from "./case/CaseViews";
+import { ActivityView, CaseSidebarView, ConversationView, GraphSurface, InspectorView, perspectiveMeta, perspectives, PerspectiveSurface, ResourceSurface, SourceSurface, TimelineSurface, searchGraphSurface, searchTimelineSurface } from "./case/CaseViews";
 import { EmptyToolView, OutputPanelView, TerminalPanelView } from "./terminal/TerminalContribution";
-import { AudioSurface, ImageSurface, MarkdownSurface, StructuredTextSurface, TableSurface, TextSurface, UnavailableMaterialSurface, VideoSurface, searchMaterialSurface, searchPdfSurface } from "./surfaces/MaterialSurfaces";
+import { AudioSurface, ImageSurface, MarkdownSurface, StructuredTextSurface, TableSurface, TextEditorSurface, TextSurface, UnavailableMaterialSurface, VideoSurface, searchMaterialSurface, searchPdfSurface } from "./surfaces/MaterialSurfaces";
 import { perspectiveInput, surfaceTypes } from "./surfaces/inputs";
 import { searchSettingsSurface, SettingsSurface } from "./settings/SettingsSurface";
 
@@ -23,6 +23,9 @@ export const builtInContributions: readonly StudioContribution[] = [
     register({ workbench, platform }) {
       return [
         workbench.registerSurfaceRenderer({ type: surfaceTypes.perspective, role: "projection", capabilities: ["pinnable", "navigable", "selectable"], component: PerspectiveSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.source, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: SourceSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.resource, role: "system", capabilities: ["previewable", "pinnable", "navigable", "selectable"], component: ResourceSurface }),
+        workbench.registerSurfaceRenderer({ type: surfaceTypes.textEditor, role: "content", capabilities: ["previewable", "pinnable", "editable", "dirty-aware", "navigable", "selectable", "searchable"], component: TextEditorSurface, search: searchMaterialSurface }),
         workbench.registerSurfaceRenderer({ type: surfaceTypes.markdown, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: MarkdownSurface, search: searchMaterialSurface }),
         workbench.registerSurfaceRenderer({ type: surfaceTypes.text, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: TextSurface, search: searchMaterialSurface }),
         workbench.registerSurfaceRenderer({ type: surfaceTypes.structuredText, role: "content", capabilities: ["previewable", "pinnable", "navigable", "selectable", "searchable"], component: StructuredTextSurface, search: searchMaterialSurface }),

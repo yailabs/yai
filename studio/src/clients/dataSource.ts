@@ -1,4 +1,4 @@
-import type { CaseAttachment, CaseUpdate, LiveCaseRow, LiveWorkspace, OperationResult } from "./live";
+import type { CaseAttachment, CaseUpdate, LiveCaseRow, LiveWorkspace, MaterialReadProjection, OperationResult } from "./live";
 import type { MaterialView, WorkspacePresentation } from "./presentation";
 
 export type CaseDataKind = "live" | "fixture";
@@ -30,6 +30,7 @@ export interface CaseDataSource {
   listCases(): Promise<OperationResult<CaseCatalog>>;
   openCase(caseRef: string): Promise<OperationResult<CaseAttachment>>;
   caseSummary(caseRef: string, expectedGeneration?: number): Promise<OperationResult<CasePresentation>>;
+  readMaterial(input: { case_ref: string; source_ref: string; revision_ref?: string; path: string; expected_generation?: number }): Promise<OperationResult<MaterialReadProjection>>;
   subscribe?(resumeToken?: string): Promise<OperationResult<unknown>>;
   heartbeat?(caseRef: string): Promise<OperationResult<{ case_ref: string; generation: number; cursor: string; stream_state: string }>>;
   searchCase?(caseRef: string, query: string): Promise<OperationResult<readonly CaseSearchResult[]>>;
@@ -77,38 +78,48 @@ export function fixtureToCasePresentation(
   const sourceMaterials = source.materials.filter((material) => material.category === "source");
   const fileMaterials = source.materials.filter((material) => material.category === "source" || material.category === "artifact");
   const environmentSources = environmentItems.filter((item) => item.kind === "source" || item.kind === "document" || item.kind === "repository");
+  const environmentResources = environmentItems.filter((item) => item.kind === "resource" || item.kind === "machine");
+  const primaryResourceRef = environmentResources[0] ? `fixture:resource:${environmentResources[0].id}` : "fixture:resource:unavailable";
   const sources = (environmentSources.length ? environmentSources : sourceMaterials.map((material) => ({
     id: material.id, label: material.name, detail: material.path, kind: "source" as const,
     material: material.id, posture: "current" as const,
   }))).map((item) => {
     const material = item.material ? materialById.get(item.material) : materialById.get(item.id);
     return {
-      id: item.id,
+      id: `fixture:source:${item.id}`,
       label: item.label,
+      kind: item.kind === "repository" ? "discovery" : item.kind,
       perimeter: material?.path ?? item.detail,
       media_type: material?.mediaType ?? item.kind,
       roles: ["fixture-source"],
-      resource_ref: `fixture:resource:${item.id}`,
+      resource_ref: primaryResourceRef,
       posture: posture(item.posture),
       revision_ref: "fixture:authored",
       items: 1,
     };
   });
   const files = fileMaterials.map((material) => ({
-    id: material.id,
-    source_ref: material.id,
+    id: `fixture:file:${material.id}`,
+    source_ref: `fixture:source:${material.id}`,
     source_label: material.name,
     revision_ref: "fixture:authored",
     path: material.path,
     digest: "unavailable-in-authored-fixture",
     bytes: 0,
+    media_type: material.mediaType,
     backing: { posture: "synthetic" },
   }));
-  const resources = environmentItems.filter((item) => item.kind === "resource" || item.kind === "machine").map((item) => ({
-    id: item.id,
+  const resources = environmentResources.map((item) => ({
+    id: `fixture:resource:${item.id}`,
+    label: item.label,
     kind: item.kind,
     policy_ref: "fixture:no-authority",
     review_requirement: posture(item.posture),
+    allowed_write_prefix: "",
+    max_write_bytes: 0,
+    operations: [],
+    read_prefixes: [],
+    names: [],
   }));
   const timeline = source.information.memory.timeline.filter((entry) => entry.step <= generation).map((entry, index) => ({
     id: entry.id,
@@ -159,7 +170,7 @@ export function fixtureToCasePresentation(
   }));
   const units = knowledgeItems.map((item) => ({
     id: item.id,
-    source_ref: item.material ?? sources[0]?.id ?? "fixture:source:unavailable",
+    source_ref: item.material ? `fixture:source:${item.material}` : sources[0]?.id ?? "fixture:source:unavailable",
     kind: itemKind(item.kind),
     text: `${item.label}: ${item.detail}`,
     posture: posture(item.posture),
@@ -193,7 +204,7 @@ export function fixtureToCasePresentation(
       status: units.length ? "fixture" : "empty",
       message: units.length ? "Authored development projection" : "No authored fixture knowledge.",
       sources: sourceMaterials.map((material) => ({
-        id: material.id, source_ref: material.id, label: material.name,
+        id: material.id, source_ref: `fixture:source:${material.id}`, label: material.name,
         revision_ref: "fixture:authored", path: material.path,
         digest: "unavailable-in-authored-fixture", media_type: material.mediaType,
         extractor: "fixture-author", status: "synthetic", detail: material.provenance,
@@ -285,7 +296,43 @@ export class FixtureDataSource implements CaseDataSource {
     return fixtureResult("case.summary", fixtureToCasePresentation(workspace, step));
   }
 
+  async readMaterial(input: { case_ref: string; source_ref: string; revision_ref?: string; path: string; expected_generation?: number }) {
+    const id = input.case_ref.replace(/^fixture:/, "") as import("./presentation").ScenarioId;
+    let workspace: WorkspacePresentation;
+    try { workspace = this.fixture.workspace(id); }
+    catch { return missingFixture<MaterialReadProjection>("material.read", input.case_ref); }
+    const material = workspace.materials.find((candidate) => candidate.path === input.path || candidate.id === input.source_ref);
+    if (!material) return missingFixture<MaterialReadProjection>("material.read", input.path);
+    const content = fixtureMaterialText(material.body);
+    if (content === undefined) return {
+      operation_ref: "material.read",
+      result_state: "not_implemented" as const,
+      correlation_ref: `studio:fixture:${++fixtureCorrelation}`,
+      error: { code: "fixture_binary_read_unavailable", message: "fixture_binary_read_unavailable", safe_message: "This authored binary fixture uses its trusted renderer directly.", result_state: "not_implemented" as const },
+    };
+    return fixtureResult("material.read", {
+      case_ref: input.case_ref,
+      generation: input.expected_generation ?? workspace.information.progression.steps.at(-1)?.index ?? 1,
+      source_ref: input.source_ref,
+      revision_ref: input.revision_ref ?? "fixture:authored",
+      path: material.path,
+      digest: "unavailable-in-authored-fixture",
+      bytes: new TextEncoder().encode(content).byteLength,
+      media_type: material.mediaType,
+      encoding: "utf-8" as const,
+      content,
+    });
+  }
+
   composition() { return this.fixture.composition(); }
+}
+
+function fixtureMaterialText(body: MaterialView["body"]): string | undefined {
+  if (body.kind === "text") return body.content;
+  if (body.kind === "diff") return body.lines.map((line) => `${line.change === "add" ? "+ " : line.change === "remove" ? "- " : "  "}${line.text}`).join("\n");
+  if (body.kind === "document") return [body.title, body.intro, ...body.sections.flatMap((section) => [section.title, section.body, ...(section.points ?? [])])].join("\n\n");
+  if (body.kind === "table") return JSON.stringify(body.rows.map((row) => row.values), null, 2);
+  return undefined;
 }
 
 export class LiveDataSource implements CaseDataSource {
@@ -308,6 +355,7 @@ export class LiveDataSource implements CaseDataSource {
       data: { ...result.data, presentation: { dataKind: "live" as const, backendPosture: "embedded-local" as const } },
     } satisfies OperationResult<CasePresentation>;
   }
+  readMaterial(input: { case_ref: string; source_ref: string; revision_ref?: string; path: string; expected_generation?: number }) { return this.client.readMaterial(input); }
   subscribe(resumeToken?: string) { return this.client.subscribe(resumeToken); }
   heartbeat(caseRef: string) { return this.client.heartbeat(caseRef); }
   listen(handler: (update: CaseUpdate) => void) { return this.client.listen(handler); }
