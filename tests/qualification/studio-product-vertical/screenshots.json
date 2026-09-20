@@ -1,0 +1,47 @@
+{
+  "schema": "yai.studio_screenshot_evidence.v1",
+  "application_sha": "007efef15406235e867bb68f09bdef963316c415",
+  "case_ref": "case:studio-live-qualification",
+  "captures": [
+    {
+      "path": "tests/qualification/studio-product-vertical/studio-live-generation-55.png",
+      "yai_sha": "007efef15406235e867bb68f09bdef963316c415",
+      "case_ref": "case:studio-live-qualification",
+      "case_display_name": "Studio Live Qualification",
+      "generation": 55,
+      "window_viewport": {
+        "width": 1600,
+        "height": 960
+      },
+      "captured_pixels": {
+        "width": 2204,
+        "height": 1426
+      },
+      "posture": "live-real-local",
+      "meaning": "Real desktop Workbench before the CLI Workflow input",
+      "sha256": "66c92bfd6655d24adc257c32671e0535c27a532341a4fd117c33f77ec3efb20a"
+    },
+    {
+      "path": "tests/qualification/studio-product-vertical/studio-live-generation-56.png",
+      "yai_sha": "007efef15406235e867bb68f09bdef963316c415",
+      "case_ref": "case:studio-live-qualification",
+      "case_display_name": "Studio Live Qualification",
+      "generation": 56,
+      "window_viewport": {
+        "width": 1600,
+        "height": 960
+      },
+      "captured_pixels": {
+        "width": 1806,
+        "height": 2255
+      },
+      "posture": "live-real-local",
+      "meaning": "Same live Studio attachment after generation invalidation and refetch",
+      "sha256": "65a1025aae4977233d0c7d69085bf79d193d755e046557786d09d75aad50f02d"
+    }
+  ],
+  "notes": [
+    "Canonical Case identity and generation are verified independently by observations.jsonl.",
+    "Screenshots contain no credentials or provider endpoint because the Case has no provider binding."
+  ]
+}
