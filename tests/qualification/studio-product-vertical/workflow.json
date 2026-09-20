@@ -1,0 +1,20 @@
+{
+  "schema": "yai.workflow_definition.v1",
+  "tenant_id": "tenant:studio-live-qualification",
+  "workflow_key": "studio-product-vertical-checkpoint",
+  "declared_version": "1",
+  "name": "Studio product vertical checkpoint",
+  "description": "One deterministic operator checkpoint used to qualify Workflow projection without a provider or external effect.",
+  "nodes": [
+    {
+      "node_id": "operator-checkpoint",
+      "kind": "human_input",
+      "actor_slot": "operator",
+      "prompt": "Record the bounded Studio product qualification checkpoint.",
+      "required_roles": ["workflow-input"],
+      "input_kind": "text",
+      "max_bytes": 256
+    }
+  ],
+  "edges": []
+}

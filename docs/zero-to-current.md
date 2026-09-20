@@ -17,9 +17,36 @@ This lane exercises the bounded single-host real-Case Studio vertical. Use a
 dedicated non-Golden YAI home; never reset the operator continuity canary or
 populate Studio through frontend fixtures.
 
-1. Build the current product CLI and create a small Tenant-scoped Case through
-   normal `yai` operations. Bind a Participant, link the authenticated local
-   principal, and admit a bounded source/resource perimeter. Record the exact
+The durable product oracle is `case:studio-live-qualification`. Treat it as
+operator-owned state: inspect and reconcile it, never delete/reseed it as test
+setup. With its existing `YAI_HOME` selected, inspect before advancing:
+
+```sh
+yai case show case:studio-live-qualification --json
+yai case verify case:studio-live-qualification --json
+yai case resource list case:studio-live-qualification --json
+yai case sources inventory case:studio-live-qualification --json
+yai case knowledge inspect case:studio-live-qualification --json
+yai workflow status case:studio-live-qualification --json
+yai case provider show case:studio-live-qualification --json
+```
+
+Reusable bounded inputs live under
+`tests/qualification/studio-product-vertical/`. Generate the path-qualified
+perimeter with `build_perimeter.py`, then use the normal `case sources`
+declare/inventory/acquire lifecycle only for missing or deliberately refreshed
+state. Publish the included policy only when no equivalent binding exists;
+define/bind the included Workflow only when absent. Repeated declaration and
+acquisition converge on the same Source identities/revisions; an identical
+second Workflow binding intentionally refuses `case_workflow_already_bound`.
+Build the application probe and run `assert_coherence.py` to compare semantic
+identities across CLI and `case.summary`. The helper reads through product
+commands/application operations only; it never reads LMDB or mutates the Case.
+
+1. Build the current product CLI. Inspect the persistent Case first. If it does
+   not yet exist in a new dedicated home, create it once through normal `yai`
+   operations, bind `participant:operator`, link the authenticated local
+   principal, and admit the bounded qualification perimeter. Record the exact
    YAI SHA, `YAI_HOME`, Case ID and starting generation.
 2. From `studio/`, run `npm ci`, `npm run typecheck`, `npm run build` and
    `npm run desktop:build -- -- --locked`. Launch with

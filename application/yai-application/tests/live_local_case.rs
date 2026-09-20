@@ -102,6 +102,10 @@ fn lists_attaches_and_projects_one_real_case_without_fixtures() {
         listed.data.as_ref().unwrap()["cases"][0]["case_ref"],
         "case:studio-live-test"
     );
+    assert_eq!(
+        listed.data.as_ref().unwrap()["cases"][0]["display_name"],
+        "Studio Live Test"
+    );
     let opened = app.call(request(
         "case.open",
         json!({ "case_ref": "case:studio-live-test" }),
@@ -115,6 +119,8 @@ fn lists_attaches_and_projects_one_real_case_without_fixtures() {
         json!({ "case_ref": "case:studio-live-test" }),
     ));
     let body = snapshot.data.unwrap();
+    assert_eq!(body["case"]["case_ref"], "case:studio-live-test");
+    assert_eq!(body["case"]["display_name"], "Studio Live Test");
     assert_eq!(body["case"]["generation"], 3);
     assert_eq!(body["knowledge"]["status"], "empty");
     assert_eq!(body["work"]["status"], "empty");

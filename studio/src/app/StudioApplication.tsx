@@ -81,7 +81,7 @@ export function StudioApplication({ dataSource, platform, registry }: { dataSour
     const guard = () => { if (attachment) window.history.replaceState({ case_ref: attachment.case_ref }, "", window.location.href); };
     window.addEventListener("popstate", guard); return () => window.removeEventListener("popstate", guard);
   }, [attachment]);
-  useEffect(() => { document.title = attachment ? `${attachment.case_ref} — YAI Studio` : "YAI Studio"; }, [attachment]);
+  useEffect(() => { document.title = workspace?.data ? `${workspace.data.case.display_name} — YAI Studio` : "YAI Studio"; }, [workspace?.data]);
 
   const cases = catalog?.data?.cases ?? [];
   if (composer && dataSource.composition) return <ApplicationFrame platform={platform}><CaseComposer sections={dataSource.composition()} close={() => setComposer(false)} /></ApplicationFrame>;

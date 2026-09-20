@@ -73,7 +73,7 @@ export interface LiveWorkspace {
     relations: Array<LiveEdge & { posture?: string; backing_units?: string[] }>;
   };
   memory: { authority: string; timeline: TimelineEntry[]; relations: LiveEdge[]; generation: number };
-  authority: { policies: Record<string, unknown>[]; reviews: Array<{ id: string; status: string; operation_ref: string; policy_ref: string; decision_ref?: string; evidence_ref?: string; required_roles: string[] }>; grants: Record<string, unknown>[]; last_decision?: Record<string, unknown>; empty: boolean };
+  authority: { policies: Array<{ id: string; policy_key: string; lineage_ref: string; artifact_ref: string; source_ref: string; owner_ref: string; version: string; bound_at_generation: number; reason: string }>; reviews: Array<{ id: string; status: string; operation_ref: string; policy_ref: string; decision_ref?: string; evidence_ref?: string; required_roles: string[] }>; grants: Record<string, unknown>[]; last_decision?: Record<string, unknown>; empty: boolean };
   work: {
     status: string;
     message?: string;

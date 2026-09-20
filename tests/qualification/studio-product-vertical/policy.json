@@ -1,0 +1,37 @@
+{
+  "schema": "yai.policy_source_input.v4",
+  "policy_key": "studio-product-vertical-source-access",
+  "source_version": "1",
+  "owner_ref": "organization:yailabs",
+  "source_origin": {
+    "source_system": "yai-product-qualification",
+    "source_uri": "qualification://studio-product-vertical/policy/v1"
+  },
+  "validity": { "mode": "unbounded" },
+  "rules": [
+    {
+      "kind": "operation_restriction",
+      "rule_id": "bounded-repository-inventory",
+      "operation_kind": "discovery.enumerate",
+      "resource_kind": "discovery",
+      "effect": "allow",
+      "reason": "Enumerate only the declared Studio product qualification perimeter"
+    },
+    {
+      "kind": "operation_restriction",
+      "rule_id": "bounded-repository-admission",
+      "operation_kind": "content.admit",
+      "resource_kind": "discovery",
+      "effect": "allow",
+      "reason": "Admit exact digest-checked qualification material only"
+    },
+    {
+      "kind": "operation_restriction",
+      "rule_id": "bounded-repository-read",
+      "operation_kind": "content.read",
+      "resource_kind": "discovery",
+      "effect": "allow",
+      "reason": "Read currently scoped immutable backing only"
+    }
+  ]
+}

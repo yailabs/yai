@@ -594,8 +594,8 @@ ESTABLISHED=32 PARTIAL=31 OPEN=8 LATER=3 TOTAL=74
 |---|---|---|---|
 | X01 | Registry-backed native CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; handwritten YAI product CLI and exact automation retained, no global current-Case authority or silent trust. Generated reference clients do not replace `./yai` automatically. |
 | X02 | Native REPLAI Case workbench | 🟢 ESTABLISHED | [R4][replai], [R5][r5], [presentation][presentation]; real PTY and controller seams, no second terminal. |
-| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | A bounded `yai-application` Rust boundary now supplies authorized local Case list/open/summary projections and generation invalidation to native Studio. CLI arguments, output capture and store-coupled orchestration still cross application/presentation boundaries; no complete stable public API, standalone listener, exported interface package, SDK or remote authentication qualification. |
-| X04 | YAI Studio / Case IDE | 🟡 PARTIAL | [Case Workbench specification](docs/studio.md) and [Studio progression](studio/ROADMAP.md), inside YAI. A bounded single-host local real-Case vertical now lists/attaches authorized Cases and presents real Overview/Environment/Knowledge/Memory/Authority/Work/Compute/Conversation facts or explicit missingness through LiveClient; the desktop shell also owns a real local PTY while fixtures stay opt-in. This is not general product readiness, multi-client mutation qualification, remote transport, Case-attached Open in Terminal or YVEX management. |
+| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | A bounded `yai-application` Rust boundary now supplies authorized local Case list/open/summary projections, retained content-backed Knowledge and generation invalidation to native Studio. A persistent product Case qualifies semantic parity with CLI owners for Sources/revisions/files, Knowledge, policy and Workflow. CLI arguments, output capture and store-coupled orchestration still cross application/presentation boundaries; no complete stable public API, mutation parity, standalone listener, exported interface package, SDK or remote authentication qualification. |
+| X04 | YAI Studio / Case IDE | 🟡 PARTIAL | [Case Workbench specification](docs/studio.md) and [Studio progression](studio/ROADMAP.md), inside YAI. A bounded single-host local real-Case vertical now lists/attaches authorized Cases and presents real Overview/Environment/Knowledge/Memory/Authority/Work/Compute/Conversation facts or explicit missingness through LiveClient; `case:studio-live-qualification` is the persistent cross-surface product oracle and a real CLI Workflow mutation is observed through generation refetch. The desktop shell also owns a real local PTY while fixtures stay opt-in. This is not general product readiness, Studio mutation parity, multi-client mutation qualification, remote transport, Case-attached Open in Terminal or YVEX management. |
 
 ### Qualification
 
@@ -807,8 +807,10 @@ engineering selection, promotion and interlock.
 
 Normal Studio now uses a real authorized local Case list, an ephemeral
 principal/Participant attachment, owner-backed projections and generation-based
-refresh. Missing Knowledge, policy, workflow and provider facts remain explicit;
-no product fixture fallback exists. The dark UI foundation, graph views, Context
+refresh. The persistent `case:studio-live-qualification` product oracle exercises
+bounded real Sources/revisions/files, source-grounded Knowledge, policy and
+Workflow across CLI, application projection and Studio; provider and
+Conversation gaps remain explicit and no product fixture fallback exists. The dark UI foundation, graph views, Context
 Panel, preview/pinned navigation and resizable bottom tools are presentation
 mechanics, not new semantic owners. Fixture scenarios remain explicit development
 and visual-regression input.

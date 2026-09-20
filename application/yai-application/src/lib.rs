@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use yai_core_engine::conversation::turns_from_history;
+use yai_core_engine::conversation::{turns_from_history, ConversationContentStore};
 use yai_core_engine::memory_hierarchy::knowledge::KnowledgeRequest;
 use yai_core_engine::security::AuthenticatedPrincipal;
 use yai_core_engine::store::lmdb::LmdbRecordStore;
@@ -73,6 +73,7 @@ pub struct CaseUpdate {
 
 #[derive(Clone, Debug)]
 pub struct LocalApplication {
+    home_path: PathBuf,
     store_path: PathBuf,
 }
 
@@ -84,8 +85,10 @@ impl Default for LocalApplication {
 
 impl LocalApplication {
     pub fn from_yai_home(home: impl AsRef<Path>) -> Self {
+        let home_path = home.as_ref().to_path_buf();
         Self {
-            store_path: home.as_ref().join("store").join("lmdb"),
+            store_path: home_path.join("store").join("lmdb"),
+            home_path,
         }
     }
 
@@ -174,10 +177,12 @@ impl LocalApplication {
             }
             "case.summary" => {
                 let case_ref = input_case_ref(request)?;
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
                 case_snapshot(
                     &store,
                     &auth,
                     case_ref,
+                    content.as_ref(),
                     request
                         .input
                         .get("expected_generation")
@@ -229,6 +234,33 @@ fn input_case_ref(request: &OperationRequest) -> Result<&str, String> {
         .ok_or_else(|| "case_ref_invalid".to_string())
 }
 
+/// Produce a human presentation label without changing canonical Case identity.
+///
+/// Case refs remain the durable lookup key and stay available in technical
+/// details. The application boundary owns this bounded fallback until YAI has
+/// a qualified persistent display-name contract.
+fn case_display_name(case_ref: &str) -> String {
+    let Some(slug) = case_ref.strip_prefix("case:") else {
+        return case_ref.to_string();
+    };
+    let words = slug
+        .split(['-', '_'])
+        .filter(|word| !word.is_empty())
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>();
+    if words.is_empty() {
+        case_ref.to_string()
+    } else {
+        words.join(" ")
+    }
+}
+
 fn case_list(store: &LmdbRecordStore, auth: &AuthenticatedPrincipal) -> Result<Value, String> {
     let mut cases = Vec::new();
     for state in store.list_case_states_authorized(auth, None, 1024)? {
@@ -238,7 +270,7 @@ fn case_list(store: &LmdbRecordStore, auth: &AuthenticatedPrincipal) -> Result<V
             .map(|transition| transition.committed_at_unix_ms);
         cases.push(json!({
             "case_ref": state.case_id,
-            "display_name": state.case_id,
+            "display_name": case_display_name(&state.case_id),
             "case_status": lifecycle(&state.lifecycle),
             "generation": state.generation,
             "updated_at_unix_ms": updated_at_unix_ms,
@@ -289,6 +321,7 @@ fn case_snapshot(
     store: &LmdbRecordStore,
     auth: &AuthenticatedPrincipal,
     case_ref: &str,
+    content: Option<&ConversationContentStore>,
     expected_generation: Option<u64>,
 ) -> Result<Value, String> {
     let state = store.get_case_state_authorized(auth, case_ref)?;
@@ -385,7 +418,7 @@ fn case_snapshot(
     let authority = authority_projection(&state);
     let workflow = workflow_projection(store, auth, &state)?;
     let compute = compute_projection(store, auth, &state)?;
-    let knowledge = knowledge_projection(store, auth, case_ref);
+    let knowledge = knowledge_projection(store, auth, case_ref, content);
     let conversation = turns_from_history(case_ref, &history)
         .into_iter()
         .map(|turn| {
@@ -406,7 +439,7 @@ fn case_snapshot(
     Ok(json!({
         "case": {
             "case_ref": state.case_id,
-            "display_name": state.case_id,
+            "display_name": case_display_name(&state.case_id),
             "case_status": lifecycle(&state.lifecycle),
             "generation": state.generation,
             "tenant_ref": state.tenant_id,
@@ -429,10 +462,14 @@ fn knowledge_projection(
     store: &LmdbRecordStore,
     auth: &AuthenticatedPrincipal,
     case_ref: &str,
+    content: Option<&ConversationContentStore>,
 ) -> Value {
-    let mut request = KnowledgeRequest::new(case_ref);
-    request.max_units = 512;
-    match store.case_knowledge_authorized(auth, request, None) {
+    // Use the qualified Knowledge profile's bounded default. A lower ad-hoc
+    // presentation cap can suppress the entire deterministic derivation when
+    // the exact document structure exceeds that cap, which incorrectly makes
+    // available Case knowledge appear empty in Studio.
+    let request = KnowledgeRequest::new(case_ref);
+    match store.case_knowledge_authorized(auth, request, content) {
         Ok(result) => {
             let view = result.view;
             let status = if view.sources.is_empty() {
@@ -523,7 +560,19 @@ fn authority_projection(state: &CaseState) -> Value {
     let policies = state
         .policy_bindings
         .iter()
-        .map(|binding| serde_json::to_value(binding).unwrap_or(Value::Null))
+        .map(|binding| {
+            json!({
+                "id": binding.binding_id,
+                "policy_key": binding.policy_key,
+                "lineage_ref": binding.lineage_id,
+                "artifact_ref": binding.artifact_id,
+                "source_ref": binding.source_id,
+                "owner_ref": binding.owner_ref,
+                "version": binding.artifact_version,
+                "bound_at_generation": binding.bound_at_case_generation,
+                "reason": binding.reason
+            })
+        })
         .collect::<Vec<_>>();
     let reviews = state
         .reviews
@@ -815,5 +864,14 @@ mod tests {
             "https://example.test"
         );
         assert_eq!(sanitized_endpoint("opaque-local-target"), "configured");
+    }
+
+    #[test]
+    fn case_presentation_label_preserves_canonical_identity_separately() {
+        assert_eq!(
+            case_display_name("case:studio-live-qualification"),
+            "Studio Live Qualification"
+        );
+        assert_eq!(case_display_name("not-a-case-ref"), "not-a-case-ref");
     }
 }

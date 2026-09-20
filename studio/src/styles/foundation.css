@@ -289,6 +289,7 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .provider-row small { margin-top: 4px; color: var(--yai-text-muted); }
 .provider-row dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 11px; }
 .provider-row dt { color: var(--yai-text-muted); }.provider-row dd { margin: 0; overflow-wrap: anywhere; }
+.surface-note { margin: 10px 6px 0; max-width: 720px; color: var(--yai-text-muted); font-size: 12px; line-height: 1.55; }
 
 .live-context { width: var(--right-width); flex: 0 0 var(--right-width); display: flex; flex-direction: column; overflow: hidden; background: var(--yai-panel); }
 .live-context > header { min-height: 48px; padding: 7px 8px; display: flex; align-items: center; justify-content: space-between; }

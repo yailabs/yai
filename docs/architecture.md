@@ -193,7 +193,12 @@ requires native CLI and Studio to converge on one typed YAI application meaning.
 [`application/yai-application`](../application/yai-application/src/lib.rs) is now a
 bounded read-only foothold: it authenticates the local principal and composes
 versioned Case list/open/summary projections plus generation invalidation from
-existing authorized engine owners. It owns no persistence or Case semantics.
+existing authorized engine owners. For source-grounded Knowledge it opens the
+existing YAI content store through `ConversationContentStore` and passes that
+owner to the authorized derivation; it does not reread repository paths or
+duplicate extraction. Case summaries preserve the canonical `case:` ref while
+supplying a deterministic human presentation label because no persistent Case
+display-name owner exists yet. It owns no persistence or Case semantics.
 CLI/store coupling recorded above remains, so this is neither a complete shared
 application API nor an exported/public Interfaces package.
 

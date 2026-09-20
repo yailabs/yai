@@ -29,6 +29,15 @@ Fixtures remain an explicit development mode only. This vertical does not
 establish remote, general multi-client or complete application-API qualification;
 ROADMAP owns its exact maturity.
 
+The persistent product oracle for this boundary is
+`case:studio-live-qualification` in an operator-owned non-Golden `YAI_HOME`.
+It is real Case state, not a fixture or disposable test seed. Its bounded
+repository Resource, declared/acquired Sources, source-grounded Knowledge,
+policy binding, Workflow and history are created only through normal YAI
+operations. Cross-surface qualification compares their semantic identities
+across CLI owners, `yai-application` and this Workbench; restarting Studio must
+not alter them.
+
 ## YAI Product Topology
 
 ### CURRENT — bounded in-process desktop vertical
@@ -36,7 +45,10 @@ ROADMAP owns its exact maturity.
 Today the Tauri process constructs `application/yai-application` in-process.
 That bounded application facade authenticates the local operating-system
 principal and supplies Case list/open/summary projections plus generation
-invalidation. Studio does not start a resident YAI application service. Closing
+invalidation. Summary composition resolves authorized retained source content
+through the existing YAI content owner before deriving Knowledge; Tauri and
+React do not read backing files or private storage. Studio does not start a
+resident YAI application service. Closing
 the desktop process ends this adapter and its transient PTYs, while the durable
 Case remains unchanged. The native CLI still reaches several owners through
 CLI/store-coupled adapters. The current C `yaid` process is a separate narrow
@@ -447,6 +459,19 @@ capabilities; inference semantics remain generic. Studio now renders the generic
 provider target/posture already exposed by YAI, with sanitized endpoint identity.
 Live provider configuration and YVEX management remain unimplemented.
 
+The UI preserves four different concepts:
+
+| Concept | Meaning |
+|---|---|
+| Model | The exposed model identity/capability, such as Qwen or Llama |
+| Provider / runtime | The service or runtime that realizes inference, such as an OpenAI-compatible endpoint, vLLM or llama.cpp |
+| Target / deployment | The exact provider + model + endpoint + locality + qualification/health combination |
+| Case binding | The governed relation that makes an exact target available to one Case |
+
+YVEX may realize an inference target through this generic plane. Its future
+first-party management surface remains a separate plane and does not change
+generic cognitive execution.
+
 ## Progressive Disclosure
 
 One product serves ordinary users, developers and operators. Start with the
@@ -456,6 +481,14 @@ evidence and runtime diagnostics on demand. Advanced visibility does not add
 permission. Simpler presentation must not hide indeterminate delivery, stale
 data, required consent or missing evidence. There are no separate semantic
 products or parallel simple/advanced state models.
+
+For product identity, a canonical reference and a primary human label are
+different presentation facts. `case:studio-live-qualification` remains the
+durable lookup and technical identity; ordinary navigation presents “Studio
+Live Qualification” and exposes the canonical ref in Inspector/technical
+detail. The bounded application fallback derives a readable Case label because
+YAI does not yet own a persistent Case display-name contract. This rule does
+not authorize generic prefix stripping for unrelated identifiers.
 
 ## Studio Workbench Architecture
 

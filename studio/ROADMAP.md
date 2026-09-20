@@ -26,6 +26,40 @@ Program postures below are implementation planning facts, not root maturity
 states. `CURRENT`, `TARGET` and `OPEN` deliberately distinguish executable
 behavior from selected architecture and unfinished work.
 
+## Studio execution board
+
+`CASE.PRODUCT.VERTICAL.COHERENCE.0` is the current integration bridge between
+the established S2 Workbench and S1. It maintains
+`case:studio-live-qualification` as a durable operator-owned product oracle;
+the Case is advanced through normal YAI operations and is never reset by Studio
+tests.
+
+| Lane | Owner | Current executable truth | Selected next milestone | Backend dependency | Status |
+|---|---|---|---|---|---|
+| Workbench | Studio S2 | One contribution-driven Workbench and universal Surface system | Feature-local Product Quality Passes | Typed presentation facts | Established, bounded |
+| Product Case vertical | Cross-surface qualification | Persistent Case with real Sources, Knowledge, policy, Workflow and generation refresh | Keep the product oracle coherent as owners grow | Normal CLI/domain operations | Current bridge qualified |
+| Application / X03 | `yai-application` plus existing owners | Authorized local list/open/summary, retained content resolution and generation invalidation | Broader typed read/mutation parity | Owner projections and disclosure contracts | Partial, unblocked |
+| Host / S1 | YAI product host | Embedded local application adapter only | Resident Local Host foundation | Lifecycle, transport, discovery and authentication | Selected next |
+| Memory / S4 | Transition/graph/Recall plus Studio | Bounded timeline and derived relations | Typed navigation, Inspector and temporal canvas | Resolvable typed relations | After S1 foothold |
+| Environment / S5 | Sources/Resources plus Studio | Bounded real Source, revision, file and Resource reads | Rich Source/product exploration | Typed material/read projections | Horizon, unblocked |
+| Authority / S6 | Policy/Review/Grant/Workflow plus Studio | Bound policy and Workflow resolution reads | Actions and workflow progression UX | Mutation-complete application operations | Horizon, blocked on boundary |
+| Compute / S7 | Provider governance plus Studio | Case-bound targets only; model/runtime/deployment facts remain distinct | Generic models/providers/targets experience | Provider discovery/configuration contracts | Horizon, partial |
+| YVEX / S8 | YVEX public management plane | Generic inference posture only | Native management plane | Versioned public YVEX capabilities | Horizon, blocked |
+| External / S10–S12 | Selected future owners | No public external/mobile contract | Later selection | S1 and explicit interface programs | Horizon |
+
+## Surface/backend responsibility
+
+| Studio surface | YAI owner | Application status | Missing-fact classification |
+|---|---|---|---|
+| Environment | Sources / Resources | Bounded Sources, exact revisions, files and Resources | Rich exploration and live material bytes remain S5/application work |
+| Knowledge | M07 derived source knowledge | Bounded authorized derivation with retained backing | Rich navigation remains Studio/S4; absent derivation stays empty |
+| Memory | Transition ledger, graph and Recall | Timeline bounded; Experience relations may be empty | Typed relation traversal remains S4 |
+| Authority | Policy / Review / Grant | Bound policies and reviews bounded | Actions and complete chains remain S6/application work |
+| Work | Workflow / Execution | Definition and current resolution bounded | Studio mutations and general events remain S6/X03 work |
+| Compute | Provider governance | Case-bound targets partial | Model catalog, runtime/provider discovery and deployment management remain S7 |
+| YVEX | External runtime | Generic inference target only | Native management is absent until S8 |
+| Conversation | Committed Turns | Read-only | SEND remains an application mutation gap |
+
 ## Current sequence
 
 ```text
@@ -34,6 +68,8 @@ architecture formalization
 Workbench Kernel foundation
         ↓
 Universal Work Surface and productization hardening
+        ↓
+persistent cross-surface Product Case coherence
         ↓
 resident Local Host foundation
         ↓
@@ -52,11 +88,11 @@ The host and Workbench Kernel programs may progress in parallel where their
 contracts are independent. Later programs may overlap only after their required
 application and Workbench seams exist.
 
-- **CURRENT bounded foundation:** `STUDIO.WORKBENCH.PRODUCTIZATION.0` completes
-  the planned horizontal S2 pass: Surface roles/capabilities, scoped search,
-  singleton Settings, deterministic material resolution and shared Panel
-  toolbar mechanics extend the same contribution-driven Workbench.
-- **NEXT:** S1 Product Host & Lifecycle.
+- **CURRENT integration bridge:** `CASE.PRODUCT.VERTICAL.COHERENCE.0` establishes
+  one persistent real Case as the CLI/application/Studio product oracle after
+  the bounded S2 foundation.
+- **NEXT:** S1 Product Host & Lifecycle. Continued minor S2 polish does not
+  displace this selection.
 - **NEXT feature program after the host foothold:** S4 Memory / Inspector /
   Navigation, using the established S2 seams.
 - **HORIZON:** S5 through S12, subject to root ROADMAP selection and interlocks.
@@ -238,11 +274,15 @@ root ROADMAP says.
 
 **Posture:** horizon; generic read posture is partial.
 
-- **Purpose:** expose provider/model/runtime capability through generic YAI
-  provider semantics.
-- **Established:** bounded sanitized target/model/locality/availability facts.
-- **Target properties:** provider discovery, configuration, qualification,
-  capability, refusal and evidence through typed YAI application operations.
+- **Purpose:** expose the generic inference plane without flattening model,
+  runtime/provider, deployment target and Case binding into one concept.
+- **Established:** bounded sanitized facts for targets already bound to a Case,
+  including their provider key, adapter/runtime, model identity, locality and
+  availability posture.
+- **Target properties:** model catalog and capability; provider/runtime
+  discovery and configuration; exact target/deployment identity, endpoint,
+  locality, health and qualification; explicit Case binding and refusal through
+  typed YAI application operations.
 - **Dependencies:** S1 host/application coverage, provider governance and S2/S4
   presentation seams.
 - **Current gaps:** no complete live provider setup or management contract.
@@ -254,8 +294,8 @@ root ROADMAP says.
 
 **Posture:** horizon; unimplemented.
 
-- **Purpose:** add first-party management of public YVEX capabilities while
-  preserving generic inference.
+- **Purpose:** add first-party management of public YVEX runtime capabilities
+  on a plane separate from the S7 generic model/provider/target experience.
 - **Established:** YVEX can appear only through the generic provider posture
   currently exposed by YAI.
 - **Target properties:** model inventory, admitted packages, engines,

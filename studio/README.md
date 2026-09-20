@@ -74,10 +74,21 @@ autostart, shared attachments and host telemetry remain unimplemented; see the
 The Start Center lists authorized local Cases using `case.list`. Opening one
 uses `case.open`, which requires a real principal-to-Participant link and returns
 an ephemeral attachment. `case.summary` composes presentation views from current
-authorized YAI owners. A Tauri-local update bridge observes authorized Case
+authorized YAI owners. Source-grounded Knowledge resolves retained bytes through
+YAI's content owner; Studio does not reopen repository paths. A Tauri-local update bridge observes authorized Case
 generation changes and emits invalidation facts; an authorized typed heartbeat
 detects delivery gaps. LiveClient refetches the typed summary and performs a
 full resync on stale generation. Closing Studio does not close or mutate a Case.
+
+The persistent product qualification Case is
+`case:studio-live-qualification` in its operator-owned non-Golden `YAI_HOME`.
+Normal UI presents **Studio Live Qualification** while Inspector technical
+detail retains the canonical ref. Bounded reconciliation assets and the
+CLI/application parity assertion live under
+`tests/qualification/studio-product-vertical/`; the cumulative procedure is in
+[`docs/zero-to-current.md`](../docs/zero-to-current.md#studio-bounded-live-local-acceptance).
+They inspect and advance ordinary YAI state and never recreate the Case or seed
+frontend fixtures.
 
 Once attached, browser or mouse Back does not return to the Start Center. Use
 `File > Open Case…` or the Case selector in the unified titlebar to attach
