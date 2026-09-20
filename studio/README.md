@@ -122,9 +122,12 @@ terminal instances, selection, ANSI/full-screen programs, Unicode, scrollback,
 clipboard, input, process exit/kill and PTY resize propagation. Panel resize,
 window resize and adjacent panel changes refit xterm and send the resulting
 rows/columns to the PTY. Terminal instances live in a compact vertical pane
-inside the Terminal tool; drag its splitter to resize the list down to an
-icon-only rail. The shared bottom-tool header keeps the active shell name, New
-Terminal and Kill Terminal controls visible while the instance pane is compact.
+inside the Terminal tool only when more than one shell exists. Drag its splitter
+to resize the list down to an icon-only rail. While the list is hidden or
+compact, the shared bottom-tool header keeps the active shell name, New Terminal
+and Kill Terminal visible; expanding the list moves names and per-shell delete
+actions into that pane instead of duplicating them. Killing the last shell closes
+the Bottom Panel; reopening Terminal creates a new shell.
 
 Terminal lifecycle is desktop-local. It is not a Case attachment, YAI execution,
 Workflow or Computer Use surface. Studio never inserts Case text into the shell,

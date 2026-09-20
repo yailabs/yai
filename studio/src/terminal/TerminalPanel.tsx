@@ -20,7 +20,7 @@ export function dispatchTerminalCommand(command: TerminalCommand) {
   window.dispatchEvent(new CustomEvent(terminalEventName, { detail: command }));
 }
 
-export function TerminalPanel({ scrollback = 5000, toolbarTarget }: { scrollback?: number; toolbarTarget?: HTMLElement | null }) {
+export function TerminalPanel({ scrollback = 5000, toolbarTarget, onEmpty }: { scrollback?: number; toolbarTarget?: HTMLElement | null; onEmpty?(): void }) {
   const desktop = Boolean(window.__TAURI__);
   const [terminals, setTerminals] = useState<TerminalInstance[]>([]);
   const [activeId, setActiveId] = useState<string>();
@@ -32,6 +32,8 @@ export function TerminalPanel({ scrollback = 5000, toolbarTarget }: { scrollback
   const activeTerminal = terminals.find((terminal) => terminal.terminal_id === activeId);
   const activeTerminalIndex = activeTerminal ? terminals.indexOf(activeTerminal) + 1 : 0;
   const compactInstances = instancePaneWidth < 96;
+  const showInstancePane = terminals.length > 1;
+  const showActiveToolbar = !showInstancePane || compactInstances;
 
   const createTerminal = useCallback(async () => {
     if (!window.__TAURI__ || creating.current) return;
@@ -49,6 +51,7 @@ export function TerminalPanel({ scrollback = 5000, toolbarTarget }: { scrollback
   }, []);
 
   const closeTerminal = useCallback(async (terminalId: string) => {
+    const closingLast = terminals.length === 1 && terminals[0]?.terminal_id === terminalId;
     if (window.__TAURI__) {
       try { await window.__TAURI__.core.invoke("terminal_kill", { terminalId }); } catch { /* already exited */ }
     }
@@ -60,7 +63,8 @@ export function TerminalPanel({ scrollback = 5000, toolbarTarget }: { scrollback
       setActiveId((active) => active === terminalId ? next.at(-1)?.terminal_id : active);
       return next;
     });
-  }, []);
+    if (closingLast) onEmpty?.();
+  }, [onEmpty, terminals]);
 
   const runCommand = useCallback((command: TerminalCommand) => {
     if (command === "new") { void createTerminal(); return; }
@@ -121,22 +125,21 @@ export function TerminalPanel({ scrollback = 5000, toolbarTarget }: { scrollback
 
   return <section className="terminal-surface" aria-label="Integrated terminals">
     {toolbarTarget && createPortal(<div className="terminal-panel-toolbar" aria-label="Active terminal controls">
-      <span className="terminal-panel-active" title={activeTerminal ? `${activeTerminal.shell} · ${activeTerminal.cwd}` : "No active terminal"}><Icon name="terminal" size={14} /><span>{activeTerminal ? `${activeTerminal.shell} ${activeTerminalIndex}` : "No terminal"}</span></span>
+      {showActiveToolbar && activeTerminal && <span className="terminal-panel-active" title={`${activeTerminal.shell} · ${activeTerminal.cwd}`}><Icon name="terminal" size={14} /><span>{`${activeTerminal.shell} ${activeTerminalIndex}`}</span></span>}
       <IconButton aria-label="New terminal" title="New Terminal" onClick={() => void createTerminal()}><Icon name="plus" size={15} /></IconButton>
-      <IconButton aria-label="Kill active terminal" title="Kill Terminal" disabled={!activeId} onClick={() => activeId && void closeTerminal(activeId)}><Icon name="trash" size={15} /></IconButton>
+      {showActiveToolbar && <IconButton aria-label="Kill active terminal" title="Kill Terminal" disabled={!activeId} onClick={() => activeId && void closeTerminal(activeId)}><Icon name="trash" size={15} /></IconButton>}
     </div>, toolbarTarget)}
     <div className="terminal-stack">{terminals.map((terminal) => <TerminalViewport key={terminal.terminal_id} terminal={terminal} active={activeId === terminal.terminal_id} register={registerRenderer} unregister={unregisterRenderer} scrollback={scrollback} />)}
-      {!terminals.length && !error && <div className="terminal-empty"><strong>No terminal</strong><button onClick={() => void createTerminal()}>New Terminal</button></div>}
       {error && <div className="terminal-empty error"><strong>Terminal unavailable</strong><code>{error}</code><button onClick={() => void createTerminal()}>Retry</button></div>}
     </div>
-    <Splitter label="Resize terminal list" axis="x" reverse value={instancePaneWidth} min={38} max={280} set={setInstancePaneWidth} />
+    {showInstancePane && <><Splitter label="Resize terminal list" axis="x" reverse value={instancePaneWidth} min={38} max={280} set={setInstancePaneWidth} />
     <aside className={`terminal-instance-pane ${compactInstances ? "compact" : ""}`} style={{ width: instancePaneWidth }} aria-label="Terminal instances">
-      <header>{compactInstances ? <Icon name="terminal" size={15} /> : <span>Terminals</span>}</header>
+      {!compactInstances && <header><span>Terminals</span></header>}
       <div role="tablist" aria-orientation="vertical">{terminals.map((terminal, index) => <div className="terminal-instance-row" key={terminal.terminal_id} data-active={activeId === terminal.terminal_id}>
         <button role="tab" aria-selected={activeId === terminal.terminal_id} title={`${terminal.shell} · ${terminal.cwd}`} onClick={() => setActiveId(terminal.terminal_id)}><Icon name="terminal" size={14} /><span>{terminal.shell} {index + 1}</span>{terminal.status === "exited" && <small>{terminal.exitCode}</small>}</button>
         <IconButton aria-label={`Kill ${terminal.shell} ${index + 1}`} title="Kill Terminal" onClick={() => void closeTerminal(terminal.terminal_id)}><Icon name="trash" size={14} /></IconButton>
       </div>)}</div>
-    </aside>
+    </aside></>}
   </section>;
 }
 

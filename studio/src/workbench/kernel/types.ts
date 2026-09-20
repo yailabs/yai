@@ -62,6 +62,7 @@ export interface SurfaceRendererContribution {
 export interface PanelViewProps extends WorkbenchRenderContext {
   available: boolean;
   toolbarTarget: HTMLElement | null;
+  closePanel(): void;
 }
 
 export interface PanelViewContribution {
