@@ -2,8 +2,8 @@ import { TerminalPanel } from "../../terminal/TerminalPanel";
 import { EmptyState } from "../../components/primitives";
 import type { PanelViewProps } from "../../workbench/kernel/types";
 
-export function TerminalPanelView({ available, platform }: PanelViewProps) {
-  return available ? <TerminalPanel scrollback={platform.configuration.get<number>("terminal.scrollback") ?? 5000} /> : <EmptyState title="Terminal requires desktop host" body="The browser Workbench does not create or emulate a shell." />;
+export function TerminalPanelView({ available, platform, toolbarTarget }: PanelViewProps) {
+  return available ? <TerminalPanel scrollback={platform.configuration.get<number>("terminal.scrollback") ?? 5000} toolbarTarget={toolbarTarget} /> : <EmptyState title="Terminal requires desktop host" body="The browser Workbench does not create or emulate a shell." />;
 }
 
 export function OutputPanelView({ workspace }: PanelViewProps) {

@@ -348,7 +348,7 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .terminal-empty { height: 100%; display: grid; place-content: center; justify-items: center; gap: 9px; color: var(--yai-text-muted); font-size: 12px; }
 .terminal-empty button { min-height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--yai-raised); color: var(--yai-text-secondary); cursor: pointer; }
 .terminal-empty.error code { max-width: 540px; color: var(--yai-error); font-size: 11px; text-align: center; }
-.terminal-instance-pane { min-width: 132px; max-width: 280px; flex: 0 0 auto; overflow: hidden; background: var(--yai-panel); }
+.terminal-instance-pane { min-width: 38px; max-width: 280px; flex: 0 0 auto; overflow: hidden; background: var(--yai-panel); }
 .terminal-instance-pane > header { height: 30px; display: flex; align-items: center; padding: 0 4px 0 10px; color: var(--yai-text-muted); font-size: 11px; font-weight: 600; }
 .terminal-instance-pane > header > span { flex: 1; }
 .terminal-instance-pane .ui-icon-button { width: 26px; min-height: 26px; background: transparent; }
@@ -361,6 +361,12 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .terminal-instance-row > button[role=tab] small { margin-left: auto; color: var(--yai-error); }
 .terminal-instance-row > .ui-icon-button { visibility: hidden; }
 .terminal-instance-row:hover > .ui-icon-button, .terminal-instance-row[data-active=true] > .ui-icon-button, .terminal-instance-row > .ui-icon-button:focus-visible { visibility: visible; }
+.terminal-instance-pane.compact > header { justify-content: center; padding: 0; }
+.terminal-instance-pane.compact [role=tablist] { padding-inline: 3px; }
+.terminal-instance-pane.compact .terminal-instance-row > button[role=tab] { justify-content: center; padding: 0; }
+.terminal-instance-pane.compact .terminal-instance-row > button[role=tab] span,
+.terminal-instance-pane.compact .terminal-instance-row > button[role=tab] small,
+.terminal-instance-pane.compact .terminal-instance-row > .ui-icon-button { display: none; }
 
 .graph-viewport { position: relative; min-height: 440px; overflow: hidden; border-radius: var(--radius-surface); background: var(--yai-inset); }
 @media (max-width: 1180px) { .case-model { grid-template-columns: 1fr; }.case-core > span { margin-top: 14px; }.case-dimensions { padding-left: 0; }.case-dimensions::before, .case-dimensions button::before { display: none; } }
@@ -440,6 +446,9 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 
 .panel-contribution-toolbar { min-width: 0; max-width: 46%; }
 .panel-contribution-toolbar:empty { display: none; }
+.terminal-panel-toolbar { min-width: 0; display: flex; align-items: center; gap: 1px; }
+.terminal-panel-active { min-width: 0; max-width: 150px; height: 27px; display: flex; align-items: center; gap: 6px; padding: 0 7px; border-radius: 5px; color: var(--yai-text-secondary); font-size: 11px; }
+.terminal-panel-active > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .turn-avatar { width: 24px; height: 24px; display: grid; place-items: center; flex: 0 0 24px; border-radius: 50%; background: var(--yai-selected); color: var(--yai-text-secondary); font-size: 9px; }
 .turn-ai { background: rgba(91,120,160,.13); }.turn-ai .turn-avatar { border-radius: 6px; color: var(--yai-info); }.turn-system { background: rgba(126,95,160,.13); }.turn-system .turn-avatar { border-radius: 6px; color: #b49add; }
