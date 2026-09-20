@@ -11,9 +11,9 @@ repository licensing documents, including LICENSE.md and docs/legal.md.
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/yai-readme-horizontal-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/brand/yai-readme-horizontal-light.png">
-    <img src="docs/assets/brand/yai-readme-horizontal-light.png" alt="YAI" width="640">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/yai-readme-horizontal-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="docs/assets/brand/yai-readme-horizontal-light.svg">
+    <img src="docs/assets/brand/yai-readme-horizontal-light.svg" alt="YAI" width="640">
   </picture>
 </p>
 

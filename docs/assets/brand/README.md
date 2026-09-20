@@ -9,8 +9,8 @@ cropping or resampling was performed.
 
 | Repository file | Source filename | Use |
 | --- | --- | --- |
-| [yai-readme-horizontal-dark.png](yai-readme-horizontal-dark.png) | `06-github/assets/yai-readme-horizontal-dark.png` | White horizontal mark for dark GitHub themes; 1280 × 360 |
-| [yai-readme-horizontal-light.png](yai-readme-horizontal-light.png) | `06-github/assets/yai-readme-horizontal-light.png` | Black horizontal mark for light GitHub themes; 1280 × 360 |
+| [yai-readme-horizontal-dark.svg](yai-readme-horizontal-dark.svg) | `02-svg/yai-horizontal-white.svg` | Transparent white horizontal mark for dark GitHub themes; 969 × 384 viewBox |
+| [yai-readme-horizontal-light.svg](yai-readme-horizontal-light.svg) | `02-svg/yai-horizontal-black.svg` | Transparent black horizontal mark for light GitHub themes; 969 × 384 viewBox |
 | [yai-organization-512.png](yai-organization-512.png) | `00-pronti/avatar-yai-512.png` | Black-backed YAI avatar for the organization profile; 512 × 512 |
 
 The root README selects the approved dark/light export from the viewer's color
