@@ -835,6 +835,11 @@ smoke-semantic-working-state-sufficiency: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/semantic-working-state-sufficiency/test_sufficiency.py
 
+.PHONY: smoke-cognitive-decision-plane
+smoke-cognitive-decision-plane: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/cognitive-decision-plane/test_decision_plane.py
+
 smoke-case-source-bootstrap: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/case-source-bootstrap/test_bootstrap.py

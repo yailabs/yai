@@ -1144,6 +1144,534 @@ pub fn validate_active_cognitive_bindings(bindings: &[CaseCognitiveBinding]) -> 
     Ok(())
 }
 
+// Cognitive Decision Plane contracts are derived execution meaning. They are
+// deliberately separate from canonical control::Decision and DecisionBasis:
+// a score can inform a later proposal, but cannot authorize or mutate a Case.
+pub const COGNITIVE_DECISION_REQUEST_SCHEMA: &str = "yai.cognitive_decision_request.v1";
+pub const COGNITIVE_DECISION_OUTPUT_SCHEMA: &str = "yai.cognitive_decision_output.v1";
+pub const COGNITIVE_DECISION_DISTRIBUTION_SCHEMA: &str = "yai.cognitive_decision_distribution.v1";
+pub const COGNITIVE_DECISION_QUALIFICATION_SCHEMA: &str = "yai.cognitive_decision_qualification.v1";
+pub const MAX_DECISION_CANDIDATES: usize = 32;
+pub const MAX_DECISION_REFS_PER_CANDIDATE: usize = 16;
+pub const MAX_DECISION_PRODUCER_EVIDENCE_REFS: usize = 16;
+
+fn require_bounded_text(label: &str, value: &str, max: usize) -> Result<(), String> {
+    if value.is_empty() || value.len() > max || value.chars().any(char::is_control) {
+        return Err(format!("{label}_invalid"));
+    }
+    Ok(())
+}
+
+/// One finite semantic alternative. `candidate_kind` is namespaced rather than
+/// a closed enum so YAI does not freeze every future choice family in v1.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionCandidate {
+    pub candidate_id: String,
+    pub candidate_kind: String,
+    pub description: String,
+    #[serde(default)]
+    pub semantic_refs: Vec<String>,
+}
+
+impl CognitiveDecisionCandidate {
+    fn normalized(mut self) -> Result<Self, String> {
+        require_identifier("cognitive_decision_candidate", &self.candidate_id, 256)?;
+        require_identifier(
+            "cognitive_decision_candidate_kind",
+            &self.candidate_kind,
+            128,
+        )?;
+        require_bounded_text(
+            "cognitive_decision_candidate_description",
+            &self.description,
+            512,
+        )?;
+        self.semantic_refs.sort();
+        self.semantic_refs.dedup();
+        if self.semantic_refs.len() > MAX_DECISION_REFS_PER_CANDIDATE
+            || self.semantic_refs.iter().any(|reference| {
+                reference.is_empty()
+                    || reference.len() > 512
+                    || reference.chars().any(char::is_control)
+            })
+        {
+            return Err("cognitive_decision_candidate_refs_invalid".to_string());
+        }
+        Ok(self)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionBudget {
+    pub max_candidates: usize,
+    pub max_result_bytes: usize,
+    pub max_compute_millis: u64,
+}
+
+impl CognitiveDecisionBudget {
+    pub fn validate(&self) -> Result<(), String> {
+        if !(2..=MAX_DECISION_CANDIDATES).contains(&self.max_candidates)
+            || self.max_result_bytes == 0
+            || self.max_result_bytes > 1024 * 1024
+            || self.max_compute_millis == 0
+            || self.max_compute_millis > 600_000
+        {
+            return Err("cognitive_decision_budget_invalid".to_string());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Serialize)]
+struct CognitiveDecisionRequestIdentity<'a> {
+    schema: &'a str,
+    case_id: &'a str,
+    case_generation: u64,
+    participant_id: &'a str,
+    task_id: &'a str,
+    working_state_id: &'a str,
+    decision_kind: &'a str,
+    candidates: &'a [CognitiveDecisionCandidate],
+    budget: &'a CognitiveDecisionBudget,
+}
+
+/// Exact W/task-bound semantic request. It contains no producer/runtime shape
+/// and possession of it is never effect authority.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionRequest {
+    pub schema: String,
+    pub request_id: String,
+    pub case_id: String,
+    pub case_generation: u64,
+    pub participant_id: String,
+    pub task_id: String,
+    pub working_state_id: String,
+    pub decision_kind: String,
+    pub candidates: Vec<CognitiveDecisionCandidate>,
+    pub budget: CognitiveDecisionBudget,
+}
+
+impl CognitiveDecisionRequest {
+    pub fn new(
+        working: &crate::semantic_state::SemanticWorkingState,
+        decision_kind: impl Into<String>,
+        candidates: Vec<CognitiveDecisionCandidate>,
+        budget: CognitiveDecisionBudget,
+    ) -> Result<Self, String> {
+        working.validate_refresh_envelope()?;
+        budget.validate()?;
+        let decision_kind = decision_kind.into();
+        require_identifier("cognitive_decision_kind", &decision_kind, 128)?;
+        if candidates.len() < 2 || candidates.len() > budget.max_candidates {
+            return Err("cognitive_decision_candidate_bound".to_string());
+        }
+        let mut candidates = candidates
+            .into_iter()
+            .map(CognitiveDecisionCandidate::normalized)
+            .collect::<Result<Vec<_>, _>>()?;
+        candidates.sort_by(|left, right| left.candidate_id.cmp(&right.candidate_id));
+        if candidates
+            .windows(2)
+            .any(|pair| pair[0].candidate_id == pair[1].candidate_id)
+        {
+            return Err("cognitive_decision_candidate_id_duplicate".to_string());
+        }
+        // An abstract next-step candidate may have no refs. Once it names Case
+        // material, every ref must already be resident in this qualified W.
+        // Hidden, foreign and merely deferred identifiers fail identically.
+        if candidates.iter().any(|candidate| {
+            candidate
+                .semantic_refs
+                .iter()
+                .any(|reference| !working.contains_resident_reference(reference))
+        }) {
+            return Err("cognitive_decision_candidate_reference_unavailable".to_string());
+        }
+        let task_id = working.semantic_task_id()?;
+        let participant_id = working.request().scope.participant_id.clone();
+        let identity = CognitiveDecisionRequestIdentity {
+            schema: COGNITIVE_DECISION_REQUEST_SCHEMA,
+            case_id: working.case_id(),
+            case_generation: working.generation(),
+            participant_id: &participant_id,
+            task_id: &task_id,
+            working_state_id: working.id(),
+            decision_kind: &decision_kind,
+            candidates: &candidates,
+            budget: &budget,
+        };
+        let digest = digest_of(&identity, "cognitive_decision_request_identity")?;
+        Ok(Self {
+            schema: COGNITIVE_DECISION_REQUEST_SCHEMA.to_string(),
+            request_id: short_identity("cognitive-decision-request", &digest),
+            case_id: working.case_id().to_string(),
+            case_generation: working.generation(),
+            participant_id,
+            task_id,
+            working_state_id: working.id().to_string(),
+            decision_kind,
+            candidates,
+            budget,
+        })
+    }
+
+    pub fn validate_against(
+        &self,
+        working: &crate::semantic_state::SemanticWorkingState,
+    ) -> Result<(), String> {
+        let rebuilt = Self::new(
+            working,
+            self.decision_kind.clone(),
+            self.candidates.clone(),
+            self.budget.clone(),
+        )?;
+        if rebuilt != *self {
+            return Err("cognitive_decision_request_integrity_mismatch".to_string());
+        }
+        Ok(())
+    }
+}
+
+/// Exact producer/capability identity supplied by the execution boundary. The
+/// optional model/composition/profile/state identities do not grant authority.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionProducerIdentity {
+    pub capability_id: String,
+    pub producer_id: String,
+    pub producer_version: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub composition_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state_generation: Option<String>,
+    pub evidence_refs: Vec<String>,
+}
+
+impl CognitiveDecisionProducerIdentity {
+    pub fn validate(&self) -> Result<(), String> {
+        for (label, value) in [
+            ("cognitive_decision_capability", self.capability_id.as_str()),
+            ("cognitive_decision_producer", self.producer_id.as_str()),
+            (
+                "cognitive_decision_producer_version",
+                self.producer_version.as_str(),
+            ),
+        ] {
+            require_identifier(label, value, 256)?;
+        }
+        for (label, value) in [
+            ("cognitive_decision_model", &self.model_id),
+            ("cognitive_decision_composition", &self.composition_id),
+            ("cognitive_decision_profile", &self.profile_id),
+            (
+                "cognitive_decision_state_generation",
+                &self.state_generation,
+            ),
+        ] {
+            if let Some(value) = value {
+                require_identifier(label, value, 256)?;
+            }
+        }
+        if self.evidence_refs.is_empty()
+            || self.evidence_refs.len() > MAX_DECISION_PRODUCER_EVIDENCE_REFS
+        {
+            return Err("cognitive_decision_producer_evidence_invalid".to_string());
+        }
+        let mut evidence = self.evidence_refs.clone();
+        evidence.sort();
+        if evidence.windows(2).any(|pair| pair[0] == pair[1])
+            || evidence.iter().any(|reference| {
+                reference.is_empty()
+                    || reference.len() > 512
+                    || reference.chars().any(char::is_control)
+            })
+        {
+            return Err("cognitive_decision_producer_evidence_invalid".to_string());
+        }
+        Ok(())
+    }
+}
+
+/// Mechanical meaning of the numeric vector. Normalization alone never claims
+/// empirical calibration or correctness confidence.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum CognitiveScoreSemantics {
+    RawScore {
+        measure: String,
+    },
+    RelativeCandidateProbability {
+        normalization: String,
+    },
+    CalibratedProbability {
+        calibration_artifact_id: String,
+        calibration_scope: String,
+    },
+}
+
+impl CognitiveScoreSemantics {
+    fn validate(&self) -> Result<(), String> {
+        match self {
+            Self::RawScore { measure } => {
+                require_identifier("cognitive_decision_raw_measure", measure, 128)
+            }
+            Self::RelativeCandidateProbability { normalization } => {
+                require_identifier("cognitive_decision_normalization", normalization, 128)
+            }
+            Self::CalibratedProbability {
+                calibration_artifact_id,
+                calibration_scope,
+            } => {
+                require_identifier(
+                    "cognitive_decision_calibration_artifact",
+                    calibration_artifact_id,
+                    256,
+                )?;
+                require_identifier(
+                    "cognitive_decision_calibration_scope",
+                    calibration_scope,
+                    256,
+                )
+            }
+        }
+    }
+
+    fn requires_distribution(&self) -> bool {
+        !matches!(self, Self::RawScore { .. })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CognitiveScoreDirection {
+    HigherIsPreferred,
+    LowerIsPreferred,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionScore {
+    pub candidate_id: String,
+    /// Fixed-point numerator under `score_scale`; raw scores may be signed.
+    pub value: i64,
+}
+
+/// Optional producer-declared metric kept distinct from candidate scores and
+/// from calibrated correctness probability.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveUncertaintyMetric {
+    pub metric_id: String,
+    pub value: u64,
+    pub scale: u64,
+    pub interpretation: String,
+}
+
+impl CognitiveUncertaintyMetric {
+    fn validate(&self) -> Result<(), String> {
+        require_identifier(
+            "cognitive_decision_uncertainty_metric",
+            &self.metric_id,
+            128,
+        )?;
+        require_bounded_text(
+            "cognitive_decision_uncertainty_interpretation",
+            &self.interpretation,
+            256,
+        )?;
+        if self.scale == 0 {
+            return Err("cognitive_decision_uncertainty_scale_invalid".to_string());
+        }
+        Ok(())
+    }
+}
+
+/// Producer output before YAI interpretation. This is not a shared YVEX ABI and
+/// cannot be converted to a canonical Decision or effect directly.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionOutput {
+    pub schema: String,
+    pub request_id: String,
+    pub producer: CognitiveDecisionProducerIdentity,
+    pub score_semantics: CognitiveScoreSemantics,
+    pub score_direction: CognitiveScoreDirection,
+    pub score_scale: u64,
+    pub scores: Vec<CognitiveDecisionScore>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uncertainty: Option<CognitiveUncertaintyMetric>,
+}
+
+#[derive(Serialize)]
+struct CognitiveDecisionDistributionIdentity<'a> {
+    schema: &'a str,
+    request_id: &'a str,
+    working_state_id: &'a str,
+    producer: &'a CognitiveDecisionProducerIdentity,
+    score_semantics: &'a CognitiveScoreSemantics,
+    score_direction: &'a CognitiveScoreDirection,
+    score_scale: u64,
+    scores: &'a [CognitiveDecisionScore],
+    uncertainty: &'a Option<CognitiveUncertaintyMetric>,
+}
+
+/// Qualified, non-authoritative interpretation of an exact finite score set.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionDistribution {
+    pub schema: String,
+    pub distribution_id: String,
+    pub request: CognitiveDecisionRequest,
+    pub producer: CognitiveDecisionProducerIdentity,
+    pub score_semantics: CognitiveScoreSemantics,
+    pub score_direction: CognitiveScoreDirection,
+    pub score_scale: u64,
+    pub scores: Vec<CognitiveDecisionScore>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uncertainty: Option<CognitiveUncertaintyMetric>,
+}
+
+impl CognitiveDecisionDistribution {
+    pub fn qualify(
+        request: &CognitiveDecisionRequest,
+        mut output: CognitiveDecisionOutput,
+    ) -> Result<Self, String> {
+        if output.schema != COGNITIVE_DECISION_OUTPUT_SCHEMA
+            || output.request_id != request.request_id
+        {
+            return Err("cognitive_decision_output_request_mismatch".to_string());
+        }
+        output.producer.validate()?;
+        output.score_semantics.validate()?;
+        if let CognitiveScoreSemantics::CalibratedProbability {
+            calibration_artifact_id,
+            ..
+        } = &output.score_semantics
+        {
+            if !output
+                .producer
+                .evidence_refs
+                .contains(calibration_artifact_id)
+            {
+                return Err("cognitive_decision_calibration_evidence_missing".to_string());
+            }
+        }
+        if output.score_scale == 0 || output.score_scale > 1_000_000_000 {
+            return Err("cognitive_decision_score_scale_invalid".to_string());
+        }
+        if output.score_semantics.requires_distribution()
+            && output.score_direction != CognitiveScoreDirection::HigherIsPreferred
+        {
+            return Err("cognitive_decision_probability_direction_invalid".to_string());
+        }
+        output
+            .scores
+            .sort_by(|left, right| left.candidate_id.cmp(&right.candidate_id));
+        if output.scores.len() != request.candidates.len()
+            || output
+                .scores
+                .windows(2)
+                .any(|pair| pair[0].candidate_id == pair[1].candidate_id)
+            || output
+                .scores
+                .iter()
+                .zip(&request.candidates)
+                .any(|(score, candidate)| score.candidate_id != candidate.candidate_id)
+        {
+            return Err("cognitive_decision_scores_not_candidate_complete".to_string());
+        }
+        if output.score_semantics.requires_distribution() {
+            if output
+                .scores
+                .iter()
+                .any(|score| score.value < 0 || score.value as u64 > output.score_scale)
+                || output
+                    .scores
+                    .iter()
+                    .map(|score| i128::from(score.value))
+                    .sum::<i128>()
+                    != i128::from(output.score_scale)
+            {
+                return Err("cognitive_decision_probability_distribution_invalid".to_string());
+            }
+        }
+        if let Some(uncertainty) = &output.uncertainty {
+            uncertainty.validate()?;
+            if uncertainty.value > uncertainty.scale {
+                return Err("cognitive_decision_uncertainty_value_invalid".to_string());
+            }
+        }
+        let encoded = serde_json::to_vec(&output)
+            .map_err(|error| format!("cognitive_decision_output_encode_failed: {error}"))?;
+        if encoded.len() > request.budget.max_result_bytes {
+            return Err("cognitive_decision_result_budget_exceeded".to_string());
+        }
+        let identity = CognitiveDecisionDistributionIdentity {
+            schema: COGNITIVE_DECISION_DISTRIBUTION_SCHEMA,
+            request_id: &request.request_id,
+            working_state_id: &request.working_state_id,
+            producer: &output.producer,
+            score_semantics: &output.score_semantics,
+            score_direction: &output.score_direction,
+            score_scale: output.score_scale,
+            scores: &output.scores,
+            uncertainty: &output.uncertainty,
+        };
+        let digest = digest_of(&identity, "cognitive_decision_distribution_identity")?;
+        Ok(Self {
+            schema: COGNITIVE_DECISION_DISTRIBUTION_SCHEMA.to_string(),
+            distribution_id: short_identity("cognitive-decision-distribution", &digest),
+            request: request.clone(),
+            producer: output.producer,
+            score_semantics: output.score_semantics,
+            score_direction: output.score_direction,
+            score_scale: output.score_scale,
+            scores: output.scores,
+            uncertainty: output.uncertainty,
+        })
+    }
+
+    pub fn preferred_candidate_id(&self) -> Result<&str, String> {
+        let mut ranked = self.scores.iter().collect::<Vec<_>>();
+        ranked.sort_by(|left, right| {
+            let order = left.value.cmp(&right.value);
+            let order = match self.score_direction {
+                CognitiveScoreDirection::HigherIsPreferred => order.reverse(),
+                CognitiveScoreDirection::LowerIsPreferred => order,
+            };
+            order.then_with(|| left.candidate_id.cmp(&right.candidate_id))
+        });
+        let [first, rest @ ..] = ranked.as_slice() else {
+            return Err("cognitive_decision_distribution_empty".to_string());
+        };
+        if rest
+            .first()
+            .is_some_and(|second| second.value == first.value)
+        {
+            return Err("cognitive_decision_preference_tied".to_string());
+        }
+        Ok(&first.candidate_id)
+    }
+}
+
+/// Typed application result. Measurements are deliberately outside semantic
+/// distribution identity and carry no authority.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveDecisionQualification {
+    pub schema: String,
+    pub distribution: CognitiveDecisionDistribution,
+    pub current_requalification_us: u128,
+    pub output_bytes: usize,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

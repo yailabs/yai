@@ -878,6 +878,25 @@ The corrected bounded result is 14 `SUFFICIENT`, one
 `REFUSED_CORRECTLY`, zero Recall/W-stage failures and zero forbidden disclosure.
 This is exact recorded-relation closure, not general causal inference.
 
+To reproduce the first model-independent Cognitive Decision Plane foundation,
+run:
+
+```sh
+RUSTUP_TOOLCHAIN=1.98.1 make smoke-cognitive-decision-plane
+```
+
+The lane compiles a real current W, prepares an exact four-candidate request and
+qualifies a deterministic fixed-point distribution. It verifies hidden and
+wrong-Case references are indistinguishable from absence, candidate and score
+permutations preserve identity, raw/relative/calibrated score meanings remain
+distinct, a calibration claim needs identified evidence, stale W refuses after
+same-generation revoke, and restart reproduces the semantic request. Request
+preparation and result qualification must add zero Transition and cause zero
+Operation, effect, model or provider call. The preferred candidate is not an
+authorization token: only the normal canonical Decision/admission path may
+create governed consequences. This test-only producer is not a production
+fallback, YVEX adapter, adaptive router or W → E contract.
+
 Ordinary governed Conversation and Workflow execution now prepares Recall-aware
 W automatically; the commands above are inspection controls, not prerequisites
 for asking a question. In a Case with admitted sources, ask a source-dependent

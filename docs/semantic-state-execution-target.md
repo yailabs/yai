@@ -715,6 +715,75 @@ qualified W_t is realized. Slow state can still be superseded; persistence or
 age confers no authority. No tested general timescale-selection contract is
 claimed by the present memory/residency footholds.
 
+## Cognitive Decision Plane and Minimum Sufficient Cognition
+
+YAI now has a bounded, model-independent **Decision Plane** primitive distinct
+from the canonical governed `Decision` / `DecisionBasis` lifecycle:
+
+```text
+current qualified W + exact task + 2..32 disclosed candidates
+    → CognitiveDecisionRequest v1
+    → producer scores (test fixture only today)
+    → current-W requalification
+    → CognitiveDecisionDistribution v1
+```
+
+The request binds Case, generation, Participant, task and exact W identity; its
+candidate set is finite, order-independent and namespaced by candidate kind.
+Candidate semantic references must already be resident in W. A hidden,
+wrong-Case or merely deferred W4 reference is unavailable rather than a signal
+to page or disclose it. The qualified distribution binds the request,
+producer/capability evidence, fixed-point score vector and any separately named
+uncertainty metric. It is derived, disposable and non-authoritative: producing
+or preferring a candidate appends no Transition and creates no Decision, Grant,
+Operation or effect. A later governed consequence still crosses the ordinary
+proposal/admission and authority path.
+
+Score meaning is explicit. A raw score is only the producer-declared measure; a
+normalized relative-candidate distribution is not a calibrated correctness
+probability. `calibrated_probability` requires an identified calibration
+artifact and scope present in producer evidence. Summing to one does not create
+confidence or calibration. The v1 contracts are YAI application/domain meaning,
+not a frozen YAI↔YVEX wire format and not a production scorer API.
+
+The adopted execution doctrine is **Minimum Sufficient Cognition**. For each
+bounded cognitive step, a future qualified controller should select the least
+expensive mechanism capable of the work:
+
+```text
+deterministic computation
+    → non-generative decision inference
+    → generative reasoning
+    → human/review escalation where required
+```
+
+This is not a generic router implementation or permission for an Agent loop.
+The objective is time-to-qualified-solution, not token latency alone. Future
+same-machine/same-task comparisons should retain task correctness, wall time,
+generative invocations and tokens, prefill/input compute, decision calls, tool
+calls, redundant reads, failed branches/retries, verification coverage, peak
+memory, GPU time, energy where measurable and provenance completeness.
+
+YVEX owns a future computational **Decision Readout / Decision Core**. The
+preferred research progression starts from the already resident exact model:
+non-autoregressive/zero-decode candidate scoring, qualified calibration, then a
+small probe/head over existing hidden state, a general Decision Core, an
+R/E-aware readout and only later an optional specialized System-One model. YAI
+does not require a second resident decision LLM and does not own its weights,
+hidden-state mechanics or calibration execution. In a future stateful path the
+Decision Core may read the immediate decision query/candidates together with
+current computation R and persistent E; the Core is a consumer of E, never E
+itself. No W → E, StateProfile, persistent State Read or producer capability is
+implemented by this foothold.
+
+Canonical history may later support reconstructed **Decision Episodes** for
+evaluation or training: exact pre-decision cut and W/task, alternatives and
+contemporaneous distribution where actually recorded, followed by admitted
+Decision, Review, Operation/Effect, Observation/Outcome and later correction.
+The historically chosen action is not automatically optimal; imitation,
+outcome modelling and policy learning require distinct independent oracles.
+No episode store, training pipeline or new canonical owner is introduced.
+
 ## Scoped state access — research pressure
 
 Investigate a bounded initial working set: objective, constraints, critical

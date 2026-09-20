@@ -4100,6 +4100,57 @@ impl LmdbRecordStore {
         Ok(())
     }
 
+    /// Current-authority application boundary for a finite cognitive choice.
+    /// Candidate discovery is not performed here: the caller supplies exact
+    /// alternatives and every referenced semantic object must already be
+    /// resident in the qualified W. The returned request is derived and grants
+    /// no Decision, Grant, Operation or effect authority.
+    pub fn prepare_cognitive_decision_request_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        working: &crate::semantic_state::SemanticWorkingState,
+        decision_kind: impl Into<String>,
+        candidates: Vec<crate::cognitive::CognitiveDecisionCandidate>,
+        budget: crate::cognitive::CognitiveDecisionBudget,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::cognitive::CognitiveDecisionRequest, String> {
+        self.validate_working_state_authorized(authenticated, working, content)?;
+        crate::cognitive::CognitiveDecisionRequest::new(
+            working,
+            decision_kind,
+            candidates,
+            budget,
+        )
+    }
+
+    /// Accept a producer's finite scores only after re-establishing the exact
+    /// current W and request identity. This interprets no text, calls no model,
+    /// appends no Transition and never crosses effect admission.
+    pub fn qualify_cognitive_decision_distribution_authorized(
+        &self,
+        authenticated: &AuthenticatedPrincipal,
+        working: &crate::semantic_state::SemanticWorkingState,
+        request: &crate::cognitive::CognitiveDecisionRequest,
+        output: crate::cognitive::CognitiveDecisionOutput,
+        content: Option<&crate::conversation::ConversationContentStore>,
+    ) -> Result<crate::cognitive::CognitiveDecisionQualification, String> {
+        let started = std::time::Instant::now();
+        self.validate_working_state_authorized(authenticated, working, content)?;
+        request.validate_against(working)?;
+        let current_requalification_us = started.elapsed().as_micros();
+        let output_bytes = serde_json::to_vec(&output)
+            .map_err(|error| format!("cognitive_decision_output_encode_failed: {error}"))?
+            .len();
+        let distribution =
+            crate::cognitive::CognitiveDecisionDistribution::qualify(request, output)?;
+        Ok(crate::cognitive::CognitiveDecisionQualification {
+            schema: crate::cognitive::COGNITIVE_DECISION_QUALIFICATION_SCHEMA.to_string(),
+            distribution,
+            current_requalification_us,
+            output_bytes,
+        })
+    }
+
     /// Inspect a retained W3 under CURRENT disclosure, reconstructing its exact
     /// historical compilation. This neither marks it fresh nor admits dispatch.
     /// A changed visibility/backing/control basis may make it unreproducible.

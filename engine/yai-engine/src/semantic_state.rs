@@ -729,6 +729,13 @@ impl SemanticWorkingState {
     pub fn bounds(&self) -> &WorkingStateBounds {
         &self.bounds
     }
+    /// Exact resident semantic visibility for derived cognitive consumers.
+    /// Deferred W4 references are intentionally not treated as supplied
+    /// evidence; paging remains an explicit, separately qualified operation.
+    pub(crate) fn contains_resident_reference(&self, reference: &str) -> bool {
+        self.entries.iter().any(|entry| entry_matches(entry, reference))
+            || self.resident_page_references().iter().any(|id| id == reference)
+    }
     pub fn validate_current(
         &self,
         source: &SemanticState,

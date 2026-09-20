@@ -14,6 +14,9 @@ mod historical_tests;
 #[path = "source_bootstrap_tests.rs"]
 mod source_bootstrap_tests;
 
+#[path = "decision_plane_tests.rs"]
+mod decision_plane_tests;
+
 #[test]
 fn cognitive_authority_same_materializer_scoped_mandatory_revocation_rebuild() {
     use crate::semantic_state::{
