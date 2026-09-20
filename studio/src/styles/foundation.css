@@ -339,11 +339,11 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .fixture-material .material-document section h3 { margin: 0 0 8px; color: var(--yai-text); font-size: 15px; }
 .terminal-unavailable { height: 100%; display: grid; align-content: center; justify-items: center; gap: 6px; text-align: center; }
 .terminal-unavailable strong { font-size: 13px; }.terminal-unavailable p { margin: 0; color: var(--yai-text-muted); font-size: 12px; }
-.terminal-surface { height: 100%; min-width: 0; min-height: 0; display: flex; background: #0d0f12; }
-.terminal-stack { position: relative; min-height: 0; flex: 1; padding: 6px 5px 3px 9px; overflow: hidden; background: #0d0f12; }
-.terminal-viewport { width: 100%; height: 100%; }
+.terminal-surface { width: 100%; height: 100%; min-width: 0; min-height: 0; display: flex; overflow: hidden; background: #0d0f12; }
+.terminal-stack { position: relative; min-width: 0; min-height: 0; flex: 1 1 0; padding: 6px 5px 3px 9px; overflow: hidden; background: #0d0f12; }
+.terminal-viewport { width: 100%; height: 100%; min-width: 0; overflow: hidden; }
 .terminal-viewport[hidden] { display: none; }
-.terminal-viewport .xterm { height: 100%; }
+.terminal-viewport .xterm { width: 100%; height: 100%; overflow: hidden; }
 .terminal-viewport .xterm-viewport { scrollbar-color: #3d424a transparent; scrollbar-width: thin; }
 .terminal-empty { height: 100%; display: grid; place-content: center; justify-items: center; gap: 9px; color: var(--yai-text-muted); font-size: 12px; }
 .terminal-empty button { min-height: 28px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--yai-raised); color: var(--yai-text-secondary); cursor: pointer; }
