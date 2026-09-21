@@ -1,3 +1,5 @@
+import { SurfaceTabs } from "../surface/SurfaceTabs";
+import { OpenWith } from "../surface/OpenWith";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CasePresentation, CaseSearchResult } from "../../clients/dataSource";
 import type { MaterialReadProjection, OperationResult } from "../../clients/live";
@@ -5,18 +7,18 @@ import { Icon } from "../../components/Icon";
 import { Badge, IconButton, PanelHeader } from "../../components/primitives";
 import { DesktopWindowControls } from "../../app/DesktopWindowControls";
 import { beginDesktopWindowDrag, toggleDesktopWindowMaximize } from "../../platform/desktopWindow";
-import { dispatchTerminalCommand } from "../../terminal/TerminalPanel";
+import { dispatchTerminalCommand } from "../../terminal/commands";
 import type { PlatformServices } from "../../platform/services";
 import { DisposableStore, toDisposable } from "../../platform/lifecycle";
 import { when } from "../../platform/context";
 import type { WorkbenchRegistry } from "./registry";
-import { SurfaceGroupService, type SurfaceInput } from "../surface/model";
+import { type SurfaceInput } from "../surface/model";
 import type { NavigationLocation } from "../../platform/navigation";
 import { ApplicationMenuBar } from "./ApplicationMenuBar";
 import { Splitter } from "./Splitter";
 import { WorkbenchSearch, type WorkbenchSearchItem } from "../search/WorkbenchSearch";
 import { fileInput, materialInput, rendererChoices } from "../../contrib/surfaces/inputs";
-import { SurfaceBufferService } from "../surface/buffers";
+import { WorkbenchSession } from "./session";
 
 export interface WorkbenchKernelProps {
   workspace: CasePresentation;
@@ -45,47 +47,63 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
   const [panelToolbarTarget, setPanelToolbarTarget] = useState<HTMLElement | null>(null);
   const [hostState, setHostState] = useState(platform.host.snapshot());
   const restoredBottomHeight = useRef(bottomHeight);
-  const surfaces = useMemo(() => new SurfaceGroupService(), []);
-  const buffers = useMemo(() => new SurfaceBufferService(), []);
-  const [surfaceState, setSurfaceState] = useState(surfaces.snapshot());
-  const surfaceArchive = useRef(new Map<string, SurfaceInput>());
+  const windowSession = useMemo(() => new WorkbenchSession(), []);
+  const session = windowSession.forCase(workspace.case.case_ref);
+  const { surfaces, buffers, navigation } = session;
+  const [, invalidateSurfaces] = useState(0);
+  const surfaceState = surfaces.snapshot();
+  const surfaceArchive = session.archive;
   const applyingHistory = useRef(false);
 
-  useEffect(() => {
-    if (!openWith) return;
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpenWith(false);
-    };
-    window.addEventListener("keydown", close);
-    return () => window.removeEventListener("keydown", close);
-  }, [openWith]);
-  useEffect(() => surfaces.subscribe(() => setSurfaceState(surfaces.snapshot())).dispose, [surfaces]);
+  useEffect(() => surfaces.subscribe(() => invalidateSurfaces((value) => value + 1)).dispose, [surfaces]);
   useEffect(() => platform.host.subscribe(setHostState).dispose, [platform.host]);
-  useEffect(() => () => { surfaces.dispose(); buffers.dispose(); }, [buffers, surfaces]);
+  useEffect(() => () => windowSession.dispose(), [windowSession]);
+  const dirtyCount = windowSession.dirtyCount;
+  useEffect(() => { void window.__TAURI__?.core.invoke("desktop_set_dirty", { dirty: dirtyCount > 0 }); }, [dirtyCount]);
   useEffect(() => {
+    const guard = (event: Event) => {
+      if (windowSession.dirtyCount && !window.confirm(`Close Studio and discard ${windowSession.dirtyCount} unsaved file buffer(s)?`)) event.preventDefault();
+    };
+    const unload = (event: BeforeUnloadEvent) => { if (windowSession.dirtyCount) { event.preventDefault(); event.returnValue = ""; } };
+    window.addEventListener("yai:before-window-close", guard);
+    window.addEventListener("beforeunload", unload);
+    return () => { window.removeEventListener("yai:before-window-close", guard); window.removeEventListener("beforeunload", unload); };
+  }, [windowSession]);
+  useEffect(() => {
+    const current = surfaces.snapshot();
+    if (current.inputs.length) {
+      const active = current.inputs.find((input) => input.id === current.activeId);
+      setSelection(navigation.current()?.selection ?? active?.objectRef ?? workspace.case.case_ref);
+      setActiveContainer(navigation.current()?.view ?? active?.viewId ?? "Overview");
+      return;
+    }
+    setSelection(workspace.case.case_ref);
+    setActiveContainer("Overview");
     const initial = containers.find((container) => container.id === "Overview")?.surface ?? containers[0]?.surface;
     if (!initial) return;
-    surfaceArchive.current.set(initial.identity, initial);
+    surfaceArchive.set(initial.identity, initial);
     surfaces.open(initial);
-    platform.navigation.reset({ caseRef: workspace.case.case_ref, view: "Overview", surfaceId: initial.identity, selection: workspace.case.case_ref, auxiliary: "Inspector" });
-  }, [containers, platform.navigation, surfaces, workspace.case.case_ref]);
+    navigation.reset({ caseRef: workspace.case.case_ref, view: "Overview", surfaceId: initial.identity, selection: workspace.case.case_ref, auxiliary: "Inspector" });
+  }, [containers, navigation, surfaceArchive, surfaces, workspace.case.case_ref]);
 
   const record = useCallback((view: string, surfaceId: string, nextSelection = selection, nextAuxiliary = auxiliary) => {
     if (applyingHistory.current) return;
-    platform.navigation.push({ caseRef: workspace.case.case_ref, view, surfaceId, selection: nextSelection, auxiliary: nextAuxiliary });
-  }, [auxiliary, platform.navigation, selection, workspace.case.case_ref]);
+    navigation.push({ caseRef: workspace.case.case_ref, view, surfaceId, selection: nextSelection, auxiliary: nextAuxiliary });
+  }, [auxiliary, navigation, selection, workspace.case.case_ref]);
   const openSurface = useCallback((input: SurfaceInput, shouldRecord = true) => {
     const capabilities = registry.surfaceRenderer(input.surfaceType)?.capabilities ?? [];
     const previewEnabled = platform.configuration.get<boolean>("workbench.openPreview") !== false;
     const normalized = capabilities.includes("singleton") || !capabilities.includes("previewable") || !previewEnabled
       ? { ...input, id: input.identity, pinned: true }
       : input;
-    surfaceArchive.current.set(normalized.identity, normalized);
+    surfaceArchive.set(normalized.identity, normalized);
     surfaces.open(normalized);
     if (normalized.viewId) setActiveContainer(normalized.viewId);
-    if (normalized.objectRef) { setSelection(normalized.objectRef); setAuxiliary("Inspector"); }
-    if (shouldRecord) record(normalized.viewId ?? activeContainer, normalized.identity, normalized.objectRef ?? selection, normalized.objectRef ? "Inspector" : auxiliary);
-  }, [activeContainer, auxiliary, platform.configuration, record, registry, selection, surfaces]);
+    const nextSelection = normalized.objectRef ?? (registry.surfaceRenderer(normalized.surfaceType)?.role === "system" ? "settings:general" : workspace.case.case_ref);
+    setSelection(nextSelection);
+    if (normalized.objectRef) setAuxiliary("Inspector");
+    if (shouldRecord) record(normalized.viewId ?? activeContainer, normalized.identity, nextSelection, normalized.objectRef ? "Inspector" : auxiliary);
+  }, [activeContainer, auxiliary, platform.configuration, record, registry, surfaces, workspace.case.case_ref, surfaceArchive]);
   const openPerspective = useCallback((id: string, shouldRecord = true) => {
     const container = containers.find((value) => value.id === id);
     if (!container) return;
@@ -94,35 +112,41 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
   }, [containers, openSurface]);
   const openSettings = useCallback((shouldRecord = true) => {
     const input: SurfaceInput = { id: "settings", identity: "settings", surfaceType: "studio.settings", title: "Settings", icon: "settings", pinned: true };
-    surfaceArchive.current.set(input.identity, input);
+    surfaceArchive.set(input.identity, input);
     surfaces.open(input);
-    if (shouldRecord) record("Settings", input.identity, "settings:general");
-  }, [record, surfaces]);
+    setSelection("settings:general");
+    if (shouldRecord) record(activeContainer, input.identity, "settings:general");
+  }, [activeContainer, record, surfaceArchive, surfaces]);
   const inspect = useCallback((id: string) => {
     setSelection(id); setAuxiliary("Inspector");
-    const active = surfaceState.inputs.find((input) => input.id === surfaceState.activeId);
+    const current = surfaces.snapshot();
+    const active = current.inputs.find((input) => input.id === current.activeId);
     record(activeContainer, active?.identity ?? `perspective:${activeContainer}`, id, "Inspector");
-  }, [activeContainer, record, surfaceState.activeId, surfaceState.inputs]);
-  const actions = useMemo(() => ({ inspect, openSurface, openPerspective, openSettings, updateSurface: surfaces.update.bind(surfaces), replaceSurface: surfaces.replace.bind(surfaces) }), [inspect, openPerspective, openSettings, openSurface, surfaces]);
+  }, [activeContainer, record, surfaces]);
+  const surfaceActions = useMemo(() => ({ updateSurface: surfaces.update.bind(surfaces), replaceSurface: surfaces.replace.bind(surfaces) }), [surfaces]);
+  const actions = useMemo(() => ({ inspect, openSurface, openPerspective, openSettings, ...surfaceActions }), [inspect, openPerspective, openSettings, openSurface, surfaceActions]);
 
   const closeSurface = useCallback((id: string) => {
     const input = surfaces.snapshot().inputs.find((candidate) => candidate.id === id);
     if (input?.dirty && !window.confirm(`Discard unsaved changes to ${input.title}?`)) return;
     surfaces.close(id);
     if (input) buffers.discard(input.identity);
-  }, [buffers, surfaces]);
+    const current = surfaces.snapshot();
+    const active = current.inputs.find((candidate) => candidate.id === current.activeId);
+    setSelection(active?.objectRef ?? (active?.surfaceType === "studio.settings" ? "settings:general" : workspace.case.case_ref));
+  }, [buffers, surfaces, workspace.case.case_ref]);
   const dispatchSurfaceCommand = useCallback((name: string) => window.dispatchEvent(new CustomEvent("yai:surface-command", { detail: { name } })), []);
 
   const applyLocation = useCallback((location: NavigationLocation | undefined) => {
     if (!location) return;
     applyingHistory.current = true;
-    setSelection(location.selection ?? workspace.case.case_ref);
-    setAuxiliary(location.auxiliary ?? "Inspector");
-    const input = surfaceArchive.current.get(location.surfaceId);
+    const input = surfaceArchive.get(location.surfaceId);
     if (input) openSurface(input, false);
     else openPerspective(location.view, false);
+    setSelection(location.selection ?? workspace.case.case_ref);
+    setAuxiliary(location.auxiliary ?? "Inspector");
     applyingHistory.current = false;
-  }, [openPerspective, openSurface, workspace.case.case_ref]);
+  }, [openPerspective, openSurface, surfaceArchive, workspace.case.case_ref]);
 
   useEffect(() => {
     const registrations = new DisposableStore();
@@ -137,7 +161,12 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     command("studio.file.settings", "Settings…", () => openSettings());
     command("studio.search.commands", "Show Command Palette", () => setSearchMode("commands"));
     command("studio.search.quickOpen", "Quick Open", () => setSearchMode("open"));
-    command("studio.search.currentSurface", "Find in Current Surface", () => setSearchMode("surface"), when.truthy("surface.searchable"));
+    command("studio.search.currentSurface", "Find in Current Surface", () => {
+      const current = surfaces.snapshot();
+      const active = current.inputs.find((input) => input.id === current.activeId);
+      if (active && registry.surfaceRenderer(active.surfaceType)?.findInRenderer) dispatchSurfaceCommand("find");
+      else setSearchMode("surface");
+    }, when.truthy("surface.searchable"));
     command("studio.search.case", "Search Current Case", () => setSearchMode("case"));
     command("studio.window.close", "Close Window", platform.host.closeWindow);
     command("studio.edit.undo", "Undo", () => dispatchSurfaceCommand("undo"), when.truthy("surface.editable")); command("studio.edit.redo", "Redo", () => dispatchSurfaceCommand("redo"), when.truthy("surface.editable"));
@@ -147,9 +176,15 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     command("studio.view.toggleContext", "Context Panel", () => setRightOpen((value) => !value));
     command("studio.view.toggleBottomPanel", "Bottom Panel", () => setBottomOpen((value) => !value));
     command("studio.view.resetLayout", "Reset Layout", () => { setLeftOpen(true); setRightOpen(true); setBottomOpen(true); setLeftWidth(204); setRightWidth(320); const height = Math.max(260, Math.floor(window.innerHeight * .36)); restoredBottomHeight.current = height; setBottomHeight(height); setBottomMaximized(false); });
-    command("studio.go.back", "Back", () => applyLocation(platform.navigation.back()), () => platform.navigation.canBack());
-    command("studio.go.forward", "Forward", () => applyLocation(platform.navigation.forward()), () => platform.navigation.canForward());
-    command("studio.go.previousTab", "Previous Tab", () => surfaces.move(-1)); command("studio.go.nextTab", "Next Tab", () => surfaces.move(1));
+    command("studio.go.back", "Back", () => applyLocation(navigation.back()), () => navigation.canBack());
+    command("studio.go.forward", "Forward", () => applyLocation(navigation.forward()), () => navigation.canForward());
+    const adjacentSurface = (delta: number) => {
+      const current = surfaces.snapshot();
+      const index = current.inputs.findIndex((input) => input.id === current.activeId);
+      const target = current.inputs[(index + delta + current.inputs.length) % current.inputs.length];
+      if (target) openSurface(target);
+    };
+    command("studio.go.previousTab", "Previous Tab", () => adjacentSurface(-1)); command("studio.go.nextTab", "Next Tab", () => adjacentSurface(1));
     containers.forEach((container) => command(`studio.case.${container.id.toLowerCase()}`, container.title, () => openPerspective(container.id)));
     command("studio.case.refresh", "Refresh / Resync Case", refresh, when.equals("studio.data.live", true));
     const terminal = (name: "new" | "kill" | "clear" | "focus") => { setPanel("Terminal"); setBottomOpen(true); requestAnimationFrame(() => dispatchTerminalCommand(name)); };
@@ -167,7 +202,8 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     menu("Go", "1", 0, "studio.go.back"); menu("Go", "1", 1, "studio.go.forward"); menu("Go", "2", 0, "studio.go.previousTab"); menu("Go", "2", 1, "studio.go.nextTab");
     containers.forEach((container, order) => menu("Case", "1", order, `studio.case.${container.id.toLowerCase()}`, when.equals("view.active", container.id))); menu("Case", "2", 0, "studio.case.refresh"); menu("Case", "3", 0, "studio.file.openCase");
     ["new", "kill", "clear", "focus"].forEach((name, order) => menu("Terminal", "1", order, `studio.terminal.${name}`)); menu("Terminal", "2", 0, "studio.view.toggleBottomPanel"); menu("Help", "1", 0, "studio.help.about");
-    const binding = (id: string, commandId: string, key: string, allowInTerminal = false) => registrations.add(platform.keybindings.registerKeybinding({ id, command: commandId, key, allowInTerminal }));
+    const binding = (id: string, commandId: string, key: string, allowInTerminal = false) => registrations.add(platform.keybindings.registerKeybinding({ id, command: commandId, key, allowInTerminal, precedence: ["case-search", "quick-open", "command-palette", "toggle-panel", "terminal-focus", "terminal-new"].includes(id) ? "workbench" : undefined }));
+    binding("close-surface", "studio.file.close", "Mod+w"); binding("settings", "studio.file.settings", "Mod+,");
     binding("toggle-panel", "studio.view.toggleBottomPanel", "Mod+j", true); binding("terminal-focus", "studio.terminal.focus", "Mod+`", true); binding("terminal-new", "studio.terminal.new", "Mod+Shift+`", true); binding("open-case", "studio.file.openCase", "Mod+o"); binding("toggle-sidebar", "studio.view.toggleExplorer", "Mod+b"); binding("toggle-auxiliary", "studio.view.toggleContext", "Mod+Shift+b"); binding("go-back", "studio.go.back", "Alt+ArrowLeft"); binding("go-forward", "studio.go.forward", "Alt+ArrowRight"); binding("command-palette", "studio.search.commands", "Mod+Shift+p"); binding("quick-open", "studio.search.quickOpen", "Mod+p"); binding("surface-find", "studio.search.currentSurface", "Mod+f"); binding("case-search", "studio.search.case", "Mod+Shift+f");
     containers.forEach((container, order) => binding(`perspective-${container.id}`, `studio.case.${container.id.toLowerCase()}`, `Mod+${order + 1}`));
     const focus = (event: FocusEvent) => {
@@ -213,14 +249,20 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
   const inspector = auxiliary === "Inspector" ? registry.inspector("default") : undefined;
   const renderContext = { workspace, selection, actions, platform, settings: registry.settings, readMaterial, buffers };
   const SurfaceComponent = surfaceRenderer?.component;
-  const PanelComponent = activePanel?.component;
+
   const AuxiliaryComponent = inspector?.component ?? activeAuxiliary?.component;
   const commandItems = (): WorkbenchSearchItem[] => platform.commands.entries().map((command) => ({ id: command.id, label: command.title, detail: platform.keybindings.shortcutFor(command.id), category: "Command", icon: "arrow", disabled: !command.enabled, run: () => void platform.commands.executeCommand(command.id) }));
   const quickItems = (): WorkbenchSearchItem[] => {
     const known = new Map<string, WorkbenchSearchItem>();
     surfaceState.inputs.forEach((input) => known.set(input.identity, { id: `open:${input.identity}`, label: input.title, detail: input.surfaceType, category: "Open Surface", icon: input.icon, run: () => openSurface(input) }));
-    for (const material of workspace.presentation.materials ?? []) known.set(material.id, { id: `material:${material.id}`, label: material.name, detail: `${material.mediaType} · ${material.path}`, category: "Case Material", icon: "file", run: () => openSurface(materialInput(workspace, material.id, material.name)) });
-    for (const file of workspace.environment.files) if (!known.has(file.id)) known.set(file.id, { id: `file:${file.id}`, label: file.path.split("/").at(-1) ?? file.path, detail: file.path, category: "Exposed Case File", icon: "file", run: () => openSurface(fileInput(workspace, file.id)) });
+    for (const material of workspace.presentation.materials ?? []) {
+      const input = materialInput(workspace, material.id, material.name);
+      if (!known.has(input.identity)) known.set(input.identity, { id: input.identity, label: material.name, detail: material.path, category: "Case Material", icon: input.icon, run: () => openSurface(input) });
+    }
+    for (const file of workspace.environment.files) {
+      const input = fileInput(workspace, file.id);
+      if (!known.has(input.identity)) known.set(input.identity, { id: input.identity, label: input.title, detail: file.path, category: "Exposed Case File", icon: input.icon, run: () => openSurface(input) });
+    }
     return [...known.values()];
   };
   const surfaceItems = async (query: string): Promise<WorkbenchSearchItem[]> => {
@@ -236,13 +278,13 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     return (result.data ?? []).map((item) => ({ id: item.id, label: item.label, detail: item.detail, category: "Case Search", icon: "search", run: () => item.object_ref && openSurface(materialInput(workspace, item.object_ref, item.label)) }));
   };
   return <div className="live-case-shell workbench-kernel" data-case-source={workspace.presentation.dataKind} data-host={platform.host.capabilities.kind} style={{ "--left-width": `${leftWidth}px`, "--right-width": `${rightWidth}px`, "--bottom-height": `${bottomHeight}px` } as React.CSSProperties}>
-    <nav className="case-titlebar" aria-label="Application and workspace controls" data-tauri-drag-region onPointerDown={beginDesktopWindowDrag} onDoubleClick={toggleDesktopWindowMaximize}><ApplicationMenuBar platform={platform} /><div className="titlebar-center" data-tauri-drag-region><IconButton aria-label="Back" disabled={!platform.navigation.canBack()} onClick={() => applyLocation(platform.navigation.back())}><Icon name="back" /></IconButton><IconButton aria-label="Forward" disabled={!platform.navigation.canForward()} onClick={() => applyLocation(platform.navigation.forward())}><Icon name="forward" /></IconButton><button className="titlebar-case" title={workspace.case.case_ref} onClick={openCaseSwitcher}><Icon name="case" size={14} /><span>{workspace.case.display_name}</span><Icon name="chevron" size={12} /></button></div><div className="titlebar-layout">{workspace.presentation.dataKind === "fixture" && <Badge tone="warning">Fixture data</Badge>}{stream !== "live" && stream !== "fixture" && <Badge tone={stream === "unavailable" ? "error" : "warning"}>{stream}</Badge>}<IconButton aria-label="Refresh Case" onClick={refresh}><Icon name="refresh" /></IconButton><IconButton aria-label="Toggle Case sidebar" onClick={() => setLeftOpen((value) => !value)}><Icon name="left" /></IconButton><IconButton aria-label="Toggle bottom panel" onClick={() => setBottomOpen((value) => !value)}><Icon name="bottom" /></IconButton><IconButton aria-label="Toggle context panel" onClick={() => setRightOpen((value) => !value)}><Icon name="right" /></IconButton><DesktopWindowControls /></div></nav>
+    <nav className="case-titlebar" aria-label="Application and workspace controls" data-tauri-drag-region onPointerDown={beginDesktopWindowDrag} onDoubleClick={toggleDesktopWindowMaximize}><ApplicationMenuBar platform={platform} /><div className="titlebar-center" data-tauri-drag-region><IconButton aria-label="Back" disabled={!navigation.canBack()} onClick={() => applyLocation(navigation.back())}><Icon name="back" /></IconButton><IconButton aria-label="Forward" disabled={!navigation.canForward()} onClick={() => applyLocation(navigation.forward())}><Icon name="forward" /></IconButton><button className="titlebar-case" title={workspace.case.case_ref} onClick={openCaseSwitcher}><Icon name="case" size={14} /><span>{workspace.case.display_name}</span><Icon name="chevron" size={12} /></button></div><div className="titlebar-layout">{workspace.presentation.dataKind === "fixture" && <Badge tone="warning">Fixture data</Badge>}{stream !== "live" && stream !== "fixture" && <Badge tone={stream === "unavailable" ? "error" : "warning"}>{stream}</Badge>}<IconButton aria-label="Refresh Case" onClick={refresh}><Icon name="refresh" /></IconButton><IconButton aria-label="Toggle Case sidebar" onClick={() => setLeftOpen((value) => !value)}><Icon name="left" /></IconButton><IconButton aria-label="Toggle bottom panel" onClick={() => setBottomOpen((value) => !value)}><Icon name="bottom" /></IconButton><IconButton aria-label="Toggle context panel" onClick={() => setRightOpen((value) => !value)}><Icon name="right" /></IconButton><DesktopWindowControls /></div></nav>
     <div className="live-workbench">
       <aside className="live-rail" aria-label="Case perspectives">{containers.map((container) => <button key={container.id} aria-label={container.title} aria-pressed={activeContainer === container.id} onClick={() => openPerspective(container.id)}><Icon name={container.icon} size={20} /><span role="tooltip">{container.title}</span></button>)}</aside>
       {leftOpen && <><aside className="live-sidebar" id="case-sidebar"><PanelHeader title={containers.find((value) => value.id === activeContainer)?.title ?? activeContainer} />{sidebarViews.map((view) => { const ViewComponent = view.component; return <ViewComponent key={view.id} {...renderContext} containerId={activeContainer} />; })}</aside><Splitter label="Resize Case explorer" axis="x" value={leftWidth} min={170} max={320} set={setLeftWidth} /></>}
-      <section className="live-center"><div className="surface-tabs" role="tablist">{surfaceState.inputs.map((input) => { const descriptor = registry.surfaceRenderer(input.surfaceType); return <button key={input.id} className={`surface-role-${descriptor?.role ?? "content"} surface-posture-${input.posture ?? "ready"}`} role="tab" aria-selected={surfaceState.activeId === input.id} title={`${input.title}${input.pinned ? "" : " · Preview"}${input.posture === "read-only" ? " · Read only" : ""}`} onClick={() => { surfaces.activate(input.id); if (input.viewId) setActiveContainer(input.viewId); }} onDoubleClick={() => descriptor?.capabilities.includes("pinnable") && surfaces.pin(input.id)}><Icon name={input.icon} size={14} /><span className="surface-tab-title">{input.title}</span>{input.dirty ? <i className="dirty-mark" aria-label="Unsaved changes">●</i> : !input.pinned ? <i className="preview-mark">Preview</i> : null}<span role="button" aria-label={`Close ${input.title}`} onClick={(event) => { event.stopPropagation(); closeSurface(input.id); }}>×</span></button>; })}</div><main className="live-surface">{activeInput && SurfaceComponent ? <Suspense fallback={<div className="surface-loading">Loading {activeInput.title}…</div>}><SurfaceComponent {...renderContext} input={activeInput} /></Suspense> : <div className="empty-surface">No Surface renderer is registered for this input.</div>}</main>
+      <section className="live-center"><SurfaceTabs inputs={surfaceState.inputs} activeId={surfaceState.activeId} describe={(input) => { const renderer = registry.surfaceRenderer(input.surfaceType); return {role: renderer?.role ?? "content", pinnable: renderer?.capabilities.includes("pinnable") ?? false}; }} activate={openSurface} pin={(id) => surfaces.pin(id)} close={closeSurface} /><main className="live-surface">{activeInput && SurfaceComponent ? <Suspense fallback={<div className="surface-loading">Loading {activeInput.title}…</div>}><SurfaceComponent {...renderContext} input={activeInput} /></Suspense> : <div className="empty-surface"><h2>{activeInput ? "Surface unavailable" : "Your workspace is ready"}</h2><p>{activeInput ? `No trusted renderer is registered for ${activeInput.title}.` : "Open a Case perspective from the sidebar or find a file with Quick Open."}</p>{!activeInput && <button onClick={() => setSearchMode("open")}>Quick Open</button>}</div>}</main>
         {bottomOpen && <Splitter label="Resize bottom panel" axis="y" reverse value={bottomHeight} min={190} max={bottomLimit} set={(value) => { setBottomMaximized(false); restoredBottomHeight.current = value; setBottomHeight(value); }} />}
-        {bottomOpen && <section className="live-bottom" id="case-tools" style={{ height: bottomHeight }} aria-label="Bottom tools"><header>{panelViews.map((view) => <button key={view.id} aria-pressed={panel === view.id} onClick={() => setPanel(view.id)}>{view.title}</button>)}<span /><div className="panel-contribution-toolbar" ref={setPanelToolbarTarget} /><IconButton aria-label={bottomMaximized ? "Restore bottom panel" : "Maximize bottom panel"} onClick={() => { if (bottomMaximized) { setBottomHeight(restoredBottomHeight.current); setBottomMaximized(false); } else { restoredBottomHeight.current = bottomHeight; setBottomHeight(bottomLimit); setBottomMaximized(true); } }}><Icon name={bottomMaximized ? "restore" : "maximize"} size={14} /></IconButton><IconButton aria-label="Close bottom panel" onClick={() => setBottomOpen(false)}><Icon name="close" size={14} /></IconButton></header><div className="tool-content">{PanelComponent && <div className="tool-pane"><PanelComponent {...renderContext} available={platform.host.capabilities.terminalAvailable} toolbarTarget={panelToolbarTarget} closePanel={() => setBottomOpen(false)} /></div>}</div></section>}
+        <section hidden={!bottomOpen} className="live-bottom" id="case-tools" style={{ height: bottomHeight }} aria-label="Bottom tools"><header>{panelViews.map((view) => <button key={view.id} aria-pressed={panel === view.id} onClick={() => setPanel(view.id)}>{view.title}</button>)}<span /><div className="panel-contribution-toolbar" ref={setPanelToolbarTarget} /><IconButton aria-label={bottomMaximized ? "Restore bottom panel" : "Maximize bottom panel"} onClick={() => { if (bottomMaximized) { setBottomHeight(restoredBottomHeight.current); setBottomMaximized(false); } else { restoredBottomHeight.current = bottomHeight; setBottomHeight(bottomLimit); setBottomMaximized(true); } }}><Icon name={bottomMaximized ? "restore" : "maximize"} size={14} /></IconButton><IconButton aria-label="Close bottom panel" onClick={() => setBottomOpen(false)}><Icon name="close" size={14} /></IconButton></header><div className="tool-content">{panelViews.map((view) => { const Component = view.component; const visible = bottomOpen && activePanel?.id === view.id; return <div key={view.id} className="tool-pane" hidden={!visible}><Component {...renderContext} visible={visible} available={platform.host.capabilities.terminalAvailable} toolbarTarget={visible ? panelToolbarTarget : null} closePanel={() => setBottomOpen(false)} /></div>; })}</div></section>
       </section>
       {rightOpen && <><Splitter label="Resize context panel" axis="x" reverse value={rightWidth} min={290} max={470} set={setRightWidth} /><aside className="live-context" id="case-conversation"><header><div className="segmented">{auxiliaryViews.map((view) => <button key={view.id} aria-pressed={auxiliary === view.id} onClick={() => setAuxiliary(view.id)}>{view.title}</button>)}</div><IconButton aria-label="Close context panel" onClick={() => setRightOpen(false)}><Icon name="right" /></IconButton></header>{AuxiliaryComponent && <AuxiliaryComponent {...renderContext} />}</aside></>}
     </div>
@@ -254,6 +296,6 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     {searchMode === "open" && <WorkbenchSearch title="Quick Open" placeholder="Search open Surfaces and exposed Case material" items={quickItems()} onClose={() => setSearchMode(undefined)} />}
     {searchMode === "surface" && <WorkbenchSearch title={`Find in ${activeInput?.title ?? "Surface"}`} placeholder="Search current Surface" resolveItems={surfaceItems} onClose={() => setSearchMode(undefined)} />}
     {searchMode === "case" && <WorkbenchSearch title="Search Current Case" placeholder={searchCase ? "Search qualified Case presentation" : "Case search unavailable"} resolveItems={caseItems} onClose={() => setSearchMode(undefined)} />}
-    {openWith && activeInput && <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpenWith(false); }}><section className="open-with" role="dialog" aria-modal="true" aria-label={`Open ${activeInput.title} with`}><h2>Open With…</h2>{rendererChoices(activeInput.metadata?.mediaType).map((choice) => <button key={choice.type} onClick={() => { if (activeInput.objectRef) surfaces.replace(activeInput.id, { ...fileInput(workspace, activeInput.objectRef, activeInput.pinned, choice.type), id: activeInput.id, dirty: activeInput.dirty }); setOpenWith(false); }}><Icon name="file" /><span><strong>{choice.title}</strong><small>{choice.type}</small></span></button>)}</section></div>}
+    {openWith && activeInput && <OpenWith title={activeInput.title} selected={activeInput.surfaceType} choices={rendererChoices(activeInput.metadata?.mediaType)} close={() => setOpenWith(false)} choose={(type) => { if (activeInput.objectRef) surfaces.replace(activeInput.id, { ...fileInput(workspace, activeInput.objectRef, activeInput.pinned, type), id: activeInput.id, dirty: activeInput.dirty }); }} />}
   </div>;
 }

@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="data:," />
-    <title>YAI Studio · Fixture Workbench</title>
+    <!-- Tauri authorizes this style with a per-response nonce. Trusted dynamic
+         editor styles reuse that nonce instead of weakening the desktop CSP. -->
+    <style id="studio-style-nonce">:root { color-scheme: dark; }</style>
+    <title>YAI Studio</title>
   </head>
   <body>
     <div id="root"></div>

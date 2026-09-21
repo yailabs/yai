@@ -1,9 +1,9 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Badge, Button, EmptyState } from "../../components/primitives";
 import type { MaterialView } from "../../clients/presentation";
 import type { SurfaceRendererProps, SurfaceSearchResult, WorkbenchRenderContext } from "../../workbench/kernel/types";
 import { expectedMaterialIdentity, materialText, useReadableMaterial } from "./materialRead";
-import { validateMaterialRead } from "./materialIdentity";
+import { validateMaterialContent, validateMaterialRead } from "./materialIdentity";
 
 const CodeEditorSurface = lazy(() => import("./CodeEditorSurface"));
 
@@ -23,11 +23,11 @@ export function MaterialHeader({ input, material }: { input: SurfaceRendererProp
 export function TextEditorSurface(props: SurfaceRendererProps) {
   const { input, actions, buffers } = props;
   const loaded = useReadableMaterial(props);
-  const [snapshot, setSnapshot] = useState(() => buffers.snapshot(input.identity));
-  useEffect(() => buffers.subscribe(input.identity, () => setSnapshot(buffers.snapshot(input.identity))).dispose, [buffers, input.identity]);
+  const subscribe = useCallback((listener: () => void) => buffers.subscribe(input.identity, listener).dispose, [buffers, input.identity]);
+  const snapshot = useSyncExternalStore(subscribe, () => buffers.snapshot(input.identity));
   useEffect(() => {
     if (loaded.content !== undefined && loaded.source) {
-      setSnapshot(buffers.initialize(input.identity, loaded.content, loaded.source));
+      buffers.initialize(input.identity, loaded.content, loaded.source);
     }
   }, [buffers, input.identity, loaded.content, loaded.source]);
   const registerCommands = useCallback((editorCommand: (name: string) => void) => {
@@ -39,10 +39,10 @@ export function TextEditorSurface(props: SurfaceRendererProps) {
     window.addEventListener("yai:surface-command", command);
     return () => window.removeEventListener("yai:surface-command", command);
   }, [buffers, input.identity]);
-  useEffect(() => { actions.updateSurface(input.id, { dirty: snapshot?.dirty }); }, [actions, input.id, snapshot?.dirty]);
-  if (loaded.loading) return <article className="material-surface text-editor-surface"><MaterialHeader input={input} /><div className="surface-loading">Reading exact retained revision…</div></article>;
-  if (loaded.error || !snapshot) return <article className="material-surface text-editor-surface"><MaterialHeader input={input} /><EmptyState title="File content unavailable" body={loaded.error ?? "No exact content is available."} /></article>;
-  return <article className="material-surface text-editor-surface" data-surface-type={input.surfaceType} data-material-key={snapshot.source.key}><MaterialHeader input={input} /><div className="surface-toolbar file-toolbar" role="toolbar"><span>{snapshot.stale ? "Case changed since this buffer opened" : snapshot.dirty ? "Local changes" : "Exact retained revision"}</span><Badge tone={snapshot.stale || snapshot.dirty ? "warning" : "success"}>{snapshot.stale ? "Stale" : snapshot.dirty ? "Unsaved" : "Current"}</Badge>{snapshot.stale && <button onClick={() => buffers.reload(input.identity)}>Reload</button>}<button onClick={() => window.dispatchEvent(new CustomEvent("yai:surface-command", { detail: { name: "find" } }))}>Find</button><button onClick={() => window.dispatchEvent(new CustomEvent("yai:surface-command", { detail: { name: "replace" } }))}>Replace</button><button disabled title="YAI has no qualified participant-origin filesystem mutation contract">Save unavailable</button></div><Suspense fallback={<div className="surface-loading">Loading syntax-aware editor…</div>}><CodeEditorSurface title={input.title} path={input.metadata?.path} mediaType={input.metadata?.mediaType} snapshot={snapshot} readOnly={input.posture === "read-only"} onChange={(value) => buffers.update(input.identity, value)} onCommand={registerCommands} /></Suspense></article>;
+  useEffect(() => { actions.updateSurface(input.id, { dirty: snapshot?.dirty }); }, [actions.updateSurface, input.id, snapshot?.dirty]);
+  if (loaded.loading && !snapshot) return <article className="material-surface text-editor-surface"><MaterialHeader input={input} /><div className="surface-loading">Reading exact retained revision…</div></article>;
+  if ((loaded.error && !snapshot?.dirty) || !snapshot) return <article className="material-surface text-editor-surface"><MaterialHeader input={input} /><EmptyState title="File content unavailable" body={loaded.error ?? "No exact content is available."} /></article>;
+  return <article className="material-surface text-editor-surface" data-surface-type={input.surfaceType} data-material-key={snapshot.source.key}><MaterialHeader input={input} />{loaded.error && <p className="file-read-warning" role="alert">{loaded.error} Local edits are retained and have not been saved.</p>}<div className="surface-toolbar file-toolbar" role="toolbar"><span>{loaded.loading ? "Checking current revision…" : snapshot.stale ? "A newer revision is available" : snapshot.dirty ? "Local changes" : "Exact retained revision"}</span><Badge tone={snapshot.stale || snapshot.dirty ? "warning" : "success"}>{snapshot.stale ? "Stale" : snapshot.dirty ? "Unsaved" : "Current"}</Badge>{snapshot.stale && <button onClick={() => buffers.reload(input.identity)}>Reload</button>}<button onClick={() => window.dispatchEvent(new CustomEvent("yai:surface-command", { detail: { name: "find" } }))}>Find</button><button onClick={() => window.dispatchEvent(new CustomEvent("yai:surface-command", { detail: { name: "replace" } }))}>Replace</button><button disabled title="YAI has no qualified participant-origin filesystem mutation contract">Save unavailable</button></div><Suspense fallback={<div className="surface-loading">Loading syntax-aware editor…</div>}><CodeEditorSurface buffers={buffers} identity={input.identity} title={input.title} path={input.metadata?.path} mediaType={input.metadata?.mediaType} snapshot={snapshot} readOnly={input.posture === "read-only"} onChange={(value) => buffers.update(input.identity, value)} onCommand={registerCommands} /></Suspense></article>;
 }
 
 export function MarkdownSurface(props: SurfaceRendererProps) {
@@ -120,7 +120,7 @@ export async function searchMaterialSurface({ workspace, readMaterial, buffers }
     if (file) {
       const result = await readMaterial({ case_ref: workspace.case.case_ref, source_ref: file.source_ref, revision_ref: file.revision_ref, path: file.path, expected_generation: workspace.case.generation });
       const expected = expectedMaterialIdentity({ workspace, input });
-      if (result.result_state === "success" && result.data?.encoding === "utf-8" && expected && !validateMaterialRead(expected, result.data)) text = result.data.content;
+      if (result.result_state === "success" && result.data?.encoding === "utf-8" && expected && !validateMaterialRead(expected, result.data) && !await validateMaterialContent(result.data)) text = result.data.content;
     }
   }
   return text?.split("\n").map((line, index) => ({ line: line.trim(), index })).filter(({ line }) => line.toLocaleLowerCase().includes(needle)).slice(0, 40).map(({ line, index }) => ({ id: `${input.identity}:${index}`, label: line || `Line ${index + 1}`, detail: `${input.title} · line ${index + 1}`, objectRef: input.objectRef })) ?? [];

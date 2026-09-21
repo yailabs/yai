@@ -104,6 +104,13 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    make one buffer dirty, switch the other file and switch renderer on the dirty
    file: edits may survive only for that exact material identity.
 
+   Reopen a pinned file and confirm one tab remains. Edit a preview and open a
+   second file: the dirty file must pin itself. Switch Case and return: recover
+   the original draft and undo history. Hide/reopen Terminal, switch to Output
+   and back, then switch Case: the same shell must remain. Close the native
+   window with a dirty buffer and cancel: the window and draft must stay open.
+   At 1000×650, verify that the bottom status bar remains within the window.
+
    The read-only `assert_material_identity.py` cross-material oracle under the
    qualification assets must match every response to the projected
    Case/Source/revision/path, digest, media type and byte length. It must not

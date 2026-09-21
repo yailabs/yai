@@ -8,6 +8,7 @@ export interface Keybinding {
   key: string;
   when?: ContextPredicate;
   allowInTerminal?: boolean;
+  precedence?: "workbench";
 }
 
 function chord(event: KeyboardEvent) {
@@ -23,6 +24,7 @@ function chord(event: KeyboardEvent) {
 export class KeybindingService implements Disposable {
   private readonly bindings = new Map<string, Keybinding>();
   private listener?: (event: KeyboardEvent) => void;
+  private capture?: (event: KeyboardEvent) => void;
 
   constructor(
     private readonly commands: CommandService,
@@ -41,25 +43,34 @@ export class KeybindingService implements Disposable {
 
   attach(target: Window = window): Disposable {
     if (this.listener) throw new Error("Keybinding service is already attached");
-    this.listener = (event) => {
+    const dispatch = (event: KeyboardEvent, precedence: boolean) => {
+      if (event.defaultPrevented || event.isComposing || (event.target as Element | null)?.closest?.('[role="dialog"]')) return;
       const terminalFocused = Boolean((event.target as Element | null)?.closest?.(".xterm"));
       const binding = [...this.bindings.values()].find((candidate) =>
-        candidate.key === chord(event) &&
+        Boolean(candidate.precedence) === precedence && candidate.key === chord(event) &&
         this.context.matches(candidate.when) &&
         (!terminalFocused || candidate.allowInTerminal),
       );
-      if (!binding) return;
+      if (!binding || !this.commands.isEnabled(binding.command)) return;
       event.preventDefault();
+      if (precedence) event.stopPropagation();
       void this.commands.executeCommand(binding.command);
     };
+    this.capture = (event) => dispatch(event, true);
+    this.listener = (event) => dispatch(event, false);
+    target.addEventListener("keydown", this.capture, true);
     target.addEventListener("keydown", this.listener);
     return toDisposable(() => {
+      if (this.capture) target.removeEventListener("keydown", this.capture, true);
+      this.capture = undefined;
       if (this.listener) target.removeEventListener("keydown", this.listener);
       this.listener = undefined;
     });
   }
 
   dispose() {
+    if (this.capture) window.removeEventListener("keydown", this.capture, true);
+    this.capture = undefined;
     if (this.listener) window.removeEventListener("keydown", this.listener);
     this.listener = undefined;
     this.bindings.clear();

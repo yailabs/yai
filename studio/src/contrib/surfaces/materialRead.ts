@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { MaterialBody } from "../../clients/presentation";
 import type { SurfaceRendererProps } from "../../workbench/kernel/types";
 import type { SurfaceBufferSource } from "../../workbench/surface/buffers";
-import { MaterialReadFence, materialIdentity, validateMaterialRead, type MaterialIdentityToken } from "./materialIdentity";
+import { MaterialReadFence, materialIdentity, validateMaterialContent, validateMaterialRead, type MaterialIdentityToken } from "./materialIdentity";
 
 export function materialText(body: MaterialBody) {
   if (body.kind === "text") return body.content;
@@ -53,10 +53,9 @@ export function useReadableMaterial(props: SurfaceRendererProps): ReadableMateri
   const fixture = workspace.presentation.materials?.find((item) => item.id === input.objectRef)
     ?? workspace.presentation.materials?.find((item) => item.path === input.metadata?.path);
   const authored = fixture ? materialText(fixture.body) : undefined;
-  const expected = useMemo(
-    () => expectedMaterialIdentity({ workspace, input }),
-    [input, workspace],
-  );
+  const identity = expectedMaterialIdentity({ workspace, input });
+  // Tab flags and Inspector selection cannot invalidate an exact material read.
+  const expected = useMemo(() => identity, [identity?.key]);
   const activeKey = expected?.key ?? `authored:${workspace.case.case_ref}:${input.identity}:${workspace.case.generation}`;
   const fence = useRef(new MaterialReadFence());
   const [state, setState] = useState<ReadableMaterialState>({ identityKey: activeKey, loading: authored === undefined });
@@ -88,13 +87,14 @@ export function useReadableMaterial(props: SurfaceRendererProps): ReadableMateri
       revision_ref: expected.revisionRef,
       path: expected.path,
       expected_generation: expected.generation,
-    }).then((result) => {
+    }).then(async (result) => {
       if (!fence.current.accepts(request, expected.key)) return;
       if (result.result_state !== "success" || !result.data) {
         setState({ identityKey: expected.key, error: result.error?.safe_message ?? `Material read ${result.result_state}.`, loading: false });
         return;
       }
-      const mismatch = validateMaterialRead(expected, result.data);
+      const mismatch = validateMaterialRead(expected, result.data) ?? await validateMaterialContent(result.data);
+      if (!fence.current.accepts(request, expected.key)) return;
       if (mismatch) {
         setState({ identityKey: expected.key, error: `Exact material identity mismatch. ${mismatch}`, loading: false });
         return;
@@ -104,9 +104,11 @@ export function useReadableMaterial(props: SurfaceRendererProps): ReadableMateri
         return;
       }
       setState({ identityKey: expected.key, content: result.data.content, source: bufferSource(expected), loading: false });
+    }).catch((error: unknown) => {
+      if (fence.current.accepts(request, expected.key)) setState({ identityKey: expected.key, error: error instanceof Error ? error.message : String(error), loading: false });
     });
     return () => fence.current.cancel(request);
-  }, [activeKey, authored, expected, fixture?.path, input.identity, input.metadata, input.objectRef, input.title, readMaterial, workspace.case.case_ref, workspace.case.generation]);
+  }, [activeKey, authored, expected, fixture?.path, input.identity, input.metadata?.path, input.metadata?.sourceRef, input.metadata?.revisionRef, input.metadata?.digest, input.objectRef, input.title, readMaterial, workspace.case.case_ref, workspace.case.generation]);
 
   return state.identityKey === activeKey ? state : { identityKey: activeKey, loading: true };
 }

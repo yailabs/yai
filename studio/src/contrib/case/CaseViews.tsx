@@ -119,6 +119,7 @@ export function ActivityView({ workspace, actions }: AuxiliaryViewProps) {
 }
 
 export function InspectorView({ workspace, selection, actions }: AuxiliaryViewProps) {
+  if (selection.startsWith("settings:")) return <div className="context-scroll inspector-view"><PanelHeader title="Application preferences" /><p className="surface-note">These preferences belong to Studio. Case objects remain available in the Explorer.</p></div>;
   const fact = findFact(workspace, selection);
   const kind = factKind(workspace, selection);
   const material = isMaterial(workspace, selection);

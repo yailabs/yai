@@ -13,7 +13,7 @@ const { SurfaceGroupService } = require(path.join(studio, "workbench/surface/mod
 const { SurfaceBufferService } = require(path.join(studio, "workbench/surface/buffers.js"));
 const { WorkbenchRegistry } = require(path.join(studio, "workbench/kernel/registry.js"));
 const { rendererChoices, resolveMaterialSurfaceType } = require(path.join(studio, "contrib/surfaces/inputs.js"));
-const { materialIdentity, validateMaterialRead, MaterialReadFence } = require(path.join(studio, "contrib/surfaces/materialIdentity.js"));
+const { materialIdentity, validateMaterialRead, validateMaterialContent, MaterialReadFence } = require(path.join(studio, "contrib/surfaces/materialIdentity.js"));
 const { detectEditorLanguage } = require(path.join(studio, "contrib/surfaces/editorLanguage.js"));
 const { buildFileTree } = require(path.join(studio, "contrib/case/environment.js"));
 
@@ -77,12 +77,12 @@ test("surface group applies the same preview, pin and close behavior to heteroge
   surfaces.open({ id: "surface:preview", identity: "material:notes", surfaceType: "material.markdown", title: "Notes", icon: "file", objectRef: "notes", pinned: false });
   surfaces.open({ id: "surface:preview", identity: "material:diagram", surfaceType: "material.image", title: "Diagram", icon: "file", objectRef: "diagram", pinned: false });
   assert.deepEqual(surfaces.snapshot().inputs.map((input) => input.title), ["Overview", "Diagram"]);
-  surfaces.pin("surface:preview");
+  surfaces.pin("material:diagram");
   surfaces.open({ id: "surface:preview", identity: "material:matrix", surfaceType: "data.table", title: "Matrix", icon: "file", objectRef: "matrix", pinned: false });
   surfaces.open({ id: "settings", identity: "settings", surfaceType: "studio.settings", title: "Settings", icon: "settings", pinned: true });
   assert.deepEqual(surfaces.snapshot().inputs.map((input) => input.surfaceType), ["case.perspective", "material.image", "data.table", "studio.settings"]);
   surfaces.close("settings");
-  assert.equal(surfaces.snapshot().activeId, "surface:preview");
+  assert.equal(surfaces.snapshot().activeId, "material:matrix");
 });
 
 test("qualified media types resolve without file-extension guessing", () => {
@@ -224,4 +224,66 @@ test("settings registry owns ordered definitions and disposal", () => {
   assert.deepEqual(registry.settings.entries().map((item) => item.id), ["workbench.preview", "host.status"]);
   local.dispose();
   assert.deepEqual(registry.settings.entries().map((item) => item.id), ["host.status"]);
+});
+
+
+test("a material has one tab, editing claims preview, no-op updates do not notify", () => {
+  const group = new SurfaceGroupService();
+  const input = (name, pinned = false) => ({ id: "surface:preview", identity: name, surfaceType: "material.text-editor", title: "README.md", icon: "file", pinned });
+  group.open(input("A"));
+  let updates = 0;
+  group.subscribe(() => updates++);
+  group.update("A", { dirty: false });
+  const once = updates;
+  group.update("A", { dirty: false });
+  assert.equal(updates, once);
+  group.update("A", { dirty: true });
+  group.open(input("B"));
+  assert.equal(group.snapshot().inputs.length, 2);
+  assert.equal(group.snapshot().inputs[0].pinned, true);
+  group.open(input("A"));
+  assert.equal(group.snapshot().inputs.length, 2);
+  assert.equal(group.snapshot().activeId, "A");
+  assert.equal(group.snapshot().inputs[0].dirty, true);
+  group.replace("A", { ...input("A", true), surfaceType: "material.markdown", dirty: true });
+  group.open(input("A"));
+  assert.equal(group.snapshot().inputs[0].surfaceType, "material.markdown");
+});
+
+test("Revert accepts the incoming baseline instead of falsely marking the old revision current", () => {
+  const buffers = new SurfaceBufferService();
+  const source = (key) => ({ key, caseRef: "case:A", objectRef: "file:A", sourceRef: "source:A", revisionRef: key, path: "README.md", digest: key, generation: 1 });
+  buffers.initialize("A", "old", source("r1"));
+  buffers.update("A", "local edit");
+  buffers.initialize("A", "incoming", source("r2"));
+  assert.equal(buffers.snapshot("A").value, "local edit");
+  assert.equal(buffers.dirtyCount, 1);
+  buffers.revert("A");
+  assert.equal(buffers.snapshot("A").value, "incoming");
+  assert.equal(buffers.snapshot("A").source.revisionRef, "r2");
+  assert.equal(buffers.snapshot("A").stale, false);
+  assert.equal(buffers.dirtyCount, 0);
+});
+
+test("material byte validation refuses equal-length contamination behind correct metadata", async () => {
+  const { createHash } = require("node:crypto");
+  const digest = createHash("sha256").update("AAA").digest("hex");
+  const material = { encoding: "utf-8", content: "AAA", bytes: 3, digest };
+  assert.equal(await validateMaterialContent(material), undefined);
+  assert.equal(await validateMaterialContent({ ...material, digest: `sha256:${digest}` }), undefined);
+  assert.equal(await validateMaterialContent({ ...material, content: "BBB" }), "material_identity_mismatch:content_digest");
+  assert.equal(await validateMaterialContent({ ...material, encoding: "base64", content: Buffer.from("AAA").toString("base64") }), undefined);
+});
+
+
+test("unrelated Case generation does not stale a dirty exact revision", () => {
+  const buffers = new SurfaceBufferService();
+  const source = { key: "g1", caseRef: "case:A", objectRef: "file:A", sourceRef: "source:A", revisionRef: "r1", path: "README.md", digest: "digest1", generation: 1 };
+  buffers.initialize("A", "baseline", source);
+  buffers.update("A", "local draft");
+  buffers.initialize("A", "baseline", { ...source, key: "g2", generation: 2 });
+  assert.equal(buffers.snapshot("A").value, "local draft");
+  assert.equal(buffers.snapshot("A").stale, false);
+  assert.equal(buffers.snapshot("A").source.generation, 2);
+  assert.throws(() => buffers.initialize("A", "wrong file", { ...source, key: "other", path: "other.md" }), /identity/);
 });

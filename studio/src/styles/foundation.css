@@ -71,7 +71,7 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .ui-list-row strong { font-size: 13px; font-weight: 560; overflow: hidden; text-overflow: ellipsis; }
 .ui-list-row small { color: var(--yai-text-muted); font-size: 12px; margin-top: 2px; }
 
-.live-studio { width: 100vw; height: 100vh; min-width: 1000px; min-height: 680px; display: grid; grid-template-rows: 34px 1fr; overflow: hidden; background: var(--yai-canvas); color: var(--yai-text); }
+.live-studio { width: 100vw; height: 100vh; min-width: 0; min-height: 0; display: grid; grid-template-rows: 34px 1fr; overflow: hidden; background: var(--yai-canvas); color: var(--yai-text); }
 .live-studio.case-attached { grid-template-rows: 1fr; }
 .native-menu { position: relative; z-index: 30; display: flex; align-items: center; gap: 2px; min-height: 34px; padding: 0 0 0 9px; background: #0b0c0e; box-shadow: inset 0 -1px var(--yai-divider); user-select: none; }
 .native-menu > strong { margin: 0 8px 0 3px; font-size: 13px; letter-spacing: .06em; }
@@ -182,9 +182,9 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 
 .live-center { min-width: 0; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .surface-tabs { height: 35px; flex: 0 0 35px; display: flex; align-items: stretch; gap: 0; padding: 0; overflow-x: auto; background: var(--yai-panel); box-shadow: inset 0 -1px var(--yai-divider); scrollbar-width: none; }
-.surface-tabs > button { position: relative; height: 35px; min-width: 104px; max-width: 210px; padding: 0 7px 0 10px; display: flex; align-items: center; gap: 7px; border: 0; border-right: 1px solid var(--yai-divider); border-radius: 0; background: transparent; color: var(--yai-text-muted); font-size: 13px; cursor: pointer; white-space: nowrap; }
-.surface-tabs > button[aria-selected=true] { background: var(--yai-canvas); color: var(--yai-text); }
-.surface-tabs > button[aria-selected=true]::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--yai-accent); }
+.surface-tab > button[role=tab] { position: relative; height: 35px; min-width: 104px; max-width: 210px; padding: 0 7px 0 10px; display: flex; align-items: center; gap: 7px; border: 0; border-right: 1px solid var(--yai-divider); border-radius: 0; background: transparent; color: var(--yai-text-muted); font-size: 13px; cursor: pointer; white-space: nowrap; }
+.surface-tab > button[role=tab][aria-selected=true] { background: var(--yai-canvas); color: var(--yai-text); }
+.surface-tab > button[role=tab][aria-selected=true]::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--yai-accent); }
 .surface-tabs i { margin-left: auto; font-size: 11px; color: var(--yai-text-muted); font-style: normal; }
 .surface-tab-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .surface-tabs [role=button] { margin-left: auto; padding: 2px 4px; border-radius: 4px; }
@@ -423,9 +423,9 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .workbench-search-results em { color: var(--yai-warning); font-size: 10px; font-style: normal; }
 .workbench-search-results > p { padding: 18px 12px; color: var(--yai-text-muted); }
 
-.surface-tabs > button.surface-role-system > svg { color: var(--yai-text-secondary); }
-.surface-tabs > button.surface-role-projection > svg { color: #a890d6; }
-.surface-tabs > button.surface-posture-unavailable > svg, .surface-tabs > button.surface-posture-error > svg { color: var(--yai-warning); }
+.surface-tab.surface-role-system > button[role=tab] > svg { color: var(--yai-text-secondary); }
+.surface-tab.surface-role-projection > button[role=tab] > svg { color: #a890d6; }
+.surface-tab.surface-posture-unavailable > button[role=tab] > svg, .surface-tab.surface-posture-error > button[role=tab] > svg { color: var(--yai-warning); }
 .surface-tabs .dirty-mark { color: var(--yai-warning); font-size: 8px; }
 .surface-loading { min-height: 100%; display: grid; place-items: center; color: var(--yai-text-muted); }
 
@@ -540,3 +540,20 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .open-with > button { width: 100%; min-height: 46px; display: flex; align-items: center; gap: 10px; padding: 6px 9px; text-align: left; }
 .open-with > button span { display: flex; flex-direction: column; }
 .open-with > button strong { font-size: 13px; }.open-with > button small { margin-top: 2px; font-size: 10px; }
+
+/* Visibility does not own the lifetime of panel contributions. */
+.live-bottom[hidden], .tool-pane[hidden] { display: none; }
+.live-center { container: work-surface / inline-size; }
+.connection-notice { position: fixed; z-index: 60; top: 42px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; max-width: min(780px, 90vw); padding: 10px 14px; background: var(--yai-floating); border: 1px solid var(--yai-warning); border-radius: 8px; box-shadow: 0 8px 28px #0006; }
+@container work-surface (max-width: 750px) {
+  .settings-surface { grid-template-columns: minmax(0,1fr); gap: 20px; padding: 24px; }
+  .settings-surface > aside { flex-flow: row wrap; gap: 4px; }
+  .settings-surface > aside h1 { width: 100%; margin: 0 0 8px; }
+  .settings-surface > aside button { min-height: 30px; }
+}
+
+.surface-tab { flex: 0 0 auto; display: flex; align-items: stretch; border-right: 1px solid var(--yai-divider); }
+.surface-tab[data-active=true] { background: var(--yai-canvas); box-shadow: inset 0 1px var(--yai-accent); }
+.surface-tabs .surface-tab > button { border-right: 0; }
+.surface-tabs .surface-tab-close { width: 25px; padding: 0; display: grid; place-items: center; }
+.surface-tabs .surface-tab-close:hover { color: var(--yai-text); background: var(--yai-floating); }

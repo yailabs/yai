@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tauri::{AppHandle, Emitter, State, WebviewWindow};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
 use tauri_runtime::ResizeDirection;
 use terminal::{PtyHost, TerminalCreated, TerminalEvents, TerminalExit, TerminalOutput};
 use yai_application::{OperationError, OperationRequest, OperationResult, ResultState};
@@ -168,10 +168,53 @@ fn terminal_dispose_all(host: State<'_, PtyHost>) {
     host.kill_all();
 }
 
+struct WindowDraftGuard(Arc<AtomicBool>);
+
+fn initial_window_extent(desired: u32, available: u32, margin: u32, minimum: u32) -> u32 {
+    desired
+        .min(available.saturating_sub(margin).max(minimum))
+        .min(available)
+        .max(1)
+}
+
+fn fit_initial_window(window: &WebviewWindow) -> tauri::Result<()> {
+    let Some(monitor) = window.current_monitor()? else {
+        return Ok(());
+    };
+    let area = monitor.work_area();
+    if area.size.width == 0 || area.size.height == 0 {
+        return Ok(());
+    }
+    let desired = window.inner_size()?;
+    let margin = (24.0 * monitor.scale_factor()).round() as u32;
+    let width = initial_window_extent(
+        desired.width,
+        area.size.width,
+        margin,
+        (1000.0 * monitor.scale_factor()) as u32,
+    );
+    let height = initial_window_extent(
+        desired.height,
+        area.size.height,
+        margin,
+        (650.0 * monitor.scale_factor()) as u32,
+    );
+    window.set_size(tauri::PhysicalSize::new(width, height))?;
+    window.set_position(tauri::PhysicalPosition::new(
+        area.position.x + ((area.size.width - width) / 2) as i32,
+        area.position.y + ((area.size.height - height) / 2) as i32,
+    ))
+}
+
+#[tauri::command]
+fn desktop_set_dirty(guard: State<'_, WindowDraftGuard>, dirty: bool) {
+    guard.0.store(dirty, Ordering::Release);
+}
+
 #[tauri::command]
 fn desktop_close(window: WebviewWindow) -> Result<(), String> {
     window
-        .close()
+        .destroy()
         .map_err(|error| format!("desktop_close_failed: {error}"))
 }
 
@@ -358,10 +401,12 @@ fn main() {
     let shutdown_terminals = terminal_host.clone();
     let studio_host = StudioHost::new().expect("YAI Studio Host lifecycle bootstrap failed");
     let event_host = studio_host.clone();
+    let unsaved = Arc::new(AtomicBool::new(false));
     let fixture_mode = std::env::var("VITE_STUDIO_MODE").ok().as_deref() == Some("fixture");
     tauri::Builder::default()
         .manage(terminal_host)
         .manage(studio_host)
+        .manage(WindowDraftGuard(unsaved.clone()))
         .invoke_handler(tauri::generate_handler![
             studio_call,
             studio_host_status,
@@ -374,18 +419,34 @@ fn main() {
             terminal_kill,
             terminal_dispose_all,
             desktop_close,
+            desktop_set_dirty,
             desktop_minimize,
             desktop_toggle_maximize,
             desktop_start_dragging,
             desktop_start_resize_dragging
         ])
         .setup(move |app| {
+            // Retain the operator's tall preferred size, bounded by the current
+            // monitor's usable area so titlebar and status bar stay reachable.
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(error) = fit_initial_window(&window) {
+                    eprintln!("Studio initial window placement unavailable: {error}");
+                }
+            }
             if !fixture_mode {
                 start_host_event_bridge(app.handle().clone(), running.clone(), event_host.clone());
             }
             Ok(())
         })
-        .on_window_event(move |_window, event| {
+        .on_window_event(move |window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Clean/uninitialized windows never depend on JavaScript to close.
+                // Dirty windows route through the same explicit discard guard.
+                if unsaved.load(Ordering::Acquire) {
+                    api.prevent_close();
+                    let _ = window.emit("yai://window-close-request", ());
+                }
+            }
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 shutdown.store(false, Ordering::Relaxed);
                 shutdown_terminals.kill_all();
@@ -397,7 +458,15 @@ fn main() {
 
 #[cfg(test)]
 mod window_tests {
-    use super::resize_direction;
+    use super::{initial_window_extent, resize_direction};
+
+    #[test]
+    fn initial_window_fits_smaller_monitors_without_shrinking_large_ones() {
+        assert_eq!(initial_window_extent(1500, 960, 24, 650), 936);
+        assert_eq!(initial_window_extent(1600, 1000, 24, 1000), 1000);
+        assert_eq!(initial_window_extent(1500, 2160, 24, 650), 1500);
+        assert_eq!(initial_window_extent(3200, 2880, 48, 2000), 2832);
+    }
 
     #[test]
     fn resize_directions_are_strictly_bounded() {

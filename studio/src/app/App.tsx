@@ -1,3 +1,4 @@
+import { requestWindowClose } from "../platform/windowClose";
 import { useEffect, useState } from "react";
 import { FixtureClient } from "../clients/fixture";
 import { LiveClient } from "../clients/live";
@@ -37,7 +38,10 @@ export function App() {
   useEffect(() => {
     const created = createComposition();
     setComposition(created);
-    return () => created.dispose();
+    let disposed = false;
+    let stop: (() => void) | undefined;
+    void window.__TAURI__?.event.listen("yai://window-close-request", requestWindowClose).then((unlisten) => { if (disposed) unlisten(); else stop = unlisten; });
+    return () => { disposed = true; stop?.(); created.dispose(); };
   }, []);
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).get("gallery") === "1") return <ComponentGallery />;
   if (!composition) return null;

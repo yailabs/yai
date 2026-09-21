@@ -1020,3 +1020,25 @@ human acceptance requires the operator's result at the relevant SHA. A compiling
 shell does not establish live product qualification. Fixture interaction and
 visual evidence qualify only their explicitly offline scope. All promotion stays
 in ROADMAP.
+
+## Workbench interaction lifetime
+
+The application window owns local Case interaction sessions: each Case has its
+own Surface group, drafts and navigation. An attachment or snapshot change does
+not recreate these owners. Dirty previews pin automatically; exact material
+identity, rather than a reusable tab identifier, resolves open Surfaces. Late
+reads and mismatched returned bytes fail closed. Incoming authoritative content
+replaces clean buffers and marks dirty buffers stale until explicit reload.
+
+PTYs belong to the desktop window independently of Case data and panel
+visibility. Closing the desktop releases its PTYs; it leaves the resident YAI
+Host alive. Window-manager close and application close share the local draft
+guard. Draft retention is window-local and does not imply persistence or Save.
+The initial window fits the current monitor work area. Trusted editor-generated
+styles reuse Tauri's response nonce; the desktop CSP remains restrictive.
+
+Historical archaeology reconfirmed the operational attachment/continuity
+distinction in `yai-dev` client-connection code at `5c1c7b9d0` (last relevant
+change `e9ad7f498`) and pre-drain IPC cleanup at `dda93ee3`. Those mechanisms
+provide no reusable frontend draft or tab implementation. Studio retains its
+current Workbench owners; historical Session/Agent runtime ownership is rejected.

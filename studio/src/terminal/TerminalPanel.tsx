@@ -7,28 +7,26 @@ import { Icon } from "../components/Icon";
 import { IconButton } from "../components/primitives";
 import { Splitter } from "../workbench/kernel/Splitter";
 
-type TerminalCommand = "new" | "kill" | "clear" | "focus";
+import { terminalEventName, type TerminalCommand } from "./commands";
 interface TerminalCreated { terminal_id: string; shell: string; cwd: string }
 interface TerminalOutput { terminal_id: string; data: number[] }
 interface TerminalExit { terminal_id: string; exit_code: number; signal?: string }
 interface TerminalInstance extends TerminalCreated { status: "running" | "exited"; exitCode?: number }
 
-const terminalEventName = "yai:terminal-command";
 const encoder = new TextEncoder();
 
-export function dispatchTerminalCommand(command: TerminalCommand) {
-  window.dispatchEvent(new CustomEvent(terminalEventName, { detail: command }));
-}
-
-export function TerminalPanel({ scrollback = 5000, toolbarTarget, onEmpty }: { scrollback?: number; toolbarTarget?: HTMLElement | null; onEmpty?(): void }) {
+export function TerminalPanel({ visible = true, scrollback = 5000, toolbarTarget, onEmpty }: { visible?: boolean; scrollback?: number; toolbarTarget?: HTMLElement | null; onEmpty?(): void }) {
   const desktop = Boolean(window.__TAURI__);
   const [terminals, setTerminals] = useState<TerminalInstance[]>([]);
   const [activeId, setActiveId] = useState<string>();
+  const [bridgeReady, setBridgeReady] = useState(false);
   const [error, setError] = useState<string>();
   const [instancePaneWidth, setInstancePaneWidth] = useState(176);
   const renderers = useRef(new Map<string, Terminal>());
   const pendingOutput = useRef(new Map<string, Uint8Array[]>());
   const creating = useRef(false);
+  const lifecycle = useRef(0);
+  const ownedTerminals = useRef(new Set<string>());
   const activeTerminal = terminals.find((terminal) => terminal.terminal_id === activeId);
   const activeTerminalIndex = activeTerminal ? terminals.indexOf(activeTerminal) + 1 : 0;
   const compactInstances = instancePaneWidth < 96;
@@ -38,9 +36,15 @@ export function TerminalPanel({ scrollback = 5000, toolbarTarget, onEmpty }: { s
   const createTerminal = useCallback(async () => {
     if (!window.__TAURI__ || creating.current) return;
     creating.current = true;
+    const epoch = lifecycle.current;
     setError(undefined);
     try {
       const created = await window.__TAURI__.core.invoke<TerminalCreated>("terminal_create", { rows: 24, cols: 80 });
+      if (epoch !== lifecycle.current) {
+        await window.__TAURI__.core.invoke("terminal_kill", { terminalId: created.terminal_id });
+        return;
+      }
+      ownedTerminals.current.add(created.terminal_id);
       setTerminals((current) => [...current, { ...created, status: "running" }]);
       setActiveId(created.terminal_id);
     } catch (reason) {
@@ -55,6 +59,7 @@ export function TerminalPanel({ scrollback = 5000, toolbarTarget, onEmpty }: { s
     if (window.__TAURI__) {
       try { await window.__TAURI__.core.invoke("terminal_kill", { terminalId }); } catch { /* already exited */ }
     }
+    ownedTerminals.current.delete(terminalId);
     renderers.current.get(terminalId)?.dispose();
     renderers.current.delete(terminalId);
     pendingOutput.current.delete(terminalId);
@@ -101,19 +106,25 @@ export function TerminalPanel({ scrollback = 5000, toolbarTarget, onEmpty }: { s
       });
       if (!active) { registeredExit(); return; }
       stopExit = registeredExit;
-      if (active) await createTerminal();
+      if (active) setBridgeReady(true);
     })().catch((reason) => {
       if (active) setError(`Terminal event bridge unavailable: ${String(reason)}`);
     });
     return () => {
       active = false;
+      lifecycle.current++;
       stopOutput();
       stopExit();
       for (const terminal of renderers.current.values()) terminal.dispose();
       renderers.current.clear();
-      void window.__TAURI__?.core.invoke("terminal_dispose_all");
+      for (const terminalId of ownedTerminals.current) void window.__TAURI__?.core.invoke("terminal_kill", { terminalId });
+      ownedTerminals.current.clear();
     };
   }, [createTerminal, desktop]);
+
+  useEffect(() => {
+    if (visible && bridgeReady && !terminals.length && !error) void createTerminal();
+  }, [bridgeReady, createTerminal, error, terminals.length, visible]);
 
   useEffect(() => {
     const handler = (event: Event) => runCommand((event as CustomEvent<TerminalCommand>).detail);
@@ -129,13 +140,13 @@ export function TerminalPanel({ scrollback = 5000, toolbarTarget, onEmpty }: { s
       <IconButton aria-label="New terminal" title="New Terminal" onClick={() => void createTerminal()}><Icon name="plus" size={15} /></IconButton>
       {showActiveToolbar && <IconButton aria-label="Kill active terminal" title="Kill Terminal" disabled={!activeId} onClick={() => activeId && void closeTerminal(activeId)}><Icon name="trash" size={15} /></IconButton>}
     </div>, toolbarTarget)}
-    <div className="terminal-stack">{terminals.map((terminal) => <TerminalViewport key={terminal.terminal_id} terminal={terminal} active={activeId === terminal.terminal_id} register={registerRenderer} unregister={unregisterRenderer} scrollback={scrollback} />)}
+    <div className="terminal-stack">{terminals.map((terminal) => <TerminalViewport key={terminal.terminal_id} terminal={terminal} active={visible && activeId === terminal.terminal_id} register={registerRenderer} unregister={unregisterRenderer} scrollback={scrollback} />)}
       {error && <div className="terminal-empty error"><strong>Terminal unavailable</strong><code>{error}</code><button onClick={() => void createTerminal()}>Retry</button></div>}
     </div>
     {showInstancePane && <><Splitter label="Resize terminal list" axis="x" reverse value={instancePaneWidth} min={38} max={280} set={setInstancePaneWidth} />
     <aside className={`terminal-instance-pane ${compactInstances ? "compact" : ""}`} style={{ width: instancePaneWidth }} aria-label="Terminal instances">
       {!compactInstances && <header><span>Terminals</span></header>}
-      <div role="tablist" aria-orientation="vertical">{terminals.map((terminal, index) => <div className="terminal-instance-row" key={terminal.terminal_id} data-active={activeId === terminal.terminal_id}>
+      <div role="tablist" aria-orientation="vertical">{terminals.map((terminal, index) => <div className="terminal-instance-row" key={terminal.terminal_id} data-active={visible && activeId === terminal.terminal_id}>
         <button role="tab" aria-selected={activeId === terminal.terminal_id} title={`${terminal.shell} · ${terminal.cwd}`} onClick={() => setActiveId(terminal.terminal_id)}><Icon name="terminal" size={14} /><span>{terminal.shell} {index + 1}</span>{terminal.status === "exited" && <small>{terminal.exitCode}</small>}</button>
         <IconButton aria-label={`Kill ${terminal.shell} ${index + 1}`} title="Kill Terminal" onClick={() => void closeTerminal(terminal.terminal_id)}><Icon name="trash" size={14} /></IconButton>
       </div>)}</div>
@@ -186,7 +197,8 @@ function TerminalViewport({ terminal, active, register, unregister, scrollback }
     });
     requestAnimationFrame(sendResize);
     return () => { observer.disconnect(); input.dispose(); binary.dispose(); unregister(terminal.terminal_id); rendererRef.current = null; renderer.dispose(); };
-  }, [register, scrollback, terminal.terminal_id, unregister]);
+  }, [register, terminal.terminal_id, unregister]);
+  useEffect(() => { if (rendererRef.current) rendererRef.current.options.scrollback = scrollback; }, [scrollback]);
   useEffect(() => { if (active) requestAnimationFrame(() => rendererRef.current?.focus()); }, [active]);
   return <div ref={host} className="terminal-viewport" hidden={!active} data-terminal-id={terminal.terminal_id} onMouseDown={() => rendererRef.current?.focus()} />;
 }

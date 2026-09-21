@@ -49,18 +49,21 @@ export class SurfaceGroupService implements Disposable {
   }
 
   open(input: SurfaceInput) {
-    if (!input.pinned) {
-      this.inputs = this.inputs.filter((candidate) => candidate.pinned || candidate.id === input.id);
+    // A preview slot is placement, never a second copy of an open material.
+    const existing = this.inputs.find((candidate) => candidate.identity === input.identity);
+    if (existing) {
+      if (input.pinned) this.pin(existing.id);
+      this.activate(this.inputs.find((candidate) => candidate.identity === input.identity)!.id);
+      return;
     }
-    const index = this.inputs.findIndex((candidate) => candidate.id === input.id);
-    if (index >= 0) this.inputs[index] = input;
-    else this.inputs = [...this.inputs, input];
-    this.activeId = input.id;
+    if (!input.pinned) this.inputs = this.inputs.filter((candidate) => candidate.pinned || candidate.dirty);
+    this.inputs = [...this.inputs, { ...input, id: input.identity }];
+    this.activeId = input.identity;
     this.emit();
   }
 
   activate(id: string) {
-    if (!this.inputs.some((input) => input.id === id)) return;
+    if (this.activeId === id || !this.inputs.some((input) => input.id === id)) return;
     this.activeId = id;
     this.emit();
   }
@@ -78,8 +81,9 @@ export class SurfaceGroupService implements Disposable {
 
   update(id: string, patch: Partial<Omit<SurfaceInput, "id" | "identity">>) {
     const index = this.inputs.findIndex((input) => input.id === id);
-    if (index < 0) return;
-    this.inputs = this.inputs.map((input) => input.id === id ? { ...input, ...patch } : input);
+    if (index < 0 || Object.entries(patch).every(([key, value]) => Object.is(this.inputs[index][key as keyof SurfaceInput], value))) return;
+    // Editing claims the preview so another open cannot hide unsaved work.
+    this.inputs = this.inputs.map((input) => input.id === id ? { ...input, ...patch, pinned: input.pinned || Boolean(patch.dirty) } : input);
     this.emit();
   }
 

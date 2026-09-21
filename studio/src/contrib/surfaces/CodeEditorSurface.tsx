@@ -3,10 +3,10 @@ import { basicSetup } from "codemirror";
 import { defaultKeymap, historyKeymap, indentWithTab, redo, selectAll, undo } from "@codemirror/commands";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { openSearchPanel, searchKeymap } from "@codemirror/search";
-import { EditorState, type Extension } from "@codemirror/state";
+import { EditorState, StateEffect, type Extension } from "@codemirror/state";
 import { EditorView, keymap } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
-import type { SurfaceBufferSnapshot } from "../../workbench/surface/buffers";
+import type { SurfaceBufferSnapshot, SurfaceBufferService } from "../../workbench/surface/buffers";
 import { detectEditorLanguage, loadEditorLanguage } from "./editorLanguage";
 
 const yaiEditorTheme = EditorView.theme({
@@ -39,7 +39,11 @@ const yaiSyntax = HighlightStyle.define([
   { tag: tags.invalid, color: "#ef8c94", textDecoration: "underline wavy" },
 ]);
 
+const editorSessions = new WeakMap<SurfaceBufferService, Map<string, { state: EditorState; scrollTop: number; scrollLeft: number }>>();
+
 interface Props {
+  buffers: SurfaceBufferService;
+  identity: string;
   title: string;
   path?: string;
   mediaType?: string;
@@ -49,7 +53,7 @@ interface Props {
   onCommand?(handler: (name: string) => void): () => void;
 }
 
-export default function CodeEditorSurface({ title, path, mediaType, snapshot, readOnly, onChange, onCommand }: Props) {
+export default function CodeEditorSurface({ buffers, identity, title, path, mediaType, snapshot, readOnly, onChange, onCommand }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -71,11 +75,25 @@ export default function CodeEditorSurface({ title, path, mediaType, snapshot, re
         EditorView.contentAttributes.of({ "aria-label": `Edit ${title}`, "data-editor-language": language, spellcheck: "false" }),
         EditorView.updateListener.of((update) => { if (update.docChanged) onChangeRef.current(update.state.doc.toString()); }),
       ];
-      instance = new EditorView({ state: EditorState.create({ doc: snapshot.value, extensions }), parent: host.current });
+      const nonce = document.querySelector<HTMLStyleElement>("#studio-style-nonce")?.nonce;
+      if (nonce) extensions.push(EditorView.cspNonce.of(nonce));
+      const sessions = editorSessions.get(buffers) ?? new Map();
+      editorSessions.set(buffers, sessions);
+      const saved = sessions.get(identity);
+      const state = saved?.state.doc.toString() === snapshot.value
+        ? saved.state.update({ effects: StateEffect.reconfigure.of(extensions) }).state
+        : EditorState.create({ doc: snapshot.value, extensions });
+      instance = new EditorView({ state, parent: host.current });
+      if (saved) { instance.scrollDOM.scrollTop = saved.scrollTop; instance.scrollDOM.scrollLeft = saved.scrollLeft; }
       view.current = instance;
     });
-    return () => { disposed = true; instance?.destroy(); if (view.current === instance) view.current = null; };
-  }, [mediaType, path, readOnly, snapshot.source.key, title]);
+    return () => {
+      disposed = true;
+      if (instance) editorSessions.get(buffers)?.set(identity, { state: instance.state, scrollTop: instance.scrollDOM.scrollTop, scrollLeft: instance.scrollDOM.scrollLeft });
+      instance?.destroy();
+      if (view.current === instance) view.current = null;
+    };
+  }, [buffers, identity, mediaType, path, readOnly, snapshot.source.key, title]);
 
   useEffect(() => {
     const current = view.current;

@@ -58,6 +58,21 @@ export function validateMaterialRead(
   return undefined;
 }
 
+/** Verify bytes too: matching response metadata is not a content fingerprint. */
+export async function validateMaterialContent(actual: MaterialReadProjection): Promise<string | undefined> {
+  try {
+    const bytes = actual.encoding === "utf-8" ? new TextEncoder().encode(actual.content)
+      : Uint8Array.from(atob(actual.content), (character) => character.charCodeAt(0));
+    if (bytes.byteLength !== actual.bytes) return "material_identity_mismatch:content_bytes";
+    const digest = actual.digest.replace(/^sha256:/, "");
+    if (!/^[a-f\d]{64}$/i.test(digest)) return "material_identity_mismatch:unsupported_digest";
+    const hash = await crypto.subtle.digest("SHA-256", bytes);
+    const hex = [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    if (hex !== digest.toLowerCase()) return "material_identity_mismatch:content_digest";
+    return undefined;
+  } catch { return "material_identity_mismatch:unverifiable_content"; }
+}
+
 export class MaterialReadFence {
   private sequence = 0;
   private current?: { sequence: number; key: string };

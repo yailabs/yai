@@ -22,6 +22,7 @@ page.setDefaultTimeout(10_000);
 const browserErrors = [];
 const externalRequests = [];
 page.on("pageerror", (error) => browserErrors.push(String(error)));
+page.on("console", (message) => { if (message.type() === "error") browserErrors.push(message.text()); });
 page.on("request", (request) => { if (!request.url().startsWith(base)) externalRequests.push(request.url()); });
 
 const report = (property, result = "PASS", detail = {}) => console.log(JSON.stringify({ run_id: "studio-workbench-kernel-browser", property, result, ...detail }));
@@ -99,11 +100,11 @@ try {
   await quickOpen.getByRole("textbox").fill("runtime configuration");
   await screenshot("quick-open");
   await page.keyboard.press("Enter");
-  await page.locator("[data-surface-type='material.structured-text']").waitFor();
+  await page.locator("[data-surface-type='material.text-editor'] .cm-content").waitFor();
   await page.keyboard.press("Control+f");
-  const surfaceSearch = page.getByRole("dialog", { name: /Find in Runtime configuration/ });
-  await surfaceSearch.getByRole("textbox").fill("generation");
-  await surfaceSearch.getByRole("option").first().waitFor();
+  const surfaceSearch = page.locator(".cm-search");
+  await surfaceSearch.locator('input[name="search"]').fill("generation");
+  if (await page.getByRole("dialog").count()) throw new Error("Editor find opened a duplicate Workbench search");
   await page.keyboard.press("Escape");
   report("Quick Open and current Surface search use shared Workbench navigation and renderer capability");
 

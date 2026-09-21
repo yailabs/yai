@@ -128,9 +128,18 @@ export class LiveClient {
         error: { code: "tauri_host_unavailable", message: "tauri_host_unavailable", safe_message: "The local YAI application host is unavailable. Launch Studio as a desktop application.", result_state: "transport_unavailable" },
       };
     }
-    return tauri.core.invoke<OperationResult<T>>("studio_call", {
-      request: { protocol: APPLICATION_PROTOCOL, operation_ref, correlation_ref: `studio:${Date.now()}:${++correlation}`, input },
-    });
+    const correlation_ref = `studio:${Date.now()}:${++correlation}`;
+    try {
+      return await tauri.core.invoke<OperationResult<T>>("studio_call", {
+        request: { protocol: APPLICATION_PROTOCOL, operation_ref, correlation_ref, input },
+      });
+    } catch {
+      // A dropped IPC request is never an instruction to resubmit an operation.
+      return { operation_ref, correlation_ref, result_state: "transport_unavailable", error: {
+        code: "host_transport_dropped", message: "host_transport_dropped",
+        safe_message: "The connection to YAI was interrupted. Reconnect to refresh the current state.", result_state: "transport_unavailable",
+      } };
+    }
   }
 
   listCases() { return this.call<CaseListProjection>("case.list"); }

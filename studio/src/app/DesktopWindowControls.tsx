@@ -1,3 +1,4 @@
+import { requestWindowClose } from "../platform/windowClose";
 import { Icon } from "../components/Icon";
 
 function invoke(command: string) {
@@ -34,7 +35,7 @@ export function DesktopWindowControls() {
       <button aria-label="Maximize or restore window" onClick={() => void invoke("desktop_toggle_maximize")}>
         <Icon name="maximize" size={14} />
       </button>
-      <button className="close" aria-label="Close window" onClick={() => void invoke("desktop_close")}>
+      <button className="close" aria-label="Close window" onClick={requestWindowClose}>
         <Icon name="close" size={14} />
       </button>
     </div>

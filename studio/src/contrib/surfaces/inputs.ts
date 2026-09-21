@@ -48,7 +48,13 @@ export function materialInput(
 ): SurfaceInput {
   const material = workspace.presentation.materials?.find((item) => item.id === objectRef);
   const file = workspace.environment.files.find((item) => item.id === objectRef);
-  const sourceRef = file?.source_ref ?? objectRef;
+  if (file) return fileInput(workspace, file.id, pinned);
+  const document = workspace.knowledge.sources.find((item) => item.id === objectRef);
+  const qualifiedFile = workspace.environment.files.find((item) =>
+    document ? item.source_ref === document.source_ref && item.revision_ref === document.revision_ref && item.path === document.path && item.digest === document.digest
+      : material && item.path === material.path);
+  if (qualifiedFile) return fileInput(workspace, qualifiedFile.id, pinned);
+  const sourceRef = document?.source_ref ?? objectRef;
   const source = workspace.environment.sources.find((item) => item.id === sourceRef);
   const qualified = workspace.knowledge.sources.find((item) => item.id === objectRef || item.source_ref === sourceRef);
   const mediaType = material?.mediaType ?? qualified?.media_type ?? source?.media_type;

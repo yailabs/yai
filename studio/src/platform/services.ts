@@ -4,7 +4,6 @@ import { ContextKeyService } from "./context";
 import { KeybindingService } from "./keybindings";
 import { DisposableStore } from "./lifecycle";
 import { MenuService } from "./menus";
-import { NavigationService } from "./navigation";
 import type { HostServices } from "./host";
 import { ThemeService } from "./theme";
 
@@ -21,7 +20,6 @@ export class PlatformServices extends DisposableStore {
     "appearance.reducedMotion": false,
     "terminal.scrollback": 5000,
   }));
-  readonly navigation = this.add(new NavigationService());
   readonly theme = this.add(new ThemeService());
 
   constructor(readonly host: HostServices) {

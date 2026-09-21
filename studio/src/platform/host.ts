@@ -1,3 +1,4 @@
+import { requestWindowClose } from "./windowClose";
 import { toDisposable, type Disposable } from "./lifecycle";
 
 export interface HostCapabilities {
@@ -63,6 +64,7 @@ class DesktopHostServices implements HostServices {
   private state: HostConnectionState;
   private readonly listeners = new Set<(state: HostConnectionState) => void>();
   private unlisten?: () => void;
+  private disposed = false;
 
   constructor(useYaiHost: boolean) {
     const nativeDesktop = Boolean(window.__TAURI__);
@@ -76,7 +78,7 @@ class DesktopHostServices implements HostServices {
     if (nativeDesktop && useYaiHost) {
       void window.__TAURI__!.event.listen<HostConnectionState>("yai://host-state", ({ payload }) => {
         this.publish(payload);
-      }).then((unlisten) => { this.unlisten = unlisten; });
+      }).then((unlisten) => { if (this.disposed) unlisten(); else this.unlisten = unlisten; });
       void this.status();
     }
   }
@@ -106,11 +108,11 @@ class DesktopHostServices implements HostServices {
   restart() { return this.lifecycle("studio_host_restart", "reconnecting"); }
 
   closeWindow() {
-    if (window.__TAURI__) void window.__TAURI__.core.invoke("desktop_close");
-    else window.close();
+    requestWindowClose();
   }
 
   dispose() {
+    this.disposed = true;
     this.unlisten?.();
     this.unlisten = undefined;
     this.listeners.clear();

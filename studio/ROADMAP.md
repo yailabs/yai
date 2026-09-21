@@ -37,6 +37,24 @@ Canonical status vocabulary, shared with the root YAI/YVEX roadmaps:
 
 ## Studio execution board
 
+**CURRENT — Root reliability before capability convergence.** Window-local
+Case interaction sessions now retain drafts, tabs and navigation across
+attachment/refetch failures. Exact material identity and bytes gate buffer
+initialization; dirty previews pin, duplicate opens reuse the existing tab,
+and editor undo survives renderer changes. PTYs survive Panel/Case switching;
+native close shares the unsaved-draft guard. Startup fits the monitor work area;
+CodeMirror reuses the Tauri style nonce under the production CSP. Modal focus and menu shortcuts use
+shared Workbench owners. The reliability suite qualifies these interactions at
+1600×960, 1440×900, 1280×800 and 1000×650; its instrumented desktop bridge is
+separate from native PTY acceptance.
+
+**NEXT — Capability Surface convergence and broader product quality.** The
+published baseline remains `4ba459e06fdefbbcf640f998f9f588cb8679f611` while the
+execution-lifecycle worktree changes are independently owned. The running Host
+can predate the checkout: discover its actual catalog before offering new
+operations. This reliability change does not claim consumption of the additional
+Application actions, governed Save, runtime supervision or the full visual upgrade.
+
 `CASE.PRODUCT.VERTICAL.COHERENCE.0` established
 `case:studio-live-qualification` as the durable operator-owned product oracle.
 `STUDIO.ENVIRONMENT.AUTHORING.0` has established the bounded Environment

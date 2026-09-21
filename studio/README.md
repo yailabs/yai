@@ -124,8 +124,22 @@ Source backing. Studio rejects a response unless Case, object, Source, revision,
 path, digest, media type, byte count and generation agree with the active
 Surface; late responses cannot initialize a later preview file. Local edits are deliberately not saveable at current HEAD:
 there is no qualified participant-origin filesystem-content mutation in YAI, so
-Save is disabled and dirty close requires confirmation. Studio never writes the
-repository through Tauri or React. Settings uses one singleton Surface with
+Save is disabled and dirty close requires confirmation.
+
+Window-local sessions retain each Case's tabs,
+selection, navigation and dirty buffers across attachment switches and Host resync.
+A dirty preview pins itself; reopening its file selects the existing tab. Undo and
+cursor state survive tab/renderer changes. Incoming revisions preserve dirty
+values until explicit reload/revert; byte length and SHA-256 are checked before
+read content is admitted. Window-manager close and the titlebar use the same
+unsaved-draft confirmation. These buffers are not crash-persistent or saved Case
+state. Hiding the Panel, selecting Output or switching Case does not terminate a
+PTY. Explicit terminal kill and desktop shutdown retain their existing cleanup.
+Initial desktop dimensions are bounded by the monitor work area, retaining the
+preferred tall size on larger monitors. CodeMirror uses the per-response style
+nonce supplied by Tauri; desktop CSP does not allow arbitrary inline styles.
+
+Studio never writes the repository through Tauri or React. Settings uses one singleton Surface with
 internal sections. Drag the left, right and bottom splitters. Useful shortcuts
 are:
 
@@ -275,3 +289,14 @@ Terminal, persistent PTY sessions, filesystem observation, remote service
 transport, multi-client mutation correctness, Computer Use, YVEX management,
 provider configuration, Mobile, packaging/signing or the complete public
 application contract.
+
+Root interaction regression suites run against an explicit fixture dev server:
+
+```sh
+# Separate terminal: npm run dev:fixture -- --port 1422
+STUDIO_TEST_URL=http://127.0.0.1:1422 npm run test:reliability
+npm run test:desktop:csp
+```
+
+This lane uses authored asynchronous application responses and an instrumented
+Tauri bridge; it does not substitute for resident Host or native PTY acceptance.

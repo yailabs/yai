@@ -62,10 +62,12 @@ export interface SurfaceRendererContribution {
   role: SurfaceRole;
   capabilities: readonly SurfaceCapability[];
   component: ComponentType<SurfaceRendererProps>;
+  findInRenderer?: boolean;
   search?: (context: WorkbenchRenderContext, input: SurfaceInput, query: string) => readonly SurfaceSearchResult[] | Promise<readonly SurfaceSearchResult[]>;
 }
 
 export interface PanelViewProps extends WorkbenchRenderContext {
+  visible: boolean;
   available: boolean;
   toolbarTarget: HTMLElement | null;
   closePanel(): void;
