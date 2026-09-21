@@ -478,14 +478,14 @@ pub struct PolicyCompilation {
     pub artifact: PolicyArtifact,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct PolicyIngestOutcome {
     pub source_created: bool,
     pub artifact_created: bool,
     pub view: PolicyArtifactView,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct PolicyLifecycleOutcome {
     pub changed: bool,
     pub view: PolicyArtifactView,

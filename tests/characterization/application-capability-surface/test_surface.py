@@ -27,6 +27,12 @@ def main() -> int:
     parser.add_argument("--binary", type=Path, default=Path("./yai"))
     args = parser.parse_args()
     binary = args.binary.resolve()
+    root = Path(__file__).resolve().parents[3]
+    application_source = (root / "application/yai-application/src/lib.rs").read_text()
+    application_manifest = (root / "application/yai-application/Cargo.toml").read_text()
+    assert "std::process::Command" not in application_source
+    assert "dispatch_operation" not in application_source
+    assert "cmd/yai" not in application_manifest
 
     envelope = invoke(binary, "capabilities", "--json")
     assert envelope["schema"] == "yai.cli.result.v1"
@@ -39,8 +45,10 @@ def main() -> int:
 
     capabilities = catalog["capabilities"]
     operations = catalog["operations"]
+    blockers = catalog["blockers"]
     assert len(capabilities) == 42
-    assert len(operations) == 14
+    assert len(operations) == 61
+    assert len(blockers) == 5
     assert [item["capability_id"] for item in capabilities] == sorted(
         item["capability_id"] for item in capabilities
     )
@@ -57,12 +65,23 @@ def main() -> int:
     }
     operation_ids = {item["operation_id"] for item in operations}
     capability_ids = {item["capability_id"] for item in capabilities}
+    blocker_ids = {item["capability_id"] for item in blockers}
+    assert blocker_ids == {
+        "case.lifecycle",
+        "cognitive.bindings_and_realization",
+        "conversation.execution",
+        "effect.controlled_execution",
+        "source.lifecycle",
+    }
+    assert all(item["missing_contract"] for item in blockers)
     for item in capabilities:
         assert set(item["application_operation_ids"]) <= operation_ids
         if item["application_posture"] == "ready":
             assert item["application_operation_ids"]
         if item["application_posture"] == "deferred":
             assert item.get("application_deferred_reason")
+            if item["disposition"] in {"product_read", "product_action"}:
+                assert item["capability_id"] in blocker_ids
         if item["disposition"] == "internal_mechanic":
             assert item["parent_capability_id"] in capability_ids
             assert item["rationale"]
@@ -80,8 +99,9 @@ def main() -> int:
         "catalog_schema=yai.application_capability_catalog.v1 "
         "capabilities=42 executable_or_internal=38 target_only=4 "
         "product_read=18 product_action=14 operator_diagnostic=3 "
-        "internal_mechanic=3 application_operations=14 application_ready=15 "
-        "cli_exposed=35 studio_consumable=16 case_identity_leaks=0"
+        "internal_mechanic=3 application_operations=61 application_ready=26 "
+        "application_blockers=5 cli_exposed=35 studio_consumable=27 "
+        "case_identity_leaks=0 direct_cli_invocation=0"
     )
     return 0
 

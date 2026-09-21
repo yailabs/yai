@@ -10,16 +10,45 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
+use yai_core_engine::admission::reviewer_is_eligible;
+use yai_core_engine::case_policy::{NormativeReadiness, PolicyValidityPosture};
 use yai_core_engine::cognitive::{
+    CognitiveBindingRole, CognitiveCapability, CognitiveCapabilityRequirement,
     CognitiveDecisionBudget, CognitiveDecisionFrontier, CognitiveDecisionFrontierRequest,
 };
 use yai_core_engine::conversation::{turns_from_history, ConversationContentStore};
-use yai_core_engine::effect::access::ResourceAction;
+use yai_core_engine::effect::access::source::{
+    CaseSourceDeclaration, SourcePhase, SourceProgress, SourceRole, SOURCE_DECLARATION_SCHEMA,
+    SOURCE_PROGRESS_SCHEMA,
+};
+use yai_core_engine::effect::access::{LocalAccessBinding, ResourceAccessContract, ResourceAction};
+use yai_core_engine::effect::{DecisionOutcome, Operation};
+use yai_core_engine::governance::{compile_policy_source, scope_policy_compilation};
+use yai_core_engine::handoff::{HandoffData, HandoffOutcome};
 use yai_core_engine::memory_hierarchy::knowledge::KnowledgeRequest;
+use yai_core_engine::memory_hierarchy::recall::RecallRequest;
+use yai_core_engine::provider_governance::{
+    ProviderAdapterKind, ProviderFailoverPolicy, ProviderLocality, ProviderProbeEvidence,
+    ProviderRealizationShape, ProviderTargetInput, ProviderTrustPosture,
+};
 use yai_core_engine::security::AuthenticatedPrincipal;
+use yai_core_engine::semantic_state::paging::PageRequest;
+use yai_core_engine::semantic_state::working_recall::{
+    AmbientRefreshRequest, WorkingRefreshRequest, WorkingStateRequest,
+};
 use yai_core_engine::semantic_state::SemanticWorkingState;
 use yai_core_engine::store::lmdb::LmdbRecordStore;
-use yai_core_engine::transition::{CaseLifecycle, CaseState, ReviewResolution, Transition};
+use yai_core_engine::transition::{
+    build_authenticated_review_action, CaseLifecycle, CaseState, PendingTransition,
+    PrincipalParticipantLink, ResourceAttachmentState, ReviewAction, ReviewActionKind,
+    ReviewRequirement, ReviewResolution, ReviewState, Transition, TransitionPayload,
+    TransitionScope, TransitionSource, REVIEW_REQUEST_SCHEMA,
+};
+use yai_core_engine::workflow::{
+    WorkflowCaseBinding, WorkflowDefinitionInput, WorkflowExecutorBinding, WorkflowPlanPatchInput,
+    WorkflowResourceBinding,
+};
 
 pub const INTERFACES_REVISION: &str = "bae6cdf7cf17f3e6a58c0323852c7c0efeb26147";
 pub const APPLICATION_PROTOCOL: &str = "yai.studio.application.v1";
@@ -65,27 +94,416 @@ pub struct OperationResult {
     pub error: Option<OperationError>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CaseCapabilitiesInput {
     pub case_ref: String,
     pub participant_ref: String,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DecisionFrontierPrepareInput {
     pub working_state: SemanticWorkingState,
     pub max_candidates: usize,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DecisionRequestPrepareInput {
     pub working_state: SemanticWorkingState,
     pub frontier: CognitiveDecisionFrontier,
     pub decision_kind: String,
     pub budget: CognitiveDecisionBudget,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RecallExecuteInput {
+    pub request: RecallRequest,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkingStateCompileInput {
+    pub request: WorkingStateRequest,
+    #[serde(default)]
+    pub pageable: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkingStateRefreshInput {
+    pub working_state: SemanticWorkingState,
+    pub request: WorkingRefreshRequest,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkingStatePageInput {
+    pub working_state: SemanticWorkingState,
+    pub request: PageRequest,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AmbientRefreshAssessInput {
+    pub working_state: SemanticWorkingState,
+    pub request: AmbientRefreshRequest,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdentityBootstrapInput {
+    pub tenant_id: String,
+    pub organization_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TenantGetInput {
+    pub tenant_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TenantMemberAddInput {
+    pub tenant_id: String,
+    pub principal_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaseCreateInput {
+    pub tenant_id: String,
+    pub case_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaseTerminalInput {
+    pub case_ref: String,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowDefineInput {
+    pub definition: WorkflowDefinitionInput,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowBindInput {
+    pub case_ref: String,
+    pub definition_ref: String,
+    #[serde(default)]
+    pub executor_bindings: Vec<WorkflowExecutorBinding>,
+    #[serde(default)]
+    pub resource_bindings: Vec<WorkflowResourceBinding>,
+    #[serde(default)]
+    pub case_bindings: Vec<WorkflowCaseBinding>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowInputRecordInput {
+    pub case_ref: String,
+    pub node_ref: String,
+    pub value: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowPatchProposeInput {
+    pub case_ref: String,
+    pub patch: WorkflowPlanPatchInput,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowPatchAdoptInput {
+    pub case_ref: String,
+    pub patch_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandoffOfferInput {
+    pub source_case_ref: String,
+    pub target_case_ref: String,
+    pub request: HandoffData,
+    #[serde(default)]
+    pub required_target_roles: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandoffAcceptInput {
+    pub target_case_ref: String,
+    pub source_case_ref: String,
+    pub handoff_ref: String,
+    pub participant_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandoffDeclineInput {
+    pub target_case_ref: String,
+    pub source_case_ref: String,
+    pub handoff_ref: String,
+    pub participant_ref: String,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandoffResultInput {
+    pub target_case_ref: String,
+    pub handoff_ref: String,
+    pub participant_ref: String,
+    pub outcome: HandoffOutcome,
+    pub result: HandoffData,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandoffReconcileInput {
+    pub source_case_ref: String,
+    pub handoff_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyIngestInput {
+    pub tenant_id: String,
+    pub source_bytes: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PolicyArtifactLifecycleInput {
+    pub artifact_ref: String,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CasePolicyBindInput {
+    pub case_ref: String,
+    pub artifact_ref: String,
+    pub expected_generation: u64,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CasePolicyReplaceInput {
+    pub case_ref: String,
+    pub prior_binding_ref: String,
+    pub artifact_ref: String,
+    pub expected_generation: u64,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CasePolicyUnbindInput {
+    pub case_ref: String,
+    pub binding_ref: String,
+    pub expected_generation: u64,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ReviewResolveInput {
+    pub case_ref: String,
+    pub review_ref: String,
+    #[serde(default)]
+    pub participant_ref: Option<String>,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ReviewResolveResult {
+    pub review_ref: String,
+    pub action: ReviewAction,
+    pub effective_decision_ref: Option<String>,
+    pub state: CaseState,
+    pub external_effect: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ParticipantRoleAddInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub role: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ParticipantPrincipalLinkInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub principal_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ParticipantViewAdmitInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub consumer: String,
+    pub view_kind: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderRegisterInput {
+    pub tenant_id: String,
+    pub provider_key: String,
+    pub adapter: ProviderAdapterKind,
+    pub endpoint: String,
+    pub model_id: String,
+    pub credential_ref: String,
+    pub locality: ProviderLocality,
+    #[serde(default)]
+    pub extension_adapter_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderQualifyInput {
+    pub target_ref: String,
+    pub evidence: ProviderProbeEvidence,
+    pub suite_ref: String,
+    #[serde(default)]
+    pub valid_until_unix_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderTrustInput {
+    pub target_ref: String,
+    pub posture: ProviderTrustPosture,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderCaseBindInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub ordered_target_refs: Vec<String>,
+    pub failover_policy: ProviderFailoverPolicy,
+    pub max_attempts_per_turn: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveBindInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub role: CognitiveBindingRole,
+    pub capability: CognitiveCapability,
+    pub candidates: Vec<CognitiveTargetReference>,
+    #[serde(default)]
+    pub replace: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitiveTargetReference {
+    pub target_ref: String,
+    pub semantic_evidence_ref: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CognitivePlanInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+    pub requirement: CognitiveCapabilityRequirement,
+    #[serde(default)]
+    pub realization_shape: Option<ProviderRealizationShape>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ResourceAttachInput {
+    pub binding: LocalAccessBinding,
+    pub access: ResourceAccessContract,
+    pub policy_owner_participant_ref: String,
+    #[serde(default)]
+    pub write_prefix: Option<String>,
+    #[serde(default)]
+    pub max_write_bytes: Option<usize>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceDeclareInput {
+    pub case_ref: String,
+    pub perimeter: String,
+    pub logical_name: String,
+    pub participant_ref: String,
+    pub resource_ref: String,
+    pub roles: Vec<SourceRole>,
+    pub action: ResourceAction,
+    #[serde(default)]
+    pub bootstrap_policy: bool,
+    pub media_type: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourcePublishInput {
+    pub case_ref: String,
+    pub source_ref: String,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SourceRevokeInput {
+    pub case_ref: String,
+    pub source_ref: String,
+    pub reason: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct CaseStateMutationResult {
+    pub changed: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transition_ref: Option<String>,
+    pub state: CaseState,
+}
+
+impl CaseStateMutationResult {
+    fn unchanged(state: CaseState) -> Self {
+        Self {
+            changed: false,
+            transition_ref: None,
+            state,
+        }
+    }
+
+    fn committed(commit: yai_core_engine::store::lmdb::CanonicalCommit) -> Self {
+        Self {
+            changed: true,
+            transition_ref: Some(commit.transition.transition_id),
+            state: commit.state,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct SourcePolicyPublicationResult {
+    pub state: CaseState,
+    pub normative: yai_core_engine::case_policy::NormativeStatus,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -227,6 +645,71 @@ impl LocalApplication {
                         .and_then(Value::as_u64),
                 )
             }
+            "identity.bootstrap" => {
+                let input: IdentityBootstrapInput = decode_input(request)?;
+                encode_result(
+                    "identity_bootstrap",
+                    store.bootstrap_local_security(
+                        &auth,
+                        &input.tenant_id,
+                        &input.organization_ref,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "identity.current" => encode_result(
+                "identity_current",
+                json!({
+                    "principal": store.enrolled_principal(&auth)?,
+                    "tenants": store.list_principal_tenants(&auth)?,
+                    "authentication": auth.binding(),
+                }),
+            ),
+            "tenant.list" => encode_result("tenant_list", store.list_principal_tenants(&auth)?),
+            "tenant.get" => {
+                let input: TenantGetInput = decode_input(request)?;
+                let context = store.resolve_security_context(&auth, &input.tenant_id)?;
+                let tenant = store
+                    .get_tenant(&input.tenant_id)?
+                    .ok_or_else(|| "tenant_not_visible".to_string())?;
+                encode_result(
+                    "tenant_get",
+                    json!({ "tenant": tenant, "membership": context.membership() }),
+                )
+            }
+            "tenant.member.add" => {
+                let input: TenantMemberAddInput = decode_input(request)?;
+                encode_result(
+                    "tenant_member_add",
+                    store.add_tenant_member(
+                        &auth,
+                        &input.tenant_id,
+                        &input.principal_id,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "case.create" => {
+                let input: CaseCreateInput = decode_input(request)?;
+                encode_result(
+                    "case_create",
+                    store.create_tenant_case(&auth, &input.tenant_id, &input.case_ref)?,
+                )
+            }
+            "case.cancel" => {
+                let input: CaseTerminalInput = decode_input(request)?;
+                encode_result(
+                    "case_cancel",
+                    store.cancel_tenant_case(&auth, &input.case_ref, &input.reason)?,
+                )
+            }
+            "case.close" => {
+                let input: CaseTerminalInput = decode_input(request)?;
+                encode_result(
+                    "case_close",
+                    store.close_tenant_case(&auth, &input.case_ref, &input.reason)?,
+                )
+            }
             "material.read" => {
                 let case_ref = input_case_ref(request)?;
                 material_read(
@@ -281,6 +764,767 @@ impl LocalApplication {
                 serde_json::to_value(prepared)
                     .map_err(|error| format!("decision_request_encode:{error}"))
             }
+            "semantic.recall" => {
+                let input: RecallExecuteInput = decode_input(request)?;
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                let recalled =
+                    store.recall_trace_authorized(&auth, input.request, content.as_ref())?;
+                serde_json::to_value(recalled)
+                    .map_err(|error| format!("semantic_recall_encode:{error}"))
+            }
+            "semantic.working_state.compile" => {
+                let input: WorkingStateCompileInput = decode_input(request)?;
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                let qualified = if input.pageable {
+                    store.compile_pageable_working_state_authorized(
+                        &auth,
+                        input.request,
+                        content.as_ref(),
+                    )?
+                } else {
+                    store.compile_working_state_authorized(
+                        &auth,
+                        input.request,
+                        content.as_ref(),
+                    )?
+                };
+                serde_json::to_value(qualified)
+                    .map_err(|error| format!("working_state_compile_encode:{error}"))
+            }
+            "semantic.working_state.refresh" => {
+                let input: WorkingStateRefreshInput = decode_input(request)?;
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                let refreshed = store.refresh_working_state_authorized(
+                    &auth,
+                    &input.working_state,
+                    input.request,
+                    content.as_ref(),
+                )?;
+                serde_json::to_value(refreshed)
+                    .map_err(|error| format!("working_state_refresh_encode:{error}"))
+            }
+            "semantic.working_state.page" => {
+                let input: WorkingStatePageInput = decode_input(request)?;
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                let page = store.page_working_state_authorized(
+                    &auth,
+                    &input.working_state,
+                    input.request,
+                    content.as_ref(),
+                )?;
+                serde_json::to_value(page)
+                    .map_err(|error| format!("working_state_page_encode:{error}"))
+            }
+            "semantic.ambient_refresh.assess" => {
+                let input: AmbientRefreshAssessInput = decode_input(request)?;
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                let refresh = store.refresh_active_semantic_consumer_authorized(
+                    &auth,
+                    &input.working_state,
+                    input.request,
+                    content.as_ref(),
+                )?;
+                serde_json::to_value(refresh)
+                    .map_err(|error| format!("ambient_refresh_encode:{error}"))
+            }
+            "workflow.define" => {
+                let input: WorkflowDefineInput = decode_input(request)?;
+                encode_result(
+                    "workflow_define",
+                    store.define_workflow(&auth, input.definition, now_unix_ms()?)?,
+                )
+            }
+            "workflow.bind" => {
+                let input: WorkflowBindInput = decode_input(request)?;
+                encode_result(
+                    "workflow_bind",
+                    store.bind_case_workflow_composed(
+                        &auth,
+                        &input.case_ref,
+                        &input.definition_ref,
+                        input.executor_bindings,
+                        input.resource_bindings,
+                        input.case_bindings,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "workflow.input.record" => {
+                let input: WorkflowInputRecordInput = decode_input(request)?;
+                encode_result(
+                    "workflow_input",
+                    store.record_workflow_human_input(
+                        &auth,
+                        &input.case_ref,
+                        &input.node_ref,
+                        &input.value,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "workflow.patch.propose" => {
+                let input: WorkflowPatchProposeInput = decode_input(request)?;
+                encode_result(
+                    "workflow_patch_propose",
+                    store.propose_workflow_plan_patch_human(
+                        &auth,
+                        &input.case_ref,
+                        input.patch,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "workflow.patch.adopt" => {
+                let input: WorkflowPatchAdoptInput = decode_input(request)?;
+                encode_result(
+                    "workflow_patch_adopt",
+                    store.adopt_workflow_plan_patch(
+                        &auth,
+                        &input.case_ref,
+                        &input.patch_ref,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "handoff.offer" => {
+                let input: HandoffOfferInput = decode_input(request)?;
+                encode_result(
+                    "handoff_offer",
+                    store.offer_case_handoff(
+                        &auth,
+                        &input.source_case_ref,
+                        &input.target_case_ref,
+                        input.request,
+                        input.required_target_roles,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "handoff.accept" => {
+                let input: HandoffAcceptInput = decode_input(request)?;
+                encode_result(
+                    "handoff_accept",
+                    store.accept_case_handoff(
+                        &auth,
+                        &input.target_case_ref,
+                        &input.source_case_ref,
+                        &input.handoff_ref,
+                        &input.participant_ref,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "handoff.decline" => {
+                let input: HandoffDeclineInput = decode_input(request)?;
+                encode_result(
+                    "handoff_decline",
+                    store.decline_case_handoff(
+                        &auth,
+                        &input.target_case_ref,
+                        &input.source_case_ref,
+                        &input.handoff_ref,
+                        &input.participant_ref,
+                        &input.reason,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "handoff.result.record" => {
+                let input: HandoffResultInput = decode_input(request)?;
+                encode_result(
+                    "handoff_result",
+                    store.record_case_handoff_result(
+                        &auth,
+                        &input.target_case_ref,
+                        &input.handoff_ref,
+                        input.outcome,
+                        input.result,
+                        input.evidence_refs,
+                        &input.participant_ref,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "handoff.reconcile" => {
+                let input: HandoffReconcileInput = decode_input(request)?;
+                encode_result(
+                    "handoff_reconcile",
+                    store.reconcile_case_handoff(
+                        &auth,
+                        &input.source_case_ref,
+                        &input.handoff_ref,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "policy.ingest" => {
+                let input: PolicyIngestInput = decode_input(request)?;
+                let context = store.resolve_security_context(&auth, &input.tenant_id)?;
+                context.require_owner()?;
+                let tenant = store
+                    .get_tenant(&input.tenant_id)?
+                    .ok_or_else(|| "tenant_not_visible".to_string())?;
+                let compilation = scope_policy_compilation(
+                    &compile_policy_source(&input.source_bytes)?,
+                    &input.tenant_id,
+                    &tenant.organization_ref,
+                )?;
+                encode_result(
+                    "policy_ingest",
+                    store.ingest_tenant_policy_compilation(
+                        &auth,
+                        &input.tenant_id,
+                        &compilation,
+                    )?,
+                )
+            }
+            "policy.validate" => {
+                let input: PolicyArtifactLifecycleInput = decode_input(request)?;
+                encode_result(
+                    "policy_validate",
+                    store.validate_tenant_policy_artifact(
+                        &auth,
+                        &input.artifact_ref,
+                        &input.reason,
+                    )?,
+                )
+            }
+            "policy.publish" => {
+                let input: PolicyArtifactLifecycleInput = decode_input(request)?;
+                encode_result(
+                    "policy_publish",
+                    store.publish_tenant_policy_artifact(
+                        &auth,
+                        &input.artifact_ref,
+                        &input.reason,
+                    )?,
+                )
+            }
+            "policy.retire" => {
+                let input: PolicyArtifactLifecycleInput = decode_input(request)?;
+                encode_result(
+                    "policy_retire",
+                    store.retire_tenant_policy_artifact(
+                        &auth,
+                        &input.artifact_ref,
+                        &input.reason,
+                    )?,
+                )
+            }
+            "policy.revoke" => {
+                let input: PolicyArtifactLifecycleInput = decode_input(request)?;
+                encode_result(
+                    "policy_revoke",
+                    store.revoke_tenant_policy_artifact(
+                        &auth,
+                        &input.artifact_ref,
+                        &input.reason,
+                    )?,
+                )
+            }
+            "policy.case.bind" => {
+                let input: CasePolicyBindInput = decode_input(request)?;
+                encode_result(
+                    "policy_case_bind",
+                    store.bind_tenant_case_policy(
+                        &auth,
+                        &input.case_ref,
+                        &input.artifact_ref,
+                        input.expected_generation,
+                        &input.reason,
+                    )?,
+                )
+            }
+            "policy.case.replace" => {
+                let input: CasePolicyReplaceInput = decode_input(request)?;
+                encode_result(
+                    "policy_case_replace",
+                    store.replace_tenant_case_policy(
+                        &auth,
+                        &input.case_ref,
+                        &input.prior_binding_ref,
+                        &input.artifact_ref,
+                        input.expected_generation,
+                        &input.reason,
+                    )?,
+                )
+            }
+            "policy.case.unbind" => {
+                let input: CasePolicyUnbindInput = decode_input(request)?;
+                encode_result(
+                    "policy_case_unbind",
+                    store.unbind_tenant_case_policy(
+                        &auth,
+                        &input.case_ref,
+                        &input.binding_ref,
+                        input.expected_generation,
+                        &input.reason,
+                    )?,
+                )
+            }
+            "participant.principal.link" => {
+                let input: ParticipantPrincipalLinkInput = decode_input(request)?;
+                let state = store
+                    .get_case_state(&input.case_ref)?
+                    .ok_or_else(|| "case_not_visible".to_string())?;
+                let tenant_id = state.tenant_id.clone().ok_or_else(|| {
+                    "legacy_unscoped_case_cannot_accept_principal_link".to_string()
+                })?;
+                store
+                    .resolve_security_context(&auth, &tenant_id)?
+                    .require_owner()?;
+                let principal_ref = if input.principal_ref == "self" {
+                    auth.projected_principal_id()
+                } else {
+                    input.principal_ref
+                };
+                if state.principal_participant_links.iter().any(|existing| {
+                    existing.principal_id == principal_ref
+                        && existing.participant_id == input.participant_ref
+                        && existing.tenant_id == tenant_id
+                }) {
+                    return encode_result(
+                        "participant_principal_link",
+                        CaseStateMutationResult::unchanged(state),
+                    );
+                }
+                let link = PrincipalParticipantLink::new(
+                    &input.case_ref,
+                    &tenant_id,
+                    &principal_ref,
+                    &input.participant_ref,
+                    &auth.projected_principal_id(),
+                    now_unix_ms()?,
+                )?;
+                let mut pending = PendingTransition::new(
+                    format!("transition:{}", link.link_id),
+                    &input.case_ref,
+                    state.generation,
+                    TransitionSource {
+                        component: "yai.application.participant".to_string(),
+                        participant_id: None,
+                        principal_id: Some(auth.projected_principal_id()),
+                        source_ref: Some(link.link_id.clone()),
+                    },
+                    TransitionPayload::ParticipantPrincipalLinked { link: link.clone() },
+                );
+                pending.causal_refs = vec![link.principal_id.clone(), link.participant_id.clone()];
+                encode_result(
+                    "participant_principal_link",
+                    CaseStateMutationResult::committed(
+                        store.commit_secured_transition(&auth, &tenant_id, pending, true)?,
+                    ),
+                )
+            }
+            "participant.role.add" => {
+                let input: ParticipantRoleAddInput = decode_input(request)?;
+                validate_identifier("participant_role", &input.role)?;
+                let state = store
+                    .get_case_state(&input.case_ref)?
+                    .ok_or_else(|| "case_not_visible".to_string())?;
+                let tenant_id = state.tenant_id.clone().ok_or_else(|| {
+                    "legacy_unscoped_case_cannot_accept_new_participant".to_string()
+                })?;
+                store
+                    .resolve_security_context(&auth, &tenant_id)?
+                    .require_owner()?;
+                if state.participants.iter().any(|participant| {
+                    participant.participant_id == input.participant_ref
+                        && participant.roles.contains(&input.role)
+                }) {
+                    return encode_result(
+                        "participant_role_add",
+                        CaseStateMutationResult::unchanged(state),
+                    );
+                }
+                let mut pending = PendingTransition::new(
+                    format!(
+                        "transition:participant-role:{}:{}:{}",
+                        canonical_id_component(&input.case_ref),
+                        canonical_id_component(&input.participant_ref),
+                        canonical_id_component(&input.role)
+                    ),
+                    &input.case_ref,
+                    state.generation,
+                    TransitionSource {
+                        component: "yai.application.participant".to_string(),
+                        participant_id: None,
+                        principal_id: Some(auth.projected_principal_id()),
+                        source_ref: Some(format!(
+                            "participant-role:{}:{}",
+                            input.participant_ref, input.role
+                        )),
+                    },
+                    TransitionPayload::ParticipantBound {
+                        participant_id: input.participant_ref.clone(),
+                        role: input.role,
+                    },
+                );
+                pending.causal_refs = vec![input.participant_ref];
+                encode_result(
+                    "participant_role_add",
+                    CaseStateMutationResult::committed(
+                        store.commit_secured_transition(&auth, &tenant_id, pending, true)?,
+                    ),
+                )
+            }
+            "participant.view.admit" => {
+                let input: ParticipantViewAdmitInput = decode_input(request)?;
+                if input.consumer != "model" || input.view_kind != "model_context" {
+                    return Err("participant_view_contract_unsupported".to_string());
+                }
+                let state = store
+                    .get_case_state(&input.case_ref)?
+                    .ok_or_else(|| "case_not_visible".to_string())?;
+                let tenant_id = state.tenant_id.clone().ok_or_else(|| {
+                    "legacy_unscoped_case_cannot_admit_participant_view".to_string()
+                })?;
+                store
+                    .resolve_security_context(&auth, &tenant_id)?
+                    .require_owner()?;
+                let participant = state
+                    .participants
+                    .iter()
+                    .find(|participant| participant.participant_id == input.participant_ref)
+                    .ok_or_else(|| "participant_view_requires_bound_participant".to_string())?;
+                if participant.admitted_views.iter().any(|view| {
+                    view.consumer == input.consumer && view.view_kind == input.view_kind
+                }) {
+                    return encode_result(
+                        "participant_view_admit",
+                        CaseStateMutationResult::unchanged(state),
+                    );
+                }
+                let mut pending = PendingTransition::new(
+                    format!(
+                        "transition:participant-view:{}:{}:{}:{}",
+                        canonical_id_component(&input.case_ref),
+                        canonical_id_component(&input.participant_ref),
+                        canonical_id_component(&input.consumer),
+                        canonical_id_component(&input.view_kind)
+                    ),
+                    &input.case_ref,
+                    state.generation,
+                    TransitionSource {
+                        component: "yai.application.participant".to_string(),
+                        participant_id: None,
+                        principal_id: Some(auth.projected_principal_id()),
+                        source_ref: Some(format!(
+                            "participant-view:{}:{}:{}",
+                            input.participant_ref, input.consumer, input.view_kind
+                        )),
+                    },
+                    TransitionPayload::ParticipantAdmitted {
+                        participant_id: input.participant_ref.clone(),
+                        consumer: input.consumer,
+                        view_kind: input.view_kind,
+                    },
+                );
+                pending.causal_refs = vec![input.participant_ref];
+                encode_result(
+                    "participant_view_admit",
+                    CaseStateMutationResult::committed(
+                        store.commit_secured_transition(&auth, &tenant_id, pending, true)?,
+                    ),
+                )
+            }
+            "provider.register" => {
+                let input: ProviderRegisterInput = decode_input(request)?;
+                let target = ProviderTargetInput {
+                    tenant_id: input.tenant_id,
+                    provider_key: input.provider_key,
+                    adapter: input.adapter,
+                    endpoint: input.endpoint,
+                    model_id: input.model_id,
+                    credential_ref: input.credential_ref,
+                    locality: input.locality,
+                    extension_adapter_id: input.extension_adapter_id,
+                    created_by_principal_id: auth.projected_principal_id(),
+                    created_at_unix_ms: now_unix_ms()?,
+                };
+                encode_result(
+                    "provider_register",
+                    store.register_provider_target_authorized(&auth, target)?,
+                )
+            }
+            "provider.qualify" => {
+                let input: ProviderQualifyInput = decode_input(request)?;
+                encode_result(
+                    "provider_qualify",
+                    store.qualify_provider_target_authorized(
+                        &auth,
+                        &input.target_ref,
+                        input.evidence,
+                        &input.suite_ref,
+                        input.valid_until_unix_ms,
+                    )?,
+                )
+            }
+            "provider.trust.set" => {
+                let input: ProviderTrustInput = decode_input(request)?;
+                encode_result(
+                    "provider_trust",
+                    store.set_provider_trust_authorized(
+                        &auth,
+                        &input.target_ref,
+                        input.posture,
+                        now_unix_ms()?,
+                    )?,
+                )
+            }
+            "provider.case.bind" => {
+                let input: ProviderCaseBindInput = decode_input(request)?;
+                encode_result(
+                    "provider_case_bind",
+                    store.bind_case_provider_targets_authorized(
+                        &auth,
+                        &input.case_ref,
+                        &input.participant_ref,
+                        input.ordered_target_refs,
+                        input.failover_policy,
+                        input.max_attempts_per_turn,
+                    )?,
+                )
+            }
+            "resource.attach" => {
+                let input: ResourceAttachInput = decode_input(request)?;
+                if input.write_prefix.is_some() != input.max_write_bytes.is_some() {
+                    return Err("resource_write_envelope_incomplete".to_string());
+                }
+                if input.access.configuration_digest != input.binding.digest() {
+                    return Err("resource_access_configuration_digest_mismatch".to_string());
+                }
+                let state = store.get_case_state_authorized(&auth, &input.binding.case_id)?;
+                let tenant_id = state
+                    .tenant_id
+                    .as_deref()
+                    .ok_or_else(|| "resource_attachment_requires_tenant".to_string())?;
+                store
+                    .resolve_security_context(&auth, tenant_id)?
+                    .require_owner()?;
+                let attachment = ResourceAttachmentState {
+                    attachment_id: input.binding.attachment_id.clone(),
+                    kind: input.binding.kind(),
+                    allowed_write_prefix: input.write_prefix.unwrap_or_default(),
+                    max_write_bytes: input.max_write_bytes.unwrap_or_default(),
+                    policy_id: format!("policy:resource-envelope:{}", input.binding.attachment_id),
+                    policy_owner_participant_id: input.policy_owner_participant_ref.clone(),
+                    review_requirement: ReviewRequirement::Automatic,
+                    process_signal_actions: Vec::new(),
+                    access: Some(input.access),
+                };
+                input.binding.validate_attachment(&attachment)?;
+                if let Some(existing) = state
+                    .resources
+                    .iter()
+                    .find(|resource| resource.attachment_id == attachment.attachment_id)
+                {
+                    if existing != &attachment
+                        || store
+                            .get_local_access_binding(&state.case_id, &input.binding.attachment_id)?
+                            .as_ref()
+                            != Some(&input.binding)
+                    {
+                        return Err("resource_attachment_identity_collision".to_string());
+                    }
+                    return encode_result(
+                        "resource_attach",
+                        CaseStateMutationResult::unchanged(state),
+                    );
+                }
+                let mut pending = PendingTransition::new(
+                    format!(
+                        "transition:resource:{}:{}",
+                        canonical_id_component(&state.case_id),
+                        input.binding.attachment_id
+                    ),
+                    &state.case_id,
+                    state.generation,
+                    TransitionSource {
+                        component: "yai.application.resource".to_string(),
+                        participant_id: None,
+                        principal_id: Some(auth.projected_principal_id()),
+                        source_ref: Some(input.binding.digest()),
+                    },
+                    TransitionPayload::ResourceAttached {
+                        attachment: attachment.clone(),
+                    },
+                );
+                pending.scope = Some(TransitionScope {
+                    case_id: state.case_id,
+                    participant_refs: vec![input.policy_owner_participant_ref.clone()],
+                    resource_refs: vec![attachment.attachment_id.clone()],
+                    policy_refs: vec![attachment.policy_id.clone()],
+                });
+                pending.causal_refs = vec![input.policy_owner_participant_ref];
+                encode_result(
+                    "resource_attach",
+                    CaseStateMutationResult::committed(store.commit_tenant_access_attachment(
+                        &auth,
+                        tenant_id,
+                        pending,
+                        &input.binding,
+                    )?),
+                )
+            }
+            "source.declare" => {
+                let input: SourceDeclareInput = decode_input(request)?;
+                let state = store.get_case_state_authorized(&auth, &input.case_ref)?;
+                let tenant_id = state
+                    .tenant_id
+                    .as_deref()
+                    .ok_or_else(|| "source_requires_tenant".to_string())?;
+                store
+                    .resolve_security_context(&auth, tenant_id)?
+                    .require_owner()?;
+                let binding = store
+                    .get_local_access_binding(&input.case_ref, &input.resource_ref)?
+                    .ok_or_else(|| "source_resource_not_attached".to_string())?;
+                let declaration = CaseSourceDeclaration {
+                    schema: SOURCE_DECLARATION_SCHEMA.to_string(),
+                    source_id: String::new(),
+                    case_id: input.case_ref,
+                    perimeter: input.perimeter,
+                    logical_name: input.logical_name,
+                    participant_id: input.participant_ref,
+                    declared_by_principal_id: auth.projected_principal_id(),
+                    resource_attachment_id: input.resource_ref,
+                    configuration_digest: binding.digest(),
+                    roles: input.roles,
+                    action: input.action,
+                    bootstrap_policy: input.bootstrap_policy,
+                    media_type: input.media_type,
+                }
+                .seal()?;
+                let prior_generation = state.generation;
+                let transition_ref = format!("transition:{}", declaration.source_id);
+                let state = store.declare_case_source(&auth, declaration)?;
+                encode_result(
+                    "source_declare",
+                    CaseStateMutationResult {
+                        changed: state.generation != prior_generation,
+                        transition_ref: (state.generation != prior_generation)
+                            .then_some(transition_ref),
+                        state,
+                    },
+                )
+            }
+            "source.publish" => {
+                let input: SourcePublishInput = decode_input(request)?;
+                store.publish_case_source_policy_authorized(
+                    &auth,
+                    &input.case_ref,
+                    &input.source_ref,
+                    &input.reason,
+                )?;
+                encode_result(
+                    "source_publish",
+                    SourcePolicyPublicationResult {
+                        state: store.get_case_state_authorized(&auth, &input.case_ref)?,
+                        normative: store.case_policy_status(&input.case_ref)?,
+                    },
+                )
+            }
+            "source.revoke" => {
+                let input: SourceRevokeInput = decode_input(request)?;
+                let (_, source) =
+                    store.case_source_authorized(&auth, &input.case_ref, &input.source_ref)?;
+                if source
+                    .progress
+                    .as_ref()
+                    .is_some_and(|progress| progress.phase == SourcePhase::Revoked)
+                {
+                    return encode_result(
+                        "source_revoke",
+                        CaseStateMutationResult::unchanged(
+                            store.get_case_state_authorized(&auth, &input.case_ref)?,
+                        ),
+                    );
+                }
+                let progress = SourceProgress {
+                    schema: SOURCE_PROGRESS_SCHEMA.to_string(),
+                    progress_id: String::new(),
+                    source_id: source.declaration.source_id,
+                    previous_progress_id: source
+                        .progress
+                        .as_ref()
+                        .map(|item| item.progress_id.clone()),
+                    attempt: source.progress.as_ref().map_or(1, |item| item.attempt),
+                    phase: SourcePhase::Revoked,
+                    revision: None,
+                    decision_ref: None,
+                    detail: input.reason,
+                }
+                .seal()?;
+                let transition_ref = format!("transition:{}", progress.progress_id);
+                encode_result(
+                    "source_revoke",
+                    CaseStateMutationResult {
+                        changed: true,
+                        transition_ref: Some(transition_ref),
+                        state: store.progress_case_source(
+                            &auth,
+                            &input.case_ref,
+                            &input.source_ref,
+                            progress,
+                        )?,
+                    },
+                )
+            }
+            "cognitive.binding.set" => {
+                let input: CognitiveBindInput = decode_input(request)?;
+                let candidates = input
+                    .candidates
+                    .into_iter()
+                    .map(|candidate| (candidate.target_ref, candidate.semantic_evidence_ref))
+                    .collect();
+                encode_result(
+                    "cognitive_binding",
+                    store.bind_case_cognitive_candidates_authorized(
+                        &auth,
+                        &input.case_ref,
+                        &input.participant_ref,
+                        input.role,
+                        input.capability,
+                        candidates,
+                        input.replace,
+                    )?,
+                )
+            }
+            "cognitive.plan" => {
+                let input: CognitivePlanInput = decode_input(request)?;
+                encode_result(
+                    "cognitive_plan",
+                    store.plan_case_cognitive_execution_for_shape_authorized(
+                        &auth,
+                        &input.case_ref,
+                        &input.participant_ref,
+                        &input.requirement,
+                        input.realization_shape.as_ref(),
+                    )?,
+                )
+            }
+            "review.approve" => {
+                let input: ReviewResolveInput = decode_input(request)?;
+                encode_result(
+                    "review_approve",
+                    resolve_review_action(&store, &auth, input, ReviewActionKind::Approve)?,
+                )
+            }
+            "review.defer" => {
+                let input: ReviewResolveInput = decode_input(request)?;
+                encode_result(
+                    "review_defer",
+                    resolve_review_action(&store, &auth, input, ReviewActionKind::Defer)?,
+                )
+            }
+            "review.deny" => {
+                let input: ReviewResolveInput = decode_input(request)?;
+                encode_result(
+                    "review_deny",
+                    resolve_review_action(&store, &auth, input, ReviewActionKind::Deny)?,
+                )
+            }
             "events.subscribe" | "events.resume" => Ok(json!({
                 "transport": "tauri-event-bridge",
                 "stream_state": "subscribed",
@@ -329,6 +1573,245 @@ fn input_case_ref(request: &OperationRequest) -> Result<&str, String> {
 fn decode_input<T: for<'de> Deserialize<'de>>(request: &OperationRequest) -> Result<T, String> {
     serde_json::from_value(request.input.clone())
         .map_err(|error| format!("operation_input_invalid:{error}"))
+}
+
+fn encode_result<T: Serialize>(label: &str, value: T) -> Result<Value, String> {
+    serde_json::to_value(value).map_err(|error| format!("{label}_encode:{error}"))
+}
+
+fn now_unix_ms() -> Result<u64, String> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|value| value.as_millis().min(u64::MAX as u128) as u64)
+        .map_err(|error| format!("system_clock_before_unix_epoch:{error}"))
+}
+
+fn canonical_id_component(value: &str) -> String {
+    value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, ':' | '-' | '_' | '.') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
+fn validate_identifier(label: &str, value: &str) -> Result<(), String> {
+    if value.trim().is_empty()
+        || !value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || "._:-".contains(character))
+    {
+        return Err(format!("{label}_identifier_invalid"));
+    }
+    Ok(())
+}
+
+fn review_for(state: &CaseState, review_ref: &str) -> Result<ReviewState, String> {
+    state
+        .reviews
+        .iter()
+        .find(|review| review.review_id == review_ref)
+        .cloned()
+        .ok_or_else(|| "review_not_found".to_string())
+}
+
+fn operation_for_review(
+    transitions: &[Transition],
+    review: &ReviewState,
+) -> Result<Operation, String> {
+    transitions
+        .iter()
+        .find_map(|transition| match &transition.payload {
+            TransitionPayload::OperationRecorded { operation }
+                if operation.operation_id == review.operation_id =>
+            {
+                Some(operation.clone())
+            }
+            _ => None,
+        })
+        .ok_or_else(|| "review_operation_transition_missing".to_string())
+}
+
+fn review_action_by_id(transitions: &[Transition], action_ref: &str) -> Option<ReviewAction> {
+    transitions
+        .iter()
+        .find_map(|transition| match &transition.payload {
+            TransitionPayload::ReviewActionRecorded { action }
+                if action.action_id == action_ref =>
+            {
+                Some(action.clone())
+            }
+            _ => None,
+        })
+}
+
+fn resolve_review_action(
+    store: &LmdbRecordStore,
+    auth: &AuthenticatedPrincipal,
+    input: ReviewResolveInput,
+    requested: ReviewActionKind,
+) -> Result<ReviewResolveResult, String> {
+    let initial = store.get_case_state_authorized(auth, &input.case_ref)?;
+    let tenant_id = initial
+        .tenant_id
+        .clone()
+        .ok_or_else(|| "legacy_review_is_compatibility_only".to_string())?;
+    if initial.lifecycle != CaseLifecycle::Open {
+        return Err("review_action_requires_open_case".to_string());
+    }
+    let principal_id = auth.projected_principal_id();
+    let reviewer = initial
+        .principal_participant_links
+        .iter()
+        .find(|link| {
+            link.principal_id == principal_id
+                && link.tenant_id == tenant_id
+                && input
+                    .participant_ref
+                    .as_deref()
+                    .is_none_or(|selected| link.participant_id == selected)
+        })
+        .map(|link| link.participant_id.clone())
+        .ok_or_else(|| "authenticated_principal_participant_link_required".to_string())?;
+    let initial_review = review_for(&initial, &input.review_ref)?;
+    if initial_review.schema != REVIEW_REQUEST_SCHEMA {
+        return Err("legacy_review_is_compatibility_only".to_string());
+    }
+    if store
+        .invalidate_review_if_policy_unusable(&input.case_ref, &input.review_ref)?
+        .is_some()
+    {
+        return Err("review_authority_invalidated".to_string());
+    }
+    let state = store.get_case_state_authorized(auth, &input.case_ref)?;
+    let review = review_for(&state, &input.review_ref)?;
+    if !reviewer_is_eligible(&state, &review, &reviewer) {
+        return Err("reviewer_not_eligible_for_case_review".to_string());
+    }
+    let normative = store.case_policy_status(&input.case_ref)?;
+    let effective = normative
+        .effective_policy
+        .as_ref()
+        .filter(|_| {
+            normative.readiness == NormativeReadiness::Ready
+                && normative.validity == PolicyValidityPosture::Valid
+        })
+        .ok_or_else(|| "review_policy_basis_stale".to_string())?;
+    if review.effective_policy_id != effective.effective_policy_id
+        || review.effective_policy_digest != effective.semantic_digest
+    {
+        return Err("review_policy_basis_stale".to_string());
+    }
+    let transitions = store.list_case_transitions(&input.case_ref)?;
+    if !matches!(
+        review.status,
+        ReviewResolution::Pending | ReviewResolution::Deferred
+    ) {
+        let same = matches!(
+            (&review.status, &requested),
+            (ReviewResolution::Approved, ReviewActionKind::Approve)
+                | (ReviewResolution::Denied, ReviewActionKind::Deny)
+        );
+        if !same {
+            return Err("review_already_resolved".to_string());
+        }
+        let action = review
+            .latest_action_id
+            .as_deref()
+            .and_then(|id| review_action_by_id(&transitions, id))
+            .ok_or_else(|| "review_action_missing".to_string())?;
+        return Ok(ReviewResolveResult {
+            review_ref: review.review_id,
+            action,
+            effective_decision_ref: review.effective_decision_id,
+            state,
+            external_effect: false,
+        });
+    }
+    if review.status == ReviewResolution::Deferred {
+        if let Some(existing) = review
+            .latest_action_id
+            .as_deref()
+            .and_then(|id| review_action_by_id(&transitions, id))
+        {
+            let reason = input
+                .reason
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            if existing.action == requested
+                && existing.reviewer_participant_id == reviewer
+                && existing.reason == reason
+            {
+                return Ok(ReviewResolveResult {
+                    review_ref: review.review_id,
+                    action: existing,
+                    effective_decision_ref: review.effective_decision_id,
+                    state,
+                    external_effect: false,
+                });
+            }
+        }
+    }
+    let action = build_authenticated_review_action(
+        &review,
+        &input.case_ref,
+        &tenant_id,
+        &principal_id,
+        &reviewer,
+        requested.clone(),
+        &input.reason,
+        state.generation,
+        "kernel_authenticated_principal_participant_link",
+    )?;
+    let mut pending = PendingTransition::new(
+        format!("transition:{}", action.action_id),
+        &input.case_ref,
+        state.generation,
+        TransitionSource {
+            component: "yai.application.review".to_string(),
+            participant_id: Some(reviewer),
+            principal_id: Some(principal_id),
+            source_ref: Some(action.action_id.clone()),
+        },
+        TransitionPayload::ReviewActionRecorded {
+            action: action.clone(),
+        },
+    );
+    pending.causal_refs = vec![action.review_id.clone(), action.operation_id.clone()];
+    let after_action = store
+        .commit_secured_transition(auth, &tenant_id, pending, false)?
+        .state;
+    let (effective_decision_ref, final_state) = if requested == ReviewActionKind::Defer {
+        (None, after_action)
+    } else {
+        let current_review = review_for(&after_action, &input.review_ref)?;
+        let operation = operation_for_review(&transitions, &current_review)?;
+        let (decision, commit) = store.derive_and_commit_policy_review_decision(
+            &input.case_ref,
+            &operation.operation_id,
+            &current_review.review_id,
+            &action.action_id,
+        )?;
+        if !matches!(
+            decision.outcome,
+            DecisionOutcome::Allow | DecisionOutcome::Deny
+        ) {
+            return Err("review_effective_decision_invalid".to_string());
+        }
+        (Some(decision.decision_id), commit.state)
+    };
+    Ok(ReviewResolveResult {
+        review_ref: input.review_ref,
+        action,
+        effective_decision_ref,
+        state: final_state,
+        external_effect: false,
+    })
 }
 
 fn material_read(
@@ -1118,6 +2601,87 @@ mod tests {
             capability.disposition != capabilities::CapabilityDisposition::InternalMechanic
                 || (capability.parent_capability_id.is_some() && capability.rationale.is_some())
         }));
+    }
+
+    #[test]
+    fn product_application_debt_is_exact_and_contract_blocked() {
+        use capabilities::{ApplicationPosture, CapabilityDisposition};
+
+        let product = capabilities::CAPABILITIES
+            .iter()
+            .filter(|capability| {
+                matches!(
+                    capability.disposition,
+                    CapabilityDisposition::ProductRead | CapabilityDisposition::ProductAction
+                )
+            })
+            .collect::<Vec<_>>();
+        let ready = product
+            .iter()
+            .filter(|capability| capability.application_posture == ApplicationPosture::Ready)
+            .count();
+        let deferred = product
+            .iter()
+            .filter(|capability| capability.application_posture == ApplicationPosture::Deferred)
+            .count();
+        assert_eq!(product.len(), 32);
+        assert_eq!(ready, 26);
+        assert_eq!(deferred, 5);
+        assert_eq!(capabilities::APPLICATION_BLOCKERS.len(), deferred);
+        assert!(capabilities::APPLICATION_BLOCKERS.iter().all(|blocker| {
+            !blocker.missing_contract.contains("wrapper")
+                && !blocker.missing_contract.contains("CLI owner")
+                && !blocker.missing_contract.trim().is_empty()
+        }));
+    }
+
+    #[test]
+    fn public_application_inputs_are_bidirectionally_typed() {
+        fn typed<T: Serialize + for<'de> Deserialize<'de>>() {}
+
+        typed::<CaseCapabilitiesInput>();
+        typed::<DecisionFrontierPrepareInput>();
+        typed::<DecisionRequestPrepareInput>();
+        typed::<RecallExecuteInput>();
+        typed::<WorkingStateCompileInput>();
+        typed::<WorkingStateRefreshInput>();
+        typed::<WorkingStatePageInput>();
+        typed::<AmbientRefreshAssessInput>();
+        typed::<IdentityBootstrapInput>();
+        typed::<TenantGetInput>();
+        typed::<TenantMemberAddInput>();
+        typed::<CaseCreateInput>();
+        typed::<CaseTerminalInput>();
+        typed::<WorkflowDefineInput>();
+        typed::<WorkflowBindInput>();
+        typed::<WorkflowInputRecordInput>();
+        typed::<WorkflowPatchProposeInput>();
+        typed::<WorkflowPatchAdoptInput>();
+        typed::<HandoffOfferInput>();
+        typed::<HandoffAcceptInput>();
+        typed::<HandoffDeclineInput>();
+        typed::<HandoffResultInput>();
+        typed::<HandoffReconcileInput>();
+        typed::<PolicyIngestInput>();
+        typed::<PolicyArtifactLifecycleInput>();
+        typed::<CasePolicyBindInput>();
+        typed::<CasePolicyReplaceInput>();
+        typed::<CasePolicyUnbindInput>();
+        typed::<ReviewResolveInput>();
+        typed::<ParticipantRoleAddInput>();
+        typed::<ParticipantPrincipalLinkInput>();
+        typed::<ParticipantViewAdmitInput>();
+        typed::<ProviderRegisterInput>();
+        typed::<ProviderQualifyInput>();
+        typed::<ProviderTrustInput>();
+        typed::<ProviderCaseBindInput>();
+        typed::<CognitiveBindInput>();
+        typed::<CognitiveTargetReference>();
+        typed::<CognitivePlanInput>();
+        typed::<ResourceAttachInput>();
+        typed::<SourceDeclareInput>();
+        typed::<SourcePublishInput>();
+        typed::<SourceRevokeInput>();
     }
 
     #[test]

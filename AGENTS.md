@@ -103,6 +103,11 @@ not authority: client discovery never bypasses Principal, Participant, Policy,
 review/Grant, Resource, disclosure or effect-time admission. Update the
 authoritative catalog first and regenerate its human matrix; do not create a
 second prose registry or expose an internal helper merely to manufacture parity.
+An executable PRODUCT capability may remain Application-deferred only with a
+code-owned, test-enforced blocker naming the genuinely missing semantic
+contract. CLI ownership, wrapper/refactor effort, absent Studio UI or historical
+placement are never blocker classes. Partial typed operations must remain listed
+without promoting the whole family to Ready.
 
 ## Wave discipline
 

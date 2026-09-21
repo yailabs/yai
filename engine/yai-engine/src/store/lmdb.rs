@@ -259,7 +259,7 @@ pub struct LmdbRecordStore {
     schema_meta: Database,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
 pub struct SecurityBootstrapOutcome {
     pub principal: SecurityPrincipal,
     pub tenant: Tenant,
@@ -268,7 +268,7 @@ pub struct SecurityBootstrapOutcome {
     pub created: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
 pub struct PrincipalTenantRelation {
     pub tenant: Tenant,
     pub membership: TenantMembershipKind,
@@ -584,13 +584,13 @@ pub struct RuntimeWorkSubmissionOutcome {
     pub created: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
 pub struct CanonicalCommit {
     pub transition: Transition,
     pub state: CaseState,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
 pub struct CaseCancellationOutcome {
     pub changed: bool,
     pub commits: Vec<CanonicalCommit>,
@@ -599,7 +599,7 @@ pub struct CaseCancellationOutcome {
     pub abandoned_grants: usize,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
 pub struct CaseClosureOutcome {
     pub changed: bool,
     pub commit: Option<CanonicalCommit>,
@@ -612,7 +612,7 @@ pub enum PreparedCommitOutcome {
     GrantInvalidated(CanonicalCommit),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize)]
 pub struct CasePolicyMutationOutcome {
     pub changed: bool,
     pub commit: Option<CanonicalCommit>,

@@ -139,3 +139,128 @@ fn lists_attaches_and_projects_one_real_case_without_fixtures() {
     assert_eq!(stale.result_state, yai_application::ResultState::Stale);
     fs::remove_dir_all(home).unwrap();
 }
+
+#[test]
+fn typed_product_operations_bootstrap_and_mutate_without_cli() {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let home = PathBuf::from(format!("/tmp/yai-application-parity-{stamp}"));
+    fs::create_dir_all(&home).unwrap();
+    let app = LocalApplication::from_yai_home(&home);
+
+    let bootstrap = app.call(request(
+        "identity.bootstrap",
+        json!({
+            "tenant_id": "tenant:application-parity",
+            "organization_ref": "organization:application-parity"
+        }),
+    ));
+    assert_eq!(
+        bootstrap.result_state,
+        yai_application::ResultState::Success
+    );
+
+    let identity = app.call(request("identity.current", json!({})));
+    assert_eq!(identity.result_state, yai_application::ResultState::Success);
+    assert_eq!(
+        identity.data.as_ref().unwrap()["tenants"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let created = app.call(request(
+        "case.create",
+        json!({
+            "tenant_id": "tenant:application-parity",
+            "case_ref": "case:application-parity"
+        }),
+    ));
+    assert_eq!(created.result_state, yai_application::ResultState::Success);
+
+    let role = app.call(request(
+        "participant.role.add",
+        json!({
+            "case_ref": "case:application-parity",
+            "participant_ref": "participant:operator",
+            "role": "operator"
+        }),
+    ));
+    assert_eq!(role.result_state, yai_application::ResultState::Success);
+
+    let linked = app.call(request(
+        "participant.principal.link",
+        json!({
+            "case_ref": "case:application-parity",
+            "participant_ref": "participant:operator",
+            "principal_ref": "self"
+        }),
+    ));
+    assert_eq!(linked.result_state, yai_application::ResultState::Success);
+
+    let admitted = app.call(request(
+        "participant.view.admit",
+        json!({
+            "case_ref": "case:application-parity",
+            "participant_ref": "participant:operator",
+            "consumer": "model",
+            "view_kind": "model_context"
+        }),
+    ));
+    assert_eq!(admitted.result_state, yai_application::ResultState::Success);
+
+    let opened = app.call(request(
+        "case.open",
+        json!({ "case_ref": "case:application-parity" }),
+    ));
+    assert_eq!(opened.result_state, yai_application::ResultState::Success);
+    assert_eq!(
+        opened.data.as_ref().unwrap()["participant_ref"],
+        "participant:operator"
+    );
+
+    let malformed = app.call(request(
+        "participant.role.add",
+        json!({
+            "case_ref": "case:application-parity",
+            "participant_ref": "participant:operator",
+            "role": "not a role"
+        }),
+    ));
+    assert_ne!(
+        malformed.result_state,
+        yai_application::ResultState::Success
+    );
+
+    let cancelled = app.call(request(
+        "case.cancel",
+        json!({
+            "case_ref": "case:application-parity",
+            "reason": "bounded application parity test"
+        }),
+    ));
+    assert_eq!(
+        cancelled.result_state,
+        yai_application::ResultState::Success
+    );
+    let cancelled_generation = cancelled.data.as_ref().unwrap()["state"]["generation"]
+        .as_u64()
+        .unwrap();
+    assert!(cancelled.data.as_ref().unwrap()["state"]["cancellation"].is_object());
+
+    drop(app);
+    let reopened = LocalApplication::from_yai_home(&home);
+    let snapshot = reopened.call(request(
+        "case.summary",
+        json!({ "case_ref": "case:application-parity" }),
+    ));
+    assert_eq!(snapshot.result_state, yai_application::ResultState::Success);
+    assert_eq!(
+        snapshot.data.as_ref().unwrap()["case"]["generation"],
+        cancelled_generation
+    );
+    fs::remove_dir_all(home).unwrap();
+}

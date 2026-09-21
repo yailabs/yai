@@ -69,6 +69,13 @@ not added UI in this wave: catalog entries marked `application_ready` are typed
 inputs for future contributions, while `ui_already_consumed`, `ui_target` and
 `not_ui_relevant` keep presentation status explicit without making React a
 semantic owner. See the generated [capability matrix](reference/application-capabilities.md).
+The catalog currently exposes 61 typed operations across 26 Application-ready
+families. Five PRODUCT families retain machine-readable blockers rather than
+fake buttons or generic command passthrough: RuntimeInstance supervision for
+Case run/resume/stop, and a disconnect-safe execution submission/result contract
+for Conversation, controlled effects, cognitive realization and governed source
+acquisition. Studio may consume the partial operations listed for those families,
+but it must not present the blocked execution stage as available.
 
 ### TARGET — one YAI product, many client surfaces
 

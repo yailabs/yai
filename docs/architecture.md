@@ -218,9 +218,14 @@ complete, stable frontend-independent Application API:
 The [application/client target](../ROADMAP.md#application-and-client-boundary--adopted-target)
 requires native CLI and Studio to converge on one typed YAI application meaning.
 [`application/yai-application`](../application/yai-application/src/lib.rs) is now a
-bounded read foothold: it authenticates the local principal and composes
-versioned Case list/open/summary projections plus generation invalidation from
-existing authorized engine owners. `material.read` reuses
+bounded typed product facade: it authenticates the local principal and composes
+versioned reads, derived computations, proposals and canonical mutations from
+existing authorized engine owners. In addition to Case list/open/summary and
+generation invalidation, it exposes identity/Tenant bootstrap and inspection,
+Case create/cancel/close, Participant administration, Policy and Review,
+Workflow/Handoff, provider governance, Resource attachment, Recall/W/paging/
+refresh, source declare/publish/revoke and cognitive bind/plan operations.
+`material.read` reuses
 `LmdbRecordStore::resolve_case_source_authorized`: it requires an acquired
 Source, re-evaluates the current permission, resolves the requested exact
 revision from immutable retained backing, verifies digest and byte length, then
@@ -248,10 +253,15 @@ maps product commands mechanically to catalog capability identities, and
 `yai capabilities --json` plus the Case/Decision commands consume the same
 Application meaning rather than parsing another command's output.
 
-The catalog also records application-deferred CLI-owned actions explicitly.
-That makes surface debt visible without pretending mutation parity: CLI/store
-coupling recorded above remains, so this is neither a complete shared application
-API nor an exported/public Interfaces package. Historical `yai-dev` capability
+The catalog also records five current PRODUCT families with exact, machine-readable
+semantic blockers. Case run/resume/stop needs resident RuntimeInstance supervision;
+provider/resource execution paths need disconnect-safe submission, exact execution
+identity and reconnect-safe result observation before a Host client can retry or
+claim completion. Partial operations remain usable for Case lifecycle, cognitive
+binding/planning and source declare/publish/revoke. These are not missing-wrapper
+exemptions: validation rejects a deferred PRODUCT family without one of the exact
+blocker records. The result is neither complete execution parity nor an exported/
+public Interfaces package. Historical `yai-dev` capability
 registries/bundles/routing were re-inspected at `dda93ee3a`; only stable discovery,
 exact identity and refusal/parity principles were recovered. Their independent
 runtime registry, Agent/plan bundles and duplicated semantic owners remain
@@ -1555,7 +1565,7 @@ participates.
 | Surface | Executable role | Classification |
 |---|---|---|
 | `cmd/yai/src/main.rs` | small process entrypoint calling the native CLI | product bootstrap, not an application API |
-| `application/yai-application` | bounded authenticated Case list/open/summary projection and generation invalidation over existing engine owners | no persistence, Case, policy, workflow, graph or provider semantic ownership; not yet a stable public API |
+| `application/yai-application` | typed authenticated product operations over existing identity, Case, Participant, Policy/Review, Workflow/Handoff, Resource/source, provider, Recall/W and decision owners | no persistence or semantic ownership; execution-lifecycle blockers remain explicit; not yet a stable public/remote API |
 | `cmd/yai/src/cli/` | command registry, parser, help, product dispatch and output projection | native product frontend; some current orchestration remains CLI/store-coupled |
 | `cmd/yai/src/command_adapters.rs` | adapt CLI operation IDs to existing handlers | command compatibility seam, not a second domain or public interface registry |
 | `cmd/yai/src/conversation_controller.rs` | host-independent commit, thread projection, retry/cancellation posture, and ordinary conversation execution over shared semantic/provider boundaries | native REPLAI consumer and host-independent typed actions; no terminal, Case, provider, or content owner |
@@ -1604,7 +1614,7 @@ from one checkout.
 | distinct ProviderResult, Observation, EffectReceipt | separate Rust types and canonical roles for filesystem/process/MCP effects and bounded resource reads; compatibility export retains old receipt-shaped rows | future resource families require their own truthful result and reconciliation contract |
 | Case plus materialized CaseState | implemented and replayable for provider/review/resource/operation/grant/effect refs and exact policy bindings | extend only for demonstrated future consumers; migrate daemon hot/fixture state only if it becomes canonical input |
 | summary is presentation only | canonical reducers and migrated paths do not parse it; old projection/frame and analytics records use the compatibility decoder | migrate or retire remaining legacy-only producers and views |
-| frontends consume one application meaning | bounded `yai-application` read projections now feed native Studio through a local Tauri bridge; controller/review actions and CLI/store adaptation remain separate | converge more native CLI/actions, then qualify standalone/public interface export and general events; no CLI-output parsing or independent semantic registry |
+| frontends consume one application meaning | 61 stable operations cover 26 current capability families through `yai-application`; native Studio consumes the resident Host bridge, and the catalog identifies five exact execution-lifecycle blockers | qualify disconnect-safe execution submission/observation and RuntimeInstance supervision, then standalone/public interface export and general events; no CLI-output parsing or independent semantic registry |
 | Projection/Residency/ContextFrame/KV separation | typed Projection, pure `yai.residency_plan.v1`, independent ContextFrame and distinct render identity are implemented; opaque continuation is optional and tokens/KV are absent from canonical state | semantic units and rendered-size estimation are conservative rather than tokenizer-authoritative; no ContextDelta consumer |
 | provenance-bound memory | OperationalMemory remains derived; W19/H19 source-revalidate qualified BM25/exact-cosine retrieval; W20 adds Episodes, evidence-bound assertions and recorded-result consolidation rebuild through multi-family RetrievalSet v3 | ANN/learned reranking remain deferred; W20 generation-based retrieval retention is not universal deletion/privacy policy or general semantic paging |
 | agentless long-horizon execution | synchronous Case runner repeatedly consumes canonical reality, derived memory/residency and the controlled effect boundary with explicit budgets/stops, typed human pause/resume, LMDB run admission and restart tests | generalized operation families, distributed admission and daemon scheduling are absent |

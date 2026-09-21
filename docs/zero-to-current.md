@@ -118,6 +118,27 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    The first result is static product metadata and must expose no Case/source/
    Resource identities. The second is current Case-specific derived posture,
    not authority to execute an operation.
+
+   The catalog must report 61 stable Application operation descriptors, 26
+   Application-ready families and five exact deferred execution-lifecycle
+   blockers. The blocked families are `case.lifecycle`,
+   `cognitive.bindings_and_realization`, `conversation.execution`,
+   `effect.controlled_execution` and `source.lifecycle`; safe partial operations
+   remain listed, and no wrapper/UI/CLI-placement rationale is accepted as a
+   blocker. Qualify the frontend-independent mutation path independently of the
+   CLI presentation:
+
+   ```sh
+   cargo test --manifest-path application/Cargo.toml -p yai-application \
+     --locked --test live_local_case \
+     typed_product_operations_bootstrap_and_mutate_without_cli
+   ```
+
+   This bounded flow must bootstrap a local identity/Tenant, create and open a
+   Case, establish the first Participant under Tenant-owner authority, mutate
+   Participant views/roles, reject malformed typed input, cancel the Case and
+   prove durable state after reopening. It must invoke neither CLI handlers nor
+   parse CLI output.
 4. Inspect Memory Timeline/Graph, Authority, Work and Compute. Graph selection
    changes Inspector only. Exercise pan, zoom, fit, drag, search/filter and both
    relational and directed layouts where data exists. Conversation contains only
