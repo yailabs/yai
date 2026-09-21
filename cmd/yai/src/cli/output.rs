@@ -210,6 +210,8 @@ impl CliError {
 struct SuccessEnvelope<'a> {
     schema: &'static str,
     operation_id: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    capability_id: Option<&'static str>,
     status: &'static str,
     data: &'a CliData,
 }
@@ -218,6 +220,8 @@ struct SuccessEnvelope<'a> {
 struct ErrorEnvelope<'a> {
     schema: &'static str,
     operation_id: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    capability_id: Option<&'static str>,
     status: &'static str,
     #[serde(flatten)]
     error: &'a CliError,
@@ -231,6 +235,7 @@ pub(crate) fn render_result(operation_id: &str, json: bool, data: CliData) {
         let envelope = SuccessEnvelope {
             schema: "yai.cli.result.v1",
             operation_id,
+            capability_id: super::registry::product_capability_id(operation_id),
             status: "ok",
             data: &data,
         };
@@ -248,6 +253,7 @@ pub(crate) fn render_error(operation_id: Option<&str>, json: bool, error: CliErr
         let envelope = ErrorEnvelope {
             schema: "yai.cli.error.v1",
             operation_id,
+            capability_id: operation_id.and_then(super::registry::product_capability_id),
             status: "error",
             error: &error,
         };

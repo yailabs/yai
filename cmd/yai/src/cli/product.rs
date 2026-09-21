@@ -8,6 +8,7 @@ use std::os::unix::fs::PermissionsExt;
 
 use yai_core_engine::security::AuthenticatedPrincipal;
 use yai_core_engine::store::lmdb::{LmdbRecordStore, RecordStoreStatusKind};
+use yai_application::{LocalApplication, OperationRequest, ResultState, APPLICATION_PROTOCOL};
 
 use super::output::{
     CaseView, CliData, CliError, Field, ParticipantView, ProviderBindingView, ProviderView,
@@ -18,6 +19,10 @@ use super::registry::{registry_digest, Visibility, REGISTRY_SCHEMA};
 
 pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
     match invocation.descriptor.operation_id {
+        "yai.application.capabilities" => application_operation(
+            "application.capabilities",
+            serde_json::json!({}),
+        ),
         "yai.meta.version" => version(),
         "yai.meta.completion" => completion(invocation),
         "yai.doctor" => doctor(),
@@ -47,23 +52,18 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
             Ok(CliData::AlreadyRendered)
         }
         "yai.case.capabilities" => {
-            let case = load_case(invocation)?;
-            let authenticated = AuthenticatedPrincipal::authenticate_local()
-                .map_err(|e| domain_error("authentication_failed", e))?;
-            let value = open_store()?
-                .case_capability_view_authorized(
-                    &authenticated,
-                    &case.case_id,
-                    invocation
-                        .flag("--participant")
+            application_operation(
+                "case.capabilities",
+                serde_json::json!({
+                    "case_ref": invocation.positional("case")
+                        .ok_or_else(|| CliError::usage("Case is required"))?,
+                    "participant_ref": invocation.flag("--participant")
                         .ok_or_else(|| CliError::usage("--participant is required"))?,
-                )
-                .map_err(|e| domain_error("capability_view_unavailable", e))?;
-            Ok(CliData::NativeJson {
-                value: serde_json::to_value(value)
-                    .map_err(|e| domain_error("capability_view_encoding", e.to_string()))?,
-            })
+                }),
+            )
         }
+        "yai.case.cognitive.frontier" => decision_frontier(invocation),
+        "yai.case.cognitive.decision_request" => decision_request(invocation),
         operation_id @ ("yai.case.resource.import" | "yai.case.resource.request") => {
             crate::command_adapters::resource_application_command(
                 operation_id,
@@ -111,6 +111,80 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
             Ok(CliData::AlreadyRendered)
         }
     }
+}
+
+fn application_operation(operation_ref: &str, input: serde_json::Value) -> Result<CliData, CliError> {
+    let result = LocalApplication::from_yai_home(yai_home()).call(OperationRequest {
+        protocol: APPLICATION_PROTOCOL.to_string(),
+        operation_ref: operation_ref.to_string(),
+        correlation_ref: format!("cli:{operation_ref}:{}", std::process::id()),
+        input,
+    });
+    if result.result_state == ResultState::Success {
+        return Ok(CliData::NativeJson { value: result.data.unwrap_or(serde_json::Value::Null) });
+    }
+    let detail = result.error
+        .map(|error| format!("{}: {}", error.code, error.safe_message))
+        .unwrap_or_else(|| format!("application operation returned {:?}", result.result_state));
+    Err(domain_error("application_operation_failed", detail))
+}
+
+fn decision_frontier(invocation: &Invocation) -> Result<CliData, CliError> {
+    let working = working_state_file(invocation)?;
+    let case_ref = invocation.positional("case").ok_or_else(|| CliError::usage("Case is required"))?;
+    if working.case_id() != case_ref {
+        return Err(CliError::usage("working state and Case do not match"));
+    }
+    let max_candidates = invocation.flag("--max-candidates")
+        .map(str::parse::<usize>).transpose()
+        .map_err(|_| CliError::usage("--max-candidates must be an integer"))?
+        .unwrap_or(8);
+    application_operation("decision.frontier.prepare", serde_json::json!({
+        "working_state": working,
+        "max_candidates": max_candidates,
+    }))
+}
+
+fn decision_request(invocation: &Invocation) -> Result<CliData, CliError> {
+    let working = working_state_file(invocation)?;
+    let case_ref = invocation.positional("case").ok_or_else(|| CliError::usage("Case is required"))?;
+    if working.case_id() != case_ref {
+        return Err(CliError::usage("working state and Case do not match"));
+    }
+    let frontier_path = invocation.flag("--frontier-file")
+        .ok_or_else(|| CliError::usage("--frontier-file is required"))?;
+    let frontier_bytes = fs::read(frontier_path)
+        .map_err(|error| domain_error("frontier_file_unavailable", error.to_string()))?;
+    if frontier_bytes.len() > 4 * 1024 * 1024 {
+        return Err(CliError::usage("frontier JSON exceeds 4 MiB"));
+    }
+    let frontier_value: serde_json::Value = serde_json::from_slice(&frontier_bytes)
+        .map_err(|error| domain_error("frontier_file_invalid", error.to_string()))?;
+    let frontier = frontier_value.pointer("/data/value/frontier")
+        .or_else(|| frontier_value.get("frontier"))
+        .unwrap_or(&frontier_value).clone();
+    let max_candidates = frontier.pointer("/request/max_candidates")
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| domain_error("frontier_file_invalid", "frontier request bound missing"))?;
+    let max_result_bytes = invocation.flag("--max-result-bytes")
+        .map(str::parse::<usize>).transpose()
+        .map_err(|_| CliError::usage("--max-result-bytes must be an integer"))?
+        .unwrap_or(65_536);
+    let max_compute_millis = invocation.flag("--max-compute-ms")
+        .map(str::parse::<u64>).transpose()
+        .map_err(|_| CliError::usage("--max-compute-ms must be an integer"))?
+        .unwrap_or(5_000);
+    application_operation("decision.request.prepare", serde_json::json!({
+        "working_state": working,
+        "frontier": frontier,
+        "decision_kind": invocation.flag("--decision-kind")
+            .ok_or_else(|| CliError::usage("--decision-kind is required"))?,
+        "budget": {
+            "max_candidates": max_candidates,
+            "max_result_bytes": max_result_bytes,
+            "max_compute_millis": max_compute_millis,
+        },
+    }))
 }
 
 fn version() -> Result<CliData, CliError> {

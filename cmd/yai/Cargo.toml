@@ -12,6 +12,7 @@ replai = { git = "https://github.com/mothx9/replai", rev = "6230713c3c80140e609f
 signal-hook = "0.3.18"
 libc = "0.2"
 yai-engine = { path = "../../engine/yai-engine" }
+yai-application = { path = "../../application/yai-application" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rustls = "0.23"

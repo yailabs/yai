@@ -1757,6 +1757,16 @@ dependencies = [
  "serde_json",
  "signal-hook",
  "webpki-roots",
+ "yai-application",
+ "yai-engine",
+]
+
+[[package]]
+name = "yai-application"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
  "yai-engine",
 ]
 

@@ -850,6 +850,11 @@ smoke-cognitive-decision-hot-path: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/cognitive-decision-hot-path/test_hot_path.py
 
+.PHONY: smoke-application-capability-surface
+smoke-application-capability-surface: build-rust
+	@python3 tools/validation/topology.py label --entry $@
+	@python3 tests/characterization/application-capability-surface/test_surface.py --binary ./yai
+
 smoke-case-source-bootstrap: build-rust
 	@python3 tools/validation/topology.py label --entry $@
 	@python3 tests/characterization/case-source-bootstrap/test_bootstrap.py

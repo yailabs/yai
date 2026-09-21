@@ -4,14 +4,20 @@
 //! provider governance. This crate authenticates a local caller and composes
 //! bounded, redacted product views from those owners. It owns no persistence.
 
+pub mod capabilities;
+
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
+use yai_core_engine::cognitive::{
+    CognitiveDecisionBudget, CognitiveDecisionFrontier, CognitiveDecisionFrontierRequest,
+};
 use yai_core_engine::conversation::{turns_from_history, ConversationContentStore};
 use yai_core_engine::effect::access::ResourceAction;
 use yai_core_engine::memory_hierarchy::knowledge::KnowledgeRequest;
 use yai_core_engine::security::AuthenticatedPrincipal;
+use yai_core_engine::semantic_state::SemanticWorkingState;
 use yai_core_engine::store::lmdb::LmdbRecordStore;
 use yai_core_engine::transition::{CaseLifecycle, CaseState, ReviewResolution, Transition};
 
@@ -57,6 +63,29 @@ pub struct OperationResult {
     pub data: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<OperationError>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaseCapabilitiesInput {
+    pub case_ref: String,
+    pub participant_ref: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionFrontierPrepareInput {
+    pub working_state: SemanticWorkingState,
+    pub max_candidates: usize,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionRequestPrepareInput {
+    pub working_state: SemanticWorkingState,
+    pub frontier: CognitiveDecisionFrontier,
+    pub decision_kind: String,
+    pub budget: CognitiveDecisionBudget,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -147,20 +176,17 @@ impl LocalApplication {
     }
 
     fn call_inner(&self, request: &OperationRequest) -> Result<Value, String> {
-        if !matches!(
-            request.operation_ref.as_str(),
-            "system.status"
-                | "runtime.readiness"
-                | "case.list"
-                | "case.recent"
-                | "case.open"
-                | "case.summary"
-                | "material.read"
-                | "events.subscribe"
-                | "events.resume"
-                | "events.heartbeat"
-        ) {
+        if !capabilities::APPLICATION_OPERATIONS
+            .iter()
+            .any(|operation| operation.operation_id == request.operation_ref)
+        {
             return Err("operation_not_implemented".to_string());
+        }
+        if request.operation_ref == "application.capabilities" {
+            AuthenticatedPrincipal::authenticate_local()?;
+            capabilities::validate_capability_catalog()?;
+            return serde_json::to_value(capabilities::capability_catalog())
+                .map_err(|error| format!("application_capabilities_encode:{error}"));
         }
         let (store, auth) = self.open()?;
         match request.operation_ref.as_str() {
@@ -176,6 +202,16 @@ impl LocalApplication {
             "case.open" => {
                 let case_ref = input_case_ref(request)?;
                 case_open(&store, &auth, case_ref)
+            }
+            "case.capabilities" => {
+                let input: CaseCapabilitiesInput = decode_input(request)?;
+                let view = store.case_capability_view_authorized(
+                    &auth,
+                    &input.case_ref,
+                    &input.participant_ref,
+                )?;
+                serde_json::to_value(view)
+                    .map_err(|error| format!("case_capabilities_encode:{error}"))
             }
             "case.summary" => {
                 let case_ref = input_case_ref(request)?;
@@ -214,6 +250,36 @@ impl LocalApplication {
                         .get("expected_generation")
                         .and_then(Value::as_u64),
                 )
+            }
+            "decision.frontier.prepare" => {
+                let input: DecisionFrontierPrepareInput = decode_input(request)?;
+                let frontier_request = CognitiveDecisionFrontierRequest::new(
+                    &input.working_state,
+                    input.max_candidates,
+                )?;
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                let qualification = store.derive_cognitive_decision_frontier_authorized(
+                    &auth,
+                    &input.working_state,
+                    frontier_request,
+                    content.as_ref(),
+                )?;
+                serde_json::to_value(qualification)
+                    .map_err(|error| format!("decision_frontier_encode:{error}"))
+            }
+            "decision.request.prepare" => {
+                let input: DecisionRequestPrepareInput = decode_input(request)?;
+                let content = ConversationContentStore::open_existing(&self.home_path).ok();
+                let prepared = store.prepare_cognitive_decision_request_from_frontier_authorized(
+                    &auth,
+                    &input.working_state,
+                    &input.frontier,
+                    input.decision_kind,
+                    input.budget,
+                    content.as_ref(),
+                )?;
+                serde_json::to_value(prepared)
+                    .map_err(|error| format!("decision_request_encode:{error}"))
             }
             "events.subscribe" | "events.resume" => Ok(json!({
                 "transport": "tauri-event-bridge",
@@ -258,6 +324,11 @@ fn input_case_ref(request: &OperationRequest) -> Result<&str, String> {
         .and_then(Value::as_str)
         .filter(|value| value.starts_with("case:"))
         .ok_or_else(|| "case_ref_invalid".to_string())
+}
+
+fn decode_input<T: for<'de> Deserialize<'de>>(request: &OperationRequest) -> Result<T, String> {
+    serde_json::from_value(request.input.clone())
+        .map_err(|error| format!("operation_input_invalid:{error}"))
 }
 
 fn material_read(
@@ -963,6 +1034,23 @@ mod tests {
     }
 
     #[test]
+    fn capability_discovery_needs_no_case_store_and_leaks_no_case_state() {
+        let app = LocalApplication::from_yai_home("/path/does/not/matter");
+        let result = app.call(OperationRequest {
+            protocol: APPLICATION_PROTOCOL.into(),
+            operation_ref: "application.capabilities".into(),
+            correlation_ref: "test:capabilities".into(),
+            input: json!({}),
+        });
+        assert_eq!(result.result_state, ResultState::Success);
+        let data = result.data.unwrap();
+        assert_eq!(data["schema"], capabilities::CAPABILITY_CATALOG_SCHEMA);
+        assert_eq!(data["capabilities"].as_array().unwrap().len(), 41);
+        assert!(data.get("cases").is_none());
+        assert!(data.get("resources").is_none());
+    }
+
+    #[test]
     fn version_mismatch_fails_before_store_access() {
         let app = LocalApplication::from_yai_home("/path/does/not/matter");
         let result = app.call(OperationRequest {
@@ -1017,6 +1105,26 @@ mod tests {
                 name: "documentation".into()
             }),
             "http_fetch"
+        );
+    }
+
+    #[test]
+    fn capability_catalog_is_deterministic_and_surface_complete() {
+        capabilities::validate_capability_catalog().unwrap();
+        let first = serde_json::to_vec(&capabilities::capability_catalog()).unwrap();
+        let second = serde_json::to_vec(&capabilities::capability_catalog()).unwrap();
+        assert_eq!(first, second);
+        assert!(capabilities::CAPABILITIES.iter().all(|capability| {
+            capability.disposition != capabilities::CapabilityDisposition::InternalMechanic
+                || (capability.parent_capability_id.is_some() && capability.rationale.is_some())
+        }));
+    }
+
+    #[test]
+    fn committed_capability_matrix_matches_the_code_owned_catalog() {
+        assert_eq!(
+            capabilities::render_capability_matrix(),
+            include_str!("../../../docs/reference/application-capabilities.md")
         );
     }
 }

@@ -58,6 +58,15 @@ CLI/store-coupled adapters. The current C `yaid` process is a separate narrow
 daemon for status/info/shutdown and compatibility behavior; it is not the
 complete application host.
 
+The same facade now exposes machine-readable `application.capabilities` metadata
+and a separate current `case.capabilities` view. The former describes stable
+product support, operation contracts, impact and client posture; the latter is
+Case/Participant-qualified Resource requestability and never a grant. Studio has
+not added UI in this wave: catalog entries marked `application_ready` are typed
+inputs for future contributions, while `ui_already_consumed`, `ui_target` and
+`not_ui_relevant` keep presentation status explicit without making React a
+semantic owner. See the generated [capability matrix](reference/application-capabilities.md).
+
 ### TARGET — one YAI product, many client surfaces
 
 YAI is one product with a resident local application host and multiple client

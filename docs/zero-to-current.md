@@ -78,6 +78,19 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    The returned digest, byte length, media type and content must match the
    authorized acquired revision. This is a read-only operation and must not
    change the Case generation.
+
+   Inspect the product-surface contract independently of any Case, then compare
+   current Case Resource requestability through the same Application meaning:
+
+   ```sh
+   ./yai capabilities --json
+   ./yai case capabilities case:studio-live-qualification \
+     --participant participant:operator --json
+   ```
+
+   The first result is static product metadata and must expose no Case/source/
+   Resource identities. The second is current Case-specific derived posture,
+   not authority to execute an operation.
 4. Inspect Memory Timeline/Graph, Authority, Work and Compute. Graph selection
    changes Inspector only. Exercise pan, zoom, fit, drag, search/filter and both
    relational and directed layouts where data exists. Conversation contains only

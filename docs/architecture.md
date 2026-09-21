@@ -233,8 +233,29 @@ owner to the authorized derivation; it does not reread repository paths or
 duplicate extraction. Case summaries preserve the canonical `case:` ref while
 supplying a deterministic human presentation label because no persistent Case
 display-name owner exists yet. It owns no persistence or Case semantics.
-CLI/store coupling recorded above remains, so this is neither a complete shared
-application API nor an exported/public Interfaces package.
+
+The code-owned [Application capability catalog](reference/application-capabilities.md)
+now classifies the bounded executable product inventory as product read/action,
+operator diagnostic, internal mechanic or target-only. Its stable operation
+descriptors are also the allow-list consumed by `LocalApplication`; machine
+clients discover them through `application.capabilities`, while the generated
+matrix is checked byte-for-byte against the catalog. `case.capabilities` remains
+a different derived security object: it requalifies current Participant/Policy/
+Resource requestability and grants no execution authority. The Decision Frontier
+and DecisionRequest are available as typed derived Application operations over
+an exact retained W; the hot-path preparation witness remains internal. The CLI
+maps product commands mechanically to catalog capability identities, and
+`yai capabilities --json` plus the Case/Decision commands consume the same
+Application meaning rather than parsing another command's output.
+
+The catalog also records application-deferred CLI-owned actions explicitly.
+That makes surface debt visible without pretending mutation parity: CLI/store
+coupling recorded above remains, so this is neither a complete shared application
+API nor an exported/public Interfaces package. Historical `yai-dev` capability
+registries/bundles/routing were re-inspected at `dda93ee3a`; only stable discovery,
+exact identity and refusal/parity principles were recovered. Their independent
+runtime registry, Agent/plan bundles and duplicated semantic owners remain
+rejected.
 
 [`studio/`](../studio/README.md) is an independent React/TypeScript/Vite Case
 Workbench with a thin Tauri 2 local bridge. Normal mode uses LiveClient and the

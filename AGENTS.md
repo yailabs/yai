@@ -85,6 +85,25 @@ not by reviving a separate recovery ledger.
 - Validate in proportion to risk and inspect the complete staged diff before
   committing.
 
+## Product capability surface discipline
+
+Every wave that adds or materially changes an executable capability must update
+the code-owned Application capability catalog or explicitly confirm that the
+existing entry remains exact. Wave closure must classify and report:
+
+- the engine/domain owner and stable capability identity;
+- the typed `yai-application` operation, or an explicit deferred/internal-only
+  reason and parent product capability;
+- CLI exposure or a concrete not-useful/deferred reason;
+- Studio/future-client posture without moving semantics into presentation;
+- diagnostic-only surfaces and retained product tests.
+
+No executable capability may remain surface-unclassified. Product metadata is
+not authority: client discovery never bypasses Principal, Participant, Policy,
+review/Grant, Resource, disclosure or effect-time admission. Update the
+authoritative catalog first and regenerate its human matrix; do not create a
+second prose registry or expose an internal helper merely to manufacture parity.
+
 ## Wave discipline
 
 A wave is not complete when its code merely works locally. Completion requires:

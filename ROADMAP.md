@@ -11,9 +11,9 @@ evidence, not competing status pages. Git owns chronology.
 | Question | Current answer |
 |---|---|
 | Project target | Model-independent Case continuity: one governed source environment, source-grounded domain knowledge, historical experience and current semantic state; qualified Recall and bounded working-state compilation toward context-compatible and model-native persistent execution. |
-| Selected engineering boundary | **COGNITIVE.DECISION.HOT.PATH.0 — COMPLETE at bounded model-free composition scope; next boundary UNSELECTED**. One operation-scoped LMDB snapshot now requalifies W and derives Frontier → DecisionRequest once; a separate full current-W fence remains after producer execution. No cache, authority token, adaptive router, production scorer or W → E ABI is selected. |
+| Selected engineering boundary | **APPLICATION.CAPABILITY.SURFACE.CONVERGENCE.0 — COMPLETE at bounded catalog/Application/CLI convergence scope; next boundary UNSELECTED**. Forty-one executable/derived/internal/target capability families now have an explicit code-owned disposition; fourteen stable Application operations are machine-discoverable, and CLI product operations are mechanically mapped to catalog meaning. Mutation parity, remote transport and Studio UI expansion remain open. |
 | Latest major completed product boundary | Golden governed Case lifecycle plus guided `init` → `open` → in-Case actions; subsequent catalog discovery, single `/connect` and separate model/system presentation are published. |
-| Most important structural gap | Bounded S/Recall → W, exact-group paging, refresh/ordinary consumers, Case-local source reuse and typed candidate-frontier/decision primitives now exist. There is no production decision producer, general next-action planner or adaptive cognitive router; general task sufficiency/source interpretation, cross-Tenant reuse, general causal inference/neighborhood expansion/temporal validity, all-owner refresh acknowledgement and a public W → E consumer remain unqualified. |
+| Most important structural gap | Bounded S/Recall → W, exact-group paging, refresh/ordinary consumers, Case-local source reuse, typed candidate-frontier/decision primitives and explicit product-surface classification now exist. Many canonical mutation/effect commands remain typed-domain/CLI owned rather than `yai-application` operations; there is no remote Application transport, production decision producer, adaptive cognitive router or public W → E consumer. |
 | Executable foundation | Transition v19 / CaseState v16; immutable owned content and source relations; authority/effects; I01–I06; Workflow/Handoff; derived access paths; native REPLAI; LMDB 37/40. |
 | Primary research boundary | Minimum Sufficient Cognition targets the least expensive qualified mechanism—deterministic logic, non-generative decision inference, generative reasoning, then human/review escalation—for each bounded step. A future YVEX Decision Readout/Core must provide real scoring/calibration evidence; adaptive routing, broader Recall/W sufficiency, Experiential State Read/Update and persistent deliberation remain open. |
 | Current compatibility path | Governed exact OpenAI-compatible context/text, bounded typed content/functions/JSON when mechanically qualified; optional opaque continuation, not a native state contract. |
@@ -594,7 +594,7 @@ ESTABLISHED=32 PARTIAL=31 OPEN=8 LATER=3 TOTAL=74
 |---|---|---|---|
 | X01 | Registry-backed native CLI plus short guided Case setup | 🟢 ESTABLISHED | [Guided CLI][guided]; handwritten YAI product CLI and exact automation retained, no global current-Case authority or silent trust. Generated reference clients do not replace `./yai` automatically. |
 | X02 | Native REPLAI Case workbench | 🟢 ESTABLISHED | [R4][replai], [R5][r5], [presentation][presentation]; real PTY and controller seams, no second terminal. |
-| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | A bounded `yai-application` Rust boundary now supplies authorized local Case list/open/summary projections, retained content-backed Knowledge and generation invalidation to native Studio. A persistent product Case qualifies semantic parity with CLI owners for Sources/revisions/files, Knowledge, policy and Workflow. CLI arguments, output capture and store-coupled orchestration still cross application/presentation boundaries; no complete stable public API, mutation parity, standalone listener, exported interface package, SDK or remote authentication qualification. |
+| X03 | Frontend-independent application/API consumption | 🟡 PARTIAL | The code-owned [`yai-application` capability catalog](docs/reference/application-capabilities.md) classifies 41 bounded product/read/action/diagnostic/internal/target families, exposes 14 stable operation descriptors through `application.capabilities`, separates static support from current `case.capabilities`, and makes Decision Frontier/Request preparation Application-ready. Product CLI operations mechanically map to catalog identities; catalog/CLI drift and internal-without-parent fail tests. Authorized local Case list/open/summary, exact material, Knowledge and generation invalidation remain consumed by Studio. Canonical mutation/effect families are explicitly application-deferred; no complete mutation parity, stable exported package, standalone listener, SDK or remote authentication qualification. |
 | X04 | YAI Studio / Case IDE | 🟡 PARTIAL | [Case Workbench specification](docs/studio.md) and [Studio progression](studio/ROADMAP.md), inside YAI. A bounded single-host local real-Case vertical now lists/attaches authorized Cases and presents real Overview/Environment/Knowledge/Memory/Authority/Work/Compute/Conversation facts or explicit missingness through LiveClient; `case:studio-live-qualification` is the persistent cross-surface product oracle and a real CLI Workflow mutation is observed through generation refetch. The desktop shell also owns a real local PTY while fixtures stay opt-in. This is not general product readiness, Studio mutation parity, multi-client mutation qualification, remote transport, Case-attached Open in Terminal or YVEX management. |
 
 ### Qualification
@@ -655,6 +655,12 @@ Letters are local shorthand, not the numbering of historical W/I/R waves.
 ### Application and client boundary — adopted target
 
 **YAI owns semantics and the typed application contract; clients consume it.**
+An executable capability is not complete from a product-engineering perspective
+until its engine owner, stable capability ID, Application posture, CLI posture,
+Studio posture, state impact and authority class are explicit in the code-owned
+catalog. `INTERNAL_MECHANIC` requires a parent product capability and rationale;
+`TARGET_ONLY` must never appear executable. Discovery metadata and a current
+Case capability view remain different: neither grants authority.
 `APPLICATION.CLIENT.BOUNDARY.0` aligns product/repository ownership, not a new
 unbounded public API. Exactly two privileged first-party
 product surface classes are in the current target: **native CLI** and **native
@@ -714,13 +720,17 @@ Importing CLI parser/formatting internals to reach domain behavior is likewise
 not the shared application boundary. SDK semantics must not be reconstructed
 from CLI syntax; both consume the YAI-owned operation meaning.
 
-**Current gap, not an implemented API:** ConversationController provides typed
-actions/results and bounded event facts; engine owners expose qualified Recall,
-historical, policy and resource contracts. However, some product orchestration
-still receives CLI argument vectors, accesses LMDB directly, returns generic JSON
-or prints output captured by another CLI layer. Even `--json` is not a complete
-stable frontend-independent application package. [Executable architecture](docs/architecture.md#current-applicationclient-seams-and-limit)
-records these seams; this alignment does not move them or change their behavior.
+**Current bounded API and remaining gap:** `yai-application` now owns stable
+operation descriptors and a deterministic capability catalog, with machine
+discovery, current Case requestability, existing Studio projections and typed
+Decision Frontier/Request preparation. ConversationController and other engine
+owners still expose additional typed actions/results and bounded event facts.
+Some product orchestration still receives CLI argument vectors, accesses LMDB
+directly, returns generic JSON or prints output captured by another CLI layer;
+those families are catalogued as explicit application-deferred debt. Even
+`--json` is not a complete stable frontend-independent package. [Executable
+architecture](docs/architecture.md#current-applicationclient-seams-and-limit)
+records the exact seams.
 
 #### One operation meaning, many interface projections
 
@@ -878,7 +888,9 @@ Independent external/provider qualification tracks remain visible below; they
 are not additional selected implementation rows. Success never automatically
 authorizes the next experiment.
 
-Selected implementation boundary: **COGNITIVE.DECISION.HOT.PATH.0 — COMPLETE at bounded model-free composition and measurement scope**.
+Selected implementation boundary: **APPLICATION.CAPABILITY.SURFACE.CONVERGENCE.0 — COMPLETE at bounded product-surface classification and Application/CLI convergence scope**.
+COGNITIVE.DECISION.HOT.PATH.0 remains COMPLETE at bounded model-free composition
+and measurement scope.
 COGNITIVE.DECISION.FRONTIER.0 remains COMPLETE at bounded model-independent
 typed-origin scope.
 COGNITIVE.DECISION.PLANE.0 remains COMPLETE at bounded model-independent
@@ -906,8 +918,16 @@ Next implementation boundary: **UNSELECTED**.
 <!-- execution:start -->
 | Boundary | Temporal state | Programs | Required after-state |
 |---|---|---|---|
-| COGNITIVE.DECISION.HOT.PATH.0 | COMPLETE | E C A Q W O | One operation-scoped current LMDB read basis requalifies W and constructs Frontier plus `CognitiveDecisionRequest v1` once. The full post-producer current-W fence remains separate and catches same-generation authority/source/backing change. The bounded fixture measures 12→2 read transactions, 6→2 Recall/W/source qualifications and 2→1 frontier-discovery passes for one complete model-free step; no cache, authority lease, model/provider call, Transition or effect is introduced. |
+| APPLICATION.CAPABILITY.SURFACE.CONVERGENCE.0 | COMPLETE | X A E C K M O W Q | One code-owned catalog classifies 41 bounded capability families and 14 executable typed Application operation identities. `application.capabilities` exposes deterministic product metadata without Case leakage; current `case.capabilities` remains separately authority-qualified. CLI product operations map mechanically to catalog capability IDs, and Decision Frontier/Request now have Application plus structured CLI surfaces while the Hot Path witness remains internal. Mutation/effect families left outside `yai-application` are explicit deferred debt, not hidden parity. |
 <!-- execution:end -->
+
+The retroactive bounded inventory contains 37 current executable/internal
+capabilities plus four target-only entries: 18 PRODUCT_READ, 13 PRODUCT_ACTION,
+three OPERATOR_DIAGNOSTIC, three INTERNAL_MECHANIC and four TARGET_ONLY.
+Application-ready families moved 11 → 15, CLI-exposed families 31 → 34 and
+Studio-consumable families 11 → 15. Remaining mutation/effect Application
+surfaces are explicitly deferred in the catalog with owner and reason; none is
+represented as a dummy operation.
 
 **Primary programs: E / C / A / Q, with K / S / M preserving canonical, semantic and derived identity semantics.**
 [CASE.SOURCE.BOOTSTRAP.0][source-bootstrap], [SOURCE.GROUNDED.KNOWLEDGE.0][knowledge]
@@ -992,6 +1012,15 @@ Legacy `yai-dev` active Decision snapshots were re-inspected and remain rejected
 as freshness witnesses: they classify durable canonical Decision lifecycle and
 explicitly do not persist, append receipts or mutate outcome. Their valid
 projection-versus-authority separation is preserved by the transient basis.
+
+**APPLICATION.CAPABILITY.SURFACE.CONVERGENCE.0 INTERLOCK CHECK:** the catalog is
+static YAI Application metadata over existing engine/domain owners. It creates
+no remote transport, shared producer contract, YVEX dependency, Decision scorer,
+StateProfile, W → E ABI, private BOUNDARY registration or new authority. The
+historical `yai-dev` capability registry/bundle/routing plane was re-inspected at
+`dda93ee3a`: stable identity, discovery and refusal/parity principles were
+recovered, while its Agent/plan bundle and runtime-registry ownership remains
+rejected. **I07 remains UNSELECTED**.
 
 The bounded semantic producer now has Recall-aware compilation, exact paging,
 same-task current requalification and a derived active-consumer lifecycle. No
@@ -1126,6 +1155,7 @@ RECALL.TRACE.0                         (published bounded primitive)
   → COGNITIVE.DECISION.PLANE.0          (completed bounded semantic primitive)
   → COGNITIVE.DECISION.FRONTIER.0       (completed bounded typed candidate construction)
   → COGNITIVE.DECISION.HOT.PATH.0       (completed bounded qualified composition)
+  → APPLICATION.CAPABILITY.SURFACE.CONVERGENCE.0 (completed bounded product-surface classification)
   → public YAI ↔ YVEX cognitive-state boundary (UNSELECTED; producer not ready)
   → State Read / Update and later computational research
 ```

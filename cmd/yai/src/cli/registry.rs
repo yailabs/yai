@@ -96,6 +96,11 @@ pub(crate) const PRODUCT_ROOTS: &[ProductRoot] = &[
         section: ProductSection::Runtime,
     },
     ProductRoot {
+        word: "capabilities",
+        description: "Discover supported product and application surfaces",
+        section: ProductSection::Meta,
+    },
+    ProductRoot {
         word: "help",
         description: "Show product or advanced command discovery",
         section: ProductSection::Meta,
@@ -767,6 +772,17 @@ const RUNTIME_QUEUE: &[FlagSpec] = &[flag("--all", None, false)];
 
 pub(crate) static REGISTRY: &[Descriptor] = &[
     op!(
+        "yai.application.capabilities",
+        ["capabilities"],
+        "Discover classified YAI product capabilities and typed Application operations",
+        Product,
+        Inspection,
+        ReadOnly,
+        Structured,
+        NO_POS,
+        NO_FLAGS
+    ),
+    op!(
         "yai.meta.help",
         ["help"],
         "Discover commands from the compiled registry",
@@ -1377,6 +1393,37 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         Structured,
         &[pos("case", Some("--case"))],
         CASE_COGNITIVE_SHOW
+    ),
+    op!(
+        "yai.case.cognitive.frontier",
+        ["case", "cognitive", "frontier"],
+        "Derive the current exact typed Decision Frontier from a retained W",
+        Advanced,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--working-file", Some("WORKING_STATE.json"), true),
+            flag("--max-candidates", Some("COUNT"), false)
+        ]
+    ),
+    op!(
+        "yai.case.cognitive.decision_request",
+        ["case", "cognitive", "decision-request"],
+        "Prepare a non-authoritative DecisionRequest from an exact current Frontier",
+        Advanced,
+        Inspection,
+        ReadOnly,
+        Structured,
+        &[pos("case", Some("--case"))],
+        &[
+            flag("--working-file", Some("WORKING_STATE.json"), true),
+            flag("--frontier-file", Some("FRONTIER.json"), true),
+            flag("--decision-kind", Some("KIND"), true),
+            flag("--max-result-bytes", Some("BYTES"), false),
+            flag("--max-compute-ms", Some("MILLISECONDS"), false)
+        ]
     ),
     Descriptor {
         aliases: &[&["case", "attach-filesystem"]],
@@ -3469,6 +3516,114 @@ pub(crate) fn registry_digest() -> String {
     yai_core_engine::effect::digest_bytes(&bytes)
 }
 
+/// Map product CLI syntax to stable product meaning. The Application catalog
+/// owns capability identity; this adapter owns only CLI presentation parity.
+pub(crate) fn product_capability_id(operation_id: &str) -> Option<&'static str> {
+    let capability = if operation_id == "yai.application.capabilities"
+        || matches!(operation_id, "yai.meta.help" | "yai.meta.completion")
+    {
+        "platform.capability_discovery"
+    } else if operation_id == "yai.case.cognitive.frontier" {
+        "cognitive.decision_frontier"
+    } else if operation_id == "yai.case.cognitive.decision_request" {
+        "cognitive.decision_request"
+    } else if operation_id.starts_with("yai.case.cognitive.") {
+        "cognitive.bindings_and_realization"
+    } else if operation_id.starts_with("yai.effect.") {
+        "effect.controlled_execution"
+    } else if operation_id.starts_with("yai.store.")
+        || operation_id.starts_with("yai.journal.")
+        || operation_id.starts_with("yai.projection.")
+        || operation_id.starts_with("yai.engine.")
+    {
+        "platform.canonical_diagnostics"
+    } else if matches!(operation_id, "yai.meta.version" | "yai.doctor") {
+        "platform.status"
+    } else if operation_id == "yai.init"
+        || operation_id.starts_with("yai.identity.")
+        || operation_id.starts_with("yai.tenant.")
+    {
+        "identity.tenant"
+    } else if matches!(operation_id, "yai.provider.list" | "yai.provider.show")
+        || operation_id == "yai.case.provider.show"
+    {
+        "provider.inspect"
+    } else if operation_id.starts_with("yai.provider.")
+        || matches!(operation_id, "yai.case.provider.attach" | "yai.case.provider.bind")
+    {
+        "provider.governance"
+    } else if matches!(operation_id, "yai.case.create" | "yai.case.run" | "yai.case.resume" | "yai.case.stop" | "yai.case.cancel" | "yai.case.close") {
+        "case.lifecycle"
+    } else if matches!(operation_id, "yai.case.list" | "yai.case.open") {
+        "case.catalog"
+    } else if operation_id == "yai.case.show" {
+        "case.workspace"
+    } else if operation_id == "yai.case.workbench"
+        || operation_id.starts_with("yai.case.conversation.draft.")
+    {
+        "conversation.execution"
+    } else if operation_id.starts_with("yai.case.conversation.turn.") {
+        "conversation.inspect"
+    } else if operation_id.starts_with("yai.case.participant.") {
+        "case.participants"
+    } else if operation_id == "yai.case.capabilities" {
+        "case.resource_requestability"
+    } else if matches!(operation_id, "yai.case.history" | "yai.case.as_of" | "yai.case.experience") {
+        "case.history_and_experience"
+    } else if operation_id == "yai.case.verify" {
+        "platform.canonical_diagnostics"
+    } else if operation_id == "yai.case.context.ambient" {
+        "semantic.ambient_refresh"
+    } else if operation_id.starts_with("yai.case.context.") {
+        "semantic.working_state"
+    } else if operation_id == "yai.case.recall" {
+        "semantic.recall"
+    } else if operation_id == "yai.case.sources.read" {
+        "material.read"
+    } else if operation_id.starts_with("yai.case.sources.") {
+        if matches!(operation_id, "yai.case.sources.inventory" | "yai.case.sources.routes") {
+            "source.environment"
+        } else {
+            "source.lifecycle"
+        }
+    } else if operation_id.starts_with("yai.case.knowledge.") {
+        "knowledge.derived"
+    } else if operation_id.starts_with("yai.case.memory.") {
+        "memory.maintenance"
+    } else if operation_id.starts_with("yai.case.policy.") || operation_id.starts_with("yai.policy.") {
+        if operation_id.ends_with(".show") || operation_id.ends_with(".list") {
+            "authority.inspect"
+        } else {
+            "authority.policy.lifecycle"
+        }
+    } else if operation_id.starts_with("yai.review.") {
+        if matches!(operation_id, "yai.review.pending" | "yai.review.show") {
+            "authority.inspect"
+        } else {
+            "authority.review_and_grant"
+        }
+    } else if operation_id.starts_with("yai.case.handoff.") {
+        "handoff.lifecycle"
+    } else if operation_id.starts_with("yai.case.resource.") {
+        if operation_id == "yai.case.resource.request" {
+            "effect.controlled_execution"
+        } else {
+            "resource.lifecycle"
+        }
+    } else if operation_id.starts_with("yai.workflow.") {
+        if matches!(operation_id, "yai.workflow.list" | "yai.workflow.show" | "yai.workflow.status" | "yai.workflow.patch.list" | "yai.workflow.patch.show" | "yai.workflow.patch.validate") {
+            "workflow.overview"
+        } else {
+            "workflow.lifecycle"
+        }
+    } else if operation_id.starts_with("yai.runtime.") {
+        "platform.runtime_host"
+    } else {
+        return None;
+    };
+    Some(capability)
+}
+
 pub(crate) fn validate() -> Result<(), String> {
     use std::collections::HashSet;
     let mut ids = HashSet::new();
@@ -3585,6 +3740,26 @@ mod tests {
                 "{}: non-interactive Product operations require structured output",
                 descriptor.operation_id
             );
+        }
+    }
+
+    #[test]
+    fn product_cli_and_application_catalog_have_mechanical_parity() {
+        yai_application::capabilities::validate_capability_catalog().unwrap();
+        let catalog = yai_application::capabilities::CAPABILITIES;
+        for descriptor in REGISTRY.iter().filter(|descriptor| descriptor.visibility == Visibility::Product) {
+            let capability_id = product_capability_id(descriptor.operation_id)
+                .unwrap_or_else(|| panic!("unclassified Product CLI operation: {}", descriptor.operation_id));
+            assert!(catalog.iter().any(|entry| entry.capability_id == capability_id),
+                "CLI operation {} maps to unknown capability {}", descriptor.operation_id, capability_id);
+        }
+        for capability in catalog {
+            for operation_id in capability.cli_operation_ids {
+                assert!(REGISTRY.iter().any(|descriptor| descriptor.operation_id == *operation_id),
+                    "catalog capability {} names stale CLI operation {}", capability.capability_id, operation_id);
+                assert_eq!(product_capability_id(operation_id), Some(capability.capability_id),
+                    "catalog/CLI capability mapping drift for {}", operation_id);
+            }
         }
     }
 }
