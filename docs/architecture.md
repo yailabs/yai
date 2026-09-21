@@ -258,12 +258,13 @@ runtime registry, Agent/plan bundles and duplicated semantic owners remain
 rejected.
 
 [`studio/`](../studio/README.md) is an independent React/TypeScript/Vite Case
-Workbench with a thin Tauri 2 local bridge. Normal mode uses LiveClient and the
-application crate; it never opens LMDB or parses CLI output in TypeScript. The
-Tauri process binds no listener or LAN socket, authenticates through YAI on each
-call and polls authorized generation identities only to emit typed invalidation
-facts. An authorized generation heartbeat closes missed-delivery gaps and gives
-LiveClient an explicit resync signal. LiveClient then refetches `case.summary`; private Transitions never cross
+Workbench with a thin Tauri 2 Host-client bridge. Normal mode uses LiveClient
+through the resident `application/yai-host`; it never opens LMDB or parses CLI
+output in TypeScript. Tauri binds no listener or LAN socket and does not
+construct `LocalApplication`. The Host authenticates its private Unix peer,
+forwards typed application requests and observes authorized generation
+identities to emit typed invalidation facts. A Host heartbeat exposes transport
+loss and gaps. LiveClient then refetches `case.summary`; private Transitions never cross
 the renderer boundary. Local navigation, layout, graph positions and tabs remain
 frontend state. One contribution-driven Workbench Kernel owns Activity Bar,
 Sidebar, Surface Group/tabs, bottom Panel, Auxiliary Bar, Inspector host, layout
@@ -312,8 +313,8 @@ fail-closed path/resource governance, which stays in the current Resource,
 authority and controlled-effect owners instead of being copied into Studio.
 
 The native desktop build is separate from core/CLI validation and remains a
-bounded single-host client. It does not qualify remote transport, general event
-delivery, simultaneous mutation or SEND. [Studio](studio.md) owns product/frontend
+bounded resident-Host client. It does not qualify remote transport, durable
+event replay, simultaneous mutation or SEND. [Studio](studio.md) owns product/frontend
 design; [ROADMAP](../ROADMAP.md#product-interfaces) alone owns X03/X04 maturity.
 The existing C daemon IPC remains unrelated status/compatibility machinery and
 is not repurposed as the Studio host.
@@ -325,24 +326,24 @@ no arbitrary command specification from Case data, supplies no application
 result, parses no CLI output and owns no Case, Workflow, effect or authority
 meaning. Browser mode has no PTY.
 
-### Current process topology and resident-host gap
+### Current process topology
 
-At current HEAD there is no resident YAI Local Host. Studio embeds
-`LocalApplication` in its own Tauri process. The native CLI runs its application
-and controller adapters in the `yai` command process. `yai runtime serve` can
-run the bounded tenant-fair multi-Case `RuntimeInstance`, but that scheduler is
-not a complete application service or general client endpoint. `yaid` is the
-separate narrow C daemon described above; it is not a host for
-`yai-application`.
+`application/yai-host` is the Rust-owned resident local application Host on the
+qualified Linux path. Exactly one live Host owns one `LocalApplication` for an
+explicit `YAI_HOME`. A private versioned Unix socket carries handshakes,
+application requests/results, Host control, Case invalidations and heartbeats;
+discovery binds the endpoint to the canonical profile and live process identity.
+`yai host status/start/stop/restart/logs/serve` and Studio reuse the same Host
+lifecycle/client library. Multiple Studio processes attach to the same Host,
+and closing a Studio process removes only its ephemeral attachment and PTYs.
 
-Consequently, starting Studio does not discover or start a shared resident YAI
-process, multiple Studio windows do not share one application-service process,
-and closing Studio tears down its in-process application adapter and transient
-PTY children. The durable Case remains owned by YAI persistence and is not
-closed by that process exit. The selected resident-host and Workbench targets
-belong to the [Studio product architecture](studio.md#yai-product-topology) and
-[Studio roadmap](../studio/ROADMAP.md); they are not executable claims in this
-current-architecture document.
+`RuntimeInstance` remains an existing, separate tenant-fair multi-Case
+scheduler with its own serve/status/shutdown lifecycle. The Host truthfully
+reports runtime supervision as not integrated. Ordinary native CLI domain
+commands also retain their current owner adapters; this milestone does not
+route the entire CLI through Host transport. `yaid` remains a separate narrow C
+daemon and is neither promoted nor proxied as the application Host. These open
+boundaries are controlled by the [Studio roadmap](../studio/ROADMAP.md).
 
 ## Demonstrated product verticals
 
@@ -1579,7 +1580,8 @@ participates.
 | `cmd/yai/src/graph_runtime.rs` | graph relation materialization, rebuild and query | product-reachable derived owner |
 | `cmd/yai/src/analytics.rs` | DuckDB schemas, extraction and reports | product-reachable derived owner |
 | `engine/yai-engine` | canonical Transition/CaseState semantics, LMDB authority, typed semantic-context compiler, legacy decoder, and reusable derived algorithms | product-reachable semantic/data authority |
-| `studio/src-tauri` + `studio/src` | in-process local application adapter plus React Case Workbench, graph/layout/navigation, transient local PTY mechanics and explicit fixture development mode | no direct persistence, CLI-output parsing, Case semantics, Case-attached terminal handoff or YVEX management |
+| `application/yai-host` | resident same-user local application process, private versioned Unix transport, discovery/singleton, ephemeral attachments, event fanout, telemetry and lifecycle client | no Case semantics, scheduler ownership, canonical event ledger, remote transport or provider supervision |
+| `studio/src-tauri` + `studio/src` | Host client plus React Case Workbench, graph/layout/navigation, transient local PTY mechanics and explicit fixture development mode | no direct persistence, embedded `LocalApplication`, Case-generation polling, CLI-output parsing, Case semantics, Case-attached terminal handoff or YVEX management |
 | `cmd/yaid` + selected `system/` sources | daemon IPC, fixture loops, C journal/projection/hot snapshot | product-reachable process/platform boundary |
 | separate C component archive | gates, carriers, process/observation and compatibility mechanics | component characterization; not product capability |
 | tests/labs/history | current proof, research, and historical specification | evidence, never implementation authority |

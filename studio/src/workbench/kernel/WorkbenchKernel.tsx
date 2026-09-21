@@ -43,6 +43,7 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
   const [searchMode, setSearchMode] = useState<"commands" | "open" | "surface" | "case">();
   const [openWith, setOpenWith] = useState(false);
   const [panelToolbarTarget, setPanelToolbarTarget] = useState<HTMLElement | null>(null);
+  const [hostState, setHostState] = useState(platform.host.snapshot());
   const restoredBottomHeight = useRef(bottomHeight);
   const surfaces = useMemo(() => new SurfaceGroupService(), []);
   const buffers = useMemo(() => new SurfaceBufferService(), []);
@@ -59,6 +60,7 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     return () => window.removeEventListener("keydown", close);
   }, [openWith]);
   useEffect(() => surfaces.subscribe(() => setSurfaceState(surfaces.snapshot())).dispose, [surfaces]);
+  useEffect(() => platform.host.subscribe(setHostState).dispose, [platform.host]);
   useEffect(() => () => { surfaces.dispose(); buffers.dispose(); }, [buffers, surfaces]);
   useEffect(() => {
     const initial = containers.find((container) => container.id === "Overview")?.surface ?? containers[0]?.surface;
@@ -246,7 +248,7 @@ export function WorkbenchKernel({ workspace, stream, platform, registry, readMat
     </div>
     <footer className="kernel-status" aria-label="Workbench status">
       <div><span className="case-status" data-status={workspace.case.case_status}>{workspace.case.case_status}</span><span>Generation {workspace.case.generation}</span><span>{activeInput?.title ?? activeContainer}</span></div>
-      <div>{workspace.presentation.dataKind === "fixture" && <span>Fixture data</span>}<span>{workspace.case.participant_ref}</span></div>
+      <div><button className="host-status" data-state={hostState.state} onClick={() => { openSettings(); setSelection("settings:yai-host"); }} title="Open Settings > YAI Host">YAI {hostState.state === "live" ? "●" : hostState.state}</button>{workspace.presentation.dataKind === "fixture" && <span>Fixture data</span>}<span>{workspace.case.participant_ref}</span></div>
     </footer>
     {searchMode === "commands" && <WorkbenchSearch title="Command Palette" placeholder="Type a command" items={commandItems()} onClose={() => setSearchMode(undefined)} />}
     {searchMode === "open" && <WorkbenchSearch title="Quick Open" placeholder="Search open Surfaces and exposed Case material" items={quickItems()} onClose={() => setSearchMode(undefined)} />}

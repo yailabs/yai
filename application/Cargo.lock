@@ -675,6 +675,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "yai-host"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+ "yai-application",
+ "yai-engine",
+]
+
+[[package]]
 name = "zlib-rs"
 version = "0.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

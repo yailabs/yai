@@ -21,12 +21,12 @@ replacement CLI, independent YVEX UI or new semantic owner. Native CLI, Studio
 and future Mobile are clients over the same YAI application meaning, subject to
 ordinary authentication, Participant scope, disclosure and admission.
 
-The current [shell](../studio/README.md) has a bounded single-host live mode. Its
+The current [shell](../studio/README.md) has a bounded resident-Host live mode. Its
 Start Center lists Cases visible to the authenticated local principal and its
 Workbench consumes authorized application projections for Overview, Environment,
 Knowledge, Memory, Authority, Work, Compute and committed Conversation Turns.
 Fixtures remain an explicit development mode only. This vertical does not
-establish remote, general multi-client or complete application-API qualification;
+establish remote, multi-client mutation or complete application-API qualification;
 ROADMAP owns its exact maturity.
 
 The persistent product oracle for this boundary is
@@ -40,23 +40,26 @@ not alter them.
 
 ## YAI Product Topology
 
-### CURRENT — bounded in-process desktop vertical
+### CURRENT — resident local application Host foothold
 
-Today the Tauri process constructs `application/yai-application` in-process.
-That bounded application facade authenticates the local operating-system
-principal and supplies Case list/open/summary projections plus generation
-invalidation. Summary composition resolves authorized retained source content
-through the existing YAI content owner before deriving Knowledge; Tauri and
-React do not read backing files or private storage. The same application
-boundary exposes `material.read` for one exact acquired Source revision: it
-rechecks disclosure and Source authority, resolves immutable retained backing,
-verifies digest and length, then returns text or base64 bytes. Studio does not start a
-resident YAI application service. Closing
-the desktop process ends this adapter and its transient PTYs, while the durable
-Case remains unchanged. The native CLI still reaches several owners through
-CLI/store-coupled adapters. The current C `yaid` process is a separate narrow
-daemon for status/info/shutdown and compatibility behavior; it is not the
-complete application host.
+`application/yai-host` now owns one resident Rust application process for an
+explicit `YAI_HOME` on the qualified Linux path. The Host constructs one
+`LocalApplication`, exposes typed requests/results over a private versioned
+Unix-domain transport, observes visible Case generations and fans out bounded
+invalidation events to attached clients. Discovery is tied to the canonical
+profile identity and live process identity; its run directory is `0700` and the
+socket/discovery files are `0600`.
+
+Normal native Studio is a Host client. Its Tauri process discovers or starts
+the Host, performs the protocol/profile handshake, forwards application calls
+and receives update events. It does not construct `LocalApplication` or poll
+YAI persistence. Closing Studio ends its attachment and transient PTYs while
+the Host and durable Cases remain alive. Explicit fixture mode does not require
+or start YAI, and browser mode has no local Host transport. The native CLI still
+reaches several domain owners through CLI/store-coupled adapters, while
+`yai host status/start/stop/restart/logs/serve` uses the shared Host lifecycle
+library. The current C `yaid` process remains a separate narrow daemon; it is
+not the application Host.
 
 The same facade now exposes machine-readable `application.capabilities` metadata
 and a separate current `case.capabilities` view. The former describes stable
@@ -104,7 +107,10 @@ close Studio
     != cancel background work
 ```
 
-This is selected product architecture, not current executable behavior.
+The application-Host portion of this topology is current executable behavior on
+the qualified Linux path. Runtime supervision, platform login autostart,
+cross-platform local transports, remote clients and provider supervision remain
+target properties.
 
 ### Target process cardinality
 
@@ -151,10 +157,9 @@ OPEN: the implementation must characterize remaining `yaid` consumers and
 compatibility obligations before any drain. Current `yaid` is not promoted or
 renamed into the product host, and this specification does not remove it.
 
-### Lifecycle, autostart and host telemetry targets
+### Lifecycle, autostart and host telemetry
 
-The implementation program may finalize names, but the intended headless
-lifecycle surface is:
+The current headless lifecycle surface is:
 
 ```text
 yai host status
@@ -165,18 +170,20 @@ yai host logs
 yai host serve       # low-level foreground/service entrypoint
 ```
 
-These commands manage the host process, never Case lifecycle. Desktop settings
-will eventually offer `Start YAI automatically` using qualified user-level
+These commands manage the host process, never Case lifecycle. `Settings > YAI
+Host` consumes real process/application/client telemetry and exposes qualified
+stop/restart controls. Desktop settings may later offer `Start YAI automatically`
+using qualified user-level
 platform mechanisms such as a Linux user service, macOS LaunchAgent or Windows
 user startup/service mechanism. Studio must still be able to start the host when
 it is absent.
 
-The future singleton `Settings > YAI Host` surface displays only authoritative
-facts: status, PID, uptime, version/build, `YAI_HOME`, protocol, transport,
-authenticated principal, RuntimeInstance workers/work/queues, visible Cases,
-attached clients, RSS/CPU/threads, heartbeat, last error and restart count where
-the host actually exposes them. Host telemetry is operational process state, not
-Case state, and unavailable values remain unavailable.
+The singleton surface displays only authoritative facts currently exposed by
+the Host: status, PID/process identity, uptime, version/build, `YAI_HOME`,
+protocol, transport, application readiness, attached clients, event sequence
+and activity. Runtime supervision is explicitly `not_integrated`; unavailable
+OS or scheduler telemetry is not fabricated. Host telemetry is operational
+process state, not Case state.
 
 Provider processes have an independent lifecycle. Starting YAI does not load a
 model, allocate a GPU, launch YVEX or start llama.cpp/vLLM. Cloud and local
@@ -185,12 +192,12 @@ supervision belongs to its native management plane, not generic host readiness.
 
 ### OPEN implementation boundaries
 
-The resident host still requires a versioned local transport, discovery,
-authentication, readiness, reconnect/resync, update ordering, attachment
-lifecycle, telemetry, packaging/autostart, CLI convergence and multi-client
-qualification. None is implied by the present in-process bridge. No LAN listener,
-remote serving, mutation-complete API or provider supervision is selected by
-this document alone.
+The Host foothold does not yet supervise `RuntimeInstance`, converge ordinary
+domain CLI calls on Host transport, provide durable event replay, qualify
+multi-client mutation conflicts, start at OS login or implement macOS/Windows
+local transport. Reconnect is snapshot/resync based because the event sequence
+is process-local and non-canonical. No LAN listener, remote serving,
+mutation-complete API or provider supervision is selected by this document.
 
 ## Architectural Invariants
 
@@ -242,17 +249,17 @@ that the existence of a socket proves application coverage.
 | Gap exposed by Studio | Responsible boundary and required qualification |
 |---|---|
 | Broader typed queries/actions/results/refusals shared with the native CLI | YAI application layer; preserve owner checks and one operation meaning |
-| Standalone local listener and general transport qualification | YAI host plus qualified Interfaces projection; discovery, authentication, negotiation, disposal and unavailable posture beyond the bounded in-process bridge |
-| Incremental progress and general scoped subscriptions | YAI lifecycle facts plus transport; current generation invalidation needs broader ordering, missed-update, backpressure, cancellation and redaction qualification |
-| Simultaneous attachments and reattachment | YAI; current Principal/Participant/Thread resolution, concurrent mutation/refusal, stale generations, idempotency and recovery |
+| Cross-platform local and future remote transport | YAI host plus qualified Interfaces projection; the current private Linux Unix transport is internal and local only |
+| Incremental progress and general scoped subscriptions | YAI lifecycle facts plus transport; current Case invalidation and process-local sequence still need durable replay, broader progress, backpressure, cancellation and redaction qualification |
+| Simultaneous mutation and stale-write recovery | YAI; multiple attachments and snapshot reattachment are qualified, while concurrent mutation/refusal, stale generations and idempotency remain open |
 | Resource/file changes outside YAI actions | YAI observation/source boundaries; provenance, revision, confinement and explicit admission, including watcher gaps |
 | Native provider management evidence | Public provider/YVEX management contracts; truthful capability/version/permission and failure exposure |
 | Remote/Mobile consumption | YAI/Interfaces authentication, disclosure and transport contracts beyond local OS trust |
 
 These gaps do not automatically select work or establish an Interlock. The
-current Tauri bridge is an in-process local adapter: it authenticates through
-YAI for every request, binds no network socket and exposes one versioned call
-surface plus generation invalidations. React cannot close the remaining gaps.
+current Tauri bridge is a narrow Host client: it binds no listener, sends typed
+requests over the private local socket and consumes Host invalidations. React
+cannot close the remaining gaps.
 
 ## Interfaces and Historical Reconciliation
 
@@ -308,12 +315,12 @@ session store, registry, C/Rust duplicate owner or SDK ontology is imported.
 Current controller restart tests already derive Threads from committed Turns;
 that stronger executable continuity contract is preserved unchanged.
 
-For the resident-host target, the same archaeology recovers four more bounded
+For the resident Host, the same archaeology recovered four bounded
 properties: same-machine-only endpoints, a private endpoint root and `0600`
 socket posture, explicit discovery source/status, and handshake/version mismatch
 as a first-class refusal. The historical listener removed only a stale socket it
 owned and cleaned its socket/discovery paths on failure and stop. These belong
-to future transport qualification. Its dev-only single-client probe dispatcher,
+to the current Linux transport. Its dev-only single-client probe dispatcher,
 old operation vocabulary and C runtime ownership are rejected because they do
 not cover current Case/application semantics or multi-client lifecycle.
 
@@ -887,14 +894,14 @@ Selected initial direction: **React + TypeScript + Vite + Tauri 2**, under
 `studio/`. No concrete incompatibility was found with the current independent
 engine workspace and CLI Cargo package. No existing root Node workspace or
 frontend CI was found to inherit; npm is local to Studio, with its own lockfile. The native shell
-has its own Cargo workspace/lockfile and depends on the bounded YAI application
+has its own Cargo workspace/lockfile and depends on the bounded YAI Host client
 crate, not a second semantic layer. Core/CLI Make
 targets remain independent of Node, Tauri and Studio. The source-placement guard
 admits only the added desktop Rust source/build script and excludes generated
 Studio dependency/build trees from source classification.
 
-React/TypeScript owns rendering and interaction; Tauri supplies the container
-and the in-process request/update adapter. Rust shell code remains thin; typed
+React/TypeScript owns rendering and interaction; Tauri supplies the container,
+Host client bridge and native capabilities. Rust shell code remains thin; typed
 application composition lives below it and existing YAI owners remain canonical.
 The desktop window uses one Studio-owned title row with native window controls;
 this removes redundant OS/application/Case bars without moving product behavior
@@ -945,11 +952,11 @@ HostServices (independent axis)
 ```
 
 `LiveClient` maps the bounded `yai.studio.application.v1` result envelope into
-small presentation types. Normal mode currently requires the Tauri-local
-adapter; an absent adapter, authentication failure and unsupported projections remain explicit result
+small presentation types. Normal mode currently requires the Tauri Host-client
+adapter; an absent Host, authentication failure and unsupported projections remain explicit result
 states. It never knows LMDB layout, CLI syntax or private Rust domain structs.
 The application projection is intentionally smaller than `CaseState` and does
-not predeclare every future operation. Its in-process transport is not a stable
+not predeclare every future operation. Its local Host transport is not a stable
 public SDK or remote service qualification.
 
 FixtureClient reads authored examples under `tests/fixtures/studio/`. A bounded

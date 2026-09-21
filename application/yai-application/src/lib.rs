@@ -24,7 +24,7 @@ use yai_core_engine::transition::{CaseLifecycle, CaseState, ReviewResolution, Tr
 pub const INTERFACES_REVISION: &str = "bae6cdf7cf17f3e6a58c0323852c7c0efeb26147";
 pub const APPLICATION_PROTOCOL: &str = "yai.studio.application.v1";
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct OperationRequest {
     pub protocol: String,
     pub operation_ref: String,
@@ -33,7 +33,7 @@ pub struct OperationRequest {
     pub input: Value,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct OperationError {
     pub code: String,
     pub message: String,
@@ -41,7 +41,7 @@ pub struct OperationError {
     pub result_state: ResultState,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResultState {
     Success,
@@ -54,7 +54,7 @@ pub enum ResultState {
     Error,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct OperationResult {
     pub operation_ref: String,
     pub result_state: ResultState,
@@ -88,17 +88,17 @@ pub struct DecisionRequestPrepareInput {
     pub budget: CognitiveDecisionBudget,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CaseUpdate {
-    pub protocol: &'static str,
+    pub protocol: String,
     pub event_ref: String,
-    pub event_type: &'static str,
-    pub event_family: &'static str,
+    pub event_type: String,
+    pub event_family: String,
     pub case_ref: String,
     pub generation: u64,
     pub sequence: u64,
     pub cursor: String,
-    pub affected_views: Vec<&'static str>,
+    pub affected_views: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -148,23 +148,23 @@ impl LocalApplication {
 
     pub fn update_for(&self, case_ref: &str, generation: u64, sequence: u64) -> CaseUpdate {
         CaseUpdate {
-            protocol: APPLICATION_PROTOCOL,
+            protocol: APPLICATION_PROTOCOL.to_string(),
             event_ref: format!("case-update:{case_ref}:{generation}"),
-            event_type: "case_projection_invalidated",
-            event_family: "case",
+            event_type: "case_projection_invalidated".to_string(),
+            event_family: "case".to_string(),
             case_ref: case_ref.to_string(),
             generation,
             sequence,
             cursor: format!("{case_ref}:{generation}:{sequence}"),
             affected_views: vec![
-                "overview",
-                "environment",
-                "knowledge",
-                "memory",
-                "authority",
-                "work",
-                "compute",
-                "conversation",
+                "overview".to_string(),
+                "environment".to_string(),
+                "knowledge".to_string(),
+                "memory".to_string(),
+                "authority".to_string(),
+                "work".to_string(),
+                "compute".to_string(),
+                "conversation".to_string(),
             ],
         }
     }
@@ -1045,7 +1045,7 @@ mod tests {
         assert_eq!(result.result_state, ResultState::Success);
         let data = result.data.unwrap();
         assert_eq!(data["schema"], capabilities::CAPABILITY_CATALOG_SCHEMA);
-        assert_eq!(data["capabilities"].as_array().unwrap().len(), 41);
+        assert_eq!(data["capabilities"].as_array().unwrap().len(), 42);
         assert!(data.get("cases").is_none());
         assert!(data.get("resources").is_none());
     }

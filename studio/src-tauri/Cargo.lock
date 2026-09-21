@@ -4902,6 +4902,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "yai-host"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+ "yai-application",
+ "yai-engine",
+]
+
+[[package]]
 name = "yai-studio"
 version = "0.0.0"
 dependencies = [
@@ -4912,6 +4923,7 @@ dependencies = [
  "tauri-build",
  "tauri-runtime",
  "yai-application",
+ "yai-host",
 ]
 
 [[package]]

@@ -21,11 +21,12 @@ interface Composition {
 }
 
 function createComposition(): Composition {
-  const host = createHostServices();
+  const fixture = import.meta.env.VITE_STUDIO_MODE === "fixture";
+  const host = createHostServices(!fixture);
   const platform = new PlatformServices(host);
   const registry = new WorkbenchRegistry();
   const contributions = registerContributions(builtInContributions, { platform, workbench: registry });
-  const dataSource: CaseDataSource = import.meta.env.VITE_STUDIO_MODE === "fixture"
+  const dataSource: CaseDataSource = fixture
     ? new FixtureDataSource(new FixtureClient())
     : new LiveDataSource(new LiveClient());
   return { dataSource, platform, registry, dispose() { contributions.dispose(); registry.dispose(); platform.dispose(); } };

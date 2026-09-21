@@ -34,7 +34,9 @@ behavior from selected architecture and unfinished work.
 interaction model: Files, Sources and Resources are distinct Surfaces, exact
 material reads remain governed, and local editing stops at the current
 application/authority boundary. Governed participant-origin Save remains an
-explicit backend/application gap rather than a frontend workaround. S1 is next.
+explicit backend/application gap rather than a frontend workaround. The first
+S1 foothold now supplies one resident application Host per `YAI_HOME`; deliberate
+RuntimeInstance supervision remains the next S1 milestone.
 The persistent Case is advanced only through normal YAI operations and is never
 reset by Studio tests.
 
@@ -43,7 +45,7 @@ reset by Studio tests.
 | Workbench | Studio S2 | One contribution-driven Workbench and universal Surface system | Feature-local Product Quality Passes | Typed presentation facts | Established, bounded |
 | Product Case vertical | Cross-surface qualification | Persistent Case with real Sources, Knowledge, policy, Workflow and generation refresh | Keep the product oracle coherent as owners grow | Normal CLI/domain operations | Established, bounded |
 | Application / X03 | `yai-application` plus existing owners | Authorized local list/open/summary, retained content resolution and generation invalidation | Broader typed read/mutation parity | Owner projections and disclosure contracts | Partial, unblocked |
-| Host / S1 | YAI product host | Embedded local application adapter only | Resident Local Host foundation | Lifecycle, transport, discovery and authentication | Next after Environment authoring |
+| Host / S1 | `application/yai-host` plus `yai-application` | Resident same-user Unix Host, singleton discovery, typed IPC, events, lifecycle CLI and Studio client | `S1.RUNTIME.SUPERVISION.1` | Integrate the existing scheduler without duplicating its lease/execution owners | Established foothold; runtime supervision next |
 | Memory / S4 | Transition/graph/Recall plus Studio | Bounded timeline and derived relations | Typed navigation, Inspector and temporal canvas | Resolvable typed relations | After S1 foothold |
 | Environment / S5 | Sources/Resources plus Studio | Typed File/Source/Resource exploration, governed exact reads, renderer selection and local dirty/revert | Continue feature-local quality through later S5 depth | Participant-origin admitted file mutation and revision-conflict contract | Established, authoring partial |
 | Authority / S6 | Policy/Review/Grant/Workflow plus Studio | Bound policy and Workflow resolution reads | Actions and workflow progression UX | Mutation-complete application operations | Horizon, blocked on boundary |
@@ -77,7 +79,9 @@ persistent cross-surface Product Case coherence
         ↓
 Environment exploration and local-authoring boundary
         ↓
-resident Local Host foundation
+resident application Host foundation
+        ↓
+RuntimeInstance supervision under product Host lifecycle
         ↓
 Memory / Inspector / Navigation
         ↓
@@ -102,9 +106,13 @@ application and Workbench seams exist.
   governed material reads, trusted `Open With…`, and a local dirty/revert
   editor. Persistence remains partial because YAI exposes no admitted
   participant-origin filesystem-content mutation or stale-revision contract.
-- **NEXT:** S1 Product Host & Lifecycle. Continued Environment polish does not
-  displace this selection.
-- **NEXT feature program after the host foothold:** S4 Memory / Inspector /
+- **ESTABLISHED S1 foothold:** one Rust-owned resident application Host serves
+  independently launched local clients through private versioned Unix IPC;
+  Studio discovers/starts/attaches and no longer embeds `LocalApplication`.
+- **NEXT:** `S1.RUNTIME.SUPERVISION.1`, integrating the existing bounded
+  `RuntimeInstance` lifecycle without replacing its lease, fairness or recovery
+  owners.
+- **NEXT feature program after S1 runtime supervision:** S4 Memory / Inspector /
   Navigation, using the established S2 seams.
 - **HORIZON:** S5 through S12, subject to root ROADMAP selection and interlocks.
 
@@ -122,6 +130,7 @@ application and Workbench seams exist.
 | Universal Work Surface | Surface Input/Group/Registry mechanics; shared preview/pinning/navigation for perspective, text, Markdown, image, PDF, table, timeline, graph and Settings surfaces; qualified media-type resolution. |
 | Workbench productization | Surface roles/capabilities and read-only posture; Command Palette, Quick Open and renderer-owned search; singleton searchable Settings with versioned local preferences; trusted structured text, image/vector, PDF, table, audio/video and unknown-material paths; lazy heavy renderers, shared Panel toolbar seams and a resizable in-tool terminal instance pane. |
 | Environment exploration / authoring boundary | File hierarchy from qualified projected paths; distinct Source and Resource Surfaces; authorized exact retained material read; trusted renderer selection; local text dirty/revert lifecycle with Save disabled until YAI qualifies participant-origin mutation and revision conflict handling. |
+| Resident application Host foothold | One Linux-qualified Host per `YAI_HOME`; private Unix discovery/handshake, same-user attachment, application request forwarding, event fanout, telemetry and CLI lifecycle; native Studio auto-starts/attaches and survives independently from the Host. |
 
 These are bounded implementation facts. Their maturity remains whatever the
 root ROADMAP says.
@@ -144,21 +153,31 @@ root ROADMAP says.
 
 ## S1 — Product Host & Lifecycle
 
-**Posture:** target selected; implementation open.
+**Posture:** resident application Host foothold established; runtime supervision open.
 
 - **Purpose:** provide one resident YAI Local Host per `YAI_HOME` / local
   profile for Studio, CLI and future clients.
-- **Established:** in-process `yai-application`, a bounded local
-  `RuntimeInstance`, and historical evidence for secure local discovery and IPC.
+- **Established:** `application/yai-host` owns a resident Rust process with one
+  `LocalApplication` per explicit `YAI_HOME`, a private `0600` Unix socket under
+  a `0700` run root, owner/process-identity checked discovery, protocol/profile
+  handshake, ephemeral client attachments, bounded logs, telemetry, generation
+  observation/event fanout and graceful cleanup. `yai host status/start/stop/
+  restart/logs/serve` use the same lifecycle library as Tauri. Native Studio
+  discovers or starts the Host, reconnects/resyncs after replacement, and does
+  not stop it when a window closes. Browser and explicit fixture paths remain
+  independent. The existing bounded local `RuntimeInstance` remains separate.
 - **Target properties:** discover/start/attach, explicit readiness and shutdown,
   application service, supervised RuntimeInstance, scoped update service,
   attachments and real host telemetry.
 - **Dependencies:** current application owners, transport/security
   qualification and the `yaid` compatibility archaeology.
-- **Current gaps:** no resident product host, host commands, autostart, complete
-  event hub, CLI convergence or multi-client lifecycle qualification.
+- **Current gaps:** `RuntimeInstance` is not yet supervised by the Host; ordinary
+  domain CLI operations have not all converged through Host transport; macOS/
+  Windows IPC, OS-login autostart, remote transport, durable event replay and
+  multi-client mutation parity remain unqualified.
 - **Completion boundary:** independently launched clients share one secured
-  same-profile host without moving Case semantics into transport or desktop code.
+  same-profile host and the existing RuntimeInstance is supervised without
+  moving Case semantics or scheduler ownership into transport/desktop code.
 - **Non-goals:** global cross-environment authority or automatic provider/model
   startup.
 

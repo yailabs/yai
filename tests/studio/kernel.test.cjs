@@ -114,11 +114,17 @@ test("qualified file paths form a hierarchy without a filesystem scan", () => {
 
 test("surface buffers retain dirty edits across renderer unmounts and revert explicitly", () => {
   const buffers = new SurfaceBufferService();
-  assert.equal(buffers.initialize("material:readme", "alpha").dirty, false);
+  assert.equal(buffers.initialize("material:readme", "alpha", 4).dirty, false);
   buffers.update("material:readme", "alpha beta");
   assert.equal(buffers.snapshot("material:readme").dirty, true);
+  buffers.initialize("material:readme", "remote revision", 5);
+  assert.equal(buffers.snapshot("material:readme").value, "alpha beta");
+  assert.equal(buffers.snapshot("material:readme").stale, true);
+  buffers.reload("material:readme");
+  assert.deepEqual(buffers.snapshot("material:readme"), { baseline: "remote revision", value: "remote revision", dirty: false, sourceGeneration: 5, stale: false });
+  buffers.update("material:readme", "local again");
   buffers.revert("material:readme");
-  assert.deepEqual(buffers.snapshot("material:readme"), { baseline: "alpha", value: "alpha", dirty: false });
+  assert.deepEqual(buffers.snapshot("material:readme"), { baseline: "remote revision", value: "remote revision", dirty: false, sourceGeneration: 5, stale: false });
   buffers.discard("material:readme");
   assert.equal(buffers.snapshot("material:readme"), undefined);
 });

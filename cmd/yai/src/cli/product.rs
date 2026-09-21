@@ -19,6 +19,7 @@ use super::registry::{registry_digest, Visibility, REGISTRY_SCHEMA};
 
 pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
     match invocation.descriptor.operation_id {
+        operation if operation.starts_with("yai.host.") => host_operation(operation, invocation),
         "yai.application.capabilities" => application_operation(
             "application.capabilities",
             serde_json::json!({}),
@@ -111,6 +112,52 @@ pub(crate) fn execute(invocation: &Invocation) -> Result<CliData, CliError> {
             Ok(CliData::AlreadyRendered)
         }
     }
+}
+
+fn host_operation(operation: &str, invocation: &Invocation) -> Result<CliData, CliError> {
+    let home = yai_home();
+    let executable = std::env::current_exe()
+        .map_err(|error| domain_error("host_executable_unavailable", error.to_string()))?;
+    let value = match operation {
+        "yai.host.status" => serde_json::to_value(
+            yai_host::observe(&home).map_err(|error| domain_error("host_status_failed", error))?,
+        ),
+        "yai.host.start" => serde_json::to_value(
+            yai_host::start(&home, &executable, &["host", "serve"])
+                .map_err(|error| domain_error("host_start_failed", error))?,
+        ),
+        "yai.host.stop" => serde_json::to_value(
+            yai_host::stop(&home).map_err(|error| domain_error("host_stop_failed", error))?,
+        ),
+        "yai.host.restart" => serde_json::to_value(
+            yai_host::restart(&home, &executable, &["host", "serve"])
+                .map_err(|error| domain_error("host_restart_failed", error))?,
+        ),
+        "yai.host.logs" => {
+            let limit = invocation
+                .flag("--lines")
+                .map(str::parse::<usize>)
+                .transpose()
+                .map_err(|_| CliError::usage("--lines must be an integer"))?
+                .unwrap_or(100);
+            serde_json::to_value(serde_json::json!({
+                "lines": yai_host::recent_logs(&home, limit)
+                    .map_err(|error| domain_error("host_logs_failed", error))?
+            }))
+        }
+        "yai.host.serve" => {
+            if invocation.json {
+                return Err(CliError::usage(
+                    "the foreground Host has no finite JSON result; use `yai host status --json`",
+                ));
+            }
+            yai_host::serve(&home).map_err(|error| domain_error("host_serve_failed", error))?;
+            return Ok(CliData::AlreadyRendered);
+        }
+        _ => return Err(CliError::internal("unknown Host lifecycle operation")),
+    }
+    .map_err(|error| domain_error("host_result_encode_failed", error.to_string()))?;
+    Ok(CliData::NativeJson { value })
 }
 
 fn application_operation(operation_ref: &str, input: serde_json::Value) -> Result<CliData, CliError> {

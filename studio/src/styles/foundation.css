@@ -380,6 +380,10 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .kernel-status .case-status[data-status="unavailable"]::before { background: var(--yai-error); }
 .kernel-status .case-status[data-status="pending"]::before,
 .kernel-status .case-status[data-status="waiting"]::before { background: var(--yai-warning); }
+.kernel-status .host-status { height: 20px; padding: 0 4px; border: 0; background: transparent; color: var(--yai-text-muted); font: inherit; cursor: pointer; }
+.kernel-status .host-status:hover { color: var(--yai-text-secondary); }
+.kernel-status .host-status[data-state="live"] { color: var(--yai-success); }
+.kernel-status .host-status[data-state="unavailable"], .kernel-status .host-status[data-state="stopped"] { color: var(--yai-error); }
 
 .graph-viewport { position: relative; min-height: 440px; overflow: hidden; border-radius: var(--radius-surface); background: var(--yai-inset); }
 @media (max-width: 1180px) { .case-model { grid-template-columns: 1fr; }.case-core > span { margin-top: 14px; }.case-dimensions { padding-left: 0; }.case-dimensions::before, .case-dimensions button::before { display: none; } }
@@ -438,6 +442,19 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .setting-control button[role=switch] { min-width: 46px; height: 26px; border: 0; border-radius: 999px; background: var(--yai-selected); color: var(--yai-text-secondary); cursor: pointer; }
 .setting-control button[aria-checked=true] { background: #285f8c; color: white; }
 .setting-control input, .setting-control select { min-height: 31px; max-width: 150px; border: 0; border-radius: 6px; background: var(--yai-inset); color: var(--yai-text); padding: 0 8px; }
+.yai-host-settings { max-width: 760px; padding: 18px; border-radius: var(--radius-surface); background: var(--yai-panel); box-shadow: inset 0 0 0 1px var(--yai-divider); }
+.host-setting-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.host-setting-header h3 { margin: 0 0 5px; font-size: 15px; }
+.host-setting-header p { margin: 0; color: var(--yai-text-secondary); font-size: 12px; }
+.yai-host-settings dl { margin: 18px 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1px; overflow: hidden; border-radius: 7px; background: var(--yai-divider); }
+.yai-host-settings dl > div { min-width: 0; padding: 10px 12px; background: var(--yai-inset); }
+.yai-host-settings dt { color: var(--yai-text-muted); font-size: 10px; }
+.yai-host-settings dd { margin: 4px 0 0; overflow-wrap: anywhere; color: var(--yai-text-secondary); font: 12px/1.35 var(--mono); }
+.host-setting-actions { display: flex; gap: 7px; margin: 14px 0 10px; }
+.host-setting-actions button { min-height: 29px; padding: 0 10px; border: 0; border-radius: var(--radius-control); background: var(--yai-raised); color: var(--yai-text-secondary); cursor: pointer; }
+.host-setting-actions button.danger { color: var(--yai-error); }
+.host-setting-error { color: var(--yai-error); font: 11px var(--mono); }
+.yai-host-settings > small { color: var(--yai-text-muted); }
 
 .material-header nav { display: flex; align-items: center; gap: 7px; color: var(--yai-text-muted); font-size: 11px; }
 .material-header nav b { font-weight: 400; opacity: .5; }

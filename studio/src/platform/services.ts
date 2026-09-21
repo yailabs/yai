@@ -26,6 +26,7 @@ export class PlatformServices extends DisposableStore {
 
   constructor(readonly host: HostServices) {
     super();
+    this.add(host);
     this.context.update("studio.host.native", host.capabilities.nativeDesktop);
     this.context.update("terminal.available", host.capabilities.terminalAvailable);
     this.theme.apply();

@@ -19,9 +19,9 @@ export function MaterialHeader({ input, material }: { input: SurfaceRendererProp
 function useReadableMaterial({ workspace, input, readMaterial }: SurfaceRendererProps) {
   const fixture = presentationMaterial(workspace, input.objectRef);
   const authored = fixture ? materialText(fixture.body) : undefined;
-  const [state, setState] = useState<{ content?: string; error?: string; loading: boolean }>({ content: authored, loading: authored === undefined });
+  const [state, setState] = useState<{ content?: string; generation?: number; error?: string; loading: boolean }>({ content: authored, generation: authored === undefined ? undefined : workspace.case.generation, loading: authored === undefined });
   useEffect(() => {
-    if (authored !== undefined) { setState({ content: authored, loading: false }); return; }
+    if (authored !== undefined) { setState({ content: authored, generation: workspace.case.generation, loading: false }); return; }
     const file = workspace.environment.files.find((item) => item.id === input.objectRef);
     if (!file) { setState({ error: "No qualified file revision is attached to this Surface.", loading: false }); return; }
     let active = true;
@@ -30,7 +30,7 @@ function useReadableMaterial({ workspace, input, readMaterial }: SurfaceRenderer
       if (!active) return;
       if (result.result_state !== "success" || !result.data) { setState({ error: result.error?.safe_message ?? `Material read ${result.result_state}.`, loading: false }); return; }
       if (result.data.encoding !== "utf-8") { setState({ error: "This exact revision is binary and requires a trusted binary renderer.", loading: false }); return; }
-      setState({ content: result.data.content, loading: false });
+      setState({ content: result.data.content, generation: result.data.generation, loading: false });
     });
     return () => { active = false; };
   }, [authored, input.objectRef, readMaterial, workspace.case.case_ref, workspace.case.generation, workspace.environment.files]);
@@ -46,7 +46,7 @@ export function TextEditorSurface(props: SurfaceRendererProps) {
   const [find, setFind] = useState("");
   const [replace, setReplace] = useState("");
   useEffect(() => buffers.subscribe(input.identity, () => setSnapshot(buffers.snapshot(input.identity))).dispose, [buffers, input.identity]);
-  useEffect(() => { if (loaded.content !== undefined) setSnapshot(buffers.initialize(input.identity, loaded.content)); }, [buffers, input.identity, loaded.content]);
+  useEffect(() => { if (loaded.content !== undefined) setSnapshot(buffers.initialize(input.identity, loaded.content, loaded.generation)); }, [buffers, input.identity, loaded.content, loaded.generation]);
   useEffect(() => {
     const command = (event: Event) => {
       const name = (event as CustomEvent<{ name: string }>).detail?.name;
@@ -71,7 +71,7 @@ export function TextEditorSurface(props: SurfaceRendererProps) {
     buffers.update(input.identity, next);
     requestAnimationFrame(() => { textarea.current?.focus(); textarea.current?.setSelectionRange(index, index + replace.length); });
   };
-  return <article className="material-surface text-editor-surface" data-surface-type={input.surfaceType}><MaterialHeader input={input} /><div className="surface-toolbar file-toolbar" role="toolbar"><span>{snapshot.dirty ? "Local changes" : "Exact retained revision"}</span><Badge tone={snapshot.dirty ? "warning" : "success"}>{snapshot.dirty ? "Unsaved" : "Current"}</Badge><button onClick={() => setFindOpen((value) => !value)}>Find / Replace</button><button disabled title="YAI has no qualified participant-origin filesystem mutation contract">Save unavailable</button></div>{findOpen && <div className="editor-find"><input value={find} onChange={(event) => setFind(event.target.value)} placeholder="Find" aria-label="Find" /><input value={replace} onChange={(event) => setReplace(event.target.value)} placeholder="Replace" aria-label="Replace" /><button onClick={replaceNext}>Replace next</button><button onClick={() => setFindOpen(false)}>Close</button></div>}<div className="text-editor"><pre aria-hidden="true" className="line-numbers">{Array.from({ length: lines }, (_, index) => index + 1).join("\n")}</pre><textarea ref={textarea} spellCheck={false} value={snapshot.value} onChange={(event) => buffers.update(input.identity, event.target.value)} aria-label={`Edit ${input.title}`} /></div></article>;
+  return <article className="material-surface text-editor-surface" data-surface-type={input.surfaceType}><MaterialHeader input={input} /><div className="surface-toolbar file-toolbar" role="toolbar"><span>{snapshot.stale ? "Case changed since this buffer opened" : snapshot.dirty ? "Local changes" : "Exact retained revision"}</span><Badge tone={snapshot.stale || snapshot.dirty ? "warning" : "success"}>{snapshot.stale ? "Stale" : snapshot.dirty ? "Unsaved" : "Current"}</Badge>{snapshot.stale && <button onClick={() => buffers.reload(input.identity)}>Reload</button>}<button onClick={() => setFindOpen((value) => !value)}>Find / Replace</button><button disabled title="YAI has no qualified participant-origin filesystem mutation contract">Save unavailable</button></div>{findOpen && <div className="editor-find"><input value={find} onChange={(event) => setFind(event.target.value)} placeholder="Find" aria-label="Find" /><input value={replace} onChange={(event) => setReplace(event.target.value)} placeholder="Replace" aria-label="Replace" /><button onClick={replaceNext}>Replace next</button><button onClick={() => setFindOpen(false)}>Close</button></div>}<div className="text-editor"><pre aria-hidden="true" className="line-numbers">{Array.from({ length: lines }, (_, index) => index + 1).join("\n")}</pre><textarea ref={textarea} spellCheck={false} value={snapshot.value} onChange={(event) => buffers.update(input.identity, event.target.value)} aria-label={`Edit ${input.title}`} /></div></article>;
 }
 
 export function MarkdownSurface(props: SurfaceRendererProps) {

@@ -5,7 +5,7 @@ Authority: local development, source placement and frontend verification.
 [Studio progression](ROADMAP.md) owns implementation ordering; the repository
 [ROADMAP](../ROADMAP.md#product-interfaces) alone owns maturity and selection.
 
-Normal Studio mode is a bounded, single-host live vertical. The desktop shell
+Normal Studio mode is a bounded live vertical over the resident local YAI Host. The desktop shell
 authenticates the current operating-system principal through YAI, lists the real
 Cases visible to it, resolves a Case Participant attachment and renders typed
 application projections. Missing facts remain empty, unavailable, stale or
@@ -58,26 +58,36 @@ controls remain controls and do not initiate dragging.
 
 ## Live behavior
 
-Launching the Tauri desktop loads the typed `yai-application` boundary in the
-Studio process. It does not run the CLI, parse terminal output, or automatically
-start `yai start`, a daemon, a provider or YVEX. Those runtime services retain
-their own configured lifecycle; the integrated PTY is likewise an independent
-user shell.
+Launching the Tauri desktop discovers or starts one resident Rust-owned YAI
+Host for the selected `YAI_HOME`, waits for readiness and attaches through its
+private versioned Unix socket. The Host owns the typed `yai-application`
+instance and generation observation; Tauri is a client and does not poll YAI
+persistence. Closing Studio ends its attachment and transient PTYs but leaves
+the Host and Case continuity alive. Studio does not parse CLI output or start a
+provider, YVEX or the separate `RuntimeInstance` scheduler.
 
-This is the **current** executable topology. The selected product target is a
-resident YAI Local Host, normally one per `YAI_HOME`, shared by Studio, CLI and
-future structured clients. Host discovery/startup, lifecycle commands,
-autostart, shared attachments and host telemetry remain unimplemented; see the
-[product topology](../docs/studio.md#yai-product-topology) and
-[S1 program](ROADMAP.md#s1--product-host--lifecycle).
+The same lifecycle implementation is available headlessly:
+
+```sh
+YAI_HOME=/path/to/a/real/yai/home yai host status
+YAI_HOME=/path/to/a/real/yai/home yai host start
+YAI_HOME=/path/to/a/real/yai/home yai host restart
+YAI_HOME=/path/to/a/real/yai/home yai host logs
+YAI_HOME=/path/to/a/real/yai/home yai host stop
+```
+
+Repeated start discovers the same Host instead of creating a competitor.
+Runtime supervision and platform login autostart remain open; see the
+[product topology](../docs/studio.md#yai-product-topology) and [S1
+program](ROADMAP.md#s1--product-host--lifecycle).
 
 The Start Center lists authorized local Cases using `case.list`. Opening one
 uses `case.open`, which requires a real principal-to-Participant link and returns
 an ephemeral attachment. `case.summary` composes presentation views from current
 authorized YAI owners. Source-grounded Knowledge resolves retained bytes through
-YAI's content owner; Studio does not reopen repository paths. A Tauri-local update bridge observes authorized Case
-generation changes and emits invalidation facts; an authorized typed heartbeat
-detects delivery gaps. LiveClient refetches the typed summary and performs a
+YAI's content owner; Studio does not reopen repository paths. The resident Host
+observes authorized Case-generation changes and fans out invalidation facts; a
+typed Host heartbeat detects transport loss and event gaps. LiveClient refetches the typed summary and performs a
 full resync on stale generation. Closing Studio does not close or mutate a Case.
 
 The persistent product qualification Case is
@@ -86,7 +96,7 @@ Normal UI presents **Studio Live Qualification** while Inspector technical
 detail retains the canonical ref. Bounded reconciliation assets and the
 CLI/application parity assertion live under
 `tests/qualification/studio-product-vertical/`; the cumulative procedure is in
-[`docs/zero-to-current.md`](../docs/zero-to-current.md#studio-bounded-live-local-acceptance).
+[`docs/zero-to-current.md`](../docs/zero-to-current.md#studio-resident-host-live-local-acceptance).
 They inspect and advance ordinary YAI state and never recreate the Case or seed
 frontend fixtures.
 
@@ -238,6 +248,9 @@ SHA. See the cumulative [operator runbook](../docs/zero-to-current.md).
 
 - `application/yai-application/`: typed, authorized application projections;
   no persistence or Case semantic ownership.
+- `application/yai-host/`: resident local application lifecycle, private IPC,
+  discovery, attachments, update fanout and operational telemetry; no scheduler
+  or Case semantic ownership.
 - `src/platform/`: scoped commands, context, menus, keybindings, configuration,
   navigation, theme, lifecycle and host-capability services.
 - `src/workbench/`: the single Kernel, region registries and Surface Group/input
@@ -250,7 +263,7 @@ SHA. See the cumulative [operator runbook](../docs/zero-to-current.md).
 - `src/terminal/`: xterm rendering and desktop-only terminal lifecycle UI.
 - `src/clients/fixture.ts` and `src/start/`: explicit fixture data and bootstrap.
 - `src/components/` and `src/styles/`: shared controls, icons and visual tokens.
-- `src-tauri/`: local invocation/event adapter, narrow PTY host and desktop lifecycle.
+- `src-tauri/`: narrow Host client, PTY host and desktop lifecycle.
 
 This vertical does not implement governed participant-origin file Save,
 stale-revision authoring resolution, conversation SEND, Case-attached Open in

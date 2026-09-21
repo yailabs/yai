@@ -1759,6 +1759,7 @@ dependencies = [
  "webpki-roots",
  "yai-application",
  "yai-engine",
+ "yai-host",
 ]
 
 [[package]]
@@ -1780,6 +1781,17 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "yai-host"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+ "yai-application",
+ "yai-engine",
 ]
 
 [[package]]

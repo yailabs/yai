@@ -96,6 +96,11 @@ pub(crate) const PRODUCT_ROOTS: &[ProductRoot] = &[
         section: ProductSection::Runtime,
     },
     ProductRoot {
+        word: "host",
+        description: "Control the resident local YAI application Host",
+        section: ProductSection::Runtime,
+    },
+    ProductRoot {
         word: "capabilities",
         description: "Discover supported product and application surfaces",
         section: ProductSection::Meta,
@@ -769,6 +774,7 @@ const RUNTIME_SERVE: &[FlagSpec] = &[
     flag("--failpoint", Some("FAILPOINT"), false),
 ];
 const RUNTIME_QUEUE: &[FlagSpec] = &[flag("--all", None, false)];
+const HOST_LOGS: &[FlagSpec] = &[flag("--lines", Some("N"), false)];
 
 pub(crate) static REGISTRY: &[Descriptor] = &[
     op!(
@@ -2459,6 +2465,72 @@ pub(crate) static REGISTRY: &[Descriptor] = &[
         TENANT
     ),
     op!(
+        "yai.host.status",
+        ["host", "status"],
+        "Inspect the resident local YAI application Host",
+        Product,
+        RuntimeControl,
+        ReadOnly,
+        Structured,
+        NO_POS,
+        NO_FLAGS
+    ),
+    op!(
+        "yai.host.start",
+        ["host", "start"],
+        "Start or discover the resident local YAI application Host",
+        Product,
+        RuntimeControl,
+        Mutating,
+        Structured,
+        NO_POS,
+        NO_FLAGS
+    ),
+    op!(
+        "yai.host.stop",
+        ["host", "stop"],
+        "Gracefully stop the resident local YAI application Host",
+        Product,
+        RuntimeControl,
+        Mutating,
+        Structured,
+        NO_POS,
+        NO_FLAGS
+    ),
+    op!(
+        "yai.host.restart",
+        ["host", "restart"],
+        "Restart the resident local YAI application Host",
+        Product,
+        RuntimeControl,
+        Mutating,
+        Structured,
+        NO_POS,
+        NO_FLAGS
+    ),
+    op!(
+        "yai.host.logs",
+        ["host", "logs"],
+        "Read bounded local YAI Host operational logs",
+        Product,
+        RuntimeControl,
+        ReadOnly,
+        Structured,
+        NO_POS,
+        HOST_LOGS
+    ),
+    op!(
+        "yai.host.serve",
+        ["host", "serve"],
+        "Run the local YAI application Host in the foreground",
+        Advanced,
+        RuntimeHost,
+        LongRunning,
+        Structured,
+        NO_POS,
+        NO_FLAGS
+    ),
+    op!(
         "yai.runtime.serve",
         ["runtime", "serve"],
         "Host the bounded RuntimeInstance",
@@ -3616,6 +3688,8 @@ pub(crate) fn product_capability_id(operation_id: &str) -> Option<&'static str> 
         } else {
             "workflow.lifecycle"
         }
+    } else if operation_id.starts_with("yai.host.") {
+        "platform.local_host"
     } else if operation_id.starts_with("yai.runtime.") {
         "platform.runtime_host"
     } else {

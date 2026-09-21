@@ -10,6 +10,7 @@ export function SettingsSurface({ workspace, actions, platform, settings, select
   const [query, setQuery] = useState("");
   const [, refresh] = useState(0);
   useEffect(() => platform.configuration.subscribe(() => refresh((value) => value + 1)).dispose, [platform.configuration]);
+  useEffect(() => platform.host.subscribe(() => refresh((value) => value + 1)).dispose, [platform.host]);
   useEffect(() => {
     if (!selection.startsWith("settings:")) return;
     const requested = sections.find((candidate) => candidate.toLocaleLowerCase().replaceAll(" ", "-") === selection.slice("settings:".length));
@@ -22,7 +23,7 @@ export function SettingsSurface({ workspace, actions, platform, settings, select
   }, [definitions, query, section]);
   return <div className="settings-surface" data-surface-type="studio.settings">
     <aside><h1>Settings</h1><div className="settings-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search settings" aria-label="Search settings" /></div>{sections.map((item) => <button key={item} aria-pressed={!query && section === item} onClick={() => { setQuery(""); setSection(item); actions.inspect(`settings:${item.toLocaleLowerCase().replaceAll(" ", "-")}`); }}>{item}</button>)}</aside>
-    <div className="settings-content"><span>{query ? "Search results" : "Studio settings"}</span><h2>{query ? `Results for “${query}”` : section}</h2><p className="settings-scope-note">Local preferences stay in Studio. Case and host settings require their qualified owners.</p>{visible.map((definition) => <SettingRow key={definition.id} definition={definition} value={platform.configuration.get(definition.id) ?? definition.defaultValue} update={(value) => platform.configuration.update(definition.id, value)} dataKind={workspace.presentation.dataKind} backend={workspace.presentation.backendPosture} />)}{!visible.length && <EmptyState title="No matching settings" body="Try a setting title, description or section." />}</div>
+    <div className="settings-content"><span>{query ? "Search results" : "Studio settings"}</span><h2>{query ? `Results for “${query}”` : section}</h2><p className="settings-scope-note">Local preferences stay in Studio. Case and host settings require their qualified owners.</p>{!query && section === "YAI Host" && <YaiHostSettings platform={platform} />}{(query || section !== "YAI Host") && visible.map((definition) => <SettingRow key={definition.id} definition={definition} value={platform.configuration.get(definition.id) ?? definition.defaultValue} update={(value) => platform.configuration.update(definition.id, value)} dataKind={workspace.presentation.dataKind} backend={workspace.presentation.backendPosture} />)}{(query || section !== "YAI Host") && !visible.length && <EmptyState title="No matching settings" body="Try a setting title, description or section." />}</div>
   </div>;
 }
 
@@ -33,9 +34,40 @@ export function searchSettingsSurface({ settings }: Pick<SurfaceRendererProps, "
 }
 
 function SettingRow({ definition, value, update, dataKind, backend }: { definition: SettingDefinition; value: unknown; update(value: unknown): void; dataKind: string; backend: string }) {
-  const informationalValue = definition.id === "host.currentTopology" ? `Embedded local application boundary · ${dataKind} Case data · ${backend}` : definition.unavailableReason;
+  const informationalValue = definition.id === "host.currentTopology" ? `Resident local Host · ${dataKind} Case data · ${backend}` : definition.unavailableReason;
   return <section className={`setting-row ${definition.available ? "available" : "unavailable"}`}>
     <div><h3>{definition.title}</h3><p>{definition.description}</p><small>{definition.scope === "local" ? "Stored locally by Studio" : `${definition.scope} owner`}</small></div>
     <div className="setting-control">{definition.control === "boolean" && definition.available && <button role="switch" aria-checked={Boolean(value)} onClick={() => update(!value)}>{value ? "On" : "Off"}</button>}{definition.control === "number" && definition.available && <input type="number" value={Number(value)} onChange={(event) => update(Number(event.target.value))} />}{definition.control === "select" && definition.available && <select value={String(value)} onChange={(event) => update(event.target.value)}>{definition.options?.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>}{definition.control === "information" && <Badge tone={definition.available ? "info" : "warning"}>{informationalValue ?? "Available"}</Badge>}</div>
+  </section>;
+}
+
+function YaiHostSettings({ platform }: Pick<SurfaceRendererProps, "platform">) {
+  const host = platform.host.snapshot();
+  const telemetry = host.telemetry;
+  const facts = [
+    ["Status", host.state],
+    ["PID", telemetry?.pid ?? "—"],
+    ["Uptime", telemetry ? `${Math.floor(telemetry.uptime_ms / 1000)}s` : "—"],
+    ["Version", telemetry?.version ?? "—"],
+    ["Build", telemetry?.build ?? "—"],
+    ["YAI Home", telemetry?.yai_home ?? "—"],
+    ["Protocol", telemetry?.protocol ?? "—"],
+    ["Transport", telemetry?.transport ?? "local IPC"],
+    ["Application", telemetry?.application_readiness ?? "unavailable"],
+    ["Studio clients", telemetry?.client_kinds.studio ?? 0],
+    ["CLI clients", telemetry?.client_kinds.cli ?? 0],
+    ["Runtime supervision", telemetry?.runtime_supervision === "not_integrated" ? "Not yet integrated" : telemetry?.runtime_supervision ?? "Not yet integrated"],
+  ] as const;
+  const act = async (action: "start" | "stop" | "restart") => {
+    if (action === "stop" && !window.confirm("Stop the resident YAI Host? Open Studio clients will become unavailable; durable Cases are unchanged.")) return;
+    if (action === "restart" && !window.confirm("Restart the resident YAI Host? Clients will reconnect and resynchronize their Cases.")) return;
+    try { await platform.host[action](); } catch { await platform.host.status(); }
+  };
+  return <section className="yai-host-settings" aria-label="YAI Host telemetry">
+    <div className="host-setting-header"><div><h3>Current host</h3><p>One resident application service for this YAI_HOME. Closing Studio does not stop it.</p></div><Badge tone={host.state === "live" ? "success" : host.state === "unavailable" ? "error" : "warning"}>{host.state}</Badge></div>
+    <dl>{facts.map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>
+    {host.reason && <p className="host-setting-error">{host.reason}</p>}
+    <div className="host-setting-actions">{host.state === "stopped" || host.state === "unavailable" ? <button onClick={() => void act("start")}>Start YAI</button> : <><button onClick={() => void act("restart")}>Restart YAI</button><button className="danger" onClick={() => void act("stop")}>Stop YAI</button></>}</div>
+    <small>RuntimeInstance remains a separate bounded scheduler in this milestone.</small>
   </section>;
 }

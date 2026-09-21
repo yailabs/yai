@@ -11,9 +11,9 @@ human acceptance remain separate, unclaimed results.
 PASS, with the exact YAI SHA, endpoint and provider-exposed model identity.
 A previous PASS is not silently inherited by a changed product HEAD.
 
-## Studio bounded live local acceptance
+## Studio resident-Host live local acceptance
 
-This lane exercises the bounded single-host real-Case Studio vertical. Use a
+This lane exercises the bounded resident-Host real-Case Studio vertical. Use a
 dedicated non-Golden YAI home; never reset the operator continuity canary or
 populate Studio through frontend fixtures.
 
@@ -52,6 +52,33 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    `npm run desktop:build -- -- --locked`. Launch with
    `YAI_HOME=/dedicated/home npm run desktop:dev`. The bare web Vite surface is
    a negative path and must show `transport_unavailable` rather than fixtures.
+
+   Before launching Studio, exercise the current Host lifecycle with the same
+   built `yai` binary and explicit profile:
+
+   ```sh
+   YAI_HOME=/dedicated/home yai host status --json
+   YAI_HOME=/dedicated/home yai host start --json
+   YAI_HOME=/dedicated/home yai host start --json
+   YAI_HOME=/dedicated/home yai host status --json
+   ```
+
+   Both starts must report the same live PID and Host instance ID. Verify the
+   discovery run directory is owner-only and its socket/discovery files are
+   owner-readable/writable only. Launch two independent Studio processes. Host
+   status must report both Studio attachments under the same PID/instance.
+   Close one Studio: its attachment count must decrease while the Host and the
+   second Studio remain available. Close the second: `yai host status` must
+   still report `running`.
+
+   Restart the Host while Studio is attached. Studio must pass through an
+   explicit reconnecting posture, perform a new handshake, reattach the same
+   durable Case and resync a fresh snapshot. A dirty local file buffer must
+   survive transport loss; if its backing generation changed, it becomes stale
+   rather than silently saved, discarded or rebased. Use `yai host logs` for
+   bounded operational diagnosis. Finish the lifecycle check with an explicit
+   `yai host stop`; Studio must show unavailable and must not immediately undo
+   that operator stop. A subsequent explicit Start/reconnect may resume it.
 3. Confirm Start Center lists only Cases returned to the local principal. Open
    the qualification Case and verify its real Participant attachment, generation,
    sources/resources, committed timeline and graph relations. Knowledge,
@@ -116,7 +143,8 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    search must report unavailable until the application boundary exposes it;
    fixture Case search is test data only. Open Settings twice and confirm one
    singleton tab, internal section/search navigation, persistence of real local
-   preferences and explicit unavailable Host/provider/YVEX entries.
+   preferences, real `YAI Host` process/application/client telemetry, explicit
+   `Runtime supervision: not integrated`, and truthful provider/YVEX entries.
 6. In the desktop Terminal tool, create two terminals and confirm selection,
    input/output, ANSI, Unicode, scrollback and copy/paste. Resize the bottom,
    Explorer and Context panels and verify `stty size` changes. Exercise `vim`
@@ -128,10 +156,13 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    double-click that space to maximize/restore, and resize from every edge and
    corner. Controls inside the title bar must remain clickable and must not begin
    a window drag.
-7. Perform one harmless real YAI mutation against the qualification Case from a
-   second product invocation. Without reloading Studio, observe the generation
-   invalidation, `case.summary` resync and affected Overview/Memory/Inspector
-   content. Record before/after generation and cursor.
+7. With two Studio processes attached to the qualification Case, perform one
+   harmless real YAI mutation from a second product invocation. Without
+   reloading either Studio, observe the Host event sequence advance, generation
+   invalidation, independent `case.summary` resync and affected Overview/Memory/
+   Inspector content in both clients. Record before/after generation, cursor,
+   Host instance and client counts. Tauri-local persistence polling is not valid
+   evidence.
 8. Exercise negative paths with an unavailable YAI home, unknown/invisible Case,
    missing principal/Participant link and stale expected generation. Confirm
    typed refusal/unavailable/stale states and no fixture substitution.
@@ -145,7 +176,8 @@ commands/application operations only; it never reads LMDB or mutates the Case.
     toolbar at 1600×960, 1440×900 and 1280×800. Check focus, semantic color,
     empty/error states, clipping and resize behavior in every touched region.
 
-This lane does not qualify remote transport, concurrent mutation, conversation
+This lane does not qualify remote transport, concurrent mutation, runtime
+supervision, platform login autostart, conversation
 SEND, Case-attached Open in Terminal, persistent terminal continuity, filesystem
 watching, Computer Use or YVEX management. The integrated PTY qualifies only
 local desktop terminal mechanics.

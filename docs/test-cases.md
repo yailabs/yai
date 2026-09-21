@@ -104,7 +104,7 @@ For retained command observations, use `tools/validation/capture_evidence.py`
 with a unique run ID, increasing execution order and exact material pre-state;
 put reproducible local captures under ignored `build/`, not a new wave dossier.
 Keep backend commands, frontend builds and desktop runtime observations separate.
-The [cumulative runbook](zero-to-current.md#studio-bounded-live-local-acceptance)
+The [cumulative runbook](zero-to-current.md#studio-resident-host-live-local-acceptance)
 separates real local and fixture-only operator procedures from live-provider Golden.
 A visual fixture verdict cannot promote backend or human live acceptance.
 

@@ -47,6 +47,22 @@ export function StudioApplication({ dataSource, platform, registry }: { dataSour
     }
     setWorkspace(result);
   }, [attachment, dataSource]);
+  const reattach = useCallback(async () => {
+    if (!attachment) {
+      await loadCases();
+      return;
+    }
+    setStream("reconnecting");
+    const opened = await dataSource.openCase(attachment.case_ref);
+    if (opened.result_state !== "success" || !opened.data) {
+      setStream("unavailable");
+      return;
+    }
+    const current = await dataSource.caseSummary(attachment.case_ref);
+    setAttachment(opened.data);
+    setWorkspace(current);
+    setStream(current.result_state === "success" ? "live" : "unavailable");
+  }, [attachment, dataSource, loadCases]);
 
   useEffect(() => { void loadCases(); }, [loadCases]);
   useEffect(() => {
@@ -79,6 +95,16 @@ export function StudioApplication({ dataSource, platform, registry }: { dataSour
     const timer = window.setInterval(() => void heartbeat(), 1000); void heartbeat();
     return () => { active = false; window.clearInterval(timer); };
   }, [attachment, dataSource, refresh, workspace?.data?.case.generation]);
+  useEffect(() => {
+    if (dataSource.kind !== "live") return;
+    return platform.host.subscribe((host) => {
+      if (host.state === "starting") setStream("connecting");
+      if (host.state === "reconnecting") setStream("reconnecting");
+      if (host.state === "unavailable" || host.state === "stopped") setStream("unavailable");
+      if (host.state === "live" && host.resync_required) void reattach();
+      else if (host.state === "live") setStream("live");
+    }).dispose;
+  }, [dataSource.kind, platform.host, reattach]);
   useEffect(() => {
     const guard = () => { if (attachment) window.history.replaceState({ case_ref: attachment.case_ref }, "", window.location.href); };
     window.addEventListener("popstate", guard); return () => window.removeEventListener("popstate", guard);

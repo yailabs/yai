@@ -171,7 +171,7 @@ try {
   if (await page.locator(".surface-tabs button", { hasText: "Settings" }).count() !== 1) throw new Error("Settings is not singleton");
   await page.locator(".settings-surface > aside").getByRole("button", { name: "YAI Host", exact: true }).click();
   await page.locator(".settings-content").getByRole("heading", { name: "YAI Host", exact: true }).waitFor();
-  await page.getByText(/bounded local application boundary/).waitFor();
+  await page.getByText(/One resident application service/).waitFor();
   report("Settings resolves through the registered singleton Surface contribution");
 
   await page.goto(`${base}/?fixture=ordinary`, { waitUntil: "networkidle" });

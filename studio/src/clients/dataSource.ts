@@ -352,7 +352,7 @@ export class LiveDataSource implements CaseDataSource {
     }
     return {
       ...result,
-      data: { ...result.data, presentation: { dataKind: "live" as const, backendPosture: "embedded-local" as const } },
+      data: { ...result.data, presentation: { dataKind: "live" as const, backendPosture: "resident-host-connected" as const } },
     } satisfies OperationResult<CasePresentation>;
   }
   readMaterial(input: { case_ref: string; source_ref: string; revision_ref?: string; path: string; expected_generation?: number }) { return this.client.readMaterial(input); }
