@@ -525,9 +525,16 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .editor-find { min-height: 38px; display: flex; align-items: center; justify-content: flex-end; gap: 5px; padding: 5px 10px; background: var(--yai-panel); border-bottom: 1px solid var(--yai-divider); }
 .editor-find input { width: min(210px,25%); height: 28px; padding: 0 8px; border: 1px solid var(--yai-divider); border-radius: 4px; outline: 0; background: var(--yai-inset); color: var(--yai-text); }
 .editor-find input:focus { border-color: var(--yai-focus); }
-.text-editor { min-height: 0; flex: 1; display: grid; grid-template-columns: auto minmax(0,1fr); overflow: hidden; background: var(--yai-canvas); }
-.text-editor .line-numbers { min-width: 48px; margin: 0; padding: 14px 10px; overflow: hidden; background: var(--yai-canvas); color: #59616b; font: 13px/1.6 ui-monospace, monospace; text-align: right; user-select: none; }
-.text-editor textarea { min-width: 0; min-height: 100%; padding: 14px 18px 80px 8px; resize: none; border: 0; outline: 0; background: var(--yai-canvas); color: #cbd3dc; caret-color: var(--yai-accent); font: 13px/1.6 ui-monospace, monospace; tab-size: 2; white-space: pre; overflow: auto; }
+.code-editor { min-width: 0; min-height: 0; flex: 1; overflow: hidden; background: var(--yai-canvas); }
+.code-editor > .cm-editor { height: 100%; }
+.code-editor .cm-focused { outline: 1px solid rgba(120,169,255,.16); outline-offset: -1px; }
+.code-editor .cm-panels { font: 12px system-ui, sans-serif; }
+.code-editor .cm-panel.cm-search { padding: 6px 10px; }
+.code-editor .cm-panel.cm-search label { color: var(--yai-text-secondary); }
+.code-editor .cm-panel.cm-search input { height: 26px; padding: 0 7px; }
+.code-editor .cm-panel.cm-search button { min-height: 25px; padding: 0 7px; }
+.file-tree button svg { color: var(--yai-text-muted); }
+.file-tree button:has(svg) svg { flex: 0 0 auto; }
 .open-with { width: min(460px,calc(100vw - 40px)); padding: 8px; border: 1px solid var(--yai-divider); border-radius: var(--radius-floating); background: var(--yai-floating); box-shadow: 0 24px 80px rgba(0,0,0,.65); }
 .open-with h2 { margin: 5px 9px 9px; font-size: 13px; }
 .open-with > button { width: 100%; min-height: 46px; display: flex; align-items: center; gap: 10px; padding: 6px 9px; text-align: left; }

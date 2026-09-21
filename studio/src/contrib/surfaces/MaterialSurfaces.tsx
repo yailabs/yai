@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { Badge, Button, EmptyState } from "../../components/primitives";
-import type { MaterialBody, MaterialView } from "../../clients/presentation";
+import type { MaterialView } from "../../clients/presentation";
 import type { SurfaceRendererProps, SurfaceSearchResult, WorkbenchRenderContext } from "../../workbench/kernel/types";
+import { expectedMaterialIdentity, materialText, useReadableMaterial } from "./materialRead";
+import { validateMaterialRead } from "./materialIdentity";
+
+const CodeEditorSurface = lazy(() => import("./CodeEditorSurface"));
 
 export function presentationMaterial(workspace: SurfaceRendererProps["workspace"], objectRef?: string) {
   const direct = workspace.presentation.materials?.find((item) => item.id === objectRef);
@@ -16,44 +20,21 @@ export function MaterialHeader({ input, material }: { input: SurfaceRendererProp
   return <header className="material-header minimal"><nav aria-label="File breadcrumb">{parts.map((part, index) => <span key={`${part}:${index}`}>{index > 0 && <b>›</b>}{part}</span>)}</nav></header>;
 }
 
-function useReadableMaterial({ workspace, input, readMaterial }: SurfaceRendererProps) {
-  const fixture = presentationMaterial(workspace, input.objectRef);
-  const authored = fixture ? materialText(fixture.body) : undefined;
-  const [state, setState] = useState<{ content?: string; generation?: number; error?: string; loading: boolean }>({ content: authored, generation: authored === undefined ? undefined : workspace.case.generation, loading: authored === undefined });
-  useEffect(() => {
-    if (authored !== undefined) { setState({ content: authored, generation: workspace.case.generation, loading: false }); return; }
-    const file = workspace.environment.files.find((item) => item.id === input.objectRef);
-    if (!file) { setState({ error: "No qualified file revision is attached to this Surface.", loading: false }); return; }
-    let active = true;
-    setState({ loading: true });
-    void readMaterial({ case_ref: workspace.case.case_ref, source_ref: file.source_ref, revision_ref: file.revision_ref, path: file.path, expected_generation: workspace.case.generation }).then((result) => {
-      if (!active) return;
-      if (result.result_state !== "success" || !result.data) { setState({ error: result.error?.safe_message ?? `Material read ${result.result_state}.`, loading: false }); return; }
-      if (result.data.encoding !== "utf-8") { setState({ error: "This exact revision is binary and requires a trusted binary renderer.", loading: false }); return; }
-      setState({ content: result.data.content, generation: result.data.generation, loading: false });
-    });
-    return () => { active = false; };
-  }, [authored, input.objectRef, readMaterial, workspace.case.case_ref, workspace.case.generation, workspace.environment.files]);
-  return state;
-}
-
 export function TextEditorSurface(props: SurfaceRendererProps) {
   const { input, actions, buffers } = props;
   const loaded = useReadableMaterial(props);
-  const textarea = useRef<HTMLTextAreaElement>(null);
   const [snapshot, setSnapshot] = useState(() => buffers.snapshot(input.identity));
-  const [findOpen, setFindOpen] = useState(false);
-  const [find, setFind] = useState("");
-  const [replace, setReplace] = useState("");
   useEffect(() => buffers.subscribe(input.identity, () => setSnapshot(buffers.snapshot(input.identity))).dispose, [buffers, input.identity]);
-  useEffect(() => { if (loaded.content !== undefined) setSnapshot(buffers.initialize(input.identity, loaded.content, loaded.generation)); }, [buffers, input.identity, loaded.content, loaded.generation]);
   useEffect(() => {
+    if (loaded.content !== undefined && loaded.source) {
+      setSnapshot(buffers.initialize(input.identity, loaded.content, loaded.source));
+    }
+  }, [buffers, input.identity, loaded.content, loaded.source]);
+  const registerCommands = useCallback((editorCommand: (name: string) => void) => {
     const command = (event: Event) => {
       const name = (event as CustomEvent<{ name: string }>).detail?.name;
       if (name === "revert") buffers.revert(input.identity);
-      if (name === "replace") setFindOpen(true);
-      if (name === "selectAll") { textarea.current?.focus(); textarea.current?.select(); }
-      if (name === "undo" || name === "redo") { textarea.current?.focus(); document.execCommand(name); }
+      else editorCommand(name);
     };
     window.addEventListener("yai:surface-command", command);
     return () => window.removeEventListener("yai:surface-command", command);
@@ -61,17 +42,7 @@ export function TextEditorSurface(props: SurfaceRendererProps) {
   useEffect(() => { actions.updateSurface(input.id, { dirty: snapshot?.dirty }); }, [actions, input.id, snapshot?.dirty]);
   if (loaded.loading) return <article className="material-surface text-editor-surface"><MaterialHeader input={input} /><div className="surface-loading">Reading exact retained revision…</div></article>;
   if (loaded.error || !snapshot) return <article className="material-surface text-editor-surface"><MaterialHeader input={input} /><EmptyState title="File content unavailable" body={loaded.error ?? "No exact content is available."} /></article>;
-  const lines = Math.max(1, snapshot.value.split("\n").length);
-  const replaceNext = () => {
-    if (!find) return;
-    const start = snapshot.value.indexOf(find, textarea.current?.selectionEnd ?? 0);
-    const index = start >= 0 ? start : snapshot.value.indexOf(find);
-    if (index < 0) return;
-    const next = snapshot.value.slice(0, index) + replace + snapshot.value.slice(index + find.length);
-    buffers.update(input.identity, next);
-    requestAnimationFrame(() => { textarea.current?.focus(); textarea.current?.setSelectionRange(index, index + replace.length); });
-  };
-  return <article className="material-surface text-editor-surface" data-surface-type={input.surfaceType}><MaterialHeader input={input} /><div className="surface-toolbar file-toolbar" role="toolbar"><span>{snapshot.stale ? "Case changed since this buffer opened" : snapshot.dirty ? "Local changes" : "Exact retained revision"}</span><Badge tone={snapshot.stale || snapshot.dirty ? "warning" : "success"}>{snapshot.stale ? "Stale" : snapshot.dirty ? "Unsaved" : "Current"}</Badge>{snapshot.stale && <button onClick={() => buffers.reload(input.identity)}>Reload</button>}<button onClick={() => setFindOpen((value) => !value)}>Find / Replace</button><button disabled title="YAI has no qualified participant-origin filesystem mutation contract">Save unavailable</button></div>{findOpen && <div className="editor-find"><input value={find} onChange={(event) => setFind(event.target.value)} placeholder="Find" aria-label="Find" /><input value={replace} onChange={(event) => setReplace(event.target.value)} placeholder="Replace" aria-label="Replace" /><button onClick={replaceNext}>Replace next</button><button onClick={() => setFindOpen(false)}>Close</button></div>}<div className="text-editor"><pre aria-hidden="true" className="line-numbers">{Array.from({ length: lines }, (_, index) => index + 1).join("\n")}</pre><textarea ref={textarea} spellCheck={false} value={snapshot.value} onChange={(event) => buffers.update(input.identity, event.target.value)} aria-label={`Edit ${input.title}`} /></div></article>;
+  return <article className="material-surface text-editor-surface" data-surface-type={input.surfaceType} data-material-key={snapshot.source.key}><MaterialHeader input={input} /><div className="surface-toolbar file-toolbar" role="toolbar"><span>{snapshot.stale ? "Case changed since this buffer opened" : snapshot.dirty ? "Local changes" : "Exact retained revision"}</span><Badge tone={snapshot.stale || snapshot.dirty ? "warning" : "success"}>{snapshot.stale ? "Stale" : snapshot.dirty ? "Unsaved" : "Current"}</Badge>{snapshot.stale && <button onClick={() => buffers.reload(input.identity)}>Reload</button>}<button onClick={() => window.dispatchEvent(new CustomEvent("yai:surface-command", { detail: { name: "find" } }))}>Find</button><button onClick={() => window.dispatchEvent(new CustomEvent("yai:surface-command", { detail: { name: "replace" } }))}>Replace</button><button disabled title="YAI has no qualified participant-origin filesystem mutation contract">Save unavailable</button></div><Suspense fallback={<div className="surface-loading">Loading syntax-aware editor…</div>}><CodeEditorSurface title={input.title} path={input.metadata?.path} mediaType={input.metadata?.mediaType} snapshot={snapshot} readOnly={input.posture === "read-only"} onChange={(value) => buffers.update(input.identity, value)} onCommand={registerCommands} /></Suspense></article>;
 }
 
 export function MarkdownSurface(props: SurfaceRendererProps) {
@@ -148,7 +119,8 @@ export async function searchMaterialSurface({ workspace, readMaterial, buffers }
     const file = workspace.environment.files.find((item) => item.id === input.objectRef);
     if (file) {
       const result = await readMaterial({ case_ref: workspace.case.case_ref, source_ref: file.source_ref, revision_ref: file.revision_ref, path: file.path, expected_generation: workspace.case.generation });
-      if (result.result_state === "success" && result.data?.encoding === "utf-8") text = result.data.content;
+      const expected = expectedMaterialIdentity({ workspace, input });
+      if (result.result_state === "success" && result.data?.encoding === "utf-8" && expected && !validateMaterialRead(expected, result.data)) text = result.data.content;
     }
   }
   return text?.split("\n").map((line, index) => ({ line: line.trim(), index })).filter(({ line }) => line.toLocaleLowerCase().includes(needle)).slice(0, 40).map(({ line, index }) => ({ id: `${input.identity}:${index}`, label: line || `Line ${index + 1}`, detail: `${input.title} · line ${index + 1}`, objectRef: input.objectRef })) ?? [];
@@ -178,13 +150,6 @@ export async function searchPdfSurface({ workspace }: Pick<SurfaceRendererProps,
   } finally {
     await task.destroy();
   }
-}
-
-function materialText(body: MaterialBody) {
-  if (body.kind === "text") return body.content;
-  if (body.kind === "diff") return body.lines.map((line) => `${line.change === "add" ? "+ " : line.change === "remove" ? "- " : "  "}${line.text}`).join("\n");
-  if (body.kind === "document") return [body.title, body.intro, ...body.sections.flatMap((section) => [section.title, section.body, ...(section.points ?? [])])].join("\n\n");
-  return undefined;
 }
 
 function prettyStructured(source: string, mediaType: string) {

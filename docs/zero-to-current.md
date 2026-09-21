@@ -93,6 +93,22 @@ commands/application operations only; it never reads LMDB or mutates the Case.
    filesystem-content mutation is absent. Closing a dirty Surface must require
    explicit discard.
 
+   Qualify exact material identity by opening, in one preview tab,
+   `application/yai-application/Cargo.toml`, `cmd/README.md`,
+   `tests/qualification/studio-product-vertical/policy.json` and
+   `studio/ROADMAP.md`, then returning to the manifest. Repeat the sequence
+   rapidly so reads overlap. For every displayed file, the tab and Inspector
+   path, Source, revision, digest and visible content must identify the same
+   material; an old response must never initialize the active Surface. JSON,
+   TOML and Markdown source must use their syntax-aware modes. Pin two files,
+   make one buffer dirty, switch the other file and switch renderer on the dirty
+   file: edits may survive only for that exact material identity.
+
+   The read-only `assert_material_identity.py` cross-material oracle under the
+   qualification assets must match every response to the projected
+   Case/Source/revision/path, digest, media type and byte length. It must not
+   mutate the Case.
+
    Independently probe the same exact read through the application boundary,
    using Source/revision identities returned by inventory:
 

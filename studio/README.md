@@ -113,12 +113,16 @@ pinned; the center prioritizes their exact content while path, Source, revision,
 digest, media type and provenance live in Inspector. Studio never scans the
 filesystem and an unacquired Source shows explicit missingness.
 
-Textual files default to the bounded text/code editor. It provides line numbers,
-selection, native undo/redo, find/replace, a Workbench-owned dirty marker and
-explicit Revert. Markdown, SVG and CSV expose trusted alternatives through
+Textual files default to a lazy-loaded CodeMirror 6 Surface with line numbers,
+syntax-aware language modes, folding, bracket matching, selection, undo/redo,
+find/replace, a Workbench-owned dirty marker and explicit Revert. JSON, TOML,
+YAML, XML, Rust, TypeScript/JavaScript, Python, Shell, C/C++, CSS, HTML,
+Markdown and plain text retain distinct source presentation. Markdown, SVG and CSV expose trusted alternatives through
 `File > Open With…` without changing the underlying material identity. Exact
 live text comes from authorized `material.read` resolution of immutable retained
-Source backing. Local edits are deliberately not saveable at current HEAD:
+Source backing. Studio rejects a response unless Case, object, Source, revision,
+path, digest, media type, byte count and generation agree with the active
+Surface; late responses cannot initialize a later preview file. Local edits are deliberately not saveable at current HEAD:
 there is no qualified participant-origin filesystem-content mutation in YAI, so
 Save is disabled and dirty close requires confirmation. Studio never writes the
 repository through Tauri or React. Settings uses one singleton Surface with

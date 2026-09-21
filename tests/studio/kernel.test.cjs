@@ -13,6 +13,8 @@ const { SurfaceGroupService } = require(path.join(studio, "workbench/surface/mod
 const { SurfaceBufferService } = require(path.join(studio, "workbench/surface/buffers.js"));
 const { WorkbenchRegistry } = require(path.join(studio, "workbench/kernel/registry.js"));
 const { rendererChoices, resolveMaterialSurfaceType } = require(path.join(studio, "contrib/surfaces/inputs.js"));
+const { materialIdentity, validateMaterialRead, MaterialReadFence } = require(path.join(studio, "contrib/surfaces/materialIdentity.js"));
+const { detectEditorLanguage } = require(path.join(studio, "contrib/surfaces/editorLanguage.js"));
 const { buildFileTree } = require(path.join(studio, "contrib/case/environment.js"));
 
 test("commands register, gate, execute and dispose without global state", async () => {
@@ -114,19 +116,67 @@ test("qualified file paths form a hierarchy without a filesystem scan", () => {
 
 test("surface buffers retain dirty edits across renderer unmounts and revert explicitly", () => {
   const buffers = new SurfaceBufferService();
-  assert.equal(buffers.initialize("material:readme", "alpha", 4).dirty, false);
+  const source = (path, digest, generation = 4) => ({ key: `${path}:${digest}:${generation}`, caseRef: "case:q", objectRef: `file:${path}`, sourceRef: "source:repo", revisionRef: `revision:${digest}`, path, digest, generation });
+  assert.equal(buffers.initialize("material:readme", "alpha", source("README.md", "a")).dirty, false);
   buffers.update("material:readme", "alpha beta");
   assert.equal(buffers.snapshot("material:readme").dirty, true);
-  buffers.initialize("material:readme", "remote revision", 5);
+  buffers.initialize("material:readme", "remote revision", source("README.md", "b", 5));
   assert.equal(buffers.snapshot("material:readme").value, "alpha beta");
   assert.equal(buffers.snapshot("material:readme").stale, true);
   buffers.reload("material:readme");
-  assert.deepEqual(buffers.snapshot("material:readme"), { baseline: "remote revision", value: "remote revision", dirty: false, sourceGeneration: 5, stale: false });
+  assert.equal(buffers.snapshot("material:readme").value, "remote revision");
+  assert.equal(buffers.snapshot("material:readme").source.digest, "b");
+  assert.equal(buffers.snapshot("material:readme").stale, false);
   buffers.update("material:readme", "local again");
   buffers.revert("material:readme");
-  assert.deepEqual(buffers.snapshot("material:readme"), { baseline: "remote revision", value: "remote revision", dirty: false, sourceGeneration: 5, stale: false });
+  assert.equal(buffers.snapshot("material:readme").value, "remote revision");
+  assert.equal(buffers.snapshot("material:readme").dirty, false);
   buffers.discard("material:readme");
   assert.equal(buffers.snapshot("material:readme"), undefined);
+});
+
+test("surface buffers fence preview, pinned, dirty and renderer-switch identities", () => {
+  const buffers = new SurfaceBufferService();
+  const source = (objectRef, path, digest) => ({ key: `${objectRef}:${path}:${digest}`, caseRef: "case:q", objectRef, sourceRef: "source:repo", revisionRef: `revision:${digest}`, path, digest, generation: 9 });
+  const a = source("file:a", "one/README.md", "a");
+  const b = source("file:b", "two/README.md", "b");
+  buffers.initialize("material:file:a", "A_SENTINEL", a);
+  buffers.initialize("material:file:b", "B_SENTINEL", b);
+  assert.equal(buffers.snapshot("material:file:a").value, "A_SENTINEL");
+  assert.equal(buffers.snapshot("material:file:b").value, "B_SENTINEL");
+  buffers.update("material:file:a", "DIRTY_A");
+  buffers.initialize("material:file:a", "A_NEW", source("file:a", "one/README.md", "a2"));
+  assert.equal(buffers.snapshot("material:file:a").value, "DIRTY_A");
+  assert.equal(buffers.snapshot("material:file:a").stale, true);
+  buffers.initialize("material:file:b", "B_SENTINEL", b);
+  assert.equal(buffers.snapshot("material:file:b").value, "B_SENTINEL");
+});
+
+test("exact material identity rejects mismatched fields and stale asynchronous reads", () => {
+  const expected = materialIdentity({ objectRef: "file:b", caseRef: "case:q", sourceRef: "source:b", revisionRef: "revision:b", path: "b.json", digest: "digest-b", generation: 12, mediaType: "application/json", bytes: 11 });
+  const actual = { case_ref: "case:q", source_ref: "source:b", revision_ref: "revision:b", path: "b.json", digest: "digest-b", generation: 12, media_type: "application/json", bytes: 11, encoding: "utf-8", content: "B_SENTINEL!" };
+  assert.equal(validateMaterialRead(expected, actual), undefined);
+  for (const [field, value] of [["path", "a.json"], ["source_ref", "source:a"], ["revision_ref", "revision:a"], ["digest", "digest-a"], ["generation", 11]]) {
+    assert.match(validateMaterialRead(expected, { ...actual, [field]: value }), new RegExp(`material_identity_mismatch:${field}`));
+  }
+  const fence = new MaterialReadFence();
+  const a = fence.begin("A");
+  const b = fence.begin("B");
+  assert.equal(fence.accepts(a, "B"), false);
+  assert.equal(fence.accepts(b, "B"), true);
+  const c = fence.begin("C");
+  assert.equal(fence.accepts(b, "C"), false);
+  assert.equal(fence.accepts(c, "C"), true);
+});
+
+test("editor language selection distinguishes qualified Studio and YAI materials", () => {
+  assert.equal(detectEditorLanguage("studio/README.md", "text/markdown"), "markdown");
+  assert.equal(detectEditorLanguage("tests/policy.json", "application/json"), "json");
+  assert.equal(detectEditorLanguage("application/Cargo.toml", "text/plain"), "toml");
+  assert.equal(detectEditorLanguage("src/lib.rs", "text/plain"), "rust");
+  assert.equal(detectEditorLanguage("src/view.tsx", "text/plain"), "typescript");
+  assert.equal(detectEditorLanguage("tools/check.sh", "text/plain"), "shell");
+  assert.equal(detectEditorLanguage("notes.txt", "text/plain"), "plain");
 });
 
 test("surface and Inspector locations share the Workbench navigation history", () => {

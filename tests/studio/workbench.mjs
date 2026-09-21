@@ -189,7 +189,8 @@ try {
   await ordinaryEnvironment.getByRole("button", { name: /client-notes\.md/ }).click();
   await page.locator("[data-surface-type='material.text-editor']").waitFor();
   const editor = page.getByRole("textbox", { name: "Edit client-notes.md" });
-  const baseline = await editor.inputValue();
+  const editorText = async (locator) => (await locator.textContent()) ?? "";
+  const baseline = await editorText(editor);
   await editor.fill(`${baseline}\nLocal qualification edit.`);
   await page.getByLabel("Unsaved changes").waitFor();
   await screenshot("environment-text-editor-dirty");
@@ -198,7 +199,8 @@ try {
   await fileMenu.waitFor();
   if (!(await fileMenu.getByRole("menuitem", { name: "Save", exact: true }).isDisabled())) throw new Error("Save was enabled without a governed application mutation");
   await fileMenu.getByRole("menuitem", { name: /^Revert File/ }).click();
-  if (await editor.inputValue() !== baseline) throw new Error("Revert did not restore the exact retained buffer");
+  for (let attempt = 0; attempt < 20 && await editorText(editor) !== baseline; attempt += 1) await page.waitForTimeout(50);
+  if (await editorText(editor) !== baseline) throw new Error(`Revert did not restore the exact retained buffer: ${JSON.stringify(await editorText(editor))}`);
   await page.getByLabel("Unsaved changes").waitFor({ state: "hidden" });
   await editor.fill(`${baseline}\nDiscard this local edit.`);
   let discardPrompt = "";
@@ -207,7 +209,7 @@ try {
   if (!discardPrompt.includes("Discard unsaved changes")) throw new Error("dirty Surface closed without an explicit discard prompt");
   await ordinaryEnvironment.getByRole("button", { name: /client-notes\.md/ }).click();
   await page.locator("[data-surface-type='material.text-editor']").waitFor();
-  if (await page.getByRole("textbox", { name: "Edit client-notes.md" }).inputValue() !== baseline) throw new Error("discarded buffer survived Surface close");
+  if (await editorText(page.getByRole("textbox", { name: "Edit client-notes.md" })) !== baseline) throw new Error("discarded buffer survived Surface close");
   report("Text Surface retains local dirty state, reverts or discards explicitly, and keeps governed Save unavailable");
 
   await page.getByRole("button", { name: "File", exact: true }).click();

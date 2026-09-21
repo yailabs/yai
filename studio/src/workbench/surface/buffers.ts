@@ -4,23 +4,34 @@ export interface SurfaceBufferSnapshot {
   baseline: string;
   value: string;
   dirty: boolean;
-  sourceGeneration?: number;
+  source: SurfaceBufferSource;
   stale: boolean;
-  incoming?: { value: string; generation: number };
+  incoming?: { value: string; source: SurfaceBufferSource };
+}
+
+export interface SurfaceBufferSource {
+  key: string;
+  caseRef: string;
+  objectRef: string;
+  sourceRef: string;
+  revisionRef: string;
+  path: string;
+  digest: string;
+  generation: number;
 }
 
 export class SurfaceBufferService implements Disposable {
   private readonly buffers = new Map<string, SurfaceBufferSnapshot>();
   private readonly listeners = new Map<string, Set<() => void>>();
 
-  initialize(identity: string, value: string, sourceGeneration?: number) {
+  initialize(identity: string, value: string, source: SurfaceBufferSource) {
     const current = this.buffers.get(identity);
     if (!current) {
-      this.buffers.set(identity, { baseline: value, value, dirty: false, sourceGeneration, stale: false });
-    } else if (sourceGeneration !== undefined && current.sourceGeneration !== sourceGeneration) {
+      this.buffers.set(identity, { baseline: value, value, dirty: false, source, stale: false });
+    } else if (current.source.key !== source.key) {
       this.buffers.set(identity, current.dirty
-        ? { ...current, stale: true, incoming: { value, generation: sourceGeneration } }
-        : { baseline: value, value, dirty: false, sourceGeneration, stale: false });
+        ? { ...current, stale: true, incoming: { value, source } }
+        : { baseline: value, value, dirty: false, source, stale: false });
     }
     this.emit(identity);
     return this.snapshot(identity);
@@ -31,7 +42,8 @@ export class SurfaceBufferService implements Disposable {
   }
 
   update(identity: string, value: string) {
-    const current = this.buffers.get(identity) ?? { baseline: value, value, dirty: false, stale: false };
+    const current = this.buffers.get(identity);
+    if (!current) throw new Error(`surface buffer ${identity} was updated before exact material initialization`);
     this.buffers.set(identity, { ...current, value, dirty: value !== current.baseline });
     this.emit(identity);
   }
@@ -39,14 +51,14 @@ export class SurfaceBufferService implements Disposable {
   revert(identity: string) {
     const current = this.buffers.get(identity);
     if (!current) return;
-    this.buffers.set(identity, { baseline: current.baseline, value: current.baseline, dirty: false, sourceGeneration: current.sourceGeneration, stale: false });
+    this.buffers.set(identity, { baseline: current.baseline, value: current.baseline, dirty: false, source: current.source, stale: false });
     this.emit(identity);
   }
 
   reload(identity: string) {
     const current = this.buffers.get(identity);
     if (!current?.incoming) return;
-    this.buffers.set(identity, { baseline: current.incoming.value, value: current.incoming.value, dirty: false, sourceGeneration: current.incoming.generation, stale: false });
+    this.buffers.set(identity, { baseline: current.incoming.value, value: current.incoming.value, dirty: false, source: current.incoming.source, stale: false });
     this.emit(identity);
   }
 

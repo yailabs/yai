@@ -58,7 +58,7 @@ export function materialInput(
     identity,
     surfaceType: resolveMaterialSurfaceType(mediaType),
     title,
-    icon: fileIconForMedia(mediaType),
+    icon: fileIconForMedia(mediaType, material?.path),
     pinned,
     objectRef,
     metadata: mediaType ? { mediaType } : undefined,
@@ -80,7 +80,7 @@ export function fileInput(
     identity,
     surfaceType: resolved,
     title: file.path.split("/").at(-1) ?? file.path,
-    icon: fileIconForMedia(file.media_type),
+    icon: fileIconForMedia(file.media_type, file.path),
     pinned,
     posture: "ready",
     objectRef,
@@ -107,14 +107,19 @@ export function resourceInput(workspace: CasePresentation, objectRef: string, pi
   return { id: pinned ? identity : "surface:preview", identity, surfaceType: surfaceTypes.resource, title: resource?.label ?? resource?.id ?? objectRef, icon: resource?.kind === "database" ? "database" : "resource", pinned, objectRef, viewId: "Environment" };
 }
 
-export function fileIconForMedia(mediaType?: string): IconName {
+export function fileIconForMedia(mediaType?: string, path?: string): IconName {
   const type = mediaType?.split(";")[0];
+  const name = path?.toLocaleLowerCase() ?? "";
+  if (type === "text/markdown" || /\.(md|markdown)$/.test(name)) return "markdownFile";
+  if (type === "application/json" || type === "application/ld+json" || /\.jsonc?$/.test(name)) return "jsonFile";
+  if (type === "application/toml" || type === "application/yaml" || type === "application/x-yaml" || /\.(toml|ya?ml|xml)$/.test(name)) return "configFile";
   if (type === "application/pdf") return "pdf";
   if (type?.startsWith("image/")) return "image";
   if (type?.startsWith("audio/")) return "audio";
   if (type?.startsWith("video/")) return "video";
-  if (type?.startsWith("text/") || structuredTextTypes.has(type ?? "")) return "codeFile";
-  return "file";
+  if (/\.(rs|tsx?|jsx?|py|sh|bash|zsh|c|cc|cpp|cxx|h|hpp|css|html?)$/.test(name)) return "codeFile";
+  if (type?.startsWith("text/") || structuredTextTypes.has(type ?? "")) return "textFile";
+  return type === "application/octet-stream" ? "binaryFile" : "file";
 }
 
 export interface RendererChoice { type: string; title: string }

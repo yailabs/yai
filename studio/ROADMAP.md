@@ -26,6 +26,15 @@ Program postures below are implementation planning facts, not root maturity
 states. `CURRENT`, `TARGET` and `OPEN` deliberately distinguish executable
 behavior from selected architecture and unfinished work.
 
+Canonical status vocabulary, shared with the root YAI/YVEX roadmaps:
+
+| Mark | Meaning |
+|---|---|
+| 🟢 **ESTABLISHED** | Executable bounded foundation is published and qualified. |
+| 🟡 **PARTIAL** | Useful executable behavior exists; named closure work remains. |
+| 🔴 **OPEN** | Selected work or a required contract is not established. |
+| ⚪ **LATER** | Explicit horizon; not selected for current implementation. |
+
 ## Studio execution board
 
 `CASE.PRODUCT.VERTICAL.COHERENCE.0` established
@@ -38,20 +47,42 @@ explicit backend/application gap rather than a frontend workaround. The first
 S1 foothold now supplies one resident application Host per `YAI_HOME`; deliberate
 RuntimeInstance supervision remains the next S1 milestone.
 The persistent Case is advanced only through normal YAI operations and is never
-reset by Studio tests.
+reset by Studio tests. `APPLICATION.CAPABILITY.OPERATION.PARITY.0` published at
+`99c8d15d81a700a64d65fa779cbb96db6d22722f`; this bounded editor milestone
+records its delta without opportunistically consuming the new operations. The
+Studio sequence is:
+
+```text
+🟢 S1.PRODUCT.HOST.LIFECYCLE.0
+        ↓
+🟢 STUDIO.MATERIAL.IDENTITY.EDITOR.0
+        ↓
+🔴 STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0
+        ↓
+🔴 S1.RUNTIME.SUPERVISION.1
+```
 
 | Lane | Owner | Current executable truth | Selected next milestone | Backend dependency | Status |
 |---|---|---|---|---|---|
-| Workbench | Studio S2 | One contribution-driven Workbench and universal Surface system | Feature-local Product Quality Passes | Typed presentation facts | Established, bounded |
-| Product Case vertical | Cross-surface qualification | Persistent Case with real Sources, Knowledge, policy, Workflow and generation refresh | Keep the product oracle coherent as owners grow | Normal CLI/domain operations | Established, bounded |
-| Application / X03 | `yai-application` plus existing owners | Authorized local list/open/summary, retained content resolution and generation invalidation | Broader typed read/mutation parity | Owner projections and disclosure contracts | Partial, unblocked |
-| Host / S1 | `application/yai-host` plus `yai-application` | Resident same-user Unix Host, singleton discovery, typed IPC, events, lifecycle CLI and Studio client | `S1.RUNTIME.SUPERVISION.1` | Integrate the existing scheduler without duplicating its lease/execution owners | Established foothold; runtime supervision next |
-| Memory / S4 | Transition/graph/Recall plus Studio | Bounded timeline and derived relations | Typed navigation, Inspector and temporal canvas | Resolvable typed relations | After S1 foothold |
-| Environment / S5 | Sources/Resources plus Studio | Typed File/Source/Resource exploration, governed exact reads, renderer selection and local dirty/revert | Continue feature-local quality through later S5 depth | Participant-origin admitted file mutation and revision-conflict contract | Established, authoring partial |
-| Authority / S6 | Policy/Review/Grant/Workflow plus Studio | Bound policy and Workflow resolution reads | Actions and workflow progression UX | Mutation-complete application operations | Horizon, blocked on boundary |
-| Compute / S7 | Provider governance plus Studio | Case-bound targets only; model/runtime/deployment facts remain distinct | Generic models/providers/targets experience | Provider discovery/configuration contracts | Horizon, partial |
-| YVEX / S8 | YVEX public management plane | Generic inference posture only | Native management plane | Versioned public YVEX capabilities | Horizon, blocked |
-| External / S10–S12 | Selected future owners | No public external/mobile contract | Later selection | S1 and explicit interface programs | Horizon |
+| Workbench | Studio S2 | One contribution-driven Workbench and universal Surface system; exact material identity fencing and the syntax-aware editor foundation are established | Capability Surface convergence, then feature-local Product Quality Passes | Typed presentation facts | 🟡 **PARTIAL** |
+| Product Case vertical | Cross-surface qualification | Persistent Case with real Sources, Knowledge, policy, Workflow and generation refresh | Keep the product oracle coherent as owners grow | Normal CLI/domain operations | 🟢 **ESTABLISHED** |
+| Application / X03 | `yai-application` plus existing owners | Authorized local list/open/summary, retained content resolution and generation invalidation | Publish parity, then `STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0` | Owner projections and disclosure contracts | 🟡 **PARTIAL** |
+| Host / S1 | `application/yai-host` plus `yai-application` | Resident same-user Unix Host, singleton discovery, typed IPC, events, lifecycle CLI and Studio client | `S1.RUNTIME.SUPERVISION.1` after bounded capability convergence | Integrate the existing scheduler without duplicating its lease/execution owners | 🟡 **PARTIAL** |
+| Memory / S4 | Transition/graph/Recall plus Studio | Bounded timeline and derived relations | Typed navigation, Inspector and temporal canvas | Resolvable typed relations | 🔴 **OPEN** |
+| Environment / S5 | Sources/Resources plus Studio | Typed File/Source/Resource exploration, governed exact reads, renderer selection, exact material identity and syntax-aware local dirty/revert | Governed save after capability convergence | Participant-origin admitted file mutation and revision-conflict contract | 🟡 **PARTIAL** |
+| Authority / S6 | Policy/Review/Grant/Workflow plus Studio | Bound policy and Workflow resolution reads | Actions and workflow progression UX | Mutation-complete application operations | 🔴 **OPEN** |
+| Compute / S7 | Provider governance plus Studio | Case-bound targets only; model/runtime/deployment facts remain distinct | Generic models/providers/targets experience | Provider discovery/configuration contracts | 🔴 **OPEN** |
+| YVEX / S8 | YVEX public management plane | Generic inference posture only | Native management plane | Versioned public YVEX capabilities | ⚪ **LATER** |
+| External / S10–S12 | Selected future owners | No public external/mobile contract | Later selection | S1 and explicit interface programs | ⚪ **LATER** |
+
+### Capability delta awaiting Studio convergence
+
+The published Application parity work adds or advances typed
+operations for Case lifecycle, Participants, policy/review, Resources, Sources,
+Workflow, handoff, identity/Tenant, Recall/working state and cognitive binding.
+It also makes disconnect-safe execution and runtime supervision explicit
+blockers. This editor milestone records that delta but does not consume it.
+Studio integration belongs to `STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0`.
 
 ## Surface/backend responsibility
 
@@ -81,6 +112,10 @@ Environment exploration and local-authoring boundary
         ↓
 resident application Host foundation
         ↓
+material identity and editor hardening
+        ↓
+capability Surface convergence after Application parity publication
+        ↓
 RuntimeInstance supervision under product Host lifecycle
         ↓
 Memory / Inspector / Navigation
@@ -109,7 +144,14 @@ application and Workbench seams exist.
 - **ESTABLISHED S1 foothold:** one Rust-owned resident application Host serves
   independently launched local clients through private versioned Unix IPC;
   Studio discovers/starts/attaches and no longer embeds `LocalApplication`.
-- **NEXT:** `S1.RUNTIME.SUPERVISION.1`, integrating the existing bounded
+- **ESTABLISHED, bounded:** `STUDIO.MATERIAL.IDENTITY.EDITOR.0` fences exact
+  material reads, rejects late cross-material responses, replaces the textarea
+  foothold with a lazy syntax-aware editor and keeps governed Save explicitly
+  unavailable.
+- **NEXT after Application parity publication:**
+  `STUDIO.CAPABILITY.SURFACE.CONVERGENCE.0`, reconciling typed capabilities
+  through existing Workbench contributions.
+- **THEN:** `S1.RUNTIME.SUPERVISION.1`, integrating the existing bounded
   `RuntimeInstance` lifecycle without replacing its lease, fairness or recovery
   owners.
 - **NEXT feature program after S1 runtime supervision:** S4 Memory / Inspector /
@@ -131,6 +173,7 @@ application and Workbench seams exist.
 | Workbench productization | Surface roles/capabilities and read-only posture; Command Palette, Quick Open and renderer-owned search; singleton searchable Settings with versioned local preferences; trusted structured text, image/vector, PDF, table, audio/video and unknown-material paths; lazy heavy renderers, shared Panel toolbar seams and a resizable in-tool terminal instance pane. |
 | Environment exploration / authoring boundary | File hierarchy from qualified projected paths; distinct Source and Resource Surfaces; authorized exact retained material read; trusted renderer selection; local text dirty/revert lifecycle with Save disabled until YAI qualifies participant-origin mutation and revision conflict handling. |
 | Resident application Host foothold | One Linux-qualified Host per `YAI_HOME`; private Unix discovery/handshake, same-user attachment, application request forwarding, event fanout, telemetry and CLI lifecycle; native Studio auto-starts/attaches and survives independently from the Host. |
+| Exact material identity and syntax editor | Request/response identity is fenced across Case, object, Source, revision, path, digest, generation, media type and bytes; late preview reads cannot initialize another file; CodeMirror supplies a lazy syntax-aware file editor while governed Save remains unavailable. |
 
 These are bounded implementation facts. Their maturity remains whatever the
 root ROADMAP says.
@@ -183,7 +226,7 @@ root ROADMAP says.
 
 ## S2 — Workbench Kernel
 
-**Posture:** bounded horizontal foundation established; S1 is next.
+**Posture:** bounded horizontal foundation and exact-material editor hardening established.
 
 - **Purpose:** make desktop regions and frontend infrastructure stable hosts for
   internally authored YAI contributions.

@@ -24,6 +24,8 @@
     "../../studio/src/platform/theme.ts",
     "../../studio/src/workbench/surface/model.ts",
     "../../studio/src/workbench/surface/buffers.ts",
+    "../../studio/src/contrib/surfaces/materialIdentity.ts",
+    "../../studio/src/contrib/surfaces/editorLanguage.ts",
     "../../studio/src/workbench/settings/registry.ts",
     "../../studio/src/contrib/surfaces/inputs.ts",
     "../../studio/src/contrib/case/environment.ts",
