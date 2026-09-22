@@ -1,3 +1,5 @@
+import type { ExecutionGetInput, ExecutionObservation, ExecutionSubmission, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput } from "./execution";
+import type { KnowledgeRequest, KnowledgeView, KnowledgeSearchResult, KnowledgeResolveResult, KnowledgeNavigationResult } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowDefinition, WorkflowBindInput, WorkflowPatchInput, WorkCommit, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
 import type { ProviderRegistration, ProviderTarget, ProviderQualificationInput, ProviderQualification, ProviderBindingInput, ProviderPosture } from "./compute";
 import type { CaseCapabilityView, ApplicationCatalog, CasePolicyBindingInput, CasePolicyReplacementInput, CasePolicyUnbindingInput, SourceDeclarationInput, TenantPresentation } from "./application";
@@ -64,9 +66,9 @@ export interface LiveWorkspace {
     participants: Array<{ id: string; roles: string[]; is_current: boolean }>;
   };
   environment: {
-    sources: Array<{ id: string; label: string; kind: string; perimeter: string; media_type: string; roles: string[]; resource_ref: string; posture?: string; revision_ref?: string; items?: number }>;
+    sources: Array<{ id: string; label: string; kind: string; perimeter: string; media_type: string; roles: string[]; resource_ref: string; posture?: string; revision_ref?: string; items?: number; attempt?: number; progress_ref?: string }>;
     files: Array<{ id: string; source_ref: string; source_label: string; revision_ref: string; path: string; digest: string; bytes: number; media_type: string; backing: unknown }>;
-    resources: Array<{ id: string; label?: string; kind: string; policy_ref: string; review_requirement: string; allowed_write_prefix: string; max_write_bytes: number; operations: string[]; read_prefixes: string[]; names: string[]; max_output_bytes?: number; max_items?: number }>;
+    resources: Array<{ id: string; label?: string; kind: string; policy_ref: string; review_requirement: string; allowed_write_prefix: string; max_write_bytes: number; operations: string[]; read_prefixes: string[]; names: string[]; max_output_bytes?: number; max_items?: number; configuration_digest?: string }>;
     artifacts: unknown[];
   };
   knowledge: {
@@ -148,6 +150,17 @@ export class LiveClient {
     }
   }
 
+  acquireSource(input: SourceAcquireInput) { return this.call<ExecutionSubmission>("source.acquire", input); }
+  resumeSource(input: SourceResumeInput) { return this.call<ExecutionSubmission>("source.resume", input); }
+  execution(input: ExecutionGetInput) { return this.call<ExecutionObservation>("execution.get", input); }
+  requestResource(input: ResourceRequestInput) { return this.call<ExecutionSubmission>("resource.request", input); }
+  attachProcess(input: ProcessAttachmentInput) { return this.call<unknown>("resource.attach_process", input); }
+  runCase(input: CaseRunInput) { return this.call<ExecutionSubmission>("case.run", input); }
+  stopCase(input: CaseStopInput) { return this.call<ExecutionObservation>("case.stop", input); }
+  inspectKnowledge(request: KnowledgeRequest) { return this.call<KnowledgeView>("knowledge.inspect", { request }); }
+  searchKnowledge(request: KnowledgeRequest, query: string, limit: number) { return this.call<KnowledgeSearchResult>("knowledge.search", { request, query, limit }); }
+  resolveKnowledge(request: KnowledgeRequest, unit_ref: string) { return this.call<KnowledgeResolveResult>("knowledge.resolve", { request, unit_ref }); }
+  navigateKnowledge(request: KnowledgeRequest) { return this.call<KnowledgeNavigationResult>("knowledge.navigation", { request }); }
   defineWorkflow(input: WorkflowDefinitionInput) { return this.call<WorkflowDefinition>("workflow.define", { definition: input }); }
   bindWorkflow(input: WorkflowBindInput) { return this.call<unknown>("workflow.bind", input); }
   proposeWorkflowPatch(input: { case_ref: string; patch: WorkflowPatchInput }) { return this.call<WorkCommit>("workflow.patch.propose", input); }

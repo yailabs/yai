@@ -307,6 +307,16 @@ fn process_attachment_preserves_review_and_exact_birth_identity_without_effects(
     let mut absent = input.clone();
     absent["case_ref"] = json!("case:absent");
     assert_eq!(app.call(request("resource.attach_process", absent)).result_state, ResultState::Unauthorized);
+    let mut missing_process = input.clone();
+    missing_process["pid"] = json!(i32::MAX);
+    missing_process["attachment_ref"] = json!("missing-process");
+    let missing = app.call(request("resource.attach_process", missing_process));
+    assert_eq!(missing.result_state, ResultState::Error, "missing PID is not transport loss");
+    assert!(missing.data.is_none());
+    assert!(missing.error.unwrap().safe_message.contains("no Resource was attached"));
+    let snapshot = app.call(request("case.summary", json!({"case_ref":"case:process-test"}))).data.unwrap();
+    assert_eq!(snapshot["case"]["generation"], first["state"]["generation"]);
+    assert_eq!(snapshot["environment"]["resources"].as_array().unwrap().len(), 1);
     let mut own_process = input;
     own_process["pid"] = json!(std::process::id());
     assert_ne!(app.call(request("resource.attach_process", own_process)).result_state, ResultState::Success);

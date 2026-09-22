@@ -513,6 +513,13 @@ fn source_attempt_observation_retains_exact_history_and_current_revoke_after_reo
     let source_id = source.declaration.source_id.clone();
     let input = json!({"case_ref":"case:audit", "participant_ref":"participant:operator",
         "execution":{"domain":"source_acquisition","source_ref":source_id,"attempt":1}});
+    let summary = f.success("case.summary", json!({"case_ref":"case:audit"}));
+    assert_eq!(summary["environment"]["resources"][0]["configuration_digest"], binding.digest());
+    assert!(summary["environment"]["sources"][0]["attempt"].is_null());
+    assert!(summary["environment"]["sources"][0]["progress_ref"].is_null());
+    let hidden = f.call("case.summary", json!({"case_ref":"case:other"}));
+    assert_eq!(hidden.result_state, ResultState::Unauthorized);
+    assert!(hidden.data.is_none());
     assert_eq!(f.call("execution.get", input.clone()).result_state, ResultState::Unauthorized);
     let ingested = f.success("policy.ingest", json!({"tenant_id":"tenant:audit",
         "source_bytes":include_bytes!("../../../tests/fixtures/cli-product-policy.json").to_vec()}));
@@ -611,6 +618,11 @@ fn source_attempt_observation_retains_exact_history_and_current_revoke_after_reo
     assert_eq!(retry["execution"], submitted["execution"]);
     assert_eq!(f.generation(), retry_generation, "retry appends no second attempt or Decision");
     let observed = f.success("execution.get", input.clone());
+    let summary = f.success("case.summary", json!({"case_ref":"case:audit"}));
+    let projected = summary["environment"]["sources"].as_array().unwrap().iter()
+        .find(|source| source["id"] == source_id).unwrap();
+    assert_eq!(projected["attempt"], observed["attempt"]);
+    assert_eq!(projected["progress_ref"], observed["progress_ref"]);
     assert_eq!(observed["progress_ref"], first.progress_id);
     assert_eq!(observed["phase"], "denied");
     let second = SourceProgress { schema:SOURCE_PROGRESS_SCHEMA.into(), progress_id:String::new(),

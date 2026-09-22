@@ -70,13 +70,12 @@ loss or instance change. Settings > Advanced distinguishes advertised operations
 from explicitly integrated Studio interactions; `application_ready` does not
 imply a complete UI or current execution permission. See the generated
 [capability matrix](reference/application-capabilities.md).
-The catalog currently exposes 61 typed operations across 26 Application-ready
-families. Five PRODUCT families retain machine-readable blockers rather than
-fake buttons or generic command passthrough: RuntimeInstance supervision for
-Case run/resume/stop, and a disconnect-safe execution submission/result contract
-for Conversation, controlled effects, cognitive realization and governed source
-acquisition. Studio may consume the partial operations listed for those families,
-but it must not present the blocked execution stage as available.
+The current catalog exposes 72 typed operations. Family-level blockers remain
+where the complete semantic action is not qualified: a listed partial operation
+never promotes the whole family. Studio consumes exact source attempts, governed
+Resource requests, bounded runtime submission/stop and read-only execution
+observation. Conversation SEND, complete ambiguous-delivery recovery and generic
+cognitive realization remain distinct missing contracts.
 
 Authored live forms currently consume Case creation/cancellation/closure,
 Participant role addition and authenticated self-linking, Review
@@ -127,7 +126,8 @@ close Studio
 ```
 
 The application-Host portion of this topology is current executable behavior on
-the qualified Linux path. Runtime supervision, platform login autostart,
+the qualified Linux path, including bounded supervision of the existing runtime
+scheduler. Platform login autostart,
 cross-platform local transports, remote clients and provider supervision remain
 target properties.
 
@@ -166,8 +166,8 @@ It advances admitted work but owns neither Case history nor Case semantics.
 `cmd/yaid` remains a limited C daemon with narrow status/info/shutdown,
 fixture-loop and compatibility journal/projection behavior.
 
-TARGET: the resident Rust-owned Local Host progressively supervises normally
-one RuntimeInstance alongside the application and update services. This
+CURRENT: the resident Rust-owned Local Host supervises the existing
+RuntimeInstance alongside the application and update services. This
 placement does not make RuntimeInstance the Case owner. The host target is
 Rust-owned because the current application composition, runtime scheduler and
 Case owners are Rust; this does not authorize a second C/Rust lifecycle owner.
@@ -200,8 +200,9 @@ it is absent.
 The singleton surface displays only authoritative facts currently exposed by
 the Host: status, PID/process identity, uptime, version/build, `YAI_HOME`,
 protocol, transport, application readiness, attached clients, event sequence
-and activity. Runtime supervision is explicitly `not_integrated`; unavailable
-OS or scheduler telemetry is not fabricated. Host telemetry is operational
+and activity. Runtime supervision is displayed from the actual Host response;
+an older Host may still report `not_integrated`. Unavailable OS or scheduler
+telemetry is not fabricated. Host telemetry is operational
 process state, not Case state.
 
 Provider processes have an independent lifecycle. Starting YAI does not load a
@@ -211,9 +212,9 @@ supervision belongs to its native management plane, not generic host readiness.
 
 ### OPEN implementation boundaries
 
-The Host foothold does not yet supervise `RuntimeInstance`, converge ordinary
-domain CLI calls on Host transport, provide durable event replay, qualify
-multi-client mutation conflicts, start at OS login or implement macOS/Windows
+The Host does not yet converge ordinary domain CLI calls on Host transport,
+provide durable event replay, qualify every multi-client mutation conflict,
+start at OS login or implement macOS/Windows
 local transport. Reconnect is snapshot/resync based because the event sequence
 is process-local and non-canonical. No LAN listener, remote serving,
 mutation-complete API or provider supervision is selected by this document.
@@ -1092,10 +1093,13 @@ Resources. The form uses the projected operation names and, for database/HTTP
 Sources, only exposed named requests. Roles and bootstrap intent are explicit.
 YAI validates the actual perimeter, Participant and authority; a declaration
 does not acquire bytes or publish policy. Source revocation requires a reason
-and retains canonical history. The current published application boundary has
-no Source acquisition operation; attachment also requires a qualified native
-binding/carrier that Studio does not reconstruct from a path. These remaining
-setup interactions stay separate from the working declaration/revocation path.
+and retains canonical history. Acquisition and explicit resume use the published
+typed operations, expected generation, exact attempt and prior progress reference.
+An interrupted attempt is not assumed to be running or automatically resubmitted.
+General Resource attachment still requires a qualified native binding/carrier;
+Studio does not reconstruct it from a path. Process attachment uses the published
+same-user PID/identity capture with explicit bounded signal actions and review;
+attachment itself sends no signal.
 
 ### Case policy binding interactions
 
@@ -1134,8 +1138,14 @@ Back/Forward records Case-local presentation locations, including active Surface
 and explicit Inspector selection. Activity remains a concise latest-20 feed.
 Journal is a searchable, pausable projection of committed Transition history;
 its current latest-160 bound is disclosed and is not a full ledger browser.
-Executions and Evidence can show committed lifecycle/observation references;
-that is distinct from a live execution handle, result body or receipt projection.
+Executions separates committed lifecycle history from exact operational
+observations. Work can submit bounded tasks, request cooperative stop of an exact
+runner, and observe source attempts or Resource effects through `execution.get`.
+Window-local, Case/Participant-scoped recovery references are retained before
+submission; they contain no task, result, authority or canonical execution state.
+After lost acknowledgement, reconnect or remount, observation never redispatches.
+The latest twelve local references are not a complete execution catalog. Result
+bodies and full receipt navigation remain separate projection boundaries.
 
 A policy document is a carrier with provenance, not an authority role inferred
 from its filename. Qualified Source roles route policy-only Sources and their
@@ -1173,7 +1183,17 @@ Work composes Workflow, Handoff and current projected operational history.
 Workflow authoring currently supports bounded human checkpoints and explicit
 patch adoption; YAI retains topology and progression semantics. Handoff uses
 exact same-Tenant Case identities and transfers neither authority nor Resources.
-Absent inbox/effective-topology/execution projections remain visible boundaries.
+Absent inbox/effective-topology/full-result projections remain visible boundaries.
+Resource requests use qualified bound configuration digests and authored variants:
+filesystem read/search, discovery, named read-only database query, HTTP fetch,
+process runner and MCP catalog. No arbitrary SQL, shell command or URL is supplied
+by these forms. Receipt outcome describes admitted external execution; it does not
+imply a process exited successfully. Current authority is rechecked on observation.
+
+Knowledge offers owner-backed inspect, lexical search, exact unit resolution and
+documentary navigation separately from filtering the already projected collection.
+Results are fenced by Case/generation/source identity; revocation or a changed
+snapshot invalidates them. Retrieval relevance never becomes confidence or truth.
 
 Compute distinguishes model identity, provider adapter/runtime, exact deployment,
 qualification, trust, health observations and Case binding. Registration does not

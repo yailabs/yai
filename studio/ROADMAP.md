@@ -14,41 +14,47 @@ Counts below are inventory, never a percentage of product completion.
 | ⚪ LATER | Explicit horizon, not current implementation. |
 
 <!-- maturity-counts:start -->
-Generated from the capability board: 🟢 ESTABLISHED **22** · 🟡 PARTIAL **16** · 🔴 OPEN **3** · ⚪ LATER **3** · **44 properties**.
+Generated from the capability board: 🟢 ESTABLISHED **22** · 🟡 PARTIAL **17** · 🔴 OPEN **2** · ⚪ LATER **3** · **44 properties**.
 Regenerate: `python3 tools/validation/check_studio_roadmap.py --write`.
 <!-- maturity-counts:end -->
 
 ## Execution control
 
-**ACTIVE:** `STUDIO.CASE.IDE.OPERATIONALIZATION.0` — integrated implementation,
-final validation and publication. The bounded changes operationalize existing
-published owners; they do not close all Studio programs.
+**CURRENT:** `STUDIO.CASE.IDE.OPERATIONALIZATION.0` — bounded operational
+foundation established. The qualified interactions below consume published
+owners; the remaining partial properties do not become complete by publication.
 
-**NEXT:** reconcile independently published Application execution lifecycle,
-then consume qualified submission/observation identities in their natural
-Surfaces. `S1.RUNTIME.SUPERVISION.1` must integrate the existing RuntimeInstance,
-not establish a competing scheduler. **THEN:** S4 typed Memory/navigation,
-S5 governed authoring/intake, S6 authority/work depth, S7 generic Compute.
+**ACTIVE / NEXT:** consolidate S1 runtime supervision on the published execution
+foundation. The existing scheduler remains the sole runtime owner; Studio does
+not create another scheduler.
+**THEN:** deepen S4 typed Memory/navigation, S5 governed authoring/intake, S6
+Authority/Work and S7 generic Compute against the named Application boundaries.
 **BLOCKED:** governed Save, folder intake with qualified routing, policy catalog
-and combined-policy explanation, reconnect-safe execution at this baseline.
+and combined-policy explanation, Conversation SEND and ambiguous-delivery recovery.
 **HORIZON:** native YVEX management, external/mobile clients, Computer Use,
 shared declarative Case Views and public extensions.
 
 ### Backend and Capability Delta Check
 
 Last Studio review: `d049888b4f273748657a24e02245b979ccb73e02`.
-This implementation reconciles published
-`6482df05858a14c8bc138943932f72fca492af01`: intervening `1f724c13` adds the bounded
-provider latency diagnostic; `6482df05` excludes Cargo output from placement
-checks. Neither adds an Application operation. Concurrent
-`APPLICATION.EXECUTION.LIFECYCLE.0` remains independently owned and is not
-consumed from its dirty worktree. The executable baseline advertises 42
-capabilities, 61 operations and five semantic execution/supervision blockers.
+This implementation started on published
+`6482df05858a14c8bc138943932f72fca492af01`: `1f724c13` added the bounded provider
+latency diagnostic and `6482df05` excluded Cargo output from placement checks.
+During validation, `28001995e3d83d581c0b170b56cedaff1797b518` published the execution
+foundation. With explicit operator authorization, only the isolated Studio commit
+was rebased onto it. Independently owned work remains untouched.
+
+The new published delta adds eleven operations: `case.run`, `case.stop`,
+`execution.get`, `source.acquire`, `source.resume`, `resource.attach_process`,
+`resource.request`, `knowledge.inspect`, `knowledge.search`, `knowledge.resolve`
+and `knowledge.navigation`. The catalog now exposes 72 operations; partial family
+blockers remain exact. The Host supervises the existing RuntimeInstance. This is
+not Conversation SEND, complete interrupted-delivery recovery or native YVEX control.
 
 The code-owned [Application catalog](../application/yai-application/src/capabilities.rs)
 remains the operation identity owner. Studio's
 [consumer evidence map](src/contrib/settings/capabilityPosture.ts) classifies
-52 connected interactions, four deliberately alternate paths and five named
+63 connected interactions, four deliberately alternate paths and five named
 interaction debts. `tests/studio/capability-parity.mjs` compares every ID against
 the executable catalog. This inventory does not replace per-action positive,
 refusal/stale and lost-acknowledgement tests. A newly advertised Host operation
@@ -83,10 +89,10 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SF03 | 🟢 ESTABLISHED | Markdown, inert SVG/images, PDF, table, audio/video and unknown fallback | Rich editing not implied | media-surfaces.mjs; desktop-csp.mjs |
 | SF04 | 🔴 OPEN | Governed Save and stale-revision write refusal | Participant-origin content mutation/admission/receipt contract | Save remains disabled |
 | SE01 | 🟢 ESTABLISHED | Distinct File/Source/Resource identity; projected path tree and type-specific exploration | No frontend filesystem scan | environment-actions.mjs; workbench.mjs |
-| SE02 | 🟡 PARTIAL | Source declare/revoke and explicit policy-source publication | Acquisition/resume need published durable attempt contract | environment-actions.mjs; source-policy-actions.mjs |
-| SE03 | 🟡 PARTIAL | Resource kind, declared bounds, Source users and current requestability | Native secure binding setup and effect observation UI open; requestable is not authorized | source-policy-actions.mjs |
+| SE02 | 🟡 PARTIAL | Source declare/acquire/resume/revoke and explicit policy-source publication with exact attempt recovery | Interrupted in-flight attempts can remain unresolved; no automatic redispatch | environment-actions.mjs; source-policy-actions.mjs; execution-actions.mjs |
+| SE03 | 🟡 PARTIAL | Resource kind/bounds/requestability, process attachment and seven authored request variants with receipt observation | General native binding setup, content admission and catalog-qualified MCP calls remain interaction debt | source-policy-actions.mjs; effect-actions.mjs |
 | SE04 | 🔴 OPEN | Governed mixed-folder intake and routing preview | Authorized recursive intake/material acquisition plus typed route projection; no extension classifier | Policy-only file upload is not folder intake |
-| SK01 | 🟢 ESTABLISHED | Bounded Knowledge collections with full-projection search and exact Inspector text | Do not infer missing categories | knowledge-navigation.mjs |
+| SK01 | 🟢 ESTABLISHED | Bounded Knowledge collections plus owner inspect/search/resolve/documentary navigation | Lexical relevance is not truth; exact backing rechecked | knowledge-navigation.mjs; execution-actions.mjs |
 | SK02 | 🟡 PARTIAL | Full-canvas associative graph, pan/zoom/drag, filters, neighborhoods, edges and unresolved refs | Backend projection paging and denser graph strategy remain | knowledge-navigation.mjs |
 | SM01 | 🟡 PARTIAL | Case Timeline and temporal Experience Graph from qualified relations | Typed pagination and richer temporal navigation | knowledge-navigation.mjs; operational-live.mjs |
 | SM02 | 🟢 ESTABLISHED | Authored Recall task/cut/required refs; evidence, selection reasons, closure and limitations | Relevance is not confidence | memory-actions.mjs |
@@ -96,7 +102,7 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SA01 | 🟢 ESTABLISHED | Explicit policy document ingest, typed IR, validate/publish/retire/revoke and Case bind/replace/unbind | Compilers own interpretation; publication is not binding | policy-intake.mjs; policy-actions.mjs |
 | SA02 | 🟢 ESTABLISHED | Review approve/deny/defer and projected Grants/last Decision | Backend enforces current authority | application-actions.mjs |
 | SA03 | 🟡 PARTIAL | Policy Sources routed to Authority; documentary portions retain provenance | Policy catalog/read, mixed-region route projection, effective combined-policy explanation and simulation open | source-policy-actions.mjs |
-| SO01 | 🟡 PARTIAL | Work center exposes Workflow, Handoff and committed operational history | Durable executions/results/frontier observation need typed projections | work-actions.mjs |
+| SO01 | 🟡 PARTIAL | Work center exposes Workflow, Handoff, bounded run/stop, exact execution observation and history | No complete execution catalog, Handoff inbox or general result-body browser | work-actions.mjs; effect-actions.mjs |
 | SO02 | 🟡 PARTIAL | Define/bind human checkpoint workflows, HumanInput, checkpoint patch propose/adopt | Other node authors, effective patched topology/prompt projection open | work-actions.mjs |
 | SO03 | 🟡 PARTIAL | Explicit Handoff offer/accept/decline/result/reconcile | Authored exact refs work; inbox/read projection and richer result navigation open | work-actions.mjs |
 | SO04 | 🟢 ESTABLISHED | Journal from committed history, follow/pause/search/type/component, Inspector/Timeline | Latest 160 disclosure; not a complete ledger browser | navigation-journal.mjs; operational-live.mjs |
@@ -107,8 +113,8 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 | SY01 | 🟡 PARTIAL | Generic OpenAI-compatible target with optional yvex.http.v1 telemetry posture in Compute | Real DeepSeek deployment unavailable in current external lane | Controlled provider test is not external model evidence |
 | SY02 | ⚪ LATER | Native YVEX Source/Artifact/Profile/Engine/Session management | Versioned YVEX public management plane | No private producer coupling |
 | SH01 | 🟢 ESTABLISHED | Resident same-user Unix Host, singleton discovery, events, auto-attach, telemetry and lifecycle | Host survives Studio; normal live mode never embeds Application | application/yai-host tests; existing native acceptance |
-| SH02 | 🔴 OPEN | RuntimeInstance under product Host supervision | S1.RUNTIME.SUPERVISION.1; existing scheduler/lease remain separate | No duplicate runtime owner |
-| SI01 | 🟡 PARTIAL | Common typed Inspector for projected objects, graph edges and Journal events | Handoff/execution/model details require missing read projections | knowledge-navigation.mjs; navigation-journal.mjs |
+| SH02 | 🟡 PARTIAL | Host supervises the existing RuntimeInstance; exact run/stop and reconnect observation | S1 lifecycle depth and ambiguous-delivery recovery remain open | effect-actions.mjs; application-execution-lifecycle characterization |
+| SI01 | 🟡 PARTIAL | Common typed Inspector for projected objects, graph edges and Journal events | Handoff inbox, execution result bodies and model catalog details require read projections | knowledge-navigation.mjs; navigation-journal.mjs |
 | SI02 | 🟢 ESTABLISHED | Identity/Manage Activity footer, real Principal/Tenant/Participant, local identity bootstrap | Other-Principal enrollment and membership picker remain open | identity-actions.mjs; navigation-journal.mjs |
 | SI03 | 🟢 ESTABLISHED | Singleton searchable preferences; Provider/YVEX management points to Compute | Settings is not another management owner | workbench.mjs; navigation-journal.mjs |
 | SD01 | 🟢 ESTABLISHED | Native PTY, compact shared panel toolbar and conditional resizable shell list | PTY remains desktop capability, not Case authority | native desktop acceptance; terminal Rust tests |
@@ -122,15 +128,15 @@ Evidence paths refer to `tests/studio/` unless otherwise qualified.
 
 | Surface | Canonical or derived YAI owner | Application / CLI | Studio posture and exact remaining boundary |
 |---|---|---|---|
-| Environment | Sources, Resources, retained revision resolver | Typed read/declare/publish/revoke; CLI acquisition/effects | Hierarchy, typed objects, local editing; secure attach authoring and durable execution API remain open |
-| Knowledge | M07 source-grounded derivation | Authorized summary; CLI inspect/build/graph | Collections and associative graph; no frontend canonical index |
+| Environment | Sources, Resources, retained revision resolver | Typed read/declare/acquire/resume/publish/revoke and governed request; CLI shares owners | Exact attempts/receipts, seven request variants, process attach; general secure binding and content-admission authors remain open |
+| Knowledge | M07 source-grounded derivation | Authorized summary/inspect/search/resolve/navigation; CLI inspect/build/graph | Owner-backed lexical queries, collections and associative graph; no frontend canonical index |
 | Memory | Transition, Recall, Semantic Working State | Recall/compile/page/refresh/frontier/request typed; CLI owner surfaces | Authored forms and results; ambient consumer lineage missing in inspection |
 | Authority | Policy compiler/IR, lifecycle, EffectivePolicy, Review/Grant | Typed lifecycle/binding/reviews; CLI catalogs/routes | Typed candidate rules and active bindings; catalog read and combined-policy explanation need projection |
-| Work | Workflow, Handoff, execution owners | Typed workflow/handoff operations; CLI current execution | Authored bounded forms; execution submission/result and Handoff inbox missing here |
+| Work | Workflow, Handoff, execution owners | Typed workflow/handoff/run/stop/execution observation; CLI shares owners | Authored forms and exact window-retained receipt references; Handoff inbox and complete execution discovery missing |
 | Compute | Provider governance and cognitive binding owners | Register/qualify/trust/bind typed; CLI probe/semantic qualification | Explicit target setup; probe, semantic evidence and catalog composition remain partial |
 | Conversation | Committed Turns and execution controller | Read summary; reconnect-safe SEND not in baseline catalog | Read-only committed history; local draft never becomes a fake Turn |
 | Journal / Activity | Committed Transition history | Authorized latest-160 timeline | Journal filter/follow, latest-20 Activity; missing typed pagination |
-| Host / Settings | Rust Host / Studio-local preference owner | Real Host IPC telemetry/control; CLI lifecycle | Local preferences separate from Case; RuntimeInstance supervision still open |
+| Host / Settings | Rust Host / Studio-local preference owner | Real Host IPC telemetry/control; CLI lifecycle | Local preferences separate from Case; actual scheduler supervision reported by Host |
 
 Each missing UI fact must be classified as **backend capability gap**,
 **Application boundary gap**, **Studio interaction debt**, **authority/contract
@@ -143,8 +149,8 @@ policy, dispatches provider HTTP or invents canonical objects.
 S0 foundation, S2 universal Workbench/productization and the bounded S3 desktop
 foothold are established. Product Case coherence and Environment authoring are
 established within their read/local-edit boundaries. S1 resident Application
-Host is established; **S1 as a whole remains PARTIAL** until RuntimeInstance
-supervision is qualified. `yaid` is separate compatibility machinery, not this
+Host and bounded existing-scheduler supervision are established; **S1 as a whole
+remains PARTIAL** for the catalogued lifecycle/recovery boundaries. `yaid` is separate compatibility machinery, not this
 Host. The current operationalization/refoundation advances S4/S5/S6/S7 without
 promoting them wholesale. S8 native YVEX, S9 broader desktop/platform work and
 S10–S12 external/Computer/remote-mobile remain separate selections.
@@ -153,9 +159,12 @@ S10–S12 external/Computer/remote-mobile remain separate selections.
 
 `case:studio-live-qualification` remains operator-owned. The operational wave
 advances generation 64 → 103 through normal CLI product operations, then
-explicit controlled HTTP observations reach 108 and 113. Two independently
+explicit controlled HTTP observations reach 108, 113 and 118. Two independently
 attached LiveClients observe the real resident Host events and resync at
-108 → 113. This browser bridge evidence is not a claim of two native processes.
+108 → 113, then 113 → 118 after the published execution-Host upgrade. Journal
+pause holds the previous cut; resume follows generation 118. This browser bridge
+evidence is not a claim of two native processes. Native release WebKitGTK/PTY
+acceptance separately reopens the same generation without mutating the Case.
 The original six Sources, repository Resource and completed Workflow survive.
 The retained world has seven Resources, nine Sources and two policy bindings:
 repository/policy discovery, filesystem, SQLite database, HTTP, process runner

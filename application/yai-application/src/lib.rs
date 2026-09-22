@@ -2462,6 +2462,8 @@ fn case_snapshot(
         "media_type": source.declaration.media_type,
         "roles": source.declaration.roles,
         "resource_ref": source.declaration.resource_attachment_id,
+        "attempt": source.progress.as_ref().map(|progress| progress.attempt),
+        "progress_ref": source.progress.as_ref().map(|progress| progress.progress_id.clone()),
         "posture": source.progress.as_ref().map(|progress| format!("{:?}", progress.phase).to_lowercase()),
         "revision_ref": source.progress.as_ref().and_then(|progress| progress.revision.as_ref()).map(|revision| revision.revision_id.clone()),
         "items": source.progress.as_ref().and_then(|progress| progress.revision.as_ref()).map(|revision| revision.items.len())
@@ -2498,6 +2500,7 @@ fn case_snapshot(
                 "review_requirement": format!("{:?}", resource.review_requirement).to_lowercase(),
                 "allowed_write_prefix": resource.allowed_write_prefix,
                 "max_write_bytes": resource.max_write_bytes,
+                "configuration_digest": resource.access.as_ref().map(|access| access.configuration_digest.clone()),
                 "operations": resource.access.as_ref().map(|access| access.operations.iter().map(|operation| operation.operation_name()).collect::<Vec<_>>()).unwrap_or_default(),
                 "read_prefixes": resource.access.as_ref().map(|access| access.read_prefixes.clone()).unwrap_or_default(),
                 "names": resource.access.as_ref().map(|access| access.names.clone()).unwrap_or_default(),
@@ -2907,6 +2910,10 @@ fn map_error(request: &OperationRequest, error: &str) -> OperationResult {
             ResultState::Stale,
             "The Case changed. Studio must resynchronize before continuing.",
         )
+    } else if request.operation_ref == "resource.attach_process"
+        && error.starts_with("process_identity_stat_unavailable:")
+    {
+        (ResultState::Error, "The selected process is unavailable. Verify its current PID; no Resource was attached.")
     } else if error.contains("not found")
         || error.contains("No such file")
         || error.contains("lmdb")

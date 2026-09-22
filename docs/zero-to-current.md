@@ -433,6 +433,22 @@ Check these additional UI behaviors at 1600×960, 1440×900, 1280×800 and 1000�
    last-shell closing and reopen behavior. Output/Executions/Evidence/Problems
    must disclose their qualified projection bounds rather than fake live data.
 
+10. In a disposable Case, acquire a declared Source and explicitly resume a
+    recoverable attempt. Verify the same attempt/progress identity, and inspect
+    it under Work > Executions after a Host restart. A lost acknowledgement must
+    disable resubmission; observing its retained reference must not reacquire it.
+11. Use Knowledge's owner-backed query, resolve a result's exact content and
+    inspect its source closure. Revoke its Source in the disposable Case, refresh,
+    and verify the old result disappears and cannot be resolved again.
+12. Request a bound Resource operation. Check its exact receipt and outcome;
+    `effect_recorded` does not mean a command exited successfully. Attach a
+    controlled process by PID: this must attach capability without sending a signal.
+13. With a qualified target in the disposable Case, submit bounded Work, observe
+    its exact execution, request cooperative stop of that runner, and reconnect.
+    The same durable reference must be recovered without another provider call.
+    Settings > YAI Host reports actual supervision. Conversation SEND is separate
+    and remains unavailable; a running older Host may advertise fewer operations.
+
 The retained browser product suites call the real Host on disposable profiles;
 the browser bridge is not native WebView acceptance. `operational-live.mjs`
 separately records the operator Case and real event sequence. Keep external YVEX,

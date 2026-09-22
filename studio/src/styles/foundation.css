@@ -34,9 +34,9 @@
   background: var(--yai-canvas);
 }
 
-button, input, textarea { font: inherit; }
+button, input, textarea, select { font: inherit; }
 button { color: inherit; }
-button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--yai-focus); outline-offset: -2px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--yai-focus); outline-offset: -2px; }
 code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
 .type-display { font-size: 34px; line-height: 1.12; font-weight: 650; letter-spacing: -.025em; }
 .type-workspace { font-size: 24px; line-height: 1.2; font-weight: 620; letter-spacing: -.015em; }
@@ -723,3 +723,13 @@ code, pre, kbd, time { font-family: ui-monospace, "SFMono-Regular", Consolas, mo
 .panel-tabs::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .panel-tabs > button { flex: 0 0 auto; white-space: nowrap; }
 .live-bottom > header > .panel-contribution-toolbar, .live-bottom > header > .ui-icon-button { flex: 0 0 auto; }
+
+.execution-receipt { padding:12px 0; border-bottom:1px solid var(--yai-divider); font-size:12px; }.execution-receipt header, .knowledge-query-form { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }.execution-receipt code { display:block; overflow-wrap:anywhere; margin-top:8px; font-size:11px; }.execution-observe-form { display:grid; gap:10px; margin:12px 0; }.execution-observe-form label { display:grid; gap:6px; font-size:12px; }.knowledge-resolved { padding:12px 0; border-top:1px solid var(--yai-divider); }.knowledge-resolved p { white-space:pre-wrap; }.knowledge-queries pre { max-height:300px; overflow:auto; font-size:11px; }.knowledge-queries h2 { font-size:14px; }.knowledge-queries code { overflow-wrap:anywhere; }
+
+.knowledge-query-form select, .execution-observe-form select, .execution-observe-form input {
+  min-height: var(--control-height); max-width: 100%; padding: 0 10px;
+  border: 1px solid var(--yai-divider); border-radius: var(--radius-control);
+  background: var(--yai-raised); color: var(--yai-text-secondary); color-scheme: dark;
+}
+.knowledge-queries .object-action-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.execution-receipt header strong { margin-right: auto; }

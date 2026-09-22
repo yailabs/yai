@@ -64,7 +64,8 @@ private versioned Unix socket. The Host owns the typed `yai-application`
 instance and generation observation; Tauri is a client and does not poll YAI
 persistence. Closing Studio ends its attachment and transient PTYs but leaves
 the Host and Case continuity alive. Studio does not parse CLI output or start a
-provider, YVEX or the separate `RuntimeInstance` scheduler.
+provider or YVEX. The Host supervises the existing `RuntimeInstance` scheduler;
+Studio never creates a competing scheduler.
 
 The same lifecycle implementation is available headlessly:
 
@@ -77,9 +78,9 @@ YAI_HOME=/path/to/a/real/yai/home yai host stop
 ```
 
 Repeated start discovers the same Host instead of creating a competitor.
-Runtime supervision and platform login autostart remain open; see the
-[product topology](../docs/studio.md#yai-product-topology) and [S1
-program](ROADMAP.md#s1--product-host--lifecycle).
+Bounded runtime supervision is current; broader recovery and platform login
+autostart remain open. See the [product topology](../docs/studio.md#yai-product-topology)
+and [execution board](ROADMAP.md#execution-control).
 
 The Start Center lists authorized local Cases using `case.list`. Opening one
 uses `case.open`, which requires a real principal-to-Participant link and returns
@@ -379,13 +380,15 @@ connected operations and named interaction debt from the running Host catalog.
 A policy upload is not folder acquisition; a qualification-evidence import is not
 a provider probe; Source declaration does not imply acquisition.
 
-Run the retained interaction suites against a Vite development server on the
-selected `STUDIO_TEST_URL` (default `http://127.0.0.1:1422`). Real Application
+Run the retained interaction suites against `npm run dev:fixture -- --port 1423`
+and set `STUDIO_TEST_URL=http://127.0.0.1:1423` (the test default is port 1422).
+The combined suites include explicit fixture navigation checks. Real Application
 suites require `YAI_STUDIO_TEST_BINARY` pointing to the published CLI/Host build
 and create/remove only their own temporary profiles:
 
 ```sh
 npm run test:operational
+npm run test:execution
 npm run test:capabilities
 ```
 

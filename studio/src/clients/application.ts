@@ -1,3 +1,5 @@
+import type { ExecutionGetInput, SourceAcquireInput, SourceResumeInput, ResourceRequestInput, ProcessAttachmentInput, CaseRunInput, CaseStopInput } from "./execution";
+import type { KnowledgeRequest } from "./knowledge";
 import type { WorkflowDefinitionInput, WorkflowBindInput, WorkflowPatchInput, HandoffOfferInput, HandoffAcceptInput, HandoffDeclineInput, HandoffResultInput } from "./work";
 import type { ProviderRegistration, ProviderQualificationInput, ProviderBindingInput } from "./compute";
 import { APPLICATION_PROTOCOL, type LiveClient, type OperationResult } from "./live";
@@ -93,6 +95,17 @@ export class ApplicationAccess implements Disposable {
   private invoke<T>(operation: string, action: () => Promise<OperationResult<T>>) {
     return this.supports(operation) ? action() : Promise.resolve(this.unavailable<T>(operation));
   }
+  acquireSource(input: SourceAcquireInput) { return this.invoke("source.acquire", () => this.client.acquireSource(input)); }
+  resumeSource(input: SourceResumeInput) { return this.invoke("source.resume", () => this.client.resumeSource(input)); }
+  execution(input: ExecutionGetInput) { return this.invoke("execution.get", () => this.client.execution(input)); }
+  requestResource(input: ResourceRequestInput) { return this.invoke("resource.request", () => this.client.requestResource(input)); }
+  attachProcess(input: ProcessAttachmentInput) { return this.invoke("resource.attach_process", () => this.client.attachProcess(input)); }
+  runCase(input: CaseRunInput) { return this.invoke("case.run", () => this.client.runCase(input)); }
+  stopCase(input: CaseStopInput) { return this.invoke("case.stop", () => this.client.stopCase(input)); }
+  inspectKnowledge(request: KnowledgeRequest) { return this.invoke("knowledge.inspect", () => this.client.inspectKnowledge(request)); }
+  searchKnowledge(request: KnowledgeRequest, query: string, limit: number) { return this.invoke("knowledge.search", () => this.client.searchKnowledge(request, query, limit)); }
+  resolveKnowledge(request: KnowledgeRequest, unit_ref: string) { return this.invoke("knowledge.resolve", () => this.client.resolveKnowledge(request, unit_ref)); }
+  navigateKnowledge(request: KnowledgeRequest) { return this.invoke("knowledge.navigation", () => this.client.navigateKnowledge(request)); }
   defineWorkflow(input: WorkflowDefinitionInput) { return this.invoke("workflow.define", () => this.client.defineWorkflow(input)); }
   bindWorkflow(input: WorkflowBindInput) { return this.invoke("workflow.bind", () => this.client.bindWorkflow(input)); }
   proposeWorkflowPatch(input: { case_ref: string; patch: WorkflowPatchInput }) { return this.invoke("workflow.patch.propose", () => this.client.proposeWorkflowPatch(input)); }

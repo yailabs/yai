@@ -1,3 +1,5 @@
+import { lazy, Suspense } from "react";
+const ExecutionHistory = lazy(() => import("./ExecutionActions").then(module => ({ default: module.ExecutionHistory })));
 import { EmptyState } from "../../components/primitives";
 import type { PanelViewProps } from "../../workbench/kernel/types";
 
@@ -8,9 +10,9 @@ export function OutputPanel({ workspace }: PanelViewProps) {
     : "No provider target is bound. Terminal is a local shell; Journal contains committed Case history. Neither is model output."} />;
 }
 
-export function ExecutionPanel({ workspace, actions, selection }: PanelViewProps) {
+export function ExecutionPanel({ workspace, actions, selection, platform }: PanelViewProps) {
   const events = workspace.memory.timeline.filter(event => /execution|effect|attempt/.test(event.kind));
-  return <section className="operational-panel"><p className="surface-note">Committed execution/effect history from the latest bounded projection. Live execution observation and controls are not exposed by this published boundary.</p>
+  return <section className="operational-panel"><Suspense fallback={<p>Loading execution observation…</p>}><ExecutionHistory workspace={workspace} platform={platform} /></Suspense><p className="surface-note">Committed execution/effect history from the latest bounded projection. History remains distinct from the exact operational observations above.</p>
     {events.slice().reverse().map(event => <button className={`fact-row${selection === event.id ? " selected" : ""}`} key={event.id} onClick={() => actions.inspect(event.id)}><span><strong>{event.kind.replaceAll("_", " ")}</strong><small>{event.component} · generation {event.sequence}</small></span></button>)}
     {!events.length && <EmptyState title="No projected execution events" body="Studio has not invented an execution from a Workflow node or a configured provider." />}
   </section>;

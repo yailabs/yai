@@ -83,6 +83,6 @@ function YaiHostSettings({ platform }: Pick<SurfaceRendererProps, "platform">) {
     <dl>{facts.map(([name, value]) => <div key={name}><dt>{name}</dt><dd>{value}</dd></div>)}</dl>
     {host.reason && <p className="host-setting-error">{host.reason}</p>}
     <div className="host-setting-actions">{host.state === "stopped" || host.state === "unavailable" ? <button onClick={() => void act("start")}>Start YAI</button> : <><button onClick={() => void act("restart")}>Restart YAI</button><button className="danger" onClick={() => void act("stop")}>Stop YAI</button></>}</div>
-    <small>RuntimeInstance remains a separate bounded scheduler in this milestone.</small>
+    <small>The Host reports supervision of the existing RuntimeInstance. Scheduler leases and provider processes retain their own ownership.</small>
   </section>;
 }

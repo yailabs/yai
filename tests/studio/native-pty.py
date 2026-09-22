@@ -54,6 +54,8 @@ try:
         except Exception: time.sleep(.05)
     attached=request('POST','/session',{'capabilities':{'alwaysMatch':{'webkitgtk:browserOptions':{'binary':str(a.binary.resolve()),'args':[]}}}})
     session=attached['sessionId']
+    scale=script('return devicePixelRatio')
+    request('POST',f'/session/{session}/window/rect',{'x':0,'y':0,'width':round(1440*scale),'height':round(900*scale)})
     wait('return document.querySelector(".workbench-kernel") || document.querySelector(".live-case-row")')
     if not script('return Boolean(document.querySelector(".workbench-kernel"))'):
         script('const row=[...document.querySelectorAll(".live-case-row")].find(x=>x.textContent.includes(arguments[0])); if(!row)throw Error("Case absent");row.click()',a.case.removeprefix('case:').replace('-',' ').title())
@@ -62,6 +64,7 @@ try:
     # Use the Workbench's ordinary Terminal tab/command; no direct IPC invocation.
     script('const tab=[...document.querySelectorAll("button")].find(x=>x.textContent==="Terminal" && x.closest(".live-bottom")); if(tab)tab.click(); else document.dispatchEvent(new KeyboardEvent("keydown",{key:"`",ctrlKey:true,bubbles:true}))')
     wait('return document.querySelector(".xterm-helper-textarea")')
+    wait('return [...document.querySelectorAll(".xterm-rows > div")].some(x=>x.textContent.trim())')
     terminal=request('POST',f'/session/{session}/element',{'using':'css selector','value':'.xterm-helper-textarea'})
     element=terminal['element-6066-11e4-a52e-4f735466cecf']
     request('POST',f'/session/{session}/element/{element}/value',{'text':"printf 'YAI_NATIVE_PTY_QUALIFIED\\n'\n"})
@@ -85,6 +88,15 @@ try:
     wait('return document.querySelector(".xterm-helper-textarea")')
     assert script('return document.querySelector(".kernel-status").innerText')==generation
     print(json.dumps({'result':'PASS','case_ref':a.case,'status':generation,'driver':attached['capabilities'],'proof':['Native release WebKitGTK/Tauri Workbench','Real PTY shell output','Four CSS viewport sizes','Single-row headers','Status bar remains visible','No horizontal terminal overflow','Two shells -> conditional sidebar -> last close hides panel -> Ctrl+J recreates shell','Case generation unchanged']}))
+except Exception:
+    if session:
+        try:
+            details=script('return {terminalText:document.querySelector(".terminal-surface")?.innerText, active:document.activeElement?.tagName, visibility:document.visibilityState, focused:document.hasFocus(), size:[innerWidth,innerHeight], panelHidden:document.querySelector(".live-bottom")?.hidden}')
+            (a.evidence/'failure-ui.json').write_text(json.dumps(details))
+            print(json.dumps(details),flush=True)
+            shot('native-failure')
+        except Exception as error: print(str(error),flush=True)
+    raise
 finally:
     if session:
         try: request('DELETE',f'/session/{session}')

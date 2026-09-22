@@ -1,4 +1,5 @@
-import { useState } from "react";
+import type { SurfaceRendererProps } from "../../workbench/kernel/types";
+import { lazy, Suspense, useState } from "react";
 import type { CasePresentation } from "../../clients/dataSource";
 import type { SurfaceInput } from "../../workbench/surface/model";
 import { CollectionList, type CollectionItem } from "../../components/CollectionList";
@@ -7,8 +8,10 @@ import { Icon } from "../../components/Icon";
 import { fileIconForMedia, graphInput, materialInput } from "../surfaces/inputs";
 import { textLabel } from "./graph";
 
-export function KnowledgeSurface({ workspace, inspect, openSurface, selected }: {
-  workspace: CasePresentation; selected?: string; inspect: (id: string) => void; openSurface: (input: SurfaceInput) => void;
+const KnowledgeQueries = lazy(() => import("./KnowledgeQueries").then(module => ({ default: module.KnowledgeQueries })));
+
+export function KnowledgeSurface({ workspace, inspect, openSurface, selected, platform, actions }: {
+  platform?: SurfaceRendererProps["platform"]; actions?: SurfaceRendererProps["actions"]; workspace: CasePresentation; selected?: string; inspect: (id: string) => void; openSurface: (input: SurfaceInput) => void;
 }) {
   const [category, setCategory] = useState("Documents");
   const [topic, setTopic] = useState<string>();
@@ -33,6 +36,7 @@ export function KnowledgeSurface({ workspace, inspect, openSurface, selected }: 
   return <div className="live-page knowledge-page">
     <header className="surface-title"><small>{workspace.case.display_name}</small><h1>Knowledge</h1><p>Documents, extracted units and relationships grounded in acquired Sources.</p></header>
     <section className="surface-launch"><Icon name="graph" size={22} /><span><strong>Knowledge Graph</strong><small>{knowledge.relations.length} qualified relations · {knowledge.units.length} units</small></span><Button onClick={() => openSurface(graphInput("knowledge", true))}>Open graph</Button></section>
+    {platform && actions && <Suspense fallback={<p>Loading Knowledge queries…</p>}><KnowledgeQueries workspace={workspace} platform={platform} actions={actions} /></Suspense>}
     {knowledge.status === "empty" ? <EmptyState title="No qualified Knowledge derivation" body={knowledge.message} /> : <>
       <div className="collection-categories" role="group" aria-label="Knowledge categories">{Object.entries(sections).map(([name, rows]) => <button key={name} aria-pressed={category === name} onClick={() => { setCategory(name); setTopic(undefined); }}>{name}<span>{rows.length}</span></button>)}</div>
       {topic && <div className="collection-topic"><Button onClick={() => setTopic(undefined)}>All topics</Button><strong>{topic}</strong></div>}

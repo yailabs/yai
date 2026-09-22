@@ -23,7 +23,8 @@ assert.equal((await call('case.open',{case_ref:caseRef})).result_state,'success'
 const initial=await call('case.summary',{case_ref:caseRef});assert.equal(initial.result_state,'success');
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-gpu']});
 try {
- const page=await browser.newPage({viewport:{width:1440,height:900}});page.setDefaultTimeout(15000);
+ const context=await browser.newContext({viewport:{width:1440,height:900},permissions:['clipboard-read','clipboard-write']});
+ const page=await context.newPage();page.setDefaultTimeout(15000);
  await page.exposeFunction('readHostMaterial',input=>call('material.read',input));await page.goto(`${process.env.STUDIO_TEST_URL??'http://127.0.0.1:1422'}/?gallery=1`);
  await page.evaluate(async summary=>{
   document.getElementById('root').style.display='none';
@@ -35,7 +36,10 @@ try {
  for(const filePath of ['cmd/README.md','studio/README.md']) {
   const file=initial.data.environment.files.find(file=>file.path===filePath);assert.ok(file,`No qualified file ${filePath}`);
   await page.locator(`.environment-files button[title="${filePath}"]`).click();await page.locator('.cm-content').waitFor();
-  const text=await page.evaluate(async()=>{const {EditorView}=await import('/node_modules/.vite/deps/@codemirror_view.js');return EditorView.findFromDOM(document.querySelector('.cm-editor')).state.doc.toString();});
+  // Read the entire real editor selection, including virtualized offscreen lines.
+  // Vite's generated dependency filenames are not a stable test API.
+  await page.locator('.cm-content').click();await page.keyboard.press('Control+a');await page.keyboard.press('Control+c');
+  const text=await page.evaluate(()=>navigator.clipboard.readText());
   const exact=reads.findLast(result=>result.data?.path===filePath).data;assert.equal(text,exact.content);assert.equal(exact.digest,file.digest);assert.equal(exact.revision_ref,file.revision_ref);
   await page.evaluate(()=>window.livePreviewPlatform.commands.executeCommand('studio.file.openWith'));await page.getByRole('dialog').getByRole('button',{name:'Markdown Preview',exact:true}).click();await page.locator('.markdown-preview h1').waitFor();
   await page.screenshot({path:`${evidence}/${filePath.split('/')[0]}-readme.png`});

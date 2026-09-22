@@ -2,8 +2,7 @@
 // Only a freshly created temporary YAI_HOME is mutated; never operator state.
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
-import { once } from 'node:events';
+import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
@@ -16,7 +15,7 @@ const home = await mkdtemp(path.join(os.tmpdir(), 'yai-studio-actions-'));
 const evidence = process.env.STUDIO_EVIDENCE_DIR ?? '/tmp/yai-studio-actions';
 await mkdir(evidence, {recursive:true});
 const cli = (...args) => JSON.parse(execFileSync(binary, [...args, '--json'], {env:{...process.env, YAI_HOME:home}, encoding:'utf8', timeout:30000}));
-let telemetry, serial=0, browser, runtime, runtimeOutput='', dropAcknowledgement;
+let telemetry, serial=0, browser, dropAcknowledgement;
 const exchanges = [];
 function rpc(request) {
  return new Promise((resolve,reject) => {
@@ -59,14 +58,13 @@ try {
   execFileSync('bash',['-e','-u','-o','pipefail','-c','source "$1"; yai_configure_governed_filesystem_case "$2" "$3" "$4" "$5" 1 allow participant:operator participant:reviewer','qualification',path.resolve(import.meta.dirname,'../characterization/lib/governed_case_policy.sh'),binary,home,caseRef,`studio-ui-${action}`],{env:{...process.env,YAI_HOME:home,YAI_TEST_TENANT_ID:'tenant:studio-ui'},encoding:'utf8',timeout:30000});
   await accepted('workflow.bind',{case_ref:caseRef,definition_ref:reviewWorkflow.workflow_definition_id,executor_bindings:[{slot:'operator',participant_id:'participant:operator'}],resource_bindings:[{slot:'workspace',attachment_id:'workspace'}],case_bindings:[]});
  }
- runtime=spawn(binary,['runtime','serve','--workers','2','--max-active-per-tenant','2','--max-queued-per-tenant','4','--max-queued-total','4'],{env:{...process.env,YAI_HOME:home},stdio:['ignore','pipe','pipe']});
- runtime.stdout.on('data',bytes=>{runtimeOutput+=bytes;});runtime.stderr.on('data',bytes=>{runtimeOutput+=bytes;});
+ // The published Host owns the existing scheduler. Never launch or stop a
+ // competing RuntimeInstance merely to prepare these real Reviews.
  const pendingDeadline=Date.now()+15000;
  for(const item of reviewCases) {
   while(Date.now()<pendingDeadline) {const summary=await accepted('case.summary',{case_ref:item.caseRef});if(summary.authority.reviews.length){item.review=summary.authority.reviews[0];break;}await new Promise(resolve=>setTimeout(resolve,100));}
-  assert.ok(item.review,`No real pending Review for ${item.caseRef}: ${runtimeOutput}`);
+  assert.ok(item.review,`No real pending Review for ${item.caseRef}`);
  }
- const runtimeExit=once(runtime,'exit');cli('runtime','stop');await runtimeExit;runtime=undefined;
  browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-gpu']});
  const page=await browser.newPage({viewport:{width:1440,height:900}});page.setDefaultTimeout(10000);
  const errors=[];page.on('pageerror',error=>errors.push(String(error)));
@@ -181,7 +179,5 @@ try {
 } finally {
  await writeFile(`${evidence}/exchanges.json`,JSON.stringify(exchanges,null,2));
  await browser?.close();
- await writeFile(`${evidence}/runtime.log`,runtimeOutput);
- if(runtime && runtime.exitCode === null){const exit=once(runtime,'exit');runtime.kill('SIGTERM');await exit;}
  try {if(telemetry)cli('host','stop');} finally {await rm(home,{recursive:true,force:true});}
 }
