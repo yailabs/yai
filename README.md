@@ -36,20 +36,25 @@ repository licensing documents, including LICENSE.md and docs/legal.md.
   <a href="ROADMAP.md">Roadmap</a>
 </p>
 
-**YAI is a local control plane for governed AI work.** It gives an ongoing
-matter—a **Case**—durable history, qualified memory, current authority and
-mediated access to resources. Conversations, Workflows and replaceable models
-operate inside that boundary; none owns the Case merely by executing.
+**Keep the work. Change the model. Pick up where you left off.**
 
-YAI is not a model, an inference engine or a retrieval layer around a prompt.
-It determines what should matter semantically and what may happen operationally.
-Today, generic providers execute context-compatible input compiled by YAI.
-[YVEX](https://github.com/yailabs/yvex) is the computational substrate counterpart;
-a public model-native working-state contract remains a target.
+YAI gives AI-assisted work a durable home: the **Case**. Evidence, decisions,
+permissions and consequences stay connected across conversations, tools and
+process restarts. A chat is one way into the work—not the container that owns it.
 
-This is actively developed systems software with bounded executable
-qualification, not a production-readiness or certification claim.
-[ROADMAP.md](ROADMAP.md) owns live maturity and selection.
+Underneath, YAI is a local control plane. It assembles the evidence an execution
+needs, preserves what is known versus merely claimed, and mediates what may
+happen next. Models supply computation; they do not own memory or authority.
+
+Use the native Studio Workbench, the terminal, or the typed Application API.
+Current model execution uses generic OpenAI-compatible providers;
+[YVEX](https://github.com/yailabs/yvex) is the computational substrate counterpart
+for future model-native state. That integration remains a target, not a hidden
+dependency.
+
+YAI is actively developed systems software. Its claims are bounded by executable
+qualification, not a production-readiness label. [ROADMAP.md](ROADMAP.md) records
+what is established, what is partial and what remains research.
 
 ## Why a Case
 
@@ -58,9 +63,10 @@ Its useful state includes evidence, rejected approaches, policy, approvals,
 resources, consequences and unresolved obligations—not just message history.
 
 The Case keeps those relationships under explicit identity and authority.
-A new Turn supplies immediate input; the system reconstructs relevant memory
-and compiles the semantic working state for that execution. Closing a terminal,
-switching models or rebuilding a derived index does not erase canonical history.
+A new Turn brings immediate input; YAI reconstructs relevant memory and compiles
+the working state for that task. You should not have to make a model remember
+everything just to keep the work coherent. Closing a client or rebuilding a
+derived index does not erase canonical history.
 
 | Question | YAI boundary |
 |---|---|
@@ -142,6 +148,35 @@ task and reconstructs current Recall/W without another prompt. Neither implies
 a background reasoning loop, model-directed paging or constant cost as a Case
 grows. [Memory and working-state contracts](docs/recall.md).
 
+## Decisions do not have to start with generated text
+
+YAI can derive a bounded **Decision Frontier** from typed Case/task structure
+and qualified W, then prepare an exact finite candidate request for a future
+scorer. Candidate origins, omissions and disclosure stay explicit. Constructing
+the frontier requires no model call—and grants no permission to act.
+
+This is the first foundation for **Minimum Sufficient Cognition**: use
+deterministic logic where it suffices, decision inference where qualified,
+generation when needed, and human review where required. The Decision Plane
+exists today; a production decision scorer and adaptive routing do not.
+
+## Disconnect is not cancellation
+
+A resident local Host serves independently attached clients and supervises the
+existing bounded runtime. Closing Studio does not close the Case or stop the
+Host. Submission and observation are separate: clients retain exact domain
+references and can reconnect to ask what actually happened.
+
+Ordinary Conversation SEND, cognitive realization/composition, Case work,
+source acquisition and controlled effects expose typed lifecycle results.
+A committed Turn is not a completed provider call. A prepared effect is not a
+successful effect. If external delivery is uncertain, YAI preserves that
+uncertainty instead of silently sending the operation again.
+
+Recovery is domain-specific, not a promise that every interrupted task resumes.
+[Execution contracts](docs/architecture.md#disconnect-safe-application-execution)
+describe the durable identities, current-authority checks and remaining limits.
+
 ## One source frontier, several consumers
 
 Sources retain logical identity, exact revision/backing, declared roles and
@@ -155,6 +190,9 @@ one exact source revision
 ```
 
 **Policy may govern; knowledge may inform. Source role ≠ content route ≠ authority.**
+
+The same immutable backing may serve multiple Cases, but attachment, disclosure
+and authority remain Case-local. Shared bytes never imply shared access.
 
 Bounded mixed-source routing recognizes explicit policy regions in supported
 Markdown and text-PDF profiles while preserving surrounding documentary content.
@@ -222,17 +260,17 @@ cross-model latent portability are not implemented.
 
 | Surface | What runs today |
 |---|---|
-| **YAI Studio** | Native Tauri Case Workbench with bounded in-process live local Case consumption through `yai-application`, real owner-backed projections, generation invalidation and a transient desktop PTY. Browser mode supports explicit fixtures but cannot host live YAI. No resident Local Host, remote transport, mutation-complete API or YVEX management is qualified. |
+| **YAI Studio** | Native Tauri Case Workbench attached to the resident local Host: sources, Knowledge, Memory, Authority, Work and Compute, with contextual inspection and governed interactions. Some newer execution actions still await UI integration; Application availability is not complete Studio parity. Browser fixtures remain separate from live local access. |
 | **REPLAI Case workbench** | Native terminal interaction for real Cases: guided setup, conversations, capability work, review, Workflow and exact inspection. REPLAI owns reusable editor/terminal mechanics; YAI owns semantics. |
 | **`./yai` CLI** | Administration, automation and exact source, policy, resource, history and semantic-state inspection. The CLI is a frontend, not the application API itself. |
-| **Typed application boundary** | Existing Rust/controller operations beneath presentation. Not a complete stable public SDK or generated interface package. |
+| **Typed application boundary** | Frontend-independent operations over current product capability families, with exact inputs/results, authority checks and reconnect-safe execution observation. A code-owned catalog makes support and remaining client integration explicit. Not yet a stable exported SDK or remote API. |
 
 Studio and the native CLI belong in this repository. A future generic interfaces
 toolchain is not their runtime dependency.
 [Studio preview and build](studio/README.md) ·
 [Studio product architecture](docs/studio.md#yai-product-topology) ·
 [REPLAI integration](docs/replai-terminal.md) ·
-[Application/client boundary](docs/architecture.md).
+[Application capability catalog](docs/reference/application-capabilities.md).
 
 ## Quick start
 
